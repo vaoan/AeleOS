@@ -1,0 +1,31 @@
+# Secrets — never commit real values
+.env
+.env.*
+!.env.example
+.secrets
+*.local
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logto config exports may contain secrets — keep raw dumps out; commit sanitized only
+logto-export.raw.json
