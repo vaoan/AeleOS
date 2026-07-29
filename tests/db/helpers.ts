@@ -47,7 +47,11 @@ export async function closePool(): Promise<void> {
   poolRef = undefined;
 }
 
-/** Runs fn as role `authenticated` with the given sub, then rolls back. */
+/**
+ * Runs fn as the role a real request would produce, then rolls back:
+ * `anon` with no claims when sub is null, `authenticated` carrying sub
+ * otherwise. Never use this for privileged reads — see withSuperuser.
+ */
 export async function withClaims<T>(
   sub: string | null,
   fn: (c: pg.PoolClient) => Promise<T>,
@@ -58,7 +62,27 @@ export async function withClaims<T>(
     await client.query("select set_config('request.jwt.claims', $1, true)", [
       sub === null ? null : JSON.stringify({ sub, role: "authenticated" }),
     ]);
-    await client.query("set local role authenticated");
+    // Role names cannot be parameterised, hence the literal branch.
+    await client.query(
+      sub === null ? "set local role anon" : "set local role authenticated",
+    );
+    return await fn(client);
+  } finally {
+    await client.query("rollback").catch(() => undefined);
+    client.release();
+  }
+}
+
+/**
+ * Rolled-back transaction with no role switch and no claims. For deliberately
+ * privileged inspection of columns and catalogs that clients cannot read.
+ */
+export async function withSuperuser<T>(
+  fn: (c: pg.PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await pool().connect();
+  try {
+    await client.query("begin");
     return await fn(client);
   } finally {
     await client.query("rollback").catch(() => undefined);
