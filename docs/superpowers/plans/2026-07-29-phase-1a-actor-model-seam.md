@@ -210,9 +210,12 @@ git commit -m "chore: scaffold local supabase test bed and db test harness"
   - `admin(): SupabaseClient` — service-role client, bypasses RLS.
   - `mintToken(sub: string): Promise<string>` — HS256 JWT with `sub`, `role: "authenticated"`, `aud: "authenticated"`.
   - `clientAs(sub: string): Promise<SupabaseClient>` — anon client carrying that token.
-  - `withClaims<T>(sub: string | null, fn: (c: PoolClient) => Promise<T>): Promise<T>` — runs `fn` inside a rolled-back transaction as role `authenticated` with `request.jwt.claims` set.
+  - `withClaims<T>(sub: string | null, fn: (c: PoolClient) => Promise<T>): Promise<T>` — runs `fn` inside a rolled-back transaction as the role a real request would produce: `anon` with no claims when `sub` is null, `authenticated` carrying `sub` otherwise.
+  - `withSuperuser<T>(fn: (c: PoolClient) => Promise<T>): Promise<T>` — rolled-back transaction with **no** role switch, for privileged inspection of columns and catalogs no client can read.
   - `newSub(): string` — unique Logto-style subject string.
   - `closePool(): Promise<void>` — releases the pg pool.
+
+**Why two helpers.** `withClaims` must never be a stand-in for privileged access: later tasks revoke columns from `authenticated`, and `information_schema` hides objects the current role lacks rights on. A test that inspected those through `withClaims` would either fail outright or silently see nothing. `withSuperuser` is the explicit, greppable way to say "this read is deliberately privileged."
 
 - [ ] **Step 1: Write the harness**
 
@@ -268,7 +271,11 @@ export async function closePool(): Promise<void> {
   poolRef = undefined;
 }
 
-/** Runs fn as role `authenticated` with the given sub, then rolls back. */
+/**
+ * Runs fn as the role a real request would produce, then rolls back:
+ * `anon` with no claims when sub is null, `authenticated` carrying sub
+ * otherwise. Never use this for privileged reads — see withSuperuser.
+ */
 export async function withClaims<T>(
   sub: string | null,
   fn: (c: pg.PoolClient) => Promise<T>,
@@ -279,7 +286,27 @@ export async function withClaims<T>(
     await client.query("select set_config('request.jwt.claims', $1, true)", [
       sub === null ? null : JSON.stringify({ sub, role: "authenticated" }),
     ]);
-    await client.query("set local role authenticated");
+    // Role names cannot be parameterised, hence the literal branch.
+    await client.query(
+      sub === null ? "set local role anon" : "set local role authenticated",
+    );
+    return await fn(client);
+  } finally {
+    await client.query("rollback").catch(() => undefined);
+    client.release();
+  }
+}
+
+/**
+ * Rolled-back transaction with no role switch and no claims. For deliberately
+ * privileged inspection of columns and catalogs that clients cannot read.
+ */
+export async function withSuperuser<T>(
+  fn: (c: pg.PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await pool().connect();
+  try {
+    await client.query("begin");
     return await fn(client);
   } finally {
     await client.query("rollback").catch(() => undefined);
@@ -294,7 +321,13 @@ Create `tests/db/helpers-fn.test.ts`:
 
 ```ts
 import { afterAll, describe, expect, it } from "vitest";
-import { closePool, mintToken, newSub, withClaims } from "./helpers";
+import {
+  closePool,
+  mintToken,
+  newSub,
+  withClaims,
+  withSuperuser,
+} from "./helpers";
 
 afterAll(async () => {
   await closePool();
@@ -322,12 +355,12 @@ describe("test harness", () => {
     expect(got).toBe(sub);
   });
 
-  it("rolls back writes made inside withClaims", async () => {
-    await withClaims(null, async (c) => {
+  it("rolls back writes made inside a transaction helper", async () => {
+    await withSuperuser(async (c) => {
       await c.query("create temp table probe(x int)");
       await c.query("insert into probe values (1)");
     });
-    const survived = await withClaims(null, async (c) => {
+    const survived = await withSuperuser(async (c) => {
       const r = await c.query<{ n: string }>(
         "select count(*)::text as n from pg_tables where tablename = 'probe'",
       );
@@ -335,18 +368,45 @@ describe("test harness", () => {
     });
     expect(survived).toBe("0");
   });
+
+  it("runs as anon when no sub is given", async () => {
+    const role = await withClaims(null, async (c) => {
+      const r = await c.query<{ role: string }>("select current_user as role");
+      return r.rows[0]?.role;
+    });
+    expect(role).toBe("anon");
+  });
+
+  it("runs as authenticated when a sub is given", async () => {
+    const role = await withClaims(newSub(), async (c) => {
+      const r = await c.query<{ role: string }>("select current_user as role");
+      return r.rows[0]?.role;
+    });
+    expect(role).toBe("authenticated");
+  });
+
+  it("does not switch role under withSuperuser", async () => {
+    const role = await withSuperuser(async (c) => {
+      const r = await c.query<{ role: string }>("select current_user as role");
+      return r.rows[0]?.role;
+    });
+    expect(role).not.toBe("anon");
+    expect(role).not.toBe("authenticated");
+  });
 });
 ```
 
 - [ ] **Step 3: Verify the harness rolls back**
 
-Run: `pnpm test:db -- tests/db/helpers-fn.test.ts`
-Expected: PASS (3 tests). If the rollback test fails, `withClaims` is leaking state between tests — fix it before continuing, because every later task depends on that isolation.
+Run: `pnpm test:db`
+Expected: PASS (8 tests), 6 of them in `helpers-fn.test.ts`. If the rollback test fails, the transaction helpers are leaking state between tests — fix them before continuing, because every later task depends on that isolation.
+
+> Note: `pnpm test:db -- <file>` does **not** filter to one file — the `&&`-chained script swallows the passthrough args. Run the whole suite, or invoke Vitest directly: `pnpm exec vitest run -c vitest.config.integration.ts tests/db/helpers-fn.test.ts` (this skips `supabase db reset`, so only do it when the schema is already current).
 
 - [ ] **Step 4: Run the full suite**
 
 Run: `pnpm test:db`
-Expected: PASS (5 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -554,7 +614,7 @@ Expected: FAIL with `relation "public.actors" does not exist` if the migration h
 - [ ] **Step 4: Apply the migration and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (13 tests).
+Expected: PASS (16 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -760,7 +820,7 @@ Expected: FAIL with `function public.current_person_ref() does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (20 tests).
+Expected: PASS (23 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -819,7 +879,7 @@ Create `tests/db/actors-exposure.test.ts`:
 ```ts
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { admin, clientAs, closePool, newSub } from "./helpers";
+import { admin, clientAs, closePool, newSub, withClaims } from "./helpers";
 
 type Person = { sub: string; personRef: string; sonaId: string };
 
@@ -913,6 +973,14 @@ describe("actors exposure boundary", () => {
     expect(error).toBeNull();
     expect(data).toHaveLength(1);
   });
+
+  it("denies an anonymous caller the public view entirely", async () => {
+    await expect(
+      withClaims(null, async (c) =>
+        c.query("select 1 from public.actors_public limit 1"),
+      ),
+    ).rejects.toThrow(/permission denied/i);
+  });
 });
 ```
 
@@ -924,7 +992,7 @@ Expected: FAIL — before the migration the base table is readable and `actors_p
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (26 tests).
+Expected: PASS (30 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -989,7 +1057,14 @@ Create `tests/db/platform-roles.test.ts`:
 ```ts
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { admin, clientAs, closePool, newSub, withClaims } from "./helpers";
+import {
+  admin,
+  clientAs,
+  closePool,
+  newSub,
+  withClaims,
+  withSuperuser,
+} from "./helpers";
 
 let modSub: string;
 let plainSub: string;
@@ -1049,7 +1124,9 @@ describe("platform roles", () => {
   });
 
   it("has no column able to reference a fursona", async () => {
-    const cols = await withClaims(null, async (c) => {
+    // Privileged read: information_schema hides objects the current role has no
+    // rights on, and clients have none on platform_roles.
+    const cols = await withSuperuser(async (c) => {
       const r = await c.query<{ column_name: string }>(
         `select column_name from information_schema.columns
          where table_schema = 'public' and table_name = 'platform_roles'`,
@@ -1073,7 +1150,7 @@ Expected: FAIL with `relation "public.platform_roles" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (31 tests).
+Expected: PASS (35 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1338,7 +1415,7 @@ Expected: FAIL with `relation "public.comments" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (39 tests).
+Expected: PASS (43 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1419,7 +1496,14 @@ Create `tests/db/provisioning.test.ts`:
 
 ```ts
 import { afterAll, describe, expect, it } from "vitest";
-import { admin, clientAs, closePool, newSub, withClaims } from "./helpers";
+import {
+  admin,
+  clientAs,
+  closePool,
+  newSub,
+  withClaims,
+  withSuperuser,
+} from "./helpers";
 
 afterAll(async () => {
   await closePool();
@@ -1481,8 +1565,10 @@ describe("first-login provisioning", () => {
   });
 
   it("refuses to provision without an authenticated subject", async () => {
+    // Privileged call: execute is granted only to `authenticated`, so an anon
+    // caller would fail on permissions before reaching the guard we're testing.
     await expect(
-      withClaims(null, async (c) => c.query("select public.ensure_person_actor()")),
+      withSuperuser(async (c) => c.query("select public.ensure_person_actor()")),
     ).rejects.toThrow(/no authenticated subject/);
   });
 
@@ -1517,7 +1603,7 @@ Expected: FAIL with `Could not find the function public.ensure_person_actor`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (45 tests).
+Expected: PASS (49 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1548,7 +1634,7 @@ Create `tests/db/transfer-accountability.test.ts`:
 ```ts
 import { afterAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { admin, clientAs, closePool, newSub, withClaims } from "./helpers";
+import { admin, clientAs, closePool, newSub, withSuperuser } from "./helpers";
 
 type Person = { sub: string; personRef: string };
 
@@ -1610,8 +1696,9 @@ describe("accountability survives a fursona transfer", () => {
       .eq("id", sonaId);
     expect(xferErr).toBeNull();
 
-    // Accountability still resolves to the seller, not the buyer.
-    const snapshot = await withClaims(null, async (c) => {
+    // Accountability still resolves to the seller, not the buyer. Privileged
+    // read: author_person_ref is revoked from every client role by design.
+    const snapshot = await withSuperuser(async (c) => {
       const r = await c.query<{ author_person_ref: string }>(
         "select author_person_ref from public.comments where id = $1",
         [comment.id as string],
@@ -1828,13 +1915,120 @@ jobs:
 - [ ] **Step 5: Run the full suite one final time**
 
 Run: `pnpm test:db`
-Expected: PASS (50 tests across 9 files).
+Expected: PASS (54 tests across 9 files).
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add tests/db/transfer-accountability.test.ts README.md .github/workflows/db-tests.yml
 git commit -m "test: prove accountability survives fursona transfer; document adoption"
+```
+
+---
+
+### Task 10: Secret tooling parity with the sister repos
+
+`CLAUDE.md` mandates "secrets never in git" and says to mirror the sister repos' toolchain, but nothing in this repo enforces it. Both `puck` and `candystore` run secretlint and ship a secrets syncer; AeleOS has neither. This closes that gap before real Logto configuration lands.
+
+**Files:**
+- Modify: `package.json` (devDependencies + scripts)
+- Create: `.secretlintrc.json`
+- Create: `.secretlintignore`
+- Create: `scripts/sync-secrets.mjs`
+- Create: `.github/workflows/sync-secrets.yml`
+- Modify: `.github/workflows/db-tests.yml` (add a secretlint step)
+
+**Interfaces:**
+- Consumes: `package.json` and `.github/workflows/db-tests.yml` from Tasks 1 and 9.
+- Produces: `pnpm secretlint` (fails the build on a detected secret) and `pnpm sync-secrets`.
+
+- [ ] **Step 1: Add secretlint config**
+
+Create `.secretlintrc.json` — identical to `Z:\Github\puck\.secretlintrc.json`:
+
+```json
+{
+  "rules": [
+    {
+      "id": "@secretlint/secretlint-rule-preset-recommend"
+    }
+  ]
+}
+```
+
+Create `.secretlintignore`. This is puck's list, minus its Next.js/Turbo entries which do not exist here, plus this repo's own generated paths:
+
+```gitignore
+node_modules/**
+**/.git/**
+**/.pnpm/**
+.superpowers/**
+supabase/.temp/**
+supabase/.branches/**
+pnpm-lock.yaml
+```
+
+- [ ] **Step 2: Add the dependencies and scripts**
+
+Add to `package.json` `devDependencies` (keep the existing entries, keep the list alphabetised):
+
+```json
+"@secretlint/secretlint-rule-preset-recommend": "^12.3.1",
+"secretlint": "^12.3.1"
+```
+
+Add to `package.json` `scripts`:
+
+```json
+"secretlint": "secretlint \"**/*\"",
+"sync-secrets": "node scripts/sync-secrets.mjs"
+```
+
+Then run `pnpm install` to update the lockfile.
+
+- [ ] **Step 3: Verify secretlint is clean on the current tree**
+
+Run: `pnpm secretlint`
+Expected: exits 0 with no findings. The local Supabase JWT-secret fallback constant in `tests/db/global-setup.ts` is a well-known public dev value; if secretlint flags it, add that one file path to `.secretlintignore` with a comment saying why, and note it in your report.
+
+- [ ] **Step 4: Prove the guard actually fires**
+
+An installed-but-inert linter is worse than none, because it reads as protection. Verify it catches something:
+
+```bash
+printf 'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n' > .secretlint-probe.txt
+pnpm secretlint; echo "exit=$?"
+rm .secretlint-probe.txt
+```
+
+Expected: a non-zero exit with a finding reported against `.secretlint-probe.txt`. Then confirm `pnpm secretlint` exits 0 again after the probe file is deleted. Record both outputs in your report.
+
+- [ ] **Step 5: Port the secrets syncer**
+
+Copy `Z:\Github\puck\scripts\sync-secrets.mjs` to `scripts/sync-secrets.mjs` **verbatim**, then copy `Z:\Github\puck\.github\workflows\sync-secrets.yml` to `.github/workflows/sync-secrets.yml` verbatim.
+
+Read both files after copying and change only values that name puck specifically (repository name, artifact paths, or workflow names that embed "puck"). Do not restructure the encryption flow, the polling logic, or the timeouts — parity with the sister repos is the point. List every changed line in your report.
+
+This syncer pulls from GitHub repository secrets, which do not exist for this repo yet. It is expected to be **inert until those are configured** — do not attempt to run it, and do not invent placeholder secrets to test it against.
+
+- [ ] **Step 6: Add secretlint to CI**
+
+In `.github/workflows/db-tests.yml`, add this step immediately after the `pnpm install --frozen-lockfile` step and before the Supabase steps:
+
+```yaml
+      - run: pnpm secretlint
+```
+
+- [ ] **Step 7: Confirm the suite still passes**
+
+Run: `pnpm test:db`
+Expected: PASS (54 tests across 9 files) — unchanged by this task.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add package.json pnpm-lock.yaml .secretlintrc.json .secretlintignore scripts/sync-secrets.mjs .github/workflows/sync-secrets.yml .github/workflows/db-tests.yml
+git commit -m "chore: add secretlint and secrets syncer for sister-repo parity"
 ```
 
 ---
@@ -1846,6 +2040,7 @@ Run before declaring Phase 1a complete:
 - [ ] `pnpm test:db` passes from a clean `supabase db reset`.
 - [ ] `pnpm typecheck` passes.
 - [ ] `pnpm format:check` passes.
+- [ ] `pnpm secretlint` passes, and was demonstrated to fail on a planted secret.
 - [ ] No test asserts on the Logto trust mechanism (Global Constraints).
 - [ ] `git log` shows one commit per task, on branch `feat/actor-model-seam`.
 
