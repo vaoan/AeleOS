@@ -53,6 +53,50 @@ describe("actors exposure boundary", () => {
     expect(error).not.toBeNull();
   });
 
+  it("denies clients write access to the base actors table", async () => {
+    const c = await clientAs(alice.sub);
+
+    const ins = await c.from("actors").insert({
+      actor_ref: randomUUID(),
+      kind: "person",
+      identity_sub: newSub(),
+      handle: `evil-${randomUUID().slice(0, 8)}`,
+    });
+    expect(ins.error).not.toBeNull();
+
+    const upd = await c
+      .from("actors")
+      .update({ display_name: "hijacked" })
+      .eq("id", alice.sonaId);
+    expect(upd.error).not.toBeNull();
+
+    const del = await c.from("actors").delete().eq("id", alice.sonaId);
+    expect(del.error).not.toBeNull();
+  });
+
+  it("shows an unlisted fursona to any authenticated caller", async () => {
+    const { data: sona, error: seedErr } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        owner_ref: bob.personRef,
+        handle: `unl-${randomUUID().slice(0, 8)}`,
+        visibility: "unlisted",
+      })
+      .select("id")
+      .single();
+    if (seedErr) throw seedErr;
+
+    const c = await clientAs(alice.sub);
+    const { data, error } = await c
+      .from("actors_public")
+      .select("id")
+      .eq("id", sona.id as string);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+  });
+
   it("never exposes owner_ref through the public view", async () => {
     const c = await clientAs(alice.sub);
     const { error } = await c.from("actors_public").select("owner_ref");
