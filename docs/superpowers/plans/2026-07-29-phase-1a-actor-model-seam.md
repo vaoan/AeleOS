@@ -1554,7 +1554,11 @@ Implements spec §12 ("first-login provisioning provisions a person actor") and 
 Create `supabase/migrations/0006_provisioning.sql`:
 
 ```sql
-create extension if not exists "uuid-ossp";
+-- Pin the schema explicitly. The derivation below calls
+-- `extensions.uuid_generate_v5`, and this migration is meant to be copied into
+-- other apps' databases — on a differently-configured Postgres the extension
+-- could otherwise land in `public` and that qualified call would not resolve.
+create extension if not exists "uuid-ossp" with schema extensions;
 
 -- Fixed namespace for deriving person actor_refs. Every app that copies this
 -- migration MUST keep this namespace byte-identical, or the same human would
@@ -1674,6 +1678,21 @@ describe("first-login provisioning", () => {
     expect(provisioned.data).toBe(a.data);
   });
 
+  it("matches the fixed cross-app derivation vector", async () => {
+    // The golden vector. This is the ONLY assertion that can catch the
+    // namespace constant drifting between app repos — every other derivation
+    // test would still pass if two apps used different namespaces, because
+    // each is internally consistent. If this fails, do not update the
+    // expected value: a changed namespace forks every person's platform
+    // identity and is a breaking change.
+    const c = await clientAs(newSub());
+    const { data, error } = await c.rpc("person_actor_ref", {
+      p_identity_sub: "aeleos-golden-vector",
+    });
+    expect(error).toBeNull();
+    expect(data).toBe("ea573748-66ea-5413-a843-6e7068f19da6");
+  });
+
   it("derives different actor_refs for different subs", async () => {
     const c = await clientAs(newSub());
     const one = await c.rpc("person_actor_ref", { p_identity_sub: "sub-a" });
@@ -1720,7 +1739,7 @@ Expected: FAIL with `Could not find the function public.ensure_person_actor`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (54 tests).
+Expected: PASS (55 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -2032,7 +2051,7 @@ jobs:
 - [ ] **Step 5: Run the full suite one final time**
 
 Run: `pnpm test:db`
-Expected: PASS (59 tests across 9 files).
+Expected: PASS (60 tests across 9 files).
 
 - [ ] **Step 6: Commit**
 
@@ -2139,7 +2158,7 @@ In `.github/workflows/db-tests.yml`, add this step immediately after the `pnpm i
 - [ ] **Step 7: Confirm the suite still passes**
 
 Run: `pnpm test:db`
-Expected: PASS (59 tests across 9 files) — unchanged by this task.
+Expected: PASS (60 tests across 9 files) — unchanged by this task.
 
 - [ ] **Step 8: Commit**
 
