@@ -53,7 +53,10 @@ describe("accountability survives a fursona transfer", () => {
       })
       .select("id")
       .single();
-    expect(insErr).toBeNull();
+    // Throw rather than expect(): this narrows `comment` away from null for
+    // the lines below. `expect(...).toBeNull()` does not narrow, and the file
+    // must pass `pnpm typecheck`.
+    if (insErr) throw insErr;
 
     // The character changes hands (Phase 2 will wrap this in a proposal flow).
     const { error: xferErr } = await admin()
@@ -90,7 +93,10 @@ describe("accountability survives a fursona transfer", () => {
       })
       .select("id")
       .single();
-    expect(insErr).toBeNull();
+    // Throw rather than expect(): this narrows `comment` away from null for
+    // the lines below. `expect(...).toBeNull()` does not narrow, and the file
+    // must pass `pnpm typecheck`.
+    if (insErr) throw insErr;
 
     await admin()
       .from("actors")
