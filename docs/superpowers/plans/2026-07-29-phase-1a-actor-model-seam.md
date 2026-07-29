@@ -691,6 +691,13 @@ as $$
   )
 $$;
 
+-- Postgres grants EXECUTE on a new function to PUBLIC by default. These are
+-- `security definer`, so leaving that default in place lets ANY role — including
+-- anon — invoke them with the definer's privileges. Revoke first, then grant
+-- deliberately. Do this for every security definer function in this plan.
+revoke all on function public.current_person_ref() from public;
+revoke all on function public.can_act_as(uuid) from public;
+
 grant execute on function public.current_person_ref() to authenticated;
 grant execute on function public.can_act_as(uuid) to authenticated;
 ```
@@ -824,6 +831,30 @@ describe("can_act_as", () => {
       false,
     );
   });
+
+  it("refuses a suspended person actor", async () => {
+    const sub = newSub();
+    const ref = randomUUID();
+    const { data, error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: ref,
+        kind: "person",
+        identity_sub: sub,
+        handle: `susp-${ref.slice(0, 8)}`,
+        status: "suspended",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await expect(canActAs(sub, data.id as string)).resolves.toBe(false);
+  });
+
+  it("refuses a caller with no person row at all", async () => {
+    const stranger = newSub();
+    await expect(canActAs(stranger, alice.sonaId)).resolves.toBe(false);
+    await expect(canActAs(stranger, alice.personId)).resolves.toBe(false);
+  });
 });
 ```
 
@@ -835,7 +866,7 @@ Expected: FAIL with `function public.current_person_ref() does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (24 tests).
+Expected: PASS (26 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1007,7 +1038,7 @@ Expected: FAIL — before the migration the base table is readable and `actors_p
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (31 tests).
+Expected: PASS (33 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1062,6 +1093,8 @@ as $$
   )
 $$;
 
+-- security definer: strip the default PUBLIC execute grant before granting.
+revoke all on function public.has_platform_role(text) from public;
 grant execute on function public.has_platform_role(text) to authenticated;
 ```
 
@@ -1165,7 +1198,7 @@ Expected: FAIL with `relation "public.platform_roles" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (36 tests).
+Expected: PASS (38 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1430,7 +1463,7 @@ Expected: FAIL with `relation "public.comments" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (44 tests).
+Expected: PASS (46 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1500,6 +1533,11 @@ begin
   return v_ref;
 end;
 $$;
+
+-- ensure_person_actor is security definer; strip the default PUBLIC grant on
+-- both before granting deliberately.
+revoke all on function public.person_actor_ref(text) from public;
+revoke all on function public.ensure_person_actor() from public;
 
 grant execute on function public.person_actor_ref(text) to authenticated;
 grant execute on function public.ensure_person_actor() to authenticated;
@@ -1618,7 +1656,7 @@ Expected: FAIL with `Could not find the function public.ensure_person_actor`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (50 tests).
+Expected: PASS (52 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1930,7 +1968,7 @@ jobs:
 - [ ] **Step 5: Run the full suite one final time**
 
 Run: `pnpm test:db`
-Expected: PASS (55 tests across 9 files).
+Expected: PASS (57 tests across 9 files).
 
 - [ ] **Step 6: Commit**
 
@@ -2037,7 +2075,7 @@ In `.github/workflows/db-tests.yml`, add this step immediately after the `pnpm i
 - [ ] **Step 7: Confirm the suite still passes**
 
 Run: `pnpm test:db`
-Expected: PASS (55 tests across 9 files) — unchanged by this task.
+Expected: PASS (57 tests across 9 files) — unchanged by this task.
 
 - [ ] **Step 8: Commit**
 
