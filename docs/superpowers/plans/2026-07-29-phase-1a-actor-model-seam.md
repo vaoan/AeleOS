@@ -1130,6 +1130,10 @@ create table public.platform_roles (
 );
 
 alter table public.platform_roles enable row level security;
+
+-- The service role drives migrations, seeding and tests. Client roles get
+-- nothing at all: roles are read only through has_platform_role() below.
+grant select, insert, update, delete on public.platform_roles to service_role;
 revoke all on public.platform_roles from anon, authenticated;
 
 create or replace function public.has_platform_role(role_key text)
@@ -1291,6 +1295,9 @@ create table public.comments (
 create index comments_author_actor_idx on public.comments (author_actor_id);
 
 alter table public.comments enable row level security;
+
+-- The service role drives migrations, seeding and tests.
+grant select, insert, update, delete on public.comments to service_role;
 
 -- Column-level grants: author_person_ref is writable on insert (the policy
 -- forces it to be truthful) but never readable by a client (spec §8).
