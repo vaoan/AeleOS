@@ -86,7 +86,9 @@ describe("first-login provisioning", () => {
     // Privileged call: execute is granted only to `authenticated`, so an anon
     // caller would fail on permissions before reaching the guard we're testing.
     await expect(
-      withSuperuser(async (c) => c.query("select public.ensure_person_actor()")),
+      withSuperuser(async (c) =>
+        c.query("select public.ensure_person_actor()"),
+      ),
     ).rejects.toThrow(/no authenticated subject/);
   });
 

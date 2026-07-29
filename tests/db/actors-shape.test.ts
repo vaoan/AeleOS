@@ -30,43 +30,51 @@ describe("actors shape", () => {
 
   it("rejects a person carrying an owner_ref", async () => {
     const owner = await makePerson();
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "person",
-      identity_sub: newSub(),
-      owner_ref: owner.actorRef,
-      handle: `bad-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "person",
+        identity_sub: newSub(),
+        owner_ref: owner.actorRef,
+        handle: `bad-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_person_shape");
   });
 
   it("rejects a person without an identity_sub", async () => {
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "person",
-      handle: `nosub-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "person",
+        handle: `nosub-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_person_shape");
   });
 
   it("rejects a fursona without an owner_ref", async () => {
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "fursona",
-      handle: `orphan-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        handle: `orphan-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_fursona_shape");
   });
 
   it("rejects a fursona carrying an identity_sub", async () => {
     const owner = await makePerson();
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "fursona",
-      owner_ref: owner.actorRef,
-      identity_sub: newSub(),
-      handle: `bad2-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        owner_ref: owner.actorRef,
+        identity_sub: newSub(),
+        handle: `bad2-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_fursona_shape");
   });
 

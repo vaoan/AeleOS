@@ -1,0 +1,16 @@
+node_modules
+supabase/.branches
+supabase/.temp
+pnpm-lock.yaml
+
+# Scratch / plan working files (mirrors puck's .prettierignore)
+.superpowers/
+
+# Design docs and specs — out of scope for this task's toolchain fix
+docs/
+
+# README is hand-formatted; out of scope for this task (mirrors candystore's .prettierignore)
+README.md
+
+# Project governance doc; out of scope for this task's toolchain fix
+CLAUDE.md

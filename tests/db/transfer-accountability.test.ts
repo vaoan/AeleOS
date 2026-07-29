@@ -7,12 +7,14 @@ type Person = { sub: string; personRef: string };
 async function seedPerson(): Promise<Person> {
   const sub = newSub();
   const personRef = randomUUID();
-  const { error } = await admin().from("actors").insert({
-    actor_ref: personRef,
-    kind: "person",
-    identity_sub: sub,
-    handle: `p-${personRef.slice(0, 8)}`,
-  });
+  const { error } = await admin()
+    .from("actors")
+    .insert({
+      actor_ref: personRef,
+      kind: "person",
+      identity_sub: sub,
+      handle: `p-${personRef.slice(0, 8)}`,
+    });
   if (error) throw error;
   return { sub, personRef };
 }

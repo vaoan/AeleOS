@@ -11,7 +11,9 @@ describe("local test bed", () => {
   });
 
   it("accepts a direct postgres connection", async () => {
-    const client = new Client({ connectionString: process.env.SUPABASE_DB_URL });
+    const client = new Client({
+      connectionString: process.env.SUPABASE_DB_URL,
+    });
     await client.connect();
     const res = await client.query<{ one: number }>("select 1 as one");
     await client.end();
