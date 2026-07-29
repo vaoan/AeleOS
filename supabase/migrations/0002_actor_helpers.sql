@@ -32,5 +32,12 @@ as $$
   )
 $$;
 
+-- Postgres grants EXECUTE on a new function to PUBLIC by default. These are
+-- `security definer`, so leaving that default in place lets ANY role — including
+-- anon — invoke them with the definer's privileges. Revoke first, then grant
+-- deliberately. Do this for every security definer function in this plan.
+revoke all on function public.current_person_ref() from public;
+revoke all on function public.can_act_as(uuid) from public;
+
 grant execute on function public.current_person_ref() to authenticated;
 grant execute on function public.can_act_as(uuid) to authenticated;

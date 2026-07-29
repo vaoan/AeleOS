@@ -122,4 +122,28 @@ describe("can_act_as", () => {
       false,
     );
   });
+
+  it("refuses a suspended person actor", async () => {
+    const sub = newSub();
+    const ref = randomUUID();
+    const { data, error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: ref,
+        kind: "person",
+        identity_sub: sub,
+        handle: `susp-${ref.slice(0, 8)}`,
+        status: "suspended",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await expect(canActAs(sub, data.id as string)).resolves.toBe(false);
+  });
+
+  it("refuses a caller with no person row at all", async () => {
+    const stranger = newSub();
+    await expect(canActAs(stranger, alice.sonaId)).resolves.toBe(false);
+    await expect(canActAs(stranger, alice.personId)).resolves.toBe(false);
+  });
 });
