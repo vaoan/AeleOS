@@ -2081,6 +2081,7 @@ git commit -m "test: prove accountability survives fursona transfer; document ad
 - Create: `.github/workflows/sync-secrets.yml`
 - Create: `eslint.config.js`
 - Create: `.prettierrc.json`
+- Create: `.prettierignore` — the `format` glob otherwise sweeps hand-written Markdown (`README.md`, `CLAUDE.md`, `docs/**`) and the scratch `.superpowers/` directory. Puck's `.prettierignore` sets the precedent, including for `.superpowers/`. Exempting the prose docs is a deliberate divergence from the sister repos, which do format their Markdown: this repo's `docs/` holds long hand-wrapped specs, and churning them was judged worse than the inconsistency.
 - Modify: `.github/workflows/db-tests.yml` (add secretlint, typecheck and format steps)
 
 > **Also fixed here:** Task 1 declared `lint`, `lint:fix`, `format` and
@@ -2193,12 +2194,19 @@ Expected: exits 0 with no findings. The local Supabase JWT-secret fallback const
 An installed-but-inert linter is worse than none, because it reads as protection. Verify it catches something:
 
 ```bash
-printf 'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n' > .secretlint-probe.txt
+printf -- '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAx7Vn9Q3mKpL2fTgW8sDcYb4NvRjHkEzQpXaBmCdFgHiJkLmNoP\n-----END RSA PRIVATE KEY-----\n' > .secretlint-probe.txt
 pnpm secretlint; echo "exit=$?"
 rm .secretlint-probe.txt
 ```
 
 Expected: a non-zero exit with a finding reported against `.secretlint-probe.txt`. Then confirm `pnpm secretlint` exits 0 again after the probe file is deleted. Record both outputs in your report.
+
+> **Do not probe with `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`.** That is AWS's own
+> canonical documentation example, and secretlint's AWS rule hard-codes it into an
+> allowlist — so it passes, making a perfectly working guard look inert. A private-key
+> block is not allowlisted and is the reliable probe.
+
+Ensure `.secretlint-probe.txt` is deleted and never committed.
 
 - [ ] **Step 5: Port the secrets syncer**
 
