@@ -1,4 +1,8 @@
-create extension if not exists "uuid-ossp";
+-- Pin the schema explicitly. The derivation below calls
+-- `extensions.uuid_generate_v5`, and this migration is meant to be copied into
+-- other apps' databases — on a differently-configured Postgres the extension
+-- could otherwise land in `public` and that qualified call would not resolve.
+create extension if not exists "uuid-ossp" with schema extensions;
 
 -- Fixed namespace for deriving person actor_refs. Every app that copies this
 -- migration MUST keep this namespace byte-identical, or the same human would

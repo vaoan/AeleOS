@@ -60,6 +60,21 @@ describe("first-login provisioning", () => {
     expect(provisioned.data).toBe(a.data);
   });
 
+  it("matches the fixed cross-app derivation vector", async () => {
+    // The golden vector. This is the ONLY assertion that can catch the
+    // namespace constant drifting between app repos — every other derivation
+    // test would still pass if two apps used different namespaces, because
+    // each is internally consistent. If this fails, do not update the
+    // expected value: a changed namespace forks every person's platform
+    // identity and is a breaking change.
+    const c = await clientAs(newSub());
+    const { data, error } = await c.rpc("person_actor_ref", {
+      p_identity_sub: "aeleos-golden-vector",
+    });
+    expect(error).toBeNull();
+    expect(data).toBe("ea573748-66ea-5413-a843-6e7068f19da6");
+  });
+
   it("derives different actor_refs for different subs", async () => {
     const c = await clientAs(newSub());
     const one = await c.rpc("person_actor_ref", { p_identity_sub: "sub-a" });
