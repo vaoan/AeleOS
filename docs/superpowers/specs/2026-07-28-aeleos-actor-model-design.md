@@ -1,7 +1,7 @@
 # AeleOS — Actor Model (person + fursonas) — Design
 
-- **Date:** 2026-07-28
-- **Status:** Draft — awaiting review
+- **Date:** 2026-07-28 (amended 2026-07-29 — see §19)
+- **Status:** Phase 1a implemented; §19 records what implementation changed
 - **Scope:** Platform-wide. Extends the approved central-auth design with a second
   identity level (fursonas), the rules for acting as one, where permissions live,
   and an auditable ownership/transfer ledger.
@@ -536,7 +536,79 @@ for which §4.2 does not apply.
    authored content remains displayed under the character. §3.2 makes either
    choice safe; the decision is a community-norms question, not a technical one.
 
-## 19. Next step
+## 19. Implementation deltas from Phase 1a
+
+Phase 1a shipped on branch `feat/actor-model-seam` (migrations `0001`–`0007`, 72
+conformance tests). Five things differ from this spec as originally written. They
+are recorded here rather than edited into the sections above, so the design intent
+and what implementation forced remain distinguishable.
+
+### 19.1 `actor_ref` is derived, not minted — and Phase 1b must not change that
+
+§5 has the hub mint `actor_ref`. In Phase 1a the hub does not exist yet, and each
+app provisions person actors independently. Independent minting would give the same
+human different platform identities per app — the one migration this design exists
+to prevent.
+
+So a person's `actor_ref` is **derived deterministically** from `identity_sub`:
+UUIDv5 over the fixed namespace `d1f1a0c6-6b3e-5f7a-9c2d-3e4f5a6b7c8d`. Every app
+computes the same value with zero coordination. A golden-vector test pins it
+(`aeleos-golden-vector` → `ea573748-66ea-5413-a843-6e7068f19da6`).
+
+> ⚠️ **Phase 1b must adopt the identical derivation for person actors.** If the hub
+> mints random `actor_ref`s instead, every person already provisioned forks into two
+> identities. Fursona `actor_ref`s may be randomly minted by the hub — only person
+> rows are derived.
+
+### 19.2 Accountability is server-derived, not client-asserted
+
+§4.3 had the client send `author_person_ref`, validated by an RLS `with check`. That
+is now inverted: the column is revoked from every client insert grant and set by a
+`before insert` trigger from `current_person_ref()`.
+
+Rationale: as a pattern other apps copy, the original shape failed *silently*. An app
+that dropped the `and author_person_ref = ...` conjunct still passed the
+"can't post as another's fursona" test — that clause is `can_act_as` — and failed only
+the forged-snapshot test, the one most likely to be dropped when adapting the suite.
+The trigger version fails closed regardless of what a copier deletes.
+
+### 19.3 A suspended person can act as nothing — **product decision, needs confirming**
+
+§7.3 says negative permissions must be person-level or they are trivially evaded.
+The first implementation checked `status` on the *target* actor only, so suspending a
+person left every fursona they owned fully usable — the exact evasion §7.3 warns of.
+Found in final review, reproduced live, fixed in `0007`: `current_person_ref()` now
+returns null for a suspended person, so they can act as nothing at all.
+
+**Consequence to confirm:** this also hides a suspended person's own private fursonas
+from `actors_public` and blocks them editing or deleting their own past content. That
+follows logically from "act as nothing", but what suspension *should* mean for a
+person's access to their own data is a product decision, not a technical one.
+
+### 19.4 Linkability is enforced by a catalog invariant, not only per-object tests
+
+§8 requires explicit tests for the linkability boundary. Per-object tests only prove
+it for objects *this* repo defines; copying apps add their own tables, which is where
+the next leak comes from. `tests/db/exposure-invariants.test.ts` therefore asserts at
+the catalog level that no client role holds SELECT on any column named `owner_ref`,
+`identity_sub`, or `author_person_ref` on any relation in `public`. It was verified to
+catch a deliberately introduced regression.
+
+### 19.5 `0005` is a test fixture, and the conformance suite depends on it
+
+The reference `comments` table is not a product table, but 13 of the 72 tests require
+it. Adopting apps apply `0001`–`0007` including `0005`, or port those tests onto their
+own authored table. Also note: because the pattern uses column-level grants,
+`select('*')` fails — clients must name columns explicitly.
+
+### 19.6 What Phase 1a still does not prove
+
+Unchanged from §14.7 and worth restating: the conformance suite validates claim shape
+and policy behaviour only. It mints HS256 tokens against a local secret. **It does not
+validate the Supabase⇄Logto Third-Party Auth trust**, which uses asymmetric JWKS
+verification. That remains Phase 0's job and the highest-risk unknown in the design.
+
+## 20. Next step
 
 Implementation planning for **Phase 1a** (the seam), sequenced after the
 central-auth spec's Phase 0. Phase 1a touches only the consuming apps' schemas and
