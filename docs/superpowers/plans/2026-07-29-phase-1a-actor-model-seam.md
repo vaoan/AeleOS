@@ -900,7 +900,14 @@ alter table public.actors enable row level security;
 revoke all on public.actors from anon, authenticated;
 
 -- Safe projection: ownership columns are absent by construction.
-create view public.actors_public as
+--
+-- security_barrier is REQUIRED, not cosmetic. This view runs with its owner's
+-- privileges and its WHERE clause is the only thing between a caller and every
+-- row in the table. Without the barrier, Postgres may push a caller-supplied
+-- predicate (PostgREST exposes like/ilike/regex/full-text operators) beneath the
+-- view's own filter, where it is evaluated against rows the caller must never
+-- see. A leaky operator then discloses hidden data through errors or timing.
+create view public.actors_public with (security_barrier = true) as
   select
     a.id,
     a.actor_ref,
@@ -915,6 +922,9 @@ create view public.actors_public as
      or a.identity_sub = auth.jwt() ->> 'sub'
      or a.owner_ref = public.current_person_ref();
 
+-- Same revoke-then-grant discipline used for the security definer functions:
+-- never rely on a default for the highest-stakes object in the schema.
+revoke all on public.actors_public from public, anon, authenticated;
 grant select on public.actors_public to authenticated;
 ```
 
@@ -978,6 +988,50 @@ describe("actors exposure boundary", () => {
     expect(error).not.toBeNull();
   });
 
+  it("denies clients write access to the base actors table", async () => {
+    const c = await clientAs(alice.sub);
+
+    const ins = await c.from("actors").insert({
+      actor_ref: randomUUID(),
+      kind: "person",
+      identity_sub: newSub(),
+      handle: `evil-${randomUUID().slice(0, 8)}`,
+    });
+    expect(ins.error).not.toBeNull();
+
+    const upd = await c
+      .from("actors")
+      .update({ display_name: "hijacked" })
+      .eq("id", alice.sonaId);
+    expect(upd.error).not.toBeNull();
+
+    const del = await c.from("actors").delete().eq("id", alice.sonaId);
+    expect(del.error).not.toBeNull();
+  });
+
+  it("shows an unlisted fursona to any authenticated caller", async () => {
+    const { data: sona, error: seedErr } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        owner_ref: bob.personRef,
+        handle: `unl-${randomUUID().slice(0, 8)}`,
+        visibility: "unlisted",
+      })
+      .select("id")
+      .single();
+    if (seedErr) throw seedErr;
+
+    const c = await clientAs(alice.sub);
+    const { data, error } = await c
+      .from("actors_public")
+      .select("id")
+      .eq("id", sona.id as string);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+  });
+
   it("never exposes owner_ref through the public view", async () => {
     const c = await clientAs(alice.sub);
     const { error } = await c.from("actors_public").select("owner_ref");
@@ -1038,7 +1092,7 @@ Expected: FAIL — before the migration the base table is readable and `actors_p
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (33 tests).
+Expected: PASS (35 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1198,7 +1252,7 @@ Expected: FAIL with `relation "public.platform_roles" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (38 tests).
+Expected: PASS (40 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1463,7 +1517,7 @@ Expected: FAIL with `relation "public.comments" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (46 tests).
+Expected: PASS (48 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1656,7 +1710,7 @@ Expected: FAIL with `Could not find the function public.ensure_person_actor`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (52 tests).
+Expected: PASS (54 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1968,7 +2022,7 @@ jobs:
 - [ ] **Step 5: Run the full suite one final time**
 
 Run: `pnpm test:db`
-Expected: PASS (57 tests across 9 files).
+Expected: PASS (59 tests across 9 files).
 
 - [ ] **Step 6: Commit**
 
@@ -2075,7 +2129,7 @@ In `.github/workflows/db-tests.yml`, add this step immediately after the `pnpm i
 - [ ] **Step 7: Confirm the suite still passes**
 
 Run: `pnpm test:db`
-Expected: PASS (57 tests across 9 files) — unchanged by this task.
+Expected: PASS (59 tests across 9 files) — unchanged by this task.
 
 - [ ] **Step 8: Commit**
 
