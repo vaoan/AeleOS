@@ -40,6 +40,15 @@ describe("actors shape", () => {
     expect(error?.message).toContain("actors_person_shape");
   });
 
+  it("rejects a person without an identity_sub", async () => {
+    const { error } = await admin().from("actors").insert({
+      actor_ref: randomUUID(),
+      kind: "person",
+      handle: `nosub-${randomUUID().slice(0, 8)}`,
+    });
+    expect(error?.message).toContain("actors_person_shape");
+  });
+
   it("rejects a fursona without an owner_ref", async () => {
     const { error } = await admin().from("actors").insert({
       actor_ref: randomUUID(),
