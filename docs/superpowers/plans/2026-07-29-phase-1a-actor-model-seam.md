@@ -1756,7 +1756,7 @@ Implements spec §3.2 and §9.4 at the seam level. Transfer *flow* is Phase 2; t
 
 **Files:**
 - Create: `tests/db/transfer-accountability.test.ts`
-- Create: `README.md`
+- Modify: `README.md` — **append only**. A project README already exists (branding, naming rationale, architecture summary). Keep every line of it and add the new sections at the end. Do not overwrite it.
 - Create: `.github/workflows/db-tests.yml`
 
 **Interfaces:**
@@ -1823,7 +1823,10 @@ describe("accountability survives a fursona transfer", () => {
       })
       .select("id")
       .single();
-    expect(insErr).toBeNull();
+    // Throw rather than expect(): this narrows `comment` away from null for
+    // the lines below. `expect(...).toBeNull()` does not narrow, and the file
+    // must pass `pnpm typecheck`.
+    if (insErr) throw insErr;
 
     // The character changes hands (Phase 2 will wrap this in a proposal flow).
     const { error: xferErr } = await admin()
@@ -1860,7 +1863,10 @@ describe("accountability survives a fursona transfer", () => {
       })
       .select("id")
       .single();
-    expect(insErr).toBeNull();
+    // Throw rather than expect(): this narrows `comment` away from null for
+    // the lines below. `expect(...).toBeNull()` does not narrow, and the file
+    // must pass `pnpm typecheck`.
+    if (insErr) throw insErr;
 
     await admin()
       .from("actors")
@@ -1946,20 +1952,21 @@ describe("accountability survives a fursona transfer", () => {
 Run: `pnpm test:db -- tests/db/transfer-accountability.test.ts`
 Expected: PASS (5 tests) — the schema from Tasks 3–7 already supports this. If any fail, the seam is wrong; fix the migration, not the test.
 
-- [ ] **Step 3: Write the adoption README**
+- [ ] **Step 3: Append the adoption guide to the README**
 
-Create `README.md`:
+`README.md` already exists and carries the project overview — branding, the
+celestial naming rationale, and the architecture summary. **Preserve all of it.**
+Open the file, go to the end, and append everything below. Do not overwrite, do
+not reorder, do not "tidy" the existing content.
 
 ````markdown
-# AeleOS
 
-Central identity for the Furry Colombia platform. See
-`docs/superpowers/specs/` for the design.
-
-This repo is **not** a deployable application. The Supabase project here is a
-local-only test bed for the canonical actor-model schema; it holds no app data.
+---
 
 ## The actor-model seam
+
+The Supabase project in this repo is a **local-only test bed** for the canonical
+actor-model schema. It is never deployed and holds no app data.
 
 `supabase/migrations/` is the canonical SQL every consuming app copies into its
 own migration set:
@@ -2072,7 +2079,61 @@ git commit -m "test: prove accountability survives fursona transfer; document ad
 - Create: `.secretlintignore`
 - Create: `scripts/sync-secrets.mjs`
 - Create: `.github/workflows/sync-secrets.yml`
-- Modify: `.github/workflows/db-tests.yml` (add a secretlint step)
+- Create: `eslint.config.js`
+- Create: `.prettierrc.json`
+- Modify: `.github/workflows/db-tests.yml` (add secretlint, typecheck and format steps)
+
+> **Also fixed here:** Task 1 declared `lint`, `lint:fix`, `format` and
+> `format:check` scripts but never added `eslint` or `prettier` to
+> `devDependencies`, so all four have been unrunnable. The plan's own
+> verification checklist requires `pnpm format:check` to pass, which is
+> currently impossible. Step 0 below closes that.
+
+- [ ] **Step 0: Make the declared lint and format scripts actually runnable**
+
+Add to `package.json` `devDependencies` (alphabetised alongside the existing
+entries):
+
+```json
+"@eslint/js": "^9.39.4",
+"eslint": "^9.39.4",
+"eslint-config-prettier": "^10.1.5",
+"prettier": "^3.8.3",
+"typescript-eslint": "^8.59.0"
+```
+
+Create `eslint.config.js`:
+
+```js
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import prettier from "eslint-config-prettier";
+
+export default tseslint.config(
+  { ignores: ["node_modules/**", "supabase/**", ".superpowers/**"] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  prettier,
+);
+```
+
+Create `.prettierrc.json` (matching the sister repos' defaults):
+
+```json
+{}
+```
+
+Then run `pnpm install`, and confirm all three of these exit 0:
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm format:check
+```
+
+If `format:check` reports files needing formatting, run `pnpm format` once and
+commit the result. If `lint` reports errors in `tests/db/**`, fix the code —
+do not add blanket disables.
 
 **Interfaces:**
 - Consumes: `package.json` and `.github/workflows/db-tests.yml` from Tasks 1 and 9.
@@ -2149,10 +2210,13 @@ This syncer pulls from GitHub repository secrets, which do not exist for this re
 
 - [ ] **Step 6: Add secretlint to CI**
 
-In `.github/workflows/db-tests.yml`, add this step immediately after the `pnpm install --frozen-lockfile` step and before the Supabase steps:
+In `.github/workflows/db-tests.yml`, add these steps immediately after the `pnpm install --frozen-lockfile` step and before the Supabase steps:
 
 ```yaml
       - run: pnpm secretlint
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
 ```
 
 - [ ] **Step 7: Confirm the suite still passes**
