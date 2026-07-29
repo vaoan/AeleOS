@@ -1564,7 +1564,10 @@ returns uuid
 language sql
 immutable
 as $$
-  select uuid_generate_v5(
+  -- Schema-qualified: Supabase installs uuid-ossp into the `extensions`
+  -- schema, which is not on the search_path for the `authenticated`/`anon`
+  -- roles PostgREST executes as, so an unqualified call fails for them.
+  select extensions.uuid_generate_v5(
     'd1f1a0c6-6b3e-5f7a-9c2d-3e4f5a6b7c8d'::uuid,
     p_identity_sub
   )
