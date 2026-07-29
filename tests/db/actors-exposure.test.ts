@@ -139,6 +139,13 @@ describe("actors exposure boundary", () => {
     expect(data).toHaveLength(1);
   });
 
+  it("still lets the service role read the public view", async () => {
+    // 0003's blanket `revoke ... from public` also stripped service_role's
+    // default SELECT; 0007 grants it back. Server-side jobs read here.
+    const { error } = await admin().from("actors_public").select("id").limit(1);
+    expect(error).toBeNull();
+  });
+
   it("denies an anonymous caller the public view entirely", async () => {
     await expect(
       withClaims(null, async (c) =>

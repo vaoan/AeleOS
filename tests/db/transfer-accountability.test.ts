@@ -51,7 +51,6 @@ describe("accountability survives a fursona transfer", () => {
       .insert({
         body: "posted before the sale",
         author_actor_id: sonaId,
-        author_person_ref: seller.personRef,
       })
       .select("id")
       .single();
@@ -91,7 +90,6 @@ describe("accountability survives a fursona transfer", () => {
       .insert({
         body: "seller's words",
         author_actor_id: sonaId,
-        author_person_ref: seller.personRef,
       })
       .select("id")
       .single();
@@ -153,7 +151,6 @@ describe("accountability survives a fursona transfer", () => {
     const { error } = await buyerClient.from("comments").insert({
       body: "new owner speaking",
       author_actor_id: sonaId,
-      author_person_ref: buyer.personRef,
     });
     expect(error).toBeNull();
   });
@@ -172,7 +169,6 @@ describe("accountability survives a fursona transfer", () => {
     const { error } = await sellerClient.from("comments").insert({
       body: "still mine?",
       author_actor_id: sonaId,
-      author_person_ref: seller.personRef,
     });
     expect(error).not.toBeNull();
   });

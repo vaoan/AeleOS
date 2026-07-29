@@ -147,3 +147,61 @@ describe("can_act_as", () => {
     await expect(canActAs(stranger, alice.personId)).resolves.toBe(false);
   });
 });
+
+describe("a suspended person can act as nothing", () => {
+  // The sanction attaches to the PERSON. If suspension could be shed by
+  // switching persona the whole actor model would be a moderation loophole,
+  // so these are the load-bearing cases, not edge cases.
+  type Suspended = { sub: string; personId: string; sonaId: string };
+
+  const seedSuspended = async (): Promise<Suspended> => {
+    const sub = newSub();
+    const ref = randomUUID();
+    const a = admin();
+
+    const { data: person, error: pErr } = await a
+      .from("actors")
+      .insert({
+        actor_ref: ref,
+        kind: "person",
+        identity_sub: sub,
+        handle: `sp-${ref.slice(0, 8)}`,
+        status: "suspended",
+      })
+      .select("id")
+      .single();
+    if (pErr) throw pErr;
+
+    const { data: sona, error: sErr } = await a
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        owner_ref: ref,
+        handle: `ss-${randomUUID().slice(0, 8)}`,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (sErr) throw sErr;
+
+    return { sub, personId: person.id as string, sonaId: sona.id as string };
+  };
+
+  it("cannot act as its own ACTIVE fursona", async () => {
+    const s = await seedSuspended();
+    await expect(canActAs(s.sub, s.sonaId)).resolves.toBe(false);
+  });
+
+  it("cannot act as its own person row", async () => {
+    const s = await seedSuspended();
+    await expect(canActAs(s.sub, s.personId)).resolves.toBe(false);
+  });
+
+  it("resolves no person ref at all", async () => {
+    // The mechanism behind both cases above: every ownership check in the
+    // schema routes through current_person_ref().
+    const s = await seedSuspended();
+    await expect(personRefFor(s.sub)).resolves.toBeNull();
+  });
+});

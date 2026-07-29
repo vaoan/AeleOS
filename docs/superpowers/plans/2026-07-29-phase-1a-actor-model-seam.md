@@ -2275,3 +2275,82 @@ Run before declaring Phase 1a complete:
 - **Adoption in Puck:** copy the seam, rework `user_profiles` off its `auth.users(id)` FK (central-auth spec §9.2). Its own plan.
 - **Phase 1b:** the `aeleos-hub` repo — registry, picker, profile editing.
 - **Phase 2:** transfer proposal flow and the append-only ownership ledger (actor-model spec §9).
+
+---
+
+## Post-final-review amendments
+
+Applied after the whole-branch review, as one append-only migration
+`supabase/migrations/0007_suspension_hardening.sql` (`0001`–`0006` are already
+applied elsewhere and were not edited) plus test and doc updates. The SQL blocks
+embedded above are left as originally written — this section records the deltas.
+
+**Schema (`0007`)**
+
+1. **Suspension closure (critical).** `current_person_ref()` gained
+   `and status = 'active'`. Without it a *suspended* person still resolved a
+   person ref, so `can_act_as()`'s owner branch let them act as their own
+   *active* fursona — a sanction evaded by switching persona, which is the one
+   thing the actor model exists to prevent. Fixing the helper fixes every
+   caller (policies and the `actors_public` view all route through it).
+2. **`ensure_person_actor()` returns the stored `actor_ref`.** It now uses
+   `returning actor_ref into v_ref` with a `select` fallback on the conflict
+   path. Previously it returned the *derived* value without reading back, so an
+   imported/backfilled person whose stored ref differs from the derivation got
+   an `actor_ref` that disagreed with `current_person_ref()`.
+3. **`service_role` regained `actors_public`.** 0003's blanket
+   `revoke ... from public` stripped its default. Granted `select` on the view
+   and `execute` on `current_person_ref()` — the view is not `security_invoker`,
+   so the function call in its `WHERE` is resolved with the caller's privileges.
+4. **`author_person_ref` is server-derived.** A `before insert` trigger on
+   `comments` sets it from `current_person_ref()`; the column is revoked from
+   the client `insert` grant; the now-redundant
+   `and author_person_ref = current_person_ref()` conjunct is dropped from the
+   insert policy (`can_act_as` stays). Rationale: as a *copied* pattern the old
+   design failed silently — an app dropping that conjunct still passed every
+   test except the forged-snapshot one, the test most likely to be dropped in
+   the same edit. `service_role` may still supply the column explicitly, which
+   imports and backfills need.
+5. **`updated_at` is maintained.** 0001 gave it a default and no trigger, so it
+   permanently equalled `created_at`. Added `actors_set_updated_at`.
+6. **Revoke-then-grant applied to trigger functions.** `actors_guard_identity`,
+   `comments_guard_snapshot` and both new trigger functions had kept the default
+   `PUBLIC EXECUTE` — the only place the discipline was not applied.
+7. **`person_actor_ref(text)` revoked from `authenticated`.** No client flow
+   calls it (provisioning goes through `ensure_person_actor()`), and it turns a
+   candidate `identity_sub` into that person's `actor_ref` — a confirmation
+   oracle correlatable against `actors_public`.
+
+**Tests** (60 → 72)
+
+- `actor-helpers.test.ts`: a suspended person can act as neither their own
+  active fursona nor their own person row, and resolves no person ref.
+- `provisioning.test.ts`: `ensure_person_actor()` returns a pre-seeded person's
+  stored `actor_ref` rather than the derived one; clients are denied the
+  derivation oracle. The three `person_actor_ref` tests — including the golden
+  vector, whose expected UUID `ea573748-66ea-5413-a843-6e7068f19da6` is
+  unchanged and still passes — moved to `withSuperuser`.
+- `actors-exposure.test.ts`: a service-role client can select from
+  `actors_public`.
+- `authoring.test.ts`: the snapshot is derived server-side; a supplied value is
+  overwritten rather than trusted; `comments_delete` is covered both ways
+  (author can, another person cannot). Client inserts no longer send
+  `author_person_ref` (nor may they).
+- `exposure-invariants.test.ts` (new): catalog-level — no client role holds
+  `SELECT` on any `owner_ref` / `identity_sub` / `author_person_ref` column on
+  any relation in `public`. This is the assertion that keeps holding as
+  adopting apps add tables of their own.
+
+**Deviation from the review brief.** The brief predicted the forged-snapshot
+test's expectation would *flip* (forged value silently corrected). It does not:
+revoking the column from the `insert` grant makes Postgres reject the statement
+with `42501` **before** the trigger runs, so the original `expect(error).not
+.toBeNull()` still holds and was kept. The intended assertion is covered by two
+new tests instead — one proving the derived value is stored, one running as a
+role that *can* write the column and proving the trigger overwrites it.
+
+**Docs.** `README.md` now states that `0005` must be applied for the conformance
+suite to run (or its 13 tests ported onto the app's own table), documents why
+`select('*')` fails under column-level grants and shows the explicit-column
+call, and describes the server-derived snapshot. The adoption steps and the
+migration table agree.
