@@ -24,9 +24,11 @@ create table public.actors (
   )
 );
 
+-- The service role drives migrations, seeding, and tests, and needs explicit
+-- grants on newly created tables. Client roles get NOTHING here on purpose:
+-- 0003 is the single place where client exposure of `actors` is defined.
+-- Never grant to `anon` or `authenticated` in this migration.
 grant select, insert, update, delete on public.actors to service_role;
-grant select, insert, update, delete on public.actors to authenticated;
-grant select on public.actors to anon;
 
 create unique index actors_handle_lower_idx on public.actors (lower(handle));
 create index actors_owner_ref_idx on public.actors (owner_ref);
