@@ -29,3 +29,7 @@ Thumbs.db
 
 # Logto config exports may contain secrets — keep raw dumps out; commit sanitized only
 logto-export.raw.json
+
+# Local Supabase test bed
+supabase/.temp/
+supabase/.branches/
