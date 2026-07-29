@@ -2194,17 +2194,22 @@ Expected: exits 0 with no findings. The local Supabase JWT-secret fallback const
 An installed-but-inert linter is worse than none, because it reads as protection. Verify it catches something:
 
 ```bash
-printf -- '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAx7Vn9Q3mKpL2fTgW8sDcYb4NvRjHkEzQpXaBmCdFgHiJkLmNoP\n-----END RSA PRIVATE KEY-----\n' > .secretlint-probe.txt
+printf -- '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAx7Vn9Q3mKpL2fTgW8sDcYb4NvRjHkEzQpXaBmCdFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZ\n-----END RSA PRIVATE KEY-----\n' > .secretlint-probe.txt
 pnpm secretlint; echo "exit=$?"
 rm .secretlint-probe.txt
 ```
 
 Expected: a non-zero exit with a finding reported against `.secretlint-probe.txt`. Then confirm `pnpm secretlint` exits 0 again after the probe file is deleted. Record both outputs in your report.
 
-> **Do not probe with `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`.** That is AWS's own
-> canonical documentation example, and secretlint's AWS rule hard-codes it into an
-> allowlist — so it passes, making a perfectly working guard look inert. A private-key
-> block is not allowlisted and is the reliable probe.
+> **Two traps here, both of which make a working guard look inert.**
+>
+> 1. Do not probe with `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`. That is AWS's own
+>    canonical documentation example, and secretlint's AWS rule hard-codes it into an
+>    allowlist — so it passes.
+> 2. The private-key body must be **at least 100 base64 characters**. A short PEM does
+>    not trip the rule either. The command above is verified to exit 1.
+>
+> If your probe passes, suspect the probe before you suspect the guard.
 
 Ensure `.secretlint-probe.txt` is deleted and never committed.
 
