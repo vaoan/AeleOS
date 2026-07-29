@@ -2193,11 +2193,23 @@ Expected: exits 0 with no findings. The local Supabase JWT-secret fallback const
 
 An installed-but-inert linter is worse than none, because it reads as protection. Verify it catches something:
 
+The probe body is generated at runtime rather than written literally here, because
+`docs/**` is itself scanned — a literal credential-shaped blob in this file would
+make `pnpm secretlint` fail on the repository's own plan document.
+
 ```bash
-printf -- '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAx7Vn9Q3mKpL2fTgW8sDcYb4NvRjHkEzQpXaBmCdFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRsTuVwXyZ\n-----END RSA PRIVATE KEY-----\n' > .secretlint-probe.txt
+CHUNK='MIIEowIBAAKCAQEAx7Vn9Q3mKpL2fTgW8sDcYb4NvRjHkEzQpXaBmCdFgHiJkLmNoP'
+printf -- '-----BEGIN RSA PRIVATE KEY-----\n%s%s%s\n-----END RSA PRIVATE KEY-----\n' "$CHUNK" "$CHUNK" "$CHUNK" > .secretlint-probe.txt
 pnpm secretlint; echo "exit=$?"
 rm .secretlint-probe.txt
 ```
+
+The chunk is repeated at runtime rather than pasted whole because it is 66
+characters — below the rule's threshold on its own, and therefore safe to have
+sitting in this file. Random base64 does **not** work as a probe: the rule wants
+a realistic DER prefix, which is why the chunk begins `MIIEow`. Verified: exit 1
+with the probe present, exit 0 after removal, and `pnpm secretlint` clean on the
+repository including this document.
 
 Expected: a non-zero exit with a finding reported against `.secretlint-probe.txt`. Then confirm `pnpm secretlint` exits 0 again after the probe file is deleted. Record both outputs in your report.
 
