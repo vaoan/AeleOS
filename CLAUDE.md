@@ -47,7 +47,10 @@ single app:
 | A small shared integration helper package    | _only if/when 2+ apps need it — YAGNI until then_ |
 
 **Per-app integration code** (the OIDC client + Supabase third-party-auth wiring)
-lives in **each app's own repo** (`puck`, `candystore`, …) — **not** here.
+lives in **each app's own repo** (`puck`, `candystore`, …) — **not** here. The
+**AeleOS hub app** (`aeleos-hub`) — the fursona/profile registry, ownership ledger,
+and actor picker — is likewise its own deployable repo; this repo stays
+non-deployable.
 
 ## Architecture & the decisions behind it
 
