@@ -541,6 +541,15 @@ describe("actors shape", () => {
     expect(error?.message).toContain("actors_person_shape");
   });
 
+  it("rejects a person without an identity_sub", async () => {
+    const { error } = await admin().from("actors").insert({
+      actor_ref: randomUUID(),
+      kind: "person",
+      handle: `nosub-${randomUUID().slice(0, 8)}`,
+    });
+    expect(error?.message).toContain("actors_person_shape");
+  });
+
   it("rejects a fursona without an owner_ref", async () => {
     const { error } = await admin().from("actors").insert({
       actor_ref: randomUUID(),
@@ -620,7 +629,7 @@ Expected: FAIL with `relation "public.actors" does not exist` if the migration h
 - [ ] **Step 4: Apply the migration and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (16 tests).
+Expected: PASS (17 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -826,7 +835,7 @@ Expected: FAIL with `function public.current_person_ref() does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (23 tests).
+Expected: PASS (24 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -998,7 +1007,7 @@ Expected: FAIL — before the migration the base table is readable and `actors_p
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (30 tests).
+Expected: PASS (31 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1156,7 +1165,7 @@ Expected: FAIL with `relation "public.platform_roles" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (35 tests).
+Expected: PASS (36 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1421,7 +1430,7 @@ Expected: FAIL with `relation "public.comments" does not exist`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (43 tests).
+Expected: PASS (44 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1609,7 +1618,7 @@ Expected: FAIL with `Could not find the function public.ensure_person_actor`.
 - [ ] **Step 4: Apply and re-run**
 
 Run: `pnpm test:db`
-Expected: PASS (49 tests).
+Expected: PASS (50 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -1921,7 +1930,7 @@ jobs:
 - [ ] **Step 5: Run the full suite one final time**
 
 Run: `pnpm test:db`
-Expected: PASS (54 tests across 9 files).
+Expected: PASS (55 tests across 9 files).
 
 - [ ] **Step 6: Commit**
 
@@ -2028,7 +2037,7 @@ In `.github/workflows/db-tests.yml`, add this step immediately after the `pnpm i
 - [ ] **Step 7: Confirm the suite still passes**
 
 Run: `pnpm test:db`
-Expected: PASS (54 tests across 9 files) — unchanged by this task.
+Expected: PASS (55 tests across 9 files) — unchanged by this task.
 
 - [ ] **Step 8: Commit**
 
