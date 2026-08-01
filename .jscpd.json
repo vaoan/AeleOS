@@ -1,0 +1,26 @@
+{
+  "threshold": 5,
+  "reporters": ["console"],
+  "ignore": [
+    "**/scripts/**",
+    "**/node_modules/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/*.min.js",
+    "**/generated/**",
+    "**/.claude/**",
+    "**/specs/**",
+    "**/pnpm-lock.yaml",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/mocks/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/docs/**",
+    "**/.superpowers/**"
+  ],
+  "format": ["typescript", "tsx", "javascript", "jsx"],
+  "absolute": true,
+  "gitignore": true
+}

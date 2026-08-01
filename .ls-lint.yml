@@ -1,0 +1,26 @@
+# ls-lint configuration
+# Enforces file naming conventions. AeleOS is a single package, not a monorepo,
+# so the globs point at tests/ and scripts/ rather than apps/*/src.
+
+ls:
+  tests:
+    .ts: kebab-case
+
+  scripts:
+    .mjs: kebab-case
+    .html: kebab-case
+
+ignore:
+  - node_modules
+  - .git
+  - dist
+  - build
+  - coverage
+  - .pnpm-store
+  - .claude
+  - .github
+  - .husky
+  - .vscode
+  - .superpowers
+  - docs
+  - supabase
