@@ -24,6 +24,7 @@
 ### Task 1: Repo scaffolding and local Supabase test bed
 
 **Files:**
+
 - Create: `package.json`
 - Create: `tsconfig.json`
 - Create: `vitest.config.integration.ts`
@@ -33,6 +34,7 @@
 - Test: `tests/db/global-setup.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `pnpm test:db` runs the conformance suite. `tests/db/global-setup.ts` exports a default setup function populating `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `SUPABASE_JWT_SECRET` on `process.env`.
 
@@ -174,7 +176,9 @@ describe("local test bed", () => {
   });
 
   it("accepts a direct postgres connection", async () => {
-    const client = new Client({ connectionString: process.env.SUPABASE_DB_URL });
+    const client = new Client({
+      connectionString: process.env.SUPABASE_DB_URL,
+    });
     await client.connect();
     const res = await client.query<{ one: number }>("select 1 as one");
     await client.end();
@@ -201,10 +205,12 @@ git commit -m "chore: scaffold local supabase test bed and db test harness"
 ### Task 2: Test harness — JWT minting, HTTP clients, SQL claim context
 
 **Files:**
+
 - Create: `tests/db/helpers.ts`
 - Test: `tests/db/helpers-fn.test.ts`
 
 **Interfaces:**
+
 - Consumes: env vars from `tests/db/global-setup.ts` (Task 1).
 - Produces:
   - `admin(): SupabaseClient` — service-role client, bypasses RLS.
@@ -422,10 +428,12 @@ git commit -m "test: add jwt minting and sql claim-context harness"
 Implements spec §4.1 / §4.2.
 
 **Files:**
+
 - Create: `supabase/migrations/0001_actors.sql`
 - Test: `tests/db/actors-shape.test.ts`
 
 **Interfaces:**
+
 - Consumes: `admin`, `newSub`, `closePool` (Task 2).
 - Produces: table `public.actors` with columns `id, actor_ref, kind, owner_ref, identity_sub, handle, display_name, avatar_url, visibility, status, created_at, updated_at`. Constraints named `actors_person_shape`, `actors_fursona_shape`. Trigger `actors_immutable_identity`.
 
@@ -531,43 +539,51 @@ describe("actors shape", () => {
 
   it("rejects a person carrying an owner_ref", async () => {
     const owner = await makePerson();
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "person",
-      identity_sub: newSub(),
-      owner_ref: owner.actorRef,
-      handle: `bad-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "person",
+        identity_sub: newSub(),
+        owner_ref: owner.actorRef,
+        handle: `bad-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_person_shape");
   });
 
   it("rejects a person without an identity_sub", async () => {
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "person",
-      handle: `nosub-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "person",
+        handle: `nosub-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_person_shape");
   });
 
   it("rejects a fursona without an owner_ref", async () => {
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "fursona",
-      handle: `orphan-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        handle: `orphan-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_fursona_shape");
   });
 
   it("rejects a fursona carrying an identity_sub", async () => {
     const owner = await makePerson();
-    const { error } = await admin().from("actors").insert({
-      actor_ref: randomUUID(),
-      kind: "fursona",
-      owner_ref: owner.actorRef,
-      identity_sub: newSub(),
-      handle: `bad2-${randomUUID().slice(0, 8)}`,
-    });
+    const { error } = await admin()
+      .from("actors")
+      .insert({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        owner_ref: owner.actorRef,
+        identity_sub: newSub(),
+        handle: `bad2-${randomUUID().slice(0, 8)}`,
+      });
     expect(error?.message).toContain("actors_fursona_shape");
   });
 
@@ -645,10 +661,12 @@ git commit -m "feat(db): add actors table with shape and immutability constraint
 Implements spec §4.4.
 
 **Files:**
+
 - Create: `supabase/migrations/0002_actor_helpers.sql`
 - Test: `tests/db/actor-helpers.test.ts`
 
 **Interfaces:**
+
 - Consumes: `public.actors` (Task 3); `withClaims`, `admin`, `newSub` (Task 2).
 - Produces: `public.current_person_ref() returns uuid`, `public.can_act_as(target uuid) returns boolean`. Both `stable security definer` with `search_path = public`.
 
@@ -882,10 +900,12 @@ git commit -m "feat(db): add current_person_ref and can_act_as rls helpers"
 Implements spec §4.2 and §8. This is the linkability security boundary.
 
 **Files:**
+
 - Create: `supabase/migrations/0003_actors_exposure.sql`
 - Test: `tests/db/actors-exposure.test.ts`
 
 **Interfaces:**
+
 - Consumes: `public.actors` (Task 3), `public.current_person_ref` (Task 4), `clientAs` (Task 2).
 - Produces: RLS enabled on `public.actors` with all client grants revoked. View `public.actors_public` exposing `id, actor_ref, kind, handle, display_name, avatar_url, visibility, status` — and **no ownership columns**.
 
@@ -1108,10 +1128,12 @@ git commit -m "feat(db): lock down actors table and add safe actors_public view"
 Implements spec §7.2.
 
 **Files:**
+
 - Create: `supabase/migrations/0004_platform_roles.sql`
 - Test: `tests/db/platform-roles.test.ts`
 
 **Interfaces:**
+
 - Consumes: `public.actors` (Task 3), `withClaims`/`clientAs` (Task 2).
 - Produces: table `public.platform_roles (identity_sub text, role text, synced_at timestamptz)`; function `public.has_platform_role(role_key text) returns boolean`.
 
@@ -1272,10 +1294,12 @@ git commit -m "feat(db): add person-keyed platform_roles mirror"
 Implements spec §4.3, §4.4 (write policy), and §8. `comments` is a **reference** table demonstrating the pattern apps copy; it is not itself a product feature.
 
 **Files:**
+
 - Create: `supabase/migrations/0005_reference_domain.sql`
 - Test: `tests/db/authoring.test.ts`
 
 **Interfaces:**
+
 - Consumes: `can_act_as`, `current_person_ref` (Task 4); `clientAs`, `admin` (Task 2).
 - Produces: table `public.comments (id, body, author_actor_id, author_person_ref, created_at)` with column-level grants that exclude `author_person_ref` from client reads, and trigger `comments_author_snapshot_immutable`.
 
@@ -1542,10 +1566,12 @@ Implements spec §12 ("first-login provisioning provisions a person actor") and 
 **The cross-app problem this solves:** in Phase 1a the hub does not exist yet, so each app must create person actors itself. If two apps independently minted random `actor_ref` values for the same human, the platform-wide sacred ID would diverge immediately. Instead every app **derives** the person's `actor_ref` deterministically from `identity_sub` via UUIDv5, so all apps compute the same value without coordination. When the hub arrives in Phase 1b it adopts the identical derivation, so nothing is re-keyed.
 
 **Files:**
+
 - Create: `supabase/migrations/0006_provisioning.sql`
 - Test: `tests/db/provisioning.test.ts`
 
 **Interfaces:**
+
 - Consumes: `public.actors` (Task 3); `clientAs`, `withClaims`, `newSub` (Task 2).
 - Produces: `public.person_actor_ref(p_identity_sub text) returns uuid` (immutable) and `public.ensure_person_actor() returns uuid` (security definer, idempotent).
 
@@ -1704,7 +1730,9 @@ describe("first-login provisioning", () => {
     // Privileged call: execute is granted only to `authenticated`, so an anon
     // caller would fail on permissions before reaching the guard we're testing.
     await expect(
-      withSuperuser(async (c) => c.query("select public.ensure_person_actor()")),
+      withSuperuser(async (c) =>
+        c.query("select public.ensure_person_actor()"),
+      ),
     ).rejects.toThrow(/no authenticated subject/);
   });
 
@@ -1752,14 +1780,16 @@ git commit -m "feat(db): add idempotent person-actor provisioning with derived a
 
 ### Task 9: Transfer accountability, conformance docs, and CI
 
-Implements spec §3.2 and §9.4 at the seam level. Transfer *flow* is Phase 2; this task proves the seam survives a transfer performed directly.
+Implements spec §3.2 and §9.4 at the seam level. Transfer _flow_ is Phase 2; this task proves the seam survives a transfer performed directly.
 
 **Files:**
+
 - Create: `tests/db/transfer-accountability.test.ts`
 - Modify: `README.md` — **append only**. A project README already exists (branding, naming rationale, architecture summary). Keep every line of it and add the new sections at the end. Do not overwrite it.
 - Create: `.github/workflows/db-tests.yml`
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 3–8.
 - Produces: no new SQL. Documentation of how apps adopt the seam.
 
@@ -1777,12 +1807,14 @@ type Person = { sub: string; personRef: string };
 async function seedPerson(): Promise<Person> {
   const sub = newSub();
   const personRef = randomUUID();
-  const { error } = await admin().from("actors").insert({
-    actor_ref: personRef,
-    kind: "person",
-    identity_sub: sub,
-    handle: `p-${personRef.slice(0, 8)}`,
-  });
+  const { error } = await admin()
+    .from("actors")
+    .insert({
+      actor_ref: personRef,
+      kind: "person",
+      identity_sub: sub,
+      handle: `p-${personRef.slice(0, 8)}`,
+    });
   if (error) throw error;
   return { sub, personRef };
 }
@@ -1960,7 +1992,6 @@ Open the file, go to the end, and append everything below. Do not overwrite, do
 not reorder, do not "tidy" the existing content.
 
 ````markdown
-
 ---
 
 ## The actor-model seam
@@ -1971,16 +2002,16 @@ actor-model schema. It is never deployed and holds no app data.
 `supabase/migrations/` is the canonical SQL every consuming app copies into its
 own migration set:
 
-| Migration | Provides |
-| --- | --- |
-| `0001_actors.sql` | `actors` table, shape constraints, immutability trigger |
-| `0002_actor_helpers.sql` | `current_person_ref()`, `can_act_as()` |
-| `0003_actors_exposure.sql` | RLS lockdown + `actors_public` view |
-| `0004_platform_roles.sql` | person-keyed roles mirror, `has_platform_role()` |
-| `0005_reference_domain.sql` | reference authored-row pattern (`comments`) |
-| `0006_provisioning.sql` | derived `person_actor_ref()`, idempotent `ensure_person_actor()` |
+| Migration                   | Provides                                                         |
+| --------------------------- | ---------------------------------------------------------------- |
+| `0001_actors.sql`           | `actors` table, shape constraints, immutability trigger          |
+| `0002_actor_helpers.sql`    | `current_person_ref()`, `can_act_as()`                           |
+| `0003_actors_exposure.sql`  | RLS lockdown + `actors_public` view                              |
+| `0004_platform_roles.sql`   | person-keyed roles mirror, `has_platform_role()`                 |
+| `0005_reference_domain.sql` | reference authored-row pattern (`comments`)                      |
+| `0006_provisioning.sql`     | derived `person_actor_ref()`, idempotent `ensure_person_actor()` |
 
-`0005` is a **reference**, not a feature. Apps copy the *pattern* — the
+`0005` is a **reference**, not a feature. Apps copy the _pattern_ — the
 `author_actor_id` / `author_person_ref` column pair, the column-level grants,
 the insert policy, and the immutability trigger — onto their own tables.
 
@@ -2074,6 +2105,7 @@ git commit -m "test: prove accountability survives fursona transfer; document ad
 `CLAUDE.md` mandates "secrets never in git" and says to mirror the sister repos' toolchain, but nothing in this repo enforces it. Both `puck` and `candystore` run secretlint and ship a secrets syncer; AeleOS has neither. This closes that gap before real Logto configuration lands.
 
 **Files:**
+
 - Modify: `package.json` (devDependencies + scripts)
 - Create: `.secretlintrc.json`
 - Create: `.secretlintignore`
@@ -2137,6 +2169,7 @@ commit the result. If `lint` reports errors in `tests/db/**`, fix the code —
 do not add blanket disables.
 
 **Interfaces:**
+
 - Consumes: `package.json` and `.github/workflows/db-tests.yml` from Tasks 1 and 9.
 - Produces: `pnpm secretlint` (fails the build on a detected secret) and `pnpm sync-secrets`.
 
@@ -2238,10 +2271,10 @@ This syncer pulls from GitHub repository secrets, which do not exist for this re
 In `.github/workflows/db-tests.yml`, add these steps immediately after the `pnpm install --frozen-lockfile` step and before the Supabase steps:
 
 ```yaml
-      - run: pnpm secretlint
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm format:check
+- run: pnpm secretlint
+- run: pnpm typecheck
+- run: pnpm lint
+- run: pnpm format:check
 ```
 
 - [ ] **Step 7: Confirm the suite still passes**
@@ -2288,14 +2321,14 @@ embedded above are left as originally written — this section records the delta
 **Schema (`0007`)**
 
 1. **Suspension closure (critical).** `current_person_ref()` gained
-   `and status = 'active'`. Without it a *suspended* person still resolved a
+   `and status = 'active'`. Without it a _suspended_ person still resolved a
    person ref, so `can_act_as()`'s owner branch let them act as their own
-   *active* fursona — a sanction evaded by switching persona, which is the one
+   _active_ fursona — a sanction evaded by switching persona, which is the one
    thing the actor model exists to prevent. Fixing the helper fixes every
    caller (policies and the `actors_public` view all route through it).
 2. **`ensure_person_actor()` returns the stored `actor_ref`.** It now uses
    `returning actor_ref into v_ref` with a `select` fallback on the conflict
-   path. Previously it returned the *derived* value without reading back, so an
+   path. Previously it returned the _derived_ value without reading back, so an
    imported/backfilled person whose stored ref differs from the derivation got
    an `actor_ref` that disagreed with `current_person_ref()`.
 3. **`service_role` regained `actors_public`.** 0003's blanket
@@ -2306,7 +2339,7 @@ embedded above are left as originally written — this section records the delta
    `comments` sets it from `current_person_ref()`; the column is revoked from
    the client `insert` grant; the now-redundant
    `and author_person_ref = current_person_ref()` conjunct is dropped from the
-   insert policy (`can_act_as` stays). Rationale: as a *copied* pattern the old
+   insert policy (`can_act_as` stays). Rationale: as a _copied_ pattern the old
    design failed silently — an app dropping that conjunct still passed every
    test except the forged-snapshot one, the test most likely to be dropped in
    the same edit. `service_role` may still supply the column explicitly, which
@@ -2342,12 +2375,12 @@ embedded above are left as originally written — this section records the delta
   adopting apps add tables of their own.
 
 **Deviation from the review brief.** The brief predicted the forged-snapshot
-test's expectation would *flip* (forged value silently corrected). It does not:
+test's expectation would _flip_ (forged value silently corrected). It does not:
 revoking the column from the `insert` grant makes Postgres reject the statement
 with `42501` **before** the trigger runs, so the original `expect(error).not
 .toBeNull()` still holds and was kept. The intended assertion is covered by two
 new tests instead — one proving the derived value is stored, one running as a
-role that *can* write the column and proving the trigger overwrites it.
+role that _can_ write the column and proving the trigger overwrites it.
 
 **Docs.** `README.md` now states that `0005` must be applied for the conformance
 suite to run (or its 13 tests ported onto the app's own table), documents why

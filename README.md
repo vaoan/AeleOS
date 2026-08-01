@@ -70,17 +70,17 @@ actor-model schema. It is never deployed and holds no app data.
 `supabase/migrations/` is the canonical SQL every consuming app copies into its
 own migration set:
 
-| Migration | Provides |
-| --- | --- |
-| `0001_actors.sql` | `actors` table, shape constraints, immutability trigger |
-| `0002_actor_helpers.sql` | `current_person_ref()`, `can_act_as()` |
-| `0003_actors_exposure.sql` | RLS lockdown + `actors_public` view |
-| `0004_platform_roles.sql` | person-keyed roles mirror, `has_platform_role()` |
-| `0005_reference_domain.sql` | reference authored-row pattern (`comments`) — **test fixture, not a product table** |
-| `0006_provisioning.sql` | derived `person_actor_ref()`, idempotent `ensure_person_actor()` |
-| `0007_suspension_hardening.sql` | suspension closure, server-derived snapshot, grant fixes |
+| Migration                       | Provides                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| `0001_actors.sql`               | `actors` table, shape constraints, immutability trigger                             |
+| `0002_actor_helpers.sql`        | `current_person_ref()`, `can_act_as()`                                              |
+| `0003_actors_exposure.sql`      | RLS lockdown + `actors_public` view                                                 |
+| `0004_platform_roles.sql`       | person-keyed roles mirror, `has_platform_role()`                                    |
+| `0005_reference_domain.sql`     | reference authored-row pattern (`comments`) — **test fixture, not a product table** |
+| `0006_provisioning.sql`         | derived `person_actor_ref()`, idempotent `ensure_person_actor()`                    |
+| `0007_suspension_hardening.sql` | suspension closure, server-derived snapshot, grant fixes                            |
 
-`0005` is a **reference**, not a feature. Apps copy the *pattern* — the
+`0005` is a **reference**, not a feature. Apps copy the _pattern_ — the
 `author_actor_id` / `author_person_ref` column pair, the column-level grants,
 the insert policy, the derive trigger, and the immutability trigger — onto
 their own tables.
@@ -94,7 +94,7 @@ tests fail on the first run.** An app has two honest options:
   tables and the 13 tests keep proving the pattern is installed correctly.
 - **Port the 13 tests.** Drop `0005` and repoint `authoring.test.ts` and
   `transfer-accountability.test.ts` at the app's own authored table. This is
-  strictly better — it proves *the app's* table is correct — but it is work,
+  strictly better — it proves _the app's_ table is correct — but it is work,
   and skipping the port means shipping the pattern untested.
 
 > ⚠️ The UUIDv5 namespace in `0006` must be copied **byte-identically** into
@@ -110,7 +110,7 @@ the client's `insert` grant. The client sends only `author_actor_id`.
 
 This is deliberate ergonomics-for-safety. The earlier design let the client
 send the value and had the insert policy verify it — correct, but fragile as a
-*copied* pattern: an app that drops the `and author_person_ref = ...` conjunct
+_copied_ pattern: an app that drops the `and author_person_ref = ...` conjunct
 while adapting the policy to its own table still passes the "cannot post as
 another person's fursona" test, and fails only the forged-snapshot test — the
 one most likely to be dropped in the same edit. With the trigger, the safe
@@ -157,7 +157,7 @@ await supabase
    `0005` + `0007`.
 4. Copy `tests/db/` into the app and run it as a conformance suite.
    `tests/db/exposure-invariants.test.ts` is catalog-driven and will police
-   your *own* tables for leaked linkability columns — keep it.
+   your _own_ tables for leaked linkability columns — keep it.
 
 ## Running the tests
 

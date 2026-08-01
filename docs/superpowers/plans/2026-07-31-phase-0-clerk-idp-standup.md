@@ -25,10 +25,12 @@
 **This entire task is human-only.** An agent cannot create accounts or click dashboard buttons. Its deliverable is a populated `.secrets` file plus a committed example file.
 
 **Files:**
+
 - Create: `.secrets.example`
 - Create (untracked, human-populated): `.secrets`
 
 **Interfaces:**
+
 - Produces: `.secrets` containing `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_DOMAIN`. Later tasks read these.
 
 - [ ] **Step 1: Create the Clerk application** 🧑
@@ -86,10 +88,12 @@ git commit -m "chore: add clerk secrets example for phase 0"
 ### Task 2: Point the local Supabase stack at Clerk
 
 **Files:**
+
 - Modify: `supabase/config.toml` (the `[auth.third_party.clerk]` block, currently `enabled = false`)
 - Create: `docs/phase-0-clerk-setup.md`
 
 **Interfaces:**
+
 - Consumes: `CLERK_DOMAIN` from `.secrets` (Task 1).
 - Produces: a local Supabase stack that fetches and trusts Clerk's JWKS.
 
@@ -193,10 +197,12 @@ git commit -m "feat: point local supabase at clerk as third-party auth provider"
 A real token signed by Clerk's real keys is the only thing that proves the trust. This task builds a throwaway page to obtain one.
 
 **Files:**
+
 - Create: `scripts/capture-clerk-token.html`
 - Modify: `package.json` (add the `capture:token` script)
 
 **Interfaces:**
+
 - Consumes: `CLERK_PUBLISHABLE_KEY` from `.secrets`.
 - Produces: a real session JWT, pasted by the human into `.secrets` as `CLERK_SESSION_TOKEN`.
 
@@ -209,9 +215,23 @@ Create `scripts/capture-clerk-token.html`:
 <meta charset="utf-8" />
 <title>Clerk token capture (dev only)</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 44rem; margin: 3rem auto; padding: 0 1rem; }
-  textarea { width: 100%; height: 9rem; font-family: ui-monospace, monospace; font-size: 0.8rem; }
-  .warn { background: #fee; border-left: 4px solid #c00; padding: 0.75rem 1rem; }
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 44rem;
+    margin: 3rem auto;
+    padding: 0 1rem;
+  }
+  textarea {
+    width: 100%;
+    height: 9rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+  }
+  .warn {
+    background: #fee;
+    border-left: 4px solid #c00;
+    padding: 0.75rem 1rem;
+  }
 </style>
 <h1>Clerk token capture</h1>
 <p class="warn">
@@ -220,7 +240,11 @@ Create `scripts/capture-clerk-token.html`:
 </p>
 <div id="app"></div>
 <h2>Session token</h2>
-<textarea id="out" readonly placeholder="Sign in above; the token appears here."></textarea>
+<textarea
+  id="out"
+  readonly
+  placeholder="Sign in above; the token appears here."
+></textarea>
 
 <script type="module">
   const KEY = new URLSearchParams(location.search).get("pk");
@@ -284,12 +308,14 @@ git commit -m "feat: add throwaway clerk token capture page"
 This is the single most important task in the plan. Everything downstream assumes it passes.
 
 **Files:**
+
 - Create: `vitest.config.idp.ts`
 - Create: `tests/idp/global-setup.ts`
 - Create: `tests/idp/clerk-trust.test.ts`
 - Modify: `package.json` (add `test:idp`)
 
 **Interfaces:**
+
 - Consumes: `.secrets` values; the local stack from Task 2.
 - Produces: `pnpm test:idp`, and the helpers `clerkClient()` and `hasClerkCredentials()`.
 
@@ -402,7 +428,9 @@ describe.skipIf(!hasCreds())("supabase trusts clerk", () => {
     expect(error).toBeNull();
 
     const payload = JSON.parse(
-      Buffer.from(token().split(".")[1] as string, "base64url").toString("utf8"),
+      Buffer.from(token().split(".")[1] as string, "base64url").toString(
+        "utf8",
+      ),
     ) as { sub: string };
     expect(data).toBe(payload.sub);
   });
@@ -486,9 +514,11 @@ git commit -m "test: validate supabase trusts clerk-issued tokens"
 Task 4 proves the token is accepted. This proves Phase 1a's schema — written months before Clerk was chosen — needs no changes.
 
 **Files:**
+
 - Create: `tests/idp/clerk-actor-model.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ensure_person_actor()`, `current_person_ref()`, `can_act_as()`, `actors`, `comments` from migrations `0001`–`0007`.
 - Produces: nothing; this is a proof, not a component.
 
@@ -508,7 +538,9 @@ const hasCreds = (): boolean => token().length > 0;
 const clerkSub = (): string =>
   (
     JSON.parse(
-      Buffer.from(token().split(".")[1] as string, "base64url").toString("utf8"),
+      Buffer.from(token().split(".")[1] as string, "base64url").toString(
+        "utf8",
+      ),
     ) as { sub: string }
   ).sub;
 
@@ -539,83 +571,93 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe.skipIf(!hasCreds())("actor model against a real Clerk identity", () => {
-  it("provisions a person actor from the Clerk subject", async () => {
-    const c = clerkClient();
-    const { data, error } = await c.rpc("ensure_person_actor");
-    expect(error).toBeNull();
-    expect(data).toBeTruthy();
+describe.skipIf(!hasCreds())(
+  "actor model against a real Clerk identity",
+  () => {
+    it("provisions a person actor from the Clerk subject", async () => {
+      const c = clerkClient();
+      const { data, error } = await c.rpc("ensure_person_actor");
+      expect(error).toBeNull();
+      expect(data).toBeTruthy();
 
-    const { data: rows } = await admin()
-      .from("actors")
-      .select("actor_ref, kind")
-      .eq("identity_sub", clerkSub());
-    expect(rows).toHaveLength(1);
-    expect(rows?.[0]?.kind).toBe("person");
-    expect(rows?.[0]?.actor_ref).toBe(data);
-  });
+      const { data: rows } = await admin()
+        .from("actors")
+        .select("actor_ref, kind")
+        .eq("identity_sub", clerkSub());
+      expect(rows).toHaveLength(1);
+      expect(rows?.[0]?.kind).toBe("person");
+      expect(rows?.[0]?.actor_ref).toBe(data);
+    });
 
-  it("is idempotent for the same Clerk subject", async () => {
-    const c = clerkClient();
-    const first = await c.rpc("ensure_person_actor");
-    const second = await c.rpc("ensure_person_actor");
-    expect(second.data).toBe(first.data);
-  });
+    it("is idempotent for the same Clerk subject", async () => {
+      const c = clerkClient();
+      const first = await c.rpc("ensure_person_actor");
+      const second = await c.rpc("ensure_person_actor");
+      expect(second.data).toBe(first.data);
+    });
 
-  it("resolves current_person_ref from the Clerk token", async () => {
-    const c = clerkClient();
-    await c.rpc("ensure_person_actor");
-    const { data, error } = await c.rpc("current_person_ref");
-    expect(error).toBeNull();
+    it("resolves current_person_ref from the Clerk token", async () => {
+      const c = clerkClient();
+      await c.rpc("ensure_person_actor");
+      const { data, error } = await c.rpc("current_person_ref");
+      expect(error).toBeNull();
 
-    const { data: rows } = await admin()
-      .from("actors")
-      .select("actor_ref")
-      .eq("identity_sub", clerkSub())
-      .single();
-    expect(data).toBe(rows?.actor_ref);
-  });
+      const { data: rows } = await admin()
+        .from("actors")
+        .select("actor_ref")
+        .eq("identity_sub", clerkSub())
+        .single();
+      expect(data).toBe(rows?.actor_ref);
+    });
 
-  it("lets the Clerk user author as an owned fursona", async () => {
-    const c = clerkClient();
-    const personRef = (await c.rpc("ensure_person_actor")).data as string;
+    it("lets the Clerk user author as an owned fursona", async () => {
+      const c = clerkClient();
+      const personRef = (await c.rpc("ensure_person_actor")).data as string;
 
-    const { data: sona, error: sErr } = await admin()
-      .from("actors")
-      .insert({
-        actor_ref: randomUUID(),
-        kind: "fursona",
-        owner_ref: personRef,
-        handle: `clerk-sona-${randomUUID().slice(0, 8)}`,
-      })
-      .select("id")
-      .single();
-    if (sErr) throw sErr;
+      const { data: sona, error: sErr } = await admin()
+        .from("actors")
+        .insert({
+          actor_ref: randomUUID(),
+          kind: "fursona",
+          owner_ref: personRef,
+          handle: `clerk-sona-${randomUUID().slice(0, 8)}`,
+        })
+        .select("id")
+        .single();
+      if (sErr) throw sErr;
 
-    const { error } = await c
-      .from("comments")
-      .insert({ body: "authored via Clerk", author_actor_id: sona.id as string });
-    expect(error).toBeNull();
+      const { error } = await c.from("comments").insert({
+        body: "authored via Clerk",
+        author_actor_id: sona.id as string,
+      });
+      expect(error).toBeNull();
 
-    // The accountability snapshot must have been derived server-side.
-    const r = await pool.query<{ author_person_ref: string }>(
-      "select author_person_ref from public.comments where author_actor_id = $1",
-      [sona.id as string],
-    );
-    expect(r.rows[0]?.author_person_ref).toBe(personRef);
+      // The accountability snapshot must have been derived server-side.
+      const r = await pool.query<{ author_person_ref: string }>(
+        "select author_person_ref from public.comments where author_actor_id = $1",
+        [sona.id as string],
+      );
+      expect(r.rows[0]?.author_person_ref).toBe(personRef);
 
-    await admin().from("comments").delete().eq("author_actor_id", sona.id as string);
-    await admin().from("actors").delete().eq("id", sona.id as string);
-  });
+      await admin()
+        .from("comments")
+        .delete()
+        .eq("author_actor_id", sona.id as string);
+      await admin()
+        .from("actors")
+        .delete()
+        .eq("id", sona.id as string);
+    });
 
-  it("still hides the linkability columns from a Clerk-authenticated caller", async () => {
-    const c = clerkClient();
-    const viaActors = await c.from("actors_public").select("owner_ref");
-    expect(viaActors.error).not.toBeNull();
-    const viaComments = await c.from("comments").select("author_person_ref");
-    expect(viaComments.error).not.toBeNull();
-  });
-});
+    it("still hides the linkability columns from a Clerk-authenticated caller", async () => {
+      const c = clerkClient();
+      const viaActors = await c.from("actors_public").select("owner_ref");
+      expect(viaActors.error).not.toBeNull();
+      const viaComments = await c.from("comments").select("author_person_ref");
+      expect(viaComments.error).not.toBeNull();
+    });
+  },
+);
 ```
 
 - [ ] **Step 2: Run it**
@@ -643,12 +685,14 @@ git commit -m "test: prove the actor model works against a real clerk identity"
 Both specs currently name Logto throughout. Leaving them stale would mislead whoever builds Phase 1b.
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md`
 - Modify: `docs/superpowers/specs/2026-07-28-aeleos-actor-model-design.md`
 - Modify: `CLAUDE.md`
 - Create: `docs/superpowers/specs/2026-07-31-idp-decision-change.md`
 
 **Interfaces:**
+
 - Consumes: the results of Tasks 4 and 5.
 - Produces: an accurate decision record.
 
@@ -656,7 +700,7 @@ Both specs currently name Logto throughout. Leaving them stale would mislead who
 
 Create `docs/superpowers/specs/2026-07-31-idp-decision-change.md`:
 
-````markdown
+```markdown
 # IdP decision change — Logto → Clerk
 
 - **Date:** 2026-07-31
@@ -726,7 +770,7 @@ See the Phase 0 report. In summary: Supabase accepts Clerk-issued tokens,
 `auth.jwt()->>'sub'` resolves to the Clerk user id, the `authenticated` role is
 assigned, forged tokens are rejected, and **Phase 1a's migrations required no
 changes at all**.
-````
+```
 
 - [ ] **Step 2: Mark the superseded decision in the central-auth spec**
 
@@ -782,9 +826,11 @@ git commit -m "docs: record the Logto to Clerk decision change"
 ### Task 7: Write the Phase 0 report and confirm the free-tier facts
 
 **Files:**
+
 - Create: `docs/phase-0-report.md`
 
 **Interfaces:**
+
 - Consumes: results from Tasks 4 and 5.
 - Produces: the go/no-go record for Phase 1.
 
@@ -809,7 +855,7 @@ on the **free** plan, and that it reaches `auth.jwt()` in Postgres. A quick chec
 add a static test claim, capture a fresh token, and read it back with
 `select auth.jwt() -> 'your_claim'`.
 
-This does not need to be *built* now — Phase 1b owns the profile fields. It needs
+This does not need to be _built_ now — Phase 1b owns the profile fields. It needs
 to be **known**, because if custom claims are gated behind a paid plan, the
 profile design changes and it is far cheaper to learn that now.
 
@@ -864,7 +910,7 @@ Each is a considered choice, not an oversight:
 
 1. **"Point `id.furrycolombia.com` at it" and "theme the hosted login" — deferred
    to Phase 1.** Neither is needed to answer the question Phase 0 exists to
-   answer, and a Clerk *development* instance does not use a custom domain
+   answer, and a Clerk _development_ instance does not use a custom domain
    anyway. Doing DNS before the trust is proven would be spending effort on an
    architecture that might not survive validation. Confirm during Phase 1 whether
    a custom domain is available on the free plan — satellite domains are a paid
@@ -881,7 +927,7 @@ Each is a considered choice, not an oversight:
    The spec assumed a spare Cloud project was free to create. It is not: the free
    plan allows two and both are in use. The local stack fetches Clerk's real JWKS
    over the network, so the asymmetric trust being tested is genuine. What is
-   *not* exercised is Cloud dashboard configuration — recorded as an explicit
+   _not_ exercised is Cloud dashboard configuration — recorded as an explicit
    limitation in the Phase 0 report.
 
 ## Follow-on work

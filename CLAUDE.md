@@ -39,12 +39,12 @@ open-source IdP running in Logto Cloud, reachable at `id.furrycolombia.com`. We
 This repo is the **home for the cross-app identity concern** that belongs to no
 single app:
 
-| Lives here                                   | Path / status                                     |
-| -------------------------------------------- | ------------------------------------------------- |
-| Design & specs (architecture, decisions)     | `docs/superpowers/specs/`                         |
-| Implementation plans (phased rollout)        | `docs/superpowers/plans/`                         |
-| Logto configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_ |
-| A small shared integration helper package    | _only if/when 2+ apps need it — YAGNI until then_ |
+| Lives here                                                                                                 | Path / status                                     |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Design & specs (architecture, decisions)                                                                   | `docs/superpowers/specs/`                         |
+| Implementation plans (phased rollout)                                                                      | `docs/superpowers/plans/`                         |
+| Logto configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_                     |
+| A small shared integration helper package                                                                  | _only if/when 2+ apps need it — YAGNI until then_ |
 
 **Per-app integration code** (the OIDC client + Supabase third-party-auth wiring)
 lives in **each app's own repo** (`puck`, `candystore`, …) — **not** here. The

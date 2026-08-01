@@ -22,7 +22,7 @@ appropriate is **context-dependent**:
 - CandyStore: a fursona does not sell — a **person** sells (legal accountability,
   payment, shipping).
 - CandyStore: a review or comment may come from a **fursona** (the public-facing
-  self) *or* from the **person** (when someone wants to give a real-person
+  self) _or_ from the **person** (when someone wants to give a real-person
   review).
 - Future fursona-scoped apps may only make sense for fursonas.
 
@@ -42,18 +42,18 @@ release rather than a data migration.
 **There is one namespace of actors.** A person is an actor. A fursona is an actor.
 "Person-ness" is an attribute (`kind`), not a separate type or table.
 
-Every domain row that records *who did this* points at an actor. The differences
+Every domain row that records _who did this_ points at an actor. The differences
 between persons and fursonas are enforced in **capability checks**, not in the
 schema shape.
 
 Consequences, each expanded below:
 
-| Requirement | Where it lands |
-| --- | --- |
-| Permissions attach to the **person**, never a fursona | §7 |
-| Fursonas are **transferable** (gift, trade, sale) | §9 |
-| Acting identity is chosen **per app**, per context | §6 |
-| Transfers are **auditable** and disputes resolvable | §9 |
+| Requirement                                           | Where it lands |
+| ----------------------------------------------------- | -------------- |
+| Permissions attach to the **person**, never a fursona | §7             |
+| Fursonas are **transferable** (gift, trade, sale)     | §9             |
+| Acting identity is chosen **per app**, per context    | §6             |
+| Transfers are **auditable** and disputes resolvable   | §9             |
 
 ## 3. Core principles
 
@@ -75,7 +75,7 @@ to avoid, one level down.
 Because fursonas can change hands, resolving "who is responsible for this row" by
 following `owner_ref` at read time **silently reassigns blame after a transfer**.
 
-> Every authored row stores **both** the actor it displays as *and* an immutable
+> Every authored row stores **both** the actor it displays as _and_ an immutable
 > snapshot of the person who performed the action.
 
 Attribution follows the character; responsibility stays with the human who acted.
@@ -205,11 +205,11 @@ trigger rejects changes).
 
 ## 5. Layer ownership
 
-| Layer | Owns | Must never hold |
-| --- | --- | --- |
-| **Logto** | persons, standard OIDC claims, social connectors, platform roles | any knowledge of fursonas |
-| **Hub** (AeleOS app) | actor registry, mints `actor_ref` + `handle`, ownership ledger, profile editing; writes person `name`/`picture` through to Logto's Management API | app domain data |
-| **Each app** | own Supabase project, local actor mirror, domain data, domain permissions | authoritative actor state |
+| Layer                | Owns                                                                                                                                              | Must never hold           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| **Logto**            | persons, standard OIDC claims, social connectors, platform roles                                                                                  | any knowledge of fursonas |
+| **Hub** (AeleOS app) | actor registry, mints `actor_ref` + `handle`, ownership ledger, profile editing; writes person `name`/`picture` through to Logto's Management API | app domain data           |
+| **Each app**         | own Supabase project, local actor mirror, domain data, domain permissions                                                                         | authoritative actor state |
 
 The hub is the **designated profile editor**: one write-path implementation, one
 set of M2M credentials, no split-brain.
@@ -245,11 +245,11 @@ confidently wrong.
 
 ### 7.1 Three tiers
 
-| Tier | Lives in | Examples | Rationale |
-| --- | --- | --- | --- |
-| Platform roles | **Logto** (native RBAC) | `admin`, `moderator`, `puck:access` | Person-level, cross-app, small, rarely changes |
-| Actor attributes | **Hub** | `visibility`, `status`, verified, handle | Not permissions; Logto must not know fursonas |
-| Domain permissions | **Each app** | Puck's 28-key RBAC, seller permissions | Coupled to objects the IdP cannot see |
+| Tier               | Lives in                | Examples                                 | Rationale                                      |
+| ------------------ | ----------------------- | ---------------------------------------- | ---------------------------------------------- |
+| Platform roles     | **Logto** (native RBAC) | `admin`, `moderator`, `puck:access`      | Person-level, cross-app, small, rarely changes |
+| Actor attributes   | **Hub**                 | `visibility`, `status`, verified, handle | Not permissions; Logto must not know fursonas  |
+| Domain permissions | **Each app**            | Puck's 28-key RBAC, seller permissions   | Coupled to objects the IdP cannot see          |
 
 Because every permission is person-keyed, Logto's native RBAC fits with no
 impedance mismatch, and no second roles system is built.
@@ -285,7 +285,7 @@ fursona, so a per-fursona permission cannot be expressed even by accident.
   fursonas and continues. Fursona suspension is public hygiene, not a control.
 - **Verified / featured / visible** — attributes.
 
-### 7.4 The genuine case: permissions *over* an actor
+### 7.4 The genuine case: permissions _over_ an actor
 
 Co-owned characters, group mascots, an artist managing a character on someone's
 behalf, and transfer itself. The subject remains a **person**; the fursona is the
@@ -384,12 +384,12 @@ create table actor_ownership_events (
 **Append-only.** No UPDATE or DELETE policy is granted, to any role, including
 admins. Corrections are new compensating events. Provenance is unreconstructable
 if not captured at the time — and in a community where character ownership gets
-disputed, this ledger *is* the record of truth.
+disputed, this ledger _is_ the record of truth.
 
 Every actor's history begins with a `created` event, so the chain is complete from
 origin.
 
-`admin_transfer` and `reclaim` exist so staff intervention is *recorded* rather
+`admin_transfer` and `reclaim` exist so staff intervention is _recorded_ rather
 than performed as an untracked direct write.
 
 ### 9.3 Money is out of scope
@@ -427,14 +427,14 @@ Turning the directory on later becomes a UI project rather than a migration.
 
 ## 12. Deltas to the approved central-auth spec
 
-| Central-auth spec | Change |
-| --- | --- |
-| §5 `user_profiles` with unique `identity_sub` | Replaced by the `actors` mirror (§4.2). `identity_sub` unique only on person rows. |
-| §5 `app.current_user_id()` | Replaced by `app.current_person_ref()` + `app.can_act_as()` (§4.4). |
-| §5 first-login provisioning | Provisions a **person actor** and its `created` ledger event. |
+| Central-auth spec                                       | Change                                                                             |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| §5 `user_profiles` with unique `identity_sub`           | Replaced by the `actors` mirror (§4.2). `identity_sub` unique only on person rows. |
+| §5 `app.current_user_id()`                              | Replaced by `app.current_person_ref()` + `app.can_act_as()` (§4.4).                |
+| §5 first-login provisioning                             | Provisions a **person actor** and its `created` ledger event.                      |
 | §10 "per-app roles/permissions stay each app's concern" | Refined: domain permissions stay per app; platform roles centralize in Logto (§7). |
-| §7 Phase 1 "new apps (greenfield)" | Named: the hub is the Phase 1 greenfield app. |
-| §3 sacred ID | Joined by `actor_ref` as a second sacred ID (§3.1). |
+| §7 Phase 1 "new apps (greenfield)"                      | Named: the hub is the Phase 1 greenfield app.                                      |
+| §3 sacred ID                                            | Joined by `actor_ref` as a second sacred ID (§3.1).                                |
 
 Phase 0 of the central-auth spec is **unchanged**. Standing up Logto and proving
 the Supabase⇄Logto trust does not touch any of this.
@@ -508,17 +508,17 @@ that must not be deferred.
 cross-app identity concern and **not** a deployable application — the statement in
 `CLAUDE.md` holds unchanged.
 
-| Repo | Contains | Deployable |
-| --- | --- | --- |
-| `aeleos` (this repo) | specs, plans, Logto configuration-as-code | no |
-| `aeleos-hub` | the hub application + its own Supabase project | yes |
+| Repo                 | Contains                                       | Deployable |
+| -------------------- | ---------------------------------------------- | ---------- |
+| `aeleos` (this repo) | specs, plans, Logto configuration-as-code      | no         |
+| `aeleos-hub`         | the hub application + its own Supabase project | yes        |
 
 This mirrors the existing one-repo-per-app convention (`puck`, `candystore`) and
 structurally enforces the separation in §12: Phase 0 cannot block on hub work,
 because they are different codebases with different release cadences.
 
 **The hub is both a consumer and the registry.** It authenticates against Logto
-like any other app, but its Supabase project holds the *authoritative* `actors`
+like any other app, but its Supabase project holds the _authoritative_ `actors`
 table (§4.1) and the ownership ledger (§9.2) — not a mirror. It is the only app
 for which §4.2 does not apply.
 
@@ -566,7 +566,7 @@ computes the same value with zero coordination. A golden-vector test pins it
 is now inverted: the column is revoked from every client insert grant and set by a
 `before insert` trigger from `current_person_ref()`.
 
-Rationale: as a pattern other apps copy, the original shape failed *silently*. An app
+Rationale: as a pattern other apps copy, the original shape failed _silently_. An app
 that dropped the `and author_person_ref = ...` conjunct still passed the
 "can't post as another's fursona" test — that clause is `can_act_as` — and failed only
 the forged-snapshot test, the one most likely to be dropped when adapting the suite.
@@ -575,20 +575,20 @@ The trigger version fails closed regardless of what a copier deletes.
 ### 19.3 A suspended person can act as nothing — **product decision, needs confirming**
 
 §7.3 says negative permissions must be person-level or they are trivially evaded.
-The first implementation checked `status` on the *target* actor only, so suspending a
+The first implementation checked `status` on the _target_ actor only, so suspending a
 person left every fursona they owned fully usable — the exact evasion §7.3 warns of.
 Found in final review, reproduced live, fixed in `0007`: `current_person_ref()` now
 returns null for a suspended person, so they can act as nothing at all.
 
 **Consequence to confirm:** this also hides a suspended person's own private fursonas
 from `actors_public` and blocks them editing or deleting their own past content. That
-follows logically from "act as nothing", but what suspension *should* mean for a
+follows logically from "act as nothing", but what suspension _should_ mean for a
 person's access to their own data is a product decision, not a technical one.
 
 ### 19.4 Linkability is enforced by a catalog invariant, not only per-object tests
 
 §8 requires explicit tests for the linkability boundary. Per-object tests only prove
-it for objects *this* repo defines; copying apps add their own tables, which is where
+it for objects _this_ repo defines; copying apps add their own tables, which is where
 the next leak comes from. `tests/db/exposure-invariants.test.ts` therefore asserts at
 the catalog level that no client role holds SELECT on any column named `owner_ref`,
 `identity_sub`, or `author_person_ref` on any relation in `public`. It was verified to

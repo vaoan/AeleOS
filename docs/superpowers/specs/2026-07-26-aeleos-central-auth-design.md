@@ -45,13 +45,13 @@ keeps working unchanged in principle, keyed to the Logto identity.
 
 Why Logto specifically (vs. the alternatives weighed in brainstorming):
 
-| Requirement | Logto (chosen) | WorkOS AuthKit | Shared Supabase project | Shared-JWT-secret hack |
-| --- | --- | --- | --- | --- |
-| $0 at our scale | ✅ free tier (tens of thousands of users) | ✅ very large free tier | ✅ (included) | ✅ |
-| Near-zero ops | ✅ managed cloud | ✅ managed | ⚠️ but forces DB merge | ❌ fragile |
-| Real cross-app SSO | ✅ purpose-built, multi-app native | ✅ | ❌ not a true multi-app SSO provider | ⚠️ partial |
-| Keeps apps' **separate** DBs | ✅ | ✅ | ❌ couples all data into one project | ✅ |
-| **Escape hatch** if we grow | ✅ **open source → self-host the same product**, same IDs | ❌ closed source, no self-host | — | — |
+| Requirement                  | Logto (chosen)                                            | WorkOS AuthKit                 | Shared Supabase project              | Shared-JWT-secret hack |
+| ---------------------------- | --------------------------------------------------------- | ------------------------------ | ------------------------------------ | ---------------------- |
+| $0 at our scale              | ✅ free tier (tens of thousands of users)                 | ✅ very large free tier        | ✅ (included)                        | ✅                     |
+| Near-zero ops                | ✅ managed cloud                                          | ✅ managed                     | ⚠️ but forces DB merge               | ❌ fragile             |
+| Real cross-app SSO           | ✅ purpose-built, multi-app native                        | ✅                             | ❌ not a true multi-app SSO provider | ⚠️ partial             |
+| Keeps apps' **separate** DBs | ✅                                                        | ✅                             | ❌ couples all data into one project | ✅                     |
+| **Escape hatch** if we grow  | ✅ **open source → self-host the same product**, same IDs | ❌ closed source, no self-host | —                                    | —                      |
 
 Logto is the only option that satisfies **all four** constraints at once. The
 open-source self-host escape hatch is the decisive tiebreaker against WorkOS: if
@@ -62,7 +62,7 @@ same product** with the **same user IDs** — a near-zero migration.
 
 The **only** genuinely expensive migration in any identity system is **changing
 the ID that app data is keyed to**. Everything else (which social logins, the
-login UI, hosting, even the whole IdP vendor) is cheap to change *if* the identity
+login UI, hosting, even the whole IdP vendor) is cheap to change _if_ the identity
 ID stays stable.
 
 Therefore this design's single most important rule:
@@ -104,7 +104,7 @@ token issuer later means backfilling **one column**, not remapping every row.
 
 1. **Logto (the auth-only app)** — hosted at `id.furrycolombia.com`.
    - The single source of truth for **who a person is** (identity, email, social
-     links). It is **not** the source of truth for any app's *domain data*.
+     links). It is **not** the source of truth for any app's _domain data_.
    - Owns all **social connectors**. Adding "Sign in with Discord" to every app is
      a one-time config here.
    - Serves the login / signup / consent pages (Logto's hosted UI, themed to
@@ -191,6 +191,7 @@ auth trigger" to "first-seen `identity_sub`."
 The three app cohorts have very different risk profiles, so we sequence them:
 
 **Phase 0 — Stand up the IdP.**
+
 - Create the Logto tenant, point `id.furrycolombia.com` at it, theme the hosted
   login, and configure Google + Discord connectors.
 - Register a Logto application for each existing/planned app.
@@ -198,10 +199,12 @@ The three app cohorts have very different risk profiles, so we sequence them:
   touching any real app (see Risks §9 — this is the key unknown to de-risk first).
 
 **Phase 1 — New apps (greenfield).**
+
 - Any app built after this spec uses Logto from day one with the `identity_sub`
   model. No migration, pure upside. This proves the pattern end-to-end.
 
 **Phase 2 — Puck (in progress, not yet in production).**
+
 - Puck's web app (sub-project #2) currently uses Supabase's own social login.
   Because Puck is **not in production**, we can migrate with low risk:
   - Switch the web layer from Supabase Auth to Logto OIDC.
@@ -213,6 +216,7 @@ The three app cohorts have very different risk profiles, so we sequence them:
   - Update Puck's spec/plan for sub-project #2 to reflect the new auth seam.
 
 **Phase 3 — CandyStore (production — the careful one).**
+
 - CandyStore has **real users and real data** FK'd to Supabase `auth.users`.
   This is the highest-effort step and gets its own dedicated plan.
   - **Import users into Logto** by email (social-login users re-link on next
@@ -258,7 +262,7 @@ The three app cohorts have very different risk profiles, so we sequence them:
 ## 10. Out of scope / YAGNI
 
 - **No shared application database.** Apps keep separate Supabase projects; only
-  *identity* is shared.
+  _identity_ is shared.
 - **No custom-built OAuth server.** We adopt Logto, not roll our own.
 - **No passwords / no email-password auth** initially — social-login-first.
 - **No org/team/multi-tenant modeling** beyond "one person = one identity."
