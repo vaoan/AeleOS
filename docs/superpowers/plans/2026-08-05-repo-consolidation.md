@@ -14,9 +14,23 @@ production deploy path.
 **Why:** `candyshop` is owned by the **personal account** `furrycolombia-sys`,
 not by `vaoan`. On personal repositories GitHub offers only owner and
 collaborator — there is no "admin collaborator" role — so `vaoan` sits at
-`permission=write` and **cannot** read or set branch protection, list secrets, or
-dispatch the secrets workflow there. `aeleos` and `Puck` are already under
-`vaoan`; only `candyshop` is misplaced.
+`permission=write` and **cannot** read or set branch protection, read the
+Actions policy, or transfer the repository. `aeleos` and `Puck` are already
+under `vaoan`; only `candyshop` is misplaced.
+
+Measured 2026-08-07, because an earlier draft of this plan overstated the gap:
+
+| As `vaoan` (write)                 | Works? |
+| ---------------------------------- | ------ |
+| `gh secret list`                   | ✅     |
+| List environments                  | ✅     |
+| Dispatch the sync-secrets workflow | ✅     |
+| Read/set branch protection         | ❌     |
+| Read the Actions policy            | ❌     |
+| Transfer the repository            | ❌     |
+
+Only the last three need the owner, and only the transfer is on this plan's
+critical path.
 
 **Approach:** Transfer exactly one repository. `aeleos` and `Puck` do not move.
 Then unlock what single ownership makes possible: branch protection on
@@ -88,9 +102,9 @@ Taken 2026-08-05. Re-check before starting if time has passed.
 | Moves in this plan       | no                              | no                                  | **yes**                       |
 | Visibility               | private                         | public                              | public                        |
 | `vaoan` permission       | admin                           | admin                               | **write**                     |
-| Repo secrets set         | 0                               | **0**                               | not readable                  |
+| Repo secrets set         | 0                               | **0**                               | **64** (all now backed up)    |
 | Secrets referenced in CI | 3                               | 33                                  | 55                            |
-| Environments             | none                            | none                                | `production`, `copilot`       |
+| Environments             | none                            | none                                | 2, both holding **0** secrets |
 | Live deploy triggers     | none                            | none (all dispatch-only)            | **yes**                       |
 | Branch protection        | impossible (private, free plan) | `main` + `develop`, admins enforced | not readable                  |
 
@@ -102,52 +116,56 @@ moves.
 
 ---
 
-### Task 1: Back up CandyStore's secrets 🧑
+### Task 1: Back up CandyStore's secrets — ✅ done 2026-08-07
 
-**Human-only, and must run as `furrycolombia-sys`** — `vaoan`'s write permission
-cannot dispatch the secrets workflow.
+No owner account required: `vaoan`'s write permission dispatches the workflow
+fine (verified in run 31203568801). An earlier draft claimed otherwise.
 
-GitHub is currently the only home for CandyStore's ~55 secret values. A local
-copy is what makes everything after this reversible.
+Doing this first turned out to matter more than the plan assumed, because the
+backup did not work. Three defects had to be fixed before it did — all of the
+same shape, reporting success while doing nothing:
 
-- [ ] **Step 1: Authenticate as the owner account** 🧑
+1. **The sync captured 47 of 64 secrets.** Each secret was named twice — in
+   `env:` and in the output block — and the two lists drifted. Missing were
+   `PROD_SERVER_SSH_KEY`, `GCP_PROD_SERVER_SSH_KEY`, `WEBHOOK_SECRET`,
+   `PROD_SERVER_HOST`, `PROD_SERVER_USER` and 12 `NEXT_PUBLIC_*`.
+   `GCP_PROD_SERVER_SSH_KEY` was read into `env:` and never echoed.
+   Fixed in candyshop#334 / #335: `env:` is the only list, and the output loop
+   discovers names from the environment.
+2. **`toJSON(secrets)` broke it entirely** (candyshop#334, my regression).
+   GitHub rejects such a run: zero jobs, conclusion `action_required`, and the
+   approve endpoint refuses it as not awaiting approval. Reverted in #335.
+3. **Nothing tested any of it.** `vitest.config.scripts.js` existed but was
+   wired to no script and no CI job, and the `code` paths-filter classified
+   `.github/workflows/**` as docs-only — so the new guard skipped on exactly
+   the PRs it guards. Fixed in #335, #336, #337.
 
-```bash
-gh auth login                            # as furrycolombia-sys
-gh auth switch --user furrycolombia-sys
-gh api repos/furrycolombia-sys/candyshop --jq '.permissions.admin'   # expect: true
-```
-
-- [ ] **Step 2: Sync the secrets locally** 🧑
+- [x] **Step 1: Sync the secrets locally**
 
 ```bash
 cd Z:/Github/candystore
 pnpm sync-secrets
 ```
 
-Expected: `Synced N secrets to .secrets`. This is a _second_ sync on a repo that
-has synced before — precisely the case the stale-run race broke before
-`fix(scripts): stop sync-secrets grabbing a stale workflow run`. A `bad decrypt`
-failure means that fix is missing from the checked-out branch, not that the
-artifact is corrupt.
+Result: **64 of 64 captured**, none missing, verified against
+`gh secret list`. Multi-line values (both SSH keys) arrive base64-encoded as
+`<NAME>_BASE64` and decode to a valid OpenSSH header.
 
-- [ ] **Step 3: Record the environment secret names** 🧑
+- [x] **Step 2: Record the environment secret names**
 
-Repository secrets are not the whole picture: CandyStore has a `production`
-environment, and **environment secrets are not part of the sync workflow**. From
-the dashboard, record the _names_ (never the values) under Settings →
-Environments → `production`, plus its protection rules (required reviewers,
-allowed deployment branches), so their survival can be checked in Task 4.
+Both environments — `production` and `copilot` — hold **zero** secrets and no
+protection rules, so there is nothing here to preserve. The plan assumed
+otherwise.
 
-- [ ] **Step 4: Confirm the backup is real and untracked**
+- [x] **Step 3: Confirm the backup is real and untracked**
 
-```bash
-cd Z:/Github/candystore
-git check-ignore -v .secrets     # expect: a .gitignore rule matches
-pnpm secretlint                  # expect: exit 0
-```
+`.secrets` matches a `.gitignore` rule and `pnpm secretlint` exits 0.
 
-**Do not proceed until this passes.**
+> ⚠️ **Finding, not yet acted on.** The stored `GCP_PROD_SERVER_SSH_KEY` value
+> begins with a UTF-8 BOM (`EF BB BF`) — pasted from a Windows editor. The
+> backup preserves it byte-exactly, which is correct, but OpenSSH will reject
+> that key if anything writes the value straight to a file. Check whether the
+> deploy path uses it or the `_B64` twin before relying on it in a restore.
 
 ---
 
@@ -354,8 +372,10 @@ not run.
 
 ## Verification checklist
 
-- [ ] `.secrets` backed up locally for CandyStore **before** the transfer.
-- [ ] Environment secret names and protection rules recorded before the transfer.
+- [x] `.secrets` backed up locally for CandyStore **before** the transfer —
+      64 of 64, verified against `gh secret list`.
+- [x] Environment secret names and protection rules recorded before the
+      transfer — both environments hold none.
 - [ ] `gh api repos/vaoan/candyshop --jq '.permissions.admin'` returns `true`.
 - [ ] CandyStore's `production` environment, its secrets and its protection rules
       verified present, or re-created from the backup.
