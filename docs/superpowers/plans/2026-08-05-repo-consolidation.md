@@ -184,7 +184,9 @@ ghcr.io/${{ github.repository_owner }}/candyshop-prod:<sha>
 The owner is resolved at run time, so after the transfer images publish to
 `ghcr.io/vaoan/...` — a namespace with no images in it — while the production
 server still pulls the old path. Packages do **not** follow a repository
-transfer.
+transfer, and there is **no redirect**; the old package simply stays where it
+is. Investigated in Step 1 below, where it turned out to be milder than this
+framing suggests.
 
 **Landmine B — the production server has the old URL baked in.**
 `candystore/scripts/server/webhook-deploy.mjs:55` hardcodes:
@@ -197,16 +199,52 @@ GitHub redirects it, so it keeps working — until the old name is reused or the
 redirect lapses. It lives on the production box, so it needs a deliberate edit
 and redeploy.
 
-- [ ] **Step 1: Decide the GHCR strategy** 🧑
+- [x] **Step 1: Decide the GHCR strategy — decided 2026-08-07: do nothing before the transfer**
 
-Either transfer the existing package to `vaoan`, or accept a re-push under the
-new namespace and update the server's pull path. Write down which — Task 5
-executes it.
+This step originally offered a choice between transferring the package and
+re-pushing. **Transferring is not an option** — GitHub does not move GHCR
+packages with a repository, and provides no redirect. That half of the choice
+was never real.
 
-- [ ] **Step 2: Stage the source edit**
+Measured state of `ghcr.io/furrycolombia-sys/candyshop-prod`: 38 versions, 35
+tagged, **public**, linked to `furrycolombia-sys/candyshop`. The live image is
+`201239a` + `latest` (2026-07-08), matching `main`'s tip; everything older is
+sha-tagged history back to May. A second package, `candyshop`, holds ephemeral
+CI layers and is not worth preserving.
 
-Prepare the `webhook-deploy.mjs` change (Task 6, Step 2) so it can ship
-immediately after the transfer rather than being written under time pressure.
+Why no pre-work is needed:
+
+- `deploy-gcp.yml:231` derives the path from `github.repository_owner`, so the
+  **first post-transfer deploy publishes to `ghcr.io/vaoan/candyshop-prod`
+  automatically**. No code change.
+- The server pulls **authenticated** — `deploy-gcp.yml:396-397` passes
+  `GHCR_TOKEN` / `GHCR_USERNAME` to the box — so a new package being private by
+  default is still readable by that repository's own token.
+- The old package keeps existing and serving. Nothing breaks at the moment of
+  transfer; the namespaces simply diverge.
+
+Two things to do anyway, both in Task 5:
+
+1. **Pre-copy the live image** (`201239a` and `latest`) into
+   `ghcr.io/vaoan/candyshop-prod` — one `docker pull` / `tag` / `push`. Without
+   it the new namespace has no known-good rollback target if the first
+   post-transfer deploy goes badly; the only good image would be in the old
+   namespace under an explicit path.
+2. **Check the new package's visibility** once created. The old one is public
+   and new ones default to private, so anything pulling anonymously would break
+   later, quietly.
+
+**Do not delete the old package** until the new path has served a real deploy.
+
+- [x] **Step 2: Stage the source edit**
+
+Done in candyshop#338, opened as a **draft** so it cannot merge early. Rather
+than swapping one hardcoded URL for another, `REPO_URL` now resolves as
+`process.env.REPO_URL || "https://github.com/vaoan/candyshop.git"`, matching
+how every other setting in that file already works — it was the only hardcoded
+one. The override makes the cutover an env change in PM2 rather than a code
+redeploy, and makes rollback a variable rather than a revert-and-ship under
+pressure.
 
 - [ ] **Step 3: Confirm nothing is in flight** 🧑
 
@@ -273,15 +311,33 @@ verify rather than trust.
 
 ### Task 5: Repair the deploy path 🧑
 
-- [ ] **Step 1: Execute the GHCR strategy** 🧑
+- [ ] **Step 1: Seed a rollback target in the new namespace** 🧑
 
-Transfer the package to `vaoan`, or re-push under the new namespace.
+Per Task 2 Step 1, the new namespace populates itself on the first deploy — but
+seed it first so there is a known-good image to fall back to. Needs Docker and
+a token with `write:packages`:
 
-- [ ] **Step 2: Update the server** 🧑
+```bash
+docker pull ghcr.io/furrycolombia-sys/candyshop-prod:latest
+docker tag  ghcr.io/furrycolombia-sys/candyshop-prod:latest ghcr.io/vaoan/candyshop-prod:latest
+docker tag  ghcr.io/furrycolombia-sys/candyshop-prod:latest ghcr.io/vaoan/candyshop-prod:201239a
+docker push ghcr.io/vaoan/candyshop-prod:latest
+docker push ghcr.io/vaoan/candyshop-prod:201239a
+```
 
-Ship the `webhook-deploy.mjs` change and re-point the server's image pull path.
+- [ ] **Step 2: Match the new package's visibility** 🧑
 
-- [ ] **Step 3: Prove a deploy end-to-end, before you need one** 🧑
+The old package is **public**; new GHCR packages default to **private**. CI and
+the server pull authenticated so they are unaffected, but anything pulling
+anonymously would break quietly. Set it public to match what exists today.
+
+- [ ] **Step 3: Merge the staged server change** 🧑
+
+Take candyshop#338 out of draft and merge it, then redeploy the webhook
+receiver. If the server needs to keep pointing at the old owner for a moment,
+set `REPO_URL` in PM2 instead of reverting the commit.
+
+- [ ] **Step 4: Prove a deploy end-to-end, before you need one** 🧑
 
 Run a deploy through the normal path while you are watching and have time to roll
 back. Do not let the first post-transfer deploy be an urgent one.
