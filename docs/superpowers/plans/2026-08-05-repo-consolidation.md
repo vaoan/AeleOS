@@ -246,9 +246,19 @@ one. The override makes the cutover an env change in PM2 rather than a code
 redeploy, and makes rollback a variable rather than a revert-and-ship under
 pressure.
 
-- [ ] **Step 3: Confirm nothing is in flight** 🧑
+- [x] **Step 3: Confirm nothing is in flight — every window is quiet (2026-08-07)**
 
-No deploy, release, or long-running workflow mid-run. Pick a quiet window.
+CandyStore is deployed, running and working, but has **no active users**. That
+does not relax the production constraint — the VM, the tunnels, the database and
+the deploy path are all real, and nothing here may be run against the database —
+but it does change what a bad transfer costs. A broken first deploy strands
+_you_ without a working deploy path; it does not take a service away from anyone.
+
+So there is no window to wait for. Task 5's care is still worth taking, for the
+same reason you would not want to discover a broken deploy path on the day you
+next need it — the app is meant to be usable by others later.
+
+**Transfer prep is complete. Task 3 can run whenever you choose.**
 
 ---
 
