@@ -262,60 +262,82 @@ next need it — the app is meant to be usable by others later.
 
 ---
 
-### Task 3: Transfer `candyshop` to `vaoan` 🧑
+### Task 3: Transfer `candyshop` to `vaoan` — ✅ done 2026-08-07
 
-- [ ] **Step 1: Transfer** 🧑
+- [x] **Step 1: Transfer**
 
-As `furrycolombia-sys`: Settings → General → Danger Zone → Transfer ownership →
-target `vaoan`. `vaoan` must accept the transfer.
-
-- [ ] **Step 2: Keep the automation identity** 🧑
-
-Re-add `furrycolombia-sys` as a **collaborator with write**. Its historical
-commits stay attributed to it either way, but any automation authenticating as it
-needs push access back.
-
-- [ ] **Step 3: Update the local remote**
+Executed via the API as `furrycolombia-sys`:
 
 ```bash
-cd Z:/Github/candystore
-git remote set-url origin https://github.com/vaoan/candyshop.git
-git fetch origin && git status
+gh api -X POST repos/furrycolombia-sys/candyshop/transfer -f new_owner=vaoan
 ```
 
-GitHub redirects the old URL, but a stale remote hides the move from anyone
-reading `git remote -v` later.
+Returned `202` and created a **pending** transfer. User-to-user transfers
+require the recipient to accept, and the pending state is not exposed through
+`user/repository_invitations` — that endpoint only covers collaborator invites.
+So the accept step is unavoidably manual: the banner on the repository page
+while signed in as the recipient, or the emailed request. Nothing changes until
+it is accepted, which also makes it trivially abortable.
+
+- [x] **Step 2: Keep the automation identity**
+
+```bash
+gh api -X PUT repos/vaoan/candyshop/collaborators/furrycolombia-sys -f permission=push
+```
+
+Collaborators now: `vaoan` = admin, `furrycolombia-sys` = write.
+
+- [x] **Step 3: Update the local remote**
+
+Repointed to `https://github.com/vaoan/candyshop.git`; fetch confirmed.
 
 ---
 
-### Task 4: Verify what survived — do not assume
+### Task 4: Verify what survived — ✅ done 2026-08-07, everything did
 
-- [ ] **Step 1: Confirm the admin outcome**
+- [x] **Step 1: Confirm the admin outcome**
 
-```bash
-gh auth switch --user vaoan
-gh api repos/vaoan/candyshop --jq '.permissions.admin'    # expect: true
-```
+`gh api repos/vaoan/candyshop --jq '.permissions.admin'` → **`true`**. The old
+slug redirects; visibility (public) and default branch (`develop`) unchanged.
 
-`true` here is the plan's actual success condition — everything else is
-consequence.
+- [x] **Step 2: Check secrets and environments**
 
-- [ ] **Step 2: Check secrets and environments**
+**64 secrets → 64**, compared name-by-name against the local backup: none lost,
+none unexpected. Both environments (`production`, `copilot`) present, with the
+same zero protection rules they had before.
 
-```bash
-gh secret list --repo vaoan/candyshop
-gh api repos/vaoan/candyshop/environments --jq '.environments[]?.name'
-```
+- [x] **Step 3: Check CI still runs**
 
-Expect `production` and `copilot`. Compare the environment secret **names** and
-protection rules against what Task 1 Step 3 recorded. Re-create anything missing
-from the local `.secrets` backup.
+Proven end to end rather than by opening a throwaway PR: `pnpm sync-secrets`
+under the new owner (run 31215088244) dispatched the workflow, read all 64
+secrets, uploaded the artifact and decrypted it locally — exercising Actions,
+secret access and artifacts in one pass, and re-confirming the backup.
 
-- [ ] **Step 3: Check CI still runs**
+- [x] **Step 4: Audit the rest of the surface**
 
-Open a throwaway PR and confirm the gates report. Third-party actions are pinned
-by SHA and personal accounts impose no action allowlist, so this should be clean —
-verify rather than trust.
+Added because Steps 1–3 only cover a slice, and the deploy path is what actually
+matters here.
+
+| Surface                     | Result                                                              |
+| --------------------------- | ------------------------------------------------------------------- |
+| **Webhook**                 | ✅ `https://deploy.furrycolombia.com/deploy`, `push`, active        |
+| **Branch protection**       | ✅ both `main` and `develop` — 4 checks, strict, admins, no force   |
+| **Workflows**               | ✅ all 12 `active`                                                  |
+| **Actions policy**          | ✅ `allowed_actions: all`, workflow permissions `read`              |
+| **Variables / deploy keys** | none before, none after                                             |
+| **PRs & issues**            | ✅ carried, #338 still open                                         |
+| **GHCR packages**           | ❌ **did not move** — still under `furrycolombia-sys` (as expected) |
+
+The webhook surviving is the important one: it is what triggers production
+deploys, and it points at a `furrycolombia.com` host rather than a GitHub URL,
+so nothing about it needed changing.
+
+Branch protection turned out to have existed all along on both branches — it was
+simply unreadable without admin, which is why the starting-state table records it
+as "not readable" rather than absent.
+
+**Nothing was lost in the transfer.** The Task 1 backup was insurance that went
+unused, which is the outcome to want from insurance.
 
 ---
 
@@ -442,15 +464,18 @@ not run.
       64 of 64, verified against `gh secret list`.
 - [x] Environment secret names and protection rules recorded before the
       transfer — both environments hold none.
-- [ ] `gh api repos/vaoan/candyshop --jq '.permissions.admin'` returns `true`.
-- [ ] CandyStore's `production` environment, its secrets and its protection rules
-      verified present, or re-created from the backup.
-- [ ] CI green on a PR after the transfer.
+- [x] `gh api repos/vaoan/candyshop --jq '.permissions.admin'` returns `true`.
+- [x] CandyStore's `production` environment, its secrets and its protection rules
+      verified present — all 64 secrets survived, nothing re-created.
+- [x] CI green after the transfer — proven by a real workflow run rather than a
+      throwaway PR (run 31215088244).
 - [ ] GHCR images resolve at the new namespace.
 - [ ] A CandyStore deploy proven end-to-end, unhurried.
-- [ ] `pnpm sync-secrets` works as `vaoan`.
-- [ ] Local remote updated.
-- [ ] Branch protection applied to `candyshop` (and to `aeleos` if public).
+- [x] `pnpm sync-secrets` works as `vaoan`.
+- [x] Local remote updated.
+- [x] Branch protection applied to `candyshop` — it survived the transfer on both
+      `main` and `develop`, so nothing had to be re-created. AeleOS was made
+      public and protected separately (Task 7).
 - [ ] All three repos pinned to the profile.
 - [ ] No secret value appears in git history anywhere.
 
