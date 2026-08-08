@@ -1,6 +1,6 @@
 # Settings-only: AeleOS is a single package, not a workspace, so there is no
 # `packages:` key. Mirrors puck's pnpm-workspace.yaml, which is where pnpm 10
-# reads these settings from — candystore still has them under the `pnpm` key in
+# reads these settings from — libra still has them under the `pnpm` key in
 # package.json, which pnpm 10 ignores with a warning.
 onlyBuiltDependencies:
   - esbuild

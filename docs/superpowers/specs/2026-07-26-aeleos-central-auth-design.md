@@ -2,15 +2,15 @@
 
 - **Date:** 2026-07-26
 - **Status:** Approved for implementation planning
-- **Scope:** Platform-wide (cross-repo). Introduces a single identity provider shared by **all** Furry Colombia apps — Puck, CandyStore, and future apps — living under subdomains of `furrycolombia.com`. This spec lives in the **AeleOS** repo (`vaoan/aeleos`), the home for platform identity; implementation spans multiple repos.
+- **Scope:** Platform-wide (cross-repo). Introduces a single identity provider shared by **all** Furry Colombia apps — Puck, Libra, and future apps — living under subdomains of `furrycolombia.com`. This spec lives in the **AeleOS** repo (`vaoan/aeleos`), the home for platform identity; implementation spans multiple repos.
 - **Author:** Heiner Angarita (with Claude)
-- **Related:** `CLAUDE.md` (Puck), CandyStore (production, separate Supabase project), Janus (sister project).
+- **Related:** `CLAUDE.md` (Puck), Libra (production, separate Supabase project), Janus (sister project).
 
 ---
 
 ## 1. Context & goal
 
-Today, identity is **siloed per app**. Puck and CandyStore each run their **own
+Today, identity is **siloed per app**. Puck and Libra each run their **own
 separate Supabase project**, each with its own social-login setup, its own auth
 UI, and its own `auth.users`. A person who uses both is two unrelated accounts,
 must log in separately in each, and every new app repeats the whole auth wiring.
@@ -90,7 +90,7 @@ token issuer later means backfilling **one column**, not remapping every row.
              ▼                          ▼                          ▼
     ┌─────────────────┐        ┌─────────────────┐        ┌─────────────────┐
     │ puck.furry….com │        │ tienda.furry…   │        │ next app…       │
-    │ Next.js app     │        │ (CandyStore)    │        │                 │
+    │ Next.js app     │        │ (Libra)    │        │                 │
     │ ─────────────── │        │ ─────────────── │        │ ─────────────── │
     │ own Supabase    │        │ own Supabase    │        │ own Supabase    │
     │ DB + RLS        │        │ DB + RLS        │        │ DB + RLS        │
@@ -215,16 +215,16 @@ The three app cohorts have very different risk profiles, so we sequence them:
     `identity_sub` (a schema migration + RLS rewrite per §5).
   - Update Puck's spec/plan for sub-project #2 to reflect the new auth seam.
 
-**Phase 3 — CandyStore (production — the careful one).**
+**Phase 3 — Libra (production — the careful one).**
 
-- CandyStore has **real users and real data** FK'd to Supabase `auth.users`.
+- Libra has **real users and real data** FK'd to Supabase `auth.users`.
   This is the highest-effort step and gets its own dedicated plan.
   - **Import users into Logto** by email (social-login users re-link on next
     "Sign in with Google/Discord" — no password migration).
-  - **Backfill `identity_sub`** on existing CandyStore user rows by matching
-    email. Because app data stays keyed on CandyStore's **local** user IDs
+  - **Backfill `identity_sub`** on existing Libra user rows by matching
+    email. Because app data stays keyed on Libra's **local** user IDs
     (§3/§5), **no domain rows are remapped** — we only populate one new column.
-  - Switch CandyStore's Supabase project to Third-Party Auth and its web layer to
+  - Switch Libra's Supabase project to Third-Party Auth and its web layer to
     Logto OIDC, then verify RLS against the backfilled mapping in staging before
     cutover.
   - Keep a rollback path (old Supabase Auth path re-enableable) until verified.
@@ -250,8 +250,8 @@ The three app cohorts have very different risk profiles, so we sequence them:
    `auth.users(id)`. Moving to Third-Party Auth removes Supabase-managed auth
    rows; the schema + RLS must be reworked to the `identity_sub` model. Scope this
    as part of Phase 2.
-3. **Preserving/mapping IDs on CandyStore migration.** Our design deliberately
-   does **not** require Logto to reuse CandyStore's old UUIDs — we map via a
+3. **Preserving/mapping IDs on Libra migration.** Our design deliberately
+   does **not** require Logto to reuse Libra's old UUIDs — we map via a
    backfilled `identity_sub` column instead, so this risk is contained. Still,
    verify the email-match import covers all active users and handles duplicates.
 4. **Logto free-tier limits.** Confirm current MAU/features on the free tier at
@@ -280,12 +280,12 @@ The three app cohorts have very different risk profiles, so we sequence them:
    Logto identity.
 5. Total spend stays **$0–$20/year**, with a documented, low-migration growth path
    (self-host the same product).
-6. Puck and CandyStore are migrated with **no domain-data remapping** (identity
+6. Puck and Libra are migrated with **no domain-data remapping** (identity
    carried by a backfilled `identity_sub` column).
 
 ## 12. Next step
 
 Implementation planning starts with **Phase 0 + Phase 1** (stand up Logto, prove
 the Supabase⇄Logto trust, ship one greenfield/Puck integration end-to-end), which
-de-risks everything downstream. CandyStore (Phase 3) gets its own dedicated plan
+de-risks everything downstream. Libra (Phase 3) gets its own dedicated plan
 once the pattern is proven.

@@ -56,7 +56,7 @@ git init -b develop
 
 - [ ] **Step 2: Copy the toolchain configs from aeleos**
 
-These are already aligned with puck and candystore, so copying them is how parity propagates:
+These are already aligned with puck and libra, so copying them is how parity propagates:
 
 ```bash
 cd Z:/Github/aeleos-hub
@@ -1303,7 +1303,7 @@ jobs:
 ```
 
 > All actions are pinned by SHA to majors that target `node24`, matching aeleos,
-> puck and candystore. E2E is deliberately absent: it needs a Clerk instance and
+> puck and libra. E2E is deliberately absent: it needs a Clerk instance and
 > real credentials, so it stays a local check rather than a CI gate.
 
 - [ ] **Step 2: Write the README**
@@ -1393,7 +1393,7 @@ git commit -m "ci: add quality gates and adoption readme"
    owns fursonas; Clerk owns the person. Revisit only if person fields need to
    diverge from what Clerk stores.
 
-2. **Single package, not a monorepo.** Puck and candystore are monorepos because
+2. **Single package, not a monorepo.** Puck and libra are monorepos because
    they host several apps. The hub is one app; `aeleos` is likewise single-package.
 
 3. **No `@supabase/ssr`.** It exists to manage Supabase session cookies. Under

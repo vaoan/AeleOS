@@ -6,6 +6,15 @@
 > steps are marked 🧑. The agent-runnable parts are the verification queries and
 > the source edits in Task 6. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Renamed 2026-08-07.** The repository formerly at `furrycolombia-sys/candyshop`
+> is now **`vaoan/libra`** — a moon-and-scales name matching the platform's
+> celestial scheme, chosen because Libra is the merchant's balance. The old slug
+> redirects. Historical passages below deliberately keep the name the repository
+> had at the time, because rewriting them would make the record of the transfer
+> false; forward-looking commands use the new name. The product itself is
+> unchanged — it still serves at the `store` subdomain and is still called Store
+> in the UI.
+
 **Goal:** Put all three platform repositories under a single owner (`vaoan`), so
 that one account has admin on every repo — and so the work is visible on the
 profile it is meant to showcase. Achieved without breaking CandyStore's
@@ -143,7 +152,7 @@ same shape, reporting success while doing nothing:
 - [x] **Step 1: Sync the secrets locally**
 
 ```bash
-cd Z:/Github/candystore
+cd Z:/Github/libra
 pnpm sync-secrets
 ```
 
@@ -215,7 +224,7 @@ CI layers and is not worth preserving.
 Why no pre-work is needed:
 
 - `deploy-gcp.yml:231` derives the path from `github.repository_owner`, so the
-  **first post-transfer deploy publishes to `ghcr.io/vaoan/candyshop-prod`
+  **first post-transfer deploy publishes to `ghcr.io/vaoan/libra-prod`
   automatically**. No code change.
 - The server pulls **authenticated** — `deploy-gcp.yml:396-397` passes
   `GHCR_TOKEN` / `GHCR_USERNAME` to the box — so a new package being private by
@@ -226,7 +235,7 @@ Why no pre-work is needed:
 Two things to do anyway, both in Task 5:
 
 1. **Pre-copy the live image** (`201239a` and `latest`) into
-   `ghcr.io/vaoan/candyshop-prod` — one `docker pull` / `tag` / `push`. Without
+   `ghcr.io/vaoan/libra-prod` — one `docker pull` / `tag` / `push`. Without
    it the new namespace has no known-good rollback target if the first
    post-transfer deploy goes badly; the only good image would be in the old
    namespace under an explicit path.
@@ -240,7 +249,7 @@ Two things to do anyway, both in Task 5:
 
 Done in candyshop#338, opened as a **draft** so it cannot merge early. Rather
 than swapping one hardcoded URL for another, `REPO_URL` now resolves as
-`process.env.REPO_URL || "https://github.com/vaoan/candyshop.git"`, matching
+`process.env.REPO_URL || "https://github.com/vaoan/libra.git"`, matching
 how every other setting in that file already works — it was the only hardcoded
 one. The override makes the cutover an env change in PM2 rather than a code
 redeploy, and makes rollback a variable rather than a revert-and-ship under
@@ -282,14 +291,14 @@ it is accepted, which also makes it trivially abortable.
 - [x] **Step 2: Keep the automation identity**
 
 ```bash
-gh api -X PUT repos/vaoan/candyshop/collaborators/furrycolombia-sys -f permission=push
+gh api -X PUT repos/vaoan/libra/collaborators/furrycolombia-sys -f permission=push
 ```
 
 Collaborators now: `vaoan` = admin, `furrycolombia-sys` = write.
 
 - [x] **Step 3: Update the local remote**
 
-Repointed to `https://github.com/vaoan/candyshop.git`; fetch confirmed.
+Repointed to `https://github.com/vaoan/libra.git`; fetch confirmed.
 
 ---
 
@@ -297,7 +306,7 @@ Repointed to `https://github.com/vaoan/candyshop.git`; fetch confirmed.
 
 - [x] **Step 1: Confirm the admin outcome**
 
-`gh api repos/vaoan/candyshop --jq '.permissions.admin'` → **`true`**. The old
+`gh api repos/vaoan/libra --jq '.permissions.admin'` → **`true`**. The old
 slug redirects; visibility (public) and default branch (`develop`) unchanged.
 
 - [x] **Step 2: Check secrets and environments**
@@ -351,10 +360,10 @@ a token with `write:packages`:
 
 ```bash
 docker pull ghcr.io/furrycolombia-sys/candyshop-prod:latest
-docker tag  ghcr.io/furrycolombia-sys/candyshop-prod:latest ghcr.io/vaoan/candyshop-prod:latest
-docker tag  ghcr.io/furrycolombia-sys/candyshop-prod:latest ghcr.io/vaoan/candyshop-prod:201239a
-docker push ghcr.io/vaoan/candyshop-prod:latest
-docker push ghcr.io/vaoan/candyshop-prod:201239a
+docker tag  ghcr.io/furrycolombia-sys/candyshop-prod:latest ghcr.io/vaoan/libra-prod:latest
+docker tag  ghcr.io/furrycolombia-sys/candyshop-prod:latest ghcr.io/vaoan/libra-prod:201239a
+docker push ghcr.io/vaoan/libra-prod:latest
+docker push ghcr.io/vaoan/libra-prod:201239a
 ```
 
 - [ ] **Step 2: Match the new package's visibility** 🧑
@@ -392,7 +401,7 @@ gh api repos/vaoan/Puck/branches/main/protection \
 
 - [ ] **Step 2: Fix the hardcoded production URL** (CandyStore)
 
-`scripts/server/webhook-deploy.mjs:55` → `https://github.com/vaoan/candyshop.git`
+`scripts/server/webhook-deploy.mjs:55` → `https://github.com/vaoan/libra.git`
 
 - [ ] **Step 3: Fix the stale comment** (Puck)
 
@@ -415,7 +424,7 @@ AeleOS can only be pinned once public (Task 7).
 at run time. Confirm end to end, now as `vaoan`:
 
 ```bash
-cd Z:/Github/candystore && pnpm sync-secrets
+cd Z:/Github/libra && pnpm sync-secrets
 ```
 
 ---
@@ -464,7 +473,7 @@ not run.
       64 of 64, verified against `gh secret list`.
 - [x] Environment secret names and protection rules recorded before the
       transfer — both environments hold none.
-- [x] `gh api repos/vaoan/candyshop --jq '.permissions.admin'` returns `true`.
+- [x] `gh api repos/vaoan/libra --jq '.permissions.admin'` returns `true`.
 - [x] CandyStore's `production` environment, its secrets and its protection rules
       verified present — all 64 secrets survived, nothing re-created.
 - [x] CI green after the transfer — proven by a real workflow run rather than a

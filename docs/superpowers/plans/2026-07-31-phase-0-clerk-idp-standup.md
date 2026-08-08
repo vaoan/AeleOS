@@ -10,8 +10,8 @@
 
 ## Global Constraints
 
-- **Budget: $0.** Clerk free plan only — 50,000 MRU, max 3 social connections. Do not enable anything that requires Pro. Do not create a Supabase Cloud project: the free plan allows two and CandyStore + Puck already use them.
-- **Phase 0 touches no real app and no real data.** No changes to Puck or CandyStore, and nothing pointed at their Supabase projects.
+- **Budget: $0.** Clerk free plan only — 50,000 MRU, max 3 social connections. Do not enable anything that requires Pro. Do not create a Supabase Cloud project: the free plan allows two and Libra + Puck already use them.
+- **Phase 0 touches no real app and no real data.** No changes to Puck or Libra, and nothing pointed at their Supabase projects.
 - **The existing offline suite must keep passing without Clerk credentials.** `pnpm test:db` (72 tests) must never require a secret. The new `pnpm test:idp` suite skips cleanly when `.secrets` is absent.
 - **Secrets never in git.** All Clerk values live in `.secrets` (already gitignored). `pnpm secretlint` must pass. Never paste a real token or secret key into a committed file, including this plan or any report.
 - **Phase 1a migrations must not change.** If a validation fails, that is a finding to report — do not "fix" it by editing `0001`–`0007`. The whole point is discovering whether they hold.
@@ -180,7 +180,7 @@ pnpm test:idp
 
 This repo's Supabase project is a **local-only test bed**. Phase 0 deliberately
 does not create a Supabase Cloud project: the free plan allows two, and Puck and
-CandyStore already use both.
+Libra already use both.
 ````
 
 - [ ] **Step 5: Commit**
@@ -743,7 +743,7 @@ the decisive tiebreaker that chose Logto over WorkOS originally.
 
 A Supabase-as-IdP architecture would have preserved it (Supabase Auth can act as
 an OAuth 2.1/OIDC provider, and Supabase is open source), but it requires a third
-Supabase project. The free plan allows two, and Puck and CandyStore use both — so
+Supabase project. The free plan allows two, and Puck and Libra use both — so
 it costs ~$300/year against a $20/year ceiling, and it rides a beta feature.
 
 ## Why that loss is acceptable
@@ -752,7 +752,7 @@ The escape hatch it protected is already provided by the actor model. Domain dat
 keys on local ids; `identity_sub` is the only IdP-facing column; `actor_ref`,
 `owner_ref` and every `author_person_ref` snapshot are **stored, not recomputed**.
 Swapping issuers is therefore a one-column backfill matched by email — the same
-migration shape §7 already describes for CandyStore, with zero domain rows
+migration shape §7 already describes for Libra, with zero domain rows
 touched.
 
 Self-hostability was a second layer of insurance over an exit we already own.
@@ -898,7 +898,7 @@ git commit -m "docs: phase 0 validation report"
 
 ## What Phase 0 does NOT deliver
 
-- No app is migrated. Puck and CandyStore are untouched.
+- No app is migrated. Puck and Libra are untouched.
 - No Supabase Cloud configuration is exercised — only the local stack.
 - No hosted login theming, no custom domain, no `id.furrycolombia.com` DNS.
 - No decision on the hub hostname (actor-model spec §18.1).
@@ -934,5 +934,5 @@ Each is a considered choice, not an oversight:
 
 - **Phase 1a adoption in Puck** — copy the seam, rework `user_profiles` off its `auth.users(id)` FK.
 - **Phase 1b** — the `aeleos-hub` repo: fursona registry, picker, profile editing.
-- **Phase 3** — CandyStore, production, its own plan.
+- **Phase 3** — Libra, production, its own plan.
 - **Repeatable token acquisition** — this plan captures a token manually because it is a one-time exercise. If `test:idp` should ever run unattended, investigate Clerk's Backend API for programmatic session creation; that path was not verified while writing this plan and must not be assumed to exist.

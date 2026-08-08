@@ -15,7 +15,7 @@
 - **The exposure boundary holds inside the hub too.** `owner_ref`, `identity_sub` and `author_person_ref` must never reach a client — not through a view, an RPC return type, an API response, or an error message. The catalog invariant test in `aeleos` exists because copying apps are where the next leak comes from; the hub is a copying app.
 - **`return_to` is an open-redirect vector.** Every redirect target is validated against an explicit origin allowlist. Never redirect to a caller-supplied URL without checking it.
 - **Budget: $0.** Clerk free plan, no new paid services, no file storage (avatars are URLs in this phase).
-- **Toolchain parity** with `aeleos`, puck and candystore — unchanged from 1b-i.
+- **Toolchain parity** with `aeleos`, puck and libra — unchanged from 1b-i.
 - **Secrets never in git.** `pnpm secretlint` must pass.
 - Filenames kebab-case. Work on a branch; do not merge or open a PR without explicit instruction.
 
@@ -2037,7 +2037,7 @@ Otherwise it is an oracle for which handles exist.
 - **The inactivity threshold** — spec §18.2, still undecided; `docs/integrating.md`
   tells integrators to pick one and record it until the platform default lands.
 - **Capability gating and inline elevation** — spec §7.5. When someone acting as a
-  fursona hits a person-only action (CandyStore checkout), the app prompts them to
+  fursona hits a person-only action (Libra checkout), the app prompts them to
   continue as themselves. That lives in each consuming app, not the hub, so it is
   out of scope here — but no app has built it yet, and it is the visible half of
   "permissions attach to the person."

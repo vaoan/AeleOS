@@ -2102,7 +2102,7 @@ git commit -m "test: prove accountability survives fursona transfer; document ad
 
 ### Task 10: Secret tooling parity with the sister repos
 
-`CLAUDE.md` mandates "secrets never in git" and says to mirror the sister repos' toolchain, but nothing in this repo enforces it. Both `puck` and `candystore` run secretlint and ship a secrets syncer; AeleOS has neither. This closes that gap before real Logto configuration lands.
+`CLAUDE.md` mandates "secrets never in git" and says to mirror the sister repos' toolchain, but nothing in this repo enforces it. Both `puck` and `libra` run secretlint and ship a secrets syncer; AeleOS has neither. This closes that gap before real Logto configuration lands.
 
 **Files:**
 

@@ -7,7 +7,7 @@ code in this repository.
 
 **AeleOS is the central identity provider for the Furry Colombia platform — the
 "auth-only" layer that every app shares.** One person = one identity, one login,
-across every Furry Colombia app (Puck, CandyStore, and everything that comes
+across every Furry Colombia app (Puck, Libra, and everything that comes
 next), all served under subdomains of `furrycolombia.com`.
 
 The name is the founder's fursona _Aeleos_ + `OS` — because identity is the
@@ -47,7 +47,7 @@ single app:
 | A small shared integration helper package                                                                  | _only if/when 2+ apps need it — YAGNI until then_ |
 
 **Per-app integration code** (the OIDC client + Supabase third-party-auth wiring)
-lives in **each app's own repo** (`puck`, `candystore`, …) — **not** here. The
+lives in **each app's own repo** (`puck`, `libra`, …) — **not** here. The
 **AeleOS hub app** (`aeleos-hub`) — the fursona/profile registry, ownership ledger,
 and actor picker — is likewise its own deployable repo; this repo stays
 non-deployable.
@@ -103,7 +103,7 @@ Key choices and _why_:
    the pattern. Puck is safe to migrate early because it is **not yet in
    production**; note Puck's foundation `user_profiles` FKs to `auth.users(id)` and
    that FK must be reworked to the `identity_sub` model.
-3. **Phase 3 — CandyStore (production — careful, its own plan).** Import users to
+3. **Phase 3 — Libra (production — careful, its own plan).** Import users to
    Logto by email, backfill `identity_sub` (no domain-data remap), switch to
    Third-Party Auth, verify in staging, keep a rollback path.
 
@@ -114,11 +114,11 @@ Key choices and _why_:
 - **Logto:** https://logto.io — docs: https://docs.logto.io
 - **Supabase Third-Party Auth:** the mechanism each app uses to trust Logto.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,
-  `Z:\Github\candystore`. Consult them for tooling/CI/convention decisions and
+  `Z:\Github\libra`. Consult them for tooling/CI/convention decisions and
   mirror their approach; AeleOS follows the same pnpm + strict-TS + ESLint +
   Prettier + kebab-case-filenames discipline once it grows code.
 
-> ⚠️ **CandyStore is in production. Never run anything against its database.**
+> ⚠️ **Libra is in production. Never run anything against its database.**
 > Each app has its own separate Supabase project; never cross credentials between
 > them, and never point any AeleOS/Logto config at a production data project
 > except as explicitly designed in the migration plan.

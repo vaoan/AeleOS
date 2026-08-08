@@ -19,9 +19,9 @@ correct for authentication and insufficient for Furry Colombia.
 In this community a person presents as one or more **fursonas**, and which one is
 appropriate is **context-dependent**:
 
-- CandyStore: a fursona does not sell — a **person** sells (legal accountability,
+- Libra: a fursona does not sell — a **person** sells (legal accountability,
   payment, shipping).
-- CandyStore: a review or comment may come from a **fursona** (the public-facing
+- Libra: a review or comment may come from a **fursona** (the public-facing
   self) _or_ from the **person** (when someone wants to give a real-person
   review).
 - Future fursona-scoped apps may only make sense for fursonas.
@@ -221,7 +221,7 @@ set of M2M credentials, no split-brain.
 - The active actor is chosen from a **Netflix-style picker** hosted by the hub
   after Logto login.
 - The choice is **scoped and remembered per app**. Being a fursona in Puck and
-  yourself in CandyStore simultaneously is the intended behaviour, because the
+  yourself in Libra simultaneously is the intended behaviour, because the
   appropriate self genuinely differs by context.
 - The active actor is stored in **each app's own session**, not in the token, so
   switching requires no token refresh.
@@ -513,7 +513,7 @@ cross-app identity concern and **not** a deployable application — the statemen
 | `aeleos` (this repo) | specs, plans, Logto configuration-as-code      | no         |
 | `aeleos-hub`         | the hub application + its own Supabase project | yes        |
 
-This mirrors the existing one-repo-per-app convention (`puck`, `candystore`) and
+This mirrors the existing one-repo-per-app convention (`puck`, `libra`) and
 structurally enforces the separation in §12: Phase 0 cannot block on hub work,
 because they are different codebases with different release cadences.
 

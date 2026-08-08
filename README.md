@@ -4,7 +4,7 @@
 
 AeleOS is the central **identity provider** for the Furry Colombia platform. One
 person = one identity, one login, across every app ([Puck](https://github.com/vaoan),
-CandyStore, and everything that comes next), all under subdomains of
+Libra, and everything that comes next), all under subdomains of
 `furrycolombia.com`.
 
 > Naming: our apps are celestial bodies — **Puck** (a moon of Uranus), **Janus**
@@ -45,7 +45,7 @@ lives in **each app's own repo**, not here.
   a rewrite.
 
 See the design doc for the full picture, the identity/RLS model, and the phased
-migration plan for Puck and CandyStore:
+migration plan for Puck and Libra:
 
 **➡️ [`docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md`](docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md)**
 
