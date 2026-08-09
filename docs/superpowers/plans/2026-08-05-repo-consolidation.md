@@ -352,6 +352,14 @@ unused, which is the outcome to want from insurance.
 
 ### Task 5: Repair the deploy path 🧑
 
+> **Bigger than originally written.** When this task was drafted, only the GHCR
+> namespace moved. Since then the repository was renamed to `libra` and the
+> rename went all the way through the code (libra#340), so the container, the
+> image, the deploy directory, the nginx files and the cookie keys all changed
+> names too. The server still runs the **old** names, so the first deploy after
+> that merge creates a parallel set and leaves the old one running. Steps 3–5
+> below are new; they did not exist when the plan was written.
+
 - [ ] **Step 1: Seed a rollback target in the new namespace** 🧑
 
 Per Task 2 Step 1, the new namespace populates itself on the first deploy — but
@@ -372,16 +380,52 @@ The old package is **public**; new GHCR packages default to **private**. CI and
 the server pull authenticated so they are unaffected, but anything pulling
 anonymously would break quietly. Set it public to match what exists today.
 
-- [ ] **Step 3: Merge the staged server change** 🧑
+- [ ] **Step 3: Merge the webhook URL fix — this one is urgent** 🧑
 
-Take candyshop#338 out of draft and merge it, then redeploy the webhook
-receiver. If the server needs to keep pointing at the old owner for a moment,
-set `REPO_URL` in PM2 instead of reverting the commit.
+libra#338. The clone URL was `furrycolombia-sys/candyshop.git`, which redirected
+after the transfer and so kept working while being wrong. The rename sweep then
+rewrote it to `furrycolombia-sys/libra.git`, which **404s** — GitHub redirects
+the old slug, not a slug assembled from the old owner and the new name. The
+deploy webhook is therefore broken until this merges.
 
-- [ ] **Step 4: Prove a deploy end-to-end, before you need one** 🧑
+`REPO_URL` becomes overridable, so a future ownership or naming change is a PM2
+environment variable rather than a code redeploy under pressure. Redeploy the
+webhook receiver after merging.
+
+- [ ] **Step 4: Cut the server over to the new names** 🧑
+
+The rename changed identifiers the running server still uses. Nothing breaks
+until a deploy runs; then a **parallel** set appears and the old one keeps
+running. Plan for both to exist briefly:
+
+| Was                                           | Becomes                     |
+| --------------------------------------------- | --------------------------- |
+| container / image `candyshop-prod`            | `libra-prod`                |
+| `/opt/candyshop`                              | `/opt/libra`                |
+| `/home/furrycolombia/candyshop`               | `/home/furrycolombia/libra` |
+| `candyshop-nginx.conf`, `candyshop-proxy.inc` | `libra-*`                   |
+| nginx upstreams `cs_*`                        | `libra_*`                   |
+
+The nginx include path is the sharp edge: the conf on the server references
+`/home/furrycolombia/candyshop-proxy.inc` by absolute path, so the renamed file
+must be in place **before** the new conf is loaded, or nginx fails to start.
+
+Stop and remove the old container and directory only once the new ones have
+served a real deploy.
+
+- [ ] **Step 5: Expect logged-out carts** 🧑
+
+The cart cookie, the checkout session key and the permission cache key were all
+renamed, so existing carts, in-flight checkouts and cached permissions are
+dropped the moment the new build serves traffic. With no active users this costs
+nothing — but it is a behaviour change, not a rename, and it is worth not being
+surprised by it.
+
+- [ ] **Step 6: Prove a deploy end-to-end, before you need one** 🧑
 
 Run a deploy through the normal path while you are watching and have time to roll
-back. Do not let the first post-transfer deploy be an urgent one.
+back. Do not let the first post-transfer deploy be an urgent one — it is now
+also the first post-rename deploy, which is the riskier of the two.
 
 ---
 
