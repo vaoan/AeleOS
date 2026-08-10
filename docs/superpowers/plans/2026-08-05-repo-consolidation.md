@@ -42,6 +42,8 @@ Only the last three need the owner, and only the transfer is on this plan's
 critical path.
 
 **Approach:** Transfer exactly one repository. `aeleos` and `Puck` do not move.
+(**Two, in the end** — `Janus` turned out to be misplaced the same way and was
+moved on 2026-08-09; see Task 8.)
 Then unlock what single ownership makes possible: branch protection on
 `candyshop`, and a decision on AeleOS's visibility.
 
@@ -527,6 +529,48 @@ not run.
 
 ---
 
+### Task 8: Move `Janus` as well — ✅ done 2026-08-09
+
+Not in the original plan, because the plan assumed one misplaced repository.
+`Janus` — a platform app under the celestial scheme — was sitting under
+`furrycolombia-sys` with exactly the same problem, and was only noticed while
+auditing what the old account still owned.
+
+The playbook above transferred cleanly a second time:
+
+- [x] **Transferred** via `POST /repos/furrycolombia-sys/Janus/transfer`, then
+      accepted as `vaoan`. Same pending-acceptance behaviour as Task 3.
+- [x] **Verified**: `admin=true`, old slug redirects, **6 of 6 secrets
+      survived**, all 4 workflows still active, no environments before or after.
+- [x] **Local remote** repointed to `vaoan/Janus`.
+- [x] **Branch protection** applied to `develop` and `main` — required checks
+      `Branch Target`, `PR Title`, `PR Freshness`, strict, admins enforced, no
+      force-push. It had **none** before; the other three repos all had some.
+
+**Only the unconditional jobs are required.** Janus's other jobs (Quality
+Checks, Unit Tests, Docker Build, Security Audit) are path-gated, and no CI had
+ever run on the repository, so there was no evidence of how a skipped required
+check would behave there. Requiring a check that never reports blocks merges
+permanently, so the safer set was chosen and can be widened once a real PR shows
+what actually reports.
+
+This is the second transfer with nothing lost, which is worth recording: the
+plan's original "do not assume GitHub's transfer semantics" caution now has two
+independent confirmations behind it.
+
+**Left behind deliberately:** `furrycolombia-sys` still owns `eclipse-con`
+(not part of the platform) and the `candyshop-prod` container package (the last
+built image of the working store, and the starting point of the restore runbook
+in libra's `docs/production-status.md`).
+
+Noted while looking: the local `Janus` clone has uncommitted work — a modified
+`CLAUDE.md` and five untracked workflows (`backup-scheduled`,
+`deploy-production`, `release`, `sandbox-release`, `sync-secrets`). Someone was
+part-way through copying the platform toolchain across and never committed it.
+Untouched here.
+
+---
+
 ## Verification checklist
 
 - [x] `.secrets` backed up locally for CandyStore **before** the transfer —
@@ -545,6 +589,8 @@ not run.
 - [x] Branch protection applied to `candyshop` — it survived the transfer on both
       `main` and `develop`, so nothing had to be re-created. AeleOS was made
       public and protected separately (Task 7).
+- [x] `Janus` moved to `vaoan` as well, verified, and protected on both branches
+      (Task 8) — it had no protection at all beforehand.
 - [ ] All three repos pinned to the profile.
 - [ ] No secret value appears in git history anywhere.
 
