@@ -2,218 +2,119 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up the `aeleos-hub` application as far as a signed-in person: a Next.js app authenticating through Clerk, backed by its own Supabase project holding the **authoritative** actor registry, provisioning a person actor on first sign-in.
+**Goal:** Stand up the hub as far as a signed-in person — a Next.js app in `apps/hub`, authenticating through Clerk, backed by the actor registry already in this repository, provisioning a person actor on first sign-in.
 
-**Architecture:** `aeleos-hub` is a new single-package repo (not a monorepo — it has one app). It applies the canonical migrations from `aeleos` unchanged, but unlike every consuming app its `actors` table is the source of truth rather than a mirror. Authentication is Clerk via Supabase Third-Party Auth, so the app never holds a Supabase session — it passes the Clerk token straight to PostgREST and RLS resolves the caller. Person provisioning reuses `ensure_person_actor()`, already built and tested in Phase 1a.
+**Architecture:** The hub is a package inside this repository, not a separate repo. `supabase/migrations/` at the repository root is the single schema for one database, and the hub ships none of its own. Authentication is Clerk via Supabase Third-Party Auth, so the app never holds a Supabase session — it forwards the Clerk token to PostgREST and RLS resolves the caller. Person provisioning reuses `ensure_person_actor()`, built in Phase 1a and validated against a real Clerk identity in Phase 0.
 
-**Tech Stack:** Next.js 16 (App Router), React 19, Tailwind CSS 4, `@clerk/nextjs` 7, `@supabase/supabase-js` 2, TanStack Query 5, Vitest, Playwright, pnpm.
+**Tech Stack:** Next.js 16 (App Router), React 19, Tailwind CSS 4, `@clerk/nextjs` 7, `@supabase/supabase-js` 2, Vitest, Playwright, pnpm workspaces.
 
 ## Global Constraints
 
-- **Budget: $0.** Clerk free plan (50,000 MRU, max 3 social connections). **Resolved 2026-08-09:** the hub does _not_ need a third Supabase project. The free plan's two slots are `CandyShop` (Libra's production project) and `AeleOS` (`vmmpssydbrtkgvrlkijh`, created 2026-08-09) — and the AeleOS project is unused by the Phase 0 suite, which runs against the local stack. The hub uses that project. Task 3's question ("is a slot actually free?") is answered: no slot is free, and none is needed. Puck has never had a Supabase project, contrary to earlier revisions.
-- **Depends on Phase 0.** The Clerk instance, its Google + Discord connectors, and the activated Supabase integration must exist before Task 5. See `2026-07-31-phase-0-clerk-idp-standup.md`.
-- **The canonical migrations are copied, never rewritten.** `0001`–`0007` come from `Z:\Github\aeleos\supabase\migrations\` byte-identically. If one appears wrong, that is a finding to report — fixing it here would fork the schema every other app depends on.
-- **The UUIDv5 namespace in `0006` must stay byte-identical.** It is what makes every app derive the same `actor_ref` for the same person. Changing it forks every identity.
-- **Toolchain parity.** Mirror `Z:\Github\aeleos`'s configs exactly — `.prettierrc.json` (`{"endOfLine": "auto"}`), `.gitattributes`, `eslint.config.mjs`, husky + lint-staged, secretlint, `check:tools`. The maintainer upgrades all Furry Colombia projects in one pass; divergence makes that per-repo work.
-- **Neither sister repo defaults to `main`** — both use `develop`. Decide the hub's default branch deliberately in Task 1 rather than accepting git's.
-- **Secrets never in git.** Clerk and Supabase values live in `.env.local` and `.secrets`, both gitignored. `pnpm secretlint` must pass.
-- Filenames kebab-case. Work on a branch; do not merge or open a PR without explicit instruction.
-- Steps marked 🧑 are **human-only** (dashboard actions) and cannot be performed by an agent.
+- **This plan follows `docs/superpowers/specs/2026-08-10-hub-in-aeleos-design.md`.** The hub lives at `apps/hub`. `aeleos-hub` is not created. Read that spec before starting.
+- **Budget: $0.** Clerk free plan (50,000 MRU, max 3 social connections, currently Google + Discord + Facebook). The hub uses the existing `AeleOS` Supabase project (`vmmpssydbrtkgvrlkijh`); no new project is created, and none is needed.
+- **The repository root owns the schema.** Every migration — canonical and hub-specific alike — lives in `supabase/migrations/` at the root. `apps/hub` contains no `supabase/` directory. Never copy migrations.
+- **The UUIDv5 namespace in `0006_provisioning.sql` must never change.** It is what makes every app derive the same `actor_ref` for the same person. Changing it forks every identity.
+- **The root owns the toolchain.** ESLint, Prettier, secretlint, cspell, ls-lint, knip, jscpd, madge, husky and lint-staged stay at the root and extend to `apps/hub`. `apps/hub/package.json` carries only what the application needs.
+- **Secrets never in git.** `apps/hub/.env.local` is gitignored. `pnpm secretlint` must pass.
+- **Filenames kebab-case**, except where Next.js dictates otherwise (`page.tsx`, `layout.tsx`, `[[...sign-in]]`).
+- **Branch from an explicit base:** `git checkout -b <name> origin/main`. This repository's default branch is `main`.
+- Work on a branch; do not merge or open a PR without explicit instruction.
+- Steps marked 🧑 are **human-only** and cannot be performed by an agent.
 
 ## What this plan does NOT cover
 
-Fursona creation, profile editing, the picker, and the app handoff protocol are **Phase 1b-ii**. This plan stops at a signed-in person with a provisioned actor — which is the foundation all of that sits on, and is independently shippable.
+Fursona creation, profile editing, the picker, and the app handoff protocol are **Phase 1b-ii**. This plan stops at a signed-in person with a provisioned actor.
 
 ---
 
-### Task 1: Scaffold the `aeleos-hub` repo with toolchain parity
+### Task 1: Add `apps/hub` to the workspace
+
+The repository is currently a single package. This task makes it a workspace and updates every tool that assumed otherwise. No application code yet — the deliverable is a workspace where every existing gate still passes and `apps/hub` is visible to all of them.
 
 **Files:**
 
-- Create: `Z:\Github\aeleos-hub\package.json`
-- Create: `Z:\Github\aeleos-hub\tsconfig.json`
-- Create: `Z:\Github\aeleos-hub\.gitignore`, `.gitattributes`, `.prettierrc.json`, `.prettierignore`
-- Create: `Z:\Github\aeleos-hub\eslint.config.mjs`
-- Create: `Z:\Github\aeleos-hub\cspell.json`, `.ls-lint.yml`, `knip.json`, `.jscpd.json`
-- Create: `Z:\Github\aeleos-hub\.secretlintrc.json`, `.secretlintignore`
-- Create: `Z:\Github\aeleos-hub\pnpm-workspace.yaml`
-- Create: `Z:\Github\aeleos-hub\.husky\pre-commit`
+- Modify: `pnpm-workspace.yaml`
+- Create: `apps/hub/package.json`, `apps/hub/tsconfig.json`
+- Modify: `package.json` (scripts)
+- Modify: `.ls-lint.yml`, `knip.json`, `.prettierignore`, `.gitignore`, `eslint.config.mjs`
 
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: a repo where `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm secretlint` and `pnpm check:tools` all run.
+- Produces: `pnpm --filter hub <script>` resolves; root `pnpm typecheck`, `lint`, `format:check`, `secretlint`, `check:tools` all still pass and now cover `apps/hub`.
 
-- [ ] **Step 1: Create the repo and choose its default branch**
+- [ ] **Step 1: Declare the workspace**
 
-```bash
-mkdir -p Z:/Github/aeleos-hub
-cd Z:/Github/aeleos-hub
-git init -b develop
-```
-
-> `develop`, not `main` — both sister repos default to `develop`, and `aeleos` defaulting to `main` is the odd one out. Matching the majority keeps cross-repo work predictable.
-
-- [ ] **Step 2: Copy the toolchain configs from aeleos**
-
-These are already aligned with puck and libra, so copying them is how parity propagates:
-
-```bash
-cd Z:/Github/aeleos-hub
-for f in .gitattributes .prettierrc.json .secretlintrc.json .secretlintignore .ls-lint.yml .jscpd.json cspell.json; do
-  cp "Z:/Github/aeleos/$f" .
-done
-cp Z:/Github/aeleos/.husky/pre-commit ./husky-pre-commit.tmp
-```
-
-Then edit `.ls-lint.yml` — aeleos's version points at `tests/` and `scripts/`, which is wrong here. Replace its `ls:` block with:
+`pnpm-workspace.yaml` — add a `packages:` key above the existing settings:
 
 ```yaml
-ls:
-  src:
-    .ts: kebab-case
-    .tsx: kebab-case | regex:^[A-Z][A-Za-z0-9]*$
-  tests:
-    .ts: kebab-case
+packages:
+  - apps/*
+
+onlyBuiltDependencies:
+  - esbuild
+  - supabase
 ```
 
-Leave its `ignore:` block as copied.
+- [ ] **Step 2: Create the hub package**
 
-- [ ] **Step 3: Write package.json**
+`apps/hub/package.json`:
 
 ```json
 {
-  "name": "aeleos-hub",
+  "name": "hub",
   "version": "0.1.0",
   "private": true,
-  "description": "AeleOS Hub — fursona registry and profile management for Furry Colombia.",
-  "license": "MIT",
   "type": "module",
-  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
-  "engines": {
-    "node": ">=24"
-  },
   "scripts": {
     "dev": "next dev -p 5100",
     "build": "next build",
-    "start": "next start",
-    "db:start": "supabase start",
-    "db:reset": "supabase db reset",
-    "test": "vitest run",
-    "test:e2e": "playwright test",
-    "lint": "eslint . --no-error-on-unmatched-pattern",
-    "lint:fix": "eslint . --fix --no-error-on-unmatched-pattern",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,css,md}\"",
-    "fix:staged": "lint-staged --concurrent false",
-    "fix:all": "pnpm format && pnpm lint:fix",
+    "start": "next start -p 5100",
     "typecheck": "tsc --noEmit",
-    "check:tools": "cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx src || true)",
-    "secretlint": "secretlint \"**/*\"",
-    "prepare": "husky"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.6.4",
+    "@clerk/nextjs": "^7.0.0",
     "@supabase/supabase-js": "^2.110.0",
-    "@tanstack/react-query": "^5.101.2",
-    "lucide-react": "^1.22.0",
-    "next": "^16.2.9",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "zod": "^4.4.3"
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@ls-lint/ls-lint": "^2.3.1",
-    "@playwright/test": "^1.61.1",
-    "@secretlint/secretlint-rule-preset-recommend": "^12.3.1",
-    "@tailwindcss/postcss": "^4.3.2",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/node": "^24.0.0",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
-    "cspell": "^10.0.0",
-    "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.4",
-    "eslint-config-prettier": "^10.1.5",
-    "globals": "^14.0.0",
-    "husky": "^9.1.7",
-    "jscpd": "^4.0.9",
-    "jsdom": "^29.1.1",
-    "knip": "^6.7.0",
-    "lint-staged": "^16.4.0",
-    "madge": "^8.0.0",
-    "prettier": "^3.8.3",
-    "secretlint": "^12.3.1",
-    "supabase": "^2.95.5",
-    "tailwindcss": "^4.3.2",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.0",
-    "vitest": "^4.1.5"
-  },
-  "lint-staged": {
-    "*.{ts,tsx,js,jsx,mjs}": [
-      "prettier --check",
-      "eslint --max-warnings=0 --no-warn-ignored",
-      "secretlint"
-    ],
-    "*.{json,md,css}": ["prettier --check"]
+    "@playwright/test": "^1.50.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "eslint-config-next": "^16.0.0",
+    "jsdom": "^26.0.0",
+    "tailwindcss": "^4.0.0"
   }
 }
 ```
 
-> Note what is deliberately **absent**: `@supabase/ssr`. Puck needs it because it uses Supabase Auth and must manage session cookies. The hub has no Supabase session at all — it forwards a Clerk token — so the cookie helpers would be dead weight.
-
-- [ ] **Step 4: Write the remaining configs**
-
-`pnpm-workspace.yaml`:
-
-```yaml
-# Settings-only: aeleos-hub is a single package, not a workspace.
-onlyBuiltDependencies:
-  - esbuild
-  - supabase
-  - sharp
-```
-
-`.gitignore`:
-
-```gitignore
-node_modules/
-.next/
-out/
-.env
-.env.*
-!.env.example
-.secrets
-supabase/.temp/
-supabase/.branches/
-*.log
-test-results/
-playwright-report/
-```
-
-`tsconfig.json`:
+`apps/hub/tsconfig.json`:
 
 ```json
 {
   "compilerOptions": {
-    "target": "ES2023",
-    "lib": ["dom", "dom.iterable", "ES2023"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "preserve",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "esModuleInterop": true,
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "ES2022"],
+    "allowJs": false,
     "skipLibCheck": true,
-    "allowJs": true,
-    "incremental": true,
+    "strict": true,
     "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": { "@/*": ["./src/*"] }
   },
@@ -222,84 +123,162 @@ playwright-report/
 }
 ```
 
-`eslint.config.mjs`:
+- [ ] **Step 3: Add root passthrough scripts**
 
-```js
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import prettier from "eslint-config-prettier";
+In the root `package.json`, replace the `typecheck` script and add three:
 
-export default tseslint.config(
-  {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "supabase/**",
-      "playwright-report/**",
-      "test-results/**",
-    ],
-  },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  prettier,
-);
+```json
+"dev": "pnpm --filter hub dev",
+"build": "pnpm --filter hub build",
+"test:hub": "pnpm --filter hub test",
+"typecheck": "tsc --noEmit && pnpm --filter hub typecheck",
 ```
 
-`knip.json`:
+Root `typecheck` must cover both: the root's own `tsc` does not see `apps/hub`, which has its own tsconfig.
+
+- [ ] **Step 4: Update the tools that assumed a single package**
+
+`.ls-lint.yml` — the header comment currently asserts AeleOS is not a monorepo. Replace the file:
+
+```yaml
+# ls-lint configuration
+# Enforces file naming conventions. Next.js dictates some names in apps/hub
+# (page.tsx, layout.tsx), which are kebab-case anyway. Directory names are not
+# checked, so App Router segments like [id] and (app) are unaffected.
+
+ls:
+  tests:
+    .ts: kebab-case
+
+  scripts:
+    .mjs: kebab-case
+    .html: kebab-case
+
+  apps/hub/src:
+    .ts: kebab-case
+    .tsx: kebab-case
+
+  apps/hub/tests:
+    .ts: kebab-case
+    .tsx: kebab-case
+
+ignore:
+  - node_modules
+  - .git
+  - dist
+  - build
+  - coverage
+  - .pnpm-store
+  - .claude
+  - .github
+  - .husky
+  - .vscode
+  - .superpowers
+  - docs
+  - supabase
+  - apps/hub/.next
+```
+
+`knip.json` — teach it the workspace, or the hub's dependencies are invisible to it:
 
 ```json
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "src/app/**/{page,layout,route,middleware}.{ts,tsx}",
-    "src/middleware.ts",
-    "tests/**/*.test.{ts,tsx}"
-  ],
-  "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
-  "ignoreDependencies": [
-    "@secretlint/secretlint-rule-preset-recommend",
-    "@tailwindcss/postcss",
-    "tailwindcss"
-  ]
+  "workspaces": {
+    ".": {
+      "entry": [
+        "tests/**/*.test.ts",
+        "tests/**/global-setup.ts",
+        "vitest.config.*.ts",
+        "scripts/*.mjs"
+      ],
+      "project": ["tests/**/*.ts", "scripts/**/*.mjs", "*.ts", "*.mjs"]
+    },
+    "apps/hub": {
+      "entry": [
+        "src/app/**/*.tsx",
+        "src/middleware.ts",
+        "next.config.ts",
+        "vitest.config.ts",
+        "playwright.config.ts",
+        "tests/**/*.test.{ts,tsx}",
+        "tests/e2e/**/*.spec.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    }
+  },
+  "ignoreDependencies": ["@secretlint/secretlint-rule-preset-recommend"]
 }
 ```
 
-`.prettierignore`:
+`.prettierignore` — append:
 
-```gitignore
-node_modules
-.next
-supabase/.branches
-supabase/.temp
-pnpm-lock.yaml
-playwright-report
-test-results
+```
+apps/hub/.next
+apps/hub/playwright-report
+apps/hub/test-results
 ```
 
-Move the husky hook into place:
+`.gitignore` — append:
 
-```bash
-mkdir -p .husky && mv husky-pre-commit.tmp .husky/pre-commit
+```
+# Next.js
+apps/hub/.next/
+apps/hub/next-env.d.ts
+apps/hub/playwright-report/
+apps/hub/test-results/
 ```
 
-- [ ] **Step 5: Install and verify every gate runs**
+Root `package.json` — `check:tools` currently spell-checks `{ts,md,json}` and runs madge over `tests scripts`. Both miss the hub. Replace with:
+
+```json
+"check:tools": "cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
+```
+
+- [ ] **Step 5: Teach ESLint about Next.js**
+
+`eslint.config.mjs` — add the Next.js preset scoped to the hub. `eslint-config-next/core-web-vitals` is a flat config array, so it spreads directly; `settings.next.rootDir` is how the plugin finds the app when the config lives at the workspace root.
+
+Add these imports at the top:
+
+```js
+import { globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+```
+
+and append to the exported array:
+
+```js
+  ...nextVitals.map((config) => ({
+    ...config,
+    files: ["apps/hub/**/*.{ts,tsx}"],
+  })),
+  {
+    files: ["apps/hub/**/*.{ts,tsx}"],
+    settings: { next: { rootDir: "apps/hub/" } },
+  },
+  globalIgnores(["apps/hub/.next/**", "apps/hub/next-env.d.ts"]),
+```
+
+- [ ] **Step 6: Install and prove every gate still passes**
 
 ```bash
 pnpm install
-pnpm secretlint; echo "secretlint=$?"
-pnpm format:check; echo "format=$?"
+pnpm secretlint && pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:tools
 ```
 
-Expected: both exit 0. `lint`, `typecheck` and `check:tools` will have nothing to inspect until Task 2 adds source — that is fine here; Task 2 verifies them.
-
-- [ ] **Step 6: Commit**
+Expected: all exit 0. `pnpm test:db` is untouched and must also still pass:
 
 ```bash
-git add -A
-git commit -m "chore: scaffold aeleos-hub with sister-repo toolchain parity"
+pnpm test:db
 ```
 
-> `git add -A` is acceptable **only here**, on the initial commit of an empty repo with `.gitignore` already in place. Every later task uses explicit paths.
+- [ ] **Step 7: Commit**
+
+```bash
+git add pnpm-workspace.yaml package.json pnpm-lock.yaml apps/hub/package.json apps/hub/tsconfig.json .ls-lint.yml knip.json .prettierignore .gitignore eslint.config.mjs
+git commit -m "chore: make aeleos a workspace and add apps/hub"
+```
 
 ---
 
@@ -307,19 +286,19 @@ git commit -m "chore: scaffold aeleos-hub with sister-repo toolchain parity"
 
 **Files:**
 
-- Create: `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
-- Create: `next.config.ts`, `postcss.config.mjs`
-- Create: `vitest.config.ts`, `tests/setup.ts`
-- Test: `tests/smoke.test.tsx`
+- Create: `apps/hub/src/app/layout.tsx`, `apps/hub/src/app/page.tsx`, `apps/hub/src/app/globals.css`
+- Create: `apps/hub/next.config.ts`, `apps/hub/postcss.config.mjs`
+- Create: `apps/hub/vitest.config.ts`, `apps/hub/tests/setup.ts`
+- Test: `apps/hub/tests/smoke.test.tsx`
 
 **Interfaces:**
 
-- Consumes: Task 1's toolchain.
-- Produces: a running Next.js app; `pnpm test` executes Vitest with React Testing Library.
+- Consumes: Task 1's workspace.
+- Produces: a running Next.js app; `pnpm --filter hub test` executes Vitest with React Testing Library.
 
 - [ ] **Step 1: Write the Next.js config**
 
-`next.config.ts`:
+`apps/hub/next.config.ts`:
 
 ```ts
 import type { NextConfig } from "next";
@@ -331,7 +310,7 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-`postcss.config.mjs`:
+`apps/hub/postcss.config.mjs`:
 
 ```js
 export default {
@@ -341,13 +320,13 @@ export default {
 
 - [ ] **Step 2: Write the app shell**
 
-`src/app/globals.css`:
+`apps/hub/src/app/globals.css`:
 
 ```css
 @import "tailwindcss";
 ```
 
-`src/app/layout.tsx`:
+`apps/hub/src/app/layout.tsx`:
 
 ```tsx
 import type { Metadata } from "next";
@@ -371,7 +350,7 @@ export default function RootLayout({
 }
 ```
 
-`src/app/page.tsx`:
+`apps/hub/src/app/page.tsx`:
 
 ```tsx
 export default function HomePage() {
@@ -386,7 +365,7 @@ export default function HomePage() {
 
 - [ ] **Step 3: Wire Vitest**
 
-`vitest.config.ts`:
+`apps/hub/vitest.config.ts`:
 
 ```ts
 import { defineConfig } from "vitest/config";
@@ -406,7 +385,7 @@ export default defineConfig({
 });
 ```
 
-`tests/setup.ts`:
+`apps/hub/tests/setup.ts`:
 
 ```ts
 import "@testing-library/jest-dom/vitest";
@@ -414,7 +393,7 @@ import "@testing-library/jest-dom/vitest";
 
 - [ ] **Step 4: Write the failing test**
 
-`tests/smoke.test.tsx`:
+`apps/hub/tests/smoke.test.tsx`:
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -431,13 +410,13 @@ describe("home page", () => {
 
 - [ ] **Step 5: Run the test**
 
-Run: `pnpm test`
+Run: `pnpm --filter hub test`
 Expected: PASS (1 test).
 
 - [ ] **Step 6: Verify the build and every gate**
 
 ```bash
-pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:tools
+pnpm --filter hub build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:tools
 ```
 
 Expected: all exit 0.
@@ -445,63 +424,31 @@ Expected: all exit 0.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/ tests/ next.config.ts postcss.config.mjs vitest.config.ts package.json pnpm-lock.yaml
+git add apps/hub/ pnpm-lock.yaml
 git commit -m "feat: add next.js app skeleton with vitest"
 ```
 
 ---
 
-### Task 3: Confirm a Supabase slot, then stand up the registry
+### Task 3: Point the local stack at Clerk and verify the registry
+
+The schema already exists in `supabase/migrations/` and was applied to the hosted `AeleOS` project during Phase 0. Nothing is copied and nothing is created. This task confirms the functions the app will call are present, and records why this repository's `actors` table is authoritative.
 
 **Files:**
 
-- Create: `supabase/config.toml` (generated)
-- Create: `supabase/migrations/0001_actors.sql` … `0007_suspension_hardening.sql` (copied)
+- Modify: `supabase/config.toml` — **locally only, never committed**
 - Create: `docs/registry.md`
 
 **Interfaces:**
 
 - Consumes: nothing from earlier tasks.
-- Produces: a local Supabase stack whose `actors` table is the authoritative registry, with `ensure_person_actor()`, `current_person_ref()` and `can_act_as()` available.
+- Produces: a running local stack that trusts Clerk, with `ensure_person_actor()`, `current_person_ref()` and `can_act_as()` confirmed present.
 
-- [ ] **Step 1: Confirm a Supabase project slot is actually free** 🧑
+- [ ] **Step 1: Enable the Clerk provider locally**
 
-The free plan allows **two active projects**. Before anything depends on the hub having its own, check <https://supabase.com/dashboard> and count active (not paused) projects.
+`supabase/config.toml` ships with the provider disabled deliberately: `supabase start` fetches the provider's OpenID discovery document at boot and aborts if it cannot reach it, which would make a real Clerk domain a hard requirement for CI and for anyone without credentials.
 
-- **Fewer than two** — proceed; the hub gets its own project in Phase 1b-ii when hosting is set up.
-- **Already two** — **stop and report.** Do not silently put the registry into an app's project: that couples identity to one app and contradicts the design. It is the maintainer's call whether to pause a project, pay, or stay local-only.
-
-Local development works either way, so Tasks 3–9 can complete regardless. Only deployment is gated.
-
-- [ ] **Step 2: Initialise the local stack**
-
-```bash
-cd Z:/Github/aeleos-hub
-pnpm exec supabase init
-pnpm exec supabase start
-```
-
-- [ ] **Step 3: Copy the canonical migrations verbatim**
-
-```bash
-mkdir -p supabase/migrations
-cp Z:/Github/aeleos/supabase/migrations/000*.sql supabase/migrations/
-ls supabase/migrations/
-```
-
-Expected: `0001_actors.sql` through `0007_suspension_hardening.sql`.
-
-Do **not** edit them. Verify the UUIDv5 namespace survived the copy — it is what makes every app derive the same `actor_ref` for the same person:
-
-```bash
-grep -c 'd1f1a0c6-6b3e-5f7a-9c2d-3e4f5a6b7c8d' supabase/migrations/0006_provisioning.sql
-```
-
-Expected: `1`.
-
-- [ ] **Step 4: Enable Clerk as the third-party provider**
-
-In `supabase/config.toml`, change the Clerk block to:
+Change the block to:
 
 ```toml
 [auth.third_party.clerk]
@@ -509,15 +456,19 @@ enabled = true
 domain = "env(CLERK_DOMAIN)"
 ```
 
-- [ ] **Step 5: Apply and verify the schema**
+**Leave this edit uncommitted.** Revert it when you are done. The committed value stays `false`.
+
+- [ ] **Step 2: Restart the stack**
 
 ```bash
 set -a; . ./.secrets; set +a
-pnpm exec supabase db reset
+pnpm exec supabase stop
+pnpm exec supabase start
 ```
 
-Then confirm the helper functions the app depends on actually exist. Capture the
-database URL once — the same one-liner is used again in Task 7:
+Editing the file alone does nothing — the stack must restart for the change to apply. If `.secrets` is absent, run `pnpm sync-secrets` first.
+
+- [ ] **Step 3: Confirm the functions the app depends on exist**
 
 ```bash
 DB_URL=$(pnpm exec supabase status -o json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).DB_URL))")
@@ -526,50 +477,65 @@ psql "$DB_URL" -c "select proname from pg_proc where proname in ('ensure_person_
 
 Expected: three rows — `can_act_as`, `current_person_ref`, `ensure_person_actor`.
 
-If `psql` is not installed, run the same query through any Postgres client using
-`$DB_URL`; the point is confirming the three functions exist before the app
-depends on them.
+If `psql` is not installed, run the same query through any Postgres client using `$DB_URL`. The point is confirming the three functions exist before the app depends on them.
 
-- [ ] **Step 6: Document what makes this repo different**
+- [ ] **Step 4: Document why this registry is authoritative**
 
 Create `docs/registry.md`:
 
 ````markdown
-# The registry in aeleos-hub
+# The actor registry
 
-Every consuming app keeps a **mirror** of `actors`, synced from here. This repo is
-the exception: its `actors` table is **authoritative**. Nothing syncs into it.
+Every consuming app keeps a **mirror** of `actors`, synced from here. This
+repository is the exception: its `actors` table is **authoritative**. Nothing
+syncs into it.
 
-The migrations in `supabase/migrations/` are copied byte-identically from
-`Z:\Github\aeleos\supabase\migrations\`. Never edit them here — a divergence
-would fork the schema every other app depends on. If one looks wrong, fix it in
-`aeleos` and re-copy.
+## One schema, one owner
+
+`supabase/migrations/` at the repository root is the only place migrations
+live. `apps/hub` ships none of its own — the hub reads a database whose schema
+this repository owns. Phase 1b-ii's `security definer` RPCs are numbered
+migrations here like any other.
+
+This is deliberate. The hub and this repository target the same Supabase
+project, and two places issuing `supabase db push` at one database is two
+sources of truth. See
+`docs/superpowers/specs/2026-08-10-hub-in-aeleos-design.md`.
 
 ## The one value that must never change
 
-`0006_provisioning.sql` derives a person's `actor_ref` from their `identity_sub`
-using UUIDv5 over a fixed namespace. Every app computes the same value with no
-coordination, which is what keeps one human as one identity across the platform.
+`0006_provisioning.sql` derives a person's `actor_ref` from their
+`identity_sub` using UUIDv5 over a fixed namespace. Every app computes the same
+value with no coordination, which is what keeps one human as one identity
+across the platform.
 
 Changing that namespace forks every person's identity. The derivation is also
 **bootstrap-only**: existing rows keep their stored `actor_ref`, so it is never
 recomputed for an existing user.
 
-## Verifying a copy is faithful
+## Checking the schema is what you think it is
 
 ```bash
-diff -r Z:/Github/aeleos/supabase/migrations/ ./supabase/migrations/
+DB_URL=$(pnpm exec supabase status -o json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).DB_URL))")
+psql "$DB_URL" -c "select version from supabase_migrations.schema_migrations order by version;"
 ```
-
-Expected: no output.
 ````
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 5: Revert the local config edit and commit**
 
 ```bash
-git add supabase/ docs/registry.md
-git commit -m "feat: add the authoritative actor registry"
+git checkout supabase/config.toml
+git add docs/registry.md
+git commit -m "docs: record why this repository owns the actor registry"
 ```
+
+Confirm the committed provider is still disabled:
+
+```bash
+grep -A1 "auth.third_party.clerk" supabase/config.toml
+```
+
+Expected: `enabled = false`.
 
 ---
 
@@ -577,34 +543,34 @@ git commit -m "feat: add the authoritative actor registry"
 
 **Files:**
 
-- Create: `.env.example`
-- Create: `src/lib/env.ts`
-- Test: `tests/env.test.ts`
+- Create: `apps/hub/.env.example`
+- Create: `apps/hub/src/lib/env.ts`
+- Test: `apps/hub/tests/env.test.ts`
 
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `env` — a validated, typed object exporting `supabaseUrl`, `supabaseAnonKey`. Throws at import time if a required variable is missing.
+- Produces: `env` — a validated, typed object exporting `supabaseUrl` and `supabaseAnonKey`. Throws at import time if a required variable is missing. Also exports `readEnv(raw: Record<string, string | undefined>): Env`.
 
 - [ ] **Step 1: Write the example file**
 
-`.env.example`:
+`apps/hub/.env.example`:
 
 ```bash
 # Copy to .env.local and fill in. .env.local is gitignored.
 
-# Clerk — Dashboard > API Keys
+# Clerk — Dashboard > API Keys, or from ../../.secrets after `pnpm sync-secrets`
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxx
 CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxx
 
-# Supabase — from `pnpm exec supabase status`
+# Supabase — from `pnpm exec supabase status` at the repository root
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=paste-the-anon-key-from-supabase-status
 ```
 
 - [ ] **Step 2: Write the failing test**
 
-`tests/env.test.ts`:
+`apps/hub/tests/env.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -639,12 +605,12 @@ describe("readEnv", () => {
 
 - [ ] **Step 3: Run it to verify it fails**
 
-Run: `pnpm test`
+Run: `pnpm --filter hub test`
 Expected: FAIL — `@/lib/env` does not exist.
 
 - [ ] **Step 4: Implement**
 
-`src/lib/env.ts`:
+`apps/hub/src/lib/env.ts`:
 
 ```ts
 import { z } from "zod";
@@ -689,13 +655,13 @@ export const env: Env = readEnv({
 
 - [ ] **Step 5: Run the tests**
 
-Run: `pnpm test`
+Run: `pnpm --filter hub test`
 Expected: PASS (4 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add .env.example src/lib/env.ts tests/env.test.ts
+git add apps/hub/.env.example apps/hub/src/lib/env.ts apps/hub/tests/env.test.ts
 git commit -m "feat: add validated environment configuration"
 ```
 
@@ -703,15 +669,15 @@ git commit -m "feat: add validated environment configuration"
 
 ### Task 5: Clerk authentication
 
-**Depends on Phase 0** — the Clerk instance must exist with Google and Discord enabled and the Supabase integration activated.
+**Depends on Phase 0** — the Clerk instance exists with Google, Discord and Facebook enabled and the Supabase integration activated. See `docs/phase-0-clerk-setup.md`.
 
 **Files:**
 
-- Create: `src/middleware.ts`
-- Modify: `src/app/layout.tsx`
-- Create: `src/app/sign-in/[[...sign-in]]/page.tsx`
-- Create: `src/app/(app)/layout.tsx`
-- Create: `src/app/(app)/me/page.tsx`
+- Create: `apps/hub/src/middleware.ts`
+- Modify: `apps/hub/src/app/layout.tsx`
+- Create: `apps/hub/src/app/sign-in/[[...sign-in]]/page.tsx`
+- Create: `apps/hub/src/app/(app)/layout.tsx`
+- Create: `apps/hub/src/app/(app)/me/page.tsx`
 
 **Interfaces:**
 
@@ -720,11 +686,16 @@ git commit -m "feat: add validated environment configuration"
 
 - [ ] **Step 1: Fill in local secrets** 🧑
 
-Copy `.env.example` to `.env.local` and fill in the Clerk publishable and secret keys from the Phase 0 instance, plus the Supabase values from `pnpm exec supabase status`.
+```bash
+pnpm sync-secrets            # refreshes ../../.secrets
+cp apps/hub/.env.example apps/hub/.env.local
+```
+
+Fill `apps/hub/.env.local` with the Clerk publishable and secret keys from `.secrets`, and the Supabase values from `pnpm exec supabase status`.
 
 - [ ] **Step 2: Add the middleware**
 
-`src/middleware.ts`:
+`apps/hub/src/middleware.ts`:
 
 ```ts
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
@@ -749,7 +720,7 @@ export const config = {
 
 - [ ] **Step 3: Wrap the app in the Clerk provider**
 
-Replace `src/app/layout.tsx` with:
+Replace `apps/hub/src/app/layout.tsx` with:
 
 ```tsx
 import type { Metadata } from "next";
@@ -778,7 +749,7 @@ export default function RootLayout({
 
 - [ ] **Step 4: Add the sign-in route**
 
-`src/app/sign-in/[[...sign-in]]/page.tsx`:
+`apps/hub/src/app/sign-in/[[...sign-in]]/page.tsx`:
 
 ```tsx
 import { SignIn } from "@clerk/nextjs";
@@ -794,7 +765,7 @@ export default function SignInPage() {
 
 - [ ] **Step 5: Add the authenticated shell and a placeholder /me**
 
-`src/app/(app)/layout.tsx`:
+`apps/hub/src/app/(app)/layout.tsx`:
 
 ```tsx
 import { UserButton } from "@clerk/nextjs";
@@ -814,7 +785,7 @@ export default function AppLayout({
 }
 ```
 
-`src/app/(app)/me/page.tsx`:
+`apps/hub/src/app/(app)/me/page.tsx`:
 
 ```tsx
 import { currentUser } from "@clerk/nextjs/server";
@@ -836,12 +807,12 @@ export default async function MePage() {
 pnpm dev
 ```
 
-Visit `http://localhost:5100/me`. Expected: redirected to `/sign-in`; after signing in with Google or Discord, `/me` renders and shows a Clerk subject starting `user_`.
+Visit `http://localhost:5100/me`. Expected: redirected to `/sign-in`; after signing in with Google, Discord or Facebook, `/me` renders and shows a Clerk subject starting `user_`.
 
 - [ ] **Step 7: Verify the gates**
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm format:check && pnpm build
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm --filter hub build
 ```
 
 Expected: all exit 0.
@@ -849,18 +820,18 @@ Expected: all exit 0.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/middleware.ts src/app/
+git add apps/hub/src/
 git commit -m "feat: add clerk authentication and protected routes"
 ```
 
 ---
 
-### Task 6: Supabase clients bound to the Clerk token
+### Task 6: Supabase client bound to the Clerk token
 
 **Files:**
 
-- Create: `src/lib/supabase-server.ts`
-- Test: `tests/supabase-client.test.ts`
+- Create: `apps/hub/src/lib/supabase-server.ts`
+- Test: `apps/hub/tests/supabase-client.test.ts`
 
 **Interfaces:**
 
@@ -874,7 +845,7 @@ git commit -m "feat: add clerk authentication and protected routes"
 
 - [ ] **Step 1: Write the failing test**
 
-`tests/supabase-client.test.ts`:
+`apps/hub/tests/supabase-client.test.ts`:
 
 ```ts
 import { describe, expect, it, vi } from "vitest";
@@ -907,12 +878,12 @@ describe("createServerClient", () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm test`
+Run: `pnpm --filter hub test`
 Expected: FAIL — `@/lib/supabase-server` does not exist.
 
 - [ ] **Step 3: Implement the server client**
 
-`src/lib/supabase-server.ts`:
+`apps/hub/src/lib/supabase-server.ts`:
 
 ```ts
 import { auth } from "@clerk/nextjs/server";
@@ -936,13 +907,13 @@ export async function createServerClient(): Promise<SupabaseClient> {
 
 - [ ] **Step 4: Run the tests**
 
-Run: `pnpm test`
+Run: `pnpm --filter hub test`
 Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/supabase-server.ts tests/supabase-client.test.ts
+git add apps/hub/src/lib/supabase-server.ts apps/hub/tests/supabase-client.test.ts
 git commit -m "feat: add a supabase client bound to the clerk token"
 ```
 
@@ -950,13 +921,13 @@ git commit -m "feat: add a supabase client bound to the clerk token"
 
 ### Task 7: Person provisioning on first sign-in
 
-This is the moment a Clerk identity becomes an actor in the registry. It reuses `ensure_person_actor()`, already built and tested in Phase 1a.
+This is the moment a Clerk identity becomes an actor in the registry. It reuses `ensure_person_actor()`, built in Phase 1a and already proven against a real Clerk identity by `tests/idp/clerk-actor-model.test.ts`.
 
 **Files:**
 
-- Create: `src/lib/actors.ts`
-- Modify: `src/app/(app)/me/page.tsx`
-- Test: `tests/actors.test.ts`
+- Create: `apps/hub/src/lib/actors.ts`
+- Modify: `apps/hub/src/app/(app)/me/page.tsx`
+- Test: `apps/hub/tests/actors.test.ts`
 
 **Interfaces:**
 
@@ -967,7 +938,7 @@ This is the moment a Clerk identity becomes an actor in the registry. It reuses 
 
 - [ ] **Step 1: Write the failing test**
 
-`tests/actors.test.ts`:
+`apps/hub/tests/actors.test.ts`:
 
 ```ts
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -1038,12 +1009,12 @@ describe("getPersonActor", () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm test`
+Run: `pnpm --filter hub test`
 Expected: FAIL — `@/lib/actors` does not exist.
 
 - [ ] **Step 3: Implement**
 
-`src/lib/actors.ts`:
+`apps/hub/src/lib/actors.ts`:
 
 ```ts
 import { createServerClient } from "@/lib/supabase-server";
@@ -1095,11 +1066,11 @@ export async function getPersonActor(
 
 > Reads go through `actors_public`, never the base table — that view is the
 > exposure boundary, and `owner_ref` and `identity_sub` are absent from it by
-> construction.
+> construction. `tests/idp/clerk-actor-model.test.ts` already asserts this.
 
 - [ ] **Step 4: Wire it into /me**
 
-Replace `src/app/(app)/me/page.tsx`:
+Replace `apps/hub/src/app/(app)/me/page.tsx`:
 
 ```tsx
 import { currentUser } from "@clerk/nextjs/server";
@@ -1131,12 +1102,12 @@ export default async function MePage() {
 
 - [ ] **Step 5: Run the tests**
 
-Run: `pnpm test`
+Run: `pnpm --filter hub test`
 Expected: PASS (10 tests).
 
 - [ ] **Step 6: Verify against the real stack** 🧑
 
-With `pnpm exec supabase start` running and `.env.local` filled in:
+With the local stack running (Task 3) and `apps/hub/.env.local` filled in:
 
 ```bash
 pnpm dev
@@ -1154,28 +1125,27 @@ Expected: exactly one row, `kind = person`, `identity_sub` starting `user_`.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/actors.ts src/app/\(app\)/me/page.tsx tests/actors.test.ts
+git add apps/hub/src/lib/actors.ts "apps/hub/src/app/(app)/me/page.tsx" apps/hub/tests/actors.test.ts
 git commit -m "feat: provision a person actor on first sign-in"
 ```
 
 ---
 
-### Task 8: End-to-end test of the sign-in flow
+### Task 8: End-to-end test of the sign-in gate
 
 **Files:**
 
-- Create: `playwright.config.ts`
-- Create: `tests/e2e/auth.spec.ts`
-- Modify: `.gitignore` (already covers `test-results/`, `playwright-report/`)
+- Create: `apps/hub/playwright.config.ts`
+- Create: `apps/hub/tests/e2e/auth.spec.ts`
 
 **Interfaces:**
 
 - Consumes: the running app from Tasks 5–7.
-- Produces: `pnpm test:e2e`.
+- Produces: `pnpm --filter hub test:e2e`.
 
 - [ ] **Step 1: Write the Playwright config**
 
-`playwright.config.ts`:
+`apps/hub/playwright.config.ts`:
 
 ```ts
 import { defineConfig, devices } from "@playwright/test";
@@ -1203,7 +1173,7 @@ export default defineConfig({
 
 - [ ] **Step 2: Write the test**
 
-`tests/e2e/auth.spec.ts`:
+`apps/hub/tests/e2e/auth.spec.ts`:
 
 ```ts
 import { expect, test } from "@playwright/test";
@@ -1219,193 +1189,240 @@ test.describe("authentication gate", () => {
     await expect(page).toHaveURL(/\/sign-in/);
   });
 
-  test("the sign-in page offers Google and Discord", async ({ page }) => {
+  test("the sign-in page offers the configured social providers", async ({
+    page,
+  }) => {
     await page.goto("/sign-in");
     // Clerk renders social buttons with the provider name in the accessible name.
     await expect(page.getByRole("button", { name: /google/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /discord/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /facebook/i })).toBeVisible();
   });
 });
 ```
 
 > These three cases need no credentials, so they run anywhere. Testing a
-> completed social sign-in would require driving Google's or Discord's own
-> login, which is brittle and outside our control — that path stays the manual
-> check in Task 7 Step 6.
+> completed social sign-in would require driving Google's, Discord's or
+> Facebook's own login, which is brittle and outside our control — that path
+> stays the manual check in Task 7 Step 6.
 
 - [ ] **Step 3: Install the browser and run**
 
 ```bash
-pnpm exec playwright install chromium
-pnpm test:e2e
+pnpm --filter hub exec playwright install chromium
+pnpm --filter hub test:e2e
 ```
 
 Expected: 3 passed.
 
-If the Google or Discord button is missing, the Phase 0 connector configuration is incomplete — fix it in the Clerk dashboard rather than relaxing the test.
+If a provider button is missing, the Clerk connector configuration has changed — fix it in the dashboard rather than relaxing the test. The current lineup is recorded in `docs/phase-0-clerk-setup.md`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add playwright.config.ts tests/e2e/auth.spec.ts package.json pnpm-lock.yaml
+git add apps/hub/playwright.config.ts apps/hub/tests/e2e/ pnpm-lock.yaml
 git commit -m "test: add e2e coverage for the authentication gate"
 ```
 
 ---
 
-### Task 9: CI and the adoption README
+### Task 9: CI jobs for the hub and the cloud trust suite
+
+Two jobs join the existing `conformance` job. Both are added **before** being made required — a required check that has never reported blocks every pull request while GitHub waits for a status that is not coming.
 
 **Files:**
 
-- Create: `.github/workflows/ci.yml`
-- Create: `README.md`
+- Modify: `.github/workflows/db-tests.yml`
+- Modify: `README.md`
 
 **Interfaces:**
 
 - Consumes: every script from Tasks 1–8.
-- Produces: CI that gates the same checks as the sister repos.
+- Produces: `hub` and `idp-cloud` checks on every pull request.
 
-- [ ] **Step 1: Write the workflow**
+- [ ] **Step 1: Add the two jobs**
 
-`.github/workflows/ci.yml`:
+In `.github/workflows/db-tests.yml`, change the workflow name and append two jobs. The existing `conformance` job is unchanged — its name must stay stable because branch protection requires it.
+
+Change line 1:
 
 ```yaml
 name: ci
-
-on:
-  push:
-    branches: [develop]
-  pull_request:
-
-jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-
-      # No `version:` input: packageManager pins pnpm with a sha512, and
-      # action-setup errors if a version is supplied in both places.
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
-
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm secretlint
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm check:tools
-      - run: pnpm test
 ```
 
-> All actions are pinned by SHA to majors that target `node24`, matching aeleos,
-> puck and libra. E2E is deliberately absent: it needs a Clerk instance and
-> real credentials, so it stays a local check rather than a CI gate.
+Append after the `conformance` job:
 
-- [ ] **Step 2: Write the README**
+```yaml
+hub:
+  runs-on: ubuntu-latest
+  timeout-minutes: 15
+  steps:
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+    - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+    - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm --filter hub test
+    - run: pnpm --filter hub build
+      env:
+        # Public by design — it ships in the browser bundle. The secret key
+        # never enters CI.
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
-`README.md`:
+idp-cloud:
+  runs-on: ubuntu-latest
+  timeout-minutes: 15
+  # Secrets are withheld from fork pull requests, so this job cannot pass
+  # there. Without the guard it would be a check that can never report green.
+  if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+  steps:
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+    - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+    - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - name: Write .secrets for the runner
+      env:
+        CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+        CLERK_DOMAIN: ${{ secrets.CLERK_DOMAIN }}
+        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      run: |
+        {
+          echo "CLERK_SECRET_KEY=${CLERK_SECRET_KEY}"
+          echo "CLERK_DOMAIN=${CLERK_DOMAIN}"
+          echo "SUPABASE_ACCESS_TOKEN=${SUPABASE_ACCESS_TOKEN}"
+          echo "SUPABASE_DB_PASSWORD=${SUPABASE_DB_PASSWORD}"
+        } > .secrets
+    - run: pnpm test:idp:cloud
+    - name: Remove .secrets
+      if: always()
+      run: rm -f .secrets
+```
+
+`scripts/run-cloud-idp.mjs` already takes `GITHUB_RUN_ID` for its identity and deletes the Clerk user in a `finally`, so concurrent runs cannot collide and a failed run leaves nothing behind.
+
+- [ ] **Step 2: Verify the workflow locally before pushing**
+
+```bash
+pnpm format:check
+node -e "const t=require('fs').readFileSync('.github/workflows/db-tests.yml','utf8'); if(/\t/.test(t)) throw new Error('tabs in yaml'); for (const n of ['hub:','idp-cloud:','conformance:']) if(!t.includes(n)) throw new Error('missing job '+n); console.log('jobs present, no tabs');"
+```
+
+Expected: `jobs present, no tabs`, and `format:check` exits 0.
+
+- [ ] **Step 3: Update the README**
+
+The repository README describes a docs-and-schema repository. Add a section after the existing description:
 
 ````markdown
-# AeleOS Hub
+## The hub
 
-The fursona registry and profile manager for Furry Colombia — the user-facing
-half of AeleOS.
-
-Identity itself lives in **Clerk**; this app never stores credentials. What it
-owns is the **actor registry**: the people and fursonas that every Furry
-Colombia app renders. See `docs/registry.md` for why this repo's `actors` table
-is authoritative while every other app holds a mirror.
-
-Design lives in the `aeleos` repo under `docs/superpowers/specs/`.
-
-## Running locally
-
-Requires Docker, and a Clerk instance from Phase 0.
+`apps/hub` is the AeleOS web application — where a person signs in and manages
+their fursonas. It is the only deployable thing in this repository.
 
 ```bash
 pnpm install
-cp .env.example .env.local     # fill in Clerk and Supabase values
-pnpm exec supabase start
-pnpm exec supabase db reset
-pnpm dev                       # http://localhost:5100
+cp apps/hub/.env.example apps/hub/.env.local   # fill in Clerk and Supabase values
+pnpm exec supabase start                       # from the repository root
+pnpm dev                                       # http://localhost:5100
 ```
 
-## Checks
+The hub ships no migrations. `supabase/migrations/` at the root is the single
+schema for the one database — see `docs/registry.md`.
+
+### Checks
 
 ```bash
-pnpm test          # unit
-pnpm test:e2e      # end-to-end (needs the app running)
+pnpm --filter hub test        # unit
+pnpm --filter hub test:e2e    # end-to-end, needs the app running
 pnpm typecheck && pnpm lint && pnpm format:check && pnpm secretlint && pnpm check:tools
 ```
-
-## What exists today
-
-Phase 1b-i: sign in with Google or Discord, and a person actor is provisioned in
-the registry with a platform ID stable across every app.
-
-Fursona creation, profile editing and the actor picker are Phase 1b-ii.
-
-## Migrations are copied, not authored
-
-`supabase/migrations/` is copied byte-identically from `aeleos`. Never edit it
-here — see `docs/registry.md`.
 ````
 
-- [ ] **Step 3: Verify every gate one final time**
+- [ ] **Step 4: Verify every gate one final time**
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm secretlint && pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:tools && pnpm test
+pnpm secretlint && pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:tools
+pnpm --filter hub test && pnpm --filter hub build
 ```
 
 Expected: all exit 0.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add .github/workflows/ci.yml README.md
-git commit -m "ci: add quality gates and adoption readme"
+git add .github/workflows/db-tests.yml README.md
+git commit -m "ci: add hub and cloud-trust jobs"
 ```
+
+- [ ] **Step 6: Make the new checks required** 🧑
+
+Only after both jobs have reported green on a pull request at least once:
+
+```bash
+gh api -X PATCH repos/vaoan/aeleos/branches/main/protection/required_status_checks \
+  -f 'contexts[]=conformance' -f 'contexts[]=hub' -f 'contexts[]=idp-cloud'
+```
+
+Then confirm:
+
+```bash
+gh api repos/vaoan/aeleos/branches/main/protection/required_status_checks --jq '.contexts'
+```
+
+Expected: `["conformance","hub","idp-cloud"]`.
 
 ---
 
 ## Verification checklist
 
-- [ ] `pnpm test` passes (10 unit tests).
-- [ ] `pnpm test:e2e` passes (3 tests) with the app running.
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm secretlint`, `pnpm check:tools` all pass.
-- [ ] `diff -r Z:/Github/aeleos/supabase/migrations/ ./supabase/migrations/` produces no output.
+- [ ] `pnpm --filter hub test` passes (10 unit tests).
+- [ ] `pnpm --filter hub test:e2e` passes (3 tests) with the app running.
+- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm secretlint`, `pnpm check:tools` all pass from the root.
+- [ ] `pnpm test:db` still passes — the workspace change did not disturb the schema suite.
+- [ ] `pnpm test:idp` still skips cleanly with no `CLERK_SESSION_TOKEN`.
+- [ ] `apps/hub` contains no `supabase/` directory.
+- [ ] `supabase/config.toml` on `main` still has `[auth.third_party.clerk] enabled = false`.
 - [ ] Signing in twice creates exactly one `actors` row.
-- [ ] No Clerk key or Supabase service-role key appears anywhere in git history.
-- [ ] The repo's default branch is `develop`.
+- [ ] No Clerk secret key or Supabase service-role key appears anywhere in git history.
+- [ ] `hub` and `idp-cloud` have each reported green before being made required.
 
 ## Deliberate deviations from the spec
 
-1. **Clerk owns the person profile; the hub does not write through.** Spec §5 has
-   the hub write person `name`/`picture` back to the IdP's Management API. Clerk
-   ships a hosted Account Portal that already edits those fields, so building a
-   write-through path would duplicate it and add a credential to hold. The hub
-   owns fursonas; Clerk owns the person. Revisit only if person fields need to
-   diverge from what Clerk stores.
+1. **Clerk owns the person profile; the hub does not write through.** The
+   central-auth spec §5 has the hub write person `name`/`picture` back to the
+   IdP's Management API. Clerk ships a hosted Account Portal that already edits
+   those fields, so building a write-through path would duplicate it and add a
+   credential to hold. The hub owns fursonas; Clerk owns the person.
 
-2. **Single package, not a monorepo.** Puck and libra are monorepos because
-   they host several apps. The hub is one app; `aeleos` is likewise single-package.
+2. **The hub is a workspace package, not its own repository.** Changed
+   2026-08-10 — see `docs/superpowers/specs/2026-08-10-hub-in-aeleos-design.md`.
+   Two repositories issuing `supabase db push` at one database is two sources of
+   truth.
 
 3. **No `@supabase/ssr`.** It exists to manage Supabase session cookies. Under
    Third-Party Auth there is no Supabase session — the Clerk token is forwarded
    per request — so it would be dead weight.
 
+4. **Playwright is not a CI gate.** It needs real Clerk credentials and a running
+   app. It follows the rule the Phase 0 suite established: skip cleanly when
+   credentials are absent rather than fail.
+
 ## Follow-on work
 
-- **Phase 1b-ii** — fursona creation and editing, the Netflix-style picker, and
-  the active-actor handoff protocol apps consume.
-- **Hosting** — gated on a free Supabase project slot (Task 3 Step 1) and on the
-  hub hostname, still open as actor-model spec §18.1. `me.furrycolombia.com` is
-  the standing suggestion, since `id.` belongs to the IdP.
+- **Phase 1b-ii** — fursona creation and editing, the picker, and the
+  active-actor handoff protocol apps consume.
+- **Hosting** — Vercel Hobby, per the spec. Needs a production Clerk instance
+  (own OAuth apps for Google, Discord and Facebook; password sign-in off) and a
+  hostname. `me.furrycolombia.com` is the standing suggestion, since `id.`
+  belongs to the IdP.
 - **App integration** — per-app active-actor session storage lives in each app's
-  own repo, not here.
+  own repository, not here.
