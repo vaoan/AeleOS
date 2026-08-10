@@ -10,8 +10,10 @@ from `.secrets`.
 3. Check the social connections — **a new development instance arrives with some
    already on**. Ours came up with Google, Discord _and_ X enabled. The free plan
    allows three, so all three slots were spent before anyone chose anything.
-4. Turn **X** off unless you want it. **Password stays on in development** — see
-   the decision below — but it must be **off in production**.
+4. Set the three to **Google, Discord and Facebook** — see the lineup below for
+   why those three. X was on by default and is now off.
+5. **Password stays on in development** — see the decision below — but it must be
+   **off in production**.
 
 None of this is reachable from the Backend API — `/social_connections`,
 `/oauth_providers`, `/instance/social_connections`, `/instance/auth_config` and
@@ -28,6 +30,45 @@ curl -s "https://$CLERK_DOMAIN/v1/environment?__clerk_api_version=2025-04-10&_cl
 
 `user_settings.social` lists the enabled providers; `user_settings.attributes`
 carries `password`, `username` and the rest.
+
+### The connector lineup, and what it costs in production (2026-08-09)
+
+Three slots on the free plan. They now hold **Google, Discord and Facebook** —
+the three whose own OAuth apps are free, which is what the $0 constraint
+actually turns on. Verified against each provider's current terms:
+
+| Provider     | Production cost                              | What registering our own app needs                                     |
+| ------------ | -------------------------------------------- | ---------------------------------------------------------------------- |
+| **Google**   | free                                         | OAuth client, non-sensitive scopes only — no verification, no user cap |
+| **Discord**  | free                                         | Developer Portal application                                           |
+| **Facebook** | free                                         | Meta app, privacy policy URL, data-deletion callback                   |
+| ~~X~~        | **pay-per-use**, no free tier since Feb 2026 | excluded                                                               |
+| ~~Apple~~    | **$99/year** Developer Program               | excluded — the free Apple ID tier lacks the entitlement                |
+
+Notes behind the table:
+
+- **Google.** Verification and the 100-user cap apply to _sensitive_ scopes.
+  Sign-in uses `openid`, `email`, `profile` — non-sensitive — so neither applies.
+- **Facebook.** `email` and `public_profile` are auto-granted, so plain login
+  needs no App Review and no Business Verification. Confirmed from the live
+  authorize URL: Clerk requests `scope=email` and nothing more. Business
+  Verification is for _Advanced Access_ (page management), which we never touch.
+- **X.** Excluded on the budget rule, not preference. New developers can no
+  longer register without entering the pay-per-use model.
+- **Facebook's fit is worth revisiting.** It is the one provider built around a
+  real-name policy, and this is a pseudonymous fursona community. It passes on
+  cost; whether members want it is a separate question. **Twitch** is the
+  obvious free alternative if the slot is ever better spent.
+
+> **Open question — Google and billing.** We could not confirm whether creating
+> an OAuth client requires a billing account on the Cloud project. Sign-in
+> enables no billable API, so it is expected to be free, but GCP billing here is
+> off permanently and deliberately. **Confirm by creating the client** before
+> anything depends on it.
+
+Removing a provider later is cheap, by design: social-login-first means nobody's
+identity is trapped behind one. An affected user re-links by email on their next
+sign-in — no password hashes, no data migration.
 
 ### Decision: password sign-in stays on in development (2026-08-09)
 
@@ -71,12 +112,11 @@ redirect_uri: https://clerk.shared.lcl.dev/v1/oauth_callback
 ```
 
 **Shared credentials do not carry to a production instance.** Standing up
-`id.furrycolombia.com` means registering our own OAuth app with each provider —
-Google Cloud Console (an OAuth 2.0 Client ID; free, no billing account needed)
-and the Discord Developer Portal (free). Both are $0, so the budget holds, but
-it is real setup rather than a toggle, and the callback URL changes from
-`clerk.shared.lcl.dev` to the production Clerk domain. Plan it into Phase 3
-rather than meeting it during a cutover.
+`id.furrycolombia.com` means registering our own OAuth app with **all three**
+providers — see the lineup table above for what each one needs. All three are
+$0, so the budget holds, but it is real setup rather than a toggle, and the
+callback URL changes from `clerk.shared.lcl.dev` to the production Clerk domain.
+Plan it into Phase 3 rather than meeting it during a cutover.
 
 ## 2. Supabase integration
 
