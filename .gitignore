@@ -33,6 +33,16 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
+# Claude Code — `.claude/settings.json` is shared and committed; everything
+# below it is per-machine. `*.local` above does not match `settings.local.json`,
+# which is how that file was once swept into an unrelated commit in puck.
+.claude/settings.local.json
+.claude/history.jsonl
+.claude/auth.json
+.claude/models_cache.json
+.claude/version.json
+.claude/scheduled_tasks.lock
+
 # IdP config exports may contain secrets — keep raw dumps out; commit sanitized only
 clerk-export.raw.json
 logto-export.raw.json
