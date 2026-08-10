@@ -41,9 +41,14 @@ Then `pnpm sync-secrets` regenerates `.secrets` on any checkout: it dispatches
 encrypted artifact, and decrypts it locally. It needs an authenticated `gh`
 CLI (`gh auth login`).
 
-Those three are the **only** secrets AeleOS has. The Supabase URL, anon key,
+For a **local** run that is all you need: the Supabase URL, anon key,
 service-role key, DB URL and JWT secret are read from `supabase status` at run
 time by the test setups — they are generated locally and are not secrets.
+
+The sync also carries four Supabase values (`SUPABASE_ACCESS_TOKEN`,
+`SUPABASE_PROJECT_REF`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`) used by the
+hosted-project run in step 7. Only the access token is genuinely secret — the
+rest are public identifiers kept together so one sync restores a whole machine.
 
 `CLERK_SESSION_TOKEN` is never synced; it expires in about 60 seconds. Since a
 sync overwrites `.secrets` in full, **sync first, then capture the token** — in
@@ -102,11 +107,41 @@ pnpm test:idp
 Expected: 9 passing. With `.secrets` absent the suite skips cleanly, which is
 why it is never a CI gate.
 
-## Note on hosting
+## 7. Run the same validation against the hosted project
 
-The validation suite runs entirely against the **local** Supabase stack. It
-fetches Clerk's real JWKS over the network, so the asymmetric trust being tested
-is genuine; what it does not exercise is Cloud dashboard configuration.
+The local stack proves the mechanism. This proves the product — Supabase's
+hosted Auth server fetching Clerk's JWKS over the internet and mapping the token
+to the `authenticated` Postgres role.
+
+```bash
+AELEOS_DB_PASSWORD=… pnpm test:idp:cloud
+```
+
+Expected: the same 9 passing. No Docker, and the local stack does not need to be
+running. The runner resolves the project by ref and **refuses to continue unless
+its name is `AeleOS`**, so Libra's project cannot be hit by accident.
+
+Two things caught us out the first time:
+
+- **The direct database host is IPv6-only** on the free plan.
+  `db.<ref>.supabase.co` does not resolve over IPv4, so the runner connects
+  through the pooler (`aws-0-<region>.pooler.supabase.com:5432`).
+- **Activating the Supabase integration in Clerk configures the Supabase side
+  too.** Clerk registers itself on the project as a third-party auth provider —
+  visible via `GET /v1/projects/<ref>/config/auth/third-party-auth` as
+  `type: clerk-development`. There is no separate dashboard step in Supabase.
+
+The project needs the schema before the suite will pass:
+
+```bash
+pnpm exec supabase db push --db-url "$AELEOS_DB_URL"
+```
+
+Build `AELEOS_DB_URL` from the pooler parts rather than the direct host — user
+`postgres.<ref>`, host `aws-0-<region>.pooler.supabase.com`, port `5432`,
+database `postgres`. Percent-encode the password; ours contains a `/`.
+
+## Note on hosting
 
 Supabase's free plan allows **two** active projects. As of 2026-08-09, verified
 against the management API, both are in use:
@@ -114,7 +149,7 @@ against the management API, both are in use:
 | Project     | Ref                    | What it is                                            |
 | ----------- | ---------------------- | ----------------------------------------------------- |
 | `CandyShop` | `olafyajipvsltohagiah` | Libra's production project (still under its old name) |
-| `AeleOS`    | `vmmpssydbrtkgvrlkijh` | created 2026-08-09; not used by the test suite        |
+| `AeleOS`    | `vmmpssydbrtkgvrlkijh` | Phase 0 validation; carries the actor-model schema    |
 
 **Puck has no Supabase project** — earlier revisions of this doc claimed Puck
 held one of the two slots. It never did.

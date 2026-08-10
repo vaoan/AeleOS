@@ -12,6 +12,23 @@ export default function setup(): void {
 
   const hasCreds = (process.env.CLERK_SESSION_TOKEN ?? "").length > 0;
 
+  // SUPABASE_TARGET=cloud runs the same suite against a hosted project, to
+  // exercise the one thing the local stack cannot: Cloud dashboard config.
+  // The caller supplies URL, keys and DB URL, so leave them alone — and do
+  // not require Docker, which a cloud run has no use for.
+  if (process.env.SUPABASE_TARGET === "cloud") {
+    for (const key of [
+      "SUPABASE_URL",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_DB_URL",
+    ]) {
+      if (!process.env[key])
+        throw new Error(`SUPABASE_TARGET=cloud requires ${key} to be set.`);
+    }
+    return;
+  }
+
   // The stack is only required when there is actually something to validate.
   // Without credentials every suite skips, and demanding a running stack here
   // would turn a clean skip into a hard failure — this must stay runnable with
