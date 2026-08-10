@@ -10,9 +10,8 @@ from `.secrets`.
 3. Check the social connections — **a new development instance arrives with some
    already on**. Ours came up with Google, Discord _and_ X enabled. The free plan
    allows three, so all three slots were spent before anyone chose anything.
-4. Turn **X** off unless you want it. Turn **password** off: the design is
-   social-login-first and a password identity is precisely the thing that makes
-   a later migration painful.
+4. Turn **X** off unless you want it. **Password stays on in development** — see
+   the decision below — but it must be **off in production**.
 
 None of this is reachable from the Backend API — `/social_connections`,
 `/oauth_providers`, `/instance/social_connections`, `/instance/auth_config` and
@@ -29,6 +28,37 @@ curl -s "https://$CLERK_DOMAIN/v1/environment?__clerk_api_version=2025-04-10&_cl
 
 `user_settings.social` lists the enabled providers; `user_settings.attributes`
 carries `password`, `username` and the rest.
+
+### Decision: password sign-in stays on in development (2026-08-09)
+
+It is kept deliberately, to make Playwright and other end-to-end tests easy to
+sign in. Clerk instances are independent, so this does **not** follow us to
+production — but that is a setting someone has to remember, hence this note:
+
+> **The production instance must have password sign-in off.** The design is
+> social-login-first, and a password identity is exactly what makes a later
+> issuer migration painful — there are no password hashes to move if nobody has
+> one.
+
+Before writing tests against it, consider **sign-in tokens** instead. They are
+Clerk's purpose-built path for this and need no password at all:
+
+```bash
+# server-side, in test setup
+curl -s -X POST https://api.clerk.com/v1/sign_in_tokens \
+  -H "Authorization: Bearer $CLERK_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"user_…","expires_in_seconds":600}'
+```
+
+The response carries a `token`; navigating to any app URL with
+`?__clerk_ticket=<token>` lands the browser already signed in. No form, no
+credentials in the test config, no OAuth popup — and it sidesteps the bot
+detection that usually breaks OAuth-driven e2e. It also keeps working if
+password sign-in is ever turned off.
+
+A password form is only worth testing if we ship one, and social-login-first
+means we do not.
 
 ### Development connectors are on Clerk's shared credentials
 
