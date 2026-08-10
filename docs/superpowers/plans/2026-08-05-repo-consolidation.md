@@ -352,15 +352,31 @@ unused, which is the outcome to want from insurance.
 
 ### Task 5: Repair the deploy path 🧑
 
-> **Bigger than originally written.** When this task was drafted, only the GHCR
-> namespace moved. Since then the repository was renamed to `libra` and the
-> rename went all the way through the code (libra#340), so the container, the
-> image, the deploy directory, the nginx files and the cookie keys all changed
-> names too. The server still runs the **old** names, so the first deploy after
-> that merge creates a parallel set and leaves the old one running. Steps 3–5
-> below are new; they did not exist when the plan was written.
+> **⛔ Mostly moot as of 2026-08-09 — there is no deploy target.**
+>
+> Recon found the production VM unreachable: ports 22, 443 and 80 all closed,
+> `store.furrycolombia.com` returning Cloudflare **530**, and the GCP API
+> refusing to list instances because **billing is disabled on the
+> `furrycolombia-candyshop` project**. That is deliberate and permanent — paying
+> anything is a hard stop (see `CLAUDE.md`). So the GCP VM is not coming back,
+> and Steps 1, 2, 4 and 6 have nothing to act on.
+>
+> This is not a failure of the transfer or the rename. Nothing here broke it;
+> the infrastructure was already switched off, and had been since roughly
+> 2026-07-08, which is also the age of the last built image.
+>
+> **What still needs deciding: where the store runs, if anywhere.** The one
+> candidate that costs nothing is the existing `deploy-local.yml` path — a
+> self-hosted box reached through a Cloudflare tunnel, which is why
+> `PROD_SERVER_HOST` still answers on 443/80 while the GCP IP answers on
+> nothing. That is a separate design decision, not a step in this plan.
+>
+> Original note, still true for whenever a deploy target exists: the rename went
+> all the way through the code (libra#340), so the container, the image, the
+> deploy directory, the nginx files and the cookie keys all changed names. A
+> host that still has `/opt/candyshop` on disk will need the cutover in Step 4.
 
-- [ ] **Step 1: Seed a rollback target in the new namespace** 🧑
+- [~] **Step 1: Seed a rollback target — not applicable, no deploy target** 🧑
 
 Per Task 2 Step 1, the new namespace populates itself on the first deploy — but
 seed it first so there is a known-good image to fall back to. Needs Docker and
@@ -374,13 +390,13 @@ docker push ghcr.io/vaoan/libra-prod:latest
 docker push ghcr.io/vaoan/libra-prod:201239a
 ```
 
-- [ ] **Step 2: Match the new package's visibility** 🧑
+- [~] **Step 2: Match package visibility — not applicable until an image is published** 🧑
 
 The old package is **public**; new GHCR packages default to **private**. CI and
 the server pull authenticated so they are unaffected, but anything pulling
 anonymously would break quietly. Set it public to match what exists today.
 
-- [ ] **Step 3: Merge the webhook URL fix — this one is urgent** 🧑
+- [x] **Step 3: Merge the webhook URL fix — done, libra#338**
 
 libra#338. The clone URL was `furrycolombia-sys/candyshop.git`, which redirected
 after the transfer and so kept working while being wrong. The rename sweep then
@@ -392,7 +408,7 @@ deploy webhook is therefore broken until this merges.
 environment variable rather than a code redeploy under pressure. Redeploy the
 webhook receiver after merging.
 
-- [ ] **Step 4: Cut the server over to the new names** 🧑
+- [~] **Step 4: Cut the server over — deferred until a host exists** 🧑
 
 The rename changed identifiers the running server still uses. Nothing breaks
 until a deploy runs; then a **parallel** set appears and the old one keeps
@@ -413,7 +429,7 @@ must be in place **before** the new conf is loaded, or nginx fails to start.
 Stop and remove the old container and directory only once the new ones have
 served a real deploy.
 
-- [ ] **Step 5: Expect logged-out carts** 🧑
+- [~] **Step 5: Expect logged-out carts — whenever a deploy next happens** 🧑
 
 The cart cookie, the checkout session key and the permission cache key were all
 renamed, so existing carts, in-flight checkouts and cached permissions are
@@ -421,7 +437,7 @@ dropped the moment the new build serves traffic. With no active users this costs
 nothing — but it is a behaviour change, not a rename, and it is worth not being
 surprised by it.
 
-- [ ] **Step 6: Prove a deploy end-to-end, before you need one** 🧑
+- [~] **Step 6: Prove a deploy — impossible with billing off** 🧑
 
 Run a deploy through the normal path while you are watching and have time to roll
 back. Do not let the first post-transfer deploy be an urgent one — it is now

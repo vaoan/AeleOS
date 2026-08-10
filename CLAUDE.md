@@ -85,9 +85,13 @@ Key choices and _why_:
 
 ## Constraints (these shaped every decision — respect them)
 
-- **Budget: $0 now, ~$20/year ceiling, no funding.** A mid-sized community that
-  may grow later. Prefer free tiers and defer paid decisions until real numbers
-  demand them.
+- **Budget: $0. Not "low" — zero.** Confirmed 2026-08-09, superseding the
+  earlier "~$20/year ceiling": **having to pay anything at all is a hard stop.**
+  If a design needs a paid tier, a card on file, or a service that bills after a
+  trial, that design is wrong — say so and find another way rather than
+  proposing it and letting the cost surface later. GCP billing is switched off
+  deliberately and permanently, so the GCP VM is not a deploy target any more
+  (see `2026-08-05-repo-consolidation.md`, Task 5).
 - **Near-zero ops.** Effectively one maintainer. Do not introduce fragile,
   self-run services without a strong reason; managed-and-boring beats clever.
 - **Don't get trapped.** Every choice must keep a low-migration exit (this is why
