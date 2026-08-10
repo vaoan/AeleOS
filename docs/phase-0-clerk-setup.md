@@ -7,8 +7,46 @@ from `.secrets`.
 
 1. Sign up at https://clerk.com on the **free** plan.
 2. Create an application named `Furry Colombia`.
-3. Enable **Google** and **Discord** social connections. Disable email/password.
-   The free plan allows 3 social connections; this uses 2.
+3. Check the social connections — **a new development instance arrives with some
+   already on**. Ours came up with Google, Discord _and_ X enabled. The free plan
+   allows three, so all three slots were spent before anyone chose anything.
+4. Turn **X** off unless you want it. Turn **password** off: the design is
+   social-login-first and a password identity is precisely the thing that makes
+   a later migration painful.
+
+None of this is reachable from the Backend API — `/social_connections`,
+`/oauth_providers`, `/instance/social_connections`, `/instance/auth_config` and
+`/instance/settings` all return 404. It is dashboard-only:
+
+- **Configure → SSO Connections** → toggle providers
+- **Configure → Email, Phone, Username** → **Password** → off
+
+To read the current state without the dashboard, ask the frontend API:
+
+```bash
+curl -s "https://$CLERK_DOMAIN/v1/environment?__clerk_api_version=2025-04-10&_clerk_js_version=5"
+```
+
+`user_settings.social` lists the enabled providers; `user_settings.attributes`
+carries `password`, `username` and the rest.
+
+### Development connectors are on Clerk's shared credentials
+
+The connectors work with no OAuth setup because a development instance borrows
+Clerk's own OAuth apps. Start a sign-in and the tell is in the redirect:
+
+```
+client_id:    787459168867-….apps.googleusercontent.com   ← Clerk's, not ours
+redirect_uri: https://clerk.shared.lcl.dev/v1/oauth_callback
+```
+
+**Shared credentials do not carry to a production instance.** Standing up
+`id.furrycolombia.com` means registering our own OAuth app with each provider —
+Google Cloud Console (an OAuth 2.0 Client ID; free, no billing account needed)
+and the Discord Developer Portal (free). Both are $0, so the budget holds, but
+it is real setup rather than a toggle, and the callback URL changes from
+`clerk.shared.lcl.dev` to the production Clerk domain. Plan it into Phase 3
+rather than meeting it during a cutover.
 
 ## 2. Supabase integration
 
