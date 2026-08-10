@@ -38,7 +38,14 @@ const PROJECT_NAME = "AeleOS";
 /** Free-plan projects have no IPv4 on the direct host, so use the pooler. */
 const POOLER_HOST = "aws-0-ca-central-1.pooler.supabase.com";
 const POOLER_PORT = 5432;
-const TEST_EMAIL = "phase0+cloud_test@example.com";
+/**
+ * One identity per run, never shared. Two runs against the same address would
+ * share an `identity_sub`, and the suite's `afterAll` deletes every row for it —
+ * so concurrent runs delete each other's rows mid-test. `GITHUB_RUN_ID` makes
+ * that impossible in CI; locally the timestamp does the same job.
+ */
+const RUN_ID = process.env.GITHUB_RUN_ID ?? `local-${Date.now()}`;
+const TEST_EMAIL = `phase0+cloud-${RUN_ID}@example.com`;
 
 function fail(msg) {
   console.error(`[cloud-idp] ${msg}`);
@@ -137,23 +144,16 @@ const anonKey = keyNamed("anon");
 const serviceRoleKey = keyNamed("service_role");
 if (!anonKey || !serviceRoleKey) fail("could not read anon/service_role keys.");
 
-// 4. A real Clerk identity. Reuse the validation user if it already exists.
-const found = await clerkApi(
-  `/users?email_address=${encodeURIComponent(TEST_EMAIL)}&limit=1`,
-  clerkSecretKey,
-);
-const existing = Array.isArray(found) ? found : (found.data ?? []);
-const user =
-  existing[0] ??
-  (await clerkApi("/users", clerkSecretKey, {
-    method: "POST",
-    body: JSON.stringify({
-      email_address: [TEST_EMAIL],
-      first_name: "Phase0",
-      last_name: "Cloud",
-      skip_password_requirement: true,
-    }),
-  }));
+// 4. A real Clerk identity, created fresh for this run and deleted below.
+const user = await clerkApi("/users", clerkSecretKey, {
+  method: "POST",
+  body: JSON.stringify({
+    email_address: [TEST_EMAIL],
+    first_name: "Phase0",
+    last_name: "Cloud",
+    skip_password_requirement: true,
+  }),
+});
 const session = await clerkApi("/sessions", clerkSecretKey, {
   method: "POST",
   body: JSON.stringify({ user_id: user.id }),
@@ -179,20 +179,44 @@ const dbUrl =
   `postgresql://postgres.${PROJECT_REF}:${encodeURIComponent(dbPassword)}` +
   `@${POOLER_HOST}:${POOLER_PORT}/postgres`;
 
-const result = spawnSync("pnpm", ["test:idp"], {
-  cwd: rootDir,
-  shell: true,
-  stdio: "inherit",
-  env: {
-    ...process.env,
-    SUPABASE_TARGET: "cloud",
-    SUPABASE_URL: `https://${PROJECT_REF}.supabase.co`,
-    SUPABASE_ANON_KEY: anonKey,
-    SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
-    SUPABASE_DB_URL: dbUrl,
-    CLERK_SESSION_TOKEN: jwt,
-    ...(clerkDomain ? { CLERK_DOMAIN: clerkDomain } : {}),
-  },
-});
+let status = 1;
+try {
+  const result = spawnSync("pnpm", ["test:idp"], {
+    cwd: rootDir,
+    shell: true,
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      SUPABASE_TARGET: "cloud",
+      SUPABASE_URL: `https://${PROJECT_REF}.supabase.co`,
+      SUPABASE_ANON_KEY: anonKey,
+      SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
+      SUPABASE_DB_URL: dbUrl,
+      CLERK_SESSION_TOKEN: jwt,
+      ...(clerkDomain ? { CLERK_DOMAIN: clerkDomain } : {}),
+    },
+  });
+  status = result.status ?? 1;
+} finally {
+  // Always remove the identity, including when the suite fails — otherwise a
+  // red run leaves a user behind and they accumulate silently. Deleting the
+  // user cascades to its sessions; the suite's own `afterAll` removes the
+  // `actors` rows.
+  //
+  // Deliberately not `clerkApi`: that helper exits the process on a bad
+  // response, which here would discard the suite's exit status and report a
+  // cleanup failure as a test failure.
+  const deleted = await fetch(`https://api.clerk.com/v1/users/${user.id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${clerkSecretKey}` },
+  }).catch(() => null);
+  if (deleted?.ok) {
+    log(`cleaned: ${user.id}`);
+  } else {
+    console.error(
+      `[cloud-idp] could not delete ${user.id} — remove it by hand`,
+    );
+  }
+}
 
-process.exit(result.status ?? 1);
+process.exit(status);
