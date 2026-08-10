@@ -357,10 +357,19 @@ enabled = false
 # user_pool_region = "us-east-1"
 
 # Use Clerk as a third-party provider alongside Supabase Auth.
+#
+# Deliberately committed as disabled. `supabase start` fetches the provider's
+# OpenID discovery document at boot and refuses to start if it cannot reach it,
+# so `enabled = true` here would make a real, reachable Clerk domain a hard
+# requirement for starting the stack at all — breaking `pnpm test:db` for CI and
+# for any contributor without credentials. That suite must never need a secret.
+#
+# Enable it locally, with your real domain, only when running `pnpm test:idp`:
+# see docs/phase-0-clerk-setup.md.
 [auth.third_party.clerk]
 enabled = false
 # Obtain from https://clerk.com/setup/supabase
-# domain = "example.clerk.accounts.dev"
+# domain = "env(CLERK_DOMAIN)"
 
 # OAuth server configuration
 [auth.oauth_server]

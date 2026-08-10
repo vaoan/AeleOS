@@ -13,6 +13,8 @@
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "test:db": "supabase db reset && vitest run -c vitest.config.integration.ts",
+    "test:idp": "vitest run -c vitest.config.idp.ts",
+    "capture:token": "npx --yes serve scripts -l 5555",
     "lint": "eslint . --no-error-on-unmatched-pattern",
     "lint:fix": "eslint . --fix --no-error-on-unmatched-pattern",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,css,md}\"",

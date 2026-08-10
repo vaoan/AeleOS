@@ -5,6 +5,12 @@
 .secrets
 *.local
 
+# Transient working files of scripts/sync-secrets.mjs. Both are removed on the
+# happy path, but a crash mid-sync leaves plaintext secrets on disk — `.secrets`
+# above is an exact match and does not cover them.
+.secrets-download/
+.secrets-decrypted.tmp
+
 # Dependencies
 node_modules/
 .pnpm-store/
@@ -27,7 +33,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# Logto config exports may contain secrets — keep raw dumps out; commit sanitized only
+# IdP config exports may contain secrets — keep raw dumps out; commit sanitized only
+clerk-export.raw.json
 logto-export.raw.json
 
 # Local Supabase test bed

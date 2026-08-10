@@ -608,6 +608,21 @@ and policy behaviour only. It mints HS256 tokens against a local secret. **It do
 validate the Supabase⇄Logto Third-Party Auth trust**, which uses asymmetric JWKS
 verification. That remains Phase 0's job and the highest-risk unknown in the design.
 
+(The provider named there is now Clerk — see §19.7 — but the gap is identical.)
+
+### 19.7 The IdP is Clerk, not Logto
+
+Supabase Third-Party Auth does not support Logto; see
+`2026-07-31-idp-decision-change.md`. This changes nothing in this spec's model.
+`identity_sub` now holds a Clerk user id (`user_...`) instead of a Logto `sub`,
+and §3.3's "Logto never learns that fursonas exist" applies verbatim to Clerk.
+
+Note for whoever builds Phase 1b: `person_actor_ref()` derives `actor_ref` from
+`identity_sub`, so a Clerk-provisioned person derives a different `actor_ref`
+than a Logto-provisioned one would have. That is harmless because the derivation
+is **bootstrap-only** — existing rows keep their stored `actor_ref`. Never
+re-derive for existing users.
+
 ## 20. Next step
 
 Implementation planning for **Phase 1a** (the seam), sequenced after the

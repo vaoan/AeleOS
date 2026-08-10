@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Budget: $0.** Clerk free plan (50,000 MRU, max 3 social connections). The hub needs a **third Supabase project** — the free plan allows two. Task 3 confirms a slot is actually free before anything depends on it.
+- **Budget: $0.** Clerk free plan (50,000 MRU, max 3 social connections). **Resolved 2026-08-09:** the hub does _not_ need a third Supabase project. The free plan's two slots are `CandyShop` (Libra's production project) and `AeleOS` (`vmmpssydbrtkgvrlkijh`, created 2026-08-09) — and the AeleOS project is unused by the Phase 0 suite, which runs against the local stack. The hub uses that project. Task 3's question ("is a slot actually free?") is answered: no slot is free, and none is needed. Puck has never had a Supabase project, contrary to earlier revisions.
 - **Depends on Phase 0.** The Clerk instance, its Google + Discord connectors, and the activated Supabase integration must exist before Task 5. See `2026-07-31-phase-0-clerk-idp-standup.md`.
 - **The canonical migrations are copied, never rewritten.** `0001`–`0007` come from `Z:\Github\aeleos\supabase\migrations\` byte-identically. If one appears wrong, that is a finding to report — fixing it here would fork the schema every other app depends on.
 - **The UUIDv5 namespace in `0006` must stay byte-identical.** It is what makes every app derive the same `actor_ref` for the same person. Changing it forks every identity.

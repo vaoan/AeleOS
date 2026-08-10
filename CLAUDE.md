@@ -32,9 +32,9 @@ should be a single identity everywhere.
 
 > **This is NOT a hosted application. There is no login app to build or deploy.**
 
-The identity provider itself is **[Logto](https://logto.io)** — a managed,
-open-source IdP running in Logto Cloud, reachable at `id.furrycolombia.com`. We
-**configure** an IdP; we do not build one.
+The identity provider itself is **[Clerk](https://clerk.com)** — a managed IdP,
+eventually reachable at `id.furrycolombia.com`. We **configure** an IdP; we do
+not build one.
 
 This repo is the **home for the cross-app identity concern** that belongs to no
 single app:
@@ -43,7 +43,7 @@ single app:
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | Design & specs (architecture, decisions)                                                                   | `docs/superpowers/specs/`                         |
 | Implementation plans (phased rollout)                                                                      | `docs/superpowers/plans/`                         |
-| Logto configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_                     |
+| Clerk configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_                     |
 | A small shared integration helper package                                                                  | _only if/when 2+ apps need it — YAGNI until then_ |
 
 **Per-app integration code** (the OIDC client + Supabase third-party-auth wiring)
@@ -59,26 +59,31 @@ The full design is the source of truth — **read it before doing any work**:
 
 Key choices and _why_:
 
-- **IdP = Logto (chosen over WorkOS, "one shared Supabase project", and a
-  shared-JWT-secret hack).** Logto is the only option satisfying all four
-  constraints at once: **$0** at our scale (free tier), **near-zero ops**
-  (managed), **real multi-app SSO** (purpose-built), and an **open-source escape
-  hatch** — if we outgrow the free tier we self-host the _same product_ with the
-  _same user IDs_, a near-zero migration.
+- **IdP = Clerk (Logto was chosen first, then ruled out).** Supabase Third-Party
+  Auth supports exactly Clerk, Firebase, Auth0, AWS Cognito and WorkOS — there is
+  no Logto option and no generic OIDC one. Of those five, **Clerk alone has both
+  Google and Discord as native connections**, which is what makes "configure
+  social logins once" real. Free plan covers 50,000 monthly users at **$0**, and
+  it is supported by the Supabase CLI so the conformance suite runs locally.
+  The cost is real: **no self-host escape hatch** — none of the five is
+  self-hostable. See `docs/superpowers/specs/2026-07-31-idp-decision-change.md`
+  for the full reasoning, including why that loss is acceptable (the actor model
+  already provides the exit: a one-column `identity_sub` backfill).
 - **Each app keeps its own separate Supabase project/database.** Supabase couples
   Auth + DB in one project, and the existing apps already have their own
   production projects — so we do **not** merge databases. Instead each app's
-  Supabase project uses **Supabase Third-Party Auth** to _trust_ Logto; RLS keeps
-  working, keyed to the Logto identity (`auth.jwt()->>'sub'`).
+  Supabase project uses **Supabase Third-Party Auth** to _trust_ Clerk; RLS keeps
+  working, keyed to the Clerk identity (`auth.jwt()->>'sub'`).
 - **The user ID is sacred (the most important rule).** The only genuinely
   expensive migration in any identity system is changing the ID that app data is
-  keyed to. So every app stores a stable **`identity_sub`** column (Logto's `sub`)
+  keyed to. So every app stores a stable **`identity_sub`** column (Clerk's `sub`)
   and **never** lets its own data keys depend on the IdP — app-local tables keep
   their own local primary keys. Swapping the token issuer later is then a
   one-column backfill, not a data remap. **Never weaken this.**
-- **SSO via the shared Logto session**, not a hand-rolled shared cookie. All apps
-  are subdomains of `furrycolombia.com` and redirect to the same Logto session, so
-  additional apps sign the user in silently.
+- **SSO via the shared Clerk session**, not a hand-rolled shared cookie. All apps
+  are subdomains of `furrycolombia.com`, so Clerk's session cookie covers them
+  natively and additional apps sign the user in silently — no satellite-domain
+  add-on required.
 - **Social-login-first, no passwords** — consistent with the apps today, and it
   makes migration painless (no password hashes to move; users just re-link by
   email on next "Sign in with Google/Discord").
@@ -94,29 +99,34 @@ Key choices and _why_:
   (see `2026-08-05-repo-consolidation.md`, Task 5).
 - **Near-zero ops.** Effectively one maintainer. Do not introduce fragile,
   self-run services without a strong reason; managed-and-boring beats clever.
-- **Don't get trapped.** Every choice must keep a low-migration exit (this is why
-  Logto's open-source self-host path and the sacred `identity_sub` both matter).
+- **Don't get trapped.** Every choice must keep a low-migration exit. Since no
+  Supabase-supported IdP is self-hostable, the **sacred `identity_sub`** is now
+  the _only_ thing carrying that guarantee — which makes it more important, not
+  less.
 
 ## Phased rollout (do not skip Phase 0)
 
-1. **Phase 0 — Stand up + de-risk.** Create the Logto tenant, point
-   `id.furrycolombia.com` at it, configure Google + Discord connectors, and
-   **validate the Supabase⇄Logto trust on a throwaway Supabase project before
-   touching any real app.** This is the one real technical unknown.
+1. **Phase 0 — Stand up + de-risk.** Create the Clerk instance, configure Google +
+   Discord connections, and **validate the Supabase⇄Clerk trust against a local
+   Supabase stack before touching any real app.** This is the one real technical
+   unknown. (DNS for `id.furrycolombia.com` is deferred to Phase 1; a Clerk
+   development instance does not use a custom domain.)
 2. **Phase 1 — New / greenfield app (and Puck).** Integrate end-to-end to prove
    the pattern. Puck is safe to migrate early because it is **not yet in
    production**; note Puck's foundation `user_profiles` FKs to `auth.users(id)` and
    that FK must be reworked to the `identity_sub` model.
 3. **Phase 3 — Libra (production — careful, its own plan).** Import users to
-   Logto by email, backfill `identity_sub` (no domain-data remap), switch to
+   Clerk by email, backfill `identity_sub` (no domain-data remap), switch to
    Third-Party Auth, verify in staging, keep a rollback path.
 
 ## References
 
 - **Design spec (source of truth):**
   `docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md`
-- **Logto:** https://logto.io — docs: https://docs.logto.io
-- **Supabase Third-Party Auth:** the mechanism each app uses to trust Logto.
+- **IdP decision change (Logto → Clerk):**
+  `docs/superpowers/specs/2026-07-31-idp-decision-change.md`
+- **Clerk:** https://clerk.com — docs: https://clerk.com/docs
+- **Supabase Third-Party Auth:** the mechanism each app uses to trust Clerk.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,
   `Z:\Github\libra`. Consult them for tooling/CI/convention decisions and
   mirror their approach; AeleOS follows the same pnpm + strict-TS + ESLint +
@@ -124,14 +134,14 @@ Key choices and _why_:
 
 > ⚠️ **Libra is in production. Never run anything against its database.**
 > Each app has its own separate Supabase project; never cross credentials between
-> them, and never point any AeleOS/Logto config at a production data project
+> them, and never point any AeleOS/Clerk config at a production data project
 > except as explicitly designed in the migration plan.
 
 ## Conventions
 
 - **Secrets never in git.** Real values live in `.secrets` / provider dashboards /
-  CI secrets. `.env`, `.secrets`, and raw Logto config dumps are gitignored — only
-  sanitized/example config is committed.
+  CI secrets. `.env`, `.secrets`, and raw IdP config dumps are gitignored — only
+  sanitized/example config is committed (`.secrets.example`).
 - **Filenames:** kebab-case (matching the sister projects).
 - **Specs & plans:** follow the `docs/superpowers/{specs,plans}/YYYY-MM-DD-*.md`
   convention used across the platform (brainstorm → spec → plan → implement).
@@ -163,9 +173,19 @@ Key choices and _why_:
 
 ## Current state
 
-🌱 **Design phase.** The central-auth design is approved and committed. Nothing is
-implemented yet — the next step is writing the **Phase 0 + Phase 1 implementation
-plan** into `docs/superpowers/plans/`. Standing up Logto requires the maintainer to
-create the Logto Cloud account (a manual signup + dashboard step Claude cannot do);
-Claude's role is to specify exactly what to configure and to write the per-app
-integration code in the respective app repos.
+🌿 **Phase 1a shipped; Phase 0 awaiting its human steps.**
+
+- **Phase 1a (actor model seam) — done.** `supabase/migrations/0001`–`0007` hold
+  the canonical schema; `tests/db/` is the conformance suite apps run against
+  their own database. Plan: `2026-07-29-phase-1a-actor-model-seam.md`.
+- **Phase 0 (Clerk standup) — scaffolding in place, validation not yet run.**
+  `pnpm test:idp` and migration `0008` exist and skip cleanly without
+  credentials. It is **blocked on the maintainer** creating the Clerk account and
+  activating the Supabase integration — a dashboard step Claude cannot do. See
+  `docs/phase-0-clerk-setup.md`.
+- **Phase 1b (the hub) — planned, not started.** `aeleos-hub` is its own repo and
+  does not exist yet. Plans: `2026-08-02-phase-1b-i-hub-foundation.md` and
+  `2026-08-02-phase-1b-ii-fursonas-and-picker.md`. Both depend on Phase 0.
+
+Claude's role throughout: specify exactly what to configure, and write the
+per-app integration code in the respective app repos.

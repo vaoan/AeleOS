@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Budget: $0.** Clerk free plan only — 50,000 MRU, max 3 social connections. Do not enable anything that requires Pro. Do not create a Supabase Cloud project: the free plan allows two and Libra + Puck already use them.
+- **Budget: $0.** Clerk free plan only — 50,000 MRU, max 3 social connections. Do not enable anything that requires Pro. The Supabase free plan allows two active projects and both are now in use — `CandyShop` (Libra's production project) and `AeleOS` (created 2026-08-09). Puck has none, despite what earlier revisions of this plan said.
 - **Phase 0 touches no real app and no real data.** No changes to Puck or Libra, and nothing pointed at their Supabase projects.
 - **The existing offline suite must keep passing without Clerk credentials.** `pnpm test:db` (72 tests) must never require a secret. The new `pnpm test:idp` suite skips cleanly when `.secrets` is absent.
 - **Secrets never in git.** All Clerk values live in `.secrets` (already gitignored). `pnpm secretlint` must pass. Never paste a real token or secret key into a committed file, including this plan or any report.
@@ -47,7 +47,7 @@ This is what adds the `"role": "authenticated"` claim to every session token, wh
 
 > Do **not** use the older "Supabase JWT template" approach. It was deprecated in April 2025 in favour of this native integration.
 
-- [ ] **Step 3: Record the values**
+- [x] **Step 3: Record the values**
 
 Create `.secrets.example` and commit it:
 
@@ -97,7 +97,7 @@ git commit -m "chore: add clerk secrets example for phase 0"
 - Consumes: `CLERK_DOMAIN` from `.secrets` (Task 1).
 - Produces: a local Supabase stack that fetches and trusts Clerk's JWKS.
 
-- [ ] **Step 1: Enable the integration locally**
+- [x] **Step 1: Enable the integration locally**
 
 `supabase/config.toml` already contains this block, currently disabled:
 
@@ -120,6 +120,29 @@ domain = "env(CLERK_DOMAIN)"
 
 > Use the `env(...)` form, not the literal domain. A Clerk development domain is not a credential, but keeping it out of git means the committed config works for any contributor with their own instance, and it stops this file drifting into "config that only works on one laptop".
 
+> **⚠️ Finding (2026-08-03) — this step as written breaks CI. Do not commit `enabled = true`.**
+>
+> `supabase start` fetches the provider's OpenID discovery document at boot and
+> aborts if it cannot reach it:
+>
+> ```
+> LegacyStartInvalidConfigError: Failed to fetch
+> https://example.clerk.accounts.dev/.well-known/openid-configuration
+> ```
+>
+> So `enabled = true` makes a **real, reachable** Clerk domain a hard requirement
+> for starting the stack at all. `.github/workflows/db-tests.yml` runs
+> `supabase start` then `pnpm test:db` with no Clerk secrets, so committing it
+> fails CI outright — and it contradicts this plan's own global constraint that
+> `pnpm test:db` must never require a secret.
+>
+> The `env(...)` reasoning above still holds; the mistake was assuming the value
+> is only read lazily at token-verification time. It is validated at boot.
+>
+> **Resolution:** the committed block stays `enabled = false`, with a comment
+> explaining why. Enabling it is a local, uncommitted edit made when running
+> `test:idp` — see `docs/phase-0-clerk-setup.md` §5.
+
 - [ ] **Step 2: Restart the stack so the config is applied**
 
 ```bash
@@ -130,14 +153,14 @@ pnpm exec supabase start
 
 Expected: the stack starts cleanly. If it refuses with a config error, the `domain` value is malformed — it must be a bare hostname like `example.clerk.accounts.dev`, with no `https://` and no trailing slash.
 
-- [ ] **Step 3: Confirm the offline suite is unaffected**
+- [x] **Step 3: Confirm the offline suite is unaffected**
 
 Run: `pnpm test:db`
 Expected: PASS (72 tests across 10 files).
 
 This matters: enabling a third-party provider must not disturb the existing HS256-based harness. If this fails, stop and report — it means the two token paths conflict, which would be a genuine finding about the architecture rather than a bug to paper over.
 
-- [ ] **Step 4: Write the human setup guide**
+- [x] **Step 4: Write the human setup guide**
 
 Create `docs/phase-0-clerk-setup.md`:
 
@@ -178,9 +201,20 @@ pnpm test:idp
 
 ## Note on hosting
 
-This repo's Supabase project is a **local-only test bed**. Phase 0 deliberately
-does not create a Supabase Cloud project: the free plan allows two, and Puck and
-Libra already use both.
+The validation suite runs entirely against the **local** Supabase stack. It
+fetches Clerk's real JWKS over the network, so the asymmetric trust being tested
+is genuine; what it does not exercise is Cloud dashboard configuration.
+
+Supabase's free plan allows **two** active projects. As of 2026-08-09, verified
+against the management API, both are in use:
+
+| Project     | Ref                    | What it is                                            |
+| ----------- | ---------------------- | ----------------------------------------------------- |
+| `CandyShop` | `olafyajipvsltohagiah` | Libra's production project (still under its old name) |
+| `AeleOS`    | `vmmpssydbrtkgvrlkijh` | created 2026-08-09; not used by the test suite        |
+
+**Puck has no Supabase project** — earlier revisions of this doc claimed Puck
+held one of the two slots. It never did.
 ````
 
 - [ ] **Step 5: Commit**
@@ -206,7 +240,7 @@ A real token signed by Clerk's real keys is the only thing that proves the trust
 - Consumes: `CLERK_PUBLISHABLE_KEY` from `.secrets`.
 - Produces: a real session JWT, pasted by the human into `.secrets` as `CLERK_SESSION_TOKEN`.
 
-- [ ] **Step 1: Write the capture page**
+- [x] **Step 1: Write the capture page**
 
 Create `scripts/capture-clerk-token.html`:
 
@@ -266,7 +300,7 @@ Create `scripts/capture-clerk-token.html`:
 </script>
 ```
 
-- [ ] **Step 2: Add the serve script**
+- [x] **Step 2: Add the serve script**
 
 Add to `package.json` `scripts`:
 
@@ -319,7 +353,7 @@ This is the single most important task in the plan. Everything downstream assume
 - Consumes: `.secrets` values; the local stack from Task 2.
 - Produces: `pnpm test:idp`, and the helpers `clerkClient()` and `hasClerkCredentials()`.
 
-- [ ] **Step 1: Add the opt-in suite config**
+- [x] **Step 1: Add the opt-in suite config**
 
 Create `vitest.config.idp.ts`:
 
@@ -345,7 +379,7 @@ Add to `package.json` `scripts`:
 
 > Note this does NOT run `supabase db reset`, unlike `test:db`. This suite reads an already-running stack and must not wipe it.
 
-- [ ] **Step 2: Write the setup that loads secrets and allows skipping**
+- [x] **Step 2: Write the setup that loads secrets and allows skipping**
 
 Create `tests/idp/global-setup.ts`:
 
@@ -371,7 +405,7 @@ export default function setup(): void {
 }
 ```
 
-- [ ] **Step 3: Write the failing validation test**
+- [x] **Step 3: Write the failing validation test**
 
 Create `tests/idp/clerk-trust.test.ts`:
 
@@ -459,7 +493,7 @@ describe.skipIf(!hasCreds())("supabase trusts clerk", () => {
 });
 ```
 
-- [ ] **Step 4: Add the two introspection functions the tests call**
+- [x] **Step 4: Add the two introspection functions the tests call**
 
 Create `supabase/migrations/0008_idp_introspection.sql`:
 
@@ -522,7 +556,7 @@ Task 4 proves the token is accepted. This proves Phase 1a's schema — written m
 - Consumes: `ensure_person_actor()`, `current_person_ref()`, `can_act_as()`, `actors`, `comments` from migrations `0001`–`0007`.
 - Produces: nothing; this is a proof, not a component.
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 Create `tests/idp/clerk-actor-model.test.ts`:
 
@@ -696,7 +730,7 @@ Both specs currently name Logto throughout. Leaving them stale would mislead who
 - Consumes: the results of Tasks 4 and 5.
 - Produces: an accurate decision record.
 
-- [ ] **Step 1: Write the decision record**
+- [x] **Step 1: Write the decision record**
 
 Create `docs/superpowers/specs/2026-07-31-idp-decision-change.md`:
 
@@ -743,8 +777,15 @@ the decisive tiebreaker that chose Logto over WorkOS originally.
 
 A Supabase-as-IdP architecture would have preserved it (Supabase Auth can act as
 an OAuth 2.1/OIDC provider, and Supabase is open source), but it requires a third
-Supabase project. The free plan allows two, and Puck and Libra use both — so
-it costs ~$300/year against a $20/year ceiling, and it rides a beta feature.
+Supabase project.
+
+> **Correction (2026-08-09).** This passage claimed Puck and Libra held both
+> free slots. Puck has never had a Supabase project, so at the time of writing
+> only one slot (Libra's) was taken and an extra project was in fact free. Both
+> slots are used today (Libra + AeleOS), so the cost objection holds now — but it
+> did not when the decision was made. The decision stands on the remaining
+> grounds: it rides a beta feature, and any paid tier is a hard stop under the
+> $0 budget.
 
 ## Why that loss is acceptable
 
@@ -772,7 +813,7 @@ assigned, forged tokens are rejected, and **Phase 1a's migrations required no
 changes at all**.
 ```
 
-- [ ] **Step 2: Mark the superseded decision in the central-auth spec**
+- [x] **Step 2: Mark the superseded decision in the central-auth spec**
 
 In `docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md`, immediately after the `**Related:**` line in the header block, insert:
 
@@ -784,7 +825,7 @@ In `docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md`, immediatel
   the phased rollout — stands unchanged.
 ```
 
-- [ ] **Step 3: Mark it in the actor-model spec**
+- [x] **Step 3: Mark it in the actor-model spec**
 
 In `docs/superpowers/specs/2026-07-28-aeleos-actor-model-design.md`, in §19 (Implementation deltas), append a new subsection:
 
@@ -803,7 +844,7 @@ is **bootstrap-only** — existing rows keep their stored `actor_ref`. Never
 re-derive for existing users.
 ```
 
-- [ ] **Step 4: Update the project instructions**
+- [x] **Step 4: Update the project instructions**
 
 In `CLAUDE.md`, replace every statement that names Logto as the IdP with Clerk, keeping the reasoning intact:
 
@@ -888,13 +929,13 @@ git commit -m "docs: phase 0 validation report"
 
 ## Verification checklist
 
-- [ ] `pnpm test:db` passes (72 tests) with the Clerk provider enabled.
+- [x] `pnpm test:db` passes (72 tests). ⚠️ Run with the provider **disabled** — see the Task 2 Step 1 finding; enabling it makes the stack unstartable without a real Clerk domain.
 - [ ] `pnpm test:idp` passes (9 tests) with a fresh token in `.secrets`.
-- [ ] `pnpm test:idp` **skips cleanly** with `.secrets` absent — CI must not need credentials.
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm secretlint` all pass.
-- [ ] No real Clerk key or token appears anywhere in git history.
-- [ ] No Supabase Cloud project was created.
-- [ ] Migrations `0001`–`0007` are unmodified.
+- [x] `pnpm test:idp` **skips cleanly** with `.secrets` absent — CI must not need credentials.
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm secretlint` all pass.
+- [x] No real Clerk key or token appears anywhere in git history.
+- [x] No Supabase Cloud project was created.
+- [x] Migrations `0001`–`0007` are unmodified.
 
 ## What Phase 0 does NOT deliver
 
@@ -924,8 +965,9 @@ Each is a considered choice, not an oversight:
    configured per app during Phase 1.
 
 3. **"Validate on a throwaway Supabase project" — replaced by the local stack.**
-   The spec assumed a spare Cloud project was free to create. It is not: the free
-   plan allows two and both are in use. The local stack fetches Clerk's real JWKS
+   The spec assumed a spare Cloud project was free to create. As of 2026-08-09 it
+   is not: the free plan allows two and both are in use (Libra + AeleOS). The
+   local stack was the right call regardless, and it fetches Clerk's real JWKS
    over the network, so the asymmetric trust being tested is genuine. What is
    _not_ exercised is Cloud dashboard configuration — recorded as an explicit
    limitation in the Phase 0 report.

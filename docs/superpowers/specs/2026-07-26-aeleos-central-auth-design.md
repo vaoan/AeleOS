@@ -5,6 +5,11 @@
 - **Scope:** Platform-wide (cross-repo). Introduces a single identity provider shared by **all** Furry Colombia apps — Puck, Libra, and future apps — living under subdomains of `furrycolombia.com`. This spec lives in the **AeleOS** repo (`vaoan/aeleos`), the home for platform identity; implementation spans multiple repos.
 - **Author:** Heiner Angarita (with Claude)
 - **Related:** `CLAUDE.md` (Puck), Libra (production, separate Supabase project), Janus (sister project).
+- **⚠️ Superseded in part (2026-07-31):** the IdP is **Clerk**, not Logto —
+  Supabase Third-Party Auth does not support Logto. See
+  `2026-07-31-idp-decision-change.md`. Everything else in this spec —
+  the sacred-ID principle, separate app databases, social-login-first,
+  the phased rollout — stands unchanged.
 
 ---
 

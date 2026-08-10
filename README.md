@@ -15,15 +15,16 @@ Libra, and everything that comes next), all under subdomains of
 ## What this repo is (and isn't)
 
 This is **not** a hosted application. The identity provider itself is
-[**Logto**](https://logto.io) (managed cloud, at `id.furrycolombia.com`) — we
-_configure_ an IdP, we don't build/deploy a login app.
+[**Clerk**](https://clerk.com) (managed cloud, eventually at
+`id.furrycolombia.com`) — we _configure_ an IdP, we don't build/deploy a login
+app.
 
 This repo is the **home for the cross-app identity concern** that belongs to no
 single app:
 
 - 📐 **Design & specs** — architecture and decisions (`docs/superpowers/specs/`)
 - 🗺️ **Implementation plans** — phased rollout (`docs/superpowers/plans/`)
-- ⚙️ **Logto configuration-as-code** — connectors, applications, branding,
+- ⚙️ **Clerk configuration-as-code** — connections, applications, branding,
   exported for version control & disaster recovery _(added during implementation)_
 - 🧩 **Shared integration glue** — a small helper package apps consume, if/when
   2+ apps need it _(added when justified — YAGNI until then)_
@@ -33,13 +34,14 @@ lives in **each app's own repo**, not here.
 
 ## How it works (the short version)
 
-- **Logto** is the single source of truth for _who a person is_ (identity + social
+- **Clerk** is the single source of truth for _who a person is_ (identity + social
   logins). It is **not** the source of truth for any app's domain data.
 - **Each app keeps its own separate Supabase project/database**, configured with
-  Supabase **Third-Party Auth** to _trust_ Logto. RLS keeps working, keyed to the
-  Logto identity.
+  Supabase **Third-Party Auth** to _trust_ Clerk. RLS keeps working, keyed to the
+  Clerk identity (`auth.jwt()->>'sub'`).
 - **One login = SSO everywhere.** Log in once at any Furry Colombia app; the rest
-  sign you in silently via the shared Logto session.
+  sign you in silently via the shared Clerk session. Every app is a subdomain of
+  `furrycolombia.com`, so the session cookie covers them natively.
 - **The user ID is sacred.** Apps store a stable `identity_sub` and never let their
   own data keys depend on the IdP — so we can change almost anything later without
   a rewrite.
@@ -49,16 +51,29 @@ migration plan for Puck and Libra:
 
 **➡️ [`docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md`](docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md)**
 
+The IdP was originally Logto; it was ruled out because Supabase Third-Party Auth
+trusts only Clerk, Firebase, Auth0, AWS Cognito and WorkOS. The full reasoning,
+including what that cost us, is here:
+
+**➡️ [`docs/superpowers/specs/2026-07-31-idp-decision-change.md`](docs/superpowers/specs/2026-07-31-idp-decision-change.md)**
+
 ## Status
 
-🌱 **Design phase.** Spec approved; implementation planning next (Phase 0 —
-stand up Logto and prove the Supabase⇄Logto trust — comes first).
+🌿 **Phase 1a shipped; Phase 0 awaiting its human steps.** The actor-model seam
+(`0001`–`0007` + `tests/db/`) is done. Phase 0's scaffolding is in place and
+skips cleanly without credentials — it is blocked on creating the Clerk instance
+and activating the Supabase integration, a dashboard step. See
+[`docs/phase-0-clerk-setup.md`](docs/phase-0-clerk-setup.md).
 
 ## Cost & principles
 
-- **$0** at our scale (Logto Cloud free tier), near-zero ops (managed).
-- **Escape hatch:** Logto is open source — if we ever outgrow the free tier we can
-  self-host the _same product_ with the _same user IDs_, a near-zero migration.
+- **$0** at our scale (Clerk's free plan covers 50,000 monthly active users),
+  near-zero ops (managed).
+- **Escape hatch:** none at the product level — **no** Supabase-supported IdP is
+  self-hostable, so unlike Logto there is no "run the same thing yourself" exit.
+  What carries the guarantee instead is the **sacred `identity_sub`**: because no
+  app's data keys depend on the IdP, swapping the token issuer is a one-column
+  backfill rather than a data remap. This is why that rule must never be weakened.
 
 ---
 
@@ -173,6 +188,8 @@ They prove **claim shape and policy behaviour**: given a token carrying a `sub`,
 the constraints, helpers, exposure boundaries, and write policies behave
 correctly.
 
-They do **not** prove the Supabase⇄Logto trust. Local tests mint HS256 tokens
+They do **not** prove the Supabase⇄Clerk trust. Local tests mint HS256 tokens
 signed with the local Supabase JWT secret; real Third-Party Auth validates
-asymmetrically against Logto's JWKS. Validating that is Phase 0's job.
+asymmetrically against Clerk's JWKS. Validating that is Phase 0's job — see
+`tests/idp/`, which runs against a real Clerk-issued token and skips when no
+credentials are present.
