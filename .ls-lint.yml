@@ -1,6 +1,7 @@
 # ls-lint configuration
-# Enforces file naming conventions. AeleOS is a single package, not a monorepo,
-# so the globs point at tests/ and scripts/ rather than apps/*/src.
+# Enforces file naming conventions. Next.js dictates some names in apps/hub
+# (page.tsx, layout.tsx), which are kebab-case anyway. Directory names are not
+# checked, so App Router segments like [id] and (app) are unaffected.
 
 ls:
   tests:
@@ -9,6 +10,14 @@ ls:
   scripts:
     .mjs: kebab-case
     .html: kebab-case
+
+  apps/hub/src:
+    .ts: kebab-case
+    .tsx: kebab-case
+
+  apps/hub/tests:
+    .ts: kebab-case
+    .tsx: kebab-case
 
 ignore:
   - node_modules
@@ -24,3 +33,4 @@ ignore:
   - .superpowers
   - docs
   - supabase
+  - apps/hub/.next

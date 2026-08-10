@@ -121,6 +121,7 @@
     "greppable",
     "unrunnable",
     "ilike",
-    "Creds"
+    "Creds",
+    "unstub"
   ]
 }

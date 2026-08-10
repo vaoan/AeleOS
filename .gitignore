@@ -50,3 +50,12 @@ logto-export.raw.json
 # Local Supabase test bed
 supabase/.temp/
 supabase/.branches/
+
+# Next.js
+apps/hub/.next/
+apps/hub/next-env.d.ts
+apps/hub/playwright-report/
+apps/hub/test-results/
+
+# tsc --incremental cache (apps/hub/tsconfig.json sets "incremental": true)
+apps/hub/tsconfig.tsbuildinfo

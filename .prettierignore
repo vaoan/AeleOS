@@ -5,3 +5,7 @@ pnpm-lock.yaml
 
 # Scratch / plan working files (mirrors puck's .prettierignore)
 .superpowers/
+
+apps/hub/.next
+apps/hub/playwright-report
+apps/hub/test-results

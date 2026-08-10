@@ -10,6 +10,9 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "pnpm --filter hub dev",
+    "build": "pnpm --filter hub build",
+    "test:hub": "pnpm --filter hub test",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "test:db": "supabase db reset && vitest run -c vitest.config.integration.ts",
@@ -22,8 +25,8 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,css,md,yml,yaml}\"",
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint:fix",
-    "typecheck": "tsc --noEmit",
-    "check:tools": "cspell \"**/*.{ts,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,mjs tests scripts || true)",
+    "typecheck": "tsc --noEmit && pnpm --filter hub typecheck",
+    "check:tools": "cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
     "secretlint": "secretlint \"**/*\"",
     "sync-secrets": "node scripts/sync-secrets.mjs",
     "prepare": "husky"
@@ -37,6 +40,7 @@
     "@types/pg": "^8.11.10",
     "cspell": "^10.0.0",
     "eslint": "^9.39.4",
+    "eslint-config-next": "^16.0.0",
     "eslint-config-prettier": "^10.1.5",
     "globals": "^14.0.0",
     "husky": "^9.1.7",
