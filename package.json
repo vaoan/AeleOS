@@ -18,8 +18,8 @@
     "capture:token": "npx --yes serve scripts -l 5555",
     "lint": "eslint . --no-error-on-unmatched-pattern",
     "lint:fix": "eslint . --fix --no-error-on-unmatched-pattern",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,css,md}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,css,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,css,md,yml,yaml}\"",
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint:fix",
     "typecheck": "tsc --noEmit",
@@ -59,7 +59,7 @@
       "eslint --max-warnings=0 --no-warn-ignored",
       "secretlint"
     ],
-    "*.{json,md,css}": [
+    "*.{json,md,css,yml,yaml}": [
       "prettier --check"
     ]
   }
