@@ -44,12 +44,23 @@ for _other_ apps — Puck, Libra — lives in **each app's own repo**, not here.
 `apps/hub` is the AeleOS web application — where a person signs in and manages
 their fursonas. It is the only deployable thing in this repository.
 
+It is live at **[me.furrycolombia.com](https://me.furrycolombia.com)**, deployed
+from GitHub Actions on every push to `main`.
+
+Running it locally needs no Docker and no local database — the defaults point at
+the hosted services, so this works on any machine:
+
 ```bash
 pnpm install
-cp apps/hub/.env.example apps/hub/.env.local   # fill in Clerk and Supabase values
-pnpm exec supabase start                       # from the repository root
+pnpm sync-secrets                              # pulls credentials from GitHub
+cp apps/hub/.env.example apps/hub/.env.local   # paste the four values from .secrets
 pnpm dev                                       # http://localhost:5100
 ```
+
+That runs against the **hosted** Supabase project, so signing in while developing
+provisions a real actor in the shared registry. A local stack is only needed for
+schema work — see `apps/hub/.env.example` for the switch. `pnpm test:db` always
+uses a local stack regardless.
 
 The hub ships no migrations. `supabase/migrations/` at the root is the single
 schema for the one database — see [`docs/registry.md`](docs/registry.md).
