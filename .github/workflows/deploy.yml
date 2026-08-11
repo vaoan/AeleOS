@@ -68,14 +68,33 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Verify the deployment answers
+      # Two checks, because they prove different things and the first one alone
+      # was wrong. `vercel deploy` prints the deployment-specific URL, which is
+      # covered by Vercel's Deployment Protection and 302s to a Vercel login —
+      # the bypass header is what makes it answerable. The production alias is
+      # public but could still point at an older deployment, so checking only
+      # that would pass even if this upload never became live.
+      - name: Verify this deployment serves
         run: |
           URL="${{ steps.deploy.outputs.url }}"
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL")
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+            -H "x-vercel-protection-bypass: $BYPASS" "$URL")
           echo "GET $URL -> $CODE"
-          # A deployment that uploads but does not serve is the failure this
-          # catches: the job would otherwise report success on a broken site.
           if [ "$CODE" != "200" ]; then
-            echo "::error::Deployment did not return 200 (got $CODE)"
+            echo "::error::This deployment did not return 200 (got $CODE)"
             exit 1
           fi
+        env:
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+      - name: Verify production serves the app, not just a status
+        run: |
+          BODY=$(curl -s --max-time 30 https://aeleos-hub.vercel.app)
+          # Asserting on content, because a 200 from an error page or a holding
+          # screen would otherwise read as success.
+          if ! printf '%s' "$BODY" | grep -q "Your identity across Furry Colombia"; then
+            echo "::error::Production alias answered, but did not serve the hub"
+            printf '%s' "$BODY" | head -c 400
+            exit 1
+          fi
+          echo "Production alias is serving the hub."
