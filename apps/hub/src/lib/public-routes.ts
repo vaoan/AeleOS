@@ -10,6 +10,6 @@ import { createRouteMatcher } from "@clerk/nextjs/server";
  * This list is the whole definition of what is reachable signed-out, which is
  * why it lives in its own module with tests rather than inline in middleware.
  */
-export const PUBLIC_ROUTES = ["/", "/sign-in", "/sign-in/(.*)"];
+const PUBLIC_ROUTES = ["/", "/sign-in", "/sign-in/(.*)"];
 
 export const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES);

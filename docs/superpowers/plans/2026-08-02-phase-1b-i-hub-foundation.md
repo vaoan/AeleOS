@@ -1514,3 +1514,21 @@ null`), so an RLS denial, a dropped connection or a missing view were
   deprecation rather than a lint nit, so the compat shim will likely go in a
   future major. Run `npx @next/codemod@canary middleware-to-proxy` before the
   next Next.js major bump. Noted 2026-08-10 during Task 5.
+- **`createRouteMatcher` → resource-based auth checks.** Clerk deprecates it and
+  will remove it in their next major. Their stated reason is worth reading
+  carefully, because it is the same failure class Task 7's review found in our
+  own matcher: _"Middleware-based auth checks rely on path matching, which can
+  diverge from how Next.js routes requests and leave protected resources
+  reachable."_ We already narrowed `/sign-in(.*)` to `/sign-in` plus
+  `/sign-in/(.*)` and pinned the boundary with tests — but the deprecation says
+  the pattern itself is the risk, not just our list.
+
+  The migration moves each check into the page, layout, route handler or server
+  function that touches protected data, so protection follows the _resource_
+  rather than the URL shape. That is a real architectural change and a poor fit
+  for the tail of this plan, so it is recorded rather than attempted. Migration
+  guide: https://clerk.com/docs/guides/development/upgrading/upgrade-guides/migrate-from-create-route-matcher
+
+  Until then `src/lib/public-routes.ts` plus `tests/public-routes.test.ts` and
+  the e2e gate test are what stand in for it. Noted 2026-08-10 during Task 8,
+  from the warning `next dev` prints on every boot.
