@@ -378,8 +378,15 @@ const LOCAL = "http://localhost:5100";
  *
  * With `PLAYWRIGHT_BASE_URL` set, the suite runs against an already-deployed
  * site and must not start a dev server. Without it, it starts one locally.
+ *
+ * `Record<string, string | undefined>` rather than `NodeJS.ProcessEnv`: Next
+ * augments that interface with a required `NODE_ENV`, so a test could not pass
+ * `{}` to exercise the default branch. Narrowing it to the optional-only shape
+ * fails too — weak-type detection then rejects `process.env` itself.
  */
-export function e2eTarget(env: NodeJS.ProcessEnv = process.env): E2ETarget {
+export function e2eTarget(
+  env: Record<string, string | undefined> = process.env,
+): E2ETarget {
   const deployed = env.PLAYWRIGHT_BASE_URL?.trim();
   if (!deployed) return { baseURL: LOCAL, startsServer: true };
   return { baseURL: deployed.replace(/\/+$/, ""), startsServer: false };

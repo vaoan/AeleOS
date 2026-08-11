@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { e2eTarget } from "./e2e-target";
+
+const target = e2eTarget();
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -8,14 +11,18 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://localhost:5100",
+    baseURL: target.baseURL,
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:5100",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  ...(target.startsServer
+    ? {
+        webServer: {
+          command: "pnpm dev",
+          url: target.baseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+      }
+    : {}),
 });
