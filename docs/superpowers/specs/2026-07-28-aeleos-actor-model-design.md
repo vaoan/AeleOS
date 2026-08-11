@@ -524,11 +524,15 @@ for which §4.2 does not apply.
 
 ## 18. Open decisions
 
-1. **Hub hostname (blocking Phase 1b).** The central-auth spec assigns
-   `id.furrycolombia.com` to Logto, so the hub needs its own subdomain — the two
-   cannot share a host root reliably under managed Logto. Suggested:
-   `me.furrycolombia.com`. Users will perceive one product across two hostnames;
-   branding and navigation should make the seam invisible.
+1. ~~**Hub hostname (blocking Phase 1b).**~~ **Resolved 2026-08-11:**
+   `me.furrycolombia.com`, as suggested — but the reasoning here no longer
+   applies and the outcome is better than it anticipated. This item assumed
+   `id.furrycolombia.com` would host Logto's login page, forcing the hub onto a
+   second hostname and leaving a seam to hide. Clerk renders its components
+   inside the hub instead, so there is no second hostname people visit and no
+   seam: sign-in is `me.furrycolombia.com/sign-in`. `id.` is retired; Clerk's
+   Frontend API is plumbing at `clerk.furrycolombia.com`. See
+   `2026-08-11-hub-deployment-design.md`.
 2. **Inactivity threshold** for the picker re-prompt (§6). Needs a concrete
    default.
 3. **Transfer proposal expiry** window (§9.1).

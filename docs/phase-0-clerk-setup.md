@@ -112,11 +112,20 @@ redirect_uri: https://clerk.shared.lcl.dev/v1/oauth_callback
 ```
 
 **Shared credentials do not carry to a production instance.** Standing up
-`id.furrycolombia.com` means registering our own OAuth app with **all three**
-providers — see the lineup table above for what each one needs. All three are
-$0, so the budget holds, but it is real setup rather than a toggle, and the
-callback URL changes from `clerk.shared.lcl.dev` to the production Clerk domain.
-Plan it into Phase 3 rather than meeting it during a cutover.
+production means registering our own OAuth app per provider — see the lineup
+table above for what each one needs. All are $0, so the budget holds, but it is
+real setup rather than a toggle, and the callback URL changes from
+`clerk.shared.lcl.dev` to the production Clerk domain.
+
+Sequencing matters, and it is not the obvious order: Discord has no prerequisite,
+Google waits on the billing question below, and Facebook needs a privacy policy
+and data-deletion callback that can only be hosted once the site is live. Launch
+with Discord and add the rest afterwards —
+`docs/superpowers/specs/2026-08-11-hub-deployment-design.md` §7.
+
+> The production Clerk domain is **`clerk.furrycolombia.com`**, not
+> `id.furrycolombia.com`. That subdomain belonged to Logto's hosted login page
+> and is retired; Clerk's is an API endpoint nobody visits.
 
 ## 2. Supabase integration
 

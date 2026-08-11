@@ -15,8 +15,10 @@ Libra, and everything that comes next), all under subdomains of
 ## What this repo is (and isn't)
 
 We do **not** build an identity provider. The IdP itself is
-[**Clerk**](https://clerk.com) (managed cloud, eventually at
-`id.furrycolombia.com`) — we _configure_ it, we don't write a login service.
+[**Clerk**](https://clerk.com) (managed cloud) — we _configure_ it, we don't
+write a login service. Nobody is ever redirected to a Clerk-branded address: the
+hub renders Clerk's components itself, so people sign in at
+`me.furrycolombia.com/sign-in`.
 
 We do ship one application: the **hub** at `apps/hub` (see below), where a
 person signs in and manages their fursonas. It lives here because the schema it

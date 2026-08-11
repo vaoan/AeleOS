@@ -122,6 +122,7 @@
     "unrunnable",
     "ilike",
     "Creds",
-    "unstub"
+    "unstub",
+    "NXDOMAIN"
   ]
 }

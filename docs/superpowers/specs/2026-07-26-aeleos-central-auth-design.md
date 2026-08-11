@@ -10,6 +10,14 @@
   `2026-07-31-idp-decision-change.md`. Everything else in this spec —
   the sacred-ID principle, separate app databases, social-login-first,
   the phased rollout — stands unchanged.
+- **⚠️ Superseded in part (2026-08-11):** every mention below of
+  **`id.furrycolombia.com`** is obsolete. That subdomain made sense only for
+  Logto, which redirected people to a login page hosted there. Clerk's
+  components render inside the hub, so sign-in happens at
+  `me.furrycolombia.com/sign-in` and Clerk's Frontend API is plumbing at
+  `clerk.furrycolombia.com`. `id.` is retired and will not be created. The
+  redirect-based flow described in §§3–5 is likewise Logto's shape, not what
+  was built. See `2026-08-11-hub-deployment-design.md`.
 
 ---
 

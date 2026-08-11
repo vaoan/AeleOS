@@ -14,15 +14,26 @@ export const admin = (): SupabaseClient =>
 let seq = 0;
 export function newSub(): string {
   seq += 1;
-  return `logto_${Date.now()}_${seq}`;
+  return `test_${Date.now()}_${seq}`;
 }
 
+/**
+ * Mints a local HS256 token signed with the local Supabase JWT secret.
+ *
+ * The issuer is deliberately a non-existent test hostname. Nothing validates
+ * it — no policy reads the `iss` claim — and naming a real one would be a lie
+ * in either direction: these tokens are not Clerk's, and real Third-Party Auth
+ * validates asymmetrically against Clerk's JWKS. What this suite proves is
+ * claim shape and policy behaviour; proving the Clerk trust is `tests/idp/`.
+ *
+ * This suite is copied into consuming apps, so a hostname here travels.
+ */
 export async function mintToken(sub: string): Promise<string> {
   return new SignJWT({ role: "authenticated" })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(sub)
     .setAudience("authenticated")
-    .setIssuer("https://id.furrycolombia.com/oidc")
+    .setIssuer("https://conformance.aeleos.test")
     .setIssuedAt()
     .setExpirationTime("1h")
     .sign(secret());

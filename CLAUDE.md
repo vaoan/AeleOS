@@ -32,9 +32,12 @@ should be a single identity everywhere.
 
 > **We do NOT build an identity provider. We DO ship exactly one app: the hub.**
 
-The identity provider itself is **[Clerk](https://clerk.com)** — a managed IdP,
-eventually reachable at `id.furrycolombia.com`. We **configure** an IdP; we do
-not build one.
+The identity provider itself is **[Clerk](https://clerk.com)** — a managed IdP.
+We **configure** an IdP; we do not build one. People never visit a Clerk-branded
+address: the hub renders Clerk's components in its own pages, so sign-in happens
+at `me.furrycolombia.com/sign-in` and Clerk's Frontend API is plumbing at
+`clerk.furrycolombia.com`. (`id.furrycolombia.com` was Logto's hosted login page
+and is **retired** — see `2026-08-11-hub-deployment-design.md`.)
 
 The **hub** lives here, at `apps/hub` — a Next.js app where a person signs in
 and manages their fursonas. It was originally planned as its own repository
@@ -121,9 +124,9 @@ Key choices and _why_:
    one real technical unknown, and it is now **proven and continuously
    re-proven**: the `idp-cloud` CI job mints a real Clerk user, resolves it as
    `role=authenticated` against the AeleOS Supabase project, and runs
-   `tests/idp/` on every pull request. (DNS for `id.furrycolombia.com` is
-   deferred to Phase 1; a Clerk development instance does not use a custom
-   domain.)
+   `tests/idp/` on every pull request. (A Clerk development instance uses no
+   custom domain; production DNS is Phase 1's job — `clerk.furrycolombia.com`,
+   not `id.`.)
 2. **Phase 1 — New / greenfield app (and Puck).** Integrate end-to-end to prove
    the pattern. Puck is safe to migrate early because it is **not yet in
    production**; note Puck's foundation `user_profiles` FKs to `auth.users(id)` and
