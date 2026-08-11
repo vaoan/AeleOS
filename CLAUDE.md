@@ -30,27 +30,37 @@ should be a single identity everywhere.
 
 ## What this repo IS (and is NOT)
 
-> **This is NOT a hosted application. There is no login app to build or deploy.**
+> **We do NOT build an identity provider. We DO ship exactly one app: the hub.**
 
 The identity provider itself is **[Clerk](https://clerk.com)** — a managed IdP,
 eventually reachable at `id.furrycolombia.com`. We **configure** an IdP; we do
 not build one.
 
-This repo is the **home for the cross-app identity concern** that belongs to no
-single app:
+The **hub** lives here, at `apps/hub` — a Next.js app where a person signs in
+and manages their fursonas. It was originally planned as its own repository
+(`aeleos-hub`); that changed on 2026-08-10 because the schema it reads lives
+here, and two repositories issuing `supabase db push` at one database is two
+sources of truth. See
+`docs/superpowers/specs/2026-08-10-hub-in-aeleos-design.md`.
+
+This repo is also the **home for the cross-app identity concern** that belongs
+to no single app:
 
 | Lives here                                                                                                 | Path / status                                     |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | Design & specs (architecture, decisions)                                                                   | `docs/superpowers/specs/`                         |
 | Implementation plans (phased rollout)                                                                      | `docs/superpowers/plans/`                         |
+| The hub app (fursona/profile registry, ownership ledger, actor picker)                                     | `apps/hub/` — the only deployable thing here      |
+| The canonical actor-model schema every app copies                                                          | `supabase/migrations/` — the root owns it         |
 | Clerk configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_                     |
 | A small shared integration helper package                                                                  | _only if/when 2+ apps need it — YAGNI until then_ |
 
 **Per-app integration code** (the OIDC client + Supabase third-party-auth wiring)
-lives in **each app's own repo** (`puck`, `libra`, …) — **not** here. The
-**AeleOS hub app** (`aeleos-hub`) — the fursona/profile registry, ownership ledger,
-and actor picker — is likewise its own deployable repo; this repo stays
-non-deployable.
+for the _other_ apps lives in **each app's own repo** (`puck`, `libra`, …) —
+**not** here.
+
+**`apps/hub` ships no migrations.** `supabase/migrations/` at the root is the
+single schema for the one database; never copy migrations into the app.
 
 ## Architecture & the decisions behind it
 
@@ -107,10 +117,13 @@ Key choices and _why_:
 ## Phased rollout (do not skip Phase 0)
 
 1. **Phase 0 — Stand up + de-risk.** Create the Clerk instance, configure Google +
-   Discord connections, and **validate the Supabase⇄Clerk trust against a local
-   Supabase stack before touching any real app.** This is the one real technical
-   unknown. (DNS for `id.furrycolombia.com` is deferred to Phase 1; a Clerk
-   development instance does not use a custom domain.)
+   Discord connections, and **validate the Supabase⇄Clerk trust.** This was the
+   one real technical unknown, and it is now **proven and continuously
+   re-proven**: the `idp-cloud` CI job mints a real Clerk user, resolves it as
+   `role=authenticated` against the AeleOS Supabase project, and runs
+   `tests/idp/` on every pull request. (DNS for `id.furrycolombia.com` is
+   deferred to Phase 1; a Clerk development instance does not use a custom
+   domain.)
 2. **Phase 1 — New / greenfield app (and Puck).** Integrate end-to-end to prove
    the pattern. Puck is safe to migrate early because it is **not yet in
    production**; note Puck's foundation `user_profiles` FKs to `auth.users(id)` and
@@ -149,9 +162,10 @@ Key choices and _why_:
   explicitly asks. Never commit secrets.
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**
   Never bare `git checkout -b <name>`, which silently branches from whatever is
-  currently checked out. This repo keeps a long-lived feature branch
-  (`phase-0-clerk-standup`), so "whatever is checked out" is very often _not_
-  `main`.
+  currently checked out — and after a session's work that is usually the last
+  feature branch, not `main`. (`main` is now the only branch on the remote:
+  merged branches delete themselves, which means a leftover _local_ branch
+  marked `[origin/…: gone]` is the trap to watch for.)
 
   This has gone wrong twice, both times the same way: PR #4 and PR #11 were cut
   from the Phase 0 branch, so each carried ~10 unrelated commits and a
@@ -173,19 +187,28 @@ Key choices and _why_:
 
 ## Current state
 
-🌿 **Phase 1a shipped; Phase 0 awaiting its human steps.**
+🌿 **Phase 1a and Phase 0 done; Phase 1b-i done bar its hands-on steps.**
 
 - **Phase 1a (actor model seam) — done.** `supabase/migrations/0001`–`0007` hold
   the canonical schema; `tests/db/` is the conformance suite apps run against
   their own database. Plan: `2026-07-29-phase-1a-actor-model-seam.md`.
-- **Phase 0 (Clerk standup) — scaffolding in place, validation not yet run.**
-  `pnpm test:idp` and migration `0008` exist and skip cleanly without
-  credentials. It is **blocked on the maintainer** creating the Clerk account and
-  activating the Supabase integration — a dashboard step Claude cannot do. See
-  `docs/phase-0-clerk-setup.md`.
-- **Phase 1b (the hub) — planned, not started.** `aeleos-hub` is its own repo and
-  does not exist yet. Plans: `2026-08-02-phase-1b-i-hub-foundation.md` and
-  `2026-08-02-phase-1b-ii-fursonas-and-picker.md`. Both depend on Phase 0.
+- **Phase 0 (Clerk standup) — done and self-verifying.** The Clerk instance and
+  the Supabase integration are live. `tests/idp/` runs against a real
+  Clerk-issued token; the `idp-cloud` CI job re-proves the trust on every pull
+  request. See `docs/phase-0-clerk-setup.md`.
+- **Phase 1b-i (hub foundation) — done except Task 8 and the 🧑 steps.**
+  `apps/hub` is a Next.js app with Clerk sign-in, a Supabase client bound to the
+  Clerk token, and person provisioning on first sign-in. Still open: Playwright
+  e2e (Task 8), and the two steps the plan marks 🧑 — verifying a real sign-in
+  provisions exactly one actor row. Plan:
+  `2026-08-02-phase-1b-i-hub-foundation.md`.
+- **Phase 1b-ii (fursonas and the picker) — not started.** Plan:
+  `2026-08-02-phase-1b-ii-fursonas-and-picker.md`.
 
-Claude's role throughout: specify exactly what to configure, and write the
-per-app integration code in the respective app repos.
+**CI gates on `main`:** `conformance` (schema suite), `hub` (unit tests +
+production build) and `idp-cloud` (real Clerk ⇄ Supabase trust) are all
+**required** — a pull request cannot merge until the three report green.
+
+Claude's role throughout: build and test the hub here, specify exactly what to
+configure in Clerk, and write the per-app integration code in the respective app
+repos.
