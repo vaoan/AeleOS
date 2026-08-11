@@ -77,6 +77,56 @@ describe("createServerClient", () => {
     await expect(lastAccessToken()()).resolves.toBeNull();
   });
 
+  // If Clerk is unreachable the request must fail, not proceed as anonymous:
+  // an unauthenticated PostgREST call is one RLS policy away from reading as
+  // the anon role rather than as the person.
+  it("propagates a Clerk outage instead of building an anonymous client", async () => {
+    const clerk = await import("@clerk/nextjs/server");
+    vi.mocked(clerk.auth).mockRejectedValueOnce(new Error("Clerk unavailable"));
+
+    const { createServerClient } = await import("@/lib/supabase-server");
+    await expect(createServerClient()).rejects.toThrow(/Clerk unavailable/);
+  });
+
+  it("rejects, rather than sending no token, when the token call fails", async () => {
+    const clerk = await import("@clerk/nextjs/server");
+    vi.mocked(clerk.auth).mockResolvedValueOnce({
+      getToken: async () => {
+        throw new Error("token endpoint 503");
+      },
+    } as unknown as Awaited<ReturnType<typeof clerk.auth>>);
+
+    const { createServerClient } = await import("@/lib/supabase-server");
+    await createServerClient();
+    await expect(lastAccessToken()()).rejects.toThrow(/token endpoint 503/);
+  });
+
+  // The callback must ask Clerk each time. Resolving the token once and
+  // reusing it would pin the client to a token that expires mid-session.
+  //
+  // Counted as a delta rather than an absolute: supabase-js invokes the
+  // callback once while constructing the client, so an absolute count would
+  // assert their behaviour instead of ours.
+  it("asks Clerk for a fresh token on every call, not once per client", async () => {
+    let issued = 0;
+    const getToken = vi.fn(async () => `token-${++issued}`);
+    const clerk = await import("@clerk/nextjs/server");
+    vi.mocked(clerk.auth).mockResolvedValueOnce({
+      getToken,
+    } as unknown as Awaited<ReturnType<typeof clerk.auth>>);
+
+    const { createServerClient } = await import("@/lib/supabase-server");
+    await createServerClient();
+    const accessToken = lastAccessToken();
+
+    const atConstruction = getToken.mock.calls.length;
+    const first = await accessToken();
+    const second = await accessToken();
+
+    expect(getToken).toHaveBeenCalledTimes(atConstruction + 2);
+    expect(first).not.toBe(second);
+  });
+
   it("creates no Supabase session of its own", async () => {
     const { createServerClient } = await import("@/lib/supabase-server");
     await createServerClient();

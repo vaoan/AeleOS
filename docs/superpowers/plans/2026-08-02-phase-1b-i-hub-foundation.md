@@ -1482,6 +1482,20 @@ Expected: `["conformance","hub","idp-cloud"]`.
    app. It follows the rule the Phase 0 suite established: skip cleanly when
    credentials are absent rather than fail.
 
+5. **`getPersonActor` rethrows real errors instead of returning null.** Task 7
+   as written collapsed every error into `null` (`if (error || !data) return
+null`), so an RLS denial, a dropped connection or a missing view were
+   indistinguishable from "this person has no actor" — `/me` would render an
+   em-dash and report success. Only PostgREST's `PGRST116` ("no rows matched")
+   is an answer; everything else is a fault and is rethrown.
+
+6. **A test asserts reads go through `actors_public`.** Task 7's tests mocked
+   `from` without checking the table name, so retargeting the read at the base
+   `actors` table would have leaked `identity_sub` and `owner_ref` and still
+   passed all four cases. Both deviations were verified by sabotage: reverting
+   each one turns exactly one new test red, while all four original tests stay
+   green — which is what showed the gap was real rather than theoretical.
+
 ## Follow-on work
 
 - **Phase 1b-ii** — fursona creation and editing, the picker, and the

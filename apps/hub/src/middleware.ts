@@ -1,7 +1,5 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-
-// Everything except the marketing home page and the sign-in flow requires auth.
-const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)"]);
+import { clerkMiddleware } from "@clerk/nextjs/server";
+import { isPublicRoute } from "@/lib/public-routes";
 
 export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {

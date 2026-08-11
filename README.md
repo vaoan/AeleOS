@@ -14,13 +14,18 @@ Libra, and everything that comes next), all under subdomains of
 
 ## What this repo is (and isn't)
 
-This is **not** a hosted application. The identity provider itself is
+We do **not** build an identity provider. The IdP itself is
 [**Clerk**](https://clerk.com) (managed cloud, eventually at
-`id.furrycolombia.com`) — we _configure_ an IdP, we don't build/deploy a login
-app.
+`id.furrycolombia.com`) — we _configure_ it, we don't write a login service.
 
-This repo is the **home for the cross-app identity concern** that belongs to no
-single app:
+We do ship one application: the **hub** at `apps/hub` (see below), where a
+person signs in and manages their fursonas. It lives here because the schema it
+reads is here, and two repositories issuing `supabase db push` at one database
+would be two sources of truth — see
+[`docs/superpowers/specs/2026-08-10-hub-in-aeleos-design.md`](docs/superpowers/specs/2026-08-10-hub-in-aeleos-design.md).
+
+This repo is also the **home for the cross-app identity concern** that belongs
+to no single app:
 
 - 📐 **Design & specs** — architecture and decisions (`docs/superpowers/specs/`)
 - 🗺️ **Implementation plans** — phased rollout (`docs/superpowers/plans/`)
@@ -30,7 +35,30 @@ single app:
   2+ apps need it _(added when justified — YAGNI until then)_
 
 Per-app integration code (the OIDC client + Supabase third-party-auth wiring)
-lives in **each app's own repo**, not here.
+for _other_ apps — Puck, Libra — lives in **each app's own repo**, not here.
+
+## The hub
+
+`apps/hub` is the AeleOS web application — where a person signs in and manages
+their fursonas. It is the only deployable thing in this repository.
+
+```bash
+pnpm install
+cp apps/hub/.env.example apps/hub/.env.local   # fill in Clerk and Supabase values
+pnpm exec supabase start                       # from the repository root
+pnpm dev                                       # http://localhost:5100
+```
+
+The hub ships no migrations. `supabase/migrations/` at the root is the single
+schema for the one database — see [`docs/registry.md`](docs/registry.md).
+
+### Checks
+
+```bash
+pnpm --filter hub test        # unit
+pnpm --filter hub test:e2e    # end-to-end, needs the app running
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm secretlint && pnpm check:tools
+```
 
 ## How it works (the short version)
 
