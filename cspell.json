@@ -123,6 +123,8 @@
     "ilike",
     "Creds",
     "unstub",
-    "NXDOMAIN"
+    "NXDOMAIN",
+    "ENOENT",
+    "prebuilt"
   ]
 }

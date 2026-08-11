@@ -478,32 +478,60 @@ git commit -m "test: let the e2e suite target a deployed url"
 - Consumes: Task 2's production Clerk keys; the existing Supabase URL and publishable key.
 - Produces: a deployment on a `*.vercel.app` URL, verified before a custom domain is attached.
 
-- [ ] **Step 1: Create the project** 🧑
+- [x] **Step 1: Create the project** 🧑 — _done 2026-08-11, without a Git link_
 
-In Vercel, import `vaoan/AeleOS` on the **Hobby** plan. Confirm no card is requested; if one is, stop per the budget rule.
+**Amended.** This task originally imported the repository through Vercel's
+dashboard wizard. It does not. Vercel has no connection to the repository:
+the project was created through the API with `framework: nextjs` and
+`rootDirectory: apps/hub`, and no Git link. See spec §6.
 
-Set **Root Directory** to `apps/hub`. Leave the framework preset as Next.js and the build and install commands at their defaults — Vercel detects the pnpm workspace from the repository root.
+Human part: create the Vercel account on **Hobby** and confirm no card is
+requested. Signing in _with_ GitHub is fine — that authenticates the Vercel
+account and is a different thing from installing the Vercel GitHub App, which
+is deliberately not installed.
 
-- [ ] **Step 2: Add environment variables per environment** 🧑
+- [x] **Step 2: Add environment variables** — _done 2026-08-11_
 
-Four variables. **Production** and **Preview** get different Clerk keys, per spec §6 — previews are served from `*.vercel.app`, which the production instance will not serve.
+Four variables on `production` and `preview`. They are set through the API
+rather than the dashboard, so they are recorded here rather than in a UI:
 
-| Variable                            | Production                 | Preview                 |
-| ----------------------------------- | -------------------------- | ----------------------- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | production `pk_live_…`     | development `pk_test_…` |
-| `CLERK_SECRET_KEY`                  | production `sk_live_…`     | development `sk_test_…` |
-| `NEXT_PUBLIC_SUPABASE_URL`          | the AeleOS project URL     | same                    |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`     | the AeleOS publishable key | same                    |
+| Variable                            | Value                                           |
+| ----------------------------------- | ----------------------------------------------- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key                           |
+| `CLERK_SECRET_KEY`                  | Clerk secret key                                |
+| `NEXT_PUBLIC_SUPABASE_URL`          | the **cloud** AeleOS project, never `127.0.0.1` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`     | the AeleOS publishable key                      |
 
-`CLERK_SECRET_KEY` is a secret and must never be prefixed `NEXT_PUBLIC_` — that prefix ships a value in the browser bundle.
+`CLERK_SECRET_KEY` must never be prefixed `NEXT_PUBLIC_` — that prefix ships a
+value in the browser bundle.
 
-- [ ] **Step 3: Deploy and verify on the Vercel URL** 🧑
+**Interim state:** these hold the _development_ Clerk keys, so the first
+deployment is reachable and signable-in before the production instance exists.
+The cloud Supabase project already trusts the development Clerk instance —
+that is what `idp-cloud` authenticates against — so `/me` provisions a real
+actor. Task 7 swaps them for production keys.
 
-Trigger a deployment from `main`. When it succeeds, open the `*.vercel.app` URL.
+- [ ] **Step 3: Deploy through the workflow**
 
-Expected: the home page renders "AeleOS". Visiting `/me` redirects to `/sign-in`.
+`.github/workflows/deploy.yml` runs on push to `main` and on manual dispatch.
+It builds with the Vercel CLI on a Linux runner and uploads only
+`.vercel/output`.
 
-**Sign-in will not work on this URL** with production Clerk keys — the domain is not `furrycolombia.com`. That is expected and is fixed by Task 7. What this step proves is that the build, the environment variables and the routing are correct.
+**The build must run on Linux.** Next 16 emits symlinks into `.vercel/output`,
+and building on Windows produces links that fail to upload:
+
+```
+Error: ENOENT: no such file or directory, stat
+'.vercel/output/functions/_global-error.segments/__PAGE__.segment.rsc.func'
+```
+
+The path exists locally; the symlink does not survive. Do not try to deploy
+from a Windows machine.
+
+Watch the run, then open the URL it prints. Expected: the home page renders
+"AeleOS", and `/me` redirects to `/sign-in`. The workflow's final step already
+asserts the deployment answers `200` — a deployment that uploads but does not
+serve would otherwise report success.
 
 - [ ] **Step 4: Annotate the example env file**
 

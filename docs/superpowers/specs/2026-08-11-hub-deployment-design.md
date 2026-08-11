@@ -125,15 +125,39 @@ Two acceptable resolutions, in order of preference:
 Either way, the rule holds: **whatever issues the tokens production uses is what
 CI must exercise.**
 
-## 6. Preview deployments
+## 6. Delivery: GitHub Actions, not Vercel's Git integration
 
-Vercel previews are served from `*.vercel.app`, which is not under
-`furrycolombia.com`, so the production Clerk instance will not serve them.
+**Amended 2026-08-11.** This section originally assumed Vercel's Git
+integration and its Preview environment. It does not use either.
 
-Vercel's per-environment variables resolve this: the **Preview** environment gets
-the development Clerk keys, the **Production** environment gets the live ones.
-Previews keep a working sign-in, and no production credential is exposed to a
-preview build.
+Vercel has no connection to the repository. `.github/workflows/deploy.yml`
+builds with the Vercel CLI on a runner and uploads only `.vercel/output` via
+`vercel deploy --prebuilt`. Vercel's own documentation describes this as the
+path for people who cannot use the Git integration, and notes what makes it
+attractive here: it ensures "source code is not exposed to Vercel during the
+build process." `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` replace project
+linking, so no `.vercel` directory is committed.
+
+The reason is coupling, not distrust. The deploy pipeline lives in a file in
+this repository, readable and changeable, and moving to another host means
+editing that file rather than unpicking an integration. It also keeps the
+`apps/hub`-carries-no-Vercel-configuration property from
+`2026-08-10-hub-in-aeleos-design.md` true of the delivery path as well as the
+application.
+
+**The build must run on Linux.** Next 16 emits symlinks into `.vercel/output`;
+building on Windows produces links that fail to upload with an `ENOENT` on a
+path that exists locally. This was hit before the workflow existed.
+
+**Consequence — there are no automatic preview deployments.** They were a
+property of the Git integration. `vercel deploy` without `--prod` returns a
+preview URL, so previews can be added to the workflow deliberately, and the
+e2e suite can point at any URL since Task 5. That is follow-on work, not part
+of this design.
+
+Deploying on push to `main` is safe because `main` cannot receive unverified
+code: `conformance`, `hub` and `idp-cloud` are required checks and admins are
+not exempt, so every commit there has already passed them on a pull request.
 
 ## 7. Provider sequencing
 

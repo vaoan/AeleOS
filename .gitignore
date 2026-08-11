@@ -57,5 +57,10 @@ apps/hub/next-env.d.ts
 apps/hub/playwright-report/
 apps/hub/test-results/
 
+# Vercel CLI scratch. `vercel pull` writes the project link and the pulled
+# environment here — the environment file holds real secret values, and the
+# link is redundant because CI passes VERCEL_ORG_ID/VERCEL_PROJECT_ID instead.
+.vercel/
+
 # tsc --incremental cache (apps/hub/tsconfig.json sets "incremental": true)
 apps/hub/tsconfig.tsbuildinfo

@@ -1,0 +1,81 @@
+name: deploy
+
+# Vercel has no Git integration with this repository, deliberately. The build
+# happens here and only the output is uploaded, so Vercel never receives the
+# source. VERCEL_ORG_ID and VERCEL_PROJECT_ID are what let the CLI skip project
+# linking — there is no committed .vercel directory.
+#
+# Deploying on push to main is safe because main cannot receive unverified
+# code: conformance, hub and idp-cloud are required checks and admins are not
+# exempt, so every commit here has already passed them on a pull request.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a deployment in flight — a half-uploaded deployment is worse
+# than a queued one. Later pushes wait rather than racing.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Pinned rather than @latest, for the same supply-chain reason the
+      # actions above are pinned by SHA.
+      - name: Install the Vercel CLI
+        run: pnpm add -g vercel@58.9.1
+
+      # Must run on Linux. Next 16 emits symlinks into .vercel/output, and
+      # building on Windows produces links that fail to upload with an ENOENT
+      # on a path that exists locally.
+      - name: Pull project settings and environment
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy the build output
+        id: deploy
+        run: |
+          URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed: $URL"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Verify the deployment answers
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL")
+          echo "GET $URL -> $CODE"
+          # A deployment that uploads but does not serve is the failure this
+          # catches: the job would otherwise report success on a broken site.
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Deployment did not return 200 (got $CODE)"
+            exit 1
+          fi
