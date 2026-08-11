@@ -1434,14 +1434,14 @@ git commit -m "ci: add hub and cloud-trust jobs"
 Only after both jobs have reported green on a pull request at least once:
 
 ```bash
-gh api -X PATCH repos/vaoan/aeleos/branches/main/protection/required_status_checks \
+gh api -X PATCH repos/vaoan/AeleOS/branches/main/protection/required_status_checks \
   -f 'contexts[]=conformance' -f 'contexts[]=hub' -f 'contexts[]=idp-cloud'
 ```
 
 Then confirm:
 
 ```bash
-gh api repos/vaoan/aeleos/branches/main/protection/required_status_checks --jq '.contexts'
+gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
 ```
 
 Expected: `["conformance","hub","idp-cloud"]`.

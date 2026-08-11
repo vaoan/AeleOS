@@ -109,7 +109,7 @@ Taken 2026-08-05. Re-check before starting if time has passed.
 
 |                          | AeleOS                          | Puck                                | CandyStore                    |
 | ------------------------ | ------------------------------- | ----------------------------------- | ----------------------------- |
-| Slug                     | `vaoan/aeleos`                  | `vaoan/Puck`                        | `furrycolombia-sys/candyshop` |
+| Slug                     | `vaoan/AeleOS`                  | `vaoan/Puck`                        | `furrycolombia-sys/candyshop` |
 | Moves in this plan       | no                              | no                                  | **yes**                       |
 | Visibility               | private                         | public                              | public                        |
 | `vaoan` permission       | admin                           | admin                               | **write**                     |
