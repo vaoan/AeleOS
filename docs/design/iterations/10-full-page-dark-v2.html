@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Provider marks fixed (tofu glyph) — AeleOS design iteration 10
+    </title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 10 · 2026-08-11</p>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+      .dk2 {
+        position: relative;
+        height: 540px;
+        overflow: hidden;
+        border-radius: 12px;
+        background: oklch(0.12 0.03 305);
+        --ink: oklch(0.96 0.012 340);
+        --ink-2: oklch(0.8 0.03 330);
+        --muted: oklch(0.66 0.03 330);
+        --surface: oklch(0.16 0.04 305 / 0.82);
+        --edge: oklch(0.52 0.09 325);
+        --accent: oklch(0.74 0.18 350);
+        --on-accent: oklch(0.16 0.04 350);
+        font-family: "DM Sans", sans-serif;
+      }
+      .dk2 > .bg {
+        position: absolute;
+        inset: 0;
+      }
+      .dk2 > .fg {
+        position: relative;
+        z-index: 5;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .dk2 .card {
+        background: var(--surface);
+        border: 1px solid var(--edge);
+        border-radius: 14px;
+        backdrop-filter: blur(14px);
+        box-shadow: 0 16px 48px oklch(0.06 0.02 305 / 0.7);
+      }
+      .dk2 .btn {
+        background: var(--accent);
+        color: var(--on-accent);
+        border-radius: 9px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .dk2 .soc {
+        height: 38px;
+        border-radius: 9px;
+        border: 1px solid var(--edge);
+        background: oklch(0.22 0.05 310 / 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      /* Provider marks: a letter in a coloured disc. Always renders — no icon font,
+         no missing glyph. The real app gets Clerk's own provider logos. */
+      .mark {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-family: "DM Sans", sans-serif;
+        font-weight: 800;
+        font-size: 11px;
+        line-height: 1;
+        flex: 0 0 18px;
+      }
+      .dk2 .ring {
+        outline: 2px solid oklch(0.99 0 0 / 0.24);
+        outline-offset: 1px;
+      }
+      .dk2 .wm {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+      }
+      .dk2 .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+      .dk2 .lab {
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+    </style>
+
+    <h2>Dark mode — provider marks fixed</h2>
+    <p class="subtitle">
+      The squares were tofu: I used <code>✦</code> as a placeholder and none of
+      the loaded fonts contain that glyph, so the browser drew its
+      missing-character box. Replaced with letter marks that always render.
+      Everything else is unchanged.
+    </p>
+
+    <!-- ==================== SIGN IN ==================== -->
+    <div class="section">
+      <span class="label">/sign-in</span>
+      <div class="dk2" style="margin-top: 8px">
+        <div
+          class="bg"
+          style="
+            background: radial-gradient(
+              125% 95% at 50% 52%,
+              oklch(0.12 0.03 305) 30%,
+              oklch(0.24 0.085 332) 66%,
+              oklch(0.36 0.13 350) 100%
+            );
+          "
+        ></div>
+        <svg
+          class="bg"
+          style="mix-blend-mode: screen; opacity: 0.55"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="d2A">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.009"
+              numOctaves="4"
+              seed="7"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.72  0 0 0 0 0.22  0 0 0 0 0.55  0.9 0.5 0.2 0 -0.35"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#d2A)" />
+        </svg>
+        <svg
+          class="bg"
+          style="mix-blend-mode: screen; opacity: 0.38"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="d2B">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.02"
+              numOctaves="3"
+              seed="19"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.35  0 0 0 0 0.15  0 0 0 0 0.75  0.8 0.4 0.3 0 -0.45"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#d2B)" />
+        </svg>
+        <svg
+          class="bg"
+          style="opacity: 0.75"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="d2S">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.85"
+              numOctaves="1"
+              seed="11"
+            />
+            <feColorMatrix
+              values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -14 8.4"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#d2S)" />
+        </svg>
+
+        <div class="fg">
+          <div
+            style="
+              padding: 20px 26px;
+              display: flex;
+              align-items: center;
+              gap: 9px;
+            "
+          >
+            <div
+              style="
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: oklch(0.86 0.15 78);
+                box-shadow: 0 0 18px 5px oklch(0.8 0.16 60 / 0.75);
+              "
+            ></div>
+            <span class="wm" style="color: var(--ink); font-size: 16px"
+              >AeleOS</span
+            >
+          </div>
+
+          <div
+            style="
+              flex: 1;
+              display: grid;
+              place-items: center;
+              padding: 0 20px 40px;
+            "
+          >
+            <div class="card" style="width: min(360px, 100%); padding: 26px">
+              <div style="text-align: center; margin-bottom: 18px">
+                <div class="wm" style="color: var(--ink); font-size: 20px">
+                  Sign in to AeleOS
+                </div>
+                <div
+                  style="color: var(--ink-2); font-size: 13px; margin-top: 5px"
+                >
+                  Your identity across Furry Colombia
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 9px">
+                <div class="soc">
+                  <span class="mark" style="background: #5865f2; color: #fff"
+                    >D</span
+                  >
+                  Continue with Discord
+                </div>
+                <div class="soc">
+                  <span class="mark" style="background: #fff; color: #ea4335"
+                    >G</span
+                  >
+                  Continue with Google
+                </div>
+                <div class="soc">
+                  <span class="mark" style="background: #1877f2; color: #fff"
+                    >f</span
+                  >
+                  Continue with Facebook
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                  margin: 16px 0;
+                "
+              >
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.5;
+                  "
+                ></div>
+                <span style="color: var(--muted); font-size: 11px">or</span>
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.5;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  height: 38px;
+                  border-radius: 9px;
+                  border: 1px solid var(--edge);
+                  background: oklch(0.2 0.04 308 / 0.7);
+                  display: flex;
+                  align-items: center;
+                  padding: 0 12px;
+                  color: var(--muted);
+                  font-size: 12.5px;
+                "
+              >
+                Email address
+              </div>
+              <div class="btn" style="margin-top: 10px">Continue</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== /ME ==================== -->
+    <div class="section">
+      <span class="label">/me — signed in</span>
+      <div class="dk2" style="margin-top: 8px">
+        <div
+          class="bg"
+          style="
+            background: radial-gradient(
+              130% 100% at 50% 26%,
+              oklch(0.12 0.03 305) 32%,
+              oklch(0.22 0.08 332) 68%,
+              oklch(0.34 0.12 350) 100%
+            );
+          "
+        ></div>
+        <svg
+          class="bg"
+          style="mix-blend-mode: screen; opacity: 0.45"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="d2mA">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.01"
+              numOctaves="4"
+              seed="9"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.72  0 0 0 0 0.22  0 0 0 0 0.55  0.9 0.5 0.2 0 -0.35"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#d2mA)" />
+        </svg>
+        <svg class="bg" style="opacity: 0.7" xmlns="http://www.w3.org/2000/svg">
+          <filter id="d2mS">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.85"
+              numOctaves="1"
+              seed="4"
+            />
+            <feColorMatrix
+              values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -14 8.4"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#d2mS)" />
+        </svg>
+
+        <div class="fg">
+          <div
+            style="
+              padding: 16px 26px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              border-bottom: 1px solid var(--edge);
+              background: oklch(0.14 0.03 305 / 0.55);
+              backdrop-filter: blur(12px);
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 9px">
+              <div
+                style="
+                  width: 11px;
+                  height: 11px;
+                  border-radius: 50%;
+                  background: oklch(0.86 0.15 78);
+                  box-shadow: 0 0 16px 4px oklch(0.8 0.16 60 / 0.65);
+                "
+              ></div>
+              <span class="wm" style="color: var(--ink); font-size: 15px"
+                >AeleOS</span
+              >
+            </div>
+            <div
+              class="ring"
+              style="
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                background: #7b4bd8;
+              "
+            ></div>
+          </div>
+
+          <div
+            style="
+              flex: 1;
+              padding: 34px 26px;
+              max-width: 620px;
+              margin: 0 auto;
+              width: 100%;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 26px;
+              "
+            >
+              <div
+                class="ring"
+                style="
+                  width: 62px;
+                  height: 62px;
+                  border-radius: 50%;
+                  background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                "
+              ></div>
+              <div>
+                <div class="wm" style="color: var(--ink); font-size: 23px">
+                  Wished
+                </div>
+                <div
+                  class="mono"
+                  style="color: var(--muted); font-size: 12.5px"
+                >
+                  u-45242b953aed5bf1…
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding: 18px 20px; margin-bottom: 14px">
+              <div class="lab">Platform ID</div>
+              <div
+                class="mono"
+                style="
+                  color: var(--ink);
+                  font-size: 13.5px;
+                  margin-top: 6px;
+                  word-break: break-all;
+                "
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+              <div
+                style="color: var(--ink-2); font-size: 12px; margin-top: 8px"
+              >
+                The same in every Furry Colombia app.
+              </div>
+            </div>
+
+            <div class="card" style="padding: 18px 20px">
+              <div class="lab" style="margin-bottom: 12px">Your fursonas</div>
+              <div style="display: flex; gap: 12px; align-items: center">
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                  "
+                ></div>
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #39ff14;
+                  "
+                ></div>
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #fff;
+                  "
+                ></div>
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #111;
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    border: 1.5px dashed var(--edge);
+                    display: grid;
+                    place-items: center;
+                    color: var(--muted);
+                    font-size: 20px;
+                  "
+                >
+                  +
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">Worth remembering for the real build</span>
+      <p class="subtitle" style="margin-top: 6px">
+        In the actual app these buttons are rendered by Clerk, with its own
+        provider logos — so this specific bug cannot recur there. But the lesson
+        generalises:
+        <strong>no glyph-font icons</strong>. Anything decorative must be an SVG
+        or a real element, or it fails silently on the machine of whoever lacks
+        the font.
+      </p>
+    </div>
+  </body>
+</html>

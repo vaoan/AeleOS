@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The cloud look in both modes — AeleOS design iteration 05</title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 05 · 2026-08-11</p>
+    <style>
+      .cm-panel {
+        position: relative;
+        height: 330px;
+        overflow: hidden;
+      }
+      .cm-panel > .layer {
+        position: absolute;
+        inset: 0;
+      }
+      .cm-card {
+        position: relative;
+        z-index: 5;
+        width: min(290px, 88%);
+        margin: 52px auto 0;
+        border-radius: 13px;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        backdrop-filter: blur(12px);
+      }
+      .cm-btn {
+        height: 27px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font:
+          700 10.5px system-ui,
+          sans-serif;
+      }
+      .cm-sonas {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        position: relative;
+        z-index: 5;
+        margin-top: 18px;
+      }
+      .cm-sonas span {
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+      }
+    </style>
+
+    <h2>The cloud look, both modes</h2>
+    <p class="subtitle">
+      Identical fractal noise in both. The only change is how it is blended:
+      <strong>screen</strong> on dark so the dust <em>emits</em> light, and
+      <strong>multiply</strong> on light so it <em>absorbs</em> it. That
+      inversion is what makes light mode read as being inside the nebula instead
+      of a pink page.
+    </p>
+
+    <div class="split">
+      <!-- ===================== DARK ===================== -->
+      <div class="mockup">
+        <div class="mockup-header">Dark — you are in the void</div>
+        <div class="mockup-body">
+          <div class="cm-panel" style="background: oklch(0.12 0.03 305)">
+            <div
+              class="layer"
+              style="
+                background: radial-gradient(
+                  125% 95% at 50% 55%,
+                  oklch(0.13 0.03 305) 30%,
+                  oklch(0.24 0.085 332) 66%,
+                  oklch(0.36 0.13 350) 100%
+                );
+              "
+            ></div>
+            <svg
+              class="layer"
+              style="mix-blend-mode: screen; opacity: 0.55"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="dkA">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.009"
+                  numOctaves="4"
+                  seed="7"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.72  0 0 0 0 0.22  0 0 0 0 0.55  0.9 0.5 0.2 0 -0.35"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#dkA)" />
+            </svg>
+            <svg
+              class="layer"
+              style="mix-blend-mode: screen; opacity: 0.4"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="dkB">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.02"
+                  numOctaves="3"
+                  seed="19"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.35  0 0 0 0 0.15  0 0 0 0 0.75  0.8 0.4 0.3 0 -0.45"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#dkB)" />
+            </svg>
+
+            <div
+              class="cm-card"
+              style="
+                background: oklch(0.17 0.04 305 / 0.82);
+                border: 1px solid oklch(0.34 0.07 320 / 0.7);
+                box-shadow: 0 12px 40px oklch(0.08 0.02 305 / 0.65);
+              "
+            >
+              <div
+                style="color: oklch(0.96 0.012 340); font: 650 12.5px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.8 0.03 330); font-size: 10.5px">
+                Sign in to continue
+              </div>
+              <div
+                class="cm-btn"
+                style="
+                  background: oklch(0.74 0.18 350);
+                  color: oklch(0.16 0.04 350);
+                "
+              >
+                Continue with Discord
+              </div>
+            </div>
+            <div class="cm-sonas">
+              <span
+                style="
+                  background: #39ff14;
+                  outline: 2px solid oklch(0.99 0 0 / 0.2);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ff2d95;
+                  outline: 2px solid oklch(0.99 0 0 / 0.2);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ffd400;
+                  outline: 2px solid oklch(0.99 0 0 / 0.2);
+                "
+              ></span>
+              <span
+                style="
+                  background: #00e5ff;
+                  outline: 2px solid oklch(0.99 0 0 / 0.2);
+                "
+              ></span>
+              <span
+                style="
+                  background: #fff;
+                  outline: 2px solid oklch(0.99 0 0 / 0.2);
+                "
+              ></span>
+              <span
+                style="
+                  background: #111;
+                  outline: 2px solid oklch(0.99 0 0 / 0.34);
+                "
+              ></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== LIGHT ===================== -->
+      <div class="mockup">
+        <div class="mockup-header">Light — you are inside the dust</div>
+        <div class="mockup-body">
+          <div class="cm-panel" style="background: oklch(0.95 0.04 350)">
+            <div
+              class="layer"
+              style="
+                background: radial-gradient(
+                  125% 95% at 50% 48%,
+                  oklch(0.955 0.038 350) 28%,
+                  oklch(0.82 0.09 340) 62%,
+                  oklch(0.42 0.13 300) 100%
+                );
+              "
+            ></div>
+            <svg
+              class="layer"
+              style="mix-blend-mode: multiply; opacity: 0.38"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="ltA">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.009"
+                  numOctaves="4"
+                  seed="7"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.62  0 0 0 0 0.34  0 0 0 0 0.68  0.85 0.45 0.25 0 -0.28"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#ltA)" />
+            </svg>
+            <svg
+              class="layer"
+              style="mix-blend-mode: multiply; opacity: 0.26"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="ltB">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.02"
+                  numOctaves="3"
+                  seed="19"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.5  0 0 0 0 0.3  0 0 0 0 0.72  0.8 0.4 0.3 0 -0.4"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#ltB)" />
+            </svg>
+
+            <div
+              class="cm-card"
+              style="
+                background: oklch(0.975 0.016 350 / 0.9);
+                border: 1px solid oklch(0.86 0.05 345 / 0.9);
+                box-shadow: 0 12px 36px oklch(0.35 0.1 320 / 0.22);
+              "
+            >
+              <div
+                style="color: oklch(0.26 0.06 305); font: 650 12.5px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.44 0.05 320); font-size: 10.5px">
+                Sign in to continue
+              </div>
+              <div
+                class="cm-btn"
+                style="
+                  background: oklch(0.52 0.21 350);
+                  color: oklch(0.98 0.01 350);
+                "
+              >
+                Continue with Discord
+              </div>
+            </div>
+            <div class="cm-sonas">
+              <span
+                style="
+                  background: #39ff14;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ff2d95;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ffd400;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+              <span
+                style="
+                  background: #00e5ff;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+              <span
+                style="
+                  background: #fff;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.4);
+                "
+              ></span>
+              <span
+                style="
+                  background: #111;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">What to check</span>
+      <p class="subtitle" style="margin-top: 6px">
+        <strong>Is light mode still light?</strong> The centre where content
+        lives sits at L≈0.95 — genuinely bright, usable in daylight. The violet
+        only takes over at the far edges. If the dark ring feels like it is
+        closing in, I can pull it further out.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        <strong>The rings flipped.</strong> On dark, avatars get a light ring so
+        the black one survives. On light, a dark ring so the white one survives.
+        Same component, token-driven, no special cases.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        <strong>Still no images and no JavaScript.</strong> Both panels are
+        gradients plus browser-generated noise, so this costs essentially
+        nothing on a login page.
+      </p>
+    </div>
+
+    <div class="options">
+      <div class="option" data-choice="ship-it">
+        <div class="letter">A</div>
+        <div class="content">
+          <h3>This is it</h3>
+          <p>Lock the cloud look in both modes and start building tokens</p>
+        </div>
+      </div>
+      <div class="option" data-choice="lighter">
+        <div class="letter">B</div>
+        <div class="content">
+          <h3>Push the violet further out</h3>
+          <p>Light mode keeps more bright field before the edge darkens</p>
+        </div>
+      </div>
+      <div class="option" data-choice="stronger">
+        <div class="letter">C</div>
+        <div class="content">
+          <h3>More cloud, less gradient</h3>
+          <p>Turn the noise up in both modes so structure dominates</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -64,3 +64,6 @@ apps/hub/test-results/
 
 # tsc --incremental cache (apps/hub/tsconfig.json sets "incremental": true)
 apps/hub/tsconfig.tsbuildinfo
+
+# Superpowers brainstorming companion scratch (mockups, session state)
+.superpowers/

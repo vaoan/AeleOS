@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Same nebula, two positions (FTL inversion) — AeleOS design iteration
+    </title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration · 2026-08-11</p>
+    <h2>Same nebula, two positions</h2>
+    <p class="subtitle">
+      Not light-vs-dark. <strong>Dark</strong> = you are in the void, pink dust
+      glowing at the edges. <strong>Light</strong> = you are inside the bright
+      dust, deep violet space beyond. No pure white anywhere — the lightest
+      surface is rose dust.
+    </p>
+
+    <div class="cards">
+      <!-- ===================== BOLD ===================== -->
+      <div class="card" data-choice="bold">
+        <div class="card-image" style="padding: 0">
+          <div style="display: flex; height: 230px">
+            <!-- dark -->
+            <div
+              style="
+                flex: 1;
+                background: radial-gradient(
+                  120% 90% at 50% 55%,
+                  oklch(0.13 0.03 305) 34%,
+                  oklch(0.22 0.075 330) 68%,
+                  oklch(0.34 0.12 350) 100%
+                );
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 14px;
+              "
+            >
+              <div
+                style="
+                  width: 100%;
+                  background: oklch(0.17 0.04 305);
+                  border: 1px solid oklch(0.3 0.06 320);
+                  border-radius: 11px;
+                  padding: 12px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                  box-shadow: 0 8px 28px oklch(0.1 0.03 305 / 0.6);
+                "
+              >
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div
+                    style="
+                      width: 8px;
+                      height: 8px;
+                      border-radius: 50%;
+                      background: oklch(0.74 0.18 350);
+                      box-shadow: 0 0 12px 3px oklch(0.74 0.18 350 / 0.6);
+                    "
+                  ></div>
+                  <span
+                    style="
+                      color: oklch(0.96 0.012 340);
+                      font-weight: 650;
+                      font-size: 12px;
+                    "
+                    >AeleOS</span
+                  >
+                </div>
+                <div style="color: oklch(0.8 0.03 330); font-size: 10px">
+                  Sign in to continue
+                </div>
+                <div
+                  style="
+                    height: 24px;
+                    border-radius: 7px;
+                    background: oklch(0.74 0.18 350);
+                    color: oklch(0.16 0.04 350);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    font-weight: 700;
+                  "
+                >
+                  Continue with Discord
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 4px;
+                    justify-content: flex-end;
+                    margin-top: 2px;
+                  "
+                >
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #39ff14;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #ff2d95;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #00e5ff;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #fff;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #111;
+                      outline: 1px solid oklch(0.45 0.05 320);
+                    "
+                  ></span>
+                </div>
+              </div>
+            </div>
+            <!-- light -->
+            <div
+              style="
+                flex: 1;
+                background: radial-gradient(
+                  120% 90% at 50% 50%,
+                  oklch(0.94 0.045 350) 30%,
+                  oklch(0.78 0.1 340) 62%,
+                  oklch(0.34 0.13 300) 100%
+                );
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 14px;
+              "
+            >
+              <div
+                style="
+                  width: 100%;
+                  background: oklch(0.965 0.022 350);
+                  border: 1px solid oklch(0.86 0.05 345);
+                  border-radius: 11px;
+                  padding: 12px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                  box-shadow: 0 8px 26px oklch(0.35 0.1 320 / 0.28);
+                "
+              >
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div
+                    style="
+                      width: 8px;
+                      height: 8px;
+                      border-radius: 50%;
+                      background: oklch(0.52 0.21 350);
+                    "
+                  ></div>
+                  <span
+                    style="
+                      color: oklch(0.26 0.06 305);
+                      font-weight: 650;
+                      font-size: 12px;
+                    "
+                    >AeleOS</span
+                  >
+                </div>
+                <div style="color: oklch(0.42 0.05 320); font-size: 10px">
+                  Sign in to continue
+                </div>
+                <div
+                  style="
+                    height: 24px;
+                    border-radius: 7px;
+                    background: oklch(0.52 0.21 350);
+                    color: oklch(0.98 0.01 350);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    font-weight: 700;
+                  "
+                >
+                  Continue with Discord
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 4px;
+                    justify-content: flex-end;
+                    margin-top: 2px;
+                  "
+                >
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #39ff14;
+                      outline: 1px solid oklch(0.8 0.04 345);
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #ff2d95;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #00e5ff;
+                      outline: 1px solid oklch(0.8 0.04 345);
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #fff;
+                      outline: 1px solid oklch(0.76 0.04 345);
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #111;
+                    "
+                  ></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>Bold — the FTL read</h3>
+          <p>
+            Full commitment. Dark mode has real pink bleeding in at the corners;
+            light mode is unmistakably <em>inside</em> the dust with violet
+            space at the edges. Most distinctive, most memorable, and nothing
+            else looks like it. Cost: the violet vignette occupies a lot of a
+            wide monitor, and strong chroma behind content is where reading
+            comfort gets tested.
+          </p>
+        </div>
+      </div>
+
+      <!-- ===================== RESTRAINED ===================== -->
+      <div class="card" data-choice="restrained">
+        <div class="card-image" style="padding: 0">
+          <div style="display: flex; height: 230px">
+            <!-- dark -->
+            <div
+              style="
+                flex: 1;
+                background: radial-gradient(
+                  125% 95% at 50% 58%,
+                  oklch(0.135 0.022 300) 42%,
+                  oklch(0.185 0.045 330) 76%,
+                  oklch(0.245 0.075 345) 100%
+                );
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 14px;
+              "
+            >
+              <div
+                style="
+                  width: 100%;
+                  background: oklch(0.175 0.028 305);
+                  border: 1px solid oklch(0.28 0.04 320);
+                  border-radius: 11px;
+                  padding: 12px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                  box-shadow: 0 8px 28px oklch(0.09 0.02 305 / 0.55);
+                "
+              >
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div
+                    style="
+                      width: 8px;
+                      height: 8px;
+                      border-radius: 50%;
+                      background: oklch(0.72 0.16 348);
+                      box-shadow: 0 0 11px 3px oklch(0.72 0.16 348 / 0.5);
+                    "
+                  ></div>
+                  <span
+                    style="
+                      color: oklch(0.96 0.008 340);
+                      font-weight: 650;
+                      font-size: 12px;
+                    "
+                    >AeleOS</span
+                  >
+                </div>
+                <div style="color: oklch(0.78 0.02 330); font-size: 10px">
+                  Sign in to continue
+                </div>
+                <div
+                  style="
+                    height: 24px;
+                    border-radius: 7px;
+                    background: oklch(0.72 0.16 348);
+                    color: oklch(0.16 0.04 348);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    font-weight: 700;
+                  "
+                >
+                  Continue with Discord
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 4px;
+                    justify-content: flex-end;
+                    margin-top: 2px;
+                  "
+                >
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #39ff14;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #ff2d95;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #00e5ff;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #fff;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #111;
+                      outline: 1px solid oklch(0.42 0.03 320);
+                    "
+                  ></span>
+                </div>
+              </div>
+            </div>
+            <!-- light -->
+            <div
+              style="
+                flex: 1;
+                background: radial-gradient(
+                  125% 95% at 50% 48%,
+                  oklch(0.965 0.018 350) 40%,
+                  oklch(0.9 0.045 340) 74%,
+                  oklch(0.62 0.1 310) 100%
+                );
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 14px;
+              "
+            >
+              <div
+                style="
+                  width: 100%;
+                  background: oklch(0.985 0.008 350);
+                  border: 1px solid oklch(0.9 0.03 345);
+                  border-radius: 11px;
+                  padding: 12px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                  box-shadow: 0 8px 24px oklch(0.4 0.07 320 / 0.18);
+                "
+              >
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div
+                    style="
+                      width: 8px;
+                      height: 8px;
+                      border-radius: 50%;
+                      background: oklch(0.53 0.19 350);
+                    "
+                  ></div>
+                  <span
+                    style="
+                      color: oklch(0.25 0.04 305);
+                      font-weight: 650;
+                      font-size: 12px;
+                    "
+                    >AeleOS</span
+                  >
+                </div>
+                <div style="color: oklch(0.44 0.035 320); font-size: 10px">
+                  Sign in to continue
+                </div>
+                <div
+                  style="
+                    height: 24px;
+                    border-radius: 7px;
+                    background: oklch(0.53 0.19 350);
+                    color: oklch(0.98 0.01 350);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    font-weight: 700;
+                  "
+                >
+                  Continue with Discord
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 4px;
+                    justify-content: flex-end;
+                    margin-top: 2px;
+                  "
+                >
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #39ff14;
+                      outline: 1px solid oklch(0.84 0.03 345);
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #ff2d95;
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #00e5ff;
+                      outline: 1px solid oklch(0.84 0.03 345);
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #fff;
+                      outline: 1px solid oklch(0.8 0.03 345);
+                    "
+                  ></span>
+                  <span
+                    style="
+                      width: 13px;
+                      height: 13px;
+                      border-radius: 50%;
+                      background: #111;
+                    "
+                  ></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>Restrained — same idea, lower chroma</h3>
+          <p>
+            The identical inversion, dialled back: the dust is still rose rather
+            than white, the edges still go violet, but content sits on a calm
+            surface. Holds up on a 32-inch monitor and through a long session.
+            Matches the "restrained atmosphere" you already chose — the drama
+            lives at the edges, not under the text.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">Where I would push back, gently</span>
+      <p class="subtitle" style="margin-top: 6px">
+        Light mode still has a job: being usable in daylight, and being what
+        someone reaches for when the dark theme is too intense. Rose dust does
+        that — it is genuinely light. A dark violet <em>vignette</em> around it
+        is fine and beautiful. But if the violet creeps too far inward, "light
+        mode" stops being lighter and the setting loses its purpose. The
+        restrained option keeps that promise; the bold one is closer to the
+        edge.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        Worth knowing: the pink is not decoration. H-alpha emission from ionised
+        hydrogen is <em>why</em> Orion and Carina photograph pink. Using it as
+        the platform's dust is astronomically honest, which is a nicer story
+        than "we liked purple".
+      </p>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Adopted: canvas nebula, star toggle — AeleOS design iteration 15
+    </title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 15 · 2026-08-11 · ADOPTED</p>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+      .stg {
+        position: relative;
+        isolation: isolate;
+        height: 470px;
+        overflow: hidden;
+        border-radius: 12px;
+        font-family: "DM Sans", sans-serif;
+      }
+      /* layer 0 — B's gradient, always present */
+      .stg .base {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+      }
+      /* layer 1 — the cloud nebula, animated canvas, toggleable */
+      .stg canvas.clouds {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        pointer-events: none;
+        display: block;
+        transition: opacity 0.5s ease;
+      }
+      /* layer 2 — content */
+      .stg .content {
+        position: relative;
+        z-index: 2;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .stg .bar {
+        padding: 14px 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--edge);
+        backdrop-filter: blur(12px);
+        background: var(--bar);
+      }
+      .stg .card {
+        border: 1px solid var(--edge);
+        border-radius: 14px;
+        backdrop-filter: blur(14px);
+        background: var(--surface);
+      }
+      .wm {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+      }
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+      .lab {
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      /* The star is the control. A 11px dot is far below the 24x24 minimum for a
+         target, so the dot sits inside a 30px button that carries the hit area,
+         the focus ring and the accessible name. */
+      .starbtn {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border: 0;
+        padding: 0;
+        background: transparent;
+        border-radius: 50%;
+        cursor: pointer;
+        margin-left: -8px;
+      }
+      .starbtn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .star {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--star);
+        box-shadow: 0 0 16px 4px var(--star-glow);
+        transition:
+          background 0.35s ease,
+          box-shadow 0.35s ease,
+          transform 0.35s ease;
+      }
+      .starbtn[aria-pressed="false"] .star {
+        background: var(--muted);
+        box-shadow: none;
+        transform: scale(0.8);
+      }
+      .dot {
+        border-radius: 50%;
+        outline: 2px solid var(--ring);
+        outline-offset: 1px;
+      }
+      .t-dark {
+        --ink: oklch(0.96 0.012 340);
+        --ink-2: oklch(0.8 0.03 330);
+        --muted: oklch(0.66 0.03 330);
+        --surface: oklch(0.16 0.04 305 / 0.82);
+        --bar: oklch(0.14 0.03 305 / 0.55);
+        --edge: oklch(0.52 0.09 325);
+        --accent: oklch(0.74 0.18 350);
+        --soc: oklch(0.22 0.05 310 / 0.6);
+        --ring: oklch(0.99 0 0 / 0.24);
+        --star: oklch(0.86 0.15 78);
+        --star-glow: oklch(0.8 0.16 60 / 0.65);
+      }
+      .t-light {
+        --ink: oklch(0.27 0.045 35);
+        --ink-2: oklch(0.45 0.045 30);
+        --muted: oklch(0.5 0.045 30);
+        --surface: oklch(0.99 0.01 40 / 0.9);
+        --bar: oklch(1 0 0 / 0.35);
+        --edge: oklch(0.66 0.075 35);
+        --accent: oklch(0.46 0.15 25);
+        --soc: oklch(1 0 0 / 0.55);
+        --ring: oklch(0.3 0.055 30 / 0.32);
+        --star: oklch(0.62 0.16 32);
+        --star-glow: oklch(0.8 0.15 34 / 0.45);
+      }
+    </style>
+
+    <h2>The star switches the nebula</h2>
+    <p class="subtitle">
+      Solar-orange dust in light, hydrogen pink in dark.
+      <strong>Click the star beside the wordmark</strong> — it dims, and the
+      nebula fades to leave exactly B's gradient.
+    </p>
+
+    <div class="section">
+      <span class="label">Dark</span>
+      <div
+        class="stg t-dark"
+        data-mode="dark"
+        style="margin-top: 8px; background: oklch(0.12 0.03 305)"
+      >
+        <div
+          class="base"
+          style="
+            background: radial-gradient(
+              130% 100% at 50% 26%,
+              oklch(0.12 0.03 305) 32%,
+              oklch(0.22 0.08 332) 68%,
+              oklch(0.34 0.12 350) 100%
+            );
+          "
+        ></div>
+        <canvas class="clouds"></canvas>
+        <div class="content">
+          <div class="bar">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <button
+                class="starbtn"
+                aria-pressed="true"
+                aria-label="Nebula background"
+                title="Nebula background"
+              >
+                <span class="star"></span>
+              </button>
+              <span class="wm" style="color: var(--ink); font-size: 15px"
+                >AeleOS</span
+              >
+            </div>
+          </div>
+          <div
+            style="
+              flex: 1;
+              padding: 28px 24px;
+              max-width: 560px;
+              margin: 0 auto;
+              width: 100%;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 20px;
+              "
+            >
+              <div
+                class="dot"
+                style="
+                  width: 54px;
+                  height: 54px;
+                  background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                "
+              ></div>
+              <div>
+                <div class="wm" style="color: var(--ink); font-size: 21px">
+                  Wished
+                </div>
+                <div class="mono" style="color: var(--muted); font-size: 12px">
+                  u-45242b953aed5bf1…
+                </div>
+              </div>
+            </div>
+            <div class="card" style="padding: 16px 18px">
+              <div class="lab">Platform ID</div>
+              <div
+                class="mono"
+                style="
+                  color: var(--ink);
+                  font-size: 12.5px;
+                  margin-top: 5px;
+                  word-break: break-all;
+                "
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">Light</span>
+      <div
+        class="stg t-light"
+        data-mode="light"
+        style="margin-top: 8px; background: oklch(0.95 0.04 85)"
+      >
+        <div
+          class="base"
+          style="
+            background: radial-gradient(
+              115% 85% at 50% 30%,
+              oklch(0.98 0.016 45) 14%,
+              oklch(0.93 0.055 35) 40%,
+              oklch(0.76 0.1 20) 70%,
+              oklch(0.45 0.13 320) 100%
+            );
+          "
+        ></div>
+        <canvas class="clouds"></canvas>
+        <div class="content">
+          <div class="bar">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <button
+                class="starbtn"
+                aria-pressed="true"
+                aria-label="Nebula background"
+                title="Nebula background"
+              >
+                <span class="star"></span>
+              </button>
+              <span class="wm" style="color: var(--ink); font-size: 15px"
+                >AeleOS</span
+              >
+            </div>
+          </div>
+          <div
+            style="
+              flex: 1;
+              padding: 28px 24px;
+              max-width: 560px;
+              margin: 0 auto;
+              width: 100%;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 20px;
+              "
+            >
+              <div
+                class="dot"
+                style="
+                  width: 54px;
+                  height: 54px;
+                  background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                "
+              ></div>
+              <div>
+                <div class="wm" style="color: var(--ink); font-size: 21px">
+                  Wished
+                </div>
+                <div class="mono" style="color: var(--muted); font-size: 12px">
+                  u-45242b953aed5bf1…
+                </div>
+              </div>
+            </div>
+            <div
+              class="card"
+              style="
+                padding: 16px 18px;
+                box-shadow: 0 10px 28px oklch(0.4 0.09 50 / 0.14);
+              "
+            >
+              <div class="lab">Platform ID</div>
+              <div
+                class="mono"
+                style="
+                  color: var(--ink);
+                  font-size: 12.5px;
+                  margin-top: 5px;
+                  word-break: break-all;
+                "
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">How it is built</span>
+      <p class="subtitle" style="margin-top: 6px">
+        The cloud texture is real fractal noise — five octaves of value noise,
+        the same thing the SVG filter was producing — rendered
+        <em>once</em> into two offscreen tiles. Animation is those tiles
+        drifting past each other at different speeds, so no noise is
+        recalculated per frame. That is why it moves without costing much.
+      </p>
+    </div>
+
+    <script>
+      (() => {
+        const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // --- value-noise fBm, the same structure the SVG feTurbulence gave us ---
+        // Math.imul keeps every step in 32-bit. A plain `*` overflowed the double
+        // and skewed the distribution low — fbm then never crossed the bias and
+        // every tile came out fully transparent.
+        const hash = (x, y, s) => {
+          let n =
+            Math.imul(x | 0, 374761393) ^
+            Math.imul(y | 0, 668265263) ^
+            Math.imul(s | 0, 1274126177);
+          n = Math.imul(n ^ (n >>> 13), 1274126177);
+          n ^= n >>> 16;
+          return (n >>> 0) / 4294967296;
+        };
+        const smooth = (t) => t * t * (3 - 2 * t);
+        const vnoise = (x, y, s) => {
+          const xi = Math.floor(x),
+            yi = Math.floor(y);
+          const xf = smooth(x - xi),
+            yf = smooth(y - yi);
+          const a = hash(xi, yi, s),
+            b = hash(xi + 1, yi, s);
+          const c = hash(xi, yi + 1, s),
+            d = hash(xi + 1, yi + 1, s);
+          return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+        };
+        const fbm = (x, y, s) => {
+          let v = 0,
+            amp = 0.5,
+            f = 1;
+          for (let o = 0; o < 5; o++) {
+            v += vnoise(x * f, y * f, s + o * 17) * amp;
+            amp *= 0.5;
+            f *= 2;
+          }
+          return v;
+        };
+
+        /** One tinted cloud tile, rendered once. */
+        function makeTile(w, h, seed, rgb, gain, bias) {
+          const c = document.createElement("canvas");
+          c.width = w;
+          c.height = h;
+          const g = c.getContext("2d");
+          const img = g.createImageData(w, h);
+          const d = img.data;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const n = fbm(x / 26, y / 26, seed);
+              let a = (n - bias) * gain;
+              a = a < 0 ? 0 : a > 1 ? 1 : a;
+              const i = (y * w + x) * 4;
+              d[i] = rgb[0];
+              d[i + 1] = rgb[1];
+              d[i + 2] = rgb[2];
+              d[i + 3] = a * 255;
+            }
+          }
+          g.putImageData(img, 0, 0);
+          return c;
+        }
+
+        const CFG = {
+          dark: {
+            composite: "screen",
+            alpha: 0.62,
+            tiles: [
+              {
+                rgb: [188, 60, 150],
+                seed: 7,
+                gain: 2.6,
+                bias: 0.42,
+                sc: 1.9,
+                sp: 1,
+              },
+              {
+                rgb: [95, 45, 200],
+                seed: 23,
+                gain: 2.2,
+                bias: 0.46,
+                sc: 2.7,
+                sp: -0.62,
+              },
+            ],
+          },
+          // Light mode is close to the star, so its dust is solar rather than
+          // interstellar: warm orange plasma, not violet. This only works because
+          // the base gradient was cooled to rose-gold first — orange over the old
+          // amber field was mush. Measured over the rose base, these land the centre
+          // near hue 24 (the red-orange of a chromosphere) at luminance 0.85+.
+          // Two depths so the structure reads rather than flattening into haze.
+          light: {
+            composite: "multiply",
+            alpha: 0.34,
+            tiles: [
+              {
+                rgb: [238, 150, 85],
+                seed: 7,
+                gain: 2.4,
+                bias: 0.44,
+                sc: 1.9,
+                sp: 1,
+              },
+              {
+                rgb: [255, 190, 125],
+                seed: 23,
+                gain: 2.0,
+                bias: 0.48,
+                sc: 2.7,
+                sp: -0.62,
+              },
+            ],
+          },
+        };
+
+        document.querySelectorAll(".stg").forEach((stg) => {
+          const canvas = stg.querySelector("canvas.clouds");
+          const ctx = canvas.getContext("2d");
+          const cfg = CFG[stg.dataset.mode];
+          let w = 0,
+            h = 0,
+            tiles = [],
+            raf = null,
+            on = true;
+
+          const build = () => {
+            const dpr = Math.min(devicePixelRatio || 1, 2);
+            const r = stg.getBoundingClientRect();
+            w = Math.max(1, Math.round(r.width));
+            h = Math.max(1, Math.round(r.height));
+            canvas.width = Math.round(w * dpr);
+            canvas.height = Math.round(h * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            // Tiles are rendered small and scaled up — the blur is the point.
+            tiles = cfg.tiles.map((t) => ({
+              ...t,
+              img: makeTile(
+                Math.ceil(w / t.sc / 3),
+                Math.ceil(h / t.sc / 3),
+                t.seed,
+                t.rgb,
+                t.gain,
+                t.bias,
+              ),
+            }));
+          };
+
+          const draw = (t) => {
+            ctx.clearRect(0, 0, w, h);
+            ctx.globalCompositeOperation = cfg.composite;
+            ctx.globalAlpha = cfg.alpha;
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+
+            tiles.forEach((tile) => {
+              const dw = w * 1.6,
+                dh = h * 1.6;
+              const ph = (t / 90000) * tile.sp;
+              const x = -w * 0.3 + Math.cos(ph) * w * 0.16;
+              const y = -h * 0.3 + Math.sin(ph * 0.85) * h * 0.14;
+              ctx.drawImage(tile.img, x, y, dw, dh);
+            });
+
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = "source-over";
+            if (!reduce && on) raf = requestAnimationFrame(draw);
+          };
+
+          const start = () => {
+            cancelAnimationFrame(raf);
+            if (reduce) draw(0);
+            else raf = requestAnimationFrame(draw);
+          };
+
+          build();
+          start();
+
+          let rt;
+          new ResizeObserver(() => {
+            clearTimeout(rt);
+            rt = setTimeout(() => {
+              build();
+              if (on) start();
+              else draw(0);
+            }, 120);
+          }).observe(stg);
+
+          const btn = stg.querySelector(".starbtn");
+          btn.addEventListener("click", () => {
+            on = !on;
+            btn.setAttribute("aria-pressed", String(on));
+            canvas.style.opacity = on ? "1" : "0";
+            if (on) start();
+            else cancelAnimationFrame(raf);
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Four ways for space to be bright — AeleOS design iteration 06</title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 06 · 2026-08-11</p>
+    <style>
+      .lm {
+        position: relative;
+        height: 250px;
+        overflow: hidden;
+      }
+      .lm > .layer {
+        position: absolute;
+        inset: 0;
+      }
+      .lm-card {
+        position: relative;
+        z-index: 5;
+        width: min(255px, 88%);
+        margin: 40px auto 0;
+        border-radius: 12px;
+        padding: 13px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .lm-btn {
+        height: 25px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font:
+          700 10px system-ui,
+          sans-serif;
+      }
+      .lm-sonas {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        position: relative;
+        z-index: 5;
+        margin-top: 14px;
+      }
+      .lm-sonas span {
+        width: 23px;
+        height: 23px;
+        border-radius: 50%;
+      }
+    </style>
+
+    <h2>Four ways for space to be bright</h2>
+    <p class="subtitle">
+      The dark mode you like stays exactly as it is. These are only candidates
+      for its counterpart — and each comes from a different real tradition, not
+      a different amount of pink.
+    </p>
+
+    <div class="cards">
+      <!-- ============ 1. NEGATIVE PLATE ============ -->
+      <div class="card" data-choice="negative">
+        <div class="card-image" style="padding: 0">
+          <div class="lm" style="background: oklch(0.955 0.018 80)">
+            <svg
+              class="layer"
+              style="mix-blend-mode: multiply; opacity: 0.5"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="ngA">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.009"
+                  numOctaves="4"
+                  seed="7"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.42  0 0 0 0 0.30  0 0 0 0 0.48  0.9 0.5 0.2 0 -0.30"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#ngA)" />
+            </svg>
+            <svg
+              class="layer"
+              style="mix-blend-mode: multiply; opacity: 0.85"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="ngS">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.85"
+                  numOctaves="1"
+                  seed="11"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.15  0 0 0 0 0.10  0 0 0 0 0.20  0 0 0 -13 7.6"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#ngS)" />
+            </svg>
+            <div
+              class="lm-card"
+              style="
+                background: oklch(0.985 0.008 80 / 0.92);
+                border: 1px solid oklch(0.78 0.03 300);
+                box-shadow: 0 8px 26px oklch(0.35 0.06 300 / 0.18);
+              "
+            >
+              <div
+                style="color: oklch(0.24 0.05 300); font: 650 12px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.45 0.04 300); font-size: 10px">
+                Sign in to continue
+              </div>
+              <div
+                class="lm-btn"
+                style="
+                  background: oklch(0.32 0.09 300);
+                  color: oklch(0.97 0.01 80);
+                "
+              >
+                Continue with Discord
+              </div>
+            </div>
+            <div class="lm-sonas">
+              <span
+                style="
+                  background: #39ff14;
+                  outline: 2px solid oklch(0.3 0.05 300 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ff2d95;
+                  outline: 2px solid oklch(0.3 0.05 300 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #00e5ff;
+                  outline: 2px solid oklch(0.3 0.05 300 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #fff;
+                  outline: 2px solid oklch(0.3 0.05 300 / 0.45);
+                "
+              ></span>
+              <span
+                style="
+                  background: #111;
+                  outline: 2px solid oklch(0.3 0.05 300 / 0.3);
+                "
+              ></span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>1 · The photographic negative</h3>
+          <p>
+            Astronomers spent a century reading the sky as
+            <em>glass plate negatives</em>
+            — pale field, dark stars, dark dust. It is the same nebula as your
+            dark mode, exposed the other way. Historically real, immediately
+            distinctive, and almost nobody uses it on the web.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ 2. CELESTIAL ATLAS ============ -->
+      <div class="card" data-choice="atlas">
+        <div class="card-image" style="padding: 0">
+          <div class="lm" style="background: oklch(0.945 0.026 85)">
+            <svg
+              class="layer"
+              style="opacity: 0.5"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <pattern
+                  id="grid"
+                  width="34"
+                  height="34"
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path
+                    d="M34 0H0V34"
+                    fill="none"
+                    stroke="oklch(0.55 0.07 280)"
+                    stroke-width="0.5"
+                  />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+            <svg
+              class="layer"
+              style="opacity: 0.75"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M40 60 L95 120 L150 85 L210 150 L265 105"
+                fill="none"
+                stroke="oklch(0.42 0.10 285)"
+                stroke-width="1"
+              />
+              <circle cx="40" cy="60" r="3" fill="oklch(0.35 0.10 285)" />
+              <circle cx="95" cy="120" r="2.5" fill="oklch(0.35 0.10 285)" />
+              <circle cx="150" cy="85" r="4" fill="oklch(0.55 0.16 60)" />
+              <circle cx="210" cy="150" r="2.5" fill="oklch(0.35 0.10 285)" />
+              <circle cx="265" cy="105" r="3" fill="oklch(0.35 0.10 285)" />
+            </svg>
+            <div
+              class="lm-card"
+              style="
+                background: oklch(0.975 0.014 85 / 0.94);
+                border: 1px solid oklch(0.72 0.05 280);
+                box-shadow: 0 6px 20px oklch(0.35 0.06 280 / 0.16);
+              "
+            >
+              <div
+                style="color: oklch(0.25 0.06 285); font: 650 12px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.46 0.05 285); font-size: 10px">
+                Sign in to continue
+              </div>
+              <div
+                class="lm-btn"
+                style="
+                  background: oklch(0.36 0.11 285);
+                  color: oklch(0.97 0.02 85);
+                "
+              >
+                Continue with Discord
+              </div>
+            </div>
+            <div class="lm-sonas">
+              <span
+                style="
+                  background: #39ff14;
+                  outline: 2px solid oklch(0.3 0.06 285 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ff2d95;
+                  outline: 2px solid oklch(0.3 0.06 285 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #00e5ff;
+                  outline: 2px solid oklch(0.3 0.06 285 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #fff;
+                  outline: 2px solid oklch(0.3 0.06 285 / 0.45);
+                "
+              ></span>
+              <span
+                style="
+                  background: #111;
+                  outline: 2px solid oklch(0.3 0.06 285 / 0.3);
+                "
+              ></span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>2 · The celestial atlas</h3>
+          <p>
+            Not the sky — the <em>map</em> of it. Warm paper, indigo ink,
+            constellation lines, one gold star. Fits AeleOS unusually well: it
+            <strong>is</strong> a registry of who is who. Risk: charts read as
+            scholarly, which may be too cool for a fursona community.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ 3. NEAR THE STAR ============ -->
+      <div class="card" data-choice="corona">
+        <div class="card-image" style="padding: 0">
+          <div class="lm" style="background: oklch(0.93 0.05 85)">
+            <div
+              class="layer"
+              style="
+                background: radial-gradient(
+                  105% 85% at 50% 42%,
+                  oklch(0.985 0.03 90) 18%,
+                  oklch(0.9 0.1 78) 46%,
+                  oklch(0.68 0.13 45) 74%,
+                  oklch(0.42 0.13 320) 100%
+                );
+              "
+            ></div>
+            <svg
+              class="layer"
+              style="mix-blend-mode: multiply; opacity: 0.24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="coA">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.012"
+                  numOctaves="4"
+                  seed="5"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.6  0 0 0 0 0.42  0 0 0 0 0.35  0.85 0.45 0.25 0 -0.32"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#coA)" />
+            </svg>
+            <div
+              class="lm-card"
+              style="
+                background: oklch(0.99 0.012 88 / 0.9);
+                border: 1px solid oklch(0.84 0.06 70);
+                box-shadow: 0 10px 30px oklch(0.4 0.09 50 / 0.2);
+              "
+            >
+              <div style="color: oklch(0.27 0.05 60); font: 650 12px system-ui">
+                AeleOS
+              </div>
+              <div style="color: oklch(0.47 0.05 55); font-size: 10px">
+                Sign in to continue
+              </div>
+              <div
+                class="lm-btn"
+                style="
+                  background: oklch(0.52 0.14 50);
+                  color: oklch(0.98 0.01 85);
+                "
+              >
+                Continue with Discord
+              </div>
+            </div>
+            <div class="lm-sonas">
+              <span
+                style="
+                  background: #39ff14;
+                  outline: 2px solid oklch(0.32 0.06 55 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ff2d95;
+                  outline: 2px solid oklch(0.32 0.06 55 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #00e5ff;
+                  outline: 2px solid oklch(0.32 0.06 55 / 0.3);
+                "
+              ></span>
+              <span
+                style="
+                  background: #fff;
+                  outline: 2px solid oklch(0.32 0.06 55 / 0.45);
+                "
+              ></span>
+              <span
+                style="
+                  background: #111;
+                  outline: 2px solid oklch(0.32 0.06 55 / 0.3);
+                "
+              ></span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>3 · Close to the star</h3>
+          <p>
+            The conceptual inversion: dark mode is far out in the void, light
+            mode is
+            <em>near the star</em> — corona warmth, the nebula pushed to the
+            rim. It matches your own metaphor exactly, since AeleOS is the star
+            the moons orbit. Warmest and friendliest of the four.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ 4. ROSE DUST (current) ============ -->
+      <div class="card" data-choice="rose">
+        <div class="card-image" style="padding: 0">
+          <div class="lm" style="background: oklch(0.95 0.04 350)">
+            <div
+              class="layer"
+              style="
+                background: radial-gradient(
+                  125% 95% at 50% 48%,
+                  oklch(0.955 0.038 350) 28%,
+                  oklch(0.82 0.09 340) 62%,
+                  oklch(0.42 0.13 300) 100%
+                );
+              "
+            ></div>
+            <svg
+              class="layer"
+              style="mix-blend-mode: multiply; opacity: 0.38"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="roA">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.009"
+                  numOctaves="4"
+                  seed="7"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.62  0 0 0 0 0.34  0 0 0 0 0.68  0.85 0.45 0.25 0 -0.28"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#roA)" />
+            </svg>
+            <div
+              class="lm-card"
+              style="
+                background: oklch(0.975 0.016 350 / 0.9);
+                border: 1px solid oklch(0.86 0.05 345 / 0.9);
+                box-shadow: 0 10px 30px oklch(0.35 0.1 320 / 0.2);
+              "
+            >
+              <div
+                style="color: oklch(0.26 0.06 305); font: 650 12px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.44 0.05 320); font-size: 10px">
+                Sign in to continue
+              </div>
+              <div
+                class="lm-btn"
+                style="
+                  background: oklch(0.52 0.21 350);
+                  color: oklch(0.98 0.01 350);
+                "
+              >
+                Continue with Discord
+              </div>
+            </div>
+            <div class="lm-sonas">
+              <span
+                style="
+                  background: #39ff14;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+              <span
+                style="
+                  background: #ff2d95;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+              <span
+                style="
+                  background: #00e5ff;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+              <span
+                style="
+                  background: #fff;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.4);
+                "
+              ></span>
+              <span
+                style="
+                  background: #111;
+                  outline: 2px solid oklch(0.3 0.05 320 / 0.28);
+                "
+              ></span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>4 · Rose dust — what you have now</h3>
+          <p>
+            Kept here for comparison. The weakness you felt is real: it is the
+            dark mode with the lights turned up, so it inherits the palette
+            without gaining an idea of its own.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">Why I think rose dust felt wrong</span>
+      <p class="subtitle" style="margin-top: 6px">
+        It is the only one of the four that is not <em>about</em> anything. The
+        other three each answer "where am I?" — looking at a negative plate,
+        reading a chart, standing near the star. Rose dust just says "same
+        place, brighter", and that is why it reads as a washed-out version
+        rather than a counterpart.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        My pick would be <strong>1 or 3</strong>. The negative is the most
+        striking and the most honest to the dark mode — literally the same
+        nebula, other exposure. Close to the star is the warmest and fits your
+        own metaphor best. The atlas is the most beautiful idea but the coolest
+        in tone, and this is a community of characters, not a library.
+      </p>
+    </div>
+  </body>
+</html>

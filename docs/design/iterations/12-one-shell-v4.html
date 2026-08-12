@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      One shell everywhere, star field dropped — AeleOS design iteration 12
+    </title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 12 · 2026-08-11</p>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+      .sh {
+        position: relative;
+        height: 520px;
+        overflow: hidden;
+        border-radius: 12px;
+        font-family: "DM Sans", sans-serif;
+      }
+      .sh > .bg {
+        position: absolute;
+        inset: 0;
+      }
+      .sh > .fg {
+        position: relative;
+        z-index: 5;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .sh .bar {
+        padding: 16px 26px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--edge);
+        backdrop-filter: blur(12px);
+      }
+      .sh .card {
+        border: 1px solid var(--edge);
+        border-radius: 14px;
+        backdrop-filter: blur(14px);
+      }
+      .sh .wm {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+      }
+      .sh .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+      .sh .lab {
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .sh .soc {
+        height: 38px;
+        border-radius: 9px;
+        border: 1px solid var(--edge);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .sh .btn {
+        border-radius: 9px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .mark {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 11px;
+        line-height: 1;
+        flex: 0 0 18px;
+      }
+
+      /* ---- dark ---- */
+      .t-dark {
+        background: oklch(0.12 0.03 305);
+        --ink: oklch(0.96 0.012 340);
+        --ink-2: oklch(0.8 0.03 330);
+        --muted: oklch(0.66 0.03 330);
+        --surface: oklch(0.16 0.04 305 / 0.82);
+        --bar: oklch(0.14 0.03 305 / 0.55);
+        --edge: oklch(0.52 0.09 325);
+        --accent: oklch(0.74 0.18 350);
+        --on-accent: oklch(0.16 0.04 350);
+        --soc: oklch(0.22 0.05 310 / 0.6);
+        --ring: oklch(0.99 0 0 / 0.24);
+      }
+      /* ---- light ---- */
+      .t-light {
+        background: oklch(0.95 0.04 85);
+        --ink: oklch(0.27 0.05 60);
+        --ink-2: oklch(0.45 0.05 55);
+        --muted: oklch(0.5 0.05 55);
+        --surface: oklch(0.99 0.012 88 / 0.9);
+        --bar: oklch(1 0 0 / 0.35);
+        --edge: oklch(0.66 0.09 62);
+        --accent: oklch(0.46 0.14 50);
+        --on-accent: oklch(0.98 0.01 85);
+        --soc: oklch(1 0 0 / 0.55);
+        --ring: oklch(0.3 0.06 55 / 0.32);
+      }
+    </style>
+
+    <h2>One shell, everywhere — no star field</h2>
+    <p class="subtitle">
+      Sign-in now uses the same composition as the signed-in page: header bar,
+      content column, the same cards, the same gentler gradient. The star layer
+      is gone entirely — the clouds carry it, and it was the source of both
+      artifacts.
+    </p>
+
+    <!-- ============ DARK: sign-in ============ -->
+    <div class="section">
+      <span class="label">Dark · /sign-in</span>
+      <div class="sh t-dark" style="margin-top: 8px">
+        <div
+          class="bg"
+          style="
+            background: radial-gradient(
+              130% 100% at 50% 26%,
+              oklch(0.12 0.03 305) 32%,
+              oklch(0.22 0.08 332) 68%,
+              oklch(0.34 0.12 350) 100%
+            );
+          "
+        ></div>
+        <svg
+          class="bg"
+          style="mix-blend-mode: screen; opacity: 0.45"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="s4a">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.01"
+              numOctaves="4"
+              seed="9"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.72  0 0 0 0 0.22  0 0 0 0 0.55  0.9 0.5 0.2 0 -0.35"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#s4a)" />
+        </svg>
+        <div class="fg">
+          <div class="bar" style="background: var(--bar)">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <div
+                style="
+                  width: 11px;
+                  height: 11px;
+                  border-radius: 50%;
+                  background: oklch(0.86 0.15 78);
+                  box-shadow: 0 0 16px 4px oklch(0.8 0.16 60 / 0.65);
+                "
+              ></div>
+              <span class="wm" style="color: var(--ink); font-size: 15px"
+                >AeleOS</span
+              >
+            </div>
+          </div>
+          <div
+            style="
+              flex: 1;
+              padding: 34px 26px;
+              max-width: 620px;
+              margin: 0 auto;
+              width: 100%;
+            "
+          >
+            <div
+              class="wm"
+              style="color: var(--ink); font-size: 23px; margin-bottom: 4px"
+            >
+              Sign in
+            </div>
+            <div
+              style="color: var(--ink-2); font-size: 13px; margin-bottom: 22px"
+            >
+              Your identity across Furry Colombia
+            </div>
+            <div class="card" style="background: var(--surface); padding: 20px">
+              <div style="display: flex; flex-direction: column; gap: 9px">
+                <div class="soc" style="background: var(--soc)">
+                  <span class="mark" style="background: #5865f2; color: #fff"
+                    >D</span
+                  >
+                  Continue with Discord
+                </div>
+                <div class="soc" style="background: var(--soc)">
+                  <span class="mark" style="background: #fff; color: #ea4335"
+                    >G</span
+                  >
+                  Continue with Google
+                </div>
+                <div class="soc" style="background: var(--soc)">
+                  <span class="mark" style="background: #1877f2; color: #fff"
+                    >f</span
+                  >
+                  Continue with Facebook
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                  margin: 16px 0;
+                "
+              >
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.5;
+                  "
+                ></div>
+                <span style="color: var(--muted); font-size: 11px">or</span>
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.5;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  height: 38px;
+                  border-radius: 9px;
+                  border: 1px solid var(--edge);
+                  background: var(--soc);
+                  display: flex;
+                  align-items: center;
+                  padding: 0 12px;
+                  color: var(--muted);
+                  font-size: 12.5px;
+                "
+              >
+                Email address
+              </div>
+              <div
+                class="btn"
+                style="
+                  margin-top: 10px;
+                  background: var(--accent);
+                  color: var(--on-accent);
+                "
+              >
+                Continue
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LIGHT: sign-in ============ -->
+    <div class="section">
+      <span class="label">Light · /sign-in — the same page, flipped</span>
+      <div class="sh t-light" style="margin-top: 8px">
+        <div
+          class="bg"
+          style="
+            background: radial-gradient(
+              115% 85% at 50% 30%,
+              oklch(0.985 0.028 90) 14%,
+              oklch(0.93 0.08 78) 40%,
+              oklch(0.74 0.12 45) 70%,
+              oklch(0.45 0.13 320) 100%
+            );
+          "
+        ></div>
+        <svg
+          class="bg"
+          style="mix-blend-mode: multiply; opacity: 0.2"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="s4b">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.011"
+              numOctaves="4"
+              seed="9"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.6  0 0 0 0 0.42  0 0 0 0 0.35  0.85 0.45 0.25 0 -0.32"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#s4b)" />
+        </svg>
+        <div class="fg">
+          <div class="bar" style="background: var(--bar)">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <div
+                style="
+                  width: 11px;
+                  height: 11px;
+                  border-radius: 50%;
+                  background: oklch(0.62 0.15 62);
+                  box-shadow: 0 0 14px 4px oklch(0.8 0.14 62 / 0.45);
+                "
+              ></div>
+              <span class="wm" style="color: var(--ink); font-size: 15px"
+                >AeleOS</span
+              >
+            </div>
+          </div>
+          <div
+            style="
+              flex: 1;
+              padding: 34px 26px;
+              max-width: 620px;
+              margin: 0 auto;
+              width: 100%;
+            "
+          >
+            <div
+              class="wm"
+              style="color: var(--ink); font-size: 23px; margin-bottom: 4px"
+            >
+              Sign in
+            </div>
+            <div
+              style="color: var(--ink-2); font-size: 13px; margin-bottom: 22px"
+            >
+              Your identity across Furry Colombia
+            </div>
+            <div
+              class="card"
+              style="
+                background: var(--surface);
+                padding: 20px;
+                box-shadow: 0 12px 34px oklch(0.4 0.09 50 / 0.16);
+              "
+            >
+              <div style="display: flex; flex-direction: column; gap: 9px">
+                <div class="soc" style="background: var(--soc)">
+                  <span class="mark" style="background: #5865f2; color: #fff"
+                    >D</span
+                  >
+                  Continue with Discord
+                </div>
+                <div class="soc" style="background: var(--soc)">
+                  <span
+                    class="mark"
+                    style="
+                      background: #fff;
+                      color: #ea4335;
+                      border: 1px solid oklch(0.8 0.02 60);
+                    "
+                    >G</span
+                  >
+                  Continue with Google
+                </div>
+                <div class="soc" style="background: var(--soc)">
+                  <span class="mark" style="background: #1877f2; color: #fff"
+                    >f</span
+                  >
+                  Continue with Facebook
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                  margin: 16px 0;
+                "
+              >
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.6;
+                  "
+                ></div>
+                <span style="color: var(--muted); font-size: 11px">or</span>
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.6;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  height: 38px;
+                  border-radius: 9px;
+                  border: 1px solid var(--edge);
+                  background: oklch(1 0 0 / 0.7);
+                  display: flex;
+                  align-items: center;
+                  padding: 0 12px;
+                  color: var(--muted);
+                  font-size: 12.5px;
+                "
+              >
+                Email address
+              </div>
+              <div
+                class="btn"
+                style="
+                  margin-top: 10px;
+                  background: var(--accent);
+                  color: var(--on-accent);
+                "
+              >
+                Continue
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ DARK: /me ============ -->
+    <div class="section">
+      <span class="label">Dark · /me — unchanged, the page you liked</span>
+      <div class="sh t-dark" style="margin-top: 8px">
+        <div
+          class="bg"
+          style="
+            background: radial-gradient(
+              130% 100% at 50% 26%,
+              oklch(0.12 0.03 305) 32%,
+              oklch(0.22 0.08 332) 68%,
+              oklch(0.34 0.12 350) 100%
+            );
+          "
+        ></div>
+        <svg
+          class="bg"
+          style="mix-blend-mode: screen; opacity: 0.45"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="s4c">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.01"
+              numOctaves="4"
+              seed="9"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.72  0 0 0 0 0.22  0 0 0 0 0.55  0.9 0.5 0.2 0 -0.35"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#s4c)" />
+        </svg>
+        <div class="fg">
+          <div class="bar" style="background: var(--bar)">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <div
+                style="
+                  width: 11px;
+                  height: 11px;
+                  border-radius: 50%;
+                  background: oklch(0.86 0.15 78);
+                  box-shadow: 0 0 16px 4px oklch(0.8 0.16 60 / 0.65);
+                "
+              ></div>
+              <span class="wm" style="color: var(--ink); font-size: 15px"
+                >AeleOS</span
+              >
+            </div>
+            <div
+              style="
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                background: #7b4bd8;
+                outline: 2px solid var(--ring);
+                outline-offset: 1px;
+              "
+            ></div>
+          </div>
+          <div
+            style="
+              flex: 1;
+              padding: 34px 26px;
+              max-width: 620px;
+              margin: 0 auto;
+              width: 100%;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 26px;
+              "
+            >
+              <div
+                style="
+                  width: 62px;
+                  height: 62px;
+                  border-radius: 50%;
+                  background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                  outline: 2px solid var(--ring);
+                  outline-offset: 1px;
+                "
+              ></div>
+              <div>
+                <div class="wm" style="color: var(--ink); font-size: 23px">
+                  Wished
+                </div>
+                <div
+                  class="mono"
+                  style="color: var(--muted); font-size: 12.5px"
+                >
+                  u-45242b953aed5bf1…
+                </div>
+              </div>
+            </div>
+            <div
+              class="card"
+              style="
+                background: var(--surface);
+                padding: 18px 20px;
+                margin-bottom: 14px;
+              "
+            >
+              <div class="lab">Platform ID</div>
+              <div
+                class="mono"
+                style="
+                  color: var(--ink);
+                  font-size: 13.5px;
+                  margin-top: 6px;
+                  word-break: break-all;
+                "
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+              <div
+                style="color: var(--ink-2); font-size: 12px; margin-top: 8px"
+              >
+                The same in every Furry Colombia app.
+              </div>
+            </div>
+            <div
+              class="card"
+              style="background: var(--surface); padding: 18px 20px"
+            >
+              <div class="lab" style="margin-bottom: 12px">Your fursonas</div>
+              <div style="display: flex; gap: 12px; align-items: center">
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                    outline: 2px solid var(--ring);
+                    outline-offset: 1px;
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #39ff14;
+                    outline: 2px solid var(--ring);
+                    outline-offset: 1px;
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #fff;
+                    outline: 2px solid var(--ring);
+                    outline-offset: 1px;
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #111;
+                    outline: 2px solid var(--ring);
+                    outline-offset: 1px;
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    border: 1.5px dashed var(--edge);
+                    display: grid;
+                    place-items: center;
+                    color: var(--muted);
+                    font-size: 20px;
+                  "
+                >
+                  +
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">What changed</span>
+      <p class="subtitle" style="margin-top: 6px">
+        Sign-in lost its centred-hero composition and inherited the signed-in
+        shell: header bar with the wordmark, left-aligned page title, content in
+        the same 620px column, identical cards. The gradient is the gentler one
+        from
+        <code>/me</code> rather than the dramatic one. Both themes now use one
+        layout — the only difference between them is the token block.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        <strong>Star field removed.</strong> Gradient plus one cloud layer is
+        the whole atmosphere now. It is simpler, faster, and has no filter maths
+        left to get wrong.
+      </p>
+    </div>
+  </body>
+</html>

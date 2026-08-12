@@ -1,0 +1,167 @@
+/*
+ * Minimal frame for the archived design iterations.
+ *
+ * The originals were written as content fragments for the brainstorming
+ * companion, which supplied the page shell at runtime. This stylesheet
+ * reproduces just enough of that shell for the archived copies to open
+ * directly in a browser, so the making-of survives the session that made it.
+ */
+
+:root {
+  color-scheme: dark;
+  --ink: #e8e6ef;
+  --ink-dim: #a8a4b8;
+  --edge: #2e2b3a;
+  --panel: #17151f;
+  --page: #0e0d13;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 40px 24px 72px;
+  background: var(--page);
+  color: var(--ink);
+  font:
+    15px/1.6 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  max-width: 1100px;
+  margin-inline: auto;
+}
+
+h2 {
+  font-size: 28px;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+h4 {
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  color: var(--ink-dim);
+  margin: 0 0 28px;
+}
+
+.section {
+  margin-bottom: 36px;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* Cards — visual design options */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-bottom: 32px;
+}
+
+.card {
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.card-image {
+  padding: 0;
+}
+
+.card-body {
+  padding: 16px 18px 20px;
+}
+
+.card-body p {
+  color: var(--ink-dim);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+/* Options — A/B/C choices */
+.options {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.option {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--edge);
+  border-radius: 11px;
+  padding: 14px 16px;
+  background: var(--panel);
+}
+
+.option .letter {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  border: 1px solid var(--edge);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.option .content p {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+/* Split — side-by-side comparisons */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mockup {
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.mockup-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--edge);
+}
+
+.mockup-body {
+  padding: 0;
+}
+
+/* The archived copies are static: selection was a live-session affordance. */
+.option,
+.card {
+  cursor: default;
+}

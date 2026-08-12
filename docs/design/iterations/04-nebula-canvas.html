@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How far to push the background — AeleOS design iteration 04</title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 04 · 2026-08-11</p>
+    <style>
+      .neb-panel {
+        position: relative;
+        height: 300px;
+        overflow: hidden;
+        background: oklch(0.12 0.03 305);
+      }
+      .neb-panel > .layer {
+        position: absolute;
+        inset: 0;
+      }
+      .neb-card {
+        position: relative;
+        z-index: 5;
+        width: min(300px, 86%);
+        margin: 46px auto 0;
+        background: oklch(0.17 0.04 305 / 0.82);
+        backdrop-filter: blur(10px);
+        border: 1px solid oklch(0.34 0.07 320 / 0.7);
+        border-radius: 12px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        box-shadow: 0 12px 40px oklch(0.08 0.02 305 / 0.65);
+      }
+      .neb-btn {
+        height: 26px;
+        border-radius: 7px;
+        background: oklch(0.74 0.18 350);
+        color: oklch(0.16 0.04 350);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font:
+          700 10px system-ui,
+          sans-serif;
+      }
+      .sonas {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        position: relative;
+        z-index: 5;
+        margin-top: 16px;
+      }
+      .sonas span {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        outline: 2px solid oklch(0.99 0 0 / 0.22);
+      }
+      @keyframes drift {
+        0% {
+          transform: translate3d(0, 0, 0) scale(1.15);
+        }
+        100% {
+          transform: translate3d(-4%, 2%, 0) scale(1.22);
+        }
+      }
+    </style>
+
+    <h2>How far do we push the background?</h2>
+    <p class="subtitle">
+      All three are the <strong>bold FTL palette</strong> you picked — only the
+      background technique changes. Same card, same six fursona dots on top, so
+      you can judge the one thing that matters: do the characters still win?
+    </p>
+
+    <div class="cards">
+      <!-- ================= LEVEL 1 ================= -->
+      <div class="card" data-choice="gradient">
+        <div class="card-image" style="padding: 0">
+          <div class="neb-panel">
+            <div
+              class="layer"
+              style="
+                background: radial-gradient(
+                  120% 90% at 50% 55%,
+                  oklch(0.13 0.03 305) 34%,
+                  oklch(0.22 0.075 330) 68%,
+                  oklch(0.34 0.12 350) 100%
+                );
+              "
+            ></div>
+            <div class="neb-card">
+              <div
+                style="color: oklch(0.96 0.012 340); font: 650 12px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.8 0.03 330); font-size: 10px">
+                Sign in to continue
+              </div>
+              <div class="neb-btn">Continue with Discord</div>
+            </div>
+            <div class="sonas">
+              <span style="background: #39ff14"></span>
+              <span style="background: #ff2d95"></span>
+              <span style="background: #ffd400"></span>
+              <span style="background: #00e5ff"></span>
+              <span style="background: #fff"></span>
+              <span style="background: #111"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>1 · Gradients only — where we are</h3>
+          <p>
+            Pure CSS radial gradients. Zero bytes, zero CPU, renders instantly
+            on the login page. Beautiful but <em>smooth</em> — it reads as a
+            gradient rather than as space, because real nebulae have structure.
+          </p>
+        </div>
+      </div>
+
+      <!-- ================= LEVEL 2 ================= -->
+      <div class="card" data-choice="turbulence">
+        <div class="card-image" style="padding: 0">
+          <div class="neb-panel">
+            <div
+              class="layer"
+              style="
+                background: radial-gradient(
+                  120% 90% at 50% 55%,
+                  oklch(0.13 0.03 305) 30%,
+                  oklch(0.24 0.085 332) 66%,
+                  oklch(0.36 0.13 350) 100%
+                );
+              "
+            ></div>
+            <svg
+              class="layer"
+              style="mix-blend-mode: screen; opacity: 0.55"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="cloudA">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.009"
+                  numOctaves="4"
+                  seed="7"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.72
+                          0 0 0 0 0.22
+                          0 0 0 0 0.55
+                          0.9 0.5 0.2 0 -0.35"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#cloudA)" />
+            </svg>
+            <svg
+              class="layer"
+              style="mix-blend-mode: screen; opacity: 0.4"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="cloudB">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.02"
+                  numOctaves="3"
+                  seed="19"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.35
+                          0 0 0 0 0.15
+                          0 0 0 0 0.75
+                          0.8 0.4 0.3 0 -0.45"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#cloudB)" />
+            </svg>
+            <div class="neb-card">
+              <div
+                style="color: oklch(0.96 0.012 340); font: 650 12px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.8 0.03 330); font-size: 10px">
+                Sign in to continue
+              </div>
+              <div class="neb-btn">Continue with Discord</div>
+            </div>
+            <div class="sonas">
+              <span style="background: #39ff14"></span>
+              <span style="background: #ff2d95"></span>
+              <span style="background: #ffd400"></span>
+              <span style="background: #00e5ff"></span>
+              <span style="background: #fff"></span>
+              <span style="background: #111"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>2 · Real cloud structure — SVG turbulence</h3>
+          <p>
+            Two layers of fractal noise tinted magenta and violet, blended over
+            the gradient. <strong>Still zero images and no JavaScript</strong> —
+            the browser generates it. This is the one that actually looks like a
+            nebula rather than a gradient, and the card gets a blur behind it so
+            text stays readable.
+          </p>
+        </div>
+      </div>
+
+      <!-- ================= LEVEL 3 ================= -->
+      <div class="card" data-choice="animated">
+        <div class="card-image" style="padding: 0">
+          <div class="neb-panel">
+            <div
+              class="layer"
+              style="
+                background: radial-gradient(
+                  120% 90% at 50% 55%,
+                  oklch(0.12 0.03 305) 28%,
+                  oklch(0.25 0.09 332) 64%,
+                  oklch(0.38 0.14 350) 100%
+                );
+              "
+            ></div>
+            <svg
+              class="layer"
+              style="
+                mix-blend-mode: screen;
+                opacity: 0.6;
+                animation: drift 26s ease-in-out infinite alternate;
+              "
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="cloudC">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.008"
+                  numOctaves="4"
+                  seed="3"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 0.78
+                          0 0 0 0 0.2
+                          0 0 0 0 0.6
+                          0.95 0.5 0.2 0 -0.32"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#cloudC)" />
+            </svg>
+            <svg
+              class="layer"
+              style="opacity: 0.9"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <filter id="stars">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.9"
+                  numOctaves="1"
+                  seed="11"
+                />
+                <feColorMatrix
+                  values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -14 8.2"
+                />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#stars)" />
+            </svg>
+            <div class="neb-card">
+              <div
+                style="color: oklch(0.96 0.012 340); font: 650 12px system-ui"
+              >
+                AeleOS
+              </div>
+              <div style="color: oklch(0.8 0.03 330); font-size: 10px">
+                Sign in to continue
+              </div>
+              <div class="neb-btn">Continue with Discord</div>
+            </div>
+            <div class="sonas">
+              <span style="background: #39ff14"></span>
+              <span style="background: #ff2d95"></span>
+              <span style="background: #ffd400"></span>
+              <span style="background: #00e5ff"></span>
+              <span style="background: #fff"></span>
+              <span style="background: #111"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>3 · Clouds, stars, and slow drift</h3>
+          <p>
+            Adds a sparse star field and a very slow drift — watch it for ten
+            seconds. Most alive, most memorable. Costs: the filter repaints
+            while animating, which is real battery on a laptop, and it
+            <strong>must</strong> stop under
+            <code>prefers-reduced-motion</code>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">The honest tension</span>
+      <p class="subtitle" style="margin-top: 6px">
+        You chose <em>restrained atmosphere</em> earlier, and levels 2 and 3
+        push past that. That is fine if it is deliberate — but the rule we set
+        still holds:
+        <strong>the fursona has to be the brightest thing on screen</strong>.
+        Look at the six dots in level 3 versus level 1. In 3 they are competing
+        with the background rather than sitting on it. That is the cost of
+        "more".
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        Also worth weighing: this is a <em>login page</em>. It should appear
+        instantly for someone who just wants to get in. Level 2 is free in that
+        sense — no images, no JavaScript, the browser generates the noise. Level
+        3 is the only one that costs ongoing CPU.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        A middle path exists and may be the real answer:
+        <strong>level 2 everywhere, level 3 only on the actor picker</strong> —
+        the one screen that is about choosing your star, where drama is the
+        point and you are not in a hurry.
+      </p>
+    </div>
+  </body>
+</html>

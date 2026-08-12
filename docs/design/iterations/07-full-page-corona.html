@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Full page, light — close to the star — AeleOS design iteration 07
+    </title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 07 · 2026-08-11</p>
+    <style>
+      .pg {
+        position: relative;
+        height: 540px;
+        overflow: hidden;
+        border-radius: 12px;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      .pg > .bg {
+        position: absolute;
+        inset: 0;
+      }
+      .pg > .fg {
+        position: relative;
+        z-index: 5;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      /* corona light tokens */
+      .corona {
+        --ink: oklch(0.27 0.05 60);
+        --ink-2: oklch(0.45 0.05 55);
+        --surface: oklch(0.99 0.012 88 / 0.9);
+        --edge: oklch(0.66 0.09 62);
+        --accent: oklch(0.46 0.14 50);
+        --on-accent: oklch(0.98 0.01 85);
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--edge);
+        border-radius: 14px;
+        backdrop-filter: blur(14px);
+        box-shadow: 0 14px 40px oklch(0.4 0.09 50 / 0.18);
+      }
+      .btn {
+        background: var(--accent);
+        color: var(--on-accent);
+        border-radius: 9px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .soc {
+        height: 38px;
+        border-radius: 9px;
+        border: 1px solid var(--edge);
+        background: oklch(1 0 0 / 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .ring {
+        outline: 2px solid oklch(0.3 0.06 55 / 0.32);
+        outline-offset: 1px;
+      }
+    </style>
+
+    <h2>Full page — "close to the star", light mode</h2>
+    <p class="subtitle">
+      With the accessibility corrections applied: body text at L 0.45 (7.34:1),
+      the accent at 0.46 (7.08:1), and the card border darkened from 0.84 to
+      0.66 — the hairline that was failing 1.60:1 against the 3:1 non-text
+      minimum.
+    </p>
+
+    <!-- ==================== SIGN IN ==================== -->
+    <div class="section">
+      <span class="label">/sign-in</span>
+      <div class="pg corona" style="margin-top: 8px">
+        <div
+          class="bg"
+          style="
+            background: radial-gradient(
+              105% 80% at 50% 34%,
+              oklch(0.985 0.03 90) 16%,
+              oklch(0.92 0.09 78) 42%,
+              oklch(0.72 0.13 45) 70%,
+              oklch(0.44 0.13 320) 100%
+            );
+          "
+        ></div>
+        <svg
+          class="bg"
+          style="mix-blend-mode: multiply; opacity: 0.22"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="fpA">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.011"
+              numOctaves="4"
+              seed="5"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.6  0 0 0 0 0.42  0 0 0 0 0.35  0.85 0.45 0.25 0 -0.32"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#fpA)" />
+        </svg>
+
+        <div class="fg">
+          <div
+            style="
+              padding: 20px 26px;
+              display: flex;
+              align-items: center;
+              gap: 9px;
+            "
+          >
+            <div
+              style="
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: oklch(0.62 0.15 62);
+                box-shadow: 0 0 16px 4px oklch(0.85 0.13 75 / 0.7);
+              "
+            ></div>
+            <span
+              style="
+                color: var(--ink);
+                font-weight: 700;
+                letter-spacing: 0.01em;
+              "
+              >AeleOS</span
+            >
+          </div>
+
+          <div
+            style="
+              flex: 1;
+              display: grid;
+              place-items: center;
+              padding: 0 20px 40px;
+            "
+          >
+            <div class="card" style="width: min(360px, 100%); padding: 26px">
+              <div style="text-align: center; margin-bottom: 18px">
+                <div
+                  style="color: var(--ink); font-size: 19px; font-weight: 700"
+                >
+                  Sign in to AeleOS
+                </div>
+                <div
+                  style="color: var(--ink-2); font-size: 13px; margin-top: 5px"
+                >
+                  Your identity across Furry Colombia
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 9px">
+                <div class="soc">
+                  <span style="color: #5865f2; font-weight: 800">✦</span>
+                  Continue with Discord
+                </div>
+                <div class="soc">
+                  <span style="color: #ea4335; font-weight: 800">✦</span>
+                  Continue with Google
+                </div>
+                <div class="soc">
+                  <span style="color: #1877f2; font-weight: 800">✦</span>
+                  Continue with Facebook
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                  margin: 16px 0;
+                "
+              >
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.6;
+                  "
+                ></div>
+                <span style="color: var(--ink-2); font-size: 11px">or</span>
+                <div
+                  style="
+                    flex: 1;
+                    height: 1px;
+                    background: var(--edge);
+                    opacity: 0.6;
+                  "
+                ></div>
+              </div>
+              <div
+                style="
+                  height: 38px;
+                  border-radius: 9px;
+                  border: 1px solid var(--edge);
+                  background: oklch(1 0 0 / 0.7);
+                  display: flex;
+                  align-items: center;
+                  padding: 0 12px;
+                  color: var(--ink-2);
+                  font-size: 12.5px;
+                "
+              >
+                Email address
+              </div>
+              <div class="btn" style="margin-top: 10px">Continue</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== /ME ==================== -->
+    <div class="section">
+      <span class="label">/me — signed in</span>
+      <div class="pg corona" style="margin-top: 8px">
+        <div
+          class="bg"
+          style="
+            background: radial-gradient(
+              115% 85% at 50% 30%,
+              oklch(0.985 0.028 90) 14%,
+              oklch(0.93 0.08 78) 40%,
+              oklch(0.74 0.12 45) 70%,
+              oklch(0.45 0.13 320) 100%
+            );
+          "
+        ></div>
+        <svg
+          class="bg"
+          style="mix-blend-mode: multiply; opacity: 0.2"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="fpB">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.011"
+              numOctaves="4"
+              seed="9"
+            />
+            <feColorMatrix
+              values="0 0 0 0 0.6  0 0 0 0 0.42  0 0 0 0 0.35  0.85 0.45 0.25 0 -0.32"
+            />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#fpB)" />
+        </svg>
+
+        <div class="fg">
+          <div
+            style="
+              padding: 16px 26px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              border-bottom: 1px solid var(--edge);
+              background: oklch(1 0 0 / 0.35);
+              backdrop-filter: blur(10px);
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 9px">
+              <div
+                style="
+                  width: 11px;
+                  height: 11px;
+                  border-radius: 50%;
+                  background: oklch(0.62 0.15 62);
+                  box-shadow: 0 0 14px 4px oklch(0.85 0.13 75 / 0.6);
+                "
+              ></div>
+              <span style="color: var(--ink); font-weight: 700">AeleOS</span>
+            </div>
+            <div
+              class="ring"
+              style="
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                background: #7b4bd8;
+              "
+            ></div>
+          </div>
+
+          <div
+            style="
+              flex: 1;
+              padding: 34px 26px;
+              max-width: 620px;
+              margin: 0 auto;
+              width: 100%;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 26px;
+              "
+            >
+              <div
+                class="ring"
+                style="
+                  width: 62px;
+                  height: 62px;
+                  border-radius: 50%;
+                  background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                "
+              ></div>
+              <div>
+                <div
+                  style="color: var(--ink); font-size: 22px; font-weight: 700"
+                >
+                  Wished
+                </div>
+                <div style="color: var(--ink-2); font-size: 13px">
+                  u-45242b953aed5bf1…
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding: 18px 20px; margin-bottom: 14px">
+              <div
+                style="
+                  color: var(--ink-2);
+                  font-size: 10.5px;
+                  letter-spacing: 0.09em;
+                  text-transform: uppercase;
+                "
+              >
+                Platform ID
+              </div>
+              <div
+                style="
+                  color: var(--ink);
+                  font-family: ui-monospace, monospace;
+                  font-size: 13px;
+                  margin-top: 6px;
+                  word-break: break-all;
+                "
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+              <div
+                style="color: var(--ink-2); font-size: 12px; margin-top: 8px"
+              >
+                The same in every Furry Colombia app.
+              </div>
+            </div>
+
+            <div class="card" style="padding: 18px 20px">
+              <div
+                style="
+                  color: var(--ink-2);
+                  font-size: 10.5px;
+                  letter-spacing: 0.09em;
+                  text-transform: uppercase;
+                  margin-bottom: 12px;
+                "
+              >
+                Your fursonas
+              </div>
+              <div style="display: flex; gap: 12px; align-items: center">
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: linear-gradient(140deg, #7b4bd8, #d84b9c);
+                  "
+                ></div>
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #39ff14;
+                  "
+                ></div>
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #fff;
+                  "
+                ></div>
+                <div
+                  class="ring"
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    background: #111;
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    border: 1.5px dashed var(--edge);
+                    display: grid;
+                    place-items: center;
+                    color: var(--ink-2);
+                    font-size: 20px;
+                  "
+                >
+                  +
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">What this full-size view exposes</span>
+      <p class="subtitle" style="margin-top: 6px">
+        At page scale the gradient has room to breathe, and the star sits where
+        the eye already goes — top-left, beside the wordmark. The violet rim
+        only appears in the corners, so light mode stays genuinely light.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        The fursona row is the test. Four very different characters, each with
+        the flipped contrast ring, and none of them fights the background — the
+        field is warm and low-chroma where they sit. That is the rule holding at
+        full size.
+      </p>
+    </div>
+  </body>
+</html>

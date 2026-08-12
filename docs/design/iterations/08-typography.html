@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Type: shared body, different voice — AeleOS design iteration 08
+    </title>
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <p class="label">AeleOS design iteration 08 · 2026-08-11</p>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Sora:wght@600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Space+Mono:wght@400;700&display=swap");
+
+      .ty {
+        position: relative;
+        overflow: hidden;
+        border-radius: 12px;
+        padding: 26px 24px 24px;
+        background: radial-gradient(
+          110% 85% at 50% 30%,
+          oklch(0.985 0.03 90) 16%,
+          oklch(0.92 0.09 78) 44%,
+          oklch(0.72 0.13 45) 72%,
+          oklch(0.45 0.13 320) 100%
+        );
+        --ink: oklch(0.27 0.05 60);
+        --ink-2: oklch(0.45 0.05 55);
+        --edge: oklch(0.66 0.09 62);
+      }
+      .ty-card {
+        background: oklch(0.99 0.012 88 / 0.92);
+        border: 1px solid var(--edge);
+        border-radius: 13px;
+        padding: 18px;
+        backdrop-filter: blur(12px);
+      }
+      .ty-id {
+        font-size: 13.5px;
+        color: var(--ink);
+        word-break: break-all;
+        margin-top: 5px;
+      }
+      .ty-lab {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-2);
+      }
+    </style>
+
+    <h2>Typography — same bones, different voice</h2>
+    <p class="subtitle">
+      All three keep <strong>DM Sans</strong> for body text, the same face Libra
+      uses — that is the shared skeleton. What changes is the display face and
+      the mono. The mono matters unusually much here: platform IDs and handles
+      are everywhere, and <code>/me</code> puts a UUID on screen as a hero
+      element.
+    </p>
+
+    <div class="cards">
+      <!-- ============ A ============ -->
+      <div class="card" data-choice="grotesk">
+        <div class="card-image" style="padding: 0">
+          <div class="ty">
+            <div
+              style="
+                font-family: &quot;Space Grotesk&quot;, sans-serif;
+                font-weight: 700;
+                font-size: 26px;
+                color: var(--ink);
+                letter-spacing: -0.015em;
+              "
+            >
+              AeleOS
+            </div>
+            <div
+              style="
+                font-family: &quot;DM Sans&quot;, sans-serif;
+                color: var(--ink-2);
+                font-size: 13px;
+                margin: 3px 0 16px;
+              "
+            >
+              Your identity across Furry Colombia
+            </div>
+            <div class="ty-card">
+              <div
+                class="ty-lab"
+                style="font-family: &quot;DM Sans&quot;, sans-serif"
+              >
+                Platform ID
+              </div>
+              <div
+                class="ty-id"
+                style="font-family: &quot;JetBrains Mono&quot;, monospace"
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+              <div
+                style="
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                  color: var(--ink-2);
+                  font-size: 12px;
+                  margin-top: 9px;
+                "
+              >
+                handle
+                <span style="font-family: &quot;JetBrains Mono&quot;, monospace"
+                  >u-45242b95</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>A · Space Grotesk + DM Sans + JetBrains Mono</h3>
+          <p>
+            The display face is <em>literally</em> named for this. Slightly
+            quirky letterforms — look at the <strong>a</strong> and
+            <strong>S</strong> — so the wordmark has character without a logo.
+            JetBrains Mono is built for distinguishing 0/O and 1/l, which is the
+            whole job when an ID is the hero.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ B ============ -->
+      <div class="card" data-choice="sora">
+        <div class="card-image" style="padding: 0">
+          <div class="ty">
+            <div
+              style="
+                font-family: &quot;Sora&quot;, sans-serif;
+                font-weight: 700;
+                font-size: 26px;
+                color: var(--ink);
+                letter-spacing: -0.02em;
+              "
+            >
+              AeleOS
+            </div>
+            <div
+              style="
+                font-family: &quot;DM Sans&quot;, sans-serif;
+                color: var(--ink-2);
+                font-size: 13px;
+                margin: 3px 0 16px;
+              "
+            >
+              Your identity across Furry Colombia
+            </div>
+            <div class="ty-card">
+              <div
+                class="ty-lab"
+                style="font-family: &quot;DM Sans&quot;, sans-serif"
+              >
+                Platform ID
+              </div>
+              <div
+                class="ty-id"
+                style="font-family: &quot;IBM Plex Mono&quot;, monospace"
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+              <div
+                style="
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                  color: var(--ink-2);
+                  font-size: 12px;
+                  margin-top: 9px;
+                "
+              >
+                handle
+                <span style="font-family: &quot;IBM Plex Mono&quot;, monospace"
+                  >u-45242b95</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>B · Sora + DM Sans + IBM Plex Mono</h3>
+          <p>
+            Cleaner and more neutral — geometric, even, unfussy. Reads as
+            trustworthy infrastructure, which suits an identity provider. The
+            trade is character: it is the safest of the three and the least
+            memorable.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ C ============ -->
+      <div class="card" data-choice="bricolage">
+        <div class="card-image" style="padding: 0">
+          <div class="ty">
+            <div
+              style="
+                font-family: &quot;Bricolage Grotesque&quot;, sans-serif;
+                font-weight: 700;
+                font-size: 26px;
+                color: var(--ink);
+                letter-spacing: -0.02em;
+              "
+            >
+              AeleOS
+            </div>
+            <div
+              style="
+                font-family: &quot;DM Sans&quot;, sans-serif;
+                color: var(--ink-2);
+                font-size: 13px;
+                margin: 3px 0 16px;
+              "
+            >
+              Your identity across Furry Colombia
+            </div>
+            <div class="ty-card">
+              <div
+                class="ty-lab"
+                style="font-family: &quot;DM Sans&quot;, sans-serif"
+              >
+                Platform ID
+              </div>
+              <div
+                class="ty-id"
+                style="font-family: &quot;Space Mono&quot;, monospace"
+              >
+                45242b95-3aed-5bf1-8f67-fd8c8b8c17e6
+              </div>
+              <div
+                style="
+                  font-family: &quot;DM Sans&quot;, sans-serif;
+                  color: var(--ink-2);
+                  font-size: 12px;
+                  margin-top: 9px;
+                "
+              >
+                handle
+                <span style="font-family: &quot;Space Mono&quot;, monospace"
+                  >u-45242b95</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>C · Bricolage Grotesque + DM Sans + Space Mono</h3>
+          <p>
+            The most expressive — tight, slightly condensed, a bit playful.
+            Closest in spirit to Libra's neobrutalist energy while using none of
+            its fonts. Space Mono is characterful but weaker at long strings,
+            which is a real cost when a UUID is on screen.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <span class="label">Judge it on the ID, not the wordmark</span>
+      <p class="subtitle" style="margin-top: 6px">
+        Every option looks fine set in 26px. The question is the line
+        underneath:
+        <code>45242b95-3aed-5bf1-8f67-fd8c8b8c17e6</code>. People will read that
+        aloud, paste it into support tickets and compare it across apps.
+        JetBrains Mono and IBM Plex Mono are engineered for exactly that; Space
+        Mono is styled for display and gets tiring at length.
+      </p>
+      <p class="subtitle" style="margin-top: 8px">
+        All faces are free on Google Fonts, self-hostable through
+        <code>next/font</code>, so nothing here costs money or an external
+        request at runtime.
+      </p>
+    </div>
+  </body>
+</html>

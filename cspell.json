@@ -125,6 +125,13 @@
     "unstub",
     "NXDOMAIN",
     "ENOENT",
-    "prebuilt"
+    "prebuilt",
+    "WCAG",
+    "fBm",
+    "chromosphere",
+    "oklch",
+    "OKLCH",
+    "Carina",
+    "nebulae"
   ]
 }
