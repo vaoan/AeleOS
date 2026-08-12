@@ -74,12 +74,19 @@ jobs:
       # the bypass header is what makes it answerable. The production alias is
       # public but could still point at an older deployment, so checking only
       # that would pass even if this upload never became live.
+      # `-L` is load-bearing, not tidiness. `/` has no locale segment, so the
+      # intl middleware answers it with a 307 to `/es` or `/en`. Without it
+      # this step read that redirect as a failure and reported one on every
+      # deploy from the moment the `[locale]` segment landed — six in a row,
+      # while production was serving correctly the whole time. A gate that
+      # always fails is a gate nobody reads, so the redirect is followed and
+      # the assertion is on where it lands.
       - name: Verify this deployment serves
         run: |
           URL="${{ steps.deploy.outputs.url }}"
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+          CODE=$(curl -s -L -o /dev/null -w '%{http_code}' --max-time 30 \
             -H "x-vercel-protection-bypass: $BYPASS" "$URL")
-          echo "GET $URL -> $CODE"
+          echo "GET $URL (following redirects) -> $CODE"
           if [ "$CODE" != "200" ]; then
             echo "::error::This deployment did not return 200 (got $CODE)"
             exit 1
@@ -89,9 +96,19 @@ jobs:
 
       - name: Verify production serves the app, not just a status
         run: |
-          BODY=$(curl -s --max-time 30 https://aeleos-hub.vercel.app)
+          # Accept-Language is sent explicitly so this asserts something
+          # deterministic. curl sends no such header by default, so negotiation
+          # falls to the default locale — which is Spanish here, deliberately —
+          # and the English string below would never have matched. This check
+          # was broken in the same release as the one above and simply never
+          # ran, because that step exited first.
+          BODY=$(curl -s -L --max-time 30 \
+            -H 'Accept-Language: en' https://aeleos-hub.vercel.app)
           # Asserting on content, because a 200 from an error page or a holding
-          # screen would otherwise read as success.
+          # screen would otherwise read as success. The tagline is a better
+          # probe than the wordmark: `PageShell` renders the wordmark on the
+          # error page too, so matching it would pass on exactly the failure
+          # this is meant to catch.
           if ! printf '%s' "$BODY" | grep -q "Your identity across Furry Colombia"; then
             echo "::error::Production alias answered, but did not serve the hub"
             printf '%s' "$BODY" | head -c 400
