@@ -132,6 +132,11 @@
     "oklch",
     "OKLCH",
     "Carina",
-    "nebulae"
+    "nebulae",
+    "imul",
+    "RGBA",
+    "Bilinearly",
+    "Grotesk",
+    "moonfest"
   ]
 }
