@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/page-shell";
+import { tid } from "@/lib/test-id";
 
 /**
  * Failure boundary for every signed-in page.
@@ -14,6 +15,9 @@ import { Card } from "@/components/page-shell";
  *
  * The raw message is deliberately not shown — it can carry view, policy and
  * connection details. The digest is what support needs to find the server log.
+ * It is rendered through an interpolated message rather than concatenated with
+ * a literal separator, because where the colon sits is a property of the
+ * language. The `error-digest` test id is what the suite selects.
  *
  * @returns the failure panel.
  */
@@ -41,8 +45,13 @@ export default function AppError({
           {t("retry")}
         </button>
         {error.digest ? (
-          <p className="font-mono text-xs text-[var(--muted)]">
-            {t("reference")}: {error.digest}
+          <p
+            className="font-mono text-xs text-[var(--muted)]"
+            {...tid("error-digest")}
+          >
+            {/* The separator is part of the message, not the markup: where the
+                colon goes is a property of the language. */}
+            {t("reference", { digest: error.digest })}
           </p>
         ) : null}
       </section>

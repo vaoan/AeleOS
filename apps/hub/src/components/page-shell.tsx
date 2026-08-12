@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NebulaToggle } from "@/components/nebula-toggle";
+import { tid } from "@/lib/test-id";
 
 /** What every page renders inside. */
 export interface PageShellProps {
@@ -26,6 +27,10 @@ export interface PageShellProps {
  * Dark and light differ only by the token block. There is no theme-conditional
  * markup here and there should never be any: if a change needs different
  * elements per theme, the tokens are wrong rather than the layout.
+ *
+ * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
+ * suite selects by. The wordmark itself is a literal rather than a catalogue
+ * entry because a proper noun reads the same in every language.
  */
 export function PageShell({ children, toggleLabel, trailing }: PageShellProps) {
   return (
@@ -33,13 +38,21 @@ export function PageShell({ children, toggleLabel, trailing }: PageShellProps) {
       <header className="sticky top-0 z-10 border-b border-[var(--edge)]/40 bg-[var(--bar)] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[620px] items-center gap-2 px-6 py-3">
           <NebulaToggle label={toggleLabel} />
-          <span className="font-display text-lg font-bold tracking-tight">
+          {/* The wordmark is a proper noun, so it is a literal rather than a
+              catalogue entry — it reads the same in every language. */}
+          <span
+            className="font-display text-lg font-bold tracking-tight"
+            {...tid("wordmark")}
+          >
             AeleOS
           </span>
           {trailing ? <div className="ml-auto">{trailing}</div> : null}
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[620px] flex-1 px-6 py-10">
+      <main
+        className="mx-auto w-full max-w-[620px] flex-1 px-6 py-10"
+        {...tid("page-content")}
+      >
         {children}
       </main>
     </div>
@@ -59,10 +72,15 @@ export interface CardProps {
  * separation: at these lightness levels the fill alone cannot reach 3:1
  * against the field, so the border is doing the accessibility work rather
  * than the background. Do not remove it to "clean up" the look.
+ *
+ * Carries the `card` test id.
  */
 export function Card({ children }: CardProps) {
   return (
-    <div className="rounded-2xl border border-[var(--edge)] bg-[var(--surface)] p-6 shadow-sm backdrop-blur-md">
+    <div
+      className="rounded-2xl border border-[var(--edge)] bg-[var(--surface)] p-6 shadow-sm backdrop-blur-md"
+      {...tid("card")}
+    >
       {children}
     </div>
   );

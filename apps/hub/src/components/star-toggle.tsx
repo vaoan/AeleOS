@@ -1,5 +1,7 @@
 "use client";
 
+import { tid } from "@/lib/test-id";
+
 /** What the star needs to render and report. */
 export interface StarToggleProps {
   /** Whether the nebula is currently on. */
@@ -27,6 +29,10 @@ export interface StarToggleProps {
  *
  * Renders a real `<button type="button">` so it is keyboard reachable and does
  * not submit a surrounding form.
+ *
+ * Carries the `nebula-toggle` test id. Test ids are the only selector the
+ * end-to-end suite is allowed to use — role and text queries break when a
+ * string is translated — so renaming one breaks tests rather than styling.
  */
 export function StarToggle({ pressed, onToggle, label }: StarToggleProps) {
   return (
@@ -35,6 +41,7 @@ export function StarToggle({ pressed, onToggle, label }: StarToggleProps) {
       aria-pressed={pressed}
       aria-label={label}
       onClick={onToggle}
+      {...tid("nebula-toggle")}
       className="grid size-[30px] place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
     >
       <span

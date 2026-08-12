@@ -28,6 +28,6 @@
     "title": "Algo salió mal",
     "body": "No pudimos cargar tu identidad. Es un problema nuestro, no de tu cuenta: tu sesión no se vio afectada.",
     "retry": "Reintentar",
-    "reference": "Referencia"
+    "reference": "Referencia: {digest}"
   }
 }

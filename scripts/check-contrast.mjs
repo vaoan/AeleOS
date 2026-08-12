@@ -93,6 +93,45 @@ export function contrastRatio(fg, bg) {
 }
 
 /**
+ * Flattens a translucent colour over an opaque one.
+ *
+ * Source-over compositing in linear light rather than on the gamma-encoded
+ * channels, because averaging gamma-encoded values darkens the midpoint — the
+ * error is largest at exactly the half-transparent case a ring lives at.
+ *
+ * This is what lets a translucent token be measured at all. Without it the
+ * only honest answer about `--ring` was "cannot be checked here".
+ *
+ * @param fg - the translucent colour as `[l, c, h]`.
+ * @param alpha - its alpha, 0 to 1.
+ * @param bg - the opaque colour behind it as `[l, c, h]`.
+ * @returns the resulting opaque sRGB triple, gamma-encoded.
+ */
+export function composite(fg, alpha, bg) {
+  const toLinear = (ch) =>
+    ch <= 0.04045 ? ch / 12.92 : ((ch + 0.055) / 1.055) ** 2.4;
+  const toGamma = (ch) =>
+    ch <= 0.0031308 ? 12.92 * ch : 1.055 * ch ** (1 / 2.4) - 0.055;
+  const f = oklchToSrgb(...fg).map(toLinear);
+  const b = oklchToSrgb(...bg).map(toLinear);
+  return f.map((ch, i) => toGamma(ch * alpha + b[i] * (1 - alpha)));
+}
+
+/**
+ * WCAG contrast ratio between an already-composited sRGB colour and an OKLCH one.
+ *
+ * @param rgb - a gamma-encoded sRGB triple, as returned by {@link composite}.
+ * @param other - the other colour as `[l, c, h]`.
+ * @returns the ratio, from 1 to 21.
+ */
+export function contrastRatioSrgb(rgb, other) {
+  const a = luminance(rgb);
+  const b = luminance(oklchToSrgb(...other));
+  const [hi, lo] = a > b ? [a, b] : [b, a];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
  * The pairs the design depends on, each with the minimum it must clear.
  *
  * Text needs 4.5:1; borders and other non-text needs 3:1. Every value here is
@@ -115,25 +154,70 @@ const PAIRS = [
 ];
 
 /**
+ * The avatar ring per mode: the ring, its alpha, and the field behind it.
+ *
+ * Kept in step with `--ring` in `globals.css` by
+ * `apps/hub/tests/ring-contrast.test.ts`, which parses the stylesheet.
+ */
+export const RINGS = [
+  ["light: ring", [0.38, 0.05, 30], 0.85, [0.98, 0.016, 45]],
+  ["dark: ring", [0.8, 0, 0], 0.34, [0.12, 0.03, 305]],
+];
+
+/**
+ * The two avatars a ring has to survive.
+ *
+ * Pure white and pure black, because those are the ones that vanish: one
+ * matches the light field, the other the dark one. A fursona disappearing into
+ * the background is the failure the design calls unacceptable, and no other
+ * check here can see it.
+ */
+export const AVATARS = [
+  ["white avatar", [1, 0, 0]],
+  ["black avatar", [0, 0, 0]],
+];
+
+/**
  * Checks every pair and reports the result.
  *
  * @returns nothing; exits non-zero when any pair is below its minimum.
  */
 function main() {
   let failed = 0;
-  for (const [label, fg, bg, min] of PAIRS) {
-    const ratio = contrastRatio(fg, bg);
+  let checked = 0;
+
+  /**
+   * Reports one measurement and counts it.
+   *
+   * @param label - what was measured.
+   * @param ratio - the measured contrast ratio.
+   * @param min - the minimum it must clear.
+   * @returns nothing.
+   */
+  const report = (label, ratio, min) => {
     const ok = ratio >= min;
     if (!ok) failed += 1;
+    checked += 1;
     console.log(
-      `${ok ? "  " : "x "}${label.padEnd(26)} ${ratio.toFixed(2)}:1 (needs ${min})`,
+      `${ok ? "  " : "x "}${label.padEnd(30)} ${ratio.toFixed(2)}:1 (needs ${min})`,
     );
+  };
+
+  for (const [label, fg, bg, min] of PAIRS) {
+    report(label, contrastRatio(fg, bg), min);
   }
+  for (const [label, ring, alpha, field] of RINGS) {
+    const flattened = composite(ring, alpha, field);
+    for (const [who, avatar] of AVATARS) {
+      report(`${label} v ${who}`, contrastRatioSrgb(flattened, avatar), 3);
+    }
+  }
+
   if (failed) {
     console.error(`\n${failed} pair(s) below the minimum.`);
     process.exit(1);
   }
-  console.log(`\nAll ${PAIRS.length} token pairs clear their minimum.`);
+  console.log(`\nAll ${checked} token pairs clear their minimum.`);
 }
 
 // Only runs as a CLI, so the tests can import the pure functions.

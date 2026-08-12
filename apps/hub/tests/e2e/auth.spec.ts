@@ -1,4 +1,10 @@
 import { expect, test } from "@playwright/test";
+import {
+  movesWithin,
+  nebulaAlpha,
+  nebulaTint,
+  waitForNebulaReady,
+} from "./helpers";
 
 // None of these need credentials: they exercise the gate, not a completed
 // sign-in. Driving Google's, Discord's or Facebook's own login would be
@@ -6,7 +12,7 @@ import { expect, test } from "@playwright/test";
 test.describe("authentication gate", () => {
   test("the home page is public", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "AeleOS" })).toBeVisible();
+    await expect(page.getByTestId("home-title")).toBeVisible();
   });
 
   test("an anonymous visitor cannot reach /me", async ({ page }) => {
@@ -14,14 +20,33 @@ test.describe("authentication gate", () => {
     await expect(page).toHaveURL(/\/(es|en)\/sign-in/);
   });
 
+  // Clerk's default when it is not told where our sign-in page is: its own
+  // hosted Account Portal on accounts.dev. CLAUDE.md forbids anyone landing on
+  // a Clerk-branded address, and both the proxy and the signed-in layout have
+  // had to be corrected for exactly this.
+  test("the sign-in redirect never leaves our origin", async ({
+    page,
+    baseURL,
+  }) => {
+    const ours = new URL(baseURL!).origin;
+    for (const path of ["/me", "/es/me", "/en/me"]) {
+      await page.goto(path);
+      expect(new URL(page.url()).origin).toBe(ours);
+    }
+  });
+
   test("the sign-in page offers the configured social providers", async ({
     page,
   }) => {
     await page.goto("/sign-in");
-    // Clerk renders social buttons with the provider name in the accessible name.
-    await expect(page.getByRole("button", { name: /google/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /discord/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /facebook/i })).toBeVisible();
+    // Clerk's DOM, so there is nothing to put a test id on. Its per-provider
+    // classes are the stable, untranslated handle — the accessible name is
+    // localised and would break the moment the page renders in Spanish.
+    for (const provider of ["google", "discord", "facebook"]) {
+      await expect(
+        page.locator(`.cl-socialButtonsIconButton__${provider}`),
+      ).toBeVisible();
+    }
   });
 });
 
@@ -37,7 +62,10 @@ test.describe("locale routing", () => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/en$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
-    await expect(page.getByText(/One account for every app/i)).toBeVisible();
+    // Which words appear is the catalogue's business; that the copy rendered
+    // at all is this test's.
+    await expect(page.getByTestId("home-body")).toBeVisible();
+    await expect(page.getByTestId("home-body")).not.toBeEmpty();
   });
 });
 
@@ -72,9 +100,7 @@ test.describe("Spanish is the fallback", () => {
 test.describe("the visual identity", () => {
   test("the star meets the minimum target size", async ({ page }) => {
     await page.goto("/");
-    const box = await page
-      .getByRole("button", { name: /nebula|nebulosa/i })
-      .boundingBox();
+    const box = await page.getByTestId("nebula-toggle").boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(24);
     expect(box?.height).toBeGreaterThanOrEqual(24);
   });
@@ -97,7 +123,7 @@ test.describe("the visual identity", () => {
   // rather than on the tile in isolation.
   test("the nebula actually paints", async ({ page }) => {
     await page.goto("/");
-    await page.waitForTimeout(1200);
+    await waitForNebulaReady(page);
     const painted = await page.evaluate(() => {
       const canvas = document.querySelector("canvas");
       const data = canvas
@@ -113,13 +139,84 @@ test.describe("the visual identity", () => {
     expect(painted).toBeLessThan(95);
   });
 
+  // A frozen animation is invisible in a screenshot: the page still looks
+  // exactly right. Only comparing two moments can tell the difference, and
+  // nothing did until this test.
+  test("the nebula actually drifts", async ({ page }) => {
+    await page.goto("/");
+    await waitForNebulaReady(page);
+    expect(await movesWithin(page, 180)).toBe(true);
+  });
+
+  // Keeps the layer, drops the movement. Removing it entirely would hand a
+  // plainer product to somebody who asked only for less motion.
+  //
+  // `emulateMedia` rather than `test.use`: nested inside a describe, the
+  // fixture is silently not applied — matchMedia reports false — so this test
+  // spent its first version exercising the animated nebula and failing for the
+  // right reason by accident.
+  test("reduced motion renders a static nebula rather than none", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    expect(
+      await page.evaluate(
+        () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      ),
+    ).toBe(true);
+
+    await waitForNebulaReady(page);
+    expect(await nebulaAlpha(page)).toBeGreaterThan(0);
+    // Given the same number of frames in which the animated field moves.
+    expect(await movesWithin(page, 180)).toBe(false);
+  });
+
+  // The tints live in CSS, so the tiles have to be rebuilt when the theme
+  // changes. Without the observer the clouds keep the old mode's colour —
+  // hydrogen pink on a rose-gold field.
+  test("the nebula re-tints when the theme changes", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/");
+    await waitForNebulaReady(page);
+
+    const light = await nebulaTint(page);
+    // Light absorbs: solar orange, so red far exceeds blue.
+    expect(light!.r).toBeGreaterThan(light!.b);
+
+    await page.evaluate(() =>
+      document.documentElement.setAttribute("data-theme", "dark"),
+    );
+    // Waits for the rebuild rather than assuming a duration for it.
+    await page.waitForFunction((was) => {
+      const data = document
+        .querySelector("canvas")
+        ?.getContext("2d")
+        ?.getImageData(0, 0, 250, 250).data;
+      if (!data) return false;
+      let b = 0;
+      let n = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3]! > 5) {
+          b += data[i + 2]!;
+          n++;
+        }
+      }
+      return n > 0 && b / n > was + 40;
+    }, light!.b);
+
+    // Dark emits: hydrogen pink, so blue climbs well past where it was.
+    const dark = await nebulaTint(page);
+    expect(dark!.b).toBeGreaterThan(light!.b + 40);
+  });
+
   test("switching the star off leaves the page readable", async ({ page }) => {
     await page.goto("/");
-    const star = page.getByRole("button", { name: /nebula|nebulosa/i });
+    const star = page.getByTestId("nebula-toggle");
     await star.click();
     await expect(star).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("canvas")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "AeleOS" })).toBeVisible();
+    await expect(page.getByTestId("home-title")).toBeVisible();
   });
 
   // Dropping `variable:` from a next/font call makes every face silently fall

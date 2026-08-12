@@ -31,9 +31,12 @@ const intlMiddleware = createIntlMiddleware(routing);
  * path segment; the `[locale]` route rejects that as an unknown locale, so
  * every protected page answered 404 instead of showing a sign-in page.
  *
- * Still named `middleware` rather than Next 16's `proxy`. That migration is
- * tracked on its own, and rewiring the file that gates every authenticated
- * route is not something to fold into an unrelated change.
+ * Named `proxy` for Next 16, which deprecated the `middleware` convention and
+ * warned on every build until this moved.
+ *
+ * It is no longer the only thing protecting a route: the signed-in layout calls
+ * `auth.protect()` itself. This stays as the outer gate because redirecting
+ * here avoids rendering a page nobody may see.
  */
 export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {

@@ -28,3 +28,32 @@ export declare function oklchToSrgb(l: number, c: number, h: number): number[];
  * @returns the ratio, from 1 (identical) to 21 (black against white).
  */
 export declare function contrastRatio(fg: Oklch, bg: Oklch): number;
+
+/**
+ * Flattens a translucent colour over an opaque one, in linear light.
+ *
+ * @param fg - the translucent colour as `[l, c, h]`.
+ * @param alpha - its alpha, 0 to 1.
+ * @param bg - the opaque colour behind it as `[l, c, h]`.
+ * @returns the resulting opaque sRGB triple, gamma-encoded.
+ */
+export declare function composite(
+  fg: Oklch,
+  alpha: number,
+  bg: Oklch,
+): number[];
+
+/**
+ * Contrast ratio between an already-composited sRGB colour and an OKLCH one.
+ *
+ * @param rgb - a gamma-encoded sRGB triple.
+ * @param other - the other colour as `[l, c, h]`.
+ * @returns the ratio, from 1 to 21.
+ */
+export declare function contrastRatioSrgb(rgb: number[], other: Oklch): number;
+
+/** The avatar ring per mode: label, ring, alpha, and the field behind it. */
+export declare const RINGS: [string, Oklch, number, Oklch][];
+
+/** The two avatars a ring has to survive: pure white and pure black. */
+export declare const AVATARS: [string, Oklch][];

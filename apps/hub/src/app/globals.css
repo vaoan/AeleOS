@@ -30,11 +30,16 @@
    * job is showing other people's characters.
    *
    * It has no consumer yet: avatars arrive with the picker in Phase 1b-ii.
-   * This is not a dead token. Being translucent, it also cannot be measured by
-   * check:contrast — whoever adds avatars must check it by eye against a pure
-   * white and a pure black image, in both modes.
+   * This is not a dead token.
+   *
+   * It IS measured, despite being translucent: `check:contrast` composites it
+   * over the field and checks the result against a pure white and a pure black
+   * avatar, both of which must clear 3:1. The first value written here —
+   * `oklch(0.3 0.055 30 / 0.32)` — reached only 1.52:1 against white, which is
+   * the "white fursona vanishes on the light field" case the design calls
+   * unacceptable. It looked perfectly reasonable.
    */
-  --ring: oklch(0.3 0.055 30 / 0.32);
+  --ring: oklch(0.38 0.05 30 / 0.85);
 
   --star: oklch(0.62 0.16 32);
   --star-glow: oklch(0.8 0.15 34 / 0.45);
@@ -72,7 +77,7 @@
   --accent: oklch(0.74 0.18 350);
   --on-accent: oklch(0.16 0.04 350);
 
-  --ring: oklch(0.99 0 0 / 0.24);
+  --ring: oklch(0.8 0 0 / 0.34);
 
   --star: oklch(0.86 0.15 78);
   --star-glow: oklch(0.8 0.16 60 / 0.65);
