@@ -33,5 +33,10 @@
     "body": "We could not load your identity. This is a problem on our side, not with your account — your sign-in is unaffected.",
     "retry": "Try again",
     "reference": "Reference: {digest}"
+  },
+  "controls": {
+    "toDark": "Switch to dark mode",
+    "toLight": "Switch to light mode",
+    "language": "Change language"
   }
 }

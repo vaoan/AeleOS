@@ -9,6 +9,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // next-intl's ESM build imports "next/navigation" without an extension,
+    // which Vite cannot resolve from inside pnpm's nested store. Inlining it
+    // makes Vite process the package and resolve the import the way Next does.
+    server: { deps: { inline: [/next-intl/] } },
     setupFiles: ["tests/setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {

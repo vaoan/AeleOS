@@ -1,6 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
 import { PageShell } from "@/components/page-shell";
 import { UserMenu } from "@/components/user-menu";
 
@@ -27,7 +26,8 @@ import { UserMenu } from "@/components/user-menu";
  * watching where the fallback sent the request — and nobody may land on a
  * Clerk-branded address.
  *
- * It uses the same `PageShell` as the public pages and adds the user button,
+ * It uses the same `PageShell` as the public pages — which now carries the
+ * language and theme controls itself — and adds the user button,
  * so signing in changes what is on the page rather than what the page looks
  * like.
  *
@@ -45,11 +45,6 @@ export default async function AppLayout({
     const { locale } = await params;
     redirect({ href: "/sign-in", locale });
   }
-  const tNebula = await getTranslations("nebula");
 
-  return (
-    <PageShell toggleLabel={tNebula("toggle")} trailing={<UserMenu />}>
-      {children}
-    </PageShell>
-  );
+  return <PageShell trailing={<UserMenu />}>{children}</PageShell>;
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { HtmlLang } from "@/components/html-lang";
 import { routing } from "@/i18n/routing";
 
 /**
@@ -41,6 +42,11 @@ export async function generateMetadata({
  * `setRequestLocale` must be called before any translation is read, or the
  * page opts out of static rendering.
  *
+ * `HtmlLang` is here rather than in the root layout because the root sits above
+ * this segment and is not re-rendered when the language control navigates
+ * between locales — the document would keep declaring the language it was first
+ * served with.
+ *
  * @returns the localised subtree.
  */
 export default async function LocaleLayout({
@@ -54,5 +60,10 @@ export default async function LocaleLayout({
   if (!routing.locales.includes(locale)) notFound();
   setRequestLocale(locale);
 
-  return <NextIntlClientProvider>{children}</NextIntlClientProvider>;
+  return (
+    <NextIntlClientProvider>
+      <HtmlLang locale={locale} />
+      {children}
+    </NextIntlClientProvider>
+  );
 }

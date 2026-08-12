@@ -1,13 +1,21 @@
+import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
+import { LanguageToggle } from "@/components/language-toggle";
 import { NebulaToggle } from "@/components/nebula-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { tid } from "@/lib/test-id";
 
-/** What every page renders inside. */
+/**
+ * What every page renders inside.
+ *
+ * Deliberately small. The shell resolves its own control labels from the
+ * catalogue rather than accepting them, so adding a control does not mean
+ * editing every page that renders a shell.
+ */
 export interface PageShellProps {
   /** The page's content, laid out in the shared column. */
   children: ReactNode;
-  /** Accessible name for the star, from the message catalogue. */
-  toggleLabel: string;
+
   /**
    * Optional header content pinned to the right — the user button when signed
    * in. A slot rather than a second shell, so signing in changes what is on
@@ -28,6 +36,14 @@ export interface PageShellProps {
  * markup here and there should never be any: if a change needs different
  * elements per theme, the tokens are wrong rather than the layout.
  *
+ * The header bar spans the window; only the page below it is held to 620px.
+ * Constraining the bar's contents to that column too left the wordmark floating
+ * mid-screen on a wide display, which read as a mistake rather than a choice.
+ *
+ * The right-hand group holds the controls: language, theme, then the nebula
+ * star, with the account menu after them when signed in. They sit together
+ * because they are all page-level settings rather than content.
+ *
  * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
  * suite selects by. The wordmark itself is a literal rather than a catalogue
  * entry because a proper noun reads the same in every language.
@@ -37,12 +53,21 @@ export interface PageShellProps {
  * the header with a third of the window empty beneath it; this fixes that for
  * every page at once rather than making sign-in a special case.
  */
-export function PageShell({ children, toggleLabel, trailing }: PageShellProps) {
+export async function PageShell({ children, trailing }: PageShellProps) {
+  // The shell resolves its own chrome labels rather than taking them as props.
+  // Threading one per control through every page means every new control edits
+  // every page, and a page that forgets one renders an unlabelled button.
+  const t = await getTranslations("controls");
+  const tNebula = await getTranslations("nebula");
+
   return (
     <div className="flex min-h-screen flex-col">
+      {/* The bar spans the window and so do its contents. Pinning them to the
+          620px content column instead left the wordmark stranded at x=434 on a
+          1440px screen — text dropped in the middle of an empty bar rather
+          than a navigation bar. The column still governs the page below. */}
       <header className="sticky top-0 z-10 border-b border-[var(--edge)]/40 bg-[var(--bar)] backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[620px] items-center gap-2 px-6 py-3">
-          <NebulaToggle label={toggleLabel} />
+        <div className="flex w-full items-center gap-3 px-6 py-3">
           {/* The wordmark is a proper noun, so it is a literal rather than a
               catalogue entry — it reads the same in every language. */}
           <span
@@ -51,7 +76,17 @@ export function PageShell({ children, toggleLabel, trailing }: PageShellProps) {
           >
             AeleOS
           </span>
-          {trailing ? <div className="ml-auto">{trailing}</div> : null}
+          {/* Controls live together on the right. Beside the wordmark the star
+              read as a bullet point rather than something pressable. */}
+          <div className="ml-auto flex items-center gap-1">
+            <LanguageToggle label={t("language")} />
+            <ThemeToggle
+              toDarkLabel={t("toDark")}
+              toLightLabel={t("toLight")}
+            />
+            <NebulaToggle label={tNebula("toggle")} />
+            {trailing ? <div className="ml-1">{trailing}</div> : null}
+          </div>
         </div>
       </header>
       {/* `justify-center` with `flex-1` centres a short page and leaves a long

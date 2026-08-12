@@ -33,5 +33,10 @@
     "body": "No pudimos cargar tu identidad. Es un problema nuestro, no de tu cuenta: tu sesión no se vio afectada.",
     "retry": "Reintentar",
     "reference": "Referencia: {digest}"
+  },
+  "controls": {
+    "toDark": "Cambiar a modo oscuro",
+    "toLight": "Cambiar a modo claro",
+    "language": "Cambiar idioma"
   }
 }

@@ -146,7 +146,8 @@
         "apps/hub/tests/messages.test.ts",
         "apps/hub/tests/e2e/auth.spec.ts",
         "apps/hub/tests/sign-out-button.test.tsx",
-        "apps/hub/tests/sign-in-form.test.tsx"
+        "apps/hub/tests/sign-in-form.test.tsx",
+        "apps/hub/tests/language-toggle.test.tsx"
       ],
       "language": "en,en-GB,es"
     }

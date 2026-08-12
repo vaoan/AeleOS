@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { resolveTheme, THEME_SCRIPT, THEME_STORAGE_KEY } from "@/lib/theme";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  otherTheme,
+  resolveTheme,
+  setTheme,
+  THEME_CHANGE_EVENT,
+  THEME_SCRIPT,
+  THEME_STORAGE_KEY,
+} from "@/lib/theme";
 
 describe("resolveTheme", () => {
   it("uses a stored choice over the system preference", () => {
@@ -123,5 +130,52 @@ describe("THEME_SCRIPT behaviour", () => {
   // falls back — a worse outcome than picking the wrong one.
   it("still applies a theme when storage throws", () => {
     expect(run(null, false, true)).toBe("light");
+  });
+});
+
+describe("otherTheme", () => {
+  it("returns the one a toggle should switch to", () => {
+    expect(otherTheme("dark")).toBe("light");
+    expect(otherTheme("light")).toBe("dark");
+  });
+});
+
+describe("setTheme", () => {
+  beforeEach(() => {
+    document.documentElement.removeAttribute("data-theme");
+    localStorage.clear();
+  });
+
+  it("applies the theme to the document", () => {
+    setTheme("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("remembers the choice", () => {
+    setTheme("light");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+  });
+
+  // `storage` does not fire in the tab that wrote the value, so without this
+  // the control would update storage and nothing on the page would notice.
+  it("announces the change to this tab", () => {
+    const heard = vi.fn();
+    window.addEventListener(THEME_CHANGE_EVENT, heard);
+    setTheme("dark");
+    expect(heard).toHaveBeenCalledTimes(1);
+    window.removeEventListener(THEME_CHANGE_EVENT, heard);
+  });
+
+  // Applying first and persisting second is what makes this survivable: a
+  // privacy mode that refuses storage still gets the theme it asked for.
+  it("still applies the theme when storage refuses", () => {
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("storage disabled");
+      });
+    expect(() => setTheme("dark")).not.toThrow();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    setItem.mockRestore();
   });
 });

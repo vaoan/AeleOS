@@ -19,6 +19,9 @@ const CALLBACK_SEGMENT = "sso-callback";
  * The optional catch-all segment stays because the provider redirect returns to
  * `/sign-in/sso-callback`. Narrowing the route breaks the round trip.
  *
+ * The header and its language, theme and nebula controls come from the shell,
+ * so somebody can change language before signing in rather than after.
+ *
  * Not a centred hero: it uses the same header, column and card as every other
  * page, because it is the first thing a new person sees and it has to look like
  * the product rather than a detour into somebody else's service.
@@ -39,7 +42,7 @@ export default async function SignInPage({
 
   if (resolved["sign-in"]?.[0] === CALLBACK_SEGMENT) {
     return (
-      <PageShell toggleLabel={(await getTranslations("nebula"))("toggle")}>
+      <PageShell>
         <Card>
           <p {...tid("sso-callback")}>{t("completing")}</p>
           <SsoCallback afterSignInUrl={afterSignInUrl} />
@@ -56,7 +59,7 @@ export default async function SignInPage({
   ) as Record<Provider["id"], string>;
 
   return (
-    <PageShell toggleLabel={(await getTranslations("nebula"))("toggle")}>
+    <PageShell>
       <Card>
         <h1
           className="font-display text-2xl font-bold tracking-tight"

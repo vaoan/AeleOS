@@ -66,3 +66,43 @@ try {
   document.documentElement.setAttribute("data-theme", "light");
 }
 `.trim();
+
+/**
+ * Event dispatched when the theme changes in this tab.
+ *
+ * The `storage` event deliberately does not fire in the tab that wrote the
+ * value, so without this a control would update storage and nothing on the
+ * page would notice until the next reload.
+ */
+export const THEME_CHANGE_EVENT = "aeleos:theme-change";
+
+/**
+ * Applies a theme and remembers it.
+ *
+ * Writes the attribute first and persists second: the attribute is what the
+ * page renders from, so a storage failure in a privacy mode must still leave
+ * the visitor with the theme they asked for, just not a lasting one.
+ *
+ * @param theme - the theme to apply.
+ * @returns nothing.
+ */
+export function setTheme(theme: Theme): void {
+  document.documentElement.setAttribute("data-theme", theme);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Storage is unavailable in some privacy modes. The choice still applies to
+    // this page view; it simply will not survive a reload.
+  }
+  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+}
+
+/**
+ * The opposite theme.
+ *
+ * @param theme - the current theme.
+ * @returns the one a toggle should switch to.
+ */
+export function otherTheme(theme: Theme): Theme {
+  return theme === "dark" ? "light" : "dark";
+}

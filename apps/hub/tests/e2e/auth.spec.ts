@@ -120,6 +120,56 @@ test.describe("Spanish is the fallback", () => {
   });
 });
 
+test.describe("the header controls", () => {
+  test("the theme switch flips the document and persists", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/");
+    const html = page.locator("html");
+    await expect(html).toHaveAttribute("data-theme", "dark");
+
+    await page.getByTestId("theme-toggle").click();
+    await expect(html).toHaveAttribute("data-theme", "light");
+
+    await page.reload();
+    await expect(html).toHaveAttribute("data-theme", "light");
+  });
+
+  // The root layout sits above the [locale] segment, so Next does not
+  // re-render it on a client navigation between locales. Without the syncer
+  // the URL and the copy turned English while the document still declared
+  // Spanish — the wrong-language bug, by a different route.
+  test("the language switch changes the URL, the copy and the lang attribute", async ({
+    page,
+  }) => {
+    await page.goto("/es");
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+
+    await page.getByTestId("language-toggle").click();
+    await page.waitForURL(/\/en$/);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByTestId("home-body")).not.toBeEmpty();
+  });
+
+  test("the language switch keeps you on the same page", async ({ page }) => {
+    await page.goto("/es/sign-in");
+    await page.getByTestId("language-toggle").click();
+    await page.waitForURL(/\/en\/sign-in$/);
+    await expect(page.getByTestId("sign-in-discord")).toBeVisible();
+  });
+
+  // Two independent settings; changing one must not reset the other.
+  test("theme survives a language change", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/es");
+    await page.getByTestId("theme-toggle").click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+    await page.getByTestId("language-toggle").click();
+    await page.waitForURL(/\/en$/);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  });
+});
+
 test.describe("the visual identity", () => {
   test("the star meets the minimum target size", async ({ page }) => {
     await page.goto("/");

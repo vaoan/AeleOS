@@ -10,6 +10,9 @@ import { tid } from "@/lib/test-id";
  * Public by way of `PUBLIC_ROUTES`; changing that list is what makes a route
  * reachable signed-out, not anything here.
  *
+ * The shell supplies the header and its controls; this page passes nothing to
+ * it, because the shell reads its own labels.
+ *
  * Exposes the `home-title`, `home-body` and `home-cta` test ids. The end-to-end
  * suite asserts the body rendered and is non-empty rather than what it says,
  * so the copy can change in either language without breaking the suite.
@@ -24,14 +27,13 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("home");
-  const tNebula = await getTranslations("nebula");
   // Resolved on the server rather than with a client-side <Show>: the call to
   // action is the page's whole purpose, and rendering the wrong one first
   // would flash the wrong destination at every visitor.
   const { userId } = await auth();
 
   return (
-    <PageShell toggleLabel={tNebula("toggle")}>
+    <PageShell>
       <Card>
         <h1
           className="font-display text-3xl font-bold tracking-tight"
