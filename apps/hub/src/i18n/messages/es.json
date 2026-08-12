@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "title": "AeleOS",
+    "description": "Tu identidad en todo Furry Colombia."
+  },
+  "home": {
+    "title": "AeleOS",
+    "tagline": "Tu identidad en todo Furry Colombia.",
+    "body": "Una sola cuenta para todas las apps de la comunidad. Inicia sesión una vez y ya estás dentro en todas.",
+    "signIn": "Iniciar sesión",
+    "goToProfile": "Ir a mi perfil"
+  },
+  "signIn": {
+    "title": "Iniciar sesión",
+    "subtitle": "Entra con la cuenta que ya usas."
+  },
+  "profile": {
+    "fallbackTitle": "Tu identidad",
+    "handle": "Nombre de usuario",
+    "platformId": "Identificador de plataforma",
+    "platformIdHint": "Este identificador es el mismo en todas las apps de Furry Colombia.",
+    "empty": "—"
+  },
+  "nebula": {
+    "toggle": "Fondo de nebulosa"
+  },
+  "error": {
+    "title": "Algo salió mal",
+    "body": "No pudimos cargar tu identidad. Es un problema nuestro, no de tu cuenta: tu sesión no se vio afectada.",
+    "retry": "Reintentar",
+    "reference": "Referencia"
+  }
+}

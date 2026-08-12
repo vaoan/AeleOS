@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isPublicRoute } from "@/lib/public-routes";
+import { routing } from "@/i18n/routing";
 
 /**
  * Clerk's matcher reads the pathname off the request. A URL-bearing stub is
@@ -40,5 +41,36 @@ describe("isPublicRoute", () => {
   it("does not make every route starting with sign-in public", () => {
     expect(isPublicRoute(request("/sign-instead"))).toBe(false);
     expect(isPublicRoute(request("/sign-in-admin"))).toBe(false);
+  });
+
+  // Locale prefixes are what the browser actually requests once next-intl has
+  // redirected, so the unprefixed forms alone would lock every visitor out of
+  // the very page they were sent to.
+  it("lets each locale's home and sign-in through", () => {
+    for (const locale of routing.locales) {
+      expect(isPublicRoute(request(`/${locale}`))).toBe(true);
+      expect(isPublicRoute(request(`/${locale}/sign-in`))).toBe(true);
+      expect(isPublicRoute(request(`/${locale}/sign-in/sso-callback`))).toBe(
+        true,
+      );
+    }
+  });
+
+  it("protects each locale's signed-in pages", () => {
+    for (const locale of routing.locales) {
+      expect(isPublicRoute(request(`/${locale}/me`))).toBe(false);
+      expect(isPublicRoute(request(`/${locale}/fursonas`))).toBe(false);
+    }
+  });
+
+  it("keeps the separator boundary inside a locale prefix too", () => {
+    expect(isPublicRoute(request("/es/sign-instead"))).toBe(false);
+    expect(isPublicRoute(request("/en/sign-in-admin"))).toBe(false);
+  });
+
+  // An unsupported locale must not become a way to reach protected pages.
+  it("does not treat an unknown locale prefix as public", () => {
+    expect(isPublicRoute(request("/fr/me"))).toBe(false);
+    expect(isPublicRoute(request("/de"))).toBe(false);
   });
 });

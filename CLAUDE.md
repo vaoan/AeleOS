@@ -217,12 +217,24 @@ Key choices and _why_:
   the Supabase integration are live. `tests/idp/` runs against a real
   Clerk-issued token; the `idp-cloud` CI job re-proves the trust on every pull
   request. See `docs/phase-0-clerk-setup.md`.
-- **Phase 1b-i (hub foundation) — done except Task 8 and the 🧑 steps.**
+- **Phase 1b-i (hub foundation) — done except the 🧑 steps.**
   `apps/hub` is a Next.js app with Clerk sign-in, a Supabase client bound to the
-  Clerk token, and person provisioning on first sign-in. Still open: Playwright
-  e2e (Task 8), and the two steps the plan marks 🧑 — verifying a real sign-in
-  provisions exactly one actor row. Plan:
-  `2026-08-02-phase-1b-i-hub-foundation.md`.
+  Clerk token, and person provisioning on first sign-in. Still open: the steps
+  the plan marks 🧑 — verifying a real sign-in provisions exactly one actor row.
+  Plan: `2026-08-02-phase-1b-i-hub-foundation.md`.
+- **Visual identity — shipped.** The hub carries the design: OKLCH tokens for
+  both modes, self-hosted fonts, and a drifting nebula canvas behind every page
+  with the star beside the wordmark switching it off. `pnpm check:contrast`
+  measures the token pairs so "measure, do not eyeball" is a command rather than
+  a rule. Spec: `2026-08-12-aeleos-visual-identity-design.md`; the four things
+  the design got wrong about itself are recorded in `docs/design/README.md`.
+- **The hub is bilingual.** next-intl in the same shape as Libra's
+  `shared/i18n`, in-app because AeleOS ships one app. Routes carry a `[locale]`
+  segment; the browser's language wins where supported and **Spanish is the
+  fallback** (Libra defaults to English — AeleOS deliberately does not). Both
+  catalogues are key-checked in `apps/hub/tests/messages.test.ts`, so a message
+  added to one language and not the other fails the build rather than rendering
+  a raw key at somebody.
 - **Phase 1b-ii (fursonas and the picker) — not started.** Plan:
   `2026-08-02-phase-1b-ii-fursonas-and-picker.md`.
 

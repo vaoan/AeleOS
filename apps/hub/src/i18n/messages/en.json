@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "title": "AeleOS",
+    "description": "Your identity across Furry Colombia."
+  },
+  "home": {
+    "title": "AeleOS",
+    "tagline": "Your identity across Furry Colombia.",
+    "body": "One account for every app in the community. Sign in once and you are already signed in everywhere.",
+    "signIn": "Sign in",
+    "goToProfile": "Go to my profile"
+  },
+  "signIn": {
+    "title": "Sign in",
+    "subtitle": "Use the account you already have."
+  },
+  "profile": {
+    "fallbackTitle": "Your identity",
+    "handle": "Handle",
+    "platformId": "Platform ID",
+    "platformIdHint": "This ID is the same in every Furry Colombia app.",
+    "empty": "—"
+  },
+  "nebula": {
+    "toggle": "Nebula background"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "body": "We could not load your identity. This is a problem on our side, not with your account — your sign-in is unaffected.",
+    "retry": "Try again",
+    "reference": "Reference"
+  }
+}

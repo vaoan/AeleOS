@@ -220,13 +220,55 @@ into iteration 15 unchanged.
 **A labelled pill toggle** (iterations 14, and 15 before revision). Replaced by
 the star itself, which says the same thing without words.
 
+## Shipped
+
+Implemented on 2026-08-12 from
+`docs/superpowers/plans/2026-08-12-aeleos-visual-identity.md`. Four things
+changed on contact with a real browser, and each is worth recording because the
+design as drawn was wrong about them.
+
+**The tiles seamed.** fBm does not repeat, so a tile drawn edge to edge put hard
+vertical and horizontal bands across the page. The design never showed this
+because the preview never tiled. The noise now runs on a lattice that closes on
+itself, and `tilePixels` refuses any size that cannot close.
+
+**It was far too heavy.** The first build painted at full strength and covered
+81% of the viewport — a fog, not a nebula, and it competed with the content that
+the design's own first rule says it must never compete with. It now sits at 44%
+in dark and 37% in light, with the opacity a theme token beside the tints.
+
+**The tint parser was silently wrong.** It split on commas while the tokens are
+space-separated, so every frame used the grey fallback. It was caught only
+because that fallback is visible by design; a transparent one would have looked
+exactly like working code.
+
+**Clerk cannot be themed with `var()`.** It parses `appearance.variables` to
+derive its own scale, so a custom property leaves it empty — which gave an
+invisible "Continue" button and a black footer strip on a light page. Its
+palette is now literal OKLCH per theme, kept in step with the tokens by a test
+that parses `globals.css`.
+
+The `Math.imul` note in the journal was also overstated: swapping it for `*`
+produces a byte-identical field at these sizes. It stays as the correct explicit
+32-bit multiply, not as a fix for a bug it does not fix.
+
+## Resolved
+
+- **Spanish.** Settled by implementing it rather than choosing: the app is
+  bilingual through next-intl, using Libra's system. The browser's language
+  wins where it is supported and Spanish is the fallback, so `lang` is now the
+  negotiated locale instead of a hardcoded `es` above English copy.
+- **The nebula preference.** Stored under `aeleos-nebula`, defaulting to on.
+  Reduced motion stops the drift but keeps the layer — someone asking for less
+  movement has not asked for a plainer product.
+- **Keyboard focus on the star.** It is a real `<button>` with a
+  `focus-visible` ring, asserted in the unit suite and measured at 30x30 in a
+  browser.
+
 ## Open
 
-- Whether the hub should be in Spanish. `apps/hub/src/app/layout.tsx` sets
-  `lang="es"` while every string in the app is English — one of them is wrong.
 - Drift speed. The cycle is ~90 seconds, deliberately subtle. Nobody has yet
-  judged whether it reads as alive or as static.
-- Keyboard focus on the star could not be confirmed in the companion — the
-  frame appears to swallow focus. It needs a real check in the app.
-- Where the nebula preference is stored, and its default. Reduced motion must
-  force it off regardless of what is stored.
+  judged whether it reads as alive or as static on a real page.
+- The avatar ring. `--ring` ships with no consumer; whoever adds avatars must
+  check it against a pure-white and a pure-black image in both modes, since it
+  is translucent and `check:contrast` cannot measure it.

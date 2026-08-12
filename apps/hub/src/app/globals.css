@@ -1,1 +1,132 @@
 @import "tailwindcss";
+
+/*
+ * Both themes are positions inside one nebula, not a colour scheme and its
+ * inversion: light is close to the star, dark is out in the dust. That is why
+ * neither mode contains pure white or pure black — the lightest surface is
+ * oklch(0.99 0.01 40), which still carries the star's warmth.
+ *
+ * Light is :root and dark is the override, matching Libra's file shape.
+ *
+ * Values are OKLCH so lightness is perceptually even, which is what lets the
+ * contrast figures be reasoned about rather than guessed. `pnpm check:contrast`
+ * measures the pairs that matter; when a token here moves, move it there too or
+ * the check is measuring the old design.
+ */
+:root {
+  --ink: oklch(0.27 0.045 35);
+  --ink-2: oklch(0.45 0.045 30);
+  --muted: oklch(0.5 0.045 30);
+  --surface: oklch(0.99 0.01 40 / 0.9);
+  --bar: oklch(1 0 0 / 0.35);
+  --edge: oklch(0.66 0.075 35);
+  --accent: oklch(0.46 0.15 25);
+  --on-accent: oklch(0.98 0.01 40);
+
+  /*
+   * The avatar ring flips with the mode — dark ring on light, light ring on
+   * dark. Without it a white fursona vanishes on the light field and a black
+   * one vanishes on the dark field, which is unacceptable for a product whose
+   * job is showing other people's characters.
+   *
+   * It has no consumer yet: avatars arrive with the picker in Phase 1b-ii.
+   * This is not a dead token. Being translucent, it also cannot be measured by
+   * check:contrast — whoever adds avatars must check it by eye against a pure
+   * white and a pure black image, in both modes.
+   */
+  --ring: oklch(0.3 0.055 30 / 0.32);
+
+  --star: oklch(0.62 0.16 32);
+  --star-glow: oklch(0.8 0.15 34 / 0.45);
+
+  /* Rose-gold, cooled at the centre: a warm-white core rather than an orange
+   * haze, falling through peach to the violet the dark mode lives in. */
+  --field: radial-gradient(
+    115% 85% at 50% 30%,
+    oklch(0.98 0.016 45) 14%,
+    oklch(0.93 0.055 35) 40%,
+    oklch(0.76 0.1 20) 70%,
+    oklch(0.45 0.13 320) 100%
+  );
+
+  /* The nebula's cloud tint, read by the canvas. Light absorbs (multiply), so
+   * the dust is solar orange against the star's glare. */
+  --nebula-a: 236 142 74;
+  --nebula-b: 214 106 96;
+  --nebula-blend: multiply;
+  /* Lower than dark: multiply darkens, and the light field has far less
+   * headroom before the dust starts fighting the text above it. */
+  --nebula-opacity: 0.2;
+}
+
+[data-theme="dark"] {
+  --ink: oklch(0.96 0.012 340);
+  --ink-2: oklch(0.8 0.03 330);
+  --muted: oklch(0.66 0.03 330);
+  --surface: oklch(0.16 0.04 305 / 0.82);
+  --bar: oklch(0.14 0.03 305 / 0.55);
+  --edge: oklch(0.52 0.09 325);
+
+  /* Not the light accent with a flipped lightness — a different value on
+   * purpose. The accent that glows on black is washed out on white. */
+  --accent: oklch(0.74 0.18 350);
+  --on-accent: oklch(0.16 0.04 350);
+
+  --ring: oklch(0.99 0 0 / 0.24);
+
+  --star: oklch(0.86 0.15 78);
+  --star-glow: oklch(0.8 0.16 60 / 0.65);
+
+  --field: radial-gradient(
+    130% 100% at 50% 26%,
+    oklch(0.12 0.03 305) 32%,
+    oklch(0.22 0.08 332) 68%,
+    oklch(0.34 0.12 350) 100%
+  );
+
+  /* Dark emits (screen), so the dust is hydrogen pink and magenta. Same
+   * texture as light, inverted physics. */
+  --nebula-a: 214 96 176;
+  --nebula-b: 132 92 214;
+  --nebula-blend: screen;
+  --nebula-opacity: 0.32;
+}
+
+/*
+ * `inline` substitutes each value into the utility rather than adding another
+ * layer of indirection through a Tailwind-owned variable.
+ *
+ * It does NOT stop Tailwind emitting the font names: the compiled CSS contains
+ * a self-referential `--font-sans: var(--font-sans)` at `:root`, inside
+ * `@layer theme`. That resolves to the real face anyway, because next/font sets
+ * the same variable through an *unlayered* class on <html>, and unlayered
+ * declarations beat layered ones in the cascade regardless of specificity.
+ *
+ * Verified in a browser rather than reasoned about — computed --font-sans is
+ * "DM Sans", "DM Sans Fallback". If a future Tailwind moves these declarations
+ * out of @layer theme, the cyclic reference stops losing and every face silently
+ * falls back to system-ui. Re-measure before trusting this.
+ */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-bar: var(--bar);
+  --color-edge: var(--edge);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-star: var(--star);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background: var(--field);
+  /* Fixed, so the gradient is the window's rather than the document's: a long
+   * page must not scroll the star out of the sky. */
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}

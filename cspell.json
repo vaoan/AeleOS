@@ -91,14 +91,12 @@
     "unreconstructable",
     "btrim",
     "spär",
-
     "sona",
     "Sona",
     "susp",
     "xfer",
     "nosub",
     "unl",
-
     "rolname",
     "attrelid",
     "attnum",
@@ -111,10 +109,8 @@
     "regclass",
     "errcode",
     "reloptions",
-
     "Heiner",
     "Angarita",
-
     "dedup",
     "upserts",
     "syncer",
@@ -138,5 +134,18 @@
     "Bilinearly",
     "Grotesk",
     "moonfest"
-  ]
+  ],
+  "overrides": [
+    {
+      "filename": [
+        "apps/hub/src/i18n/messages/es.json",
+        "apps/hub/tests/star-toggle.test.tsx",
+        "apps/hub/tests/error-boundary.test.tsx",
+        "apps/hub/tests/messages.test.ts",
+        "apps/hub/tests/e2e/auth.spec.ts"
+      ],
+      "language": "en,en-GB,es"
+    }
+  ],
+  "import": ["@cspell/dict-es-es/cspell-ext.json"]
 }
