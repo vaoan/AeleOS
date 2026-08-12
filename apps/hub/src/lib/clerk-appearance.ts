@@ -1,5 +1,10 @@
 /**
- * How Clerk's components are themed to match the rest of the app.
+ * How Clerk's remaining components are themed to match the rest of the app.
+ *
+ * Sign-in no longer uses any of this: that page is our own markup calling
+ * Clerk's headless `signIn.sso()`. What is left is the account menu and the
+ * profile it opens, which are still Clerk's components — and which contain
+ * social connections and form fields of their own, so those keys are live.
  *
  * Colours are **literal OKLCH values, not `var(--token)`**, and that is not an
  * oversight. Clerk parses these strings to derive its own scale — hover states,
@@ -47,6 +52,21 @@ const PALETTE = {
 export type ClerkTheme = keyof typeof PALETTE;
 
 /**
+ * Everything that is not a colour, and so is the same in both themes.
+ *
+ * These were lost once already: rewriting the palette to fix the var() problem
+ * dropped them, and Clerk quietly fell back to its own 6px radius inside a
+ * 16px card. Nothing failed — it just looked slightly wrong in a way that is
+ * hard to name when you are looking at it.
+ */
+const SHAPE = {
+  fontFamily: "var(--font-sans)",
+  // 0.5rem, matching `rounded-lg` on our own buttons. The card is deliberately
+  // rounder at 1rem; controls inside a card should not match the card.
+  borderRadius: "0.5rem",
+} as const;
+
+/**
  * Clerk's own chrome, removed so its component sits inside our card.
  *
  * The header is hidden because the page already has a heading; showing both
@@ -72,7 +92,11 @@ const ELEMENTS = {
   // fragments between them.
   socialButtonsIconButton:
     "h-11! border! border-[var(--edge)]! bg-[var(--bar)]! hover:bg-[var(--edge)]/20!",
-  formFieldInput: "h-11! bg-[var(--bar)]! border-[var(--edge)]!",
+  socialButtonsBlockButton:
+    "h-11! border! border-[var(--edge)]! bg-[var(--bar)]! text-[var(--ink)]! hover:bg-[var(--edge)]/20!",
+  socialButtonsBlockButtonText: "text-[var(--ink)]! font-medium!",
+  formFieldInput:
+    "h-11! min-h-11! bg-[var(--bar)]! border-[var(--edge)]! px-3!",
   dividerLine: "bg-[var(--edge)]!",
   dividerText: "text-[var(--muted)]!",
   formFieldLabel: "text-[var(--ink)]!",
@@ -83,11 +107,16 @@ const ELEMENTS = {
 /**
  * The appearance for a given theme.
  *
+ * Applies to the account menu and profile, not to sign-in: that page is our own
+ * markup now. `layout` is deliberately absent — this Clerk version has no such
+ * key on `Appearance`, and setting it was silently ignored on both the
+ * component and the provider before that was discovered.
+ *
  * @param theme - the theme currently on the document.
  * @returns an appearance object for Clerk's `appearance` prop.
  */
 export function clerkAppearanceFor(theme: ClerkTheme) {
-  return { variables: PALETTE[theme], elements: ELEMENTS };
+  return { variables: { ...PALETTE[theme], ...SHAPE }, elements: ELEMENTS };
 }
 
 /** Every palette, exported so the stylesheet-parity test can check them all. */

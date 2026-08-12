@@ -127,6 +127,27 @@
   --font-mono: var(--font-mono);
 }
 
+/*
+ * Tailwind v4's Preflight dropped the `cursor: pointer` that browsers and
+ * Tailwind v3 gave buttons, so every button in this app rendered with an arrow
+ * while Clerk's own buttons — which set it themselves — showed a hand. The
+ * inconsistency is what gives it away.
+ *
+ * Set here rather than on each component: a per-component class is one someone
+ * forgets on the next button, and the failure is invisible in a screenshot.
+ */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for],
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 body {
   background: var(--field);
   /* Fixed, so the gradient is the window's rather than the document's: a long

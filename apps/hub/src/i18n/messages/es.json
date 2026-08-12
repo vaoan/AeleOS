@@ -12,7 +12,10 @@
   },
   "signIn": {
     "title": "Iniciar sesión",
-    "subtitle": "Entra con la cuenta que ya usas."
+    "subtitle": "Entra con la cuenta que ya usas.",
+    "continueWith": "Continuar con {provider}",
+    "error": "No pudimos abrir esa opción. Inténtalo de nuevo.",
+    "completing": "Terminando de entrar…"
   },
   "profile": {
     "fallbackTitle": "Tu identidad",

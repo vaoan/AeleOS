@@ -39,14 +39,37 @@ test.describe("authentication gate", () => {
     page,
   }) => {
     await page.goto("/sign-in");
-    // Clerk's DOM, so there is nothing to put a test id on. Its per-provider
-    // classes are the stable, untranslated handle — the accessible name is
-    // localised and would break the moment the page renders in Spanish.
-    for (const provider of ["google", "discord", "facebook"]) {
-      await expect(
-        page.locator(`.cl-socialButtonsIconButton__${provider}`),
-      ).toBeVisible();
+    // Our own markup now, so these are test ids rather than Clerk's classes.
+    for (const provider of ["discord", "google", "facebook"]) {
+      await expect(page.getByTestId(`sign-in-${provider}`)).toBeVisible();
     }
+  });
+
+  // The sign-in page used to be Clerk's <SignIn/>, which renders an email
+  // field, a password path and a sign-up link. This product has none of those:
+  // it is social-login-first with no passwords, and offering a password box
+  // that cannot work is worse than offering nothing.
+  test("the sign-in page offers no password or email path", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+    await expect(page.getByTestId("sign-in-discord")).toBeVisible();
+    await expect(page.locator("input")).toHaveCount(0);
+    await expect(page.locator('[class*="cl-"]')).toHaveCount(0);
+  });
+
+  // Tailwind v4's Preflight drops the pointer cursor browsers give buttons, so
+  // every button in the app rendered with an arrow. It is invisible in a
+  // screenshot and obvious the moment you use the page.
+  test("every button shows a pointer cursor", async ({ page }) => {
+    await page.goto("/sign-in");
+    const cursors = await page
+      .locator("button")
+      .evaluateAll((els) =>
+        els.map((el) => getComputedStyle(el as HTMLElement).cursor),
+      );
+    expect(cursors.length).toBeGreaterThan(0);
+    expect(cursors.every((cursor) => cursor === "pointer")).toBe(true);
   });
 });
 

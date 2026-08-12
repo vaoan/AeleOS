@@ -12,7 +12,10 @@
   },
   "signIn": {
     "title": "Sign in",
-    "subtitle": "Use the account you already have."
+    "subtitle": "Use the account you already have.",
+    "continueWith": "Continue with {provider}",
+    "error": "We could not open that option. Please try again.",
+    "completing": "Finishing sign-in…"
   },
   "profile": {
     "fallbackTitle": "Your identity",
