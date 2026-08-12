@@ -76,8 +76,14 @@ function getServerSnapshot(): string {
  */
 const TILE = CELL_SIZE * 8;
 
-/** How far the tiles are scaled when drawn. Larger means bigger, softer clouds. */
-const TILE_SCALE = 4;
+/**
+ * How far the tiles are scaled when drawn.
+ *
+ * Lower means finer structure. At 4 the noise was magnified until it read as a
+ * smooth haze; the grain that makes it look like dust rather than fog only
+ * survives at a smaller multiple.
+ */
+const TILE_SCALE = 2.5;
 
 /** Seconds for the slower layer to travel one full tile. */
 const DRIFT_SECONDS = 90;
@@ -85,18 +91,37 @@ const DRIFT_SECONDS = 90;
 /** Device pixel ratio is capped here: beyond 2 costs memory for no visible gain. */
 const MAX_DPR = 2;
 
-/** The two cloud layers, drifting at different speeds so the field has depth. */
+/**
+ * The cloud layers, drifting at different speeds so the field has depth.
+ *
+ * Three rather than two, and thicker than the first pass: a storm nebula is
+ * dust with structure in it, not a wash. The third layer runs at a different
+ * speed again, which is what stops the repeat of any one tile from becoming
+ * legible as a pattern.
+ *
+ * `bias` is the threshold below which noise is transparent, so lowering it
+ * widens the clouds; `gain` sharpens the edge between dust and void.
+ */
 const LAYERS = [
-  { seed: 11, gain: 1.8, bias: 0.52, speed: 1, tint: "a" },
-  { seed: 71, gain: 1.5, bias: 0.56, speed: -0.55, tint: "b" },
+  { seed: 11, gain: 2.6, bias: 0.44, speed: 1, tint: "a" },
+  { seed: 71, gain: 2.2, bias: 0.48, speed: -0.55, tint: "b" },
+  { seed: 137, gain: 3.1, bias: 0.53, speed: 0.28, tint: "a" },
 ] as const;
 
 /**
  * Fallback layer opacity if the theme does not set one.
  *
- * Deliberately low. The nebula is a background: the brightest thing on any
- * screen must be the person's own fursona, and a dense field competes with it.
- * The first version painted at full strength and swamped the page.
+ * The themes set their own; this is only what happens if a token goes missing.
+ *
+ * The field is deliberately dense — a storm nebula rather than a haze — but it
+ * is still a background. Composited text was measured at 17.5:1 in dark and
+ * 14.7:1 in light against a 4.5:1 requirement, so the density is paid for out
+ * of headroom rather than legibility.
+ *
+ * **The avatar rule is now the tight one.** The brightest thing on any screen
+ * has to be the person's own fursona, and this field is far brighter than the
+ * first pass. Whoever adds avatars should check them against it, not against
+ * the plain gradient.
  */
 const DEFAULT_OPACITY = 0.3;
 

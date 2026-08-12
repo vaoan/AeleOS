@@ -61,7 +61,7 @@
   --nebula-blend: multiply;
   /* Lower than dark: multiply darkens, and the light field has far less
    * headroom before the dust starts fighting the text above it. */
-  --nebula-opacity: 0.2;
+  --nebula-opacity: 0.3;
 }
 
 [data-theme="dark"] {
@@ -94,7 +94,7 @@
   --nebula-a: 214 96 176;
   --nebula-b: 132 92 214;
   --nebula-blend: screen;
-  --nebula-opacity: 0.32;
+  --nebula-opacity: 0.5;
 }
 
 /*

@@ -40,9 +40,13 @@ export interface PageShellProps {
  * Constraining the bar's contents to that column too left the wordmark floating
  * mid-screen on a wide display, which read as a mistake rather than a choice.
  *
- * The right-hand group holds the controls: language, theme, then the nebula
- * star, with the account menu after them when signed in. They sit together
- * because they are all page-level settings rather than content.
+ * The star sits beside the wordmark rather than with the page settings on the
+ * right: it is the star that lights the dust, and putting it out is what turns
+ * the nebula off. Filed away with language and theme it becomes one setting
+ * among three and the relationship disappears.
+ *
+ * The right-hand group holds the page settings — language and theme — with the
+ * account menu after them when signed in.
  *
  * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
  * suite selects by. The wordmark itself is a literal rather than a catalogue
@@ -67,7 +71,12 @@ export async function PageShell({ children, trailing }: PageShellProps) {
           1440px screen — text dropped in the middle of an empty bar rather
           than a navigation bar. The column still governs the page below. */}
       <header className="sticky top-0 z-10 border-b border-[var(--edge)]/40 bg-[var(--bar)] backdrop-blur-md">
-        <div className="flex w-full items-center gap-3 px-6 py-3">
+        <div className="flex w-full items-center gap-2 px-6 py-3">
+          {/* The star sits with the wordmark because it *is* the wordmark's
+              light source: switching it off puts out the dust it lights. That
+              relationship is the reason it needs no visible label, and it is
+              lost when the control is filed away with the page settings. */}
+          <NebulaToggle label={tNebula("toggle")} />
           {/* The wordmark is a proper noun, so it is a literal rather than a
               catalogue entry — it reads the same in every language. */}
           <span
@@ -84,7 +93,6 @@ export async function PageShell({ children, trailing }: PageShellProps) {
               toDarkLabel={t("toDark")}
               toLightLabel={t("toLight")}
             />
-            <NebulaToggle label={tNebula("toggle")} />
             {trailing ? <div className="ml-1">{trailing}</div> : null}
           </div>
         </div>

@@ -194,22 +194,33 @@ test.describe("the visual identity", () => {
 
   // Neither blank nor a solid sheet, measured on the real compositing path
   // rather than on the tile in isolation.
-  test("the nebula actually paints", async ({ page }) => {
+  //
+  // Structure is the invariant, not the amount. How dense the field is, is a
+  // design choice that has already moved once — from a 44% haze to an 89%
+  // storm — so the count of distinct alpha levels is what actually
+  // distinguishes dust from a flat wash, and it holds at any density.
+  test("the nebula paints structure, not a flat wash", async ({ page }) => {
     await page.goto("/");
     await waitForNebulaReady(page);
-    const painted = await page.evaluate(() => {
-      const canvas = document.querySelector("canvas");
-      const data = canvas
+    const field = await page.evaluate(() => {
+      const data = document
+        .querySelector("canvas")
         ?.getContext("2d")
         ?.getImageData(0, 0, 400, 400)
         .data.filter((_, i) => i % 4 === 3);
-      if (!data) return -1;
+      if (!data) return null;
       let visible = 0;
-      for (const alpha of data) if (alpha > 6) visible++;
-      return (visible / data.length) * 100;
+      const levels = new Set<number>();
+      for (const alpha of data) {
+        if (alpha > 6) visible++;
+        levels.add(alpha);
+      }
+      return { painted: (visible / data.length) * 100, levels: levels.size };
     });
-    expect(painted).toBeGreaterThan(15);
-    expect(painted).toBeLessThan(95);
+    expect(field!.painted).toBeGreaterThan(15);
+    expect(field!.painted).toBeLessThan(99);
+    // A solid sheet has one level; a real field has scores of them.
+    expect(field!.levels).toBeGreaterThan(40);
   });
 
   // A frozen animation is invisible in a screenshot: the page still looks
