@@ -142,7 +142,8 @@
         "apps/hub/tests/star-toggle.test.tsx",
         "apps/hub/tests/error-boundary.test.tsx",
         "apps/hub/tests/messages.test.ts",
-        "apps/hub/tests/e2e/auth.spec.ts"
+        "apps/hub/tests/e2e/auth.spec.ts",
+        "apps/hub/tests/sign-out-button.test.tsx"
       ],
       "language": "en,en-GB,es"
     }

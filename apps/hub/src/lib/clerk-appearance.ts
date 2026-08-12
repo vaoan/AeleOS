@@ -55,17 +55,29 @@ export type ClerkTheme = keyof typeof PALETTE;
  * and the nebula stops showing through.
  */
 const ELEMENTS = {
-  rootBox: "w-full",
-  cardBox: "w-full border-none! bg-transparent! shadow-none!",
-  card: "w-full border-none! bg-transparent! p-0! shadow-none!",
+  // `max-w-none` is the one that matters. Clerk's card is 400px wide by
+  // default, so inside a 620px column it sat left-aligned with a ragged
+  // 122px gap down the right — the heading reached the card edge and the form
+  // stopped well short of it.
+  rootBox: "w-full!",
+  cardBox: "w-full! max-w-none! border-none! bg-transparent! shadow-none!",
+  card: "w-full! max-w-none! border-none! bg-transparent! p-0! shadow-none!",
   header: "hidden!",
   footer: "bg-transparent! [&>*]:bg-transparent!",
   footerAction: "bg-transparent!",
   formButtonPrimary:
-    "bg-[var(--accent)]! text-[var(--on-accent)]! shadow-none hover:opacity-90",
-  socialButtonsIconButton: "border-[var(--edge)]! bg-transparent!",
-  formFieldInput: "bg-transparent! border-[var(--edge)]!",
+    "h-11! bg-[var(--accent)]! text-[var(--on-accent)]! shadow-none hover:opacity-90",
+  // A border and a hover fill, so these read as buttons. Stripped to
+  // fully transparent they were three floating logos with stray border
+  // fragments between them.
+  socialButtonsIconButton:
+    "h-11! border! border-[var(--edge)]! bg-[var(--bar)]! hover:bg-[var(--edge)]/20!",
+  formFieldInput: "h-11! bg-[var(--bar)]! border-[var(--edge)]!",
   dividerLine: "bg-[var(--edge)]!",
+  dividerText: "text-[var(--muted)]!",
+  formFieldLabel: "text-[var(--ink)]!",
+  footerActionText: "text-[var(--muted)]!",
+  footerActionLink: "text-[var(--accent)]!",
 } as const;
 
 /**

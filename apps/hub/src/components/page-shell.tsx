@@ -31,6 +31,11 @@ export interface PageShellProps {
  * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
  * suite selects by. The wordmark itself is a literal rather than a catalogue
  * entry because a proper noun reads the same in every language.
+ *
+ * The column centres itself vertically when the page is shorter than the
+ * window, and scrolls from the top when it is longer. Sign-in used to cling to
+ * the header with a third of the window empty beneath it; this fixes that for
+ * every page at once rather than making sign-in a special case.
  */
 export function PageShell({ children, toggleLabel, trailing }: PageShellProps) {
   return (
@@ -49,8 +54,12 @@ export function PageShell({ children, toggleLabel, trailing }: PageShellProps) {
           {trailing ? <div className="ml-auto">{trailing}</div> : null}
         </div>
       </header>
+      {/* `justify-center` with `flex-1` centres a short page and leaves a long
+          one scrolling from the top — so sign-in sits in the middle of the
+          field instead of clinging to the header with a third of the window
+          empty beneath it, without turning into a different layout. */}
       <main
-        className="mx-auto w-full max-w-[620px] flex-1 px-6 py-10"
+        className="mx-auto flex w-full max-w-[620px] flex-1 flex-col justify-center px-6 py-10"
         {...tid("page-content")}
       >
         {children}

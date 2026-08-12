@@ -19,7 +19,8 @@
     "handle": "Nombre de usuario",
     "platformId": "Identificador de plataforma",
     "platformIdHint": "Este identificador es el mismo en todas las apps de Furry Colombia.",
-    "empty": "—"
+    "empty": "—",
+    "signOut": "Cerrar sesión"
   },
   "nebula": {
     "toggle": "Fondo de nebulosa"

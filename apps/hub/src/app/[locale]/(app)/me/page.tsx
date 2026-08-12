@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { getTranslations } from "next-intl/server";
 import { Card } from "@/components/page-shell";
+import { SignOutControl } from "@/components/sign-out-button";
 import { ensurePersonActor, getPersonActor } from "@/lib/actors";
 
 /**
@@ -11,9 +12,17 @@ import { ensurePersonActor, getPersonActor } from "@/lib/actors";
  * nothing. That side effect is the reason a person exists in the registry at
  * all, so it must not be moved behind a button or a client component.
  *
+ * Carries the sign-out control, which is the only visible way out of a
+ * session other than Clerk's own account menu.
+ *
  * @returns the identity page.
  */
-export default async function MePage() {
+export default async function MePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const user = await currentUser();
   const actorRef = await ensurePersonActor();
   const actor = await getPersonActor(actorRef);
@@ -33,6 +42,11 @@ export default async function MePage() {
         <dd className="font-mono text-xs break-all">{actorRef}</dd>
       </dl>
       <p className="mt-6 text-sm text-[var(--muted)]">{t("platformIdHint")}</p>
+      <div className="mt-8 border-t border-[var(--edge)]/40 pt-6">
+        {/* The locale is resolved here, on the server, because the button
+            cannot know which language the request was for. */}
+        <SignOutControl label={t("signOut")} redirectUrl={`/${locale}`} />
+      </div>
     </Card>
   );
 }

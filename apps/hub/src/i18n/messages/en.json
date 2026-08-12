@@ -19,7 +19,8 @@
     "handle": "Handle",
     "platformId": "Platform ID",
     "platformIdHint": "This ID is the same in every Furry Colombia app.",
-    "empty": "—"
+    "empty": "—",
+    "signOut": "Sign out"
   },
   "nebula": {
     "toggle": "Nebula background"
