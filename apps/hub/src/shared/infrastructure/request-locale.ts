@@ -1,4 +1,4 @@
-import { routing } from "@/i18n/routing";
+import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
  * The locale a request URL is already prefixed with, or the default.

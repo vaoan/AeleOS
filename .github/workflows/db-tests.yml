@@ -74,6 +74,7 @@ jobs:
       # Coverage, not just tests: the branch threshold is what makes "test
       # every error path" a gate rather than an intention.
       - run: pnpm --filter hub test:coverage
+      - run: pnpm --filter @aeleos/identity test:coverage
       - run: pnpm --filter hub build
         env:
           # Public by design — it ships in the browser bundle. The secret key

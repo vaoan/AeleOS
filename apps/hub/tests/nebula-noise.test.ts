@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CELL_SIZE, fbm, tilePixels } from "@/lib/nebula-noise";
+import { CELL_SIZE, fbm, tilePixels } from "@/shared/application/nebula-noise";
 
 /** A valid tile size: square and a whole number of noise cells. */
 const SIZE = CELL_SIZE * 8;

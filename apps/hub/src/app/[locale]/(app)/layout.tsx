@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
-import { redirect } from "@/i18n/navigation";
-import { PageShell } from "@/components/page-shell";
-import { UserMenu } from "@/components/user-menu";
+import { redirect } from "@/shared/infrastructure/i18n/navigation";
+import { PageShell } from "@/shared/presentation/page-shell";
+import { UserMenu } from "@/features/session";
 
 /**
  * The shell for signed-in pages.

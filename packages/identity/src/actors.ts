@@ -1,11 +1,10 @@
-import { createServerClient } from "@/lib/supabase-server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * A person's actor, as exposed by the `actors_public` view.
  *
  * Never carries `owner_ref` or `identity_sub`. Those are absent from the view
- * by construction, which is what makes this shape safe to hand to a client —
- * see `tests/idp/clerk-actor-model.test.ts`.
+ * by construction, which is what makes this shape safe to hand to a client.
  */
 export type PersonActor = {
   id: string;
@@ -23,15 +22,18 @@ const NO_ROWS = "PGRST116";
  *
  * Idempotent and safe to call on every request: the database derives the ref
  * deterministically from the identity claim and returns the stored value.
+ *
+ * @param client - a client authenticated as the person being provisioned.
+ * @returns the person's stable platform ID.
+ * @throws when provisioning fails, or when it reports neither a ref nor an
+ * error — which would otherwise hand the caller an empty ID typed as a string.
  */
-export async function ensurePersonActor(): Promise<string> {
-  const supabase = await createServerClient();
-  const { data, error } = await supabase.rpc("ensure_person_actor");
+export async function ensurePersonActor(
+  client: SupabaseClient,
+): Promise<string> {
+  const { data, error } = await client.rpc("ensure_person_actor");
   if (error)
     throw new Error(`Could not provision person actor: ${error.message}`);
-  // Neither a ref nor an error should be possible. Casting instead would hand
-  // the caller null typed as a string, and /me would render an empty platform
-  // ID as though provisioning had succeeded.
   if (typeof data !== "string" || data.length === 0)
     throw new Error("Provisioning returned no actor_ref");
   return data;
@@ -42,20 +44,22 @@ export async function ensurePersonActor(): Promise<string> {
  *
  * Only "no rows" becomes null. Every other error is rethrown: an RLS denial, a
  * dropped connection or a missing view are faults, and collapsing them into
- * null would render /me as a blank identity while reporting success. Absence
- * and failure are different answers, and anything added here must keep them
- * apart.
+ * null would render a blank identity while reporting success. Absence and
+ * failure are different answers, and anything added here must keep them apart.
  *
+ * @param client - a client authenticated as the reader.
  * @param actorRef - the platform ID to look up, as returned by
- * `ensurePersonActor`.
+ * {@link ensurePersonActor}.
  * @returns the actor, or null when no row matches.
- * @throws on any failure that is not "no rows matched".
+ * @throws on any failure that is not "no rows matched", and when a NOT NULL
+ * column is missing from the row — which means the view changed, not that data
+ * is absent.
  */
 export async function getPersonActor(
+  client: SupabaseClient,
   actorRef: string,
 ): Promise<PersonActor | null> {
-  const supabase = await createServerClient();
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("actors_public")
     .select("id, actor_ref, handle, display_name, avatar_url")
     .eq("actor_ref", actorRef)
@@ -67,9 +71,6 @@ export async function getPersonActor(
   }
   if (!data) return null;
 
-  // `as string` on a truncated row yields an actor with undefined fields that
-  // type-checks and renders blank. The three below are NOT NULL in the schema,
-  // so their absence means the projection changed, not that data is missing.
   const { id, actor_ref, handle } = data;
   if (
     typeof id !== "string" ||

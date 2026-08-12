@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { StarToggle } from "@/components/star-toggle";
+import { StarToggle } from "@/shared/presentation/star-toggle";
 
 describe("StarToggle", () => {
   it("exposes its state to assistive technology", () => {

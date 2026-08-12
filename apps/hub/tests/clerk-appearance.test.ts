@@ -5,7 +5,7 @@ import {
   CLERK_PALETTE,
   clerkAppearanceFor,
   type ClerkTheme,
-} from "@/lib/clerk-appearance";
+} from "@/features/session/infrastructure/clerk-appearance";
 
 // Read from disk rather than imported: the point is to compare against what
 // the stylesheet actually declares, so a bundler transform must not sit in

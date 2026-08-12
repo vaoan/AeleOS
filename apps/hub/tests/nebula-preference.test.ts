@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { NEBULA_STORAGE_KEY, resolveNebula } from "@/lib/nebula-preference";
+import {
+  NEBULA_STORAGE_KEY,
+  resolveNebula,
+} from "@/shared/application/nebula-preference";
 
 describe("resolveNebula", () => {
   it("is on by default, so nobody must find a setting to see the design", () => {

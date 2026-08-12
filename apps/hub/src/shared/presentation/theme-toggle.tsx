@@ -6,8 +6,8 @@ import {
   setTheme,
   THEME_CHANGE_EVENT,
   type Theme,
-} from "@/lib/theme";
-import { tid } from "@/lib/test-id";
+} from "@/shared/application/theme";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** What the control needs from its caller. */
 export interface ThemeToggleProps {

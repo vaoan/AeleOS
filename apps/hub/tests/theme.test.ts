@@ -6,7 +6,7 @@ import {
   THEME_CHANGE_EVENT,
   THEME_SCRIPT,
   THEME_STORAGE_KEY,
-} from "@/lib/theme";
+} from "@/shared/application/theme";
 
 describe("resolveTheme", () => {
   it("uses a stored choice over the system preference", () => {

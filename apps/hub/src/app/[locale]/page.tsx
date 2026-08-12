@@ -1,8 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Card, PageShell } from "@/components/page-shell";
-import { Link } from "@/i18n/navigation";
-import { tid } from "@/lib/test-id";
+import { Card, PageShell } from "@/shared/presentation/page-shell";
+import { Link } from "@/shared/infrastructure/i18n/navigation";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * The home page — the only route reachable without a session.

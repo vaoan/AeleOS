@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { HtmlLang } from "@/components/html-lang";
-import { routing } from "@/i18n/routing";
+import { HtmlLang } from "@/shared/presentation/html-lang";
+import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
  * Pre-renders one route per supported locale.

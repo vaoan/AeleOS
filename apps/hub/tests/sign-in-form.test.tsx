@@ -8,7 +8,7 @@ vi.mock("@clerk/nextjs", () => ({
   useSignIn: () => ({ signIn: { sso }, fetchStatus, errors: null }),
 }));
 
-const { SignInForm } = await import("@/components/sign-in-form");
+const { SignInForm } = await import("@/features/session");
 
 const LABELS = {
   discord: "Continuar con Discord",

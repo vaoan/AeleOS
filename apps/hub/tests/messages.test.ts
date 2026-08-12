@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import en from "@/i18n/messages/en.json";
-import es from "@/i18n/messages/es.json";
-import { routing } from "@/i18n/routing";
+import en from "@/shared/infrastructure/i18n/messages/en.json";
+import es from "@/shared/infrastructure/i18n/messages/es.json";
+import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
  * Every leaf key in a nested catalogue, dot-joined.

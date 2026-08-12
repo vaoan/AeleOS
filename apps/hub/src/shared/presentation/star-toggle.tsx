@@ -1,6 +1,6 @@
 "use client";
 
-import { tid } from "@/lib/test-id";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** What the star needs to render and report. */
 export interface StarToggleProps {

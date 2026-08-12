@@ -1,8 +1,8 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import createIntlMiddleware from "next-intl/middleware";
-import { routing } from "@/i18n/routing";
-import { isPublicRoute } from "@/lib/public-routes";
-import { signInUrlFor } from "@/lib/request-locale";
+import { routing } from "@/shared/infrastructure/i18n/routing";
+import { isPublicRoute } from "@/features/session";
+import { signInUrlFor } from "@/shared/infrastructure/request-locale";
 
 /**
  * Locale negotiation: redirects to a prefixed URL and picks the language.

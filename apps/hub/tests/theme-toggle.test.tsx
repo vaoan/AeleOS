@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/shared/presentation/theme-toggle";
 
 const LABELS = {
   toDarkLabel: "Switch to dark mode",

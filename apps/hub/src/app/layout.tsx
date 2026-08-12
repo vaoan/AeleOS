@@ -1,9 +1,9 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { enUS, esES } from "@clerk/localizations";
 import { getLocale } from "next-intl/server";
-import { NebulaCanvas } from "@/components/nebula-canvas";
-import { display, mono, sans } from "@/lib/fonts";
-import { THEME_SCRIPT } from "@/lib/theme";
+import { NebulaCanvas } from "@/shared/presentation/nebula-canvas";
+import { display, mono, sans } from "@/shared/infrastructure/fonts";
+import { THEME_SCRIPT } from "@/shared/application/theme";
 import "./globals.css";
 
 /**

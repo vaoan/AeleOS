@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { localeFromPathname, signInUrlFor } from "@/lib/request-locale";
-import { routing } from "@/i18n/routing";
+import {
+  localeFromPathname,
+  signInUrlFor,
+} from "@/shared/infrastructure/request-locale";
+import { routing } from "@/shared/infrastructure/i18n/routing";
 
 const BASE = "http://localhost:5100/whatever";
 

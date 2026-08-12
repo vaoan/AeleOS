@@ -1,5 +1,5 @@
 import { createRouteMatcher } from "@clerk/nextjs/server";
-import { routing } from "@/i18n/routing";
+import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
  * Routes reachable without a session, for every supported locale.

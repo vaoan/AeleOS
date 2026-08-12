@@ -1,9 +1,12 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { usePathname, useRouter } from "@/i18n/navigation";
-import { routing } from "@/i18n/routing";
-import { tid } from "@/lib/test-id";
+import {
+  usePathname,
+  useRouter,
+} from "@/shared/infrastructure/i18n/navigation";
+import { routing } from "@/shared/infrastructure/i18n/routing";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** What the control needs from its caller. */
 export interface LanguageToggleProps {

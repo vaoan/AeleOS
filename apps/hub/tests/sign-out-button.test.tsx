@@ -6,7 +6,7 @@ vi.mock("@clerk/nextjs", () => ({
   useClerk: () => ({ signOut }),
 }));
 
-const { SignOutControl } = await import("@/components/sign-out-button");
+const { SignOutControl } = await import("@/features/session");
 
 describe("SignOutControl", () => {
   it("renders the label it is given, not a hardcoded one", () => {

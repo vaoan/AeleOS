@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { CELL_SIZE, tilePixels } from "@/lib/nebula-noise";
-import { NEBULA_STORAGE_KEY, resolveNebula } from "@/lib/nebula-preference";
+import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
+import {
+  NEBULA_STORAGE_KEY,
+  resolveNebula,
+} from "@/shared/application/nebula-preference";
 
 /** Event the toggle dispatches so an open page reacts to its own change. */
 export const NEBULA_CHANGE_EVENT = "aeleos:nebula-change";

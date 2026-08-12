@@ -1,9 +1,12 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Card, PageShell } from "@/components/page-shell";
-import { SignInForm } from "@/components/sign-in-form";
-import { SsoCallback } from "@/components/sso-callback";
-import { PROVIDERS, type Provider } from "@/lib/providers";
-import { tid } from "@/lib/test-id";
+import { Card, PageShell } from "@/shared/presentation/page-shell";
+import {
+  PROVIDERS,
+  SignInForm,
+  SsoCallback,
+  type Provider,
+} from "@/features/session";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** The catch-all segment Clerk returns to after a provider redirect. */
 const CALLBACK_SEGMENT = "sso-callback";

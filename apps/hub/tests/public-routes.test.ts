@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isPublicRoute } from "@/lib/public-routes";
-import { routing } from "@/i18n/routing";
+import { isPublicRoute } from "@/features/session/infrastructure/public-routes";
+import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
  * Clerk's matcher reads the pathname off the request. A URL-bearing stub is

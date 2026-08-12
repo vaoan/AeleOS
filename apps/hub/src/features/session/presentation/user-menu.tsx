@@ -1,7 +1,7 @@
 "use client";
 
 import { UserButton } from "@clerk/nextjs";
-import { useClerkAppearance } from "@/components/use-clerk-appearance";
+import { useClerkAppearance } from "@/features/session/presentation/use-clerk-appearance";
 
 /**
  * Clerk's account menu, themed to the current mode.

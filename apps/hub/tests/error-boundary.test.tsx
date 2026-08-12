@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import AppError from "@/app/[locale]/(app)/error";
-import en from "@/i18n/messages/en.json";
-import es from "@/i18n/messages/es.json";
+import en from "@/shared/infrastructure/i18n/messages/en.json";
+import es from "@/shared/infrastructure/i18n/messages/es.json";
 
 const dbFailure = Object.assign(
   new Error("permission denied for view actors_public"),

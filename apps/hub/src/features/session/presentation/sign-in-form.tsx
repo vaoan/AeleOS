@@ -6,9 +6,12 @@ import {
   DiscordMark,
   FacebookMark,
   GoogleMark,
-} from "@/components/provider-marks";
-import { PROVIDERS, type Provider } from "@/lib/providers";
-import { tid } from "@/lib/test-id";
+} from "@/features/session/presentation/provider-marks";
+import {
+  PROVIDERS,
+  type Provider,
+} from "@/features/session/infrastructure/providers";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** Brand mark per provider, so the list stays data and the marks stay markup. */
 const MARKS: Record<Provider["id"], () => React.JSX.Element> = {

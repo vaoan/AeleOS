@@ -1,9 +1,12 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { StarToggle } from "@/components/star-toggle";
-import { NEBULA_CHANGE_EVENT } from "@/components/nebula-canvas";
-import { NEBULA_STORAGE_KEY, resolveNebula } from "@/lib/nebula-preference";
+import { StarToggle } from "@/shared/presentation/star-toggle";
+import { NEBULA_CHANGE_EVENT } from "@/shared/presentation/nebula-canvas";
+import {
+  NEBULA_STORAGE_KEY,
+  resolveNebula,
+} from "@/shared/application/nebula-preference";
 
 /** What the toggle needs from its caller. */
 export interface NebulaToggleProps {

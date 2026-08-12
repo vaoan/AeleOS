@@ -1,7 +1,7 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
-import { tid } from "@/lib/test-id";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** What the sign-out control needs from its caller. */
 export interface SignOutControlProps {

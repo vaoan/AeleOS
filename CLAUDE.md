@@ -49,18 +49,31 @@ sources of truth. See
 This repo is also the **home for the cross-app identity concern** that belongs
 to no single app:
 
-| Lives here                                                                                                 | Path / status                                     |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Design & specs (architecture, decisions)                                                                   | `docs/superpowers/specs/`                         |
-| Implementation plans (phased rollout)                                                                      | `docs/superpowers/plans/`                         |
-| The hub app (fursona/profile registry, ownership ledger, actor picker)                                     | `apps/hub/` — the only deployable thing here      |
-| The canonical actor-model schema every app copies                                                          | `supabase/migrations/` — the root owns it         |
-| Clerk configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_                     |
-| A small shared integration helper package                                                                  | _only if/when 2+ apps need it — YAGNI until then_ |
+| Lives here                                                                                                 | Path / status                                |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Design & specs (architecture, decisions)                                                                   | `docs/superpowers/specs/`                    |
+| Implementation plans (phased rollout)                                                                      | `docs/superpowers/plans/`                    |
+| The hub app (fursona/profile registry, ownership ledger, actor picker)                                     | `apps/hub/` — the only deployable thing here |
+| The canonical actor-model schema every app copies                                                          | `supabase/migrations/` — the root owns it    |
+| Clerk configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_                |
+| The shared integration package — the Supabase-client and actor plumbing every app repeats                  | `packages/identity/` — `@aeleos/identity`    |
 
 **Per-app integration code** (the OIDC client + Supabase third-party-auth wiring)
 for the _other_ apps lives in **each app's own repo** (`puck`, `libra`, …) —
 **not** here.
+
+**The YAGNI gate on that package has fired.** It was held open until 2+ apps
+needed it; Puck (Phase 1) and Libra (Phase 3) both already have a `packages/auth`
+slot waiting for exactly this, so `packages/identity` now exists and `apps/hub`
+consumes it through `workspace:*`. It stays **private and unpublished** until
+Puck actually integrates — an interface designed against a hypothetical consumer
+is a guess, and the cost of a wrong guess rises the moment a second repository
+pins a version. Its one hard rule: **the package imports no framework, and above
+all no Clerk.** `getToken` is a parameter, so the code never learns which
+provider issued the token — which is what keeps the escape hatch a one-column
+`identity_sub` backfill rather than a change to every app on the platform. That
+is enforced in `eslint.config.mjs`, not trusted. Spec:
+`docs/superpowers/specs/2026-08-12-hub-layering-and-contract-seam-design.md`.
 
 **`apps/hub` ships no migrations.** `supabase/migrations/` at the root is the
 single schema for the one database; never copy migrations into the app.
@@ -235,12 +248,39 @@ Key choices and _why_:
   catalogues are key-checked in `apps/hub/tests/messages.test.ts`, so a message
   added to one language and not the other fails the build rather than rendering
   a raw key at somebody.
+- **The hub is layered, and the layers are enforced.** `apps/hub/src` is
+  `app/` (Next's routes — thin wrappers that import only from feature
+  barrels), `proxy.ts`, `features/session/`, `features/actors/` and `shared/`
+  — two features because `/me`, fursonas and the picker are one domain, and
+  the chrome (nebula, toggles, page shell) owns no domain concept and so lives
+  in `shared/presentation`. Each feature exposes an `index.ts` barrel and
+  grows `domain` / `application` / `infrastructure` / `presentation` layers
+  only as it earns them. Rules in `eslint.config.mjs` keep the shape honest
+  rather than aspirational: a feature is reached through its barrel, no
+  feature imports another, no `../` chains, `shared/` never depends on a
+  feature, layers point inward only, and `packages/identity` must not import
+  an app or a framework — Clerk, Next or React — so swapping the token issuer
+  stays a one-column backfill rather than a change to every app on the
+  platform. Note that flat config **replaces** `no-restricted-imports` for
+  overlapping globs instead of merging — so every block repeats the patterns
+  still binding its files, except the barrel pattern, which only the floor
+  block carries because a feature's own files must be free to deep-import
+  within that feature — and a new block that forgets a pattern it still owes
+  is a silently disabled rule. Spec:
+  `2026-08-12-hub-layering-and-contract-seam-design.md`.
+- **`@aeleos/identity` is the cross-repo seam.** `packages/identity` holds
+  `createIdentityClient` and the actor accessors — the code every app would
+  otherwise copy — with `@supabase/supabase-js` as its only, peer, dependency.
+  The hub is its first consumer so that the design is found wrong here before
+  another repository pins a version of it. Phase 1b-ii builds fursonas onto this
+  shape rather than writing it flat and moving it later.
 - **Phase 1b-ii (fursonas and the picker) — not started.** Plan:
   `2026-08-02-phase-1b-ii-fursonas-and-picker.md`.
 
-**CI gates on `main`:** `conformance` (schema suite), `hub` (unit tests +
-production build) and `idp-cloud` (real Clerk ⇄ Supabase trust) are all
-**required** — a pull request cannot merge until the three report green.
+**CI gates on `main`:** `conformance` (schema suite), `hub` (hub and
+`@aeleos/identity` unit tests, both at 100% coverage, plus the production build)
+and `idp-cloud` (real Clerk ⇄ Supabase trust) are all **required** — a pull
+request cannot merge until the three report green.
 
 Claude's role throughout: build and test the hub here, specify exactly what to
 configure in Clerk, and write the per-app integration code in the respective app

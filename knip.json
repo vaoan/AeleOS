@@ -13,7 +13,8 @@
     "apps/hub": {
       "entry": [
         "src/app/**/*.tsx",
-        "src/middleware.ts",
+        "src/proxy.ts",
+        "src/features/*/index.ts",
         "next.config.ts",
         "vitest.config.ts",
         "playwright.config.ts",
@@ -21,6 +22,10 @@
         "tests/e2e/**/*.spec.ts"
       ],
       "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"]
+    },
+    "packages/identity": {
+      "entry": ["src/index.ts", "tests/**/*.test.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
     }
   },
   "ignoreDependencies": ["@secretlint/secretlint-rule-preset-recommend"]

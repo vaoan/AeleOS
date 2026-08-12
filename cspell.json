@@ -140,7 +140,7 @@
   "overrides": [
     {
       "filename": [
-        "apps/hub/src/i18n/messages/es.json",
+        "apps/hub/src/shared/infrastructure/i18n/messages/es.json",
         "apps/hub/tests/star-toggle.test.tsx",
         "apps/hub/tests/error-boundary.test.tsx",
         "apps/hub/tests/messages.test.ts",

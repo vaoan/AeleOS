@@ -49,13 +49,13 @@ function loadEnv(): Env {
 
 // Lazy by design: a plain `export const env = readEnv(...)` here would run at
 // module-evaluation time for *any* import from this file — including
-// `import { readEnv } from "@/lib/env"` in tests/env.test.ts, since ES module
-// bodies execute in full regardless of which named export is used. That would
-// make the unit tests require a real .env.local. Getters defer validation to
-// first property access, which is still before any consumer can use a bad or
-// missing value. The result is memoized after the first successful read so
-// repeated access (e.g. reading both properties per request) doesn't re-run
-// the zod parse every time.
+// `import { readEnv } from "@/shared/infrastructure/env"` in tests/env.test.ts,
+// since ES module bodies execute in full regardless of which named export is
+// used. That would make the unit tests require a real .env.local. Getters defer
+// validation to first property access, which is still before any consumer can
+// use a bad or missing value. The result is memoized after the first successful
+// read so repeated access (e.g. reading both properties per request) doesn't
+// re-run the zod parse every time.
 let cached: Env | undefined;
 export const env: Env = {
   get supabaseUrl() {

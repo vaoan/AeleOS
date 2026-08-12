@@ -1,8 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Card } from "@/components/page-shell";
-import { tid } from "@/lib/test-id";
+import { Card } from "@/shared/presentation/page-shell";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * Failure boundary for every signed-in page.

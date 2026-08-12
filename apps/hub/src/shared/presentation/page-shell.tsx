@@ -1,9 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
-import { LanguageToggle } from "@/components/language-toggle";
-import { NebulaToggle } from "@/components/nebula-toggle";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { tid } from "@/lib/test-id";
+import { LanguageToggle } from "@/shared/presentation/language-toggle";
+import { NebulaToggle } from "@/shared/presentation/nebula-toggle";
+import { ThemeToggle } from "@/shared/presentation/theme-toggle";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * What every page renders inside.

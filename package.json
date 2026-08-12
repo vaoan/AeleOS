@@ -25,7 +25,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,json,css,md,yml,yaml}\"",
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint:fix",
-    "typecheck": "tsc --noEmit && pnpm --filter hub typecheck",
+    "typecheck": "tsc --noEmit && pnpm --filter hub typecheck && pnpm --filter @aeleos/identity typecheck",
     "check:tools": "pnpm test:tools && pnpm check:contrast && cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
     "secretlint": "secretlint \"**/*\"",
     "sync-secrets": "node scripts/sync-secrets.mjs",

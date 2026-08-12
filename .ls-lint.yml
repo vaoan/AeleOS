@@ -19,6 +19,12 @@ ls:
     .ts: kebab-case
     .tsx: kebab-case
 
+  packages/identity/src:
+    .ts: kebab-case
+
+  packages/identity/tests:
+    .ts: kebab-case
+
 ignore:
   - node_modules
   - .git

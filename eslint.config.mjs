@@ -276,4 +276,356 @@ export default tseslint.config(
   },
 
   globalIgnores(["apps/hub/.next/**", "apps/hub/next-env.d.ts"]),
+
+  // Import boundaries. Each block repeats the "../" pattern because flat config
+  // REPLACES no-restricted-imports for overlapping globs rather than merging
+  // it — factoring the shared pattern into its own block silently disables it
+  // everywhere a more specific block matches.
+  //
+  // Adding a feature means adding a block here and naming it in the others.
+  // Two features make that clearer than a plugin; revisit at four.
+  //
+  // The first block is the floor: it matches everything under src/, so routes,
+  // the proxy, and any file that declares no home at all — a future
+  // src/utils.ts, a src/hooks/ directory — are governed the moment they appear
+  // rather than landing beside the scheme silently. What it asks of them is
+  // that a feature is reached through its barrel: a deep import pins the caller
+  // to where a file happens to live, which is what the barrel exists to
+  // prevent. Blocks after it narrow the floor for files that do declare a home.
+  {
+    files: ["apps/hub/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features/*/*"],
+              message:
+                "Import a feature through its barrel: @/features/<name>.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/hub/src/features/session/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features/actors", "@/features/actors/**"],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/hub/src/features/actors/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features/session", "@/features/session/**"],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // shared/ knows nothing about any feature — the dependency rule, in the one
+  // direction that must never invert.
+  {
+    files: ["apps/hub/src/shared/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features", "@/features/**"],
+              message:
+                "shared/ must not depend on a feature — that inverts the dependency rule. Pass what it needs in as a prop or a parameter.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // Layer direction: inward only. `domain` is the innermost ring and knows
+  // nothing of the three outside it; `application` and `infrastructure` know
+  // nothing of `presentation`. Nothing enforces this until a file breaks it,
+  // and Phase 1b-ii is where the first domain/ appears — so the rules land
+  // before the code they govern, not after.
+  //
+  // These blocks come last on purpose: each one REPLACES the broader block
+  // above for the files it matches, which is why every pattern binding those
+  // files is written out again here rather than inherited — except the
+  // floor's barrel pattern (`@/features/*/*`), which stays there alone: a
+  // feature's own files legitimately deep-import within that same feature,
+  // and repeating the barrel rule here would forbid exactly that.
+  {
+    files: ["apps/hub/src/features/session/domain/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features/actors", "@/features/actors/**"],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+            {
+              group: [
+                "@/**/application",
+                "@/**/application/**",
+                "@/**/infrastructure",
+                "@/**/infrastructure/**",
+                "@/**/presentation",
+                "@/**/presentation/**",
+              ],
+              message:
+                "domain/ is the innermost layer: it must not import application, infrastructure or presentation. Invert the dependency — take what it needs as a parameter.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/hub/src/features/actors/domain/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features/session", "@/features/session/**"],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+            {
+              group: [
+                "@/**/application",
+                "@/**/application/**",
+                "@/**/infrastructure",
+                "@/**/infrastructure/**",
+                "@/**/presentation",
+                "@/**/presentation/**",
+              ],
+              message:
+                "domain/ is the innermost layer: it must not import application, infrastructure or presentation. Invert the dependency — take what it needs as a parameter.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/hub/src/shared/domain/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features", "@/features/**"],
+              message:
+                "shared/ must not depend on a feature — that inverts the dependency rule. Pass what it needs in as a prop or a parameter.",
+            },
+            {
+              group: [
+                "@/**/application",
+                "@/**/application/**",
+                "@/**/infrastructure",
+                "@/**/infrastructure/**",
+                "@/**/presentation",
+                "@/**/presentation/**",
+              ],
+              message:
+                "domain/ is the innermost layer: it must not import application, infrastructure or presentation. Invert the dependency — take what it needs as a parameter.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "apps/hub/src/features/session/application/**/*.{ts,tsx}",
+      "apps/hub/src/features/session/infrastructure/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features/actors", "@/features/actors/**"],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+            {
+              group: ["@/**/presentation", "@/**/presentation/**"],
+              message:
+                "Layers point inward: application and infrastructure must not import presentation. A component that needs this should import it, not the other way round.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "apps/hub/src/features/actors/application/**/*.{ts,tsx}",
+      "apps/hub/src/features/actors/infrastructure/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features/session", "@/features/session/**"],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+            {
+              group: ["@/**/presentation", "@/**/presentation/**"],
+              message:
+                "Layers point inward: application and infrastructure must not import presentation. A component that needs this should import it, not the other way round.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "apps/hub/src/shared/application/**/*.{ts,tsx}",
+      "apps/hub/src/shared/infrastructure/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: ["@/features", "@/features/**"],
+              message:
+                "shared/ must not depend on a feature — that inverts the dependency rule. Pass what it needs in as a prop or a parameter.",
+            },
+            {
+              group: ["@/**/presentation", "@/**/presentation/**"],
+              message:
+                "Layers point inward: application and infrastructure must not import presentation. A component that needs this should import it, not the other way round.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // A package knows nothing about any app, and nothing about any framework.
+  //
+  // The first rule is the boundary that lets packages/identity be published to
+  // repositories that have no apps/hub. The second is the one the package's
+  // whole design rests on, and until it was written the property held only by
+  // accident: Clerk, Next and React are unresolvable from the package's
+  // node_modules today, so a forbidden import failed to resolve rather than
+  // failing to lint — one `pnpm add` away from passing every gate green.
+  {
+    files: ["packages/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/*", "**/apps/**"],
+              message:
+                "Packages must not depend on apps. Dependencies flow one way: apps import packages.",
+            },
+            {
+              group: [
+                "@clerk/*",
+                "@clerk/*/**",
+                "next",
+                "next/*",
+                "next/*/**",
+                "react",
+                "react-dom",
+                "react-dom/*",
+              ],
+              message:
+                "This package must never learn which provider issued the token, nor which framework renders it. Take it as a parameter instead — that is what keeps swapping the issuer a one-column identity_sub backfill rather than a change to every app on the platform.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

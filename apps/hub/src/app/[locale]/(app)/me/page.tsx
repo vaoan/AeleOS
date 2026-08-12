@@ -1,8 +1,8 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { getTranslations } from "next-intl/server";
-import { Card } from "@/components/page-shell";
-import { SignOutControl } from "@/components/sign-out-button";
-import { ensurePersonActor, getPersonActor } from "@/lib/actors";
+import { Card } from "@/shared/presentation/page-shell";
+import { SignOutControl } from "@/features/session";
+import { ensurePersonActor, getPersonActor } from "@/features/actors";
 
 /**
  * The signed-in person's identity page.

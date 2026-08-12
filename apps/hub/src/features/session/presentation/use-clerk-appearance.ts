@@ -1,7 +1,10 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { clerkAppearanceFor, type ClerkTheme } from "@/lib/clerk-appearance";
+import {
+  clerkAppearanceFor,
+  type ClerkTheme,
+} from "@/features/session/infrastructure/clerk-appearance";
 
 /**
  * Subscribes to changes of the document's theme attribute.

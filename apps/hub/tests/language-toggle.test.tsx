@@ -5,12 +5,13 @@ const replace = vi.fn();
 let locale = "es";
 
 vi.mock("next/navigation", () => ({ useParams: () => ({ locale }) }));
-vi.mock("@/i18n/navigation", () => ({
+vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
   useRouter: () => ({ replace }),
   usePathname: () => "/sign-in",
 }));
 
-const { LanguageToggle } = await import("@/components/language-toggle");
+const { LanguageToggle } =
+  await import("@/shared/presentation/language-toggle");
 
 beforeEach(() => {
   replace.mockReset();
