@@ -23,10 +23,46 @@
     "platformId": "Identificador de plataforma",
     "platformIdHint": "Este identificador es el mismo en todas las apps de Furry Colombia.",
     "empty": "—",
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "fursonasLink": "Tus fursonas"
+  },
+  "fursonas": {
+    "title": "Tus fursonas",
+    "subtitle": "Los personajes con los que puedes actuar en Furry Colombia.",
+    "empty": "Aún no tienes fursonas.",
+    "suspended": "Tu cuenta está suspendida, así que tus fursonas no están disponibles por ahora y no puedes crear otras. No se ha eliminado nada.",
+    "create": "Nueva fursona",
+    "edit": "Editar",
+    "you": "Tú",
+    "visibility": {
+      "private": "Privada",
+      "unlisted": "No listada",
+      "public": "Pública"
+    },
+    "form": {
+      "handle": "Identificador",
+      "handleHint": "Letras, números, guion y guion bajo. Así se identifica a la fursona.",
+      "displayName": "Nombre para mostrar",
+      "avatarUrl": "URL del avatar",
+      "visibilityLabel": "Quién puede encontrar esta fursona",
+      "submitCreate": "Crear fursona",
+      "submitSave": "Guardar cambios",
+      "errors": {
+        "handle": "Usa entre 1 y 32 letras, números, guiones o guiones bajos.",
+        "handleTaken": "Ese identificador ya está en uso.",
+        "displayName": "Máximo 64 caracteres.",
+        "avatarUrl": "Ingresa una dirección de imagen http o https, o déjala vacía.",
+        "visibility": "Elige una de las opciones."
+      }
+    }
   },
   "nebula": {
     "toggle": "Fondo de nebulosa"
+  },
+  "notFound": {
+    "title": "No encontramos esa página",
+    "body": "Puede que la dirección esté mal escrita, o que lo que estaba aquí ya no esté disponible.",
+    "home": "Ir al inicio"
   },
   "error": {
     "title": "Algo salió mal",

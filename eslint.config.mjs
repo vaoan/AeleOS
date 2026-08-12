@@ -162,9 +162,12 @@ export default tseslint.config(
           "jsx-attributes": {
             include: ["alt", "aria-label", "aria-placeholder", "title"],
           },
-          // Proper nouns read the same in every language. Everything else in
-          // JSX has to come from the catalogue.
-          words: { exclude: ["AeleOS", "Furry Colombia"] },
+          // Proper nouns and symbols that read the same in every language.
+          // Everything else in JSX has to come from the catalogue. "@" is a
+          // handle prefix, not language text — allowlisting it here keeps
+          // that judgment in one auditable place instead of a suppression
+          // comment at every call site that renders a handle.
+          words: { exclude: ["AeleOS", "Furry Colombia", "@"] },
         },
       ],
     },

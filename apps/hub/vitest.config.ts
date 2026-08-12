@@ -18,8 +18,23 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/features/**/*.ts", "src/shared/**/*.ts", "e2e-target.ts"],
-      // src/app is excluded: those are React components covered by the e2e
-      // suite, and a coverage number on JSX measures rendering, not behaviour.
+      // src/app is excluded because a coverage number on JSX measures
+      // rendering, not behaviour — and because these files are Next route
+      // entry points that need a request context vitest does not have.
+      //
+      // It is NOT because the e2e suite covers them. It does not: tests/e2e/
+      // holds auth.spec.ts alone, which drives the sign-in gate, locale
+      // routing and the visual identity — every one of them anonymous, because
+      // driving Google's or Discord's real login is out of our control. **No
+      // end-to-end test has ever loaded a signed-in page**, so /me and every
+      // fursona route are unmeasured by any threshold in this repository.
+      //
+      // What stands in for it is direct-call tests: fursona-list-page and
+      // fursona-edit-page invoke the page functions with a mocked data layer
+      // and assert the branch each one takes. They are real tests and they
+      // have been red, but they are opt-in — nothing fails if the next route
+      // arrives without one. Adding a branch to a page means adding a case
+      // there, deliberately, because no gate will ask.
       //
       // fonts.ts is excluded because it cannot be executed here at all:
       // `next/font/google` is a build-time transform, so `Space_Grotesk` is not
@@ -34,13 +49,21 @@ export default defineConfig({
       // request context that doesn't exist under vitest.
       exclude: [
         "src/app/**",
-        // Same rationale as src/app: these are React components exercised by
-        // the e2e suite, and a coverage number on JSX measures rendering, not
-        // behaviour. They live under src/shared because they carry no domain
-        // concept, not because they belong in the coverage-measured set.
+        // Same first rationale as src/app: a coverage number on JSX measures
+        // rendering, not behaviour. These live under src/shared because they
+        // carry no domain concept, not because they belong in the measured set.
+        //
+        // The shell and the header controls are the part auth.spec.ts really
+        // does reach, anonymously, and each control also has a unit test
+        // (theme-toggle, star-toggle, language-toggle). That is why the honest
+        // gap named above is the signed-in routes, not this directory.
         "src/shared/presentation/**",
         "src/shared/infrastructure/fonts.ts",
         "src/shared/infrastructure/i18n/request.ts",
+        // Excluded on the same JSX rationale, but with no e2e behind it at
+        // all: actor-tile and fursona-form render only for a signed-in person,
+        // which no end-to-end test reaches. sign-in-form is the exception —
+        // auth.spec.ts asserts its providers and that it offers no password.
         "src/features/*/presentation/**",
         "src/features/*/index.ts",
       ],

@@ -11,3 +11,25 @@ export {
   getPersonActor,
   type PersonActor,
 } from "@/features/actors/infrastructure/actors";
+export {
+  listMyActors,
+  createFursona,
+  updateFursona,
+  HandleTakenError,
+  type Actor,
+} from "@/features/actors/infrastructure/fursonas";
+export {
+  VISIBILITIES,
+  parseFursona,
+  type FursonaFormState,
+  type FursonaInput,
+  type Visibility,
+} from "@/features/actors/domain/fursona-schema";
+export {
+  ActorTile,
+  type ActorTileProps,
+} from "@/features/actors/presentation/actor-tile";
+export {
+  FursonaForm,
+  type FursonaFormLabels,
+} from "@/features/actors/presentation/fursona-form";

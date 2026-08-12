@@ -23,10 +23,46 @@
     "platformId": "Platform ID",
     "platformIdHint": "This ID is the same in every Furry Colombia app.",
     "empty": "—",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "fursonasLink": "Your fursonas"
+  },
+  "fursonas": {
+    "title": "Your fursonas",
+    "subtitle": "The characters you can act as across Furry Colombia.",
+    "empty": "You have no fursonas yet.",
+    "suspended": "Your account is suspended, so your fursonas are not available right now and no new ones can be created. Nothing has been deleted.",
+    "create": "New fursona",
+    "edit": "Edit",
+    "you": "You",
+    "visibility": {
+      "private": "Private",
+      "unlisted": "Unlisted",
+      "public": "Public"
+    },
+    "form": {
+      "handle": "Handle",
+      "handleHint": "Letters, digits, dash and underscore. This is how the fursona is addressed.",
+      "displayName": "Display name",
+      "avatarUrl": "Avatar URL",
+      "visibilityLabel": "Who can find this fursona",
+      "submitCreate": "Create fursona",
+      "submitSave": "Save changes",
+      "errors": {
+        "handle": "Use 1–32 letters, digits, dashes or underscores.",
+        "handleTaken": "That handle is already taken.",
+        "displayName": "Keep this to 64 characters or fewer.",
+        "avatarUrl": "Enter an http or https image address, or leave it empty.",
+        "visibility": "Choose one of the options."
+      }
+    }
   },
   "nebula": {
     "toggle": "Nebula background"
+  },
+  "notFound": {
+    "title": "We could not find that page",
+    "body": "The address may be mistyped, or what was here is no longer available.",
+    "home": "Go to the home page"
   },
   "error": {
     "title": "Something went wrong",

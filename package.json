@@ -75,7 +75,7 @@
     "*.{ts,tsx,js,jsx,mjs}": [
       "prettier --check",
       "eslint --max-warnings=0 --no-warn-ignored",
-      "secretlint"
+      "secretlint --no-glob"
     ],
     "*.{json,md,css,yml,yaml}": [
       "prettier --check"
