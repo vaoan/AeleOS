@@ -24,25 +24,50 @@ documentation in two ways:
 A stale comment is worse than no comment: it is a confident, wrong instruction
 that both humans and models will follow.
 
-## 2. Three artefacts, three jobs, no overlap
+## 2. Two enforced artefacts, and one optional note
 
-Overlap is what makes documentation drift, because two things must be kept in
-step. These three describe different subjects and never restate one another.
+Overlap is what makes documentation drift, because two things must then be kept
+in step. These describe different subjects and never restate one another.
 
-| Artefact        | Answers                                        | Rots when                     |
-| --------------- | ---------------------------------------------- | ----------------------------- |
-| **TSDoc**       | what this export is, and its contract          | signature or contract changes |
-| **Tests**       | what it actually does, including every failure | never silently — it fails     |
-| **`CLAUDE.md`** | what must not be broken, and why               | the constraint itself changes |
+| Artefact  | Answers                                        | Rots when                     |
+| --------- | ---------------------------------------------- | ----------------------------- |
+| **TSDoc** | what this export is, and its contract          | signature or contract changes |
+| **Tests** | what it actually does, including every failure | never silently — it fails     |
 
 **TSDoc never restates types** — TypeScript already has them. It states the
 contract: what a caller may assume, what it throws, what is idempotent, what is
-security-relevant.
+security-relevant. **Constraints about an export belong here**, not in a
+separate file: _"this list is the security boundary", "absence and failure are
+different answers"_.
 
-**`CLAUDE.md` never describes an API.** It holds constraints and prohibitions:
-_"the nebula must never compete with an avatar", "borders must clear 3:1 —
-measure, do not eyeball"_. One per component directory, loaded by agents only
-when working under it, so it costs nothing until relevant.
+### Why there is no mandated per-directory `CLAUDE.md`
+
+An earlier draft of this spec required one per code directory, holding
+constraints. It was dropped before implementation, for two reasons.
+
+**Most of its content was per-export.** Of the four rules drafted for
+`src/lib`, three described exports that already exist — the security boundary
+of `PUBLIC_ROUTES`, the error contract of `getPersonActor`, the per-request
+token of `createServerClient`. Those belong on the export, where they are
+enforced, freshness-checked and visible on hover. Duplicating them into a file
+creates precisely the two-things-to-keep-in-step problem this section opens by
+warning against.
+
+**It would be the only artefact with no staleness protection.** This document
+otherwise exists to stop documentation drifting from code; adding a file that
+nothing checks and nothing enforces contradicts that.
+
+A directory file remains **available and unenforced**, for the residue that
+genuinely cannot attach to an export: rules constraining code that does not
+exist yet. _"Never cast a database row into a type", "the nebula must never
+compete with an avatar."_ The distinction is simple — **TSDoc constrains what
+exists; a directory note constrains what comes next.** A directory with nothing
+in the second category should not be made to invent some.
+
+The cost is accepted knowingly: a directory note loads automatically for agents
+working there, while a spec under `docs/superpowers/specs/` does not. Rules for
+future work are therefore slightly less likely to be seen. The answer is to
+write one where it earns its place, not everywhere.
 
 ## 3. What is enforced, and how honestly
 
@@ -54,11 +79,15 @@ when working under it, so it costs nothing until relevant.
 | Docs are valid TSDoc           | `tsdoc/syntax`                                           |
 | Descriptions are not empty     | `jsdoc/require-description`, `require-param-description` |
 | Parameters match the signature | `jsdoc/check-param-names`                                |
+| Every parameter is documented  | `jsdoc/require-param`                                    |
 | Every error branch is tested   | **branch coverage threshold**                            |
-| Every component has rules      | script asserting `CLAUDE.md` per component directory     |
 
 Branch coverage is the load-bearing one. "Test all the errors" is a wish; a
 build that fails on an untested branch is a rule.
+
+`require-param` earns its place indirectly. Without it, `check-param-names` has
+nothing to compare and the signature-drift guard is inert — which was found by
+probing the guard and getting no failure at all.
 
 ### Enforceable only by heuristic — adopted deliberately
 
@@ -120,4 +149,6 @@ files; the cost is an hour and they are better for it.
   model, not a docs portal.
 - A component registry for cross-app distribution. Worth doing when a second app
   consumes AeleOS components; speculative before that.
+- Enforcing that directory notes exist. They are written where useful, never by
+  mandate — see §2.
 - Applying these standards to `libra` or `puck`. Prove them here first.

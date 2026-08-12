@@ -161,6 +161,24 @@ Key choices and _why_:
 - **Filenames:** kebab-case (matching the sister projects).
 - **Specs & plans:** follow the `docs/superpowers/{specs,plans}/YYYY-MM-DD-*.md`
   convention used across the platform (brainstorm → spec → plan → implement).
+- **Every export carries TSDoc, and it states the contract — not the types.**
+  TypeScript already has the types; repeating them is drift waiting to happen.
+  Say what a caller may assume, what throws, what is idempotent, what is
+  security-relevant. `pnpm lint` fails without it, and fails again if a
+  parameter is renamed without its `@param`.
+- **Every export is tested on its happy path and on each failure mode.** Branch
+  coverage gates this — an untested error branch fails the build. A test that
+  guards already-correct behaviour must be **verified by sabotage**: break the
+  code, watch it go red, restore. A test never seen red proves nothing.
+- **Change an implementation, move its documentation.** `pnpm check:docs`
+  compares each exported symbol against the base branch — and against the index
+  in pre-commit — failing when the code moved and the TSDoc did not. It is a
+  heuristic and it is deliberate: under AI-driven development a stale comment is
+  a confident, wrong instruction. There is no suppression flag.
+- **Constraints about an export live in its TSDoc**, where they are enforced and
+  freshness-checked. A `CLAUDE.md` beside the code is optional and unenforced,
+  for rules constraining code that does not exist yet. TSDoc constrains what
+  exists; a directory note constrains what comes next.
 - **Git:** work on branches, open PRs; do **not** commit unless the user
   explicitly asks. Never commit secrets.
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**

@@ -24,7 +24,11 @@ jobs:
     # pull, not a target — without it a stuck run burns the full runner limit.
     timeout-minutes: 20
     steps:
+      # fetch-depth: 0 because check:docs compares against the base branch and
+      # a shallow clone has no base to compare with.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
 
       # No `version:` input on purpose. package.json pins packageManager with a
       # sha512 (matching libra), and action-setup errors out if a version
@@ -43,6 +47,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm check:tools
+      - run: pnpm check:docs origin/${{ github.base_ref || 'main' }}
 
       # v3 is a composite action — no Node runtime, so it is unaffected by the
       # Node 20 deprecation. Pinned by SHA for the same supply-chain reason as
@@ -66,7 +71,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter hub test
+      # Coverage, not just tests: the branch threshold is what makes "test
+      # every error path" a gate rather than an intention.
+      - run: pnpm --filter hub test:coverage
       - run: pnpm --filter hub build
         env:
           # Public by design — it ships in the browser bundle. The secret key

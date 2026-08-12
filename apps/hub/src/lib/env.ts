@@ -5,6 +5,13 @@ const schema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
+/**
+ * The validated environment this app needs to reach Clerk and Supabase.
+ *
+ * Both values are public by design — they ship in the browser bundle. The Clerk
+ * secret key is deliberately absent: it is read from `process.env` at the point
+ * of use and never travels through here.
+ */
 export type Env = {
   supabaseUrl: string;
   supabaseAnonKey: string;
@@ -13,6 +20,11 @@ export type Env = {
 /**
  * Validates raw environment values. Exported separately from `env` so tests can
  * exercise it without mutating process.env.
+ *
+ * @param raw - the unvalidated values, normally read from `process.env`.
+ * @returns the validated values in their typed shape.
+ * @throws naming every missing or malformed variable, so the message says which
+ * one to fix rather than merely that something is wrong.
  */
 export function readEnv(raw: Record<string, string | undefined>): Env {
   const parsed = schema.safeParse(raw);

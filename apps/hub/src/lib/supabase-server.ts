@@ -7,6 +7,10 @@ import { env } from "@/lib/env";
  *
  * There is no Supabase session. Supabase trusts Clerk directly via Third-Party
  * Auth, so the Clerk token is forwarded and RLS resolves the caller from it.
+ *
+ * `accessToken` is a callback, not a value: it is invoked per request, so a
+ * refreshed token is used and an expired one is never reused. Resolving it once
+ * would pin the client to whatever was valid at construction.
  */
 export async function createServerClient(): Promise<SupabaseClient> {
   const { getToken } = await auth();

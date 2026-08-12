@@ -1,6 +1,14 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { ensurePersonActor, getPersonActor } from "@/lib/actors";
 
+/**
+ * The signed-in person's identity page.
+ *
+ * **This page writes.** Rendering it calls `ensurePersonActor`, which
+ * provisions an actor row on first visit — idempotently, so a reload creates
+ * nothing. That side effect is the reason a person exists in the registry at
+ * all, so it must not be moved behind a button or a client component.
+ */
 export default async function MePage() {
   const user = await currentUser();
   const actorRef = await ensurePersonActor();

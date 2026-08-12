@@ -14,4 +14,9 @@ echo ""
 # Run sequentially to avoid secretlint worker SIGKILL on large staged batches.
 pnpm lint-staged --concurrent false --no-stash --no-revert
 
+# Documentation freshness, staged against HEAD. lint-staged cannot do this: it
+# passes filenames, and this needs to compare two revisions of each symbol.
+echo ""
+pnpm check:docs --staged
+
 echo "All pre-commit checks passed."

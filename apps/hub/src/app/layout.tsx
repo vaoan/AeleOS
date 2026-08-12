@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   description: "Your identity across Furry Colombia.",
 };
 
+/**
+ * The root layout, wrapping every page in Clerk's provider.
+ *
+ * `ClerkProvider` sits outside `<html>` deliberately: it must enclose the whole
+ * tree so that server components can read the session during render.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

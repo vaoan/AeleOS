@@ -2,7 +2,7 @@
   "name": "aeleos",
   "version": "0.1.0",
   "private": true,
-  "description": "AeleOS — central identity for the Furry Colombia platform.",
+  "description": "AeleOS \u2014 central identity for the Furry Colombia platform.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
@@ -26,10 +26,13 @@
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint:fix",
     "typecheck": "tsc --noEmit && pnpm --filter hub typecheck",
-    "check:tools": "cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
+    "check:tools": "pnpm test:tools && cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
     "secretlint": "secretlint \"**/*\"",
     "sync-secrets": "node scripts/sync-secrets.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:hub:coverage": "pnpm --filter hub test:coverage",
+    "check:docs": "node scripts/check-doc-freshness.mjs",
+    "test:tools": "vitest run -c vitest.config.tools.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -42,6 +45,8 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.0.0",
     "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-jsdoc": "^64.1.0",
+    "eslint-plugin-tsdoc": "^0.5.2",
     "globals": "^14.0.0",
     "husky": "^9.1.7",
     "jose": "^6.0.11",

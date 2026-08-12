@@ -13,7 +13,10 @@
 - **This plan follows `docs/superpowers/specs/2026-08-12-documentation-and-test-standards-design.md`.** Read it first — particularly §3, which records that the freshness check is a deliberately-adopted heuristic and why.
 - **Retrofit, not forward-only.** No file is exempted. A two-tier codebase teaches that the rule is optional.
 - **TSDoc states the contract, never the types.** TypeScript already has the types. Documentation that restates them is noise that will drift.
-- **`CLAUDE.md` never describes an API.** Constraints and prohibitions only.
+- **Constraints about an export go in its TSDoc**, not a separate file. A
+  per-directory `CLAUDE.md` was in an earlier draft and was dropped before
+  implementation — see the spec §2 for why. Directory notes remain optional and
+  unenforced.
 - **Every new gate must be proved to fail.** Break the thing it guards, watch it go red, restore. A gate never seen red is not known to work — this repository has shipped two of those already.
 - **Branch from an explicit base:** `git checkout -b <name> origin/main`. Confirm with `git log --oneline origin/main..HEAD`.
 - **Budget: $0.** Everything here is a dev dependency; nothing calls a paid service.
@@ -25,14 +28,13 @@ TypeDoc or a generated documentation site, a shadcn component registry, and roll
 
 ## File structure
 
-| File                                | Responsibility                                |
-| ----------------------------------- | --------------------------------------------- |
-| `eslint.config.mjs`                 | presence, syntax and signature-drift rules    |
-| `apps/hub/vitest.config.ts`         | branch coverage thresholds                    |
-| `scripts/check-doc-freshness.mjs`   | per-symbol staleness detection                |
-| `scripts/check-component-rules.mjs` | asserts a `CLAUDE.md` per component directory |
-| `tests/tools/doc-freshness.test.ts` | tests for the checker itself                  |
-| `package.json`                      | wires both scripts into `check:tools`         |
+| File                                | Responsibility                             |
+| ----------------------------------- | ------------------------------------------ |
+| `eslint.config.mjs`                 | presence, syntax and signature-drift rules |
+| `apps/hub/vitest.config.ts`         | branch coverage thresholds                 |
+| `scripts/check-doc-freshness.mjs`   | per-symbol staleness detection             |
+| `tests/tools/doc-freshness.test.ts` | tests for the checker itself               |
+| `package.json`                      | wires both scripts into `check:tools`      |
 
 ---
 
@@ -563,129 +565,7 @@ git commit -m "feat(ci): flag exports whose docs did not move with the code"
 
 ---
 
-### Task 4: A `CLAUDE.md` per component directory
-
-**Files:**
-
-- Create: `scripts/check-component-rules.mjs`
-- Create: `apps/hub/src/lib/CLAUDE.md`
-- Modify: `package.json`
-
-**Interfaces:**
-
-- Consumes: nothing.
-- Produces: `pnpm check:rules`, failing when a directory holding components or libraries has no `CLAUDE.md`.
-
-- [ ] **Step 1: Write the checker**
-
-`scripts/check-component-rules.mjs`:
-
-```js
-/**
- * Asserts that every directory holding shared code carries its constraints.
- *
- * Agents load a directory's CLAUDE.md only when working under it, so this costs
- * nothing until it is relevant — which is why constraints belong there rather
- * than in the root file everyone pays for on every task.
- */
-import { readdirSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-
-const ROOTS = ["apps/hub/src/lib", "apps/hub/src/components"];
-
-let missing = 0;
-for (const root of ROOTS) {
-  if (!existsSync(root)) continue;
-  const dirs = [
-    root,
-    ...readdirSync(root)
-      .map((e) => join(root, e))
-      .filter((p) => statSync(p).isDirectory()),
-  ];
-  for (const dir of dirs) {
-    const hasCode = readdirSync(dir).some((f) => /\.tsx?$/.test(f));
-    if (hasCode && !existsSync(join(dir, "CLAUDE.md"))) {
-      console.error(
-        `${dir}: missing CLAUDE.md — what must not be broken here?`,
-      );
-      missing += 1;
-    }
-  }
-}
-
-if (missing) {
-  console.error(`\n${missing} director(ies) without constraints recorded.`);
-  process.exit(1);
-}
-console.log("Every code directory records its constraints.");
-```
-
-- [ ] **Step 2: Run it and watch it fail**
-
-Run: `node scripts/check-component-rules.mjs`
-Expected: FAIL, naming `apps/hub/src/lib`.
-
-- [ ] **Step 3: Write the first one**
-
-`apps/hub/src/lib/CLAUDE.md` — constraints only, no API description:
-
-```markdown
-# Constraints for `src/lib`
-
-## `public-routes.ts` is the security boundary
-
-`PUBLIC_ROUTES` is the complete definition of what is reachable without a
-session. Adding an entry makes a route public — there is no second check
-anywhere.
-
-Use a path separator, never a prefix. `/sign-in(.*)` also matches
-`/sign-instead`, which is how a future route becomes public without anyone
-deciding it should be. Every entry needs a test in
-`tests/public-routes.test.ts`.
-
-## Errors must not be reported as absence
-
-`getPersonActor` returns `null` **only** for PostgREST's `PGRST116` — no rows
-matched. Every other error is rethrown. Collapsing them into `null` makes an RLS
-denial or a dropped connection indistinguishable from "this person has no
-actor", and `/me` renders a blank identity while reporting success.
-
-The same applies to any function added here: absence and failure are different
-answers.
-
-## Never cast a database row into a type
-
-`as string` on a column turns a truncated row into an object that type-checks
-and renders blank. Verify the columns the type promises, and throw when they are
-missing.
-
-## Clerk is asked for a token per request
-
-`createServerClient` passes a callback, not a value. Resolving the token once
-would pin the client to a token that expires mid-session.
-```
-
-- [ ] **Step 4: Verify and wire in**
-
-Run: `node scripts/check-component-rules.mjs`
-Expected: PASS.
-
-Add to root `package.json` and to `check:tools`:
-
-```json
-"check:rules": "node scripts/check-component-rules.mjs"
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add scripts/check-component-rules.mjs apps/hub/src/lib/CLAUDE.md package.json
-git commit -m "feat(ci): require every code directory to record its constraints"
-```
-
----
-
-### Task 5: Record the standards where they will be read
+### Task 4: Record the standards where they will be read
 
 **Files:**
 
@@ -707,16 +587,18 @@ Under `## Conventions`, before the git rules:
   compares each exported symbol against the base branch and fails when the code
   moved and the TSDoc did not. It is a heuristic and it is deliberate: under
   AI-driven development a stale comment is a confident, wrong instruction.
-- **Constraints live in a `CLAUDE.md` beside the code**, not in this file.
-  Agents load it only when working there. It records what must not be broken —
-  never an API description, which is TSDoc's job.
+- **Constraints about an export live in its TSDoc**, where they are enforced and
+  freshness-checked. A `CLAUDE.md` beside the code is optional and unenforced —
+  it is for rules constraining code that does not exist yet, which cannot attach
+  to an export. TSDoc constrains what exists; a directory note constrains what
+  comes next.
 ```
 
 - [ ] **Step 2: Verify every gate**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm format:check && pnpm secretlint && pnpm check:tools
-pnpm check:docs origin/main && pnpm check:rules
+pnpm check:docs origin/main
 pnpm --filter hub test:coverage
 ```
 
@@ -738,7 +620,6 @@ git commit -m "docs: record the documentation and test standards"
 - [ ] `pnpm --filter hub test:coverage` fails when an untested branch is added.
 - [ ] `pnpm check:docs` names the symbol when an implementation changes alone.
 - [ ] `pnpm check:docs` stays silent when Prettier reformats a file.
-- [ ] `pnpm check:rules` fails when a code directory has no `CLAUDE.md`.
 - [ ] All five existing source files carry TSDoc that states contracts, not types.
 - [ ] Every one of those failures was observed, not assumed.
 

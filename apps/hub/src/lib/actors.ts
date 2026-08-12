@@ -1,5 +1,12 @@
 import { createServerClient } from "@/lib/supabase-server";
 
+/**
+ * A person's actor, as exposed by the `actors_public` view.
+ *
+ * Never carries `owner_ref` or `identity_sub`. Those are absent from the view
+ * by construction, which is what makes this shape safe to hand to a client —
+ * see `tests/idp/clerk-actor-model.test.ts`.
+ */
 export type PersonActor = {
   id: string;
   actorRef: string;
@@ -35,7 +42,14 @@ export async function ensurePersonActor(): Promise<string> {
  *
  * Only "no rows" becomes null. Every other error is rethrown: an RLS denial, a
  * dropped connection or a missing view are faults, and collapsing them into
- * null would render /me as a blank identity while reporting success.
+ * null would render /me as a blank identity while reporting success. Absence
+ * and failure are different answers, and anything added here must keep them
+ * apart.
+ *
+ * @param actorRef - the platform ID to look up, as returned by
+ * `ensurePersonActor`.
+ * @returns the actor, or null when no row matches.
+ * @throws on any failure that is not "no rows matched".
  */
 export async function getPersonActor(
   actorRef: string,
