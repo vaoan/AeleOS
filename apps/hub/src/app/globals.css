@@ -59,9 +59,12 @@
   --nebula-a: 236 142 74;
   --nebula-b: 214 106 96;
   --nebula-blend: multiply;
-  /* Lower than dark: multiply darkens, and the light field has far less
-   * headroom before the dust starts fighting the text above it. */
-  --nebula-opacity: 0.3;
+  /* Still lower than dark — multiply darkens, and the light field has far less
+   * headroom before the dust starts fighting the text above it — but raised
+   * from 0.3 when the clouds grew larger and sparser. Half the ink spread over
+   * a few big masses left light mode reading as a plain gradient; dark mode,
+   * which adds light rather than removing it, did not need the same lift. */
+  --nebula-opacity: 0.45;
 }
 
 [data-theme="dark"] {
