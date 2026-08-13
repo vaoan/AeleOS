@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const save = vi.fn<(...a: unknown[]) => Promise<void>>();
+const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
 let saving = false;
 vi.mock("@/features/actors/application/use-fursona-editor", () => ({
@@ -32,6 +32,28 @@ const labels = {
   saving: "Saving…",
   cancel: "Cancel",
   bannerTitle: "Fix these before saving",
+  writingIn: "Writing in",
+  sectionsTitle: "Sections",
+  empty: "No sections yet.",
+  addSection: "Add section",
+  newSectionType: "New section layout",
+  atLimit: "At the limit.",
+  dragSection: "Drag to reorder section",
+  sectionName: "Section name",
+  sectionType: "Layout",
+  addItem: "Add item",
+  removeItem: "Remove item",
+  removeSection: "Remove section",
+  collapse: "Collapse section",
+  expand: "Expand section",
+  itemTitle: "Title",
+  itemDescription: "Description",
+  types: {
+    cards: "Cards",
+    accordion: "Accordion",
+    "two-column": "Two columns",
+    gallery: "Gallery",
+  },
   visibility: { private: "Private", unlisted: "Unlisted", public: "Public" },
   errors: {
     handle: "Use 1-32 letters, digits, dashes or underscores.",
@@ -54,7 +76,9 @@ function renderEditor(props: Record<string, unknown> = {}): void {
 
 beforeEach(() => {
   save.mockReset();
-  save.mockResolvedValue(undefined);
+  // true means "everything landed". The editor navigates on this value and
+  // never on fieldErrors, which is stale by the time a save resolves.
+  save.mockResolvedValue(true);
   push.mockReset();
   fieldErrors = {};
   saving = false;
@@ -145,6 +169,28 @@ describe("FursonaEditor", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "That handle is already taken.",
     );
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  // THE REGRESSION. The refusal happens DURING the save, which is the only way
+  // it happens in life — and the way the original test did not cover. The
+  // editor read `fieldErrors` from the closure captured before the save ran, so
+  // it was still empty, and it navigated away: the error hidden, the typing
+  // gone. Presetting fieldErrors before render let the old test pass over it.
+  it("stays put when the save is refused while it runs", async () => {
+    save.mockImplementation(async () => {
+      fieldErrors = { handle: "handleTaken" };
+      return false;
+    });
+    renderEditor();
+    fireEvent.change(screen.getByLabelText("Handle"), {
+      target: { value: "blaze" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(save).toHaveBeenCalled();
+    });
     expect(push).not.toHaveBeenCalled();
   });
 

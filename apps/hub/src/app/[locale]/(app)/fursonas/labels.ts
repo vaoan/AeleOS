@@ -10,6 +10,10 @@ import type { FursonaEditorLabels } from "@/features/actors";
  * rather than each page carrying its own near-identical copy of this
  * function.
  *
+ * It now also carries every string the section editor needs, resolved here for
+ * the same reason as the rest: those components are client components, so the
+ * catalogue lookup belongs on the server where the locale already is.
+ *
  * `errors` is keyed by error **code**, not by field: it must carry an entry for
  * every code either action can return, including the ones no field produces
  * (`handleTaken`, and `limitReached` for the fursona quota). A code with no
@@ -32,6 +36,28 @@ export async function fursonaEditorLabels(
     saving: t("saving"),
     cancel: t("cancel"),
     bannerTitle: t("bannerTitle"),
+    writingIn: t("writingIn"),
+    sectionsTitle: t("sectionsTitle"),
+    empty: t("sectionsEmpty"),
+    addSection: t("addSection"),
+    newSectionType: t("newSectionType"),
+    atLimit: t("sectionsAtLimit"),
+    dragSection: t("dragSection"),
+    sectionName: t("sectionName"),
+    sectionType: t("sectionType"),
+    addItem: t("addItem"),
+    removeItem: t("removeItem"),
+    removeSection: t("removeSection"),
+    collapse: t("collapseSection"),
+    expand: t("expandSection"),
+    itemTitle: t("itemTitle"),
+    itemDescription: t("itemDescription"),
+    types: {
+      cards: t("types.cards"),
+      accordion: t("types.accordion"),
+      "two-column": t("types.two-column"),
+      gallery: t("types.gallery"),
+    },
     handle: t("form.handle"),
     handleHint: t("form.handleHint"),
     displayName: t("form.displayName"),
@@ -49,6 +75,7 @@ export async function fursonaEditorLabels(
       displayName: t("form.errors.displayName"),
       avatarUrl: t("form.errors.avatarUrl"),
       visibility: t("form.errors.visibility"),
+      sectionsRefused: t("form.errors.sectionsRefused"),
     },
   };
 }

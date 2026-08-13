@@ -51,7 +51,8 @@
         "displayName": "Máximo 64 caracteres.",
         "avatarUrl": "Ingresa una dirección de imagen http o https, o déjala vacía.",
         "visibility": "Elige una de las opciones.",
-        "limitReached": "Ya tienes el máximo de fursonas."
+        "limitReached": "Ya tienes el máximo de fursonas.",
+        "sectionsRefused": "Tus secciones fueron rechazadas. Corrígelas y guarda otra vez; no se perdió nada más."
       }
     },
     "pin": "Fijar primero",
@@ -67,7 +68,29 @@
     "editorTitleEdit": "Editar fursona",
     "save": "Guardar",
     "saving": "Guardando…",
-    "bannerTitle": "Corrige esto antes de guardar"
+    "bannerTitle": "Corrige esto antes de guardar",
+    "writingIn": "Escribiendo en",
+    "sectionsTitle": "Secciones",
+    "sectionsEmpty": "Aún no hay secciones. Agrega una para armar la página.",
+    "addSection": "Agregar sección",
+    "newSectionType": "Diseño de la nueva sección",
+    "sectionsAtLimit": "Alcanzaste el máximo de secciones.",
+    "dragSection": "Arrastra para reordenar la sección",
+    "sectionName": "Nombre de la sección",
+    "sectionType": "Diseño",
+    "addItem": "Agregar elemento",
+    "removeItem": "Eliminar elemento",
+    "removeSection": "Eliminar sección",
+    "collapseSection": "Contraer sección",
+    "expandSection": "Expandir sección",
+    "itemTitle": "Título",
+    "itemDescription": "Descripción",
+    "types": {
+      "cards": "Tarjetas",
+      "accordion": "Acordeón",
+      "two-column": "Dos columnas",
+      "gallery": "Galería"
+    }
   },
   "picker": {
     "title": "¿Quién quieres ser?",

@@ -146,3 +146,33 @@ export async function deleteFursona(
 ): Promise<void> {
   await call(client, "delete_fursona", { p_actor_ref: actorRef });
 }
+
+/**
+ * Replaces a fursona's sections.
+ *
+ * **Replaces rather than merges**, matching `set_fursona_sections` in `0013`:
+ * the editor sends the whole document on every save, so merging would double it
+ * on the second one. That also makes a retry after a failed save safe, which is
+ * what lets the editor keep somebody's writing on screen and simply try again.
+ *
+ * The database validates the shape and raises a message naming which section
+ * and which item is wrong, because the editor has to say what to fix. It also
+ * enforces the limits `SECTION_LIMITS` mirrors — the client copy is a courtesy,
+ * this call is the authority.
+ *
+ * @param client - a Supabase client authenticated as the person.
+ * @param actorRef - the fursona whose sections these are.
+ * @param sections - the whole document.
+ * @throws when the caller does not own an active fursona with that ref, or when
+ * the shape or the limits are refused.
+ */
+export async function setFursonaSections(
+  client: SupabaseClient,
+  actorRef: string,
+  sections: unknown,
+): Promise<void> {
+  await call(client, "set_fursona_sections", {
+    p_actor_ref: actorRef,
+    p_sections: sections,
+  });
+}

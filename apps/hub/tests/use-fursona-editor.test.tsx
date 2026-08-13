@@ -8,6 +8,10 @@ class FursonaLimitError extends Error {}
 
 const createFursona = vi.fn<(...a: unknown[]) => unknown>();
 const updateFursona = vi.fn<(...a: unknown[]) => unknown>();
+const setFursonaSections = vi.fn<(...a: unknown[]) => unknown>();
+vi.mock("@/features/actors/infrastructure/fursona-arrangement", () => ({
+  setFursonaSections: (...a: unknown[]) => setFursonaSections(...a),
+}));
 vi.mock("@/features/actors/infrastructure/fursonas", () => ({
   createFursona: (...a: unknown[]) => createFursona(...a),
   updateFursona: (...a: unknown[]) => updateFursona(...a),
@@ -34,12 +38,24 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-const values = {
+const fields = {
   handle: "sparky",
   displayName: "Sparky",
   avatarUrl: "",
   visibility: "private" as const,
 };
+
+const sections = [
+  {
+    name_en: "About",
+    type: "cards" as const,
+    sort_order: 1,
+    items: [],
+  },
+];
+
+/** One save's worth: the four fields and the page's sections. */
+const values = { ...fields, sections };
 
 beforeEach(() => {
   queryClient = new QueryClient({
@@ -49,21 +65,57 @@ beforeEach(() => {
   createFursona.mockResolvedValue("new-ref");
   updateFursona.mockReset();
   updateFursona.mockResolvedValue(undefined);
+  setFursonaSections.mockReset();
+  setFursonaSections.mockResolvedValue(undefined);
 });
 
 describe("useFursonaEditor", () => {
   it("creates when it has no actor ref", async () => {
     const { result } = renderHook(() => useFursonaEditor(), { wrapper });
     await result.current.save(values);
-    expect(createFursona).toHaveBeenCalledWith({}, values);
+    expect(createFursona).toHaveBeenCalledWith({}, fields);
     expect(updateFursona).not.toHaveBeenCalled();
   });
 
   it("updates when it has one", async () => {
     const { result } = renderHook(() => useFursonaEditor("ref-1"), { wrapper });
     await result.current.save(values);
-    expect(updateFursona).toHaveBeenCalledWith({}, "ref-1", values);
+    expect(updateFursona).toHaveBeenCalledWith({}, "ref-1", fields);
     expect(createFursona).not.toHaveBeenCalled();
+  });
+
+  // The order is forced: set_fursona_sections needs an actor_ref that does not
+  // exist until the fursona does, so create must land first and its returned
+  // ref is what the sections are written against.
+  it("creates the fursona first, then writes its sections against the new ref", async () => {
+    const { result } = renderHook(() => useFursonaEditor(), { wrapper });
+    await result.current.save(values);
+    expect(setFursonaSections).toHaveBeenCalledWith({}, "new-ref", sections);
+    expect(createFursona.mock.invocationCallOrder[0]!).toBeLessThan(
+      setFursonaSections.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("writes sections against the existing ref when editing", async () => {
+    const { result } = renderHook(() => useFursonaEditor("ref-1"), { wrapper });
+    await result.current.save(values);
+    expect(setFursonaSections).toHaveBeenCalledWith({}, "ref-1", sections);
+  });
+
+  // The partial failure the plan calls out: the fursona exists and its content
+  // does not. Reported, never rolled back — deleting a just-created fursona
+  // would spend a handle from a namespace that never reclaims one.
+  it("reports a refused section write rather than undoing the fursona", async () => {
+    setFursonaSections.mockRejectedValueOnce(
+      new Error("section 1: unknown type"),
+    );
+    const { result } = renderHook(() => useFursonaEditor(), { wrapper });
+    let landed: boolean | undefined;
+    await act(async () => {
+      landed = await result.current.save(values);
+    });
+    expect(landed).toBe(false);
+    expect(result.current.fieldErrors).toEqual({ form: "sectionsRefused" });
   });
 
   // Without this the list still shows the old rows after a save, and somebody
@@ -106,6 +158,7 @@ describe("useFursonaEditor", () => {
   });
 
   it("clears a previous field error when a later save succeeds", async () => {
+    let landedAgain: boolean | undefined;
     createFursona.mockRejectedValueOnce(new HandleTakenError("taken"));
     const { result } = renderHook(() => useFursonaEditor(), { wrapper });
     await act(async () => {
@@ -114,8 +167,10 @@ describe("useFursonaEditor", () => {
     expect(result.current.fieldErrors).toEqual({ handle: "handleTaken" });
 
     await act(async () => {
-      await result.current.save(values);
+      landedAgain = await result.current.save(values);
     });
     expect(result.current.fieldErrors).toEqual({});
+    // And it reports success, which is what the editor navigates on.
+    expect(landedAgain).toBe(true);
   });
 });

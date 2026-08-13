@@ -51,7 +51,8 @@
         "displayName": "Keep this to 64 characters or fewer.",
         "avatarUrl": "Enter an http or https image address, or leave it empty.",
         "visibility": "Choose one of the options.",
-        "limitReached": "You already have the maximum number of fursonas."
+        "limitReached": "You already have the maximum number of fursonas.",
+        "sectionsRefused": "Your sections were refused. Fix them and save again — nothing else was lost."
       }
     },
     "pin": "Pin first",
@@ -67,7 +68,29 @@
     "editorTitleEdit": "Edit fursona",
     "save": "Save",
     "saving": "Saving…",
-    "bannerTitle": "Fix these before saving"
+    "bannerTitle": "Fix these before saving",
+    "writingIn": "Writing in",
+    "sectionsTitle": "Sections",
+    "sectionsEmpty": "No sections yet. Add one to start building the page.",
+    "addSection": "Add section",
+    "newSectionType": "New section layout",
+    "sectionsAtLimit": "You have reached the maximum number of sections.",
+    "dragSection": "Drag to reorder section",
+    "sectionName": "Section name",
+    "sectionType": "Layout",
+    "addItem": "Add item",
+    "removeItem": "Remove item",
+    "removeSection": "Remove section",
+    "collapseSection": "Collapse section",
+    "expandSection": "Expand section",
+    "itemTitle": "Title",
+    "itemDescription": "Description",
+    "types": {
+      "cards": "Cards",
+      "accordion": "Accordion",
+      "two-column": "Two columns",
+      "gallery": "Gallery"
+    }
   },
   "picker": {
     "title": "Who do you want to be?",

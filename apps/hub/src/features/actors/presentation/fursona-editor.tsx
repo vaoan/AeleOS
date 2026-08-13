@@ -10,14 +10,31 @@ import {
 } from "@/features/actors/presentation/editor-toolbar";
 import { FormErrorBanner } from "@/features/actors/presentation/form-error-banner";
 import {
+  SectionEditor,
+  type SectionEditorLabels,
+} from "@/features/actors/presentation/section-editor";
+import { useLanguageToggle } from "@/features/actors/application/use-language-toggle";
+import type { FursonaSection } from "@/features/actors/domain/section-schema";
+import {
   VISIBILITIES,
   fursonaSchema,
   type FursonaInput,
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
+import { sectionsSchema } from "@/features/actors/domain/section-schema";
 
-/** Translated strings {@link FursonaEditor} renders. */
-export interface FursonaEditorLabels extends EditorToolbarLabels {
+/**
+ * Translated strings {@link FursonaEditor} renders.
+ *
+ * Extends the toolbar's and the section editor's, because the editor owns one
+ * label bag and hands slices of it down rather than each level resolving its
+ * own — a component that resolved its own would need the catalogue in the
+ * browser.
+ */
+export interface FursonaEditorLabels
+  extends EditorToolbarLabels, SectionEditorLabels {
+  /** Names the control that switches which language is being written. */
+  writingIn: string;
   /** Shown in the toolbar: what is being edited. */
   title: string;
   /** Field labels. */
@@ -38,12 +55,20 @@ export interface FursonaEditorLabels extends EditorToolbarLabels {
   errors: Record<string, string>;
 }
 
-/** What {@link FursonaEditor} needs. */
+/**
+ * What {@link FursonaEditor} needs.
+ *
+ * `initialSections` is separate from `initial` because the two come from
+ * different reads: the fields from `my_actors()`, the sections from
+ * `fursona_profiles`. `0013` deliberately did not join them.
+ */
 export interface FursonaEditorProps {
   /** Already-translated strings. */
   labels: FursonaEditorLabels;
   /** Existing values when editing; absent when creating. */
   initial?: Partial<FursonaInput>;
+  /** The fursona's existing sections, absent when creating. */
+  initialSections?: FursonaSection[];
   /** The fursona being edited, absent when creating. */
   actorRef?: string;
   /** False when editing — the handle is then shown but not submitted. */
@@ -52,6 +77,16 @@ export interface FursonaEditorProps {
 
 /** Where a save or a cancel returns to. */
 const LIST = "/fursonas";
+
+/**
+ * The whole editor's shape: the four fields, plus the page's sections.
+ *
+ * Composed from the two schemas rather than restated, so neither the field
+ * rules nor the section rules exist twice — and `sectionsSchema` is the same
+ * one whose limits are checked against `0013` by
+ * `section-limits-match-migration.test.ts`.
+ */
+const editorSchema = fursonaSchema.extend({ sections: sectionsSchema });
 
 /**
  * The fursona editor: a full-page form under a sticky toolbar.
@@ -64,6 +99,17 @@ const LIST = "/fursonas";
  * restating the rules. `fursona-schema.test.ts` already pins them, and a second
  * copy would drift from the one the database enforces.
  *
+ * It now edits the page as well as the fursona: the four fields, a language
+ * toggle, and the sections. Its schema is `fursonaSchema` extended with
+ * `sectionsSchema`, composed rather than restated so neither set of rules
+ * exists twice.
+ *
+ * **Navigation is decided by what `save` returns, never by reading
+ * `fieldErrors` afterwards.** That value is captured from the render that built
+ * the submit handler, so it is still empty when a save fails — and this editor
+ * once navigated away on a refusal, hiding the reason and discarding what
+ * somebody had typed.
+ *
  * Two error sources meet in one banner: what the schema rejected before
  * anything was sent, and what the database refused afterwards. Both are codes,
  * both look up in `labels.errors`, and the person does not need to know which
@@ -74,23 +120,27 @@ const LIST = "/fursonas";
 export function FursonaEditor({
   labels,
   initial,
+  initialSections,
   actorRef,
   handleEditable,
 }: FursonaEditorProps) {
   const router = useRouter();
   const { save, saving, fieldErrors } = useFursonaEditor(actorRef);
+  const { lang, toggle } = useLanguageToggle();
 
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FursonaInput>({
-    resolver: zodResolver(fursonaSchema),
+  } = useForm({
+    resolver: zodResolver(editorSchema),
     defaultValues: {
       handle: initial?.handle ?? "",
       displayName: initial?.displayName ?? "",
       avatarUrl: initial?.avatarUrl ?? "",
       visibility: initial?.visibility ?? "private",
+      sections: initialSections ?? [],
     },
   });
 
@@ -103,11 +153,11 @@ export function FursonaEditor({
   return (
     <form
       onSubmit={handleSubmit(async (values) => {
-        await save(values);
-        // Only on a clean save. A refusal sets fieldErrors and leaves the
-        // person here with the reason showing, which is the only useful place
-        // to be — navigating away would hide it.
-        if (Object.keys(fieldErrors).length === 0) router.push(LIST);
+        // The RETURN VALUE decides, never `fieldErrors`. That variable is
+        // captured from the render that built this handler, so it is still
+        // empty when the save fails — and the editor used to navigate away on
+        // a refusal, hiding the reason and taking the person's typing with it.
+        if (await save(values)) router.push(LIST);
       })}
     >
       <EditorToolbar
@@ -200,6 +250,25 @@ export function FursonaEditor({
           </select>
         </div>
       </div>
+
+      <div className="mt-8 flex items-center gap-3">
+        <span className="text-sm text-[var(--muted)]">{labels.writingIn}</span>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={lang === "es"}
+          className="rounded-lg border border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+        >
+          {lang === "en" ? "EN" : "ES"}
+        </button>
+      </div>
+
+      <SectionEditor
+        control={control}
+        register={register}
+        lang={lang}
+        labels={labels}
+      />
     </form>
   );
 }

@@ -5,6 +5,7 @@ import {
   readMyActors,
   setFursonaFeatured,
   setFursonaOrder,
+  setFursonaSections,
 } from "@/features/actors/infrastructure/fursona-arrangement";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -151,6 +152,19 @@ describe("the write functions", () => {
     });
   });
 
+  // Sends the whole document, because 0013 replaces rather than merges — which
+  // is also what makes retrying a failed save safe.
+  it("writes sections by actor ref", async () => {
+    const sections = [
+      { name_en: "About", type: "cards", sort_order: 1, items: [] },
+    ];
+    await setFursonaSections(client(), "ref-1", sections);
+    expect(rpc).toHaveBeenCalledWith("set_fursona_sections", {
+      p_actor_ref: "ref-1",
+      p_sections: sections,
+    });
+  });
+
   it("deletes by actor ref", async () => {
     await deleteFursona(client(), "ref-1");
     expect(rpc).toHaveBeenCalledWith("delete_fursona", {
@@ -162,6 +176,7 @@ describe("the write functions", () => {
     ["setFursonaOrder", () => setFursonaOrder(client(), "r", 1)],
     ["setFursonaFeatured", () => setFursonaFeatured(client(), "r", true)],
     ["deleteFursona", () => deleteFursona(client(), "r")],
+    ["setFursonaSections", () => setFursonaSections(client(), "r", [])],
   ])("%s throws when the database refuses", async (_name, call) => {
     rpc.mockResolvedValueOnce({
       data: null,
