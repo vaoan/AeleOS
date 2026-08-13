@@ -159,6 +159,15 @@ Deploying on push to `main` is safe because `main` cannot receive unverified
 code: `conformance`, `hub` and `idp-cloud` are required checks and admins are
 not exempt, so every commit there has already passed them on a pull request.
 
+> **Still true, and now stronger (noted 2026-08-13).** `e2e` was made required
+> as well, so the list is `["conformance","hub","idp-cloud","e2e"]` and
+> protection is `strict` — a branch must be up to date with `main` to merge.
+> The argument above is unchanged; there is simply one more gate behind it.
+> `CLAUDE.md` carries the current list, and
+> `gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks`
+> is the authority — the list lives in repository settings, so no file in this
+> repository can drift with it.
+
 ## 7. Provider sequencing
 
 `docs/phase-0-clerk-setup.md` establishes the lineup — Google, Discord, Facebook

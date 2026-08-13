@@ -1059,6 +1059,13 @@ Add it to that job rather than creating a new one: `conformance`, `hub` and
 required until someone changes branch protection by hand — a green PR that
 never ran the package tests is worse than no job at all.
 
+> **Count is out of date; the reasoning is not (noted 2026-08-13).** `e2e` was
+> made required afterwards, so there are four. The rule this paragraph is
+> really stating survives the change: **a new job is not required until someone
+> makes it so by hand**, which is exactly what happened to `e2e` — it ran unenforced
+> for a while first. Fold new tests into an already-required job unless you are
+> also going to change branch protection.
+
 - [ ] **Step 7: Install and verify**
 
 ```bash

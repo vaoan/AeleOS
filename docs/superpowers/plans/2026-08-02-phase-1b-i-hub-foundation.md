@@ -1431,6 +1431,15 @@ git commit -m "ci: add hub and cloud-trust jobs"
 
 - [ ] **Step 6: Make the new checks required** 🧑
 
+> ⚠️ **Do not re-run this step as written (noted 2026-08-13).** It was correct
+> when this plan was executed, and it is now **destructive**. `e2e` was made
+> required afterwards, so the live list is
+> `["conformance","hub","idp-cloud","e2e"]` — and `contexts[]` on this endpoint
+> **replaces** the list rather than adding to it. Running the command below
+> today would silently drop `e2e` from branch protection, with nothing failing
+> to say so. Read the current list first and pass every context you intend to
+> keep.
+
 Only after both jobs have reported green on a pull request at least once:
 
 ```bash
@@ -1444,7 +1453,7 @@ Then confirm:
 gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
 ```
 
-Expected: `["conformance","hub","idp-cloud"]`.
+Expected: `["conformance","hub","idp-cloud"]`. (Today: the four above.)
 
 ---
 
