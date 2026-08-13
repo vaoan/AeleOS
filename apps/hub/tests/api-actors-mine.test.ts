@@ -7,6 +7,13 @@ const listMyActors = vi.fn<(...a: unknown[]) => unknown>();
 // proxy's own auth.protect() does not run (see public-routes.ts), so the
 // handler's own auth() call is the only gate — mocking anything else would
 // leave that gate untested.
+// The pages hand a client to listMyActors now, so they build one. The real
+// builder reaches for Clerk, which no unit test has; the functions under test
+// never touch what it returns, because @/features/actors is stubbed.
+vi.mock("@/shared/infrastructure/supabase-server", () => ({
+  createServerClient: vi.fn(async () => ({})),
+}));
+
 vi.mock("@clerk/nextjs/server", () => ({
   auth: (...a: unknown[]) => auth(...(a as [])),
 }));

@@ -1,29 +1,22 @@
 import { getTranslations } from "next-intl/server";
-import { Card } from "@/shared/presentation/page-shell";
-import { FursonaForm } from "@/features/actors";
-import { createFursonaAction } from "@/app/[locale]/(app)/fursonas/actions";
-import { fursonaFormLabels } from "@/app/[locale]/(app)/fursonas/labels";
+import { FursonaEditor } from "@/features/actors";
+import { fursonaEditorLabels } from "@/app/[locale]/(app)/fursonas/labels";
 
 /**
  * The page for creating a fursona.
  *
- * Its labels come from `fursonaFormLabels("submitCreate")`, shared with the
- * edit page rather than each page keeping its own near-identical copy.
+ * Its labels come from `fursonaEditorLabels`, shared with the edit page rather
+ * than each page keeping its own near-identical copy. The two differ only in
+ * the toolbar's title and in whether the handle can be typed.
  *
  * @returns the create page.
  */
 export default async function NewFursonaPage() {
   const t = await getTranslations("fursonas");
   return (
-    <Card>
-      <h1 className="font-display text-2xl font-bold tracking-tight">
-        {t("create")}
-      </h1>
-      <FursonaForm
-        action={createFursonaAction}
-        labels={await fursonaFormLabels("submitCreate")}
-        handleEditable
-      />
-    </Card>
+    <FursonaEditor
+      labels={await fursonaEditorLabels(t("editorTitleNew"))}
+      handleEditable
+    />
   );
 }

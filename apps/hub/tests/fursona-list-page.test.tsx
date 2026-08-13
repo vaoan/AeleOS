@@ -10,6 +10,13 @@ const ensurePersonActor = vi.fn<(...a: unknown[]) => unknown>(() =>
 // createNavigation() against the real "next/navigation". Stub the wrapper so
 // that call never happens; "a" renders the create link as a plain anchor,
 // which is all this suite needs to see whether it was offered.
+// The pages hand a client to listMyActors now, so they build one. The real
+// builder reaches for Clerk, which no unit test has; the functions under test
+// never touch what it returns, because @/features/actors is stubbed.
+vi.mock("@/shared/infrastructure/supabase-server", () => ({
+  createServerClient: vi.fn(async () => ({})),
+}));
+
 vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
   Link: "a",
   redirect: vi.fn(),

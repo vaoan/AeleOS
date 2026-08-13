@@ -1,5 +1,6 @@
 "use server";
 
+import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { redirect } from "next/navigation";
 import { listMyActors } from "@/features/actors";
 import { isAllowedReturnTo } from "@/features/picker";
@@ -14,7 +15,7 @@ import { env } from "@/shared/infrastructure/env";
  *
  * 1. `return_to` is checked against the origin allowlist again. Skipping this
  *    would turn the hub into an open redirect operated through a hidden field.
- * 2. `actor_ref` is resolved against `listMyActors()`, which returns only the
+ * 2. `actor_ref` is resolved against `listMyActors(await createServerClient())`, which returns only the
  *    caller's own actors — so an actor belonging to somebody else is simply not
  *    found. That is the authorization, on the same code path as the happy one.
  * 3. A non-`active` actor is refused for the same reason the picker does not
@@ -43,7 +44,7 @@ export async function chooseActorAction(formData: FormData): Promise<void> {
   }
 
   const actorRef = String(formData.get("actor_ref") ?? "");
-  const actors = await listMyActors();
+  const actors = await listMyActors(await createServerClient());
   const chosen = actors.find(
     (actor) => actor.actorRef === actorRef && actor.status === "active",
   );

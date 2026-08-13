@@ -11,6 +11,13 @@ const redirect = vi.fn<(...a: unknown[]) => never>(() => {
 // another app entirely, where a /es prefix would be meaningless. Mocking this
 // module rather than the wrapper is itself the assertion that the action
 // reaches for the right one.
+// The pages hand a client to listMyActors now, so they build one. The real
+// builder reaches for Clerk, which no unit test has; the functions under test
+// never touch what it returns, because @/features/actors is stubbed.
+vi.mock("@/shared/infrastructure/supabase-server", () => ({
+  createServerClient: vi.fn(async () => ({})),
+}));
+
 vi.mock("next/navigation", () => ({
   redirect: (...a: unknown[]) => redirect(...a),
 }));

@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import type { FursonaFormLabels } from "@/features/actors";
+import type { FursonaEditorLabels } from "@/features/actors";
 
 /**
  * Resolves every label {@link FursonaForm} needs, on the server where the
@@ -17,21 +17,26 @@ import type { FursonaFormLabels } from "@/features/actors";
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
- * @param submitKey - the catalogue key for the submit button: `"submitCreate"`
- * on the create page, `"submitSave"` on the edit page.
+ * @param title - what the toolbar says is being edited. The two pages differ
+ * only in this and in whether the handle can be typed, which is why they share
+ * one function rather than each carrying a near-identical copy.
  * @returns the translated labels.
  */
-export async function fursonaFormLabels(
-  submitKey: "submitCreate" | "submitSave",
-): Promise<FursonaFormLabels> {
+export async function fursonaEditorLabels(
+  title: string,
+): Promise<FursonaEditorLabels> {
   const t = await getTranslations("fursonas");
   return {
+    title,
+    save: t("save"),
+    saving: t("saving"),
+    cancel: t("cancel"),
+    bannerTitle: t("bannerTitle"),
     handle: t("form.handle"),
     handleHint: t("form.handleHint"),
     displayName: t("form.displayName"),
     avatarUrl: t("form.avatarUrl"),
     visibilityLabel: t("form.visibilityLabel"),
-    submit: t(`form.${submitKey}`),
     visibility: {
       private: t("visibility.private"),
       unlisted: t("visibility.unlisted"),

@@ -9,6 +9,13 @@ const notFound = vi.fn<(...a: unknown[]) => never>(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
 
+// The pages hand a client to listMyActors now, so they build one. The real
+// builder reaches for Clerk, which no unit test has; the functions under test
+// never touch what it returns, because @/features/actors is stubbed.
+vi.mock("@/shared/infrastructure/supabase-server", () => ({
+  createServerClient: vi.fn(async () => ({})),
+}));
+
 vi.mock("next/navigation", () => ({
   notFound: (...a: unknown[]) => notFound(...a),
 }));
@@ -32,21 +39,14 @@ vi.mock("@/features/actors", () => ({
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that
   // would crash loudly if something did try to render it.
-  FursonaForm: () => {
-    throw new Error("FursonaForm should not be rendered in this suite");
+  FursonaEditor: () => {
+    throw new Error("FursonaEditor should not be rendered in this suite");
   },
 }));
 // The real module pulls in next/cache's revalidatePath and the locale-aware
-// redirect, both of which expect a request context this suite does not have.
-// The edit page only ever passes this function along as a prop — it never
-// calls it — so a stub identity is all a test here can observe anyway.
-vi.mock("@/app/[locale]/(app)/fursonas/actions", () => ({
-  updateFursonaAction: vi.fn(),
-}));
-
 const { default: EditFursonaPage } =
   await import("@/app/[locale]/(app)/fursonas/[handle]/edit/page");
-const { FursonaForm } = await import("@/features/actors");
+const { FursonaEditor } = await import("@/features/actors");
 
 /**
  * A caller-owned actor row, with overrides.
@@ -68,18 +68,22 @@ function actor(over: Partial<Record<string, unknown>> = {}) {
 }
 
 /**
- * Finds the rendered {@link FursonaForm} element inside the page's returned
- * tree, without rendering anything — the page is a plain function returning
- * React elements, and `<Card>{h1}{form}</Card>` puts both children in
- * `props.children`.
+ * Finds the rendered {@link FursonaEditor} element in the page's returned tree,
+ * without rendering anything — the page is a plain function returning React
+ * elements.
+ *
+ * It handles the editor being the page's own root, which it is since phase 4a:
+ * the card and heading that used to wrap it moved into the editor's toolbar.
+ * The children search is kept for the case where a wrapper returns.
  *
  * @param page - the element `EditFursonaPage` resolved to.
- * @returns the form element.
+ * @returns the editor element.
  */
 function formElement(page: ReactElement): ReactElement {
-  const children = (page.props as { children: ReactElement[] }).children;
-  const found = children.find((child) => child?.type === FursonaForm);
-  if (!found) throw new Error("FursonaForm was not rendered");
+  if (page.type === FursonaEditor) return page;
+  const children = (page.props as { children?: ReactElement[] }).children ?? [];
+  const found = children.find((child) => child?.type === FursonaEditor);
+  if (!found) throw new Error("FursonaEditor was not rendered");
   return found;
 }
 

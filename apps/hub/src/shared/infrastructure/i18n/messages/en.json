@@ -45,8 +45,6 @@
       "displayName": "Display name",
       "avatarUrl": "Avatar URL",
       "visibilityLabel": "Who can find this fursona",
-      "submitCreate": "Create fursona",
-      "submitSave": "Save changes",
       "errors": {
         "handle": "Use 1–32 letters, digits, dashes or underscores.",
         "handleTaken": "That handle is already taken.",
@@ -64,7 +62,12 @@
     "dragToReorder": "Drag to reorder",
     "search": "Search your fursonas",
     "filterAll": "All",
-    "noMatches": "No fursonas match that."
+    "noMatches": "No fursonas match that.",
+    "editorTitleNew": "New fursona",
+    "editorTitleEdit": "Edit fursona",
+    "save": "Save",
+    "saving": "Saving…",
+    "bannerTitle": "Fix these before saving"
   },
   "picker": {
     "title": "Who do you want to be?",

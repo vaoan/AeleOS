@@ -1,3 +1,4 @@
+import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { auth } from "@clerk/nextjs/server";
 import { listMyActors, type Actor } from "@/features/actors";
 
@@ -67,6 +68,11 @@ function toResponseActor(actor: Actor) {
  * error, which can name a table or a constraint, and this response is read
  * by another company's server.
  *
+ * `listMyActors` takes its client now rather than building one, so this
+ * supplies a server client. Every function in that module works that way,
+ * because building one internally imported `server-only` and broke the
+ * client bundle the moment a Client Component touched the module.
+ *
  * @returns `200` with `{ actors }` for a signed-in caller; `401` when
  * unauthenticated; `500` when the read fails.
  */
@@ -81,7 +87,9 @@ export async function GET(): Promise<Response> {
 
   let actors;
   try {
-    actors = (await listMyActors()).map(toResponseActor);
+    actors = (await listMyActors(await createServerClient())).map(
+      toResponseActor,
+    );
   } catch {
     return Response.json(
       { error: "Could not read your actors" },

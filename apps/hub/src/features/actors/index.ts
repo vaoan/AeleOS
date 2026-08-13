@@ -40,6 +40,6 @@ export {
   type FursonaListLabels,
 } from "@/features/actors/presentation/fursona-list";
 export {
-  FursonaForm,
-  type FursonaFormLabels,
-} from "@/features/actors/presentation/fursona-form";
+  FursonaEditor,
+  type FursonaEditorLabels,
+} from "@/features/actors/presentation/fursona-editor";

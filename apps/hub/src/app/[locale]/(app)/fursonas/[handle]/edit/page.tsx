@@ -1,9 +1,8 @@
+import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { Card } from "@/shared/presentation/page-shell";
-import { FursonaForm, listMyActors } from "@/features/actors";
-import { updateFursonaAction } from "@/app/[locale]/(app)/fursonas/actions";
-import { fursonaFormLabels } from "@/app/[locale]/(app)/fursonas/labels";
+import { FursonaEditor, listMyActors } from "@/features/actors";
+import { fursonaEditorLabels } from "@/app/[locale]/(app)/fursonas/labels";
 
 /**
  * The page for editing one of your fursonas.
@@ -11,7 +10,7 @@ import { fursonaFormLabels } from "@/app/[locale]/(app)/fursonas/labels";
  * The route is keyed by **handle** rather than `actor_ref`: a handle is what a
  * person recognises in a URL, and a UUID means nothing to them.
  *
- * Resolution goes through `listMyActors()`, which returns only the caller's own
+ * Resolution goes through `listMyActors(await createServerClient())`, which returns only the caller's own
  * actors — so a handle belonging to someone else is simply not found. That is
  * the authorization, and it is the same code path as the happy one, so there is
  * no separate ownership check to forget.
@@ -34,7 +33,7 @@ export default async function EditFursonaPage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
-  const actors = await listMyActors();
+  const actors = await listMyActors(await createServerClient());
   const actor = actors.find(
     (a) =>
       a.kind === "fursona" &&
@@ -46,22 +45,16 @@ export default async function EditFursonaPage({
   const t = await getTranslations("fursonas");
 
   return (
-    <Card>
-      <h1 className="font-display text-2xl font-bold tracking-tight">
-        {t("edit")}
-      </h1>
-      <FursonaForm
-        action={updateFursonaAction}
-        labels={await fursonaFormLabels("submitSave")}
-        handleEditable={false}
-        actorRef={actor.actorRef}
-        initial={{
-          handle: actor.handle,
-          displayName: actor.displayName ?? "",
-          avatarUrl: actor.avatarUrl ?? "",
-          visibility: actor.visibility,
-        }}
-      />
-    </Card>
+    <FursonaEditor
+      labels={await fursonaEditorLabels(t("editorTitleEdit"))}
+      handleEditable={false}
+      actorRef={actor.actorRef}
+      initial={{
+        handle: actor.handle,
+        displayName: actor.displayName ?? "",
+        avatarUrl: actor.avatarUrl ?? "",
+        visibility: actor.visibility,
+      }}
+    />
   );
 }

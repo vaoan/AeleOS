@@ -1,3 +1,4 @@
+import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import {
@@ -41,11 +42,16 @@ import {
  * an active person is an ordinary state, and reading it as the person's own
  * suspension would withhold the create link from somebody entitled to it.
  *
+ * `listMyActors` takes its client now rather than building one, so this
+ * supplies a server client. Every function in that module works that way,
+ * because building one internally imported `server-only` and broke the
+ * client bundle the moment a Client Component touched the module.
+ *
  * @returns the fursona list page.
  */
 export default async function FursonasPage() {
   await ensurePersonActor();
-  const actors = await listMyActors();
+  const actors = await listMyActors(await createServerClient());
   const t = await getTranslations("fursonas");
 
   const suspended = actors[0]?.status === "suspended";

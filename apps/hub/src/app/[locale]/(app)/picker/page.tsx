@@ -1,3 +1,4 @@
+import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { getTranslations } from "next-intl/server";
 import { Card } from "@/shared/presentation/page-shell";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
@@ -64,6 +65,11 @@ const MAX_APP_NAME = 64;
  * Where it was refused there is no `return_to` to offer, so the exit is an
  * internal link instead.
  *
+ * `listMyActors` takes its client now rather than building one, so this
+ * supplies a server client. Every function in that module works that way,
+ * because building one internally imported `server-only` and broke the
+ * client bundle the moment a Client Component touched the module.
+ *
  * @returns the picker, or the refusal when there is nowhere safe to return to.
  */
 export default async function PickerPage({
@@ -111,7 +117,7 @@ export default async function PickerPage({
     typeof rawApp === "string" ? rawApp.trim().slice(0, MAX_APP_NAME) : "";
 
   await ensurePersonActor();
-  const actors = await listMyActors();
+  const actors = await listMyActors(await createServerClient());
   const choosable = actors.filter((actor) => actor.status === "active");
   // The tile's own labels live under `fursonas`, where the list page put them.
   // Copying them under `picker` would be two strings to keep in step for no

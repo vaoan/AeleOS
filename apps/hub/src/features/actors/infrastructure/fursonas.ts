@@ -1,4 +1,4 @@
-import { createServerClient } from "@/shared/infrastructure/supabase-server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   FursonaInput,
   Visibility,
@@ -57,14 +57,18 @@ const orNull = (value: string): string | null => value.trim() || null;
 /**
  * Every actor the signed-in person may act as, their own person row first.
  *
+ * @param client - a Supabase client authenticated as the person. Every function
+ * in this module takes one rather than building it, and that is load-bearing
+ * rather than tidy: building a server client here imported `server-only`, so
+ * the moment a Client Component imported anything from this module the whole
+ * production build failed. The client is the caller's to supply.
  * @returns the caller's actors, or an empty list when they have none.
  * @throws when the read fails. Absence is an empty list; a failure must not
  * masquerade as one, or a transient error renders as "you have no fursonas"
  * and invites the person to create a duplicate.
  */
-export async function listMyActors(): Promise<Actor[]> {
-  const supabase = await createServerClient();
-  const { data, error } = await supabase.rpc("my_actors");
+export async function listMyActors(client: SupabaseClient): Promise<Actor[]> {
+  const { data, error } = await client.rpc("my_actors");
   if (error) throw new Error(`Could not read your actors: ${error.message}`);
 
   return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
@@ -84,15 +88,20 @@ export async function listMyActors(): Promise<Actor[]> {
  * The owner is not a parameter here and is not one in the database either —
  * `create_fursona` derives it from the token, so there is nothing to forge.
  *
+ * @param client - a Supabase client authenticated as the person. Taken as a
+ * parameter rather than built here, so the same function serves the server and
+ * the browser — every function in this layer now works that way.
  * @param input - the validated fursona fields.
  * @returns the new actor's platform ID.
  * @throws `HandleTakenError` when the handle is already in use, in any case.
  * @throws `FursonaLimitError` when the caller is already at the quota.
  * @throws on any other failure.
  */
-export async function createFursona(input: FursonaInput): Promise<string> {
-  const supabase = await createServerClient();
-  const { data, error } = await supabase.rpc("create_fursona", {
+export async function createFursona(
+  client: SupabaseClient,
+  input: FursonaInput,
+): Promise<string> {
+  const { data, error } = await client.rpc("create_fursona", {
     p_handle: input.handle.trim(),
     p_display_name: orNull(input.displayName),
     p_avatar_url: orNull(input.avatarUrl),
@@ -116,17 +125,19 @@ export async function createFursona(input: FursonaInput): Promise<string> {
  * separate concern. Ownership is re-checked in the database, so passing another
  * person's `actorRef` fails there rather than being trusted here.
  *
+ * @param client - a Supabase client authenticated as the person, for the same
+ * reason as {@link createFursona}.
  * @param actorRef - the fursona's platform ID.
  * @param input - the editable fields.
  * @throws when the fursona does not exist or is not the caller's — the database
  * reports both identically, so this cannot be used to probe which refs are real.
  */
 export async function updateFursona(
+  client: SupabaseClient,
   actorRef: string,
   input: Omit<FursonaInput, "handle">,
 ): Promise<void> {
-  const supabase = await createServerClient();
-  const { error } = await supabase.rpc("update_fursona", {
+  const { error } = await client.rpc("update_fursona", {
     p_actor_ref: actorRef,
     p_display_name: orNull(input.displayName),
     p_avatar_url: orNull(input.avatarUrl),

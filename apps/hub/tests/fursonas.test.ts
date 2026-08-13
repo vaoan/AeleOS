@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 const rpc = vi.fn<(...a: unknown[]) => unknown>();
+
+// The functions take their client now, so there is nothing to mock away:
+// this is the client, handed in the way a caller hands one in.
+const client = () => ({ rpc }) as unknown as SupabaseClient;
+
 vi.mock("@/shared/infrastructure/supabase-server", () => ({
-  createServerClient: vi.fn(async () => ({ rpc })),
+  createServerClient: vi.fn(async () => client()),
 }));
 
 beforeEach(() => {
@@ -27,7 +34,7 @@ describe("listMyActors", () => {
     });
     const { listMyActors } =
       await import("@/features/actors/infrastructure/fursonas");
-    await expect(listMyActors()).resolves.toEqual([
+    await expect(listMyActors(client())).resolves.toEqual([
       {
         actorRef: "ref-p",
         kind: "person",
@@ -57,7 +64,7 @@ describe("listMyActors", () => {
     });
     const { listMyActors } =
       await import("@/features/actors/infrastructure/fursonas");
-    await expect(listMyActors()).resolves.toEqual([
+    await expect(listMyActors(client())).resolves.toEqual([
       {
         actorRef: "ref-f",
         kind: "fursona",
@@ -74,21 +81,21 @@ describe("listMyActors", () => {
     rpc.mockResolvedValueOnce({ data: [], error: null });
     const { listMyActors } =
       await import("@/features/actors/infrastructure/fursonas");
-    await expect(listMyActors()).resolves.toEqual([]);
+    await expect(listMyActors(client())).resolves.toEqual([]);
   });
 
   it("treats a null payload as empty rather than crashing the page", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: null });
     const { listMyActors } =
       await import("@/features/actors/infrastructure/fursonas");
-    await expect(listMyActors()).resolves.toEqual([]);
+    await expect(listMyActors(client())).resolves.toEqual([]);
   });
 
   it("throws when the read fails, rather than rendering an empty list", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
     const { listMyActors } =
       await import("@/features/actors/infrastructure/fursonas");
-    await expect(listMyActors()).rejects.toThrow(/boom/);
+    await expect(listMyActors(client())).rejects.toThrow(/boom/);
   });
 });
 
@@ -98,7 +105,7 @@ describe("createFursona", () => {
     const { createFursona } =
       await import("@/features/actors/infrastructure/fursonas");
     await expect(
-      createFursona({
+      createFursona(client(), {
         handle: "  Sparky  ",
         displayName: " Sparky ",
         avatarUrl: "",
@@ -121,7 +128,7 @@ describe("createFursona", () => {
     const { createFursona, HandleTakenError } =
       await import("@/features/actors/infrastructure/fursonas");
     await expect(
-      createFursona({
+      createFursona(client(), {
         handle: "taken",
         displayName: "",
         avatarUrl: "",
@@ -141,7 +148,7 @@ describe("createFursona", () => {
     const { createFursona, FursonaLimitError } =
       await import("@/features/actors/infrastructure/fursonas");
     await expect(
-      createFursona({
+      createFursona(client(), {
         handle: "one-too-many",
         displayName: "",
         avatarUrl: "",
@@ -157,7 +164,7 @@ describe("createFursona", () => {
     });
     const { createFursona, HandleTakenError } =
       await import("@/features/actors/infrastructure/fursonas");
-    const err = await createFursona({
+    const err = await createFursona(client(), {
       handle: "x",
       displayName: "",
       avatarUrl: "",
@@ -173,7 +180,7 @@ describe("updateFursona", () => {
     rpc.mockResolvedValueOnce({ data: null, error: null });
     const { updateFursona } =
       await import("@/features/actors/infrastructure/fursonas");
-    await updateFursona("ref-1", {
+    await updateFursona(client(), "ref-1", {
       displayName: "New",
       avatarUrl: "https://img.example/a.png",
       visibility: "public",
@@ -194,7 +201,7 @@ describe("updateFursona", () => {
     const { updateFursona } =
       await import("@/features/actors/infrastructure/fursonas");
     await expect(
-      updateFursona("ref-1", {
+      updateFursona(client(), "ref-1", {
         displayName: "x",
         avatarUrl: "",
         visibility: "private",

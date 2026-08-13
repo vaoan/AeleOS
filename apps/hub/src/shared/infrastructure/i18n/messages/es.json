@@ -45,8 +45,6 @@
       "displayName": "Nombre para mostrar",
       "avatarUrl": "URL del avatar",
       "visibilityLabel": "Quién puede encontrar esta fursona",
-      "submitCreate": "Crear fursona",
-      "submitSave": "Guardar cambios",
       "errors": {
         "handle": "Usa entre 1 y 32 letras, números, guiones o guiones bajos.",
         "handleTaken": "Ese identificador ya está en uso.",
@@ -64,7 +62,12 @@
     "dragToReorder": "Arrastra para reordenar",
     "search": "Busca en tus fursonas",
     "filterAll": "Todas",
-    "noMatches": "Ninguna fursona coincide."
+    "noMatches": "Ninguna fursona coincide.",
+    "editorTitleNew": "Nueva fursona",
+    "editorTitleEdit": "Editar fursona",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "bannerTitle": "Corrige esto antes de guardar"
   },
   "picker": {
     "title": "¿Quién quieres ser?",
