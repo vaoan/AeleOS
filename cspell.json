@@ -159,7 +159,9 @@
         "tests/db/fursona-sections.test.ts",
         "apps/hub/tests/section-card.test.tsx",
         "apps/hub/tests/section-item-fields.test.tsx",
-        "apps/hub/tests/section-schema.test.ts"
+        "apps/hub/tests/section-schema.test.ts",
+        "apps/hub/src/features/actors/domain/fursona-templates.ts",
+        "docs/superpowers/plans/2026-08-13-fursona-studio-phase-4c-templates-icons-images.md"
       ],
       "language": "en,en-GB,es"
     }

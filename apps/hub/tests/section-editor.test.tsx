@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useForm } from "react-hook-form";
 import type { ReactNode } from "react";
 import { SECTION_LIMITS } from "@/features/actors/domain/section-schema";
+import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 
 // Flattened, so this tests ordering and what is offered rather than the drag
 // library's own behaviour, which is its to test.
@@ -59,6 +60,29 @@ const labels = {
   dragSection: "Drag to reorder section",
   itemTitle: "Title",
   itemDescription: "Description",
+  imageUrl: "Image address",
+  imageMissing: "No image",
+  chooseIcon: "Choose an icon",
+  searchIcons: "Search icons",
+  noIconsFound: "No icons match that.",
+  clearIcon: "Remove the icon",
+  noIcon: "No icon",
+  useTemplate: "Start from a template",
+  templateConfirm: "This replaces the sections you have.",
+  templateConfirmYes: "Replace them",
+  templateConfirmNo: "Keep mine",
+  names: Object.fromEntries(
+    FURSONA_TEMPLATES.map((template) => [
+      template.id,
+      `Name of ${template.id}`,
+    ]),
+  ),
+  descriptions: Object.fromEntries(
+    FURSONA_TEMPLATES.map((template) => [template.id, `About ${template.id}`]),
+  ),
+  sectionCounts: Object.fromEntries(
+    FURSONA_TEMPLATES.map((template) => [template.id, `${template.id} count`]),
+  ),
   types: {
     cards: "Cards",
     accordion: "Accordion",
@@ -175,6 +199,49 @@ describe("SectionEditor", () => {
       screen.getByRole("button", { name: "Add section" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(labels.atLimit)).toBeNull();
+  });
+
+  describe("starting from a template", () => {
+    const first = FURSONA_TEMPLATES[0]!;
+
+    /** Opens the template list. */
+    const openTemplates = () =>
+      fireEvent.click(screen.getByRole("button", { name: labels.useTemplate }));
+
+    it("fills an empty editor with the template's sections", () => {
+      renderEditor();
+      openTemplates();
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.names[first.id] }),
+      );
+      expect(names()).toEqual(first.sections.map((s) => s.name_en));
+    });
+
+    // Replacement, not append. A template merged onto what somebody already
+    // wrote produces a page nobody asked for.
+    it("replaces what was there, once that is confirmed", () => {
+      renderEditor([section({ name_en: "Mine" })]);
+      openTemplates();
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.names[first.id] }),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.templateConfirmYes }),
+      );
+      expect(names()).toEqual(first.sections.map((s) => s.name_en));
+    });
+
+    it("leaves them alone when the replacement is declined", () => {
+      renderEditor([section({ name_en: "Mine" })]);
+      openTemplates();
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.names[first.id] }),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.templateConfirmNo }),
+      );
+      expect(names()).toEqual(["Mine"]);
+    });
   });
 
   it("offers a drag handle for each section", () => {

@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import type { FursonaEditorLabels } from "@/features/actors";
+import { FURSONA_TEMPLATES, type FursonaEditorLabels } from "@/features/actors";
 
 /**
  * Resolves every label {@link FursonaForm} needs, on the server where the
@@ -10,9 +10,15 @@ import type { FursonaEditorLabels } from "@/features/actors";
  * rather than each page carrying its own near-identical copy of this
  * function.
  *
- * It now also carries every string the section editor needs, resolved here for
- * the same reason as the rest: those components are client components, so the
- * catalogue lookup belongs on the server where the locale already is.
+ * It now also carries every string the section editor needs — including the
+ * icon picker's and the gallery item's — resolved here for the same reason as
+ * the rest: those components are client components, so the catalogue lookup
+ * belongs on the server where the locale already is.
+ *
+ * The template picker's three label records are **built by mapping
+ * `FURSONA_TEMPLATES`**, not written out. A template added later then either
+ * gets a catalogue entry or fails the message-key test; it can never quietly
+ * render its own id at somebody.
  *
  * `errors` is keyed by error **code**, not by field: it must carry an entry for
  * every code either action can return, including the ones no field produces
@@ -52,6 +58,37 @@ export async function fursonaEditorLabels(
     expand: t("expandSection"),
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),
+    imageUrl: t("imageUrl"),
+    imageMissing: t("imageMissing"),
+    chooseIcon: t("chooseIcon"),
+    searchIcons: t("searchIcons"),
+    noIconsFound: t("noIconsFound"),
+    clearIcon: t("clearIcon"),
+    noIcon: t("noIcon"),
+    useTemplate: t("useTemplate"),
+    templateConfirm: t("templateConfirm"),
+    templateConfirmYes: t("templateConfirmYes"),
+    templateConfirmNo: t("templateConfirmNo"),
+    // Built by mapping the shipped templates rather than listed by hand, so a
+    // template added later cannot leave the picker showing a raw key.
+    names: Object.fromEntries(
+      FURSONA_TEMPLATES.map((template) => [
+        template.id,
+        t(`templates.${template.id}.name`),
+      ]),
+    ),
+    descriptions: Object.fromEntries(
+      FURSONA_TEMPLATES.map((template) => [
+        template.id,
+        t(`templates.${template.id}.description`),
+      ]),
+    ),
+    sectionCounts: Object.fromEntries(
+      FURSONA_TEMPLATES.map((template) => [
+        template.id,
+        t("templateSections", { count: template.sections.length }),
+      ]),
+    ),
     types: {
       cards: t("types.cards"),
       accordion: t("types.accordion"),

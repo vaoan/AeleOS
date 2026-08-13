@@ -90,6 +90,36 @@
       "accordion": "Acordeón",
       "two-column": "Dos columnas",
       "gallery": "Galería"
+    },
+    "imageUrl": "Dirección de la imagen",
+    "imageMissing": "Sin imagen",
+    "chooseIcon": "Elige un icono",
+    "searchIcons": "Buscar iconos",
+    "noIconsFound": "Ningún icono coincide.",
+    "clearIcon": "Quitar el icono",
+    "noIcon": "Sin icono",
+    "useTemplate": "Empieza con una plantilla",
+    "templateConfirm": "Esto reemplaza las secciones que tienes ahora. Lo que escribiste se perderá.",
+    "templateConfirmYes": "Reemplázalas",
+    "templateConfirmNo": "Mejor no",
+    "templateSections": "{count, plural, one {# sección} other {# secciones}}",
+    "templates": {
+      "reference-sheet": {
+        "name": "Hoja de referencia",
+        "description": "Los datos que pide un artista: especie, pronombres, edad, y cómo funciona el diseño."
+      },
+      "character-story": {
+        "name": "Historia del personaje",
+        "description": "Quién es y de dónde viene, con espacio para los detalles pequeños."
+      },
+      "art-gallery": {
+        "name": "Galería de arte",
+        "description": "Un lugar para mostrar los dibujos, y dar crédito a quien los hizo."
+      },
+      "fursuit": {
+        "name": "Fursuit",
+        "description": "El traje en sí: quién lo hizo, de qué, y dónde ha estado."
+      }
     }
   },
   "picker": {

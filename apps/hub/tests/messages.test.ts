@@ -81,8 +81,12 @@ describe("message catalogues", () => {
   //   that: `fursonas.title` is "Tus fursonas", translating the phrase around
   //   a word it leaves alone. The nav label is that word with no phrase to
   //   carry, so the two languages coincide.
+  // - `fursonas.templates.fursuit.name` is the same loanword, and the same
+  //   case: the template's DESCRIPTION beside it is translated, so this is one
+  //   word that does not translate rather than one that was forgotten.
   it("have no Spanish values left identical to the English", () => {
     const allowed = [
+      "fursonas.templates.fursuit.name",
       "home.title",
       "meta.title",
       "profile.empty",

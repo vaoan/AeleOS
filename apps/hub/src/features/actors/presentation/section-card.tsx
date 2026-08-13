@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import {
   useFieldArray,
+  useWatch,
   type Control,
   type FieldValues,
   type ArrayPath,
@@ -73,6 +74,10 @@ const EMPTY_ITEM = {
  * dropping the wrong row — the kind of fault that only shows up with three
  * items and never with one.
  *
+ * Its layout decides what its items offer — the icon on `cards`, the image
+ * address on `gallery` — and the value is watched rather than read once, so
+ * changing the layout changes the fields without a save in between.
+ *
  * Collapsing hides the items and keeps the header, so a fursona with several
  * long sections stays navigable. It is local state rather than form state: it
  * is about looking, not about content, and it must not make the form dirty.
@@ -95,6 +100,12 @@ export function SectionCard<T extends FieldValues>({
     control,
     name: `${path}.items` as ArrayPath<T>,
   });
+
+  // Watched rather than read from the form's defaults, so switching the layout
+  // changes what the items offer at once. Somebody changing it is looking to
+  // see what it does; making them save first would answer the question far too
+  // late.
+  const type = useWatch({ control, name: `${path}.type` as Path<T> });
 
   return (
     <div className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-4">
@@ -156,7 +167,9 @@ export function SectionCard<T extends FieldValues>({
           {fields.map((field, itemIndex) => (
             <SectionItemFields
               key={field.id}
+              control={control}
               register={register}
+              type={(type ?? "cards") as SectionType}
               path={`${path}.items.${itemIndex}`}
               lang={lang}
               labels={labels}

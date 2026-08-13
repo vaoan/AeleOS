@@ -22,9 +22,22 @@ import {
   SectionCard,
   type SectionCardLabels,
 } from "@/features/actors/presentation/section-card";
+import {
+  TemplatePicker,
+  type TemplatePickerLabels,
+} from "@/features/actors/presentation/template-picker";
 
-/** Translated strings {@link SectionEditor} renders. */
-export interface SectionEditorLabels extends SectionCardLabels {
+/**
+ * Translated strings {@link SectionEditor} renders.
+ *
+ * Extends the card's and the template picker's, because this level owns one
+ * label bag and hands slices of it down — which is also why the picker's two
+ * confirmation words are named for what they confirm rather than `confirm` and
+ * `cancel`: the toolbar's `cancel` already means "stop editing", and in one bag
+ * they would be the same key with two meanings.
+ */
+export interface SectionEditorLabels
+  extends SectionCardLabels, TemplatePickerLabels {
   /** Heading above the sections. */
   sectionsTitle: string;
   /** Shown when there are no sections at all. */
@@ -74,6 +87,9 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  * fault on the person's part — it is a number `0013` enforces, mirrored here
  * only so nobody discovers it after a save.
  *
+ * A template fills the whole array rather than adding to it, which is why the
+ * picker asks first when there is anything to lose.
+ *
  * Dragging reorders sections; each card carries its own item list. Reordering
  * writes `sort_order` on drop rather than relying on array position, because
  * position is not what the database stores.
@@ -89,7 +105,7 @@ export function SectionEditor<T extends FieldValues>({
   const id = useId();
   const [newType, setNewType] = useState<SectionType>("cards");
 
-  const { fields, append, remove, move } = useFieldArray({
+  const { fields, append, remove, move, replace } = useFieldArray({
     control,
     name: "sections" as ArrayPath<T>,
   });
@@ -112,6 +128,17 @@ export function SectionEditor<T extends FieldValues>({
       <h2 className="font-display text-lg font-bold tracking-tight">
         {labels.sectionsTitle}
       </h2>
+
+      {/* `replace` rather than `append`: a template is a starting point, and
+          merging one onto what somebody already wrote produces a page nobody
+          asked for. The picker owns the confirmation that makes that safe. */}
+      <TemplatePicker
+        hasSections={fields.length > 0}
+        labels={labels}
+        onApply={(sections) =>
+          replace(sections as unknown as FieldArray<T, ArrayPath<T>>[])
+        }
+      />
 
       {fields.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{labels.empty}</p>

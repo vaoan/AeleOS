@@ -90,6 +90,36 @@
       "accordion": "Accordion",
       "two-column": "Two columns",
       "gallery": "Gallery"
+    },
+    "imageUrl": "Image address",
+    "imageMissing": "No image",
+    "chooseIcon": "Choose an icon",
+    "searchIcons": "Search icons",
+    "noIconsFound": "No icons match that.",
+    "clearIcon": "Remove the icon",
+    "noIcon": "No icon",
+    "useTemplate": "Start from a template",
+    "templateConfirm": "This replaces the sections you have now. What you wrote will be gone.",
+    "templateConfirmYes": "Replace them",
+    "templateConfirmNo": "Keep mine",
+    "templateSections": "{count, plural, one {# section} other {# sections}}",
+    "templates": {
+      "reference-sheet": {
+        "name": "Reference sheet",
+        "description": "The facts an artist asks for: species, pronouns, age, and how the design works."
+      },
+      "character-story": {
+        "name": "Character story",
+        "description": "Who they are and where they came from, with room for the small details."
+      },
+      "art-gallery": {
+        "name": "Art gallery",
+        "description": "Somewhere to show the pictures, with credit to whoever drew them."
+      },
+      "fursuit": {
+        "name": "Fursuit",
+        "description": "The suit itself — who built it, what of, and where it has been."
+      }
     }
   },
   "picker": {

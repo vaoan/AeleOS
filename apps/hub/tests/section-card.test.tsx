@@ -3,6 +3,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useForm } from "react-hook-form";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
 
+vi.mock("lucide-react/dynamic", () => ({
+  DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
+  iconNames: ["sparkles", "heart", "star"],
+}));
+
 const { SectionCard } =
   await import("@/features/actors/presentation/section-card");
 
@@ -16,6 +21,13 @@ const labels = {
   expand: "Expand section",
   itemTitle: "Title",
   itemDescription: "Description",
+  imageUrl: "Image address",
+  imageMissing: "No image yet",
+  chooseIcon: "Choose an icon",
+  searchIcons: "Search icons",
+  noIconsFound: "No icons match that.",
+  clearIcon: "Remove the icon",
+  noIcon: "No icon",
   types: {
     cards: "Cards",
     accordion: "Accordion",
@@ -47,10 +59,12 @@ const item = (over: Record<string, unknown> = {}) => ({
 function Harness({
   lang,
   items,
+  type,
   onRemove,
 }: {
   lang: AuthoringLanguage;
   items: ReturnType<typeof item>[];
+  type: string;
   onRemove: () => void;
 }) {
   const form = useForm({
@@ -59,7 +73,7 @@ function Harness({
         {
           name_en: "About me",
           name_es: "Sobre mi",
-          type: "cards",
+          type,
           sort_order: 1,
           items,
         },
@@ -89,9 +103,10 @@ function Harness({
 function renderCard(
   lang: AuthoringLanguage = "en",
   items = [item()],
+  type = "cards",
 ): ReturnType<typeof vi.fn> {
   const onRemove = vi.fn();
-  render(<Harness lang={lang} items={items} onRemove={onRemove} />);
+  render(<Harness lang={lang} items={items} type={type} onRemove={onRemove} />);
   return onRemove;
 }
 
@@ -149,6 +164,26 @@ describe("SectionCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collapse section" }));
     fireEvent.click(screen.getByRole("button", { name: "Expand section" }));
     expect(screen.getByLabelText("Title")).toBeInTheDocument();
+  });
+
+  // The wiring a props change silently drops. The card knows its layout and
+  // the items do not, so an item asked to render the wrong fields looks
+  // entirely normal until somebody notices the picker they were promised.
+  it("gives its items the layout it is set to", () => {
+    renderCard("en", [item()], "gallery");
+    expect(screen.getByLabelText("Image address")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Choose an icon" })).toBeNull();
+  });
+
+  // And follows a change to it, without a save in between: somebody switching
+  // the layout is looking to see what it does.
+  it("follows the layout being changed", () => {
+    renderCard("en", [item()], "cards");
+    expect(screen.queryByLabelText("Image address")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Layout"), {
+      target: { value: "gallery" },
+    });
+    expect(screen.getByLabelText("Image address")).toBeInTheDocument();
   });
 
   it("removes the whole section on request", () => {

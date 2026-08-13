@@ -34,8 +34,15 @@ vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
 vi.mock("next-intl/server", () => ({
   getTranslations: () => Promise.resolve((key: string) => key),
 }));
+// The real templates, not a fixture. `labels.ts` maps over them to build the
+// picker's label records, so a stub list here would let this suite pass with a
+// catalogue that has no entry for a template the app actually ships.
+const { FURSONA_TEMPLATES } =
+  await import("@/features/actors/domain/fursona-templates");
+
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
+  FURSONA_TEMPLATES,
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that
   // would crash loudly if something did try to render it.

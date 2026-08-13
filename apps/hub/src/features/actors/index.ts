@@ -20,6 +20,10 @@ export {
   type Actor,
 } from "@/features/actors/infrastructure/fursonas";
 export {
+  FURSONA_TEMPLATES,
+  type FursonaTemplate,
+} from "@/features/actors/domain/fursona-templates";
+export {
   applyFursonaFilters,
   isFiltering,
   type FursonaFilters,
