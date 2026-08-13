@@ -4,34 +4,73 @@ import { admin, clientAs, closePool, newSub, withClaims } from "./helpers";
 
 type Person = { sub: string; personRef: string; sonaId: string };
 
-async function seed(visibility: "private" | "public"): Promise<Person> {
-  const sub = newSub();
-  const personRef = randomUUID();
-  const a = admin();
+type Visibility = "private" | "unlisted" | "public";
+type Status = "active" | "suspended";
 
-  const { error: pErr } = await a.from("actors").insert({
-    actor_ref: personRef,
-    kind: "person",
-    identity_sub: sub,
-    handle: `p-${personRef.slice(0, 8)}`,
-  });
-  if (pErr) throw pErr;
-
-  const { data: sona, error: sErr } = await a
+/**
+ * Inserts a fursona owned by the given person, as the service role.
+ *
+ * @param ownerRef - the owning person's actor ref.
+ * @param visibility - the fursona's visibility.
+ * @param status - the fursona's moderation status.
+ * @returns the new row's id.
+ */
+async function seedSona(
+  ownerRef: string,
+  visibility: Visibility,
+  status: Status = "active",
+): Promise<string> {
+  const { data, error } = await admin()
     .from("actors")
     .insert({
       actor_ref: randomUUID(),
       kind: "fursona",
-      owner_ref: personRef,
+      owner_ref: ownerRef,
       handle: `s-${randomUUID().slice(0, 8)}`,
       display_name: "Test Sona",
       visibility,
+      status,
     })
     .select("id")
     .single();
-  if (sErr) throw sErr;
+  if (error) throw error;
+  return data.id as string;
+}
 
-  return { sub, personRef, sonaId: sona.id as string };
+/**
+ * Seeds a person actor and one fursona they own, as the service role.
+ *
+ * @param visibility - the fursona's visibility.
+ * @returns the seeded identity, its actor ref, and the fursona's row id.
+ */
+async function seed(visibility: Visibility): Promise<Person> {
+  const sub = newSub();
+  const personRef = randomUUID();
+
+  const { error: pErr } = await admin()
+    .from("actors")
+    .insert({
+      actor_ref: personRef,
+      kind: "person",
+      identity_sub: sub,
+      handle: `p-${personRef.slice(0, 8)}`,
+    });
+  if (pErr) throw pErr;
+
+  return { sub, personRef, sonaId: await seedSona(personRef, visibility) };
+}
+
+/**
+ * Suspends an already-seeded actor, as a moderator would.
+ *
+ * @param actorRef - the actor to suspend.
+ */
+async function suspend(actorRef: string): Promise<void> {
+  const { error } = await admin()
+    .from("actors")
+    .update({ status: "suspended" })
+    .eq("actor_ref", actorRef);
+  if (error) throw error;
 }
 
 let alice: Person;
@@ -152,5 +191,71 @@ describe("actors exposure boundary", () => {
         c.query("select 1 from public.actors_public limit 1"),
       ),
     ).rejects.toThrow(/permission denied/i);
+  });
+});
+
+// 0011. 0003 filtered on `visibility` alone, so a suspended fursona whose
+// visibility was 'public' stayed listed to everyone — a sanction that publishing
+// (0009) made routinely reachable could simply be ignored. The filter belongs on
+// the public/unlisted branch ONLY: a blanket `status = 'active'` would also hide
+// a suspended PERSON's own row, blanking the /me page for the one person who
+// most needs a truthful one.
+describe("suspension and the public view", () => {
+  let owner: Person;
+  let suspendedSonaId: string;
+  let stranger: Person;
+  let suspendedPerson: Person;
+
+  beforeAll(async () => {
+    owner = await seed("public");
+    suspendedSonaId = await seedSona(owner.personRef, "public", "suspended");
+    stranger = await seed("private");
+    suspendedPerson = await seed("private");
+    await suspend(suspendedPerson.personRef);
+  });
+
+  // The control. This row differs from the suspended one below in `status` and
+  // nothing else, so the pair proves the status filter rather than merely
+  // proving that some row is invisible.
+  it("shows a stranger a public fursona while it is active", async () => {
+    const c = await clientAs(stranger.sub);
+    const { data, error } = await c
+      .from("actors_public")
+      .select("id")
+      .eq("id", owner.sonaId);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+  });
+
+  it("hides a suspended public fursona from a stranger", async () => {
+    const c = await clientAs(stranger.sub);
+    const { data, error } = await c
+      .from("actors_public")
+      .select("id")
+      .eq("id", suspendedSonaId);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(0);
+  });
+
+  it("still shows an owner their own suspended fursona", async () => {
+    const c = await clientAs(owner.sub);
+    const { data, error } = await c
+      .from("actors_public")
+      .select("id, status")
+      .eq("id", suspendedSonaId);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+    expect(data?.[0]?.status).toBe("suspended");
+  });
+
+  // The /me regression the surgical fix exists to avoid.
+  it("still shows a suspended person their own row", async () => {
+    const c = await clientAs(suspendedPerson.sub);
+    const { data, error } = await c
+      .from("actors_public")
+      .select("actor_ref")
+      .eq("actor_ref", suspendedPerson.personRef);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
   });
 });

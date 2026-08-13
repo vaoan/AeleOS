@@ -229,9 +229,12 @@ Key choices and _why_:
 🌿 **Phases 1a, 0 and 1b done — the hub is live and another app can hand a
 person over to it.** Phase 1b-i's 🧑 steps are the only thing still open.
 
-- **Phase 1a (actor model seam) — done.** `supabase/migrations/0001`–`0007` hold
-  the canonical schema; `tests/db/` is the conformance suite apps run against
-  their own database. Plan: `2026-07-29-phase-1a-actor-model-seam.md`.
+- **Phase 1a (actor model seam) — done.** `supabase/migrations/` holds the
+  canonical schema: `0001`–`0007` are Phase 1a's own, and everything through
+  `0011` adds IdP introspection, the self-service write surface, and the fixes
+  the reviews of those found. `tests/db/` is the conformance suite apps run
+  against their own database. Plan:
+  `2026-07-29-phase-1a-actor-model-seam.md`.
 - **Phase 0 (Clerk standup) — done and self-verifying.** The Clerk instance and
   the Supabase integration are live. `tests/idp/` runs against a real
   Clerk-issued token; the `idp-cloud` CI job re-proves the trust on every pull

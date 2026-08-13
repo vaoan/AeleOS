@@ -76,6 +76,64 @@ afterAll(async () => {
 /** A handle unique to this run. @returns the handle. */
 const handle = (): string => `sona-${randomUUID().slice(0, 8)}`;
 
+/** The quota `create_fursona` enforces (0011). A product knob, not a law. */
+const FURSONA_LIMIT = 100;
+
+/**
+ * Inserts fursonas owned by the given person directly, as the service role.
+ *
+ * Filling the allowance through `create_fursona` itself would mean a hundred
+ * round trips per test to prove one boundary, so the rows are seeded past the
+ * RPC and only the boundary call goes through it.
+ *
+ * @param ownerRef - the owning person's actor ref.
+ * @param count - how many fursonas to insert.
+ * @param status - the moderation status to give them.
+ */
+async function seedFursonas(
+  ownerRef: string,
+  count: number,
+  status: "active" | "suspended" = "active",
+): Promise<void> {
+  const { error } = await admin()
+    .from("actors")
+    .insert(
+      Array.from({ length: count }, () => ({
+        actor_ref: randomUUID(),
+        kind: "fursona",
+        owner_ref: ownerRef,
+        handle: handle(),
+        visibility: "private",
+        status,
+      })),
+    );
+  if (error) throw error;
+}
+
+/** What `tryCreate` reports when the call went through. */
+const CREATED = "(created, no error)";
+
+/**
+ * Calls `create_fursona` with a fresh handle as the given identity.
+ *
+ * Success is a sentinel string rather than null so that a quota assertion which
+ * should have failed reddens as "expected '(created, no error)' to match …"
+ * instead of as a type error about matching against an object.
+ *
+ * @param sub - the caller's identity subject.
+ * @returns the RPC's error message, or `CREATED` when it succeeded.
+ */
+async function tryCreate(sub: string): Promise<string> {
+  const c = await clientAs(sub);
+  const { error } = await c.rpc("create_fursona", {
+    p_handle: handle(),
+    p_display_name: null,
+    p_avatar_url: null,
+    p_visibility: "private",
+  });
+  return error?.message ?? CREATED;
+}
+
 describe("create_fursona", () => {
   it("creates a fursona owned by the caller", async () => {
     const c = await clientAs(alice.sub);
@@ -301,6 +359,42 @@ describe("create_fursona", () => {
     });
     expect(row?.display_name).toBeNull();
     expect(row?.avatar_url).toBeNull();
+  });
+});
+
+// 0011. create_fursona was the platform's first unbounded, client-reachable
+// write, and every row it creates permanently consumes a handle from a global
+// unique namespace that nothing reclaims — there is no delete_fursona.
+describe("create_fursona quota", () => {
+  it("accepts the fursona that reaches the limit and refuses the next one", async () => {
+    const person = await seedPerson();
+    await seedFursonas(person.personRef, FURSONA_LIMIT - 1);
+
+    expect(await tryCreate(person.sub)).toBe(CREATED);
+
+    const refused = await tryCreate(person.sub);
+    expect(refused).toMatch(/fursona limit reached/i);
+    // Distinct from every other failure, so the hub can tell them apart.
+    expect(refused).not.toMatch(/handle|visibility|person actor/i);
+    // The exposure boundary holds even in the refusal.
+    expect(refused).not.toContain(person.personRef);
+  });
+
+  // A moderated person creating replacements for suspended fursonas is a
+  // sanction-evasion path, so suspended rows keep occupying the allowance.
+  it("counts suspended fursonas against the allowance", async () => {
+    const person = await seedPerson();
+    await seedFursonas(person.personRef, FURSONA_LIMIT, "suspended");
+    expect(await tryCreate(person.sub)).toMatch(/fursona limit reached/i);
+  });
+
+  it("does not count one person's fursonas against another's allowance", async () => {
+    const full = await seedPerson();
+    await seedFursonas(full.personRef, FURSONA_LIMIT);
+    const other = await seedPerson();
+
+    expect(await tryCreate(full.sub)).toMatch(/fursona limit reached/i);
+    expect(await tryCreate(other.sub)).toBe(CREATED);
   });
 });
 
