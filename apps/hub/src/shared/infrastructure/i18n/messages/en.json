@@ -55,7 +55,16 @@
         "visibility": "Choose one of the options.",
         "limitReached": "You already have the maximum number of fursonas."
       }
-    }
+    },
+    "pin": "Pin first",
+    "unpin": "Unpin",
+    "remove": "Delete",
+    "confirmDelete": "Confirm",
+    "cancel": "Cancel",
+    "dragToReorder": "Drag to reorder",
+    "search": "Search your fursonas",
+    "filterAll": "All",
+    "noMatches": "No fursonas match that."
   },
   "picker": {
     "title": "Who do you want to be?",

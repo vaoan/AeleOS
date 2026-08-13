@@ -20,6 +20,11 @@ export {
   type Actor,
 } from "@/features/actors/infrastructure/fursonas";
 export {
+  applyFursonaFilters,
+  isFiltering,
+  type FursonaFilters,
+} from "@/features/actors/domain/fursona-filters";
+export {
   VISIBILITIES,
   parseFursona,
   type FursonaFormState,
@@ -30,6 +35,10 @@ export {
   ActorTile,
   type ActorTileProps,
 } from "@/features/actors/presentation/actor-tile";
+export {
+  FursonaList,
+  type FursonaListLabels,
+} from "@/features/actors/presentation/fursona-list";
 export {
   FursonaForm,
   type FursonaFormLabels,

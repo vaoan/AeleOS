@@ -1,7 +1,10 @@
 import { getTranslations } from "next-intl/server";
-import { Card } from "@/shared/presentation/page-shell";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
-import { ActorTile, ensurePersonActor, listMyActors } from "@/features/actors";
+import {
+  FursonaList,
+  ensurePersonActor,
+  listMyActors,
+} from "@/features/actors";
 
 /**
  * The list of actors the signed-in person may act as.
@@ -14,33 +17,29 @@ import { ActorTile, ensurePersonActor, listMyActors } from "@/features/actors";
  * list relies on is now enforced here rather than assumed of a different page.
  *
  * Reads through `my_actors()`, which returns the person row first, so
- * "yourself" is the leading tile rather than a special case in this component.
+ * "yourself" is the leading row rather than a special case anywhere.
  *
- * Three states, and the order they are checked in is the point:
+ * **Two states now, not three.** Phase 2b moved the empty states into
+ * `FursonaList`, because only it knows whether a filter is narrowing the list —
+ * "you have no fursonas" is the wrong sentence when the truth is "none match
+ * what you typed", and the page cannot tell those apart. What is left here:
  *
  * 1. **Suspended.** `my_actors()` resolves its owner branch through
  *    `current_person_ref()`, which `0007` filters to active — so a suspended
  *    person gets their person row back and none of their fursonas. That is one
- *    actor, which is indistinguishable by count from "no fursonas yet". Told
- *    that, they would click "New fursona" and meet `create_fursona`'s
- *    `person actor is suspended` in the generic error boundary. So the status
- *    is read, not the count, and the create link is withheld: it cannot
- *    succeed, and offering an action that only fails is worse than offering
- *    none.
- * 2. **Nothing to show.** `<= 1`, not `=== 1`: zero actors must render the same
- *    message as one, or a caller with none gets a heading, a subtitle and no
- *    text at all.
- * 3. **The list.**
+ *    actor, indistinguishable by count from "no fursonas yet". Told that, they
+ *    would click "New fursona" and meet the `person actor is suspended` that
+ *    `create_fursona` raises, arriving as the generic error boundary. So the
+ *    status is read, not the count, and the create link is withheld: offering
+ *    an action that can only fail is worse than offering none.
+ * 2. **Hand the rows over.** Everything else — ordering, filtering, the two
+ *    empty states, pinning, deleting, whether dragging is offered — belongs to
+ *    `FursonaList`.
  *
- * The person row is `actors[0]` by `my_actors()`'s own `order by`, which puts
- * `kind = 'person'` first — the same ordering the leading-tile behaviour above
- * already depends on.
- *
- * Each active fursona tile links to its own edit page, keyed by handle rather
- * than `actorRef`. The person row gets no such link, since a person actor is
- * not edited here, and neither does a suspended fursona: its edit page 404s
- * (see `[handle]/edit/page.tsx`), so offering the link would only dead-end at
- * submit instead of not being offered at all.
+ * The status read is `actors[0]`'s, by `my_actors()`'s own `order by`, which
+ * puts `kind = 'person'` first. Not any row's: a suspended FURSONA belonging to
+ * an active person is an ordinary state, and reading it as the person's own
+ * suspension would withhold the create link from somebody entitled to it.
  *
  * @returns the fursona list page.
  */
@@ -52,10 +51,10 @@ export default async function FursonasPage() {
   const suspended = actors[0]?.status === "suspended";
 
   return (
-    <Card>
+    <>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
+          <h1 className="font-display text-3xl font-bold tracking-tight">
             {t("title")}
           </h1>
           <p className="mt-1 text-sm text-[var(--muted)]">{t("subtitle")}</p>
@@ -72,25 +71,30 @@ export default async function FursonasPage() {
 
       {suspended ? (
         <p className="mt-8 text-sm text-[var(--muted)]">{t("suspended")}</p>
-      ) : actors.length <= 1 ? (
-        <p className="mt-8 text-sm text-[var(--muted)]">{t("empty")}</p>
       ) : (
-        <ul className="mt-8 grid gap-3">
-          {actors.map((actor) => (
-            <ActorTile
-              key={actor.actorRef}
-              actor={actor}
-              youLabel={t("you")}
-              visibilityLabel={t(`visibility.${actor.visibility}`)}
-              edit={
-                actor.kind === "fursona" && actor.status === "active"
-                  ? { href: `/fursonas/${actor.handle}/edit`, label: t("edit") }
-                  : undefined
-              }
-            />
-          ))}
-        </ul>
+        <FursonaList
+          initial={actors}
+          labels={{
+            you: t("you"),
+            edit: t("edit"),
+            pin: t("pin"),
+            unpin: t("unpin"),
+            remove: t("remove"),
+            confirm: t("confirmDelete"),
+            cancel: t("cancel"),
+            dragToReorder: t("dragToReorder"),
+            search: t("search"),
+            all: t("filterAll"),
+            empty: t("empty"),
+            noMatches: t("noMatches"),
+            visibility: {
+              private: t("visibility.private"),
+              unlisted: t("visibility.unlisted"),
+              public: t("visibility.public"),
+            },
+          }}
+        />
       )}
-    </Card>
+    </>
   );
 }

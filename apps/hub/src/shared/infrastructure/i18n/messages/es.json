@@ -55,7 +55,16 @@
         "visibility": "Elige una de las opciones.",
         "limitReached": "Ya tienes el máximo de fursonas."
       }
-    }
+    },
+    "pin": "Fijar primero",
+    "unpin": "Quitar de fijados",
+    "remove": "Eliminar",
+    "confirmDelete": "Confirmar",
+    "cancel": "Cancelar",
+    "dragToReorder": "Arrastra para reordenar",
+    "search": "Busca en tus fursonas",
+    "filterAll": "Todas",
+    "noMatches": "Ninguna fursona coincide."
   },
   "picker": {
     "title": "¿Quién quieres ser?",

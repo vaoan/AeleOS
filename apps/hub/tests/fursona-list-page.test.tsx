@@ -25,21 +25,16 @@ vi.mock("next-intl/server", () => ({
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
   ensurePersonActor: (...a: unknown[]) => ensurePersonActor(...a),
-  // Enough of a tile to be found by the handle it was given, and to show
-  // whether the page decided to offer an edit link — the real component is
-  // presentation and excluded from coverage; what matters here is which rows,
-  // and which affordances, the page decided to render at all.
-  ActorTile: ({
-    actor,
-    edit,
-  }: {
-    actor: { handle: string };
-    edit?: { label: string };
-  }) => (
-    <li>
-      {actor.handle}
-      {edit ? <a>{edit.label}</a> : null}
-    </li>
+  // Enough of the list to show which rows the page handed over. Everything
+  // the list then DOES with them — ordering, filtering, the two empty states,
+  // whether dragging is offered — is fursona-list.test.tsx's to assert. This
+  // suite is only about what the page decided to render at all.
+  FursonaList: ({ initial }: { initial: { handle: string }[] }) => (
+    <ul>
+      {initial.map((row) => (
+        <li key={row.handle}>{row.handle}</li>
+      ))}
+    </ul>
   ),
 }));
 
@@ -100,20 +95,17 @@ describe("FursonasPage", () => {
     expect(screen.queryByText("empty")).not.toBeInTheDocument();
   });
 
-  it("says the list is empty when only the person row comes back", async () => {
-    listMyActors.mockResolvedValueOnce([person]);
-    render(await FursonasPage());
-
-    expect(screen.getByText("empty")).toBeInTheDocument();
-  });
-
-  // `=== 1` left this case rendering a heading, a subtitle, a create link and
-  // no message at all — the one state where the page said nothing.
-  it("says the list is empty when no actors come back at all", async () => {
+  // The two empty states moved into FursonaList in phase 2b, because only it
+  // knows whether a filter is narrowing the list — "you have no fursonas" and
+  // "none match that" are different sentences and the page cannot tell them
+  // apart. What the page still owes is handing over whatever came back,
+  // including nothing.
+  it("hands an empty list over rather than deciding what to say about it", async () => {
     listMyActors.mockResolvedValueOnce([]);
     render(await FursonasPage());
 
-    expect(screen.getByText("empty")).toBeInTheDocument();
+    expect(screen.queryByText("empty")).not.toBeInTheDocument();
+    expect(screen.getByRole("list")).toBeEmptyDOMElement();
   });
 
   // F1. A suspended person's fursonas are filtered out by my_actors, leaving
@@ -153,7 +145,6 @@ describe("FursonasPage", () => {
     expect(screen.queryByText("suspended")).not.toBeInTheDocument();
     expect(screen.getByText("create")).toBeInTheDocument();
     expect(screen.getByText("sparky")).toBeInTheDocument();
-    expect(screen.queryByText("edit")).not.toBeInTheDocument();
   });
 
   it("offers the create link to an active person", async () => {
