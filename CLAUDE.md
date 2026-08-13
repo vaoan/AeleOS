@@ -327,14 +327,26 @@ person over to it.** Phase 1b-i's 🧑 steps are the only thing still open.
 
   Plan: `2026-08-12-phase-1b-ii-picker.md`. Contract: `docs/integrating.md`.
 
-**CI gates on `main`:** `conformance` (schema suite), `hub` (hub and
-`@aeleos/identity` unit tests, both at 100% coverage, plus the production build)
-and `idp-cloud` (real Clerk ⇄ Supabase trust) are all **required** — a pull
-request cannot merge until the three report green. A fourth job, `e2e`, runs
-the Playwright suite against a real Chromium — the only browser-level proof the
-signed-out app handoff works. It is **not yet a required check**: making it one
-is a repository-settings change only the owner can make, and until it is, a red
-`e2e` does not block a merge.
+**CI gates on `main`:** four jobs are **required**, and a pull request cannot
+merge until all four report green — `conformance` (schema suite), `hub` (hub and
+`@aeleos/identity` unit tests, both at 100% coverage, plus the production build),
+`idp-cloud` (real Clerk ⇄ Supabase trust) and `e2e` (the Playwright suite against
+a real Chromium — the only browser-level proof the signed-out app handoff works).
+Branch protection is `strict`, so a branch must also be up to date with `main`
+before it merges, and **admins are not exempt**: there is no one who can push
+past a red check.
+
+Two consequences worth knowing before you plan work around them. `e2e` and
+`idp-cloud` both carry an `if:` guard that skips them on **fork** pull requests,
+because secrets are withheld there — on a fork they cannot report green at all,
+so that route needs the owner. And `e2e` was made required after the fact, which
+is why nothing in `.github/workflows/` says so: the required-check list lives in
+repository settings, not in the workflow file, and the two can disagree without
+anything failing. Read it from the API rather than inferring it from the YAML:
+
+```bash
+gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
+```
 
 Claude's role throughout: build and test the hub here, specify exactly what to
 configure in Clerk, and write the per-app integration code in the respective app

@@ -6,8 +6,12 @@ name: deploy
 # linking — there is no committed .vercel directory.
 #
 # Deploying on push to main is safe because main cannot receive unverified
-# code: conformance, hub and idp-cloud are required checks and admins are not
+# code: conformance, hub, idp-cloud and e2e are all required checks, protection
+# is strict (a branch must be up to date with main to merge) and admins are not
 # exempt, so every commit here has already passed them on a pull request.
+# That list lives in repository settings, not here — read it with
+# `gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks`
+# rather than assuming this comment kept pace with it.
 on:
   push:
     branches: [main]
