@@ -84,7 +84,8 @@
   "controls": {
     "toDark": "Switch to dark mode",
     "toLight": "Switch to light mode",
-    "language": "Change language"
+    "language": "Change language",
+    "loading": "Loading"
   },
   "nav": {
     "ariaLabel": "Sections",

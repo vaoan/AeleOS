@@ -159,3 +159,30 @@ body {
   color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/*
+ * The navigation bar's travel. Indeterminate on purpose: nothing knows how far
+ * along a route change is, so the bar sweeps rather than filling to a number it
+ * would have to invent.
+ *
+ * Declared here rather than inline because Tailwind v4 resolves
+ * `animate-[name_...]` against real `@keyframes`, and a missing one fails
+ * silently — the element renders, holds still, and looks like a thin accent
+ * line somebody left behind. `motion-reduce:animate-none` on the element is
+ * what stops it travelling for anyone who asked for less motion; the bar still
+ * appears, because its presence is the message.
+ */
+@keyframes route-progress {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  50% {
+    transform: scaleX(0.7);
+    transform-origin: left;
+  }
+  100% {
+    transform: scaleX(1);
+    transform-origin: right;
+  }
+}

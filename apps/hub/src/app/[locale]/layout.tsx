@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { HtmlLang } from "@/shared/presentation/html-lang";
 import { QueryProvider } from "@/shared/presentation/query-provider";
+import { RouteProgress } from "@/shared/presentation/route-progress";
 import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
@@ -53,6 +54,11 @@ export async function generateMetadata({
  * is what lets a Client Component below here use a query hook. It adds no
  * markup; a page that uses no hook is unaffected by its presence.
  *
+ * `RouteProgress` is mounted here for the same reason it listens on the
+ * document: one bar serves the whole app, and it must survive the navigations
+ * it reports on. Its label is resolved here because it is a client component,
+ * so the catalogue lookup belongs on the server where the locale already is.
+ *
  * @returns the localised subtree.
  */
 export default async function LocaleLayout({
@@ -66,10 +72,16 @@ export default async function LocaleLayout({
   if (!routing.locales.includes(locale)) notFound();
   setRequestLocale(locale);
 
+  // Resolved here rather than inside RouteProgress: that component is a client
+  // component, so its catalogue lookup belongs on the server, where the locale
+  // already is. Same reason the shell resolves its own control labels.
+  const t = await getTranslations("controls");
+
   return (
     <NextIntlClientProvider>
       <QueryProvider>
         <HtmlLang locale={locale} />
+        <RouteProgress label={t("loading")} />
         {children}
       </QueryProvider>
     </NextIntlClientProvider>

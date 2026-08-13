@@ -84,7 +84,8 @@
   "controls": {
     "toDark": "Cambiar a modo oscuro",
     "toLight": "Cambiar a modo claro",
-    "language": "Cambiar idioma"
+    "language": "Cambiar idioma",
+    "loading": "Cargando"
   },
   "nav": {
     "ariaLabel": "Secciones",
