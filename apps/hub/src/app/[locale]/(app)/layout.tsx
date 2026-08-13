@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
+import { getTranslations } from "next-intl/server";
 import { redirect } from "@/shared/infrastructure/i18n/navigation";
+import { AppNav } from "@/shared/presentation/app-nav";
 import { PageShell } from "@/shared/presentation/page-shell";
 import { UserMenu } from "@/features/session";
 
@@ -31,6 +33,16 @@ import { UserMenu } from "@/features/session";
  * so signing in changes what is on the page rather than what the page looks
  * like.
  *
+ * It also fills the shell's two wayfinding slots, which only make sense once
+ * somebody is signed in: the section links, and a wordmark pointing at `/me`
+ * rather than the public home page. Both are supplied here rather than decided
+ * inside the shell, because this is the layer that already knows there is a
+ * session — it is the layer that required one.
+ *
+ * The `nav` labels are resolved here for the same reason the shell resolves its
+ * own: `AppNav` is a client component, so its catalogue lookup has to happen on
+ * the server, and this is the server component that renders it.
+ *
  * @returns the signed-in shell.
  */
 export default async function AppLayout({
@@ -46,5 +58,26 @@ export default async function AppLayout({
     redirect({ href: "/sign-in", locale });
   }
 
-  return <PageShell trailing={<UserMenu />}>{children}</PageShell>;
+  // Resolved here rather than inside AppNav: that component is a client
+  // component (the active section comes from the current path), and the
+  // catalogue lookup belongs on the server where the locale already is.
+  const t = await getTranslations("nav");
+
+  return (
+    <PageShell
+      trailing={<UserMenu />}
+      homeHref="/me"
+      nav={
+        <AppNav
+          labels={{
+            ariaLabel: t("ariaLabel"),
+            me: t("me"),
+            fursonas: t("fursonas"),
+          }}
+        />
+      }
+    >
+      {children}
+    </PageShell>
+  );
 }

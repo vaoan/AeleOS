@@ -76,8 +76,18 @@ describe("message catalogues", () => {
   //
   // - the two titles are the product name, which does not translate
   // - `profile.empty` is an em dash, which is punctuation rather than language
+  // - `nav.fursonas` is the community's own loanword, used untranslated in
+  //   Spanish exactly as it is in English. The catalogue already relies on
+  //   that: `fursonas.title` is "Tus fursonas", translating the phrase around
+  //   a word it leaves alone. The nav label is that word with no phrase to
+  //   carry, so the two languages coincide.
   it("have no Spanish values left identical to the English", () => {
-    const allowed = ["home.title", "meta.title", "profile.empty"];
+    const allowed = [
+      "home.title",
+      "meta.title",
+      "profile.empty",
+      "nav.fursonas",
+    ];
     const untranslated = enKeys.filter(
       (k) => valueAt(en, k) === valueAt(es, k),
     );

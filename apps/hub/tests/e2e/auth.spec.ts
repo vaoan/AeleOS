@@ -15,6 +15,20 @@ test.describe("authentication gate", () => {
     await expect(page.getByTestId("home-title")).toBeVisible();
   });
 
+  // The wordmark was a `span` for its whole life — the first thing somebody
+  // clicks to get out of a dead end, doing nothing. This is the half of that
+  // fix an anonymous browser can reach: the signed-in nav, where it points at
+  // /me, has no end-to-end proof at all, because no test here ever completes a
+  // real social login.
+  test("the wordmark takes a signed-out visitor home, in their locale", async ({
+    page,
+  }) => {
+    await page.goto("/en/sign-in");
+    await page.getByTestId("wordmark").click();
+    await expect(page).toHaveURL(/\/en\/?$/);
+    await expect(page.getByTestId("home-title")).toBeVisible();
+  });
+
   test("an anonymous visitor cannot reach /me", async ({ page }) => {
     await page.goto("/me");
     await expect(page).toHaveURL(/\/(es|en)\/sign-in/);

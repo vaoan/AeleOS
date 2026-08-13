@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
+import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { LanguageToggle } from "@/shared/presentation/language-toggle";
 import { NebulaToggle } from "@/shared/presentation/nebula-toggle";
 import { ThemeToggle } from "@/shared/presentation/theme-toggle";
@@ -11,6 +12,12 @@ import { tid } from "@/shared/infrastructure/test-id";
  * Deliberately small. The shell resolves its own control labels from the
  * catalogue rather than accepting them, so adding a control does not mean
  * editing every page that renders a shell.
+ *
+ * The exception is anything that differs by whether somebody is signed in —
+ * `trailing`, `nav` and `homeHref`. Those are slots because the shell must not
+ * learn about sessions: it renders the sign-in page too, and a shell that
+ * checks for a session is a shell that can send a signed-out visitor somewhere
+ * they cannot go.
  */
 export interface PageShellProps {
   /** The page's content, laid out in the shared column. */
@@ -22,6 +29,24 @@ export interface PageShellProps {
    * the page and never what the page looks like.
    */
   trailing?: ReactNode;
+
+  /**
+   * Optional section links, rendered after the wordmark. The signed-in layout
+   * passes them; public pages do not, because nothing they would link to is
+   * reachable while signed out.
+   */
+  nav?: ReactNode;
+
+  /**
+   * Where the wordmark points. Defaults to the public home page, which is
+   * correct everywhere — the signed-in layout overrides it with `/me` so that
+   * clicking it lands somewhere useful rather than on marketing copy.
+   *
+   * It is a prop rather than a signed-in check inside the shell because the
+   * shell renders on the sign-in page too, where a link to `/me` would bounce
+   * straight back to sign-in.
+   */
+  homeHref?: string;
 }
 
 /**
@@ -48,6 +73,10 @@ export interface PageShellProps {
  * The right-hand group holds the page settings — language and theme — with the
  * account menu after them when signed in.
  *
+ * The wordmark is a link, and `nav` sits directly after it: both are wayfinding
+ * and they read as one group on the left, opposite the settings on the right.
+ * Where the wordmark points is the caller's business — see `homeHref`.
+ *
  * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
  * suite selects by. The wordmark itself is a literal rather than a catalogue
  * entry because a proper noun reads the same in every language.
@@ -57,7 +86,12 @@ export interface PageShellProps {
  * the header with a third of the window empty beneath it; this fixes that for
  * every page at once rather than making sign-in a special case.
  */
-export async function PageShell({ children, trailing }: PageShellProps) {
+export async function PageShell({
+  children,
+  trailing,
+  nav,
+  homeHref = "/",
+}: PageShellProps) {
   // The shell resolves its own chrome labels rather than taking them as props.
   // Threading one per control through every page means every new control edits
   // every page, and a page that forgets one renders an unlabelled button.
@@ -78,13 +112,22 @@ export async function PageShell({ children, trailing }: PageShellProps) {
               lost when the control is filed away with the page settings. */}
           <NebulaToggle label={tNebula("toggle")} />
           {/* The wordmark is a proper noun, so it is a literal rather than a
-              catalogue entry — it reads the same in every language. */}
-          <span
-            className="font-display text-lg font-bold tracking-tight"
+              catalogue entry — it reads the same in every language.
+
+              It is a link because a wordmark that does nothing is the most
+              reliably disappointing control on the web: it is the first thing
+              people click to get out of a dead end, and for its whole life
+              this one was a `span`. The locale-aware Link, not an `a` — a bare
+              href drops the `/es` prefix and switches somebody's language on
+              the way home. */}
+          <Link
+            href={homeHref}
+            className="rounded-lg px-1 font-display text-lg font-bold tracking-tight"
             {...tid("wordmark")}
           >
             AeleOS
-          </span>
+          </Link>
+          {nav}
           {/* Controls live together on the right. Beside the wordmark the star
               read as a bullet point rather than something pressable. */}
           <div className="ml-auto flex items-center gap-1">

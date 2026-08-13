@@ -154,6 +154,38 @@ const PAIRS = [
 ];
 
 /**
+ * Text in the header bar, which no pair above covers.
+ *
+ * `--bar` is translucent over the field, so unlike `--surface` these are not
+ * approximated with an opaque value — the bar is flattened first, the same
+ * treatment `--ring` gets below. Each row is the text, then the bar, its alpha,
+ * and the field behind it.
+ *
+ * This exists because the header grew section links. `--muted` on `--bar` is
+ * the dimmest text the design puts anywhere, and it was reaching a background
+ * that nothing had ever measured — the wordmark and the toggles had been
+ * sitting on it unchecked since the bar was introduced.
+ */
+const BARS = [
+  ["light: ink on bar", [0.27, 0.045, 35], [1, 0, 0], 0.35, [0.98, 0.016, 45]],
+  ["light: muted on bar", [0.5, 0.045, 30], [1, 0, 0], 0.35, [0.98, 0.016, 45]],
+  [
+    "dark: ink on bar",
+    [0.96, 0.012, 340],
+    [0.14, 0.03, 305],
+    0.55,
+    [0.12, 0.03, 305],
+  ],
+  [
+    "dark: muted on bar",
+    [0.66, 0.03, 330],
+    [0.14, 0.03, 305],
+    0.55,
+    [0.12, 0.03, 305],
+  ],
+];
+
+/**
  * The avatar ring per mode: the ring, its alpha, and the field behind it.
  *
  * Kept in step with `--ring` in `globals.css` by
@@ -205,6 +237,9 @@ function main() {
 
   for (const [label, fg, bg, min] of PAIRS) {
     report(label, contrastRatio(fg, bg), min);
+  }
+  for (const [label, text, bar, alpha, field] of BARS) {
+    report(label, contrastRatioSrgb(composite(bar, alpha, field), text), 4.5);
   }
   for (const [label, ring, alpha, field] of RINGS) {
     const flattened = composite(ring, alpha, field);

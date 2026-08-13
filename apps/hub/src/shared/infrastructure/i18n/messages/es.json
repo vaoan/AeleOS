@@ -85,5 +85,10 @@
     "toDark": "Cambiar a modo oscuro",
     "toLight": "Cambiar a modo claro",
     "language": "Cambiar idioma"
+  },
+  "nav": {
+    "ariaLabel": "Secciones",
+    "me": "Yo",
+    "fursonas": "Fursonas"
   }
 }

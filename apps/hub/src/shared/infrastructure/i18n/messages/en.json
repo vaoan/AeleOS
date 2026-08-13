@@ -85,5 +85,10 @@
     "toDark": "Switch to dark mode",
     "toLight": "Switch to light mode",
     "language": "Change language"
+  },
+  "nav": {
+    "ariaLabel": "Sections",
+    "me": "Me",
+    "fursonas": "Fursonas"
   }
 }
