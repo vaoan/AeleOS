@@ -315,9 +315,30 @@ test.describe("the visual identity", () => {
   // Dropping `variable:` from a next/font call makes every face silently fall
   // back to system-ui. It cannot be caught in unit tests, because next/font is
   // a build-time transform.
+  //
+  // This used to assert the variable contained "DM Sans" and friends, which
+  // worked while the faces came from `next/font/google`. They are vendored now,
+  // and `next/font/local` deliberately scopes the family to an unguessable
+  // name — the emitted value is `display, display Fallback`, with the typeface
+  // named nowhere. Matching the typeface string is not available any more, so
+  // the invariant is asserted directly instead: the variable is declared, and
+  // the browser really fetched a face from OUR origin. That is what the test
+  // was named for, and it is more than the string match proved — a variable can
+  // hold a family name that never loaded.
+  //
+  // That the woff2 files are in the repository rather than fetched from Google
+  // while compiling is not observable from a browser at all — by the time a
+  // page loads, both arrangements look identical. `tests/fonts.test.ts` guards
+  // that half.
   test("the self-hosted fonts are actually applied", async ({ page }) => {
+    const served: string[] = [];
+    page.on("response", (r) => {
+      if (r.url().includes(".woff2") && r.ok()) served.push(r.url());
+    });
+
     await page.goto("/");
-    const fonts = await page.evaluate(() => {
+    const fonts = await page.evaluate(async () => {
+      await document.fonts.ready;
       const styles = getComputedStyle(document.documentElement);
       return {
         sans: styles.getPropertyValue("--font-sans").trim(),
@@ -325,9 +346,22 @@ test.describe("the visual identity", () => {
         mono: styles.getPropertyValue("--font-mono").trim(),
       };
     });
-    expect(fonts.sans).toContain("DM Sans");
-    expect(fonts.display).toContain("Space Grotesk");
-    expect(fonts.mono).toContain("JetBrains Mono");
+
+    // Declared at all: an undeclared custom property reads back as "".
+    expect(fonts.sans).not.toBe("");
+    expect(fonts.display).not.toBe("");
+    expect(fonts.mono).not.toBe("");
+    // And not silently the system stack, which is what a dropped `variable:`
+    // leaves the page rendering in.
+    for (const value of Object.values(fonts))
+      expect(value).not.toMatch(/system-ui/);
+
+    // Self-hosted, literally: served by us, and by nobody else. The host is
+    // taken from the page rather than hard-coded, because the suite runs
+    // against a dev server locally and can be pointed at a deployment.
+    const host = new URL(page.url()).host;
+    expect(served.length).toBeGreaterThan(0);
+    for (const url of served) expect(new URL(url).host).toBe(host);
   });
 
   test("the theme is applied before hydration, not after", async ({ page }) => {
