@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
+import { cn } from "@/shared/infrastructure/cn";
 import { LanguageToggle } from "@/shared/presentation/language-toggle";
 import { NebulaToggle } from "@/shared/presentation/nebula-toggle";
 import { ThemeToggle } from "@/shared/presentation/theme-toggle";
@@ -18,6 +19,10 @@ import { tid } from "@/shared/infrastructure/test-id";
  * learn about sessions: it renders the sign-in page too, and a shell that
  * checks for a session is a shell that can send a signed-out visitor somewhere
  * they cannot go.
+ *
+ * `width` is a different kind of prop and worth not confusing with those: it
+ * says nothing about who is looking, only about what the page holds. A page
+ * asks for it because it renders a table rather than prose.
  */
 export interface PageShellProps {
   /** The page's content, laid out in the shared column. */
@@ -47,6 +52,15 @@ export interface PageShellProps {
    * straight back to sign-in.
    */
   homeHref?: string;
+
+  /**
+   * How wide the page column is. `"column"` — the default — is the 620px
+   * reading measure every page used before the studio port. `"wide"` is for
+   * pages that hold a table rather than prose, and it also stops the vertical
+   * centring: centring is right for a short card and wrong for a long list,
+   * which would otherwise start below the fold on a tall window.
+   */
+  width?: "column" | "wide";
 }
 
 /**
@@ -61,9 +75,12 @@ export interface PageShellProps {
  * markup here and there should never be any: if a change needs different
  * elements per theme, the tokens are wrong rather than the layout.
  *
- * The header bar spans the window; only the page below it is held to 620px.
+ * The header bar spans the window; only the page below it is held to a column.
  * Constraining the bar's contents to that column too left the wordmark floating
  * mid-screen on a wide display, which read as a mistake rather than a choice.
+ *
+ * That column is 620px by default and `max-w-7xl` when `width` is `"wide"` —
+ * see the prop for why going wide also drops the vertical centring.
  *
  * The star sits beside the wordmark rather than with the page settings on the
  * right: it is the star that lights the dust, and putting it out is what turns
@@ -91,6 +108,7 @@ export async function PageShell({
   trailing,
   nav,
   homeHref = "/",
+  width = "column",
 }: PageShellProps) {
   // The shell resolves its own chrome labels rather than taking them as props.
   // Threading one per control through every page means every new control edits
@@ -145,7 +163,10 @@ export async function PageShell({
           field instead of clinging to the header with a third of the window
           empty beneath it, without turning into a different layout. */}
       <main
-        className="mx-auto flex w-full max-w-[620px] flex-1 flex-col justify-center px-6 py-10"
+        className={cn(
+          "mx-auto flex w-full flex-1 flex-col px-6 py-10",
+          width === "wide" ? "max-w-7xl" : "max-w-[620px] justify-center",
+        )}
         {...tid("page-content")}
       >
         {children}

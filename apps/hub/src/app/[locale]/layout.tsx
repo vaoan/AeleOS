@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { HtmlLang } from "@/shared/presentation/html-lang";
+import { QueryProvider } from "@/shared/presentation/query-provider";
 import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
@@ -47,6 +48,11 @@ export async function generateMetadata({
  * between locales — the document would keep declaring the language it was first
  * served with.
  *
+ * `QueryProvider` sits inside `NextIntlClientProvider` so that anything it
+ * renders can still read translations, and wraps every localised page — which
+ * is what lets a Client Component below here use a query hook. It adds no
+ * markup; a page that uses no hook is unaffected by its presence.
+ *
  * @returns the localised subtree.
  */
 export default async function LocaleLayout({
@@ -62,8 +68,10 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider>
-      <HtmlLang locale={locale} />
-      {children}
+      <QueryProvider>
+        <HtmlLang locale={locale} />
+        {children}
+      </QueryProvider>
     </NextIntlClientProvider>
   );
 }
