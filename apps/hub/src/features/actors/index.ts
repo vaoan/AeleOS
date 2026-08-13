@@ -16,6 +16,7 @@ export {
   createFursona,
   updateFursona,
   HandleTakenError,
+  FursonaLimitError,
   type Actor,
 } from "@/features/actors/infrastructure/fursonas";
 export {

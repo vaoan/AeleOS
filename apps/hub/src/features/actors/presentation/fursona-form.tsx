@@ -53,6 +53,11 @@ export interface FursonaFormProps {
  * additional to its hint rather than a replacement for it — see the comment at
  * that field for why it was the one exception and why it no longer is.
  *
+ * `form` is a **reserved key** in `state.errors`, not a field name: it renders
+ * as a single form-level alert above the submit button, for a refusal nothing
+ * the person typed can fix — the fursona quota being the only one today. No
+ * input may be given `name="form"`, or its error would move there.
+ *
  * @returns the form.
  */
 export function FursonaForm({
@@ -178,6 +183,17 @@ export function FursonaForm({
           </span>
         ) : null}
       </label>
+
+      {/* Form-level, not field-level. `form` is a reserved key in the error
+          map — no input carries that name — and it is how the action reports a
+          failure nothing the person typed can fix, the fursona quota being the
+          only one today. It sits above the submit button rather than under a
+          field because that is where the person is looking when it appears. */}
+      {errorFor("form") ? (
+        <span role="alert" className="text-sm text-[var(--accent)]">
+          {errorFor("form")}
+        </span>
+      ) : null}
 
       <button
         type="submit"

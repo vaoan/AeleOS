@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/shared/infrastructure/i18n/navigation";
 import {
+  FursonaLimitError,
   HandleTakenError,
   createFursona,
   parseFursona,
@@ -22,6 +23,10 @@ import {
  * received, never wrapped or swallowed — that, not which side of the `try`
  * it sits on, is what lets `redirect()`'s own control-flow exception pass
  * through safely if it is ever thrown from within one.
+ *
+ * A reached quota comes back under the reserved `form` key rather than a field
+ * name, because no field is at fault — the form renders that one as a
+ * form-level alert.
  *
  * @param _prev - the previous form state, unused.
  * @param formData - the submitted fields.
@@ -44,10 +49,15 @@ export async function createFursonaAction(
   try {
     await createFursona(parsed.value);
   } catch (error) {
-    // Rethrown untouched below for anything but a HandleTakenError — see the
-    // doc comment above for why that matters beyond this function.
+    // Rethrown untouched below for anything the two branches do not name — see
+    // the doc comment above for why that matters beyond this function.
     if (error instanceof HandleTakenError)
       return { errors: { handle: "handleTaken" } };
+    // Against `form`, not a field: the quota is not something the person typed
+    // wrong, and keying it to `handle` would tell them to change a handle that
+    // is perfectly good.
+    if (error instanceof FursonaLimitError)
+      return { errors: { form: "limitReached" } };
     throw error;
   }
 

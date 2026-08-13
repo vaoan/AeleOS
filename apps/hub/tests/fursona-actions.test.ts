@@ -12,6 +12,7 @@ const revalidatePath = vi.fn<(...a: unknown[]) => void>();
 const getLocale = vi.fn<() => Promise<string>>(() => Promise.resolve("es"));
 
 class HandleTakenError extends Error {}
+class FursonaLimitError extends Error {}
 
 // The locale-aware redirect, not next/navigation's plain one: the plain
 // version drops the locale prefix and costs an extra hop through the intl
@@ -34,6 +35,7 @@ vi.mock("@/features/actors", async () => {
     createFursona: (...a: unknown[]) => createFursona(...a),
     updateFursona: (...a: unknown[]) => updateFursona(...a),
     HandleTakenError,
+    FursonaLimitError,
   };
 });
 
@@ -92,6 +94,17 @@ describe("createFursonaAction", () => {
       await import("@/app/[locale]/(app)/fursonas/actions");
     const state = await createFursonaAction({ errors: {} }, form());
     expect(state.errors).toEqual({ handle: "handleTaken" });
+  });
+
+  // Not keyed to a field: nothing the person typed is wrong, so hanging the
+  // message off `handle` would tell them to change a handle that is fine. The
+  // reserved `form` key is what the form renders as a form-level alert.
+  it("reports a reached quota against the form, not a field", async () => {
+    createFursona.mockRejectedValueOnce(new FursonaLimitError("limit"));
+    const { createFursonaAction } =
+      await import("@/app/[locale]/(app)/fursonas/actions");
+    const state = await createFursonaAction({ errors: {} }, form());
+    expect(state.errors).toEqual({ form: "limitReached" });
   });
 
   it("redirects to the list, in the caller's locale, on success", async () => {

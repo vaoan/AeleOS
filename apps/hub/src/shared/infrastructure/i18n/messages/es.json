@@ -52,7 +52,8 @@
         "handleTaken": "Ese identificador ya está en uso.",
         "displayName": "Máximo 64 caracteres.",
         "avatarUrl": "Ingresa una dirección de imagen http o https, o déjala vacía.",
-        "visibility": "Elige una de las opciones."
+        "visibility": "Elige una de las opciones.",
+        "limitReached": "Ya tienes el máximo de fursonas."
       }
     }
   },

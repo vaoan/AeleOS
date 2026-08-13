@@ -130,6 +130,26 @@ describe("createFursona", () => {
     ).rejects.toBeInstanceOf(HandleTakenError);
   });
 
+  // 0011 gave create_fursona a quota. Its message is deliberately distinct from
+  // every other failure the function raises so this layer can type it, and a
+  // person who reaches the limit gets told so instead of an error boundary.
+  it("surfaces a reached quota as a typed error the form can catch", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "fursona limit reached" },
+    });
+    const { createFursona, FursonaLimitError } =
+      await import("@/features/actors/infrastructure/fursonas");
+    await expect(
+      createFursona({
+        handle: "one-too-many",
+        displayName: "",
+        avatarUrl: "",
+        visibility: "private",
+      }),
+    ).rejects.toBeInstanceOf(FursonaLimitError);
+  });
+
   it("rethrows any other failure rather than reporting a taken handle", async () => {
     rpc.mockResolvedValueOnce({
       data: null,

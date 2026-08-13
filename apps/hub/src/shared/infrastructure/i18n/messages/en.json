@@ -52,7 +52,8 @@
         "handleTaken": "That handle is already taken.",
         "displayName": "Keep this to 64 characters or fewer.",
         "avatarUrl": "Enter an http or https image address, or leave it empty.",
-        "visibility": "Choose one of the options."
+        "visibility": "Choose one of the options.",
+        "limitReached": "You already have the maximum number of fursonas."
       }
     }
   },

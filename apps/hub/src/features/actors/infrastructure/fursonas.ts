@@ -30,6 +30,23 @@ export class HandleTakenError extends Error {
 }
 
 /**
+ * Raised when the caller already owns as many fursonas as `create_fursona`
+ * allows, so a form can say that rather than failing into an error boundary.
+ *
+ * Deliberately carries no number. The quota is `create_fursona`'s own constant
+ * (0011) and the migration states that nothing else in the schema depends on
+ * it; mirroring it here would put a second copy on the wrong side of the seam,
+ * free to drift the moment the product knob is turned.
+ */
+export class FursonaLimitError extends Error {
+  /** @param message - the database's message. */
+  constructor(message: string) {
+    super(message);
+    this.name = "FursonaLimitError";
+  }
+}
+
+/**
  * The empty string means "absent" on the wire; the database wants null.
  *
  * @param value - the raw form field.
@@ -70,6 +87,7 @@ export async function listMyActors(): Promise<Actor[]> {
  * @param input - the validated fursona fields.
  * @returns the new actor's platform ID.
  * @throws `HandleTakenError` when the handle is already in use, in any case.
+ * @throws `FursonaLimitError` when the caller is already at the quota.
  * @throws on any other failure.
  */
 export async function createFursona(input: FursonaInput): Promise<string> {
@@ -84,6 +102,8 @@ export async function createFursona(input: FursonaInput): Promise<string> {
   if (error) {
     if (/handle already taken/i.test(error.message))
       throw new HandleTakenError(error.message);
+    if (/fursona limit reached/i.test(error.message))
+      throw new FursonaLimitError(error.message);
     throw new Error(`Could not create the fursona: ${error.message}`);
   }
   return data as string;
