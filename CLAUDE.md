@@ -188,6 +188,26 @@ Key choices and _why_:
   coverage gates this — an untested error branch fails the build. A test that
   guards already-correct behaviour must be **verified by sabotage**: break the
   code, watch it go red, restore. A test never seen red proves nothing.
+- **Every bug gets a regression test. No exceptions.** Finding the cause is half
+  the work; the other half is a test that fails on the unfixed code. Write it
+  before the fix where you can, and **sabotage-verify it against the original
+  fault** either way — a regression test that never reproduced the bug is a
+  guess about it.
+
+  The test belongs at the level the bug actually lived at, which is rarely
+  where it was noticed. `/fursonas` once threw for every signed-in visitor
+  because `nuqs` shipped without its adapter, and the signed-in error boundary
+  reported that as "we could not load your identity" — a message about the
+  database, which was never involved. The regression test is not a nicer error
+  page. It is `app-providers.test.tsx`, the one suite that does **not** mock
+  `nuqs`, because every other suite mocked away the very thing that was
+  missing.
+
+  That is the lesson worth carrying: **a mocked dependency hides its own setup
+  requirements.** When a bug turns out to be wiring a mock stood in for, the
+  regression test has to use the real thing, and it will usually be the only
+  test that does.
+
 - **Change an implementation, move its documentation.** `pnpm check:docs`
   compares each exported symbol against the base branch — and against the index
   in pre-commit — failing when the code moved and the TSDoc did not. It is a
