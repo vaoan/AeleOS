@@ -512,9 +512,19 @@ Two ways a stored choice goes bad:
   sync. "Successful" matters: a failed sync must not age out somebody's whole
   identity.
 
-There is no user-facing delete in the hub today, so suspension is the ordinary
-cause of both. Do not build on deletion being impossible — the two rules above
-hold either way.
+  There is now a second cause: the owner can **delete** a fursona, and a deleted
+  one stops arriving exactly as a suspended person's do. Nothing in the response
+  changed shape — no field was added or removed — so this needs no code on your
+  side beyond the rule above. What it changes is the interpretation: a row that
+  vanishes is not necessarily a bug, a sync failure, or moderation. Somebody may
+  simply have retired that character. Treat it the same way regardless: refuse
+  to act as it, and re-prompt.
+
+The hub has a user-facing delete, and it **never frees the handle** — a deleted
+fursona keeps its row and its name, so nobody else can register a retired
+character's handle and wear it. Deletion and suspension are therefore both
+ordinary causes of a row disappearing from a sync, and the two rules above hold
+for either without you having to tell them apart.
 
 So the check in section 3 is not a one-off at the callback. Re-run it wherever
 your app is about to act as the stored actor, and re-prompt when it fails:
