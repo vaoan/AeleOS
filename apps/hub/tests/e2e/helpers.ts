@@ -20,16 +20,38 @@ const SAMPLE = 300;
  * - the bitmap is at viewport size rather than the 300x150 intrinsic default;
  * - at least one pixel has been painted, so the tiles exist.
  *
- * `waitForFunction` polls on animation frames and fails on Playwright's own
- * timeout, so a nebula that never appears fails loudly instead of passing a
- * sleep and then asserting against a blank canvas.
+ * `waitForFunction` polls on animation frames and fails on the test's own
+ * timeout — the most generous bound available — so a nebula that never appears
+ * fails loudly instead of passing a sleep and then asserting against a blank
+ * canvas.
+ *
+ * **The font wait is a separate `evaluate`, and that split is the whole point.**
+ * `waitForFunction` does not await what its predicate returns; it tests the
+ * returned value for truthiness, and an `async` predicate always returns a
+ * Promise, which is always truthy. This helper used to await the font promise
+ * inside the predicate, which made it `async` — so it resolved on its first
+ * poll having checked nothing at all, and every caller was really sampling one
+ * animation frame after `goto`. `evaluate` does await a returned Promise;
+ * `waitForFunction` has to be handed a synchronous predicate. Do not fold these
+ * two calls back together.
+ *
+ * That no-op is what went red the first time this suite ran on a runner. On
+ * Windows the first frame lands in ~16ms and the sample was painted by luck; on
+ * a cold two-core runner the bitmap was still 300x150 and untouched, and "the
+ * nebula paints structure" measured 0% coverage — the blank-canvas failure the
+ * assertion exists to catch, reported against a canvas the product had simply
+ * not drawn yet. Verified by sabotage: pointed at a page with the nebula
+ * switched off, where no canvas ever exists, the old helper returned in 11ms
+ * and this one times out.
  *
  * @param page - the page under test.
  * @returns nothing; resolves once the nebula is ready to measure.
  */
 export async function waitForNebulaReady(page: Page): Promise<void> {
-  await page.waitForFunction(async (sample) => {
-    await document.fonts.ready;
+  // `then` rather than returning it directly: `document.fonts.ready` resolves
+  // with the FontFaceSet, which cannot be serialised back to the test.
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  await page.waitForFunction((sample) => {
     const canvas = document.querySelector("canvas");
     if (!canvas || canvas.width < 400) return false;
     const data = canvas

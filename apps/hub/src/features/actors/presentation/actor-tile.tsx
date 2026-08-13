@@ -1,7 +1,11 @@
 import type { Actor } from "@/features/actors/infrastructure/fursonas";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 
-/** What {@link ActorTile} needs to render one actor. */
+/**
+ * What {@link ActorTile} needs to render one actor, and the two optional
+ * affordances a caller may attach to it: an edit link, and — for the picker —
+ * a submit button that hands this actor back as the choice.
+ */
 export interface ActorTileProps {
   /** The actor to show. */
   actor: Actor;
@@ -16,6 +20,24 @@ export interface ActorTileProps {
    * the caller decides that, this component only renders what it is given.
    */
   edit?: { href: string; label: string };
+
+  /**
+   * Renders this tile as a choice: a submit button carrying the actor's
+   * `actor_ref` as its own name/value pair.
+   *
+   * **Only meaningful inside a form**, because that is the only place a submit
+   * button means anything. It exists because a `ul` may contain nothing but
+   * `li`, so a form cannot wrap one tile — HTML's own answer to "which of these
+   * did you click" is several submit buttons in one form, each naming the same
+   * field with a different value, and that is what this renders.
+   *
+   * The label is expected to name the actor, so a list of them is still
+   * distinguishable when read out one button at a time.
+   *
+   * Absent for an actor the caller must not be able to pick. Offering the
+   * button for one the server will refuse only moves the refusal later.
+   */
+  choose?: { label: string };
 }
 
 /**
@@ -41,6 +63,12 @@ export interface ActorTileProps {
  * unavailable, which is not true — and it is the caller's job to decide
  * which rows qualify, not this component's.
  *
+ * `choose` turns the same tile into a pickable option for the picker, rather
+ * than the picker growing a second, near-identical tile that would then have
+ * to be kept in step with this one. The submitted field is `actor_ref`, which
+ * is the actor model's own name for the value — the same one `my_actors()`
+ * returns and the same one the picker hands back to the calling app.
+ *
  * @returns the tile.
  */
 export function ActorTile({
@@ -48,6 +76,7 @@ export function ActorTile({
   youLabel,
   visibilityLabel,
   edit,
+  choose,
 }: ActorTileProps) {
   return (
     <li className="flex items-center gap-4 rounded-xl border border-[var(--edge)]/40 p-4">
@@ -79,6 +108,16 @@ export function ActorTile({
         <Link href={edit.href} className="text-sm underline">
           {edit.label}
         </Link>
+      ) : null}
+      {choose ? (
+        <button
+          type="submit"
+          name="actor_ref"
+          value={actor.actorRef}
+          className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--on-accent)]"
+        >
+          {choose.label}
+        </button>
       ) : null}
     </li>
   );

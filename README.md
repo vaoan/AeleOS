@@ -87,6 +87,33 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm secretlint && pnpm chec
   own data keys depend on the IdP — so we can change almost anything later without
   a rewrite.
 
+## The app handoff
+
+An app does not ask "who is this?" and stop there. A person has a person actor
+and any number of fursonas, so it also has to ask **which of them somebody
+wants to be** — and it must not become the authority on that answer.
+
+Two endpoints on the hub cover it, and both are live:
+
+- **`GET /api/actors/mine`** — the person's own actor list, authorized by
+  their own Clerk session token in an `Authorization: Bearer` header. No shared
+  secret, no service account, and deliberately **no CORS**: an app's server
+  calls this and upserts into its own `actors` mirror, keyed on `actor_ref`.
+  `identity_sub` and `owner_ref` are never sent.
+- **`/picker?return_to=…&app=…`** — where the person chooses. `return_to` is
+  matched against an exact origin allowlist a maintainer configures, and they
+  come back to it with `actor_ref` appended. A visitor who is not signed into
+  the hub signs in first and keeps their destination. They can also **decline**,
+  which returns them to the same place carrying no `actor_ref` at all.
+
+**`actor_ref` comes back in a query string, so it is a suggestion and never an
+authorization.** The consuming app looks it up in its own mirror, confirms it
+belongs to the signed-in person and is active, and then uses its local row —
+and treats its absence as "they declined", changing nothing.
+
+**➡️ [`docs/integrating.md`](docs/integrating.md)** — the whole thing, written
+for a developer in another repository.
+
 See the design doc for the full picture, the identity/RLS model, and the phased
 migration plan for Puck and Libra:
 
@@ -100,11 +127,16 @@ including what that cost us, is here:
 
 ## Status
 
-🌿 **Phase 1a shipped; Phase 0 awaiting its human steps.** The actor-model seam
-(`0001`–`0007` + `tests/db/`) is done. Phase 0's scaffolding is in place and
-skips cleanly without credentials — it is blocked on creating the Clerk instance
-and activating the Supabase integration, a dashboard step. See
-[`docs/phase-0-clerk-setup.md`](docs/phase-0-clerk-setup.md).
+🌿 **Phases 1a and 0 shipped; the hub is live and the app handoff is built.**
+The actor-model seam (`supabase/migrations/` + `tests/db/`) is done, and the
+Clerk⇄Supabase trust is proven on every pull request by the `idp-cloud` job
+rather than asserted — see [`docs/phase-0-clerk-setup.md`](docs/phase-0-clerk-setup.md).
+The hub signs people in, provisions their person actor, manages fursonas, and
+serves the picker and the actor-mirror endpoint above.
+
+One thing is deliberately not switched on: the picker's return-origin allowlist
+is **empty in production**, so no app can complete a handoff until a maintainer
+adds its origin.
 
 ## Cost & principles
 

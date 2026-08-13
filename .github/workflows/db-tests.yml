@@ -82,6 +82,77 @@ jobs:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          # Optional, not a secret — Env defaults it to "" when absent, so a
+          # deployment without this variable still boots. An empty
+          # allowlist refuses every return_to; it's set explicitly here so
+          # CI exercises the same shape production runs, not because the
+          # app requires it.
+          AELEOS_ALLOWED_RETURN_ORIGINS: ""
+
+  # The browser-level proof, and until now nothing ran it. `tests/e2e/` holds
+  # the only end-to-end evidence that the signed-out handoff works — a person
+  # arriving from another app, signing in, and reaching the picker with their
+  # `return_to` intact — and `docs/integrating.md` points an integrator at
+  # picker.spec.ts by name as the thing that pins it. A suite no workflow
+  # executes proves nothing: this one was red for a whole task and nobody
+  # noticed, because nothing was looking.
+  #
+  # Secrets are withheld from fork pull requests, so the same guard as
+  # idp-cloud applies: without it this would be a check that can never report
+  # green on a fork.
+  e2e:
+    runs-on: ubuntu-latest
+    # The dev server compiles on first request, so this is slower than the unit
+    # suite. A ceiling for a hung server, not a target.
+    timeout-minutes: 20
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Chromium alone: playwright.config.ts declares one project, so
+      # installing the other two engines would download ~300MB nothing runs.
+      - run: pnpm --filter hub exec playwright install --with-deps chromium
+
+      # Playwright starts the dev server itself (webServer in the config), so
+      # the server reads this environment. There is no .env.local on a runner.
+      - run: pnpm --filter hub test:e2e
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+          # Needed here and not in the `hub` job: clerkMiddleware authenticates
+          # a real request, which a production build alone never does.
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          # Empty on purpose: every test here is anonymous and stops before the
+          # picker page consults the allowlist, so CI needs no app's origin.
+          AELEOS_ALLOWED_RETURN_ORIGINS: ""
+
+      # The first run on a runner was red, and this artifact is what diagnosed
+      # it. The prediction here was that SwiftShader would dither gradients
+      # differently and break a numeric assertion on the nebula canvas; the
+      # trace showed a canvas still at its 300x150 intrinsic size, so the
+      # renderer was never the problem — `waitForNebulaReady` was, and the
+      # assertion was reporting a blank canvas honestly. SwiftShader paints the
+      # field at the same coverage a GPU does. Keep the upload: trace:
+      # "on-first-retry" (playwright.config.ts) writes to test-results/ on any
+      # retry, but nothing keeps that output past the job, and a canvas failure
+      # is a bare red X without it.
+      - name: Upload Playwright output on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: playwright-report
+          path: |
+            apps/hub/test-results/
+            apps/hub/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 3
 
   idp-cloud:
     runs-on: ubuntu-latest

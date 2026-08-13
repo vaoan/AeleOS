@@ -62,6 +62,7 @@
     "OIDC",
     "oidc",
     "OAuth",
+    "WHATWG",
     "secretlint",
     "prettierignore",
     "secretlintignore",
@@ -116,6 +117,7 @@
     "syncer",
     "greppable",
     "unrunnable",
+    "unparseable",
     "ilike",
     "Creds",
     "unstub",
@@ -136,7 +138,8 @@
     "moonfest",
     "blurple",
     "testid",
-    "alice"
+    "alice",
+    "trpcx"
   ],
   "overrides": [
     {

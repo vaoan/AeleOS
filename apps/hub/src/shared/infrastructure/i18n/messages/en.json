@@ -56,6 +56,16 @@
       }
     }
   },
+  "picker": {
+    "title": "Who do you want to be?",
+    "subtitleFor": "{app} is asking which of your identities to continue with.",
+    "subtitleGeneric": "Choose which of your identities to continue with.",
+    "refused": "We cannot send you back",
+    "refusedHint": "The app that sent you here did not give a destination we recognise, so there is nowhere safe to return you to. Nothing has changed about your account.",
+    "refusedExit": "Go to your profile",
+    "choose": "Continue as {name}",
+    "cancel": "Not now — go back without choosing"
+  },
   "nebula": {
     "toggle": "Nebula background"
   },

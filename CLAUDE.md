@@ -54,6 +54,7 @@ to no single app:
 | Design & specs (architecture, decisions)                                                                   | `docs/superpowers/specs/`                    |
 | Implementation plans (phased rollout)                                                                      | `docs/superpowers/plans/`                    |
 | The hub app (fursona/profile registry, ownership ledger, actor picker)                                     | `apps/hub/` — the only deployable thing here |
+| The handoff contract every consuming app codes against                                                     | `docs/integrating.md`                        |
 | The canonical actor-model schema every app copies                                                          | `supabase/migrations/` — the root owns it    |
 | Clerk configuration-as-code (connectors, apps, branding), exported for version control & disaster recovery | _added during implementation_                |
 | The shared integration package — the Supabase-client and actor plumbing every app repeats                  | `packages/identity/` — `@aeleos/identity`    |
@@ -152,6 +153,10 @@ Key choices and _why_:
 
 - **Design spec (source of truth):**
   `docs/superpowers/specs/2026-07-26-aeleos-central-auth-design.md`
+- **Integrating another app (the handoff contract):** `docs/integrating.md` —
+  written for a developer in Puck's or Libra's repository who has never seen
+  this one. When the endpoint or the picker's contract changes, that file is
+  the change, not a note about it.
 - **IdP decision change (Logto → Clerk):**
   `docs/superpowers/specs/2026-07-31-idp-decision-change.md`
 - **Clerk:** https://clerk.com — docs: https://clerk.com/docs
@@ -221,7 +226,8 @@ Key choices and _why_:
 
 ## Current state
 
-🌿 **Phase 1a and Phase 0 done; Phase 1b-i done bar its hands-on steps.**
+🌿 **Phases 1a, 0 and 1b done — the hub is live and another app can hand a
+person over to it.** Phase 1b-i's 🧑 steps are the only thing still open.
 
 - **Phase 1a (actor model seam) — done.** `supabase/migrations/0001`–`0007` hold
   the canonical schema; `tests/db/` is the conformance suite apps run against
@@ -274,13 +280,58 @@ Key choices and _why_:
   The hub is its first consumer so that the design is found wrong here before
   another repository pins a version of it. Phase 1b-ii builds fursonas onto this
   shape rather than writing it flat and moving it later.
-- **Phase 1b-ii (fursonas and the picker) — not started.** Plan:
-  `2026-08-02-phase-1b-ii-fursonas-and-picker.md`.
+- **Phase 1b-ii (fursonas and the picker) — done.** Fursona management shipped
+  first (`2026-08-12-phase-1b-ii-fursonas.md`); the handoff followed. Another
+  app can now ask which identity somebody wants to be. Two surfaces, and the
+  reasoning behind each is the part worth keeping:
+  - **`GET /api/actors/mine`** returns the caller's own actor list, authorized
+    by the person's **own Clerk token** in an `Authorization: Bearer` header —
+    no shared secret and no service account, so a caller can only ever read
+    what its own signed-in user could already see. It carries **no CORS header
+    and never will**: the payload is a complete actor list including private
+    fursonas, so making it browser-readable would turn an XSS in any one
+    consuming app into a disclosure of every user's fursonas from every app.
+    `identity_sub` and `owner_ref` are picked out of the response by name
+    rather than trusted to be absent — the linkability columns are the whole
+    point of the actor model, and a column added upstream must not reach a
+    caller by default.
+  - **`/picker?return_to=…&app=…`** is where somebody chooses. `return_to` is
+    matched on the **parsed origin** against an exact allowlist, never by
+    string prefix or suffix — both of which are trivially defeated
+    (`…furrycolombia.com.evil.example`, `evil.puck.furrycolombia.com`). The
+    allowlist is **empty in production on purpose**, so no handoff completes
+    until a maintainer adds an origin.
+  - **The rule the consuming apps must not get wrong:** `actor_ref` comes back
+    in a query string, so it is a _suggestion_, never an authorization. Every
+    app looks it up in its own mirror, confirms ownership and `active` status,
+    and uses its local row. `docs/integrating.md` says this in its own section
+    because it is the one mistake that turns the whole model into "act as
+    anybody".
+  - **Declining is part of the protocol, not an omission.** Every branch of the
+    picker offers a way out, because a page reached by a redirect that offers
+    only choices is a trap — the back button lands on the link that sent the
+    person there and bounces them forward again. Where `return_to` was
+    accepted, declining returns to it with **no** `actor_ref`, and `declineUrl`
+    strips any the caller planted, so a decline can never arrive looking like a
+    choice. A consuming app must read an absent `actor_ref` as "they declined"
+    and leave the current identity alone — never substitute a default, which
+    turns "no thanks" into "yes, as somebody".
+  - **The hub owns no mirror schema, and must not grow one by accident.**
+    `supabase/migrations/` is the registry's own authoritative schema; it is not
+    a drop-in mirror and cannot be (`actors_person_shape` needs `identity_sub`,
+    which the endpoint deliberately never sends). `docs/integrating.md` names
+    the columns it suggests as suggestions.
+
+  Plan: `2026-08-12-phase-1b-ii-picker.md`. Contract: `docs/integrating.md`.
 
 **CI gates on `main`:** `conformance` (schema suite), `hub` (hub and
 `@aeleos/identity` unit tests, both at 100% coverage, plus the production build)
 and `idp-cloud` (real Clerk ⇄ Supabase trust) are all **required** — a pull
-request cannot merge until the three report green.
+request cannot merge until the three report green. A fourth job, `e2e`, runs
+the Playwright suite against a real Chromium — the only browser-level proof the
+signed-out app handoff works. It is **not yet a required check**: making it one
+is a repository-settings change only the owner can make, and until it is, a red
+`e2e` does not block a merge.
 
 Claude's role throughout: build and test the hub here, specify exactly what to
 configure in Clerk, and write the per-app integration code in the respective app

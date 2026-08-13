@@ -112,11 +112,20 @@ test.describe("Spanish is the fallback", () => {
   // The layout's `notFound()` is the second line of defence, reached once a
   // session exists. Both matter; only this one is reachable without
   // credentials.
+  //
+  // The sign-in URL now carries a `redirect_url` — the destination is kept
+  // across sign-in so a visitor lands where they were headed. This assertion
+  // used to be anchored with `$` and went red when that shipped; it is written
+  // against the parts that are the contract instead. Where an *unknown* locale
+  // is sent back to is intentionally left open: it is `/fr/me` today, and
+  // `resolveAfterSignInUrl` hands it to the layout's `notFound()` rather than
+  // to a page, which is the second line of defence doing its job.
   test("an unknown locale on a protected route sends you to sign in", async ({
     page,
   }) => {
     await page.goto("/fr/me");
-    await expect(page).toHaveURL(/\/es\/sign-in$/);
+    await expect(page).toHaveURL(/\/es\/sign-in\?/);
+    await expect(page.getByTestId("sign-in-discord")).toBeVisible();
   });
 });
 

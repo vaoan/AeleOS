@@ -1,4 +1,4 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing } from "@/shared/infrastructure/i18n/routing";
 import { isPublicRoute } from "@/features/session";
@@ -11,6 +11,33 @@ import { signInUrlFor } from "@/shared/infrastructure/request-locale";
  * gets their browser's language when we support it and Spanish when we do not.
  */
 const intlMiddleware = createIntlMiddleware(routing);
+
+/**
+ * Matches `/api` and `/trpc`, and nothing that merely starts with those
+ * letters.
+ *
+ * Deliberately **not** the `"/(api|trpc)(.*)"` shape `config.matcher` uses
+ * below. That shape has no `/` boundary, so it also matches `/apidocs`,
+ * `/apikeys` and `/trpcx` — harmless in `config.matcher`, where over-matching
+ * only means the middleware runs and then does nothing, but not harmless
+ * here: a match here skips locale negotiation entirely, so `/apidocs` would
+ * silently stop getting a `/es` prefix and a locale cookie. Measured directly
+ * — `curl -i` against a running dev server showed `/docs` still redirecting
+ * to `/es/docs` while a route matched by the broad pattern did not redirect
+ * at all, just a bare 404 with no cookie. `public-routes.ts` drew the same
+ * boundary for `/sign-in`, via {@link isPublicRoute}, for the identical
+ * reason; `isApiRoute` follows it.
+ *
+ * Exported so `tests/proxy.test.ts` can assert the boundary directly —
+ * `src/proxy.ts` sits outside the coverage `include`, so a passing test suite
+ * proves nothing about this file unless something calls it on purpose.
+ */
+export const isApiRoute = createRouteMatcher([
+  "/api",
+  "/api/(.*)",
+  "/trpc",
+  "/trpc/(.*)",
+]);
 
 /**
  * Auth and locale, in that order.
@@ -37,13 +64,29 @@ const intlMiddleware = createIntlMiddleware(routing);
  * It is no longer the only thing protecting a route: the signed-in layout calls
  * `auth.protect()` itself. This stays as the outer gate because redirecting
  * here avoids rendering a page nobody may see.
+ *
+ * The intl middleware only runs for page paths. `/api/actors/mine` is the
+ * first route under `/api`, and calling `intlMiddleware(request)`
+ * unconditionally was measured — with `curl -i` against a running dev
+ * server — to 307 *every* API request to a locale-prefixed URL
+ * (`/api/actors/mine` → `/es/api/actors/mine`), because next-intl redirects
+ * any path that reaches it without a locale segment. An API response has no
+ * locale to negotiate, and a server-to-server caller cannot follow a
+ * redirect into JSON. Skipping the intl middleware here answers with
+ * whatever the route handler (or Clerk's own `auth.protect()` redirect for a
+ * still-protected route) already decided.
  */
 export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect({
-      unauthenticatedUrl: signInUrlFor(request.nextUrl.pathname, request.url),
+      unauthenticatedUrl: signInUrlFor(
+        request.nextUrl.pathname,
+        request.url,
+        request.nextUrl.search,
+      ),
     });
   }
+  if (isApiRoute(request)) return;
   return intlMiddleware(request);
 });
 

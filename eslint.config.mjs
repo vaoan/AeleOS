@@ -286,7 +286,7 @@ export default tseslint.config(
   // everywhere a more specific block matches.
   //
   // Adding a feature means adding a block here and naming it in the others.
-  // Two features make that clearer than a plugin; revisit at four.
+  // Three features still make that clearer than a plugin; revisit at four.
   //
   // The first block is the floor: it matches everything under src/, so routes,
   // the proxy, and any file that declares no home at all — a future
@@ -330,7 +330,12 @@ export default tseslint.config(
                 "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
             },
             {
-              group: ["@/features/actors", "@/features/actors/**"],
+              group: [
+                "@/features/actors",
+                "@/features/actors/**",
+                "@/features/picker",
+                "@/features/picker/**",
+              ],
               message:
                 "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
             },
@@ -352,7 +357,39 @@ export default tseslint.config(
                 "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
             },
             {
-              group: ["@/features/session", "@/features/session/**"],
+              group: [
+                "@/features/session",
+                "@/features/session/**",
+                "@/features/picker",
+                "@/features/picker/**",
+              ],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/hub/src/features/picker/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: [
+                "@/features/session",
+                "@/features/session/**",
+                "@/features/actors",
+                "@/features/actors/**",
+              ],
               message:
                 "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
             },
@@ -447,6 +484,45 @@ export default tseslint.config(
             },
             {
               group: ["@/features/session", "@/features/session/**"],
+              message:
+                "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
+            },
+            {
+              group: [
+                "@/**/application",
+                "@/**/application/**",
+                "@/**/infrastructure",
+                "@/**/infrastructure/**",
+                "@/**/presentation",
+                "@/**/presentation/**",
+              ],
+              message:
+                "domain/ is the innermost layer: it must not import application, infrastructure or presentation. Invert the dependency — take what it needs as a parameter.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["apps/hub/src/features/picker/domain/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message:
+                "Reach sideways with an absolute @/ import. A ../ chain breaks the moment a file moves.",
+            },
+            {
+              group: [
+                "@/features/session",
+                "@/features/session/**",
+                "@/features/actors",
+                "@/features/actors/**",
+              ],
               message:
                 "Features must not import each other. Move the shared piece to src/shared/, or into packages/identity if apps outside this repo need it too.",
             },

@@ -56,6 +56,16 @@
       }
     }
   },
+  "picker": {
+    "title": "¿Quién quieres ser?",
+    "subtitleFor": "{app} pregunta con cuál de tus identidades quieres continuar.",
+    "subtitleGeneric": "Elige con cuál de tus identidades quieres continuar.",
+    "refused": "No podemos devolverte",
+    "refusedHint": "La app que te trajo aquí no indicó un destino que reconozcamos, así que no hay a dónde devolverte de forma segura. No ha cambiado nada en tu cuenta.",
+    "refusedExit": "Ir a tu perfil",
+    "choose": "Continuar como {name}",
+    "cancel": "Ahora no: volver sin elegir"
+  },
   "nebula": {
     "toggle": "Fondo de nebulosa"
   },

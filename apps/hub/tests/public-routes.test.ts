@@ -35,6 +35,23 @@ describe("isPublicRoute", () => {
     expect(isPublicRoute(request("/admin"))).toBe(false);
   });
 
+  // Public here does not mean "reachable without a session" — it means the
+  // proxy's auth.protect() must not run, so its 307 never reaches a
+  // server-to-server caller. The route's own auth() check answers 401 JSON
+  // instead. See proxy.ts and app/api/actors/mine/route.ts.
+  it("lets the actor-mirror endpoint past the proxy's own auth check", () => {
+    expect(isPublicRoute(request("/api/actors/mine"))).toBe(true);
+  });
+
+  // A literal exact match, not a prefix: a later "generalisation" to
+  // /api/(.*) would silently make every future API route public at the
+  // proxy layer, with this suite still green unless this case is here to
+  // catch it.
+  it("does not treat every path under /api/actors/mine as public", () => {
+    expect(isPublicRoute(request("/api/actors/mineral"))).toBe(false);
+    expect(isPublicRoute(request("/api/actors/mine/extra"))).toBe(false);
+  });
+
   // `/sign-in(.*)` matches any path merely *starting* with "/sign-in", so a
   // future /sign-in-admin route would be public without anyone deciding it.
   // The boundary has to be the path separator, not the prefix.

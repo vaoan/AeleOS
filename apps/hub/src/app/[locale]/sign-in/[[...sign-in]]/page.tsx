@@ -7,6 +7,7 @@ import {
   type Provider,
 } from "@/features/session";
 import { tid } from "@/shared/infrastructure/test-id";
+import { resolveAfterSignInUrl } from "@/shared/infrastructure/request-locale";
 
 /** The catch-all segment Clerk returns to after a provider redirect. */
 const CALLBACK_SEGMENT = "sso-callback";
@@ -29,19 +30,42 @@ const CALLBACK_SEGMENT = "sso-callback";
  * page, because it is the first thing a new person sees and it has to look like
  * the product rather than a detour into somebody else's service.
  *
+ * Where it sends someone once signed in is not always the profile: a
+ * `redirect_url` query parameter — set by `signInUrlFor` when the proxy sent
+ * a visitor here, or carried by whoever linked to `/sign-in` directly — is
+ * resolved through `resolveAfterSignInUrl` and used for **both** sign-in
+ * paths, the buttons and the SSO callback. Missing either would leave the
+ * social-login path silently returning everyone to `/me`.
+ *
+ * `callbackUrl` carries the same `redirect_url` too, appended when there is a
+ * real destination. It has to: Clerk uses `callbackUrl` directly, unresolved,
+ * for the *first-time* social-login leg — a new person who has no session yet
+ * and needs a sign-up step — while `afterSignInUrl` only ever reaches Clerk
+ * for a *returning* one. Without it, every new user's destination was lost on
+ * exactly the leg that mattered, silently landing them on `/me`.
+ *
+ * `searchParams`'s `redirect_url` is typed as Next actually reports it —
+ * `string | string[]`, an array when the query key repeats — rather than
+ * narrowed to `string`, so a crafted `?redirect_url=a&redirect_url=b` cannot
+ * quietly type-check its way past `resolveAfterSignInUrl`'s own runtime check
+ * and crash the one page that must always render.
+ *
  * @returns the sign-in page, or the callback handler on the return leg.
  */
 export default async function SignInPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; "sign-in"?: string[] }>;
+  searchParams: Promise<{ redirect_url?: string | string[] }>;
 }) {
   const resolved = await params;
   const { locale } = resolved;
   setRequestLocale(locale);
   const t = await getTranslations("signIn");
 
-  const afterSignInUrl = `/${locale}/me`;
+  const { redirect_url: redirectUrl } = await searchParams;
+  const afterSignInUrl = resolveAfterSignInUrl(redirectUrl, locale);
 
   if (resolved["sign-in"]?.[0] === CALLBACK_SEGMENT) {
     return (
@@ -61,6 +85,16 @@ export default async function SignInPage({
     ]),
   ) as Record<Provider["id"], string>;
 
+  const fallbackUrl = `/${locale}/me`;
+  const callback = new URL(
+    `/${locale}/sign-in/${CALLBACK_SEGMENT}`,
+    "https://h.invalid",
+  );
+  if (afterSignInUrl !== fallbackUrl) {
+    callback.searchParams.set("redirect_url", afterSignInUrl);
+  }
+  const callbackUrl = `${callback.pathname}${callback.search}`;
+
   return (
     <PageShell>
       <Card>
@@ -72,7 +106,7 @@ export default async function SignInPage({
         </h1>
         <p className="mt-1 mb-6 text-[var(--ink-2)]">{t("subtitle")}</p>
         <SignInForm
-          callbackUrl={`/${locale}/sign-in/${CALLBACK_SEGMENT}`}
+          callbackUrl={callbackUrl}
           afterSignInUrl={afterSignInUrl}
           labels={labels}
           errorLabel={t("error")}
