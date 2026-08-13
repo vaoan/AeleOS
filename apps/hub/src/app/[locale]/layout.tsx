@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { HtmlLang } from "@/shared/presentation/html-lang";
-import { QueryProvider } from "@/shared/presentation/query-provider";
+import { AppProviders } from "@/shared/presentation/app-providers";
 import { RouteProgress } from "@/shared/presentation/route-progress";
 import { routing } from "@/shared/infrastructure/i18n/routing";
 
@@ -49,9 +49,12 @@ export async function generateMetadata({
  * between locales — the document would keep declaring the language it was first
  * served with.
  *
- * `QueryProvider` sits inside `NextIntlClientProvider` so that anything it
- * renders can still read translations, and wraps every localised page — which
- * is what lets a Client Component below here use a query hook. It adds no
+ * `AppProviders` sits inside `NextIntlClientProvider` so that anything it
+ * renders can still read translations, and wraps every localised page. It
+ * carries every client provider a hook below here might need — the query
+ * client and the nuqs adapter — and it is one component rather than two
+ * because the second was once forgotten: `/fursonas` shipped using URL state
+ * with no adapter mounted, and threw at every signed-in visitor. It adds no
  * markup; a page that uses no hook is unaffected by its presence.
  *
  * `RouteProgress` is mounted here for the same reason it listens on the
@@ -79,11 +82,11 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider>
-      <QueryProvider>
+      <AppProviders>
         <HtmlLang locale={locale} />
         <RouteProgress label={t("loading")} />
         {children}
-      </QueryProvider>
+      </AppProviders>
     </NextIntlClientProvider>
   );
 }
