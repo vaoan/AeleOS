@@ -205,6 +205,24 @@ test.describe("the visual identity", () => {
     page,
   }) => {
     await page.goto("/");
+
+    // Polled, not read once. The bitmap is sized by an effect that runs after
+    // first paint, so reading straight after `goto` races it: a fast runner
+    // wins and a slow one reads the pre-sizing value honestly. That race made
+    // this test fail twice on changes that could not touch a canvas at all —
+    // a documentation edit among them — which is the worst kind of red,
+    // because it teaches everyone to re-run without reading.
+    //
+    // `expect.poll` rather than `waitForNebulaReady`: that helper already
+    // requires width >= 400, so awaiting it would make the assertion below
+    // tautological and turn a real regression into a timeout with no numbers
+    // in it. This waits AND asserts, and reports the last value it saw.
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.querySelector("canvas")?.width ?? 0),
+      )
+      .toBeGreaterThan(400);
+
     const size = await page.evaluate(() => {
       const canvas = document.querySelector("canvas");
       return canvas ? { w: canvas.width, h: canvas.height } : null;
@@ -212,7 +230,6 @@ test.describe("the visual identity", () => {
     // 300x150 is the intrinsic default of a replaced element: `inset-0`
     // stretches the CSS box and leaves the bitmap alone. This is the bug.
     expect(size).not.toEqual({ w: 300, h: 150 });
-    expect(size?.w).toBeGreaterThan(400);
   });
 
   // Neither blank nor a solid sheet, measured on the real compositing path
