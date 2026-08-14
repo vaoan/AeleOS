@@ -230,4 +230,107 @@ test.describe("signed in", () => {
       await stranger.close();
     }
   });
+
+  // **The whole journey, in one test.** The others each prove one hop; this
+  // walks the path a person actually takes — create with sections, theme it,
+  // save, read it as a stranger, come back, save again — because the faults
+  // worth catching live between the hops rather than inside them.
+  //
+  // The re-save at the end is the point. `set_actor_sections` REPLACES, so an
+  // editor that reopened without somebody's sections deleted every one of them
+  // the moment they pressed save. That shipped once, silently, and a unit test
+  // of the page props is a weaker proof than doing it in a browser.
+  test("a fursona survives being created, themed, read and saved again", async ({
+    page,
+    browser,
+  }) => {
+    await signIn(page, await mintTicket(identity!.userId));
+
+    await page.goto("/es/me");
+    const address = (await page.getByTestId("my-address").innerText()).trim();
+
+    const handle = `full${Date.now().toString().slice(-9)}`;
+    await page.goto("/es/fursonas/new");
+    await page.getByTestId("editor-handle").fill(handle);
+    await page.getByTestId("editor-display-name").fill("The Whole Journey");
+    await page.getByTestId("editor-visibility").selectOption("public");
+    await page.getByTestId("template-picker").click();
+    await page.getByTestId("template-reference-sheet").click();
+
+    // **A section built by hand, not from a template.** The template path was
+    // the only one any test drove, and a template inserts its sections as data
+    // — so every control a person actually uses to compose one was unexercised.
+    await page.getByTestId("new-section-type").selectOption("stats");
+    await page.getByTestId("add-section").click();
+    await page.getByTestId("section-name").last().fill("Hecho a mano");
+    await page.getByTestId("add-item").last().click();
+    await page.getByTestId("item-title").last().fill("Especie");
+    await page.getByTestId("item-description").last().fill("Zorro ártico");
+
+    // Theme it: a background colour, an accent, and a canvas that is not the
+    // default. Every one of these travels a different route into the page.
+    await page.getByTestId("theme-open").click();
+    await page.getByTestId("gradient-colour").fill("#101a2e");
+    await page.getByTestId("theme-accent").fill("#00ff88");
+    await page.getByTestId("theme-canvas").selectOption("stars");
+    await page.getByTestId("theme-canvas-colour-0").fill("#ff0088");
+
+    await page.getByTestId("editor-save").click();
+    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+
+    // The list offers a way to see the page, now that it is public — and it
+    // points at the right one. This assertion was `toBeTruthy()` on a locator
+    // to begin with, which can never fail: it passed happily against a test id
+    // that did not exist anywhere in the app.
+    const view = page.getByTestId(`view-public-${handle}`);
+    await expect(view).toBeVisible();
+    await expect(view).toHaveAttribute(
+      "href",
+      new RegExp(`/${address}/${handle}$`),
+    );
+
+    const stranger = await browser.newContext();
+    try {
+      const anonymous = await stranger.newPage();
+      const response = await anonymous.goto(`/es/${address}/${handle}`);
+      expect(response?.status()).toBe(200);
+      // Two from the template, one built by hand.
+      await expect(anonymous.getByTestId("public-section")).toHaveCount(3);
+
+      // The theme reached them. Asserted on the emitted rule rather than on a
+      // rendered colour: a computed style would be reading the browser's
+      // opinion of the stylesheet, where this reads what the page actually
+      // shipped.
+      const styles = await anonymous.locator("style").allTextContents();
+      const themed = styles.join("");
+      expect(themed).toContain("--field");
+      expect(themed).toContain("--accent");
+    } finally {
+      await stranger.close();
+    }
+
+    // Back into the editor. Everything must come back — and then survive a save
+    // that changes nothing, which is exactly the shape of the bug that once
+    // deleted people's sections.
+    await page.goto(`/es/fursonas/${handle}/edit`);
+    await expect(page.getByTestId("editor-display-name")).toHaveValue(
+      "The Whole Journey",
+    );
+    await page.getByTestId("editor-save").click();
+    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+
+    const after = await browser.newContext();
+    try {
+      const anonymous = await after.newPage();
+      await anonymous.goto(`/es/${address}/${handle}`);
+      // Still three. A re-save that dropped them would leave zero.
+      await expect(anonymous.getByTestId("public-section")).toHaveCount(3);
+      const themed = (await anonymous.locator("style").allTextContents()).join(
+        "",
+      );
+      expect(themed).toContain("--accent");
+    } finally {
+      await after.close();
+    }
+  });
 });

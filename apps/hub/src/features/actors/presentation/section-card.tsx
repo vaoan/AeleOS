@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
+import { tid } from "@/shared/infrastructure/test-id";
 import {
   useFieldArray,
   useWatch,
@@ -87,6 +88,13 @@ const EMPTY_ITEM = {
  * long sections stays navigable. It is local state rather than form state: it
  * is about looking, not about content, and it must not make the form dirty.
  *
+ * **It carries test ids**, because the end-to-end suite runs in Spanish and may
+ * not assert on translated text — so a control without one cannot be reached by
+ * the only tests that drive a real browser. The whole sections editor had none,
+ * which is why nothing had ever composed a section by hand: every test that
+ * appeared to cover this used a template, and a template inserts its sections
+ * as data without touching a single one of these controls.
+ *
  * @returns the section card.
  */
 export function SectionCard<T extends FieldValues>({
@@ -133,6 +141,7 @@ export function SectionCard<T extends FieldValues>({
             {labels.sectionName}
           </label>
           <input
+            {...tid("section-name")}
             id={`${id}-name`}
             key={`name-${lang}`}
             {...register(`${path}.name_${lang}` as Path<T>)}
@@ -183,6 +192,7 @@ export function SectionCard<T extends FieldValues>({
           ))}
 
           <button
+            {...tid("add-item")}
             type="button"
             onClick={() =>
               append({

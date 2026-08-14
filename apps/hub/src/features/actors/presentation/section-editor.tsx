@@ -4,6 +4,7 @@ import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
 import { GripVertical, Plus } from "lucide-react";
 import { useId, useState } from "react";
+import { tid } from "@/shared/infrastructure/test-id";
 import {
   useFieldArray,
   type ArrayPath,
@@ -98,6 +99,13 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  * Dragging reorders sections; each card carries its own item list. Reordering
  * writes `sort_order` on drop rather than relying on array position, because
  * position is not what the database stores.
+ *
+ * **It carries test ids**, because the end-to-end suite runs in Spanish and may
+ * not assert on translated text — so a control without one cannot be reached by
+ * the only tests that drive a real browser. The whole sections editor had none,
+ * which is why nothing had ever composed a section by hand: every test that
+ * appeared to cover this used a template, and a template inserts its sections
+ * as data without touching a single one of these controls.
  *
  * @returns the sections editor.
  */
@@ -204,6 +212,7 @@ export function SectionEditor<T extends FieldValues>({
             </label>
             <select
               id={`${id}-new-type`}
+              {...tid("new-section-type")}
               value={newType}
               onChange={(event) =>
                 setNewType(event.target.value as SectionType)
@@ -219,6 +228,7 @@ export function SectionEditor<T extends FieldValues>({
           </div>
           <button
             type="button"
+            {...tid("add-section")}
             onClick={() =>
               append(
                 emptySection(newType, fields.length + 1) as FieldArray<

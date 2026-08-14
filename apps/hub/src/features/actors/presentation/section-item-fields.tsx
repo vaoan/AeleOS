@@ -12,6 +12,7 @@ import {
 } from "react-hook-form";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
 import type { SectionType } from "@/features/actors/domain/section-schema";
+import { tid } from "@/shared/infrastructure/test-id";
 import {
   IconPicker,
   type IconPickerLabels,
@@ -147,6 +148,13 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * item, so switching a section to `gallery` to look at it and switching back
  * finds the icon still there.
  *
+ * **It carries test ids**, because the end-to-end suite runs in Spanish and may
+ * not assert on translated text — so a control without one cannot be reached by
+ * the only tests that drive a real browser. The whole sections editor had none,
+ * which is why nothing had ever composed a section by hand: every test that
+ * appeared to cover this used a template, and a template inserts its sections
+ * as data without touching a single one of these controls.
+ *
  * @returns the item's fields.
  */
 export function SectionItemFields<T extends FieldValues>({
@@ -254,6 +262,7 @@ export function SectionItemFields<T extends FieldValues>({
           // bound to the other field, which would carry the previous value
           // across a toggle.
           key={`title-${lang}`}
+          {...tid("item-title")}
           {...register(`${path}.title_${lang}` as Path<T>)}
           className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
         />
@@ -267,6 +276,7 @@ export function SectionItemFields<T extends FieldValues>({
           id={`${id}-description`}
           key={`description-${lang}`}
           rows={3}
+          {...tid("item-description")}
           {...register(`${path}.description_${lang}` as Path<T>)}
           className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
         />

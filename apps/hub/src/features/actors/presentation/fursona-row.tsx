@@ -4,6 +4,7 @@ import { useState } from "react";
 import { GripVertical, Pencil, Star, Trash2 } from "lucide-react";
 import { ExternalLink } from "lucide-react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
+import { tid } from "@/shared/infrastructure/test-id";
 import { cn } from "@/shared/infrastructure/cn";
 import type { Visibility } from "@/features/actors/domain/fursona-schema";
 
@@ -109,6 +110,10 @@ export interface FursonaRowProps {
  * holds the link, and its owner is exactly who does. A link that 404s teaches
  * somebody the feature is broken rather than that their page is unpublished.
  *
+ * The link carries a test id keyed by handle, because a list holds one per row
+ * and an end-to-end test has to name the row it just created — the suite runs
+ * in Spanish and may not reach it by its label.
+ *
  * @returns the row.
  */
 export function FursonaRow({
@@ -200,6 +205,11 @@ export function FursonaRow({
           rel="noreferrer"
           aria-label={`${labels.viewPublic}: ${actor.displayName ?? actor.handle}`}
           title={labels.viewPublic}
+          // Keyed by handle, because a list has one of these per row and an
+          // end-to-end test needs to name the row it just created. The suite
+          // runs in Spanish and may not assert on a translated label, so a test
+          // id is the only way to reach this at all.
+          {...tid(`view-public-${actor.handle}`)}
           className="rounded-lg border border-[var(--edge)] px-2 py-1 text-[var(--muted)]"
         >
           <ExternalLink className="size-3.5" aria-hidden />
