@@ -93,7 +93,9 @@ export async function listMyActors(client: SupabaseClient): Promise<Actor[]> {
  * the browser — every function in this layer now works that way.
  * @param input - the validated fursona fields.
  * @returns the new actor's platform ID.
- * @throws `HandleTakenError` when the handle is already in use, in any case.
+ * @throws `HandleTakenError` when the caller already has a fursona with that
+ * handle, in any case. Handles are unique per owner, so this can only ever be
+ * the caller's own clash — never a stranger's.
  * @throws `FursonaLimitError` when the caller is already at the quota.
  * @throws on any other failure.
  */
@@ -109,7 +111,7 @@ export async function createFursona(
   });
 
   if (error) {
-    if (/handle already taken/i.test(error.message))
+    if (/handle already yours/i.test(error.message))
       throw new HandleTakenError(error.message);
     if (/fursona limit reached/i.test(error.message))
       throw new FursonaLimitError(error.message);

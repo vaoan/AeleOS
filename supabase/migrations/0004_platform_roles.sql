@@ -1,5 +1,7 @@
--- Keyed on identity_sub, never actor_ref: a fursona cannot hold a permission
--- (spec §7). There is deliberately no column capable of expressing one.
+-- 0004 — platform roles.
+--
+-- Keyed on `identity_sub`, never `actor_ref`: a fursona cannot hold a
+-- permission. There is deliberately no column capable of expressing one.
 create table public.platform_roles (
   identity_sub  text not null,
   role          text not null,
@@ -26,6 +28,4 @@ as $$
   )
 $$;
 
--- security definer: strip the default PUBLIC execute grant before granting.
 revoke all on function public.has_platform_role(text) from public;
-grant execute on function public.has_platform_role(text) to authenticated;

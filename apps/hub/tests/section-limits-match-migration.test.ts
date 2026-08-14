@@ -12,7 +12,7 @@ import { SECTION_LIMITS } from "@/features/actors/domain/section-schema";
  * have accepted, or promises what the database will refuse.
  */
 const sql = readFileSync(
-  resolve(process.cwd(), "../../supabase/migrations/0013_fursona_sections.sql"),
+  resolve(process.cwd(), "../../supabase/migrations/0009_actor_profiles.sql"),
   "utf8",
 );
 

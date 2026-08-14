@@ -54,7 +54,7 @@ describe("EditorToolbar", () => {
   });
 
   // The fault this prevents is a double submit. create_fursona would answer
-  // the second one with "handle already taken" — a baffling error about a
+  // the second one with "handle already yours" — a baffling error about a
   // fursona somebody just successfully created.
   it("refuses a second save while one is in flight", () => {
     renderToolbar({ saving: true });

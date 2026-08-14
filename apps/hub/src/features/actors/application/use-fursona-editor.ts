@@ -54,14 +54,14 @@ export interface FursonaEditorState {
  * site moved.
  *
  * A save is **two writes**: the four fields, then the sections. On create the
- * order is forced, because `set_fursona_sections` needs an `actor_ref` that
+ * order is forced, because `set_actor_sections` needs an `actor_ref` that
  * does not exist until the fursona does.
  *
  * That admits a partial failure — fields written, sections refused — and it is
  * reported rather than undone. On create the fursona already exists, and
  * deleting it to roll back would spend a handle from a namespace that never
  * reclaims one; a fursona with no sections yet is the better of the two states.
- * `set_fursona_sections` replaces rather than merges, so simply saving again
+ * `set_actor_sections` replaces rather than merges, so simply saving again
  * finishes the job.
  *
  * Three refusals become field errors because the person can act on them: a taken
@@ -78,7 +78,7 @@ export function useFursonaEditor(actorRef?: string): FursonaEditorState {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const mutation = useMutation({
-    // Two writes, and the order is forced on create: set_fursona_sections needs
+    // Two writes, and the order is forced on create: set_actor_sections needs
     // an actor_ref that does not exist until the fursona does.
     mutationFn: async ({ sections, ...fields }: FursonaDraft) => {
       const ref = actorRef ?? (await createFursona(client, fields));

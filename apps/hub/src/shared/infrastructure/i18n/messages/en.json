@@ -47,7 +47,7 @@
       "visibilityLabel": "Who can find this fursona",
       "errors": {
         "handle": "Use 1–32 letters, digits, dashes or underscores.",
-        "handleTaken": "That handle is already taken.",
+        "handleTaken": "You already have a fursona with that handle.",
         "displayName": "Keep this to 64 characters or fewer.",
         "avatarUrl": "Enter an http or https image address, or leave it empty.",
         "visibility": "Choose one of the options.",
@@ -155,6 +155,10 @@
   "nav": {
     "ariaLabel": "Sections",
     "me": "Me",
+    "fursonas": "Fursonas"
+  },
+  "publicProfile": {
+    "notFoundTitle": "Not found",
     "fursonas": "Fursonas"
   }
 }

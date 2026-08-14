@@ -110,7 +110,7 @@ async function write(
   sections: unknown,
 ): Promise<string | null> {
   const c = await clientAs(sub);
-  const { error } = await c.rpc("set_fursona_sections", {
+  const { error } = await c.rpc("set_actor_sections", {
     p_actor_ref: actorRef,
     p_sections: sections,
   });
@@ -125,7 +125,7 @@ async function write(
  */
 async function read(actorRef: string): Promise<unknown> {
   const { data, error } = await admin()
-    .from("fursona_profiles")
+    .from("actor_profiles")
     .select("sections")
     .eq("actor_ref", actorRef)
     .single();
@@ -133,7 +133,7 @@ async function read(actorRef: string): Promise<unknown> {
   return data.sections;
 }
 
-describe("set_fursona_sections", () => {
+describe("set_actor_sections", () => {
   it("stores a well-formed array and reads it back unchanged", async () => {
     expect(await write(alice.sub, alice.sonaRef, [section()])).toBeNull();
     expect(await read(alice.sonaRef)).toEqual([section()]);

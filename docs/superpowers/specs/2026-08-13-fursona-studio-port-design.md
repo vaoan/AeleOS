@@ -211,8 +211,16 @@ Each is one pull request.
 4. **Editor parity.** The `InlineEditor` port — sections, bilingual fields,
    templates, toolbar, error banner.
 5. **The public fursona page.** Where the art is finally shown. Interacts with
-   `actors_public` and 0011's rule that a suspended fursona is not publicly
-   listed — a suspended fursona's page must not be publicly readable either.
+   `actors_public` and its rule that a suspended fursona is not publicly listed
+   — a suspended fursona's page must not be publicly readable either.
+
+   > **Superseded in part, 2026-08-13.** This phase turned out to be two pages,
+   > not one: a person's profile as well. And addressing changed underneath it —
+   > a fursona is reached at `/{person_address}/{handle}`, handles are unique
+   > per owner rather than globally, and a person carries a permanent number
+   > plus an optional vanity. **`apps/hub/src/features/actors/CLAUDE.md` is
+   > authoritative** and newer than this document; where they disagree it wins.
+
 6. **Images.** Supabase Storage: a bucket, upload, size limits, and what
    happens to an image when a fursona is soft-deleted.
 

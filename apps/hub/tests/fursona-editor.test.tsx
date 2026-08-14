@@ -71,7 +71,7 @@ const labels = {
   visibility: { private: "Private", unlisted: "Unlisted", public: "Public" },
   errors: {
     handle: "Use 1-32 letters, digits, dashes or underscores.",
-    handleTaken: "That handle is already taken.",
+    handleTaken: "You already have a fursona with that handle.",
     limitReached: "You already have the maximum number of fursonas.",
     displayName: "Keep this to 64 characters or fewer.",
     avatarUrl: "Enter an http or https image address.",
@@ -181,7 +181,7 @@ describe("FursonaEditor", () => {
     renderEditor();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "That handle is already taken.",
+      "You already have a fursona with that handle.",
     );
     expect(push).not.toHaveBeenCalled();
   });

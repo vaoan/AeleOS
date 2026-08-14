@@ -84,7 +84,7 @@ describe("useFursonaEditor", () => {
     expect(createFursona).not.toHaveBeenCalled();
   });
 
-  // The order is forced: set_fursona_sections needs an actor_ref that does not
+  // The order is forced: set_actor_sections needs an actor_ref that does not
   // exist until the fursona does, so create must land first and its returned
   // ref is what the sections are written against.
   it("creates the fursona first, then writes its sections against the new ref", async () => {

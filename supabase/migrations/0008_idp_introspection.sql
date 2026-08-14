@@ -1,5 +1,8 @@
--- Phase 0 validation helpers. They expose only the caller's own identity as
--- the database sees it, which is exactly what has to be proven.
+-- 0008 — introspection, used by the trust tests.
+--
+-- These expose only the caller's own identity as the database sees it, which is
+-- exactly what the Supabase⇄Clerk trust has to prove. `tests/idp/` calls them
+-- against the real project in the `idp-cloud` job.
 create or replace function public.whoami_sub()
 returns text
 language sql
@@ -20,5 +23,3 @@ $$;
 
 revoke all on function public.whoami_sub() from public;
 revoke all on function public.whoami_role() from public;
-grant execute on function public.whoami_sub() to authenticated;
-grant execute on function public.whoami_role() to authenticated;

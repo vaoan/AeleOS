@@ -8,7 +8,7 @@ const labels = {
   title: "Fix these before saving",
   errors: {
     handle: "Use 1-32 letters, digits, dashes or underscores.",
-    handleTaken: "That handle is already taken.",
+    handleTaken: "You already have a fursona with that handle.",
     limitReached: "You already have the maximum number of fursonas.",
     avatarUrl: "Enter an http or https image address.",
   },
@@ -33,7 +33,7 @@ describe("FormErrorBanner", () => {
       />,
     );
     expect(
-      screen.getByText("That handle is already taken."),
+      screen.getByText("You already have a fursona with that handle."),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Enter an http or https image address."),

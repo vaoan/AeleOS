@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Card, PageShell } from "@/shared/presentation/page-shell";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * The 404 page for anything under a locale segment.
@@ -22,16 +23,24 @@ import { Link } from "@/shared/infrastructure/i18n/navigation";
  * all three. Naming which one applied would turn the page into an oracle for
  * probing whose handles exist.
  *
- * **It does not catch every 404.** A path that matches no route at all — and an
- * unknown locale, which `[locale]/layout.tsx` rejects from the layout itself —
- * resolves above this segment, where no locale has been negotiated. What an
- * anonymous visitor gets there is not a 404 at all: the auth gate runs before
- * the locale layout and classifies the path as protected, so it 307s to
- * `/es/sign-in` before this page or the layout's `notFound()` is ever reached
- * (see `tests/e2e/auth.spec.ts`). Only a signed-in visitor falls through to
- * Next's root `/_not-found`. Fixing the anonymous case needs a catch-all route
- * segment, which would also swallow genuine routing mistakes during
- * development; the in-app case is the one this branch created.
+ * **It now catches most anonymous 404s too, which it did not use to.** This
+ * note used to say an anonymous visitor to a mistyped path was 307'd to
+ * sign-in, because the auth gate classified anything unrecognised as protected,
+ * and that fixing it needed a catch-all segment nobody wanted. The public actor
+ * pages supplied one by accident: `[locale]/[person]` and
+ * `[locale]/[person]/[handle]` match any one- or two-segment path that is not a
+ * reserved word, so `/es/typo` reaches a real route, finds no such address and
+ * renders **this** page. `tests/e2e/public-pages.spec.ts` asserts exactly that.
+ *
+ * What still escapes it: a path of three or more segments, an uppercase first
+ * segment (an address is lowercase by construction), and an unknown locale —
+ * all of which resolve above this segment where no locale has been negotiated,
+ * and all of which an anonymous visitor still meets as a sign-in redirect (see
+ * `tests/e2e/auth.spec.ts`).
+ *
+ * Exposes the `not-found-title` and `not-found-home` test ids. They exist
+ * because the public actor pages made this page reachable anonymously for the
+ * first time — before that no end-to-end test could get here at all.
  *
  * @returns the not-found page.
  */
@@ -42,12 +51,16 @@ export default async function NotFoundPage() {
     <PageShell>
       <Card>
         <section className="flex flex-col items-start gap-4">
-          <h1 className="font-display text-2xl font-bold tracking-tight">
+          <h1
+            className="font-display text-2xl font-bold tracking-tight"
+            {...tid("not-found-title")}
+          >
             {t("title")}
           </h1>
           <p className="text-sm text-[var(--ink-2)]">{t("body")}</p>
           <Link
             href="/"
+            {...tid("not-found-home")}
             className="rounded-lg border border-[var(--edge)] px-4 py-2 text-sm transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
           >
             {t("home")}

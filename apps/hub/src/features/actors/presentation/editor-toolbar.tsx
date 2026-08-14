@@ -35,7 +35,7 @@ export interface EditorToolbarProps {
  * there is one path to guard rather than two.
  *
  * It is disabled while saving, which prevents a double submit. Without it the
- * second one reaches `create_fursona` and comes back "handle already taken" —
+ * second one reaches `create_fursona` and comes back "handle already yours" —
  * a baffling error about a fursona that was just created successfully.
  *
  * @returns the toolbar.

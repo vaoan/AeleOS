@@ -78,7 +78,10 @@ describe("actors shape", () => {
     expect(error?.message).toContain("actors_fursona_shape");
   });
 
-  it("enforces case-insensitive handle uniqueness", async () => {
+  // Within ONE OWNER. Handles are per-owner now, so the same two inserts under
+  // two different people are both legal — `per-owner-handles.test.ts` asserts
+  // that half.
+  it("enforces case-insensitive handle uniqueness within an owner", async () => {
     const owner = await makePerson();
     const handle = `Sona-${randomUUID().slice(0, 8)}`;
     const first = await admin().from("actors").insert({
@@ -95,7 +98,7 @@ describe("actors shape", () => {
       owner_ref: owner.actorRef,
       handle: handle.toUpperCase(),
     });
-    expect(error?.message).toContain("actors_handle_lower_idx");
+    expect(error?.message).toContain("actors_fursona_handle_idx");
   });
 
   it("forbids changing kind", async () => {

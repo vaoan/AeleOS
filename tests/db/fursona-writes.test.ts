@@ -156,7 +156,9 @@ describe("create_fursona", () => {
     expect(owner).toBe(alice.personRef);
   });
 
-  it("rejects a duplicate handle regardless of case", async () => {
+  // The caller's OWN duplicate. A stranger holding the same handle is fine now
+  // and is asserted in per-owner-handles.test.ts.
+  it("rejects the caller's own duplicate handle regardless of case", async () => {
     const c = await clientAs(alice.sub);
     const h = handle();
     await c.rpc("create_fursona", {
@@ -171,7 +173,7 @@ describe("create_fursona", () => {
       p_avatar_url: null,
       p_visibility: "private",
     });
-    expect(error?.message).toMatch(/handle already taken/i);
+    expect(error?.message).toMatch(/handle already yours/i);
   });
 
   it("rejects a blank handle", async () => {

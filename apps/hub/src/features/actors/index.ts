@@ -20,6 +20,16 @@ export {
   type Actor,
 } from "@/features/actors/infrastructure/fursonas";
 export {
+  readPublicPerson,
+  readPublicFursona,
+  type PublicActor,
+  type PublicFursonaSummary,
+} from "@/features/actors/infrastructure/public-actors";
+export {
+  PublicProfile,
+  type PublicProfileProps,
+} from "@/features/actors/presentation/public-profile";
+export {
   FURSONA_TEMPLATES,
   type FursonaTemplate,
 } from "@/features/actors/domain/fursona-templates";

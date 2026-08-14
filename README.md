@@ -33,8 +33,12 @@ to no single app:
 - 🗺️ **Implementation plans** — phased rollout (`docs/superpowers/plans/`)
 - ⚙️ **Clerk configuration-as-code** — connections, applications, branding,
   exported for version control & disaster recovery _(added during implementation)_
-- 🧩 **Shared integration glue** — a small helper package apps consume, if/when
-  2+ apps need it _(added when justified — YAGNI until then)_
+- 🧩 **`packages/identity`** — `@aeleos/identity`, the Supabase-client and actor
+  plumbing every app would otherwise copy. Private and unpublished until Puck
+  actually integrates. Its one hard rule: **it imports no framework, and above
+  all no Clerk** — `getToken` is a parameter, so the code never learns which
+  provider issued the token. That is enforced in `eslint.config.mjs`, not
+  trusted.
 
 Per-app integration code (the OIDC client + Supabase third-party-auth wiring)
 for _other_ apps — Puck, Libra — lives in **each app's own repo**, not here.
@@ -43,6 +47,12 @@ for _other_ apps — Puck, Libra — lives in **each app's own repo**, not here.
 
 `apps/hub` is the AeleOS web application — where a person signs in and manages
 their fursonas. It is the only deployable thing in this repository.
+
+It is bilingual (Spanish is the fallback, deliberately unlike Libra), carries
+its own visual identity, and includes a **fursona studio**: a filterable,
+drag-reorderable list and a full-page editor where somebody composes their
+character's page out of sections in four layouts, with per-item bilingual
+fields, an icon picker and shipped starting templates.
 
 It is live at **[me.furrycolombia.com](https://me.furrycolombia.com)**, deployed
 from GitHub Actions on every push to `main`.
@@ -68,10 +78,61 @@ schema for the one database — see [`docs/registry.md`](docs/registry.md).
 ### Checks
 
 ```bash
-pnpm --filter hub test        # unit
-pnpm --filter hub test:e2e    # end-to-end, needs the app running
-pnpm typecheck && pnpm lint && pnpm format:check && pnpm secretlint && pnpm check:tools
+pnpm --filter hub test:coverage   # unit — 100% on all four metrics, and it is a gate
+pnpm --filter hub test:e2e        # end-to-end against a real Chromium
+pnpm --filter hub build           # catches what unit tests mock away
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm secretlint
+pnpm check:docs && pnpm check:tools && pnpm check:contrast
 ```
+
+**Four CI jobs are required to merge** and admins are not exempt:
+`conformance` (the schema suite), `hub` (unit tests at 100% coverage plus the
+production build), `idp-cloud` (the real Clerk ⇄ Supabase trust) and `e2e`.
+Branch protection is `strict`, so a branch must also be up to date with `main`.
+
+## Working here
+
+Most of this is enforced, so you will meet it as a red check rather than as
+advice. The reasons are the useful part:
+
+- **Branch from an explicit base: `git checkout -b <name> origin/main`.** Never
+  bare `git checkout -b`, which silently branches from whatever is checked out —
+  usually the last feature branch. This has gone wrong twice, and both times the
+  pull request would have **reverted work already merged**. Before pushing,
+  `git log --oneline origin/main..HEAD` should list only your commits.
+- **100% coverage on all four metrics in `apps/hub`, and it gates the build.**
+  An untested error branch fails CI. More importantly: a test that has never
+  been seen failing proves nothing, so when you add one that guards
+  already-correct behaviour, **break the code, watch it go red, restore**.
+- **Every bug gets a regression test**, written against the unfixed code, at the
+  level the bug actually lived at — which is rarely where it was noticed. When a
+  bug turns out to be wiring that a mock stood in for, the regression test has
+  to use the real thing, and it will usually be the only test that does.
+- **Every export carries TSDoc that states the contract, not the types.**
+  TypeScript already has the types. Say what a caller may assume, what throws,
+  what is idempotent, what is security-relevant. `pnpm check:docs` also compares
+  each exported symbol against the base branch and fails when the code moved and
+  its documentation did not. There is no suppression flag.
+- **Both message catalogues, always.** A key added to one language and not the
+  other fails the build. But a person's own writing — a fursona's section names,
+  their `*_es` fields — is **not** next-intl, and a missing value there is
+  somebody who has not written it yet, never an error.
+- **The hub is layered and the layers are enforced** in `eslint.config.mjs`: a
+  feature is reached through its barrel, no feature imports another, `shared/`
+  never depends on a feature, and `packages/identity` may not import an app or a
+  framework. Note that flat config **replaces** `no-restricted-imports` for
+  overlapping globs rather than merging, so a new block that forgets a pattern
+  it still owes is a silently disabled rule.
+- **Filenames are kebab-case**; `pnpm check:tools` runs `ls-lint`, `knip`,
+  `jscpd`, `cspell` and `secretlint`.
+- **Development is cloud-only.** No local Docker or Supabase in normal use: push
+  and read CI, and verify schema changes by querying the database rather than by
+  trusting a CLI's exit code — it prints Docker credential noise while
+  succeeding.
+
+Directory-level `CLAUDE.md` files carry rules for code that **does not exist
+yet**; TSDoc carries rules for code that does. If you are about to build
+something in `apps/hub/src/features/actors`, read that directory's note first.
 
 ## How it works (the short version)
 
@@ -127,12 +188,19 @@ including what that cost us, is here:
 
 ## Status
 
-🌿 **Phases 1a and 0 shipped; the hub is live and the app handoff is built.**
+🌿 **The hub is live, the app handoff is built, and the fursona studio ships.**
 The actor-model seam (`supabase/migrations/` + `tests/db/`) is done, and the
 Clerk⇄Supabase trust is proven on every pull request by the `idp-cloud` job
 rather than asserted — see [`docs/phase-0-clerk-setup.md`](docs/phase-0-clerk-setup.md).
-The hub signs people in, provisions their person actor, manages fursonas, and
-serves the picker and the actor-mirror endpoint above.
+The hub signs people in, provisions their person actor, manages fursonas,
+lets somebody build a fursona's page, and serves the picker and the
+actor-mirror endpoint above.
+
+**Next: public pages** — `/{person_address}` for a person's profile and
+`/{person_address}/{handle}` for one of their fursonas, readable by anybody.
+Designed and not yet built. If you are touching the actors feature, read
+[`apps/hub/src/features/actors/CLAUDE.md`](apps/hub/src/features/actors/CLAUDE.md)
+first: it is authoritative for addressing and newer than the specs.
 
 One thing is deliberately not switched on: the picker's return-origin allowlist
 is **empty in production**, so no app can complete a handoff until a maintainer
@@ -152,21 +220,44 @@ adds its origin.
 
 ## The actor-model seam
 
-The Supabase project in this repo is a **local-only test bed** for the canonical
-actor-model schema. It is never deployed and holds no app data.
+> ⚠️ **The Supabase project here is live, not a sandbox.** An earlier version of
+> this README called it a local-only test bed; that has not been true since the
+> hub deployed. It is the hosted project `me.furrycolombia.com` reads, so
+> `supabase db push` and `supabase db reset --linked` act on real data. There is
+> also **no local stack in normal use** — this repository is developed against
+> the cloud, and the schema red/green cycle runs in CI rather than on a laptop.
 
 `supabase/migrations/` is the canonical SQL every consuming app copies into its
 own migration set:
 
-| Migration                       | Provides                                                                            |
-| ------------------------------- | ----------------------------------------------------------------------------------- |
-| `0001_actors.sql`               | `actors` table, shape constraints, immutability trigger                             |
-| `0002_actor_helpers.sql`        | `current_person_ref()`, `can_act_as()`                                              |
-| `0003_actors_exposure.sql`      | RLS lockdown + `actors_public` view                                                 |
-| `0004_platform_roles.sql`       | person-keyed roles mirror, `has_platform_role()`                                    |
-| `0005_reference_domain.sql`     | reference authored-row pattern (`comments`) — **test fixture, not a product table** |
-| `0006_provisioning.sql`         | derived `person_actor_ref()`, idempotent `ensure_person_actor()`                    |
-| `0007_suspension_hardening.sql` | suspension closure, server-derived snapshot, grant fixes                            |
+| Migration                       | Provides                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| `0001_actors.sql`               | `actors` table, shape constraints, immutability and `updated_at` triggers                   |
+| `0002_actor_helpers.sql`        | `person_actor_ref()`, `current_person_ref()`, `can_act_as()`, `require_active_person_ref()` |
+| `0003_actors_exposure.sql`      | RLS lockdown, the `actors_public` view, `my_actors()`                                       |
+| `0004_platform_roles.sql`       | person-keyed roles mirror, `has_platform_role()`                                            |
+| `0005_reference_domain.sql`     | reference authored-row pattern (`comments`) — **test fixture, not a product table**         |
+| `0006_provisioning.sql`         | idempotent `ensure_person_actor()`                                                          |
+| `0007_fursona_self_service.sql` | `create_fursona()` with its quota, `update_fursona()`, soft `delete_fursona()`              |
+| `0008_idp_introspection.sql`    | `whoami_sub()`, `whoami_role()` — used by the trust tests                                   |
+| `0009_fursona_profiles.sql`     | ordering, pinning, and the validated bilingual `sections` write                             |
+| `0010_client_grants.sql`        | the complete client surface, in one file                                                    |
+| `0011_person_addresses.sql`     | a person's permanent number and optional vanity, in one namespace                           |
+
+### Every object is defined exactly once
+
+**This is the rule to preserve, and it is newer than most of the schema.** The
+migrations were consolidated on 2026-08-13: they had grown to fourteen files in
+which six objects were redefined by `create or replace` — the `actors_public`
+view four times, `ensure_person_actor` three. The newest body of a function
+could therefore sit in a file named after something unrelated, so replacing it
+meant hunting for the right ancestor first, and restating the wrong one silently
+reverted a fix. That nearly shipped.
+
+So: **the file name tells you where an object lives.** Put a new object in a new
+file; when you replace one, you should not have to search. `0010_client_grants.sql`
+is likewise the single readable answer to "what can a signed-in caller reach?" —
+including what is granted to nobody, and why.
 
 `0005` is a **reference**, not a feature. Apps copy the _pattern_ — the
 `author_actor_id` / `author_person_ref` column pair, the column-level grants,
@@ -185,16 +276,16 @@ tests fail on the first run.** An app has two honest options:
   strictly better — it proves _the app's_ table is correct — but it is work,
   and skipping the port means shipping the pattern untested.
 
-> ⚠️ The UUIDv5 namespace in `0006` must be copied **byte-identically** into
-> every app. It is what makes all apps derive the same `actor_ref` for the same
+> ⚠️ The UUIDv5 namespace in `person_actor_ref` (`0002_actor_helpers.sql`) must
+> be copied **byte-identically** into every app. It is what makes all apps derive the same `actor_ref` for the same
 > person while the hub does not yet exist. Changing it in one app silently forks
 > that person's platform identity.
 
 ### `author_person_ref` is server-derived, never client-supplied
 
-`0007` puts a `before insert` trigger on `comments` that sets
-`author_person_ref` from `current_person_ref()` and revokes the column from
-the client's `insert` grant. The client sends only `author_actor_id`.
+`0005_reference_domain.sql` puts a `before insert` trigger on `comments` that
+sets `author_person_ref` from `current_person_ref()` and never grants the column
+to the client at all. The client sends only `author_actor_id`.
 
 This is deliberate ergonomics-for-safety. The earlier design let the client
 send the value and had the insert policy verify it — correct, but fragile as a
@@ -233,16 +324,16 @@ await supabase
 
 ## Adopting the seam in an app
 
-1. Copy `0001`–`0007` into the app's `supabase/migrations/`, renumbered to
-   follow its existing migrations. Migrations are **append-only** — `0007`
-   patches `0001`–`0006` with `create or replace` rather than editing them, so
-   the order matters and none may be skipped.
+1. Copy `0001`–`0011` into the app's `supabase/migrations/`, renumbered to
+   follow its existing migrations. Since the consolidation each file defines its
+   own objects once, so the order matters only for dependencies — but none may
+   be skipped.
 2. `0005` installs the reference `comments` table. Keep it (the conformance
    suite needs it) or port `authoring.test.ts` and
    `transfer-accountability.test.ts` onto your own authored table — see above.
 3. For every table recording who did something, add `author_actor_id` and
    `author_person_ref`, and apply the grants, policies and both triggers from
-   `0005` + `0007`.
+   `0005_reference_domain.sql`.
 4. Copy `tests/db/` into the app and run it as a conformance suite.
    `tests/db/exposure-invariants.test.ts` is catalog-driven and will police
    your _own_ tables for leaked linkability columns — keep it.
@@ -254,6 +345,11 @@ pnpm install
 pnpm db:start     # requires Docker
 pnpm test:db      # resets the database, then runs the full suite
 ```
+
+> ⚠️ **`pnpm test:db` begins with `supabase db reset`.** Against the linked live
+> project that would destroy it. In this repository the schema cycle runs in
+> **CI** instead — push, and read the `conformance` job, roughly four minutes a
+> turn. A consuming app with a real local stack can run it directly.
 
 ## What these tests do and do not prove
 

@@ -60,7 +60,7 @@ export interface FursonaEditorLabels
  *
  * `initialSections` is separate from `initial` because the two come from
  * different reads: the fields from `my_actors()`, the sections from
- * `fursona_profiles`. `0013` deliberately did not join them.
+ * `actor_profiles`. `0013` deliberately did not join them.
  */
 export interface FursonaEditorProps {
   /** Already-translated strings. */

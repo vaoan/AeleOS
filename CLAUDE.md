@@ -246,14 +246,21 @@ Key choices and _why_:
 
 ## Current state
 
-🌿 **Phases 1a, 0 and 1b done — the hub is live and another app can hand a
-person over to it.** Phase 1b-i's 🧑 steps are the only thing still open.
+🌿 **Phases 1a, 0 and 1b done, and the fursona studio with them — the hub is
+live, another app can hand a person over to it, and somebody can build a
+fursona's page.** Phase 1b-i's 🧑 steps are still open, and the public pages
+those pages are _for_ are designed but not built.
 
-- **Phase 1a (actor model seam) — done.** `supabase/migrations/` holds the
-  canonical schema: `0001`–`0007` are Phase 1a's own, and everything through
-  `0011` adds IdP introspection, the self-service write surface, and the fixes
-  the reviews of those found. `tests/db/` is the conformance suite apps run
-  against their own database. Plan:
+- **Phase 1a (actor model seam) — done, and the schema is now consolidated.**
+  `supabase/migrations/` holds the canonical schema in **ten files, every object
+  defined exactly once** (2026-08-13). It grew to fourteen migrations in which
+  six objects had been redefined by `create or replace` — `actors_public` four
+  times, `ensure_person_actor` three — so the newest body of a function could
+  sit in a file named after something else, and restating the wrong ancestor
+  silently reverted a fix. That nearly shipped. **Before replacing anything,
+  note that the file names now tell you where it lives**; keep it that way.
+  `tests/db/` is the conformance suite apps run against their own database, and
+  it is what proved the consolidation changed no behaviour. Plan:
   `2026-07-29-phase-1a-actor-model-seam.md`.
 - **Phase 0 (Clerk standup) — done and self-verifying.** The Clerk instance and
   the Supabase integration are live. `tests/idp/` runs against a real
@@ -346,6 +353,47 @@ person over to it.** Phase 1b-i's 🧑 steps are the only thing still open.
     the columns it suggests as suggestions.
 
   Plan: `2026-08-12-phase-1b-ii-picker.md`. Contract: `docs/integrating.md`.
+
+- **The fursona studio — done.** Libra's product editor, ported whole and
+  without its theme: a filterable, drag-reorderable list; a full-page editor on
+  react-hook-form with a sticky toolbar; sections in four layouts with
+  bilingual, per-item fields; an icon picker; and four starting templates
+  shipped in code rather than in a table. Spec:
+  `2026-08-13-fursona-studio-port-design.md`; plans
+  `2026-08-13-fursona-studio-phase-*.md`.
+
+  The line that phase drew and that later work must not blur: **a person's own
+  writing is not next-intl.** The catalogues are the app's chrome and a missing
+  key fails the build; `name_es` on somebody's section is a person who has not
+  written the Spanish yet, and must never be reported as a fault.
+
+- **Public pages (phase 5) — designed, not built.** This is the part that
+  changes what the site _is_, so read
+  **`apps/hub/src/features/actors/CLAUDE.md`** before touching anything in the
+  actors feature. It is authoritative for addressing and newer than the spec.
+  In short:
+
+  - `/{person_address}` is a person's public profile and
+    `/{person_address}/{handle}` is one of their fursonas. Both are readable by
+    anybody.
+  - A person has **one permanent number**, assigned in sequence, and may be
+    granted a **vanity** — text or a different number. Both resolve forever, so
+    a shared link never rots. The number is meant to be awardable: #7 really is
+    the seventh person here.
+  - **Both forms live in one namespace with one unique index.** A vanity may
+    _be_ a number, so a constraint per form would let person #500 take the
+    vanity `7` while person #7 exists.
+  - **Fursona handles become unique per owner**, not globally, which is the
+    point of putting the person in the path. Consuming apps are unaffected —
+    they key off `actor_ref` and never the handle — but `docs/integrating.md`
+    has to say so out loud rather than implying it.
+  - **A profile lists only `public` fursonas.** "List the fursonas they own" is
+    the natural implementation and it destroys what `unlisted` means.
+  - **A suspension travels to every public page**, the person's own included.
+    That rule exists nowhere in the schema today: a fursona whose _owner_ is
+    suspended is still `active` itself, so its page would keep serving.
+
+  Plan: `2026-08-13-fursona-studio-phase-5-public-page.md`.
 
 **CI gates on `main`:** four jobs are **required**, and a pull request cannot
 merge until all four report green — `conformance` (schema suite), `hub` (hub and

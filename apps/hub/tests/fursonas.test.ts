@@ -123,7 +123,7 @@ describe("createFursona", () => {
   it("surfaces a taken handle as a typed error the form can catch", async () => {
     rpc.mockResolvedValueOnce({
       data: null,
-      error: { message: "handle already taken" },
+      error: { message: "handle already yours" },
     });
     const { createFursona, HandleTakenError } =
       await import("@/features/actors/infrastructure/fursonas");

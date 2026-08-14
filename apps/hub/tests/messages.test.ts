@@ -87,6 +87,10 @@ describe("message catalogues", () => {
   it("have no Spanish values left identical to the English", () => {
     const allowed = [
       "fursonas.templates.fursuit.name",
+      // The same loanword again, heading the list of somebody's characters on
+      // their public page. Spanish uses it unchanged, exactly as `nav.fursonas`
+      // does.
+      "publicProfile.fursonas",
       "home.title",
       "meta.title",
       "profile.empty",

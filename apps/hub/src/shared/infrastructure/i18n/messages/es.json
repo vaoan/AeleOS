@@ -47,7 +47,7 @@
       "visibilityLabel": "Quién puede encontrar esta fursona",
       "errors": {
         "handle": "Usa entre 1 y 32 letras, números, guiones o guiones bajos.",
-        "handleTaken": "Ese identificador ya está en uso.",
+        "handleTaken": "Ya tienes una fursona con ese identificador.",
         "displayName": "Máximo 64 caracteres.",
         "avatarUrl": "Ingresa una dirección de imagen http o https, o déjala vacía.",
         "visibility": "Elige una de las opciones.",
@@ -155,6 +155,10 @@
   "nav": {
     "ariaLabel": "Secciones",
     "me": "Yo",
+    "fursonas": "Fursonas"
+  },
+  "publicProfile": {
+    "notFoundTitle": "No encontrado",
     "fursonas": "Fursonas"
   }
 }

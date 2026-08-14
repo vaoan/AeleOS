@@ -159,7 +159,7 @@ describe("the write functions", () => {
       { name_en: "About", type: "cards", sort_order: 1, items: [] },
     ];
     await setFursonaSections(client(), "ref-1", sections);
-    expect(rpc).toHaveBeenCalledWith("set_fursona_sections", {
+    expect(rpc).toHaveBeenCalledWith("set_actor_sections", {
       p_actor_ref: "ref-1",
       p_sections: sections,
     });

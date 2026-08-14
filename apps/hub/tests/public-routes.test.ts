@@ -80,9 +80,72 @@ describe("isPublicRoute", () => {
     }
   });
 
-  it("keeps the separator boundary inside a locale prefix too", () => {
-    expect(isPublicRoute(request("/es/sign-instead"))).toBe(false);
-    expect(isPublicRoute(request("/en/sign-in-admin"))).toBe(false);
+  // These used to be protected, and are now public — deliberately, not by
+  // accident. `sign-instead` is a legal person address, so it reaches the
+  // public actor route, finds no such address and 404s. Nothing is exposed:
+  // what changed is that a one-segment path under a locale is now a CANDIDATE
+  // ADDRESS rather than an unclassified route.
+  //
+  // The boundary this once guarded still holds where it matters — see the
+  // reserved-segment cases below, which are what keeps `/es/sign-in` and
+  // everything under it out of the actor patterns.
+  it("treats a near-miss of a reserved word as an address, not a route", () => {
+    expect(isPublicRoute(request("/es/sign-instead"))).toBe(true);
+    expect(isPublicRoute(request("/en/sign-in-admin"))).toBe(true);
+  });
+
+  // The reserved segments, and the reason the actor patterns are a RegExp with
+  // a negative lookahead rather than a `/:person` path pattern. An address is
+  // shaped exactly like the static segment of a signed-in route — `/es/42` and
+  // `/es/fursonas` are indistinguishable — so a naive pattern would have made
+  // every signed-in page public at this layer.
+  describe("the reserved segments stay protected", () => {
+    it.each(["me", "picker", "fursonas", "sign-in"])(
+      "keeps /%s out of the actor patterns",
+      (segment) => {
+        for (const locale of routing.locales) {
+          expect(isPublicRoute(request(`/${locale}/${segment}`))).toBe(
+            segment === "sign-in",
+          );
+        }
+      },
+    );
+
+    // The exclusion is `(name)(/|$)`, not `name$`. Anchoring to the end alone
+    // lets this through, because `fursonas$` does not match when more path
+    // follows — which is how the first draft quietly made the whole editor
+    // public.
+    it("keeps everything BENEATH a reserved segment out too", () => {
+      expect(isPublicRoute(request("/es/fursonas/new"))).toBe(false);
+      expect(isPublicRoute(request("/es/fursonas/luna/edit"))).toBe(false);
+      expect(isPublicRoute(request("/es/picker/anything"))).toBe(false);
+    });
+  });
+
+  describe("the shape of an actor page", () => {
+    it("lets a person address and a fursona handle through", () => {
+      for (const locale of routing.locales) {
+        expect(isPublicRoute(request(`/${locale}/42`))).toBe(true);
+        expect(isPublicRoute(request(`/${locale}/luna-wolf`))).toBe(true);
+        expect(isPublicRoute(request(`/${locale}/42/luna`))).toBe(true);
+      }
+    });
+
+    // Handles are case-insensitive in the database, so a link somebody typed
+    // with a capital must reach the page rather than the sign-in gate.
+    it("lets a handle in the wrong case through", () => {
+      expect(isPublicRoute(request("/es/42/Luna"))).toBe(true);
+    });
+
+    // An address is lowercase by construction (0011's check constraint), so an
+    // uppercase first segment can never be one.
+    it("refuses an uppercase address", () => {
+      expect(isPublicRoute(request("/es/Luna"))).toBe(false);
+    });
+
+    it("refuses anything deeper than an actor page", () => {
+      expect(isPublicRoute(request("/es/42/luna/extra"))).toBe(false);
+    });
   });
 
   // An unsupported locale must not become a way to reach protected pages.

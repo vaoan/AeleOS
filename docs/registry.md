@@ -8,8 +8,16 @@ syncs into it.
 
 `supabase/migrations/` at the repository root is the only place migrations
 live. `apps/hub` ships none of its own — the hub reads a database whose schema
-this repository owns. Phase 1b-ii's `security definer` RPCs are numbered
-migrations here like any other.
+this repository owns. Every `security definer` RPC is a numbered migration here
+like any other.
+
+**The schema was consolidated on 2026-08-13**, and the rule it now keeps is
+worth knowing before you write a migration: **every object is defined exactly
+once.** Before, six objects had been redefined by `create or replace` — the
+`actors_public` view four times — so the current body of a function could live
+in a file named after something unrelated, and restating the wrong ancestor
+silently reverted a fix. If you are replacing something, you should not have to
+hunt for which file owns it.
 
 This is deliberate. The hub and this repository target the same Supabase
 project, and two places issuing `supabase db push` at one database is two
@@ -18,8 +26,8 @@ sources of truth. See
 
 ## The one value that must never change
 
-`0006_provisioning.sql` derives a person's `actor_ref` from their
-`identity_sub` using UUIDv5 over a fixed namespace. Every app computes the same
+`person_actor_ref` in `0002_actor_helpers.sql` derives a person's `actor_ref`
+from their `identity_sub` using UUIDv5 over a fixed namespace. Every app computes the same
 value with no coordination, which is what keeps one human as one identity
 across the platform.
 

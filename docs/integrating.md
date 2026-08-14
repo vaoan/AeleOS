@@ -188,6 +188,23 @@ Facts worth building on:
 > mirror — `synced_at` here — is invented for this document and is yours to
 > name, keep or drop.
 
+### `handle` is unique per person, not globally
+
+**Two different people can each own a fursona called `luna`.** Handles were
+globally unique until 2026-08-13 and are not any more: a fursona's handle is
+unique only among the fursonas of one owner, and a person's handle is unique
+across the platform.
+
+This changes nothing if you followed the rest of this document, because it has
+always said to key on `actor_ref`. But if you took a shortcut and used `handle`
+as a key, a unique constraint, or a lookup that assumes one match — **it will
+start colliding across users**, silently, and the first symptom will be one
+person's fursona resolving to another's. Check for it now rather than after a
+support message.
+
+`handle` remains safe to display, to put in a URL under the person, and to
+match within one owner's set. It is not an identifier for anything.
+
 Key on `actor_ref`, and let the hub win on every field it owns:
 
 ```ts

@@ -15,7 +15,7 @@ export interface Arrangement {
  * Reads the caller's arrangement rows.
  *
  * A separate read from the actor list on purpose: `my_actors()` returns the
- * actor columns and `fursona_profiles` holds the arrangement, and `0012` added
+ * actor columns and `actor_profiles` holds the arrangement, and `0012` added
  * no joined view — a joined function would have put ordering into the same call
  * `/api/actors/mine` is built on, which the actor model deliberately keeps
  * apart.
@@ -32,7 +32,7 @@ export async function readArrangement(
   client: SupabaseClient,
 ): Promise<Arrangement[]> {
   const { data, error } = await client
-    .from("fursona_profiles")
+    .from("actor_profiles")
     .select("actor_ref, sort_order, featured");
   if (error) throw new Error(`Could not read arrangement: ${error.message}`);
   return (data ?? []).map((row) => ({
@@ -150,7 +150,7 @@ export async function deleteFursona(
 /**
  * Replaces a fursona's sections.
  *
- * **Replaces rather than merges**, matching `set_fursona_sections` in `0013`:
+ * **Replaces rather than merges**, matching `set_actor_sections` in `0013`:
  * the editor sends the whole document on every save, so merging would double it
  * on the second one. That also makes a retry after a failed save safe, which is
  * what lets the editor keep somebody's writing on screen and simply try again.
@@ -171,7 +171,7 @@ export async function setFursonaSections(
   actorRef: string,
   sections: unknown,
 ): Promise<void> {
-  await call(client, "set_fursona_sections", {
+  await call(client, "set_actor_sections", {
     p_actor_ref: actorRef,
     p_sections: sections,
   });

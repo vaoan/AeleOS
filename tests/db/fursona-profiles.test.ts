@@ -51,16 +51,16 @@ afterAll(async () => {
   await closePool();
 });
 
-describe("fursona_profiles", () => {
+describe("actor_profiles", () => {
   it("lets an owner read the profile row of a fursona they own", async () => {
     const { error } = await admin()
-      .from("fursona_profiles")
+      .from("actor_profiles")
       .insert({ actor_ref: alice.sonaRef, sort_order: 1 });
     if (error) throw error;
 
     const c = await clientAs(alice.sub);
     const { data, error: readErr } = await c
-      .from("fursona_profiles")
+      .from("actor_profiles")
       .select("actor_ref, sort_order, featured")
       .eq("actor_ref", alice.sonaRef);
     expect(readErr).toBeNull();
@@ -73,7 +73,7 @@ describe("fursona_profiles", () => {
   it("hides another person's profile row", async () => {
     const c = await clientAs(mallory.sub);
     const { data, error } = await c
-      .from("fursona_profiles")
+      .from("actor_profiles")
       .select("actor_ref")
       .eq("actor_ref", alice.sonaRef);
     expect(error).toBeNull();
@@ -86,13 +86,13 @@ describe("fursona_profiles", () => {
   it("refuses a write to another person's profile row", async () => {
     const c = await clientAs(mallory.sub);
     await c
-      .from("fursona_profiles")
+      .from("actor_profiles")
       .update({ featured: true })
       .eq("actor_ref", alice.sonaRef);
 
     const owner = await clientAs(alice.sub);
     const { data } = await owner
-      .from("fursona_profiles")
+      .from("actor_profiles")
       .select("featured")
       .eq("actor_ref", alice.sonaRef);
     expect(data?.[0]?.featured).toBe(false);
@@ -109,7 +109,7 @@ describe("ordering and pinning", () => {
     expect(error).toBeNull();
 
     const { data } = await c
-      .from("fursona_profiles")
+      .from("actor_profiles")
       .select("sort_order")
       .eq("actor_ref", alice.sonaRef);
     expect(data?.[0]?.sort_order).toBe(3);
@@ -128,7 +128,7 @@ describe("ordering and pinning", () => {
     expect(error).toBeNull();
 
     const { data } = await c
-      .from("fursona_profiles")
+      .from("actor_profiles")
       .select("featured")
       .eq("actor_ref", fresh.sonaRef);
     expect(data?.[0]?.featured).toBe(true);
