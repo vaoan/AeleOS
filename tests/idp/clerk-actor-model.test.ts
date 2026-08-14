@@ -60,11 +60,31 @@ describe.skipIf(!hasCreds())(
       expect(rows?.[0]?.actor_ref).toBe(data);
     });
 
-    it("is idempotent for the same Clerk subject", async () => {
+    // **This is phase 1b-i's last manual step, automated.** The plan asked a
+    // person to sign in, reload, and confirm by hand that exactly one row
+    // existed. Returning the same ref twice — which is all this used to check —
+    // does not establish that: a second row could be written and the first one
+    // still be the one resolved and returned. Only counting does.
+    //
+    // Counted with the service role, which reads the table rather than a view
+    // of it — the same client the provisioning test above counts with. An
+    // earlier version reached for the Management API, which needs a project ref
+    // the `idp-cloud` job does not carry: it passed locally off `.secrets` and
+    // failed in CI, which is the failure mode of every credential a test picks
+    // up from an environment richer than the one it runs in.
+    it("is idempotent for the same Clerk subject, and writes no second row", async () => {
       const c = clerkClient();
       const first = await c.rpc("ensure_person_actor");
       const second = await c.rpc("ensure_person_actor");
       expect(second.data).toBe(first.data);
+
+      const { data: rows } = await admin()
+        .from("actors")
+        .select("kind, identity_sub")
+        .eq("identity_sub", clerkSub());
+      expect(rows).toHaveLength(1);
+      expect(rows?.[0]?.kind).toBe("person");
+      expect(rows?.[0]?.identity_sub?.startsWith("user_")).toBe(true);
     });
 
     it("resolves current_person_ref from the Clerk token", async () => {

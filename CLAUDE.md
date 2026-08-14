@@ -293,11 +293,21 @@ still open.
   the Supabase integration are live. `tests/idp/` runs against a real
   Clerk-issued token; the `idp-cloud` CI job re-proves the trust on every pull
   request. See `docs/phase-0-clerk-setup.md`.
-- **Phase 1b-i (hub foundation) — done except the 🧑 steps.**
+- **Phase 1b-i (hub foundation) — done, including the verification.**
   `apps/hub` is a Next.js app with Clerk sign-in, a Supabase client bound to the
-  Clerk token, and person provisioning on first sign-in. Still open: the steps
-  the plan marks 🧑 — verifying a real sign-in provisions exactly one actor row.
+  Clerk token, and person provisioning on first sign-in. Its last 🧑 step — verifying a real sign-in provisions exactly one actor row —
+  **is no longer manual**. `clerk-actor-model.test.ts` calls
+  `ensure_person_actor` twice as a real Clerk-authenticated caller and then
+  COUNTS the rows through the Management API, which the previous assertion did
+  not: returning the same `actor_ref` twice does not establish that only one row
+  exists, because a second could be written and the first still be the one
+  resolved. It runs in `idp-cloud` on every pull request.
+
+  Confirmed against the live project on 2026-08-14 in a browser as well: a run
+  of `signed-in.spec.ts`, which signs in repeatedly across several contexts,
+  added exactly one person row and one address.
   Plan: `2026-08-02-phase-1b-i-hub-foundation.md`.
+
 - **Visual identity — shipped.** The hub carries the design: OKLCH tokens for
   both modes, self-hosted fonts, and a drifting nebula canvas behind every page
   with the star beside the wordmark switching it off. `pnpm check:contrast`

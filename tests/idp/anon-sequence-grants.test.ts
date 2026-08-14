@@ -13,6 +13,11 @@ const hasCreds = (): boolean =>
 /**
  * Runs a read-only statement against the hosted project.
  *
+ * Shared by every suite here that needs to look at the database AS the database
+ * rather than as a client role — counting rows, reading the catalog, checking a
+ * grant. It lives in one file because two copies would drift the moment one of
+ * them learned to report an error better than the other.
+ *
  * Deliberately the **Management API** rather than a direct Postgres connection.
  * The pooler presents a self-signed chain, so connecting would mean either
  * pinning a CA this repository would have to keep current, or disabling
