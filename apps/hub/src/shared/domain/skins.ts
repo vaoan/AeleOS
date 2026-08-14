@@ -81,6 +81,7 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
     "--skin-round": "2",
     "--skin-shadow": `0 8px 32px ${SHADE}`,
     "--skin-blur": "22px",
+    "--skin-backdrop": "blur(14px)",
     "--skin-gloss": `linear-gradient(150deg, ${SHEEN}, transparent 55%)`,
     "--surface": "color-mix(in oklab, var(--surface-solid) 40%, transparent)",
     "--bar": "color-mix(in oklab, var(--bar-solid) 45%, transparent)",
@@ -104,6 +105,7 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
     "--skin-round": "1.8",
     "--skin-shadow": `0 3px 12px ${SHADE}, inset 0 1px 0 ${SHEEN}`,
     "--skin-blur": "16px",
+    "--skin-backdrop": "blur(8px)",
     "--skin-gloss":
       "linear-gradient(to bottom, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.05) 48%, rgb(0 0 0 / 0.06) 52%, transparent)",
     "--surface": "color-mix(in oklab, var(--surface-solid) 72%, transparent)",
@@ -139,8 +141,12 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
     "--skin-round": "0",
     "--skin-blur": "0px",
     "--skin-font": "var(--font-mono)",
+    // **Black, not white, and not faint.** The first version was white at 0.05,
+    // which is invisible on a light page and nearly so on a dark one — a gloss
+    // that changes nothing, which is the fault this feature keeps being trimmed
+    // for. Black reads as a darker line against either.
     "--skin-gloss":
-      "repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px)",
+      "repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px)",
   },
 
   /** The bevelled grey box: a lit top-left, a shaded bottom-right, no curve. */

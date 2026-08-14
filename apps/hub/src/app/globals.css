@@ -155,6 +155,17 @@
   --skin-blur: 12px;
 
   /*
+   * What a bordered surface blurs BEHIND itself.
+   *
+   * Separate from `--skin-blur`, which only reaches the four elements that ask
+   * for `backdrop-blur-md`. Glass without this was translucent and not frosted:
+   * the token was set, stored, emitted — and read by four elements that are not
+   * the panels. A skin's headline effect must not depend on a class its
+   * surfaces do not carry.
+   */
+  --skin-backdrop: none;
+
+  /*
    * The body's face. Reading `--font-sans` here is safe despite the cyclic
    * declaration described below: next/font sets the real face through an
    * UNLAYERED class on <html>, which is this same element, and an unlayered
@@ -266,6 +277,11 @@ button:disabled,
 [class~="border"] {
   border-width: var(--skin-border);
   background-image: var(--skin-gloss);
+  /* Prefixed as well: Safari has never shipped this unprefixed. Without the
+   * first line glass is plain translucency there, which is the one browser
+   * where that difference is most likely to be read as the design. */
+  -webkit-backdrop-filter: var(--skin-backdrop);
+  backdrop-filter: var(--skin-backdrop);
 }
 
 [class~="border"]:not([class*="shadow"]) {
