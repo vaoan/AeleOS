@@ -21,6 +21,14 @@ export {
 } from "@/features/actors/infrastructure/fursonas";
 export { readMyAddress } from "@/features/actors/infrastructure/my-address";
 export {
+  updateMyProfile,
+  type MyProfileInput,
+} from "@/features/actors/infrastructure/my-profile";
+export {
+  MyProfileForm,
+  type MyProfileFormLabels,
+} from "@/features/actors/presentation/my-profile-form";
+export {
   uploadActorImage,
   removeActorImages,
   ImageRefusedError,

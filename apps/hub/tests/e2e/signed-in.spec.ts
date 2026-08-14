@@ -123,4 +123,42 @@ test.describe("signed in", () => {
       await stranger.close();
     }
   });
+
+  // The other half of the round trip. A person is provisioned private, so
+  // before `update_my_profile` existed their own page answered 404 to
+  // everybody — including them — and nothing in the product could change it.
+  test("a profile somebody publishes is readable by a stranger", async ({
+    page,
+    browser,
+  }) => {
+    await signIn(page, await mintTicket(identity!.userId));
+
+    await page.goto("/es/me");
+    const address = (await page.getByTestId("my-address").innerText()).trim();
+
+    // Private to begin with, which is the state that made this necessary.
+    const before = await browser.newContext();
+    try {
+      const anonymous = await before.newPage();
+      const response = await anonymous.goto(`/es/${address}`);
+      expect(response?.status()).toBe(404);
+    } finally {
+      await before.close();
+    }
+
+    await page.getByTestId("me-display-name").fill("A Real Person");
+    await page.getByTestId("me-visibility").selectOption("public");
+    await page.getByTestId("me-save").click();
+    await expect(page.getByTestId("me-saved")).toBeVisible();
+
+    const after = await browser.newContext();
+    try {
+      const anonymous = await after.newPage();
+      const response = await anonymous.goto(`/es/${address}`);
+      expect(response?.status()).toBe(200);
+      await expect(anonymous.getByTestId("public-actor-name")).toBeVisible();
+    } finally {
+      await after.close();
+    }
+  });
 });

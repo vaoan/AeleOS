@@ -7,6 +7,7 @@ import {
   ensurePersonActor,
   getPersonActor,
   readMyAddress,
+  MyProfileForm,
 } from "@/features/actors";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -30,6 +31,11 @@ import { tid } from "@/shared/infrastructure/test-id";
  * address is a link, because the fastest way to know what strangers see is to
  * look.
  *
+ * It also carries the form that NAMES and PUBLISHES the profile. Without it a
+ * person was provisioned `private` with no way to change that, so their page
+ * answered 404 for everybody including them — and publishing without a name
+ * would have put `u-<actor_ref>` at the top of it.
+ *
  * Exposes the `my-address` and `my-profile-link` test ids, which the signed-in
  * end-to-end suite uses to find somebody's own page without reading the
  * database.
@@ -47,6 +53,10 @@ export default async function MePage({
   const actor = await getPersonActor(actorRef);
   const address = await readMyAddress(await createServerClient());
   const t = await getTranslations("profile");
+  // The three visibility words already exist under `fursonas`, and a person's
+  // profile means the same thing by them. A second copy would be two strings to
+  // keep in step for no gain.
+  const tVisibility = await getTranslations("fursonas.visibility");
 
   return (
     <Card>
@@ -75,6 +85,32 @@ export default async function MePage({
             tickets and compared across apps. */}
         <dd className="font-mono text-xs break-all">{actorRef}</dd>
       </dl>
+      <div className="mt-8 border-t border-[var(--edge)]/40 pt-6">
+        <MyProfileForm
+          initial={{
+            displayName: actor?.displayName ?? "",
+            avatarUrl: actor?.avatarUrl ?? "",
+            visibility: actor?.visibility ?? "private",
+          }}
+          labels={{
+            title: t("editTitle"),
+            displayName: t("displayName"),
+            avatarUrl: t("avatarUrl"),
+            visibilityLabel: t("visibilityLabel"),
+            visibility: {
+              private: tVisibility("private"),
+              unlisted: tVisibility("unlisted"),
+              public: tVisibility("public"),
+            },
+            save: t("save"),
+            saving: t("saving"),
+            saved: t("saved"),
+            failed: t("failed"),
+            hint: t("privateHint"),
+          }}
+        />
+      </div>
+
       <p className="mt-6 text-sm text-[var(--muted)]">{t("addressHint")}</p>
       <p className="mt-2 text-sm text-[var(--muted)]">{t("platformIdHint")}</p>
       <div className="mt-8 border-t border-[var(--edge)]/40 pt-6">

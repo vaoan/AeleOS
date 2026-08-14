@@ -98,6 +98,7 @@ describe("getPersonActor", () => {
     handle: "aeleos",
     display_name: "Aeleos",
     avatar_url: null,
+    visibility: "public",
   };
 
   it("maps the row into the client-safe shape", async () => {
@@ -107,6 +108,7 @@ describe("getPersonActor", () => {
       handle: "aeleos",
       displayName: "Aeleos",
       avatarUrl: null,
+      visibility: "public",
     });
   });
 
@@ -121,8 +123,29 @@ describe("getPersonActor", () => {
     await getPersonActor(rowClient({ data: row }, query), "act_abc");
     expect(query.table).toBe("actors_public");
     expect(query.projection).toBe(
-      "id, actor_ref, handle, display_name, avatar_url",
+      "id, actor_ref, handle, display_name, avatar_url, visibility",
     );
+
+    // Stated as a rule rather than only as a fixed string, so that widening the
+    // projection again fails on WHAT was added rather than merely on the fact
+    // that something was. `visibility` was added deliberately — a consuming app
+    // needs it before offering a link to a page that might answer 404 — and it
+    // is not a linkability column: it says nothing about which fursonas
+    // somebody owns.
+    expect(query.projection).not.toMatch(/owner_ref|identity_sub/);
+  });
+
+  // The column is NOT NULL in the view, so an absent value means the view
+  // changed shape rather than that the data is missing. The safe reading of
+  // "we do not know who may see this" is the most private one.
+  it("falls back to private when the view answers without a visibility", async () => {
+    const { visibility, ...withoutVisibility } = row;
+    void visibility;
+    const actor = await getPersonActor(
+      rowClient({ data: withoutVisibility }),
+      "act_abc",
+    );
+    expect(actor?.visibility).toBe("private");
   });
 
   // The filter is the only thing standing between a caller and somebody else's

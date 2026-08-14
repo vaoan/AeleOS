@@ -28,7 +28,16 @@
     "address": "Tu dirección",
     "addressHint": "Aquí vive tu perfil público. Compártela, o ábrela para ver lo que ven los demás.",
     "addressEmpty": "No disponible.",
-    "viewProfile": "Abre tu perfil público"
+    "viewProfile": "Abre tu perfil público",
+    "editTitle": "Tu perfil público",
+    "displayName": "Nombre visible",
+    "avatarUrl": "Dirección de la imagen",
+    "visibilityLabel": "Quién puede ver tu perfil",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "saved": "Guardado.",
+    "failed": "Eso no se guardó. Inténtalo de nuevo.",
+    "privateHint": "Tu página de perfil es privada. Publicarla no cambia tus fursonas: cada una tiene su propio ajuste."
   },
   "fursonas": {
     "title": "Tus fursonas",

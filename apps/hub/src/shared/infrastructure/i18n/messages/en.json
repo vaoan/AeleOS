@@ -28,7 +28,16 @@
     "address": "Your address",
     "addressHint": "This is where your public profile lives. Share it, or open it to see what others see.",
     "addressEmpty": "Not available.",
-    "viewProfile": "Open your public profile"
+    "viewProfile": "Open your public profile",
+    "editTitle": "Your public profile",
+    "displayName": "Display name",
+    "avatarUrl": "Picture address",
+    "visibilityLabel": "Who can see your profile",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved.",
+    "failed": "That did not save. Try again.",
+    "privateHint": "Your profile page is private. Publishing it does not change your fursonas — each of those has its own setting."
   },
   "fursonas": {
     "title": "Your fursonas",
