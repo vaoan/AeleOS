@@ -22,9 +22,11 @@ import {
  * in the same change that implements it.
  *
  * Whatever is added reads `--nebula-a` and `--nebula-b`, so an author's two
- * colours travel to every canvas rather than each one inventing its own palette.
+ * colours travel to every canvas rather than each one inventing its own
+ * palette. Today that is the drifting nebula, a starfield, an aurora, and
+ * stillness.
  */
-export const CANVASES = ["nebula", "none"] as const;
+export const CANVASES = ["nebula", "stars", "aurora", "none"] as const;
 
 /** One of the canvases. */
 export type CanvasId = (typeof CANVASES)[number];
@@ -165,6 +167,10 @@ export const themeSchema = z.object({
  * resting state of every override here is absence, and a string nobody can read
  * as a colour is not a choice somebody made.
  *
+ * **The cloud tints and the canvas name are root-scoped, the accent is not** —
+ * see `themeCss`. The canvas reads its colours from `document.documentElement`,
+ * so a value scoped to the page's content element would be read by nothing.
+ *
  * It returns only the tokens a theme OWNS. Everything else about light and dark
  * stays in `globals.css` under the reader's own control, which is what lets a
  * visitor switch a themed page to their preferred scheme and still have it look
@@ -210,6 +216,16 @@ export function themeVars(
       : {}),
     ...(cloudA ? { "--nebula-a": cloudA } : {}),
     ...(cloudB ? { "--nebula-b": cloudB } : {}),
+    // The canvas reads this to decide which animation to draw. A string custom
+    // property is the same channel `--nebula-blend` already travels on, so this
+    // is the file's existing idiom rather than a new mechanism.
+    //
+    // Emitted only when it differs from the default, like every other value
+    // here: an unthemed page must emit nothing at all, and a property set to
+    // the default looks identical today and stops tracking it tomorrow.
+    ...(theme.canvas === DEFAULT_THEME.canvas
+      ? {}
+      : { "--canvas": theme.canvas }),
     // `none` is expressed as a transparent cloud rather than as an absent one,
     // so a page can be still without touching the visitor's own star toggle.
     // The two controls answer different questions: one is how the author wants
@@ -244,7 +260,34 @@ export function accentPreview(hex: string): { light: string; dark: string } {
 }
 
 /**
- * A theme as CSS, scoped to one class, covering both schemes.
+ * Which custom properties belong to the page's content, and which to the page.
+ *
+ * **This split is a bug fix, and the bug was invisible.** The canvas is a fixed,
+ * full-viewport element mounted at the ROOT of the document, and it reads its
+ * colours from `document.documentElement`. Scoping its inputs to a nested
+ * element meant it never saw them: an author could pick two backdrop colours,
+ * the values were stored, emitted, and read by nothing at all.
+ *
+ * So the cloud tints and the canvas name go on `:root`, where the thing that
+ * reads them can find them, and the accent stays scoped so the site's own
+ * chrome keeps the site's own colour.
+ *
+ * @param vars - every custom property a theme sets.
+ * @returns the ones that belong to each scope.
+ */
+function byScope(vars: Record<string, string>) {
+  const rooted = ["--nebula-a", "--nebula-b", "--nebula-opacity", "--canvas"];
+  const entries = Object.entries(vars);
+  const pick = (wanted: boolean) =>
+    entries
+      .filter(([name]) => rooted.includes(name) === wanted)
+      .map(([name, value]) => `${name}:${value}`)
+      .join(";");
+  return { root: pick(true), scoped: pick(false) };
+}
+
+/**
+ * A theme as CSS, covering both schemes.
  *
  * **This exists because the reader's scheme is the reader's, and the page is
  * rendered on a server that cannot know it.** Inline styles would force a
@@ -253,9 +296,10 @@ export function accentPreview(hex: string): { light: string; dark: string } {
  * both renderings are emitted as rules and the browser picks, exactly as
  * `globals.css` already does for every other token.
  *
- * The three selectors match that file's own structure, and the order matters:
+ * The three selectors per scope match that file's own structure, and the order
+ * matters:
  *
- *  1. the bare class carries light, which is the default;
+ *  1. the bare selector carries light, which is the default;
  *  2. `prefers-color-scheme: dark` applies dark, guarded by
  *     `:not([data-theme="light"])` so an explicit light choice still wins;
  *  3. `[data-theme="dark"]` applies dark again, so the toggle wins in the other
@@ -264,29 +308,48 @@ export function accentPreview(hex: string): { light: string; dark: string } {
  * A rule defined only inside the media query would leave a visitor who has
  * chosen dark on a light-preferring system with the light accent.
  *
+ * **Two scopes, not one** — see {@link byScope}. The backdrop belongs to the
+ * document because the canvas that reads it is mounted there; the accent
+ * belongs to the page's own content.
+ *
  * **Every value interpolated here is generated, never stored.** `themeVars`
- * builds them out of numbers — `toFixed` and `Math.round` — so nothing a person
- * typed reaches this string. That is what makes emitting a stylesheet safe;
- * were a raw stored value ever passed through, a `}` in it would close the rule
- * and everything after would be attacker-authored CSS.
+ * builds them out of numbers — `toFixed` and `Math.round` — and the canvas name
+ * comes from a fixed list, so nothing a person typed reaches this string. That
+ * is what makes emitting a stylesheet safe; were a raw stored value ever passed
+ * through, a `}` in it would close the rule and everything after would be
+ * attacker-authored CSS.
  *
  * @param theme - the chosen theme.
- * @param className - the class to scope the rules to.
+ * @param className - the class the content-scoped rules attach to.
  * @returns the CSS text.
  */
 export function themeCss(theme: ActorTheme, className: string): string {
-  const block = (vars: Record<string, string>) =>
-    Object.entries(vars)
-      .map(([name, value]) => `${name}:${value}`)
-      .join(";");
+  const light = byScope(themeVars(theme, "light"));
+  const dark = byScope(themeVars(theme, "dark"));
 
-  const light = block(themeVars(theme, "light"));
-  const dark = block(themeVars(theme, "dark"));
-  if (!light && !dark) return "";
+  const rules = (selector: string, from: "root" | "scoped") =>
+    [
+      light[from] && `${selector}{${light[from]}}`,
+      dark[from] &&
+        `@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) ${selector}{${dark[from]}}}`,
+      dark[from] && `:root[data-theme="dark"] ${selector}{${dark[from]}}`,
+    ]
+      .filter(Boolean)
+      .join("");
 
-  return [
-    `.${className}{${light}}`,
-    `@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .${className}{${dark}}}`,
-    `:root[data-theme="dark"] .${className}{${dark}}`,
-  ].join("");
+  // **The root scope is emitted ONCE, with no dark variant, because nothing in
+  // it varies by mode.** An author picks two cloud colours and a canvas; those
+  // are the same colours whichever scheme a visitor reads in. What adapts is
+  // `--nebula-blend`, which stays in `globals.css` — `screen` in dark because
+  // dust emits light, `multiply` in light because it absorbs it. Same two
+  // colours, opposite physics, which is why one pair works in both.
+  //
+  // Writing the three-selector form here anyway produced branches no input
+  // could reach, which is how this was noticed.
+  //
+  // `:root` also takes no descendant selector; giving it one would stop it
+  // matching anything at all.
+  const rooted = light.root ? `:root{${light.root}}` : "";
+
+  return rooted + rules(`.${className}`, "scoped");
 }

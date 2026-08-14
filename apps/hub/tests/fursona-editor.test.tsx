@@ -69,8 +69,8 @@ const labels = {
     canvas: "Backdrop",
     canvases: {
       nebula: "Nebula",
-      drift: "Drift",
-      orbit: "Orbit",
+      stars: "Starfield",
+      aurora: "Aurora",
       none: "Still",
     },
     onLight: "On light",

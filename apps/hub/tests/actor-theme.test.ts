@@ -207,6 +207,29 @@ describe("themeCss", () => {
     expect(css).toContain(':root[data-theme="dark"] .t1');
   });
 
+  // The canvas reads its colours from the document root, so they have to be
+  // emitted there — scoped to the content element, the only thing that reads
+  // them would never see them. That was a real bug: an author could pick two
+  // backdrop colours, they were stored, emitted, and read by nothing.
+  it("puts the backdrop on :root and the accent on the class", () => {
+    const css = themeCss(
+      { ...DEFAULT_THEME, accent: "#00ff88", backdropA: "#112233" },
+      "t1",
+    );
+    const rootRule = css.slice(css.indexOf(":root{"), css.indexOf("}") + 1);
+    expect(rootRule).toContain("--nebula-a");
+    expect(rootRule).not.toContain("--accent");
+    expect(css).toContain(".t1{--accent");
+  });
+
+  // Nothing in the root scope varies by mode: an author picks two colours and
+  // those are the colours in both schemes. What adapts is `--nebula-blend`,
+  // which stays in globals.css.
+  it("emits the backdrop once rather than per scheme", () => {
+    const css = themeCss({ ...DEFAULT_THEME, backdropA: "#112233" }, "t1");
+    expect(css.match(/--nebula-a/g)).toHaveLength(1);
+  });
+
   // An unthemed page must emit no stylesheet at all, rather than three empty
   // rules that override nothing but still ship on every request.
   it("emits nothing for a theme that overrides nothing", () => {

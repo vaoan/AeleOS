@@ -162,6 +162,8 @@
     "themeReset": "Back to the default look",
     "canvases": {
       "nebula": "Nebula",
+      "stars": "Starfield",
+      "aurora": "Aurora",
       "none": "Still"
     }
   },

@@ -3,6 +3,12 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
 import {
+  aurora,
+  starfield,
+  swayOf,
+  twinkle,
+} from "@/shared/domain/canvas-field";
+import {
   NEBULA_STORAGE_KEY,
   resolveNebula,
 } from "@/shared/application/nebula-preference";
@@ -112,6 +118,111 @@ const LAYERS = [
   { seed: 137, gain: 2.8, bias: 0.58, speed: 0.28, tint: "a", scale: 2.6 },
 ] as const;
 
+/** How many stars the starfield draws. */
+const STAR_COUNT = 220;
+
+/** How many curtains an aurora has. Few and wide — see `aurora`. */
+const CURTAIN_COUNT = 4;
+
+/** The seed every field is generated from, so the sky is the same every time. */
+const FIELD_SEED = 0x5eed;
+
+/**
+ * Draws a starfield.
+ *
+ * Points come from `starfield` in normalised space and are multiplied up here,
+ * so a resize moves the stars with the viewport instead of regenerating a
+ * different sky — which would shimmer every time somebody dragged a window.
+ *
+ * **The two theme colours are the star colours.** That is the rule every canvas
+ * follows: an author picks two colours and whichever animation they choose
+ * wears them, rather than each animation carrying a palette of its own.
+ *
+ * Scalar parameters rather than a size object: an inline object parameter makes
+ * the lint rules demand `@param width`, which the TSDoc syntax rule then
+ * rejects for the dot. The repository resolves that collision this way
+ * everywhere it appears.
+ *
+ * @param ctx - the drawing context.
+ * @param width - the bitmap width in device pixels.
+ * @param height - the bitmap height in device pixels.
+ * @param dpr - the device pixel ratio the bitmap was built at.
+ * @param tints - the two theme colours, as channel triples.
+ * @param seconds - elapsed time.
+ * @returns nothing.
+ */
+function drawStars(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+) {
+  const points = starfield(STAR_COUNT, FIELD_SEED);
+  for (const point of points) {
+    // A slow horizontal drift that wraps, so the sky moves without ever
+    // emptying: a star leaving the right edge is the same star arriving at the
+    // left, which costs nothing and never leaves a gap.
+    const drift = (seconds * DRIFT_PX_PER_SECOND * point.speed * 0.25) / width;
+    const x = ((point.x + drift) % 1) * width;
+    const y = point.y * height;
+    const [r, g, b] = tints[point.tint]!;
+    ctx.globalAlpha = twinkle(point, seconds);
+    ctx.fillStyle = `rgb(${r} ${g} ${b})`;
+    ctx.beginPath();
+    ctx.arc(x, y, point.r * dpr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Draws an aurora.
+ *
+ * Each curtain is a vertical gradient that fades out at both ends, swaying on
+ * its own sine. They are drawn additively by the caller's blend mode, so where
+ * two overlap the colour builds — which is what the real thing does.
+ *
+ * @param ctx - the drawing context.
+ * @param width - the bitmap width in device pixels.
+ * @param height - the bitmap height in device pixels.
+ * @param tints - the two theme colours, as channel triples.
+ * @param seconds - elapsed time.
+ * @returns nothing.
+ */
+function drawAurora(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+) {
+  for (const curtain of aurora(CURTAIN_COUNT, FIELD_SEED)) {
+    const centre = swayOf(curtain, seconds) * width;
+    const half = (curtain.width * width) / 2;
+    const [r, g, b] = tints[curtain.tint]!;
+
+    // Horizontal falloff, so a curtain has no edge. A flat band with a hard
+    // side is the difference between an aurora and a stripe.
+    const across = ctx.createLinearGradient(centre - half, 0, centre + half, 0);
+    across.addColorStop(0, `rgb(${r} ${g} ${b} / 0)`);
+    across.addColorStop(0.5, `rgb(${r} ${g} ${b} / 0.55)`);
+    across.addColorStop(1, `rgb(${r} ${g} ${b} / 0)`);
+
+    ctx.fillStyle = across;
+    ctx.fillRect(centre - half, 0, half * 2, height);
+  }
+
+  // One vertical wash over the whole field, fading the bottom out. Auroras hang
+  // from the top; without this they read as columns standing on the floor.
+  const down = ctx.createLinearGradient(0, 0, 0, height);
+  down.addColorStop(0, "rgb(0 0 0 / 0)");
+  down.addColorStop(1, "rgb(0 0 0 / 1)");
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = down;
+  ctx.fillRect(0, 0, width, height);
+}
+
 /**
  * Fallback layer opacity if the theme does not set one.
  *
@@ -185,8 +296,20 @@ function readRgb(
  *    emits light, `multiply` in light because it absorbs it. Same texture,
  *    opposite physics.
  *
+ * **It draws whichever canvas `--canvas` names**, falling through to the nebula
+ * for a name it does not know — which is also what an unthemed page gets, since
+ * an unthemed page sets no such property. The choice arrives as a custom
+ * property rather than as a prop because this is mounted in the root layout,
+ * and a page nested inside it has no way to hand it one. That is the same
+ * channel `--nebula-blend` and `--nebula-opacity` already travel on.
+ *
+ * Every canvas takes its colours from `--nebula-a` and `--nebula-b`, so an
+ * author picks two colours and whichever animation they chose wears them. A
+ * canvas that hard-coded a palette would break that.
+ *
  * Renders one static frame when animation is off rather than nothing, so
- * reduced motion keeps the design and loses only the movement.
+ * reduced motion keeps the design and loses only the movement — and that
+ * applies to every canvas here, not only the nebula.
  */
 export function NebulaCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -253,6 +376,11 @@ export function NebulaCanvas() {
     const draw = (elapsed: number) => {
       const styles = getComputedStyle(document.documentElement);
       const blend = styles.getPropertyValue("--nebula-blend").trim();
+      // The chosen animation, read from the document root because that is where
+      // an actor's theme puts it — the canvas is mounted in the root layout and
+      // cannot be handed a prop by a page nested inside it. An unknown name
+      // falls through to the nebula, which is what an unthemed page shows.
+      const chosen = styles.getPropertyValue("--canvas").trim();
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation =
         blend === "screen" || blend === "multiply"
@@ -265,6 +393,19 @@ export function NebulaCanvas() {
         Number.isFinite(opacity) && opacity > 0 && opacity <= 1
           ? opacity
           : DEFAULT_OPACITY;
+
+      if (chosen === "stars" || chosen === "aurora") {
+        const tints: [number, number, number][] = [
+          readRgb(styles, "--nebula-a"),
+          readRgb(styles, "--nebula-b"),
+        ];
+        if (chosen === "stars") {
+          drawStars(ctx, width, height, dpr, tints, elapsed / 1000);
+        } else {
+          drawAurora(ctx, width, height, tints, elapsed / 1000);
+        }
+        return;
+      }
 
       tiles.forEach((tile, i) => {
         const layer = LAYERS[i]!;

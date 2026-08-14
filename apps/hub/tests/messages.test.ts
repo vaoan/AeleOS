@@ -99,6 +99,9 @@ describe("message catalogues", () => {
       "profile.empty",
       "nav.fursonas",
       "fursonas.types.video",
+      // Latin, and the same word in both languages. The canvases beside it are
+      // translated, which is the evidence this one was considered.
+      "fursonas.canvases.aurora",
     ];
     const untranslated = enKeys.filter(
       (k) => valueAt(en, k) === valueAt(es, k),

@@ -162,6 +162,8 @@
     "themeReset": "Volver al aspecto original",
     "canvases": {
       "nebula": "Nebulosa",
+      "stars": "Estrellas",
+      "aurora": "Aurora",
       "none": "Quieto"
     }
   },

@@ -360,11 +360,26 @@ it as they built it. What the code decided, and why, so it is not undone:
 
 ### Canvases
 
-`CANVASES` holds **exactly the canvases that exist**. It briefly listed two
+`CANVASES` holds **exactly the canvases that exist** — today the nebula, a
+starfield, an aurora, and stillness. It briefly listed two
 more, named for animations nobody had written, and that is the worst kind of
 control: it offers a choice, accepts it, stores it, and changes nothing, with no
 way for the person to learn that it did nothing. **A canvas joins that list in
 the same change that implements it.**
+
+**The backdrop travels at `:root` scope and the accent does not**, and getting
+this wrong once already shipped: the canvas is a fixed, full-viewport element
+mounted in the root layout, and it reads its colours from
+`document.documentElement`. Scoping its inputs to the page's content element
+meant it never saw them — an author could pick two backdrop colours, and they
+were stored, emitted, and read by nothing at all. The chosen canvas travels the
+same way, as `--canvas`, because a client component mounted at the document
+root cannot be handed a prop by a page nested inside it.
+
+Nothing in that root scope varies by mode. An author picks two colours and those
+are the colours in both schemes; what adapts is `--nebula-blend`, which stays in
+`globals.css` — `screen` in dark because dust emits light, `multiply` in light
+because it absorbs it. Same two colours, opposite physics.
 
 Every canvas reads `--nebula-a` and `--nebula-b`, so **an author's two colours
 travel to whichever canvas they pick** rather than each animation inventing its
