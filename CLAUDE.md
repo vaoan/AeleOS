@@ -246,10 +246,10 @@ Key choices and _why_:
 
 ## Current state
 
-🌿 **Phases 1a, 0 and 1b done, and the fursona studio with them — the hub is
-live, another app can hand a person over to it, and somebody can build a
-fursona's page.** Phase 1b-i's 🧑 steps are still open, and the public pages
-those pages are _for_ are designed but not built.
+🌿 **Phases 1a, 0, 1b, the fursona studio and the public pages are done — the
+hub is live, another app can hand a person over to it, somebody can build a
+fursona's page, and a stranger can read it.** Phase 1b-i's 🧑 steps are still
+open. Next is phase 6: images in Supabase Storage.
 
 - **Phase 1a (actor model seam) — done, and the schema is now consolidated.**
   `supabase/migrations/` holds the canonical schema in **ten files, every object
@@ -367,8 +367,8 @@ those pages are _for_ are designed but not built.
   key fails the build; `name_es` on somebody's section is a person who has not
   written the Spanish yet, and must never be reported as a fault.
 
-- **Public pages (phase 5) — designed, not built.** This is the part that
-  changes what the site _is_, so read
+- **Public pages (phase 5) — done.** `/{address}` is a person's profile and
+  `/{address}/{handle}` is one of their fursonas, readable by anybody. Read
   **`apps/hub/src/features/actors/CLAUDE.md`** before touching anything in the
   actors feature. It is authoritative for addressing and newer than the spec.
   In short:
@@ -392,6 +392,15 @@ those pages are _for_ are designed but not built.
   - **A suspension travels to every public page**, the person's own included.
     That rule exists nowhere in the schema today: a fursona whose _owner_ is
     suspended is still `active` itself, so its page would keep serving.
+
+  Two things that phase established beyond the pages themselves. **The schema
+  was consolidated to ten files with every object defined exactly once** — it
+  had grown to fourteen in which six objects were redefined by `create or
+replace`, so the newest body of a function could sit in a file named after
+  something unrelated and restating the wrong ancestor silently reverted a fix.
+  Keep that property. And **`0012` is the only thing `anon` may execute**;
+  `0010_client_grants.sql` is the readable index of the client surface and says
+  where that exception lives.
 
   Plan: `2026-08-13-fursona-studio-phase-5-public-page.md`.
 
