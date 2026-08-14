@@ -1,13 +1,11 @@
 import { getTranslations } from "next-intl/server";
 import {
   FURSONA_TEMPLATES,
-  CANVASES,
   SECTION_TYPES,
-  type CanvasId,
+  themeConfiguratorLabels,
   type FursonaEditorLabels,
   type SectionType,
 } from "@/features/actors";
-import { SKINS, type SkinId } from "@/shared/domain/skins";
 
 /**
  * Resolves every label {@link FursonaForm} needs, on the server where the
@@ -35,10 +33,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
- * The style names come from `SKINS` the same way the canvas names come from
- * `CANVASES` — resolved key by key rather than written out, so a style added to
- * the list without a name in both catalogues fails the build instead of
- * rendering `skins.candy` at somebody.
+ * The theme panel's own eighteen strings are resolved by
+ * `themeConfiguratorLabels`, shared with `/me` — the panel appears in both
+ * places, and those live in route folders that may not import each other, so a
+ * copy here would be one a later string could be added to and not the other.
  *
  * The two cloud labels became one, `canvasColours`, naming the group — the
  * editor renders as many pickers as the chosen canvas actually paints with, so
@@ -118,35 +116,7 @@ export async function fursonaEditorLabels(
     // the toolbar and the theme panel have a `title`, and flattening them would
     // have one silently win — which is the kind of collision a label bag makes
     // easy to create and impossible to see.
-    theme: {
-      title: t("themeTitle"),
-      live: t("themeLive"),
-      gradient: {
-        title: t("gradientTitle"),
-        bar: t("gradientBar"),
-        colour: t("gradientColour"),
-        position: t("gradientPosition"),
-        angle: t("gradientAngle"),
-        add: t("gradientAdd"),
-        remove: t("gradientRemove"),
-      },
-      accent: t("themeAccent"),
-      canvasColours: t("themeCanvasColours"),
-      canvas: t("themeCanvas"),
-      canvases: Object.fromEntries(
-        CANVASES.map((canvas) => [canvas, t(`canvases.${canvas}`)]),
-      ) as Record<CanvasId, string>,
-      skin: t("themeSkin"),
-      skins: Object.fromEntries(
-        SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
-      ) as Record<SkinId, string>,
-      adjusted: t("themeAdjusted"),
-      reset: t("themeReset"),
-      usingDefault: t("themeUsingDefault"),
-      cursor: t("themeCursor"),
-      cursorHint: t("themeCursorHint"),
-      cursorTooBig: t("themeCursorTooBig"),
-    },
+    theme: themeConfiguratorLabels(t),
     linkUrl: t("linkUrl"),
     linkUrlHint: t("linkUrlHint"),
     imageMissing: t("imageMissing"),

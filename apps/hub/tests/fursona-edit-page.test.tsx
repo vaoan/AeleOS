@@ -44,8 +44,10 @@ const { FURSONA_TEMPLATES } =
 // stub would let the suite pass with a catalogue missing a layout that ships.
 const { SECTION_TYPES } =
   await import("@/features/actors/domain/section-schema");
-// Real for the same reason: labels.ts derives one label per canvas from it.
-const { CANVASES } = await import("@/features/actors/domain/actor-theme");
+// Real for the same reason, and it is what derives the canvas and style names:
+// a stub would let the suite pass with a catalogue missing one that ships.
+const { themeConfiguratorLabels } =
+  await import("@/features/actors/presentation/theme-labels");
 
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
@@ -56,7 +58,7 @@ vi.mock("@/features/actors", () => ({
   // again: what stands in for a module has to carry everything the module was
   // being relied on for, and nothing announces a new reliance.
   SECTION_TYPES,
-  CANVASES,
+  themeConfiguratorLabels,
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that
   // would crash loudly if something did try to render it.

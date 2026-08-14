@@ -4,13 +4,31 @@ import { useState } from "react";
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { useSupabaseBrowserClient } from "@/shared/infrastructure/supabase-browser";
 import { updateMyProfile } from "@/features/actors/infrastructure/my-profile";
+import { setActorTheme } from "@/features/actors/infrastructure/actor-theme";
+import type { ActorTheme } from "@/features/actors/domain/actor-theme";
+import {
+  ThemeConfigurator,
+  type ThemeConfiguratorLabels,
+} from "@/features/actors/presentation/theme-configurator";
 import {
   VISIBILITIES,
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
 import { tid } from "@/shared/infrastructure/test-id";
 
-/** Translated strings {@link MyProfileForm} renders. */
+/**
+ * Translated strings {@link MyProfileForm} renders.
+ *
+ * The theme panel's own strings are **nested** under `theme` rather than spread
+ * in beside these, because both bags have a `title` and flattening them would
+ * have one silently win — the same collision the fursona editor's labels avoid
+ * the same way.
+ *
+ * They are resolved by `themeConfiguratorLabels` from the `fursonas` namespace,
+ * shared with the fursona editor: a person's page means exactly what a
+ * fursona's does by "accent" and "backdrop", and the visibility words below are
+ * already shared for the same reason.
+ */
 export interface MyProfileFormLabels {
   /** Heading above the form. */
   title: string;
@@ -32,9 +50,18 @@ export interface MyProfileFormLabels {
   failed: string;
   /** Explains that publishing a profile does not publish the fursonas. */
   hint: string;
+  /** The theme panel's own strings. */
+  theme: ThemeConfiguratorLabels;
 }
 
-/** What {@link MyProfileForm} needs. */
+/**
+ * What {@link MyProfileForm} needs.
+ *
+ * It takes the person's own `actorRef` and their stored theme as well as the
+ * fields, because the theme lives in a different table and is written by a
+ * different function — see the props themselves for why that reference has to
+ * be passed when nothing else here does.
+ */
 export interface MyProfileFormProps {
   /** What is stored now. */
   initial: {
@@ -45,6 +72,18 @@ export interface MyProfileFormProps {
     /** Who may see the page. */
     visibility: Visibility;
   };
+  /**
+   * The person's own actor reference.
+   *
+   * Needed because the theme is stored per actor and `set_actor_theme` takes
+   * one, unlike `update_my_profile`, which derives the target from the token.
+   * It is a suggestion the database checks rather than trusts — passing
+   * somebody else's is refused by `owns_active_actor` with the same "not found"
+   * every other writer answers.
+   */
+  actorRef: string;
+  /** How the page looks now. */
+  initialTheme: ActorTheme;
   /** Already-translated strings. */
   labels: MyProfileFormLabels;
 }
@@ -67,16 +106,31 @@ export interface MyProfileFormProps {
  * otherwise would either expose a character they meant to keep back or wonder
  * why a published one is still missing.
  *
+ * **It carries the theme panel**, which is why a person's profile can look
+ * like anything at all. The column and the public page have supported a theme
+ * since theming shipped; there was simply no screen that wrote one, so every
+ * profile rendered the design's own colours and no owner could tell that was a
+ * gap rather than a rule.
+ *
+ * That makes this form two writes rather than one — see the submit handler for
+ * why they cannot be combined and why a partial save is safe to retry.
+ *
  * It refreshes rather than reloading, so the address and its link — rendered by
  * the server component around it — reflect the new state without losing the
  * page.
  *
  * @returns the form.
  */
-export function MyProfileForm({ initial, labels }: MyProfileFormProps) {
+export function MyProfileForm({
+  initial,
+  actorRef,
+  initialTheme,
+  labels,
+}: MyProfileFormProps) {
   const router = useRouter();
   const client = useSupabaseBrowserClient();
   const [values, setValues] = useState(initial);
+  const [theme, setTheme] = useState(initialTheme);
   const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">(
     "idle",
   );
@@ -87,7 +141,17 @@ export function MyProfileForm({ initial, labels }: MyProfileFormProps) {
       onSubmit={(event) => {
         event.preventDefault();
         setState("saving");
-        void updateMyProfile(client, values)
+        // **Two writes, and either failing is reported as a failure.** The
+        // theme lives in `actor_profiles` and the rest in `actors`, so there is
+        // no single call that stores both — `update_my_profile` deliberately
+        // takes no actor reference, which is what makes it unable to carry a
+        // theme. A half-completed save is possible and is safe to retry: both
+        // calls replace rather than merge, so pressing save again stores the
+        // whole of what is on screen.
+        void Promise.all([
+          updateMyProfile(client, values),
+          setActorTheme(client, actorRef, theme),
+        ])
           .then(() => {
             setState("saved");
             router.refresh();
@@ -156,6 +220,16 @@ export function MyProfileForm({ initial, labels }: MyProfileFormProps) {
       </div>
 
       <p className="text-xs text-[var(--muted)]">{labels.hint}</p>
+
+      {/* The same panel the fursona editor carries, and the same live preview:
+          a person's profile is a public page like any other, and it was the
+          only one with a theme nothing could set — the column stored it, the
+          page rendered it, and no screen anywhere wrote it. */}
+      <ThemeConfigurator
+        value={theme}
+        onChange={setTheme}
+        labels={labels.theme}
+      />
 
       <button
         type="submit"

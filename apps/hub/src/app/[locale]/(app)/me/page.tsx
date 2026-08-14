@@ -7,6 +7,8 @@ import {
   ensurePersonActor,
   getPersonActor,
   readMyAddress,
+  readActorPage,
+  themeConfiguratorLabels,
   MyProfileForm,
 } from "@/features/actors";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
@@ -31,6 +33,11 @@ import { tid } from "@/shared/infrastructure/test-id";
  * address is a link, because the fastest way to know what strangers see is to
  * look.
  *
+ * The form now also carries the THEME panel. A person's profile is a public
+ * page like any other and has stored a theme since theming shipped, but no
+ * screen anywhere wrote one — so every profile rendered the design's own
+ * colours and nothing told its owner that was a gap rather than a rule.
+ *
  * It also carries the form that NAMES and PUBLISHES the profile. Without it a
  * person was provisioned `private` with no way to change that, so their page
  * answered 404 for everybody including them — and publishing without a name
@@ -51,12 +58,22 @@ export default async function MePage({
   const user = await currentUser();
   const actorRef = await ensurePersonActor();
   const actor = await getPersonActor(actorRef);
-  const address = await readMyAddress(await createServerClient());
+  const client = await createServerClient();
+  const address = await readMyAddress(client);
+  // The owner's own read, so a private profile still opens — the public
+  // readers deliberately serve nothing for one.
+  const { theme } = await readActorPage(client, actorRef);
   const t = await getTranslations("profile");
   // The three visibility words already exist under `fursonas`, and a person's
   // profile means the same thing by them. A second copy would be two strings to
   // keep in step for no gain.
   const tVisibility = await getTranslations("fursonas.visibility");
+  // The theme panel's strings live under `fursonas` and are resolved by the
+  // same function the fursona editor uses. A person's page means exactly what
+  // a fursona's does by "accent" and "backdrop", and a second copy would be two
+  // catalogues to keep in step for no gain — the visibility words above are
+  // shared for the same reason.
+  const tFursonas = await getTranslations("fursonas");
 
   return (
     <Card>
@@ -89,6 +106,8 @@ export default async function MePage({
       </dl>
       <div className="mt-8 border-t border-[var(--edge)]/40 pt-6">
         <MyProfileForm
+          actorRef={actorRef}
+          initialTheme={theme}
           initial={{
             displayName: actor?.displayName ?? "",
             avatarUrl: actor?.avatarUrl ?? "",
@@ -109,6 +128,7 @@ export default async function MePage({
             saved: t("saved"),
             failed: t("failed"),
             hint: t("privateHint"),
+            theme: themeConfiguratorLabels(tFursonas),
           }}
         />
       </div>

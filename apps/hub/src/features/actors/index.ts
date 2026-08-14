@@ -60,6 +60,10 @@ export {
   type ActorPage,
 } from "@/features/actors/infrastructure/actor-page";
 export {
+  themeConfiguratorLabels,
+  type Translate,
+} from "@/features/actors/presentation/theme-labels";
+export {
   CANVASES,
   DEFAULT_THEME,
   parseTheme,

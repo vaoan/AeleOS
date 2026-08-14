@@ -148,6 +148,11 @@ test.describe("signed in", () => {
 
     await page.getByTestId("me-display-name").fill("A Real Person");
     await page.getByTestId("me-visibility").selectOption("public");
+    // A profile is a public page like any other, so it themes like one. That
+    // panel was missing here for the whole life of theming: the column stored a
+    // theme, the page rendered it, and no screen wrote one.
+    await page.getByTestId("theme-open").click();
+    await page.getByTestId("theme-skin").selectOption("candy");
     await page.getByTestId("me-save").click();
     await expect(page.getByTestId("me-saved")).toBeVisible();
 
@@ -157,9 +162,20 @@ test.describe("signed in", () => {
       const response = await anonymous.goto(`/es/${address}`);
       expect(response?.status()).toBe(200);
       await expect(anonymous.getByTestId("public-actor-name")).toBeVisible();
+      // The style reached a stranger, and it reached them as the properties it
+      // stands for. Asserting on the word "candy" would pass on a page that
+      // shipped the name and no style at all.
+      const styles = await anonymous.locator("style").allTextContents();
+      expect(styles.join("")).toContain("--skin-border:2px");
     } finally {
       await after.close();
     }
+
+    // And it comes back into the panel, which is the half a write-only control
+    // would still pass without.
+    await page.reload();
+    await page.getByTestId("theme-open").click();
+    await expect(page.getByTestId("theme-skin")).toHaveValue("candy");
   });
 
   // Closes one of the two manual steps phase 1b-i left open: "verify a real
