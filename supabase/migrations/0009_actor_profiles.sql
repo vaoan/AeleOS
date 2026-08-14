@@ -195,8 +195,13 @@ $$;
 -- — `section-limits-match-migration.test.ts` reads this list out of this file
 -- and fails the build when the two disagree, so the drift cannot ship quietly.
 --
--- It is called from a definer function and reads nothing, so `public` keeping
--- execute costs nothing and revoking it would only break the caller.
+-- Revoked from the client roles even though it reads nothing and could leak
+-- nothing — the layout names are in the client bundle already. The reason is
+-- `0010_client_grants.sql`, which is the readable index of what `anon` may
+-- execute and says `0012` is the only exception. A second one that is merely
+-- harmless makes that sentence false, and the next person to read it learns
+-- something untrue about the client surface. `set_actor_sections` is
+-- `security definer`, so it calls this as the owner and never as the caller.
 create or replace function public.is_section_type(p_type text)
 returns boolean
 language sql
@@ -211,6 +216,8 @@ as $$
     'video', 'music', 'carousel', 'links', 'stats', 'quote', 'timeline'
   )
 $$;
+
+revoke all on function public.is_section_type(text) from public, anon;
 
 
 -- ---------------------------------------------------------------------------
