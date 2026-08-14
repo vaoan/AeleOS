@@ -1,3 +1,9 @@
+> **SUPERSEDED on 2026-08-14, the same day.** The Supabase Storage bucket
+> this plan built was removed: AeleOS hosts no files, and every picture is an
+> address somebody pasted. The reasoning is in the root `CLAUDE.md` under
+> "Images are links". This document is kept as the record of what was built
+> and why it was undone, not as a description of the code.
+
 # Fursona studio, phase 6 — images
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

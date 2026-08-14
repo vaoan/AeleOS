@@ -88,7 +88,7 @@ export interface FursonaEditorLabels
  *
  * `initialSections` is separate from `initial` because the two come from
  * different reads: the fields from `my_actors()`, the sections from
- * `actor_profiles`. `0013` deliberately did not join them.
+ * `actor_profiles`. `0009` deliberately did not join them.
  */
 export interface FursonaEditorProps {
   /** Already-translated strings. */
@@ -113,7 +113,7 @@ const LIST = "/fursonas";
  *
  * Composed from the two schemas rather than restated, so neither the field
  * rules nor the section rules exist twice — and `sectionsSchema` is the same
- * one whose limits are checked against `0013` by
+ * one whose limits are checked against `0009` by
  * `section-limits-match-migration.test.ts`.
  */
 /** What the editor's form holds. */
@@ -146,10 +146,6 @@ const editorSchema = fursonaSchema.extend({
  * once navigated away on a refusal, hiding the reason and discarding what
  * somebody had typed.
  *
- * It hands `actorRef` to the section editor as well as using it to save. An
- * uploaded image's path carries that ref, so a gallery item can only offer the
- * upload control once the fursona exists — while creating one, the field takes
- * a pasted address and nothing else.
  *
  * Two error sources meet in one banner: what the schema rejected before
  * anything was sent, and what the database refused afterwards. Both are codes,
@@ -374,7 +370,6 @@ export function FursonaEditor({
         control={control}
         register={register}
         lang={lang}
-        actorRef={actorRef}
         labels={labels}
       />
     </form>

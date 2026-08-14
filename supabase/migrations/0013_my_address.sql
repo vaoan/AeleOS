@@ -1,4 +1,4 @@
--- 0014 — a person can find out their own public address.
+-- 0013 — a person can find out their own public address.
 --
 -- `0011` gives everybody a permanent number and optionally a vanity, and `0012`
 -- serves their profile at `/{address}`. Nothing let them LEARN that address:

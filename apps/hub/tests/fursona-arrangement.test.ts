@@ -25,7 +25,7 @@ function client(): SupabaseClient {
     rpc,
     from: () => ({ select }),
     // deleteFursona removes an actor's pictures before marking the row, so the
-    // client it is handed must carry storage. See 0013 for why the database
+    // client it is handed must carry storage. See 0009 for why the database
     // cannot do this itself.
     storage: { from: () => ({ list, remove }) },
   } as unknown as SupabaseClient;
@@ -163,7 +163,7 @@ describe("the write functions", () => {
     });
   });
 
-  // Sends the whole document, because 0013 replaces rather than merges — which
+  // Sends the whole document, because 0009 replaces rather than merges — which
   // is also what makes retrying a failed save safe.
   it("writes sections by actor ref", async () => {
     const sections = [
@@ -183,47 +183,21 @@ describe("the write functions", () => {
     });
   });
 
-  // THE ORDER IS THE DESIGN, not an implementation detail. The storage delete
-  // policy resolves through owns_active_actor, which requires status =
-  // 'active' — so once the row is marked deleted its owner can no longer remove
-  // its pictures, and they would sit in a bucket nobody can reclaim from.
-  describe("and its pictures", () => {
-    it("removes the images BEFORE marking the row", async () => {
-      const order: string[] = [];
-      list.mockImplementation(async () => {
-        order.push("list");
-        return { data: [{ name: "a.png" }], error: null };
-      });
-      remove.mockImplementation(async () => {
-        order.push("remove");
-        return { error: null };
-      });
-      rpc.mockImplementation(async () => {
-        order.push("rpc");
-        return { data: null, error: null };
-      });
-
-      await deleteFursona(client(), "ref-1");
-      expect(order).toEqual(["list", "remove", "rpc"]);
-    });
-
-    // Deliberately: the fursona survives, the person is told, and a retry is
-    // safe. Deleting anyway would trade a visible failure for storage nobody
-    // can ever free.
-    it("does not delete the fursona when the images cannot be removed", async () => {
-      list.mockResolvedValue({ data: [{ name: "a.png" }], error: null });
-      remove.mockResolvedValue({ error: { message: "denied" } });
-
-      await expect(deleteFursona(client(), "ref-1")).rejects.toThrow(/denied/);
-      expect(rpc).not.toHaveBeenCalled();
-    });
-
-    it("deletes a fursona that never had a picture", async () => {
-      await expect(deleteFursona(client(), "ref-1")).resolves.toBeUndefined();
-      expect(rpc).toHaveBeenCalledWith("delete_fursona", {
-        p_actor_ref: "ref-1",
-      });
-    });
+  // A delete is ONE write again. It used to sweep the fursona's uploaded
+  // pictures out of a storage bucket first, in a forced order, because the
+  // storage delete policy required the actor to still be active — so marking
+  // the row first would have stranded files nobody could reclaim.
+  //
+  // There is no bucket now: a picture is an address somebody pasted at a host
+  // that was never ours, so there is nothing here to clean up and no order to
+  // get wrong. The two tests that pinned that order are gone with the feature
+  // rather than left passing against a mock of something absent.
+  it("touches nothing but the row", async () => {
+    const c = client();
+    await deleteFursona(c, "ref-1");
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(list).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it.each([

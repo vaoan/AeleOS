@@ -16,7 +16,6 @@ import {
   IconPicker,
   type IconPickerLabels,
 } from "@/features/actors/presentation/icon-picker";
-import { ImageField } from "@/features/actors/presentation/image-field";
 
 /**
  * Translated strings {@link SectionItemFields} renders.
@@ -26,6 +25,10 @@ import { ImageField } from "@/features/actors/presentation/image-field";
  * resolving its own — a component that resolved its own would need the
  * catalogue in the browser.
  *
+ * The upload's strings are gone with the bucket it needed. A picture is a
+ * pasted address now, so `imageUrl` carries a hint saying so — a field named
+ * for an image reads as a place to put a file until somebody is told it is not.
+ *
  * It carries a label for every optional field an item can hold, including the
  * ones most layouts never show. The bag is per-component and not per-layout on
  * purpose: which fields appear is decided by `LINKED`, `ICONED` and `PICTURED`
@@ -33,18 +36,6 @@ import { ImageField } from "@/features/actors/presentation/image-field";
  * step and one of them silently winning.
  */
 export interface SectionItemFieldsLabels extends IconPickerLabels {
-  /** Names the upload control. */
-  imageUpload: string;
-  /** Shown while a file is going up. */
-  imageUploading: string;
-  /** Shown when a file is too large. */
-  imageTooLarge: string;
-  /** Shown when a file is the wrong kind. */
-  imageWrongType: string;
-  /** Shown when the upload itself failed. */
-  imageFailed: string;
-  /** Warns that an uploaded picture outlives the fursona's visibility. */
-  imageStaysPublic: string;
   /** Field label for the item's title. */
   itemTitle: string;
   /** Field label for the item's description. */
@@ -53,6 +44,8 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
   removeItem: string;
   /** Field label for a gallery item's image address. */
   imageUrl: string;
+  /** Says that a picture is a link and nothing is stored. */
+  imageUrlHint: string;
   /** Field label for the address a media or link item points at. */
   linkUrl: string;
   /** Says which addresses become a player and what happens to the rest. */
@@ -70,8 +63,6 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
  * typed into a plain input any more — one is chosen by a picker and the other
  * can be written by an upload.
  *
- * `actorRef` is what makes the upload possible: an object's path carries it, so
- * while a fursona is being created the field takes a pasted address only.
  */
 export interface SectionItemFieldsProps<T extends FieldValues> {
   /** The form's control, for the fields no plain input can drive. */
@@ -89,7 +80,6 @@ export interface SectionItemFieldsProps<T extends FieldValues> {
    * actor's ref, and there is no ref until the fursona exists. Absent simply
    * means the upload control is not offered yet.
    */
-  actorRef?: string;
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
   /** Already-translated strings. */
@@ -123,7 +113,7 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  *
  * **An unwritten Spanish value renders as an empty field and nothing else.** No
  * warning, no placeholder nagging about it, no badge. The Spanish is the
- * author's to write when they choose, and `0013` accepts its absence.
+ * author's to write when they choose, and `0009` accepts its absence.
  *
  * `linkUrl` and `linkUrlHint` name the address field the media and link
  * layouts carry. The hint says which addresses become a player and what happens
@@ -142,11 +132,18 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * `type === "cards" || type === "links"` repeated three times is the shape that
  * quietly loses a layout when a fourth is added.
  *
- * A gallery item's address can now be uploaded as well as pasted, and both go
- * to the same field — see `ImageField`, which owns that choice and the warning
- * that comes with it.
+ * **A picture is an address somebody pasted, and nothing here stores a file.**
+ * That is the platform's rule for every piece of external media — see
+ * `embeds.ts` for the same shape applied to players — and it is a budget
+ * decision before it is a technical one: hosting other people's images is the
+ * one cost on a profile builder that grows with how much people enjoy it.
  *
- * Nothing is erased when the layout changes. `0013` accepts both columns on any
+ * There was an upload control here, backed by a Supabase Storage bucket. It is
+ * gone, and with it the warning it needed about an uploaded picture outliving
+ * the visibility of the fursona that carried it — a pasted address has never
+ * had that property, because the file was never ours.
+ *
+ * Nothing is erased when the layout changes. `0009` accepts both columns on any
  * item, so switching a section to `gallery` to look at it and switching back
  * finds the icon still there.
  *
@@ -157,7 +154,6 @@ export function SectionItemFields<T extends FieldValues>({
   register,
   path,
   type,
-  actorRef,
   lang,
   labels,
   onRemove,
@@ -172,8 +168,9 @@ export function SectionItemFields<T extends FieldValues>({
   // being typed — a value read once at mount would leave somebody entering a
   // URL into a box that never shows them anything.
   const icon = useController({ control, name: `${path}.icon` as Path<T> });
-  // A controller rather than a register, because an upload writes the value
-  // rather than somebody typing it.
+  // Still a controller rather than a register: the preview has to follow what
+  // is being typed, and a value read once at mount would leave somebody
+  // entering an address into a box that never shows them anything.
   const image = useController({
     control,
     name: `${path}.image_url` as Path<T>,
@@ -227,21 +224,22 @@ export function SectionItemFields<T extends FieldValues>({
               {labels.imageMissing}
             </span>
           )}
-          <div className="flex-1">
-            <ImageField
-              actorRef={actorRef}
+          <div className="grid flex-1 gap-1.5">
+            <label htmlFor={`${id}-image`} className="text-xs font-medium">
+              {labels.imageUrl}
+            </label>
+            <input
+              id={`${id}-image`}
+              type="url"
+              inputMode="url"
               value={String(imageUrl ?? "")}
-              onChange={(url) => image.field.onChange(url)}
-              labels={{
-                address: labels.imageUrl,
-                upload: labels.imageUpload,
-                uploading: labels.imageUploading,
-                tooLarge: labels.imageTooLarge,
-                wrongType: labels.imageWrongType,
-                failed: labels.imageFailed,
-                staysPublic: labels.imageStaysPublic,
-              }}
+              onChange={(event) => image.field.onChange(event.target.value)}
+              aria-describedby={`${id}-image-hint`}
+              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
             />
+            <p id={`${id}-image-hint`} className="text-xs text-[var(--muted)]">
+              {labels.imageUrlHint}
+            </p>
           </div>
         </div>
       ) : null}

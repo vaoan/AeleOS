@@ -41,9 +41,6 @@ export interface SectionCardLabels extends SectionItemFieldsLabels {
 /**
  * What {@link SectionCard} needs.
  *
- * `actorRef` is passed through rather than used here: an uploaded image's path
- * carries it, so the item fields need it to offer an upload at all. Absent
- * means the fursona does not exist yet.
  */
 export interface SectionCardProps<T extends FieldValues> {
   /** The form's control, for this section's item array. */
@@ -55,7 +52,6 @@ export interface SectionCardProps<T extends FieldValues> {
   /** Its position, for the label a screen reader reads. */
   index: number;
   /** The fursona being edited, absent while creating one. */
-  actorRef?: string;
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
   /** Already-translated strings. */
@@ -86,7 +82,6 @@ const EMPTY_ITEM = {
  * address on `gallery` — and the value is watched rather than read once, so
  * changing the layout changes the fields without a save in between.
  *
- * It passes `actorRef` down untouched — see the props for why an item needs it.
  *
  * Collapsing hides the items and keeps the header, so a fursona with several
  * long sections stays navigable. It is local state rather than form state: it
@@ -99,7 +94,6 @@ export function SectionCard<T extends FieldValues>({
   register,
   path,
   index,
-  actorRef,
   lang,
   labels,
   onRemove,
@@ -181,7 +175,6 @@ export function SectionCard<T extends FieldValues>({
               control={control}
               register={register}
               type={(type ?? "cards") as SectionType}
-              actorRef={actorRef}
               path={`${path}.items.${itemIndex}`}
               lang={lang}
               labels={labels}

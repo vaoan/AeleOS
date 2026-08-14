@@ -113,6 +113,7 @@
       "timeline": "Historia"
     },
     "imageUrl": "Dirección de la imagen",
+    "imageUrlHint": "Pega el enlace de una imagen. No se sube nada: se queda donde tú la alojas.",
     "linkUrl": "Dirección del enlace",
     "linkUrlHint": "Un enlace de YouTube, Vimeo, Spotify o SoundCloud se reproduce aquí. Cualquier otro se convierte en un botón.",
     "imageMissing": "Sin imagen",
@@ -144,12 +145,6 @@
         "description": "El traje en sí: quién lo hizo, de qué, y dónde ha estado."
       }
     },
-    "imageUpload": "Sube una imagen",
-    "imageUploading": "Subiendo…",
-    "imageTooLarge": "Ese archivo pasa de 2 MB. Elige uno más pequeño.",
-    "imageWrongType": "Esa no es una imagen que podamos guardar. Usa PNG, JPEG, WebP o GIF.",
-    "imageFailed": "La subida no funcionó. Inténtalo de nuevo.",
-    "imageStaysPublic": "Una imagen subida sigue siendo accesible por su dirección, aunque después hagas privada esta fursona.",
     "themeTitle": "Colores y fondo",
     "themeLive": "Los cambios se ven al instante",
     "themeAccent": "Color principal",

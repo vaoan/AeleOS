@@ -31,7 +31,7 @@ export const SECTION_TYPES = [
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 /**
- * What `0013` will accept, mirrored so somebody hears about a cap while typing.
+ * What `0009` will accept, mirrored so somebody hears about a cap while typing.
  *
  * **The database is authoritative and this is a copy**, which is a thing worth
  * being nervous about: a copy that drifts either rejects what the database
@@ -39,7 +39,7 @@ export type SectionType = (typeof SECTION_TYPES)[number];
  * stay right — `section-limits-match-migration.test.ts` reads the migration and
  * fails if any of these four stops matching.
  *
- * Change one of these only by changing `0013` too. The guard will say so.
+ * Change one of these only by changing `0009` too. The guard will say so.
  */
 export const SECTION_LIMITS = {
   /** Sections per fursona. */
@@ -104,7 +104,7 @@ export const sectionSchema = z.object({
 /**
  * Everything a fursona's page is made of.
  *
- * The byte cap is checked last, on the serialised value, exactly as `0013`
+ * The byte cap is checked last, on the serialised value, exactly as `0009`
  * does — it is the backstop that catches a payload legal in every individual
  * field and ruinous in total, which no per-field rule can see.
  */

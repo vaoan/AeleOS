@@ -41,7 +41,7 @@ export interface IconPickerProps {
  * Chooses one lucide icon for a section item, or none.
  *
  * **The stored value is checked against `iconNames` before it reaches
- * `DynamicIcon`.** `icon` is free text as far as `0013` is concerned, so a name
+ * `DynamicIcon`.** `icon` is free text as far as `0009` is concerned, so a name
  * from anywhere but this picker — an older row, a hand-written payload — must
  * render as the empty state rather than take the editor down. Libra converts
  * PascalCase here because its database holds legacy values; ours holds only

@@ -431,25 +431,32 @@ replace`, so the newest body of a function could sit in a file named after
 
   Plan: `2026-08-13-fursona-studio-phase-5-public-page.md`.
 
-- **Images (phase 6) — done.** `0013` adds one Supabase Storage bucket,
-  `actor-images`, written only through RLS resolving `owns_active_actor`. Three
-  things about it constrain later work:
+- **Images are links, and nothing is stored (2026-08-14).** Every picture on a
+  page is an address somebody pasted, exactly like the video and music players
+  — see `embeds.ts`. **AeleOS hosts no files at all.**
 
-  - **It is public to read**, because a private bucket means signed URLs and
-    those expire — useless in a page meant to be shared and indexed. So an
-    uploaded picture stays reachable by its address even after the fursona is
-    made private, and the editor says so beside the upload control. Do not
-    describe visibility to somebody as though it un-published an image.
-  - **The path is the authorization** — `actor/{actor_ref}/{random}.{ext}` — so
-    its shape is part of the contract, not a convention.
-  - **The database cannot delete storage objects.** Supabase's
-    `storage.protect_delete()` refuses direct deletion from the storage tables
-    for every role. So `deleteFursona` removes the images through the Storage
-    API **before** marking the row — forced, because the delete policy requires
-    `status = 'active'` — and a failed cleanup stops the delete rather than
-    stranding pictures nobody can reach.
+  This replaced a working Supabase Storage bucket. The reason is the $0 budget
+  rather than a technical one: hosting other people's images is the single cost
+  on a profile builder that grows with how much people enjoy it, and it is the
+  one that can be avoided outright. Storage on the free plan is 1 GB at no
+  charge, so this was a deliberate choice made with that known, not a reaction
+  to a bill.
 
-  Plan: `2026-08-14-fursona-studio-phase-6-images.md`.
+  What went with the bucket is worth recording, because each was load-bearing
+  and none of it is needed now:
+
+  - The **public-read caveat** — an uploaded picture stayed reachable by its
+    address even after its fursona was made private, so the editor had to say
+    so beside the upload control. A pasted address never had that property,
+    because the file was never ours to un-publish.
+  - The **path-as-authorization** contract, `actor/{actor_ref}/{random}.{ext}`.
+  - The **forced delete order**. `deleteFursona` had to sweep the bucket before
+    marking the row, because the storage delete policy resolved through
+    `owns_active_actor` and a deleted actor could no longer reclaim its own
+    files. A delete is one write again.
+
+  **Do not reintroduce an upload without reopening the budget question**, and if
+  it is ever reopened, the three constraints above come back with it.
 
 **CI gates on `main`:** four jobs are **required**, and a pull request cannot
 merge until all four report green — `conformance` (schema suite), `hub` (hub and

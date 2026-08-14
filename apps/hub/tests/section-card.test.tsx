@@ -32,6 +32,7 @@ const labels = {
   itemTitle: "Title",
   itemDescription: "Description",
   imageUrl: "Image address",
+  imageUrlHint: "Paste a link to a picture.",
   linkUrl: "Link address",
   linkUrlHint: "A video or music link plays here.",
   imageMissing: "No image yet",
@@ -40,12 +41,6 @@ const labels = {
   noIconsFound: "No icons match that.",
   clearIcon: "Remove the icon",
   noIcon: "No icon",
-  imageUpload: "Upload a picture",
-  imageUploading: "Uploading…",
-  imageTooLarge: "That file is over 2 MB.",
-  imageWrongType: "That is not an image we can store.",
-  imageFailed: "The upload did not work.",
-  imageStaysPublic: "An uploaded picture stays reachable by its address.",
   // Derived, so a new layout does not need remembering in four fixtures. The
   // name is the type, which is all any assertion here cares about.
   types: Object.fromEntries(

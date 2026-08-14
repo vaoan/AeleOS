@@ -34,6 +34,11 @@ import {
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * The upload's six strings are gone with the bucket. What remains for a picture
+ * is `imageUrl` and a hint saying it is a link and nothing is stored — which
+ * has to be said, because a field called "image" beside a fursona editor reads
+ * as a place to put a file until somebody is told otherwise.
+ *
  * The theme panel's strings are **nested** under `theme` rather than spread in
  * beside everything else. Both it and the toolbar have a `title`, and a flat
  * bag would have one silently win — a collision this shape of object makes easy
@@ -83,6 +88,7 @@ export async function fursonaEditorLabels(
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),
     imageUrl: t("imageUrl"),
+    imageUrlHint: t("imageUrlHint"),
     // Nested rather than spread into the same bag as everything else. Both
     // the toolbar and the theme panel have a `title`, and flattening them would
     // have one silently win — which is the kind of collision a label bag makes
@@ -110,12 +116,6 @@ export async function fursonaEditorLabels(
     noIconsFound: t("noIconsFound"),
     clearIcon: t("clearIcon"),
     noIcon: t("noIcon"),
-    imageUpload: t("imageUpload"),
-    imageUploading: t("imageUploading"),
-    imageTooLarge: t("imageTooLarge"),
-    imageWrongType: t("imageWrongType"),
-    imageFailed: t("imageFailed"),
-    imageStaysPublic: t("imageStaysPublic"),
     useTemplate: t("useTemplate"),
     templateConfirm: t("templateConfirm"),
     templateConfirmYes: t("templateConfirmYes"),

@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { removeActorImages } from "@/features/actors/infrastructure/actor-images";
 import type { Actor } from "@/features/actors/infrastructure/fursonas";
 
 /** How one fursona is arranged in its owner's list. */
@@ -137,13 +136,11 @@ export async function setFursonaFeatured(
  * occupying its owner's quota, or deleting would become a way to buy allowance
  * back.
  *
- * **The images go first, and the order is forced rather than preferred.** The
- * storage delete policy resolves through `owns_active_actor`, which requires
- * `status = 'active'`: the moment the row is marked deleted, its owner can no
- * longer remove its pictures, and they would be stranded in a bucket nobody can
- * reclaim from. `0013` explains why the database cannot do this itself — a
- * `security definer` function owned by `postgres` is refused by
- * `storage.objects`, which belongs to `supabase_storage_admin`.
+ * **Nothing has to be swept up first any more.** This used to remove the
+ * fursona's uploaded images before marking the row, in a forced order, because
+ * the storage delete policy required the actor to still be active. There is no
+ * bucket now — a picture is an address somebody pasted at a host that was never
+ * ours — so a delete is one write again.
  *
  * So a failed cleanup **stops the delete**, deliberately. The fursona survives,
  * the person is told, and a second attempt is safe because removing an already
@@ -152,14 +149,13 @@ export async function setFursonaFeatured(
  *
  * @param client - a Supabase client authenticated as the person.
  * @param actorRef - the fursona to delete.
- * @throws when the images cannot be removed, or when the caller does not own an
+ * @throws when the caller does not own an
  * active fursona with that ref. The fursona is intact in both cases.
  */
 export async function deleteFursona(
   client: SupabaseClient,
   actorRef: string,
 ): Promise<void> {
-  await removeActorImages(client, actorRef);
   await call(client, "delete_fursona", { p_actor_ref: actorRef });
 }
 

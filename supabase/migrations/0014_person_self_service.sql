@@ -1,6 +1,6 @@
--- 0016 — a person may edit and publish their own profile.
+-- 0014 — a person may edit and publish their own profile.
 --
--- `0012` serves `/{address}` from `public_person`, and `0015` made a fursona's
+-- `0012` serves `/{address}` from `public_person`, and `0012` made a fursona's
 -- page obey its own visibility. Both left the same hole: **a person is
 -- provisioned `private` and had no way to change it**, so their profile page
 -- 404'd for everybody, permanently, including themselves.

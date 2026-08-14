@@ -342,7 +342,7 @@ describe("public_fursona", () => {
       expect((await readPerson(p.number)).rows).toHaveLength(0);
     });
 
-    // THIS ASSERTION WAS REVERSED IN 0015, DELIBERATELY. It used to require the
+    // THIS ASSERTION WAS REVERSED WHEN 0015 FOLDED INTO 0012, DELIBERATELY. It used to require the
     // owner's visibility to be public or unlisted, on the reasoning that a
     // private person's address should not become a directory of their
     // characters. That made a fursona's own `public` setting mean nothing: a
