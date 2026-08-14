@@ -254,6 +254,11 @@ export function isThemed(theme: ActorTheme): boolean {
  * keeps the editor honest: what somebody sees while choosing is produced by the
  * code that will render the page for a stranger.
  *
+ * `none` travels as the canvas's NAME rather than as an opacity of zero. The
+ * opacity route silently did nothing — the canvas rejects a non-positive value
+ * as unset and draws the default — and a name is reversible without any state
+ * to reset.
+ *
  * A theme with no background emits only the cloud colours and the canvas, since
  * there is nothing to solve the rest against. In practice that state is
  * unreachable from the editor — `withChosenColour` fills every colour the
@@ -276,7 +281,6 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
       : {}),
     ...(cloudA ? { "--nebula-a": cloudA } : {}),
     ...(cloudB ? { "--nebula-b": cloudB } : {}),
-    ...(theme.canvas === "none" ? { "--nebula-opacity": "0" } : {}),
     ...(theme.canvas === DEFAULT_THEME.canvas
       ? {}
       : { "--canvas": theme.canvas }),
@@ -316,6 +320,11 @@ export function accentPreview(
  * renderings; there is only one rendering now, so there is nothing to pick
  * between.
  *
+ * **The rule is gated on the visitor's own choice.** A page wears its owner's
+ * colours by default and a visitor may take them off — see `page-theme.ts` for
+ * why that lives on its own attribute rather than as a third value of the
+ * light/dark one.
+ *
  * `:root` rather than a scoped class because a theme is the whole page: the
  * field the body paints, and the canvas mounted in the root layout, are both
  * outside anything a page could scope to. Scoping the earlier version to a
@@ -334,5 +343,10 @@ export function themeCss(theme: ActorTheme): string {
   const body = Object.entries(themeVars(theme))
     .map(([name, value]) => `${name}:${value}`)
     .join(";");
-  return body ? `:root{${body}}` : "";
+  // `:not([data-page-theme="default"])` rather than `[data-page-theme="author"]`,
+  // and the difference is what a visitor with no JavaScript sees. The attribute
+  // is written by a pre-paint script; matching on its ABSENCE as well as on
+  // "author" means a page still wears its owner's colours when that script
+  // never ran, and only an explicit opt-out takes them off.
+  return body ? `:root:not([data-page-theme="default"]){${body}}` : "";
 }

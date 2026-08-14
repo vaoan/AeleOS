@@ -372,8 +372,26 @@ decisions, so they are not quietly undone:
   anything a page could scope to. Scoping to a nested element is exactly why an
   earlier version reached neither.
 
-Still to decide: **how a visitor switches** between the author's theme and the
-two defaults. The three options exist in the design; the control does not.
+### How a visitor gets out
+
+**A page wears its owner's colours by default, and `PageThemeSwitch` is the way
+out.** Both halves matter: a page nobody can leave the theme of is a page
+somebody can be locked out of reading, and it is that control existing which
+lets an author's colours be as unreadable as they like without it being anybody
+else's problem.
+
+- **Its own attribute, `data-page-theme`, not a third value of `data-theme`.**
+  A visitor holds two answers at once — whether to wear this author's colours,
+  and which default to fall back to otherwise. Folding them together loses the
+  second the moment the first is turned on.
+- **The rule is `:root:not([data-page-theme="default"])`**, matching the
+  attribute's ABSENCE as well as "author". The attribute is written by a
+  pre-paint script, so a visitor whose JavaScript never ran still sees the
+  theme; only an explicit opt-out removes it.
+- **Choosing a default writes both**: it takes the author's theme off and names
+  which default replaces it. Doing only the first leaves the page on whichever
+  scheme that visitor last happened to be in.
+- **The switch renders only where there is a theme to leave.**
 
 ### Canvases
 

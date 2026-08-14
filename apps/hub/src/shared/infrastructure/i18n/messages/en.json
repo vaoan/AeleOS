@@ -199,6 +199,10 @@
   },
   "publicProfile": {
     "notFoundTitle": "Not found",
-    "fursonas": "Fursonas"
+    "fursonas": "Fursonas",
+    "pageThemeTitle": "How this page looks",
+    "pageThemeAuthor": "Their theme",
+    "pageThemeLight": "Light",
+    "pageThemeDark": "Dark"
   }
 }

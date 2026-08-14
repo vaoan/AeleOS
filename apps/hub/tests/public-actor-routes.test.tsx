@@ -17,6 +17,9 @@ vi.mock("@/features/actors", () => ({
   // omitted, or the route renders nothing and every branch assertion below
   // becomes vacuous.
   ThemeScope: ({ children }: { children: unknown }) => children,
+  // The routes ask this before rendering the visitor's switch. A mocked barrel
+  // that omits it fails the route rather than the theme code.
+  isThemed: () => false,
 }));
 
 vi.mock("next/navigation", () => ({ notFound: () => notFound() }));

@@ -35,7 +35,7 @@ describe("ThemeScope", () => {
       </ThemeScope>,
     );
     const css = container.querySelector("style")?.textContent ?? "";
-    expect(css.startsWith(":root{")).toBe(true);
+    expect(css).toContain(':root:not([data-page-theme="default"])');
     expect(css).not.toContain("prefers-color-scheme");
   });
 });

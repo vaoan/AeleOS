@@ -4,6 +4,7 @@ import { getLocale } from "next-intl/server";
 import { NebulaCanvas } from "@/shared/presentation/nebula-canvas";
 import { display, mono, sans } from "@/shared/infrastructure/fonts";
 import { THEME_SCRIPT } from "@/shared/application/theme";
+import { PAGE_THEME_SCRIPT } from "@/shared/application/page-theme";
 import "./globals.css";
 
 /**
@@ -41,6 +42,12 @@ import "./globals.css";
  * window's background, not any page's content: a page that forgot it would
  * lose the design. `body` is `isolate` so the canvas's negative z-index stays
  * behind this app's content instead of competing with whatever a page renders.
+ * Two pre-paint scripts, not one. The first decides light or dark; the second
+ * decides whether a page that has an owner's theme should wear it. Both run
+ * before first paint for the same reason — doing either after hydration shows a
+ * frame of the wrong palette, and on a themed page that frame is the whole
+ * design changing under the visitor.
+ *
  */
 export default async function RootLayout({
   children,
@@ -61,6 +68,10 @@ export default async function RootLayout({
       >
         <head>
           <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+          {/* Whether to wear the author's theme on a page that has one. Both
+              scripts are module constants with no interpolation, which is what
+              makes injecting them safe — see their own notes. */}
+          <script dangerouslySetInnerHTML={{ __html: PAGE_THEME_SCRIPT }} />
         </head>
         {/* `isolate` gives the canvas its own stacking context, so its -z-10
             stays behind this app's content rather than competing with whatever

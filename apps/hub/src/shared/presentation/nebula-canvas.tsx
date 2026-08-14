@@ -400,6 +400,10 @@ function readRgb(
  * happen. The animated path compares each frame; the still path is told by a
  * mutation observer, because nothing redraws there unless something says so.
  *
+ * **`none` is honoured by name.** It used to be expressed as an opacity of
+ * zero, which silently did nothing: a non-positive opacity is rejected below as
+ * unset, so a page asking for no canvas drew the ordinary one.
+ *
  * The starfield is Moonfest's, ported from `eclipse-con`: three parallax
  * layers, stars crowded toward the top, two oscillators per star, diffraction
  * spikes on the bright ones, and streaks crossing on a cycle.
@@ -484,6 +488,17 @@ export function NebulaCanvas() {
       // falls through to the nebula, which is what an unthemed page shows.
       const chosen = styles.getPropertyValue("--canvas").trim();
 
+      // **`none` is handled here, by name.** It used to be expressed as an
+      // opacity of zero, which never worked: the guard below rejects a
+      // non-positive opacity as unset and substitutes the default, so a page
+      // asking for no canvas got the ordinary one. Reading the name means the
+      // choice is reversible too — the next frame after somebody picks a canvas
+      // again draws it, with no state to reset.
+      if (chosen === "none") {
+        ctx.clearRect(0, 0, width, height);
+        return;
+      }
+
       // Rebuild when the theme's colours have moved. Checked here rather than
       // watched, because the values arrive as a `<style>` element React
       // replaces on every keystroke of a colour input — a mutation observer for
@@ -500,8 +515,11 @@ export function NebulaCanvas() {
       const opacity = Number.parseFloat(
         styles.getPropertyValue("--nebula-opacity"),
       );
+      // `>= 0`, not `> 0`. Zero is a value somebody may legitimately set and
+      // rejecting it as "unset" is what made an explicit request for no cloud
+      // draw the default one instead.
       ctx.globalAlpha =
-        Number.isFinite(opacity) && opacity > 0 && opacity <= 1
+        Number.isFinite(opacity) && opacity >= 0 && opacity <= 1
           ? opacity
           : DEFAULT_OPACITY;
 

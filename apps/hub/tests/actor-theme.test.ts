@@ -121,10 +121,13 @@ describe("themeVars", () => {
     expect(vars["--nebula-b"]).toBe("255 255 255");
   });
 
-  it("switches the cloud off for the none canvas", () => {
-    expect(themeVars({ ...THEMED, canvas: "none" })["--nebula-opacity"]).toBe(
-      "0",
-    );
+  // `none` travels as the canvas's NAME. It used to travel as an opacity of
+  // zero, which silently did nothing: the canvas rejects a non-positive opacity
+  // as unset and draws the ordinary cloud instead.
+  it("switches the cloud off by naming the canvas, not by zeroing it", () => {
+    const vars = themeVars({ ...THEMED, canvas: "none" });
+    expect(vars["--canvas"]).toBe("none");
+    expect(vars["--nebula-opacity"]).toBeUndefined();
   });
 
   it("names the canvas when it is not the default", () => {
@@ -185,11 +188,19 @@ describe("themeCss", () => {
 
   // One rule, no media queries. Both are consequences of a theme being one
   // palette: there is only one rendering, so there is nothing to pick between.
-  it("emits a single :root rule", () => {
+  it("emits a single rule with no scheme to pick between", () => {
     const css = themeCss(THEMED);
-    expect(css.startsWith(":root{")).toBe(true);
     expect(css).not.toContain("prefers-color-scheme");
-    expect(css).not.toContain("data-theme");
+    expect(css.match(/\{/g)).toHaveLength(1);
+  });
+
+  // Gated on the ABSENCE of an opt-out rather than the presence of an opt-in,
+  // so a page still wears its owner's colours when the pre-paint script never
+  // ran — a visitor with no JavaScript gets the theme, not the fallback.
+  it("applies unless the visitor has opted out", () => {
+    expect(themeCss(THEMED)).toContain(
+      ':root:not([data-page-theme="default"]){',
+    );
   });
 
   // The field the body paints and the canvas in the root layout are both

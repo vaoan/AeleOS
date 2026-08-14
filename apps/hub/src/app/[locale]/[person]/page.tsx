@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { PageShell } from "@/shared/presentation/page-shell";
-import { PublicProfile, ThemeScope, readPublicPerson } from "@/features/actors";
+import {
+  PublicProfile,
+  ThemeScope,
+  isThemed,
+  readPublicPerson,
+} from "@/features/actors";
 
 /**
  * Metadata for a person's public profile.
@@ -58,6 +64,11 @@ export async function generateMetadata({
  * the visitor's own toggle, so somebody who needs a dark page gets one wearing
  * the owner's colours rather than instead of them.
  *
+ * A visitor may leave the theme: `PageThemeSwitch` offers the owner's colours
+ * and each of the app's two defaults, and it renders only where there is a
+ * theme to leave. That control existing is what lets an author's colours be as
+ * unreadable as they like without it being anybody else's problem.
+ *
  */
 export default async function PublicPersonPage({
   params,
@@ -75,6 +86,20 @@ export default async function PublicPersonPage({
   return (
     <PageShell width="wide">
       <ThemeScope theme={actor.theme}>
+        {/* Only where there is a theme to leave. A control offering to remove
+            colours a page never had is a control that does nothing. */}
+        {isThemed(actor.theme) ? (
+          <div className="mb-6 flex justify-end">
+            <PageThemeSwitch
+              labels={{
+                title: t("pageThemeTitle"),
+                author: t("pageThemeAuthor"),
+                light: t("pageThemeLight"),
+                dark: t("pageThemeDark"),
+              }}
+            />
+          </div>
+        ) : null}
         <PublicProfile
           actor={actor}
           locale={locale}

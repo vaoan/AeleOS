@@ -75,15 +75,45 @@ test.describe("authentication gate", () => {
   // Tailwind v4's Preflight drops the pointer cursor browsers give buttons, so
   // every button in the app rendered with an arrow. It is invisible in a
   // screenshot and obvious the moment you use the page.
-  test("every button shows a pointer cursor", async ({ page }) => {
+  //
+  // Two rules, because `globals.css` states two: an enabled button shows a
+  // pointer and a **disabled one shows `not-allowed`**. This asserted that
+  // every button was a pointer, which contradicts the second half — it passed
+  // only for as long as this page happened to render no disabled buttons, and
+  // started failing the moment one appeared. A guard that holds by luck is not
+  // guarding anything.
+  //
+  // Polled rather than read once: the suite runs against `pnpm dev`, where Next
+  // injects the stylesheet through the client bundle, so there is a window in
+  // which the buttons exist and none of this applies yet.
+  test("every button shows the cursor its state calls for", async ({
+    page,
+  }) => {
     await page.goto("/sign-in");
-    const cursors = await page
-      .locator("button")
-      .evaluateAll((els) =>
-        els.map((el) => getComputedStyle(el as HTMLElement).cursor),
-      );
-    expect(cursors.length).toBeGreaterThan(0);
-    expect(cursors.every((cursor) => cursor === "pointer")).toBe(true);
+    await expect
+      .poll(
+        async () => {
+          const seen = await page.locator("button").evaluateAll((els) =>
+            els.map((el) => {
+              const button = el as HTMLButtonElement;
+              const want = button.disabled ? "not-allowed" : "pointer";
+              return getComputedStyle(button).cursor === want
+                ? want
+                : `${button.disabled ? "disabled" : "enabled"} button has ${getComputedStyle(button).cursor}`;
+            }),
+          );
+          const wrong = seen.filter((s) => s.includes("has"));
+          // Reported as one value so a failure names what was actually seen.
+          return seen.length > 0 && wrong.length === 0
+            ? "every cursor matches"
+            : wrong.join("; ");
+        },
+        // Generous, because the first hit on a cold `next dev` compiles the
+        // route before it serves anything — and that is exactly the run where
+        // the stylesheet arrives late.
+        { timeout: 20_000 },
+      )
+      .toBe("every cursor matches");
   });
 });
 
