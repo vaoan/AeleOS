@@ -24,12 +24,23 @@ export interface FursonaTemplate {
  * templates are ours to write. The spec sets the trigger for changing that:
  * when somebody other than us needs to author one, and not before.
  *
- * Every template ships **guidance text, not blanks** — and that is forced
- * rather than chosen. `sectionItemSchema` requires a non-empty title and
- * description, so a template of empty scaffolding would be refused by our own
- * editor the moment somebody pressed Save. `fursona-templates.test.ts` parses
- * every one of these through `sectionsSchema`, so a template that could not be
- * saved cannot be shipped.
+ * **A template ships structure, never prose.** Titles, layouts, icons and order
+ * are ours to choose; every description is empty, because whatever sits in one
+ * is the person's own writing the instant the template is applied.
+ *
+ * It used to ship guidance sentences in those descriptions — "Say what your
+ * character is: one species, a hybrid, or something of your own" — and the
+ * result was a page created from a template and published unedited reading its
+ * own instructions out to strangers, in its owner's voice. The prompt now lives
+ * where a prompt belongs: `itemDescriptionHint` is the editor's placeholder, so
+ * it helps while somebody writes, and is never stored, never published, and
+ * never has to be deleted.
+ *
+ * That was blocked by `sectionItemSchema` requiring a non-empty description,
+ * which it no longer does — `0009` always accepted an empty one, so nothing in
+ * the database had to move. `fursona-templates.test.ts` parses every template
+ * through `sectionsSchema`, so one that could not be saved still cannot ship,
+ * and it now also asserts that none of them carries a description at all.
  *
  * **Callers must clone before handing these to a form.** The array is frozen
  * shallowly and its contents are not: a reference passed straight into
@@ -50,28 +61,24 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "Species",
             title_es: "Especie",
-            description_en:
-              "Say what your character is — one species, a hybrid, or something of your own.",
-            description_es:
-              "Di qué es tu personaje: una especie, un híbrido, o algo tuyo.",
+            description_en: "",
+            description_es: "",
             icon: "paw-print",
             sort_order: 1,
           },
           {
             title_en: "Pronouns",
             title_es: "Pronombres",
-            description_en: "How people should refer to your character.",
-            description_es: "Cómo deberían referirse a tu personaje.",
+            description_en: "",
+            description_es: "",
             icon: "message-circle",
             sort_order: 2,
           },
           {
             title_en: "Age",
             title_es: "Edad",
-            description_en:
-              "However you like to give it — a number, a range, or simply adult.",
-            description_es:
-              "Como prefieras darla: un número, un rango, o simplemente adulto.",
+            description_en: "",
+            description_es: "",
             icon: "calendar",
             sort_order: 3,
           },
@@ -86,19 +93,15 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "Markings",
             title_es: "Marcas",
-            description_en:
-              "The patterns that make your character recognisable at a glance.",
-            description_es:
-              "Los patrones que hacen a tu personaje reconocible de un vistazo.",
+            description_en: "",
+            description_es: "",
             sort_order: 1,
           },
           {
             title_en: "Colours",
             title_es: "Colores",
-            description_en:
-              "The palette, and anything an artist should not change.",
-            description_es:
-              "La paleta, y todo lo que un artista no debería cambiar.",
+            description_en: "",
+            description_es: "",
             sort_order: 2,
           },
         ],
@@ -117,15 +120,15 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "Personality",
             title_es: "Personalidad",
-            description_en: "What your character is like to be around.",
-            description_es: "Cómo es estar cerca de tu personaje.",
+            description_en: "",
+            description_es: "",
             sort_order: 1,
           },
           {
             title_en: "Backstory",
             title_es: "Historia",
-            description_en: "Where they came from, and what shaped them.",
-            description_es: "De dónde vienen, y qué los formó.",
+            description_en: "",
+            description_es: "",
             sort_order: 2,
           },
         ],
@@ -139,24 +142,22 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "Likes",
             title_es: "Gustos",
-            description_en: "The things that make their day.",
-            description_es: "Las cosas que les alegran el día.",
+            description_en: "",
+            description_es: "",
             sort_order: 1,
           },
           {
             title_en: "Dislikes",
             title_es: "Disgustos",
-            description_en: "The things that do not.",
-            description_es: "Las cosas que no.",
+            description_en: "",
+            description_es: "",
             sort_order: 2,
           },
           {
             title_en: "Quirks",
             title_es: "Manías",
-            description_en:
-              "The small habits people notice after knowing them a while.",
-            description_es:
-              "Los pequeños hábitos que se notan tras conocerlos un rato.",
+            description_en: "",
+            description_es: "",
             sort_order: 3,
           },
         ],
@@ -175,24 +176,24 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "First piece",
             title_es: "Primera pieza",
-            description_en: "Add the image address, and say what it is.",
-            description_es: "Añade la dirección de la imagen, y di qué es.",
+            description_en: "",
+            description_es: "",
             image_url: "",
             sort_order: 1,
           },
           {
             title_en: "Second piece",
             title_es: "Segunda pieza",
-            description_en: "Add the image address, and say what it is.",
-            description_es: "Añade la dirección de la imagen, y di qué es.",
+            description_en: "",
+            description_es: "",
             image_url: "",
             sort_order: 2,
           },
           {
             title_en: "Third piece",
             title_es: "Tercera pieza",
-            description_en: "Add the image address, and say what it is.",
-            description_es: "Añade la dirección de la imagen, y di qué es.",
+            description_en: "",
+            description_es: "",
             image_url: "",
             sort_order: 3,
           },
@@ -207,10 +208,8 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "Artists",
             title_es: "Artistas",
-            description_en:
-              "Name whoever drew each piece, and link them if you can.",
-            description_es:
-              "Nombra a quién dibujó cada pieza, y pon un enlace si puedes.",
+            description_en: "",
+            description_es: "",
             sort_order: 1,
           },
         ],
@@ -229,24 +228,24 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "Maker",
             title_es: "Constructor",
-            description_en: "Who built it, and link them if you can.",
-            description_es: "Quién lo construyó, y un enlace si puedes.",
+            description_en: "",
+            description_es: "",
             icon: "hammer",
             sort_order: 1,
           },
           {
             title_en: "Materials",
             title_es: "Materiales",
-            description_en: "Fur, foam, resin — whatever it is made of.",
-            description_es: "Pelo, espuma, resina: de lo que esté hecho.",
+            description_en: "",
+            description_es: "",
             icon: "layers",
             sort_order: 2,
           },
           {
             title_en: "Debut",
             title_es: "Debut",
-            description_en: "Where it was first worn.",
-            description_es: "Dónde se usó por primera vez.",
+            description_en: "",
+            description_es: "",
             icon: "party-popper",
             sort_order: 3,
           },
@@ -261,16 +260,16 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
           {
             title_en: "Head",
             title_es: "Cabeza",
-            description_en: "Add the image address, and say what it is.",
-            description_es: "Añade la dirección de la imagen, y di qué es.",
+            description_en: "",
+            description_es: "",
             image_url: "",
             sort_order: 1,
           },
           {
             title_en: "Full suit",
             title_es: "Traje completo",
-            description_en: "Add the image address, and say what it is.",
-            description_es: "Añade la dirección de la imagen, y di qué es.",
+            description_en: "",
+            description_es: "",
             image_url: "",
             sort_order: 2,
           },

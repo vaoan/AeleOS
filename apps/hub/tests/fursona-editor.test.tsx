@@ -59,6 +59,7 @@ const labels = {
   expand: "Expand section",
   itemTitle: "Title",
   itemDescription: "Description",
+  itemDescriptionHint: "What do you want to say here?",
   imageUrl: "Image address",
   imageUrlHint: "Paste a link to a picture.",
   theme: {

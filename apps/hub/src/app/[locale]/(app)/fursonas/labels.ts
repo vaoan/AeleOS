@@ -33,6 +33,11 @@ import {
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * `itemDescriptionHint` is the description field's placeholder, and it is where
+ * a template's guidance moved to. It is the app's own words, so it is a
+ * catalogue entry like the rest; what somebody types into that field is theirs
+ * and is not.
+ *
  * The theme panel's own eighteen strings are resolved by
  * `themeConfiguratorLabels`, shared with `/me` — the panel appears in both
  * places, and those live in route folders that may not import each other, so a
@@ -110,6 +115,7 @@ export async function fursonaEditorLabels(
     expand: t("expandSection"),
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),
+    itemDescriptionHint: t("itemDescriptionHint"),
     imageUrl: t("imageUrl"),
     imageUrlHint: t("imageUrlHint"),
     // Nested rather than spread into the same bag as everything else. Both

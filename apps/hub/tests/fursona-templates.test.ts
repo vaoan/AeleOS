@@ -19,9 +19,9 @@ describe("FURSONA_TEMPLATES", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  // The guard that matters. sectionItemSchema requires a non-empty title and
-  // description, so a template of empty scaffolding would be refused by our own
-  // editor the moment somebody pressed Save — found by them, not by us.
+  // The guard that matters. `sectionItemSchema` still requires a non-empty
+  // TITLE, so a template of entirely empty scaffolding would be refused by our
+  // own editor the moment somebody pressed Save — found by them, not by us.
   it.each(each)(
     "%s parses as sections the editor would accept",
     (_id, template) => {
@@ -29,11 +29,12 @@ describe("FURSONA_TEMPLATES", () => {
     },
   );
 
-  // We are the author until the moment a template is applied, so we owe both
-  // languages. After it is applied the words are the person's and a missing
-  // Spanish is simply one they have not written.
+  // We are the author of the STRUCTURE until the moment a template is applied,
+  // so we owe both languages for every word we choose. After it is applied the
+  // words are the person's and a missing Spanish is simply one they have not
+  // written yet.
   it.each(each)(
-    "%s writes every seeded string in both languages",
+    "%s names every section and item in both languages",
     (_id, template) => {
       for (const section of template.sections) {
         expect(section.name_en).toBeTruthy();
@@ -41,12 +42,28 @@ describe("FURSONA_TEMPLATES", () => {
         for (const item of section.items) {
           expect(item.title_en).toBeTruthy();
           expect(item.title_es).toBeTruthy();
-          expect(item.description_en).toBeTruthy();
-          expect(item.description_es).toBeTruthy();
         }
       }
     },
   );
+
+  // **THE REGRESSION TEST for a template reading its instructions out to
+  // strangers.** These used to carry guidance sentences as the item's
+  // description — "Say what your character is: one species, a hybrid, or
+  // something of your own" — so a page created from a template and published
+  // unedited told visitors what its owner was supposed to write, in their
+  // voice. Nothing failed; it simply read as very strange writing.
+  //
+  // The prompt is the editor's placeholder now. A description here is content,
+  // and content is the person's.
+  it.each(each)("%s ships no description at all", (_id, template) => {
+    for (const section of template.sections) {
+      for (const item of section.items) {
+        expect(item.description_en).toBe("");
+        expect(item.description_es ?? "").toBe("");
+      }
+    }
+  });
 
   // A template that seeds a field its layout will not show is a template that
   // teaches the trap task 2 exists to close.

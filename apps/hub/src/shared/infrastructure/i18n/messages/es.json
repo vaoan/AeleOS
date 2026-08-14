@@ -99,6 +99,7 @@
     "expandSection": "Expandir sección",
     "itemTitle": "Título",
     "itemDescription": "Descripción",
+    "itemDescriptionHint": "¿Qué quieres decir aquí?",
     "types": {
       "cards": "Tarjetas",
       "accordion": "Acordeón",

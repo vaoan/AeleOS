@@ -269,6 +269,27 @@ description is. The editor names its fields per layout for this reason — a
 field whose meaning changes silently between layouts is worse than a field that
 does not exist.
 
+**A template ships structure, never prose.** Titles, layouts, icons and order
+are ours; every description is empty. They used to carry guidance sentences in
+those descriptions, so a page created from a template and published unedited
+read its own instructions out to strangers in its owner's voice — "Say what your
+character is: one species, a hybrid, or something of your own", presented as
+what that person had written. The prompt is the description field's
+**placeholder** now: it helps while somebody writes, is never stored, never
+published, and never has to be deleted.
+
+Two consequences that must not be undone:
+
+- **A description may be empty and a title may not.** An item is a heading with
+  something under it — without the heading there is a blank box, without the
+  description there is a perfectly good card. `0009` always accepted an empty
+  description; only `sectionItemSchema` forbade it.
+- **Every layout leaves the element out when the description is empty**, or an
+  empty `<p>` becomes a visible hole in a gap-spaced grid. `two-column` is the
+  one exception and is deliberate: a `dt` without its `dd` is invalid markup and
+  breaks the pairing the layout exists to express, so an unwritten value is a
+  blank cell there. A test walks every layout.
+
 **Adding a layout is four edits and a guard will catch you missing one.**
 `SECTION_TYPES`, `is_section_type()` in `0009`, a renderer in the `LAYOUTS`
 record, and a name in both catalogues. The record is typed

@@ -30,6 +30,10 @@ import {
  * pasted address now, so `imageUrl` carries a hint saying so — a field named
  * for an image reads as a place to put a file until somebody is told it is not.
  *
+ * `itemDescriptionHint` is the description field's placeholder, and it is where
+ * a template's guidance moved to. The app's own words belong in the catalogue;
+ * whatever somebody types into the field does not.
+ *
  * It carries a label for every optional field an item can hold, including the
  * ones most layouts never show. The bag is per-component and not per-layout on
  * purpose: which fields appear is decided by `LINKED`, `ICONED` and `PICTURED`
@@ -41,6 +45,14 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
   itemTitle: string;
   /** Field label for the item's description. */
   itemDescription: string;
+  /**
+   * The description field's placeholder.
+   *
+   * Where a template's guidance went. It is the app's own words, so it belongs
+   * in the catalogue — unlike whatever somebody types into the field, which is
+   * theirs.
+   */
+  itemDescriptionHint: string;
   /** Names the remove control for a screen reader. */
   removeItem: string;
   /** Field label for a gallery item's image address. */
@@ -113,8 +125,16 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * text fields would otherwise put sixteen on the screen.
  *
  * **An unwritten Spanish value renders as an empty field and nothing else.** No
- * warning, no placeholder nagging about it, no badge. The Spanish is the
- * author's to write when they choose, and `0009` accepts its absence.
+ * warning, no badge, nothing marking it as missing. The Spanish is the author's
+ * to write when they choose, and `0009` accepts its absence.
+ *
+ * The description field now carries a placeholder, and that rule survives it
+ * because the placeholder is the SAME in both languages: it prompts anybody
+ * looking at an empty field, and says nothing about which language is unwritten.
+ * A hint that appeared only on the Spanish side would be exactly the nagging
+ * this refuses. It is where a template's guidance went — see
+ * `FURSONA_TEMPLATES`, which used to ship that guidance as content and so
+ * published it.
  *
  * `linkUrl` and `linkUrlHint` name the address field the media and link
  * layouts carry. The hint says which addresses become a player and what happens
@@ -272,10 +292,16 @@ export function SectionItemFields<T extends FieldValues>({
         <label htmlFor={`${id}-description`} className="text-xs font-medium">
           {labels.itemDescription}
         </label>
+        {/* **The prompt lives here, not in the stored value.** Templates
+            used to seed this field with a guidance sentence, which meant a page
+            published without editing read its own instructions out to
+            strangers in its owner's voice. A placeholder helps while somebody
+            writes, is never stored, and never has to be deleted. */}
         <textarea
           id={`${id}-description`}
           key={`description-${lang}`}
           rows={3}
+          placeholder={labels.itemDescriptionHint}
           {...tid("item-description")}
           {...register(`${path}.description_${lang}` as Path<T>)}
           className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"

@@ -90,7 +90,11 @@ function Cards({
               <PublicSectionIcon name={item.icon} fallback={CARD_ICON} />
             </span>
             <h3 className="font-display text-sm/tight font-bold">{title}</h3>
-            <p className="text-xs/relaxed text-[var(--muted)]">{description}</p>
+            {description ? (
+              <p className="text-xs/relaxed text-[var(--muted)]">
+                {description}
+              </p>
+            ) : null}
           </div>
         );
       })}
@@ -133,9 +137,11 @@ function Accordion({
               {title}
               <Plus className="size-5 shrink-0 text-[var(--muted)] transition-transform group-open:rotate-45" />
             </summary>
-            <p className="border-t border-[var(--edge)]/25 bg-[var(--bar)] px-5 py-4 text-sm/relaxed text-[var(--muted)]">
-              {description}
-            </p>
+            {description ? (
+              <p className="border-t border-[var(--edge)]/25 bg-[var(--bar)] px-5 py-4 text-sm/relaxed text-[var(--muted)]">
+                {description}
+              </p>
+            ) : null}
           </details>
         );
       })}
@@ -176,6 +182,12 @@ function TwoColumn({
             <dt className="w-1/3 shrink-0 border-r border-[var(--edge)]/25 px-5 py-3.5 font-display text-sm font-bold">
               {title}
             </dt>
+            {/* **The one description that renders even when empty.** A `dt`
+                without its `dd` is invalid markup and breaks the pairing a
+                description list exists to express — so an unwritten value is a
+                blank cell here, which reads as a row still to be filled in
+                rather than as a missing element. Every other layout drops the
+                element entirely. */}
             <dd className="flex-1 px-5 py-3.5 text-sm/relaxed">
               {description}
             </dd>
@@ -218,9 +230,11 @@ function Gallery({
               alt={title}
               className="w-full rounded-xl border border-[var(--edge)] object-cover"
             />
-            <figcaption className="text-xs text-[var(--muted)]">
-              {description}
-            </figcaption>
+            {description ? (
+              <figcaption className="text-xs text-[var(--muted)]">
+                {description}
+              </figcaption>
+            ) : null}
           </figure>
         );
       })}
@@ -313,9 +327,11 @@ function Video({
             <Player url={item.link_url} title={title} fallback={title} />
             <figcaption className="grid gap-1">
               <h3 className="font-display font-bold">{title}</h3>
-              <p className="text-sm/relaxed text-[var(--muted)]">
-                {description}
-              </p>
+              {description ? (
+                <p className="text-sm/relaxed text-[var(--muted)]">
+                  {description}
+                </p>
+              ) : null}
             </figcaption>
           </figure>
         );
@@ -350,7 +366,9 @@ function Music({
           >
             <div className="flex flex-wrap items-baseline gap-x-3">
               <h3 className="font-display font-bold">{title}</h3>
-              <p className="text-sm text-[var(--muted)]">{description}</p>
+              {description ? (
+                <p className="text-sm text-[var(--muted)]">{description}</p>
+              ) : null}
             </div>
             <Player url={item.link_url} title={title} fallback={title} />
           </div>
@@ -397,8 +415,8 @@ function Carousel({
               className="aspect-4/3 w-full rounded-xl border border-[var(--edge)] object-cover"
             />
             <figcaption className="text-xs text-[var(--muted)]">
-              <span className="font-medium text-[var(--ink)]">{title}</span>{" "}
-              {description}
+              <span className="font-medium text-[var(--ink)]">{title}</span>
+              {description ? ` ${description}` : null}
             </figcaption>
           </figure>
         );
@@ -443,7 +461,11 @@ function Links({
             ) : null}
             <span className="grid gap-0.5">
               <span className="font-display text-sm font-bold">{title}</span>
-              <span className="text-xs text-[var(--muted)]">{description}</span>
+              {description ? (
+                <span className="text-xs text-[var(--muted)]">
+                  {description}
+                </span>
+              ) : null}
             </span>
           </>
         );
@@ -498,9 +520,11 @@ function Stats({
             <span className="text-xs tracking-wide text-[var(--muted)] uppercase">
               {title}
             </span>
-            <span className="font-display text-lg leading-tight font-bold">
-              {description}
-            </span>
+            {description ? (
+              <span className="font-display text-lg leading-tight font-bold">
+                {description}
+              </span>
+            ) : null}
           </div>
         );
       })}
@@ -533,9 +557,11 @@ function Quotes({
             className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5"
           >
             <QuoteMark className="size-5 text-[var(--accent)]" />
-            <blockquote className="font-display text-lg leading-snug text-balance">
-              {description}
-            </blockquote>
+            {description ? (
+              <blockquote className="font-display text-lg leading-snug text-balance">
+                {description}
+              </blockquote>
+            ) : null}
             <figcaption className="text-xs text-[var(--muted)] before:content-['—'] before:mr-1">
               {title}
             </figcaption>
@@ -576,7 +602,11 @@ function Timeline({
               className="absolute top-1.5 -left-7.5 size-3 rounded-full border-2 border-[var(--surface)] bg-[var(--accent)]"
             />
             <h3 className="font-display font-bold">{title}</h3>
-            <p className="text-sm/relaxed text-[var(--muted)]">{description}</p>
+            {description ? (
+              <p className="text-sm/relaxed text-[var(--muted)]">
+                {description}
+              </p>
+            ) : null}
           </li>
         );
       })}

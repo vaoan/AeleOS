@@ -69,6 +69,13 @@ const optionalText = text.optional();
 /**
  * One entry inside a section.
  *
+ * **A title is required and a description is not.** An item is a heading with
+ * something under it: without the heading there is a blank box and nothing to
+ * render, while without the description there is a perfectly good card — which
+ * is exactly what a template hands somebody to fill in. Every public layout
+ * leaves the element out when it is empty, except `two-column`, where a `dt`
+ * without its `dd` would be invalid markup.
+ *
  * `icon`, `image_url` and `link_url` are all optional and all stored on every
  * item whatever the layout, which is deliberate: `0009` accepts them on any
  * item, so switching a section to another layout to look at it and switching
@@ -84,7 +91,17 @@ const optionalText = text.optional();
 export const sectionItemSchema = z.object({
   title_en: text.min(1),
   title_es: optionalText,
-  description_en: text.min(1),
+  // **A description may be empty, and a title may not.** An item is a heading
+  // with something under it: without the heading it is a blank box, and a
+  // renderer has nothing to show. Without the description it is a heading, which
+  // is a perfectly good card — and it is what a template hands somebody to fill
+  // in.
+  //
+  // This required a non-empty string until templates shipped their guidance as
+  // CONTENT rather than as a prompt, which meant a page created from one and
+  // published unedited read its own instructions out to strangers. `0009` has
+  // always accepted the empty string; only this line forbade it.
+  description_en: text,
   description_es: optionalText,
   icon: optionalText,
   image_url: optionalText,

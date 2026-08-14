@@ -21,6 +21,7 @@ const { SectionItemFields } =
 const labels = {
   itemTitle: "Title",
   itemDescription: "Description",
+  itemDescriptionHint: "What do you want to say here?",
   removeItem: "Remove item",
   imageUrl: "Image address",
   imageUrlHint: "Paste a link to a picture.",

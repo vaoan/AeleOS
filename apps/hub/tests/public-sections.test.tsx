@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type {
-  FursonaSection,
-  FursonaSectionItem,
+import {
+  SECTION_TYPES,
+  type FursonaSection,
+  type FursonaSectionItem,
+  type SectionType,
 } from "@/features/actors/domain/section-schema";
 
 vi.mock("lucide-react/dynamic", () => ({
@@ -388,5 +390,57 @@ describe("the expressive layouts", () => {
         "English title",
       );
     });
+  });
+});
+
+describe("an item whose description nobody wrote", () => {
+  // **A description may now be empty, because a template hands somebody a
+  // heading to fill in rather than prose to delete.** So every layout has to
+  // leave out the element rather than render a blank one — an empty `<p>` in a
+  // gap-spaced grid is a visible hole nobody put there.
+  //
+  // `two-column` is the deliberate exception and is asserted separately: a `dt`
+  // without its `dd` is invalid markup and breaks the pairing the layout exists
+  // to express.
+  const blank = (type: SectionType) => ({
+    name_en: "Section",
+    type,
+    sort_order: 1,
+    items: [
+      {
+        title_en: "Just a heading",
+        description_en: "",
+        ...(type === "gallery" || type === "carousel"
+          ? { image_url: "https://example.test/a.png" }
+          : {}),
+        ...(type === "links" || type === "video" || type === "music"
+          ? { link_url: "https://example.test/" }
+          : {}),
+        sort_order: 1,
+      },
+    ],
+  });
+
+  it.each(SECTION_TYPES.filter((type) => type !== "two-column"))(
+    "renders %s with no empty element in its place",
+    (type) => {
+      const { container } = render(
+        <PublicSections sections={[blank(type)]} locale="en" />,
+      );
+      const blanks = [
+        ...container.querySelectorAll("p, blockquote, figcaption"),
+      ]
+        .filter((el) => el.textContent?.trim() === "")
+        .map((el) => el.tagName);
+      expect(blanks).toEqual([]);
+    },
+  );
+
+  it("keeps the empty cell in a two-column row, where the pair is the point", () => {
+    const { container } = render(
+      <PublicSections sections={[blank("two-column")]} locale="en" />,
+    );
+    expect(container.querySelectorAll("dt")).toHaveLength(1);
+    expect(container.querySelectorAll("dd")).toHaveLength(1);
   });
 });
