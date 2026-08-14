@@ -23,7 +23,7 @@ create table public.actor_profiles (
   --   section: { name_en, name_es, type, sort_order, items[] }
   --   item:    { title_en, title_es, description_en, description_es,
   --              icon?, image_url?, sort_order }
-  --   type:    cards | accordion | two-column | gallery
+  --   type:    whatever is_section_type() accepts
   --
   -- This is NOT next-intl. Those catalogues are the app's own chrome, owned by
   -- the repository. These are a person's own words about their own character,
@@ -34,7 +34,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, sort_order}]}]. Validated by set_actor_sections.';
+  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}]}]. Validated by set_actor_sections.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -180,6 +180,39 @@ begin
 end;
 $$;
 
+-- The layouts a section may use.
+--
+-- Its own function rather than an `in (...)` inlined in the validator below:
+-- adding a layout would otherwise mean restating a hundred and fifty lines of
+-- validation to change one of them, and restating a long function to edit one
+-- line is how the other hundred and forty-nine acquire a typo.
+--
+-- `immutable` because it is a constant set — the same answer for the same input
+-- forever, which is what lets it be called once per section for free.
+--
+-- **Adding a layout is this function and nothing else in SQL.** Keep it in step
+-- with `SECTION_TYPES` in `apps/hub/src/features/actors/domain/section-schema.ts`
+-- — `section-limits-match-migration.test.ts` reads this list out of this file
+-- and fails the build when the two disagree, so the drift cannot ship quietly.
+--
+-- It is called from a definer function and reads nothing, so `public` keeping
+-- execute costs nothing and revoking it would only break the caller.
+create or replace function public.is_section_type(p_type text)
+returns boolean
+language sql
+immutable
+as $$
+  select p_type in (
+    -- The four this started with, taken from Libra so a port stays mechanical.
+    'cards', 'accordion', 'two-column', 'gallery',
+    -- The expressive ones. A fursona page is somebody's character rather than
+    -- a product listing, and the layouts that serve a catalogue do not stretch
+    -- to a page whose whole job is to be theirs.
+    'video', 'music', 'carousel', 'links', 'stats', 'quote', 'timeline'
+  )
+$$;
+
+
 -- ---------------------------------------------------------------------------
 -- The validated content write.
 --
@@ -252,9 +285,7 @@ begin
     end if;
 
     -- name_es is deliberately not required. See the column comment.
-    if v_section ->> 'type' is null
-       or v_section ->> 'type' not in
-          ('cards', 'accordion', 'two-column', 'gallery') then
+    if not public.is_section_type(v_section ->> 'type') then
       raise exception 'section %: unknown type', i using errcode = '22023';
     end if;
 
@@ -311,7 +342,8 @@ begin
          or length(coalesce(v_item ->> 'description_en', '')) > c_max_text
          or length(coalesce(v_item ->> 'description_es', '')) > c_max_text
          or length(coalesce(v_item ->> 'icon', '')) > c_max_text
-         or length(coalesce(v_item ->> 'image_url', '')) > c_max_text then
+         or length(coalesce(v_item ->> 'image_url', '')) > c_max_text
+         or length(coalesce(v_item ->> 'link_url', '')) > c_max_text then
         raise exception 'section %, item %: text is too long (limit %)',
           i, j, c_max_text using errcode = '22023';
       end if;

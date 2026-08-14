@@ -72,8 +72,12 @@ describe("sectionsSchema", () => {
     expect(accepts([section({ type })])).toBe(true);
   });
 
+  // The value here must be one nobody would plausibly ADD. It was `carousel`,
+  // which became a real layout in 0017 — at which point this test asserted the
+  // opposite of its name and passed for a whole release doing so. A name that
+  // could not be a layout is the point, not a name that merely is not one yet.
   it("refuses a type it does not know", () => {
-    expect(accepts([section({ type: "carousel" })])).toBe(false);
+    expect(accepts([section({ type: "not-a-layout" })])).toBe(false);
   });
 
   it("refuses a section with no English name", () => {

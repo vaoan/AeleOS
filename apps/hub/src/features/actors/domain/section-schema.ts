@@ -1,20 +1,33 @@
 import { z } from "zod";
 
 /**
- * The four ways a section can be laid out.
+ * The ways a section can be laid out.
  *
- * Libra's set, adopted unchanged. Divergence here is what would make a future
- * port from that repository stop being mechanical, which is the whole reason
- * the studio's client stack was taken on.
+ * The first four are Libra's set, adopted unchanged so that a future port from
+ * that repository stays mechanical. The rest are this hub's own: a fursona page
+ * is somebody's character rather than a product listing, and the layouts that
+ * serve a catalogue do not stretch to a page whose whole job is to be theirs.
+ *
+ * **The database holds this same list in `is_section_type()`**, and it is
+ * authoritative — a type it does not know is refused whatever this array says.
+ * `section-limits-match-migration.test.ts` reads the SQL and fails the build if
+ * the two ever disagree, so neither side can be extended alone.
  */
 export const SECTION_TYPES = [
   "cards",
   "accordion",
   "two-column",
   "gallery",
+  "video",
+  "music",
+  "carousel",
+  "links",
+  "stats",
+  "quote",
+  "timeline",
 ] as const;
 
-/** One of the four layouts. */
+/** One of the layouts. */
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 /**
@@ -53,7 +66,21 @@ const text = z.string().max(SECTION_LIMITS.text);
  */
 const optionalText = text.optional();
 
-/** One entry inside a section. */
+/**
+ * One entry inside a section.
+ *
+ * `icon`, `image_url` and `link_url` are all optional and all stored on every
+ * item whatever the layout, which is deliberate: `0009` accepts them on any
+ * item, so switching a section to another layout to look at it and switching
+ * back finds what was typed still there. What each layout RENDERS is a separate
+ * question, and the editor offers only the fields the layout will use — a
+ * control that stores what somebody types and shows nothing is the worst kind,
+ * because nothing tells them it did nothing.
+ *
+ * `link_url` is not validated here beyond its length. The rule that matters is
+ * enforced where it is used, by `resolveEmbed` and `safeHttpUrl`, which build
+ * an address rather than trusting one.
+ */
 export const sectionItemSchema = z.object({
   title_en: text.min(1),
   title_es: optionalText,
@@ -61,6 +88,7 @@ export const sectionItemSchema = z.object({
   description_es: optionalText,
   icon: optionalText,
   image_url: optionalText,
+  link_url: optionalText,
   sort_order: z.number().int(),
 });
 

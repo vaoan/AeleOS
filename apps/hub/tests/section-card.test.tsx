@@ -1,3 +1,7 @@
+import {
+  SECTION_TYPES,
+  type SectionType,
+} from "@/features/actors/domain/section-schema";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useForm } from "react-hook-form";
@@ -28,6 +32,8 @@ const labels = {
   itemTitle: "Title",
   itemDescription: "Description",
   imageUrl: "Image address",
+  linkUrl: "Link address",
+  linkUrlHint: "A video or music link plays here.",
   imageMissing: "No image yet",
   chooseIcon: "Choose an icon",
   searchIcons: "Search icons",
@@ -40,12 +46,11 @@ const labels = {
   imageWrongType: "That is not an image we can store.",
   imageFailed: "The upload did not work.",
   imageStaysPublic: "An uploaded picture stays reachable by its address.",
-  types: {
-    cards: "Cards",
-    accordion: "Accordion",
-    "two-column": "Two columns",
-    gallery: "Gallery",
-  },
+  // Derived, so a new layout does not need remembering in four fixtures. The
+  // name is the type, which is all any assertion here cares about.
+  types: Object.fromEntries(
+    SECTION_TYPES.map((type) => [type, type]),
+  ) as Record<SectionType, string>,
 };
 
 /**
@@ -132,12 +137,12 @@ describe("SectionCard", () => {
     expect(screen.getByLabelText("Section name")).toHaveValue("Sobre mi");
   });
 
-  it("offers exactly the four layouts", () => {
+  it("offers every layout, in order", () => {
     renderCard();
     const options = screen
       .getAllByRole("option")
       .map((el) => (el as HTMLOptionElement).value);
-    expect(options).toEqual(["cards", "accordion", "two-column", "gallery"]);
+    expect(options).toEqual([...SECTION_TYPES]);
   });
 
   it("renders its items in order", () => {

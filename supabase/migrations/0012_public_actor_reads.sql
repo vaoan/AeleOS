@@ -95,6 +95,29 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- One fursona's page, addressed under its owner.
+-- **A fursona's page is governed by the FURSONA's visibility, not its owner's.**
+-- The first version of this required the owner to be `public` or `unlisted`
+-- too, reasoning that somebody who chose not to publish a profile should not
+-- have their address turned into a directory of their characters by another
+-- route. That reasoning was wrong and an end-to-end test found it: a person is
+-- provisioned `private`, so the rule made a fursona's own `public` setting mean
+-- nothing at all — somebody could publish a character, share the link, and get
+-- a 404 for a reason they could neither see nor fix.
+--
+-- The correct split is about WHOSE resource is being asked for. A person's own
+-- profile obeys the person's visibility, and `public_person` still enforces
+-- that. A fursona's page obeys the fursona's, which its owner set deliberately,
+-- per character.
+--
+-- The owner's STATUS still governs both, and that is a different thing: a
+-- sanction is not a preference. A suspended person's fursonas serve nothing,
+-- because a person carries the sanction and must not shed it by switching
+-- persona.
+--
+-- What this gives up is real: a private person's address can confirm that a
+-- particular handle under it is published. It confirms nothing about the
+-- person, discloses no other character, and cannot be walked — this takes a
+-- handle, so a caller must already know the one they are asking about.
 create or replace function public.public_fursona(
   p_address text,
   p_handle  text
@@ -136,19 +159,14 @@ as $$
   left join public.actor_profiles pr on pr.actor_ref = s.actor_ref
   where lower(pa.address) = lower(p_address)
     and o.kind       = 'person'
-    -- **THE OWNER'S STATE GATES THE PAGE, and this rule exists nowhere else in
-    -- the schema.** A fursona whose owner is suspended is itself still
-    -- `active`, so `actors_public` keeps showing it — a person carries the
-    -- sanction and must not shed it by switching persona, and a public page is
-    -- the one place strangers actually look. The visibility test travels too: a
-    -- person who chose not to have a public profile does not get their address
-    -- turned into a directory of their characters by another route.
+    -- The owner's STATUS gates the page and their VISIBILITY does not. A
+    -- sanction is not a preference: a person carries it and must not shed it by
+    -- switching persona, and a public page is the one place strangers look.
     and o.status     = 'active'
-    and o.visibility in ('public', 'unlisted')
     and s.kind       = 'fursona'
     and s.status     = 'active'
-    -- Unlike the list above, this DOES serve `unlisted` — reachable by whoever
-    -- holds the link, invisible to whoever does not.
+    -- Serves `unlisted` too — reachable by whoever holds the link, invisible to
+    -- whoever does not.
     and s.visibility in ('public', 'unlisted')
 $$;
 

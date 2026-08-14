@@ -217,6 +217,32 @@ Key choices and _why_:
   freshness-checked. A `CLAUDE.md` beside the code is optional and unenforced,
   for rules constraining code that does not exist yet. TSDoc constrains what
   exists; a directory note constrains what comes next.
+- **Squash the migrations, and squash them again.** Nothing is in production
+  yet, so the schema is still allowed a clean start — and a clean start is
+  worth keeping, because the migration set is the thing every consuming app
+  will copy. **Every object is defined exactly once.** A change to an existing
+  function is an edit to the file that already defines it, not a new file
+  stacked on top: `0015` folded into `0012` and the section layouts folded into
+  `0009` for exactly this reason. Applying a squash means resetting the live
+  database, which is legitimate **only while no consuming app has copied the
+  migrations**. When Puck copies them, this ends permanently and every change
+  becomes additive forever.
+
+  **A squash is not finished when the SQL is.** It is finished when every
+  document, comment and test that named the old arrangement says the new one —
+  the AI-facing notes (`CLAUDE.md`, `AGENTS.md`, the feature notes), the specs
+  and plans under `docs/`, the TSDoc, the SQL comments that cross-reference a
+  migration by number, and the tests that read a migration file by name. Under
+  AI-driven development a stale pointer is a confident, wrong instruction, and
+  a renumbered migration is the most confidently wrong kind: the file it names
+  still exists and contains something else. `pnpm check:docs` does not catch
+  this, because nothing about the TypeScript changed. Grep for the old number.
+
+  The counterweight is that a number is a name other files use. `0006` is
+  cited by eight documents and owns the UUIDv5 derivation other apps copy
+  byte-identically, so renumbering around it is a change to those documents
+  too. Fold what is genuinely a redefinition; do not renumber for tidiness.
+
 - **Git:** work on branches, open PRs; do **not** commit unless the user
   explicitly asks. Never commit secrets.
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**

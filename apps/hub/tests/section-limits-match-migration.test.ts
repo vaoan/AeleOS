@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { SECTION_LIMITS } from "@/features/actors/domain/section-schema";
+import {
+  SECTION_LIMITS,
+  SECTION_TYPES,
+} from "@/features/actors/domain/section-schema";
 
 /**
  * The migration's own constants, read out of the SQL.
@@ -52,5 +55,40 @@ describe("the client's section limits", () => {
     expect({
       [key]: SECTION_LIMITS[key as keyof typeof SECTION_LIMITS],
     }).toEqual({ [key]: fromMigration(name) });
+  });
+});
+
+/**
+ * The same file the caps come from.
+ *
+ * `is_section_type` sits beside `set_actor_sections` in `0009`, which is where
+ * the squash put it: a migration that only redefined that file own function was
+ * folded back into it rather than left stacked on top.
+ */
+const layoutSql = sql;
+
+describe("the client's layout list", () => {
+  // The same drift argument as the caps, with a sharper edge: a layout the
+  // client offers and the database refuses is not a warning somebody sees while
+  // typing — it is a save that fails after they have written the whole section.
+  it("is exactly what the migration accepts", () => {
+    const body = layoutSql.match(
+      /create or replace function public\.is_section_type[\s\S]*?select p_type in \(([\s\S]*?)\)\s*\$\$/,
+    )?.[1];
+    if (!body)
+      throw new Error(
+        "is_section_type was not found in 0009. If it was renamed or its shape " +
+          "changed, this guard is now checking nothing and must be updated with it.",
+      );
+
+    // Comments come out FIRST. The prose in this one contains an apostrophe,
+    // and a quote-matching pass over the raw text reads it as the start of a
+    // value — which is how a guard like this reports a difference that is not
+    // there, or worse, stops seeing one that is.
+    const inMigration = [
+      ...body.replace(/--.*/g, "").matchAll(/'([^']+)'/g),
+    ].map((m) => m[1]);
+    expect(inMigration.length).toBeGreaterThan(0);
+    expect([...inMigration].sort()).toEqual([...SECTION_TYPES].sort());
   });
 });

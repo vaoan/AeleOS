@@ -64,6 +64,10 @@ export {
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
 export {
+  SECTION_TYPES,
+  type SectionType,
+} from "@/features/actors/domain/section-schema";
+export {
   ActorTile,
   type ActorTileProps,
 } from "@/features/actors/presentation/actor-tile";

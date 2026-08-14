@@ -6,10 +6,11 @@ honest; what follows is the addressing model the next migration and the public
 page must implement, and the traps that model creates.
 
 The schema itself is owned by `supabase/migrations/` at the repository root,
-not by this app. Nothing here ships a migration. That schema was consolidated on
-2026-08-13 into ten files with **every object defined exactly once**; the
-migrations this note calls for are `0011` onward, and they must keep that
-property.
+not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and
+squashed again whenever a change would otherwise stack a redefinition on top of
+an existing file. The section layouts landed as an edit to `0009`, not as an
+`0017`. See the root `CLAUDE.md` for when that is legitimate and what a squash
+obliges you to update afterwards.
 
 ## Why this feature holds both persons and fursonas
 
@@ -239,6 +240,113 @@ under the same number.
 So `unlisted` protects the address, not the association. A character that must
 be genuinely unlinkable stays `private`. Do not describe `unlisted` to a user
 as if it hid the connection.
+
+## The layouts, and what the two text fields mean in each
+
+A page is sections, a section has a layout, and a layout decides what its items
+look like. There are eleven. The first four came from Libra; the rest exist
+because **a fursona page is somebody's character, not a product listing** — the
+layouts that serve a catalogue do not stretch to a page whose whole job is to
+be theirs. More are wanted; this list is a floor, not a ceiling.
+
+| layout       | what an item is      | `title`         | `description`     | uses               |
+| ------------ | -------------------- | --------------- | ----------------- | ------------------ |
+| `cards`      | a card               | heading         | body              | `icon`             |
+| `accordion`  | a disclosure         | summary         | the answer        | —                  |
+| `two-column` | a row of a table     | label           | value             | —                  |
+| `gallery`    | a picture            | alt text        | caption           | `image_url`        |
+| `carousel`   | a picture on one row | alt text        | caption           | `image_url`        |
+| `video`      | an embedded player   | frame title     | caption           | `link_url`         |
+| `music`      | an embedded player   | track name      | note              | `link_url`         |
+| `links`      | a button out         | button text     | subtitle          | `link_url`, `icon` |
+| `stats`      | one fact             | **the label**   | **the value**     | —                  |
+| `quote`      | a quotation          | **who said it** | **what was said** | —                  |
+| `timeline`   | an entry in order    | heading         | the story         | —                  |
+
+**`stats` and `quote` invert the pair**, and that is the one thing here somebody
+will get wrong. Everywhere else the title is the big text; in those two the
+description is. The editor names its fields per layout for this reason — a
+field whose meaning changes silently between layouts is worse than a field that
+does not exist.
+
+**Adding a layout is four edits and a guard will catch you missing one.**
+`SECTION_TYPES`, `is_section_type()` in `0009`, a renderer in the `LAYOUTS`
+record, and a name in both catalogues. The record is typed
+`Record<SectionType, …>` so the compiler refuses a missing renderer, and
+`section-limits-match-migration.test.ts` reads the SQL and fails when the two
+lists disagree. Nothing checks that a layout is _good_; that part is still on
+you.
+
+**A layout that renders no field must not offer it.** `LINKED`, `ICONED` and
+`PICTURED` in `section-item-fields.tsx` decide what the editor shows. A control
+that accepts what somebody types, stores it, refuses nothing and renders
+nothing is the worst kind — there is no way for them to learn it did nothing.
+
+### Embedded media is allowlist-and-rebuild, never pass-through
+
+`domain/embeds.ts` is the whole security model of the media layouts and its
+TSDoc carries the argument in full. The short version, because it must not be
+weakened by somebody who only read this file:
+
+**What somebody pasted never reaches the page.** Every branch parses the
+address, checks the host against an exact set on the parsed `hostname`,
+extracts an id matching a strict pattern, and then BUILDS a new address from a
+fixed template. A hostile value cannot become anything worse than no embed.
+
+- Only `https:` survives, so `javascript:` and `data:` cannot reach a frame and
+  run in this page's origin.
+- Hosts are never matched by prefix or suffix. `youtube.com.evil.example`,
+  `evil-youtube.com` and `https://www.youtube.com@evil.example` all fail — the
+  last one only because the comparison is on the parsed authority. This is the
+  same mistake `return_to` had to avoid in the picker, and it is the same fix.
+- Every query parameter is discarded. Carrying them would let whoever pasted
+  the link set whatever options the provider honours.
+- SoundCloud's widget takes an address as a parameter — the one URL-inside-a-URL
+  here. It is rebuilt from parsed path segments and then encoded, so a `&` in
+  what somebody pasted cannot add parameters to the widget.
+- Anchors go through `safeHttpUrl` and an address that fails renders as plain
+  text. React escapes text, not URL schemes; nothing upstream is catching this.
+- Public links carry `nofollow ugc` as well as `noopener noreferrer`. A page
+  anybody can publish links on has to say so, or it becomes a way to buy
+  ranking.
+- **No frame is granted `autoplay`.** A profile that starts making noise at
+  whoever opened it is the thing people remember most fondly and least
+  accurately about the pages this borrows from.
+
+There is **no CSP on the hub yet**, so the rebuild is currently the only layer.
+A `frame-src` allowlist would be genuine defence in depth and is worth adding —
+carefully, because Clerk's flows use frames and a wrong header breaks sign-in.
+
+## Per-profile theming — decided, not yet built
+
+Somebody will be able to theme their own page: accent, background, and a choice
+of canvas animation behind it, reached from a configuration control in the
+editor. The decisions already made, so that whoever builds it does not have to
+re-litigate them:
+
+- **Changes are live and instant. There is no save-then-look.** Theming is the
+  one thing on this page that cannot be evaluated from a form — a colour is a
+  decision about how it looks next to everything else, and a round trip between
+  every adjustment makes the feature unusable rather than merely slow. The
+  values are CSS custom properties already, so a live preview is setting them
+  on a container and nothing more; persistence is a separate, later write.
+- **The author's theme is the DEFAULT for visitors, never an imposition.**
+  Somebody arriving at a fursona page sees the theme its owner chose. They keep
+  the ordinary light and dark controls, and choosing one wins — for them, on
+  that page, without changing anything the owner set. A page that cannot be
+  read in the reader's own contrast setting is a page that loses the reader.
+- **Whatever palette is offered must be measured, not eyeballed.**
+  `pnpm check:contrast` exists for exactly this and already covers the token
+  pairs. An author-chosen accent is a pair the script has never seen, so either
+  the choices are constrained to a measured set or the measurement moves into
+  the code path — the one thing that must not happen is a picker that lets
+  somebody make their own page unreadable and calls it expression.
+- The canvas animations are the hub's existing nebula plus siblings. They stay
+  off wherever the star toggle says off, and they must respect
+  `prefers-reduced-motion`.
+
+None of this exists yet. When it does, its contract moves into TSDoc and this
+section shrinks to a pointer.
 
 ## Things not to do
 

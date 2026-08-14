@@ -27,6 +27,10 @@ import { sectionsSchema } from "@/features/actors/domain/section-schema";
 /**
  * Translated strings {@link FursonaEditor} renders.
  *
+ * `writingIn` is joined by `writingInHint` because the language switch has to
+ * name itself and then say what it governs — this editor has an app language
+ * and an authoring language, and the switch moves only the second.
+ *
  * Extends the toolbar's and the section editor's, because the editor owns one
  * label bag and hands slices of it down rather than each level resolving its
  * own — a component that resolved its own would need the catalogue in the
@@ -36,6 +40,8 @@ export interface FursonaEditorLabels
   extends EditorToolbarLabels, SectionEditorLabels {
   /** Names the control that switches which language is being written. */
   writingIn: string;
+  /** Says which fields the language switch governs. */
+  writingInHint: string;
   /** Shown in the toolbar: what is being edited. */
   title: string;
   /** Field labels. */
@@ -121,7 +127,16 @@ const editorSchema = fursonaSchema.extend({ sections: sectionsSchema });
  * both look up in `labels.errors`, and the person does not need to know which
  * came from where.
  *
- * Exposes the `editor-handle`, `editor-display-name` and `editor-visibility`
+ * **The language switch shows both languages rather than the current one.** It
+ * was a single button reading "EN", which is ambiguous in the way that matters:
+ * a person cannot tell whether the label reports where they are or offers where
+ * they could go. Both sides are on screen now, each naming itself in its own
+ * language — an endonym is deliberately not translated, because a picker whose
+ * options rename themselves is unreadable to whoever needs it — and the switch
+ * sticks to the top, since it governs fields further down the page than it sits.
+ *
+ * Exposes the `editor-handle`, `editor-display-name`, `editor-visibility`,
+ * `writing-in-en` and `writing-in-es`
  * test ids. They exist because a signed-in end-to-end test can reach this page
  * at last; the fields are addressed by test id rather than by label because a
  * label is translated and the suite runs in Spanish.
@@ -137,7 +152,7 @@ export function FursonaEditor({
 }: FursonaEditorProps) {
   const router = useRouter();
   const { save, saving, fieldErrors } = useFursonaEditor(actorRef);
-  const { lang, toggle } = useLanguageToggle();
+  const { lang, select } = useLanguageToggle();
 
   const {
     control,
@@ -265,16 +280,50 @@ export function FursonaEditor({
         </div>
       </div>
 
-      <div className="mt-8 flex items-center gap-3">
-        <span className="text-sm text-[var(--muted)]">{labels.writingIn}</span>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-pressed={lang === "es"}
-          className="rounded-lg border border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+      <div className="sticky top-2 z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--edge)] bg-[var(--bar)]/95 p-3 backdrop-blur">
+        <div className="grid gap-0.5">
+          <span className="font-display text-sm font-bold">
+            {labels.writingIn}
+          </span>
+          <span className="text-xs text-[var(--muted)]">
+            {labels.writingInHint}
+          </span>
+        </div>
+
+        {/*
+          Both languages are on screen and each names itself, so nothing has to
+          be inferred from a single label. The endonyms are deliberately not
+          translated: a language is called the same thing whatever interface
+          you are reading, and "Spanish"/"Español" changing under somebody is
+          how a language picker becomes unreadable to the person who needs it.
+        */}
+        <div
+          role="group"
+          aria-label={labels.writingIn}
+          className="flex rounded-lg border border-[var(--edge)] p-0.5"
         >
-          {lang === "en" ? "EN" : "ES"}
-        </button>
+          {(
+            [
+              ["en", "English"],
+              ["es", "Español"],
+            ] as const
+          ).map(([value, name]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => select(value)}
+              aria-pressed={lang === value}
+              {...tid(`writing-in-${value}`)}
+              className={
+                lang === value
+                  ? "rounded-md bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--on-accent)]"
+                  : "rounded-md px-4 py-1.5 text-sm font-medium text-[var(--muted)]"
+              }
+            >
+              {name}
+            </button>
+          ))}
+        </div>
       </div>
 
       <SectionEditor

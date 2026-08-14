@@ -1,3 +1,7 @@
+import {
+  SECTION_TYPES,
+  type SectionType,
+} from "@/features/actors/domain/section-schema";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useForm } from "react-hook-form";
@@ -67,6 +71,8 @@ const labels = {
   itemTitle: "Title",
   itemDescription: "Description",
   imageUrl: "Image address",
+  linkUrl: "Link address",
+  linkUrlHint: "A video or music link plays here.",
   imageMissing: "No image",
   chooseIcon: "Choose an icon",
   searchIcons: "Search icons",
@@ -95,12 +101,11 @@ const labels = {
   sectionCounts: Object.fromEntries(
     FURSONA_TEMPLATES.map((template) => [template.id, `${template.id} count`]),
   ),
-  types: {
-    cards: "Cards",
-    accordion: "Accordion",
-    "two-column": "Two columns",
-    gallery: "Gallery",
-  },
+  // Derived, so a new layout does not need remembering in four fixtures. The
+  // name is the type, which is all any assertion here cares about.
+  types: Object.fromEntries(
+    SECTION_TYPES.map((type) => [type, type]),
+  ) as Record<SectionType, string>,
 };
 
 /**

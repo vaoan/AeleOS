@@ -1,3 +1,7 @@
+import {
+  SECTION_TYPES,
+  type SectionType,
+} from "@/features/actors/domain/section-schema";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
@@ -39,6 +43,7 @@ const labels = {
   cancel: "Cancel",
   bannerTitle: "Fix these before saving",
   writingIn: "Writing in",
+  writingInHint: "Only the page text.",
   sectionsTitle: "Sections",
   empty: "No sections yet.",
   addSection: "Add section",
@@ -55,6 +60,8 @@ const labels = {
   itemTitle: "Title",
   itemDescription: "Description",
   imageUrl: "Image address",
+  linkUrl: "Link address",
+  linkUrlHint: "A video or music link plays here.",
   imageMissing: "No image",
   chooseIcon: "Choose an icon",
   searchIcons: "Search icons",
@@ -74,12 +81,11 @@ const labels = {
   names: {},
   descriptions: {},
   sectionCounts: {},
-  types: {
-    cards: "Cards",
-    accordion: "Accordion",
-    "two-column": "Two columns",
-    gallery: "Gallery",
-  },
+  // Derived, so a new layout does not need remembering in four fixtures. The
+  // name is the type, which is all any assertion here cares about.
+  types: Object.fromEntries(
+    SECTION_TYPES.map((type) => [type, type]),
+  ) as Record<SectionType, string>,
   visibility: { private: "Private", unlisted: "Unlisted", public: "Public" },
   errors: {
     handle: "Use 1-32 letters, digits, dashes or underscores.",

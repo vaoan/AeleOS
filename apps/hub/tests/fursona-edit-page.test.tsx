@@ -39,10 +39,19 @@ vi.mock("next-intl/server", () => ({
 // catalogue that has no entry for a template the app actually ships.
 const { FURSONA_TEMPLATES } =
   await import("@/features/actors/domain/fursona-templates");
+// Likewise real: labels.ts derives one label per layout from this array, so a
+// stub would let the suite pass with a catalogue missing a layout that ships.
+const { SECTION_TYPES } =
+  await import("@/features/actors/domain/section-schema");
 
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
   FURSONA_TEMPLATES,
+  // The page builds its labels from this, so a mocked barrel that omits it
+  // fails the page rather than the label code — the mocked-dependency trap
+  // again: what stands in for a module has to carry everything the module was
+  // being relied on for, and nothing announces a new reliance.
+  SECTION_TYPES,
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that
   // would crash loudly if something did try to render it.

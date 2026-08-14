@@ -84,6 +84,9 @@ describe("message catalogues", () => {
   // - `fursonas.templates.fursuit.name` is the same loanword, and the same
   //   case: the template's DESCRIPTION beside it is translated, so this is one
   //   word that does not translate rather than one that was forgotten.
+  // - `fursonas.types.video` is the same word in both languages. Every other
+  //   layout name beside it is translated, which is the evidence that this one
+  //   was considered rather than skipped.
   it("have no Spanish values left identical to the English", () => {
     const allowed = [
       "fursonas.templates.fursuit.name",
@@ -95,6 +98,7 @@ describe("message catalogues", () => {
       "meta.title",
       "profile.empty",
       "nav.fursonas",
+      "fursonas.types.video",
     ];
     const untranslated = enKeys.filter(
       (k) => valueAt(en, k) === valueAt(es, k),

@@ -25,4 +25,21 @@ describe("useLanguageToggle", () => {
     act(() => result.current.toggle());
     expect(result.current.lang).toBe("en");
   });
+
+  // The segmented switch shows both languages at once, so each side has to be
+  // able to say which one it is. `toggle` can only mean "the other one", which
+  // is the wrong verb for a control where both options are already visible.
+  it("selects a named language", () => {
+    const { result } = renderHook(() => useLanguageToggle());
+    act(() => result.current.select("es"));
+    expect(result.current.lang).toBe("es");
+  });
+
+  // Clicking the side that is already active must not bounce somebody to the
+  // other one, which is exactly what wiring both sides to `toggle` would do.
+  it("leaves the language alone when the active side is selected", () => {
+    const { result } = renderHook(() => useLanguageToggle());
+    act(() => result.current.select("en"));
+    expect(result.current.lang).toBe("en");
+  });
 });

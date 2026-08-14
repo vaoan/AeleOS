@@ -25,6 +25,12 @@ import { ImageField } from "@/features/actors/presentation/image-field";
  * owns one label bag and hands slices of it down rather than each level
  * resolving its own — a component that resolved its own would need the
  * catalogue in the browser.
+ *
+ * It carries a label for every optional field an item can hold, including the
+ * ones most layouts never show. The bag is per-component and not per-layout on
+ * purpose: which fields appear is decided by `LINKED`, `ICONED` and `PICTURED`
+ * below, and splitting the labels the same way would mean two places to keep in
+ * step and one of them silently winning.
  */
 export interface SectionItemFieldsLabels extends IconPickerLabels {
   /** Names the upload control. */
@@ -47,6 +53,10 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
   removeItem: string;
   /** Field label for a gallery item's image address. */
   imageUrl: string;
+  /** Field label for the address a media or link item points at. */
+  linkUrl: string;
+  /** Says which addresses become a player and what happens to the rest. */
+  linkUrlHint: string;
   /** Stands in for the preview until an address is written. */
   imageMissing: string;
 }
@@ -89,6 +99,22 @@ export interface SectionItemFieldsProps<T extends FieldValues> {
 }
 
 /**
+ * The layouts whose items carry an address.
+ *
+ * `music` and `video` play theirs; `links` turns theirs into a button. Every
+ * other layout would accept the field, store it, and render nothing — which is
+ * the worst kind of control, because it refuses nothing and shows nothing and
+ * gives somebody no way to learn it did nothing.
+ */
+const LINKED = new Set<SectionType>(["video", "music", "links"]);
+
+/** The layouts that render an item's icon. */
+const ICONED = new Set<SectionType>(["cards", "links"]);
+
+/** The layouts that render an item's picture. */
+const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
+
+/**
  * One item's fields, in whichever language is being written.
  *
  * The two languages share one pair of text inputs and swap which fields they
@@ -99,11 +125,22 @@ export interface SectionItemFieldsProps<T extends FieldValues> {
  * warning, no placeholder nagging about it, no badge. The Spanish is the
  * author's to write when they choose, and `0013` accepts its absence.
  *
+ * `linkUrl` and `linkUrlHint` name the address field the media and link
+ * layouts carry. The hint says which addresses become a player and what happens
+ * to the rest, because "paste a link" is otherwise a promise the page cannot
+ * keep for every host.
+ *
  * **What is offered depends on the section's layout**, matching what the public
  * page will render: an icon on `cards`, an image address on `gallery`, neither
  * elsewhere. A field a layout never renders is the worst kind of control — it
  * accepts what somebody types, refuses nothing, and shows nothing, with no way
  * for them to learn that it did nothing.
+ *
+ * The three sets above the component — `LINKED`, `ICONED`, `PICTURED` — are
+ * what decide that, one per optional field. They are sets rather than a chain
+ * of comparisons because each field is now wanted by more than one layout, and
+ * `type === "cards" || type === "links"` repeated three times is the shape that
+ * quietly loses a layout when a fourth is added.
  *
  * A gallery item's address can now be uploaded as well as pasted, and both go
  * to the same field — see `ImageField`, which owns that choice and the warning
@@ -146,7 +183,26 @@ export function SectionItemFields<T extends FieldValues>({
 
   return (
     <div className="grid gap-2 rounded-lg border border-[var(--edge)]/40 p-3">
-      {type === "cards" ? (
+      {LINKED.has(type) ? (
+        <div className="grid gap-1.5">
+          <label htmlFor={`${id}-link`} className="text-xs font-medium">
+            {labels.linkUrl}
+          </label>
+          <input
+            id={`${id}-link`}
+            type="url"
+            inputMode="url"
+            aria-describedby={`${id}-link-hint`}
+            {...register(`${path}.link_url` as Path<T>)}
+            className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+          />
+          <p id={`${id}-link-hint`} className="text-xs text-[var(--muted)]">
+            {labels.linkUrlHint}
+          </p>
+        </div>
+      ) : null}
+
+      {ICONED.has(type) ? (
         <IconPicker
           value={String(icon.field.value ?? "")}
           onChange={icon.field.onChange}
@@ -154,7 +210,7 @@ export function SectionItemFields<T extends FieldValues>({
         />
       ) : null}
 
-      {type === "gallery" ? (
+      {PICTURED.has(type) ? (
         <div className="flex items-start gap-3">
           {imageUrl ? (
             // The address is arbitrary and typed by hand, so next/image would

@@ -5,12 +5,28 @@ import { useCallback, useState } from "react";
 /** Which language the editor is currently writing in. */
 export type AuthoringLanguage = "en" | "es";
 
-/** What {@link useLanguageToggle} returns. */
+/**
+ * What {@link useLanguageToggle} returns.
+ *
+ * Two ways to change the language, for two shapes of control. `toggle` suits
+ * one button that flips; `select` suits a switch showing both options, where
+ * "the other one" is not a thing either side can mean.
+ */
 export interface LanguageToggleState {
   /** The language the editor's fields are bound to. */
   lang: AuthoringLanguage;
   /** Switches to the other one. */
   toggle: () => void;
+  /**
+   * Switches to a named one.
+   *
+   * A segmented switch shows both languages at once and each side names where
+   * it goes, so it must be able to say which — `toggle` can only mean "the
+   * other one", which is the wrong verb for a control whose whole point is
+   * that both options are visible. Selecting the side already active is a
+   * no-op rather than an error.
+   */
+  select: (lang: AuthoringLanguage) => void;
 }
 
 /**
@@ -30,7 +46,7 @@ export interface LanguageToggleState {
  * Whichever side somebody is on, nothing anywhere nags about the other: an
  * unwritten `*_es` is an ordinary state, not an omission.
  *
- * @returns the current language and a way to switch it.
+ * @returns the current language and two ways to switch it.
  */
 export function useLanguageToggle(): LanguageToggleState {
   const [lang, setLang] = useState<AuthoringLanguage>("en");
@@ -38,5 +54,6 @@ export function useLanguageToggle(): LanguageToggleState {
     () => setLang((previous) => (previous === "en" ? "es" : "en")),
     [],
   );
-  return { lang, toggle };
+  const select = useCallback((next: AuthoringLanguage) => setLang(next), []);
+  return { lang, toggle, select };
 }

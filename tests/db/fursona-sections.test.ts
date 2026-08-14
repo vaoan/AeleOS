@@ -189,9 +189,13 @@ describe("the shape it refuses", () => {
     );
   });
 
+  // The value must be one nobody would plausibly ADD. It was `carousel`, which
+  // became a real layout — at which point this asserted the opposite of its
+  // name. A name that could not be a layout is the point, not one that merely
+  // is not a layout yet.
   it("refuses an unknown section type", async () => {
     const message = await write(alice.sub, alice.sonaRef, [
-      section({ type: "carousel" }),
+      section({ type: "not-a-layout" }),
     ]);
     // Names which section and which rule, because the editor has to tell
     // somebody what to fix. Unlike the ownership error, this is not a secret.

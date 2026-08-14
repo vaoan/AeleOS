@@ -23,6 +23,8 @@ const labels = {
   itemDescription: "Description",
   removeItem: "Remove item",
   imageUrl: "Image address",
+  linkUrl: "Link address",
+  linkUrlHint: "A video or music link plays here.",
   imageMissing: "No image yet",
   chooseIcon: "Choose an icon",
   searchIcons: "Search icons",

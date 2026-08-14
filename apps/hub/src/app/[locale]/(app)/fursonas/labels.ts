@@ -1,5 +1,10 @@
 import { getTranslations } from "next-intl/server";
-import { FURSONA_TEMPLATES, type FursonaEditorLabels } from "@/features/actors";
+import {
+  FURSONA_TEMPLATES,
+  SECTION_TYPES,
+  type FursonaEditorLabels,
+  type SectionType,
+} from "@/features/actors";
 
 /**
  * Resolves every label {@link FursonaForm} needs, on the server where the
@@ -27,6 +32,17 @@ import { FURSONA_TEMPLATES, type FursonaEditorLabels } from "@/features/actors";
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * `types` is DERIVED from `SECTION_TYPES` rather than listed. Written out by
+ * hand it was a set of entries that had to be remembered whenever a layout was
+ * added, and the reward for forgetting was a picker offering a blank option.
+ * `messages.test.ts` already fails the build when a key is in one catalogue and
+ * not the other, so deriving it moves the whole question to one place.
+ *
+ * `writingIn` and `writingInHint` are two strings for one control because the
+ * switch names itself and then says what it governs. The hint is not decoration:
+ * the editor has an app language and an authoring language, and somebody with no
+ * reason to suspect a second axis reads the switch as the app's own.
+ *
  * @param title - what the toolbar says is being edited. The two pages differ
  * only in this and in whether the handle can be typed, which is why they share
  * one function rather than each carrying a near-identical copy.
@@ -43,6 +59,7 @@ export async function fursonaEditorLabels(
     cancel: t("cancel"),
     bannerTitle: t("bannerTitle"),
     writingIn: t("writingIn"),
+    writingInHint: t("writingInHint"),
     sectionsTitle: t("sectionsTitle"),
     empty: t("sectionsEmpty"),
     addSection: t("addSection"),
@@ -59,6 +76,8 @@ export async function fursonaEditorLabels(
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),
     imageUrl: t("imageUrl"),
+    linkUrl: t("linkUrl"),
+    linkUrlHint: t("linkUrlHint"),
     imageMissing: t("imageMissing"),
     chooseIcon: t("chooseIcon"),
     searchIcons: t("searchIcons"),
@@ -95,12 +114,14 @@ export async function fursonaEditorLabels(
         t("templateSections", { count: template.sections.length }),
       ]),
     ),
-    types: {
-      cards: t("types.cards"),
-      accordion: t("types.accordion"),
-      "two-column": t("types.two-column"),
-      gallery: t("types.gallery"),
-    },
+    // Derived rather than listed. Written out by hand this was four entries
+    // that had to be remembered whenever a layout was added, and the reward for
+    // forgetting was a picker offering a blank option. `messages.test.ts`
+    // already fails the build when a key is in one catalogue and not the other,
+    // so deriving it moves the whole question to one place.
+    types: Object.fromEntries(
+      SECTION_TYPES.map((type) => [type, t(`types.${type}`)]),
+    ) as Record<SectionType, string>,
     handle: t("form.handle"),
     handleHint: t("form.handleHint"),
     displayName: t("form.displayName"),

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { FursonaSection } from "@/features/actors/domain/section-schema";
+import type {
+  FursonaSection,
+  FursonaSectionItem,
+} from "@/features/actors/domain/section-schema";
 
 vi.mock("lucide-react/dynamic", () => ({
   DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
@@ -47,8 +50,8 @@ const section = (over: Record<string, unknown> = {}) =>
  * @param sections - what to render.
  * @param locale - the locale being read.
  */
-function renderSections(sections: FursonaSection[], locale = "en"): void {
-  render(<PublicSections sections={sections} locale={locale} />);
+function renderSections(sections: FursonaSection[], locale = "en") {
+  return render(<PublicSections sections={sections} locale={locale} />);
 }
 
 describe("PublicSections", () => {
@@ -145,12 +148,17 @@ describe("PublicSections", () => {
   });
 
   describe("two-column", () => {
-    it("renders the title and the description", () => {
-      renderSections([section({ type: "two-column" })]);
-      expect(
-        screen.getByRole("heading", { name: "English title", level: 3 }),
-      ).toBeInTheDocument();
-      expect(screen.getByText("English words.")).toBeInTheDocument();
+    // "Two columns" names the shape of each ROW — a label against its value —
+    // not a grid with two items per row. The first version rendered the second
+    // thing, so these assert the structure rather than only the words: a `dt`
+    // and a `dd` in one list is the layout, and a pair of headings would not be.
+    it("renders each item as a label and its value", () => {
+      const { container } = renderSections([section({ type: "two-column" })]);
+      const label = container.querySelector("dt");
+      const value = container.querySelector("dd");
+      expect(label).toHaveTextContent("English title");
+      expect(value).toHaveTextContent("English words.");
+      expect(label?.closest("dl")).toBe(value?.closest("dl"));
     });
   });
 
@@ -215,6 +223,153 @@ describe("PublicSections", () => {
         screen.getByRole("heading", { name: "About", level: 2 }),
       ).toBeInTheDocument();
       expect(screen.getByText("English words.")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("the expressive layouts", () => {
+  /**
+   * Renders one section of a given layout with one item.
+   *
+   * @param type - the layout.
+   * @param overrides - what the single item carries.
+   * @returns the render result.
+   */
+  function one(
+    type: FursonaSection["type"],
+    overrides: Partial<FursonaSectionItem> = {},
+  ) {
+    return renderSections([section({ type, items: [item(overrides)] })]);
+  }
+
+  describe("video and music", () => {
+    it("frames a YouTube link on the no-cookie host", () => {
+      const { container } = one("video", {
+        link_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+      );
+    });
+
+    it("frames a Spotify link", () => {
+      const { container } = one("music", {
+        link_url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+      });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        "https://open.spotify.com/embed/track/4cOdK2wGLETKBW3PvgPWqT",
+      );
+    });
+
+    // A page that starts playing at whoever opened it is the one thing about
+    // the era this borrows from that nobody actually wants back.
+    it("never grants the frame autoplay", () => {
+      const { container } = one("video", {
+        link_url: "https://youtu.be/dQw4w9WgXcQ",
+      });
+      expect(
+        container.querySelector("iframe")?.getAttribute("allow"),
+      ).not.toContain("autoplay");
+    });
+
+    // The whole point of resolving rather than passing through. If this ever
+    // renders a frame, a fursona page can host an attacker's page inside itself.
+    it.each([
+      "javascript:alert(1)",
+      "https://evil.example/player",
+      "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ",
+    ])("frames nothing for %s", (link_url) => {
+      const { container } = one("video", { link_url });
+      expect(container.querySelector("iframe")).toBeNull();
+    });
+
+    // Refused is not the same as ignored. An author who pasted a link this hub
+    // cannot play still gets their link, and can see that it is not a player.
+    it("falls back to a plain link when it cannot resolve a player", () => {
+      one("video", { link_url: "https://example.test/a-video" });
+      expect(screen.getByRole("link")).toHaveAttribute(
+        "href",
+        "https://example.test/a-video",
+      );
+    });
+  });
+
+  describe("links", () => {
+    it("links an ordinary address", () => {
+      one("links", { link_url: "https://example.test/refsheet" });
+      const link = screen.getByRole("link");
+      expect(link).toHaveAttribute("href", "https://example.test/refsheet");
+      expect(link).toHaveAttribute("target", "_blank");
+    });
+
+    // A page anybody can publish links on has to say so to a crawler, or it
+    // becomes a way to buy ranking.
+    it("marks the link as untrusted and user-generated", () => {
+      one("links", { link_url: "https://example.test/refsheet" });
+      const rel = screen.getByRole("link").getAttribute("rel") ?? "";
+      expect(rel).toContain("noopener");
+      expect(rel).toContain("noreferrer");
+      expect(rel).toContain("nofollow");
+      expect(rel).toContain("ugc");
+    });
+
+    // React escapes text and not URL schemes, so nothing upstream of the anchor
+    // is stopping this. The item still renders — it just is not a link.
+    it.each([
+      "javascript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+    ])("refuses to link %s", (link_url) => {
+      one("links", { link_url });
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(screen.getByText("English title")).toBeInTheDocument();
+    });
+  });
+
+  describe("carousel", () => {
+    it("shows a picture per item", () => {
+      one("carousel", { image_url: "https://example.test/a.png" });
+      expect(screen.getByRole("img")).toHaveAttribute(
+        "src",
+        "https://example.test/a.png",
+      );
+    });
+
+    // The same rule the gallery follows: an item somebody has not finished is
+    // dropped rather than rendered as a broken frame.
+    it("drops an item with no picture", () => {
+      one("carousel", { image_url: undefined });
+      expect(screen.queryByRole("img")).toBeNull();
+    });
+  });
+
+  describe("stats, quotes and the timeline", () => {
+    // The label is the title and the value is the description, which is the
+    // reverse of every other layout. Asserting both proves the pairing rather
+    // than just that two strings arrived.
+    it("renders a stat as a label above its value", () => {
+      one("stats");
+      expect(screen.getByText("English title")).toBeInTheDocument();
+      expect(screen.getByText("English words.")).toBeInTheDocument();
+    });
+
+    it("renders a quotation with its attribution", () => {
+      const { container } = one("quote");
+      expect(container.querySelector("blockquote")).toHaveTextContent(
+        "English words.",
+      );
+      expect(container.querySelector("figcaption")).toHaveTextContent(
+        "English title",
+      );
+    });
+
+    // An ordered list, because the entries are in an order that means something.
+    it("renders the timeline as an ordered list", () => {
+      const { container } = one("timeline");
+      expect(container.querySelector("ol > li")).toHaveTextContent(
+        "English title",
+      );
     });
   });
 });
