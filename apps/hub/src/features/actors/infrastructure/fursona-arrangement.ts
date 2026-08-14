@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { removeActorImages } from "@/features/actors/infrastructure/actor-images";
 import type { Actor } from "@/features/actors/infrastructure/fursonas";
 
 /** How one fursona is arranged in its owner's list. */
@@ -129,21 +130,36 @@ export async function setFursonaFeatured(
 }
 
 /**
- * Deletes a fursona.
+ * Deletes a fursona, and its pictures with it.
  *
- * **This never frees the handle.** `0012` marks the row deleted and keeps it, so
- * a retired fursona's name cannot be registered by somebody else — and the row
- * keeps occupying its owner's quota, or deleting would become a way to buy
- * allowance back.
+ * **This never frees the handle.** The row is marked deleted and kept, so a
+ * retired fursona's name cannot be registered by somebody else — and it keeps
+ * occupying its owner's quota, or deleting would become a way to buy allowance
+ * back.
+ *
+ * **The images go first, and the order is forced rather than preferred.** The
+ * storage delete policy resolves through `owns_active_actor`, which requires
+ * `status = 'active'`: the moment the row is marked deleted, its owner can no
+ * longer remove its pictures, and they would be stranded in a bucket nobody can
+ * reclaim from. `0013` explains why the database cannot do this itself — a
+ * `security definer` function owned by `postgres` is refused by
+ * `storage.objects`, which belongs to `supabase_storage_admin`.
+ *
+ * So a failed cleanup **stops the delete**, deliberately. The fursona survives,
+ * the person is told, and a second attempt is safe because removing an already
+ * removed object is not an error. The alternative — deleting anyway — trades a
+ * visible failure for storage nobody can ever free.
  *
  * @param client - a Supabase client authenticated as the person.
  * @param actorRef - the fursona to delete.
- * @throws when the caller does not own an active fursona with that ref.
+ * @throws when the images cannot be removed, or when the caller does not own an
+ * active fursona with that ref. The fursona is intact in both cases.
  */
 export async function deleteFursona(
   client: SupabaseClient,
   actorRef: string,
 ): Promise<void> {
+  await removeActorImages(client, actorRef);
   await call(client, "delete_fursona", { p_actor_ref: actorRef });
 }
 

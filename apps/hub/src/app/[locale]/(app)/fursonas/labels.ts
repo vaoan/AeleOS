@@ -10,10 +10,10 @@ import { FURSONA_TEMPLATES, type FursonaEditorLabels } from "@/features/actors";
  * rather than each page carrying its own near-identical copy of this
  * function.
  *
- * It now also carries every string the section editor needs — including the
- * icon picker's and the gallery item's — resolved here for the same reason as
- * the rest: those components are client components, so the catalogue lookup
- * belongs on the server where the locale already is.
+ * It now also carries every string the section editor needs — the icon
+ * picker's, the gallery item's, and the upload control's — resolved here for
+ * the same reason as the rest: those components are client components, so the
+ * catalogue lookup belongs on the server where the locale already is.
  *
  * The template picker's three label records are **built by mapping
  * `FURSONA_TEMPLATES`**, not written out. A template added later then either
@@ -65,6 +65,12 @@ export async function fursonaEditorLabels(
     noIconsFound: t("noIconsFound"),
     clearIcon: t("clearIcon"),
     noIcon: t("noIcon"),
+    imageUpload: t("imageUpload"),
+    imageUploading: t("imageUploading"),
+    imageTooLarge: t("imageTooLarge"),
+    imageWrongType: t("imageWrongType"),
+    imageFailed: t("imageFailed"),
+    imageStaysPublic: t("imageStaysPublic"),
     useTemplate: t("useTemplate"),
     templateConfirm: t("templateConfirm"),
     templateConfirmYes: t("templateConfirmYes"),

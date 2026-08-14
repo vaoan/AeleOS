@@ -4,6 +4,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
 let saving = false;
+// ImageField reaches for the browser Supabase client, which is Clerk-backed.
+// These suites are about the fields, not about a session.
+vi.mock("@/shared/infrastructure/supabase-browser", () => ({
+  useSupabaseBrowserClient: () => ({}),
+}));
+
 vi.mock("@/features/actors/application/use-fursona-editor", () => ({
   useFursonaEditor: (...a: unknown[]) => {
     lastActorRef = a[0];
@@ -55,6 +61,12 @@ const labels = {
   noIconsFound: "No icons match that.",
   clearIcon: "Remove the icon",
   noIcon: "No icon",
+  imageUpload: "Upload a picture",
+  imageUploading: "Uploading…",
+  imageTooLarge: "That file is over 2 MB.",
+  imageWrongType: "That is not an image we can store.",
+  imageFailed: "The upload did not work.",
+  imageStaysPublic: "An uploaded picture stays reachable by its address.",
   useTemplate: "Start from a template",
   templateConfirm: "This replaces the sections you have.",
   templateConfirmYes: "Replace them",

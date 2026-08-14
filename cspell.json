@@ -102,6 +102,8 @@
     "pgcrypto",
     "plpgsql",
     "pnpm",
+    "polname",
+    "polrelid",
     "postgrest",
     "prebuilt",
     "prettierignore",

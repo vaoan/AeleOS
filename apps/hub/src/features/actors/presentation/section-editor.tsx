@@ -52,7 +52,13 @@ export interface SectionEditorLabels
   dragSection: string;
 }
 
-/** What {@link SectionEditor} needs. */
+/**
+ * What {@link SectionEditor} needs.
+ *
+ * `actorRef` is threaded through to the item fields, which need it before they
+ * can offer an upload: an object's path carries the actor's ref, and there is
+ * none until the fursona exists.
+ */
 export interface SectionEditorProps<T extends FieldValues> {
   /** The form's control, for the sections array. */
   control: Control<T>;
@@ -60,6 +66,8 @@ export interface SectionEditorProps<T extends FieldValues> {
   register: UseFormRegister<T>;
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
+  /** The fursona being edited, absent while creating one. */
+  actorRef?: string;
   /** Already-translated strings. */
   labels: SectionEditorLabels;
 }
@@ -87,6 +95,8 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  * fault on the person's part — it is a number `0013` enforces, mirrored here
  * only so nobody discovers it after a save.
  *
+ * It passes `actorRef` down to each card untouched.
+ *
  * A template fills the whole array rather than adding to it, which is why the
  * picker asks first when there is anything to lose.
  *
@@ -100,6 +110,7 @@ export function SectionEditor<T extends FieldValues>({
   control,
   register,
   lang,
+  actorRef,
   labels,
 }: SectionEditorProps<T>) {
   const id = useId();
@@ -174,6 +185,7 @@ export function SectionEditor<T extends FieldValues>({
                           register={register}
                           path={`sections.${index}`}
                           index={index}
+                          actorRef={actorRef}
                           lang={lang}
                           labels={labels}
                           onRemove={() => remove(index)}

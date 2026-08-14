@@ -120,7 +120,13 @@
         "name": "Fursuit",
         "description": "The suit itself — who built it, what of, and where it has been."
       }
-    }
+    },
+    "imageUpload": "Upload a picture",
+    "imageUploading": "Uploading…",
+    "imageTooLarge": "That file is over 2 MB. Choose a smaller one.",
+    "imageWrongType": "That is not an image we can store. Use PNG, JPEG, WebP or GIF.",
+    "imageFailed": "The upload did not work. Try again.",
+    "imageStaysPublic": "An uploaded picture stays reachable by its address, even if you make this fursona private later."
   },
   "picker": {
     "title": "Who do you want to be?",

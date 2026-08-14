@@ -4,6 +4,12 @@ import { useForm } from "react-hook-form";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
 import type { SectionType } from "@/features/actors/domain/section-schema";
 
+// ImageField reaches for the browser Supabase client, which is Clerk-backed.
+// These suites are about the fields, not about a session.
+vi.mock("@/shared/infrastructure/supabase-browser", () => ({
+  useSupabaseBrowserClient: () => ({}),
+}));
+
 vi.mock("lucide-react/dynamic", () => ({
   DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
   iconNames: ["sparkles", "heart", "star"],
@@ -23,6 +29,12 @@ const labels = {
   noIconsFound: "No icons match that.",
   clearIcon: "Remove the icon",
   noIcon: "No icon",
+  imageUpload: "Upload a picture",
+  imageUploading: "Uploading…",
+  imageTooLarge: "That file is over 2 MB.",
+  imageWrongType: "That is not an image we can store.",
+  imageFailed: "The upload did not work.",
+  imageStaysPublic: "An uploaded picture stays reachable by its address.",
 };
 
 type Values = {

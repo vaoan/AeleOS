@@ -16,15 +16,29 @@ import {
   IconPicker,
   type IconPickerLabels,
 } from "@/features/actors/presentation/icon-picker";
+import { ImageField } from "@/features/actors/presentation/image-field";
 
 /**
  * Translated strings {@link SectionItemFields} renders.
  *
- * Extends the icon picker's, because the item owns one label bag and hands it
- * down rather than each level resolving its own — a component that resolved its
- * own would need the catalogue in the browser.
+ * Extends the icon picker's and carries the upload control's, because the item
+ * owns one label bag and hands slices of it down rather than each level
+ * resolving its own — a component that resolved its own would need the
+ * catalogue in the browser.
  */
 export interface SectionItemFieldsLabels extends IconPickerLabels {
+  /** Names the upload control. */
+  imageUpload: string;
+  /** Shown while a file is going up. */
+  imageUploading: string;
+  /** Shown when a file is too large. */
+  imageTooLarge: string;
+  /** Shown when a file is the wrong kind. */
+  imageWrongType: string;
+  /** Shown when the upload itself failed. */
+  imageFailed: string;
+  /** Warns that an uploaded picture outlives the fursona's visibility. */
+  imageStaysPublic: string;
   /** Field label for the item's title. */
   itemTitle: string;
   /** Field label for the item's description. */
@@ -42,8 +56,12 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
  *
  * `type` is the section's layout, not the item's: an item has no layout of its
  * own, and this is what decides which of the optional columns it offers.
- * `control` joins `register` because the icon is chosen by a control rather
- * than typed, and the image preview has to follow the address as it is written.
+ * `control` joins `register` because neither the icon nor the image address is
+ * typed into a plain input any more — one is chosen by a picker and the other
+ * can be written by an upload.
+ *
+ * `actorRef` is what makes the upload possible: an object's path carries it, so
+ * while a fursona is being created the field takes a pasted address only.
  */
 export interface SectionItemFieldsProps<T extends FieldValues> {
   /** The form's control, for the fields no plain input can drive. */
@@ -54,6 +72,14 @@ export interface SectionItemFieldsProps<T extends FieldValues> {
   path: string;
   /** Its section's layout, which decides what is offered. */
   type: SectionType;
+  /**
+   * The fursona being edited, absent while creating one.
+   *
+   * Threaded down from the editor because an uploaded object's path carries the
+   * actor's ref, and there is no ref until the fursona exists. Absent simply
+   * means the upload control is not offered yet.
+   */
+  actorRef?: string;
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
   /** Already-translated strings. */
@@ -79,6 +105,10 @@ export interface SectionItemFieldsProps<T extends FieldValues> {
  * accepts what somebody types, refuses nothing, and shows nothing, with no way
  * for them to learn that it did nothing.
  *
+ * A gallery item's address can now be uploaded as well as pasted, and both go
+ * to the same field — see `ImageField`, which owns that choice and the warning
+ * that comes with it.
+ *
  * Nothing is erased when the layout changes. `0013` accepts both columns on any
  * item, so switching a section to `gallery` to look at it and switching back
  * finds the icon still there.
@@ -90,6 +120,7 @@ export function SectionItemFields<T extends FieldValues>({
   register,
   path,
   type,
+  actorRef,
   lang,
   labels,
   onRemove,
@@ -104,7 +135,13 @@ export function SectionItemFields<T extends FieldValues>({
   // being typed — a value read once at mount would leave somebody entering a
   // URL into a box that never shows them anything.
   const icon = useController({ control, name: `${path}.icon` as Path<T> });
-  const imageUrl = useWatch({ control, name: `${path}.image_url` as Path<T> });
+  // A controller rather than a register, because an upload writes the value
+  // rather than somebody typing it.
+  const image = useController({
+    control,
+    name: `${path}.image_url` as Path<T>,
+  });
+  const imageUrl = image.field.value;
   const title = useWatch({ control, name: `${path}.title_${lang}` as Path<T> });
 
   return (
@@ -134,15 +171,20 @@ export function SectionItemFields<T extends FieldValues>({
               {labels.imageMissing}
             </span>
           )}
-          <div className="grid flex-1 gap-1.5">
-            <label htmlFor={`${id}-image`} className="text-xs font-medium">
-              {labels.imageUrl}
-            </label>
-            <input
-              id={`${id}-image`}
-              type="url"
-              {...register(`${path}.image_url` as Path<T>)}
-              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+          <div className="flex-1">
+            <ImageField
+              actorRef={actorRef}
+              value={String(imageUrl ?? "")}
+              onChange={(url) => image.field.onChange(url)}
+              labels={{
+                address: labels.imageUrl,
+                upload: labels.imageUpload,
+                uploading: labels.imageUploading,
+                tooLarge: labels.imageTooLarge,
+                wrongType: labels.imageWrongType,
+                failed: labels.imageFailed,
+                staysPublic: labels.imageStaysPublic,
+              }}
             />
           </div>
         </div>

@@ -110,6 +110,11 @@ const editorSchema = fursonaSchema.extend({ sections: sectionsSchema });
  * once navigated away on a refusal, hiding the reason and discarding what
  * somebody had typed.
  *
+ * It hands `actorRef` to the section editor as well as using it to save. An
+ * uploaded image's path carries that ref, so a gallery item can only offer the
+ * upload control once the fursona exists — while creating one, the field takes
+ * a pasted address and nothing else.
+ *
  * Two error sources meet in one banner: what the schema rejected before
  * anything was sent, and what the database refused afterwards. Both are codes,
  * both look up in `labels.errors`, and the person does not need to know which
@@ -267,6 +272,7 @@ export function FursonaEditor({
         control={control}
         register={register}
         lang={lang}
+        actorRef={actorRef}
         labels={labels}
       />
     </form>

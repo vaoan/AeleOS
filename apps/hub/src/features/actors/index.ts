@@ -20,6 +20,15 @@ export {
   type Actor,
 } from "@/features/actors/infrastructure/fursonas";
 export {
+  uploadActorImage,
+  removeActorImages,
+  ImageRefusedError,
+} from "@/features/actors/infrastructure/actor-images";
+export {
+  IMAGE_LIMITS,
+  refuseImage,
+} from "@/features/actors/domain/image-limits";
+export {
   readPublicPerson,
   readPublicFursona,
   type PublicActor,

@@ -17,18 +17,29 @@ const select = vi.fn();
  *
  * @returns the stub, typed as a client so the call sites type-check.
  */
+const list = vi.fn();
+const remove = vi.fn();
+
 function client(): SupabaseClient {
   return {
     rpc,
     from: () => ({ select }),
+    // deleteFursona removes an actor's pictures before marking the row, so the
+    // client it is handed must carry storage. See 0013 for why the database
+    // cannot do this itself.
+    storage: { from: () => ({ list, remove }) },
   } as unknown as SupabaseClient;
 }
 
 beforeEach(() => {
   rpc.mockReset();
   select.mockReset();
+  list.mockReset();
+  remove.mockReset();
   rpc.mockResolvedValue({ data: null, error: null });
   select.mockResolvedValue({ data: [], error: null });
+  list.mockResolvedValue({ data: [], error: null });
+  remove.mockResolvedValue({ error: null });
 });
 
 describe("readArrangement", () => {
@@ -169,6 +180,49 @@ describe("the write functions", () => {
     await deleteFursona(client(), "ref-1");
     expect(rpc).toHaveBeenCalledWith("delete_fursona", {
       p_actor_ref: "ref-1",
+    });
+  });
+
+  // THE ORDER IS THE DESIGN, not an implementation detail. The storage delete
+  // policy resolves through owns_active_actor, which requires status =
+  // 'active' — so once the row is marked deleted its owner can no longer remove
+  // its pictures, and they would sit in a bucket nobody can reclaim from.
+  describe("and its pictures", () => {
+    it("removes the images BEFORE marking the row", async () => {
+      const order: string[] = [];
+      list.mockImplementation(async () => {
+        order.push("list");
+        return { data: [{ name: "a.png" }], error: null };
+      });
+      remove.mockImplementation(async () => {
+        order.push("remove");
+        return { error: null };
+      });
+      rpc.mockImplementation(async () => {
+        order.push("rpc");
+        return { data: null, error: null };
+      });
+
+      await deleteFursona(client(), "ref-1");
+      expect(order).toEqual(["list", "remove", "rpc"]);
+    });
+
+    // Deliberately: the fursona survives, the person is told, and a retry is
+    // safe. Deleting anyway would trade a visible failure for storage nobody
+    // can ever free.
+    it("does not delete the fursona when the images cannot be removed", async () => {
+      list.mockResolvedValue({ data: [{ name: "a.png" }], error: null });
+      remove.mockResolvedValue({ error: { message: "denied" } });
+
+      await expect(deleteFursona(client(), "ref-1")).rejects.toThrow(/denied/);
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it("deletes a fursona that never had a picture", async () => {
+      await expect(deleteFursona(client(), "ref-1")).resolves.toBeUndefined();
+      expect(rpc).toHaveBeenCalledWith("delete_fursona", {
+        p_actor_ref: "ref-1",
+      });
     });
   });
 
