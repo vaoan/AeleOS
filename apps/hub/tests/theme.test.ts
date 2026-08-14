@@ -28,6 +28,19 @@ describe("resolveTheme", () => {
 });
 
 describe("THEME_SCRIPT", () => {
+  // **The reason this may be injected at all.** It reaches the page through
+  // `dangerouslySetInnerHTML`, which is safe here precisely because the string
+  // is a module constant that nothing user-supplied ever enters. A parameter
+  // added to it later would make that sentence false everywhere it is written,
+  // so the property is asserted rather than described.
+  //
+  // `PAGE_THEME_SCRIPT` beside it has carried this check since it was written;
+  // this one predates the idea and had only been checked for what it contains,
+  // never for what it must not.
+  it("interpolates nothing", () => {
+    expect(THEME_SCRIPT).not.toContain("${");
+  });
+
   it("sets the attribute before paint rather than after hydration", () => {
     expect(THEME_SCRIPT).toContain("documentElement");
     expect(THEME_SCRIPT).toContain("data-theme");

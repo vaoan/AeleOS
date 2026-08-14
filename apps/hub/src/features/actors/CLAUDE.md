@@ -327,7 +327,12 @@ wrong and both fail quietly:
   the challenge should be.
 - **`script-src` carries `'unsafe-inline'`**, because Next inlines its own
   bootstrap. So the policy is **not** a defence against injected inline script,
-  and it must not be described as though it were. The parts that protect
+  and it must not be described as though it were. **A nonce was considered and
+  declined**: it forces every page to render dynamically, and the public pages
+  are the ones least worth giving that up for. What guards the surface instead
+  is `html-sinks.test.ts`, which counts every way a string can become markup or
+  script here and fails when a new one appears — there are two, both fed module
+  constants, both asserted to interpolate nothing. The parts that protect
   something are `frame-src`, `object-src`, `base-uri`, `form-action` and
   `frame-ancestors`, none of which depend on `script-src`. A nonce is the
   upgrade, and its cost is that every page renders dynamically.

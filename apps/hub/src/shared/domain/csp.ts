@@ -68,6 +68,14 @@ const CLERK_TELEMETRY = "https://clerk-telemetry.com";
  * defence against injected inline script**, and nothing here should be read as
  * though it were.
  *
+ * **What stands in for `script-src` instead** is `html-sinks.test.ts`, which
+ * counts every way a string can become markup or script in this app and fails
+ * when a new one appears. There are two, both `<script>` fed a module constant
+ * with no interpolation, and both asserted to stay that way. That is a narrower
+ * guarantee than a nonce but it is checked on every pull request, and it costs
+ * nothing — where a nonce would force every page to render dynamically, which
+ * the public pages are exactly the wrong ones to give up.
+ *
  * What it genuinely does, none of which depends on `script-src`:
  *
  *  * **`frame-src` is an allowlist built from {@link PLAYER_ORIGINS}**, so a
