@@ -461,8 +461,19 @@ blur and the body's face. It names **no colour of its own**, and that separation
 is the whole design — every pairing of a style and a palette is somebody's page,
 where nine themed presets would have been nine colour schemes.
 
-`shared/domain/skins.ts` holds the table and `SKINS` is the list. Adding one is
-a table entry and a name in both catalogues; a test fails if either is missing.
+`shared/domain/skins.ts` holds the table and `SKINS` is the list — fifteen of
+them. Adding one is a table entry and a name in both catalogues; a test fails if
+either is missing.
+
+**What earns a place is a MECHANISM, not another set of numbers.** The six added
+last each reach for something none of the others used: a surface that is not
+there (`outline`, where `--surface: transparent` makes the author's gradient the
+card itself), a tiled texture (`comic`'s halftone, which is what
+`--skin-gloss-size` exists for — a `radial-gradient` with no size is one dot the
+width of the panel), a shadow that steps instead of fading (`pixel`), a ruled
+grid (`blueprint`), a surface pressed in rather than raised (`inset`), and a
+die-cut ring (`sticker`). Another radius-and-shadow pairing would read as a
+variant of something already here.
 
 Four things about it that a later change must not undo:
 

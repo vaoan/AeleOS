@@ -169,7 +169,13 @@
       "clay": "Arcilla suave",
       "paper": "Papel",
       "terminal": "Terminal",
-      "retro": "Ventana retro"
+      "retro": "Ventana retro",
+      "outline": "Contorno",
+      "blueprint": "Plano técnico",
+      "comic": "Cómic",
+      "pixel": "Píxel",
+      "inset": "Hundido",
+      "sticker": "Calcomanía"
     },
     "themeUsingDefault": "Por defecto",
     "gradientTitle": "Fondo de la página",

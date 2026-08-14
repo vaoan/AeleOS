@@ -21,6 +21,11 @@
  *
  * `default` is first because a select opens on its first option, and the list's
  * order is the order somebody reads.
+ *
+ * Fifteen of them, and the ones worth adding were the ones reaching for a
+ * MECHANISM none of the others used — a surface that is not there, a tiled
+ * texture, a shadow that steps instead of fading. Another set of radius and
+ * shadow numbers would have read as a variant of something already here.
  */
 export const SKINS = [
   "default",
@@ -32,6 +37,12 @@ export const SKINS = [
   "paper",
   "terminal",
   "retro",
+  "outline",
+  "blueprint",
+  "comic",
+  "pixel",
+  "inset",
+  "sticker",
 ] as const;
 
 /**
@@ -168,6 +179,81 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
     // for. Black reads as a darker line against either.
     "--skin-gloss":
       "repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px)",
+  },
+
+  /**
+   * No surface at all: the page's own background shows through every panel.
+   *
+   * `transparent` rather than a very low alpha, because the point is that there
+   * is nothing there — a wash would be a fourth translucent skin beside glass,
+   * aero and the rest. It is the one skin where the author's gradient IS the
+   * card, which makes their choice of background and canvas matter more here
+   * than anywhere else.
+   *
+   * Text stays readable without any special handling: the palette already
+   * solves it against the gradient's hardest stop, which is exactly what these
+   * panels now show.
+   */
+  outline: {
+    "--skin-round": "1.5",
+    "--skin-shadow": "none",
+    "--surface": "transparent",
+    "--bar": "transparent",
+  },
+
+  /** Ruled drafting paper: a fine grid across every surface, and no curve. */
+  blueprint: {
+    "--skin-round": "0",
+    "--skin-blur": "0px",
+    "--skin-shadow": "none",
+    // Two rulings crossed, black so they read on a pale page and a dark one
+    // alike. `auto` is deliberate here — a repeating gradient tiles itself, so
+    // the spacing is in the stops rather than in the size.
+    "--skin-gloss":
+      "repeating-linear-gradient(to right, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 24px), repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 24px)",
+  },
+
+  /**
+   * Printed, not rendered: a heavy line and a halftone dot field.
+   *
+   * This is the skin `--skin-gloss-size` exists for. A `radial-gradient` with
+   * no size is one dot the width of the panel; tiled at six pixels it is
+   * newsprint.
+   */
+  comic: {
+    "--skin-round": "0.6",
+    "--skin-border": "3px",
+    "--skin-blur": "0px",
+    "--skin-gloss": "radial-gradient(rgb(0 0 0 / 0.16) 22%, transparent 23%)",
+    "--skin-gloss-size": "6px 6px",
+  },
+
+  /**
+   * Eight-bit: square, and a shadow that falls in steps rather than fading.
+   *
+   * Three hard offsets in the border colour make a staircase. A blur would
+   * undo the whole idea, which is why the shadow names no alpha at all.
+   */
+  pixel: {
+    "--skin-round": "0",
+    "--skin-border": "2px",
+    "--skin-blur": "0px",
+    "--skin-shadow":
+      "3px 0 0 var(--edge), 6px 3px 0 var(--edge), 9px 6px 0 var(--edge)",
+  },
+
+  /** Pressed into the page rather than raised off it — clay, inverted. */
+  inset: {
+    "--skin-round": "1.5",
+    "--skin-border": "0px",
+    "--skin-shadow": `inset 0 3px 6px ${SHADE}, inset 0 -1px 0 ${SHEEN}`,
+  },
+
+  /** Die-cut: a thick ring all the way round, and a shadow beneath it. */
+  sticker: {
+    "--skin-round": "2.5",
+    "--skin-border": "4px",
+    "--skin-shadow": "0 6px 14px rgb(0 0 0 / 0.3)",
   },
 
   /** The bevelled grey box: a lit top-left, a shaded bottom-right, no curve. */

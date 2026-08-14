@@ -169,7 +169,13 @@
       "clay": "Soft clay",
       "paper": "Paper",
       "terminal": "Terminal",
-      "retro": "Retro window"
+      "retro": "Retro window",
+      "outline": "Outline",
+      "blueprint": "Blueprint",
+      "comic": "Comic",
+      "pixel": "Pixel",
+      "inset": "Inset",
+      "sticker": "Sticker"
     },
     "themeUsingDefault": "Default",
     "gradientTitle": "Page background",

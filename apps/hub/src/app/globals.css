@@ -168,8 +168,20 @@
   --skin-shadow: none;
 
   /* An overlay laid on a surface's background IMAGE, which leaves the colour
-   * underneath it alone — gloss, bevel and scanlines are all this one token. */
+   * underneath it alone — gloss, bevel, scanlines and halftone are all this one
+   * token. */
   --skin-gloss: none;
+
+  /*
+   * How large one tile of that overlay is.
+   *
+   * `auto` lets a gradient fill the whole surface, which is what a sheen or a
+   * bevel wants. A TEXTURE wants the opposite — a halftone is a small tile
+   * repeated, and without a size a `radial-gradient` is one enormous dot.
+   * Separate from the gloss itself because most skins want the default and
+   * folding the two into one value would make every sheen restate `auto`.
+   */
+  --skin-gloss-size: auto;
 
   /* What `backdrop-blur-md` resolves to. Tailwind's own value, so the four
    * places that use it are unchanged until a skin asks for more or none. */
@@ -298,6 +310,7 @@ button:disabled,
 [class~="border"] {
   border-width: var(--skin-border);
   background-image: var(--skin-gloss);
+  background-size: var(--skin-gloss-size);
   /* Prefixed as well: Safari has never shipped this unprefixed. Without the
    * first line glass is plain translucency there, which is the one browser
    * where that difference is most likely to be read as the design. */
