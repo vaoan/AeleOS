@@ -246,7 +246,7 @@ describe("setStop", () => {
         ]),
         0,
         { color: "#00ff00" },
-      ).stops[0]?.color,
+      ).gradient.stops[0]?.color,
     ).toBe("#00ff00");
   });
 
@@ -259,7 +259,7 @@ describe("setStop", () => {
         ]),
         0,
         { at: 40 },
-      ).stops[0]?.at,
+      ).gradient.stops[0]?.at,
     ).toBe(40);
   });
 
@@ -278,7 +278,7 @@ describe("setStop", () => {
         {
           at: 70,
         },
-      ).stops.map((s) => s.color),
+      ).gradient.stops.map((s) => s.color),
     ).toEqual(["#0000ff", "#ff0000", "#00ff00"]);
   });
 
@@ -295,7 +295,7 @@ describe("setStop", () => {
         ]),
         0,
         { at: 100 },
-      ).stops.map((s) => s.color),
+      ).gradient.stops.map((s) => s.color),
     ).toEqual(["#ff0000", "#0000ff"]);
   });
 
@@ -308,7 +308,7 @@ describe("setStop", () => {
         ]),
         0,
         { at: 400 },
-      ).stops.map((s) => s.at),
+      ).gradient.stops.map((s) => s.at),
     ).toEqual([100, 100]);
   });
 });
@@ -456,5 +456,86 @@ describe("what it does with a gradient nobody validated", () => {
         50,
       ),
     ).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
+describe("where a moved stop ends up", () => {
+  // **The caller cannot work this out and must not try.** `setStop` sorts, so a
+  // stop dragged past its neighbour changes index — and a picker tracking its
+  // selection by the old index silently starts editing the neighbour halfway
+  // through the drag. Only this function knows where the stop landed, because
+  // only it did the sorting, so it reports it.
+  it("reports the new index when a stop passes its neighbour", () => {
+    const moved = setStop(
+      g([
+        ["#ff0000", 0],
+        ["#0000ff", 50],
+        ["#00ff00", 100],
+      ]),
+      0,
+      { at: 70 },
+    );
+    expect(moved.index).toBe(1);
+    expect(moved.gradient.stops[moved.index]?.color).toBe("#ff0000");
+  });
+
+  it("reports the same index when nothing reorders", () => {
+    const moved = setStop(
+      g([
+        ["#ff0000", 0],
+        ["#0000ff", 100],
+      ]),
+      0,
+      { at: 20 },
+    );
+    expect(moved.index).toBe(0);
+  });
+
+  it("reports where a stop dragged to the far end landed", () => {
+    const moved = setStop(
+      g([
+        ["#ff0000", 0],
+        ["#0000ff", 50],
+        ["#00ff00", 100],
+      ]),
+      0,
+      { at: 100 },
+    );
+    expect(moved.gradient.stops[moved.index]?.color).toBe("#ff0000");
+  });
+
+  // A colour change reorders nothing, so the index is untouched.
+  it("reports the same index for a colour change", () => {
+    const moved = setStop(
+      g([
+        ["#ff0000", 0],
+        ["#0000ff", 100],
+      ]),
+      1,
+      {
+        color: "#00ff00",
+      },
+    );
+    expect(moved.index).toBe(1);
+    expect(moved.gradient.stops[1]?.color).toBe("#00ff00");
+  });
+});
+
+describe("a gradient handed in over the cap", () => {
+  // `parseGradient` never produces one, but `setStop` is exported and its input
+  // is only typed. When the edited stop sorts past the cap it is sliced away,
+  // and the reported index must still point at a stop that exists rather than
+  // past the end of the list.
+  it("reports an index that is still in the list", () => {
+    const over: Gradient = {
+      angle: 90,
+      stops: Array.from({ length: MAX_STOPS + 3 }, (_, i) => ({
+        color: "#ff0000",
+        at: i,
+      })),
+    };
+    const moved = setStop(over, 0, { at: 100 });
+    expect(moved.index).toBeLessThan(moved.gradient.stops.length);
+    expect(moved.gradient.stops[moved.index]).toBeDefined();
   });
 });

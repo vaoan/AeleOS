@@ -63,11 +63,17 @@ function positionIn(bar: HTMLElement, clientX: number): number {
  * would allow**, so the number of stops is the person's to decide up to
  * `MAX_STOPS`.
  *
- * **Selection follows the stop, not its index.** `setStop` returns a sorted
- * list, so dragging a handle past its neighbour changes that handle's index —
- * and a control tracking the selection by index would silently start editing
- * the neighbour halfway through a drag. It is tracked by the stop's identity
- * within the new list instead.
+ * **Selection follows the stop, and `setStop` is what says where it went.**
+ * That function sorts, so dragging a handle past its neighbour changes the
+ * handle's index; it returns the new one because nothing out here can recover
+ * it. An earlier version looked the stop up by identity in the new list, which
+ * was a no-op — it found whatever was already at that index — so a drag past a
+ * neighbour silently began editing the neighbour, and the next colour change
+ * landed on the wrong stop.
+ *
+ * A handle is selected by CLICK as well as by pointer-down. Pointer-down alone
+ * starts a drag but leaves the handle unselectable by anybody using a keyboard,
+ * which is exactly the population that cannot drag it either.
  *
  * Dragging uses pointer capture, so a drag that leaves the bar — which every
  * drag does, because the handles are at the ends — keeps going rather than
@@ -97,11 +103,14 @@ export function GradientPicker({
    * @returns nothing.
    */
   const move = (index: number, at: number) => {
+    // `setStop` reports where the stop landed, because it did the sorting and
+    // nothing out here can recover it. This used to look it up by identity in
+    // the new list, which was a no-op — it found the element already at that
+    // index — so dragging a handle past its neighbour silently began editing
+    // the neighbour, the exact fault the comment claimed to prevent.
     const moved = setStop(value, index, { at });
-    // Follow the stop by identity: sorting may have changed its index.
-    const now = moved.stops.findIndex((s) => s === moved.stops[index]);
-    setSelected(now === -1 ? index : now);
-    onChange(moved);
+    setSelected(moved.index);
+    onChange(moved.gradient);
   };
 
   return (
@@ -135,6 +144,11 @@ export function GradientPicker({
             type="button"
             aria-label={`${labels.colour} ${index + 1}`}
             aria-pressed={index === selected}
+            // Selection on CLICK as well as on pointer-down. Pointer-down
+            // alone starts a drag but leaves a handle unselectable by anybody
+            // reaching it with a keyboard, which is the whole population that
+            // cannot drag it in the first place.
+            onClick={() => setSelected(index)}
             onPointerDown={(event) => {
               event.stopPropagation();
               event.currentTarget.setPointerCapture(event.pointerId);
@@ -168,7 +182,10 @@ export function GradientPicker({
             type="color"
             value={stop?.color ?? "#000000"}
             onChange={(event) =>
-              onChange(setStop(value, selected, { color: event.target.value }))
+              onChange(
+                setStop(value, selected, { color: event.target.value })
+                  .gradient,
+              )
             }
             {...tid("gradient-colour")}
             className="h-9 w-16 cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-transparent p-1"

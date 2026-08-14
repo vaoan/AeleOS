@@ -172,27 +172,52 @@ export function removeStop(gradient: Gradient, index: number): Gradient {
  * Changes one stop, by colour or by position or both.
  *
  * Returns a **sorted** list, which means the index of the stop being edited can
- * change as it passes its neighbours. Callers that track a selection must
- * follow it by identity rather than by index — dragging a handle past another
- * one otherwise silently starts editing the neighbour.
+ * change as it passes its neighbours — so it returns **where that stop ended
+ * up** alongside the gradient.
+ *
+ * That is not a convenience. A caller cannot work it out: `tidy` rebuilds every
+ * stop to clamp its position, so identity does not survive, and ties make the
+ * position unrecoverable from the values alone. A picker that guessed — by
+ * keeping its old index, say — silently starts editing the neighbour halfway
+ * through a drag, which is exactly what shipped here once behind a line of code
+ * that looked like it was tracking identity and was in fact a no-op.
  *
  * @param gradient - the background.
  * @param index - which stop.
  * @param change - the colour, the position, or both.
- * @returns the gradient with that stop changed.
+ * @returns the gradient with that stop changed, and where that stop now sits.
  */
 export function setStop(
   gradient: Gradient,
   index: number,
   change: Partial<GradientStop>,
-): Gradient {
+): { gradient: Gradient; index: number } {
+  // Tagged, then sorted, so the edited stop can be found afterwards. Identity
+  // will not survive `tidy` — it rebuilds every stop to clamp the position —
+  // and a caller cannot recompute this from the outside, which is the whole
+  // reason it is returned rather than left to be guessed.
+  const tagged = gradient.stops
+    .map((stop, i) => ({
+      stop: i === index ? { ...stop, ...change } : stop,
+      edited: i === index,
+    }))
+    .map(({ stop, edited }) => ({
+      stop: {
+        color: stop.color,
+        at: Math.max(0, Math.min(100, Math.round(stop.at))),
+      },
+      edited,
+    }))
+    .sort((a, b) => a.stop.at - b.stop.at)
+    .slice(0, MAX_STOPS);
+
+  const moved = tagged.findIndex((each) => each.edited);
   return {
-    ...gradient,
-    stops: tidy(
-      gradient.stops.map((stop, i) =>
-        i === index ? { ...stop, ...change } : stop,
-      ),
-    ),
+    gradient: { ...gradient, stops: tidy(tagged.map((each) => each.stop)) },
+    // The slice can drop the edited stop when a gradient is already at the cap
+    // and it sorted to the end; the selection then stays where it was rather
+    // than pointing past the list.
+    index: moved === -1 ? Math.min(index, tagged.length - 1) : moved,
   };
 }
 
