@@ -34,6 +34,7 @@ describe("parseTheme", () => {
       accent: "#00ff88",
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
+      cursor: null,
     });
   });
 
@@ -417,5 +418,96 @@ describe("the canvas colours a stored theme carries", () => {
         canvasColours: Array.from({ length: 20 }, () => "#00ff88"),
       }).canvasColours,
     ).toHaveLength(MAX_CANVAS_COLOURS);
+  });
+});
+
+describe("a custom cursor", () => {
+  it("is emitted with a fallback keyword", () => {
+    const vars = themeVars({
+      ...DEFAULT_THEME,
+      cursor: "https://example.test/paw.png",
+    });
+    expect(vars.cursor).toBe('url("https://example.test/paw.png") 0 0, auto');
+  });
+
+  // The fallback is mandatory: a `cursor` carrying a url and no keyword is an
+  // invalid declaration, and the browser drops the whole rule.
+  it("never emits a url without one", () => {
+    const vars = themeVars({
+      ...DEFAULT_THEME,
+      cursor: "https://example.test/paw.png",
+    });
+    expect(vars.cursor).toMatch(/, auto$/);
+  });
+
+  // The hotspot is fixed and not the author's to choose. An offset one makes
+  // the arrow somebody sees disagree with where their click lands, which is a
+  // clickjacking primitive on a page anybody can publish.
+  it("pins the hotspot to the corner", () => {
+    expect(
+      themeVars({ ...DEFAULT_THEME, cursor: "https://example.test/p.png" })
+        .cursor,
+    ).toContain(") 0 0,");
+  });
+
+  it("emits nothing when nobody chose one", () => {
+    expect(themeVars(DEFAULT_THEME).cursor).toBeUndefined();
+  });
+
+  // **A CSS injection sink, and the boundary is not where it looks.** `new URL`
+  // already neutralises some of what would break out — a quote becomes `%22`, a
+  // space `%20`, a backslash is normalised to a slash — so those arrive safe.
+  //
+  // What it does NOT touch is a parenthesis or an apostrophe in a path: both
+  // survive parsing verbatim, and either closes the `url("…")` early. Those are
+  // what this refuses, and the list was written believing the quote was the
+  // dangerous one.
+  it.each([
+    "https://example.test/a').png",
+    "https://example.test/a)x.png",
+    "https://example.test/a(x.png",
+    "javascript:alert(1)",
+    "data:image/png;base64,AAAA",
+    "not a url",
+  ])("refuses %s", (cursor) => {
+    expect(parseTheme({ cursor }).cursor).toBeNull();
+  });
+
+  // Accepted BECAUSE parsing already made them harmless. Refusing these too
+  // would turn a safety rule into an arbitrary one, and an author pasting a URL
+  // with a space in it would be told no for no reason.
+  it.each([
+    ['https://example.test/a".png', "https://example.test/a%22.png"],
+    ["https://example.test/a x.png", "https://example.test/a%20x.png"],
+    ["https://example.test/a\\x.png", "https://example.test/a/x.png"],
+  ])("accepts %s, which parsing already made safe", (cursor, expected) => {
+    expect(parseTheme({ cursor }).cursor).toBe(expected);
+  });
+
+  it("keeps an ordinary address", () => {
+    expect(
+      parseTheme({ cursor: "https://example.test/cursors/paw-32.png?v=2" })
+        .cursor,
+    ).toBe("https://example.test/cursors/paw-32.png?v=2");
+  });
+
+  // Hyphens are everywhere in real URLs. An earlier version of the refusal list
+  // rejected them by accident, which would have refused most of the internet.
+  it("keeps hyphens and the ordinary path characters", () => {
+    expect(
+      parseTheme({ cursor: "https://ex.test/a-b_c.d/e~f/g.png" }).cursor,
+    ).toBe("https://ex.test/a-b_c.d/e~f/g.png");
+  });
+});
+
+describe("a cursor address carrying a control character", () => {
+  // Parsing percent-encodes it, so it arrives safe rather than refused. Stated
+  // because a check for control characters was written here first and could
+  // never fire — the same dead guard this file keeps catching.
+  it("is made safe by parsing rather than refused", () => {
+    const withControl = `https://example.test/a${String.fromCharCode(1)}b.png`;
+    expect(parseTheme({ cursor: withControl }).cursor).toBe(
+      "https://example.test/a%01b.png",
+    );
   });
 });

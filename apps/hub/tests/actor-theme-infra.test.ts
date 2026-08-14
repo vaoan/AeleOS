@@ -22,6 +22,7 @@ describe("setActorTheme", () => {
       accent: "#00ff88",
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
+      cursor: null,
     });
     expect(rpc).toHaveBeenCalledWith("set_actor_theme", {
       p_actor_ref: "actor-1",
@@ -61,5 +62,26 @@ describe("setActorTheme", () => {
     await expect(setActorTheme(c, "actor-1", DEFAULT_THEME)).rejects.toThrow(
       /fursona not found/,
     );
+  });
+});
+
+describe("the cursor a theme carries", () => {
+  it("is sent when somebody chose one", async () => {
+    const { client: c, rpc } = client();
+    await setActorTheme(c, "actor-1", {
+      ...DEFAULT_THEME,
+      cursor: "https://example.test/paw.png",
+    });
+    expect(rpc.mock.calls[0][1].p_theme.cursor).toBe(
+      "https://example.test/paw.png",
+    );
+  });
+
+  // Omitted rather than sent as null, like every other absent choice: a null
+  // stored is a value pretending to be an absence.
+  it("is omitted when nobody did", async () => {
+    const { client: c, rpc } = client();
+    await setActorTheme(c, "actor-1", DEFAULT_THEME);
+    expect(rpc.mock.calls[0][1].p_theme.cursor).toBeUndefined();
   });
 });

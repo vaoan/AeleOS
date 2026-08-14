@@ -153,6 +153,24 @@ describe("set_actor_theme", () => {
     // A gradient is shape-checked, not colour-checked: which colours exist is
     // not a question the database can answer, and the client drops a stop it
     // cannot read rather than rendering one nobody picked.
+    it("accepts a cursor address", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          cursor: "https://example.test/paw.png",
+        }),
+      ).toBeNull();
+    });
+
+    // Length only. Which addresses exist is not the database's question, and
+    // what may be written into a stylesheet is enforced where it is written.
+    it("refuses an absurdly long cursor address", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          cursor: `https://example.test/${"a".repeat(600)}.png`,
+        }),
+      ).toMatch(/too long/i);
+    });
+
     it("refuses more canvas colours than any canvas could use", async () => {
       expect(
         await write(alice.sub, alice.sonaRef, {

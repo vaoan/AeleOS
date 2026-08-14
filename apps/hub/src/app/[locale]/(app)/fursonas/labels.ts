@@ -41,6 +41,10 @@ import {
  * The background's strings are **nested** under `gradient`, for the same reason
  * the theme panel's are nested: it has a `title` of its own.
  *
+ * The cursor's three strings name the field, say that a picture is a link and
+ * how small it has to be, and warn when the one somebody pasted is too big for
+ * any browser to use.
+ *
  * The theme panel gained a `background`, which is the colour every other one is
  * now derived from, and lost the pair that named a light and a dark rendering —
  * there is one rendering.
@@ -129,6 +133,9 @@ export async function fursonaEditorLabels(
       adjusted: t("themeAdjusted"),
       reset: t("themeReset"),
       usingDefault: t("themeUsingDefault"),
+      cursor: t("themeCursor"),
+      cursorHint: t("themeCursorHint"),
+      cursorTooBig: t("themeCursorTooBig"),
     },
     linkUrl: t("linkUrl"),
     linkUrlHint: t("linkUrlHint"),

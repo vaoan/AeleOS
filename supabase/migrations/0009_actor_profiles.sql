@@ -31,7 +31,7 @@ create table public.actor_profiles (
   -- Spanish yet, which is an ordinary state and never an error.
   sections   jsonb not null default '[]'::jsonb,
   -- How the owner chose their page to look: {background?, accent?, backdropA?,
-  -- canvasColours?, canvas?}. `accent` is an `#rrggbb` string; `background` is
+  -- canvasColours?, cursor?, canvas?}. `accent` is an `#rrggbb` string; `background` is
   -- a gradient — {angle, stops: [{color, at}]} — and `canvasColours` is one
   -- colour per part the chosen canvas paints with. Both are lists because a
   -- fursona can carry more colours than any fixed set of fields would allow.
@@ -464,6 +464,14 @@ begin
     elsif v_key = 'accent' then
       if v_value !~ '^#[0-9a-fA-F]{6}$' then
         raise exception '%: must be #rrggbb', v_key using errcode = '22023';
+      end if;
+    elsif v_key = 'cursor' then
+      -- A link to a picture, like every other picture here. Length only: which
+      -- addresses exist is not a question the database answers, and the rule
+      -- that matters — what may be written into a stylesheet — is enforced
+      -- where it is written, by `cursorUrl` in the hub.
+      if length(v_value) > 500 then
+        raise exception 'cursor: address is too long' using errcode = '22023';
       end if;
     elsif v_key = 'canvas' then
       -- Not checked against a list of canvases on purpose. A canvas is an

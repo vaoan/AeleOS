@@ -166,7 +166,10 @@
     "gradientAdd": "Add colour",
     "gradientRemove": "Remove",
     "themeCanvasColours": "Canvas colours",
-    "viewPublic": "See the public page"
+    "viewPublic": "See the public page",
+    "themeCursor": "Cursor picture",
+    "themeCursorHint": "A link to a small picture — 128×128 or less, or browsers ignore it.",
+    "themeCursorTooBig": "That picture is bigger than 128×128, so browsers will ignore it."
   },
   "picker": {
     "title": "Who do you want to be?",

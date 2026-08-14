@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseHex, toHex } from "@/shared/domain/color";
+import { safeHttpUrl } from "@/features/actors/domain/embeds";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   DEFAULT_GRADIENT,
@@ -34,6 +35,11 @@ export type CanvasId = (typeof CANVASES)[number];
 
 /**
  * How somebody chose their page to look.
+ *
+ * A theme may also carry a **cursor**: a link to a picture, like every other
+ * picture here. What a browser will accept is narrower than people expect —
+ * see `CURSOR_MAX_PX` — and what may be written into a stylesheet is narrower
+ * still; see `cursorUrl`.
  *
  * The canvas's colours are a **list, one per part it paints with**, because how
  * many a canvas takes is the canvas's business — three cloud layers, three star
@@ -86,12 +92,74 @@ export interface ActorTheme {
   canvasColours: string[] | null;
   /** Which canvas moves behind it. */
   canvas: CanvasId;
+  /**
+   * A picture to use as the mouse cursor, as an address, or null for the
+   * ordinary one.
+   *
+   * A link like every other picture here — nothing is stored. See
+   * {@link cursorUrl} for what may safely be written into a stylesheet, and
+   * `CURSOR_MAX_PX` for the size a browser will actually accept, which is
+   * smaller than people expect.
+   */
+  cursor: string | null;
+}
+
+/**
+ * The largest cursor a browser will use.
+ *
+ * **Past this the declaration is ignored in silence** — no error, no warning,
+ * the cursor simply does not change. Chrome and Firefox both refuse above
+ * 128×128, and Safari is no more generous. It is stated here so the editor can
+ * measure a picture and say so, because "nothing happened" is the worst thing a
+ * control can tell somebody.
+ */
+export const CURSOR_MAX_PX = 128;
+
+/**
+ * Characters that must never reach a `url("…")` inside a stylesheet.
+ *
+ * Parentheses and apostrophes are the ones that matter: they survive `new URL`
+ * untouched and either ends the function. Quotes, whitespace and backslashes are
+ * listed too even though parsing already handles them, because a guard that
+ * depends on somebody else's normalisation changes the day they change theirs.
+ */
+const CURSOR_UNSAFE = /["'()\\\s]/;
+
+/**
+ * An address safe to write into a stylesheet as a cursor.
+ *
+ * **This is a CSS injection sink**, and the dangerous characters are not the
+ * ones people expect. The address is interpolated into a declaration this app
+ * emits, so anything that closes the `url("…")` early leaves the rest to be read
+ * as CSS somebody else wrote.
+ *
+ * `new URL` already neutralises a quote (`%22`), a space (`%20`) and a backslash
+ * (normalised to `/`). What it leaves verbatim is a **parenthesis or an
+ * apostrophe in a path** — either of which ends the function — so those are what
+ * this refuses. The list is wider than strictly needed because a rule that
+ * refuses a character parsing would have encoded costs an author nothing, while
+ * one that misses a survivor costs the page.
+ *
+ * Control characters need no check of their own: parsing percent-encodes them
+ * as well. A loop that walked the string looking for them lived here briefly and
+ * was unreachable — a guard that cannot fire is not a guard, and this file has
+ * caught enough of those to know better.
+ *
+ * `javascript:` and `data:` are refused by `safeHttpUrl`, the same guard the
+ * link layouts use.
+ *
+ * @param raw - the address somebody pasted.
+ * @returns the address, or null when it must not be written into CSS.
+ */
+export function cursorUrl(raw: string | undefined): string | null {
+  const url = safeHttpUrl(raw);
+  return url && !CURSOR_UNSAFE.test(url) ? url : null;
 }
 
 /**
  * What a page looks like when nobody has chosen: nothing overridden.
  *
- * Includes the canvas's colours, which are nullable like the rest.
+ * Includes the cursor and the canvas's colours, both nullable like the rest.
  *
  * Includes the background, which is nullable like the rest: a page nobody has
  * themed follows the design and switches with the reader, exactly as it did
@@ -106,6 +174,7 @@ export const DEFAULT_THEME: ActorTheme = {
   accent: null,
   canvasColours: null,
   canvas: "nebula",
+  cursor: null,
 };
 
 /**
@@ -170,6 +239,9 @@ function colour(value: unknown): string | null {
  * blank for a reason they can neither see nor fix.
  *
  * It falls back **per field**, so a theme with one good half keeps that half.
+ * The cursor goes through `cursorUrl`, which refuses anything that could close
+ * the `url("…")` it will be written into.
+ *
  * The canvas colours go through the same rule as a gradient's stops: an entry
  * that is not a colour is dropped rather than defaulted, and a list left with
  * none is treated as absent.
@@ -195,6 +267,9 @@ export function parseTheme(value: unknown): ActorTheme {
     background: parseGradient(stored.background),
     accent: colour(stored.accent),
     canvasColours: colourList(stored.canvasColours),
+    cursor: cursorUrl(
+      typeof stored.cursor === "string" ? stored.cursor : undefined,
+    ),
     canvas:
       typeof canvas === "string" &&
       (CANVASES as readonly string[]).includes(canvas)
@@ -217,7 +292,9 @@ export const THEME_SCOPE = "actor-theme";
 /**
  * The theme, as the editor's form holds it.
  *
- * The canvas colours are a list of strings, checked for shape and length only.
+ * The canvas colours are a list of strings, and the cursor a string, both
+ * checked for shape only — the rules that matter are enforced where each is
+ * used.
  *
  * The background is the gradient's shape rather than a string. Loose on the
  * colours by design — they are `#rrggbb` or null and nothing else
@@ -235,6 +312,7 @@ export const themeSchema = z.object({
     .nullable(),
   accent: z.string().nullable(),
   canvas: z.enum(CANVASES),
+  cursor: z.string().nullable(),
 });
 
 /**
@@ -351,6 +429,10 @@ export function isThemed(theme: ActorTheme): boolean {
  * keeps the editor honest: what somebody sees while choosing is produced by the
  * code that will render the page for a stranger.
  *
+ * A cursor travels as a real `cursor` declaration rather than a custom
+ * property, with the hotspot pinned to the corner and the mandatory fallback
+ * keyword appended.
+ *
  * Each of the canvas's colours travels as `--canvas-N`, indexed from one, so a
  * canvas asks for the slot it wants rather than for a letter that meant
  * something only while there were two of them. A slot whose value cannot be read
@@ -392,6 +474,18 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
     ...(theme.canvas === DEFAULT_THEME.canvas
       ? {}
       : { "--canvas": theme.canvas }),
+    // **The hotspot is fixed at `0 0` and is not the author's to choose.** It
+    // decides where a click actually lands relative to the picture, so an offset
+    // one makes the arrow somebody sees disagree with the point they hit — a
+    // clickjacking primitive on a page anybody can publish.
+    //
+    // The trailing `auto` is mandatory: a `cursor` carrying a url and no
+    // fallback keyword is an invalid declaration and the whole rule is dropped.
+    //
+    // It does not reach buttons, which `globals.css` gives `cursor: pointer` on
+    // a more specific selector. That is the right outcome rather than an
+    // oversight: a control should still say it is one.
+    ...(theme.cursor ? { cursor: `url("${theme.cursor}") 0 0, auto` } : {}),
   };
 }
 

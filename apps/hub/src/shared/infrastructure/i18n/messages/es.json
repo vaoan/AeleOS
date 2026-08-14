@@ -166,7 +166,10 @@
     "gradientAdd": "Añadir color",
     "gradientRemove": "Quitar",
     "themeCanvasColours": "Colores del fondo",
-    "viewPublic": "Ver la página pública"
+    "viewPublic": "Ver la página pública",
+    "themeCursor": "Imagen del cursor",
+    "themeCursorHint": "Un enlace a una imagen pequeña — 128×128 o menos, o los navegadores la ignoran.",
+    "themeCursorTooBig": "Esa imagen supera 128×128, así que los navegadores la ignorarán."
   },
   "picker": {
     "title": "¿Quién quieres ser?",

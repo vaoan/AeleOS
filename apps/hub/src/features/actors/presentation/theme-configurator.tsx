@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Palette, RotateCcw } from "lucide-react";
 import {
   CANVASES,
+  CURSOR_MAX_PX,
   DEFAULT_THEME,
   isThemed,
   withCanvasColour,
@@ -24,6 +25,11 @@ import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * Translated strings {@link ThemeConfigurator} renders.
+ *
+ * The cursor carries three strings: the field's name, a hint saying it is a link
+ * and how small it must be, and a warning for a picture too big for any browser
+ * to use. Two hints rather than one because the second replaces the first only
+ * when it applies — a permanent warning is one nobody reads.
  *
  * `canvasColours` names the GROUP rather than any one colour: the editor
  * renders as many pickers as the chosen canvas paints with, so there is nothing
@@ -61,6 +67,12 @@ export interface ThemeConfiguratorLabels {
   reset: string;
   /** Marks a colour nobody has chosen, so the default does not read as a choice. */
   usingDefault: string;
+  /** Field label for a picture to use as the mouse cursor. */
+  cursor: string;
+  /** Says a cursor is a link, and how small a browser needs it to be. */
+  cursorHint: string;
+  /** Warns that a picture is too big for any browser to use as a cursor. */
+  cursorTooBig: string;
 }
 
 /** What {@link ThemeConfigurator} needs. */
@@ -83,6 +95,10 @@ export interface ThemeConfiguratorProps {
  * values are custom properties already, so a live preview is `themeCss` on a
  * scoped element — the SAME function the public page uses, which is what stops
  * the preview and the real thing drifting apart.
+ *
+ * **A cursor picture is measured, not merely accepted.** Browsers ignore one
+ * larger than 128×128 in silence, so an unmeasured field would let somebody
+ * paste a picture, see nothing change, and have nothing to read about why.
  *
  * **The canvas gets one picker per part it actually paints with** — see
  * `CANVAS_SLOTS`. Two fixed cloud pickers gave every canvas the same pair and
@@ -127,6 +143,46 @@ export function ThemeConfigurator({
   );
   const themed = isThemed(value);
   const slots = slotsFor(value.canvas);
+
+  // **Measured, because a browser refuses an oversized cursor in silence.**
+  // Past 128×128 the declaration is ignored with no error anywhere, so somebody
+  // pastes a picture, nothing happens, and there is nothing to read. The image
+  // is loaded here only to learn its size — cross-origin does not hide
+  // dimensions — and the answer becomes a sentence rather than a mystery.
+  // **Measured, because a browser refuses an oversized cursor in silence.** Past
+  // 128×128 the declaration is ignored with no error anywhere, so somebody
+  // pastes a picture, nothing happens, and there is nothing to read. The image
+  // is loaded only to learn its size — cross-origin does not hide dimensions —
+  // and the answer becomes a sentence rather than a mystery.
+  //
+  // The state holds the address that measured too big, and `oversized` is
+  // derived from it. A boolean would go stale the moment somebody edited the
+  // address: the warning would stay on screen, now describing a picture nobody
+  // is using.
+  const [tooBig, setTooBig] = useState<string | null>(null);
+  useEffect(() => {
+    const address = value.cursor;
+    if (!address) return;
+    const probe = new Image();
+    let cancelled = false;
+    probe.onload = () => {
+      if (cancelled) return;
+      const over =
+        probe.naturalWidth > CURSOR_MAX_PX ||
+        probe.naturalHeight > CURSOR_MAX_PX;
+      setTooBig(over ? address : null);
+    };
+    // A picture that will not load is not reported as too big. That is a
+    // different problem, and naming the wrong one is worse than saying nothing.
+    probe.onerror = () => {
+      if (!cancelled) setTooBig(null);
+    };
+    probe.src = address;
+    return () => {
+      cancelled = true;
+    };
+  }, [value.cursor]);
+  const oversized = Boolean(value.cursor && tooBig === value.cursor);
 
   const swatch = (colour: string, name: string) => (
     <span className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
@@ -243,6 +299,27 @@ export function ThemeConfigurator({
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium">{labels.adjusted}</span>
             {swatch(preview, labels.accent)}
+          </div>
+
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-cursor`} className="text-xs font-medium">
+              {labels.cursor}
+            </label>
+            <input
+              id={`${id}-cursor`}
+              type="url"
+              inputMode="url"
+              value={value.cursor ?? ""}
+              onChange={(event) =>
+                onChange({ ...value, cursor: event.target.value || null })
+              }
+              aria-describedby={`${id}-cursor-hint`}
+              {...tid("theme-cursor")}
+              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+            />
+            <p id={`${id}-cursor-hint`} className="text-xs text-[var(--muted)]">
+              {oversized ? labels.cursorTooBig : labels.cursorHint}
+            </p>
           </div>
 
           <div className="grid gap-1.5">
