@@ -536,7 +536,7 @@ function Quotes({
             <blockquote className="font-display text-lg leading-snug text-balance">
               {description}
             </blockquote>
-            <figcaption className="text-xs text-[var(--muted)] before:content-['— a0']">
+            <figcaption className="text-xs text-[var(--muted)] before:content-['—'] before:mr-1">
               {title}
             </figcaption>
           </figure>
