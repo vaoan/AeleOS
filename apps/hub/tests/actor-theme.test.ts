@@ -4,6 +4,7 @@ import {
   DEFAULT_THEME,
   THEME_SEEDS,
   accentPreview,
+  isCustomised,
   isThemed,
   parseTheme,
   themeCss,
@@ -28,6 +29,7 @@ describe("parseTheme", () => {
         accent: "#00ff88",
         canvasColours: ["#112233", "#445566"],
         canvas: "none",
+        skin: "retro",
       }),
     ).toEqual({
       background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
@@ -35,6 +37,7 @@ describe("parseTheme", () => {
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
       cursor: null,
+      skin: "retro",
     });
   });
 
@@ -92,7 +95,7 @@ describe("themeVars", () => {
     // one colour, a gradient when they chose several.
     expect(vars["--field"]).toBeTruthy();
     for (const token of [
-      "--surface",
+      "--surface-solid",
       "--ink",
       "--ink-2",
       "--muted",
@@ -330,10 +333,84 @@ describe("isThemed", () => {
     expect(isThemed({ ...DEFAULT_THEME, [key]: "#00ff88" })).toBe(true);
   });
 
-  // The canvas alone is not a colour, and the reset button reads this to decide
-  // whether there is anything to put back.
-  it("is not made true by the canvas alone", () => {
+  // Deliberately narrow: this drives the "default" mark beside the colour
+  // inputs, and a canvas, a cursor and a skin each say what they are. Reset
+  // asks `isCustomised` instead, which is the wider question.
+  it("is not made true by the canvas, the skin or the cursor", () => {
     expect(isThemed({ ...DEFAULT_THEME, canvas: "stars" })).toBe(false);
+    expect(isThemed({ ...DEFAULT_THEME, skin: "glass" })).toBe(false);
+    expect(isThemed({ ...DEFAULT_THEME, cursor: "https://e.test/c.png" })).toBe(
+      false,
+    );
+  });
+});
+
+describe("isCustomised", () => {
+  it("is false for a theme nobody has touched", () => {
+    expect(isCustomised(DEFAULT_THEME)).toBe(false);
+  });
+
+  // Reset used to ask `isThemed`, so somebody who had chosen only one of these
+  // faced a disabled button with nothing saying why.
+  it.each([
+    ["a colour", { accent: "#00ff88" }],
+    ["a canvas", { canvas: "stars" as const }],
+    ["a cursor", { cursor: "https://example.test/c.png" }],
+    ["a skin", { skin: "neobrutalism" as const }],
+  ])("is true once there is %s to put back", (_what, part) => {
+    expect(isCustomised({ ...DEFAULT_THEME, ...part })).toBe(true);
+  });
+});
+
+describe("the skin", () => {
+  it("survives being stored and read back", () => {
+    expect(parseTheme({ skin: "candy" }).skin).toBe("candy");
+  });
+
+  // Matched against the list rather than with `in`, exactly as the canvas is:
+  // `toString` is a property of every object and would otherwise be accepted
+  // as the name of a style.
+  it.each(["stained-glass", "toString", "__proto__", 42, null])(
+    "falls back to the default for %o",
+    (skin) => {
+      expect(parseTheme({ skin }).skin).toBe(DEFAULT_THEME.skin);
+    },
+  );
+
+  it("contributes nothing when it is the default", () => {
+    const vars = themeVars(DEFAULT_THEME);
+    expect(Object.keys(vars).filter((k) => k.startsWith("--skin"))).toEqual([]);
+  });
+
+  it("travels as the properties it overrides, not as its name", () => {
+    const vars = themeVars({ ...DEFAULT_THEME, skin: "neobrutalism" });
+    expect(vars["--skin-round"]).toBe("0");
+    expect(vars["--skin-border"]).toBe("3px");
+    expect(Object.values(vars)).not.toContain("neobrutalism");
+  });
+
+  // A page with a style and no colours still has something for a visitor to
+  // take off, so the rule has to be emitted.
+  it("is enough on its own to produce a rule", () => {
+    expect(themeCss({ ...DEFAULT_THEME, skin: "glass" })).toContain(
+      "--skin-round",
+    );
+  });
+
+  // Glass is the one that shows the composition working end to end: it sets
+  // `--surface`, the palette sets `--surface-solid`, and both have to reach the
+  // rule or the panel is either opaque or colourless. That the two names never
+  // collide is `skins.test.ts`'s job — spreading them in a particular order is
+  // not the guarantee it looks like, since a collision would simply be won by
+  // whichever came second.
+  it("lowers a surface's alpha without touching the palette's colour", () => {
+    const vars = themeVars({
+      ...DEFAULT_THEME,
+      skin: "glass",
+      background: flat("#1a1a2e"),
+    });
+    expect(vars["--surface-solid"]).toMatch(/^oklch\(/);
+    expect(vars["--surface"]).toContain("var(--surface-solid)");
   });
 });
 

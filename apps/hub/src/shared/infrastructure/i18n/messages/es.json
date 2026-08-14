@@ -149,6 +149,7 @@
     "themeLive": "Los cambios se ven al instante",
     "themeAccent": "Color principal",
     "themeCanvas": "Fondo",
+    "themeSkin": "Estilo",
     "themeAdjusted": "Tu color, como lo ven quienes te visitan",
     "themeReset": "Volver al aspecto original",
     "canvases": {
@@ -156,6 +157,17 @@
       "stars": "Estrellas",
       "aurora": "Aurora",
       "none": "Ninguno"
+    },
+    "skins": {
+      "default": "El de siempre",
+      "glass": "Vidrio esmerilado",
+      "neobrutalism": "Neobrutalismo",
+      "aero": "Aero brillante",
+      "candy": "Caramelo",
+      "clay": "Arcilla suave",
+      "paper": "Papel",
+      "terminal": "Terminal",
+      "retro": "Ventana retro"
     },
     "themeUsingDefault": "Por defecto",
     "gradientTitle": "Fondo de la página",

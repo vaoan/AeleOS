@@ -153,6 +153,14 @@ function dimmestLegible(
  * `--field` is **the author's gradient, verbatim** — however many stops they
  * built and at whatever angle. Nothing here adjusts it.
  *
+ * **`--surface` and `--bar` are NOT written here — `--surface-solid` and
+ * `--bar-solid` are.** `globals.css` composes the pair a panel actually paints
+ * from those raw colours, which is what leaves room for a skin to recompose
+ * them at a lower alpha; a custom property cannot be defined in terms of
+ * itself. Writing the plain names here would win over the skin and glass would
+ * silently be opaque. `skins.test.ts` pins that the two never write the same
+ * property.
+ *
  * `--nebula-blend` follows the background's lightness: `screen` on a dark field
  * because dust emits light, `multiply` on a light one because it absorbs it.
  * Reading it from the background rather than from the reader's mode is what
@@ -244,10 +252,14 @@ export function derivePalette(
       : shade;
 
   const solved: Palette = {
-    "--surface": css(...surface),
+    // **The RAW pair, not what a panel paints.** `globals.css` composes
+    // `--surface` from `--surface-solid` so that a skin can lower its alpha —
+    // which a custom property cannot do to itself. Writing `--surface` here
+    // instead would win over the skin and glass would silently be opaque.
+    "--surface-solid": css(...surface),
     // The bar is a translucent wash over whatever is behind it, so it is the
     // surface again with an alpha rather than a solved colour.
-    "--bar": `oklch(${surface[0].toFixed(4)} ${surface[1].toFixed(4)} ${bgH.toFixed(2)} / 0.55)`,
+    "--bar-solid": `oklch(${surface[0].toFixed(4)} ${surface[1].toFixed(4)} ${bgH.toFixed(2)} / 0.55)`,
     "--ink": css(...ink),
     "--ink-2": css(...inkTwo),
     "--muted": css(...muted),

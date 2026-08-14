@@ -17,8 +17,18 @@
   --ink: oklch(0.27 0.045 35);
   --ink-2: oklch(0.45 0.045 30);
   --muted: oklch(0.5 0.045 30);
-  --surface: oklch(0.99 0.01 40 / 0.9);
-  --bar: oklch(1 0 0 / 0.35);
+  /*
+   * The raw surface colours, and `--surface` / `--bar` as what a panel actually
+   * paints. Two names for one colour looks redundant and is not: a skin makes
+   * glass by lowering a surface's ALPHA, and a custom property cannot be
+   * defined in terms of itself. So the palette writes the `-solid` pair and a
+   * skin composes `--surface` from it — which is also what keeps a skin honest,
+   * since it can reach the author's colour but never replace it.
+   */
+  --surface-solid: oklch(0.99 0.01 40 / 0.9);
+  --bar-solid: oklch(1 0 0 / 0.35);
+  --surface: var(--surface-solid);
+  --bar: var(--bar-solid);
   --edge: oklch(0.66 0.075 35);
   --accent: oklch(0.46 0.15 25);
   --on-accent: oklch(0.98 0.01 40);
@@ -71,8 +81,11 @@
   --ink: oklch(0.96 0.012 340);
   --ink-2: oklch(0.8 0.03 330);
   --muted: oklch(0.66 0.03 330);
-  --surface: oklch(0.16 0.04 305 / 0.82);
-  --bar: oklch(0.14 0.03 305 / 0.55);
+  /* Only the raw pair. `--surface` and `--bar` are composed from these at
+   * `:root` and follow whichever is in force, so restating them here would be a
+   * second place to keep in step for no gain. */
+  --surface-solid: oklch(0.16 0.04 305 / 0.82);
+  --bar-solid: oklch(0.14 0.03 305 / 0.55);
   --edge: oklch(0.52 0.09 325);
 
   /* Not the light accent with a flipped lightness — a different value on
@@ -101,6 +114,57 @@
 }
 
 /*
+ * The FORM tokens — the half of a theme that is not colour.
+ *
+ * A skin sets these; `skins.ts` holds the table and the argument for why form
+ * and colour are chosen separately. The values here are the design's own, so a
+ * page nobody has styled renders byte-for-byte what it did before skins
+ * existed, and `default` legitimately overrides nothing.
+ *
+ * They are at `:root` and outside both mode blocks on purpose: a corner radius
+ * is not lighter in the light theme. What varies with the mode is colour, and
+ * colour is the other file's job.
+ */
+:root {
+  /*
+   * A MULTIPLIER on Tailwind's radius scale, not a length. `rounded-lg` and
+   * `rounded-xl` sit in a deliberate relationship to each other, and a skin
+   * that restated five absolute sizes would flatten it — which is how "square"
+   * and "very round" both end up looking like one radius applied everywhere.
+   * One number scales the whole scale and keeps the proportions.
+   */
+  --skin-round: 1;
+
+  /*
+   * Applied to every element carrying Tailwind's `border` utility — see the
+   * rule below. Its default is that utility's own 1px, so writing it changes
+   * nothing until a skin says otherwise.
+   */
+  --skin-border: 1px;
+
+  /* Travels with the border, because these styles do: a hard offset shadow
+   * over a hairline edge is neither brutalist nor anything else. */
+  --skin-shadow: none;
+
+  /* An overlay laid on a surface's background IMAGE, which leaves the colour
+   * underneath it alone — gloss, bevel and scanlines are all this one token. */
+  --skin-gloss: none;
+
+  /* What `backdrop-blur-md` resolves to. Tailwind's own value, so the four
+   * places that use it are unchanged until a skin asks for more or none. */
+  --skin-blur: 12px;
+
+  /*
+   * The body's face. Reading `--font-sans` here is safe despite the cyclic
+   * declaration described below: next/font sets the real face through an
+   * UNLAYERED class on <html>, which is this same element, and an unlayered
+   * declaration beats a layered one — so what this resolves to is the font, not
+   * the loop.
+   */
+  --skin-font: var(--font-sans);
+}
+
+/*
  * `inline` substitutes each value into the utility rather than adding another
  * layer of indirection through a Tailwind-owned variable.
  *
@@ -125,6 +189,31 @@
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
   --color-star: var(--star);
+
+  /*
+   * **Every `rounded-*` and `backdrop-blur-md` in the app follows the skin,
+   * with no component edit at all.** Tailwind compiles `rounded-lg` to
+   * `border-radius: var(--radius-lg)`, so redefining the scale here reaches all
+   * sixty-odd of them at once — which is the difference between a skin being a
+   * token change and a skin being a rewrite of every surface in the app.
+   *
+   * The multiplication keeps the scale's proportions: the numbers below are
+   * Tailwind's own defaults, so `--skin-round: 1` is the design unchanged.
+   *
+   * `rounded-full` is deliberately absent — it compiles to `calc(infinity *
+   * 1px)` rather than to a token, so avatars and pills stay circular in every
+   * skin. That is the right outcome: a square avatar is a different product
+   * decision, not a style.
+   */
+  --radius-xs: calc(var(--skin-round) * 0.125rem);
+  --radius-sm: calc(var(--skin-round) * 0.25rem);
+  --radius-md: calc(var(--skin-round) * 0.375rem);
+  --radius-lg: calc(var(--skin-round) * 0.5rem);
+  --radius-xl: calc(var(--skin-round) * 0.75rem);
+  --radius-2xl: calc(var(--skin-round) * 1rem);
+  --radius-3xl: calc(var(--skin-round) * 1.5rem);
+  --blur-md: var(--skin-blur);
+
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -151,13 +240,47 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/*
+ * Where a skin's edge, shadow and gloss actually land.
+ *
+ * **`[class~="border"]` matches Tailwind's `border` utility, which is literally
+ * the class `border`** — every bordered surface in this app carries it, all
+ * sixty-six of them, always alongside a colour. Reaching them by the class they
+ * already have is what lets a skin change the weight of every panel, chip,
+ * input and button without each component repeating three tokens it would
+ * eventually forget one of.
+ *
+ * `~=` matches whole words, so `border-b` and `border-2` are untouched — the
+ * header's underline stays an underline rather than becoming a box, and the
+ * two elements that ask for a heavy border keep the one they asked for.
+ * Specificity ties with `.border` and wins on order, being declared after the
+ * import.
+ *
+ * `:not([class*="shadow"])` leaves alone any surface that names its own shadow.
+ * Without it the default skin's `none` would strip the one card that has a
+ * `shadow-sm`, so shipping skins would have changed a page nobody skinned.
+ *
+ * The gloss is a background IMAGE, so it layers over whatever colour the
+ * element paints instead of replacing it.
+ */
+[class~="border"] {
+  border-width: var(--skin-border);
+  background-image: var(--skin-gloss);
+}
+
+[class~="border"]:not([class*="shadow"]) {
+  box-shadow: var(--skin-shadow);
+}
+
 body {
   background: var(--field);
   /* Fixed, so the gradient is the window's rather than the document's: a long
    * page must not scroll the star out of the sky. */
   background-attachment: fixed;
   color: var(--ink);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  /* `--skin-font` is `--font-sans` until a skin says otherwise; the fallbacks
+   * stay because a face that fails to load is still a face that fails to load. */
+  font-family: var(--skin-font), system-ui, sans-serif;
 }
 
 /*

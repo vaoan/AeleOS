@@ -171,6 +171,23 @@ describe("set_actor_theme", () => {
       ).toMatch(/too long/i);
     });
 
+    // The skin is a name, checked for length and not against a list — for the
+    // same reason the canvas is not. A style is CSS the app either implements
+    // or does not, and the renderer falls back to the default for a name it
+    // does not know, so a list here would be a migration every time a style is
+    // added and would guard nothing the client does not guard already.
+    it("accepts a skin by name", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, { skin: "neobrutalism" }),
+      ).toBeNull();
+    });
+
+    it("refuses an absurdly long skin name", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, { skin: "s".repeat(40) }),
+      ).toMatch(/too long/i);
+    });
+
     it("refuses more canvas colours than any canvas could use", async () => {
       expect(
         await write(alice.sub, alice.sonaRef, {

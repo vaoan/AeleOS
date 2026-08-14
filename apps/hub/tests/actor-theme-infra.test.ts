@@ -23,6 +23,7 @@ describe("setActorTheme", () => {
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
       cursor: null,
+      skin: "glass",
     });
     expect(rpc).toHaveBeenCalledWith("set_actor_theme", {
       p_actor_ref: "actor-1",
@@ -31,6 +32,7 @@ describe("setActorTheme", () => {
         accent: "#00ff88",
         canvasColours: ["#112233", "#445566"],
         canvas: "none",
+        skin: "glass",
       },
     });
   });
@@ -42,7 +44,10 @@ describe("setActorTheme", () => {
   it("omits a colour nobody chose rather than storing null", async () => {
     const { client: c, rpc } = client();
     await setActorTheme(c, "actor-1", DEFAULT_THEME);
-    expect(rpc.mock.calls[0][1].p_theme).toEqual({ canvas: "nebula" });
+    expect(rpc.mock.calls[0][1].p_theme).toEqual({
+      canvas: "nebula",
+      skin: "default",
+    });
   });
 
   it("sends only the colours that were chosen", async () => {
@@ -53,6 +58,7 @@ describe("setActorTheme", () => {
     });
     expect(rpc.mock.calls[0][1].p_theme).toEqual({
       canvas: "nebula",
+      skin: "default",
       canvasColours: ["#112233"],
     });
   });

@@ -418,6 +418,57 @@ else's problem.
   scheme that visitor last happened to be in.
 - **The switch renders only where there is a theme to leave.**
 
+### Skins — the half of a theme that is not colour
+
+A **skin** decides FORM: corner radius, border weight, shadow, gloss, backdrop
+blur and the body's face. It names **no colour of its own**, and that separation
+is the whole design — every pairing of a style and a palette is somebody's page,
+where nine themed presets would have been nine colour schemes.
+
+`shared/domain/skins.ts` holds the table and `SKINS` is the list. Adding one is
+a table entry and a name in both catalogues; a test fails if either is missing.
+
+Four things about it that a later change must not undo:
+
+- **A skin reaches the author's colours only through `--surface-solid` and
+  `--bar-solid`.** Those are the raw colours the palette writes;
+  `globals.css` composes `--surface` and `--bar` from them, and a skin
+  recomposes them at a lower **alpha**. That is why there are two names for one
+  colour: a custom property cannot be defined in terms of itself, so glass
+  needed something to be glass _of_. Never let the palette write `--surface`
+  directly again — it would win over the skin and glass would silently be
+  opaque.
+- **A skin and a palette write disjoint properties, and `skins.test.ts` keeps
+  them so.** They are spread into one object in `themeVars`, so a name in both
+  would be won by whichever came second — and the loser would be a colour
+  somebody picked. The order they are spread in looks like a guarantee and is
+  not one; the disjointness test is.
+- **The radius is a MULTIPLIER, not a length.** `@theme inline` redefines
+  Tailwind's whole `--radius-*` scale as `calc(var(--skin-round) * …)`, which is
+  what makes every `rounded-*` in the app follow the skin with **no component
+  edit at all** — sixty-odd of them. Restating absolute sizes per skin would
+  flatten the scale's proportions, which is how "square" and "very round" both
+  end up looking like one radius applied everywhere. `rounded-full` is
+  deliberately outside this: it compiles to `calc(infinity * 1px)` rather than
+  to a token, so avatars stay circular in every skin.
+- **`[class~="border"]` is where the edge, the shadow and the gloss land.**
+  Tailwind's `border` utility is literally the class `border`, and every
+  bordered surface here carries it. `~=` matches whole words, so `border-b` and
+  `border-2` are untouched — the header's underline stays an underline. The
+  companion `:not([class*="shadow"])` leaves alone the one card that names its
+  own shadow, without which shipping skins would have restyled a page nobody
+  skinned.
+
+A skin is **not** nullable, unlike every colour: `default` is a real skin whose
+overrides are empty, so it expresses "nothing chosen" without a null. A colour
+input always carries a value and needs the separate "default" mark; a select
+carries the name of what was picked.
+
+`isThemed` therefore stays **colour-only** — it drives those marks. `isCustomised`
+is the wider question and is what Reset and the visitor's `PageThemeSwitch` ask,
+because somebody who chose only a skin, a canvas or a cursor still has a page to
+put back and a theme to leave.
+
 ### Canvases
 
 `CANVASES` holds **exactly the canvases that exist** — today the nebula, a

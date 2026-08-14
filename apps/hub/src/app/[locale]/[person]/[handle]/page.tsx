@@ -6,7 +6,7 @@ import { PageShell } from "@/shared/presentation/page-shell";
 import {
   PublicProfile,
   ThemeScope,
-  isThemed,
+  isCustomised,
   readPublicFursona,
 } from "@/features/actors";
 
@@ -59,7 +59,10 @@ export async function generateMetadata({
  *
  * A visitor may leave the theme: `PageThemeSwitch` offers the owner's colours
  * and each of the app's two defaults, and it renders only where there is a
- * theme to leave. That control existing is what lets an author's colours be as
+ * theme to leave — which it asks as `isCustomised`, not `isThemed`. A page
+ * whose owner chose only a skin, a canvas or a cursor has no colour of its own
+ * and is still unmistakably theirs, so the narrower question would have hidden
+ * the way out of exactly the pages hardest to read. That control existing is what lets an author's colours be as
  * unreadable as they like without it being anybody else's problem.
  *
  */
@@ -81,7 +84,7 @@ export default async function PublicFursonaPage({
       <ThemeScope theme={actor.theme}>
         {/* Only where there is a theme to leave. A control offering to remove
             colours a page never had is a control that does nothing. */}
-        {isThemed(actor.theme) ? (
+        {isCustomised(actor.theme) ? (
           <div className="mb-6 flex justify-end">
             <PageThemeSwitch
               labels={{

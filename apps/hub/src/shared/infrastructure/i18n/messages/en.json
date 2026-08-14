@@ -149,6 +149,7 @@
     "themeLive": "Changes show straight away",
     "themeAccent": "Accent",
     "themeCanvas": "Backdrop",
+    "themeSkin": "Style",
     "themeAdjusted": "Your accent, as visitors see it",
     "themeReset": "Back to the default look",
     "canvases": {
@@ -156,6 +157,17 @@
       "stars": "Starfield",
       "aurora": "Aurora",
       "none": "None"
+    },
+    "skins": {
+      "default": "The default",
+      "glass": "Frosted glass",
+      "neobrutalism": "Neobrutalism",
+      "aero": "Glossy aero",
+      "candy": "Candy",
+      "clay": "Soft clay",
+      "paper": "Paper",
+      "terminal": "Terminal",
+      "retro": "Retro window"
     },
     "themeUsingDefault": "Default",
     "gradientTitle": "Page background",

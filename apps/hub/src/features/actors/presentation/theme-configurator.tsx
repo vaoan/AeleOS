@@ -6,6 +6,7 @@ import {
   CANVASES,
   CURSOR_MAX_PX,
   DEFAULT_THEME,
+  isCustomised,
   isThemed,
   withCanvasColour,
   withChosenColour,
@@ -21,6 +22,7 @@ import {
 } from "@/features/actors/presentation/gradient-picker";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import { slotsFor } from "@/shared/domain/canvas-slots";
+import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
@@ -30,6 +32,11 @@ import { tid } from "@/shared/infrastructure/test-id";
  * and how small it must be, and a warning for a picture too big for any browser
  * to use. Two hints rather than one because the second replaces the first only
  * when it applies — a permanent warning is one nobody reads.
+ *
+ * The skin's strings are a field name and one label per style. They are the
+ * app's chrome and so belong in the catalogues, unlike a person's own writing —
+ * `messages.test.ts` fails the build when a style is named in one language and
+ * not the other, which is what stops a raw key being shown at somebody.
  *
  * `canvasColours` names the GROUP rather than any one colour: the editor
  * renders as many pickers as the chosen canvas paints with, so there is nothing
@@ -59,6 +66,10 @@ export interface ThemeConfiguratorLabels {
   canvasColours: string;
   /** Field label for the canvas selector. */
   canvas: string;
+  /** Field label for the style selector. */
+  skin: string;
+  /** One label per skin. */
+  skins: Record<SkinId, string>;
   /** One label per canvas. */
   canvases: Record<CanvasId, string>;
   /** Explains that a colour is adjusted so it can be read. */
@@ -99,6 +110,11 @@ export interface ThemeConfiguratorProps {
  * **A cursor picture is measured, not merely accepted.** Browsers ignore one
  * larger than 128×128 in silence, so an unmeasured field would let somebody
  * paste a picture, see nothing change, and have nothing to read about why.
+ *
+ * **A skin is chosen separately from the colours, and changes no colour.** It
+ * decides form — corners, border weight, shadow, gloss, the body's face — so
+ * every pairing of a style and a palette is somebody's page. Tying the two
+ * together would have collapsed nine styles into nine colour schemes.
  *
  * **The canvas gets one picker per part it actually paints with** — see
  * `CANVAS_SLOTS`. Two fixed cloud pickers gave every canvas the same pair and
@@ -142,13 +158,12 @@ export function ThemeConfigurator({
     value.background ?? DEFAULT_GRADIENT,
   );
   const themed = isThemed(value);
+  // Reset asks the wider question. Somebody who chose only a skin, a canvas or
+  // a cursor still has something to put back, and a disabled button with
+  // nothing saying why is the fault this panel keeps being trimmed for.
+  const customised = isCustomised(value);
   const slots = slotsFor(value.canvas);
 
-  // **Measured, because a browser refuses an oversized cursor in silence.**
-  // Past 128×128 the declaration is ignored with no error anywhere, so somebody
-  // pastes a picture, nothing happens, and there is nothing to read. The image
-  // is loaded here only to learn its size — cross-origin does not hide
-  // dimensions — and the answer becomes a sentence rather than a mystery.
   // **Measured, because a browser refuses an oversized cursor in silence.** Past
   // 128×128 the declaration is ignored with no error anywhere, so somebody
   // pastes a picture, nothing happens, and there is nothing to read. The image
@@ -322,6 +337,31 @@ export function ThemeConfigurator({
             </p>
           </div>
 
+          {/* **Form, not colour** — see `skins.ts`. It sits above the canvas
+              because it changes every surface on the page, which is the biggest
+              single thing in this panel, and beneath the colours because those
+              are what people come here for. */}
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-skin`} className="text-xs font-medium">
+              {labels.skin}
+            </label>
+            <select
+              id={`${id}-skin`}
+              value={value.skin}
+              onChange={(event) =>
+                onChange({ ...value, skin: event.target.value as SkinId })
+              }
+              {...tid("theme-skin")}
+              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+            >
+              {SKINS.map((skin) => (
+                <option key={skin} value={skin}>
+                  {labels.skins[skin]}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid gap-1.5">
             <label htmlFor={`${id}-canvas`} className="text-xs font-medium">
               {labels.canvas}
@@ -345,7 +385,7 @@ export function ThemeConfigurator({
 
           <button
             type="button"
-            disabled={!themed}
+            disabled={!customised}
             onClick={() => onChange(DEFAULT_THEME)}
             {...tid("theme-reset")}
             className="flex w-fit items-center gap-2 rounded-lg border border-[var(--edge)] px-3 py-1.5 text-sm"

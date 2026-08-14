@@ -102,7 +102,7 @@ describe("derivePalette", () => {
     "#0a0a0a",
   ])("on the readable background %s", (background) => {
     const palette = derivePalette(flat(background), "#00ff88");
-    const surface = colourOf(palette, "--surface");
+    const surface = colourOf(palette, "--surface-solid");
 
     it.each(["--ink", "--ink-2", "--muted"])(
       "%s clears the text minimum",
@@ -148,7 +148,7 @@ describe("derivePalette", () => {
   // near-black body text on the same blue field.
   it.each(BACKGROUNDS)("agrees with itself about %s", (background) => {
     const palette = derivePalette(flat(background), "#00ff88");
-    const surface = colourOf(palette, "--surface");
+    const surface = colourOf(palette, "--surface-solid");
     const above = (token: string) => colourOf(palette, token)[0] > surface[0];
     expect(above("--muted")).toBe(above("--ink"));
     expect(above("--edge")).toBe(above("--ink"));
@@ -156,7 +156,7 @@ describe("derivePalette", () => {
 
   it("keeps a heading louder than a muted label", () => {
     const palette = derivePalette(flat("#1a1a2e"), "#00ff88");
-    const surface = colourOf(palette, "--surface");
+    const surface = colourOf(palette, "--surface-solid");
     expect(contrastRatio(colourOf(palette, "--ink"), surface)).toBeGreaterThan(
       contrastRatio(colourOf(palette, "--muted"), surface),
     );
@@ -167,7 +167,7 @@ describe("derivePalette", () => {
   it("carries the background's hue into the text", () => {
     const palette = derivePalette(flat("#2d1b4e"), "#00ff88");
     expect(colourOf(palette, "--ink")[2]).toBeCloseTo(
-      colourOf(palette, "--surface")[2],
+      colourOf(palette, "--surface-solid")[2],
       0,
     );
   });
@@ -271,7 +271,7 @@ describe("the memoised solve", () => {
     const a = derivePalette({ angle: 0, stops }, "#00ff88");
     const b = derivePalette({ angle: 270, stops }, "#00ff88");
     expect(a["--ink"]).toBe(b["--ink"]);
-    expect(a["--surface"]).toBe(b["--surface"]);
+    expect(a["--surface-solid"]).toBe(b["--surface-solid"]);
     // The field DOES follow the angle, which is why it is spliced in rather
     // than cached with the rest.
     expect(a["--field"]).not.toBe(b["--field"]);

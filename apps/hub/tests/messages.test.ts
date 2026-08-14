@@ -102,6 +102,9 @@ describe("message catalogues", () => {
       // Latin, and the same word in both languages. The canvases beside it are
       // translated, which is the evidence this one was considered.
       "fursonas.canvases.aurora",
+      // The same word in Spanish, and the eight style names beside it are
+      // translated — including the ones that could have been left as loanwords.
+      "fursonas.skins.terminal",
     ];
     const untranslated = enKeys.filter(
       (k) => valueAt(en, k) === valueAt(es, k),

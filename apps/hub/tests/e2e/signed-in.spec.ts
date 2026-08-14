@@ -267,13 +267,16 @@ test.describe("signed in", () => {
     await page.getByTestId("item-title").last().fill("Especie");
     await page.getByTestId("item-description").last().fill("Zorro ártico");
 
-    // Theme it: a background colour, an accent, and a canvas that is not the
-    // default. Every one of these travels a different route into the page.
+    // Theme it: a background colour, an accent, a canvas that is not the
+    // default, and a skin. Every one of these travels a different route into
+    // the page — and the skin travels a route none of the colours do, since it
+    // is stored as a name and resolved into properties when the page renders.
     await page.getByTestId("theme-open").click();
     await page.getByTestId("gradient-colour").fill("#101a2e");
     await page.getByTestId("theme-accent").fill("#00ff88");
     await page.getByTestId("theme-canvas").selectOption("stars");
     await page.getByTestId("theme-canvas-colour-0").fill("#ff0088");
+    await page.getByTestId("theme-skin").selectOption("neobrutalism");
 
     await page.getByTestId("editor-save").click();
     await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
@@ -305,6 +308,10 @@ test.describe("signed in", () => {
       const themed = styles.join("");
       expect(themed).toContain("--field");
       expect(themed).toContain("--accent");
+      // The skin arrives as the properties it stands for, never as its name.
+      // Asserting on "neobrutalism" would pass on a page that shipped the word
+      // and no style at all.
+      expect(themed).toContain("--skin-border:3px");
     } finally {
       await stranger.close();
     }
@@ -316,6 +323,8 @@ test.describe("signed in", () => {
     await expect(page.getByTestId("editor-display-name")).toHaveValue(
       "The Whole Journey",
     );
+    await page.getByTestId("theme-open").click();
+    await expect(page.getByTestId("theme-skin")).toHaveValue("neobrutalism");
     await page.getByTestId("editor-save").click();
     await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
 

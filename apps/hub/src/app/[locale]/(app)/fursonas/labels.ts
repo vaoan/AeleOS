@@ -7,6 +7,7 @@ import {
   type FursonaEditorLabels,
   type SectionType,
 } from "@/features/actors";
+import { SKINS, type SkinId } from "@/shared/domain/skins";
 
 /**
  * Resolves every label {@link FursonaForm} needs, on the server where the
@@ -33,6 +34,11 @@ import {
  * entry here falls back to the field's generic message, which for a form-level
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
+ *
+ * The style names come from `SKINS` the same way the canvas names come from
+ * `CANVASES` — resolved key by key rather than written out, so a style added to
+ * the list without a name in both catalogues fails the build instead of
+ * rendering `skins.candy` at somebody.
  *
  * The two cloud labels became one, `canvasColours`, naming the group — the
  * editor renders as many pickers as the chosen canvas actually paints with, so
@@ -130,6 +136,10 @@ export async function fursonaEditorLabels(
       canvases: Object.fromEntries(
         CANVASES.map((canvas) => [canvas, t(`canvases.${canvas}`)]),
       ) as Record<CanvasId, string>,
+      skin: t("themeSkin"),
+      skins: Object.fromEntries(
+        SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
+      ) as Record<SkinId, string>,
       adjusted: t("themeAdjusted"),
       reset: t("themeReset"),
       usingDefault: t("themeUsingDefault"),

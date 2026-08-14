@@ -473,6 +473,16 @@ begin
       if length(v_value) > 500 then
         raise exception 'cursor: address is too long' using errcode = '22023';
       end if;
+    elsif v_key = 'skin' then
+      -- The style the page's surfaces are built in — corners, border weight,
+      -- shadow, the body's face. Not checked against a list, for the same
+      -- reason the canvas is not: a skin is a set of CSS the app either
+      -- implements or does not, the renderer falls back to the default for a
+      -- name it does not know, and a list here would be a migration every time
+      -- a style is added.
+      if length(v_value) > 32 then
+        raise exception 'skin: name is too long' using errcode = '22023';
+      end if;
     elsif v_key = 'canvas' then
       -- Not checked against a list of canvases on purpose. A canvas is an
       -- animation the app either implements or does not, and the renderer

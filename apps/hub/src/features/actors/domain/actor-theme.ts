@@ -3,6 +3,12 @@ import { parseHex, toHex } from "@/shared/domain/color";
 import { safeHttpUrl } from "@/features/actors/domain/embeds";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
+  DEFAULT_SKIN,
+  SKINS,
+  skinVars,
+  type SkinId,
+} from "@/shared/domain/skins";
+import {
   DEFAULT_GRADIENT,
   parseGradient,
   type Gradient,
@@ -35,6 +41,12 @@ export type CanvasId = (typeof CANVASES)[number];
 
 /**
  * How somebody chose their page to look.
+ *
+ * A theme carries a **skin** as well as its colours, and the two are separate
+ * on purpose. A skin decides FORM — corners, border weight, shadow, gloss, the
+ * body's face — and names no colour of its own; the gradient decides colour and
+ * knows nothing about form. Every pairing of the two is somebody's page, which
+ * is what nine skins times any palette buys that nine themed presets would not.
  *
  * A theme may also carry a **cursor**: a link to a picture, like every other
  * picture here. What a browser will accept is narrower than people expect —
@@ -92,6 +104,15 @@ export interface ActorTheme {
   canvasColours: string[] | null;
   /** Which canvas moves behind it. */
   canvas: CanvasId;
+  /**
+   * Which style the page's surfaces are built in.
+   *
+   * Not nullable, and unlike the colours it needs no "default means the
+   * design's own" dance: `default` IS a skin, and the one whose overrides are
+   * empty. A colour input always carries a value and so needs a separate way to
+   * say nobody picked; a select carries the name of what was picked.
+   */
+  skin: SkinId;
   /**
    * A picture to use as the mouse cursor, as an address, or null for the
    * ordinary one.
@@ -159,7 +180,9 @@ export function cursorUrl(raw: string | undefined): string | null {
 /**
  * What a page looks like when nobody has chosen: nothing overridden.
  *
- * Includes the cursor and the canvas's colours, both nullable like the rest.
+ * Includes the cursor and the canvas's colours, both nullable like the rest,
+ * and the skin, which is not: `default` is a real skin whose overrides happen
+ * to be empty, so it expresses "nothing chosen" without needing null.
  *
  * Includes the background, which is nullable like the rest: a page nobody has
  * themed follows the design and switches with the reader, exactly as it did
@@ -175,6 +198,7 @@ export const DEFAULT_THEME: ActorTheme = {
   canvasColours: null,
   canvas: "nebula",
   cursor: null,
+  skin: DEFAULT_SKIN,
 };
 
 /**
@@ -250,6 +274,10 @@ function colour(value: unknown): string | null {
  * read rather than inventing one — a theme left with no readable stop at all is
  * treated as having no background, and derives no palette.
  *
+ * The skin is matched the same way the canvas is, and against the same kind of
+ * list, so a style that was renamed or removed leaves a page on the default
+ * rather than on a name nothing implements.
+ *
  * The canvas is matched against the list with `includes` and never with `in`.
  * An `in` test accepts every inherited key — `toString`, `constructor`,
  * `__proto__` — and each would then be treated as the name of a canvas.
@@ -263,6 +291,7 @@ export function parseTheme(value: unknown): ActorTheme {
       ? (value as Record<string, unknown>)
       : {};
   const canvas = stored.canvas;
+  const skin = stored.skin;
   return {
     background: parseGradient(stored.background),
     accent: colour(stored.accent),
@@ -275,6 +304,10 @@ export function parseTheme(value: unknown): ActorTheme {
       (CANVASES as readonly string[]).includes(canvas)
         ? (canvas as CanvasId)
         : DEFAULT_THEME.canvas,
+    skin:
+      typeof skin === "string" && (SKINS as readonly string[]).includes(skin)
+        ? (skin as SkinId)
+        : DEFAULT_SKIN,
   };
 }
 
@@ -300,7 +333,8 @@ export const THEME_SCOPE = "actor-theme";
  * colours by design — they are `#rrggbb` or null and nothing else
  * is reachable through a colour input, and the database checks the format
  * anyway. What this pins is the SHAPE, so the form cannot submit a theme with a
- * canvas the renderer has no implementation for.
+ * canvas the renderer has no implementation for. The skin is pinned the same
+ * way and for the same reason.
  */
 export const themeSchema = z.object({
   canvasColours: z.array(z.string()).nullable(),
@@ -313,6 +347,7 @@ export const themeSchema = z.object({
   accent: z.string().nullable(),
   canvas: z.enum(CANVASES),
   cursor: z.string().nullable(),
+  skin: z.enum(SKINS),
 });
 
 /**
@@ -397,20 +432,42 @@ export function withCanvasColour(
 }
 
 /**
- * Whether an author has chosen anything at all.
+ * Whether an author has chosen any COLOUR.
  *
- * True once ANY colour is the author's own — the background, the accent, or any
- * of the canvas's.
- *
- * The configurator shows "default" until this is true, because a colour input
- * always carries a value and would otherwise present the design's own colour as
- * though somebody had picked it.
+ * True once the background, the accent or any of the canvas's is the author's
+ * own. Deliberately narrower than {@link isCustomised}: this exists for the
+ * "default" marks beside the colour inputs, and a colour input always carries a
+ * value, so without one the design's own colour reads as a choice somebody made.
+ * A skin, a canvas and a cursor each say what they are, so none of them needs
+ * the mark — and including them here would take it off the colour that still
+ * does.
  *
  * @param theme - the theme.
  * @returns true when any colour is the author's own.
  */
 export function isThemed(theme: ActorTheme): boolean {
   return Boolean(theme.background ?? theme.accent ?? theme.canvasColours);
+}
+
+/**
+ * Whether there is anything at all to put back.
+ *
+ * Everything a theme carries, colour or not. This is what Reset asks, and it
+ * used to ask {@link isThemed} instead — so somebody who had chosen only a
+ * canvas, a cursor or a skin faced a disabled button with nothing telling them
+ * why, which is the same "control that does nothing" fault this feature has
+ * already been trimmed for twice.
+ *
+ * @param theme - the theme.
+ * @returns true when the theme differs from the default in any way.
+ */
+export function isCustomised(theme: ActorTheme): boolean {
+  return (
+    isThemed(theme) ||
+    Boolean(theme.cursor) ||
+    theme.canvas !== DEFAULT_THEME.canvas ||
+    theme.skin !== DEFAULT_THEME.skin
+  );
 }
 
 /**
@@ -437,6 +494,12 @@ export function isThemed(theme: ActorTheme): boolean {
  * canvas asks for the slot it wants rather than for a letter that meant
  * something only while there were two of them. A slot whose value cannot be read
  * emits nothing rather than a property full of `NaN`.
+ *
+ * The skin arrives as the custom properties it overrides rather than as its
+ * name, so nothing downstream has to know what a skin is: the page reads
+ * `--skin-round` and `--skin-shadow` the same way it reads `--accent`. `default`
+ * contributes nothing, which is why a page nobody has styled still emits no rule
+ * at all.
  *
  * `none` travels as the canvas's NAME rather than as an opacity of zero. The
  * opacity route silently did nothing — the canvas rejects a non-positive value
@@ -468,6 +531,17 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
 
   return {
     ...canvas,
+    // **A skin and a palette write disjoint properties, and a test keeps it
+    // that way.** They are spread into one object, so a name in both would let
+    // whichever came second win silently — and the loser would be a colour its
+    // author picked. Nothing here can enforce that; `skins.test.ts` compares
+    // the two sets, because the order these appear in is not the guarantee it
+    // looks like.
+    //
+    // A skin reaches the author's colours only through `--surface-solid` and
+    // `--bar-solid`, which it composes into `--surface` and `--bar` — an alpha
+    // change, never a hue.
+    ...skinVars(theme.skin),
     ...(theme.background
       ? derivePalette(theme.background, theme.accent ?? THEME_SEEDS.accent)
       : {}),

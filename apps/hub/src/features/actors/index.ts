@@ -54,7 +54,7 @@ export {
   type FursonaInput,
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
-export { isThemed } from "@/features/actors/domain/actor-theme";
+export { isCustomised } from "@/features/actors/domain/actor-theme";
 export {
   readActorPage,
   type ActorPage,

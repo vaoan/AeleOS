@@ -140,6 +140,7 @@ describe("EditFursonaPage", () => {
         backdropA: null,
         backdropB: null,
         canvas: "none",
+        skin: "retro",
       },
     });
 
@@ -149,7 +150,7 @@ describe("EditFursonaPage", () => {
 
     expect(formElement(page).props).toMatchObject({
       initialSections: sections,
-      initialTheme: { accent: "#00ff88", canvas: "none" },
+      initialTheme: { accent: "#00ff88", canvas: "none", skin: "retro" },
     });
   });
 

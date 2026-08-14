@@ -13,6 +13,11 @@ import type { ActorTheme } from "@/features/actors/domain/actor-theme";
  * The cursor travels as an address; nothing is stored, as with every other
  * picture here.
  *
+ * The skin travels as its NAME, alongside the canvas and unlike the colours: it
+ * is not nullable, because `default` is a real skin whose overrides are empty.
+ * The properties it stands for are resolved when the page renders, so renaming
+ * or restyling a skin later reaches every page already wearing it.
+ *
  * The canvas's colours travel as a list rather than as two named fields, since
  * how many there are depends on which canvas was chosen.
  *
@@ -39,7 +44,10 @@ export async function setActorTheme(
   actorRef: string,
   theme: ActorTheme,
 ): Promise<void> {
-  const stored: Record<string, unknown> = { canvas: theme.canvas };
+  const stored: Record<string, unknown> = {
+    canvas: theme.canvas,
+    skin: theme.skin,
+  };
   if (theme.background) stored.background = theme.background;
   if (theme.accent) stored.accent = theme.accent;
   if (theme.canvasColours) stored.canvasColours = theme.canvasColours;

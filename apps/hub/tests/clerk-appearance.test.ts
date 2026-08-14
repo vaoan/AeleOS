@@ -67,10 +67,13 @@ describe("clerkAppearanceFor", () => {
     expect(palette.colorBorder).toBe(tokenValue("edge", theme));
   });
 
-  // --surface carries an alpha channel that Clerk has no use for, so the
-  // comparison is against the opaque colour underneath it.
-  it.each(THEMES)("takes its %s background from --surface", (theme) => {
-    const opaque = tokenValue("surface", theme).replace(
+  // `--surface-solid` carries an alpha channel that Clerk has no use for, so
+  // the comparison is against the opaque colour underneath it. The `-solid`
+  // pair is what the modes declare: `--surface` is composed from it at `:root`
+  // so that a skin can lower the alpha, and reading that name here would find
+  // the composition rather than a colour.
+  it.each(THEMES)("takes its %s background from --surface-solid", (theme) => {
+    const opaque = tokenValue("surface-solid", theme).replace(
       /^oklch\(([^/)]+?)\s*\/[^)]*\)$/,
       (_, channels: string) => `oklch(${channels})`,
     );
