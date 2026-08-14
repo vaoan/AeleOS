@@ -20,8 +20,7 @@ describe("setActorTheme", () => {
     await setActorTheme(c, "actor-1", {
       background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
       accent: "#00ff88",
-      backdropA: "#112233",
-      backdropB: "#445566",
+      canvasColours: ["#112233", "#445566"],
       canvas: "none",
     });
     expect(rpc).toHaveBeenCalledWith("set_actor_theme", {
@@ -29,8 +28,7 @@ describe("setActorTheme", () => {
       p_theme: {
         background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
         accent: "#00ff88",
-        backdropA: "#112233",
-        backdropB: "#445566",
+        canvasColours: ["#112233", "#445566"],
         canvas: "none",
       },
     });
@@ -50,11 +48,11 @@ describe("setActorTheme", () => {
     const { client: c, rpc } = client();
     await setActorTheme(c, "actor-1", {
       ...DEFAULT_THEME,
-      backdropA: "#112233",
+      canvasColours: ["#112233"],
     });
     expect(rpc.mock.calls[0][1].p_theme).toEqual({
       canvas: "nebula",
-      backdropA: "#112233",
+      canvasColours: ["#112233"],
     });
   });
 

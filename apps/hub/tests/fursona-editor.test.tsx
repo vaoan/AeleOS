@@ -75,8 +75,7 @@ const labels = {
       remove: "Remove",
     },
     accent: "Accent",
-    backdropA: "First cloud",
-    backdropB: "Second cloud",
+    canvasColours: "Canvas colours",
     canvas: "Backdrop",
     canvases: {
       nebula: "Nebula",

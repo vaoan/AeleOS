@@ -31,9 +31,10 @@ create table public.actor_profiles (
   -- Spanish yet, which is an ordinary state and never an error.
   sections   jsonb not null default '[]'::jsonb,
   -- How the owner chose their page to look: {background?, accent?, backdropA?,
-  -- backdropB?, canvas?}. The last four are `#rrggbb` strings; `background` is
-  -- a gradient — {angle, stops: [{color, at}]} — because a fursona can carry
-  -- more colours than any fixed set of fields would allow.
+  -- canvasColours?, canvas?}. `accent` is an `#rrggbb` string; `background` is
+  -- a gradient — {angle, stops: [{color, at}]} — and `canvasColours` is one
+  -- colour per part the chosen canvas paints with. Both are lists because a
+  -- fursona can carry more colours than any fixed set of fields would allow.
   --
   -- The background is the one every other colour is solved against, which is
   -- what makes a custom theme one palette rather than a light and a dark
@@ -451,7 +452,16 @@ begin
          or jsonb_array_length(p_theme -> 'background' -> 'stops') > 12 then
         raise exception 'background: needs 1 to 12 stops' using errcode = '22023';
       end if;
-    elsif v_key in ('accent', 'backdropA', 'backdropB') then
+    elsif v_key = 'canvasColours' then
+      -- One colour per part the chosen canvas paints with — three cloud
+      -- layers, three star layers, four aurora curtains. A list rather than
+      -- named fields, because how many a canvas takes is the canvas's
+      -- business; shape and length only, for the same reason the gradient is.
+      if jsonb_typeof(p_theme -> 'canvasColours') is distinct from 'array'
+         or jsonb_array_length(p_theme -> 'canvasColours') > 8 then
+        raise exception 'canvasColours: at most 8' using errcode = '22023';
+      end if;
+    elsif v_key = 'accent' then
       if v_value !~ '^#[0-9a-fA-F]{6}$' then
         raise exception '%: must be #rrggbb', v_key using errcode = '22023';
       end if;

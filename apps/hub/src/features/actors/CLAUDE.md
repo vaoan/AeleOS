@@ -436,8 +436,15 @@ are the colours in both schemes; what adapts is `--nebula-blend`, which stays in
 `globals.css` — `screen` in dark because dust emits light, `multiply` in light
 because it absorbs it. Same two colours, opposite physics.
 
-Every canvas reads `--nebula-a` and `--nebula-b`, so **an author's two colours
-travel to whichever canvas they pick** rather than each animation inventing its
+**Each canvas declares how many colours it paints with**, in `CANVAS_SLOTS`,
+and the editor renders that many pickers. The number has to be the truth in both
+directions: a canvas claiming more than it uses gives somebody controls that
+change nothing, and one claiming fewer makes some of its colours unreachable
+with no way to find out why.
+
+Colours travel as `--canvas-N`, indexed from one, falling back to the design's
+own two when unset — so a page nobody has themed is unchanged. They used to be
+two named fields, which made every canvas reuse the same pair rather than each animation inventing its
 own palette. A new canvas that hard-codes colours is wrong. They must also
 respect `prefers-reduced-motion` and stay off wherever the star toggle says off
 — that toggle is the visitor's control over their own machine and the author's

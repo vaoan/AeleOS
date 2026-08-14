@@ -34,6 +34,10 @@ import {
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * The two cloud labels became one, `canvasColours`, naming the group — the
+ * editor renders as many pickers as the chosen canvas actually paints with, so
+ * there is nothing fixed left to name individually.
+ *
  * The background's strings are **nested** under `gradient`, for the same reason
  * the theme panel's are nested: it has a `title` of its own.
  *
@@ -117,8 +121,7 @@ export async function fursonaEditorLabels(
         remove: t("gradientRemove"),
       },
       accent: t("themeAccent"),
-      backdropA: t("themeBackdropA"),
-      backdropB: t("themeBackdropB"),
+      canvasColours: t("themeCanvasColours"),
       canvas: t("themeCanvas"),
       canvases: Object.fromEntries(
         CANVASES.map((canvas) => [canvas, t(`canvases.${canvas}`)]),

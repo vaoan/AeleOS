@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
+import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   aurora,
   shootingStars,
@@ -98,7 +99,11 @@ const TILE = CELL_SIZE * 8;
  * @returns a string that changes exactly when a rebuild is needed.
  */
 function tintSignature(styles: CSSStyleDeclaration): string {
-  return `${styles.getPropertyValue("--nebula-a")}|${styles.getPropertyValue("--nebula-b")}`;
+  // Every slot, not the first two. A signature that watched two colours would
+  // miss a change to the third and leave the tiles baked with the old one.
+  return Array.from({ length: MAX_CANVAS_COLOURS }, (_, i) =>
+    canvasColour(styles, i).join(","),
+  ).join("|");
 }
 
 /** How far the field drifts each second, in CSS pixels. */
@@ -129,9 +134,11 @@ const MAX_DPR = 2;
  * the edge where dust meets void.
  */
 const LAYERS = [
-  { seed: 11, gain: 2.2, bias: 0.5, speed: 1, tint: "a", scale: 7 },
-  { seed: 71, gain: 2, bias: 0.54, speed: -0.55, tint: "b", scale: 4.5 },
-  { seed: 137, gain: 2.8, bias: 0.58, speed: 0.28, tint: "a", scale: 2.6 },
+  { seed: 11, gain: 2.2, bias: 0.5, speed: 1, slot: 0, scale: 7 },
+  { seed: 71, gain: 2, bias: 0.54, speed: -0.55, slot: 1, scale: 4.5 },
+  // Its own colour now. It reused the far layer's, which is why the depth read
+  // as haze rather than as three separate clouds.
+  { seed: 137, gain: 2.8, bias: 0.58, speed: 0.28, slot: 2, scale: 2.6 },
 ] as const;
 
 /** How many stars the far layer draws; the nearer layers scale from it. */
@@ -189,18 +196,18 @@ function drawStars(
   seconds: number,
   animated: boolean,
 ) {
-  const [a, b] = tints as [[number, number, number], [number, number, number]];
-  const mix = (t: number) =>
-    a.map((channel, i) => Math.round(channel + (b[i]! - channel) * t));
-
-  for (const layer of starfield(FIELD_SEED, STAR_COUNT)) {
+  // One colour per LAYER rather than a mix across the whole sky. A layer is the
+  // thing somebody can see and therefore the thing worth being able to colour;
+  // mixing every star between two made the field one blended wash.
+  const layers = starfield(FIELD_SEED, STAR_COUNT);
+  for (const [index, layer] of layers.entries()) {
+    const [r, g, bl] = tints[index % tints.length]!;
     for (const star of layer.stars) {
       // Still on the still path: one frame at a representative brightness,
       // so reduced motion keeps the sky and loses only the movement.
       const alpha = animated
         ? twinkle(star, seconds, layer.brightness)
         : Math.min(0.95, star.alpha * 0.78 * layer.brightness);
-      const [r, g, bl] = mix(star.tint);
       const x = star.x * width;
       const y = star.y * height;
       const size = star.r * dpr;
@@ -238,7 +245,7 @@ function drawStars(
     const x = shot.x * width + travel * Math.cos(SHOT_ANGLE);
     const y = shot.y * height - travel * Math.sin(SHOT_ANGLE);
     const tail = shot.length * width;
-    const [r, g, bl] = mix(0.5);
+    const [r, g, bl] = tints[0]!;
 
     const trail = ctx.createLinearGradient(
       x,
@@ -287,7 +294,8 @@ function drawAurora(
   for (const curtain of aurora(CURTAIN_COUNT, FIELD_SEED)) {
     const centre = swayOf(curtain, seconds) * width;
     const half = (curtain.width * width) / 2;
-    const [r, g, b] = tints[curtain.tint]!;
+    // Its own colour per curtain, so four curtains can be four colours.
+    const [r, g, b] = tints[curtain.tint % tints.length]!;
 
     // Horizontal falloff, so a curtain has no edge. A flat band with a hard
     // side is the difference between an aurora and a stripe.
@@ -347,6 +355,28 @@ const DEFAULT_OPACITY = 0.3;
  * @param name - the custom property name.
  * @returns the three channels, 0-255.
  */
+/**
+ * One of the canvas's colours, by slot.
+ *
+ * **Falls back to the design's own two**, alternating, so a page nobody has
+ * themed looks exactly as it did before canvases had slots — `globals.css`
+ * still defines `--nebula-a` and `--nebula-b` and nothing else needed to
+ * change there.
+ *
+ * @param styles - the document root's computed styles.
+ * @param slot - which colour, from zero.
+ * @returns the three channels, 0-255.
+ */
+function canvasColour(
+  styles: CSSStyleDeclaration,
+  slot: number,
+): [number, number, number] {
+  const chosen = styles.getPropertyValue(`--canvas-${slot + 1}`).trim();
+  return chosen
+    ? readRgb(styles, `--canvas-${slot + 1}`)
+    : readRgb(styles, slot % 2 === 0 ? "--nebula-a" : "--nebula-b");
+}
+
 function readRgb(
   styles: CSSStyleDeclaration,
   name: string,
@@ -390,9 +420,12 @@ function readRgb(
  * and a page nested inside it has no way to hand it one. That is the same
  * channel `--nebula-blend` and `--nebula-opacity` already travel on.
  *
- * Every canvas takes its colours from `--nebula-a` and `--nebula-b`, so an
- * author picks two colours and whichever animation they chose wears them. A
- * canvas that hard-coded a palette would break that.
+ * **Every canvas takes one colour per part it paints with**, read from
+ * `--canvas-N` and falling back to the design's own two when unset — so a page
+ * nobody has themed looks exactly as it did before canvases had slots. The
+ * nebula's three layers each have their own now; they shared two, with the near
+ * layer reusing the far one's, which is why its depth read as haze. A canvas
+ * that hard-coded a palette would break all of this.
  *
  * **It rebuilds when the theme's colours move.** The nebula's tint is painted
  * INTO its offscreen tiles, so a colour change is invisible until they are
@@ -461,7 +494,7 @@ export function NebulaCanvas() {
           seed: layer.seed,
           gain: layer.gain,
           bias: layer.bias,
-          rgb: readRgb(styles, `--nebula-${layer.tint}`),
+          rgb: canvasColour(styles, layer.slot),
         });
         const off = document.createElement("canvas");
         off.width = TILE;
@@ -524,10 +557,9 @@ export function NebulaCanvas() {
           : DEFAULT_OPACITY;
 
       if (chosen === "stars" || chosen === "aurora") {
-        const tints: [number, number, number][] = [
-          readRgb(styles, "--nebula-a"),
-          readRgb(styles, "--nebula-b"),
-        ];
+        const tints = Array.from({ length: MAX_CANVAS_COLOURS }, (_, i) =>
+          canvasColour(styles, i),
+        );
         if (chosen === "stars") {
           drawStars(ctx, width, height, dpr, tints, elapsed / 1000, animated);
         } else {

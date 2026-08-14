@@ -148,8 +148,6 @@
     "themeTitle": "Colores y fondo",
     "themeLive": "Los cambios se ven al instante",
     "themeAccent": "Color principal",
-    "themeBackdropA": "Primera nube",
-    "themeBackdropB": "Segunda nube",
     "themeCanvas": "Fondo",
     "themeAdjusted": "Tu color, como lo ven quienes te visitan",
     "themeReset": "Volver al aspecto original",
@@ -166,7 +164,8 @@
     "gradientPosition": "Posición",
     "gradientAngle": "Ángulo",
     "gradientAdd": "Añadir color",
-    "gradientRemove": "Quitar"
+    "gradientRemove": "Quitar",
+    "themeCanvasColours": "Colores del fondo"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

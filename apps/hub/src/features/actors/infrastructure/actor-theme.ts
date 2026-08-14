@@ -10,6 +10,9 @@ import type { ActorTheme } from "@/features/actors/domain/actor-theme";
  * more importantly a stored `null` would be a value pretending to be an
  * absence. Sending `{}` is how somebody puts their page back.
  *
+ * The canvas's colours travel as a list rather than as two named fields, since
+ * how many there are depends on which canvas was chosen.
+ *
  * The background travels as a gradient object rather than a string — as many
  * stops as somebody built — which is why the payload is typed loosely here and
  * shape-checked by `set_actor_theme` rather than pattern-matched.
@@ -36,8 +39,7 @@ export async function setActorTheme(
   const stored: Record<string, unknown> = { canvas: theme.canvas };
   if (theme.background) stored.background = theme.background;
   if (theme.accent) stored.accent = theme.accent;
-  if (theme.backdropA) stored.backdropA = theme.backdropA;
-  if (theme.backdropB) stored.backdropB = theme.backdropB;
+  if (theme.canvasColours) stored.canvasColours = theme.canvasColours;
 
   const { error } = await client.rpc("set_actor_theme", {
     p_actor_ref: actorRef,

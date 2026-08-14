@@ -1,13 +1,15 @@
+import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_THEME,
   THEME_SEEDS,
   accentPreview,
   isThemed,
-  withChosenColour,
   parseTheme,
   themeCss,
   themeVars,
+  withCanvasColour,
+  withChosenColour,
 } from "@/features/actors/domain/actor-theme";
 
 /**
@@ -24,15 +26,13 @@ describe("parseTheme", () => {
       parseTheme({
         background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
         accent: "#00ff88",
-        backdropA: "#112233",
-        backdropB: "#445566",
+        canvasColours: ["#112233", "#445566"],
         canvas: "none",
       }),
     ).toEqual({
       background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
       accent: "#00ff88",
-      backdropA: "#112233",
-      backdropB: "#445566",
+      canvasColours: ["#112233", "#445566"],
       canvas: "none",
     });
   });
@@ -122,19 +122,35 @@ describe("themeVars", () => {
     ).toBe(blend);
   });
 
-  it("passes the cloud colours through as the channels the canvas reads", () => {
+  // One property per slot, indexed from one, so a canvas asks for the slot it
+  // wants rather than for a letter that meant something only while there were
+  // two of them.
+  it("passes each canvas colour through as the channels the canvas reads", () => {
     const vars = themeVars({
       ...THEMED,
-      backdropA: "#0a141e",
-      backdropB: "#ffffff",
+      canvasColours: ["#0a141e", "#ffffff", "#000000"],
     });
-    expect(vars["--nebula-a"]).toBe("10 20 30");
-    expect(vars["--nebula-b"]).toBe("255 255 255");
+    expect(vars["--canvas-1"]).toBe("10 20 30");
+    expect(vars["--canvas-2"]).toBe("255 255 255");
+    expect(vars["--canvas-3"]).toBe("0 0 0");
   });
 
   // `none` travels as the canvas's NAME. It used to travel as an opacity of
   // zero, which silently did nothing: the canvas rejects a non-positive opacity
   // as unset and draws the ordinary cloud instead.
+  // themeVars is exported and its input is only typed, not proven — a theme
+  // assembled by hand can carry a colour that is not one, and it must emit
+  // nothing for that slot rather than a property containing NaN.
+  it("emits nothing for a canvas colour it cannot read", () => {
+    const vars = themeVars({
+      ...THEMED,
+      canvasColours: ["#0a141e", "chartreuse", "#ffffff"],
+    });
+    expect(vars["--canvas-1"]).toBe("10 20 30");
+    expect(vars["--canvas-2"]).toBeUndefined();
+    expect(vars["--canvas-3"]).toBe("255 255 255");
+  });
+
   it("switches the cloud off by naming the canvas, not by zeroing it", () => {
     const vars = themeVars({ ...THEMED, canvas: "none" });
     expect(vars["--canvas"]).toBe("none");
@@ -158,9 +174,11 @@ describe("themeVars", () => {
   // Unreachable from the editor, which fills every colour the moment one is
   // picked — but the column predates all of this and may hold it.
   it("emits no palette without a background to solve against", () => {
-    expect(themeVars({ ...DEFAULT_THEME, backdropA: "#0a141e" })).toEqual({
-      "--nebula-a": "10 20 30",
-    });
+    expect(themeVars({ ...DEFAULT_THEME, canvasColours: ["#0a141e"] })).toEqual(
+      {
+        "--canvas-1": "10 20 30",
+      },
+    );
   });
 
   // A gradient whose every stop is unreadable parses to nothing at all, so
@@ -270,22 +288,21 @@ describe("withChosenColour", () => {
   it("makes every colour explicit when the first one is picked", () => {
     const chosen = withChosenColour(DEFAULT_THEME, "accent", "#00ff88");
     expect(chosen.accent).toBe("#00ff88");
-    expect(chosen.backdropA).not.toBeNull();
-    expect(chosen.backdropB).not.toBeNull();
+    expect(chosen.background).not.toBeNull();
+    expect(chosen.canvasColours).not.toBeNull();
   });
 
   // Nothing may move at the moment of promotion: the values written are the
   // ones the page was already showing. What changes is that they stop moving.
   it("promotes the others to what the page already looked like", () => {
     const chosen = withChosenColour(DEFAULT_THEME, "accent", "#00ff88");
-    expect(chosen.backdropA).toBe(THEME_SEEDS.backdropA);
-    expect(chosen.backdropB).toBe(THEME_SEEDS.backdropB);
+    expect(chosen.canvasColours).toEqual([...THEME_SEEDS.canvasColours]);
   });
 
   it("leaves colours somebody already chose alone", () => {
-    const themed = { ...DEFAULT_THEME, backdropA: "#112233" };
-    expect(withChosenColour(themed, "accent", "#00ff88").backdropA).toBe(
-      "#112233",
+    const themed = { ...DEFAULT_THEME, canvasColours: ["#112233"] };
+    expect(withChosenColour(themed, "accent", "#00ff88").canvasColours).toEqual(
+      ["#112233"],
     );
   });
 
@@ -294,14 +311,11 @@ describe("withChosenColour", () => {
     expect(withChosenColour(themed, "accent", "#00ff88").canvas).toBe("stars");
   });
 
-  it.each(["accent", "backdropA", "backdropB"] as const)(
-    "sets %s when that is the one picked",
-    (key) => {
-      expect(withChosenColour(DEFAULT_THEME, key, "#00ff88")[key]).toBe(
-        "#00ff88",
-      );
-    },
-  );
+  it.each(["accent"] as const)("sets %s when that is the one picked", (key) => {
+    expect(withChosenColour(DEFAULT_THEME, key, "#00ff88")[key]).toBe(
+      "#00ff88",
+    );
+  });
 });
 
 describe("isThemed", () => {
@@ -311,16 +325,97 @@ describe("isThemed", () => {
     expect(isThemed(DEFAULT_THEME)).toBe(false);
   });
 
-  it.each(["accent", "backdropA", "backdropB"] as const)(
-    "is true once %s is set",
-    (key) => {
-      expect(isThemed({ ...DEFAULT_THEME, [key]: "#00ff88" })).toBe(true);
-    },
-  );
+  it.each(["accent"] as const)("is true once %s is set", (key) => {
+    expect(isThemed({ ...DEFAULT_THEME, [key]: "#00ff88" })).toBe(true);
+  });
 
   // The canvas alone is not a colour, and the reset button reads this to decide
   // whether there is anything to put back.
   it("is not made true by the canvas alone", () => {
     expect(isThemed({ ...DEFAULT_THEME, canvas: "stars" })).toBe(false);
+  });
+});
+
+describe("withCanvasColour", () => {
+  // The same all-or-nothing rule the other colours follow: a theme half
+  // following the design and half not is one whose preview depends on which
+  // half somebody happens to be looking at.
+  it("makes the rest of the theme explicit too", () => {
+    const chosen = withCanvasColour(DEFAULT_THEME, 0, "#00ff88");
+    expect(chosen.canvasColours?.[0]).toBe("#00ff88");
+    expect(chosen.background).not.toBeNull();
+    expect(chosen.accent).not.toBeNull();
+  });
+
+  it("leaves the other slots as they were", () => {
+    const chosen = withCanvasColour(DEFAULT_THEME, 1, "#00ff88");
+    expect(chosen.canvasColours?.[0]).toBe(THEME_SEEDS.canvasColours[0]);
+    expect(chosen.canvasColours?.[1]).toBe("#00ff88");
+  });
+
+  // A canvas taking four colours must let its fourth be picked before its
+  // third, so the list grows to reach the slot rather than refusing it.
+  it("grows the list to reach a slot beyond the end", () => {
+    const short = { ...DEFAULT_THEME, canvasColours: ["#112233"] };
+    const chosen = withCanvasColour(short, 3, "#00ff88");
+    expect(chosen.canvasColours).toHaveLength(4);
+    expect(chosen.canvasColours?.[3]).toBe("#00ff88");
+  });
+
+  // What makes the growth loop total without a fallback: there is a seed for
+  // every slot the greediest canvas can ask for. A canvas added with more slots
+  // than seeds would otherwise fill the gap with undefined.
+  it("has a seed for every slot any canvas can use", () => {
+    expect(THEME_SEEDS.canvasColours).toHaveLength(MAX_CANVAS_COLOURS);
+  });
+
+  // Clamped rather than refused: a slot beyond the end is a caller mistake, and
+  // silently doing nothing is harder to notice than colouring the last one.
+  it("clamps a slot beyond what any canvas uses", () => {
+    const chosen = withCanvasColour(DEFAULT_THEME, 40, "#00ff88");
+    expect(chosen.canvasColours).toHaveLength(MAX_CANVAS_COLOURS);
+    expect(chosen.canvasColours?.[MAX_CANVAS_COLOURS - 1]).toBe("#00ff88");
+  });
+
+  it("keeps the canvas", () => {
+    expect(
+      withCanvasColour({ ...DEFAULT_THEME, canvas: "aurora" }, 0, "#00ff88")
+        .canvas,
+    ).toBe("aurora");
+  });
+});
+
+describe("the canvas colours a stored theme carries", () => {
+  it("reads a list somebody chose", () => {
+    expect(
+      parseTheme({ canvasColours: ["#00ff88", "#112233"] }).canvasColours,
+    ).toEqual(["#00ff88", "#112233"]);
+  });
+
+  // Dropped rather than defaulted, exactly as a gradient stop is: inventing one
+  // puts a colour on the page nobody picked.
+  it("drops an entry that is not a colour", () => {
+    expect(
+      parseTheme({ canvasColours: ["#00ff88", "chartreuse"] }).canvasColours,
+    ).toEqual(["#00ff88"]);
+  });
+
+  it("overrides nothing when no entry survives", () => {
+    expect(parseTheme({ canvasColours: ["nope"] }).canvasColours).toBeNull();
+  });
+
+  it.each([null, "#00ff88", 42, {}])(
+    "overrides nothing for %o, which is not a list",
+    (value) => {
+      expect(parseTheme({ canvasColours: value }).canvasColours).toBeNull();
+    },
+  );
+
+  it("keeps no more than the greediest canvas can use", () => {
+    expect(
+      parseTheme({
+        canvasColours: Array.from({ length: 20 }, () => "#00ff88"),
+      }).canvasColours,
+    ).toHaveLength(MAX_CANVAS_COLOURS);
   });
 });

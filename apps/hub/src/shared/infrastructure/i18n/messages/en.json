@@ -148,8 +148,6 @@
     "themeTitle": "Colours and backdrop",
     "themeLive": "Changes show straight away",
     "themeAccent": "Accent",
-    "themeBackdropA": "First cloud",
-    "themeBackdropB": "Second cloud",
     "themeCanvas": "Backdrop",
     "themeAdjusted": "Your accent, as visitors see it",
     "themeReset": "Back to the default look",
@@ -166,7 +164,8 @@
     "gradientPosition": "Position",
     "gradientAngle": "Angle",
     "gradientAdd": "Add colour",
-    "gradientRemove": "Remove"
+    "gradientRemove": "Remove",
+    "themeCanvasColours": "Canvas colours"
   },
   "picker": {
     "title": "Who do you want to be?",

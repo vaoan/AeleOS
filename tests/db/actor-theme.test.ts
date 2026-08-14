@@ -82,14 +82,14 @@ describe("set_actor_theme", () => {
       await write(alice.sub, alice.sonaRef, {
         background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
         accent: "#00ff88",
-        backdropA: "#112233",
+        canvasColours: ["#112233", "#445566", "#778899"],
         canvas: "none",
       }),
     ).toBeNull();
     expect(await stored(alice.sonaRef)).toEqual({
       background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
       accent: "#00ff88",
-      backdropA: "#112233",
+      canvasColours: ["#112233", "#445566", "#778899"],
       canvas: "none",
     });
   });
@@ -153,6 +153,20 @@ describe("set_actor_theme", () => {
     // A gradient is shape-checked, not colour-checked: which colours exist is
     // not a question the database can answer, and the client drops a stop it
     // cannot read rather than rendering one nobody picked.
+    it("refuses more canvas colours than any canvas could use", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          canvasColours: Array.from({ length: 9 }, () => "#ffffff"),
+        }),
+      ).toMatch(/at most 8/i);
+    });
+
+    it("refuses canvas colours that are not a list", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, { canvasColours: "#ffffff" }),
+      ).toMatch(/at most 8/i);
+    });
+
     it("refuses a background with no stops", async () => {
       expect(
         await write(alice.sub, alice.sonaRef, {

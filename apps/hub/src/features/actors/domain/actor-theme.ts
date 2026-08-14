@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseHex, toHex } from "@/shared/domain/color";
+import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   DEFAULT_GRADIENT,
   parseGradient,
@@ -34,6 +35,11 @@ export type CanvasId = (typeof CANVASES)[number];
 /**
  * How somebody chose their page to look.
  *
+ * The canvas's colours are a **list, one per part it paints with**, because how
+ * many a canvas takes is the canvas's business — three cloud layers, three star
+ * layers, four aurora curtains. Two named fields made every canvas reuse the
+ * same pair and left the ones with more parts unable to say so.
+ *
  * The background is a **gradient of as many colours as somebody wants**, not
  * one colour — a fursona can carry more than any fixed set of pickers would
  * allow. A flat background is simply a gradient with one stop.
@@ -66,16 +72,26 @@ export interface ActorTheme {
   background: Gradient | null;
   /** The accent colour as `#rrggbb`, or null for the design's own. */
   accent: string | null;
-  /** One of the two clouds behind the page, or null for the design's own. */
-  backdropA: string | null;
-  /** The other cloud, or null for the design's own. */
-  backdropB: string | null;
+  /**
+   * The canvas's own colours, one per slot, or null for the design's own.
+   *
+   * **A list rather than two named fields**, because how many a canvas takes is
+   * the canvas's business — three cloud layers, three star layers, four aurora
+   * curtains. Two fixed fields made every canvas reuse the same pair and left
+   * the ones with more parts unable to say so.
+   *
+   * Longer than the chosen canvas needs is harmless: the extra entries are
+   * ignored and kept, so switching canvas and back does not lose colours.
+   */
+  canvasColours: string[] | null;
   /** Which canvas moves behind it. */
   canvas: CanvasId;
 }
 
 /**
  * What a page looks like when nobody has chosen: nothing overridden.
+ *
+ * Includes the canvas's colours, which are nullable like the rest.
  *
  * Includes the background, which is nullable like the rest: a page nobody has
  * themed follows the design and switches with the reader, exactly as it did
@@ -88,8 +104,7 @@ export interface ActorTheme {
 export const DEFAULT_THEME: ActorTheme = {
   background: null,
   accent: null,
-  backdropA: null,
-  backdropB: null,
+  canvasColours: null,
   canvas: "nebula",
 };
 
@@ -99,7 +114,11 @@ export const DEFAULT_THEME: ActorTheme = {
  * The background is NOT here: it is a gradient rather than a colour, and its
  * own default lives in `gradient.ts` beside the code that reads it.
  *
- * These are the accent and the clouds, because each is the first colour anybody picks
+ * The canvas list carries **one seed per slot the greediest canvas uses**, and
+ * `withCanvasColour` depends on that being true — it is what lets the list grow
+ * to reach a slot without a fallback nobody could reach. A test pins it.
+ *
+ * These are the accent and the canvas, because each is the first colour anybody picks
  * and a picker opening on black would be a poor start.
  *
  * The design's own light-mode values, so a picker opens showing the colour the
@@ -109,12 +128,29 @@ export const DEFAULT_THEME: ActorTheme = {
  */
 export const THEME_SEEDS = {
   accent: "#9a2929",
-  backdropA: "#ec8e4a",
-  backdropB: "#d66a60",
+  /** One per slot, for the canvas that takes the most. */
+  canvasColours: ["#ec8e4a", "#d66a60", "#c9587a", "#a25ec8"],
 } as const;
 
 /**
  * Reads a stored colour, or gives a fallback back.
+ *
+ * @param value - whatever was stored.
+ * @returns a value that is certainly `#rrggbb`, or null to override nothing.
+ */
+function colourList(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  // A stop that is not a colour is dropped rather than defaulted, exactly as a
+  // gradient stop is: inventing one puts a colour on the page nobody picked.
+  const colours = value
+    .map((each) => colour(each))
+    .filter((each): each is string => each !== null)
+    .slice(0, MAX_CANVAS_COLOURS);
+  return colours.length > 0 ? colours : null;
+}
+
+/**
+ * Reads a stored colour, or gives nothing back.
  *
  * @param value - whatever was stored.
  * @returns a value that is certainly `#rrggbb`, or null to override nothing.
@@ -134,6 +170,10 @@ function colour(value: unknown): string | null {
  * blank for a reason they can neither see nor fix.
  *
  * It falls back **per field**, so a theme with one good half keeps that half.
+ * The canvas colours go through the same rule as a gradient's stops: an entry
+ * that is not a colour is dropped rather than defaulted, and a list left with
+ * none is treated as absent.
+ *
  * The background goes through `parseGradient`, which drops any stop it cannot
  * read rather than inventing one — a theme left with no readable stop at all is
  * treated as having no background, and derives no palette.
@@ -154,8 +194,7 @@ export function parseTheme(value: unknown): ActorTheme {
   return {
     background: parseGradient(stored.background),
     accent: colour(stored.accent),
-    backdropA: colour(stored.backdropA),
-    backdropB: colour(stored.backdropB),
+    canvasColours: colourList(stored.canvasColours),
     canvas:
       typeof canvas === "string" &&
       (CANVASES as readonly string[]).includes(canvas)
@@ -178,6 +217,8 @@ export const THEME_SCOPE = "actor-theme";
 /**
  * The theme, as the editor's form holds it.
  *
+ * The canvas colours are a list of strings, checked for shape and length only.
+ *
  * The background is the gradient's shape rather than a string. Loose on the
  * colours by design — they are `#rrggbb` or null and nothing else
  * is reachable through a colour input, and the database checks the format
@@ -185,6 +226,7 @@ export const THEME_SCOPE = "actor-theme";
  * canvas the renderer has no implementation for.
  */
 export const themeSchema = z.object({
+  canvasColours: z.array(z.string()).nullable(),
   background: z
     .object({
       angle: z.number(),
@@ -192,13 +234,14 @@ export const themeSchema = z.object({
     })
     .nullable(),
   accent: z.string().nullable(),
-  backdropA: z.string().nullable(),
-  backdropB: z.string().nullable(),
   canvas: z.enum(CANVASES),
 });
 
 /**
  * Sets one colour, and makes every other colour explicit with it.
+ *
+ * The canvas colours are promoted along with the rest — all of them, not the
+ * one being edited, for the same reason.
  *
  * The background is promoted along with the rest, and it matters most: it is
  * what every derived colour is built from, so a theme with an accent and no
@@ -228,23 +271,58 @@ export const themeSchema = z.object({
  */
 export function withChosenColour(
   theme: ActorTheme,
-  key: "accent" | "backdropA" | "backdropB",
+  key: "accent",
   value: string,
 ): ActorTheme {
   return {
     ...theme,
     background: theme.background ?? DEFAULT_GRADIENT,
-    accent: theme.accent ?? THEME_SEEDS.accent,
-    backdropA: theme.backdropA ?? THEME_SEEDS.backdropA,
-    backdropB: theme.backdropB ?? THEME_SEEDS.backdropB,
+    canvasColours: theme.canvasColours ?? [...THEME_SEEDS.canvasColours],
     [key]: value,
+  };
+}
+
+/**
+ * Sets one of the canvas's colours, making the rest explicit with it.
+ *
+ * The same all-or-nothing rule the other colours follow, and for the same
+ * reason: a theme half following the design and half not is a theme whose
+ * preview depends on which half somebody is looking at.
+ *
+ * The list is grown to reach the slot being set, so a canvas that takes four
+ * colours can have its fourth chosen before its third.
+ *
+ * @param theme - the theme as it stands.
+ * @param slot - which colour, from zero.
+ * @param value - the colour, as `#rrggbb`.
+ * @returns the theme with every colour explicit.
+ */
+export function withCanvasColour(
+  theme: ActorTheme,
+  slot: number,
+  value: string,
+): ActorTheme {
+  const seeds = THEME_SEEDS.canvasColours;
+  // Clamped first, so the loop below can only ever reach into the seeds — which
+  // carry exactly one entry per slot the greediest canvas uses. `actor-theme.test.ts`
+  // pins that, and it is what makes this total without a fallback nobody can reach.
+  const at = Math.max(0, Math.min(MAX_CANVAS_COLOURS - 1, slot));
+  const colours = [...(theme.canvasColours ?? seeds)];
+  while (colours.length <= at) colours.push(seeds[colours.length]!);
+  colours[at] = value;
+  return {
+    ...theme,
+    background: theme.background ?? DEFAULT_GRADIENT,
+    accent: theme.accent ?? THEME_SEEDS.accent,
+    canvasColours: colours.slice(0, MAX_CANVAS_COLOURS),
   };
 }
 
 /**
  * Whether an author has chosen anything at all.
  *
- * True once ANY colour is the author's own, the background included.
+ * True once ANY colour is the author's own — the background, the accent, or any
+ * of the canvas's.
  *
  * The configurator shows "default" until this is true, because a colour input
  * always carries a value and would otherwise present the design's own colour as
@@ -254,9 +332,7 @@ export function withChosenColour(
  * @returns true when any colour is the author's own.
  */
 export function isThemed(theme: ActorTheme): boolean {
-  return Boolean(
-    theme.background ?? theme.accent ?? theme.backdropA ?? theme.backdropB,
-  );
+  return Boolean(theme.background ?? theme.accent ?? theme.canvasColours);
 }
 
 /**
@@ -275,6 +351,11 @@ export function isThemed(theme: ActorTheme): boolean {
  * keeps the editor honest: what somebody sees while choosing is produced by the
  * code that will render the page for a stranger.
  *
+ * Each of the canvas's colours travels as `--canvas-N`, indexed from one, so a
+ * canvas asks for the slot it wants rather than for a letter that meant
+ * something only while there were two of them. A slot whose value cannot be read
+ * emits nothing rather than a property full of `NaN`.
+ *
  * `none` travels as the canvas's NAME rather than as an opacity of zero. The
  * opacity route silently did nothing — the canvas rejects a non-positive value
  * as unset and draws the default — and a name is reversible without any state
@@ -289,19 +370,25 @@ export function isThemed(theme: ActorTheme): boolean {
  * @returns the custom properties, ready for a rule.
  */
 export function themeVars(theme: ActorTheme): Record<string, string> {
-  const rgb = (hex: string | null) => {
-    const parsed = hex ? parseHex(hex) : null;
+  const rgb = (hex: string) => {
+    const parsed = parseHex(hex);
     return parsed ? parsed.map((ch) => Math.round(ch * 255)).join(" ") : null;
   };
-  const cloudA = rgb(theme.backdropA);
-  const cloudB = rgb(theme.backdropB);
+
+  // One property per colour, indexed from one, so a canvas asks for the slot it
+  // wants rather than for a letter that meant something only while there were
+  // two of them.
+  const canvas: Record<string, string> = {};
+  for (const [i, chosen] of (theme.canvasColours ?? []).entries()) {
+    const channels = rgb(chosen);
+    if (channels) canvas[`--canvas-${i + 1}`] = channels;
+  }
 
   return {
+    ...canvas,
     ...(theme.background
       ? derivePalette(theme.background, theme.accent ?? THEME_SEEDS.accent)
       : {}),
-    ...(cloudA ? { "--nebula-a": cloudA } : {}),
-    ...(cloudB ? { "--nebula-b": cloudB } : {}),
     ...(theme.canvas === DEFAULT_THEME.canvas
       ? {}
       : { "--canvas": theme.canvas }),

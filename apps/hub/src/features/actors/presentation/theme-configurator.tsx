@@ -6,6 +6,7 @@ import {
   CANVASES,
   DEFAULT_THEME,
   isThemed,
+  withCanvasColour,
   withChosenColour,
   THEME_SEEDS,
   accentPreview,
@@ -18,10 +19,15 @@ import {
   type GradientPickerLabels,
 } from "@/features/actors/presentation/gradient-picker";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
+import { slotsFor } from "@/shared/domain/canvas-slots";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * Translated strings {@link ThemeConfigurator} renders.
+ *
+ * `canvasColours` names the GROUP rather than any one colour: the editor
+ * renders as many pickers as the chosen canvas paints with, so there is nothing
+ * fixed left to label individually.
  *
  * The background's strings are **nested** under `gradient`, because the picker
  * has a `title` of its own and a flat bag would silently drop one of them.
@@ -43,10 +49,8 @@ export interface ThemeConfiguratorLabels {
   gradient: GradientPickerLabels;
   /** Field label for the accent. */
   accent: string;
-  /** Field label for one cloud. */
-  backdropA: string;
-  /** Field label for the other cloud. */
-  backdropB: string;
+  /** Names the group of colours the chosen canvas paints with. */
+  canvasColours: string;
   /** Field label for the canvas selector. */
   canvas: string;
   /** One label per canvas. */
@@ -79,6 +83,11 @@ export interface ThemeConfiguratorProps {
  * values are custom properties already, so a live preview is `themeCss` on a
  * scoped element — the SAME function the public page uses, which is what stops
  * the preview and the real thing drifting apart.
+ *
+ * **The canvas gets one picker per part it actually paints with** — see
+ * `CANVAS_SLOTS`. Two fixed cloud pickers gave every canvas the same pair and
+ * left the ones with more parts unable to say so; and a canvas claiming more
+ * colours than it uses would hand somebody controls that change nothing.
  *
  * **The background is a gradient picker rather than a colour input**, because a
  * fursona can carry more colours than any fixed set of fields would allow. A
@@ -117,6 +126,7 @@ export function ThemeConfigurator({
     value.background ?? DEFAULT_GRADIENT,
   );
   const themed = isThemed(value);
+  const slots = slotsFor(value.canvas);
 
   const swatch = (colour: string, name: string) => (
     <span className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
@@ -129,10 +139,7 @@ export function ThemeConfigurator({
     </span>
   );
 
-  const colourField = (
-    key: "accent" | "backdropA" | "backdropB",
-    label: string,
-  ) => (
+  const colourField = (key: "accent", label: string) => (
     <div className="grid gap-1.5">
       <label
         htmlFor={`${id}-${key}`}
@@ -199,9 +206,39 @@ export function ThemeConfigurator({
 
           <div className="grid gap-3 sm:grid-cols-3">
             {colourField("accent", labels.accent)}
-            {colourField("backdropA", labels.backdropA)}
-            {colourField("backdropB", labels.backdropB)}
           </div>
+
+          {/* As many as the chosen canvas actually paints with — see
+              CANVAS_SLOTS. Rendering a fixed two gave every canvas the same
+              pair and left the ones with more parts unable to say so. */}
+          {slots > 0 ? (
+            <div className="grid gap-1.5">
+              <span className="text-xs font-medium">
+                {labels.canvasColours}
+              </span>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {Array.from({ length: slots }, (_, slot) => (
+                  <input
+                    key={slot}
+                    type="color"
+                    aria-label={`${labels.canvasColours} ${slot + 1}`}
+                    value={
+                      value.canvasColours?.[slot] ??
+                      THEME_SEEDS.canvasColours[slot] ??
+                      "#000000"
+                    }
+                    onChange={(event) =>
+                      onChange(
+                        withCanvasColour(value, slot, event.target.value),
+                      )
+                    }
+                    {...tid(`theme-canvas-colour-${slot}`)}
+                    className="h-9 w-full cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-transparent p-1"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium">{labels.adjusted}</span>
