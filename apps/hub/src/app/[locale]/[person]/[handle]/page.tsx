@@ -57,6 +57,11 @@ export async function generateMetadata({
  * the visitor's own toggle, so somebody who needs a dark page gets one wearing
  * the owner's colours rather than instead of them.
  *
+ * **A page with nothing on it says so** rather than rendering a screen of
+ * empty gradient. The words come from this route, since the component cannot
+ * resolve a locale, and they are addressed to the visitor rather than to the
+ * owner — this is an anonymous read and the page has no idea who is looking.
+ *
  * A visitor may leave the theme: `PageThemeSwitch` offers the owner's colours
  * and each of the app's two defaults, and it renders only where there is a
  * theme to leave — which it asks as `isCustomised`, not `isThemed`. A page
@@ -100,6 +105,7 @@ export default async function PublicFursonaPage({
           actor={actor}
           locale={locale}
           fursonasTitle={t("fursonas")}
+          emptyMessage={t("empty")}
         />
       </ThemeScope>
     </PageShell>

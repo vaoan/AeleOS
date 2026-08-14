@@ -221,6 +221,7 @@
   "publicProfile": {
     "notFoundTitle": "No encontrado",
     "fursonas": "Fursonas",
+    "empty": "Todavía no hay nada en esta página.",
     "pageThemeTitle": "Cómo se ve esta página",
     "pageThemeAuthor": "Su tema",
     "pageThemeLight": "Claro",

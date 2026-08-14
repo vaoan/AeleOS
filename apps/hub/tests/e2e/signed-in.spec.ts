@@ -119,6 +119,18 @@ test.describe("signed in", () => {
       // person's own words from a translated string.
       expect(response?.status()).toBe(200);
       await expect(anonymous.getByTestId("public-actor-name")).toBeVisible();
+
+      // **A page with nothing on it says so**, and this fursona is the one
+      // place in this suite where that state is guaranteed: it was created
+      // through the editor with no sections and it owns no list. Without the
+      // message it was a screen of gradient — nothing a visitor could tell
+      // from a page that failed to load.
+      //
+      // It was first asserted on the published PROFILE below, which is wrong
+      // and CI caught it: this suite is serial and shares one identity, so by
+      // the time that profile is published its owner already has the public
+      // fursona created here, and the page is not empty at all.
+      await expect(anonymous.getByTestId("public-empty")).toBeVisible();
     } finally {
       await stranger.close();
     }

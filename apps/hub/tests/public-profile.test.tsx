@@ -67,6 +67,7 @@ function renderProfile(over: Partial<PublicActor> = {}, locale = "en"): void {
       actor={actor(over)}
       locale={locale}
       fursonasTitle="Fursonas"
+      emptyMessage="Nothing here yet."
     />,
   );
 }
@@ -194,6 +195,7 @@ describe("a person whose handle nobody chose", () => {
     render(
       <PublicProfile
         actor={actor({ handle: machine, address: "15" })}
+        emptyMessage="Nothing here yet."
         locale="en"
         fursonasTitle="Fursonas"
       />,
@@ -208,6 +210,7 @@ describe("a person whose handle nobody chose", () => {
     render(
       <PublicProfile
         actor={actor({ handle: machine, address: "15", displayName: null })}
+        emptyMessage="Nothing here yet."
         locale="en"
         fursonasTitle="Fursonas"
       />,
@@ -221,10 +224,52 @@ describe("a person whose handle nobody chose", () => {
     render(
       <PublicProfile
         actor={actor({ handle: "luna", address: "15" })}
+        emptyMessage="Nothing here yet."
         locale="en"
         fursonasTitle="Fursonas"
       />,
     );
     expect(screen.getByText("luna")).toBeInTheDocument();
+  });
+});
+
+describe("a page with nothing on it", () => {
+  // **A published profile with nothing written on it was a screen of empty
+  // gradient.** Correct — no sections and no public fursonas is exactly what it
+  // says — but a stranger has no way to tell a page still being built from one
+  // that failed to load, and its owner has no way to tell publishing worked.
+  //
+  // The words are for the VISITOR, not the owner. This is an anonymous read and
+  // the page cannot know who is looking, so it must not tell somebody to go and
+  // add something — most people seeing it are not the person who could.
+  it("says so when there is nothing to show", () => {
+    renderProfile({ sections: [], fursonas: [] });
+    expect(screen.getByTestId("public-empty")).toHaveTextContent(
+      "Nothing here yet.",
+    );
+  });
+
+  // A fursona's page carries no fursona list at all, so the absent key and the
+  // empty list have to mean the same thing here.
+  it("says so on a fursona's own page too", () => {
+    renderProfile({ sections: [], fursonas: undefined });
+    expect(screen.getByTestId("public-empty")).toBeInTheDocument();
+  });
+
+  it("stays away once there is something written", () => {
+    renderProfile({ fursonas: [] });
+    expect(screen.queryByTestId("public-empty")).toBeNull();
+  });
+
+  // **A person with no sections but a public fursona is not empty.** The list
+  // is the page, and hiding it behind "nothing here yet" would be worse than
+  // the blank screen this replaces.
+  it("stays away when the only content is the fursona list", () => {
+    renderProfile({
+      sections: [],
+      fursonas: [{ handle: "shadow", displayName: "Shadow", avatarUrl: null }],
+    });
+    expect(screen.queryByTestId("public-empty")).toBeNull();
+    expect(screen.getByText("Shadow")).toBeInTheDocument();
   });
 });

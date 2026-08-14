@@ -4,7 +4,12 @@ import type { PublicActor } from "@/features/actors/infrastructure/public-actors
 import { FursonaCardList } from "@/features/actors/presentation/fursona-card-list";
 import { PublicSections } from "@/features/actors/presentation/public-sections";
 
-/** What {@link PublicProfile} needs. */
+/**
+ * What {@link PublicProfile} needs.
+ *
+ * The two label props are both resolved by the route, because this renders on
+ * both public pages and neither of them knows the locale by itself.
+ */
 export interface PublicProfileProps {
   /** The actor to render — a person or one of their fursonas. */
   actor: PublicActor;
@@ -12,6 +17,14 @@ export interface PublicProfileProps {
   locale: string;
   /** Heading above the fursona list, when there is one. */
   fursonasTitle: string;
+  /**
+   * What a visitor reads when the page carries nothing at all.
+   *
+   * **Addressed to the VISITOR, not the owner.** This is an anonymous read and
+   * the page cannot know who is looking, so it must not tell somebody to go and
+   * write something — most people who see it are not the person who could.
+   */
+  emptyMessage: string;
 }
 
 /**
@@ -36,6 +49,11 @@ export interface PublicProfileProps {
  * and it leaked through the title as well as the subtitle, so both go through
  * it. A fursona's handle is chosen, is in its address, and shows as before.
  *
+ * **A page with nothing on it says so.** Empty means no sections AND no listed
+ * fursonas, since a person who has written nothing but published a character
+ * still has a page worth reading. The words are the visitor's, not the
+ * owner's — see the prop.
+ *
  * Nothing here decides what may be shown. Visibility, suspension and the
  * public-only fursona list are all settled in `0012`, and re-deriving any of
  * them in a component would be a second copy free to drift from the one the
@@ -55,6 +73,7 @@ export function PublicProfile({
   actor,
   locale,
   fursonasTitle,
+  emptyMessage,
 }: PublicProfileProps) {
   // **Never the provisioned handle.** A person is minted with `u-<actor_ref>`,
   // which is that reference in a thin disguise — and on a person it is the
@@ -64,6 +83,12 @@ export function PublicProfile({
   // is worth awarding. A fursona's handle is chosen, is in its address, and is
   // shown as before.
   const name = isMachineHandle(actor.handle) ? actor.address : actor.handle;
+  // **The fursona list counts as content.** A person may have written no
+  // sections and still have a page worth reading, and hiding their characters
+  // behind "nothing here yet" would be worse than the blank screen this
+  // replaces. `fursonas` is absent on a fursona's own page and empty on a
+  // person's with nothing public, and those mean the same thing here.
+  const empty = actor.sections.length === 0 && !actor.fursonas?.length;
   return (
     <article className="grid gap-8">
       <header className="flex items-center gap-5 border-b border-[var(--edge)]/40 pb-8">
@@ -89,6 +114,18 @@ export function PublicProfile({
       </header>
 
       <PublicSections sections={actor.sections} locale={locale} />
+
+      {/* Without this a published-but-empty page was a screen of gradient and
+          nothing else: a visitor could not tell it from one that failed to
+          load, and its owner could not tell that publishing had worked. */}
+      {empty ? (
+        <p
+          {...tid("public-empty")}
+          className="rounded-xl border border-dashed border-[var(--edge)]/60 px-6 py-12 text-center text-sm text-[var(--muted)]"
+        >
+          {emptyMessage}
+        </p>
+      ) : null}
 
       {actor.fursonas ? (
         <FursonaCardList

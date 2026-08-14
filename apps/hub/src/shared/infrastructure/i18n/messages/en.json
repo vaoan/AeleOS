@@ -221,6 +221,7 @@
   "publicProfile": {
     "notFoundTitle": "Not found",
     "fursonas": "Fursonas",
+    "empty": "There is nothing on this page yet.",
     "pageThemeTitle": "How this page looks",
     "pageThemeAuthor": "Their theme",
     "pageThemeLight": "Light",
