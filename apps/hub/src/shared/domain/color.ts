@@ -5,33 +5,6 @@ export type Oklch = [number, number, number];
 export type ThemeMode = "light" | "dark";
 
 /**
- * The surface an accent has to be readable against, per mode.
- *
- * `--surface` is translucent in `globals.css`; these are its opaque
- * approximations, exactly as `scripts/check-contrast.mjs` approximates it. A
- * card is where accent-coloured text actually lands, so it is the background
- * the solver targets.
- */
-export const SURFACE: Record<ThemeMode, Oklch> = {
-  light: [0.99, 0.01, 40],
-  dark: [0.16, 0.04, 305],
-};
-
-/**
- * What an accent falls back to, per mode.
- *
- * The values `globals.css` ships, so an unset or unreadable stored colour lands
- * on the design's own accent rather than on black.
- */
-const FALLBACK: Record<ThemeMode, Oklch> = {
-  light: [0.46, 0.15, 25],
-  dark: [0.74, 0.18, 350],
-};
-
-/** Text ratio. Anything below this is a page somebody cannot read. */
-const MIN_CONTRAST = 4.5;
-
-/**
  * Converts OKLCH to sRGB channels in 0–1.
  *
  * The same conversion `scripts/check-contrast.mjs` performs, and
@@ -163,70 +136,4 @@ export function toHex(rgb: number[]): string {
         .padStart(2, "0"),
     )
     .join("")}`;
-}
-
-/**
- * Takes any colour somebody picked and returns one their page can be read in.
- *
- * **This is the whole reason a free colour picker is safe to ship.** The
- * alternative designs both fail: a fixed palette is not personalisation, and a
- * warning beside a picker is advice somebody can decline — after which a public
- * page a stranger cannot read is on us rather than on them.
- *
- * So the colour is not rejected and not replaced. Its **hue and chroma are
- * kept** — that is what makes the picker mean something — and its **lightness
- * is solved for**, moving away from the surface until the pair clears 4.5:1.
- * A colour that already clears it is returned untouched, so accents do not all
- * drift toward the same two lightnesses.
- *
- * The direction of the search is the mode: on a light page the accent darkens,
- * on a dark page it lightens. Where even the extreme cannot clear the ratio —
- * a very high chroma at a hue with no dark enough rendering — the chroma is
- * eased off, because a slightly duller colour somebody can read is a better
- * outcome than a vivid one they cannot.
- *
- * `onAccent` is chosen, not stored: whichever of near-white and near-black sits
- * better on the final accent. It is what labels on a button are painted in, and
- * deriving it removes a second picker that could only ever be set wrong.
- *
- * @param hex - the colour somebody picked, or anything at all.
- * @param mode - the scheme the reader is in.
- * @returns the accent to render and the foreground that belongs on it.
- */
-export function legibleAccent(
-  hex: string | undefined,
-  mode: ThemeMode,
-): { accent: Oklch; onAccent: Oklch } {
-  const rgb = parseHex(hex);
-  const surface = SURFACE[mode];
-  const [, chroma, hue] = rgb ? srgbToOklch(rgb) : FALLBACK[mode];
-  const startingL = rgb ? srgbToOklch(rgb)[0] : FALLBACK[mode][0];
-
-  // Near-white and near-black, tinted with the accent's own hue so a button
-  // does not read as a foreign colour pasted onto the page.
-  const light: Oklch = [0.98, 0.01, hue];
-  const dark: Oklch = [0.16, 0.04, hue];
-  const bestOn = (on: Oklch) =>
-    contrastRatio(light, on) >= contrastRatio(dark, on) ? light : dark;
-
-  // **Both** constraints drive the search, and it took a failing test to see
-  // why. An accent can clear 4.5:1 against the surface while NEITHER
-  // near-white nor near-black clears 4.5:1 against the accent — a mid-lightness
-  // colour sits in exactly that gap. Solving only the first constraint ships a
-  // readable page with an unreadable button on it.
-  //
-  // Stepping toward the far end of the lightness axis — darker on a light page,
-  // lighter on a dark one — improves both at once, so one search satisfies
-  // them. Easing the chroma alongside is what rescues the hues that have no
-  // legible rendering at full saturation.
-  const towards = mode === "light" ? 0 : 1;
-  let accent: Oklch = [startingL, chroma, hue];
-  for (let step = 0; step < 80; step += 1) {
-    const readable = contrastRatio(accent, surface) >= MIN_CONTRAST;
-    const labelled = contrastRatio(bestOn(accent), accent) >= MIN_CONTRAST;
-    if (readable && labelled) break;
-    accent = [accent[0] + (towards - accent[0]) * 0.08, accent[1] * 0.98, hue];
-  }
-
-  return { accent, onAccent: bestOn(accent) };
 }

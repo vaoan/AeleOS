@@ -148,18 +148,17 @@
     "themeTitle": "Colours and backdrop",
     "themeLive": "Changes show straight away",
     "themeAccent": "Accent",
+    "themeBackground": "Page background",
     "themeBackdropA": "First cloud",
     "themeBackdropB": "Second cloud",
     "themeCanvas": "Backdrop",
-    "themeOnLight": "On a light page",
-    "themeOnDark": "On a dark page",
     "themeAdjusted": "Your accent, as visitors see it",
     "themeReset": "Back to the default look",
     "canvases": {
       "nebula": "Nebula",
       "stars": "Starfield",
       "aurora": "Aurora",
-      "none": "Still"
+      "none": "None"
     },
     "themeUsingDefault": "Default"
   },

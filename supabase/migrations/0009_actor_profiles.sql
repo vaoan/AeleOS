@@ -30,8 +30,12 @@ create table public.actor_profiles (
   -- stored as data — so a missing `*_es` is somebody who has not written the
   -- Spanish yet, which is an ordinary state and never an error.
   sections   jsonb not null default '[]'::jsonb,
-  -- How the owner chose their page to look: {accent?, backdropA?, backdropB?,
-  -- canvas?}, each colour an `#rrggbb` string.
+  -- How the owner chose their page to look: {background?, accent?, backdropA?,
+  -- backdropB?, canvas?}, each colour an `#rrggbb` string.
+  --
+  -- The background is the one every other colour is solved against, which is
+  -- what makes a custom theme one palette rather than a light and a dark
+  -- variant. See `derivePalette` in the hub.
   --
   -- **An empty object means "override nothing", and that is not the same as a
   -- default.** `globals.css` uses different accent HUES for light and dark
@@ -436,7 +440,7 @@ begin
   end if;
 
   for v_key, v_value in select * from jsonb_each_text(p_theme) loop
-    if v_key in ('accent', 'backdropA', 'backdropB') then
+    if v_key in ('background', 'accent', 'backdropA', 'backdropB') then
       if v_value !~ '^#[0-9a-fA-F]{6}$' then
         raise exception '%: must be #rrggbb', v_key using errcode = '22023';
       end if;

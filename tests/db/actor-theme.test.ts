@@ -80,12 +80,14 @@ describe("set_actor_theme", () => {
   it("stores what somebody chose", async () => {
     expect(
       await write(alice.sub, alice.sonaRef, {
+        background: "#1a1a2e",
         accent: "#00ff88",
         backdropA: "#112233",
         canvas: "none",
       }),
     ).toBeNull();
     expect(await stored(alice.sonaRef)).toEqual({
+      background: "#1a1a2e",
       accent: "#00ff88",
       backdropA: "#112233",
       canvas: "none",
@@ -131,9 +133,14 @@ describe("set_actor_theme", () => {
     // An unknown key is refused rather than ignored. Storing it would let a
     // client fill the column with anything at all under a name the renderer
     // never reads, which is an unbounded write wearing a theme's clothes.
+    // The key must be one nobody would plausibly ADD. It was `background`,
+    // which became a real theme key — the third time in this repository that a
+    // name chosen as "obviously not real" became real, after `carousel` and
+    // `orbit`. Pick something that could not be a key, not something that
+    // merely is not one yet.
     it("refuses a key it does not know", async () => {
       expect(
-        await write(alice.sub, alice.sonaRef, { background: "#ffffff" }),
+        await write(alice.sub, alice.sonaRef, { "not-a-theme-key": "#ffffff" }),
       ).toMatch(/unknown theme key/i);
     });
 

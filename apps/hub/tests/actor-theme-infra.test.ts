@@ -18,6 +18,7 @@ describe("setActorTheme", () => {
   it("sends what somebody chose", async () => {
     const { client: c, rpc } = client();
     await setActorTheme(c, "actor-1", {
+      background: "#1a1a2e",
       accent: "#00ff88",
       backdropA: "#112233",
       backdropB: "#445566",
@@ -26,6 +27,7 @@ describe("setActorTheme", () => {
     expect(rpc).toHaveBeenCalledWith("set_actor_theme", {
       p_actor_ref: "actor-1",
       p_theme: {
+        background: "#1a1a2e",
         accent: "#00ff88",
         backdropA: "#112233",
         backdropB: "#445566",

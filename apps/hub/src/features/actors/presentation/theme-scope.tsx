@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {
-  THEME_SCOPE,
   themeCss,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
@@ -27,9 +26,11 @@ export interface ThemeScopeProps {
  * `globals.css` under the reader's toggle, so somebody who needs a dark page
  * gets one — wearing the owner's colours rather than instead of them.
  *
- * The class it scopes to is `THEME_SCOPE`, shared with the editor's preview.
- * They were two different strings once, and the editor's was one no element
- * wore — so the preview styled nothing at all.
+ * **It emits one rule at `:root` and wraps nothing.** A theme is the whole
+ * page: the field the body paints and the canvas mounted in the root layout are
+ * both outside any element a page could scope to. An earlier version scoped its
+ * rules to a nested `div`, which is exactly why the backdrop colours reached
+ * the canvas and the accent reached the editor — neither.
  *
  * A theme that overrides nothing emits no element at all, so an unthemed page
  * is byte-for-byte what it was before any of this existed.
@@ -37,13 +38,13 @@ export interface ThemeScopeProps {
  * @returns the page, themed.
  */
 export function ThemeScope({ theme, children }: ThemeScopeProps) {
-  const css = themeCss(theme, THEME_SCOPE);
+  const css = themeCss(theme);
   if (!css) return children;
   return (
     <>
       {/* Generated from numbers, never from a stored string — see themeCss. */}
       <style>{css}</style>
-      <div className={THEME_SCOPE}>{children}</div>
+      {children}
     </>
   );
 }

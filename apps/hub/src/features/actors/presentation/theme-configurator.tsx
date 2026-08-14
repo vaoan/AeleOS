@@ -5,7 +5,6 @@ import { Palette, RotateCcw } from "lucide-react";
 import {
   CANVASES,
   DEFAULT_THEME,
-  THEME_SCOPE,
   isThemed,
   withChosenColour,
   THEME_SEEDS,
@@ -19,6 +18,10 @@ import { tid } from "@/shared/infrastructure/test-id";
 /**
  * Translated strings {@link ThemeConfigurator} renders.
  *
+ * `background` names the page's own colour, which is the one every derived
+ * token is built from. The pair that named a light and a dark rendering is
+ * gone: a custom theme has one rendering.
+ *
  * `usingDefault` marks a colour nobody has chosen. A colour input always
  * carries a value, so without saying so the design's own colour reads as a
  * choice somebody made.
@@ -28,6 +31,8 @@ export interface ThemeConfiguratorLabels {
   title: string;
   /** Says the change is already live and needs no saving. */
   live: string;
+  /** Field label for the page's own background. */
+  background: string;
   /** Field label for the accent. */
   accent: string;
   /** Field label for one cloud. */
@@ -38,10 +43,6 @@ export interface ThemeConfiguratorLabels {
   canvas: string;
   /** One label per canvas. */
   canvases: Record<CanvasId, string>;
-  /** Names the two swatches that show what a visitor sees. */
-  onLight: string;
-  /** Names the two swatches that show what a visitor sees. */
-  onDark: string;
   /** Explains that a colour is adjusted so it can be read. */
   adjusted: string;
   /** The button that puts everything back. */
@@ -71,18 +72,15 @@ export interface ThemeConfiguratorProps {
  * scoped element — the SAME function the public page uses, which is what stops
  * the preview and the real thing drifting apart.
  *
- * **The pickers are unconstrained on purpose.** A curated palette is not
- * personalisation, and the legibility problem it would solve is solved better
- * elsewhere: `legibleAccent` keeps the hue and chroma somebody picked and moves
- * the lightness until a visitor can read the page. So any colour at all is
- * allowed here, including the ones that cannot be rendered as picked.
+ * **The pickers are unconstrained, and nothing corrects what they produce.** A
+ * page may be as garish or as unreadable as its owner likes. That is a product
+ * decision rather than an oversight, and it rests on the visitor being able to
+ * switch to the default light or dark theme — the escape hatch is what makes
+ * the freedom safe, not a correction applied behind somebody's back.
  *
- * That adjustment is disclosed by showing **both renderings side by side**,
- * labelled for the two schemes. It is not a warning: a warning about a colour
- * can be dismissed and then the page ships unreadable, and it would have to
- * explain in words what two swatches show at a glance. Somebody who picks pale
- * yellow and sees the darker light-mode swatch understands immediately, without
- * being told they did something wrong.
+ * What the author does NOT pick — the text, the borders — is still chosen to be
+ * as readable as their background allows.
+ *
  *
  * **Picking any colour makes all three explicit** — see `withChosenColour`.
  * Half a theme follows the reader's scheme and half does not, so what an author
@@ -101,7 +99,10 @@ export function ThemeConfigurator({
 }: ThemeConfiguratorProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const preview = accentPreview(value.accent ?? THEME_SEEDS.accent);
+  const preview = accentPreview(
+    value.accent ?? THEME_SEEDS.accent,
+    value.background ?? THEME_SEEDS.background,
+  );
   const themed = isThemed(value);
 
   const swatch = (colour: string, name: string) => (
@@ -116,7 +117,7 @@ export function ThemeConfigurator({
   );
 
   const colourField = (
-    key: "accent" | "backdropA" | "backdropB",
+    key: "background" | "accent" | "backdropA" | "backdropB",
     label: string,
   ) => (
     <div className="grid gap-1.5">
@@ -173,20 +174,18 @@ export function ThemeConfigurator({
         <div className="grid gap-4">
           {/* The preview is scoped by the same function the public page uses,
               so what somebody judges here is what a stranger will get. */}
-          <style>{themeCss(value, THEME_SCOPE)}</style>
+          <style>{themeCss(value)}</style>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {colourField("background", labels.background)}
             {colourField("accent", labels.accent)}
             {colourField("backdropA", labels.backdropA)}
             {colourField("backdropB", labels.backdropB)}
           </div>
 
-          <div className="grid gap-1.5">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium">{labels.adjusted}</span>
-            <div className="flex flex-wrap gap-4">
-              {swatch(preview.light, labels.onLight)}
-              {swatch(preview.dark, labels.onDark)}
-            </div>
+            {swatch(preview, labels.accent)}
           </div>
 
           <div className="grid gap-1.5">

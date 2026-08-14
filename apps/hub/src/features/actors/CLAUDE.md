@@ -334,44 +334,46 @@ wrong and both fail quietly:
 
 ## Per-profile theming — built
 
-Somebody themes their own page from a panel in the editor, and a stranger sees
-it as they built it. What the code decided, and why, so it is not undone:
+A person themes their own page and a stranger sees it as they built it. The
+decisions, so they are not quietly undone:
 
-- **The pickers are unconstrained, so the measurement moved into the code
-  path.** A curated palette is not personalisation. `legibleAccent` in
-  `shared/domain/color.ts` keeps the hue and chroma somebody picked and
-  **solves for the lightness** against the mode's surface — their colour, only
-  moved as far as it must be. A colour already legible is returned untouched.
-- **Both constraints drive that search.** An accent can clear 4.5:1 against the
-  surface while neither near-white nor near-black clears 4.5:1 against the
-  accent; a mid-lightness colour sits exactly in that gap. Solving only the
-  first ships a readable page with an unreadable button on it. A failing test
-  found this — do not simplify it back.
-- **The maths agrees with `check-contrast.mjs` and a test asserts it.** Two
-  implementations of one formula is a drift risk; if they part ways, one of
-  them is lying about legibility.
-- **A theme is a set of OVERRIDES. `null` means the design's own.**
-  `globals.css` uses different accent HUES for light and dark deliberately, so
-  no single stored colour reproduces both — a theme that always emitted an
-  accent would restyle every unthemed page in one of the two modes. An
-  unparseable value emits nothing too: black was the obvious fallback and it
-  invents a decision nobody made.
-- **The visitor's scheme stays the visitor's.** `ThemeScope` emits a `<style>`
-  carrying BOTH renderings, with the same three selectors `globals.css` uses,
-  because the server cannot know the reader's mode. A rule defined only inside
-  the media query leaves somebody who chose dark on a light-preferring system
-  with the light accent. Only the accent pair and the cloud tints are set.
-- **Values are generated from numbers, never from stored strings.** That is
-  what makes emitting a stylesheet safe. A stored value passed through would let
-  a `}` close the rule and everything after it would be CSS somebody else wrote.
-- **Live preview, not live persistence.** The preview uses the SAME `themeCss`
-  the public page uses, so the two cannot drift. The write rides the ordinary
-  save: what has to be instant is SEEING a colour, and a write per frame of a
-  dragged slider is a different thing.
-- **The adjustment is disclosed by two swatches, not a warning.** An `adjusted`
-  flag was tried and is incoherent — a colour cannot be both too light for a
-  light page and too dark for a dark one, so it was false for nearly every
-  input.
+- **A theme is ONE palette, not a light and a dark variant.** It carries its own
+  **background**, and everything the author does not pick — text, secondary
+  text, muted text, borders — is derived from that by `derivePalette`. This is
+  forced rather than chosen: an accent cannot clear 4.5:1 against both a
+  near-white and a near-black surface, so an accent laid over the reader's
+  scheme is two themes wearing one name.
+- **The author's own colours are rendered exactly as picked. Nothing corrects
+  them.** A page may be as garish or as unreadable as its owner likes. That
+  rests on the visitor being able to switch to the default light or dark theme —
+  **the escape hatch is what makes the freedom safe**, not a correction applied
+  behind somebody's back. An earlier version pushed a background's lightness
+  away from the middle and capped its chroma; that was given up deliberately,
+  and `palette.test.ts` asserts a mid-grey does **not** reach the text minimum
+  so that reintroducing the correction fails loudly.
+- **What the author does not pick is still solved.** Text takes whichever
+  extreme measures better against the field, muted takes the dimmest value that
+  still clears 4.5:1, borders clear 3:1 — or the best available, when the
+  background allows none of it.
+- **One measurement of "is this page dark", shared by every token.** Deciding it
+  per token by `lightness < 0.5` put a white heading and near-black body text on
+  the same blue field, each solver having reached its own answer. A saturated
+  hue moves the crossover away from the midpoint, so it is measured.
+- **The field is a gradient**, the shape `globals.css` already uses. A flat page
+  reads as a swatch.
+- **Changes are live and use the SAME `themeCss` the public page uses**, so the
+  preview cannot drift from the result. Persistence rides the ordinary save:
+  what must be instant is seeing a colour, not storing it.
+- **Picking any colour makes them all explicit.** Half a theme that follows the
+  reader's scheme and half that does not is why an author's preview once
+  depended on which mode they happened to be editing in.
+- **The emitted CSS is one rule at `:root`.** A theme is the whole page — the
+  field the body paints and the canvas in the root layout are both outside
+  anything a page could scope to. Scoping to a nested element is exactly why an
+  earlier version reached neither.
+
+Still to decide: **how a visitor switches** between the author's theme and the
+two defaults. The three options exist in the design; the control does not.
 
 ### Canvases
 

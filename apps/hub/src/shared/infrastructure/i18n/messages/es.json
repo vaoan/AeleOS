@@ -148,18 +148,17 @@
     "themeTitle": "Colores y fondo",
     "themeLive": "Los cambios se ven al instante",
     "themeAccent": "Color principal",
+    "themeBackground": "Fondo de la página",
     "themeBackdropA": "Primera nube",
     "themeBackdropB": "Segunda nube",
     "themeCanvas": "Fondo",
-    "themeOnLight": "En una página clara",
-    "themeOnDark": "En una página oscura",
     "themeAdjusted": "Tu color, como lo ven quienes te visitan",
     "themeReset": "Volver al aspecto original",
     "canvases": {
       "nebula": "Nebulosa",
       "stars": "Estrellas",
       "aurora": "Aurora",
-      "none": "Quieto"
+      "none": "Ninguno"
     },
     "themeUsingDefault": "Por defecto"
   },

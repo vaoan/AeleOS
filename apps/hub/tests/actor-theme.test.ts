@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  CANVASES,
   DEFAULT_THEME,
   THEME_SEEDS,
   accentPreview,
@@ -10,18 +9,19 @@ import {
   themeCss,
   themeVars,
 } from "@/features/actors/domain/actor-theme";
-import { SURFACE, contrastRatio } from "@/shared/domain/color";
 
 describe("parseTheme", () => {
   it("reads a theme somebody chose", () => {
     expect(
       parseTheme({
+        background: "#1a1a2e",
         accent: "#00ff88",
         backdropA: "#112233",
         backdropB: "#445566",
         canvas: "none",
       }),
     ).toEqual({
+      background: "#1a1a2e",
       accent: "#00ff88",
       backdropA: "#112233",
       backdropB: "#445566",
@@ -68,184 +68,148 @@ describe("parseTheme", () => {
 });
 
 describe("themeVars", () => {
-  // The point of the whole design: whatever was stored, what reaches the page
-  // is readable. This is asserted on the OUTPUT rather than trusting
-  // legibleAccent, because this is the function the page actually calls.
-  it.each([
-    "#ffffff",
-    "#000000",
-    "#ffff00",
-    "#0000ff",
-    "#7f7f7f",
-    // `not a colour` is deliberately absent: it emits no accent at all now,
-    // which the test below owns. A value that cannot be read as a colour is
-    // not a choice, so there is nothing for it to be a readable rendering of.
-  ])("emits a readable accent for %s in both modes", (accent) => {
-    for (const mode of ["light", "dark"] as const) {
-      const value = themeVars({ ...DEFAULT_THEME, accent }, mode)["--accent"];
-      const [, l, c, h] = /oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/.exec(
-        value as string,
-      ) as RegExpExecArray;
-      expect(
-        contrastRatio([Number(l), Number(c), Number(h)], SURFACE[mode]),
-      ).toBeGreaterThanOrEqual(4.5);
+  const THEMED = {
+    ...DEFAULT_THEME,
+    background: "#1a1a2e",
+    accent: "#00ff88",
+  };
+
+  // The point of the redesign, asserted on the OUTPUT rather than by trusting
+  // derivePalette: a theme brings its own background, so the page is one
+  // palette that reads the same for everybody.
+  it("emits a whole palette, not just an accent", () => {
+    const vars = themeVars(THEMED);
+    // `--field` is a gradient rather than a colour, so it is checked apart.
+    expect(vars["--field"]).toContain("radial-gradient");
+    for (const token of [
+      "--surface",
+      "--ink",
+      "--ink-2",
+      "--muted",
+      "--edge",
+      "--accent",
+      "--on-accent",
+    ]) {
+      expect(vars[token]).toMatch(/^oklch\(/);
     }
   });
 
-  // One stored colour renders differently in the two schemes, and that is
-  // correct rather than a bug — an accent that glows on black is washed out on
-  // white. Pinning it stops somebody "fixing" it into one value later.
-  it("renders one stored colour differently per mode", () => {
-    const light = themeVars({ ...DEFAULT_THEME, accent: "#ff0088" }, "light");
-    const dark = themeVars({ ...DEFAULT_THEME, accent: "#ff0088" }, "dark");
-    expect(light["--accent"]).not.toBe(dark["--accent"]);
+  // It used to take a mode and return a different accent for each, because an
+  // accent cannot be legible on both a near-white and a near-black surface.
+  // That made a custom theme two themes. There is one rendering now.
+  it("renders one accent, not one per scheme", () => {
+    expect(themeVars(THEMED)).toEqual(themeVars(THEMED));
+    expect(themeVars(THEMED)["--accent"]).toBeDefined();
+  });
+
+  // Read from the background rather than the reader's mode, which is what stops
+  // a custom theme inverting when somebody switches scheme.
+  it.each([
+    ["#0a0a0a", "screen"],
+    ["#fefefe", "multiply"],
+  ])("blends the cloud for %s with %s", (background, blend) => {
+    expect(themeVars({ ...THEMED, background })["--nebula-blend"]).toBe(blend);
   });
 
   it("passes the cloud colours through as the channels the canvas reads", () => {
-    const vars = themeVars(
-      { ...DEFAULT_THEME, backdropA: "#0a141e", backdropB: "#ffffff" },
-      "dark",
-    );
+    const vars = themeVars({
+      ...THEMED,
+      backdropA: "#0a141e",
+      backdropB: "#ffffff",
+    });
     expect(vars["--nebula-a"]).toBe("10 20 30");
     expect(vars["--nebula-b"]).toBe("255 255 255");
   });
 
-  // An unparseable value is not a choice, so it overrides nothing — black
-  // would have been the obvious fallback and it invents a decision nobody made.
-  it.each(["not a colour", "#12345", ""])(
-    "emits no override for the unparseable value %s",
-    (bad) => {
-      expect(
-        themeVars(
-          { ...DEFAULT_THEME, accent: bad, backdropA: bad, backdropB: bad },
-          "light",
-        ),
-      ).toEqual({});
-    },
-  );
-
   it("switches the cloud off for the none canvas", () => {
-    expect(
-      themeVars({ ...DEFAULT_THEME, canvas: "none" }, "dark")[
-        "--nebula-opacity"
-      ],
-    ).toBe("0");
+    expect(themeVars({ ...THEMED, canvas: "none" })["--nebula-opacity"]).toBe(
+      "0",
+    );
   });
 
-  it.each(CANVASES.filter((c) => c !== "none"))(
-    "leaves the cloud on for %s",
-    (canvas) => {
-      expect(
-        themeVars({ ...DEFAULT_THEME, canvas }, "dark")["--nebula-opacity"],
-      ).toBeUndefined();
-    },
-  );
-
-  // An unthemed page must emit NOTHING, in either mode. This is the assertion
-  // that keeps the shipped design intact: globals.css uses different accent
-  // HUES for light and dark on purpose, so any single stored default would have
-  // restyled every unthemed page in one of the two modes. Emitting no override
-  // is the only answer that leaves both alone.
-  it.each(["light", "dark"] as const)(
-    "overrides nothing at all in %s for the default theme",
-    (mode) => {
-      expect(themeVars(DEFAULT_THEME, mode)).toEqual({});
-    },
-  );
-
-  // And a half-chosen theme overrides only the half that was chosen, rather
-  // than filling the rest in with values copied out of the stylesheet — a copy
-  // looks identical today and silently stops tracking the design tomorrow.
-  it("emits only what was chosen", () => {
-    expect(
-      themeVars({ ...DEFAULT_THEME, backdropA: "#0a141e" }, "dark"),
-    ).toEqual({ "--nebula-a": "10 20 30" });
+  it("names the canvas when it is not the default", () => {
+    expect(themeVars({ ...THEMED, canvas: "stars" })["--canvas"]).toBe("stars");
   });
+
+  it("does not name the canvas when it is the default", () => {
+    expect(themeVars(THEMED)["--canvas"]).toBeUndefined();
+  });
+
+  // An unthemed page must emit NOTHING, so a page nobody has touched is exactly
+  // what it was before any of this existed.
+  it("overrides nothing at all for the default theme", () => {
+    expect(themeVars(DEFAULT_THEME)).toEqual({});
+  });
+
+  // Unreachable from the editor, which fills every colour the moment one is
+  // picked — but the column predates all of this and may hold it.
+  it("emits no palette without a background to solve against", () => {
+    expect(themeVars({ ...DEFAULT_THEME, backdropA: "#0a141e" })).toEqual({
+      "--nebula-a": "10 20 30",
+    });
+  });
+
+  it.each(["not a colour", "#12345", ""])(
+    "emits no palette for the unparseable background %o",
+    (background) => {
+      expect(themeVars({ ...DEFAULT_THEME, background })).toEqual({});
+    },
+  );
 });
 
 describe("accentPreview", () => {
-  it("reports the colour as rendered in each mode", () => {
-    const preview = accentPreview("#ff0088");
-    expect(preview.light).toMatch(/^#[0-9a-f]{6}$/);
-    expect(preview.dark).toMatch(/^#[0-9a-f]{6}$/);
+  it("reports the accent as rendered on the chosen background", () => {
+    expect(accentPreview("#00ff88", "#1a1a2e")).toMatch(/^oklch\(/);
   });
 
-  // The two swatches are the disclosure, so they have to actually differ where
-  // the solver moved the colour. If they were ever equal for every input the
-  // configurator would be showing the same thing twice and explaining nothing.
-  it("shows a different rendering per mode where the colour needed moving", () => {
-    const preview = accentPreview("#7f7f7f");
-    expect(preview.light).not.toBe(preview.dark);
+  // A background that is not a colour derives no palette, so there is nothing
+  // to solve against and the accent comes back exactly as picked. Reachable
+  // from a stored value, never from the editor.
+  it("gives the accent back unchanged when there is no palette", () => {
+    expect(accentPreview("#00ff88", "not a colour")).toBe("#00ff88");
   });
 
-  it("still reports a colour for a value that is not one", () => {
-    expect(accentPreview("not a colour").light).toMatch(/^#[0-9a-f]{6}$/);
+  // The accent is the author's, exactly, whatever they put it on. It used to be
+  // solved against the background and therefore differed by it; that correction
+  // was given up deliberately in favour of full creativity, with the visitor's
+  // ability to switch to a default theme as the safeguard.
+  it("does not change with the background", () => {
+    expect(accentPreview("#00ff88", "#0a0a0a")).toBe(
+      accentPreview("#00ff88", "#fefefe"),
+    );
   });
 });
 
 describe("themeCss", () => {
-  const CHOSEN = { ...DEFAULT_THEME, accent: "#00ff88" };
+  const THEMED = { ...DEFAULT_THEME, background: "#1a1a2e" };
 
-  it("scopes every rule to the class it was given", () => {
-    for (const rule of themeCss(CHOSEN, "t1").split("}").filter(Boolean)) {
-      expect(rule).toContain(".t1");
-    }
+  // One rule, no media queries. Both are consequences of a theme being one
+  // palette: there is only one rendering, so there is nothing to pick between.
+  it("emits a single :root rule", () => {
+    const css = themeCss(THEMED);
+    expect(css.startsWith(":root{")).toBe(true);
+    expect(css).not.toContain("prefers-color-scheme");
+    expect(css).not.toContain("data-theme");
   });
 
-  // The visitor's scheme is the visitor's, and the page is rendered on a server
-  // that cannot know it — so both renderings have to be present as rules.
-  it("carries both schemes", () => {
-    const css = themeCss(CHOSEN, "t1");
-    expect(css).toContain("prefers-color-scheme:dark");
-    expect(css).toContain('[data-theme="dark"]');
+  // The field the body paints and the canvas in the root layout are both
+  // outside anything a page could scope to. Scoping to a nested element is why
+  // an earlier version reached neither.
+  it("puts the palette where the body and the canvas can see it", () => {
+    expect(themeCss(THEMED)).toContain("--field");
   });
 
-  // The media query alone is not enough. A visitor who has chosen dark on a
-  // light-preferring system gets the light accent unless the attribute rule
-  // exists as well, which is the failure `globals.css` is already shaped to
-  // avoid and which this had to copy rather than reinvent.
-  it("lets an explicit choice win in both directions", () => {
-    const css = themeCss(CHOSEN, "t1");
-    expect(css).toContain(':root:not([data-theme="light"])');
-    expect(css).toContain(':root[data-theme="dark"] .t1');
-  });
-
-  // The canvas reads its colours from the document root, so they have to be
-  // emitted there — scoped to the content element, the only thing that reads
-  // them would never see them. That was a real bug: an author could pick two
-  // backdrop colours, they were stored, emitted, and read by nothing.
-  it("puts the backdrop on :root and the accent on the class", () => {
-    const css = themeCss(
-      { ...DEFAULT_THEME, accent: "#00ff88", backdropA: "#112233" },
-      "t1",
-    );
-    const rootRule = css.slice(css.indexOf(":root{"), css.indexOf("}") + 1);
-    expect(rootRule).toContain("--nebula-a");
-    expect(rootRule).not.toContain("--accent");
-    expect(css).toContain(".t1{--accent");
-  });
-
-  // Nothing in the root scope varies by mode: an author picks two colours and
-  // those are the colours in both schemes. What adapts is `--nebula-blend`,
-  // which stays in globals.css.
-  it("emits the backdrop once rather than per scheme", () => {
-    const css = themeCss({ ...DEFAULT_THEME, backdropA: "#112233" }, "t1");
-    expect(css.match(/--nebula-a/g)).toHaveLength(1);
-  });
-
-  // An unthemed page must emit no stylesheet at all, rather than three empty
-  // rules that override nothing but still ship on every request.
   it("emits nothing for a theme that overrides nothing", () => {
-    expect(themeCss(DEFAULT_THEME, "t1")).toBe("");
+    expect(themeCss(DEFAULT_THEME)).toBe("");
   });
 
   // Nothing a person typed may reach a stylesheet. A `}` that survived would
   // close the rule and everything after it would be CSS somebody else wrote.
-  it.each(["#00ff88}body{display:none", "red;}*{color:red", "</style>"])(
-    "cannot be escaped through the accent %s",
-    (accent) => {
-      const css = themeCss({ ...DEFAULT_THEME, accent }, "t1");
-      expect(css).not.toContain("body");
+  it.each(["#1a1a2e}body{display:none", "red;}*{color:red", "</style>"])(
+    "cannot be escaped through the background %s",
+    (background) => {
+      const css = themeCss({ ...DEFAULT_THEME, background });
+      expect(css).not.toContain("body{");
       expect(css).not.toContain("*{");
       expect(css).not.toContain("</style>");
     },

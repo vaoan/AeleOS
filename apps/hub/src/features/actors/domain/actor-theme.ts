@@ -1,11 +1,6 @@
 import { z } from "zod";
-import {
-  legibleAccent,
-  oklchToSrgb,
-  parseHex,
-  toHex,
-  type ThemeMode,
-} from "@/shared/domain/color";
+import { parseHex, toHex } from "@/shared/domain/color";
+import { derivePalette } from "@/shared/domain/palette";
 
 /**
  * The canvases somebody may put behind their page.
@@ -34,6 +29,11 @@ export type CanvasId = (typeof CANVASES)[number];
 /**
  * How somebody chose their page to look.
  *
+ * A theme carries a **background** now, and that is what makes it one palette
+ * rather than two. Every colour the author does not pick is derived from it —
+ * see `derivePalette` — so a custom theme is a complete scheme in its own right
+ * instead of an accent laid over whichever default the reader happens to be in.
+ *
  * **Every colour is nullable, and null means "the design's own".** A theme is a
  * set of OVERRIDES rather than a complete palette, which is not a convenience:
  * `globals.css` gives light and dark accents at different HUES on purpose — 25
@@ -46,6 +46,15 @@ export type CanvasId = (typeof CANVASES)[number];
  * in charge of it. Only a page whose owner actually picked something overrides.
  */
 export interface ActorTheme {
+  /**
+   * The page's own background as `#rrggbb`, or null for the design's own.
+   *
+   * **This is what makes the theme one palette rather than two.** Every other
+   * colour is solved against it — see `derivePalette` — so a custom theme is a
+   * complete scheme in its own right instead of an accent laid over whichever
+   * of the default schemes the reader happens to be in.
+   */
+  background: string | null;
   /** The accent colour as `#rrggbb`, or null for the design's own. */
   accent: string | null;
   /** One of the two clouds behind the page, or null for the design's own. */
@@ -59,11 +68,16 @@ export interface ActorTheme {
 /**
  * What a page looks like when nobody has chosen: nothing overridden.
  *
+ * Includes the background, which is nullable like the rest: a page nobody has
+ * themed follows the design and switches with the reader, exactly as it did
+ * before any of this existed.
+ *
  * Not a copy of the shipped colours — the absence of them. A copy would have to
  * pick one accent for two modes that deliberately use different hues, and would
  * restyle every unthemed page the day it landed.
  */
 export const DEFAULT_THEME: ActorTheme = {
+  background: null,
   accent: null,
   backdropA: null,
   backdropB: null,
@@ -73,12 +87,16 @@ export const DEFAULT_THEME: ActorTheme = {
 /**
  * What the colour inputs start on before somebody has chosen.
  *
+ * The background is here too, because it is now the first colour anybody picks
+ * and a picker opening on black would be a poor start.
+ *
  * The design's own light-mode values, so a picker opens showing the colour the
  * page is actually wearing rather than black. They are seeds for a control, NOT
  * defaults for a page — {@link DEFAULT_THEME} overrides nothing, and these are
  * what a person sees the moment they decide to start overriding.
  */
 export const THEME_SEEDS = {
+  background: "#fbf4ec",
   accent: "#9a2929",
   backdropA: "#ec8e4a",
   backdropB: "#d66a60",
@@ -105,6 +123,8 @@ function colour(value: unknown): string | null {
  * blank for a reason they can neither see nor fix.
  *
  * It falls back **per field**, so a theme with one good half keeps that half.
+ * The background is read the same way as the other colours; a theme that has
+ * one and nothing else still derives a whole palette from it.
  *
  * The canvas is matched against the list with `includes` and never with `in`.
  * An `in` test accepts every inherited key — `toString`, `constructor`,
@@ -120,6 +140,7 @@ export function parseTheme(value: unknown): ActorTheme {
       : {};
   const canvas = stored.canvas;
   return {
+    background: colour(stored.background),
     accent: colour(stored.accent),
     backdropA: colour(stored.backdropA),
     backdropB: colour(stored.backdropB),
@@ -145,12 +166,13 @@ export const THEME_SCOPE = "actor-theme";
 /**
  * The theme, as the editor's form holds it.
  *
- * Loose on the colours by design — they are `#rrggbb` or null and nothing else
+ * The background joins the other colours. Loose on all of them by design — they are `#rrggbb` or null and nothing else
  * is reachable through a colour input, and the database checks the format
  * anyway. What this pins is the SHAPE, so the form cannot submit a theme with a
  * canvas the renderer has no implementation for.
  */
 export const themeSchema = z.object({
+  background: z.string().nullable(),
   accent: z.string().nullable(),
   backdropA: z.string().nullable(),
   backdropB: z.string().nullable(),
@@ -159,6 +181,10 @@ export const themeSchema = z.object({
 
 /**
  * Sets one colour, and makes every other colour explicit with it.
+ *
+ * The background is promoted along with the rest, and it matters most: it is
+ * the colour every derived one is built from, so a theme with an accent and no
+ * background would have nothing to derive against.
  *
  * **A theme is all-default or all-chosen, never half of each.** Picking only an
  * accent used to leave the two cloud colours following the design, which meant
@@ -181,11 +207,12 @@ export const themeSchema = z.object({
  */
 export function withChosenColour(
   theme: ActorTheme,
-  key: "accent" | "backdropA" | "backdropB",
+  key: "background" | "accent" | "backdropA" | "backdropB",
   value: string,
 ): ActorTheme {
   return {
     ...theme,
+    background: theme.background ?? THEME_SEEDS.background,
     accent: theme.accent ?? THEME_SEEDS.accent,
     backdropA: theme.backdropA ?? THEME_SEEDS.backdropA,
     backdropB: theme.backdropB ?? THEME_SEEDS.backdropB,
@@ -196,6 +223,8 @@ export function withChosenColour(
 /**
  * Whether an author has chosen anything at all.
  *
+ * True once ANY colour is the author's own, the background included.
+ *
  * The configurator shows "default" until this is true, because a colour input
  * always carries a value and would otherwise present the design's own colour as
  * though somebody had picked it.
@@ -204,213 +233,106 @@ export function withChosenColour(
  * @returns true when any colour is the author's own.
  */
 export function isThemed(theme: ActorTheme): boolean {
-  return Boolean(theme.accent ?? theme.backdropA ?? theme.backdropB);
+  return Boolean(
+    theme.background ?? theme.accent ?? theme.backdropA ?? theme.backdropB,
+  );
 }
 
 /**
- * The custom properties a theme sets, for one mode.
+ * Every custom property a theme sets.
  *
- * **One function serves the live preview and the public page.** That is what
+ * **No mode parameter, and that is the whole point of the redesign.** A theme
+ * used to emit one accent for light and another for dark, because an accent
+ * cannot be legible on both a near-white and a near-black surface. That made a
+ * custom theme two themes, which is not what anybody was choosing.
+ *
+ * A theme now brings its own background, so it is **one palette that reads the
+ * same for everybody** — text, borders and accent all solved against that
+ * background by `derivePalette`, none of them against the reader's scheme.
+ *
+ * **One function serves the live preview and the public page**, which is what
  * keeps the editor honest: what somebody sees while choosing is produced by the
- * code that will render the page for a stranger, rather than by a second
- * approximation of it that drifts away over time.
+ * code that will render the page for a stranger.
  *
- * The accent is passed through `legibleAccent`, so **the colour rendered is not
- * always the colour stored** — hue and chroma are kept and lightness is solved
- * against the mode's surface. This is deliberate and it is the reason a free
- * colour picker is safe: somebody's own colour survives, in a form their
- * visitors can read, in whichever scheme those visitors are using. The two
- * modes therefore render one stored colour differently, which is correct — an
- * accent that glows on black is washed out on white.
- *
- * **A value that does not parse emits nothing**, exactly as an unset one does.
- * Black was the obvious fallback and it is wrong for the same reason: the
- * resting state of every override here is absence, and a string nobody can read
- * as a colour is not a choice somebody made.
- *
- * **The cloud tints and the canvas name are root-scoped, the accent is not** —
- * see `themeCss`. The canvas reads its colours from `document.documentElement`,
- * so a value scoped to the page's content element would be read by nothing.
- *
- * It returns only the tokens a theme OWNS. Everything else about light and dark
- * stays in `globals.css` under the reader's own control, which is what lets a
- * visitor switch a themed page to their preferred scheme and still have it look
- * deliberate rather than broken.
+ * A theme with no background emits only the cloud colours and the canvas, since
+ * there is nothing to solve the rest against. In practice that state is
+ * unreachable from the editor — `withChosenColour` fills every colour the
+ * moment one is picked — but the column predates all of this and may hold it.
  *
  * @param theme - the chosen theme.
- * @param mode - the scheme the reader is in.
- * @returns the custom properties, ready for a style attribute.
+ * @returns the custom properties, ready for a rule.
  */
-export function themeVars(
-  theme: ActorTheme,
-  mode: ThemeMode,
-): Record<string, string> {
-  const oklch = ([l, c, h]: number[]) =>
-    `oklch(${l.toFixed(4)} ${c.toFixed(4)} ${h.toFixed(2)})`;
-  // A value that does not parse emits NOTHING, rather than falling back to a
-  // colour. Black was the obvious fallback and it is wrong for the same reason
-  // an unset value is not written: the resting state of every override here is
-  // absence, and a colour nobody can read as a colour is not a choice somebody
-  // made. `themeVars` is exported and its input is only typed as a string, so
-  // this is reachable rather than defensive.
+export function themeVars(theme: ActorTheme): Record<string, string> {
   const rgb = (hex: string | null) => {
     const parsed = hex ? parseHex(hex) : null;
     return parsed ? parsed.map((ch) => Math.round(ch * 255)).join(" ") : null;
   };
-
-  // Each override is emitted only when it was chosen. An unset value must not
-  // appear at all — a custom property set to the design's own value would look
-  // identical today and then silently stop tracking it the next time the design
-  // moves.
-  const accent =
-    theme.accent && parseHex(theme.accent)
-      ? legibleAccent(theme.accent, mode)
-      : null;
   const cloudA = rgb(theme.backdropA);
   const cloudB = rgb(theme.backdropB);
+
   return {
-    ...(accent
-      ? {
-          "--accent": oklch(accent.accent),
-          "--on-accent": oklch(accent.onAccent),
-        }
+    ...(theme.background
+      ? derivePalette(theme.background, theme.accent ?? THEME_SEEDS.accent)
       : {}),
     ...(cloudA ? { "--nebula-a": cloudA } : {}),
     ...(cloudB ? { "--nebula-b": cloudB } : {}),
-    // The canvas reads this to decide which animation to draw. A string custom
-    // property is the same channel `--nebula-blend` already travels on, so this
-    // is the file's existing idiom rather than a new mechanism.
-    //
-    // Emitted only when it differs from the default, like every other value
-    // here: an unthemed page must emit nothing at all, and a property set to
-    // the default looks identical today and stops tracking it tomorrow.
+    ...(theme.canvas === "none" ? { "--nebula-opacity": "0" } : {}),
     ...(theme.canvas === DEFAULT_THEME.canvas
       ? {}
       : { "--canvas": theme.canvas }),
-    // `none` is expressed as a transparent cloud rather than as an absent one,
-    // so a page can be still without touching the visitor's own star toggle.
-    // The two controls answer different questions: one is how the author wants
-    // their page to look, the other is what this machine should spend on
-    // animation, and neither may overrule the other.
-    ...(theme.canvas === "none" ? { "--nebula-opacity": "0" } : {}),
   };
 }
 
 /**
- * What a chosen colour actually renders as, in each mode.
+ * What a chosen accent actually renders as.
  *
- * The configurator shows **both swatches side by side**, which is how the
- * adjustment is disclosed. An earlier version returned an `adjusted` flag
- * instead and it was incoherent: a colour cannot be simultaneously too light
- * for a light page and too dark for a dark one, so the flag was false for
- * nearly every input and would have told somebody nothing on the occasions it
- * mattered.
+ * One value, not two. It used to report a light and a dark rendering side by
+ * side, which was honest while a theme was two themes and became misleading the
+ * moment it became one: an author picks a colour and there is now exactly one
+ * colour their visitors see.
  *
- * Two swatches cannot be got wrong in that way. They show exactly what a
- * visitor sees in either scheme, they need no wording, and they make the fact
- * that one colour has two renderings self-evident rather than something a
- * notice has to explain.
+ * It is the colour that was picked, unchanged. The swatch is still worth
+ * showing: it is where somebody sees their accent against their own background
+ * rather than against the editor's chrome, which is the only place the pairing
+ * can actually be judged.
  *
- * @param hex - the colour somebody picked.
- * @returns the colour as rendered in each mode.
+ * @param accentHex - the accent somebody picked.
+ * @param backgroundHex - the background it has to be readable on.
+ * @returns the colour as rendered, as `#rrggbb`.
  */
-export function accentPreview(hex: string): { light: string; dark: string } {
-  const rendered = (mode: ThemeMode) =>
-    toHex(oklchToSrgb(...legibleAccent(hex, mode).accent));
-  return { light: rendered("light"), dark: rendered("dark") };
+export function accentPreview(
+  accentHex: string,
+  backgroundHex: string,
+): string {
+  return derivePalette(backgroundHex, accentHex)["--accent"] ?? accentHex;
 }
 
 /**
- * Which custom properties belong to the page's content, and which to the page.
+ * A theme as CSS.
  *
- * **This split is a bug fix, and the bug was invisible.** The canvas is a fixed,
- * full-viewport element mounted at the ROOT of the document, and it reads its
- * colours from `document.documentElement`. Scoping its inputs to a nested
- * element meant it never saw them: an author could pick two backdrop colours,
- * the values were stored, emitted, and read by nothing at all.
+ * **One rule at `:root`, and no media queries at all.** Both of those are
+ * consequences of a theme being one palette. It used to emit three selectors
+ * per scope so the reader's light or dark choice could pick between two
+ * renderings; there is only one rendering now, so there is nothing to pick
+ * between.
  *
- * So the cloud tints and the canvas name go on `:root`, where the thing that
- * reads them can find them, and the accent stays scoped so the site's own
- * chrome keeps the site's own colour.
- *
- * @param vars - every custom property a theme sets.
- * @returns the ones that belong to each scope.
- */
-function byScope(vars: Record<string, string>) {
-  const rooted = ["--nebula-a", "--nebula-b", "--nebula-opacity", "--canvas"];
-  const entries = Object.entries(vars);
-  const pick = (wanted: boolean) =>
-    entries
-      .filter(([name]) => rooted.includes(name) === wanted)
-      .map(([name, value]) => `${name}:${value}`)
-      .join(";");
-  return { root: pick(true), scoped: pick(false) };
-}
-
-/**
- * A theme as CSS, covering both schemes.
- *
- * **This exists because the reader's scheme is the reader's, and the page is
- * rendered on a server that cannot know it.** Inline styles would force a
- * choice of mode at render time and get it wrong for half the visitors; setting
- * them from JavaScript after hydration would flash the wrong accent first. So
- * both renderings are emitted as rules and the browser picks, exactly as
- * `globals.css` already does for every other token.
- *
- * The three selectors per scope match that file's own structure, and the order
- * matters:
- *
- *  1. the bare selector carries light, which is the default;
- *  2. `prefers-color-scheme: dark` applies dark, guarded by
- *     `:not([data-theme="light"])` so an explicit light choice still wins;
- *  3. `[data-theme="dark"]` applies dark again, so the toggle wins in the other
- *     direction too.
- *
- * A rule defined only inside the media query would leave a visitor who has
- * chosen dark on a light-preferring system with the light accent.
- *
- * **Two scopes, not one** — see {@link byScope}. The backdrop belongs to the
- * document because the canvas that reads it is mounted there; the accent
- * belongs to the page's own content.
+ * `:root` rather than a scoped class because a theme is the whole page: the
+ * field the body paints, and the canvas mounted in the root layout, are both
+ * outside anything a page could scope to. Scoping the earlier version to a
+ * nested element is exactly why its colours reached neither.
  *
  * **Every value interpolated here is generated, never stored.** `themeVars`
- * builds them out of numbers — `toFixed` and `Math.round` — and the canvas name
- * comes from a fixed list, so nothing a person typed reaches this string. That
- * is what makes emitting a stylesheet safe; were a raw stored value ever passed
- * through, a `}` in it would close the rule and everything after would be
- * attacker-authored CSS.
+ * builds them out of numbers, and the canvas name comes from a fixed list, so
+ * nothing a person typed reaches this string. That is what makes emitting a
+ * stylesheet safe; a raw stored value would let a `}` close the rule and
+ * everything after it would be CSS somebody else wrote.
  *
  * @param theme - the chosen theme.
- * @param className - the class the content-scoped rules attach to.
- * @returns the CSS text.
+ * @returns the CSS text, or empty when the theme overrides nothing.
  */
-export function themeCss(theme: ActorTheme, className: string): string {
-  const light = byScope(themeVars(theme, "light"));
-  const dark = byScope(themeVars(theme, "dark"));
-
-  const rules = (selector: string, from: "root" | "scoped") =>
-    [
-      light[from] && `${selector}{${light[from]}}`,
-      dark[from] &&
-        `@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) ${selector}{${dark[from]}}}`,
-      dark[from] && `:root[data-theme="dark"] ${selector}{${dark[from]}}`,
-    ]
-      .filter(Boolean)
-      .join("");
-
-  // **The root scope is emitted ONCE, with no dark variant, because nothing in
-  // it varies by mode.** An author picks two cloud colours and a canvas; those
-  // are the same colours whichever scheme a visitor reads in. What adapts is
-  // `--nebula-blend`, which stays in `globals.css` — `screen` in dark because
-  // dust emits light, `multiply` in light because it absorbs it. Same two
-  // colours, opposite physics, which is why one pair works in both.
-  //
-  // Writing the three-selector form here anyway produced branches no input
-  // could reach, which is how this was noticed.
-  //
-  // `:root` also takes no descendant selector; giving it one would stop it
-  // matching anything at all.
-  const rooted = light.root ? `:root{${light.root}}` : "";
-
-  return rooted + rules(`.${className}`, "scoped");
+export function themeCss(theme: ActorTheme): string {
+  const body = Object.entries(themeVars(theme))
+    .map(([name, value]) => `${name}:${value}`)
+    .join(";");
+  return body ? `:root{${body}}` : "";
 }

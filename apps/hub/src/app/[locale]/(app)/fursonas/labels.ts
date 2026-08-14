@@ -34,6 +34,10 @@ import {
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * The theme panel gained a `background`, which is the colour every other one is
+ * now derived from, and lost the pair that named a light and a dark rendering —
+ * there is one rendering.
+ *
  * The theme panel gained `usingDefault`, which marks a colour nobody has
  * chosen. A colour input always carries a value, so without it the design's own
  * colour is presented as though somebody had picked it.
@@ -100,6 +104,7 @@ export async function fursonaEditorLabels(
     theme: {
       title: t("themeTitle"),
       live: t("themeLive"),
+      background: t("themeBackground"),
       accent: t("themeAccent"),
       backdropA: t("themeBackdropA"),
       backdropB: t("themeBackdropB"),
@@ -107,8 +112,6 @@ export async function fursonaEditorLabels(
       canvases: Object.fromEntries(
         CANVASES.map((canvas) => [canvas, t(`canvases.${canvas}`)]),
       ) as Record<CanvasId, string>,
-      onLight: t("themeOnLight"),
-      onDark: t("themeOnDark"),
       adjusted: t("themeAdjusted"),
       reset: t("themeReset"),
       usingDefault: t("themeUsingDefault"),

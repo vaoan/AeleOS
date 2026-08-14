@@ -4,9 +4,7 @@ import {
   oklchToSrgb as scriptOklchToSrgb,
 } from "../../../scripts/check-contrast.mjs";
 import {
-  SURFACE,
   contrastRatio,
-  legibleAccent,
   oklchToSrgb,
   parseHex,
   srgbToOklch,
@@ -26,12 +24,17 @@ describe("parseHex", () => {
 
   // The value comes out of a jsonb column and off an input somebody can type
   // into, so refusing has to be an ordinary outcome rather than a throw.
-  it.each(["", "#12", "#12345", "not a colour", "#gggggg", "#1234567"])(
-    "refuses %s",
-    (hex) => {
-      expect(parseHex(hex)).toBeNull();
-    },
-  );
+  it.each([
+    undefined,
+    "",
+    "#12",
+    "#12345",
+    "not a colour",
+    "#gggggg",
+    "#1234567",
+  ])("refuses %s", (hex) => {
+    expect(parseHex(hex)).toBeNull();
+  });
 });
 
 describe("toHex", () => {
@@ -114,68 +117,5 @@ describe("the contrast maths agrees with the build gate", () => {
     expect(oklchToSrgb(0.6, 0.12, 200)).toEqual(
       scriptOklchToSrgb(0.6, 0.12, 200),
     );
-  });
-});
-
-describe("legibleAccent", () => {
-  const MODES = ["light", "dark"] as const;
-
-  // The whole point. Somebody may pick any colour at all, including the ones
-  // that cannot be read on their own page — so the hue and the chroma they
-  // chose are kept and the LIGHTNESS is solved for. Warning them instead would
-  // mean shipping a picker whose advice can be ignored, and a public page that
-  // a stranger cannot read is worse than a page in a colour nobody chose.
-  it.each([
-    "#ffffff",
-    "#000000",
-    "#ffff00",
-    "#0000ff",
-    "#7f7f7f",
-    "#ff00ff",
-    "#00ffff",
-    "#123456",
-  ])("makes %s readable in both modes", (hex) => {
-    for (const mode of MODES) {
-      const { accent } = legibleAccent(hex, mode);
-      expect(contrastRatio(accent, SURFACE[mode])).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-
-  it.each(["#ffffff", "#000000", "#ffff00", "#0000ff", "#7f7f7f"])(
-    "gives %s a foreground that can sit on it",
-    (hex) => {
-      for (const mode of MODES) {
-        const { accent, onAccent } = legibleAccent(hex, mode);
-        expect(contrastRatio(onAccent, accent)).toBeGreaterThanOrEqual(4.5);
-      }
-    },
-  );
-
-  // Keeping the hue is what makes this an adjustment rather than a substitute.
-  // If a chosen pink came back as a readable green, the picker would be a lie.
-  it("keeps the hue somebody chose", () => {
-    const chosen = srgbToOklch(parseHex("#ff0088") as number[]);
-    for (const mode of MODES) {
-      const { accent } = legibleAccent("#ff0088", mode);
-      expect(accent[2]).toBeCloseTo(chosen[2], 0);
-    }
-  });
-
-  // A colour already legible must come back untouched, or every accent drifts
-  // toward the same two lightnesses and the picker stops mattering.
-  it("leaves an already-legible colour alone", () => {
-    const { accent } = legibleAccent(
-      toHex(oklchToSrgb(0.46, 0.15, 25)),
-      "light",
-    );
-    expect(accent[0]).toBeCloseTo(0.46, 1);
-  });
-
-  it("falls back to the default accent when the colour is not one", () => {
-    expect(legibleAccent("not a colour", "light").accent[0]).toBeCloseTo(
-      0.46,
-      1,
-    );
-    expect(legibleAccent(undefined, "dark").accent[0]).toBeCloseTo(0.74, 1);
   });
 });
