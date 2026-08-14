@@ -151,6 +151,12 @@ const PAIRS = [
   ["light: card border", [0.66, 0.075, 35], [0.99, 0.01, 40], 3],
   ["light: accent label", [0.98, 0.01, 40], [0.46, 0.15, 25], 4.5],
   ["light: star on field", [0.62, 0.16, 32], [0.98, 0.016, 45], 3],
+  // `--menu` is a surface the BROWSER paints, inside a dropdown's list, and it
+  // carries `--ink`. It is measured because it is opaque and load-bearing: it
+  // exists precisely because a transparent menu was unreadable, and a value
+  // chosen to fix that ought to be checked rather than assumed to.
+  ["dark: option on menu", [0.96, 0.012, 340], [0.19, 0.04, 305], 4.5],
+  ["light: option on menu", [0.27, 0.045, 35], [0.99, 0.01, 40], 4.5],
 ];
 
 /**

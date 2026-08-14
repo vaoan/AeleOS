@@ -130,6 +130,12 @@ export interface ThemeConfiguratorProps {
  * larger than 128×128 in silence, so an unmeasured field would let somebody
  * paste a picture, see nothing change, and have nothing to read about why.
  *
+ * **Its `select` is painted with `--menu`, not left transparent.** A dropdown's
+ * list is drawn from the control's own background, so a transparent one has
+ * nothing to paint with and the browser paints it on white — near-white text on
+ * white in dark mode. `dropdown-legibility.test.ts` guards every select in the
+ * app against going back.
+ *
  * **A skin is chosen separately from the colours, and changes no colour.** It
  * decides form — corners, border weight, shadow, gloss, the body's face — so
  * every pairing of a style and a palette is somebody's page. Tying the two
@@ -273,7 +279,7 @@ export function ThemeConfigurator({
           onChange(withChosenColour(value, key, event.target.value))
         }
         {...tid(`theme-${key}`)}
-        className="h-9 w-full cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-transparent p-1"
+        className="h-9 w-full cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] p-1"
       />
     </div>
   );
@@ -385,7 +391,7 @@ export function ThemeConfigurator({
                 onChange({ ...value, skin: event.target.value as SkinId })
               }
               {...tid("theme-skin")}
-              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+              className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
             >
               {SKINS.map((skin) => (
                 <option key={skin} value={skin}>
@@ -406,7 +412,7 @@ export function ThemeConfigurator({
                 onChange({ ...value, canvas: event.target.value as CanvasId })
               }
               {...tid("theme-canvas")}
-              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+              className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
             >
               {CANVASES.map((canvas) => (
                 <option key={canvas} value={canvas}>

@@ -107,7 +107,13 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  * appeared to cover this used a template, and a template inserts its sections
  * as data without touching a single one of these controls.
  *
- * @returns the sections editor.
+ * **Its `select` is painted with `--menu`, not left transparent.** A dropdown's
+ * list is drawn from the control's own background, so a transparent one has
+ * nothing to paint with and the browser paints it on white — near-white text on
+ * white in dark mode. `dropdown-legibility.test.ts` guards every select in the
+ * app against going back.
+ *
+ * * @returns the sections editor.
  */
 export function SectionEditor<T extends FieldValues>({
   control,
@@ -217,7 +223,7 @@ export function SectionEditor<T extends FieldValues>({
               onChange={(event) =>
                 setNewType(event.target.value as SectionType)
               }
-              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+              className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
             >
               {SECTION_TYPES.map((type) => (
                 <option key={type} value={type}>

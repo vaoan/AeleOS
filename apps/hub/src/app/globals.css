@@ -44,6 +44,24 @@
    */
   --surface-solid: oklch(0.99 0.01 40 / 0.9);
   --bar-solid: oklch(1 0 0 / 0.35);
+
+  /*
+   * **What a `select` and its menu are painted with, and it must be OPAQUE.**
+   *
+   * A dropdown's list is drawn from the CONTROL's own background, not from the
+   * page's. Every select here was `bg-transparent`, so the list had nothing to
+   * paint with and came out on the browser's own white — near-white text on
+   * white in dark mode.
+   *
+   * `color-scheme` was declared first and was NOT enough. It tells the browser
+   * which scheme the PAGE is in, which reaches scrollbars and the canvas, and
+   * it leaves a transparent control transparent. Both are needed and they fix
+   * different things; do not remove either.
+   *
+   * `--surface` cannot serve here because it carries an alpha, and a
+   * translucent menu is the same bug with an extra step.
+   */
+  --menu: oklch(0.99 0.01 40);
   --surface: var(--surface-solid);
   --bar: var(--bar-solid);
   --edge: oklch(0.66 0.075 35);
@@ -107,6 +125,7 @@
    * second place to keep in step for no gain. */
   --surface-solid: oklch(0.16 0.04 305 / 0.82);
   --bar-solid: oklch(0.14 0.03 305 / 0.55);
+  --menu: oklch(0.19 0.04 305);
   --edge: oklch(0.52 0.09 325);
 
   /* Not the light accent with a flipped lightness — a different value on
@@ -307,6 +326,20 @@ button:disabled,
  * The gloss is a background IMAGE, so it layers over whatever colour the
  * element paints instead of replacing it.
  */
+/*
+ * An `option` carries the menu's colours explicitly as well.
+ *
+ * Belt and braces on purpose: Chrome and Firefox paint the list from the
+ * SELECT's background, while some builds honour a background set on the option
+ * itself. Setting both costs one rule and removes the guesswork about which
+ * browser does which. Safari ignores option styling entirely and draws a native
+ * menu, which is what `color-scheme` reaches.
+ */
+option {
+  background-color: var(--menu);
+  color: var(--ink);
+}
+
 [class~="border"] {
   border-width: var(--skin-border);
   background-image: var(--skin-gloss);

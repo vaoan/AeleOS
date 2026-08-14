@@ -106,6 +106,12 @@ export interface MyProfileFormProps {
  * otherwise would either expose a character they meant to keep back or wonder
  * why a published one is still missing.
  *
+ * **Its `select` is painted with `--menu`, not left transparent.** A dropdown's
+ * list is drawn from the control's own background, so a transparent one has
+ * nothing to paint with and the browser paints it on white — near-white text on
+ * white in dark mode. `dropdown-legibility.test.ts` guards every select in the
+ * app against going back.
+ *
  * **It carries the theme panel**, which is why a person's profile can look
  * like anything at all. The column and the public page have supported a theme
  * since theming shipped; there was simply no screen that wrote one, so every
@@ -209,7 +215,7 @@ export function MyProfileForm({
             }))
           }
           {...tid("me-visibility")}
-          className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+          className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
         >
           {VISIBILITIES.map((value) => (
             <option key={value} value={value}>

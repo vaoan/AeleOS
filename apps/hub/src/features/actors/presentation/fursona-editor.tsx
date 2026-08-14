@@ -81,6 +81,12 @@ export interface FursonaEditorLabels
 /**
  * What {@link FursonaEditor} needs.
  *
+ * **Its `select` is painted with `--menu`, not left transparent.** A dropdown's
+ * list is drawn from the control's own background, so a transparent one has
+ * nothing to paint with and the browser paints it on white — near-white text on
+ * white in dark mode. `dropdown-legibility.test.ts` guards every select in the
+ * app against going back.
+ *
  * `profileTheme` is genuinely optional: it feeds the panel's "use my profile's
  * look", which renders only where there is something to copy, so a caller that
  * omits it simply offers no button.
@@ -192,6 +198,12 @@ const editorSchema = fursonaSchema.extend({
  * language — an endonym is deliberately not translated, because a picker whose
  * options rename themselves is unreadable to whoever needs it — and the switch
  * sticks to the top, since it governs fields further down the page than it sits.
+ *
+ * **The visibility `select` is painted with `--menu`, not left transparent.** A
+ * dropdown's list is drawn from the control's own background, so a transparent
+ * one has nothing to paint with and the browser paints it on white — near-white
+ * text on white in dark mode. `dropdown-legibility.test.ts` guards every select
+ * in the app against going back.
  *
  * Exposes the `editor-handle`, `editor-display-name`, `editor-visibility`,
  * `writing-in-en` and `writing-in-es`
@@ -330,7 +342,7 @@ export function FursonaEditor({
             {...tid("editor-visibility")}
             {...register("visibility")}
             aria-invalid={Boolean(errors.visibility)}
-            className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-2"
+            className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-2"
           >
             {VISIBILITIES.map((value) => (
               <option key={value} value={value}>
