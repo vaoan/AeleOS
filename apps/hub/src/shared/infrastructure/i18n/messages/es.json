@@ -160,7 +160,8 @@
       "stars": "Estrellas",
       "aurora": "Aurora",
       "none": "Quieto"
-    }
+    },
+    "themeUsingDefault": "Por defecto"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

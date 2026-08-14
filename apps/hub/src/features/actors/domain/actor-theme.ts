@@ -132,6 +132,17 @@ export function parseTheme(value: unknown): ActorTheme {
 }
 
 /**
+ * The class an actor's theme is scoped to.
+ *
+ * **One constant, used by both the public page and the editor's live preview.**
+ * They were two separate strings, and the editor's was a class NO element in
+ * the tree ever wore — so the preview emitted a stylesheet that matched nothing
+ * and a person dragging a colour saw their page not change. A shared name is
+ * the only version of this that cannot drift into that state again.
+ */
+export const THEME_SCOPE = "actor-theme";
+
+/**
  * The theme, as the editor's form holds it.
  *
  * Loose on the colours by design — they are `#rrggbb` or null and nothing else
@@ -145,6 +156,56 @@ export const themeSchema = z.object({
   backdropB: z.string().nullable(),
   canvas: z.enum(CANVASES),
 });
+
+/**
+ * Sets one colour, and makes every other colour explicit with it.
+ *
+ * **A theme is all-default or all-chosen, never half of each.** Picking only an
+ * accent used to leave the two cloud colours following the design, which meant
+ * they flipped with the reader's light or dark scheme while the accent did not
+ * — so what an author saw while editing depended on the mode they happened to
+ * be in, and was not what a visitor in the other mode would get.
+ *
+ * Promoting the rest to their current values on the first pick removes that
+ * entirely. Nothing changes visually at the moment of promotion, because the
+ * values written are exactly the ones the page was already showing; what
+ * changes is that they stop moving afterwards.
+ *
+ * {@link DEFAULT_THEME} is the way back, and it clears all three together for
+ * the same reason.
+ *
+ * @param theme - the theme as it stands.
+ * @param key - which colour was chosen.
+ * @param value - the colour, as `#rrggbb`.
+ * @returns the theme with every colour explicit.
+ */
+export function withChosenColour(
+  theme: ActorTheme,
+  key: "accent" | "backdropA" | "backdropB",
+  value: string,
+): ActorTheme {
+  return {
+    ...theme,
+    accent: theme.accent ?? THEME_SEEDS.accent,
+    backdropA: theme.backdropA ?? THEME_SEEDS.backdropA,
+    backdropB: theme.backdropB ?? THEME_SEEDS.backdropB,
+    [key]: value,
+  };
+}
+
+/**
+ * Whether an author has chosen anything at all.
+ *
+ * The configurator shows "default" until this is true, because a colour input
+ * always carries a value and would otherwise present the design's own colour as
+ * though somebody had picked it.
+ *
+ * @param theme - the theme.
+ * @returns true when any colour is the author's own.
+ */
+export function isThemed(theme: ActorTheme): boolean {
+  return Boolean(theme.accent ?? theme.backdropA ?? theme.backdropB);
+}
 
 /**
  * The custom properties a theme sets, for one mode.

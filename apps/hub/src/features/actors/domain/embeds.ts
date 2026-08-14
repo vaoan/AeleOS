@@ -1,3 +1,5 @@
+export { PLAYER_ORIGINS } from "@/shared/domain/player-origins";
+
 /** A service whose player a fursona's page may frame. */
 export type EmbedProvider = "youtube" | "vimeo" | "spotify" | "soundcloud";
 

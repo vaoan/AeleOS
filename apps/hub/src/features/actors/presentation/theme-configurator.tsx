@@ -5,6 +5,9 @@ import { Palette, RotateCcw } from "lucide-react";
 import {
   CANVASES,
   DEFAULT_THEME,
+  THEME_SCOPE,
+  isThemed,
+  withChosenColour,
   THEME_SEEDS,
   accentPreview,
   themeCss,
@@ -13,7 +16,13 @@ import {
 } from "@/features/actors/domain/actor-theme";
 import { tid } from "@/shared/infrastructure/test-id";
 
-/** Translated strings {@link ThemeConfigurator} renders. */
+/**
+ * Translated strings {@link ThemeConfigurator} renders.
+ *
+ * `usingDefault` marks a colour nobody has chosen. A colour input always
+ * carries a value, so without saying so the design's own colour reads as a
+ * choice somebody made.
+ */
 export interface ThemeConfiguratorLabels {
   /** Names the whole panel. */
   title: string;
@@ -37,6 +46,8 @@ export interface ThemeConfiguratorLabels {
   adjusted: string;
   /** The button that puts everything back. */
   reset: string;
+  /** Marks a colour nobody has chosen, so the default does not read as a choice. */
+  usingDefault: string;
 }
 
 /** What {@link ThemeConfigurator} needs. */
@@ -73,6 +84,10 @@ export interface ThemeConfiguratorProps {
  * yellow and sees the darker light-mode swatch understands immediately, without
  * being told they did something wrong.
  *
+ * **Picking any colour makes all three explicit** — see `withChosenColour`.
+ * Half a theme follows the reader's scheme and half does not, so what an author
+ * saw while editing depended on the mode they happened to be in.
+ *
  * Reset is a first-class control rather than "pick the old colour again",
  * because the resting state is **no override at all** — a page that follows the
  * design — and no colour a picker can produce expresses that.
@@ -87,6 +102,7 @@ export function ThemeConfigurator({
   const id = useId();
   const [open, setOpen] = useState(false);
   const preview = accentPreview(value.accent ?? THEME_SEEDS.accent);
+  const themed = isThemed(value);
 
   const swatch = (colour: string, name: string) => (
     <span className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
@@ -104,8 +120,18 @@ export function ThemeConfigurator({
     label: string,
   ) => (
     <div className="grid gap-1.5">
-      <label htmlFor={`${id}-${key}`} className="text-xs font-medium">
+      <label
+        htmlFor={`${id}-${key}`}
+        className="flex items-center justify-between gap-2 text-xs font-medium"
+      >
         {label}
+        {/* A colour input always carries a value, so without this the design's
+            own colour reads as one somebody picked. */}
+        {themed ? null : (
+          <span className="text-[0.625rem] text-[var(--muted)]">
+            {labels.usingDefault}
+          </span>
+        )}
       </label>
       <input
         id={`${id}-${key}`}
@@ -114,7 +140,13 @@ export function ThemeConfigurator({
         // `onChange` and not `onBlur`: a colour input fires continuously while
         // somebody drags, and that stream IS the feature. Anything that waited
         // for a commit would put the round trip back that this exists to remove.
-        onChange={(event) => onChange({ ...value, [key]: event.target.value })}
+        // Picking ANY colour makes all three explicit. Half a theme follows the
+        // reader's light or dark scheme and half does not, so what an author saw
+        // while editing depended on the mode they were in — see
+        // `withChosenColour`.
+        onChange={(event) =>
+          onChange(withChosenColour(value, key, event.target.value))
+        }
         {...tid(`theme-${key}`)}
         className="h-9 w-full cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-transparent p-1"
       />
@@ -141,7 +173,7 @@ export function ThemeConfigurator({
         <div className="grid gap-4">
           {/* The preview is scoped by the same function the public page uses,
               so what somebody judges here is what a stranger will get. */}
-          <style>{themeCss(value, "theme-preview")}</style>
+          <style>{themeCss(value, THEME_SCOPE)}</style>
 
           <div className="grid gap-3 sm:grid-cols-3">
             {colourField("accent", labels.accent)}
@@ -180,6 +212,7 @@ export function ThemeConfigurator({
 
           <button
             type="button"
+            disabled={!themed}
             onClick={() => onChange(DEFAULT_THEME)}
             {...tid("theme-reset")}
             className="flex w-fit items-center gap-2 rounded-lg border border-[var(--edge)] px-3 py-1.5 text-sm"

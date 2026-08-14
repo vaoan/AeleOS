@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveEmbed, safeHttpUrl } from "@/features/actors/domain/embeds";
+import {
+  PLAYER_ORIGINS,
+  resolveEmbed,
+  safeHttpUrl,
+} from "@/features/actors/domain/embeds";
 
 /**
  * The address this resolves to, or the empty string.
@@ -233,5 +237,44 @@ describe("safeHttpUrl", () => {
     expect(safeHttpUrl(undefined)).toBeNull();
     expect(safeHttpUrl("")).toBeNull();
     expect(safeHttpUrl("not a url")).toBeNull();
+  });
+});
+
+describe("PLAYER_ORIGINS", () => {
+  // The content security policy's `frame-src` is built from this list, so the
+  // resolver and the policy cannot drift. A provider added here without the
+  // policy knowing resolves correctly and is then blocked by the browser — an
+  // empty box with nothing in the network tab to explain it.
+  it("covers every address the resolver can produce", () => {
+    const samples = [
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "https://youtu.be/dQw4w9WgXcQ",
+      "https://vimeo.com/123456789",
+      "https://player.vimeo.com/video/123456789",
+      "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+      "https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT",
+      "https://soundcloud.com/artist/some-track",
+      "https://soundcloud.com/artist/sets/an-album",
+    ];
+    for (const raw of samples) {
+      const resolved = resolveEmbed(raw);
+      expect(resolved).not.toBeNull();
+      expect([...PLAYER_ORIGINS]).toContain(new URL(resolved!.src).origin);
+    }
+  });
+
+  // Every entry must be reachable, or the policy is allowing a frame origin
+  // nothing can produce — which is a permission nobody is using and nobody
+  // will remember to remove.
+  it("has no origin the resolver cannot reach", () => {
+    const reachable = new Set(
+      [
+        "https://youtu.be/dQw4w9WgXcQ",
+        "https://vimeo.com/1",
+        "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+        "https://soundcloud.com/artist/track",
+      ].map((raw) => new URL(resolveEmbed(raw)!.src).origin),
+    );
+    expect([...PLAYER_ORIGINS].sort()).toEqual([...reachable].sort());
   });
 });

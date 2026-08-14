@@ -4,6 +4,8 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
 import {
   aurora,
+  shootingStars,
+  shotProgress,
   starfield,
   swayOf,
   twinkle,
@@ -85,6 +87,20 @@ function getServerSnapshot(): string {
  */
 const TILE = CELL_SIZE * 8;
 
+/**
+ * The colours the tiles depend on, as one comparable string.
+ *
+ * Only the values that are painted INTO a tile belong here. The blend mode and
+ * the opacity are applied per frame at draw time, so a change to either is
+ * already live and rebuilding for it would be wasted work.
+ *
+ * @param styles - the document root's computed styles.
+ * @returns a string that changes exactly when a rebuild is needed.
+ */
+function tintSignature(styles: CSSStyleDeclaration): string {
+  return `${styles.getPropertyValue("--nebula-a")}|${styles.getPropertyValue("--nebula-b")}`;
+}
+
 /** How far the field drifts each second, in CSS pixels. */
 const DRIFT_PX_PER_SECOND = 4;
 
@@ -118,8 +134,17 @@ const LAYERS = [
   { seed: 137, gain: 2.8, bias: 0.58, speed: 0.28, tint: "a", scale: 2.6 },
 ] as const;
 
-/** How many stars the starfield draws. */
-const STAR_COUNT = 220;
+/** How many stars the far layer draws; the nearer layers scale from it. */
+const STAR_COUNT = 1200;
+
+/** How many streaks are in one cycle of the sky. */
+const SHOT_COUNT = 4;
+
+/** How long that cycle is, in seconds. */
+const SHOT_CYCLE = 14;
+
+/** The angle a streak travels, up and to the right. */
+const SHOT_ANGLE = (25 * Math.PI) / 180;
 
 /** How many curtains an aurora has. Few and wide — see `aurora`. */
 const CURTAIN_COUNT = 4;
@@ -128,20 +153,23 @@ const CURTAIN_COUNT = 4;
 const FIELD_SEED = 0x5eed;
 
 /**
- * Draws a starfield.
+ * Draws the sky.
  *
- * Points come from `starfield` in normalised space and are multiplied up here,
- * so a resize moves the stars with the viewport instead of regenerating a
- * different sky — which would shimmer every time somebody dragged a window.
+ * Ported from Moonfest's hero canvas in the `eclipse-con` repository, keeping
+ * the four things that make it look like a sky rather than like dots:
  *
- * **The two theme colours are the star colours.** That is the rule every canvas
- * follows: an author picks two colours and whichever animation they choose
- * wears them, rather than each animation carrying a palette of its own.
+ *  * **three parallax layers**, each denser, smaller and dimmer than the one in
+ *    front of it;
+ *  * **stars biased toward the top**, which is worth more than any of the
+ *    shimmer — it is what stops a scatter reading as noise;
+ *  * **two oscillators per star**, whose product twinkles where one alone only
+ *    fades;
+ *  * **diffraction spikes** on the big bright ones, which is the detail the eye
+ *    reads as "star" without being able to say why.
  *
- * Scalar parameters rather than a size object: an inline object parameter makes
- * the lint rules demand `@param width`, which the TSDoc syntax rule then
- * rejects for the dot. The repository resolves that collision this way
- * everywhere it appears.
+ * What is deliberately NOT ported is the colour. Moonfest names three fixed
+ * tints; here every star is mixed between the author's own two colours, because
+ * an author picks two and whichever canvas they choose wears them.
  *
  * @param ctx - the drawing context.
  * @param width - the bitmap width in device pixels.
@@ -149,6 +177,7 @@ const FIELD_SEED = 0x5eed;
  * @param dpr - the device pixel ratio the bitmap was built at.
  * @param tints - the two theme colours, as channel triples.
  * @param seconds - elapsed time.
+ * @param animated - false when the reader asked for no motion.
  * @returns nothing.
  */
 function drawStars(
@@ -158,21 +187,79 @@ function drawStars(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  animated: boolean,
 ) {
-  const points = starfield(STAR_COUNT, FIELD_SEED);
-  for (const point of points) {
-    // A slow horizontal drift that wraps, so the sky moves without ever
-    // emptying: a star leaving the right edge is the same star arriving at the
-    // left, which costs nothing and never leaves a gap.
-    const drift = (seconds * DRIFT_PX_PER_SECOND * point.speed * 0.25) / width;
-    const x = ((point.x + drift) % 1) * width;
-    const y = point.y * height;
-    const [r, g, b] = tints[point.tint]!;
-    ctx.globalAlpha = twinkle(point, seconds);
-    ctx.fillStyle = `rgb(${r} ${g} ${b})`;
+  const [a, b] = tints as [[number, number, number], [number, number, number]];
+  const mix = (t: number) =>
+    a.map((channel, i) => Math.round(channel + (b[i]! - channel) * t));
+
+  for (const layer of starfield(FIELD_SEED, STAR_COUNT)) {
+    for (const star of layer.stars) {
+      // Still on the still path: one frame at a representative brightness,
+      // so reduced motion keeps the sky and loses only the movement.
+      const alpha = animated
+        ? twinkle(star, seconds, layer.brightness)
+        : Math.min(0.95, star.alpha * 0.78 * layer.brightness);
+      const [r, g, bl] = mix(star.tint);
+      const x = star.x * width;
+      const y = star.y * height;
+      const size = star.r * dpr;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = `rgb(${r} ${g} ${bl})`;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // The cross only on the big, bright ones. On every star it is a grid of
+      // plus signs; on a few it is a sky.
+      if (star.r > 1.8 && alpha > 0.45) {
+        ctx.globalAlpha = alpha * 0.35;
+        ctx.strokeStyle = `rgb(${r} ${g} ${bl})`;
+        ctx.lineWidth = 0.8 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(x - size * 1.6, y);
+        ctx.lineTo(x + size * 1.6, y);
+        ctx.moveTo(x, y - size * 1.6);
+        ctx.lineTo(x, y + size * 1.6);
+        ctx.stroke();
+      }
+    }
+  }
+
+  if (!animated) return;
+
+  for (const shot of shootingStars(FIELD_SEED, SHOT_COUNT, SHOT_CYCLE)) {
+    const progress = shotProgress(shot, seconds, SHOT_CYCLE);
+    if (progress === null) continue;
+
+    // Up and to the right, the angle Moonfest uses.
+    const travel = progress * width * 0.5;
+    const x = shot.x * width + travel * Math.cos(SHOT_ANGLE);
+    const y = shot.y * height - travel * Math.sin(SHOT_ANGLE);
+    const tail = shot.length * width;
+    const [r, g, bl] = mix(0.5);
+
+    const trail = ctx.createLinearGradient(
+      x,
+      y,
+      x - tail * Math.cos(SHOT_ANGLE),
+      y + tail * Math.sin(SHOT_ANGLE),
+    );
+    trail.addColorStop(0, `rgb(${r} ${g} ${bl} / ${(1 - progress) * 0.8})`);
+    trail.addColorStop(1, `rgb(${r} ${g} ${bl} / 0)`);
+
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = trail;
+    ctx.lineWidth = 1.8 * dpr;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.arc(x, y, point.r * dpr, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(x, y);
+    ctx.lineTo(
+      x - tail * Math.cos(SHOT_ANGLE),
+      y + tail * Math.sin(SHOT_ANGLE),
+    );
+    ctx.stroke();
   }
 }
 
@@ -307,6 +394,16 @@ function readRgb(
  * author picks two colours and whichever animation they chose wears them. A
  * canvas that hard-coded a palette would break that.
  *
+ * **It rebuilds when the theme's colours move.** The nebula's tint is painted
+ * INTO its offscreen tiles, so a colour change is invisible until they are
+ * remade — which is why an author dragging a backdrop colour watched nothing
+ * happen. The animated path compares each frame; the still path is told by a
+ * mutation observer, because nothing redraws there unless something says so.
+ *
+ * The starfield is Moonfest's, ported from `eclipse-con`: three parallax
+ * layers, stars crowded toward the top, two oscillators per star, diffraction
+ * spikes on the bright ones, and streaks crossing on a cycle.
+ *
  * Renders one static frame when animation is off rather than nothing, so
  * reduced motion keeps the design and loses only the movement — and that
  * applies to every canvas here, not only the nebula.
@@ -332,6 +429,10 @@ export function NebulaCanvas() {
 
     let frame = 0;
     let tiles: HTMLCanvasElement[] = [];
+    // What the tiles were baked with. The nebula's colour is painted INTO the
+    // offscreen tiles, so a tint change is invisible until they are rebuilt —
+    // which is why an author dragging a backdrop colour saw nothing happen.
+    let bakedWith = "";
     let width = 0;
     let height = 0;
     let dpr = 1;
@@ -350,6 +451,7 @@ export function NebulaCanvas() {
       canvas.height = height;
 
       const styles = getComputedStyle(document.documentElement);
+      bakedWith = tintSignature(styles);
       tiles = LAYERS.map((layer) => {
         const pixels = tilePixels(TILE, TILE, {
           seed: layer.seed,
@@ -381,6 +483,15 @@ export function NebulaCanvas() {
       // cannot be handed a prop by a page nested inside it. An unknown name
       // falls through to the nebula, which is what an unthemed page shows.
       const chosen = styles.getPropertyValue("--canvas").trim();
+
+      // Rebuild when the theme's colours have moved. Checked here rather than
+      // watched, because the values arrive as a `<style>` element React
+      // replaces on every keystroke of a colour input — a mutation observer for
+      // that is both noisier and later than simply comparing what we drew with.
+      // The comparison is two string reads against a computed style this
+      // function already holds.
+      if (tintSignature(styles) !== bakedWith) build();
+
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation =
         blend === "screen" || blend === "multiply"
@@ -400,7 +511,7 @@ export function NebulaCanvas() {
           readRgb(styles, "--nebula-b"),
         ];
         if (chosen === "stars") {
-          drawStars(ctx, width, height, dpr, tints, elapsed / 1000);
+          drawStars(ctx, width, height, dpr, tints, elapsed / 1000, animated);
         } else {
           drawAurora(ctx, width, height, tints, elapsed / 1000);
         }
@@ -459,10 +570,17 @@ export function NebulaCanvas() {
 
     // The tint and blend mode are theme-dependent, so a theme change has to
     // rebuild the tiles rather than merely redraw them.
+    // `data-theme` for the reader's own light/dark switch, and the subtree for
+    // the `<style>` an actor's theme arrives in — which React inserts and
+    // replaces as somebody edits. The animated path notices a colour change on
+    // its own, by comparison; this is what covers the still one, where nothing
+    // redraws unless something says so.
     const observer = new MutationObserver(onResize);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],
+      childList: true,
+      subtree: true,
     });
 
     return () => {

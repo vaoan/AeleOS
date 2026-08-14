@@ -34,6 +34,10 @@ import {
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * The theme panel gained `usingDefault`, which marks a colour nobody has
+ * chosen. A colour input always carries a value, so without it the design's own
+ * colour is presented as though somebody had picked it.
+ *
  * The upload's six strings are gone with the bucket. What remains for a picture
  * is `imageUrl` and a hint saying it is a link and nothing is stored — which
  * has to be said, because a field called "image" beside a fursona editor reads
@@ -107,6 +111,7 @@ export async function fursonaEditorLabels(
       onDark: t("themeOnDark"),
       adjusted: t("themeAdjusted"),
       reset: t("themeReset"),
+      usingDefault: t("themeUsingDefault"),
     },
     linkUrl: t("linkUrl"),
     linkUrlHint: t("linkUrlHint"),

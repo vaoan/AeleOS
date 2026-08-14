@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   CANVASES,
   DEFAULT_THEME,
+  THEME_SEEDS,
   accentPreview,
+  isThemed,
+  withChosenColour,
   parseTheme,
   themeCss,
   themeVars,
@@ -247,4 +250,67 @@ describe("themeCss", () => {
       expect(css).not.toContain("</style>");
     },
   );
+});
+
+describe("withChosenColour", () => {
+  // A theme is all-default or all-chosen, never half of each. Picking only an
+  // accent left the cloud colours following the design, so they moved with the
+  // reader's scheme while the accent did not — and what an author saw depended
+  // on which mode they happened to be editing in.
+  it("makes every colour explicit when the first one is picked", () => {
+    const chosen = withChosenColour(DEFAULT_THEME, "accent", "#00ff88");
+    expect(chosen.accent).toBe("#00ff88");
+    expect(chosen.backdropA).not.toBeNull();
+    expect(chosen.backdropB).not.toBeNull();
+  });
+
+  // Nothing may move at the moment of promotion: the values written are the
+  // ones the page was already showing. What changes is that they stop moving.
+  it("promotes the others to what the page already looked like", () => {
+    const chosen = withChosenColour(DEFAULT_THEME, "accent", "#00ff88");
+    expect(chosen.backdropA).toBe(THEME_SEEDS.backdropA);
+    expect(chosen.backdropB).toBe(THEME_SEEDS.backdropB);
+  });
+
+  it("leaves colours somebody already chose alone", () => {
+    const themed = { ...DEFAULT_THEME, backdropA: "#112233" };
+    expect(withChosenColour(themed, "accent", "#00ff88").backdropA).toBe(
+      "#112233",
+    );
+  });
+
+  it("keeps the canvas", () => {
+    const themed = { ...DEFAULT_THEME, canvas: "stars" as const };
+    expect(withChosenColour(themed, "accent", "#00ff88").canvas).toBe("stars");
+  });
+
+  it.each(["accent", "backdropA", "backdropB"] as const)(
+    "sets %s when that is the one picked",
+    (key) => {
+      expect(withChosenColour(DEFAULT_THEME, key, "#00ff88")[key]).toBe(
+        "#00ff88",
+      );
+    },
+  );
+});
+
+describe("isThemed", () => {
+  // A colour input always carries a value, so without this the design's own
+  // colour is presented as though somebody had picked it.
+  it("is false until somebody picks something", () => {
+    expect(isThemed(DEFAULT_THEME)).toBe(false);
+  });
+
+  it.each(["accent", "backdropA", "backdropB"] as const)(
+    "is true once %s is set",
+    (key) => {
+      expect(isThemed({ ...DEFAULT_THEME, [key]: "#00ff88" })).toBe(true);
+    },
+  );
+
+  // The canvas alone is not a colour, and the reset button reads this to decide
+  // whether there is anything to put back.
+  it("is not made true by the canvas alone", () => {
+    expect(isThemed({ ...DEFAULT_THEME, canvas: "stars" })).toBe(false);
+  });
 });

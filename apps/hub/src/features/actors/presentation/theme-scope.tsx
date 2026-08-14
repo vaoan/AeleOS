@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  THEME_SCOPE,
   themeCss,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
@@ -11,15 +12,6 @@ export interface ThemeScopeProps {
   /** The page. */
   children: ReactNode;
 }
-
-/**
- * The class the emitted rules are scoped to.
- *
- * Fixed rather than generated, because a page carries exactly one theme and a
- * generated name would change on every render — which defeats streaming and
- * gives the browser a new selector to match each time.
- */
-const SCOPE = "actor-theme";
 
 /**
  * Applies an owner's theme to everything inside it.
@@ -35,19 +27,23 @@ const SCOPE = "actor-theme";
  * `globals.css` under the reader's toggle, so somebody who needs a dark page
  * gets one — wearing the owner's colours rather than instead of them.
  *
+ * The class it scopes to is `THEME_SCOPE`, shared with the editor's preview.
+ * They were two different strings once, and the editor's was one no element
+ * wore — so the preview styled nothing at all.
+ *
  * A theme that overrides nothing emits no element at all, so an unthemed page
  * is byte-for-byte what it was before any of this existed.
  *
  * @returns the page, themed.
  */
 export function ThemeScope({ theme, children }: ThemeScopeProps) {
-  const css = themeCss(theme, SCOPE);
+  const css = themeCss(theme, THEME_SCOPE);
   if (!css) return children;
   return (
     <>
       {/* Generated from numbers, never from a stored string — see themeCss. */}
       <style>{css}</style>
-      <div className={SCOPE}>{children}</div>
+      <div className={THEME_SCOPE}>{children}</div>
     </>
   );
 }

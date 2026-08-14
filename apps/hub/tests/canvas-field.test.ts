@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   aurora,
   seeded,
+  shootingStars,
+  shotProgress,
   starfield,
   swayOf,
   twinkle,
@@ -47,70 +49,133 @@ describe("seeded", () => {
 });
 
 describe("starfield", () => {
-  it("makes as many points as asked", () => {
-    expect(starfield(50, 1)).toHaveLength(50);
+  const layers = starfield(9, 500);
+  const all = layers.flatMap((l) => l.stars);
+
+  it("builds three layers, far to near", () => {
+    expect(layers).toHaveLength(3);
+  });
+
+  // Density, size and brightness rise together toward the front. One flat layer
+  // — which is what this was — reads as noise on a background, not as a sky.
+  it("makes each layer sparser and brighter than the one behind it", () => {
+    for (let i = 1; i < layers.length; i += 1) {
+      expect(layers[i]!.stars.length).toBeLessThan(layers[i - 1]!.stars.length);
+      expect(layers[i]!.brightness).toBeGreaterThan(layers[i - 1]!.brightness);
+    }
   });
 
   it("is identical for the same seed", () => {
-    expect(starfield(20, 7)).toEqual(starfield(20, 7));
+    expect(starfield(7, 100)).toEqual(starfield(7, 100));
   });
 
-  it("places every point inside the viewport", () => {
-    for (const point of starfield(300, 9)) {
-      expect(point.x).toBeGreaterThanOrEqual(0);
-      expect(point.x).toBeLessThanOrEqual(1);
-      expect(point.y).toBeGreaterThanOrEqual(0);
-      expect(point.y).toBeLessThanOrEqual(1);
+  it("places every star inside the viewport", () => {
+    for (const star of all) {
+      expect(star.x).toBeGreaterThanOrEqual(0);
+      expect(star.x).toBeLessThanOrEqual(1);
+      expect(star.y).toBeGreaterThanOrEqual(0);
+      expect(star.y).toBeLessThanOrEqual(1);
     }
   });
 
-  it("gives every point a visible radius", () => {
-    for (const point of starfield(300, 9)) {
-      expect(point.r).toBeGreaterThan(0);
+  // THE thing that makes a scatter of dots read as a sky, and the one this got
+  // wrong before: `random ** 6` spends most of its range near zero, so the
+  // field is dense overhead and thins toward the horizon.
+  it("crowds the stars toward the top", () => {
+    const high = all.filter((s) => s.y < 0.25).length;
+    expect(high).toBeGreaterThan(all.length * 0.5);
+  });
+
+  it("gives every star a visible radius and a usable alpha", () => {
+    for (const star of all) {
+      expect(star.r).toBeGreaterThan(0);
+      expect(star.alpha).toBeGreaterThan(0);
+      expect(star.alpha).toBeLessThanOrEqual(1);
     }
   });
 
-  // Weighted small on purpose: a field of evenly sized dots reads as a texture
-  // rather than as a sky. Most should be near the floor.
-  it("makes most stars small and a few not", () => {
-    const radii = starfield(500, 3).map((p) => p.r);
-    const small = radii.filter((r) => r < 1).length;
-    expect(small).toBeGreaterThan(radii.length / 2);
-    expect(Math.max(...radii)).toBeGreaterThan(1.5);
+  // Every star mixes between the author's two colours rather than taking one of
+  // three fixed tints, which is what keeps the canvas wearing their palette.
+  it("spreads the stars across both theme colours", () => {
+    expect(Math.min(...all.map((s) => s.tint))).toBeLessThan(0.1);
+    expect(Math.max(...all.map((s) => s.tint))).toBeGreaterThan(0.9);
   });
 
-  it("uses both theme colours", () => {
-    const tints = new Set(starfield(200, 5).map((p) => p.tint));
-    expect(tints).toEqual(new Set([0, 1]));
+  it("gives the near layer bigger stars than the far one", () => {
+    const mean = (l: (typeof layers)[number]) =>
+      l.stars.reduce((t, s) => t + s.r, 0) / l.stars.length;
+    expect(mean(layers[2]!)).toBeGreaterThan(mean(layers[0]!));
   });
 });
 
 describe("twinkle", () => {
-  it("stays between its floor and one", () => {
-    const [point] = starfield(1, 4);
-    for (let s = 0; s < 40; s += 0.37) {
-      const alpha = twinkle(point!, s);
-      expect(alpha).toBeGreaterThanOrEqual(0.25);
-      expect(alpha).toBeLessThanOrEqual(1);
-    }
-  });
+  const [layer] = starfield(4, 40);
 
-  // A star that blinks fully out reads as a rendering fault rather than a sky.
-  it("never goes dark", () => {
-    const points = starfield(50, 6);
-    for (const point of points) {
-      for (let s = 0; s < 10; s += 0.25) {
-        expect(twinkle(point, s)).toBeGreaterThan(0);
+  it("stays inside its clamps", () => {
+    for (const star of layer!.stars) {
+      for (let s = 0; s < 12; s += 0.37) {
+        const alpha = twinkle(star, s, 1);
+        expect(alpha).toBeGreaterThanOrEqual(0.004);
+        expect(alpha).toBeLessThanOrEqual(0.95);
       }
     }
   });
 
-  it("actually varies over time", () => {
-    const [point] = starfield(1, 8);
-    const samples = new Set(
-      [0, 0.5, 1, 1.5, 2].map((s) => twinkle(point!, s).toFixed(3)),
+  // Two oscillators at unrelated rates, not one. With a single sine every star
+  // shares the shape of its pulse and the whole field breathes in unison.
+  it("does not repeat on the twinkle period alone", () => {
+    const star = layer!.stars[0]!;
+    const period = (Math.PI * 2) / star.speed;
+    expect(twinkle(star, 0, 1)).not.toBeCloseTo(twinkle(star, period, 1), 3);
+  });
+
+  it("is brighter on a nearer layer", () => {
+    const star = layer!.stars[0]!;
+    expect(twinkle(star, 1.5, 1.14)).toBeGreaterThan(twinkle(star, 1.5, 0.74));
+  });
+});
+
+describe("shootingStars", () => {
+  const shots = shootingStars(3, 4, 14);
+
+  it("is identical for the same seed", () => {
+    expect(shootingStars(3, 4, 14)).toEqual(shots);
+  });
+
+  // Spread across the cycle rather than placed at random, so two streaks do not
+  // land together and leave the rest of the cycle empty.
+  it("spreads the streaks across the cycle", () => {
+    const times = shots.map((s) => s.at).sort((a, b) => a - b);
+    for (let i = 1; i < times.length; i += 1) {
+      expect(times[i]! - times[i - 1]!).toBeGreaterThan(1);
+    }
+  });
+
+  it("starts every streak in the upper part of the sky", () => {
+    for (const shot of shots) expect(shot.y).toBeLessThan(0.35);
+  });
+});
+
+describe("shotProgress", () => {
+  const [shot] = shootingStars(3, 1, 10);
+
+  it("reports nothing outside the flight", () => {
+    expect(shotProgress(shot!, shot!.at + shot!.ttl + 0.5, 10)).toBeNull();
+  });
+
+  it("runs from nothing to one across the flight", () => {
+    expect(shotProgress(shot!, shot!.at, 10)).toBeCloseTo(0, 5);
+    expect(shotProgress(shot!, shot!.at + shot!.ttl * 0.5, 10)).toBeCloseTo(
+      0.5,
+      5,
     );
-    expect(samples.size).toBeGreaterThan(1);
+  });
+
+  // The cycle repeats forever, and a negative modulo would make every streak
+  // vanish for the first cycle after load.
+  it("repeats on the next cycle and survives a time before the start", () => {
+    expect(shotProgress(shot!, shot!.at + 10, 10)).toBeCloseTo(0, 5);
+    expect(shotProgress(shot!, -5, 10)).not.toBeNaN();
   });
 });
 

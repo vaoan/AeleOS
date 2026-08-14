@@ -313,9 +313,24 @@ fixed template. A hostile value cannot become anything worse than no embed.
   whoever opened it is the thing people remember most fondly and least
   accurately about the pages this borrows from.
 
-There is **no CSP on the hub yet**, so the rebuild is currently the only layer.
-A `frame-src` allowlist would be genuine defence in depth and is worth adding —
-carefully, because Clerk's flows use frames and a wrong header breaks sign-in.
+**There is a second layer now.** `shared/domain/csp.ts` sets a
+Content-Security-Policy on every route whose `frame-src` is built from
+`PLAYER_ORIGINS` — so a frame can only ever point at a player this app can
+produce, even if the resolver were made to build something else. The two lists
+are pinned to each other by tests on both sides.
+
+Read that file before editing the policy. Two things about it are easy to get
+wrong and both fail quietly:
+
+- **Cloudflare Turnstile must stay in `frame-src`.** Clerk frames it for bot
+  protection, and without it the sign-in form renders with an empty box where
+  the challenge should be.
+- **`script-src` carries `'unsafe-inline'`**, because Next inlines its own
+  bootstrap. So the policy is **not** a defence against injected inline script,
+  and it must not be described as though it were. The parts that protect
+  something are `frame-src`, `object-src`, `base-uri`, `form-action` and
+  `frame-ancestors`, none of which depend on `script-src`. A nonce is the
+  upgrade, and its cost is that every page renders dynamically.
 
 ## Per-profile theming — built
 

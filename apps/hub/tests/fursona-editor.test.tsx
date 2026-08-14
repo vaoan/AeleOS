@@ -2,13 +2,14 @@ import {
   SECTION_TYPES,
   type SectionType,
 } from "@/features/actors/domain/section-schema";
+import { THEME_SCOPE } from "@/features/actors/domain/actor-theme";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
 let saving = false;
-// ImageField reaches for the browser Supabase client, which is Clerk-backed.
+// The editor reaches for the browser Supabase client, which is Clerk-backed.
 // These suites are about the fields, not about a session.
 vi.mock("@/shared/infrastructure/supabase-browser", () => ({
   useSupabaseBrowserClient: () => ({}),
@@ -78,6 +79,7 @@ const labels = {
     onDark: "On dark",
     adjusted: "As visitors see it",
     reset: "Reset",
+    usingDefault: "Default",
   },
   linkUrl: "Link address",
   linkUrlHint: "A video or music link plays here.",
@@ -115,8 +117,8 @@ const labels = {
  *
  * @param props - what to override.
  */
-function renderEditor(props: Record<string, unknown> = {}): void {
-  render(<FursonaEditor labels={labels} handleEditable {...props} />);
+function renderEditor(props: Record<string, unknown> = {}) {
+  return render(<FursonaEditor labels={labels} handleEditable {...props} />);
 }
 
 beforeEach(() => {
@@ -131,6 +133,20 @@ beforeEach(() => {
 });
 
 describe("FursonaEditor", () => {
+  // THE REGRESSION TEST for a live preview that previewed nothing. The theme
+  // configurator emitted its stylesheet scoped to a class no element in the app
+  // wore, so the rules were correct, present, and matched nothing — somebody
+  // dragging a colour watched the page refuse to move, with no error anywhere.
+  //
+  // This asserts the form wears the class the stylesheet targets. It is the
+  // level the fault lived at: every test of themeCss passed throughout, because
+  // that function was never the thing that was wrong.
+  it("wears the class its own theme rules are scoped to", () => {
+    const { container } = renderEditor();
+    const form = container.querySelector("form");
+    expect(form?.className.split(/\s+/)).toContain(THEME_SCOPE);
+  });
+
   it("shows the title in the toolbar", () => {
     renderEditor();
     expect(screen.getByText("New fursona")).toBeInTheDocument();
