@@ -14,6 +14,23 @@
  * the check is measuring the old design.
  */
 :root {
+  /*
+   * **What the browser paints its OWN surfaces with**, which is everything we
+   * do not draw: the inside of a `select`'s dropdown, scrollbars, spellcheck
+   * underlines, the canvas behind the page before the body paints.
+   *
+   * Without it every one of those stayed light while our text went near-white,
+   * and a dropdown in dark mode was white text on a white menu. Nothing in the
+   * app was wrong — the menu is drawn by the browser, and it had never been
+   * told which scheme this page is in.
+   *
+   * This is the mechanism rather than styling `option` directly: `option` has
+   * no colours of its own here, so the fix belongs where the ignorance is.
+   * Safari ignores `option` styling entirely and uses a native menu, which this
+   * reaches and a background-color would not.
+   */
+  color-scheme: light;
+
   --ink: oklch(0.27 0.045 35);
   --ink-2: oklch(0.45 0.045 30);
   --muted: oklch(0.5 0.045 30);
@@ -78,6 +95,10 @@
 }
 
 [data-theme="dark"] {
+  /* The other half. Set on the same attribute the tokens are, so the browser's
+   * surfaces and ours can never disagree about which scheme is in force. */
+  color-scheme: dark;
+
   --ink: oklch(0.96 0.012 340);
   --ink-2: oklch(0.8 0.03 330);
   --muted: oklch(0.66 0.03 330);
