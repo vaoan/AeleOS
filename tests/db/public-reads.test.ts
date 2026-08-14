@@ -341,12 +341,28 @@ describe("public_fursona", () => {
       expect((await readPerson(p.number)).rows).toHaveLength(0);
     });
 
-    it("hides a fursona of a private owner", async () => {
-      // The owner chose not to have a public profile; their address should not
-      // become a directory of their characters by another route.
+    // THIS ASSERTION WAS REVERSED IN 0015, DELIBERATELY. It used to require the
+    // owner's visibility to be public or unlisted, on the reasoning that a
+    // private person's address should not become a directory of their
+    // characters. That made a fursona's own `public` setting mean nothing: a
+    // person is provisioned `private`, there is no interface to change it, so
+    // every published fursona 404'd for a reason nobody could see or fix. The
+    // first end-to-end test that created one through the real editor and read
+    // it as a stranger failed on exactly this.
+    //
+    // A fursona's page obeys the FURSONA's visibility; the person's own profile
+    // still obeys theirs. The owner's STATUS gates both, because a sanction is
+    // not a preference.
+    it("serves a published fursona of a private owner", async () => {
       const p = await seedPerson({ visibility: "private" });
       const f = await seedFursona(p.personRef);
-      expect((await readFursona(p.number, f.handle)).rows).toHaveLength(0);
+      expect((await readFursona(p.number, f.handle)).rows).toHaveLength(1);
+    });
+
+    it("still hides that private owner's own profile", async () => {
+      const p = await seedPerson({ visibility: "private" });
+      await seedFursona(p.personRef);
+      expect((await readPerson(p.number)).rows).toHaveLength(0);
     });
 
     it("answers an unknown handle with no rows", async () => {

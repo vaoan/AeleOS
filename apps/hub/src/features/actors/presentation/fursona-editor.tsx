@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
+import { tid } from "@/shared/infrastructure/test-id";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
 import {
   EditorToolbar,
@@ -120,6 +121,11 @@ const editorSchema = fursonaSchema.extend({ sections: sectionsSchema });
  * both look up in `labels.errors`, and the person does not need to know which
  * came from where.
  *
+ * Exposes the `editor-handle`, `editor-display-name` and `editor-visibility`
+ * test ids. They exist because a signed-in end-to-end test can reach this page
+ * at last; the fields are addressed by test id rather than by label because a
+ * label is translated and the suite runs in Spanish.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -191,6 +197,7 @@ export function FursonaEditor({
             <>
               <input
                 id="handle"
+                {...tid("editor-handle")}
                 {...register("handle")}
                 maxLength={32}
                 aria-invalid={Boolean(errors.handle)}
@@ -217,6 +224,7 @@ export function FursonaEditor({
           </label>
           <input
             id="displayName"
+            {...tid("editor-display-name")}
             {...register("displayName")}
             maxLength={64}
             aria-invalid={Boolean(errors.displayName)}
@@ -243,6 +251,7 @@ export function FursonaEditor({
           </label>
           <select
             id="visibility"
+            {...tid("editor-visibility")}
             {...register("visibility")}
             aria-invalid={Boolean(errors.visibility)}
             className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-2"

@@ -19,6 +19,7 @@ export {
   FursonaLimitError,
   type Actor,
 } from "@/features/actors/infrastructure/fursonas";
+export { readMyAddress } from "@/features/actors/infrastructure/my-address";
 export {
   uploadActorImage,
   removeActorImages,

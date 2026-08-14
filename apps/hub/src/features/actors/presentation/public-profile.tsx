@@ -1,3 +1,4 @@
+import { tid } from "@/shared/infrastructure/test-id";
 import type { PublicActor } from "@/features/actors/infrastructure/public-actors";
 import { FursonaCardList } from "@/features/actors/presentation/fursona-card-list";
 import { PublicSections } from "@/features/actors/presentation/public-sections";
@@ -30,6 +31,10 @@ export interface PublicProfileProps {
  * them in a component would be a second copy free to drift from the one the
  * database enforces.
  *
+ * Exposes the `public-actor-name` test id. The signed-in end-to-end suite
+ * asserts on it after creating a fursona — its text is the person's own words,
+ * not a translated string, so checking it is meaningful in either language.
+ *
  * @returns the page.
  */
 export function PublicProfile({
@@ -51,7 +56,10 @@ export function PublicProfile({
           <span className="size-20 shrink-0 rounded-full border border-dashed border-[var(--edge)]" />
         )}
         <div className="grid gap-1">
-          <h1 className="font-display text-2xl font-bold tracking-tight">
+          <h1
+            className="font-display text-2xl font-bold tracking-tight"
+            {...tid("public-actor-name")}
+          >
             {actor.displayName ?? actor.handle}
           </h1>
           <p className="font-mono text-sm text-[var(--muted)]">

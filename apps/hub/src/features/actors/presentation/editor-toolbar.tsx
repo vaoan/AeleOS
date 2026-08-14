@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, X } from "lucide-react";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** Translated strings {@link EditorToolbar} renders. */
 export interface EditorToolbarLabels {
@@ -38,6 +39,9 @@ export interface EditorToolbarProps {
  * second one reaches `create_fursona` and comes back "handle already yours" —
  * a baffling error about a fursona that was just created successfully.
  *
+ * Exposes the `editor-save` test id, so the signed-in end-to-end suite can
+ * submit the form without depending on the button's translated label.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -62,6 +66,7 @@ export function EditorToolbar({
         </button>
         <button
           type="submit"
+          {...tid("editor-save")}
           disabled={saving}
           className="flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--on-accent)] disabled:opacity-60"
         >

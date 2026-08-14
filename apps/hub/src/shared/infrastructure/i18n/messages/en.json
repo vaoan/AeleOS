@@ -24,7 +24,11 @@
     "platformIdHint": "This ID is the same in every Furry Colombia app.",
     "empty": "—",
     "signOut": "Sign out",
-    "fursonasLink": "Your fursonas"
+    "fursonasLink": "Your fursonas",
+    "address": "Your address",
+    "addressHint": "This is where your public profile lives. Share it, or open it to see what others see.",
+    "addressEmpty": "Not available.",
+    "viewProfile": "Open your public profile"
   },
   "fursonas": {
     "title": "Your fursonas",

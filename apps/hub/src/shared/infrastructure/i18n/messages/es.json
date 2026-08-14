@@ -24,7 +24,11 @@
     "platformIdHint": "Este identificador es el mismo en todas las apps de Furry Colombia.",
     "empty": "—",
     "signOut": "Cerrar sesión",
-    "fursonasLink": "Tus fursonas"
+    "fursonasLink": "Tus fursonas",
+    "address": "Tu dirección",
+    "addressHint": "Aquí vive tu perfil público. Compártela, o ábrela para ver lo que ven los demás.",
+    "addressEmpty": "No disponible.",
+    "viewProfile": "Abre tu perfil público"
   },
   "fursonas": {
     "title": "Tus fursonas",

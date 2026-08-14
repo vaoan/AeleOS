@@ -70,4 +70,57 @@ test.describe("signed in", () => {
     await expect(page.getByTestId("fursonas-title")).toBeVisible();
     await expect(page.getByTestId("fursonas-create")).toBeVisible();
   });
+
+  // THE ONE THAT PROVES THE TWO HALVES MEET.
+  //
+  // Every phase until now could say the rules were right (tests/db, against a
+  // real Postgres) or that the plumbing was right (the anonymous suites), but
+  // nothing had ever shown somebody's actual page rendering from something
+  // somebody actually made. This signs in, creates a public fursona through the
+  // real editor, then reads it back as a stranger would.
+  //
+  // The address comes from /me rather than from the database, because that is
+  // the only way a person can learn it — and if that surface ever broke, this
+  // test would fail for the same reason a real person would be stuck.
+  test("a fursona somebody creates is readable by a stranger", async ({
+    page,
+    browser,
+  }) => {
+    await signIn(page, await mintTicket(identity!.userId));
+
+    await page.goto("/es/me");
+    const address = (await page.getByTestId("my-address").innerText()).trim();
+    expect(address).not.toBe("");
+
+    const handle = `e2e${Date.now().toString().slice(-9)}`;
+    await page.goto("/es/fursonas/new");
+    await page.getByTestId("editor-handle").fill(handle);
+    await page.getByTestId("editor-display-name").fill("End To End");
+    await page.getByTestId("editor-visibility").selectOption("public");
+    await page.getByTestId("editor-save").click();
+
+    // The editor navigates to the list only when the save was accepted, so
+    // arriving there IS the assertion that the write went through.
+    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+
+    // A genuinely separate browser context: no session, no cookies, nothing
+    // carried over. Reading it in the signed-in page would prove only that the
+    // owner can see their own work, which was never in doubt.
+    const stranger = await browser.newContext();
+    try {
+      const anonymous = await stranger.newPage();
+      const response = await anonymous.goto(`/es/${address}/${handle}`);
+
+      // The identity proof is the URL, not the rendered copy. Both halves of
+      // `/{address}/{handle}` were produced by this test — the address read off
+      // /me, the handle typed into the editor — so a 200 here can only be the
+      // fursona just created. Asserting the display name instead would assert
+      // text, which the lint rule rightly forbids because it cannot tell a
+      // person's own words from a translated string.
+      expect(response?.status()).toBe(200);
+      await expect(anonymous.getByTestId("public-actor-name")).toBeVisible();
+    } finally {
+      await stranger.close();
+    }
+  });
 });
