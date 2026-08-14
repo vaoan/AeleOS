@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { SKIN_SCOPE } from "@/shared/domain/skins";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
@@ -37,6 +38,27 @@ async function renderShell(width?: "column" | "wide"): Promise<HTMLElement> {
 }
 
 describe("PageShell width", () => {
+  // **THE REGRESSION TEST for a style that styles nothing.** A skin is emitted
+  // as a rule scoped to this class, so an element that does not wear it means
+  // somebody picks a style, the stylesheet updates, and the page does not move
+  // — with nothing anywhere to tell them why. That exact fault has happened
+  // once already, and every test of the rule passed throughout it, because the
+  // rule was never the thing that was wrong.
+  //
+  // It is asserted on `PageShell` rather than on each page: the class is set
+  // here so that a new page cannot forget it.
+  it("wears the class a skin is scoped to", async () => {
+    const main = await renderShell();
+    expect(main.className.split(/\s+/)).toContain(SKIN_SCOPE);
+  });
+
+  // The other half. A skin stops at this element, so the header must be OUTSIDE
+  // it: the language and theme toggles live up there, and a control that
+  // changes shape on somebody else's page is harder to recognise as one.
+  it("leaves the app's own bar outside it", async () => {
+    const main = await renderShell();
+    expect(main.querySelector("header")).toBeNull();
+  });
   it("holds the page to the reading column by default", async () => {
     const main = await renderShell();
     expect(main.className).toContain("max-w-[620px]");

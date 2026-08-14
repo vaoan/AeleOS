@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { SKIN_SCOPE } from "@/shared/domain/skins";
 import type { ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { cn } from "@/shared/infrastructure/cn";
@@ -94,6 +95,16 @@ export interface PageShellProps {
  * and they read as one group on the left, opposite the settings on the right.
  * Where the wordmark points is the caller's business — see `homeHref`.
  *
+ * **The content column carries `SKIN_SCOPE`, and that is where a skin stops.**
+ * A page's owner restyles their own content; the bar keeps the app's shape,
+ * because the language and theme toggles live there and a control that changes
+ * form on somebody else's page is harder to recognise as one. The COLOURS are
+ * not scoped this way and cannot be — they have to reach the canvas and the
+ * field, both mounted outside this element.
+ *
+ * It is set here rather than by each page, so a new page cannot forget it and
+ * silently give somebody a style that does nothing.
+ *
  * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
  * suite selects by. The wordmark itself is a literal rather than a catalogue
  * entry because a proper noun reads the same in every language.
@@ -163,7 +174,18 @@ export async function PageShell({
           field instead of clinging to the header with a third of the window
           empty beneath it, without turning into a different layout. */}
       <main
+        // **`SKIN_SCOPE` is where a skin stops.** A page's owner restyles
+        // their own content; the bar above keeps the app's shape, because the
+        // language and theme toggles live there and a control that changes
+        // form on somebody else's page is harder to recognise as one. The
+        // colours are not scoped this way and cannot be — they have to reach
+        // the canvas and the field, which are mounted outside this element.
+        //
+        // Set here rather than on each page: a per-page class is one somebody
+        // forgets on the next page, and the failure is a page whose owner
+        // picked a style that silently did nothing.
         className={cn(
+          SKIN_SCOPE,
           "mx-auto flex w-full flex-1 flex-col px-6 py-10",
           width === "wide" ? "max-w-7xl" : "max-w-[620px] justify-center",
         )}

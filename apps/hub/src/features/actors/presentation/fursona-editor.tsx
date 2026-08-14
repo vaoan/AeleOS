@@ -21,7 +21,6 @@ import {
 } from "@/features/actors/presentation/theme-configurator";
 import {
   DEFAULT_THEME,
-  THEME_SCOPE,
   themeSchema,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
@@ -153,10 +152,14 @@ const editorSchema = fursonaSchema.extend({
  * both look up in `labels.errors`, and the person does not need to know which
  * came from where.
  *
- * **The form wears the theme's scope class**, which is what makes the live
- * preview visible at all. It shipped without it: the configurator emitted rules
- * for a selector nothing in the tree wore, so colours changed, the stylesheet
- * updated, and the page did not move.
+ * **The form no longer carries a scope class of its own.** It did, and that
+ * class was what made the live preview visible at all after the preview shipped
+ * scoped to a selector nothing in the tree wore — colours changed, the
+ * stylesheet updated, and the page did not move. The colours then moved to
+ * `:root`, which left the class matched by nothing; a skin needs a boundary
+ * again, and that boundary is `SKIN_SCOPE` on `PageShell`'s content element,
+ * which this form renders inside. A second copy here would be exactly the
+ * drift the original fault was made of.
  *
  * **The theme panel sits above the sections**, because it governs how all of
  * them look, and it is collapsed until somebody opens it — theming is a thing
@@ -218,10 +221,6 @@ export function FursonaEditor({
 
   return (
     <form
-      // The theme's own scope class. Without it the configurator emits rules
-      // for a selector nothing wears, which is precisely the state this shipped
-      // in: colours changed, the stylesheet updated, and the page did not move.
-      className={THEME_SCOPE}
       onSubmit={handleSubmit(async (values) => {
         // The RETURN VALUE decides, never `fieldErrors`. That variable is
         // captured from the render that built this handler, so it is still

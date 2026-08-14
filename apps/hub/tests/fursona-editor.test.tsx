@@ -2,7 +2,6 @@ import {
   SECTION_TYPES,
   type SectionType,
 } from "@/features/actors/domain/section-schema";
-import { THEME_SCOPE } from "@/features/actors/domain/actor-theme";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
@@ -154,20 +153,14 @@ beforeEach(() => {
 });
 
 describe("FursonaEditor", () => {
-  // THE REGRESSION TEST for a live preview that previewed nothing. The theme
-  // configurator emitted its stylesheet scoped to a class no element in the app
-  // wore, so the rules were correct, present, and matched nothing — somebody
-  // dragging a colour watched the page refuse to move, with no error anywhere.
+  // The class a theme's rules are scoped to used to be asserted here, because
+  // the live preview once emitted a stylesheet scoped to a class no element in
+  // the app wore: the rules were correct, present, and matched nothing.
   //
-  // This asserts the form wears the class the stylesheet targets. It is the
-  // level the fault lived at: every test of themeCss passed throughout, because
-  // that function was never the thing that was wrong.
-  it("wears the class its own theme rules are scoped to", () => {
-    const { container } = renderEditor();
-    const form = container.querySelector("form");
-    expect(form?.className.split(/\s+/)).toContain(THEME_SCOPE);
-  });
-
+  // It moved to `PageShell`'s content element, which is where `SKIN_SCOPE` now
+  // lives and where `page-shell.test.tsx` pins it. The editor renders inside
+  // that element, so carrying a second copy of the class would be the drift the
+  // original fault was made of.
   it("shows the title in the toolbar", () => {
     renderEditor();
     expect(screen.getByText("New fursona")).toBeInTheDocument();

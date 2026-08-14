@@ -5,6 +5,7 @@ import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   DEFAULT_SKIN,
   SKINS,
+  SKIN_SCOPE,
   skinVars,
   type SkinId,
 } from "@/shared/domain/skins";
@@ -312,17 +313,6 @@ export function parseTheme(value: unknown): ActorTheme {
 }
 
 /**
- * The class an actor's theme is scoped to.
- *
- * **One constant, used by both the public page and the editor's live preview.**
- * They were two separate strings, and the editor's was a class NO element in
- * the tree ever wore — so the preview emitted a stylesheet that matched nothing
- * and a person dragging a colour saw their page not change. A shared name is
- * the only version of this that cannot drift into that state again.
- */
-export const THEME_SCOPE = "actor-theme";
-
-/**
  * The theme, as the editor's form holds it.
  *
  * The canvas colours are a list of strings, and the cursor a string, both
@@ -495,11 +485,16 @@ export function isCustomised(theme: ActorTheme): boolean {
  * something only while there were two of them. A slot whose value cannot be read
  * emits nothing rather than a property full of `NaN`.
  *
- * The skin arrives as the custom properties it overrides rather than as its
- * name, so nothing downstream has to know what a skin is: the page reads
- * `--skin-round` and `--skin-shadow` the same way it reads `--accent`. `default`
- * contributes nothing, which is why a page nobody has styled still emits no rule
- * at all.
+ * **The skin is NOT here.** `themeCss` emits it separately, scoped to the
+ * person's own content — see `SKIN_SCOPE`. Everything this returns belongs at
+ * the document root, because it has to reach the canvas and the field, which
+ * are mounted outside any element a page can wrap.
+ *
+ * A skin and a palette write disjoint properties, and `skins.test.ts` keeps
+ * them so. That mattered more when the two shared a rule and matters still: a
+ * name in both would now be split across two scopes, where the inner one wins
+ * for everything inside it and the outer one for the canvas — the same value
+ * rendering differently in two halves of one page.
  *
  * `none` travels as the canvas's NAME rather than as an opacity of zero. The
  * opacity route silently did nothing — the canvas rejects a non-positive value
@@ -531,17 +526,6 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
 
   return {
     ...canvas,
-    // **A skin and a palette write disjoint properties, and a test keeps it
-    // that way.** They are spread into one object, so a name in both would let
-    // whichever came second win silently — and the loser would be a colour its
-    // author picked. Nothing here can enforce that; `skins.test.ts` compares
-    // the two sets, because the order these appear in is not the guarantee it
-    // looks like.
-    //
-    // A skin reaches the author's colours only through `--surface-solid` and
-    // `--bar-solid`, which it composes into `--surface` and `--bar` — an alpha
-    // change, never a hue.
-    ...skinVars(theme.skin),
     ...(theme.background
       ? derivePalette(theme.background, theme.accent ?? THEME_SEEDS.accent)
       : {}),
@@ -587,21 +571,27 @@ export function accentPreview(accentHex: string, background: Gradient): string {
 /**
  * A theme as CSS.
  *
- * **One rule at `:root`, and no media queries at all.** Both of those are
- * consequences of a theme being one palette. It used to emit three selectors
- * per scope so the reader's light or dark choice could pick between two
- * renderings; there is only one rendering now, so there is nothing to pick
- * between.
+ * **Two rules, and no media queries at all.** The media queries went when a
+ * theme became one palette: it used to emit three selectors per scope so the
+ * reader's light or dark choice could pick between two renderings, and there is
+ * only one rendering now.
+ *
+ * The two rules are the colours and the skin, and they are separate because
+ * they reach different things — the comment on the return says which and why.
+ * Both carry the same gate on the visitor's choice, so leaving the theme leaves
+ * all of it. Either may be empty, and a theme overriding nothing produces the
+ * empty string, which is what lets `ThemeScope` render no element at all.
  *
  * **The rule is gated on the visitor's own choice.** A page wears its owner's
  * colours by default and a visitor may take them off — see `page-theme.ts` for
  * why that lives on its own attribute rather than as a third value of the
  * light/dark one.
  *
- * `:root` rather than a scoped class because a theme is the whole page: the
- * field the body paints, and the canvas mounted in the root layout, are both
- * outside anything a page could scope to. Scoping the earlier version to a
- * nested element is exactly why its colours reached neither.
+ * `:root` for the COLOURS rather than a scoped class, because those are the
+ * whole page: the field the body paints, and the canvas mounted in the root
+ * layout, are both outside anything a page could scope to. Scoping an earlier
+ * version to a nested element is exactly why its colours reached neither — so
+ * do not "tidy" the colours into the skin's selector.
  *
  * **Every value interpolated here is generated, never stored.** `themeVars`
  * builds them out of numbers, and the canvas name comes from a fixed list, so
@@ -613,13 +603,31 @@ export function accentPreview(accentHex: string, background: Gradient): string {
  * @returns the CSS text, or empty when the theme overrides nothing.
  */
 export function themeCss(theme: ActorTheme): string {
-  const body = Object.entries(themeVars(theme))
-    .map(([name, value]) => `${name}:${value}`)
-    .join(";");
   // `:not([data-page-theme="default"])` rather than `[data-page-theme="author"]`,
   // and the difference is what a visitor with no JavaScript sees. The attribute
   // is written by a pre-paint script; matching on its ABSENCE as well as on
   // "author" means a page still wears its owner's colours when that script
   // never ran, and only an explicit opt-out takes them off.
-  return body ? `:root:not([data-page-theme="default"]){${body}}` : "";
+  const gate = `:root:not([data-page-theme="default"])`;
+  const declarations = (properties: Record<string, string>) =>
+    Object.entries(properties)
+      .map(([name, value]) => `${name}:${value}`)
+      .join(";");
+
+  const root = declarations(themeVars(theme));
+  const skin = declarations(skinVars(theme.skin));
+  return [
+    root ? `${gate}{${root}}` : "",
+    // **Two selectors, because the two halves reach different things.** Colour
+    // has to reach the canvas and the field, which are mounted outside anything
+    // a page can wrap, so it goes to the root. A skin only ever restyles
+    // surfaces, and every surface is inside the person's own content — so it
+    // stops there, and the bar above keeps the app's own shape. The visitor's
+    // language and theme controls live in that bar, and a control that changes
+    // form on somebody else's page is harder to recognise as one.
+    //
+    // Both carry the same gate, so taking the theme off takes the style with
+    // it rather than leaving a page half in each.
+    skin ? `${gate} .${SKIN_SCOPE}{${skin}}` : "",
+  ].join("");
 }

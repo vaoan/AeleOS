@@ -382,18 +382,45 @@ describe("the skin", () => {
     expect(Object.keys(vars).filter((k) => k.startsWith("--skin"))).toEqual([]);
   });
 
+  // Asserted on the CSS rather than on `themeVars`, which no longer carries
+  // it: the skin is emitted at its own scope, so the stylesheet is the only
+  // place the two halves are visible together.
   it("travels as the properties it overrides, not as its name", () => {
-    const vars = themeVars({ ...DEFAULT_THEME, skin: "neobrutalism" });
-    expect(vars["--skin-round"]).toBe("0");
-    expect(vars["--skin-border"]).toBe("3px");
-    expect(Object.values(vars)).not.toContain("neobrutalism");
+    const css = themeCss({ ...DEFAULT_THEME, skin: "neobrutalism" });
+    expect(css).toContain("--skin-round:0");
+    expect(css).toContain("--skin-border:3px");
+    expect(css).not.toContain("neobrutalism");
+  });
+
+  // **The skin stops at the person's own content and the colours do not.** The
+  // colours have to reach the canvas and the field, both mounted outside
+  // anything a page can wrap; a skin only ever restyles surfaces, and every
+  // surface is inside that element. Emitting them at one scope would either
+  // restyle the app's own bar or leave the canvas uncoloured.
+  it("is scoped to the content while the colours are not", () => {
+    const css = themeCss({
+      ...DEFAULT_THEME,
+      skin: "neobrutalism",
+      background: flat("#1a1a2e"),
+    });
+    expect(css).toContain(`:root:not([data-page-theme="default"]){--`);
+    expect(css).toContain(
+      `:root:not([data-page-theme="default"]) .actor-skin{`,
+    );
+    // The gate is on both, so leaving the theme leaves all of it rather than
+    // half.
+    expect(css.split(`data-page-theme="default"`)).toHaveLength(3);
   });
 
   // A page with a style and no colours still has something for a visitor to
   // take off, so the rule has to be emitted.
   it("is enough on its own to produce a rule", () => {
-    expect(themeCss({ ...DEFAULT_THEME, skin: "glass" })).toContain(
-      "--skin-round",
+    const css = themeCss({ ...DEFAULT_THEME, skin: "glass" });
+    expect(css).toContain("--skin-round");
+    // And ONLY the scoped rule: there is no colour to put at the root, so an
+    // empty one would be a selector with nothing in it.
+    expect(css.startsWith(`:root:not([data-page-theme="default"]) .`)).toBe(
+      true,
     );
   });
 
@@ -404,13 +431,13 @@ describe("the skin", () => {
   // not the guarantee it looks like, since a collision would simply be won by
   // whichever came second.
   it("lowers a surface's alpha without touching the palette's colour", () => {
-    const vars = themeVars({
+    const css = themeCss({
       ...DEFAULT_THEME,
       skin: "glass",
       background: flat("#1a1a2e"),
     });
-    expect(vars["--surface-solid"]).toMatch(/^oklch\(/);
-    expect(vars["--surface"]).toContain("var(--surface-solid)");
+    expect(css).toContain("--surface-solid:oklch(");
+    expect(css).toContain("--surface:color-mix(in oklab, var(--surface-solid)");
   });
 });
 

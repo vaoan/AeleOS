@@ -288,15 +288,29 @@ button:disabled,
   box-shadow: var(--skin-shadow);
 }
 
+/*
+ * The person's own content, and the only thing a skin restyles.
+ *
+ * The class name is `SKIN_SCOPE` in `skins.ts`; `skins.test.ts` pins the two
+ * together, because a class in a stylesheet and a class on an element have
+ * drifted apart here once already — leaving an element wearing a name no rule
+ * matched, which is invisible in every test that only reads the rule.
+ *
+ * The face is read here rather than on `body` so a skin's font stops at the
+ * same boundary everything else about it does. Its default is the design's own,
+ * so an unskinned page is unchanged.
+ */
+.actor-skin {
+  font-family: var(--skin-font), system-ui, sans-serif;
+}
+
 body {
   background: var(--field);
   /* Fixed, so the gradient is the window's rather than the document's: a long
    * page must not scroll the star out of the sky. */
   background-attachment: fixed;
   color: var(--ink);
-  /* `--skin-font` is `--font-sans` until a skin says otherwise; the fallbacks
-   * stay because a face that fails to load is still a face that fails to load. */
-  font-family: var(--skin-font), system-ui, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 /*

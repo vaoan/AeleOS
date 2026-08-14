@@ -34,6 +34,27 @@ export const SKINS = [
   "retro",
 ] as const;
 
+/**
+ * The class marking the part of a page a skin may restyle.
+ *
+ * **A skin stops at the person's own content.** The AeleOS bar above it — the
+ * wordmark, the language and theme toggles, the star — keeps the app's own
+ * shape, because those are the visitor's controls and a control that changes
+ * form on somebody else's page is harder to recognise as one.
+ *
+ * That boundary is available to a skin and was NOT available to the colours,
+ * which is why the two are emitted at different scopes rather than together.
+ * Colour has to reach the canvas and the field, both mounted outside anything a
+ * page can wrap; corners and shadows only ever apply to surfaces, and every
+ * surface is inside this element.
+ *
+ * It lives here rather than in the actors feature because `PageShell` puts it
+ * on the page and `shared/` may not import a feature. One constant, used by the
+ * element and by the rule — the pair drifted apart once already, leaving a
+ * class on an element that no rule matched.
+ */
+export const SKIN_SCOPE = "actor-skin";
+
 /** One of the skins. */
 export type SkinId = (typeof SKINS)[number];
 

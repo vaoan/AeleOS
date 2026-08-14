@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { derivePalette } from "@/shared/domain/palette";
 import {
   DEFAULT_SKIN,
+  SKIN_SCOPE,
   SKINS,
   skinVars,
   type SkinId,
@@ -107,6 +108,15 @@ describe("the skins", () => {
         .map((name) => `${skin} overrides ${name}`);
       expect(clash).toEqual([]);
     }
+  });
+
+  // **A class on an element and a class in a stylesheet have drifted apart
+  // here once already**, leaving an element wearing a name no rule matched.
+  // That is invisible to every test that only reads the rule, so the two are
+  // pinned to each other from both ends: this checks the stylesheet, and
+  // `page-shell.test.tsx` checks the element.
+  it("is the class the stylesheet gives the content's own face to", () => {
+    expect(GLOBALS).toContain(`.${SKIN_SCOPE} {`);
   });
 
   // The other direction: a token declared and never reachable is a knob nobody

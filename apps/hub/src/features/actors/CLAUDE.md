@@ -392,10 +392,14 @@ decisions, so they are not quietly undone:
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once
   depended on which mode they happened to be editing in.
-- **The emitted CSS is one rule at `:root`.** A theme is the whole page — the
-  field the body paints and the canvas in the root layout are both outside
-  anything a page could scope to. Scoping to a nested element is exactly why an
-  earlier version reached neither.
+- **The emitted CSS is two rules, and the split is deliberate.** The COLOURS go
+  to `:root`, because a palette is the whole page — the field the body paints
+  and the canvas in the root layout are both outside anything a page could
+  scope to, and scoping to a nested element is exactly why an earlier version
+  reached neither. The SKIN goes to `SKIN_SCOPE`, the person's own content,
+  because a skin only ever restyles surfaces and every surface is inside it.
+  Both carry the same gate on the visitor's choice, so leaving the theme leaves
+  all of it. Do not tidy the colours into the skin's selector.
 
 ### How a visitor gets out
 
@@ -457,7 +461,23 @@ Four things about it that a later change must not undo:
   `border-2` are untouched — the header's underline stays an underline. The
   companion `:not([class*="shadow"])` leaves alone the one card that names its
   own shadow, without which shipping skins would have restyled a page nobody
-  skinned.
+  skinned. **The rule itself is global and needs no scope**: the tokens it reads
+  are only overridden inside `SKIN_SCOPE`, so everything above that element
+  inherits the design's own values. Scoping the rule as well would be a second
+  place to keep in step.
+
+- **A skin stops at the person's own content, and that boundary is `SKIN_SCOPE`
+  on `PageShell`'s `<main>`.** The bar above keeps the app's shape, because the
+  language and theme toggles live there and a control that changes form on
+  somebody else's page is harder to recognise as one. The class is set once, in
+  the shell, so a new page cannot forget it — and it is pinned from both ends,
+  by `skins.test.ts` reading the stylesheet and `page-shell.test.tsx` reading
+  the element. That pair has drifted apart here once already, leaving an element
+  wearing a class no rule matched, which is invisible to any test that only
+  reads the rule.
+
+  `THEME_SCOPE` was that casualty and is gone. It was a class on the editor's
+  form that nothing had matched since the colours moved to `:root`.
 
 A skin is **not** nullable, unlike every colour: `default` is a real skin whose
 overrides are empty, so it expresses "nothing chosen" without a null. A colour
