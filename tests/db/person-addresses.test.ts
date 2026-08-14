@@ -231,3 +231,77 @@ describe("person_addresses", () => {
     expect(await addressesOf(personRef)).toHaveLength(0);
   });
 });
+
+describe("the trigger that assigns a person's number", () => {
+  // **The invariant the old arrangement did not have.** The number used to be
+  // written inside `ensure_person_actor`, so it only reached actors created
+  // through that one function — any other path made a person with no address
+  // and therefore no public page. It belongs to the table now.
+  it("gives a number to a person actor inserted directly", async () => {
+    const ref = randomUUID();
+    await admin()
+      .from("actors")
+      .insert({
+        actor_ref: ref,
+        kind: "person",
+        identity_sub: `user_${ref.slice(0, 8)}`,
+        handle: `u-${ref.replace(/-/g, "")}`,
+      });
+
+    const rows = await addressesOf(ref);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.kind).toBe("number");
+    expect(rows[0]?.address).toMatch(/^\d+$/);
+  });
+
+  // A fursona has no address of its own — it is reached through its owner's.
+  it("gives a fursona nothing", async () => {
+    const owner = randomUUID();
+    await admin()
+      .from("actors")
+      .insert({
+        actor_ref: owner,
+        kind: "person",
+        identity_sub: `user_${owner.slice(0, 8)}`,
+        handle: `u-${owner.replace(/-/g, "")}`,
+      });
+
+    const sona = randomUUID();
+    await admin()
+      .from("actors")
+      .insert({
+        actor_ref: sona,
+        kind: "fursona",
+        owner_ref: owner,
+        handle: `s-${sona.slice(0, 8)}`,
+      });
+
+    expect(await addressesOf(sona)).toHaveLength(0);
+  });
+
+  // **The reason this is a trigger rather than a guarded insert.** Provisioning
+  // runs on every sign-in and inserts `on conflict do nothing`; `nextval` in a
+  // values list is evaluated BEFORE the conflict is detected, so the guarded
+  // form spent a number on every sign-in anybody ever made. An `after insert`
+  // trigger never fires on the conflict path at all.
+  //
+  // Gaps are harmless in a sequence nobody reads. They are not harmless when
+  // #7 is supposed to mean the seventh person here.
+  it("spends no number when a sign-in provisions nothing new", async () => {
+    const sub = newSub();
+    const c = await clientAs(sub);
+    await c.rpc("ensure_person_actor");
+
+    const before = await admin()
+      .from("person_addresses")
+      .select("address", { count: "exact", head: true });
+
+    await c.rpc("ensure_person_actor");
+    await c.rpc("ensure_person_actor");
+
+    const after = await admin()
+      .from("person_addresses")
+      .select("address", { count: "exact", head: true });
+    expect(after.count).toBe(before.count);
+  });
+});

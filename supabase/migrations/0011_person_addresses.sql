@@ -93,71 +93,63 @@ revoke all on public.person_addresses from public, anon, authenticated;
 grant select, insert, update, delete on public.person_addresses to service_role;
 
 -- ---------------------------------------------------------------------------
--- Provisioning writes the number.
+-- Every person actor gets a number.
 --
--- This restates `0006_provisioning.sql`, which is the ONLY definition of
--- `ensure_person_actor` — the consolidation on 2026-08-13 exists so that
--- sentence can be true. Under the old layout the newest body sat in a file
--- named "suspension hardening" and copying from the file that created the
--- function would have silently reverted its fix. Check that property still
--- holds before you replace anything else.
+-- **A person's number is assigned by a TRIGGER, not by the provisioning
+-- function.** This file used to redefine `ensure_person_actor` to append an
+-- address insert, which left that function defined in two migrations — the one
+-- thing the consolidation exists to prevent, and the arrangement in which the
+-- newest body of a function sits in a file named after something else.
 --
--- Everything below is that body unchanged, plus the address insert.
+-- The trigger is better than folding the two definitions together, for reasons
+-- that have nothing to do with tidiness:
 --
--- The insert is guarded for the same reason the actor insert is `on conflict do
--- nothing`: this runs on EVERY sign-in, not only the first.
+--   * **A number is burned exactly once per person, structurally.**
+--     `ensure_person_actor` runs on EVERY sign-in and inserts `on conflict do
+--     nothing`, so the address insert had to be guarded by `if not exists` —
+--     because `nextval` in a values list is evaluated BEFORE the conflict is
+--     detected and would otherwise spend a number on every sign-in anybody ever
+--     made. An `after insert` trigger fires only when a row was actually
+--     inserted, so the conflict path never reaches it and the guard becomes
+--     unnecessary rather than merely correct. Gaps are harmless in a sequence
+--     nobody reads; they are not harmless when #7 is supposed to mean the
+--     seventh person here.
 --
--- The guard is an `if not exists` rather than `on conflict do nothing` because
--- `nextval` in a values list is evaluated BEFORE the conflict is detected, so
--- the conflict form would burn a number on every sign-in anybody ever makes.
--- Gaps are harmless in a sequence nobody reads; they are not harmless when the
--- numbers are the point and #7 is supposed to mean the seventh person.
-create or replace function public.ensure_person_actor()
-returns uuid
+--   * **Every person actor gets a number, however it was made.** The guarded
+--     version only ran for actors created through that one function, so any
+--     other path — a service-role insert, a future admin tool, a fixture — made
+--     a person with no address and therefore no public page. The invariant now
+--     belongs to the table rather than to one of its writers.
+--
+-- `security definer` because the trigger writes `person_addresses`, which no
+-- client role may write. That does not weaken the rule that only `service_role`
+-- writes an address: a client cannot insert into `actors` at all, so the only
+-- things that can fire this are the definer functions and `service_role`
+-- itself.
+create or replace function public.assign_person_number()
+returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_sub     text := auth.jwt() ->> 'sub';
-  v_derived uuid;
-  v_ref     uuid;
 begin
-  if v_sub is null then
-    raise exception 'no authenticated subject';
-  end if;
-
-  v_derived := public.person_actor_ref(v_sub);
-
-  insert into public.actors (actor_ref, kind, identity_sub, handle)
-  values (v_derived, 'person', v_sub, 'u-' || replace(v_derived::text, '-', ''))
-  on conflict (identity_sub) do nothing
-  returning actor_ref into v_ref;
-
-  -- `do nothing` produces no RETURNING row, so on the conflict path read the
-  -- row that actually exists. The stored value is authoritative; the derived
-  -- one is only a default for rows we create ourselves.
-  if v_ref is null then
-    select a.actor_ref
-      into v_ref
-      from public.actors a
-     where a.identity_sub = v_sub
-       and a.kind = 'person';
-  end if;
-
-  if not exists (
-    select 1
-      from public.person_addresses
-     where actor_ref = v_ref
-       and kind = 'number'
-  ) then
-    insert into public.person_addresses (address, actor_ref, kind)
-    values (nextval('public.person_number_seq')::text, v_ref, 'number');
-  end if;
-
-  return v_ref;
+  insert into public.person_addresses (address, actor_ref, kind)
+  values (nextval('public.person_number_seq')::text, new.actor_ref, 'number');
+  return new;
 end;
 $$;
+
+revoke all on function public.assign_person_number() from public, anon;
+
+-- `when (new.kind = 'person')` rather than a test inside the body: a fursona
+-- insert then does not call the function at all, which is both cheaper and
+-- clearer about what the rule is.
+drop trigger if exists assign_person_number on public.actors;
+create trigger assign_person_number
+  after insert on public.actors
+  for each row
+  when (new.kind = 'person')
+  execute function public.assign_person_number();
 
 -- No grant needed: `create or replace function` preserves the ACL, so the
 -- `grant execute … to authenticated` in `0010_client_grants.sql` still stands.

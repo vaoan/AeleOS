@@ -99,7 +99,7 @@ packages:
 ## What does not change
 
 The architecture is untouched. The actor model, RLS keyed to
-`auth.jwt()->>'sub'`, the sacred `identity_sub`, the UUIDv5 namespace in `0006`,
+`auth.jwt()->>'sub'`, the sacred `identity_sub`, the UUIDv5 namespace in `0002`,
 and Supabase's trust of Clerk all stand exactly as designed and as validated in
 Phase 0.
 

@@ -241,12 +241,12 @@ own migration set:
 | `0003_actors_exposure.sql`      | RLS lockdown, the `actors_public` view, `my_actors()`                                       |
 | `0004_platform_roles.sql`       | person-keyed roles mirror, `has_platform_role()`                                            |
 | `0005_reference_domain.sql`     | reference authored-row pattern (`comments`) — **test fixture, not a product table**         |
-| `0006_provisioning.sql`         | idempotent `ensure_person_actor()`                                                          |
+| `0006_provisioning.sql`         | idempotent `ensure_person_actor()` — the only definition                                    |
 | `0007_fursona_self_service.sql` | `create_fursona()` with its quota, `update_fursona()`, soft `delete_fursona()`              |
 | `0008_idp_introspection.sql`    | `whoami_sub()`, `whoami_role()` — used by the trust tests                                   |
 | `0009_fursona_profiles.sql`     | ordering, pinning, and the validated bilingual `sections` write                             |
 | `0010_client_grants.sql`        | the complete client surface, in one file                                                    |
-| `0011_person_addresses.sql`     | a person's permanent number and optional vanity, in one namespace                           |
+| `0011_person_addresses.sql`     | one permanent number per person, assigned by trigger, plus optional vanity                  |
 
 ### Every object is defined exactly once
 

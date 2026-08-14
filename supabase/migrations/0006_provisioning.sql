@@ -9,6 +9,11 @@
 -- migration plan explicitly anticipates — made the function return a value that
 -- disagreed with `current_person_ref()`: an actor_ref the caller cannot
 -- actually act as.
+-- **The only definition of this function.** It used to be redefined in `0011`
+-- to append the address insert; that moved to a trigger there, so this body is
+-- the whole of it again. Before adding anything here, check that no later
+-- migration has grown a second definition — that arrangement is what the
+-- consolidation exists to prevent.
 create or replace function public.ensure_person_actor()
 returns uuid
 language plpgsql

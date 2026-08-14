@@ -25,7 +25,7 @@
 
 create extension if not exists pgcrypto;
 
--- Pinned to the `extensions` schema explicitly. `person_actor_ref` (0006) calls
+-- Pinned to the `extensions` schema explicitly. `person_actor_ref` (0002) calls
 -- `extensions.uuid_generate_v5`, and this schema is meant to be copied into
 -- other apps' databases — on a differently-configured Postgres the extension
 -- could otherwise land in `public` and that qualified call would not resolve.

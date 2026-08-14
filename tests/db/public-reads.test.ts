@@ -19,7 +19,6 @@ type Person = { personRef: string; number: string };
  */
 async function seedPerson(over: Record<string, unknown> = {}): Promise<Person> {
   const personRef = randomUUID();
-  const number = `${900000 + Math.floor(Math.random() * 99999)}${Date.now() % 1000}`;
   const a = admin();
 
   const { error } = await a.from("actors").insert({
@@ -34,12 +33,19 @@ async function seedPerson(over: Record<string, unknown> = {}): Promise<Person> {
   });
   if (error) throw error;
 
-  const { error: aErr } = await a
+  // **Read, not invented.** A person's number is assigned by a trigger on the
+  // insert above, so a fixture that made one up would now be a second number
+  // for the same person — which the one-number-per-person index refuses, and
+  // which is how this fixture announced that the invariant had moved.
+  const { data, error: aErr } = await a
     .from("person_addresses")
-    .insert({ address: number, actor_ref: personRef, kind: "number" });
+    .select("address")
+    .eq("actor_ref", personRef)
+    .eq("kind", "number")
+    .single();
   if (aErr) throw aErr;
 
-  return { personRef, number };
+  return { personRef, number: (data as { address: string }).address };
 }
 
 /**

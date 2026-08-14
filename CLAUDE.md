@@ -238,10 +238,16 @@ Key choices and _why_:
   still exists and contains something else. `pnpm check:docs` does not catch
   this, because nothing about the TypeScript changed. Grep for the old number.
 
-  The counterweight is that a number is a name other files use. `0006` is
-  cited by eight documents and owns the UUIDv5 derivation other apps copy
-  byte-identically, so renumbering around it is a change to those documents
-  too. Fold what is genuinely a redefinition; do not renumber for tidiness.
+  The counterweight is that a number is a name other files use, and a stale
+  pointer is worse than an untidy one. `0009` alone is cited by a dozen TSDoc
+  comments, so renumbering around it is a change to all of them. **Fold what is
+  genuinely a redefinition; do not renumber for tidiness.**
+
+  A caution about the reasoning, learned the hard way: this paragraph used to
+  say `0006` owned the UUIDv5 derivation other apps copy byte-identically, and
+  that was **wrong** — `0002` owns it, and three other documents repeated the
+  same error. A reason not to touch something is worth checking before it is
+  believed, because a false one protects nothing and costs the work anyway.
 
 - **Git:** work on branches, open PRs; do **not** commit unless the user
   explicitly asks. Never commit secrets.
