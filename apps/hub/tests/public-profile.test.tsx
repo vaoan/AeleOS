@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type React from "react";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import type { PublicActor } from "@/features/actors/infrastructure/public-actors";
 
 // The locale-aware Link needs intl context, which a component test has no
@@ -48,6 +49,7 @@ const actor = (over: Partial<PublicActor> = {}): PublicActor => ({
   displayName: "Luna",
   avatarUrl: "https://example.test/a.png",
   address: "42",
+  theme: DEFAULT_THEME,
   listed: true,
   sections: SECTIONS,
   ...over,

@@ -68,6 +68,11 @@ grant execute on function public.set_fursona_featured(uuid, boolean)
   to authenticated;
 grant execute on function public.set_actor_sections(uuid, jsonb)
   to authenticated;
+-- Its own write rather than part of set_actor_sections: a theme changes while
+-- somebody drags a colour, and sending the whole section document on every
+-- frame of that would be absurd. Same ownership test, different cadence.
+grant execute on function public.set_actor_theme(uuid, jsonb)
+  to authenticated;
 
 -- ── Granted to NO client role ───────────────────────────────────────────────
 -- Restated so the list above reads as the complete client surface rather than

@@ -1,3 +1,7 @@
+import {
+  parseTheme,
+  type ActorTheme,
+} from "@/features/actors/domain/actor-theme";
 import { createIdentityClient } from "@aeleos/identity";
 import { env } from "@/shared/infrastructure/env";
 import {
@@ -15,7 +19,14 @@ export interface PublicFursonaSummary {
   avatarUrl: string | null;
 }
 
-/** An actor's page, as a stranger may see it. */
+/**
+ * An actor's page, as a stranger may see it.
+ *
+ * It carries the owner's `theme`, always — its resting state overrides nothing,
+ * so a page nobody has themed is exactly what it was before theming existed.
+ * `parseTheme` cannot fail, which means a stored theme that is nonsense costs
+ * the page its colours and never the page itself.
+ */
 export interface PublicActor {
   /** The actor's own handle. */
   handle: string;
@@ -37,6 +48,15 @@ export interface PublicActor {
   listed: boolean;
   /** What they wrote. Empty when they have written nothing. */
   sections: FursonaSection[];
+  /**
+   * How the owner chose the page to look.
+   *
+   * Always present, and its resting state overrides nothing — a stranger sees
+   * the page as its owner built it, and a page nobody has themed is exactly
+   * what it was before theming existed. Never a reason to withhold the page:
+   * `parseTheme` cannot fail.
+   */
+  theme: ActorTheme;
   /**
    * The owner's **public** fursonas, on a person's page only.
    *
@@ -101,6 +121,9 @@ function toPublicActor(
     address,
     listed: Boolean(row.listed),
     sections: parseSections(row.sections),
+    // parseTheme falls back per field rather than throwing, so a stored theme
+    // that is nonsense costs the page its colours and never the page itself.
+    theme: parseTheme(row.theme),
   };
 }
 

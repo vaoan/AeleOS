@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useController, useForm, type Control } from "react-hook-form";
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
@@ -15,6 +15,15 @@ import {
   type SectionEditorLabels,
 } from "@/features/actors/presentation/section-editor";
 import { useLanguageToggle } from "@/features/actors/application/use-language-toggle";
+import {
+  ThemeConfigurator,
+  type ThemeConfiguratorLabels,
+} from "@/features/actors/presentation/theme-configurator";
+import {
+  DEFAULT_THEME,
+  themeSchema,
+  type ActorTheme,
+} from "@/features/actors/domain/actor-theme";
 import type { FursonaSection } from "@/features/actors/domain/section-schema";
 import {
   VISIBILITIES,
@@ -23,9 +32,14 @@ import {
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
 import { sectionsSchema } from "@/features/actors/domain/section-schema";
+import type { z } from "zod";
 
 /**
  * Translated strings {@link FursonaEditor} renders.
+ *
+ * The theme panel's strings are **nested** under `theme` rather than flattened
+ * in: both it and the toolbar have a `title`, and a flat bag would have one
+ * silently win.
  *
  * `writingIn` is joined by `writingInHint` because the language switch has to
  * name itself and then say what it governs — this editor has an app language
@@ -38,6 +52,8 @@ import { sectionsSchema } from "@/features/actors/domain/section-schema";
  */
 export interface FursonaEditorLabels
   extends EditorToolbarLabels, SectionEditorLabels {
+  /** The theme panel's own strings, nested to avoid a `title` collision. */
+  theme: ThemeConfiguratorLabels;
   /** Names the control that switches which language is being written. */
   writingIn: string;
   /** Says which fields the language switch governs. */
@@ -65,6 +81,11 @@ export interface FursonaEditorLabels
 /**
  * What {@link FursonaEditor} needs.
  *
+ * `initialSections` and `initialTheme` are **not optional in practice**, even
+ * though the types allow their absence for the create page. `set_actor_sections`
+ * replaces rather than merges, so an edit that opened without them deleted
+ * everything the owner had written the moment they saved.
+ *
  * `initialSections` is separate from `initial` because the two come from
  * different reads: the fields from `my_actors()`, the sections from
  * `actor_profiles`. `0013` deliberately did not join them.
@@ -76,6 +97,8 @@ export interface FursonaEditorProps {
   initial?: Partial<FursonaInput>;
   /** The fursona's existing sections, absent when creating. */
   initialSections?: FursonaSection[];
+  /** How the page already looks, absent when creating. */
+  initialTheme?: ActorTheme;
   /** The fursona being edited, absent when creating. */
   actorRef?: string;
   /** False when editing — the handle is then shown but not submitted. */
@@ -93,7 +116,13 @@ const LIST = "/fursonas";
  * one whose limits are checked against `0013` by
  * `section-limits-match-migration.test.ts`.
  */
-const editorSchema = fursonaSchema.extend({ sections: sectionsSchema });
+/** What the editor's form holds. */
+type FursonaFormValues = z.infer<typeof editorSchema>;
+
+const editorSchema = fursonaSchema.extend({
+  sections: sectionsSchema,
+  theme: themeSchema,
+});
 
 /**
  * The fursona editor: a full-page form under a sticky toolbar.
@@ -127,6 +156,13 @@ const editorSchema = fursonaSchema.extend({ sections: sectionsSchema });
  * both look up in `labels.errors`, and the person does not need to know which
  * came from where.
  *
+ * **The theme panel sits above the sections**, because it governs how all of
+ * them look, and it is collapsed until somebody opens it — theming is a thing
+ * people do once and then leave alone, so an open colour panel would push the
+ * sections down the page for everybody who never touches it. Its changes are
+ * previewed locally and written with the rest of the form: what has to be
+ * instant is SEEING a colour, not storing it.
+ *
  * **The language switch shows both languages rather than the current one.** It
  * was a single button reading "EN", which is ambiguous in the way that matters:
  * a person cannot tell whether the label reports where they are or offers where
@@ -147,6 +183,7 @@ export function FursonaEditor({
   labels,
   initial,
   initialSections,
+  initialTheme,
   actorRef,
   handleEditable,
 }: FursonaEditorProps) {
@@ -167,6 +204,7 @@ export function FursonaEditor({
       avatarUrl: initial?.avatarUrl ?? "",
       visibility: initial?.visibility ?? "private",
       sections: initialSections ?? [],
+      theme: initialTheme ?? DEFAULT_THEME,
     },
   });
 
@@ -326,6 +364,12 @@ export function FursonaEditor({
         </div>
       </div>
 
+      {/* Above the sections, because it governs how all of them look. The
+          panel is collapsed until somebody opens it — theming is a thing people
+          do once and then leave alone, and an open colour panel would push the
+          sections down the page for everybody who never touches it. */}
+      <ThemeController control={control} labels={labels.theme} />
+
       <SectionEditor
         control={control}
         register={register}
@@ -334,5 +378,31 @@ export function FursonaEditor({
         labels={labels}
       />
     </form>
+  );
+}
+
+/**
+ * The theme panel, bound to the form.
+ *
+ * A controller and not a `register`: the configurator hands back a whole theme
+ * object on every change, which is not something a form input's `value` can
+ * carry.
+ *
+ * @returns the panel.
+ */
+function ThemeController({
+  control,
+  labels,
+}: {
+  control: Control<FursonaFormValues>;
+  labels: ThemeConfiguratorLabels;
+}) {
+  const field = useController({ control, name: "theme" });
+  return (
+    <ThemeConfigurator
+      value={field.field.value as ActorTheme}
+      onChange={field.field.onChange}
+      labels={labels}
+    />
   );
 }

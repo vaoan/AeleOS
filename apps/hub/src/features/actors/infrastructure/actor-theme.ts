@@ -1,0 +1,39 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ActorTheme } from "@/features/actors/domain/actor-theme";
+
+/**
+ * Stores how somebody chose their own page to look.
+ *
+ * **Only what was actually chosen is sent.** A theme is a set of overrides and
+ * `null` means "the design's own", so a null field is omitted rather than
+ * written — `set_actor_theme` refuses a key whose value is not a colour, and
+ * more importantly a stored `null` would be a value pretending to be an
+ * absence. Sending `{}` is how somebody puts their page back.
+ *
+ * `p_actor_ref` names the page, and it is a suggestion the database checks
+ * rather than trusts: `set_actor_theme` resolves ownership through
+ * `owns_active_actor()` and answers "fursona not found" either way, so a caller
+ * cannot learn whether somebody else's actor exists by theming it.
+ *
+ * @param client - a Supabase client authenticated as the owner.
+ * @param actorRef - the person or fursona whose page it is.
+ * @param theme - what to store.
+ * @throws when the caller does not own an active actor by that reference, or
+ * when a colour is not `#rrggbb`.
+ */
+export async function setActorTheme(
+  client: SupabaseClient,
+  actorRef: string,
+  theme: ActorTheme,
+): Promise<void> {
+  const stored: Record<string, string> = { canvas: theme.canvas };
+  if (theme.accent) stored.accent = theme.accent;
+  if (theme.backdropA) stored.backdropA = theme.backdropA;
+  if (theme.backdropB) stored.backdropB = theme.backdropB;
+
+  const { error } = await client.rpc("set_actor_theme", {
+    p_actor_ref: actorRef,
+    p_theme: stored,
+  });
+  if (error) throw new Error(`Could not save your theme: ${error.message}`);
+}

@@ -12,6 +12,11 @@ vi.mock("@/features/actors", () => ({
   // A stub, not a render: this suite is about which branch each route takes,
   // and PublicProfile has its own suite.
   PublicProfile: () => null,
+  // Passes its children through. The theme it would apply is the owner's, and
+  // this suite asserts routing rather than appearance — but it cannot be
+  // omitted, or the route renders nothing and every branch assertion below
+  // becomes vacuous.
+  ThemeScope: ({ children }: { children: unknown }) => children,
 }));
 
 vi.mock("next/navigation", () => ({ notFound: () => notFound() }));

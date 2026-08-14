@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 
 class HandleTakenError extends Error {}
 class FursonaLimitError extends Error {}
@@ -9,6 +10,10 @@ class FursonaLimitError extends Error {}
 const createFursona = vi.fn<(...a: unknown[]) => unknown>();
 const updateFursona = vi.fn<(...a: unknown[]) => unknown>();
 const setFursonaSections = vi.fn<(...a: unknown[]) => unknown>();
+const setActorTheme = vi.fn();
+vi.mock("@/features/actors/infrastructure/actor-theme", () => ({
+  setActorTheme: (...a: unknown[]) => setActorTheme(...a),
+}));
 vi.mock("@/features/actors/infrastructure/fursona-arrangement", () => ({
   setFursonaSections: (...a: unknown[]) => setFursonaSections(...a),
 }));
@@ -55,7 +60,7 @@ const sections = [
 ];
 
 /** One save's worth: the four fields and the page's sections. */
-const values = { ...fields, sections };
+const values = { ...fields, sections, theme: DEFAULT_THEME };
 
 beforeEach(() => {
   queryClient = new QueryClient({
@@ -67,9 +72,19 @@ beforeEach(() => {
   updateFursona.mockResolvedValue(undefined);
   setFursonaSections.mockReset();
   setFursonaSections.mockResolvedValue(undefined);
+  setActorTheme.mockReset();
+  setActorTheme.mockResolvedValue(undefined);
 });
 
 describe("useFursonaEditor", () => {
+  // The theme is the third write, and it goes to the ref the first two
+  // resolved — on create that ref does not exist until createFursona returns.
+  it("writes the theme to the fursona it just created", async () => {
+    const { result } = renderHook(() => useFursonaEditor(), { wrapper });
+    await result.current.save(values);
+    expect(setActorTheme).toHaveBeenCalledWith({}, "new-ref", DEFAULT_THEME);
+  });
+
   it("creates when it has no actor ref", async () => {
     const { result } = renderHook(() => useFursonaEditor(), { wrapper });
     await result.current.save(values);

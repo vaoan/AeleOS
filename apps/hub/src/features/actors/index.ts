@@ -64,6 +64,21 @@ export {
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
 export {
+  readActorPage,
+  type ActorPage,
+} from "@/features/actors/infrastructure/actor-page";
+export {
+  CANVASES,
+  DEFAULT_THEME,
+  parseTheme,
+  type ActorTheme,
+  type CanvasId,
+} from "@/features/actors/domain/actor-theme";
+export {
+  ThemeScope,
+  type ThemeScopeProps,
+} from "@/features/actors/presentation/theme-scope";
+export {
   SECTION_TYPES,
   type SectionType,
 } from "@/features/actors/domain/section-schema";

@@ -30,6 +30,21 @@ create table public.actor_profiles (
   -- stored as data — so a missing `*_es` is somebody who has not written the
   -- Spanish yet, which is an ordinary state and never an error.
   sections   jsonb not null default '[]'::jsonb,
+  -- How the owner chose their page to look: {accent?, backdropA?, backdropB?,
+  -- canvas?}, each colour an `#rrggbb` string.
+  --
+  -- **An empty object means "override nothing", and that is not the same as a
+  -- default.** `globals.css` uses different accent HUES for light and dark
+  -- deliberately, so no single stored colour reproduces both — a theme that
+  -- always carried an accent would restyle every unthemed page in one of the
+  -- two modes. Absence is therefore the correct resting state, not a gap.
+  --
+  -- Deliberately NOT validated beyond its shape and size. The database has no
+  -- business deciding whether a colour is legible; that is decided where it is
+  -- rendered, by `legibleAccent` in `apps/hub/src/shared/domain/color.ts`, which
+  -- keeps the hue somebody chose and solves the lightness against the surface.
+  -- A check constraint here would be a migration every time the design moved.
+  theme      jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
@@ -376,4 +391,75 @@ $$;
 
 revoke all on function public.set_fursona_order(uuid, int) from public;
 revoke all on function public.set_fursona_featured(uuid, boolean) from public;
+
+-- Writes how somebody chose their own page to look.
+--
+-- Separate from `set_actor_sections` because the two are written by different
+-- controls at different moments: the theme changes while somebody drags a
+-- colour slider, and sending the whole section document on every frame of that
+-- would be absurd. They share `owns_active_actor()` and nothing else.
+--
+-- **Validation is shape and size only.** Which colours exist is not a question
+-- the database can answer — `#rrggbb` is checked because a value that is not a
+-- colour cannot be rendered, and the total is capped because an unbounded
+-- client-reachable write on a free-tier database is the actual risk here. The
+-- legibility rule lives where the colour is rendered, not here.
+--
+-- An absent key means "override nothing", which is why nothing is required.
+create or replace function public.set_actor_theme(
+  p_actor_ref uuid,
+  p_theme     jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c_max_bytes constant int := 512;  -- four colours and a canvas name, generously
+  v_key   text;
+  v_value text;
+begin
+  if not public.owns_active_actor(p_actor_ref) then
+    -- The same wording and code as every other writer here: a caller must not
+    -- learn whether an actor they do not own exists.
+    raise exception 'fursona not found' using errcode = '42501';
+  end if;
+
+  if p_theme is null or jsonb_typeof(p_theme) is distinct from 'object' then
+    raise exception 'theme must be an object' using errcode = '22023';
+  end if;
+
+  if octet_length(p_theme::text) > c_max_bytes then
+    raise exception 'theme is too large (limit % bytes)', c_max_bytes
+      using errcode = '22023';
+  end if;
+
+  for v_key, v_value in select * from jsonb_each_text(p_theme) loop
+    if v_key in ('accent', 'backdropA', 'backdropB') then
+      if v_value !~ '^#[0-9a-fA-F]{6}$' then
+        raise exception '%: must be #rrggbb', v_key using errcode = '22023';
+      end if;
+    elsif v_key = 'canvas' then
+      -- Not checked against a list of canvases on purpose. A canvas is an
+      -- animation the app either implements or does not, and the renderer
+      -- already falls back for a name it does not know — so a list here would
+      -- be a migration every time a canvas is added, guarding nothing the
+      -- client does not guard already.
+      if length(v_value) > 32 then
+        raise exception 'canvas: name is too long' using errcode = '22023';
+      end if;
+    else
+      raise exception 'unknown theme key %', v_key using errcode = '22023';
+    end if;
+  end loop;
+
+  insert into public.actor_profiles (actor_ref, theme)
+  values (p_actor_ref, p_theme)
+  on conflict (actor_ref)
+  do update set theme = excluded.theme, updated_at = now();
+end;
+$$;
+
 revoke all on function public.set_actor_sections(uuid, jsonb) from public;
+revoke all on function public.set_actor_theme(uuid, jsonb) from public, anon;

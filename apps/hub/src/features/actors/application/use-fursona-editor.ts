@@ -13,9 +13,16 @@ import { setFursonaSections } from "@/features/actors/infrastructure/fursona-arr
 import { FURSONAS_QUERY_KEY } from "@/features/actors/application/use-fursonas";
 import type { FursonaInput } from "@/features/actors/domain/fursona-schema";
 import type { FursonaSection } from "@/features/actors/domain/section-schema";
+import type { ActorTheme } from "@/features/actors/domain/actor-theme";
+import { setActorTheme } from "@/features/actors/infrastructure/actor-theme";
 
-/** Everything one save writes: the four fields, and the page's sections. */
-export type FursonaDraft = FursonaInput & { sections: FursonaSection[] };
+/** Everything one save writes: the fields, the page's sections, its theme. */
+export type FursonaDraft = FursonaInput & {
+  /** The page's sections. */
+  sections: FursonaSection[];
+  /** How the page looks. */
+  theme: ActorTheme;
+};
 
 /**
  * What {@link useFursonaEditor} returns.
@@ -53,9 +60,16 @@ export interface FursonaEditorState {
  * so they never trusted the caller's word about who they are; only the call
  * site moved.
  *
- * A save is **two writes**: the four fields, then the sections. On create the
- * order is forced, because `set_actor_sections` needs an `actor_ref` that
- * does not exist until the fursona does.
+ * A save is **three writes**: the four fields, then the sections, then the
+ * theme. On create the order is forced, because the last two need an
+ * `actor_ref` that does not exist until the fursona does.
+ *
+ * The theme is written here rather than the moment a colour changes, and the
+ * distinction is worth keeping straight: what has to be instant is SEEING the
+ * change, which the configurator does locally with the same `themeCss` the
+ * public page uses. Persisting on every frame of a dragged colour slider would
+ * be a write per frame, which is a different thing entirely and one a free-tier
+ * database would not thank us for.
  *
  * That admits a partial failure — fields written, sections refused — and it is
  * reported rather than undone. On create the fursona already exists, and
@@ -80,10 +94,11 @@ export function useFursonaEditor(actorRef?: string): FursonaEditorState {
   const mutation = useMutation({
     // Two writes, and the order is forced on create: set_actor_sections needs
     // an actor_ref that does not exist until the fursona does.
-    mutationFn: async ({ sections, ...fields }: FursonaDraft) => {
+    mutationFn: async ({ sections, theme, ...fields }: FursonaDraft) => {
       const ref = actorRef ?? (await createFursona(client, fields));
       if (actorRef) await updateFursona(client, actorRef, fields);
       await setFursonaSections(client, ref, sections);
+      await setActorTheme(client, ref, theme);
     },
     // The list must forget what it knew, or somebody returns to a page that
     // does not have the fursona they just made.

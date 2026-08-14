@@ -7,7 +7,10 @@ import type {
 
 vi.mock("lucide-react/dynamic", () => ({
   DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
-  iconNames: ["sparkles", "heart", "paw-print"],
+  // `circle-dot` is here because Cards falls back to it, and a mock that
+  // omitted it would make the fallback look broken when it is not — the mocked
+  // dependency hiding its own setup requirement, again.
+  iconNames: ["sparkles", "heart", "paw-print", "circle-dot"],
 }));
 
 const { PublicSections } =
@@ -114,20 +117,34 @@ describe("PublicSections", () => {
     // The same rule IconPicker applies on the writing side, needing its own
     // test because this component does not share that one's code. `icon` is
     // free text as far as 0009 is concerned.
-    it("renders a card without an icon when the name is not one lucide has", () => {
+    // Every card gets a tile, including the ones whose author chose no icon.
+    // Rendering it only sometimes is what made a row of cards ragged, and a
+    // ragged row is most of why these did not read as cards at all.
+    it("still gives a card an icon when its author chose none", () => {
+      renderSections([section({ type: "cards", items: [item()] })]);
+      expect(document.querySelector("[data-icon]")).not.toBeNull();
+      expect(screen.getByText("English words.")).toBeInTheDocument();
+    });
+
+    it("falls back for a name lucide does not have", () => {
       renderSections([
         section({ type: "cards", items: [item({ icon: "not-an-icon" })] }),
       ]);
       expect(document.querySelector('[data-icon="not-an-icon"]')).toBeNull();
-      expect(
-        screen.getByRole("heading", { name: "English title", level: 3 }),
-      ).toBeInTheDocument();
+      expect(document.querySelector("[data-icon]")).not.toBeNull();
     });
 
-    it("renders a card with no icon at all", () => {
-      renderSections([section({ type: "cards", items: [item()] })]);
+    // Only the layouts that need a tile pass a fallback. A link with no icon is
+    // an ordinary link, and giving it a default would put a meaningless mark
+    // beside somebody's carefully named button.
+    it("leaves a link without an icon alone", () => {
+      renderSections([
+        section({
+          type: "links",
+          items: [item({ link_url: "https://example.test/x" })],
+        }),
+      ]);
       expect(document.querySelector("[data-icon]")).toBeNull();
-      expect(screen.getByText("English words.")).toBeInTheDocument();
     });
   });
 

@@ -317,36 +317,61 @@ There is **no CSP on the hub yet**, so the rebuild is currently the only layer.
 A `frame-src` allowlist would be genuine defence in depth and is worth adding —
 carefully, because Clerk's flows use frames and a wrong header breaks sign-in.
 
-## Per-profile theming — decided, not yet built
+## Per-profile theming — built
 
-Somebody will be able to theme their own page: accent, background, and a choice
-of canvas animation behind it, reached from a configuration control in the
-editor. The decisions already made, so that whoever builds it does not have to
-re-litigate them:
+Somebody themes their own page from a panel in the editor, and a stranger sees
+it as they built it. What the code decided, and why, so it is not undone:
 
-- **Changes are live and instant. There is no save-then-look.** Theming is the
-  one thing on this page that cannot be evaluated from a form — a colour is a
-  decision about how it looks next to everything else, and a round trip between
-  every adjustment makes the feature unusable rather than merely slow. The
-  values are CSS custom properties already, so a live preview is setting them
-  on a container and nothing more; persistence is a separate, later write.
-- **The author's theme is the DEFAULT for visitors, never an imposition.**
-  Somebody arriving at a fursona page sees the theme its owner chose. They keep
-  the ordinary light and dark controls, and choosing one wins — for them, on
-  that page, without changing anything the owner set. A page that cannot be
-  read in the reader's own contrast setting is a page that loses the reader.
-- **Whatever palette is offered must be measured, not eyeballed.**
-  `pnpm check:contrast` exists for exactly this and already covers the token
-  pairs. An author-chosen accent is a pair the script has never seen, so either
-  the choices are constrained to a measured set or the measurement moves into
-  the code path — the one thing that must not happen is a picker that lets
-  somebody make their own page unreadable and calls it expression.
-- The canvas animations are the hub's existing nebula plus siblings. They stay
-  off wherever the star toggle says off, and they must respect
-  `prefers-reduced-motion`.
+- **The pickers are unconstrained, so the measurement moved into the code
+  path.** A curated palette is not personalisation. `legibleAccent` in
+  `shared/domain/color.ts` keeps the hue and chroma somebody picked and
+  **solves for the lightness** against the mode's surface — their colour, only
+  moved as far as it must be. A colour already legible is returned untouched.
+- **Both constraints drive that search.** An accent can clear 4.5:1 against the
+  surface while neither near-white nor near-black clears 4.5:1 against the
+  accent; a mid-lightness colour sits exactly in that gap. Solving only the
+  first ships a readable page with an unreadable button on it. A failing test
+  found this — do not simplify it back.
+- **The maths agrees with `check-contrast.mjs` and a test asserts it.** Two
+  implementations of one formula is a drift risk; if they part ways, one of
+  them is lying about legibility.
+- **A theme is a set of OVERRIDES. `null` means the design's own.**
+  `globals.css` uses different accent HUES for light and dark deliberately, so
+  no single stored colour reproduces both — a theme that always emitted an
+  accent would restyle every unthemed page in one of the two modes. An
+  unparseable value emits nothing too: black was the obvious fallback and it
+  invents a decision nobody made.
+- **The visitor's scheme stays the visitor's.** `ThemeScope` emits a `<style>`
+  carrying BOTH renderings, with the same three selectors `globals.css` uses,
+  because the server cannot know the reader's mode. A rule defined only inside
+  the media query leaves somebody who chose dark on a light-preferring system
+  with the light accent. Only the accent pair and the cloud tints are set.
+- **Values are generated from numbers, never from stored strings.** That is
+  what makes emitting a stylesheet safe. A stored value passed through would let
+  a `}` close the rule and everything after it would be CSS somebody else wrote.
+- **Live preview, not live persistence.** The preview uses the SAME `themeCss`
+  the public page uses, so the two cannot drift. The write rides the ordinary
+  save: what has to be instant is SEEING a colour, and a write per frame of a
+  dragged slider is a different thing.
+- **The adjustment is disclosed by two swatches, not a warning.** An `adjusted`
+  flag was tried and is incoherent — a colour cannot be both too light for a
+  light page and too dark for a dark one, so it was false for nearly every
+  input.
 
-None of this exists yet. When it does, its contract moves into TSDoc and this
-section shrinks to a pointer.
+### Canvases
+
+`CANVASES` holds **exactly the canvases that exist**. It briefly listed two
+more, named for animations nobody had written, and that is the worst kind of
+control: it offers a choice, accepts it, stores it, and changes nothing, with no
+way for the person to learn that it did nothing. **A canvas joins that list in
+the same change that implements it.**
+
+Every canvas reads `--nebula-a` and `--nebula-b`, so **an author's two colours
+travel to whichever canvas they pick** rather than each animation inventing its
+own palette. A new canvas that hard-codes colours is wrong. They must also
+respect `prefers-reduced-motion` and stay off wherever the star toggle says off
+— that toggle is the visitor's control over their own machine and the author's
+choice may not overrule it.
 
 ## Things not to do
 

@@ -43,11 +43,30 @@ const wordsOf = (item: FursonaSectionItem, locale: string) => ({
 const keyOf = (order: number, label: string) => `${order}-${label}`;
 
 /**
+ * What a card shows when its author chose no icon.
+ *
+ * A card without one is a ragged box in a row of anchored ones, so the tile is
+ * never empty. Deliberately neutral: it has to stand in for anything somebody
+ * might have written about, and a shape that means something would be wrong
+ * more often than it was right.
+ */
+const CARD_ICON = "circle-dot";
+
+/**
  * A section laid out as cards.
  *
- * **The icon sits in its own tile above the title**, which is what makes a card
- * a card rather than a list item with a bullet. The first version of this put
- * the icon inline beside the heading and the result read as neither.
+ * **A row that scrolls sideways until it is wide enough to be a grid**, which
+ * is Libra's structure and the part two earlier attempts here missed. Cards are
+ * fixed-width tiles: `w-56` while the row scrolls, `lg:w-auto` once three of
+ * them fit. A fluid `sm:grid-cols-2 lg:grid-cols-3` was what this had before,
+ * and a fluid grid of bordered boxes does not read as cards — it reads as a
+ * list that happens to have gaps in it.
+ *
+ * **Every card carries an icon tile, including the ones with no icon set.** The
+ * tile is what gives a card its anchor, and rendering it only sometimes makes a
+ * row of them ragged — which was the other half of why these did not look like
+ * cards. An item with no icon, or with a name lucide does not have, gets the
+ * default rather than a hole.
  *
  * @returns the cards.
  */
@@ -59,21 +78,19 @@ function Cards({
   locale: string;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex gap-4 overflow-x-auto pb-3 lg:grid lg:grid-cols-3 lg:pb-0">
       {items.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="flex flex-col gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5"
+            className="flex w-56 shrink-0 flex-col gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5 lg:w-auto"
           >
-            {item.icon ? (
-              <span className="grid size-11 place-items-center rounded-lg border border-[var(--edge)] bg-[var(--bar)]">
-                <PublicSectionIcon name={item.icon} />
-              </span>
-            ) : null}
-            <h3 className="font-display font-bold">{title}</h3>
-            <p className="text-sm/relaxed text-[var(--muted)]">{description}</p>
+            <span className="grid size-11 w-fit place-items-center rounded-lg border border-[var(--edge)] bg-[var(--bar)]">
+              <PublicSectionIcon name={item.icon} fallback={CARD_ICON} />
+            </span>
+            <h3 className="font-display text-sm/tight font-bold">{title}</h3>
+            <p className="text-xs/relaxed text-[var(--muted)]">{description}</p>
           </div>
         );
       })}

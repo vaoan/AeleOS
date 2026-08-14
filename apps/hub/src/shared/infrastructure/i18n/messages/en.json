@@ -149,7 +149,21 @@
     "imageTooLarge": "That file is over 2 MB. Choose a smaller one.",
     "imageWrongType": "That is not an image we can store. Use PNG, JPEG, WebP or GIF.",
     "imageFailed": "The upload did not work. Try again.",
-    "imageStaysPublic": "An uploaded picture stays reachable by its address, even if you make this fursona private later."
+    "imageStaysPublic": "An uploaded picture stays reachable by its address, even if you make this fursona private later.",
+    "themeTitle": "Colours and backdrop",
+    "themeLive": "Changes show straight away",
+    "themeAccent": "Accent",
+    "themeBackdropA": "First cloud",
+    "themeBackdropB": "Second cloud",
+    "themeCanvas": "Backdrop",
+    "themeOnLight": "On a light page",
+    "themeOnDark": "On a dark page",
+    "themeAdjusted": "Your accent, as visitors see it",
+    "themeReset": "Back to the default look",
+    "canvases": {
+      "nebula": "Nebula",
+      "none": "Still"
+    }
   },
   "picker": {
     "title": "Who do you want to be?",

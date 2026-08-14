@@ -1,7 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import {
   FURSONA_TEMPLATES,
+  CANVASES,
   SECTION_TYPES,
+  type CanvasId,
   type FursonaEditorLabels,
   type SectionType,
 } from "@/features/actors";
@@ -31,6 +33,11 @@ import {
  * entry here falls back to the field's generic message, which for a form-level
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
+ *
+ * The theme panel's strings are **nested** under `theme` rather than spread in
+ * beside everything else. Both it and the toolbar have a `title`, and a flat
+ * bag would have one silently win — a collision this shape of object makes easy
+ * to create and impossible to see.
  *
  * `types` is DERIVED from `SECTION_TYPES` rather than listed. Written out by
  * hand it was a set of entries that had to be remembered whenever a layout was
@@ -76,6 +83,25 @@ export async function fursonaEditorLabels(
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),
     imageUrl: t("imageUrl"),
+    // Nested rather than spread into the same bag as everything else. Both
+    // the toolbar and the theme panel have a `title`, and flattening them would
+    // have one silently win — which is the kind of collision a label bag makes
+    // easy to create and impossible to see.
+    theme: {
+      title: t("themeTitle"),
+      live: t("themeLive"),
+      accent: t("themeAccent"),
+      backdropA: t("themeBackdropA"),
+      backdropB: t("themeBackdropB"),
+      canvas: t("themeCanvas"),
+      canvases: Object.fromEntries(
+        CANVASES.map((canvas) => [canvas, t(`canvases.${canvas}`)]),
+      ) as Record<CanvasId, string>,
+      onLight: t("themeOnLight"),
+      onDark: t("themeOnDark"),
+      adjusted: t("themeAdjusted"),
+      reset: t("themeReset"),
+    },
     linkUrl: t("linkUrl"),
     linkUrlHint: t("linkUrlHint"),
     imageMissing: t("imageMissing"),

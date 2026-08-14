@@ -228,7 +228,7 @@ describe("public_person", () => {
     });
   });
 
-  it("returns exactly the seven columns", async () => {
+  it("returns exactly the eight columns", async () => {
     const { rows } = await readPerson(owner.number);
     expect(Object.keys(rows[0]).sort()).toEqual([
       "address",
@@ -238,6 +238,7 @@ describe("public_person", () => {
       "handle",
       "listed",
       "sections",
+      "theme",
     ]);
   });
 });
@@ -372,7 +373,7 @@ describe("public_fursona", () => {
     });
   });
 
-  it("returns exactly the six columns", async () => {
+  it("returns exactly the seven columns", async () => {
     const { rows } = await readFursona(owner.number, sona.handle);
     expect(Object.keys(rows[0]).sort()).toEqual([
       "avatar_url",
@@ -381,6 +382,7 @@ describe("public_fursona", () => {
       "listed",
       "owner_address",
       "sections",
+      "theme",
     ]);
   });
 

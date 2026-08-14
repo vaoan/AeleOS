@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PageShell } from "@/shared/presentation/page-shell";
-import { PublicProfile, readPublicFursona } from "@/features/actors";
+import {
+  PublicProfile,
+  ThemeScope,
+  readPublicFursona,
+} from "@/features/actors";
 
 /**
  * Metadata for one fursona's page.
@@ -46,6 +50,11 @@ export async function generateMetadata({
  * never existed all `notFound()`.
  *
  * @returns the fursona's page, or a 404.
+ * The page is wrapped in `ThemeScope`, so a stranger sees it as its owner built
+ * it. That sets only the accent and the cloud tints — light and dark stay under
+ * the visitor's own toggle, so somebody who needs a dark page gets one wearing
+ * the owner's colours rather than instead of them.
+ *
  */
 export default async function PublicFursonaPage({
   params,
@@ -62,11 +71,13 @@ export default async function PublicFursonaPage({
 
   return (
     <PageShell width="wide">
-      <PublicProfile
-        actor={actor}
-        locale={locale}
-        fursonasTitle={t("fursonas")}
-      />
+      <ThemeScope theme={actor.theme}>
+        <PublicProfile
+          actor={actor}
+          locale={locale}
+          fursonasTitle={t("fursonas")}
+        />
+      </ThemeScope>
     </PageShell>
   );
 }

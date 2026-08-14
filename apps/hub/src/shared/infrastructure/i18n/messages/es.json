@@ -149,7 +149,21 @@
     "imageTooLarge": "Ese archivo pasa de 2 MB. Elige uno más pequeño.",
     "imageWrongType": "Esa no es una imagen que podamos guardar. Usa PNG, JPEG, WebP o GIF.",
     "imageFailed": "La subida no funcionó. Inténtalo de nuevo.",
-    "imageStaysPublic": "Una imagen subida sigue siendo accesible por su dirección, aunque después hagas privada esta fursona."
+    "imageStaysPublic": "Una imagen subida sigue siendo accesible por su dirección, aunque después hagas privada esta fursona.",
+    "themeTitle": "Colores y fondo",
+    "themeLive": "Los cambios se ven al instante",
+    "themeAccent": "Color principal",
+    "themeBackdropA": "Primera nube",
+    "themeBackdropB": "Segunda nube",
+    "themeCanvas": "Fondo",
+    "themeOnLight": "En una página clara",
+    "themeOnDark": "En una página oscura",
+    "themeAdjusted": "Tu color, como lo ven quienes te visitan",
+    "themeReset": "Volver al aspecto original",
+    "canvases": {
+      "nebula": "Nebulosa",
+      "none": "Quieto"
+    }
   },
   "picker": {
     "title": "¿Quién quieres ser?",

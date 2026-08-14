@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
 
+const readActorPage = vi.fn<(...a: unknown[]) => unknown>();
 const listMyActors = vi.fn<(...a: unknown[]) => unknown>();
 const notFound = vi.fn<(...a: unknown[]) => never>(() => {
   // Real next/navigation signals a 404 by throwing too — modelling that here
@@ -43,15 +44,19 @@ const { FURSONA_TEMPLATES } =
 // stub would let the suite pass with a catalogue missing a layout that ships.
 const { SECTION_TYPES } =
   await import("@/features/actors/domain/section-schema");
+// Real for the same reason: labels.ts derives one label per canvas from it.
+const { CANVASES } = await import("@/features/actors/domain/actor-theme");
 
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
+  readActorPage: (...a: unknown[]) => readActorPage(...a),
   FURSONA_TEMPLATES,
   // The page builds its labels from this, so a mocked barrel that omits it
   // fails the page rather than the label code — the mocked-dependency trap
   // again: what stands in for a module has to carry everything the module was
   // being relied on for, and nothing announces a new reliance.
   SECTION_TYPES,
+  CANVASES,
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that
   // would crash loudly if something did try to render it.
@@ -105,12 +110,49 @@ function formElement(page: ReactElement): ReactElement {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // A fursona nobody has written a page for yet, which is the ordinary state
+  // for most of this suite. The tests that care override it.
+  readActorPage.mockResolvedValue({ sections: [], theme: {} });
   notFound.mockImplementation(() => {
     throw new Error("NEXT_NOT_FOUND");
   });
 });
 
 describe("EditFursonaPage", () => {
+  // THE REGRESSION TEST, and it belongs here rather than beside the reader:
+  // the bug was not that reading a page was wrong, it was that this page never
+  // read one. It passed `initial` and nothing else, the editor defaulted
+  // `sections` to `[]`, and `set_actor_sections` REPLACES — so opening a
+  // fursona and pressing save silently deleted every section its owner had
+  // written. Nothing failed and nothing warned.
+  //
+  // Asserting the props this page hands down is the level the fault lived at.
+  // A test of the reader passes whether or not anybody calls it.
+  it("hands the fursona's existing page to the editor", async () => {
+    const sections = [
+      { name_en: "About", type: "cards", sort_order: 1, items: [] },
+    ];
+    listMyActors.mockResolvedValueOnce([actor()]);
+    readActorPage.mockResolvedValueOnce({
+      sections,
+      theme: {
+        accent: "#00ff88",
+        backdropA: null,
+        backdropB: null,
+        canvas: "none",
+      },
+    });
+
+    const page = (await EditFursonaPage({
+      params: Promise.resolve({ handle: "sparky" }),
+    })) as ReactElement;
+
+    expect(formElement(page).props).toMatchObject({
+      initialSections: sections,
+      initialTheme: { accent: "#00ff88", canvas: "none" },
+    });
+  });
+
   it("renders the form with the owned fursona's values", async () => {
     listMyActors.mockResolvedValueOnce([actor()]);
     const page = (await EditFursonaPage({

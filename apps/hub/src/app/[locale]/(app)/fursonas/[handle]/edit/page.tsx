@@ -1,11 +1,18 @@
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { FursonaEditor, listMyActors } from "@/features/actors";
+import { FursonaEditor, listMyActors, readActorPage } from "@/features/actors";
 import { fursonaEditorLabels } from "@/app/[locale]/(app)/fursonas/labels";
 
 /**
  * The page for editing one of your fursonas.
+ *
+ * **It loads the fursona's existing page and hands it down, and that is not
+ * optional.** `set_actor_sections` replaces rather than merges, so an editor
+ * opened without the existing sections deleted every one of them the first time
+ * somebody pressed save — silently, with nothing failing and nothing warning.
+ * Anything added to `actor_profiles` inherits that trap unless it is loaded
+ * here too, which is why the theme travels in the same read.
  *
  * The route is keyed by **handle** rather than `actor_ref`: a handle is what a
  * person recognises in a URL, and a UUID means nothing to them.
@@ -44,6 +51,11 @@ export default async function EditFursonaPage({
 
   const t = await getTranslations("fursonas");
 
+  // Loaded and handed to the editor, which is not optional: `set_actor_sections`
+  // REPLACES, so an editor that opened without them would delete everything
+  // this fursona had written the first time somebody pressed save.
+  const page = await readActorPage(await createServerClient(), actor.actorRef);
+
   return (
     <FursonaEditor
       labels={await fursonaEditorLabels(t("editorTitleEdit"))}
@@ -55,6 +67,8 @@ export default async function EditFursonaPage({
         avatarUrl: actor.avatarUrl ?? "",
         visibility: actor.visibility,
       }}
+      initialSections={page.sections}
+      initialTheme={page.theme}
     />
   );
 }

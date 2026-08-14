@@ -34,7 +34,12 @@ returns table (
   address      text,
   listed       boolean,
   sections     jsonb,
-  fursonas     jsonb
+  fursonas     jsonb,
+  -- The owner's theme travels with the page, because a stranger has to see the
+  -- page as its owner built it. It is returned even when empty: `{}` means
+  -- override nothing, which the renderer needs to be told rather than left to
+  -- infer from an absent column.
+  theme        jsonb
 )
 language sql
 stable
@@ -83,7 +88,8 @@ as $$
           ) f
       ),
       '[]'::jsonb
-    ) as fursonas
+    ) as fursonas,
+    coalesce(pr.theme, '{}'::jsonb) as theme
   from public.person_addresses pa
   join public.actors a on a.actor_ref = pa.actor_ref
   left join public.actor_profiles pr on pr.actor_ref = a.actor_ref
@@ -128,7 +134,12 @@ returns table (
   avatar_url    text,
   owner_address text,
   listed        boolean,
-  sections      jsonb
+  sections      jsonb,
+  -- The owner's theme travels with the page, because a stranger has to see the
+  -- page as its owner built it. It is returned even when empty: `{}` means
+  -- override nothing, which the renderer needs to be told rather than left to
+  -- infer from an absent column.
+  theme         jsonb
 )
 language sql
 stable
@@ -147,7 +158,8 @@ as $$
        limit 1
     ) as owner_address,
     (s.visibility = 'public') as listed,
-    coalesce(pr.sections, '[]'::jsonb) as sections
+    coalesce(pr.sections, '[]'::jsonb) as sections,
+    coalesce(pr.theme, '{}'::jsonb) as theme
   from public.person_addresses pa
   join public.actors o on o.actor_ref = pa.actor_ref
   -- The handle resolves WITHIN THIS OWNER. Handles are unique per owner, so the

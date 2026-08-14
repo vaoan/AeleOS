@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PageShell } from "@/shared/presentation/page-shell";
-import { PublicProfile, readPublicPerson } from "@/features/actors";
+import { PublicProfile, ThemeScope, readPublicPerson } from "@/features/actors";
 
 /**
  * Metadata for a person's public profile.
@@ -53,6 +53,11 @@ export async function generateMetadata({
  * from a page with no session and no rate limit in front of it.
  *
  * @returns the profile, or a 404.
+ * The page is wrapped in `ThemeScope`, so a stranger sees it as its owner built
+ * it. That sets only the accent and the cloud tints — light and dark stay under
+ * the visitor's own toggle, so somebody who needs a dark page gets one wearing
+ * the owner's colours rather than instead of them.
+ *
  */
 export default async function PublicPersonPage({
   params,
@@ -69,11 +74,13 @@ export default async function PublicPersonPage({
 
   return (
     <PageShell width="wide">
-      <PublicProfile
-        actor={actor}
-        locale={locale}
-        fursonasTitle={t("fursonas")}
-      />
+      <ThemeScope theme={actor.theme}>
+        <PublicProfile
+          actor={actor}
+          locale={locale}
+          fursonasTitle={t("fursonas")}
+        />
+      </ThemeScope>
     </PageShell>
   );
 }
