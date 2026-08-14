@@ -48,6 +48,10 @@ import {
  * because building one internally imported `server-only` and broke the
  * client bundle the moment a Client Component touched the module.
  *
+ * The header is a decided block rather than three defaults stacked: a heavier
+ * title, the action aligned to its baseline, and a rule under both, so the eye
+ * has somewhere to start before it reaches the list.
+ *
  * Exposes the `fursonas-title` and `fursonas-create` test ids. They exist
  * because a signed-in end-to-end test can reach this page at last — before
  * `tests/e2e/signed-in.spec.ts` nothing could, so nothing here needed naming.
@@ -66,21 +70,21 @@ export default async function FursonasPage() {
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--edge)]/40 pb-6">
         <div>
           <h1
-            className="font-display text-3xl font-bold tracking-tight"
+            className="font-display text-4xl font-extrabold tracking-tight"
             {...tid("fursonas-title")}
           >
             {t("title")}
           </h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">{t("subtitle")}</p>
+          <p className="mt-2 text-sm text-[var(--muted)]">{t("subtitle")}</p>
         </div>
         {suspended ? null : (
           <Link
             href="/fursonas/new"
             {...tid("fursonas-create")}
-            className="shrink-0 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--on-accent)]"
+            className="shrink-0 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-medium text-[var(--on-accent)]"
           >
             {t("create")}
           </Link>

@@ -78,6 +78,10 @@ function inArrangedOrder(
  * one fursona. A reorder computed from a narrowed view would move rows the
  * person cannot see, and one fursona has nothing to be ordered against.
  *
+ * The `ul` owns the border and the surface, and the rows own neither. Every row
+ * carrying its own card gave a list of twenty the same visual weight twenty
+ * times over — this is a table, which is what a list of fursonas is.
+ *
  * @returns the list.
  */
 export function FursonaList({ initial, labels }: FursonaListProps) {
@@ -119,7 +123,7 @@ export function FursonaList({ initial, labels }: FursonaListProps) {
   };
 
   return (
-    <div className="mt-8 grid gap-4">
+    <div className="mt-8 grid gap-6">
       <FursonaFiltersBar labels={labels} />
 
       {ownsNone ? (
@@ -137,7 +141,7 @@ export function FursonaList({ initial, labels }: FursonaListProps) {
             <ul
               ref={dropProvided.innerRef}
               {...dropProvided.droppableProps}
-              className="grid gap-2"
+              className="overflow-hidden rounded-xl border border-[var(--edge)] bg-[var(--surface)]"
             >
               {person ? (
                 <FursonaRow

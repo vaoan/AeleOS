@@ -183,6 +183,39 @@ const BARS = [
     0.55,
     [0.12, 0.03, 305],
   ],
+  // The alternating row tint in the fursona list. It is `--bar` over
+  // `--surface`, so the text on a striped row sits on a background nothing had
+  // measured — the zebra was introduced to give the list hierarchy, and a
+  // stripe that costs legibility would be a bad trade. The last value is the
+  // surface, approximated opaque exactly as PAIRS does.
+  [
+    "light: ink on striped row",
+    [0.27, 0.045, 35],
+    [1, 0, 0],
+    0.35,
+    [0.99, 0.01, 40],
+  ],
+  [
+    "light: muted on striped row",
+    [0.5, 0.045, 30],
+    [1, 0, 0],
+    0.35,
+    [0.99, 0.01, 40],
+  ],
+  [
+    "dark: ink on striped row",
+    [0.96, 0.012, 340],
+    [0.14, 0.03, 305],
+    0.55,
+    [0.16, 0.04, 305],
+  ],
+  [
+    "dark: muted on striped row",
+    [0.66, 0.03, 330],
+    [0.14, 0.03, 305],
+    0.55,
+    [0.16, 0.04, 305],
+  ],
 ];
 
 /**

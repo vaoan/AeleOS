@@ -57,6 +57,10 @@ export interface FursonaFiltersBarProps {
  * rather than history. A visibility pill **pushes**, because choosing one is a
  * deliberate step somebody may well want to undo.
  *
+ * An unselected chip carries a FULL-STRENGTH edge, not the 60% hairline it used
+ * to. Beside the search field next to it, a 60% border reads as decoration
+ * rather than as a control somebody may press.
+ *
  * @returns the filter bar.
  */
 export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
@@ -74,7 +78,7 @@ export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
   }, [typed, filters.q, setFilters]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-3">
       <span className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
         <input
@@ -82,7 +86,7 @@ export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
           aria-label={labels.search}
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
-          className="rounded-lg border border-[var(--edge)]/60 bg-transparent py-1.5 pl-8 pr-3 text-sm"
+          className="rounded-lg border border-[var(--edge)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm"
         />
       </span>
 
@@ -103,10 +107,13 @@ export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
               setFilters({ visibility: value || null }, { history: "push" })
             }
             className={cn(
-              "rounded-full border px-3 py-1 text-sm transition-colors",
+              "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
               active
                 ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]"
-                : "border-[var(--edge)]/60 text-[var(--muted)]",
+                : // Full-strength edge, not a 60% hairline. An unselected control
+                  // still has to look like a control — at 60% these read as
+                  // decoration next to the search field beside them.
+                  "border-[var(--edge)] text-[var(--ink-2)] hover:bg-[var(--edge)]/15",
             )}
           >
             {label}

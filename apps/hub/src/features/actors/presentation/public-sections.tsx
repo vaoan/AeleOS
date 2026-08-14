@@ -52,13 +52,13 @@ function Cards({
   locale: string;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="grid gap-2 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-4"
+            className="grid gap-2 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5"
           >
             <div className="flex items-center gap-2">
               <PublicSectionIcon name={item.icon} />
@@ -95,7 +95,7 @@ function Accordion({
         return (
           <details
             key={keyOf(item.sort_order, item.title_en)}
-            className="rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-4"
+            className="rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5"
           >
             <summary className="cursor-pointer font-display text-sm font-bold">
               {title}
@@ -156,7 +156,7 @@ function Gallery({
 }) {
   const shown = items.filter((item) => Boolean(item.image_url));
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {shown.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
@@ -198,6 +198,10 @@ function Gallery({
  * browser — without depending on the author's own words, which are data, or on
  * a translation, which the e2e rules forbid asserting.
  *
+ * Sections are spaced further apart than the items inside them, and a section
+ * heading outweighs an item title. Without that the page is one flat list of
+ * everything somebody wrote, which is how it read before.
+ *
  * @returns the sections, in the order the author put them.
  */
 export function PublicSections({ sections, locale }: PublicSectionsProps) {
@@ -206,7 +210,7 @@ export function PublicSections({ sections, locale }: PublicSectionsProps) {
   const ordered = [...sections].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-10">
       {ordered.map((section) => {
         const items = [...section.items].sort(
           (a, b) => a.sort_order - b.sort_order,
@@ -217,7 +221,7 @@ export function PublicSections({ sections, locale }: PublicSectionsProps) {
             className="grid gap-3"
           >
             <h2
-              className="font-display text-lg font-bold tracking-tight"
+              className="font-display text-2xl font-bold tracking-tight"
               {...tid("public-section")}
             >
               {contentFor(section, "name", locale)}

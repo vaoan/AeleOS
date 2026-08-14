@@ -77,6 +77,11 @@ export interface FursonaRowProps {
  * than a browser `confirm()`: the destructive step is the second click, and it
  * stays inside the row so it is obvious which fursona is about to go.
  *
+ * A row in a table, not a card of its own: the container owns the edge, and
+ * rows are separated by a hairline and an alternating tint. That tint is
+ * `--bar` over `--surface`, a background `check:contrast` now measures — a
+ * stripe that bought hierarchy by costing legibility would be a bad trade.
+ *
  * @returns the row.
  */
 export function FursonaRow({
@@ -91,7 +96,11 @@ export function FursonaRow({
   const isPerson = actor.kind === "person";
 
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-[var(--edge)]/60 bg-[var(--surface)] px-3 py-2.5">
+    // A row in a table, not a card of its own. Every row carrying its own
+    // border and radius gave a list of twenty the same visual weight twenty
+    // times over and no hierarchy at all — the container owns the edge now, and
+    // rows are separated by a hairline and an alternating tint.
+    <li className="flex items-center gap-3 border-b border-[var(--edge)]/25 px-4 py-3 last:border-b-0 even:bg-[var(--bar)]">
       {canArrange && !isPerson ? (
         <button
           type="button"
@@ -111,10 +120,10 @@ export function FursonaRow({
         <img
           src={actor.avatarUrl}
           alt=""
-          className="size-8 rounded-full object-cover"
+          className="size-10 rounded-full object-cover"
         />
       ) : (
-        <span className="grid size-8 place-items-center rounded-full bg-[var(--edge)]/40 font-display text-sm">
+        <span className="grid size-10 place-items-center rounded-full bg-[var(--edge)]/40 font-display text-sm">
           {actor.handle.slice(0, 1).toUpperCase()}
         </span>
       )}
@@ -125,7 +134,7 @@ export function FursonaRow({
           every consuming app not to render it as a username. The same applies
           here. Its visibility is not a choice anybody made either. */}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">
+        <span className="block truncate font-medium">
           {isPerson ? labels.you : (actor.displayName ?? actor.handle)}
         </span>
         {isPerson ? null : (

@@ -35,6 +35,10 @@ export interface PublicProfileProps {
  * asserts on it after creating a fursona — its text is the person's own words,
  * not a translated string, so checking it is meaningful in either language.
  *
+ * The header carries real weight and a rule beneath it. This is the page a
+ * stranger judges somebody by, and a name at the same size as a section
+ * heading gives them nowhere to look first.
+ *
  * @returns the page.
  */
 export function PublicProfile({
@@ -44,20 +48,20 @@ export function PublicProfile({
 }: PublicProfileProps) {
   return (
     <article className="grid gap-8">
-      <header className="flex items-center gap-4">
+      <header className="flex items-center gap-5 border-b border-[var(--edge)]/40 pb-8">
         {actor.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
           <img
             src={actor.avatarUrl}
             alt=""
-            className="size-20 shrink-0 rounded-full border border-[var(--edge)] object-cover"
+            className="size-24 shrink-0 rounded-full border border-[var(--edge)] object-cover"
           />
         ) : (
-          <span className="size-20 shrink-0 rounded-full border border-dashed border-[var(--edge)]" />
+          <span className="size-24 shrink-0 rounded-full border border-dashed border-[var(--edge)]" />
         )}
         <div className="grid gap-1">
           <h1
-            className="font-display text-2xl font-bold tracking-tight"
+            className="font-display text-4xl font-extrabold tracking-tight"
             {...tid("public-actor-name")}
           >
             {actor.displayName ?? actor.handle}
