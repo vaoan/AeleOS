@@ -81,6 +81,10 @@ export interface FursonaEditorLabels
 /**
  * What {@link FursonaEditor} needs.
  *
+ * `profileTheme` is genuinely optional: it feeds the panel's "use my profile's
+ * look", which renders only where there is something to copy, so a caller that
+ * omits it simply offers no button.
+ *
  * `initialSections` and `initialTheme` are **not optional in practice**, even
  * though the types allow their absence for the create page. `set_actor_sections`
  * replaces rather than merges, so an edit that opened without them deleted
@@ -99,6 +103,14 @@ export interface FursonaEditorProps {
   initialSections?: FursonaSection[];
   /** How the page already looks, absent when creating. */
   initialTheme?: ActorTheme;
+  /**
+   * The person's own profile theme, offered as a starting point.
+   *
+   * Optional because the panel only offers the copy where there is something
+   * to copy — a profile nobody has themed, or a caller that did not read one,
+   * simply renders no button.
+   */
+  profileTheme?: ActorTheme;
   /** The fursona being edited, absent when creating. */
   actorRef?: string;
   /** False when editing — the handle is then shown but not submitted. */
@@ -161,6 +173,11 @@ const editorSchema = fursonaSchema.extend({
  * which this form renders inside. A second copy here would be exactly the
  * drift the original fault was made of.
  *
+ * **The theme panel is handed the person's profile theme**, which is what lets
+ * it offer "use my profile's look". The editor does not decide whether that
+ * button appears — the panel does, from whether there is anything to copy — so
+ * passing it unconditionally is correct rather than lazy.
+ *
  * **The theme panel sits above the sections**, because it governs how all of
  * them look, and it is collapsed until somebody opens it — theming is a thing
  * people do once and then leave alone, so an open colour panel would push the
@@ -189,6 +206,7 @@ export function FursonaEditor({
   initial,
   initialSections,
   initialTheme,
+  profileTheme,
   actorRef,
   handleEditable,
 }: FursonaEditorProps) {
@@ -373,7 +391,11 @@ export function FursonaEditor({
           panel is collapsed until somebody opens it — theming is a thing people
           do once and then leave alone, and an open colour panel would push the
           sections down the page for everybody who never touches it. */}
-      <ThemeController control={control} labels={labels.theme} />
+      <ThemeController
+        control={control}
+        labels={labels.theme}
+        profileTheme={profileTheme}
+      />
 
       <SectionEditor
         control={control}
@@ -397,9 +419,11 @@ export function FursonaEditor({
 function ThemeController({
   control,
   labels,
+  profileTheme,
 }: {
   control: Control<FursonaFormValues>;
   labels: ThemeConfiguratorLabels;
+  profileTheme?: ActorTheme;
 }) {
   const field = useController({ control, name: "theme" });
   return (
@@ -407,6 +431,7 @@ function ThemeController({
       value={field.field.value as ActorTheme}
       onChange={field.field.onChange}
       labels={labels}
+      copyFrom={profileTheme}
     />
   );
 }

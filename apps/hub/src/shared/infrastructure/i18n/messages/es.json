@@ -152,6 +152,7 @@
     "themeSkin": "Estilo",
     "themeAdjusted": "Tu color, como lo ven quienes te visitan",
     "themeReset": "Volver al aspecto original",
+    "themeCopyFromProfile": "Usar el aspecto de mi perfil",
     "canvases": {
       "nebula": "Nebulosa",
       "stars": "Estrellas",

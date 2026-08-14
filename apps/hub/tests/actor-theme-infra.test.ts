@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { setActorTheme } from "@/features/actors/infrastructure/actor-theme";
+import {
+  readMyProfileTheme,
+  setActorTheme,
+} from "@/features/actors/infrastructure/actor-theme";
 import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 
 /**
@@ -89,5 +92,87 @@ describe("the cursor a theme carries", () => {
     const { client: c, rpc } = client();
     await setActorTheme(c, "actor-1", DEFAULT_THEME);
     expect(rpc.mock.calls[0][1].p_theme.cursor).toBeUndefined();
+  });
+});
+
+describe("readMyProfileTheme", () => {
+  /**
+   * A client answering `my_actors` and the `actor_profiles` read.
+   *
+   * @param actors - the rows `my_actors` returns.
+   * @param theme - the stored theme, or null for no profile row.
+   * @returns the client.
+   */
+  function person(actors: unknown[], theme: unknown = null) {
+    return {
+      rpc: vi.fn().mockResolvedValue({ data: actors, error: null }),
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: theme === null ? null : { sections: [], theme },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+  }
+
+  const row = (kind: string) => ({
+    actor_ref: `${kind}-1`,
+    kind,
+    handle: kind === "person" ? "u-abc" : "luna",
+    display_name: null,
+    avatar_url: null,
+    visibility: "private",
+    status: "active",
+  });
+
+  it("reads the theme of the person's own row", async () => {
+    const client = person([row("fursona"), row("person")], {
+      accent: "#00ff88",
+    });
+    expect((await readMyProfileTheme(client)).accent).toBe("#00ff88");
+  });
+
+  // **The person's row, not the first row.** `my_actors` returns the fursonas
+  // alongside it, so taking whichever came back first would copy one character's
+  // look onto another and call it the profile's.
+  it("ignores the fursonas beside it", async () => {
+    const client = person([row("fursona"), row("person")]);
+    const seen: string[] = [];
+    const spy = {
+      ...client,
+      from: () => ({
+        select: () => ({
+          eq: (_c: string, ref: string) => {
+            seen.push(ref);
+            return { maybeSingle: async () => ({ data: null, error: null }) };
+          },
+        }),
+      }),
+    } as unknown as SupabaseClient;
+    await readMyProfileTheme(spy);
+    expect(seen).toEqual(["person-1"]);
+  });
+
+  // Nothing themed yet is an ordinary state, not a fault: the editor renders no
+  // button for it, which is the same outcome as having no person row at all.
+  it("gives the default when nothing is stored", async () => {
+    const client = person([row("person")]);
+    expect(await readMyProfileTheme(client)).toEqual(DEFAULT_THEME);
+  });
+
+  it("gives the default when there is no person row", async () => {
+    const client = person([row("fursona")]);
+    expect(await readMyProfileTheme(client)).toEqual(DEFAULT_THEME);
+  });
+
+  it("throws when the actor list cannot be read", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "no" } }),
+    } as unknown as SupabaseClient;
+    await expect(readMyProfileTheme(client)).rejects.toThrow(/no/);
   });
 });

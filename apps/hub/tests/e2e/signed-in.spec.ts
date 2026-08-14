@@ -300,6 +300,16 @@ test.describe("signed in", () => {
     // the page — and the skin travels a route none of the colours do, since it
     // is stored as a name and resolved into properties when the page renders.
     await page.getByTestId("theme-open").click();
+    // **Copied FIRST, because a copy is a starting point.** The profile this
+    // suite published earlier is themed, so the panel offers to take its look;
+    // everything chosen below then lands on top of it, and the assertions
+    // further down are all about those later choices.
+    //
+    // Pressing it after them instead is what the first version of this did, and
+    // CI was right to fail it: the copy replaces the WHOLE theme, so it wiped
+    // the gradient and the accent the test had just set. That is the button
+    // working, and the test using it backwards.
+    await page.getByTestId("theme-copy-profile").click();
     await page.getByTestId("gradient-colour").fill("#101a2e");
     await page.getByTestId("theme-accent").fill("#00ff88");
     await page.getByTestId("theme-canvas").selectOption("stars");

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
 
 const readActorPage = vi.fn<(...a: unknown[]) => unknown>();
+const readMyProfileTheme = vi.fn<(...a: unknown[]) => unknown>();
 const listMyActors = vi.fn<(...a: unknown[]) => unknown>();
 const notFound = vi.fn<(...a: unknown[]) => never>(() => {
   // Real next/navigation signals a 404 by throwing too — modelling that here
@@ -52,6 +53,7 @@ const { themeConfiguratorLabels } =
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
   readActorPage: (...a: unknown[]) => readActorPage(...a),
+  readMyProfileTheme: (...a: unknown[]) => readMyProfileTheme(...a),
   FURSONA_TEMPLATES,
   // The page builds its labels from this, so a mocked barrel that omits it
   // fails the page rather than the label code — the mocked-dependency trap
@@ -115,6 +117,7 @@ beforeEach(() => {
   // A fursona nobody has written a page for yet, which is the ordinary state
   // for most of this suite. The tests that care override it.
   readActorPage.mockResolvedValue({ sections: [], theme: {} });
+  readMyProfileTheme.mockResolvedValue({});
   notFound.mockImplementation(() => {
     throw new Error("NEXT_NOT_FOUND");
   });

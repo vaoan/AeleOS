@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { CANVASES, DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
+import {
+  CANVASES,
+  DEFAULT_THEME,
+  type ActorTheme,
+} from "@/features/actors/domain/actor-theme";
 import { SKINS } from "@/shared/domain/skins";
 
 const updateMyProfile = vi.fn();
@@ -20,6 +24,8 @@ vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
   useRouter: () => ({ refresh }),
 }));
 
+const { ThemeConfigurator } =
+  await import("@/features/actors/presentation/theme-configurator");
 const { MyProfileForm } =
   await import("@/features/actors/presentation/my-profile-form");
 const { themeConfiguratorLabels } =
@@ -131,5 +137,58 @@ describe("themeConfiguratorLabels", () => {
     for (const skin of SKINS) {
       expect(resolved.skins[skin]).toBe(`t:skins.${skin}`);
     }
+  });
+});
+
+describe("the copy-from-profile button", () => {
+  /**
+   * Renders the panel on its own, as the fursona editor mounts it.
+   *
+   * @param copyFrom - the profile theme to offer, if any.
+   * @param onChange - what to call on a change.
+   * @returns nothing.
+   */
+  function renderPanel(
+    copyFrom?: ActorTheme,
+    onChange: (theme: ActorTheme) => void = () => {},
+  ): void {
+    render(
+      <ThemeConfigurator
+        value={DEFAULT_THEME}
+        onChange={onChange}
+        labels={labels.theme}
+        copyFrom={copyFrom}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("theme-open"));
+  }
+
+  const themed: ActorTheme = {
+    ...DEFAULT_THEME,
+    skin: "glass",
+    accent: "#00ff88",
+  };
+
+  it("copies the whole theme in one press", () => {
+    const onChange = vi.fn();
+    renderPanel(themed, onChange);
+    fireEvent.click(screen.getByTestId("theme-copy-profile"));
+    expect(onChange).toHaveBeenCalledWith(themed);
+  });
+
+  // **A button that accepts a press and changes nothing is the worst kind**,
+  // because nothing tells the person it did nothing. A profile nobody has
+  // themed would copy the default onto the default, so there is no button —
+  // the same rule the visitor's theme switch follows.
+  it("is absent when the profile has nothing to copy", () => {
+    renderPanel(DEFAULT_THEME);
+    expect(screen.queryByTestId("theme-copy-profile")).toBeNull();
+  });
+
+  // The profile's own editor passes nothing, because there the answer would be
+  // itself.
+  it("is absent when no profile was offered at all", () => {
+    renderPanel(undefined);
+    expect(screen.queryByTestId("theme-copy-profile")).toBeNull();
   });
 });

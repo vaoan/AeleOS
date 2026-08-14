@@ -88,6 +88,7 @@ const labels = {
     cursor: "Cursor picture",
     cursorHint: "A link to a small picture.",
     cursorTooBig: "Too big.",
+    copyFromProfile: "Use my profile's look",
     skin: "Style",
     skins: {
       default: "The default",

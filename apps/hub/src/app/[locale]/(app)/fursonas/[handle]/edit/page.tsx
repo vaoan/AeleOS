@@ -1,7 +1,12 @@
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { FursonaEditor, listMyActors, readActorPage } from "@/features/actors";
+import {
+  FursonaEditor,
+  listMyActors,
+  readActorPage,
+  readMyProfileTheme,
+} from "@/features/actors";
 import { fursonaEditorLabels } from "@/app/[locale]/(app)/fursonas/labels";
 
 /**
@@ -32,6 +37,10 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/fursonas/labels";
  * `lower(handle)` — `/fursonas/Sparky/edit` and `/fursonas/sparky/edit`
  * address the same fursona, and only one of them would work otherwise.
  *
+ * It reads the person's own profile theme as well as this fursona's, because a
+ * theme belongs to one actor: the two are unrelated rows, which is exactly why
+ * the panel offers to copy one onto the other.
+ *
  * @returns the edit page, or a 404 when no owned, active fursona matches.
  */
 export default async function EditFursonaPage({
@@ -55,6 +64,9 @@ export default async function EditFursonaPage({
   // REPLACES, so an editor that opened without them would delete everything
   // this fursona had written the first time somebody pressed save.
   const page = await readActorPage(await createServerClient(), actor.actorRef);
+  // For the panel's "use my profile's look". A separate read because a theme
+  // belongs to one actor: this fursona's and its owner's are unrelated rows.
+  const profileTheme = await readMyProfileTheme(await createServerClient());
 
   return (
     <FursonaEditor
@@ -69,6 +81,7 @@ export default async function EditFursonaPage({
       }}
       initialSections={page.sections}
       initialTheme={page.theme}
+      profileTheme={profileTheme}
     />
   );
 }

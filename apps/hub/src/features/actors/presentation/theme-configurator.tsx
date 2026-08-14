@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { Palette, RotateCcw } from "lucide-react";
+import { ClipboardCopy, Palette, RotateCcw } from "lucide-react";
 import {
   CANVASES,
   CURSOR_MAX_PX,
@@ -49,6 +49,10 @@ import { tid } from "@/shared/infrastructure/test-id";
  * token is built from. The pair that named a light and a dark rendering is
  * gone: a custom theme has one rendering.
  *
+ * `copyFromProfile` names the button that takes the whole look from the
+ * person's own profile. It is resolved even where no profile is offered, since
+ * the panel decides whether to render the button and the catalogue does not.
+ *
  * `usingDefault` marks a colour nobody has chosen. A colour input always
  * carries a value, so without saying so the design's own colour reads as a
  * choice somebody made.
@@ -76,6 +80,8 @@ export interface ThemeConfiguratorLabels {
   adjusted: string;
   /** The button that puts everything back. */
   reset: string;
+  /** The button that takes the look from the person's own profile. */
+  copyFromProfile: string;
   /** Marks a colour nobody has chosen, so the default does not read as a choice. */
   usingDefault: string;
   /** Field label for a picture to use as the mouse cursor. */
@@ -86,7 +92,13 @@ export interface ThemeConfiguratorLabels {
   cursorTooBig: string;
 }
 
-/** What {@link ThemeConfigurator} needs. */
+/**
+ * What {@link ThemeConfigurator} needs.
+ *
+ * `copyFrom` is optional because the panel appears in two places and only one
+ * of them has a profile to copy from — on the profile's own editor the answer
+ * would be itself.
+ */
 export interface ThemeConfiguratorProps {
   /** What is stored now. */
   value: ActorTheme;
@@ -94,6 +106,13 @@ export interface ThemeConfiguratorProps {
   onChange: (theme: ActorTheme) => void;
   /** Already-translated strings. */
   labels: ThemeConfiguratorLabels;
+  /**
+   * The person's own profile theme, to offer as a starting point.
+   *
+   * Omitted where there is nothing to copy FROM — the profile's own editor,
+   * where the answer would be itself.
+   */
+  copyFrom?: ActorTheme;
 }
 
 /**
@@ -140,6 +159,13 @@ export interface ThemeConfiguratorProps {
  * Half a theme follows the reader's scheme and half does not, so what an author
  * saw while editing depended on the mode they happened to be in.
  *
+ * **Copying from the profile is one press, and it copies the WHOLE theme.** A
+ * theme belongs to one actor by design, so a person who spends an evening on
+ * their profile finds every character wearing the default — and a gradient
+ * placed stop by stop is not something anybody rebuilds from memory. The button
+ * appears only where there is something to copy; a profile nobody has themed
+ * would copy the default onto the default.
+ *
  * Reset is a first-class control rather than "pick the old colour again",
  * because the resting state is **no override at all** — a page that follows the
  * design — and no colour a picker can produce expresses that.
@@ -150,6 +176,7 @@ export function ThemeConfigurator({
   value,
   onChange,
   labels,
+  copyFrom,
 }: ThemeConfiguratorProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -162,6 +189,12 @@ export function ThemeConfigurator({
   // a cursor still has something to put back, and a disabled button with
   // nothing saying why is the fault this panel keeps being trimmed for.
   const customised = isCustomised(value);
+  // **Offered only when there is something to copy.** A profile nobody has
+  // themed would copy the default onto the default: a button that accepts a
+  // press and changes nothing, with no way for the person to learn it did
+  // nothing. Same rule as the visitor's theme switch, which renders only where
+  // there is a theme to leave.
+  const copyable = copyFrom && isCustomised(copyFrom) ? copyFrom : null;
   const slots = slotsFor(value.canvas);
 
   // **Measured, because a browser refuses an oversized cursor in silence.** Past
@@ -383,16 +416,32 @@ export function ThemeConfigurator({
             </select>
           </div>
 
-          <button
-            type="button"
-            disabled={!customised}
-            onClick={() => onChange(DEFAULT_THEME)}
-            {...tid("theme-reset")}
-            className="flex w-fit items-center gap-2 rounded-lg border border-[var(--edge)] px-3 py-1.5 text-sm"
-          >
-            <RotateCcw className="size-4" />
-            {labels.reset}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* A whole theme, not a colour of it. Somebody who wants only the
+                accent already has the picker; what they cannot rebuild by hand
+                is a gradient they placed stop by stop on another page. */}
+            {copyable ? (
+              <button
+                type="button"
+                onClick={() => onChange(copyable)}
+                {...tid("theme-copy-profile")}
+                className="flex w-fit items-center gap-2 rounded-lg border border-[var(--edge)] px-3 py-1.5 text-sm"
+              >
+                <ClipboardCopy className="size-4" />
+                {labels.copyFromProfile}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={!customised}
+              onClick={() => onChange(DEFAULT_THEME)}
+              {...tid("theme-reset")}
+              className="flex w-fit items-center gap-2 rounded-lg border border-[var(--edge)] px-3 py-1.5 text-sm"
+            >
+              <RotateCcw className="size-4" />
+              {labels.reset}
+            </button>
+          </div>
         </div>
       ) : null}
     </section>

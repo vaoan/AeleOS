@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ActorTheme } from "@/features/actors/domain/actor-theme";
+import {
+  DEFAULT_THEME,
+  type ActorTheme,
+} from "@/features/actors/domain/actor-theme";
+import { listMyActors } from "@/features/actors/infrastructure/fursonas";
+import { readActorPage } from "@/features/actors/infrastructure/actor-page";
 
 /**
  * Stores how somebody chose their own page to look.
@@ -58,4 +63,36 @@ export async function setActorTheme(
     p_theme: stored,
   });
   if (error) throw new Error(`Could not save your theme: ${error.message}`);
+}
+
+/**
+ * The signed-in person's own profile theme.
+ *
+ * Exists so the fursona editor can offer "make this look like my profile".
+ * A theme belongs to one actor, so a person's and a fursona's are unrelated by
+ * design — somebody who spends an evening on their profile and then finds every
+ * character wearing the default has no way to carry the work across, and
+ * rebuilding a gradient stop by stop from memory is not one.
+ *
+ * **A read, not `ensurePersonActor`.** That function provisions, and the /me
+ * page owns that side effect deliberately; calling it here would put a write
+ * behind opening an editor. `my_actors` returns the person's own row alongside
+ * their fursonas, which is enough to find the reference.
+ *
+ * A caller with no person row gets the default, which is also what somebody who
+ * has never themed their profile gets — and the editor renders no button for
+ * either, because there is nothing to copy in both cases.
+ *
+ * @param client - a Supabase client authenticated as the person.
+ * @returns their profile's theme, or the default when there is none.
+ * @throws when either read fails, which is not the same as "not themed yet".
+ */
+export async function readMyProfileTheme(
+  client: SupabaseClient,
+): Promise<ActorTheme> {
+  const person = (await listMyActors(client)).find(
+    (actor) => actor.kind === "person",
+  );
+  if (!person) return DEFAULT_THEME;
+  return (await readActorPage(client, person.actorRef)).theme;
 }

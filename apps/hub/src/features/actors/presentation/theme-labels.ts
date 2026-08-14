@@ -25,6 +25,10 @@ export type Translate = (key: string) => string;
  * visibility words are already shared the same way for the same reason: a
  * second copy is two catalogues to keep in step for no gain.
  *
+ * It resolves the copy button's label whether or not the caller will render
+ * one — the panel decides that from whether a profile theme was handed to it,
+ * and a label bag that varied by caller would be two shapes to keep in step.
+ *
  * The canvas and style names are **built by mapping `CANVASES` and `SKINS`**
  * rather than written out. One added to either list then gets a catalogue entry
  * or fails `messages.test.ts`; it can never quietly render its own id at
@@ -58,6 +62,7 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
     ) as Record<SkinId, string>,
     adjusted: t("themeAdjusted"),
     reset: t("themeReset"),
+    copyFromProfile: t("themeCopyFromProfile"),
     usingDefault: t("themeUsingDefault"),
     cursor: t("themeCursor"),
     cursorHint: t("themeCursorHint"),

@@ -152,6 +152,7 @@
     "themeSkin": "Style",
     "themeAdjusted": "Your accent, as visitors see it",
     "themeReset": "Back to the default look",
+    "themeCopyFromProfile": "Use my profile’s look",
     "canvases": {
       "nebula": "Nebula",
       "stars": "Starfield",
