@@ -2,11 +2,18 @@
 
 import { useState } from "react";
 import { GripVertical, Pencil, Star, Trash2 } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { cn } from "@/shared/infrastructure/cn";
 import type { Visibility } from "@/features/actors/domain/fursona-schema";
 
-/** Translated strings {@link FursonaRow} renders. */
+/**
+ * Translated strings {@link FursonaRow} renders.
+ *
+ * `viewPublic` names the link out to the page a stranger would see. It is a
+ * title rather than visible text because the control is an icon in a dense row,
+ * and a row of five words would push the actor's own name out of view.
+ */
 export interface FursonaRowLabels {
   /** Marks the person's own row. */
   you: string;
@@ -26,6 +33,8 @@ export interface FursonaRowLabels {
   dragToReorder: string;
   /** One label per visibility value. */
   visibility: Record<Visibility, string>;
+  /** Names the link out to the page a stranger would see. */
+  viewPublic: string;
 }
 
 /** The actor shape a row renders. */
@@ -46,8 +55,20 @@ export interface FursonaRowActor {
   status: "active" | "suspended" | "deleted";
 }
 
-/** What {@link FursonaRow} needs. */
+/**
+ * What {@link FursonaRow} needs.
+ *
+ * `address` is optional because a row cannot assume its caller fetched one, and
+ * a row without it simply offers no link rather than guessing an address.
+ */
 export interface FursonaRowProps {
+  /**
+   * The owner's public address, when they have one.
+   *
+   * Optional because this component cannot assume its caller fetched it, and a
+   * row without it simply offers no link rather than guessing an address.
+   */
+  address?: string;
   /** The actor to render. */
   actor: FursonaRowActor;
   /** Already-translated strings. */
@@ -82,9 +103,16 @@ export interface FursonaRowProps {
  * `--bar` over `--surface`, a background `check:contrast` now measures — a
  * stripe that bought hierarchy by costing legibility would be a bad trade.
  *
+ * **It links to the public page only where there is one to see.** A `private`
+ * actor answers 404 to everybody, its owner included, so the link is offered
+ * for `public` and `unlisted` alone — `unlisted` because it serves to whoever
+ * holds the link, and its owner is exactly who does. A link that 404s teaches
+ * somebody the feature is broken rather than that their page is unpublished.
+ *
  * @returns the row.
  */
 export function FursonaRow({
+  address,
   actor,
   labels,
   featured,
@@ -94,6 +122,14 @@ export function FursonaRow({
 }: FursonaRowProps) {
   const [confirming, setConfirming] = useState(false);
   const isPerson = actor.kind === "person";
+  // A person's own profile is at their address; a fursona's is that address
+  // followed by its handle. Neither is worth linking to when it will 404.
+  const publicHref =
+    address && actor.visibility !== "private"
+      ? isPerson
+        ? `/${address}`
+        : `/${address}/${actor.handle}`
+      : null;
 
   return (
     // A row in a table, not a card of its own. Every row carrying its own
@@ -149,6 +185,26 @@ export function FursonaRow({
           {labels.visibility[actor.visibility]}
         </span>
       )}
+
+      {/* **Only where there is a page to see.** A `private` actor answers 404
+          to everybody, its owner included, so a link would send somebody to a
+          dead end and teach them the feature is broken. `unlisted` is offered:
+          it serves to whoever holds the link, and its owner is exactly who
+          does. The link needs the address too, which a person always has —
+          assigned by trigger — but which this component cannot assume it was
+          given. */}
+      {publicHref ? (
+        <Link
+          href={publicHref}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${labels.viewPublic}: ${actor.displayName ?? actor.handle}`}
+          title={labels.viewPublic}
+          className="rounded-lg border border-[var(--edge)] px-2 py-1 text-[var(--muted)]"
+        >
+          <ExternalLink className="size-3.5" aria-hidden />
+        </Link>
+      ) : null}
 
       {isPerson ? null : confirming ? (
         <span className="flex items-center gap-1">

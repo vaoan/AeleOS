@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
+const readMyAddress = vi.fn<(...a: unknown[]) => unknown>();
 const listMyActors = vi.fn<(...a: unknown[]) => unknown>();
 const ensurePersonActor = vi.fn<(...a: unknown[]) => unknown>(() =>
   Promise.resolve("person-ref"),
@@ -31,6 +32,9 @@ vi.mock("next-intl/server", () => ({
 }));
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
+  // The page reads it so each row can link to the page a stranger would see.
+  // A mocked barrel that omits it fails the page rather than the address code.
+  readMyAddress: (...a: unknown[]) => readMyAddress(...a),
   ensurePersonActor: (...a: unknown[]) => ensurePersonActor(...a),
   // Enough of the list to show which rows the page handed over. Everything
   // the list then DOES with them — ordering, filtering, the two empty states,

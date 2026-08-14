@@ -258,3 +258,65 @@ describe("hexFromOklchValue", () => {
     },
   );
 });
+
+describe("the memoised solve", () => {
+  // The property that makes memoising correct: the solve depends on the hardest
+  // stop and the accent, and on nothing else about the gradient. If this ever
+  // stops holding, the cache starts serving the wrong palette.
+  it("does not depend on the angle", () => {
+    const stops = [
+      { color: "#1a1a2e", at: 0 },
+      { color: "#f3e3d3", at: 100 },
+    ];
+    const a = derivePalette({ angle: 0, stops }, "#00ff88");
+    const b = derivePalette({ angle: 270, stops }, "#00ff88");
+    expect(a["--ink"]).toBe(b["--ink"]);
+    expect(a["--surface"]).toBe(b["--surface"]);
+    // The field DOES follow the angle, which is why it is spliced in rather
+    // than cached with the rest.
+    expect(a["--field"]).not.toBe(b["--field"]);
+  });
+
+  it("does not depend on where a stop sits", () => {
+    const at = (n: number) =>
+      derivePalette(
+        {
+          angle: 90,
+          stops: [
+            { color: "#1a1a2e", at: 0 },
+            { color: "#f3e3d3", at: n },
+          ],
+        },
+        "#00ff88",
+      );
+    expect(at(60)["--ink"]).toBe(at(90)["--ink"]);
+  });
+
+  // A changed colour must still be honoured — a cache that never missed would
+  // be a cache that had stopped working.
+  it("follows a changed accent", () => {
+    const stops = [{ color: "#1a1a2e", at: 0 }];
+    expect(derivePalette({ angle: 90, stops }, "#00ff88")["--accent"]).not.toBe(
+      derivePalette({ angle: 90, stops }, "#ff0088")["--accent"],
+    );
+  });
+
+  // Keyed on values a person types, so it is bounded: an unbounded cache keyed
+  // on user input is a slow memory leak rather than an optimisation. Well past
+  // the limit, and the answers must still be right.
+  it("stays correct past its own limit", () => {
+    for (let i = 0; i < 200; i += 1) {
+      const shade = i.toString(16).padStart(2, "0");
+      derivePalette(
+        { angle: 90, stops: [{ color: `#1a1a${shade}`, at: 0 }] },
+        "#00ff88",
+      );
+    }
+    const again = derivePalette(
+      { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+      "#00ff88",
+    );
+    expect(again["--ink"]).toBeTruthy();
+    expect(again["--field"]).toBe("#1a1a2e");
+  });
+});

@@ -427,6 +427,14 @@ function readRgb(
  * layer reusing the far one's, which is why its depth read as haze. A canvas
  * that hard-coded a palette would break all of this.
  *
+ * **It rebuilds only when the theme's colours actually move**, and that guard
+ * is load-bearing: the observer watches the whole document, because the
+ * `<style>` an actor's theme arrives in is rendered inside the page and React
+ * replaces it on every frame of a gradient drag. Wired straight to a rebuild,
+ * every one of those frames recomputed three layers of fractal noise — about
+ * 24ms each, more than a frame's entire budget — and the theming editor was
+ * unusable for a reason nowhere near the code that appeared to cause it.
+ *
  * **It rebuilds when the theme's colours move.** The nebula's tint is painted
  * INTO its offscreen tiles, so a colour change is invisible until they are
  * remade — which is why an author dragging a backdrop colour watched nothing
@@ -618,14 +626,36 @@ export function NebulaCanvas() {
     };
     window.addEventListener("resize", onResize);
 
-    // The tint and blend mode are theme-dependent, so a theme change has to
-    // rebuild the tiles rather than merely redraw them.
+    /**
+     * Rebuilds only when the colours actually moved.
+     *
+     * **This guard is the difference between a smooth drag and a rough one.**
+     * The observer below watches the whole document, because the `<style>` an
+     * actor's theme arrives in is rendered inside the page — and React replaces
+     * that element on every frame of a gradient drag. Wired straight to
+     * `onResize`, as it first was, every one of those frames recomputed three
+     * layers of fractal noise, which is by far the most expensive thing this
+     * component does. The theming editor was unusable and the cost was nowhere
+     * near the code that appeared to cause it.
+     *
+     * Comparing first makes the common case two property reads and a string
+     * compare. The animated path already did this inside `draw`; this is the
+     * same guard for everything that arrives from outside.
+     *
+     * @returns nothing.
+     */
+    const onThemeChanged = () => {
+      const styles = getComputedStyle(document.documentElement);
+      if (tintSignature(styles) === bakedWith) return;
+      build();
+      if (!animated) draw(0);
+    };
+
     // `data-theme` for the reader's own light/dark switch, and the subtree for
-    // the `<style>` an actor's theme arrives in — which React inserts and
-    // replaces as somebody edits. The animated path notices a colour change on
-    // its own, by comparison; this is what covers the still one, where nothing
-    // redraws unless something says so.
-    const observer = new MutationObserver(onResize);
+    // the `<style>` an actor's theme arrives in. A resize is a separate signal
+    // and still rebuilds unconditionally, because the bitmap itself changed
+    // size and no comparison of colours would show that.
+    const observer = new MutationObserver(onThemeChanged);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],

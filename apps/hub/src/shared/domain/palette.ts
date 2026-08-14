@@ -24,6 +24,36 @@ const SURFACE_STEP = 0.05;
 const MID = 0.5;
 
 /**
+ * Solved palettes, by the only two things a solve depends on.
+ *
+ * Bounded, and evicted oldest-first. A drag visits a handful of distinct
+ * hardest stops at most, so this stays tiny in practice — but it is keyed on
+ * values a person types, and an unbounded cache keyed on user input is a slow
+ * memory leak rather than an optimisation.
+ */
+const SOLVED = new Map<string, Palette>();
+
+/** How many solves to keep. Far more than a session needs. */
+const SOLVED_LIMIT = 64;
+
+/**
+ * Remembers a solve, evicting the oldest when the cache is full.
+ *
+ * @param key - the hardest stop and the accent.
+ * @param palette - what they solved to.
+ * @returns nothing.
+ */
+function remember(key: string, palette: Palette): void {
+  if (SOLVED.size >= SOLVED_LIMIT) {
+    // Map iterates in insertion order, so the first key is the oldest. It
+    // certainly exists: the map is at its limit, which is not zero. The
+    // assertion says that rather than guarding a case no input can reach.
+    SOLVED.delete(SOLVED.keys().next().value!);
+  }
+  SOLVED.set(key, palette);
+}
+
+/**
  * Every custom property a chosen background decides.
  *
  * Keyed by the custom property name so it can be spread straight into the
@@ -128,6 +158,13 @@ function dimmestLegible(
  * Reading it from the background rather than from the reader's mode is what
  * stops a custom theme inverting when somebody switches scheme.
  *
+ * **The solve is memoised on the hardest stop and the accent**, which are the
+ * only things it depends on — not the angle, not where any stop sits, not what
+ * the other stops are. The gradient picker reports every pointer move, so most
+ * frames of a drag cannot change the answer and skip the work entirely. Only
+ * `--field` follows the whole gradient, and building that is a join rather than
+ * a search.
+ *
  * @param background - the gradient somebody built.
  * @param accentHex - their accent, as `#rrggbb`.
  * @returns every custom property the theme sets.
@@ -136,6 +173,23 @@ export function derivePalette(
   background: Gradient,
   accentHex: string,
 ): Palette {
+  // **The solve is memoised, and this is where the cost was.** The gradient
+  // picker reports every pointer move, so a drag ran the two walks below — up
+  // to a hundred iterations each, every iteration converting two colours out of
+  // OKLCH — once per frame. It was visibly rough to drag a stop.
+  //
+  // Nothing in that solve depends on the whole gradient. It depends on the
+  // HARDEST STOP and the accent, and on nothing else: not the angle, not where
+  // any stop sits, not what the other stops are. So most of a drag cannot
+  // change the answer at all — moving a stop keeps its colour, and turning the
+  // angle changes nothing about any of them — and the work is skipped entirely.
+  //
+  // `--field` is spliced in afterwards because it alone follows the whole
+  // gradient, and building that string is a join rather than a search.
+  const field = gradientCss(background);
+  const key = `${hardestStop(background)}|${accentHex}`;
+  const remembered = SOLVED.get(key);
+  if (remembered) return { ...remembered, "--field": field };
   // **Solved against the hardest stop, not the first.** Text crosses the whole
   // gradient, so the colour that matters is the one leaving least room for it —
   // the stop nearest mid-lightness. Solving against the first stop, or against
@@ -189,8 +243,7 @@ export function derivePalette(
       ? light
       : shade;
 
-  return {
-    "--field": gradientCss(background),
+  const solved: Palette = {
     "--surface": css(...surface),
     // The bar is a translucent wash over whatever is behind it, so it is the
     // surface again with an alpha rather than a solved colour.
@@ -203,6 +256,9 @@ export function derivePalette(
     "--on-accent": css(...onAccent),
     "--nebula-blend": dark ? "screen" : "multiply",
   };
+
+  remember(key, solved);
+  return { ...solved, "--field": field };
 }
 
 /**

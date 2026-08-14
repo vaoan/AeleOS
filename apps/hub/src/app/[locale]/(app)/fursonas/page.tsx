@@ -6,6 +6,7 @@ import {
   FursonaList,
   ensurePersonActor,
   listMyActors,
+  readMyAddress,
 } from "@/features/actors";
 
 /**
@@ -59,11 +60,23 @@ import {
  * a closed dropdown, so asserting on it would have proved the chrome rather
  * than the page.
  *
+ * It also reads the person's own address, so each row can link to the page a
+ * stranger would see. `my_address` resolves through the caller's token and
+ * returns their own and nobody else's, which is why `person_addresses` grants
+ * no client role anything: a readable table would enumerate every person on
+ * the platform.
+ *
  * @returns the fursona list page.
  */
 export default async function FursonasPage() {
   await ensurePersonActor();
-  const actors = await listMyActors(await createServerClient());
+  const client = await createServerClient();
+  const actors = await listMyActors(client);
+  // Fetched here so each row can link to the page a stranger would see. It is
+  // the person's own address and nobody else's — `my_address` resolves through
+  // the caller's token, which is why `person_addresses` grants no client role
+  // anything: a readable table would enumerate every person on the platform.
+  const address = await readMyAddress(client);
   const t = await getTranslations("fursonas");
 
   const suspended = actors[0]?.status === "suspended";
@@ -95,6 +108,7 @@ export default async function FursonasPage() {
         <p className="mt-8 text-sm text-[var(--muted)]">{t("suspended")}</p>
       ) : (
         <FursonaList
+          address={address ?? undefined}
           initial={actors}
           labels={{
             you: t("you"),
@@ -105,6 +119,7 @@ export default async function FursonasPage() {
             confirm: t("confirmDelete"),
             cancel: t("cancel"),
             dragToReorder: t("dragToReorder"),
+            viewPublic: t("viewPublic"),
             search: t("search"),
             all: t("filterAll"),
             empty: t("empty"),

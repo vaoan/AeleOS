@@ -31,8 +31,15 @@ export interface FursonaListLabels
   noMatches: string;
 }
 
-/** What {@link FursonaList} needs. */
+/**
+ * What {@link FursonaList} needs.
+ *
+ * `address` is passed straight through to each row, which uses it to link out
+ * to the page a stranger would see.
+ */
 export interface FursonaListProps {
+  /** The owner's public address, passed to each row so it can link out. */
+  address?: string;
   /** The rows the server rendered with, used to seed the query. */
   initial: Actor[];
   /** Already-translated strings. */
@@ -82,9 +89,11 @@ function inArrangedOrder(
  * carrying its own card gave a list of twenty the same visual weight twenty
  * times over — this is a table, which is what a list of fursonas is.
  *
+ * It passes `address` down untouched — see the row for what it does with it.
+ *
  * @returns the list.
  */
-export function FursonaList({ initial, labels }: FursonaListProps) {
+export function FursonaList({ initial, labels, address }: FursonaListProps) {
   const [filters] = useQueryStates(fursonaSearchParams);
   const { rows, arrangement } = useFursonas(initial);
   const { remove, reorder, pin } = useFursonaMutations();
@@ -145,6 +154,7 @@ export function FursonaList({ initial, labels }: FursonaListProps) {
             >
               {person ? (
                 <FursonaRow
+                  address={address}
                   key={person.actorRef}
                   actor={person}
                   labels={labels}
@@ -169,6 +179,7 @@ export function FursonaList({ initial, labels }: FursonaListProps) {
                       {...dragProvided.dragHandleProps}
                     >
                       <FursonaRow
+                        address={address}
                         actor={row}
                         labels={labels}
                         featured={Boolean(

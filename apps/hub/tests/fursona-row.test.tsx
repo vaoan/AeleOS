@@ -32,6 +32,7 @@ const labels = {
   confirm: "Confirm",
   cancel: "Cancel",
   dragToReorder: "Drag to reorder",
+  viewPublic: "See the public page",
   visibility: { private: "Private", unlisted: "Unlisted", public: "Public" },
 };
 
@@ -155,5 +156,42 @@ describe("FursonaRow", () => {
     const { onPin } = renderRow({ featured: true });
     click("Unpin");
     expect(onPin).toHaveBeenCalledWith("ref-1", false);
+  });
+});
+
+describe("the link to the public page", () => {
+  // **Only where there is a page to see.** A `private` actor answers 404 to
+  // everybody, its owner included, so a link would send somebody to a dead end
+  // and teach them the feature is broken.
+  it.each(["public", "unlisted"] as const)(
+    "offers it for a %s fursona",
+    (visibility) => {
+      renderRow({ address: "42", actor: actor({ visibility }) });
+      expect(screen.getByTitle("See the public page")).toHaveAttribute(
+        "href",
+        expect.stringContaining("/42/sparky"),
+      );
+    },
+  );
+
+  it("offers none for a private fursona", () => {
+    renderRow({ address: "42", actor: actor({ visibility: "private" }) });
+    expect(screen.queryByTitle("See the public page")).toBeNull();
+  });
+
+  // The address is optional because a row cannot assume its caller fetched one.
+  // Without it there is no page to point at, so nothing is offered.
+  it("offers none without an address", () => {
+    renderRow({ actor: actor({ visibility: "public" }) });
+    expect(screen.queryByTitle("See the public page")).toBeNull();
+  });
+
+  // A person's own profile is the bare address; a fursona's is that plus its
+  // handle. Getting these the same way round is the whole point of the path.
+  it("points a person at their address alone", () => {
+    renderRow({ address: "42", actor: actor({ kind: "person" }) });
+    const href = screen.getByTitle("See the public page").getAttribute("href");
+    expect(href).toContain("/42");
+    expect(href).not.toContain("/sparky");
   });
 });

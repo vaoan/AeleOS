@@ -165,7 +165,8 @@
     "gradientAngle": "Ángulo",
     "gradientAdd": "Añadir color",
     "gradientRemove": "Quitar",
-    "themeCanvasColours": "Colores del fondo"
+    "themeCanvasColours": "Colores del fondo",
+    "viewPublic": "Ver la página pública"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

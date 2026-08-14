@@ -85,6 +85,7 @@ const labels = {
   confirm: "Confirm",
   cancel: "Cancel",
   dragToReorder: "Drag to reorder",
+  viewPublic: "See the public page",
   search: "Search",
   all: "All",
   empty: "No fursonas yet",
