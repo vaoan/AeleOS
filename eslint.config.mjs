@@ -233,7 +233,13 @@ export default tseslint.config(
     plugins: { playwright },
     rules: {
       "playwright/no-focused-test": "error",
-      "playwright/no-skipped-test": "warn",
+      // Conditional skips are allowed; unconditional ones are not. The
+      // signed-in suite needs a Clerk secret key, and most suites here need
+      // none — a fork pull request has no secrets at all, so `test.skip(!creds)`
+      // is what keeps the anonymous majority runnable instead of failing. It is
+      // the same reason `tests/db` and `tests/idp` use `describe.skipIf`. A
+      // skip somebody wrote to silence a failure is still a warning.
+      "playwright/no-skipped-test": ["warn", { allowConditional: true }],
       // Timeouts are a guess about how slow a machine is. Wait for a condition.
       "playwright/no-wait-for-timeout": "error",
       "playwright/no-element-handle": "error",

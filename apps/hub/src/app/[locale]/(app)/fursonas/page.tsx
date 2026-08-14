@@ -1,5 +1,6 @@
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { getTranslations } from "next-intl/server";
+import { tid } from "@/shared/infrastructure/test-id";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import {
   FursonaList,
@@ -47,6 +48,13 @@ import {
  * because building one internally imported `server-only` and broke the
  * client bundle the moment a Client Component touched the module.
  *
+ * Exposes the `fursonas-title` and `fursonas-create` test ids. They exist
+ * because a signed-in end-to-end test can reach this page at last — before
+ * `tests/e2e/signed-in.spec.ts` nothing could, so nothing here needed naming.
+ * The shell's own controls were not an option: the sign-out button lives inside
+ * a closed dropdown, so asserting on it would have proved the chrome rather
+ * than the page.
+ *
  * @returns the fursona list page.
  */
 export default async function FursonasPage() {
@@ -60,7 +68,10 @@ export default async function FursonasPage() {
     <>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+          <h1
+            className="font-display text-3xl font-bold tracking-tight"
+            {...tid("fursonas-title")}
+          >
             {t("title")}
           </h1>
           <p className="mt-1 text-sm text-[var(--muted)]">{t("subtitle")}</p>
@@ -68,6 +79,7 @@ export default async function FursonasPage() {
         {suspended ? null : (
           <Link
             href="/fursonas/new"
+            {...tid("fursonas-create")}
             className="shrink-0 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--on-accent)]"
           >
             {t("create")}

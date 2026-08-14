@@ -5,6 +5,9 @@ const target = e2eTarget();
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Obtains Clerk's testing token so an automated browser may sign in. It is a
+  // no-op without a secret key, because most suites here are anonymous.
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
