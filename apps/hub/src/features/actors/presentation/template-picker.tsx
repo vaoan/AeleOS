@@ -1,6 +1,7 @@
 "use client";
 
 import { LayoutTemplate } from "lucide-react";
+import { tid } from "@/shared/infrastructure/test-id";
 import { useState } from "react";
 import {
   FURSONA_TEMPLATES,
@@ -76,6 +77,11 @@ export interface TemplatePickerProps {
  * merged into the editor's one bag, where `cancel` already means "stop
  * editing". Sharing that key would put the wrong word on one of two buttons.
  *
+ * Exposes `template-picker` and `template-<id>` test ids, so the end-to-end
+ * suite can build a page out of real sections without typing one field at a
+ * time — a template is the shortest honest path from an empty editor to
+ * something a stranger can read.
+ *
  * @returns the picker.
  */
 export function TemplatePicker({
@@ -115,6 +121,7 @@ export function TemplatePicker({
       <button
         type="button"
         aria-expanded={open}
+        {...tid("template-picker")}
         onClick={() => {
           setOpen((was) => !was);
           setPending(undefined);
@@ -132,6 +139,7 @@ export function TemplatePicker({
               key={template.id}
               type="button"
               aria-label={labels.names[template.id]}
+              {...tid(`template-${template.id}`)}
               onClick={() => choose(template)}
               className="grid gap-0.5 rounded-lg px-3 py-2 text-left"
             >

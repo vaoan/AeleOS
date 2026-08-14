@@ -36,7 +36,7 @@ import { tid } from "@/shared/infrastructure/test-id";
  * answered 404 for everybody including them — and publishing without a name
  * would have put `u-<actor_ref>` at the top of it.
  *
- * Exposes the `my-address` and `my-profile-link` test ids, which the signed-in
+ * Exposes the `my-address`, `my-profile-link` and `my-platform-id` test ids, which the signed-in
  * end-to-end suite uses to find somebody's own page without reading the
  * database.
  *
@@ -83,7 +83,9 @@ export default async function MePage({
         <dt className="text-[var(--muted)]">{t("platformId")}</dt>
         {/* Monospace on purpose: this string gets read aloud, pasted into
             tickets and compared across apps. */}
-        <dd className="font-mono text-xs break-all">{actorRef}</dd>
+        <dd className="font-mono text-xs break-all" {...tid("my-platform-id")}>
+          {actorRef}
+        </dd>
       </dl>
       <div className="mt-8 border-t border-[var(--edge)]/40 pt-6">
         <MyProfileForm

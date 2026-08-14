@@ -4,6 +4,7 @@ import type {
   FursonaSectionItem,
 } from "@/features/actors/domain/section-schema";
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** What {@link PublicSections} needs. */
 export interface PublicSectionsProps {
@@ -192,6 +193,11 @@ function Gallery({
  * is a page somebody has not finished, and a stranger has no use for being told
  * so.
  *
+ * Each section heading carries the `public-section` test id, so the end-to-end
+ * suite can assert that what somebody wrote in the editor reached a stranger's
+ * browser — without depending on the author's own words, which are data, or on
+ * a translation, which the e2e rules forbid asserting.
+ *
  * @returns the sections, in the order the author put them.
  */
 export function PublicSections({ sections, locale }: PublicSectionsProps) {
@@ -210,7 +216,10 @@ export function PublicSections({ sections, locale }: PublicSectionsProps) {
             key={keyOf(section.sort_order, section.name_en)}
             className="grid gap-3"
           >
-            <h2 className="font-display text-lg font-bold tracking-tight">
+            <h2
+              className="font-display text-lg font-bold tracking-tight"
+              {...tid("public-section")}
+            >
               {contentFor(section, "name", locale)}
             </h2>
             {section.type === "cards" ? (

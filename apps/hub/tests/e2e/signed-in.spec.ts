@@ -161,4 +161,73 @@ test.describe("signed in", () => {
       await after.close();
     }
   });
+
+  // Closes one of the two manual steps phase 1b-i left open: "verify a real
+  // sign-in provisions exactly one actor row". This asserts it THROUGH THE
+  // PRODUCT rather than by counting rows, because the e2e job has no
+  // service-role credentials and should not be given any. Two separate sessions
+  // for the same identity must resolve to the same platform id; a second row
+  // would produce a different one, and ensure_person_actor's idempotency is
+  // proven directly in tests/db/provisioning.test.ts.
+  test("signing in twice resolves to the same platform id", async ({
+    page,
+    browser,
+  }) => {
+    await signIn(page, await mintTicket(identity!.userId));
+    await page.goto("/es/me");
+    const first = (await page.getByTestId("my-platform-id").innerText()).trim();
+    expect(first).not.toBe("");
+
+    const second = await browser.newContext();
+    try {
+      const other = await second.newPage();
+      await signIn(other, await mintTicket(identity!.userId));
+      await other.goto("/es/me");
+      expect(
+        (await other.getByTestId("my-platform-id").innerText()).trim(),
+      ).toBe(first);
+    } finally {
+      await second.close();
+    }
+  });
+
+  // WHAT THE WHOLE STUDIO WAS FOR. Phases 4a to 4c built an editor that
+  // composes a page out of sections, and phase 5 built the page a stranger
+  // reads — but nothing had ever shown that something written in the one
+  // arrives in the other. A template is the shortest honest path: it inserts
+  // real sections through the real picker.
+  test("sections written in the editor reach a stranger's browser", async ({
+    page,
+    browser,
+  }) => {
+    await signIn(page, await mintTicket(identity!.userId));
+
+    await page.goto("/es/me");
+    const address = (await page.getByTestId("my-address").innerText()).trim();
+
+    const handle = `sec${Date.now().toString().slice(-9)}`;
+    await page.goto("/es/fursonas/new");
+    await page.getByTestId("editor-handle").fill(handle);
+    await page.getByTestId("editor-display-name").fill("Has Sections");
+    await page.getByTestId("editor-visibility").selectOption("public");
+
+    await page.getByTestId("template-picker").click();
+    await page.getByTestId("template-reference-sheet").click();
+    await page.getByTestId("editor-save").click();
+    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+
+    const stranger = await browser.newContext();
+    try {
+      const anonymous = await stranger.newPage();
+      const response = await anonymous.goto(`/es/${address}/${handle}`);
+      expect(response?.status()).toBe(200);
+
+      // The template ships two sections. Asserting the COUNT rather than the
+      // words keeps this independent of both the author's content and the
+      // catalogue, and still fails if the sections never made the round trip.
+      await expect(anonymous.getByTestId("public-section")).toHaveCount(2);
+    } finally {
+      await stranger.close();
+    }
+  });
 });
