@@ -285,10 +285,21 @@ Two consequences that must not be undone:
   description there is a perfectly good card. `0009` always accepted an empty
   description; only `sectionItemSchema` forbade it.
 - **Every layout leaves the element out when the description is empty**, or an
-  empty `<p>` becomes a visible hole in a gap-spaced grid. `two-column` is the
-  one exception and is deliberate: a `dt` without its `dd` is invalid markup and
-  breaks the pairing the layout exists to express, so an unwritten value is a
-  blank cell there. A test walks every layout.
+  empty `<p>` becomes a visible hole in a gap-spaced grid. A test walks all
+  eleven.
+- **`two-column` drops the whole ROW, and the whole list when no row is left.**
+  It is the only layout that hides an item rather than one element of one, and
+  the reason is what the layout is: a table of label and value. A `dt` without
+  its `dd` is invalid markup, so the answer is to drop both — not to render half
+  a row. The list goes too when nothing survives, because `dl` carries the
+  border and the surface and would otherwise be a bordered box with nothing in
+  it. Everywhere else a title with no description is a perfectly good card;
+  here it is half a pair.
+
+  The filter reads the LOCALISED value, so a row written in one language only
+  appears for readers of that language. That follows `contentFor`, which falls
+  back to English — it is the same behaviour every other layout already has,
+  made visible because here it decides a whole row.
 
 **Adding a layout is four edits and a guard will catch you missing one.**
 `SECTION_TYPES`, `is_section_type()` in `0009`, a renderer in the `LAYOUTS`

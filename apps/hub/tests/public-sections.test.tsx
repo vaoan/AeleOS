@@ -436,11 +436,48 @@ describe("an item whose description nobody wrote", () => {
     },
   );
 
-  it("keeps the empty cell in a two-column row, where the pair is the point", () => {
+  // **A row with no value is not a pair, so it does not render.** It used to
+  // keep the blank cell, on the argument that a `dt` needs its `dd` — true, and
+  // the answer is to drop BOTH, not to render half a row. A label with nothing
+  // beside it is noise on somebody's public page, and the label reappears the
+  // moment they write the value.
+  it("hides a two-column row whose value nobody wrote", () => {
     const { container } = render(
-      <PublicSections sections={[blank("two-column")]} locale="en" />,
+      <PublicSections
+        sections={[
+          {
+            name_en: "Design notes",
+            type: "two-column",
+            sort_order: 1,
+            items: [
+              {
+                title_en: "Markings",
+                description_en: "",
+                sort_order: 1,
+              },
+              {
+                title_en: "Colours",
+                description_en: "Cream and rust.",
+                sort_order: 2,
+              },
+            ],
+          },
+        ]}
+        locale="en"
+      />,
     );
     expect(container.querySelectorAll("dt")).toHaveLength(1);
     expect(container.querySelectorAll("dd")).toHaveLength(1);
+    expect(screen.getByText("Colours")).toBeInTheDocument();
+    expect(screen.queryByText("Markings")).toBeNull();
+  });
+
+  // And when nothing is left, the list goes too. An empty `dl` is a bordered
+  // box with nothing in it — the blank cell again, one level up.
+  it("renders no list at all when every row is empty", () => {
+    const { container } = render(
+      <PublicSections sections={[blank("two-column")]} locale="en" />,
+    );
+    expect(container.querySelector("dl")).toBeNull();
   });
 });

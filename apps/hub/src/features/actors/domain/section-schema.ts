@@ -73,8 +73,9 @@ const optionalText = text.optional();
  * something under it: without the heading there is a blank box and nothing to
  * render, while without the description there is a perfectly good card — which
  * is exactly what a template hands somebody to fill in. Every public layout
- * leaves the element out when it is empty, except `two-column`, where a `dt`
- * without its `dd` would be invalid markup.
+ * leaves the element out when it is empty; `two-column` goes further and drops
+ * the whole row, because a label with no value is half a pair rather than a
+ * heading on its own.
  *
  * `icon`, `image_url` and `link_url` are all optional and all stored on every
  * item whatever the layout, which is deliberate: `0009` accepts them on any

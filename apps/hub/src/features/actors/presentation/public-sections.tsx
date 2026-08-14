@@ -161,7 +161,22 @@ function Accordion({
  * A description list, because that is exactly what it is: `dt` is the label and
  * `dd` is the value, which a screen reader announces as a pair.
  *
- * @returns the table.
+ * **A row with no value does not render, and neither does a list with no rows.**
+ * That pairing is the reason: a `dt` without its `dd` is invalid markup, and the
+ * answer is to drop both rather than to render half a row. An earlier version
+ * kept the blank cell and called it "a row still to be filled in" — but a label
+ * with nothing beside it is noise on a page strangers read, and the label comes
+ * back the moment its owner writes the value.
+ *
+ * The empty list matters as much as the empty row: `dl` carries the border and
+ * the surface, so a section whose every value is unwritten would otherwise be a
+ * bordered box with nothing in it — the same blank cell, one level up.
+ *
+ * This is the only layout that drops a whole ITEM rather than one element of
+ * one. Everywhere else a title with no description is a perfectly good card;
+ * here it is half a pair.
+ *
+ * @returns the table, or nothing when no row has a value.
  */
 function TwoColumn({
   items,
@@ -170,9 +185,11 @@ function TwoColumn({
   items: FursonaSectionItem[];
   locale: string;
 }) {
+  const rows = items.filter((item) => wordsOf(item, locale).description);
+  if (rows.length === 0) return null;
   return (
     <dl className="grid overflow-hidden rounded-xl border border-[var(--edge)] bg-[var(--surface)]">
-      {items.map((item) => {
+      {rows.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
           <div
@@ -182,12 +199,6 @@ function TwoColumn({
             <dt className="w-1/3 shrink-0 border-r border-[var(--edge)]/25 px-5 py-3.5 font-display text-sm font-bold">
               {title}
             </dt>
-            {/* **The one description that renders even when empty.** A `dt`
-                without its `dd` is invalid markup and breaks the pairing a
-                description list exists to express — so an unwritten value is a
-                blank cell here, which reads as a row still to be filled in
-                rather than as a missing element. Every other layout drops the
-                element entirely. */}
             <dd className="flex-1 px-5 py-3.5 text-sm/relaxed">
               {description}
             </dd>
