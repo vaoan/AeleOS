@@ -80,14 +80,14 @@ describe("set_actor_theme", () => {
   it("stores what somebody chose", async () => {
     expect(
       await write(alice.sub, alice.sonaRef, {
-        background: "#1a1a2e",
+        background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
         accent: "#00ff88",
         backdropA: "#112233",
         canvas: "none",
       }),
     ).toBeNull();
     expect(await stored(alice.sonaRef)).toEqual({
-      background: "#1a1a2e",
+      background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
       accent: "#00ff88",
       backdropA: "#112233",
       canvas: "none",
@@ -150,19 +150,81 @@ describe("set_actor_theme", () => {
       );
     });
 
+    // A gradient is shape-checked, not colour-checked: which colours exist is
+    // not a question the database can answer, and the client drops a stop it
+    // cannot read rather than rendering one nobody picked.
+    it("refuses a background with no stops", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          background: { angle: 90, stops: [] },
+        }),
+      ).toMatch(/1 to 12 stops/i);
+    });
+
+    it("refuses a background that is not a gradient", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, { background: "#1a1a2e" }),
+      ).toMatch(/1 to 12 stops/i);
+    });
+
+    // A fursona can have a lot of colours. Twelve is the cap, and the cap is
+    // what keeps a client-reachable write on a free-tier database bounded.
+    it("accepts a background with many stops", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          background: {
+            angle: 45,
+            stops: Array.from({ length: 12 }, (_, i) => ({
+              color: "#ff0000",
+              at: i * 9,
+            })),
+          },
+        }),
+      ).toBeNull();
+    });
+
+    it("refuses more stops than the cap", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          background: {
+            angle: 45,
+            stops: Array.from({ length: 13 }, (_, i) => ({
+              color: "#ff0000",
+              at: i,
+            })),
+          },
+        }),
+      ).toMatch(/1 to 12 stops/i);
+    });
+
     it("refuses a canvas name that is absurdly long", async () => {
       expect(
         await write(alice.sub, alice.sonaRef, { canvas: "x".repeat(40) }),
       ).toMatch(/too long/i);
     });
 
-    // The cap is the real protection: this is a client-reachable write on a
-    // free-tier database, and four colours plus a name is all it ever needs.
+    // The byte cap is the backstop, and it guards the one hole the shape check
+    // leaves open: a stop's COLOUR is not length-checked here, because which
+    // colours exist is not a question the database answers. So a hostile client
+    // can send twelve legal stops carrying enormous strings, and nothing but
+    // the total size stops it.
+    //
+    // Built out of VALID keys on purpose. An earlier version used forty
+    // invented ones and passed by tripping the unknown-key check instead —
+    // which meant the cap it was named for was never exercised at all.
     it("refuses a theme that is too large", async () => {
-      const big = Object.fromEntries(
-        Array.from({ length: 40 }, (_, i) => [`k${i}`, "#ffffff"]),
-      );
-      expect(await write(alice.sub, alice.sonaRef, big)).toMatch(/too large/i);
+      const huge = "#".padEnd(400, "f");
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          background: {
+            angle: 90,
+            stops: Array.from({ length: 12 }, (_, i) => ({
+              color: huge,
+              at: i,
+            })),
+          },
+        }),
+      ).toMatch(/too large/i);
     });
   });
 

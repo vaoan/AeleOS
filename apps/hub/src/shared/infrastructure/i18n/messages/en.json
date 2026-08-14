@@ -148,7 +148,6 @@
     "themeTitle": "Colours and backdrop",
     "themeLive": "Changes show straight away",
     "themeAccent": "Accent",
-    "themeBackground": "Page background",
     "themeBackdropA": "First cloud",
     "themeBackdropB": "Second cloud",
     "themeCanvas": "Backdrop",
@@ -160,7 +159,14 @@
       "aurora": "Aurora",
       "none": "None"
     },
-    "themeUsingDefault": "Default"
+    "themeUsingDefault": "Default",
+    "gradientTitle": "Page background",
+    "gradientBar": "Gradient stops",
+    "gradientColour": "Colour",
+    "gradientPosition": "Position",
+    "gradientAngle": "Angle",
+    "gradientAdd": "Add colour",
+    "gradientRemove": "Remove"
   },
   "picker": {
     "title": "Who do you want to be?",

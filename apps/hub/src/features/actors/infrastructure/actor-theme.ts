@@ -10,6 +10,10 @@ import type { ActorTheme } from "@/features/actors/domain/actor-theme";
  * more importantly a stored `null` would be a value pretending to be an
  * absence. Sending `{}` is how somebody puts their page back.
  *
+ * The background travels as a gradient object rather than a string — as many
+ * stops as somebody built — which is why the payload is typed loosely here and
+ * shape-checked by `set_actor_theme` rather than pattern-matched.
+ *
  * The background travels with the rest. It is the colour the page is built
  * around, so a stored theme without one derives no palette at all.
  *
@@ -29,7 +33,7 @@ export async function setActorTheme(
   actorRef: string,
   theme: ActorTheme,
 ): Promise<void> {
-  const stored: Record<string, string> = { canvas: theme.canvas };
+  const stored: Record<string, unknown> = { canvas: theme.canvas };
   if (theme.background) stored.background = theme.background;
   if (theme.accent) stored.accent = theme.accent;
   if (theme.backdropA) stored.backdropA = theme.backdropA;

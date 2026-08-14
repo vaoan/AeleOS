@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { parseHex, toHex } from "@/shared/domain/color";
+import {
+  DEFAULT_GRADIENT,
+  parseGradient,
+  type Gradient,
+} from "@/shared/domain/gradient";
 import { derivePalette } from "@/shared/domain/palette";
 
 /**
@@ -29,6 +34,10 @@ export type CanvasId = (typeof CANVASES)[number];
 /**
  * How somebody chose their page to look.
  *
+ * The background is a **gradient of as many colours as somebody wants**, not
+ * one colour — a fursona can carry more than any fixed set of pickers would
+ * allow. A flat background is simply a gradient with one stop.
+ *
  * A theme carries a **background** now, and that is what makes it one palette
  * rather than two. Every colour the author does not pick is derived from it —
  * see `derivePalette` — so a custom theme is a complete scheme in its own right
@@ -54,7 +63,7 @@ export interface ActorTheme {
    * complete scheme in its own right instead of an accent laid over whichever
    * of the default schemes the reader happens to be in.
    */
-  background: string | null;
+  background: Gradient | null;
   /** The accent colour as `#rrggbb`, or null for the design's own. */
   accent: string | null;
   /** One of the two clouds behind the page, or null for the design's own. */
@@ -87,7 +96,10 @@ export const DEFAULT_THEME: ActorTheme = {
 /**
  * What the colour inputs start on before somebody has chosen.
  *
- * The background is here too, because it is now the first colour anybody picks
+ * The background is NOT here: it is a gradient rather than a colour, and its
+ * own default lives in `gradient.ts` beside the code that reads it.
+ *
+ * These are the accent and the clouds, because each is the first colour anybody picks
  * and a picker opening on black would be a poor start.
  *
  * The design's own light-mode values, so a picker opens showing the colour the
@@ -96,7 +108,6 @@ export const DEFAULT_THEME: ActorTheme = {
  * what a person sees the moment they decide to start overriding.
  */
 export const THEME_SEEDS = {
-  background: "#fbf4ec",
   accent: "#9a2929",
   backdropA: "#ec8e4a",
   backdropB: "#d66a60",
@@ -123,8 +134,9 @@ function colour(value: unknown): string | null {
  * blank for a reason they can neither see nor fix.
  *
  * It falls back **per field**, so a theme with one good half keeps that half.
- * The background is read the same way as the other colours; a theme that has
- * one and nothing else still derives a whole palette from it.
+ * The background goes through `parseGradient`, which drops any stop it cannot
+ * read rather than inventing one — a theme left with no readable stop at all is
+ * treated as having no background, and derives no palette.
  *
  * The canvas is matched against the list with `includes` and never with `in`.
  * An `in` test accepts every inherited key — `toString`, `constructor`,
@@ -140,7 +152,7 @@ export function parseTheme(value: unknown): ActorTheme {
       : {};
   const canvas = stored.canvas;
   return {
-    background: colour(stored.background),
+    background: parseGradient(stored.background),
     accent: colour(stored.accent),
     backdropA: colour(stored.backdropA),
     backdropB: colour(stored.backdropB),
@@ -166,13 +178,19 @@ export const THEME_SCOPE = "actor-theme";
 /**
  * The theme, as the editor's form holds it.
  *
- * The background joins the other colours. Loose on all of them by design — they are `#rrggbb` or null and nothing else
+ * The background is the gradient's shape rather than a string. Loose on the
+ * colours by design — they are `#rrggbb` or null and nothing else
  * is reachable through a colour input, and the database checks the format
  * anyway. What this pins is the SHAPE, so the form cannot submit a theme with a
  * canvas the renderer has no implementation for.
  */
 export const themeSchema = z.object({
-  background: z.string().nullable(),
+  background: z
+    .object({
+      angle: z.number(),
+      stops: z.array(z.object({ color: z.string(), at: z.number() })).min(1),
+    })
+    .nullable(),
   accent: z.string().nullable(),
   backdropA: z.string().nullable(),
   backdropB: z.string().nullable(),
@@ -183,8 +201,11 @@ export const themeSchema = z.object({
  * Sets one colour, and makes every other colour explicit with it.
  *
  * The background is promoted along with the rest, and it matters most: it is
- * the colour every derived one is built from, so a theme with an accent and no
- * background would have nothing to derive against.
+ * what every derived colour is built from, so a theme with an accent and no
+ * background would have nothing to derive against. It is promoted to
+ * `DEFAULT_GRADIENT` rather than to a flat colour, because the control that
+ * edits it is a gradient picker and opening it on a single stop hides the
+ * feature.
  *
  * **A theme is all-default or all-chosen, never half of each.** Picking only an
  * accent used to leave the two cloud colours following the design, which meant
@@ -207,12 +228,12 @@ export const themeSchema = z.object({
  */
 export function withChosenColour(
   theme: ActorTheme,
-  key: "background" | "accent" | "backdropA" | "backdropB",
+  key: "accent" | "backdropA" | "backdropB",
   value: string,
 ): ActorTheme {
   return {
     ...theme,
-    background: theme.background ?? THEME_SEEDS.background,
+    background: theme.background ?? DEFAULT_GRADIENT,
     accent: theme.accent ?? THEME_SEEDS.accent,
     backdropA: theme.backdropA ?? THEME_SEEDS.backdropA,
     backdropB: theme.backdropB ?? THEME_SEEDS.backdropB,
@@ -301,14 +322,11 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
  * can actually be judged.
  *
  * @param accentHex - the accent somebody picked.
- * @param backgroundHex - the background it has to be readable on.
+ * @param background - the gradient it sits on.
  * @returns the colour as rendered, as `#rrggbb`.
  */
-export function accentPreview(
-  accentHex: string,
-  backgroundHex: string,
-): string {
-  return derivePalette(backgroundHex, accentHex)["--accent"] ?? accentHex;
+export function accentPreview(accentHex: string, background: Gradient): string {
+  return derivePalette(background, accentHex)["--accent"] ?? accentHex;
 }
 
 /**

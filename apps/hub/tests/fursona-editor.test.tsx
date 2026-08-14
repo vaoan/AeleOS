@@ -65,7 +65,15 @@ const labels = {
   theme: {
     title: "Colours",
     live: "Live",
-    background: "Page background",
+    gradient: {
+      title: "Page background",
+      bar: "Gradient stops",
+      colour: "Colour",
+      position: "Position",
+      angle: "Angle",
+      add: "Add colour",
+      remove: "Remove",
+    },
     accent: "Accent",
     backdropA: "First cloud",
     backdropB: "Second cloud",

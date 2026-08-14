@@ -34,6 +34,9 @@ import {
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * The background's strings are **nested** under `gradient`, for the same reason
+ * the theme panel's are nested: it has a `title` of its own.
+ *
  * The theme panel gained a `background`, which is the colour every other one is
  * now derived from, and lost the pair that named a light and a dark rendering —
  * there is one rendering.
@@ -104,7 +107,15 @@ export async function fursonaEditorLabels(
     theme: {
       title: t("themeTitle"),
       live: t("themeLive"),
-      background: t("themeBackground"),
+      gradient: {
+        title: t("gradientTitle"),
+        bar: t("gradientBar"),
+        colour: t("gradientColour"),
+        position: t("gradientPosition"),
+        angle: t("gradientAngle"),
+        add: t("gradientAdd"),
+        remove: t("gradientRemove"),
+      },
       accent: t("themeAccent"),
       backdropA: t("themeBackdropA"),
       backdropB: t("themeBackdropB"),

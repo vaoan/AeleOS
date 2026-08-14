@@ -31,7 +31,9 @@ create table public.actor_profiles (
   -- Spanish yet, which is an ordinary state and never an error.
   sections   jsonb not null default '[]'::jsonb,
   -- How the owner chose their page to look: {background?, accent?, backdropA?,
-  -- backdropB?, canvas?}, each colour an `#rrggbb` string.
+  -- backdropB?, canvas?}. The last four are `#rrggbb` strings; `background` is
+  -- a gradient — {angle, stops: [{color, at}]} — because a fursona can carry
+  -- more colours than any fixed set of fields would allow.
   --
   -- The background is the one every other colour is solved against, which is
   -- what makes a custom theme one palette rather than a light and a dark
@@ -420,7 +422,7 @@ security definer
 set search_path = public
 as $$
 declare
-  c_max_bytes constant int := 512;  -- four colours and a canvas name, generously
+  c_max_bytes constant int := 2048; -- a twelve-stop gradient, generously
   v_key   text;
   v_value text;
 begin
@@ -440,7 +442,16 @@ begin
   end if;
 
   for v_key, v_value in select * from jsonb_each_text(p_theme) loop
-    if v_key in ('background', 'accent', 'backdropA', 'backdropB') then
+    if v_key = 'background' then
+      -- A gradient: {angle?, stops: [{color, at}]}. Shape and size only — which
+      -- colours exist is not a question the database can answer, and the client
+      -- drops any stop it cannot read rather than rendering one nobody picked.
+      if jsonb_typeof(p_theme -> 'background' -> 'stops') is distinct from 'array'
+         or jsonb_array_length(p_theme -> 'background' -> 'stops') = 0
+         or jsonb_array_length(p_theme -> 'background' -> 'stops') > 12 then
+        raise exception 'background: needs 1 to 12 stops' using errcode = '22023';
+      end if;
+    elsif v_key in ('accent', 'backdropA', 'backdropB') then
       if v_value !~ '^#[0-9a-fA-F]{6}$' then
         raise exception '%: must be #rrggbb', v_key using errcode = '22023';
       end if;

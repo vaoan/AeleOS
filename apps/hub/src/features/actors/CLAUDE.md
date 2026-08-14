@@ -338,7 +338,10 @@ A person themes their own page and a stranger sees it as they built it. The
 decisions, so they are not quietly undone:
 
 - **A theme is ONE palette, not a light and a dark variant.** It carries its own
-  **background**, and everything the author does not pick — text, secondary
+  **background — a gradient of as many colours as somebody wants**, up to
+  `MAX_STOPS`, because a fursona can carry more colours than any fixed set of
+  pickers would allow. A flat background is simply a gradient with one stop.
+  Everything the author does not pick — text, secondary
   text, muted text, borders — is derived from that by `derivePalette`. This is
   forced rather than chosen: an accent cannot clear 4.5:1 against both a
   near-white and a near-black surface, so an accent laid over the reader's
@@ -349,8 +352,17 @@ decisions, so they are not quietly undone:
   **the escape hatch is what makes the freedom safe**, not a correction applied
   behind somebody's back. An earlier version pushed a background's lightness
   away from the middle and capped its chroma; that was given up deliberately,
-  and `palette.test.ts` asserts a mid-grey does **not** reach the text minimum
-  so that reintroducing the correction fails loudly.
+  and `palette.test.ts` asserts the field is rendered **verbatim** so that
+  reintroducing the correction fails loudly.
+
+  A note that lived here claimed a mid-grey could not carry readable text and
+  that a test pinned it below the minimum. **That was wrong.** It came from a
+  2.97 measured when the field was still lifted toward the middle before being
+  solved against; the gradient model lifts nothing, so text is solved against
+  the raw colour and reaches 4.9 even on grey. The suite now asserts readable
+  text on the field for every hostile background it tries, which is a stronger
+  guarantee than the one it replaced.
+
 - **What the author does not pick is still solved.** Text takes whichever
   extreme measures better against the field, muted takes the dimmest value that
   still clears 4.5:1, borders clear 3:1 — or the best available, when the
@@ -359,8 +371,16 @@ decisions, so they are not quietly undone:
   per token by `lightness < 0.5` put a white heading and near-black body text on
   the same blue field, each solver having reached its own answer. A saturated
   hue moves the crossover away from the midpoint, so it is measured.
-- **The field is a gradient**, the shape `globals.css` already uses. A flat page
-  reads as a swatch.
+- **Text is solved against the HARDEST stop** — the one nearest mid-lightness,
+  which leaves the least room. Text crosses the whole gradient, so solving
+  against the first stop, or against an average, makes a page readable at one
+  end and not at the other.
+- **Stop order is an invariant, not a convention.** CSS renders stops in the
+  order they are written, so an out-of-order list doubles back and produces
+  bands nobody put there. Every function in `gradient.ts` returns a sorted list
+  rather than trusting its caller — which means a dragged handle can change
+  index, and a control tracking its selection by index would silently start
+  editing the neighbour.
 - **Changes are live and use the SAME `themeCss` the public page uses**, so the
   preview cannot drift from the result. Persistence rides the ordinary save:
   what must be instant is seeing a colour, not storing it.

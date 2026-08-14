@@ -6,7 +6,12 @@ import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 describe("ThemeScope", () => {
   it("emits a stylesheet carrying the owner's colour", () => {
     const { container } = render(
-      <ThemeScope theme={{ ...DEFAULT_THEME, background: "#1a1a2e" }}>
+      <ThemeScope
+        theme={{
+          ...DEFAULT_THEME,
+          background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+        }}
+      >
         <p>page</p>
       </ThemeScope>,
     );
@@ -30,7 +35,12 @@ describe("ThemeScope", () => {
   // the reader's scheme, which made it two themes rather than one.
   it("emits one rule, with no scheme to pick between", () => {
     const { container } = render(
-      <ThemeScope theme={{ ...DEFAULT_THEME, background: "#1a1a2e" }}>
+      <ThemeScope
+        theme={{
+          ...DEFAULT_THEME,
+          background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+        }}
+      >
         <p>page</p>
       </ThemeScope>,
     );

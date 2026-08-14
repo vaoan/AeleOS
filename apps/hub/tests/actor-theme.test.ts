@@ -10,18 +10,26 @@ import {
   themeVars,
 } from "@/features/actors/domain/actor-theme";
 
+/**
+ * A gradient of one colour, which is what a flat background is now.
+ *
+ * @param color - the colour.
+ * @returns the gradient.
+ */
+const flat = (color: string) => ({ angle: 90, stops: [{ color, at: 0 }] });
+
 describe("parseTheme", () => {
   it("reads a theme somebody chose", () => {
     expect(
       parseTheme({
-        background: "#1a1a2e",
+        background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
         accent: "#00ff88",
         backdropA: "#112233",
         backdropB: "#445566",
         canvas: "none",
       }),
     ).toEqual({
-      background: "#1a1a2e",
+      background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
       accent: "#00ff88",
       backdropA: "#112233",
       backdropB: "#445566",
@@ -70,7 +78,7 @@ describe("parseTheme", () => {
 describe("themeVars", () => {
   const THEMED = {
     ...DEFAULT_THEME,
-    background: "#1a1a2e",
+    background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
     accent: "#00ff88",
   };
 
@@ -79,8 +87,9 @@ describe("themeVars", () => {
   // palette that reads the same for everybody.
   it("emits a whole palette, not just an accent", () => {
     const vars = themeVars(THEMED);
-    // `--field` is a gradient rather than a colour, so it is checked apart.
-    expect(vars["--field"]).toContain("radial-gradient");
+    // `--field` is the author's own background, verbatim — flat when they chose
+    // one colour, a gradient when they chose several.
+    expect(vars["--field"]).toBeTruthy();
     for (const token of [
       "--surface",
       "--ink",
@@ -107,8 +116,10 @@ describe("themeVars", () => {
   it.each([
     ["#0a0a0a", "screen"],
     ["#fefefe", "multiply"],
-  ])("blends the cloud for %s with %s", (background, blend) => {
-    expect(themeVars({ ...THEMED, background })["--nebula-blend"]).toBe(blend);
+  ])("blends the cloud for %s with %s", (colour, blend) => {
+    expect(
+      themeVars({ ...THEMED, background: flat(colour) })["--nebula-blend"],
+    ).toBe(blend);
   });
 
   it("passes the cloud colours through as the channels the canvas reads", () => {
@@ -152,24 +163,37 @@ describe("themeVars", () => {
     });
   });
 
+  // A gradient whose every stop is unreadable parses to nothing at all, so
+  // there is no background to solve against and no palette to emit.
   it.each(["not a colour", "#12345", ""])(
     "emits no palette for the unparseable background %o",
-    (background) => {
-      expect(themeVars({ ...DEFAULT_THEME, background })).toEqual({});
+    (colour) => {
+      expect(
+        themeVars({
+          ...DEFAULT_THEME,
+          background: parseTheme({
+            background: { stops: [{ color: colour, at: 0 }] },
+          }).background,
+        }),
+      ).toEqual({});
     },
   );
 });
 
 describe("accentPreview", () => {
   it("reports the accent as rendered on the chosen background", () => {
-    expect(accentPreview("#00ff88", "#1a1a2e")).toMatch(/^oklch\(/);
+    expect(accentPreview("#00ff88", flat("#1a1a2e"))).toMatch(/^oklch\(/);
   });
 
-  // A background that is not a colour derives no palette, so there is nothing
-  // to solve against and the accent comes back exactly as picked. Reachable
-  // from a stored value, never from the editor.
+  // A background whose stops are unreadable derives no palette, so there is
+  // nothing to solve against and the accent comes back exactly as picked.
   it("gives the accent back unchanged when there is no palette", () => {
-    expect(accentPreview("#00ff88", "not a colour")).toBe("#00ff88");
+    expect(
+      accentPreview("#00ff88", {
+        angle: 90,
+        stops: [{ color: "nope", at: 0 }],
+      }),
+    ).toBe("#00ff88");
   });
 
   // The accent is the author's, exactly, whatever they put it on. It used to be
@@ -177,14 +201,17 @@ describe("accentPreview", () => {
   // was given up deliberately in favour of full creativity, with the visitor's
   // ability to switch to a default theme as the safeguard.
   it("does not change with the background", () => {
-    expect(accentPreview("#00ff88", "#0a0a0a")).toBe(
-      accentPreview("#00ff88", "#fefefe"),
+    expect(accentPreview("#00ff88", flat("#0a0a0a"))).toBe(
+      accentPreview("#00ff88", flat("#fefefe")),
     );
   });
 });
 
 describe("themeCss", () => {
-  const THEMED = { ...DEFAULT_THEME, background: "#1a1a2e" };
+  const THEMED = {
+    ...DEFAULT_THEME,
+    background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+  };
 
   // One rule, no media queries. Both are consequences of a theme being one
   // palette: there is only one rendering, so there is nothing to pick between.
@@ -216,10 +243,18 @@ describe("themeCss", () => {
 
   // Nothing a person typed may reach a stylesheet. A `}` that survived would
   // close the rule and everything after it would be CSS somebody else wrote.
+  // A hostile stop does not parse as a colour, so it is dropped entirely and
+  // never reaches the stylesheet — the same rule that drops any unreadable
+  // value rather than defaulting it.
   it.each(["#1a1a2e}body{display:none", "red;}*{color:red", "</style>"])(
     "cannot be escaped through the background %s",
-    (background) => {
-      const css = themeCss({ ...DEFAULT_THEME, background });
+    (colour) => {
+      const css = themeCss({
+        ...DEFAULT_THEME,
+        background: parseTheme({
+          background: { stops: [{ color: colour, at: 0 }] },
+        }).background,
+      });
       expect(css).not.toContain("body{");
       expect(css).not.toContain("*{");
       expect(css).not.toContain("</style>");

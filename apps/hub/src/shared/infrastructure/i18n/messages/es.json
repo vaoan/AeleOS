@@ -148,7 +148,6 @@
     "themeTitle": "Colores y fondo",
     "themeLive": "Los cambios se ven al instante",
     "themeAccent": "Color principal",
-    "themeBackground": "Fondo de la página",
     "themeBackdropA": "Primera nube",
     "themeBackdropB": "Segunda nube",
     "themeCanvas": "Fondo",
@@ -160,7 +159,14 @@
       "aurora": "Aurora",
       "none": "Ninguno"
     },
-    "themeUsingDefault": "Por defecto"
+    "themeUsingDefault": "Por defecto",
+    "gradientTitle": "Fondo de la página",
+    "gradientBar": "Paradas del degradado",
+    "gradientColour": "Color",
+    "gradientPosition": "Posición",
+    "gradientAngle": "Ángulo",
+    "gradientAdd": "Añadir color",
+    "gradientRemove": "Quitar"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

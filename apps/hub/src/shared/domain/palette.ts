@@ -5,6 +5,11 @@ import {
   srgbToOklch,
   type Oklch,
 } from "@/shared/domain/color";
+import {
+  gradientCss,
+  hardestStop,
+  type Gradient,
+} from "@/shared/domain/gradient";
 
 /** Text needs this much. Anything below it is a page somebody cannot read. */
 const TEXT = 4.5;
@@ -17,9 +22,6 @@ const SURFACE_STEP = 0.05;
 
 /** Where a page stops being light and starts being dark. */
 const MID = 0.5;
-
-/** How far the gradient's near end lifts off the chosen colour. */
-const FIELD_LIFT = 0.06;
 
 /**
  * Every custom property a chosen background decides.
@@ -118,39 +120,38 @@ function dimmestLegible(
  * The hue carries into all of them, so a palette reads as one colour scheme
  * rather than as grey text dropped onto a tint.
  *
- * `--field` is a **gradient** — a soft pool of light at the top falling to the
- * chosen colour, the shape `globals.css` already uses, because a flat page reads
- * as a swatch rather than as a place.
+ * `--field` is **the author's gradient, verbatim** — however many stops they
+ * built and at whatever angle. Nothing here adjusts it.
  *
  * `--nebula-blend` follows the background's lightness: `screen` on a dark field
  * because dust emits light, `multiply` on a light one because it absorbs it.
  * Reading it from the background rather than from the reader's mode is what
  * stops a custom theme inverting when somebody switches scheme.
  *
- * @param backgroundHex - the colour somebody picked, as `#rrggbb`.
+ * @param background - the gradient somebody built.
  * @param accentHex - their accent, as `#rrggbb`.
  * @returns every custom property the theme sets.
  */
 export function derivePalette(
-  backgroundHex: string,
+  background: Gradient,
   accentHex: string,
 ): Palette {
-  const rgb = parseHex(backgroundHex);
+  // **Solved against the hardest stop, not the first.** Text crosses the whole
+  // gradient, so the colour that matters is the one leaving least room for it —
+  // the stop nearest mid-lightness. Solving against the first stop, or against
+  // an average, makes a page readable at one end and not at the other.
+  const rgb = parseHex(hardestStop(background));
   // A value that is not a colour derives nothing. The caller emits no override
   // at all in that case, which leaves the design's own palette in charge.
   if (!rgb) return {};
 
-  const background = srgbToOklch(rgb);
-  const [bgL, bgC, bgH] = background;
+  const [bgL, bgC, bgH] = srgbToOklch(rgb);
 
-  // The gradient's near end, and the card, both step away from the chosen
-  // colour — the first toward the middle, the second away from it.
+  // The card steps away from the hardest stop; the field is the author's own
+  // gradient and is not adjusted at all.
   const dark = bgL < MID;
-  const lifted: Oklch = [
-    Math.max(0, Math.min(1, dark ? bgL + FIELD_LIFT : bgL - FIELD_LIFT)),
-    bgC,
-    bgH,
-  ];
+  // What every ratio below is solved against: the gradient at its hardest.
+  const lifted: Oklch = [bgL, bgC, bgH];
   const surface: Oklch = [
     Math.max(0, Math.min(1, dark ? bgL - SURFACE_STEP : bgL + SURFACE_STEP)),
     bgC,
@@ -189,7 +190,7 @@ export function derivePalette(
       : shade;
 
   return {
-    "--field": `radial-gradient(120% 90% at 50% 0%, ${css(...lifted)} 0%, ${css(...background)} 70%)`,
+    "--field": gradientCss(background),
     "--surface": css(...surface),
     // The bar is a translucent wash over whatever is behind it, so it is the
     // surface again with an alpha rather than a solved colour.
@@ -210,12 +211,12 @@ export function derivePalette(
  * The canvas and the star toggle both need to know, and asking the reader's
  * scheme would give the wrong answer for a custom theme.
  *
- * @param backgroundHex - the chosen background.
+ * @param background - the chosen gradient.
  * @returns true when the page is dark.
  */
-export function isDarkBackground(backgroundHex: string): boolean {
-  const rgb = parseHex(backgroundHex);
-  return rgb ? srgbToOklch(rgb)[0] < 0.5 : false;
+export function isDarkBackground(background: Gradient): boolean {
+  const rgb = parseHex(hardestStop(background));
+  return rgb ? srgbToOklch(rgb)[0] < MID : false;
 }
 
 /**

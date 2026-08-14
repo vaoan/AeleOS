@@ -13,12 +13,20 @@ import {
   type ActorTheme,
   type CanvasId,
 } from "@/features/actors/domain/actor-theme";
+import {
+  GradientPicker,
+  type GradientPickerLabels,
+} from "@/features/actors/presentation/gradient-picker";
+import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * Translated strings {@link ThemeConfigurator} renders.
  *
- * `background` names the page's own colour, which is the one every derived
+ * The background's strings are **nested** under `gradient`, because the picker
+ * has a `title` of its own and a flat bag would silently drop one of them.
+ *
+ * `background` named the page's own colour, which is the one every derived
  * token is built from. The pair that named a light and a dark rendering is
  * gone: a custom theme has one rendering.
  *
@@ -31,8 +39,8 @@ export interface ThemeConfiguratorLabels {
   title: string;
   /** Says the change is already live and needs no saving. */
   live: string;
-  /** Field label for the page's own background. */
-  background: string;
+  /** The gradient picker's own strings, nested to avoid a title collision. */
+  gradient: GradientPickerLabels;
   /** Field label for the accent. */
   accent: string;
   /** Field label for one cloud. */
@@ -72,6 +80,11 @@ export interface ThemeConfiguratorProps {
  * scoped element — the SAME function the public page uses, which is what stops
  * the preview and the real thing drifting apart.
  *
+ * **The background is a gradient picker rather than a colour input**, because a
+ * fursona can carry more colours than any fixed set of fields would allow. A
+ * flat background is simply a gradient with one stop, so nothing is lost for
+ * somebody who wants one colour.
+ *
  * **The pickers are unconstrained, and nothing corrects what they produce.** A
  * page may be as garish or as unreadable as its owner likes. That is a product
  * decision rather than an oversight, and it rests on the visitor being able to
@@ -101,7 +114,7 @@ export function ThemeConfigurator({
   const [open, setOpen] = useState(false);
   const preview = accentPreview(
     value.accent ?? THEME_SEEDS.accent,
-    value.background ?? THEME_SEEDS.background,
+    value.background ?? DEFAULT_GRADIENT,
   );
   const themed = isThemed(value);
 
@@ -117,7 +130,7 @@ export function ThemeConfigurator({
   );
 
   const colourField = (
-    key: "background" | "accent" | "backdropA" | "backdropB",
+    key: "accent" | "backdropA" | "backdropB",
     label: string,
   ) => (
     <div className="grid gap-1.5">
@@ -176,8 +189,15 @@ export function ThemeConfigurator({
               so what somebody judges here is what a stranger will get. */}
           <style>{themeCss(value)}</style>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {colourField("background", labels.background)}
+          {/* As many colours as somebody wants, which is the point: a fursona
+              can carry more than any fixed set of pickers would allow. */}
+          <GradientPicker
+            value={value.background ?? DEFAULT_GRADIENT}
+            onChange={(background) => onChange({ ...value, background })}
+            labels={labels.gradient}
+          />
+
+          <div className="grid gap-3 sm:grid-cols-3">
             {colourField("accent", labels.accent)}
             {colourField("backdropA", labels.backdropA)}
             {colourField("backdropB", labels.backdropB)}
