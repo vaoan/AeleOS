@@ -176,3 +176,55 @@ describe("PublicProfile", () => {
     });
   });
 });
+
+describe("a person whose handle nobody chose", () => {
+  // **THE REGRESSION TEST for `actor_ref` on a public page.** Provisioning
+  // mints `u-<actor_ref with the hyphens out>` because a handle is `not null`
+  // and nobody has picked one yet, and this page printed it under the name —
+  // so a stranger reading somebody's profile was handed the reference that IS
+  // the `owner_ref` of every fursona they own, the exact column
+  // `/api/actors/mine` strips by name.
+  //
+  // Found by looking at a real published profile. Every test here passed
+  // throughout, because they all used the handle `luna`, which a person never
+  // has.
+  const machine = "u-78797f558e275eb3b3254726f43f1667";
+
+  it("shows their address instead of the reference", () => {
+    render(
+      <PublicProfile
+        actor={actor({ handle: machine, address: "15" })}
+        locale="en"
+        fursonasTitle="Fursonas"
+      />,
+    );
+    expect(screen.queryByText(machine)).toBeNull();
+    expect(screen.getByText("15")).toBeInTheDocument();
+  });
+
+  // The heading falls back to the handle when nobody has set a name, so it
+  // leaked through the title as well as the subtitle.
+  it("titles the page with their address when they set no name", () => {
+    render(
+      <PublicProfile
+        actor={actor({ handle: machine, address: "15", displayName: null })}
+        locale="en"
+        fursonasTitle="Fursonas"
+      />,
+    );
+    expect(screen.getByTestId("public-actor-name")).toHaveTextContent("15");
+    expect(screen.queryByText(machine)).toBeNull();
+  });
+
+  // A fursona's handle is chosen, is in its address, and must keep showing.
+  it("still shows a handle somebody chose", () => {
+    render(
+      <PublicProfile
+        actor={actor({ handle: "luna", address: "15" })}
+        locale="en"
+        fursonasTitle="Fursonas"
+      />,
+    );
+    expect(screen.getByText("luna")).toBeInTheDocument();
+  });
+});

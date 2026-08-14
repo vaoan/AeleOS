@@ -34,3 +34,29 @@ export function contentFor(
   const english = source[`${field}_en`];
   return typeof english === "string" ? english : "";
 }
+
+/**
+ * Whether a handle is the machine one provisioning mints.
+ *
+ * A person is created with `u-<actor_ref with the hyphens removed>` — see
+ * `0006` — because a handle is `not null` and nobody has chosen one yet. It is
+ * an internal value and **must never be rendered to anybody**, for two reasons:
+ *
+ *  * It is `actor_ref` in a thin disguise. On a PERSON that reference is the
+ *    `owner_ref` of every fursona they own, which is precisely the column
+ *    `/api/actors/mine` strips out by name. A public page printing it hands it
+ *    to every stranger who visits, permanently.
+ *  * It is machine text at the top of somebody's page. `docs/integrating.md`
+ *    tells every consuming app never to show it to a person, and the hub does
+ *    not get an exemption from its own contract.
+ *
+ * Matched on shape rather than compared against a computed value, so it holds
+ * for an actor whose reference the caller does not have — which is every actor
+ * on a public page.
+ *
+ * @param handle - the handle as stored.
+ * @returns true when it is the provisioned one and not a chosen name.
+ */
+export function isMachineHandle(handle: string): boolean {
+  return /^u-[0-9a-f]{32}$/i.test(handle);
+}

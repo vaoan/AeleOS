@@ -6,6 +6,7 @@ import { SignOutControl } from "@/features/session";
 import {
   ensurePersonActor,
   getPersonActor,
+  isMachineHandle,
   readMyAddress,
   readActorPage,
   themeConfiguratorLabels,
@@ -42,6 +43,13 @@ import { tid } from "@/shared/infrastructure/test-id";
  * person was provisioned `private` with no way to change that, so their page
  * answered 404 for everybody including them — and publishing without a name
  * would have put `u-<actor_ref>` at the top of it.
+ *
+ * **The handle row shows nothing for a person, and that is right.** A person's
+ * handle is always the provisioned `u-<actor_ref>` — nobody picks one, because
+ * a person's handle appears in no address — so the row was machine text
+ * labelled "username", sitting directly above the same value labelled "platform
+ * id". Two renderings of one thing, one of them under a name that invited
+ * somebody to think they had chosen it.
  *
  * Exposes the `my-address`, `my-profile-link` and `my-platform-id` test ids, which the signed-in
  * end-to-end suite uses to find somebody's own page without reading the
@@ -82,7 +90,15 @@ export default async function MePage({
       </h1>
       <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
         <dt className="text-[var(--muted)]">{t("handle")}</dt>
-        <dd>{actor?.handle ?? t("empty")}</dd>
+        {/* A person's handle is ALWAYS the provisioned `u-<actor_ref>`: nobody
+            chooses one, because a person's handle appears in no address. Shown
+            here it was machine text labelled "username", sitting directly above
+            the same value labelled "platform id" — two renderings of one thing,
+            one of them under a name that invited somebody to think they had
+            picked it. */}
+        <dd>
+          {actor && !isMachineHandle(actor.handle) ? actor.handle : t("empty")}
+        </dd>
         <dt className="text-[var(--muted)]">{t("address")}</dt>
         <dd {...tid("my-address")}>
           {address ? (

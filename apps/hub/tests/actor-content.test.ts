@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { contentFor } from "@/features/actors/domain/actor-content";
+import {
+  contentFor,
+  isMachineHandle,
+} from "@/features/actors/domain/actor-content";
 
 const item = {
   title_en: "English title",
@@ -55,5 +60,49 @@ describe("contentFor", () => {
   // pass with the arrows reversed.
   it("never falls back from English to Spanish", () => {
     expect(contentFor({ title_es: "Sólo español" }, "title", "en")).toBe("");
+  });
+});
+
+describe("isMachineHandle", () => {
+  it("knows the handle provisioning mints", () => {
+    expect(isMachineHandle("u-78797f558e275eb3b3254726f43f1667")).toBe(true);
+  });
+
+  it("is case-insensitive, because a uuid may be rendered either way", () => {
+    expect(isMachineHandle("U-78797F558E275EB3B3254726F43F1667")).toBe(true);
+  });
+
+  // Anchored at both ends and exact in length. A handle that merely starts
+  // with `u-`, or is one hex short, is somebody's own name.
+  it.each([
+    "u-78797f558e275eb3b3254726f43f166",
+    "u-78797f558e275eb3b3254726f43f16677",
+    "xu-78797f558e275eb3b3254726f43f1667",
+    "u-78797f558e275eb3b3254726f43f1667x",
+    "u-not-hex-at-all",
+    "luna",
+    "u-shaped",
+  ])("leaves %s alone", (handle) => {
+    expect(isMachineHandle(handle)).toBe(false);
+  });
+
+  // **Pinned to the database's own reserved namespace.** `0007` refuses this
+  // exact shape as a chosen handle, which is what makes the guard total: a
+  // fursona cannot be named into looking like a person. If one file's pattern
+  // moves and the other's does not, a chosen handle could be hidden from its
+  // own page or a person's reference could be shown on one.
+  it("matches the shape the database reserves", () => {
+    const sql = readFileSync(
+      join(
+        process.cwd(),
+        "..",
+        "..",
+        "supabase",
+        "migrations",
+        "0007_fursona_self_service.sql",
+      ),
+      "utf8",
+    );
+    expect(sql).toContain("'^u-[0-9a-f]{32}$'");
   });
 });

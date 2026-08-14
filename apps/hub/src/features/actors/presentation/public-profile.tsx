@@ -1,4 +1,5 @@
 import { tid } from "@/shared/infrastructure/test-id";
+import { isMachineHandle } from "@/features/actors/domain/actor-content";
 import type { PublicActor } from "@/features/actors/infrastructure/public-actors";
 import { FursonaCardList } from "@/features/actors/presentation/fursona-card-list";
 import { PublicSections } from "@/features/actors/presentation/public-sections";
@@ -22,9 +23,18 @@ export interface PublicProfileProps {
  * `readPublicFursona` does not, so a fursona's page simply has nothing to draw
  * there.
  *
- * The heading falls back to the handle when no display name is set, because a
- * page titled with an empty string is worse than one titled with a machine
- * name — and every fursona has a handle by construction.
+ * **The provisioned handle never reaches the page.** A person is minted with
+ * `u-<actor_ref with the hyphens out>`, and this printed it under their name —
+ * so a stranger reading a profile was handed the reference that is the
+ * `owner_ref` of every fursona that person owns, the exact column
+ * `/api/actors/mine` strips by name. `isMachineHandle` catches it, and their
+ * ADDRESS stands in: it is what the visitor typed to arrive, and it is the
+ * community number the design calls worth awarding.
+ *
+ * The heading falls back to the same value when no display name is set, because
+ * a page titled with an empty string is worse than one titled with a number —
+ * and it leaked through the title as well as the subtitle, so both go through
+ * it. A fursona's handle is chosen, is in its address, and shows as before.
  *
  * Nothing here decides what may be shown. Visibility, suspension and the
  * public-only fursona list are all settled in `0012`, and re-deriving any of
@@ -46,6 +56,14 @@ export function PublicProfile({
   locale,
   fursonasTitle,
 }: PublicProfileProps) {
+  // **Never the provisioned handle.** A person is minted with `u-<actor_ref>`,
+  // which is that reference in a thin disguise — and on a person it is the
+  // `owner_ref` of every fursona they own, the column `/api/actors/mine`
+  // strips by name. Their ADDRESS is what belongs here anyway: it is what a
+  // stranger typed to arrive, and it is the community number the design says
+  // is worth awarding. A fursona's handle is chosen, is in its address, and is
+  // shown as before.
+  const name = isMachineHandle(actor.handle) ? actor.address : actor.handle;
   return (
     <article className="grid gap-8">
       <header className="flex items-center gap-5 border-b border-[var(--edge)]/40 pb-8">
@@ -64,11 +82,9 @@ export function PublicProfile({
             className="font-display text-4xl font-extrabold tracking-tight"
             {...tid("public-actor-name")}
           >
-            {actor.displayName ?? actor.handle}
+            {actor.displayName ?? name}
           </h1>
-          <p className="font-mono text-sm text-[var(--muted)]">
-            {actor.handle}
-          </p>
+          <p className="font-mono text-sm text-[var(--muted)]">{name}</p>
         </div>
       </header>
 
