@@ -199,8 +199,10 @@ actor-mirror endpoint above.
 **The public pages ship**: `/{person_address}` is a person's profile and
 `/{person_address}/{handle}` is one of their fursonas, readable by anybody. A
 person carries a permanent number and an optional vanity, and both addresses
-resolve forever. Next is images in Supabase Storage. If you are touching the
-actors feature, read
+resolve forever. Pictures are uploaded to Supabase Storage — one public bucket,
+so an uploaded image stays reachable by its address even after a fursona is made
+private, which the editor says out loud. If you are touching the actors feature,
+read
 [`apps/hub/src/features/actors/CLAUDE.md`](apps/hub/src/features/actors/CLAUDE.md)
 first: it is authoritative for addressing and newer than the specs.
 
@@ -326,7 +328,7 @@ await supabase
 
 ## Adopting the seam in an app
 
-1. Copy `0001`–`0012` into the app's `supabase/migrations/`, renumbered to
+1. Copy `0001`–`0013` into the app's `supabase/migrations/`, renumbered to
    follow its existing migrations. Since the consolidation each file defines its
    own objects once, so the order matters only for dependencies — but none may
    be skipped.

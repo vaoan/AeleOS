@@ -248,8 +248,9 @@ Key choices and _why_:
 
 🌿 **Phases 1a, 0, 1b, the fursona studio and the public pages are done — the
 hub is live, another app can hand a person over to it, somebody can build a
-fursona's page, and a stranger can read it.** Phase 1b-i's 🧑 steps are still
-open. Next is phase 6: images in Supabase Storage.
+fursona's page with real pictures, and a stranger can read it.** The studio
+port is complete through phase 6. Phase 1b-i's 🧑 steps are the only thing
+still open.
 
 - **Phase 1a (actor model seam) — done, and the schema is now consolidated.**
   `supabase/migrations/` holds the canonical schema in **ten files, every object
@@ -403,6 +404,26 @@ replace`, so the newest body of a function could sit in a file named after
   where that exception lives.
 
   Plan: `2026-08-13-fursona-studio-phase-5-public-page.md`.
+
+- **Images (phase 6) — done.** `0013` adds one Supabase Storage bucket,
+  `actor-images`, written only through RLS resolving `owns_active_actor`. Three
+  things about it constrain later work:
+
+  - **It is public to read**, because a private bucket means signed URLs and
+    those expire — useless in a page meant to be shared and indexed. So an
+    uploaded picture stays reachable by its address even after the fursona is
+    made private, and the editor says so beside the upload control. Do not
+    describe visibility to somebody as though it un-published an image.
+  - **The path is the authorization** — `actor/{actor_ref}/{random}.{ext}` — so
+    its shape is part of the contract, not a convention.
+  - **The database cannot delete storage objects.** Supabase's
+    `storage.protect_delete()` refuses direct deletion from the storage tables
+    for every role. So `deleteFursona` removes the images through the Storage
+    API **before** marking the row — forced, because the delete policy requires
+    `status = 'active'` — and a failed cleanup stops the delete rather than
+    stranding pictures nobody can reach.
+
+  Plan: `2026-08-14-fursona-studio-phase-6-images.md`.
 
 **CI gates on `main`:** four jobs are **required**, and a pull request cannot
 merge until all four report green — `conformance` (schema suite), `hub` (hub and
