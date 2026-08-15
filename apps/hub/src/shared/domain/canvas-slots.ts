@@ -28,6 +28,10 @@
  *  * `bokeh` — three tints of out-of-focus light.
  *  * `mystify` — three polygons, each with its own tint.
  *  * `bounce` — three rectangles.
+ *  * `plasma` — the two ends of the gradient its bands are mixed between.
+ *  * `cells` — three tints, one per cell, so neighbouring cells differ.
+ *  * `flow` — three tints across the lines of the current.
+ *  * `fireflies` — two tints, so a swarm is not one colour.
  *  * `rain` — the trailing glyphs, and the bright head of each column.
  *  * `warp` — distant stars, and the ones passing the viewer.
  *  * `none` — nothing to colour.
@@ -71,6 +75,10 @@ export const CANVAS_SLOTS = {
   rain: 2,
   /** Distant stars, and the ones passing the viewer. */
   warp: 2,
+  plasma: 2,
+  cells: 3,
+  flow: 3,
+  fireflies: 2,
   none: 0,
 } as const;
 

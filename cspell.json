@@ -178,7 +178,8 @@
     "syncpackrc",
     "unlayered",
     "unlinted",
-    "trunc"
+    "trunc",
+    "Voronoi"
   ],
   "overrides": [
     {

@@ -5,9 +5,13 @@ import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
 import { dial, many } from "@/shared/domain/canvas-motion";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
-  aurora,
   blobs,
   bokeh,
+  cells,
+  curtains,
+  fireflies,
+  streamlines,
+  valueNoise,
   bounced,
   glyphAt,
   mystify,
@@ -27,7 +31,6 @@ import {
   shootingStars,
   shotProgress,
   starfield,
-  swayOf,
   twinkle,
 } from "@/shared/domain/canvas-field";
 import {
@@ -186,7 +189,7 @@ const SHOT_CYCLE = 14;
 /** The angle a streak travels, up and to the right. */
 const SHOT_ANGLE = (25 * Math.PI) / 180;
 
-/** How many curtains an aurora has. Few and wide — see `aurora`. */
+/** How many curtains an aurora has. Few and wide — see `curtains`. */
 const CURTAIN_COUNT = 4;
 
 /** The seed every field is generated from, so the sky is the same every time. */
@@ -1163,18 +1166,41 @@ function drawWarp(
   }
 }
 
+/** How many bands each curtain is drawn from, top to bottom. */
+const CURTAIN_BANDS = 26;
+
 /**
- * Draws an aurora.
+ * The widths a curtain is drawn at, widest first.
  *
- * Each curtain is a vertical gradient that fades out at both ends, swaying on
- * its own sine. They are drawn additively by the caller's blend mode, so where
- * two overlap the colour builds — which is what the real thing does.
+ * Nine of them because three was visibly three: each pass is the same shape
+ * narrower, and where the steps are far apart the eye reads them as outlines
+ * rather than as a falling-off edge.
+ */
+const CURTAIN_PASSES = [1, 0.92, 0.83, 0.73, 0.62, 0.5, 0.38, 0.26, 0.14];
+
+/**
+ * Draws an aurora: curtains that fold, with the light running up them.
+ *
+ * **The old one swayed each curtain with a sine and it read as a column.** A
+ * pendulum moves every part of a thing together; an aurora folds, so the top of
+ * a curtain is somewhere the bottom is not. This walks down each curtain in
+ * bands and offsets every band by `valueNoise` sampled at its own depth — so
+ * neighbouring bands differ slightly and the ribbon creases.
+ *
+ * Two more things are what make it read as sky rather than as paint. The bands
+ * fade toward the bottom, because an aurora hangs; and each band is drawn with
+ * a horizontal falloff, because a curtain has no edge — a flat band with a hard
+ * side is a stripe.
+ *
+ * `lighter` composition, so where two curtains cross they get brighter instead
+ * of one covering the other. That is the single change that most makes this look
+ * like light rather than like coloured glass.
  *
  * @param ctx - the drawing context.
- * @param width - the bitmap width in device pixels.
- * @param height - the bitmap height in device pixels.
- * @param tints - the two theme colours, as channel triples.
- * @param seconds - elapsed time.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
  * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
@@ -1188,31 +1214,354 @@ function drawAurora(
   density: number,
   scale: number,
 ) {
-  for (const curtain of aurora(many(CURTAIN_COUNT, density), FIELD_SEED)) {
-    const centre = swayOf(curtain, seconds) * width;
-    const half = (curtain.width * width * scale) / 2;
-    // Its own colour per curtain, so four curtains can be four colours.
+  const previous = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+
+  for (const curtain of curtains(many(CURTAIN_COUNT, density), FIELD_SEED)) {
     const [r, g, b] = tints[curtain.tint % tints.length]!;
+    const half = (curtain.width * width * scale) / 2;
+    const bottom = curtain.reach * height;
 
-    // Horizontal falloff, so a curtain has no edge. A flat band with a hard
-    // side is the difference between an aurora and a stripe.
-    const across = ctx.createLinearGradient(centre - half, 0, centre + half, 0);
-    across.addColorStop(0, `rgb(${r} ${g} ${b} / 0)`);
-    across.addColorStop(0.5, `rgb(${r} ${g} ${b} / 0.55)`);
-    across.addColorStop(1, `rgb(${r} ${g} ${b} / 0)`);
+    // Brightest at the top and gone by the bottom, with a soft head — an
+    // aurora is lit from above and does not begin abruptly. One gradient for
+    // the whole curtain, which is what stops it banding: the first version
+    // drew horizontal strips of constant alpha and every seam was visible.
+    const down = ctx.createLinearGradient(0, 0, 0, bottom);
+    down.addColorStop(0, `rgb(${r} ${g} ${b} / 0)`);
+    down.addColorStop(
+      0.12,
+      `rgb(${r} ${g} ${b} / ${0.9 / CURTAIN_PASSES.length})`,
+    );
+    down.addColorStop(1, `rgb(${r} ${g} ${b} / 0)`);
+    ctx.fillStyle = down;
 
-    ctx.fillStyle = across;
-    ctx.fillRect(centre - half, 0, half * 2, height);
+    // **Nested passes, and the count is the whole quality of the edge.** Each
+    // pass is the same fold drawn narrower, composited additively — so the
+    // middle accumulates and the sides do not, which is a soft edge without
+    // `ctx.filter` (Safari only learned that in 17). Three passes left visible
+    // concentric outlines; nine is where the steps stop being separable.
+    for (const pass of CURTAIN_PASSES) {
+      ctx.beginPath();
+      // Down the left edge, then back up the right, so the fold is one shape
+      // rather than a stack of rectangles.
+      for (let band = 0; band <= CURTAIN_BANDS; band += 1) {
+        const at = band / CURTAIN_BANDS;
+        const folded =
+          valueNoise(at * 2.4 + seconds * curtain.speed, curtain.seed) - 0.5;
+        const centre = (curtain.x + folded * 0.22) * width;
+        const y = at * bottom;
+        if (band === 0) ctx.moveTo(centre - half * pass, y);
+        else ctx.lineTo(centre - half * pass, y);
+      }
+      for (let band = CURTAIN_BANDS; band >= 0; band -= 1) {
+        const at = band / CURTAIN_BANDS;
+        const folded =
+          valueNoise(at * 2.4 + seconds * curtain.speed, curtain.seed) - 0.5;
+        const centre = (curtain.x + folded * 0.22) * width;
+        ctx.lineTo(centre + half * pass, at * bottom);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
-  // One vertical wash over the whole field, fading the bottom out. Auroras hang
-  // from the top; without this they read as columns standing on the floor.
-  const down = ctx.createLinearGradient(0, 0, 0, height);
-  down.addColorStop(0, "rgb(0 0 0 / 0)");
-  down.addColorStop(1, "rgb(0 0 0 / 1)");
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.fillStyle = down;
-  ctx.fillRect(0, 0, width, height);
+  ctx.globalCompositeOperation = previous;
+}
+
+/** How many colour bands a plasma is quantised into. */
+const PLASMA_BANDS = 22;
+
+/**
+ * Draws a plasma: interfering sine fields, the demoscene's oldest trick.
+ *
+ * A pure function of position and time — no particles, no state, nothing
+ * remembered — which is why it is drawn as a grid of cells rather than
+ * per-pixel: at one cell per pixel this is a shader's job, and at this size the
+ * difference is invisible while the cost is not.
+ *
+ * Three sines at different frequencies and one radial term. The radial one is
+ * what stops it looking like corduroy: without it the field is separable and
+ * the eye reads the two axes independently.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
+ * @returns nothing.
+ */
+function drawPlasma(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+  density: number,
+  scale: number,
+) {
+  const cellsAcross = many(48, density, 160);
+  const step = width / cellsAcross;
+  const rows = Math.ceil(height / step);
+  const frequency = 3.2 / scale;
+
+  // **Tiled exactly, and the alpha is set once.** The first version drew each
+  // cell a pixel wider than its step so there would be no seams, and painted
+  // each one at `rgb(… / 0.5)` — so every overlap composited twice and the
+  // whole field was covered in a bright grid. Integer edges leave no gap to
+  // cover, and `globalAlpha` applies the translucency to the pass rather than
+  // to each cell.
+  const previous = ctx.globalAlpha;
+  ctx.globalAlpha = 0.5;
+
+  for (let column = 0; column <= cellsAcross; column += 1) {
+    for (let row = 0; row <= rows; row += 1) {
+      const left = Math.round(column * step);
+      const top = Math.round(row * step);
+      const right = Math.round((column + 1) * step);
+      const foot = Math.round((row + 1) * step);
+      const x = (column * step) / width;
+      const y = (row * step) / height;
+
+      const value =
+        Math.sin((x * frequency + seconds * 0.6) * TWO_PI) +
+        Math.sin((y * frequency * 0.8 - seconds * 0.4) * TWO_PI) +
+        Math.sin(((x + y) * frequency * 0.5 + seconds * 0.3) * TWO_PI) +
+        // The radial term. Without it the field is separable and reads as a
+        // woven texture rather than as plasma.
+        Math.sin(
+          Math.hypot(x - 0.5, y - 0.5) * frequency * 2.4 - seconds * 0.7,
+        ) *
+          TWO_PI *
+          0.16;
+
+      // Quantised into bands, which is what gives plasma its poster edges.
+      const band = Math.round(((value / 4 + 1) / 2) * PLASMA_BANDS);
+      const mixed = band / PLASMA_BANDS;
+      const [ar, ag, ab] = tints[0]!;
+      const [br, bg, bb] = tints[1] ?? tints[0]!;
+      const red = Math.round(ar + (br - ar) * mixed);
+      const green = Math.round(ag + (bg - ag) * mixed);
+      const blue = Math.round(ab + (bb - ab) * mixed);
+
+      ctx.fillStyle = `rgb(${red} ${green} ${blue})`;
+      ctx.fillRect(left, top, right - left, foot - top);
+    }
+  }
+
+  ctx.globalAlpha = previous;
+}
+
+/** How many points a cellular pattern is measured from. */
+const CELL_COUNT = 26;
+
+/**
+ * Draws a cellular pattern: the edges where two points are equidistant.
+ *
+ * **What is drawn is the difference between the nearest two distances**, not
+ * the points. That difference is zero exactly on a Voronoi boundary and grows
+ * away from it, so shading by it lights the edges and leaves the cell interiors
+ * dark. Drawing the points themselves gives dots; drawing the nearest distance
+ * alone gives blobs.
+ *
+ * The points drift, so cells slowly take territory from each other rather than
+ * sitting in a fixed mosaic.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
+ * @returns nothing.
+ */
+function drawCells(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+  density: number,
+  scale: number,
+) {
+  const points = cells(many(CELL_COUNT, density, 90), FIELD_SEED).map(
+    (cell) => ({
+      x: cell.x + Math.cos(cell.phase + seconds * cell.speed) * cell.drift,
+      y: cell.y + Math.sin(cell.phase + seconds * cell.speed) * cell.drift,
+      tint: cell.tint,
+    }),
+  );
+
+  const step = Math.max(6, 14 / scale);
+  const aspect = width / height;
+
+  // Tiled exactly and made translucent once, for the reason `drawPlasma`
+  // carries at length: a per-cell alpha with a pixel of overlap composites
+  // twice at every seam and draws a grid over the whole field.
+  const previousAlpha = ctx.globalAlpha;
+  ctx.globalAlpha = 0.5;
+
+  for (let x = 0; x <= width; x += step) {
+    for (let y = 0; y <= height; y += step) {
+      const at = { x: x / width, y: y / height };
+      let nearest = Infinity;
+      let second = Infinity;
+      let tint = 0;
+      for (const point of points) {
+        // Measured in viewport proportions, or the cells stretch with the
+        // window and stop being cells.
+        const distance = Math.hypot((at.x - point.x) * aspect, at.y - point.y);
+        if (distance < nearest) {
+          second = nearest;
+          nearest = distance;
+          tint = point.tint;
+        } else if (distance < second) {
+          second = distance;
+        }
+      }
+
+      // Zero on the boundary between two points, growing inward.
+      const edge = Math.max(0, 1 - (second - nearest) * 14);
+      if (edge < 0.02) continue;
+      const [r, g, b] = tints[tint % tints.length]!;
+      ctx.fillStyle = `rgb(${r} ${g} ${b} / ${edge})`;
+      ctx.fillRect(
+        Math.round(x),
+        Math.round(y),
+        Math.round(x + step) - Math.round(x),
+        Math.round(y + step) - Math.round(y),
+      );
+    }
+  }
+
+  ctx.globalAlpha = previousAlpha;
+}
+
+/** How many lines follow the flow field. */
+const STREAM_COUNT = 90;
+
+/** How many steps each line is walked for. */
+const STREAM_STEPS = 34;
+
+/**
+ * Draws a flow field: lines that follow a field of angles.
+ *
+ * **Each line is walked from its seed every frame rather than remembered.** A
+ * flow field is normally built by stepping particles and keeping their trails,
+ * which is state — and state is the one thing no canvas here may have, because
+ * a page must be able to re-render, resize or be re-themed without the
+ * animation carrying anything from before. Walking the same field from the same
+ * seed gives the identical curve for free.
+ *
+ * The angle at a point comes from `valueNoise` of both coordinates, so the field
+ * is smooth and neighbouring lines travel together — which is what makes it read
+ * as a current rather than as scribble.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
+ * @returns nothing.
+ */
+function drawFlow(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+  density: number,
+  scale: number,
+) {
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, dpr * 0.9 * scale);
+
+  for (const line of streamlines(
+    many(STREAM_COUNT, density, 260),
+    FIELD_SEED,
+  )) {
+    const [r, g, b] = tints[line.tint % tints.length]!;
+    // The whole line drifts along its own path over time, so the current moves
+    // without any point being remembered between frames.
+    let x = (line.x + ((line.offset + seconds * line.speed) % 1)) % 1;
+    let y = line.y;
+
+    ctx.beginPath();
+    ctx.moveTo(x * width, y * height);
+    for (let step = 0; step < STREAM_STEPS; step += 1) {
+      const angle =
+        valueNoise(x * 3 + y * 2.3 + seconds * 0.05, FIELD_SEED) * TWO_PI * 1.5;
+      x += (Math.cos(angle) * 0.012) / scale;
+      y += (Math.sin(angle) * 0.012) / scale;
+      if (x < 0 || x > 1 || y < 0 || y > 1) break;
+      ctx.lineTo(x * width, y * height);
+    }
+    ctx.strokeStyle = `rgb(${r} ${g} ${b} / 0.3)`;
+    ctx.stroke();
+  }
+}
+
+/** How many lights drift about. */
+const FIREFLY_COUNT = 60;
+
+/**
+ * Draws fireflies: lights that wander and breathe.
+ *
+ * Two independent rates per light, one for where it goes and one for how bright
+ * it is. Tying them together makes the swarm blink in unison, which reads as a
+ * string of fairy lights rather than as insects.
+ *
+ * Each is a soft radial glow rather than a disc, for the same reason `bokeh`
+ * is: a hard-edged dot reads as a sticker.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
+ * @returns nothing.
+ */
+function drawFireflies(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+  density: number,
+  scale: number,
+) {
+  const previous = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "lighter";
+  const smaller = Math.min(width, height);
+
+  for (const light of fireflies(
+    many(FIREFLY_COUNT, density, 400),
+    FIELD_SEED,
+  )) {
+    const wander = light.phase + seconds * light.speed * TWO_PI;
+    const x = (light.x + Math.cos(wander) * light.range) * width;
+    const y = (light.y + Math.sin(wander * 0.7) * light.range) * height;
+    const glow =
+      (Math.sin(light.phase + seconds * light.pulse * TWO_PI) + 1) / 2;
+    const radius = smaller * 0.012 * scale * (0.5 + glow);
+    const [r, g, b] = tints[light.tint % tints.length]!;
+
+    const halo = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    halo.addColorStop(0, `rgb(${r} ${g} ${b} / ${0.25 + glow * 0.55})`);
+    halo.addColorStop(1, `rgb(${r} ${g} ${b} / 0)`);
+    ctx.fillStyle = halo;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+
+  ctx.globalCompositeOperation = previous;
 }
 
 /**
@@ -1385,6 +1734,15 @@ function readRgb(
  * applies to every canvas here, not only the nebula.
  * Its colours arrive as `--canvas-N` custom properties read from the document root, never as classes — a canvas mounted above every page cannot be handed a prop by one.
  * Unchanged in behaviour; its slot colours resolve through one named fallback rather than a conditional inside a conditional.
+ *
+ * **Two ways a renderer here can draw an artefact instead of a picture**, both
+ * found by looking and both easy to repeat. Filling a shape as strips of
+ * constant alpha BANDS — every seam is a visible line, which is what the
+ * aurora did before it became one polygon under a vertical gradient. And
+ * drawing tiles a pixel oversized to hide seams composites the overlap twice,
+ * so a half-transparent fill draws the very grid the overlap was meant to
+ * prevent: plasma and cells tile on exact integers with `ctx.globalAlpha` set
+ * once, which paints every pixel exactly once.
  */
 export function NebulaCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1532,6 +1890,14 @@ export function NebulaCanvas() {
             ),
           aurora: () =>
             drawAurora(ctx, width, height, tints, seconds, density, scale),
+          plasma: () =>
+            drawPlasma(ctx, width, height, tints, seconds, density, scale),
+          cells: () =>
+            drawCells(ctx, width, height, tints, seconds, density, scale),
+          flow: () =>
+            drawFlow(ctx, width, height, dpr, tints, seconds, density, scale),
+          fireflies: () =>
+            drawFireflies(ctx, width, height, tints, seconds, density, scale),
           constellation: () =>
             drawConstellation(
               ctx,

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  aurora,
+  cells,
+  curtains,
+  fireflies,
+  streamlines,
+  valueNoise,
   seeded,
   shootingStars,
   shotProgress,
   starfield,
-  swayOf,
   twinkle,
   constellation,
   nodeAt,
@@ -194,53 +197,6 @@ describe("shotProgress", () => {
   it("repeats on the next cycle and survives a time before the start", () => {
     expect(shotProgress(shot!, shot!.at + 10, 10)).toBeCloseTo(0, 5);
     expect(shotProgress(shot!, -5, 10)).not.toBeNaN();
-  });
-});
-
-describe("aurora", () => {
-  it("makes as many curtains as asked", () => {
-    expect(aurora(4, 2)).toHaveLength(4);
-  });
-
-  it("is identical for the same seed", () => {
-    expect(aurora(4, 2)).toEqual(aurora(4, 2));
-  });
-
-  // The failure mode of this effect is a picket fence, so the curtains are
-  // spread rather than placed at random and every one is wide.
-  it("spreads the curtains rather than clustering them", () => {
-    const centres = aurora(4, 2)
-      .map((c) => c.centre)
-      .sort((a, b) => a - b);
-    for (let i = 1; i < centres.length; i += 1) {
-      expect(centres[i]! - centres[i - 1]!).toBeGreaterThan(0.05);
-    }
-  });
-
-  it("keeps every curtain wide", () => {
-    for (const curtain of aurora(6, 11)) {
-      expect(curtain.width).toBeGreaterThanOrEqual(0.35);
-    }
-  });
-
-  it("alternates the two theme colours", () => {
-    expect(aurora(4, 2).map((c) => c.tint)).toEqual([0, 1, 0, 1]);
-  });
-});
-
-describe("swayOf", () => {
-  it("stays near its centre", () => {
-    const [curtain] = aurora(1, 3);
-    for (let s = 0; s < 40; s += 0.31) {
-      expect(
-        Math.abs(swayOf(curtain!, s) - curtain!.centre),
-      ).toBeLessThanOrEqual(curtain!.sway + 1e-9);
-    }
-  });
-
-  it("moves over time", () => {
-    const [curtain] = aurora(1, 3);
-    expect(swayOf(curtain!, 0)).not.toBe(swayOf(curtain!, 1.7));
   });
 });
 
@@ -528,5 +484,136 @@ describe("rainColumns", () => {
   it("spreads them evenly across the viewport", () => {
     const columns = rainColumns(4, 3);
     expect(columns.map((c) => c.x)).toEqual([0.125, 0.375, 0.625, 0.875]);
+  });
+});
+
+describe("valueNoise", () => {
+  it("stays inside 0..1 for any input", () => {
+    for (const x of [-1e6, -3.7, 0, 0.5, 12.25, 1e6]) {
+      const value = valueNoise(x, 7);
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  // The whole reason for choosing value noise over a sine: neighbouring points
+  // differ a little, which is the folding an aurora does. A sine gives every
+  // point on a curtain the same offset, which is a pendulum.
+  it("moves smoothly between neighbouring points", () => {
+    const a = valueNoise(3, 11);
+    const b = valueNoise(3.02, 11);
+    expect(Math.abs(a - b)).toBeLessThan(0.1);
+  });
+
+  it("is deterministic in both its arguments", () => {
+    expect(valueNoise(2.5, 3)).toBe(valueNoise(2.5, 3));
+    expect(valueNoise(2.5, 3)).not.toBe(valueNoise(2.5, 4));
+  });
+
+  // Cosine interpolation, so the curve has no corner where it crosses a
+  // lattice point — linear interpolation gives a ribbon visible creases.
+  it("has no kink at a whole number", () => {
+    const before = valueNoise(4 - 0.01, 5);
+    const at = valueNoise(4, 5);
+    const after = valueNoise(4 + 0.01, 5);
+    expect(Math.abs(before - at)).toBeLessThan(0.02);
+    expect(Math.abs(after - at)).toBeLessThan(0.02);
+  });
+});
+
+describe("curtains", () => {
+  it("makes the number asked for", () => {
+    expect(curtains(5, 1)).toHaveLength(5);
+  });
+
+  it("spreads them across the viewport", () => {
+    const made = curtains(4, 2);
+    const places = made.map((curtain) => curtain.x);
+    expect(Math.max(...places) - Math.min(...places)).toBeGreaterThan(0.3);
+  });
+
+  // Each folds from its own noise field, or four curtains fold identically and
+  // the sky reads as one object repeated.
+  it("gives every curtain its own noise field", () => {
+    const seeds = curtains(4, 3).map((curtain) => curtain.seed);
+    expect(new Set(seeds).size).toBe(4);
+  });
+
+  it("hangs them from the top rather than filling the height", () => {
+    for (const curtain of curtains(6, 4)) {
+      expect(curtain.reach).toBeGreaterThan(0.4);
+      expect(curtain.reach).toBeLessThanOrEqual(0.85);
+    }
+  });
+});
+
+describe("cells", () => {
+  it("makes the number asked for", () => {
+    expect(cells(9, 1)).toHaveLength(9);
+  });
+
+  it("keeps every point inside the viewport", () => {
+    for (const cell of cells(20, 2)) {
+      expect(cell.x).toBeGreaterThanOrEqual(0);
+      expect(cell.x).toBeLessThanOrEqual(1);
+      expect(cell.y).toBeGreaterThanOrEqual(0);
+      expect(cell.y).toBeLessThanOrEqual(1);
+    }
+  });
+
+  // They drift, so cells take territory from each other rather than sitting in
+  // a fixed mosaic — but never so far that the pattern stops being cellular.
+  it("gives every point a drift it cannot exceed", () => {
+    for (const cell of cells(20, 3)) {
+      expect(cell.drift).toBeGreaterThan(0);
+      expect(cell.drift).toBeLessThan(0.1);
+    }
+  });
+});
+
+describe("streamlines", () => {
+  it("makes the number asked for", () => {
+    expect(streamlines(12, 1)).toHaveLength(12);
+  });
+
+  it("starts every line somewhere in the viewport", () => {
+    for (const line of streamlines(30, 2)) {
+      expect(line.x).toBeGreaterThanOrEqual(0);
+      expect(line.x).toBeLessThanOrEqual(1);
+      expect(line.y).toBeGreaterThanOrEqual(0);
+      expect(line.y).toBeLessThanOrEqual(1);
+    }
+  });
+
+  // Never zero, or a line sits still while the rest of the current moves.
+  it("gives every line a speed", () => {
+    for (const line of streamlines(30, 3)) {
+      expect(line.speed).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("fireflies", () => {
+  it("makes the number asked for", () => {
+    expect(fireflies(15, 1)).toHaveLength(15);
+  });
+
+  // Two independent rates per light. Tying them together makes the swarm blink
+  // in unison, which is a string of fairy lights rather than insects.
+  it("varies where a light goes separately from how it pulses", () => {
+    const swarm = fireflies(24, 2);
+    const wander = new Set(swarm.map((light) => light.speed));
+    const pulse = new Set(swarm.map((light) => light.pulse));
+    expect(wander.size).toBeGreaterThan(1);
+    expect(pulse.size).toBeGreaterThan(1);
+    expect(swarm.some((light) => light.speed !== light.pulse)).toBe(true);
+  });
+
+  it("keeps every light inside the viewport", () => {
+    for (const light of fireflies(30, 3)) {
+      expect(light.x).toBeGreaterThanOrEqual(0);
+      expect(light.x).toBeLessThanOrEqual(1);
+      expect(light.range).toBeGreaterThan(0);
+    }
   });
 });

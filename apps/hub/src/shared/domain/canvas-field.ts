@@ -237,55 +237,6 @@ export function shotProgress(
   return into < shot.ttl ? into / shot.ttl : null;
 }
 
-/** One vertical curtain of an aurora. */
-export interface Curtain {
-  /** Where its centre sits, 0–1 across the viewport. */
-  centre: number;
-  /** How wide it is, as a fraction of the viewport. */
-  width: number;
-  /** How far it sways, as a fraction of the viewport. */
-  sway: number;
-  /** Its own rate, relative to the others. */
-  speed: number;
-  /** Which of the two theme colours it takes. */
-  tint: 0 | 1;
-}
-
-/**
- * The curtains of an aurora.
- *
- * Deliberately few and wide. The failure mode of this effect is a picket fence
- * — many narrow bands that read as stripes — so the widths start above a third
- * of the viewport and the count is small.
- *
- * @param count - how many curtains.
- * @param seed - which aurora.
- * @returns the curtains, in a stable order.
- */
-export function aurora(count: number, seed: number): Curtain[] {
-  const random = seeded(seed);
-  return Array.from({ length: count }, (_, i) => ({
-    // Spread across the viewport rather than placed at random: a random centre
-    // clusters, and two curtains on top of each other is one bright smear.
-    centre: (i + 0.5) / count + (random() - 0.5) * 0.15,
-    width: 0.35 + random() * 0.3,
-    sway: 0.04 + random() * 0.08,
-    speed: 0.25 + random() * 0.5,
-    tint: (i % 2) as 0 | 1,
-  }));
-}
-
-/**
- * Where a curtain's centre sits at a moment.
- *
- * @param curtain - the curtain.
- * @param seconds - elapsed time in seconds.
- * @returns its centre, 0–1 across the viewport.
- */
-export function swayOf(curtain: Curtain, seconds: number): number {
-  return curtain.centre + Math.sin(seconds * curtain.speed) * curtain.sway;
-}
-
 /** One drifting point in a constellation. */
 export interface Node {
   /** Where it sits, 0..1 across the viewport. */
@@ -978,5 +929,193 @@ export function warpStars(count: number, seed: number): Streak[] {
     angle: random() * TAU,
     speed: 0.1 + random() * 0.35,
     offset: random(),
+  }));
+}
+
+/**
+ * Smooth 1D value noise, sampled at any point in time.
+ *
+ * **This is what an aurora is made of.** The previous one swayed each curtain
+ * with a sine, which is a pendulum rather than a ribbon: every part of a
+ * curtain moved together, so it read as a column sliding left and right. Value
+ * noise gives neighbouring points along the ribbon slightly different offsets,
+ * which is the folding an aurora actually does.
+ *
+ * Value noise rather than gradient (Perlin) noise, for the reason the technique
+ * is usually chosen for this: it is a handful of lines, and the transitions it
+ * makes are smooth enough at the scale a curtain is drawn. Gradient noise costs
+ * more and would not be visible here.
+ *
+ * Cosine interpolation between lattice points, so the curve has no corners at
+ * the integers — linear interpolation gives a ribbon visible creases.
+ *
+ * @param x - where to sample.
+ * @param seed - which noise field to sample.
+ * @returns a value in 0..1.
+ */
+export function valueNoise(x: number, seed: number): number {
+  const whole = Math.floor(x);
+  const part = x - whole;
+  // A cheap integer hash per lattice point, so the field is deterministic in
+  // both arguments and needs no table to be allocated or kept.
+  const at = (i: number): number => {
+    let hash = Math.imul(i ^ seed, 2_246_822_519);
+    hash = Math.imul(hash ^ (hash >>> 13), 3_266_489_917);
+    return ((hash ^ (hash >>> 16)) >>> 0) / 0xffffffff;
+  };
+  const eased = (1 - Math.cos(part * Math.PI)) / 2;
+  return at(whole) * (1 - eased) + at(whole + 1) * eased;
+}
+
+/** One folding curtain of an aurora. */
+export interface Fold {
+  /** Where it hangs, 0..1 across the viewport. */
+  x: number;
+  /** How wide it is, as a fraction of the viewport. */
+  width: number;
+  /** How far down it reaches, 0..1. */
+  reach: number;
+  /** How fast it folds. */
+  speed: number;
+  /** Its own noise field, so two curtains never fold identically. */
+  seed: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Curtains of light, each folding independently.
+ *
+ * @param count - how many curtains.
+ * @param seed - the seed to vary them from.
+ * @returns the curtains.
+ */
+export function curtains(count: number, seed: number): Fold[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: (i + 0.5) / count + (random() - 0.5) * 0.1,
+    width: 0.1 + random() * 0.16,
+    reach: 0.45 + random() * 0.4,
+    speed: 0.05 + random() * 0.09,
+    seed: Math.floor(random() * 100_000),
+    tint: i % 4,
+  }));
+}
+
+/** One point a cellular pattern is measured from. */
+export interface Site {
+  /** Where it sits, 0..1 across. */
+  x: number;
+  /** Where it sits, 0..1 down. */
+  y: number;
+  /** How far it drifts from there. */
+  drift: number;
+  /** How fast it drifts. */
+  speed: number;
+  /** Where in its drift it starts. */
+  phase: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Points that a cellular pattern is measured from.
+ *
+ * The pattern is not drawn from these directly — what is drawn is the DISTANCE
+ * to the nearest two of them, which is what makes a Voronoi edge. They drift, so
+ * the cells breathe rather than sitting still.
+ *
+ * @param count - how many points.
+ * @param seed - the seed to vary them from.
+ * @returns the points.
+ */
+export function cells(count: number, seed: number): Site[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: random(),
+    y: random(),
+    drift: 0.02 + random() * 0.06,
+    speed: 0.05 + random() * 0.12,
+    phase: random() * TAU,
+    tint: i % 3,
+  }));
+}
+
+/** One streamline through a flow field. */
+export interface Streamline {
+  /** Where it starts, 0..1 across. */
+  x: number;
+  /** Where it starts, 0..1 down. */
+  y: number;
+  /** How far along its travel it begins. */
+  offset: number;
+  /** How fast it travels. */
+  speed: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Seeds for lines that follow a field of angles.
+ *
+ * **The line is walked at draw time rather than stored.** A flow field is
+ * usually built by stepping particles and keeping their trails, which is state;
+ * walking the same field from the same seed every frame gives the identical
+ * curve without remembering anything, which is what every canvas here has to do.
+ *
+ * @param count - how many lines.
+ * @param seed - the seed to vary them from.
+ * @returns the seeds.
+ */
+export function streamlines(count: number, seed: number): Streamline[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: random(),
+    y: random(),
+    offset: random(),
+    speed: 0.02 + random() * 0.05,
+    tint: i % 3,
+  }));
+}
+
+/** One firefly. */
+export interface Firefly {
+  /** Where it wanders around, 0..1 across. */
+  x: number;
+  /** Where it wanders around, 0..1 down. */
+  y: number;
+  /** How far it wanders. */
+  range: number;
+  /** How fast it wanders. */
+  speed: number;
+  /** How fast it pulses. */
+  pulse: number;
+  /** Where in its pulse it starts. */
+  phase: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Lights that drift and breathe.
+ *
+ * Two independent rates per light — one for where it goes, one for how bright
+ * it is. Tying them together makes a swarm blink in unison, which is a string
+ * of fairy lights rather than a field of insects.
+ *
+ * @param count - how many.
+ * @param seed - the seed to vary them from.
+ * @returns the lights.
+ */
+export function fireflies(count: number, seed: number): Firefly[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: random(),
+    y: random(),
+    range: 0.03 + random() * 0.1,
+    speed: 0.05 + random() * 0.15,
+    pulse: 0.3 + random() * 0.9,
+    phase: random() * TAU,
+    tint: i % 2,
   }));
 }

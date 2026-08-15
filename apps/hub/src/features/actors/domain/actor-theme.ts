@@ -36,7 +36,8 @@ import { derivePalette } from "@/shared/domain/palette";
  * palette. Today that is the drifting nebula, a starfield, an aurora, a
  * constellation, waves, bubbles, snow, a horizon grid, drifting glows, orbits,
  * a honeycomb, ribbons, confetti, a skyline, bokeh, four retro screen savers
- * — mystify, bouncing boxes, glyph rain and warp speed — and stillness.
+ * — mystify, bouncing boxes, glyph rain and warp speed — a plasma, cells, a
+ * current, fireflies, and stillness.
  *
  * `none` sits last because it is the way out rather than a choice among the
  * rest, and a select opens on its first option.
@@ -61,6 +62,10 @@ export const CANVASES = [
   "bounce",
   "rain",
   "warp",
+  "plasma",
+  "cells",
+  "flow",
+  "fireflies",
   "none",
 ] as const;
 

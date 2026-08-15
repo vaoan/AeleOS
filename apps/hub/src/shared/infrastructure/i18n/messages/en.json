@@ -173,6 +173,10 @@
       "bounce": "Bouncing boxes",
       "rain": "Glyph rain",
       "warp": "Warp speed",
+      "plasma": "Plasma",
+      "cells": "Cells",
+      "flow": "Current",
+      "fireflies": "Fireflies",
       "none": "None"
     },
     "skins": {

@@ -624,9 +624,31 @@ put back and a theme to leave.
 
 `CANVASES` holds **exactly the canvases that exist** — today the nebula, a
 starfield, an aurora, a constellation, waves, bubbles, snow, a horizon grid,
-drifting glows, orbits, a honeycomb, ribbons, confetti, a skyline, bokeh, and
-four retro screen savers — mystify, bouncing boxes, glyph rain and warp speed —
-and stillness.
+drifting glows, orbits, a honeycomb, ribbons, confetti, a skyline, bokeh, four
+retro screen savers — mystify, bouncing boxes, glyph rain and warp speed — a
+plasma, cells, a current, fireflies, and stillness.
+
+**The aurora was rebuilt, and what it got wrong is the general lesson.** It swung
+each curtain with a sine, which is a PENDULUM: every point on a curtain shares
+one offset, so the whole thing slid left and right as a rigid column. An aurora
+folds, and folding means neighbouring points differ. `valueNoise` is what makes
+that difference — cosine-interpolated between hashed lattice points, so the
+ribbon has no creases at the integers. Value noise rather than gradient noise on
+purpose: it is a dozen lines and the extra smoothness of Perlin is invisible at
+the scale a curtain is drawn.
+
+Two drawing faults were found the same way — by looking — and both are easy to
+reproduce elsewhere:
+
+- **Constant-alpha strips band.** The first rebuild drew each curtain as
+  horizontal strips of one alpha each, and the seams between them were visible
+  as stripes. A curtain is now one polygon down the left edge and back up the
+  right, filled with a vertical gradient, so nothing has an edge to show.
+- **Overlapping tiles composite twice.** Plasma and cells drew each tile at
+  `step + 1` pixels to hide seams, with the alpha in the fill colour; every
+  overlap composited two half-transparent fills and drew a GRID — the exact
+  artefact the overlap was meant to prevent. The fix is integer-exact tiling
+  with `ctx.globalAlpha` set once, so a pixel is painted exactly once.
 
 **`bounced` is what every screen saver is built from**, and it is the one idea
 worth keeping. A modulo WRAPS: the thing leaves one edge and reappears at the

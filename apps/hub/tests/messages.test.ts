@@ -130,6 +130,10 @@ describe("message catalogues", () => {
       // The same word in Spanish, and the eight style names beside it are
       // translated — including the ones that could have been left as loanwords.
       "fursonas.skins.terminal",
+      // Greek by way of physics, and the same word in both languages. The
+      // three canvases added beside it — Celdas, Corriente, Luciérnagas — are
+      // translated, which is the evidence this one was considered.
+      "fursonas.canvases.plasma",
     ];
     const untranslated = enKeys.filter(
       (k) => valueAt(en, k) === valueAt(es, k),

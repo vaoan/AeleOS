@@ -173,6 +173,10 @@
       "bounce": "Cajas que rebotan",
       "rain": "Lluvia de símbolos",
       "warp": "Velocidad luz",
+      "plasma": "Plasma",
+      "cells": "Celdas",
+      "flow": "Corriente",
+      "fireflies": "Luciérnagas",
       "none": "Ninguno"
     },
     "skins": {
