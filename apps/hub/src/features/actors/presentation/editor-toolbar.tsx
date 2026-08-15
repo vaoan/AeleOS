@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, X } from "lucide-react";
+import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /** Translated strings {@link EditorToolbar} renders. */
@@ -13,7 +14,13 @@ export interface EditorToolbarLabels {
   cancel: string;
 }
 
-/** What {@link EditorToolbar} needs. */
+/**
+ * What {@link EditorToolbar} needs.
+ *
+ * Cancel takes an HREF rather than a callback, because it is a navigation to
+ * one known place and not an action — which is what lets the loading bar see
+ * it, and what makes a middle-click open it in a new tab.
+ */
 export interface EditorToolbarProps {
   /** What is being edited, shown on the left. */
   title: string;
@@ -21,8 +28,8 @@ export interface EditorToolbarProps {
   labels: EditorToolbarLabels;
   /** True while a save is in flight. */
   saving: boolean;
-  /** Called when somebody leaves without saving. */
-  onCancel: () => void;
+  /** Where leaving without saving goes. */
+  cancelHref: string;
 }
 
 /**
@@ -39,7 +46,12 @@ export interface EditorToolbarProps {
  * second one reaches `create_fursona` and comes back "handle already yours" —
  * a baffling error about a fursona that was just created successfully.
  *
- * Exposes the `editor-save` test id, so the signed-in end-to-end suite can
+ * **Cancel is a link and Save is a submit, and both of those are what make the
+ * loading bar appear.** `RouteProgress` watches clicks that land on an `<a>`
+ * and form submissions; a button calling `router.push` is neither, so
+ * cancelling used to change the route with nothing on screen saying so.
+ *
+ * Exposes the `editor-save` and `editor-cancel` test ids, so the signed-in end-to-end suite can
  * submit the form without depending on the button's translated label.
  *
  * @returns the toolbar.
@@ -48,7 +60,7 @@ export function EditorToolbar({
   title,
   labels,
   saving,
-  onCancel,
+  cancelHref,
 }: EditorToolbarProps) {
   return (
     <div className="sticky top-0 z-20 -mx-6 mb-6 flex items-center gap-3 border-b border-[var(--edge)]/40 bg-[var(--bar)] px-6 py-3 backdrop-blur-md">
@@ -56,14 +68,22 @@ export function EditorToolbar({
         {title}
       </span>
       <span className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
+        {/* **A link, not a button that pushes.** Cancel goes to one known
+            place, so a link is the right element on its own merits: a middle
+            click or a modified click opens it in a new tab, which a button
+            silently refuses.
+            It is also what restores the loading bar. `RouteProgress` starts on
+            a click that lands on an `<a>` and on a form submission — Save is
+            covered by the submit, and Cancel was covered by neither, so
+            leaving the editor changed the route with nothing on screen. */}
+        <Link
+          href={cancelHref}
+          {...tid("editor-cancel")}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-[var(--muted)]"
         >
           <X className="size-4" />
           {labels.cancel}
-        </button>
+        </Link>
         <button
           type="submit"
           {...tid("editor-save")}

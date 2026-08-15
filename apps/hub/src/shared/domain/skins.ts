@@ -22,7 +22,7 @@
  * `default` is first because a select opens on its first option, and the list's
  * order is the order somebody reads.
  *
- * Fifteen of them, and the ones worth adding were the ones reaching for a
+ * Fourteen of them, and the ones worth adding were the ones reaching for a
  * MECHANISM none of the others used — a surface that is not there, a tiled
  * texture, a shadow that steps instead of fading. Another set of radius and
  * shadow numbers would have read as a variant of something already here.
@@ -40,7 +40,6 @@ export const SKINS = [
   "outline",
   "blueprint",
   "comic",
-  "pixel",
   "inset",
   "sticker",
 ] as const;
@@ -226,20 +225,6 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
     "--skin-blur": "0px",
     "--skin-gloss": "radial-gradient(rgb(0 0 0 / 0.16) 22%, transparent 23%)",
     "--skin-gloss-size": "6px 6px",
-  },
-
-  /**
-   * Eight-bit: square, and a shadow that falls in steps rather than fading.
-   *
-   * Three hard offsets in the border colour make a staircase. A blur would
-   * undo the whole idea, which is why the shadow names no alpha at all.
-   */
-  pixel: {
-    "--skin-round": "0",
-    "--skin-border": "2px",
-    "--skin-blur": "0px",
-    "--skin-shadow":
-      "3px 0 0 var(--edge), 6px 3px 0 var(--edge), 9px 6px 0 var(--edge)",
   },
 
   /** Pressed into the page rather than raised off it — clay, inverted. */

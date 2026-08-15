@@ -179,6 +179,11 @@ const editorSchema = fursonaSchema.extend({
  * which this form renders inside. A second copy here would be exactly the
  * drift the original fault was made of.
  *
+ * **Cancel is a link, not a push.** The toolbar takes an href, so leaving the
+ * editor raises the loading bar exactly as any other navigation does — a
+ * `router.push` from a button is invisible to it, and cancelling used to change
+ * the route with nothing on screen saying anything was happening.
+ *
  * **The theme panel is handed the person's profile theme**, which is what lets
  * it offer "use my profile's look". The editor does not decide whether that
  * button appears — the panel does, from whether there is anything to copy — so
@@ -263,7 +268,7 @@ export function FursonaEditor({
         title={labels.title}
         labels={labels}
         saving={saving}
-        onCancel={() => router.push(LIST)}
+        cancelHref={LIST}
       />
 
       <FormErrorBanner

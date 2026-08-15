@@ -3,6 +3,7 @@ import {
   type SectionType,
 } from "@/features/actors/domain/section-schema";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
@@ -26,6 +27,22 @@ let lastActorRef: unknown;
 const push = vi.fn();
 vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
   useRouter: () => ({ push }),
+  // The toolbar's Cancel is a link now, so the mocked module owes one — the
+  // mocked-dependency trap again: what stands in for a module has to carry
+  // everything the module is relied on for, and nothing announces a new
+  // reliance until the suite goes red.
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: ReactNode;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 const { FursonaEditor } =
@@ -104,7 +121,6 @@ const labels = {
       outline: "Outline",
       blueprint: "Blueprint",
       comic: "Comic",
-      pixel: "Pixel",
       inset: "Inset",
       sticker: "Sticker",
     },
@@ -290,10 +306,13 @@ describe("FursonaEditor", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  // Cancel is a link, so leaving is the browser's job rather than the
+  // router's — which is what lets the loading bar see it. What this still owes
+  // is that it saves nothing and points at the list.
   it("leaves without saving when cancelled", () => {
     renderEditor();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    const cancel = screen.getByRole("link", { name: "Cancel" });
+    expect(cancel).toHaveAttribute("href", "/fursonas");
     expect(save).not.toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith("/fursonas");
   });
 });

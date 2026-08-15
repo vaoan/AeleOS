@@ -1,5 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+
+vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: ReactNode;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 
 const { EditorToolbar } =
   await import("@/features/actors/presentation/editor-toolbar");
@@ -10,20 +26,18 @@ const labels = { save: "Save", saving: "Saving…", cancel: "Cancel" };
  * Renders the toolbar with overrides.
  *
  * @param props - what to override.
- * @returns the cancel spy.
+ * @returns nothing.
  */
-function renderToolbar(props: Record<string, unknown> = {}) {
-  const onCancel = vi.fn();
+function renderToolbar(props: Record<string, unknown> = {}): void {
   render(
     <EditorToolbar
       title="New fursona"
       labels={labels}
       saving={false}
-      onCancel={onCancel}
+      cancelHref="/fursonas"
       {...props}
     />,
   );
-  return onCancel;
 }
 
 describe("EditorToolbar", () => {
@@ -42,10 +56,18 @@ describe("EditorToolbar", () => {
     );
   });
 
-  it("calls back when cancelled", () => {
-    const onCancel = renderToolbar();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(onCancel).toHaveBeenCalledOnce();
+  // **THE REGRESSION TEST for a navigation with no loading bar.** Cancel was a
+  // button calling `router.push`. `RouteProgress` starts on a click that lands
+  // on an `<a>` and on a form submission — Save is covered by the submit, and
+  // Cancel was covered by neither, so leaving the editor changed the route with
+  // nothing on screen saying anything was happening.
+  //
+  // A link is also the right element on its own merits: a middle-click or a
+  // modified click opens it in a new tab, which a button silently refuses.
+  it("leaves by a link, so the bar can see it", () => {
+    renderToolbar();
+    const cancel = screen.getByRole("link", { name: "Cancel" });
+    expect(cancel).toHaveAttribute("href", "/fursonas");
   });
 
   it("says it is saving while it is", () => {
