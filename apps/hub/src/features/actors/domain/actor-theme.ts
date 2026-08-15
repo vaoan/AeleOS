@@ -32,10 +32,25 @@ import { derivePalette } from "@/shared/domain/palette";
  *
  * Whatever is added reads `--nebula-a` and `--nebula-b`, so an author's two
  * colours travel to every canvas rather than each one inventing its own
- * palette. Today that is the drifting nebula, a starfield, an aurora, and
+ * palette. Today that is the drifting nebula, a starfield, an aurora, a
+ * constellation, waves, bubbles, snow, a horizon grid, drifting glows, and
  * stillness.
+ *
+ * `none` sits last because it is the way out rather than a choice among the
+ * rest, and a select opens on its first option.
  */
-export const CANVASES = ["nebula", "stars", "aurora", "none"] as const;
+export const CANVASES = [
+  "nebula",
+  "stars",
+  "aurora",
+  "constellation",
+  "waves",
+  "bubbles",
+  "snow",
+  "grid",
+  "blobs",
+  "none",
+] as const;
 
 /** One of the canvases. */
 export type CanvasId = (typeof CANVASES)[number];

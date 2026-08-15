@@ -151,6 +151,12 @@
       "nebula": "Nebulosa",
       "stars": "Estrellas",
       "aurora": "Aurora",
+      "constellation": "Constelación",
+      "waves": "Olas",
+      "bubbles": "Burbujas",
+      "snow": "Nieve",
+      "grid": "Rejilla al horizonte",
+      "blobs": "Luces a la deriva",
       "none": "Ninguno"
     },
     "skins": {

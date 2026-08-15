@@ -7,6 +7,12 @@ import {
   starfield,
   swayOf,
   twinkle,
+  constellation,
+  nodeAt,
+  waves,
+  bubbles,
+  snow,
+  blobs,
 } from "@/shared/domain/canvas-field";
 
 describe("seeded", () => {
@@ -223,5 +229,104 @@ describe("swayOf", () => {
   it("moves over time", () => {
     const [curtain] = aurora(1, 3);
     expect(swayOf(curtain!, 0)).not.toBe(swayOf(curtain!, 1.7));
+  });
+});
+
+describe("constellation", () => {
+  // The points drift on small circles rather than travelling, because a point
+  // that crosses the viewport has to be re-seeded and a re-seed is a visible
+  // jump. The pattern keeps changing anyway: the links depend on distances
+  // between points, not on the points.
+  it("places the asked-for number of points inside the viewport", () => {
+    const nodes = constellation(20, 7);
+    expect(nodes).toHaveLength(20);
+    for (const node of nodes) {
+      expect(node.x).toBeGreaterThanOrEqual(0);
+      expect(node.x).toBeLessThanOrEqual(1);
+      expect(node.y).toBeGreaterThanOrEqual(0);
+      expect(node.y).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("is the same field for the same seed", () => {
+    expect(constellation(6, 3)).toEqual(constellation(6, 3));
+  });
+
+  it("returns a point to where it started after a full circuit", () => {
+    const [node] = constellation(1, 11);
+    const start = nodeAt(node!, 0);
+    const round = nodeAt(node!, 1 / node!.speed);
+    expect(round.x).toBeCloseTo(start.x, 6);
+    expect(round.y).toBeCloseTo(start.y, 6);
+  });
+
+  it("moves a point away from its resting place in between", () => {
+    const [node] = constellation(1, 11);
+    const start = nodeAt(node!, 0);
+    const later = nodeAt(node!, 1 / node!.speed / 2);
+    expect(Math.hypot(later.x - start.x, later.y - start.y)).toBeGreaterThan(0);
+  });
+});
+
+describe("waves", () => {
+  // **Each band is slower and taller than the one behind it**, which is the
+  // whole of the depth: bands sharing a speed read as one striped object
+  // sliding sideways, however many there are.
+  it("slows and grows toward the front", () => {
+    const bands = waves(3, 5);
+    expect(bands).toHaveLength(3);
+    for (let i = 1; i < bands.length; i += 1) {
+      expect(bands[i]!.speed).toBeLessThan(bands[i - 1]!.speed);
+      expect(bands[i]!.height).toBeGreaterThan(bands[i - 1]!.height);
+    }
+  });
+
+  it("survives being asked for a single band", () => {
+    expect(waves(1, 5)).toHaveLength(1);
+  });
+});
+
+describe("bubbles", () => {
+  it("gives every bubble its own place in the climb", () => {
+    const rising = bubbles(30, 9);
+    expect(rising).toHaveLength(30);
+    expect(new Set(rising.map((b) => b.offset)).size).toBeGreaterThan(1);
+  });
+
+  it("alternates the two tints", () => {
+    expect(bubbles(4, 9).map((b) => b.tint)).toEqual([0, 1, 0, 1]);
+  });
+});
+
+describe("snow", () => {
+  // Size, speed and sway are correlated on purpose: a near flake is larger,
+  // faster and swings wider. Rolling them independently gives big slow flakes
+  // beside small fast ones, which reads as noise rather than depth.
+  it("makes the faster flakes the larger ones", () => {
+    const flakes = snow(60, 4);
+    const sorted = [...flakes].sort((a, b) => a.speed - b.speed);
+    expect(sorted[0]!.radius).toBeLessThan(sorted.at(-1)!.radius);
+  });
+
+  it("keeps every flake within the viewport's width", () => {
+    for (const flake of snow(40, 4)) {
+      expect(flake.x).toBeGreaterThanOrEqual(0);
+      expect(flake.x).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe("blobs", () => {
+  // Few and large rather than many and small: the effect is colours bleeding
+  // into one another, which needs them to overlap. Many small ones are spots,
+  // and spots are the bubbles.
+  it("keeps them large enough to overlap", () => {
+    for (const blob of blobs(3, 2)) {
+      expect(blob.radius).toBeGreaterThan(0.2);
+    }
+  });
+
+  it("spreads the three tints", () => {
+    expect(blobs(3, 2).map((b) => b.tint)).toEqual([0, 1, 2]);
   });
 });

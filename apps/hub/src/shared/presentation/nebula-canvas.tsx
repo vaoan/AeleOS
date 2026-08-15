@@ -5,6 +5,12 @@ import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   aurora,
+  blobs,
+  bubbles,
+  constellation,
+  nodeAt,
+  snow,
+  waves,
   shootingStars,
   shotProgress,
   starfield,
@@ -141,6 +147,9 @@ const LAYERS = [
   { seed: 137, gain: 2.8, bias: 0.58, speed: 0.28, slot: 2, scale: 2.6 },
 ] as const;
 
+/** A full turn, which most of these need at least once. */
+const TWO_PI = Math.PI * 2;
+
 /** How many stars the far layer draws; the nearer layers scale from it. */
 const STAR_COUNT = 1200;
 
@@ -267,6 +276,287 @@ function drawStars(
       y + tail * Math.sin(SHOT_ANGLE),
     );
     ctx.stroke();
+  }
+}
+
+/** How many points a constellation carries. */
+const NODE_COUNT = 70;
+
+/** How close two points must be to be joined, as a fraction of the viewport. */
+const LINK_WITHIN = 0.13;
+
+/**
+ * Draws a constellation: points, and the lines between the near ones.
+ *
+ * **The lines fade with distance rather than switching on at a threshold.** A
+ * hard cutoff makes every line appear and vanish at full strength, which reads
+ * as flickering; fading means a link arrives and leaves.
+ *
+ * The pairs are compared in one triangular sweep, so each is considered once.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio, so a dot is a dot on every screen.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawConstellation(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const at = constellation(NODE_COUNT, FIELD_SEED).map((node) =>
+    nodeAt(node, seconds),
+  );
+  const [lr, lg, lb] = tints[1] ?? tints[0]!;
+  ctx.lineWidth = Math.max(1, dpr * 0.6);
+  for (let i = 0; i < at.length; i += 1) {
+    for (let j = i + 1; j < at.length; j += 1) {
+      const distance = Math.hypot(at[i]!.x - at[j]!.x, at[i]!.y - at[j]!.y);
+      if (distance > LINK_WITHIN) continue;
+      const fade = (1 - distance / LINK_WITHIN) * 0.5;
+      ctx.strokeStyle = `rgb(${lr} ${lg} ${lb} / ${fade})`;
+      ctx.beginPath();
+      ctx.moveTo(at[i]!.x * width, at[i]!.y * height);
+      ctx.lineTo(at[j]!.x * width, at[j]!.y * height);
+      ctx.stroke();
+    }
+  }
+  const [pr, pg, pb] = tints[0]!;
+  ctx.fillStyle = `rgb(${pr} ${pg} ${pb} / 0.85)`;
+  for (const point of at) {
+    ctx.beginPath();
+    ctx.arc(point.x * width, point.y * height, dpr * 1.4, 0, TWO_PI);
+    ctx.fill();
+  }
+}
+
+/** How many bands a wave field has. */
+const WAVE_COUNT = 3;
+
+/** How many points each band is drawn from. More is smoother and slower. */
+const WAVE_STEPS = 48;
+
+/**
+ * Draws bands of water, back to front.
+ *
+ * Each band is filled to the bottom rather than stroked, so the ones in front
+ * hide the ones behind and the stack reads as depth instead of as overlapping
+ * lines.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawWaves(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  for (const wave of waves(WAVE_COUNT, FIELD_SEED)) {
+    const [r, g, b] = tints[wave.tint] ?? tints[0]!;
+    ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.32)`;
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+    for (let i = 0; i <= WAVE_STEPS; i += 1) {
+      const t = i / WAVE_STEPS;
+      const crest =
+        Math.sin((t * wave.length + seconds * wave.speed) * TWO_PI) *
+        wave.height;
+      ctx.lineTo(t * width, (wave.level + crest) * height);
+    }
+    ctx.lineTo(width, height);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/** How many bubbles rise at once. */
+const BUBBLE_COUNT = 40;
+
+/**
+ * Draws bubbles climbing from the bottom.
+ *
+ * Each is a ring rather than a disc — a filled circle at this size is a dot,
+ * and a dot is the starfield.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawBubbles(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const smaller = Math.min(width, height);
+  ctx.lineWidth = Math.max(1, dpr);
+  for (const bubble of bubbles(BUBBLE_COUNT, FIELD_SEED)) {
+    const climbed = (bubble.offset + seconds * bubble.speed) % 1;
+    const [r, g, b] = tints[bubble.tint] ?? tints[0]!;
+    // Faded at both ends of the climb, so nothing pops into or out of being.
+    const alpha = Math.sin(climbed * Math.PI) * 0.5;
+    ctx.strokeStyle = `rgb(${r} ${g} ${b} / ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(
+      (bubble.x + Math.sin(climbed * TWO_PI) * bubble.wander) * width,
+      (1 - climbed) * height,
+      bubble.radius * smaller,
+      0,
+      TWO_PI,
+    );
+    ctx.stroke();
+  }
+}
+
+/** How many flakes fall at once. */
+const FLAKE_COUNT = 140;
+
+/**
+ * Draws falling snow.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawSnow(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const smaller = Math.min(width, height);
+  for (const flake of snow(FLAKE_COUNT, FIELD_SEED)) {
+    const fallen = (flake.offset + seconds * flake.speed) % 1;
+    const [r, g, b] = tints[flake.tint] ?? tints[0]!;
+    ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.7)`;
+    ctx.beginPath();
+    ctx.arc(
+      (flake.x + Math.sin(seconds * flake.swaySpeed * TWO_PI) * flake.sway) *
+        width,
+      fallen * height,
+      flake.radius * smaller,
+      0,
+      TWO_PI,
+    );
+    ctx.fill();
+  }
+}
+
+/** How many lines run toward the horizon, each way. */
+const GRID_LINES = 14;
+
+/** Where the horizon sits, as a fraction of the viewport's height. */
+const HORIZON = 0.55;
+
+/**
+ * Draws a grid running away to a horizon.
+ *
+ * **The crosswise lines are spaced by a square law and scrolled by the
+ * fractional part of time.** Even spacing gives a ladder rather than a plane,
+ * and scrolling by whole steps makes the whole grid jump once a second; taking
+ * the fraction means the pattern slides continuously and repeats exactly.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawGrid(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const horizon = height * HORIZON;
+  const [r, g, b] = tints[0]!;
+  ctx.lineWidth = Math.max(1, dpr * 0.8);
+  ctx.strokeStyle = `rgb(${r} ${g} ${b} / 0.35)`;
+  for (let i = -GRID_LINES; i <= GRID_LINES; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(width / 2 + (i / GRID_LINES) * width * 0.08, horizon);
+    ctx.lineTo(width / 2 + (i / GRID_LINES) * width * 2.2, height);
+    ctx.stroke();
+  }
+  const scroll = (seconds * 0.25) % 1;
+  for (let i = 0; i < GRID_LINES; i += 1) {
+    const t = (i + scroll) / GRID_LINES;
+    ctx.strokeStyle = `rgb(${r} ${g} ${b} / ${0.3 * t})`;
+    ctx.beginPath();
+    ctx.moveTo(0, horizon + t * t * (height - horizon));
+    ctx.lineTo(width, horizon + t * t * (height - horizon));
+    ctx.stroke();
+  }
+  // The glow along the horizon, which is what stops the grid reading as a
+  // wireframe stuck to the bottom of the page.
+  const [hr, hg, hb] = tints[1] ?? tints[0]!;
+  const glow = ctx.createLinearGradient(0, horizon - height * 0.12, 0, horizon);
+  glow.addColorStop(0, `rgb(${hr} ${hg} ${hb} / 0)`);
+  glow.addColorStop(1, `rgb(${hr} ${hg} ${hb} / 0.45)`);
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, horizon - height * 0.12, width, height * 0.12);
+}
+
+/** How many glows drift past each other. */
+const BLOB_COUNT = 3;
+
+/**
+ * Draws a few large, soft glows.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawBlobs(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const larger = Math.max(width, height);
+  for (const blob of blobs(BLOB_COUNT, FIELD_SEED)) {
+    const angle = blob.phase + seconds * blob.speed * TWO_PI;
+    // Unequal in the two axes, so two glows sharing a speed do not travel in
+    // parallel — an ellipse rather than a circle.
+    const x = (blob.x + Math.cos(angle) * blob.drift) * width;
+    const y = (blob.y + Math.sin(angle) * blob.drift * 0.6) * height;
+    const radius = blob.radius * larger;
+    const [r, g, b] = tints[blob.tint] ?? tints[0]!;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    glow.addColorStop(0, `rgb(${r} ${g} ${b} / 0.5)`);
+    glow.addColorStop(1, `rgb(${r} ${g} ${b} / 0)`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
   }
 }
 
@@ -412,6 +702,12 @@ function readRgb(
  * 3. The blend mode inverts with the theme — `screen` in dark because dust
  *    emits light, `multiply` in light because it absorbs it. Same texture,
  *    opposite physics.
+ *
+ * **The renderers are a record keyed by name.** A canvas added to `CANVASES`
+ * without an entry there falls through to the nebula silently, which is the
+ * "the control did nothing" fault this feature keeps producing wearing a new
+ * hat — and a record makes the omission a missing key rather than a missing
+ * branch somebody has to notice.
  *
  * **It draws whichever canvas `--canvas` names**, falling through to the nebula
  * for a name it does not know — which is also what an unthemed page gets, since
@@ -564,16 +860,38 @@ export function NebulaCanvas() {
           ? opacity
           : DEFAULT_OPACITY;
 
-      if (chosen === "stars" || chosen === "aurora") {
+      // Every canvas but the nebula draws from the same tint list, so it is
+      // read once here rather than by each of them.
+      if (chosen !== "nebula" && chosen !== "") {
         const tints = Array.from({ length: MAX_CANVAS_COLOURS }, (_, i) =>
           canvasColour(styles, i),
         );
-        if (chosen === "stars") {
-          drawStars(ctx, width, height, dpr, tints, elapsed / 1000, animated);
-        } else {
-          drawAurora(ctx, width, height, tints, elapsed / 1000);
+        const seconds = elapsed / 1000;
+        // A record rather than a chain of branches: a canvas added to `CANVASES`
+        // without an entry here would fall through to the nebula silently, and
+        // "the control did nothing" is the fault this feature keeps producing.
+        const draws: Record<string, () => void> = {
+          stars: () =>
+            drawStars(ctx, width, height, dpr, tints, seconds, animated),
+          aurora: () => drawAurora(ctx, width, height, tints, seconds),
+          constellation: () =>
+            drawConstellation(ctx, width, height, dpr, tints, seconds),
+          waves: () => drawWaves(ctx, width, height, tints, seconds),
+          bubbles: () => drawBubbles(ctx, width, height, dpr, tints, seconds),
+          snow: () => drawSnow(ctx, width, height, tints, seconds),
+          grid: () => drawGrid(ctx, width, height, dpr, tints, seconds),
+          blobs: () => drawBlobs(ctx, width, height, tints, seconds),
+        };
+        const drawChosen = Object.hasOwn(draws, chosen)
+          ? draws[chosen]
+          : undefined;
+        // An unknown name falls through to the nebula, which is what an
+        // unthemed page shows and what a page whose stored canvas was renamed
+        // should get rather than nothing at all.
+        if (drawChosen) {
+          drawChosen();
+          return;
         }
-        return;
       }
 
       tiles.forEach((tile, i) => {

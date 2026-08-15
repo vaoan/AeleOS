@@ -285,3 +285,226 @@ export function aurora(count: number, seed: number): Curtain[] {
 export function swayOf(curtain: Curtain, seconds: number): number {
   return curtain.centre + Math.sin(seconds * curtain.speed) * curtain.sway;
 }
+
+/** One drifting point in a constellation. */
+export interface Node {
+  /** Where it sits, 0..1 across the viewport. */
+  x: number;
+  /** Where it sits, 0..1 down the viewport. */
+  y: number;
+  /** How far it travels from that place, as a fraction of the viewport. */
+  drift: number;
+  /** How fast it goes round, in turns per second. */
+  speed: number;
+  /** Where in its circuit it starts, in radians. */
+  phase: number;
+}
+
+/**
+ * A field of points that drift and are joined when they come close.
+ *
+ * **The joining is the whole effect**, and it is why the points drift on small
+ * circles rather than travelling: a point crossing the viewport leaves and
+ * never comes back, so a drifting field has to be re-seeded, and a re-seed is
+ * visible as a jump. A circuit means every point is always somewhere sensible
+ * and the pattern of links keeps changing anyway, because the links depend on
+ * distances between points and not on the points themselves.
+ *
+ * @param count - how many points.
+ * @param seed - the seed to place them from.
+ * @returns the points, in no particular order.
+ */
+export function constellation(count: number, seed: number): Node[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, () => ({
+    x: random(),
+    y: random(),
+    drift: 0.02 + random() * 0.05,
+    speed: 0.02 + random() * 0.05,
+    phase: random() * TAU,
+  }));
+}
+
+/**
+ * Where a drifting point is at a given moment.
+ *
+ * @param node - the point.
+ * @param seconds - seconds since the animation started.
+ * @returns its position, 0..1 in each axis.
+ */
+export function nodeAt(node: Node, seconds: number): { x: number; y: number } {
+  const angle = node.phase + seconds * node.speed * TAU;
+  return {
+    x: node.x + Math.cos(angle) * node.drift,
+    y: node.y + Math.sin(angle) * node.drift,
+  };
+}
+
+/** One band in a field of waves. */
+export interface Wave {
+  /** Where its resting line sits, 0..1 down the viewport. */
+  level: number;
+  /** How tall its crests are, as a fraction of the viewport. */
+  height: number;
+  /** How many crests fit across the viewport. */
+  length: number;
+  /** How fast it travels, in viewports per second. */
+  speed: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Bands of moving water, stacked back to front.
+ *
+ * Each band is **slower and taller than the one behind it**, which is the whole
+ * of the depth: a set of waves sharing one speed reads as a single striped
+ * object sliding sideways, however many of them there are.
+ *
+ * @param count - how many bands.
+ * @param seed - the seed to vary them from.
+ * @returns the bands, back to front.
+ */
+export function waves(count: number, seed: number): Wave[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => {
+    const depth = i / Math.max(1, count - 1);
+    return {
+      level: 0.45 + depth * 0.4 + (random() - 0.5) * 0.05,
+      height: 0.03 + depth * 0.05 + random() * 0.02,
+      length: 1.6 - depth * 0.7 + random() * 0.3,
+      speed: 0.05 + (1 - depth) * 0.09 + random() * 0.02,
+      tint: i % 3,
+    };
+  });
+}
+
+/** One rising bubble. */
+export interface Bubble {
+  /** Where it rises, 0..1 across the viewport. */
+  x: number;
+  /** Its radius, as a fraction of the viewport's smaller side. */
+  radius: number;
+  /** How fast it climbs, in viewports per second. */
+  speed: number;
+  /** How far it wanders sideways, as a fraction of the viewport. */
+  wander: number;
+  /** Where in its climb it starts, 0..1. */
+  offset: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Bubbles climbing from the bottom of the viewport.
+ *
+ * The vertical position is `(offset + t * speed) % 1`, so a bubble that reaches
+ * the top reappears at the bottom without any bookkeeping — and because each
+ * carries its own offset, they do not all restart together.
+ *
+ * @param count - how many bubbles.
+ * @param seed - the seed to place them from.
+ * @returns the bubbles.
+ */
+export function bubbles(count: number, seed: number): Bubble[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: random(),
+    radius: 0.004 + random() ** 2 * 0.03,
+    speed: 0.02 + random() * 0.06,
+    wander: 0.01 + random() * 0.03,
+    offset: random(),
+    tint: (i % 2) as 0 | 1,
+  }));
+}
+
+/** One falling flake. */
+export interface Flake {
+  /** Where it falls, 0..1 across the viewport. */
+  x: number;
+  /** Its radius, as a fraction of the viewport's smaller side. */
+  radius: number;
+  /** How fast it falls, in viewports per second. */
+  speed: number;
+  /** How far it swings sideways, as a fraction of the viewport. */
+  sway: number;
+  /** How fast it swings, in turns per second. */
+  swaySpeed: number;
+  /** Where in its fall it starts, 0..1. */
+  offset: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Snow, falling and swinging.
+ *
+ * **Size, speed and sway are correlated on purpose.** A near flake is larger,
+ * faster and swings wider; a far one is small, slow and nearly straight. Rolling
+ * the three independently gives big slow flakes beside small fast ones, which
+ * reads as noise rather than as depth.
+ *
+ * @param count - how many flakes.
+ * @param seed - the seed to place them from.
+ * @returns the flakes.
+ */
+export function snow(count: number, seed: number): Flake[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => {
+    const near = random();
+    return {
+      x: random(),
+      radius: 0.0015 + near * 0.004,
+      speed: 0.02 + near * 0.07,
+      sway: 0.004 + near * 0.02,
+      swaySpeed: 0.1 + random() * 0.3,
+      offset: random(),
+      tint: (i % 2) as 0 | 1,
+    };
+  });
+}
+
+/** One soft drifting glow. */
+export interface Blob {
+  /** Where it sits, 0..1 across the viewport. */
+  x: number;
+  /** Where it sits, 0..1 down the viewport. */
+  y: number;
+  /** Its radius, as a fraction of the viewport's larger side. */
+  radius: number;
+  /** How far it wanders, as a fraction of the viewport. */
+  drift: number;
+  /** How fast it wanders, in turns per second. */
+  speed: number;
+  /** Where in its wander it starts, in radians. */
+  phase: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * A few large, soft glows drifting past each other.
+ *
+ * Few and large rather than many and small: the effect is colours bleeding into
+ * one another, which needs the glows to overlap. A dozen small ones read as
+ * spots, which is the bubbles.
+ *
+ * Each wanders on its own ellipse — `drift` is used unequally in the two axes
+ * by the renderer — so two glows sharing a speed do not travel in parallel.
+ *
+ * @param count - how many glows.
+ * @param seed - the seed to place them from.
+ * @returns the glows.
+ */
+export function blobs(count: number, seed: number): Blob[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: 0.2 + random() * 0.6,
+    y: 0.2 + random() * 0.6,
+    radius: 0.25 + random() * 0.3,
+    drift: 0.05 + random() * 0.12,
+    speed: 0.01 + random() * 0.03,
+    phase: random() * TAU,
+    tint: i % 3,
+  }));
+}

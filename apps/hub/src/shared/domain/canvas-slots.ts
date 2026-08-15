@@ -14,6 +14,12 @@
  *    which is why the depth read as haze rather than as separate clouds.
  *  * `stars` — three parallax layers, far to near.
  *  * `aurora` — four curtains.
+ *  * `constellation` — the points, and the lines between them.
+ *  * `waves` — three bands, back to front.
+ *  * `bubbles` — two tints, alternating.
+ *  * `snow` — two tints, near and far.
+ *  * `grid` — the lines, and the glow along the horizon.
+ *  * `blobs` — three glows bleeding into each other.
  *  * `none` — nothing to colour.
  *
  * Adding a canvas means adding its count here, and the editor follows without
@@ -23,6 +29,18 @@ export const CANVAS_SLOTS = {
   nebula: 3,
   stars: 3,
   aurora: 4,
+  /** Points and the lines between them. */
+  constellation: 2,
+  /** Three bands of water, back to front. */
+  waves: 3,
+  /** Rising circles, in two tints. */
+  bubbles: 2,
+  /** Falling flakes, near and far. */
+  snow: 2,
+  /** A horizon grid: its lines and its glow. */
+  grid: 2,
+  /** Three large glows bleeding into each other. */
+  blobs: 3,
   none: 0,
 } as const;
 

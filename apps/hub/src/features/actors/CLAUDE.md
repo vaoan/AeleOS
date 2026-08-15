@@ -590,7 +590,17 @@ put back and a theme to leave.
 ### Canvases
 
 `CANVASES` holds **exactly the canvases that exist** — today the nebula, a
-starfield, an aurora, and stillness. It briefly listed two
+starfield, an aurora, a constellation, waves, bubbles, snow, a horizon grid,
+drifting glows, and stillness. As with the skins, what earns a place is a
+MECHANISM rather than another arrangement of dots: points joined by fading
+lines, filled bands stacked back to front, rings climbing and wrapping, a
+perspective grid scrolled by the fractional part of time, and a few large
+radial glows drifting past each other.
+
+**The renderers are a record keyed by name, not a chain of branches.** A canvas
+added to `CANVASES` without an entry there falls through to the nebula
+silently — which is the "the control did nothing" fault this feature keeps
+producing, wearing a different hat. It briefly listed two
 more, named for animations nobody had written, and that is the worst kind of
 control: it offers a choice, accepts it, stores it, and changes nothing, with no
 way for the person to learn that it did nothing. **A canvas joins that list in
