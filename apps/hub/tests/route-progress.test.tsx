@@ -140,9 +140,9 @@ describe("RouteProgress", () => {
     expect(bar()).not.toBeNull();
 
     pathname = "/pages";
-    act(() => {
-      rerender(<RouteProgress label="Loading" />);
-    });
+    // No `act` wrapper: Testing Library's `rerender` is already wrapped in one,
+    // and nesting them hides whether the update actually flushed.
+    rerender(<RouteProgress label="Loading" />);
     expect(bar()).toBeNull();
   });
 

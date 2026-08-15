@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   VISIBILITIES,
   parseFursona,
@@ -86,13 +86,12 @@ describe("parseFursona", () => {
 
   it("reports errors keyed by field so a form can render them inline", () => {
     const result = parseFursona(input({ handle: "", visibility: "nope" }));
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(Object.keys(result.errors).sort()).toEqual([
-        "handle",
-        "visibility",
-      ]);
-    }
+    // `assert` rather than `if`, because the guard here was for the COMPILER —
+    // `expect` does not narrow a discriminated union, so the errors below were
+    // unreachable to TypeScript without it. An `if` narrows and also makes the
+    // assertion skippable; this narrows and fails instead.
+    assert(!result.ok, "two invalid fields must not parse");
+    expect(Object.keys(result.errors).sort()).toEqual(["handle", "visibility"]);
   });
 
   it("rejects a non-object input rather than throwing", () => {

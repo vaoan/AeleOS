@@ -12,6 +12,13 @@
     "package-lock.json",
     "yarn.lock",
     "**/generated/**",
+    // Playwright's artefacts. They are gitignored but cspell walks the working
+    // tree, not the index — so a single failed run locally left `check:tools`
+    // failing on the Spanish words in a captured page, which is a check
+    // failing for a reason nobody can act on and the fastest way to teach
+    // somebody to stop reading it.
+    "**/test-results/**",
+    "**/playwright-report/**",
     "supabase/migrations/**",
     "supabase/config.toml",
     ".superpowers/**"

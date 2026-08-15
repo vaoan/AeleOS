@@ -246,9 +246,53 @@ export default tseslint.config(
       "vitest/no-identical-title": "error",
       "vitest/valid-expect": "error",
       "vitest/expect-expect": "error",
+      // **These four are about a test that cannot fail rather than a test that
+      // fails.** That is the worse of the two: a red test is a message, a test
+      // that silently asserts nothing is a green tick nobody has earned.
+      //
+      // An `expect` inside an `if` runs only when the branch does, so a
+      // condition that stops being true takes the assertion with it and says
+      // nothing. An `expect` outside a test body never runs at all. A
+      // `describe` given an async callback resolves after the suite is
+      // collected, so the tests inside it are never registered.
+      "vitest/no-conditional-expect": "error",
+      "vitest/no-standalone-expect": "error",
+      "vitest/require-to-throw-message": "off",
+      "vitest/valid-describe-callback": "error",
+      // A commented-out test is a test nobody is running and nobody can see is
+      // not running.
+      "vitest/no-commented-out-tests": "warn",
       "testing-library/no-await-sync-queries": "error",
       "testing-library/no-dom-import": "error",
       "testing-library/prefer-screen-queries": "error",
+      // **The flakiest thing a component test can do is forget an `await`.**
+      // `findBy*` and `waitFor` return promises; unawaited, the assertion
+      // inside them is scheduled and the test ends before it runs — passing
+      // whatever the component did. These three make that a build failure.
+      "testing-library/await-async-queries": "error",
+      "testing-library/await-async-utils": "error",
+      "testing-library/no-unnecessary-act": "error",
+      // `waitFor(() => getBy...)` retries a throwing query on a timer;
+      // `findBy` is the same thing with the retry built in and a real error
+      // message when it gives up.
+      "testing-library/prefer-find-by": "error",
+      //
+      // **`no-wait-for-multiple-assertions` and `no-wait-for-side-effects` are
+      // deliberately NOT here, and that is a finding rather than an omission.**
+      // Both were enabled, and neither reported the canonical violation from
+      // its own documentation — two `expect` calls in one `waitFor` callback,
+      // `waitFor` imported from `@testing-library/react`, in a file the plugin
+      // is otherwise linting, with `--print-config` confirming both rules
+      // resolved to "error". The sibling rules fired on the same file, so this
+      // is not detection: `prefer-find-by` and `await-async-queries` both
+      // caught their probes.
+      //
+      // A rule that cannot be shown to fire is indistinguishable from one that
+      // is off, and carrying it reads as protection nobody has. This repository
+      // has already found three linters silently doing nothing; the answer then
+      // was to introduce a violation and watch it fail, and the answer here is
+      // the same. If a later version of the plugin makes them work, they are
+      // worth having — the flakiness they describe is real.
     },
   },
 
@@ -278,6 +322,34 @@ export default tseslint.config(
       "playwright/no-wait-for-timeout": "error",
       "playwright/no-element-handle": "error",
       "playwright/no-eval": "off",
+      // **The rest of this block is one subject: a browser test is flaky
+      // unless every wait is a condition and every assertion retries.**
+      //
+      // `prefer-web-first-assertions` is the biggest of them.
+      // `expect(await locator.textContent()).toBe(x)` samples the page ONCE, so
+      // it fails whenever the assertion happens to arrive first;
+      // `expect(locator).toHaveText(x)` polls until it is true or the timeout
+      // expires. The two look alike and behave nothing alike.
+      "playwright/prefer-web-first-assertions": "error",
+      // `networkidle` waits for the network to go quiet for half a second,
+      // which an app with polling or analytics never does — Playwright's own
+      // documentation discourages it.
+      "playwright/no-networkidle": "error",
+      // `{ force: true }` skips the actionability checks, which is to say it
+      // skips the part that waits for the element to be ready. It converts a
+      // flaky failure into a silent click on nothing.
+      "playwright/no-force-option": "error",
+      // A `page.pause()` left behind hangs CI until the job times out.
+      "playwright/no-page-pause": "error",
+      // Awaiting something that is not a promise means somebody expected a
+      // wait that is not happening.
+      "playwright/no-useless-await": "error",
+      "playwright/no-useless-not": "error",
+      // The same "cannot fail" family as the vitest rules above.
+      "playwright/no-conditional-expect": "error",
+      "playwright/no-standalone-expect": "error",
+      "playwright/expect-expect": "error",
+      "playwright/valid-expect": "error",
       "no-restricted-syntax": [
         "error",
         {

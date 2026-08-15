@@ -134,6 +134,42 @@ function tintSignature(styles: CSSStyleDeclaration): string {
   ).join("|");
 }
 
+/**
+ * Everything a STILL frame's appearance depends on, as one comparable string.
+ *
+ * **`tintSignature` answers a different question and answering it twice was a
+ * bug.** That one asks what the offscreen tiles were baked with, so it watches
+ * colours and nothing else — correctly, because nothing else is painted into a
+ * tile. The still path borrowed it to decide whether to REDRAW, which is a
+ * broader question: a reader who has asked for no motion gets one frame and
+ * then nothing until something says otherwise, so anything the theme can change
+ * about that frame has to be in the comparison or it never reaches the screen.
+ *
+ * It did not. Choosing a different canvas, or moving the busy or size dial,
+ * changed no colour — so the theme arrived, was compared, found equal and
+ * discarded, and the picker did nothing. That is the "the control did nothing"
+ * fault this feature keeps producing, wearing reduced motion as a disguise.
+ *
+ * **Speed is deliberately absent.** A still frame is drawn at time zero and
+ * every renderer multiplies the clock by the speed dial, so it has nothing to
+ * change — reduced motion is exactly the state in which that dial does not
+ * apply. Including it would buy a repaint that cannot differ by a pixel.
+ *
+ * @param styles - the document root's computed styles.
+ * @returns a string that changes exactly when a still frame would look
+ * different.
+ */
+function frameSignature(styles: CSSStyleDeclaration): string {
+  return [
+    styles.getPropertyValue("--canvas").trim(),
+    styles.getPropertyValue("--canvas-density").trim(),
+    styles.getPropertyValue("--canvas-scale").trim(),
+    styles.getPropertyValue("--nebula-opacity").trim(),
+    styles.getPropertyValue("--nebula-blend").trim(),
+    tintSignature(styles),
+  ].join("|");
+}
+
 /** How far the field drifts each second, in CSS pixels. */
 const DRIFT_PX_PER_SECOND = 4;
 
@@ -2123,6 +2159,22 @@ function readRgb(
  * The product is what ran the honeycomb to 2192ms a frame and the aurora to
  * 636ms — and in both cases the picture at that setting was a solid wall
  * rather than a dense one, so the cap is as much a picture as a budget.
+ *
+ * **The still path asks TWO questions, and asking one was a bug.** With motion
+ * off this paints a single frame and then nothing until something says
+ * otherwise. What said otherwise compared `tintSignature` — the colours — which
+ * is the right test for whether the offscreen TILES need rebaking and the wrong
+ * one for whether the SCREEN needs redrawing: choosing another canvas, or
+ * moving the busy or size dial, changes no colour. The theme arrived, matched,
+ * and was discarded, so the picker did nothing for the readers least able to
+ * work out why. `frameSignature` is the second question and covers everything a
+ * still frame can show. The animated path never needed either — it re-reads the
+ * root sixty times a second — which is exactly why the fault could sit here
+ * unseen.
+ *
+ * **`prefers-reduced-motion` is a rendering mode here, not a switch that turns
+ * the design off.** One frame is still drawn, and every canvas honours it; what
+ * is lost is the movement and nothing else.
  */
 export function NebulaCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2149,6 +2201,10 @@ export function NebulaCanvas() {
     // offscreen tiles, so a tint change is invisible until they are rebuilt —
     // which is why an author dragging a backdrop colour saw nothing happen.
     let bakedWith = "";
+    // What is currently ON SCREEN, which is not the same as what the tiles were
+    // baked with — see `frameSignature`. Only the still path reads it, because
+    // only the still path has to decide whether to draw at all.
+    let shownWith = "";
     let width = 0;
     let height = 0;
     let dpr = 1;
@@ -2219,6 +2275,11 @@ export function NebulaCanvas() {
      */
     const draw = (elapsed: number) => {
       const styles = getComputedStyle(document.documentElement);
+      // Recorded here, before any early return, so the still path knows what is
+      // on screen even when what is on screen is deliberately nothing — a page
+      // that asked for `none` and then picks a canvas again has to redraw, and
+      // it is the only signal that would say so.
+      shownWith = frameSignature(styles);
       const blend = styles.getPropertyValue("--nebula-blend").trim();
       // The chosen animation, read from the document root because that is where
       // an actor's theme puts it — the canvas is mounted in the root layout and
@@ -2498,7 +2559,8 @@ export function NebulaCanvas() {
     window.addEventListener("resize", onResize);
 
     /**
-     * Rebuilds only when the colours actually moved.
+     * Bakes and redraws when the theme actually moved — two questions, not
+     * one.
      *
      * **This guard is the difference between a smooth drag and a rough one.**
      * The observer below watches the whole document, because the `<style>` an
@@ -2509,17 +2571,27 @@ export function NebulaCanvas() {
      * component does. The theming editor was unusable and the cost was nowhere
      * near the code that appeared to cause it.
      *
-     * Comparing first makes the common case two property reads and a string
-     * compare. The animated path already did this inside `draw`; this is the
-     * same guard for everything that arrives from outside.
+     * **Asking one question where there were two was itself a bug.** Rebaking
+     * depends on the COLOURS, because nothing else is painted into a tile.
+     * Redrawing depends on everything a frame can show. The still path used the
+     * colour comparison for both, so a reader who had asked for no motion could
+     * pick a different canvas, or move the busy or size dial, and watch nothing
+     * happen: the theme arrived, matched on colour, and was thrown away. The
+     * animated path never showed it, because there every frame re-reads the
+     * root anyway.
+     *
+     * Comparing still makes the common case a handful of property reads and a
+     * string compare, which is what keeps the drag smooth.
      *
      * @returns nothing.
      */
     const onThemeChanged = () => {
       const styles = getComputedStyle(document.documentElement);
-      if (tintSignature(styles) === bakedWith) return;
-      bake();
-      if (!animated) draw(0);
+      if (tintSignature(styles) !== bakedWith) bake();
+      // Only the still path. The animated one redraws sixty times a second and
+      // reads the root each time, so telling it what changed is telling it
+      // something it is about to find out.
+      if (!animated && frameSignature(styles) !== shownWith) draw(0);
     };
 
     // `data-theme` for the reader's own light/dark switch, and the subtree for

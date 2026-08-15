@@ -70,13 +70,19 @@ describe("FURSONA_TEMPLATES", () => {
   it.each(each)(
     "%s seeds icons only on cards and images only on galleries",
     (_id, template) => {
-      for (const section of template.sections) {
-        for (const item of section.items) {
-          if (item.icon) expect(section.type).toBe("cards");
-          if (item.image_url !== undefined)
-            expect(section.type).toBe("gallery");
-        }
-      }
+      // Every misplacement is collected and named, rather than asserted inside
+      // the test that finds it: a template with no icons and no images would
+      // otherwise pass this without a single assertion running.
+      const misplaced = template.sections.flatMap((section) =>
+        section.items
+          .filter(
+            (item) =>
+              (item.icon !== undefined && section.type !== "cards") ||
+              (item.image_url !== undefined && section.type !== "gallery"),
+          )
+          .map((item) => `${section.type} holds ${JSON.stringify(item)}`),
+      );
+      expect(misplaced).toEqual([]);
     },
   );
 

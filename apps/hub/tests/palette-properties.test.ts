@@ -156,15 +156,12 @@ describe("gradient stops, over any edit somebody can make", () => {
 
           expect(next.stops.length).toBeLessThanOrEqual(MAX_STOPS);
           expect(next.stops.length).toBeGreaterThan(0);
-          for (const [position, each] of next.stops.entries()) {
-            expect(each.at).toBeGreaterThanOrEqual(0);
-            expect(each.at).toBeLessThanOrEqual(100);
-            if (position > 0) {
-              expect(each.at).toBeGreaterThanOrEqual(
-                next.stops[position - 1]!.at,
-              );
-            }
-          }
+          const positions = next.stops.map((each) => each.at);
+          expect(positions.filter((at) => at < 0 || at > 100)).toEqual([]);
+          // Sorted order stated directly rather than as a comparison skipped
+          // for the first element. Same claim, and it cannot pass by never
+          // reaching the branch that makes it.
+          expect(positions).toEqual([...positions].sort((a, b) => a - b));
         },
       ),
       { numRuns: 300 },

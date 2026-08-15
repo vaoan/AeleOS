@@ -60,12 +60,20 @@ describe("resolveNebula", () => {
   // A disabled layer that still animates would burn a frame budget drawing
   // nothing, so this invariant is asserted rather than assumed.
   it("never reports animation while disabled", () => {
-    for (const stored of [null, "on", "off", "junk"]) {
-      for (const reduced of [true, false]) {
-        const state = resolveNebula(stored, reduced);
-        if (!state.enabled) expect(state.animated).toBe(false);
-      }
-    }
+    // Every combination is resolved, then the offenders are named. Asserting
+    // inside `if (!state.enabled)` checked nothing whenever no input produced a
+    // disabled layer, and said so with a green tick.
+    const states = [null, "on", "off", "junk"].flatMap((stored) =>
+      [true, false].map((reduced) => ({
+        stored,
+        reduced,
+        ...resolveNebula(stored, reduced),
+      })),
+    );
+    expect(states.some((state) => !state.enabled)).toBe(true);
+    expect(states.filter((state) => !state.enabled && state.animated)).toEqual(
+      [],
+    );
   });
 });
 

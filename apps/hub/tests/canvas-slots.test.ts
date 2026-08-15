@@ -20,9 +20,15 @@ describe("CANVAS_SLOTS", () => {
   });
 
   it("gives every canvas that draws at least two colours", () => {
-    for (const [canvas, slots] of Object.entries(CANVAS_SLOTS)) {
-      if (canvas !== "none") expect(slots).toBeGreaterThanOrEqual(2);
-    }
+    // Collected and asserted once rather than asserted inside the filter. An
+    // `expect` under an `if` runs only when the branch does, so if the filter
+    // ever matched nothing this would pass while checking nothing — which is
+    // the one way a test can be worse than absent.
+    const drawing = Object.entries(CANVAS_SLOTS).filter(
+      ([canvas]) => canvas !== "none",
+    );
+    expect(drawing.length).toBeGreaterThan(0);
+    expect(drawing.filter(([, slots]) => slots < 2)).toEqual([]);
   });
 
   // Derived rather than written down, so it cannot fall behind the table.

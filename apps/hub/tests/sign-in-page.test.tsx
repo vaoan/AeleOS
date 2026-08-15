@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 // PageShell/Card pull in LanguageToggle, whose module top level calls
 // next-intl's createNavigation() against the real "next/navigation" — not
 // reachable outside a request. Nothing in this suite renders the tree (see
-// findByType below), but merely importing the page still imports that chain,
+// elementOfType below), but merely importing the page still imports that chain,
 // so the module is stubbed the same way fursona-edit-page.test.tsx does.
 vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
   Link: "a",
@@ -37,7 +37,7 @@ const { SignInForm } = await import("@/features/session");
  * @param type - the component reference to search for.
  * @returns the matching element.
  */
-function findByType(node: unknown, type: unknown): ReactElement {
+function elementOfType(node: unknown, type: unknown): ReactElement {
   if (node && typeof node === "object") {
     const element = node as ReactElement;
     if (element.type === type) return element;
@@ -45,7 +45,7 @@ function findByType(node: unknown, type: unknown): ReactElement {
       ?.children;
     for (const child of Array.isArray(children) ? children : [children]) {
       try {
-        return findByType(child, type);
+        return elementOfType(child, type);
       } catch {
         // Keep looking among the remaining children.
       }
@@ -66,7 +66,7 @@ describe("SignInPage", () => {
       searchParams: Promise.resolve({ redirect_url: "/es/picker?app=Puck" }),
     })) as ReactElement;
 
-    const form = findByType(page, SignInForm);
+    const form = elementOfType(page, SignInForm);
     expect(form.props).toMatchObject({
       afterSignInUrl: "/es/picker?app=Puck",
       // cspell:ignore Fpicker Fapp -- percent-encoding, not words
@@ -81,7 +81,7 @@ describe("SignInPage", () => {
       searchParams: Promise.resolve({}),
     })) as ReactElement;
 
-    const form = findByType(page, SignInForm);
+    const form = elementOfType(page, SignInForm);
     expect(form.props).toMatchObject({
       afterSignInUrl: "/en/me",
       callbackUrl: "/en/sign-in/sso-callback",
@@ -97,7 +97,7 @@ describe("SignInPage", () => {
       searchParams: Promise.resolve({ redirect_url: ["a", "b"] }),
     })) as ReactElement;
 
-    const form = findByType(page, SignInForm);
+    const form = elementOfType(page, SignInForm);
     expect(form.props).toMatchObject({
       afterSignInUrl: "/es/me",
       callbackUrl: "/es/sign-in/sso-callback",
