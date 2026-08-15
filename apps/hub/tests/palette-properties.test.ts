@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import fc from "fast-check";
 import { derivePalette } from "@/shared/domain/palette";
 import { parseHex, srgbToOklch } from "@/shared/domain/color";
@@ -32,7 +33,11 @@ const hex = fc
   );
 
 /** A gradient of one colour, which is what a flat background is. */
-const flat = (color: string) => ({ angle: 90, stops: [{ color, at: 0 }] });
+const flat = (color: string) => ({
+  ...DEFAULT_GRADIENT,
+  angle: 90,
+  stops: [{ color, at: 0 }],
+});
 
 /**
  * A token's colour, as OKLCH.
@@ -129,7 +134,7 @@ describe("gradient stops, over any edit somebody can make", () => {
       minLength: 1,
       maxLength: 10,
     })
-    .map((stops) => ({ angle: 90, stops }));
+    .map((stops) => ({ ...DEFAULT_GRADIENT, angle: 90, stops }));
 
   // **Stop order is an invariant, not a convention.** CSS paints stops in the
   // order they are written, so an out-of-order list doubles back and produces

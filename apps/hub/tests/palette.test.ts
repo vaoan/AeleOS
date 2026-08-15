@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import {
   derivePalette,
   hexFromOklchValue,
@@ -34,7 +35,11 @@ function colourOf(palette: Record<string, string>, token: string): Oklch {
  * @param color - the colour.
  * @returns the gradient.
  */
-const flat = (color: string) => ({ angle: 90, stops: [{ color, at: 0 }] });
+const flat = (color: string) => ({
+  ...DEFAULT_GRADIENT,
+  angle: 90,
+  stops: [{ color, at: 0 }],
+});
 
 const BACKGROUNDS = [
   "#ffffff",
@@ -72,6 +77,7 @@ describe("derivePalette", () => {
 
   it("renders a many-stop gradient verbatim", () => {
     const many = {
+      ...DEFAULT_GRADIENT,
       angle: 45,
       stops: [
         { color: "#ff0000", at: 0 },
@@ -181,6 +187,7 @@ describe("derivePalette", () => {
     expect(
       derivePalette(
         {
+          ...DEFAULT_GRADIENT,
           angle: 90,
           stops: [
             { color: "#1a1a2e", at: 0 },
@@ -268,8 +275,14 @@ describe("the memoised solve", () => {
       { color: "#1a1a2e", at: 0 },
       { color: "#f3e3d3", at: 100 },
     ];
-    const a = derivePalette({ angle: 0, stops }, "#00ff88");
-    const b = derivePalette({ angle: 270, stops }, "#00ff88");
+    const a = derivePalette(
+      { ...DEFAULT_GRADIENT, angle: 0, stops },
+      "#00ff88",
+    );
+    const b = derivePalette(
+      { ...DEFAULT_GRADIENT, angle: 270, stops },
+      "#00ff88",
+    );
     expect(a["--ink"]).toBe(b["--ink"]);
     expect(a["--surface-solid"]).toBe(b["--surface-solid"]);
     // The field DOES follow the angle, which is why it is spliced in rather
@@ -281,6 +294,7 @@ describe("the memoised solve", () => {
     const at = (n: number) =>
       derivePalette(
         {
+          ...DEFAULT_GRADIENT,
           angle: 90,
           stops: [
             { color: "#1a1a2e", at: 0 },
@@ -296,8 +310,14 @@ describe("the memoised solve", () => {
   // be a cache that had stopped working.
   it("follows a changed accent", () => {
     const stops = [{ color: "#1a1a2e", at: 0 }];
-    expect(derivePalette({ angle: 90, stops }, "#00ff88")["--accent"]).not.toBe(
-      derivePalette({ angle: 90, stops }, "#ff0088")["--accent"],
+    expect(
+      derivePalette({ ...DEFAULT_GRADIENT, angle: 90, stops }, "#00ff88")[
+        "--accent"
+      ],
+    ).not.toBe(
+      derivePalette({ ...DEFAULT_GRADIENT, angle: 90, stops }, "#ff0088")[
+        "--accent"
+      ],
     );
   });
 
@@ -308,12 +328,16 @@ describe("the memoised solve", () => {
     for (let i = 0; i < 200; i += 1) {
       const shade = i.toString(16).padStart(2, "0");
       derivePalette(
-        { angle: 90, stops: [{ color: `#1a1a${shade}`, at: 0 }] },
+        {
+          ...DEFAULT_GRADIENT,
+          angle: 90,
+          stops: [{ color: `#1a1a${shade}`, at: 0 }],
+        },
         "#00ff88",
       );
     }
     const again = derivePalette(
-      { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+      { ...DEFAULT_GRADIENT, angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
       "#00ff88",
     );
     expect(again["--ink"]).toBeTruthy();

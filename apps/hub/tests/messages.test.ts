@@ -134,6 +134,9 @@ describe("message catalogues", () => {
       // three canvases added beside it — Celdas, Corriente, Luciérnagas — are
       // translated, which is the evidence this one was considered.
       "fursonas.canvases.plasma",
+      // The Spanish word for a radial gradient is "radial". Linear and conic
+      // beside it are translated, which is the evidence this one was weighed.
+      "fursonas.gradientKindRadial",
     ];
     const untranslated = enKeys.filter(
       (k) => valueAt(en, k) === valueAt(es, k),

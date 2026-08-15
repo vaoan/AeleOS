@@ -179,7 +179,8 @@
     "unlayered",
     "unlinted",
     "trunc",
-    "Voronoi"
+    "Voronoi",
+    "moiré"
   ],
   "overrides": [
     {

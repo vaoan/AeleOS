@@ -19,15 +19,22 @@ import {
  * @param angle - which way it runs.
  * @returns the gradient.
  */
-const g = (stops: [string, number][], angle = 90): Gradient => ({
+const g = (
+  stops: [string, number][],
+  angle = 90,
+  over: Partial<Gradient> = {},
+): Gradient => ({
+  ...DEFAULT_GRADIENT,
   angle,
   stops: stops.map(([color, at]) => ({ color, at })),
+  ...over,
 });
 
 describe("parseGradient", () => {
   it("reads a gradient somebody built", () => {
     expect(
       parseGradient({
+        ...DEFAULT_GRADIENT,
         angle: 45,
         stops: [
           { color: "#ff0000", at: 0 },
@@ -35,7 +42,17 @@ describe("parseGradient", () => {
         ],
       }),
     ).toEqual({
+      // A background stored before this app could make anything but a linear
+      // gradient reads back as exactly that gradient: absence means the old
+      // shape, and no version marker is needed to say so.
+      kind: "linear",
+      repeating: false,
+      every: 25,
       angle: 45,
+      shape: "ellipse",
+      extent: "farthest-corner",
+      x: 50,
+      y: 50,
       stops: [
         { color: "#ff0000", at: 0 },
         { color: "#0000ff", at: 100 },
@@ -81,10 +98,18 @@ describe("parseGradient", () => {
 
   it("normalises an angle from anywhere on the circle", () => {
     expect(
-      parseGradient({ angle: -90, stops: [{ color: "#fff", at: 0 }] })?.angle,
+      parseGradient({
+        ...DEFAULT_GRADIENT,
+        angle: -90,
+        stops: [{ color: "#fff", at: 0 }],
+      })?.angle,
     ).toBe(270);
     expect(
-      parseGradient({ angle: 450, stops: [{ color: "#fff", at: 0 }] })?.angle,
+      parseGradient({
+        ...DEFAULT_GRADIENT,
+        angle: 450,
+        stops: [{ color: "#fff", at: 0 }],
+      })?.angle,
     ).toBe(90);
   });
 
@@ -204,7 +229,7 @@ describe("addStop", () => {
 
   it("refuses once the cap is reached", () => {
     const full: Gradient = {
-      angle: 90,
+      ...DEFAULT_GRADIENT,
       stops: Array.from({ length: MAX_STOPS }, (_, i) => ({
         color: "#ff0000",
         at: i * 5,
@@ -415,7 +440,7 @@ describe("what it does with a gradient nobody validated", () => {
   // The STOPS fall back; the angle is still the caller's, because an empty
   // stop list says nothing about which way the gradient should run.
   it("falls back to the default stops when there are none", () => {
-    expect(gradientCss({ angle: 90, stops: [] })).toBe(
+    expect(gradientCss({ ...DEFAULT_GRADIENT, angle: 90, stops: [] })).toBe(
       "linear-gradient(90deg, #fbf4ec 0%, #f3e3d3 100%)",
     );
   });
@@ -447,6 +472,7 @@ describe("what it does with a gradient nobody validated", () => {
     expect(
       colourAt(
         {
+          ...DEFAULT_GRADIENT,
           angle: 90,
           stops: [
             { color: from, at: 0 },
@@ -528,7 +554,7 @@ describe("a gradient handed in over the cap", () => {
   // past the end of the list.
   it("reports an index that is still in the list", () => {
     const over: Gradient = {
-      angle: 90,
+      ...DEFAULT_GRADIENT,
       stops: Array.from({ length: MAX_STOPS + 3 }, (_, i) => ({
         color: "#ff0000",
         at: i,
@@ -537,5 +563,151 @@ describe("a gradient handed in over the cap", () => {
     const moved = setStop(over, 0, { at: 100 });
     expect(moved.index).toBeLessThan(moved.gradient.stops.length);
     expect(moved.gradient.stops[moved.index]).toBeDefined();
+  });
+});
+
+describe("gradientCss, by kind", () => {
+  const stops: [string, number][] = [
+    ["#ff0000", 0],
+    ["#0000ff", 100],
+  ];
+
+  it("runs a radial gradient outward from its centre", () => {
+    expect(gradientCss(g(stops, 45, { kind: "radial", x: 20, y: 80 }))).toBe(
+      "radial-gradient(ellipse farthest-corner at 20% 80%, #ff0000 0%, #0000ff 100%)",
+    );
+  });
+
+  // Each of the four is a different background on a page that is not square,
+  // which is why all four are offered rather than the default alone.
+  it("carries the shape and the extent it was given", () => {
+    expect(
+      gradientCss(
+        g(stops, 0, {
+          kind: "radial",
+          shape: "circle",
+          extent: "closest-side",
+        }),
+      ),
+    ).toContain("radial-gradient(circle closest-side at 50% 50%");
+  });
+
+  // The angle a radial gradient ignores is a conic gradient's starting point.
+  it("starts a conic gradient at its angle", () => {
+    expect(gradientCss(g(stops, 270, { kind: "conic", x: 10, y: 90 }))).toBe(
+      "conic-gradient(from 270deg at 10% 90%, #ff0000 0%, #0000ff 100%)",
+    );
+  });
+
+  it("leaves a linear gradient as it was", () => {
+    expect(gradientCss(g(stops, 45))).toBe(
+      "linear-gradient(45deg, #ff0000 0%, #0000ff 100%)",
+    );
+  });
+
+  it("is a flat colour for one stop, whatever shape was chosen", () => {
+    for (const kind of ["linear", "radial", "conic"] as const) {
+      expect(gradientCss(g([["#123456", 0]], 0, { kind }))).toBe("#123456");
+    }
+  });
+});
+
+describe("gradientCss, repeating", () => {
+  const stops: [string, number][] = [
+    ["#ff0000", 0],
+    ["#0000ff", 100],
+  ];
+
+  // The whole reason `every` exists. `repeating-linear-gradient` restates its
+  // stops BEYOND the last one, so stops spanning 0 to 100 — which is what every
+  // gradient here starts with — repeat outside what is drawn and render exactly
+  // like the plain form. Somebody would turn repetition on and see nothing.
+  it("compresses the stops into one repetition", () => {
+    expect(gradientCss(g(stops, 90, { repeating: true, every: 25 }))).toBe(
+      "repeating-linear-gradient(90deg, #ff0000 0%, #0000ff 25%)",
+    );
+  });
+
+  it("repeats a radial and a conic gradient too", () => {
+    expect(
+      gradientCss(g(stops, 0, { kind: "radial", repeating: true, every: 20 })),
+    ).toContain("repeating-radial-gradient(");
+    expect(
+      gradientCss(g(stops, 0, { kind: "conic", repeating: true, every: 20 })),
+    ).toContain("repeating-conic-gradient(");
+  });
+
+  it("ignores the length while repetition is off", () => {
+    expect(gradientCss(g(stops, 90, { repeating: false, every: 10 }))).toBe(
+      "linear-gradient(90deg, #ff0000 0%, #0000ff 100%)",
+    );
+  });
+});
+
+describe("parseGradient, the shape fields", () => {
+  const stored = {
+    stops: [{ color: "#ff0000", at: 0 }],
+  };
+
+  it("reads a shape somebody chose", () => {
+    expect(
+      parseGradient({
+        ...stored,
+        kind: "conic",
+        repeating: true,
+        every: 30,
+        shape: "circle",
+        extent: "closest-corner",
+        x: 10,
+        y: 90,
+      }),
+    ).toMatchObject({
+      kind: "conic",
+      repeating: true,
+      every: 30,
+      shape: "circle",
+      extent: "closest-corner",
+      x: 10,
+      y: 90,
+    });
+  });
+
+  // A stored value that is not one of the allowed ones is nonsense rather than
+  // a choice, and a public page must still render — so it falls back rather
+  // than throwing, exactly as a bad colour does.
+  it("falls back on a value that is not one of the allowed ones", () => {
+    expect(
+      parseGradient({
+        ...stored,
+        kind: "spiral",
+        shape: "hexagon",
+        extent: "somewhere",
+      }),
+    ).toMatchObject({
+      kind: "linear",
+      shape: "ellipse",
+      extent: "farthest-corner",
+    });
+  });
+
+  it("clamps a centre and a repetition to their ranges", () => {
+    expect(
+      parseGradient({ ...stored, x: -40, y: 900, every: 4000 }),
+    ).toMatchObject({ x: 0, y: 100, every: 100 });
+    expect(parseGradient({ ...stored, every: -3 })).toMatchObject({ every: 5 });
+  });
+
+  it("falls back on a centre that is not a number", () => {
+    expect(
+      parseGradient({ ...stored, x: "left", y: null, every: Number.NaN }),
+    ).toMatchObject({ x: 50, y: 50, every: 25 });
+  });
+
+  // `repeating` is read as an identity rather than for truthiness, so a stored
+  // `"false"` — which is truthy — cannot silently turn repetition on.
+  it("treats anything but true as not repeating", () => {
+    expect(parseGradient({ ...stored, repeating: "false" })).toMatchObject({
+      repeating: false,
+    });
   });
 });

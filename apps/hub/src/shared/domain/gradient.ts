@@ -8,10 +8,94 @@ export interface GradientStop {
   at: number;
 }
 
-/** A page's background. */
+/**
+ * The kinds of gradient CSS has.
+ *
+ * All three, because they are genuinely different shapes rather than three
+ * settings of one: a linear runs along an axis, a radial runs outward from a
+ * point, and a conic runs AROUND one. Offering only the first made the control
+ * look like the whole of what a background could be.
+ */
+export const GRADIENT_KINDS = ["linear", "radial", "conic"] as const;
+
+/** Which shape a background's gradient runs in. */
+export type GradientKind = (typeof GRADIENT_KINDS)[number];
+
+/** The two shapes a radial gradient may take. */
+export const RADIAL_SHAPES = ["ellipse", "circle"] as const;
+
+/** A radial gradient's shape. */
+export type RadialShape = (typeof RADIAL_SHAPES)[number];
+
+/**
+ * How far a radial gradient reaches before its last stop.
+ *
+ * CSS's four `<extent-keyword>`s, in the order they grow. They are the reason a
+ * radial gradient is not just "a circle": the same stops against
+ * `closest-side` and `farthest-corner` are two different backgrounds, and on a
+ * page that is not square the difference is large.
+ */
+export const RADIAL_EXTENTS = [
+  "closest-side",
+  "closest-corner",
+  "farthest-side",
+  "farthest-corner",
+] as const;
+
+/** How far a radial gradient reaches. */
+export type RadialExtent = (typeof RADIAL_EXTENTS)[number];
+
+/**
+ * A page's background.
+ *
+ * **Every field but the stops is only read by some of the kinds**, and the
+ * picker renders a control for a field only where the chosen kind reads it. A
+ * radial gradient has no direction, a linear one has no centre, and the length
+ * of a repetition means nothing while repetition is off. Storing them anyway
+ * is deliberate: switching kind and back keeps what somebody had set.
+ */
 export interface Gradient {
-  /** Which way it runs, in degrees. 0 points up, 90 points right. */
+  /** Which shape it runs in. */
+  kind: GradientKind;
+  /**
+   * Whether the stops repeat outward.
+   *
+   * Paired with `every`, never alone — see that field for why.
+   */
+  repeating: boolean;
+  /**
+   * How much of the gradient one repetition covers, as a percentage.
+   *
+   * **Repeating without this does nothing, which is why the two ship
+   * together.** `repeating-linear-gradient` restates its stops beyond the last
+   * one — so stops spanning 0 to 100, which is what every gradient here starts
+   * with, leave no room after the last and render identically to the plain
+   * form. Somebody would turn repetition on, see no change, and have no way to
+   * learn that the stops were the reason. The stops are scaled into this length
+   * instead, so the switch always does something visible.
+   *
+   * Ignored entirely when `repeating` is false.
+   */
+  every: number;
+  /**
+   * Which way it runs, in degrees. 0 points up, 90 points right.
+   *
+   * A linear gradient's direction, and a conic gradient's starting angle. A
+   * radial gradient has no direction and ignores it.
+   */
   angle: number;
+  /** A radial gradient's shape. Ignored by the other kinds. */
+  shape: RadialShape;
+  /** How far a radial gradient reaches. Ignored by the other kinds. */
+  extent: RadialExtent;
+  /**
+   * Where a radial or conic gradient is centred, as a percentage across.
+   *
+   * Ignored by a linear gradient, which has a direction rather than a centre.
+   */
+  x: number;
+  /** Where a radial or conic gradient is centred, as a percentage down. */
+  y: number;
   /** The colours along it, in order. Never empty. */
   stops: GradientStop[];
 }
@@ -57,14 +141,73 @@ function tidy(stops: GradientStop[]): GradientStop[] {
  * colour does not look like a gradient control and nobody finds the second
  * stop. The values are the design's own light field, so promoting a theme
  * changes nothing on screen at the moment it happens.
+ *
+ * It opens on a **linear** gradient that does not repeat, which is what this
+ * app could make before it could make anything else — so a theme promoted today
+ * looks like a theme promoted before the other kinds existed. The fields the
+ * other kinds read carry CSS's own defaults, an ellipse to the farthest corner
+ * centred in the middle, so choosing a kind is one click rather than four.
  */
 export const DEFAULT_GRADIENT: Gradient = {
+  kind: "linear",
+  repeating: false,
+  every: 25,
   angle: 160,
+  shape: "ellipse",
+  extent: "farthest-corner",
+  x: 50,
+  y: 50,
   stops: [
     { color: "#fbf4ec", at: 0 },
     { color: "#f3e3d3", at: 100 },
   ],
 };
+
+/**
+ * The shortest and longest one repetition may be.
+ *
+ * The floor is not zero and not close to it. A repetition of a few percent is
+ * a moiré rather than a background — it renders as flicker at most sizes, and
+ * it is the kind of thing a slider reaches by accident on the way somewhere
+ * else. The ceiling is the whole gradient, which is repetition doing nothing,
+ * and it is where the slider starts.
+ */
+export const REPEAT_RANGE = { min: 5, max: 100 } as const;
+
+/**
+ * Reads a value that must be one of a fixed set.
+ *
+ * @param value - whatever was stored.
+ * @param allowed - the set.
+ * @param fallback - what to use when it is not one of them.
+ * @returns one of the allowed values.
+ */
+function oneOf<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T,
+): T {
+  return allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+/**
+ * Reads a stored number, clamped and rounded.
+ *
+ * @param value - whatever was stored.
+ * @param low - the smallest allowed.
+ * @param high - the largest allowed.
+ * @param fallback - what to use when it is not a finite number.
+ * @returns a whole number within the range.
+ */
+function within(
+  value: unknown,
+  low: number,
+  high: number,
+  fallback: number,
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.max(low, Math.min(high, Math.round(value)));
+}
 
 /**
  * Reads a stored gradient, or gives nothing back.
@@ -80,6 +223,14 @@ export const DEFAULT_GRADIENT: Gradient = {
  * on their page that nobody picked. If that leaves no stops at all, the whole
  * gradient is treated as absent.
  *
+ * **A background stored before this app could make anything but a linear
+ * gradient reads back as exactly that gradient.** Every field but the stops
+ * falls back to the default, so absence already means "the old shape" and no
+ * version marker is needed to say so. A value outside one of the fixed lists —
+ * a kind, a radial shape, an extent — falls back the same way rather than
+ * throwing, for the same reason a bad colour is dropped: a public page must
+ * still render.
+ *
  * @param value - whatever was stored.
  * @returns the gradient, or null to override nothing.
  */
@@ -87,7 +238,7 @@ export function parseGradient(value: unknown): Gradient | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  const raw = value as { angle?: unknown; stops?: unknown };
+  const raw = value as Record<string, unknown>;
   if (!Array.isArray(raw.stops)) return null;
 
   const stops = raw.stops
@@ -105,7 +256,26 @@ export function parseGradient(value: unknown): Gradient | null {
     typeof raw.angle === "number" && Number.isFinite(raw.angle)
       ? ((Math.round(raw.angle) % 360) + 360) % 360
       : DEFAULT_GRADIENT.angle;
-  return { angle, stops: tidy(stops) };
+  return {
+    // Every field but the stops falls back to the default, so a background
+    // stored before this app had anything but linear gradients reads back as
+    // exactly the linear gradient it was. There is no version marker and there
+    // does not need to be one: absence already means "the old shape".
+    kind: oneOf(raw.kind, GRADIENT_KINDS, DEFAULT_GRADIENT.kind),
+    repeating: raw.repeating === true,
+    every: within(
+      raw.every,
+      REPEAT_RANGE.min,
+      REPEAT_RANGE.max,
+      DEFAULT_GRADIENT.every,
+    ),
+    angle,
+    shape: oneOf(raw.shape, RADIAL_SHAPES, DEFAULT_GRADIENT.shape),
+    extent: oneOf(raw.extent, RADIAL_EXTENTS, DEFAULT_GRADIENT.extent),
+    x: within(raw.x, 0, 100, DEFAULT_GRADIENT.x),
+    y: within(raw.y, 0, 100, DEFAULT_GRADIENT.y),
+    stops: tidy(stops),
+  };
 }
 
 /**
@@ -119,14 +289,36 @@ export function parseGradient(value: unknown): Gradient | null {
  * colours are rebuilt by `toHex` — so nothing a person typed reaches the
  * string. That is what keeps it safe to put in a stylesheet.
  *
+ * **Repetition scales the stops rather than trusting them.** A repeating
+ * gradient restates its stops beyond the last one, so stops spanning the whole
+ * length repeat outside what is drawn and render identically to the plain form.
+ * Positions are compressed into `every` first, which is what makes the switch
+ * do something for every gradient somebody already had.
+ *
  * @param gradient - the background.
- * @returns a `linear-gradient(…)`, or a plain colour for one stop.
+ * @returns a CSS gradient, or a plain colour for one stop.
  */
 export function gradientCss(gradient: Gradient): string {
   const stops = tidy(gradient.stops);
+  // One colour is a flat background whatever shape was chosen: a radial or a
+  // conic gradient between a colour and itself is the same flat colour, and
+  // saying so plainly is what somebody reading the stylesheet expects.
   if (stops.length === 1) return stops[0]!.color;
-  const parts = stops.map((stop) => `${stop.color} ${stop.at}%`).join(", ");
-  return `linear-gradient(${gradient.angle}deg, ${parts})`;
+
+  const span = gradient.repeating ? gradient.every / 100 : 1;
+  const parts = stops
+    .map((stop) => `${stop.color} ${Math.round(stop.at * span)}%`)
+    .join(", ");
+  const prefix = gradient.repeating ? "repeating-" : "";
+  const at = `at ${gradient.x}% ${gradient.y}%`;
+
+  if (gradient.kind === "radial") {
+    return `${prefix}radial-gradient(${gradient.shape} ${gradient.extent} ${at}, ${parts})`;
+  }
+  if (gradient.kind === "conic") {
+    return `${prefix}conic-gradient(from ${gradient.angle}deg ${at}, ${parts})`;
+  }
+  return `${prefix}linear-gradient(${gradient.angle}deg, ${parts})`;
 }
 
 /**

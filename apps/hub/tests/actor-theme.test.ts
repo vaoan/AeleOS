@@ -1,5 +1,6 @@
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import {
   DEFAULT_THEME,
   THEME_SEEDS,
@@ -19,20 +20,40 @@ import {
  * @param color - the colour.
  * @returns the gradient.
  */
-const flat = (color: string) => ({ angle: 90, stops: [{ color, at: 0 }] });
+const flat = (color: string) => ({
+  ...DEFAULT_GRADIENT,
+  angle: 90,
+  stops: [{ color, at: 0 }],
+});
 
 describe("parseTheme", () => {
   it("reads a theme somebody chose", () => {
     expect(
       parseTheme({
-        background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+        background: {
+          ...DEFAULT_GRADIENT,
+          angle: 90,
+          stops: [{ color: "#1a1a2e", at: 0 }],
+        },
         accent: "#00ff88",
         canvasColours: ["#112233", "#445566"],
         canvas: "none",
         skin: "retro",
       }),
     ).toEqual({
-      background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+      // Every shape field a stored background does not carry reads back as the
+      // default, which is the linear gradient this app used to be able to make.
+      background: {
+        kind: "linear",
+        repeating: false,
+        every: 25,
+        angle: 90,
+        shape: "ellipse",
+        extent: "farthest-corner",
+        x: 50,
+        y: 50,
+        stops: [{ color: "#1a1a2e", at: 0 }],
+      },
       accent: "#00ff88",
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
@@ -85,7 +106,11 @@ describe("parseTheme", () => {
 describe("themeVars", () => {
   const THEMED = {
     ...DEFAULT_THEME,
-    background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+    background: {
+      ...DEFAULT_GRADIENT,
+      angle: 90,
+      stops: [{ color: "#1a1a2e", at: 0 }],
+    },
     accent: "#00ff88",
   };
 
@@ -215,6 +240,7 @@ describe("accentPreview", () => {
   it("gives the accent back unchanged when there is no palette", () => {
     expect(
       accentPreview("#00ff88", {
+        ...DEFAULT_GRADIENT,
         angle: 90,
         stops: [{ color: "nope", at: 0 }],
       }),
@@ -235,7 +261,11 @@ describe("accentPreview", () => {
 describe("themeCss", () => {
   const THEMED = {
     ...DEFAULT_THEME,
-    background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+    background: {
+      ...DEFAULT_GRADIENT,
+      angle: 90,
+      stops: [{ color: "#1a1a2e", at: 0 }],
+    },
   };
 
   // One rule, no media queries. Both are consequences of a theme being one

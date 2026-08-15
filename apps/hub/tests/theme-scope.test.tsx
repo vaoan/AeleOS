@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import { ThemeScope } from "@/features/actors/presentation/theme-scope";
 import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
+import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 
 describe("ThemeScope", () => {
   it("emits a stylesheet carrying the owner's colour", () => {
@@ -9,7 +10,11 @@ describe("ThemeScope", () => {
       <ThemeScope
         theme={{
           ...DEFAULT_THEME,
-          background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+          background: {
+            ...DEFAULT_GRADIENT,
+            angle: 90,
+            stops: [{ color: "#1a1a2e", at: 0 }],
+          },
         }}
       >
         <p>page</p>
@@ -38,7 +43,11 @@ describe("ThemeScope", () => {
       <ThemeScope
         theme={{
           ...DEFAULT_THEME,
-          background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+          background: {
+            ...DEFAULT_GRADIENT,
+            angle: 90,
+            stops: [{ color: "#1a1a2e", at: 0 }],
+          },
         }}
       >
         <p>page</p>

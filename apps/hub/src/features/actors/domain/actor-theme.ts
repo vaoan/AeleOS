@@ -12,6 +12,9 @@ import {
 } from "@/shared/domain/skins";
 import {
   DEFAULT_GRADIENT,
+  GRADIENT_KINDS,
+  RADIAL_EXTENTS,
+  RADIAL_SHAPES,
   parseGradient,
   type Gradient,
 } from "@/shared/domain/gradient";
@@ -397,14 +400,27 @@ export function parseTheme(value: unknown): ActorTheme {
  * is reachable through a colour input, and the database checks the format
  * anyway. What this pins is the SHAPE, so the form cannot submit a theme with a
  * canvas the renderer has no implementation for. The skin is pinned the same
- * way and for the same reason. The three dials are loose numbers here and
+ * way and for the same reason — and so are the gradient's kind, radial shape
+ * and extent, which the emitter branches on: a value outside those lists would
+ * be accepted, stored, and rendered as whichever branch it fell through to. The three dials are loose numbers here and
  * clamped where they are read, since a slider cannot produce anything else.
  */
 export const themeSchema = z.object({
   canvasColours: z.array(z.string()).nullable(),
   background: z
     .object({
+      // The three kinds and the radial's two lists are pinned exactly as the
+      // canvas is, and for exactly the reason: the emitter has a branch per
+      // kind, so a value outside these would be stored, accepted, and rendered
+      // as whichever branch it fell through to.
+      kind: z.enum(GRADIENT_KINDS),
+      repeating: z.boolean(),
+      every: z.number(),
       angle: z.number(),
+      shape: z.enum(RADIAL_SHAPES),
+      extent: z.enum(RADIAL_EXTENTS),
+      x: z.number(),
+      y: z.number(),
       stops: z.array(z.object({ color: z.string(), at: z.number() })).min(1),
     })
     .nullable(),

@@ -467,6 +467,33 @@ decisions, so they are not quietly undone:
   which leaves the least room. Text crosses the whole gradient, so solving
   against the first stop, or against an average, makes a page readable at one
   end and not at the other.
+- **All three CSS gradients are offered, because they are three shapes rather
+  than three settings.** A linear runs along an axis, a radial outward from a
+  point, and a conic around one; the radial carries both shapes and all four
+  extent keywords, and each of the three may repeat. A background stored before
+  any of this reads back as exactly the linear gradient it was — absence means
+  the old shape, and no version marker is needed to say so.
+
+  **Repetition ships with a length, and that pairing is the whole of why it
+  works.** `repeating-linear-gradient` restates its stops BEYOND the last one,
+  so stops spanning 0 to 100 — which is what every gradient here starts with —
+  repeat outside what is drawn and render identically to the plain form.
+  Shipping the switch alone would have given somebody a control that accepts a
+  choice and changes nothing visible, with no way to learn the stops were the
+  reason. `every` is the length of one repetition and the stops are scaled into
+  it at emission, so the switch always does something.
+
+  **The stop bar stays a left-to-right ramp for every kind, and the result gets
+  its own tile.** A handle sits at its stop's position; painting the bar with
+  the radial or conic form would put every handle somewhere other than the
+  colour it carries, and the control would visibly disagree with itself. What a
+  stop means does not change with the kind — 0 is the start of the run and 100
+  the end, along an axis, outward, or around.
+
+  **A control appears only for the kinds that have the thing it sets.** No
+  direction on a radial, no centre on a linear, no length while repetition is
+  off.
+
 - **Stop order is an invariant, not a convention.** CSS renders stops in the
   order they are written, so an out-of-order list doubles back and produces
   bands nobody put there. Every function in `gradient.ts` returns a sorted list

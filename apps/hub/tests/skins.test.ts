@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { derivePalette } from "@/shared/domain/palette";
@@ -98,7 +99,11 @@ describe("the skins", () => {
   it("writes no property the palette writes", () => {
     const palette = Object.keys(
       derivePalette(
-        { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+        {
+          ...DEFAULT_GRADIENT,
+          angle: 90,
+          stops: [{ color: "#1a1a2e", at: 0 }],
+        },
         "#0f8",
       ),
     );

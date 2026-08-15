@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   readMyProfileTheme,
@@ -21,7 +22,11 @@ describe("setActorTheme", () => {
   it("sends what somebody chose", async () => {
     const { client: c, rpc } = client();
     await setActorTheme(c, "actor-1", {
-      background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+      background: {
+        ...DEFAULT_GRADIENT,
+        angle: 90,
+        stops: [{ color: "#1a1a2e", at: 0 }],
+      },
       accent: "#00ff88",
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
@@ -34,7 +39,11 @@ describe("setActorTheme", () => {
     expect(rpc).toHaveBeenCalledWith("set_actor_theme", {
       p_actor_ref: "actor-1",
       p_theme: {
-        background: { angle: 90, stops: [{ color: "#1a1a2e", at: 0 }] },
+        background: {
+          ...DEFAULT_GRADIENT,
+          angle: 90,
+          stops: [{ color: "#1a1a2e", at: 0 }],
+        },
         accent: "#00ff88",
         canvasColours: ["#112233", "#445566"],
         canvas: "none",

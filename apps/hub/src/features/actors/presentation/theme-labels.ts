@@ -44,6 +44,11 @@ export type Translate = (key: string) => string;
  * heading that says WHICH background it edits, because three things here were
  * named after the background and in Spanish all three carried the same word.
  *
+ * The background's kinds, radial shapes and extents are looked up one key at a
+ * time rather than built from the lists in `gradient.ts`. That is what makes a
+ * missing translation a build failure — the record's type demands every key —
+ * instead of a name resolving to a raw message id on somebody's screen.
+ *
  * @param t - a translator bound to the `fursonas` namespace.
  * @returns the labels, ready for the panel.
  */
@@ -59,6 +64,29 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
       angle: t("gradientAngle"),
       add: t("gradientAdd"),
       remove: t("gradientRemove"),
+      kind: t("gradientKind"),
+      kinds: {
+        linear: t("gradientKindLinear"),
+        radial: t("gradientKindRadial"),
+        conic: t("gradientKindConic"),
+      },
+      repeat: t("gradientRepeat"),
+      every: t("gradientEvery"),
+      shape: t("gradientShape"),
+      shapes: {
+        ellipse: t("gradientShapeEllipse"),
+        circle: t("gradientShapeCircle"),
+      },
+      extent: t("gradientExtent"),
+      extents: {
+        "closest-side": t("gradientExtentClosestSide"),
+        "closest-corner": t("gradientExtentClosestCorner"),
+        "farthest-side": t("gradientExtentFarthestSide"),
+        "farthest-corner": t("gradientExtentFarthestCorner"),
+      },
+      centreX: t("gradientCentreX"),
+      centreY: t("gradientCentreY"),
+      preview: t("gradientPreview"),
     },
     accent: t("themeAccent"),
     canvasColours: t("themeCanvasColours"),
