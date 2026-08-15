@@ -489,15 +489,73 @@ replace`, so the newest body of a function could sit in a file named after
   **Do not reintroduce an upload without reopening the budget question**, and if
   it is ever reopened, the three constraints above come back with it.
 
-**The CSS is linted too, and one of its rules is a scar.** `stylelint` runs in
-`check:tools`, mirroring the sister repos — AeleOS was the only one of the three
-without it. Beyond their config it forbids **selecting a `class` attribute**:
-the skin used to be `[class~="border"]`, reaching into Tailwind's own generated
-class, which silently beat every utility because unlayered CSS outranks anything
-in a cascade layer. `@utility surface` replaced it. Two of their rules are off
-with reasons in the config, and one of those is a finding: `--fix` used
-`property-no-vendor-prefix` to delete a `-webkit-` line and ship a Safari
-regression, three lines under a comment calling that line load-bearing.
+## The toolchain, and the nine rules it cost
+
+Full account, with every measurement:
+`docs/superpowers/specs/2026-08-15-toolchain-hardening-design.md`. Read it before
+adding or disabling a linter. The short version, and the part that generalises:
+
+**Everything the sister repos check, this repo now checks.** `stylelint`,
+`eslint-plugin-boundaries`, `sherif`, `syncpack`,
+`eslint-plugin-better-tailwindcss`, `eslint-plugin-sonarjs`,
+`eslint-plugin-unicorn` — plus two the sisters do not have,
+`@axe-core/playwright` and `fast-check`. AeleOS was the only one of the three
+with **no CSS linting at all**, which is how `globals.css` grew a rule that beat
+every Tailwind utility for months without anything noticing.
+
+**Three findings were not style, and two of them were autofixes:**
+
+- `unicorn/prefer-string-raw` rewrote the middleware `matcher` — the expression
+  deciding which requests Clerk sees at all — into a `String.raw` template. Next
+  reads that config **statically**, so the build failed naming no file. The rule
+  is off.
+- `stylelint --fix` deleted `-webkit-backdrop-filter` and left the standard
+  property declared twice, three lines under a comment calling that line
+  load-bearing. We have no autoprefixer, so a prefix in source is the only one
+  that reaches a browser. `property-no-vendor-prefix` is off.
+- The skin styled `[class~="border"]`, Tailwind's own generated class, from
+  **outside every cascade layer** — where it beat every utility unconditionally.
+  `@utility surface` replaced it across 74 class lists, and both hand-written
+  `:not()` exclusions deleted themselves.
+
+### The rules. Each was paid for.
+
+1. **A newly adopted tool must be shown to fail before it is believed.** Three
+   here were silently doing nothing: `better-tailwindcss` disabled all nine of
+   its rules because `tailwindcss` resolved from `apps/hub` and not the root, and
+   `boundaries` could not resolve the imports it was policing. Introduce a
+   violation, watch it fail, restore.
+2. **Never run an autofix over code a build tool parses rather than executes** —
+   middleware matchers, route segment configs, `next.config.ts`. Review that diff
+   every time.
+3. **Do not style a class the framework generated.** It reaches the right
+   elements and cannot see what they asked for. Own the class.
+4. **Custom CSS belongs in a cascade layer.** Unlayered rules beat every layered
+   one regardless of specificity — silently, and forever.
+5. **When a rule disagrees with the code, decide which is wrong and write the
+   answer down.** Every disable carries its reason; a silent one is a decision
+   nobody can review.
+6. **Two tools fighting is a configuration bug.** Prettier lowercases hex and a
+   rule wanted upper — the fix ran, Prettier undid it, forever. Name the owner.
+7. **A property test states a claim; it does not weaken until it passes.**
+8. **A migration's cost is not the diff.** Try it, measure, revert with evidence.
+9. **`check:docs` is per symbol and not a formality.** A mechanical rename still
+   touched 33 exported contracts.
+
+**One deprecation is knowingly unfixed**, and it is the reason
+`@typescript-eslint/no-deprecated` is not enabled: next-intl's `setRequestLocale`
+and `requestLocale` need `next/root-params`, which needs `[locale]` to own the
+ROOT layout. Folding it there builds and keeps static rendering — and wipes
+`data-theme` on a language change, because `<html>` then re-renders and drops
+the attribute the pre-paint script set. Reverted with the failing test recorded.
+**Do not attempt that migration without solving the theme first.**
+
+**A second finding is open.** `fast-check` refuted the claim that derived text
+clears 4.5:1 wherever a colour could: on `#e21233` light text reaches 4.12 where
+dark would reach 4.81, and none of the fifteen hand-picked backgrounds in
+`palette.test.ts` is such a colour. Nothing asserts it, the reproduction is in
+`palette-properties.test.ts`, and it is not a property to weaken until it
+passes.
 
 **CI gates on `main`:** four jobs are **required**, and a pull request cannot
 merge until all four report green — `conformance` (schema suite), `hub` (hub and

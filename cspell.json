@@ -176,7 +176,9 @@
     "Zanzibar",
     "ártico",
     "syncpackrc",
-    "unlayered"
+    "unlayered",
+    "unlinted",
+    "trunc"
   ],
   "overrides": [
     {

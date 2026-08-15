@@ -127,12 +127,41 @@ advice. The reasons are the useful part:
   because flat config replaces that rule for overlapping globs rather than
   merging it.
 - **Filenames are kebab-case**; `pnpm check:tools` runs `ls-lint`, `knip`,
-  `jscpd`, `cspell`, `secretlint`, and — since three package.json files can
-  disagree about one dependency without anything noticing — `sherif` and
-  `syncpack`. `.syncpackrc.json` records the two deliberate exceptions:
+  `jscpd`, `cspell`, `secretlint`, `stylelint`, and — since three package.json
+  files can disagree about one dependency without anything noticing — `sherif`
+  and `syncpack`. `.syncpackrc.json` records the two deliberate exceptions:
   `@aeleos/identity` is reached by workspace protocol rather than by version,
   and `@supabase/supabase-js` is a **peer** of that package on purpose, so it
   may float wider there than the app pins.
+- **The CSS is linted, and one rule of ours is a scar.** `stylelint` forbids
+  selecting a `class` attribute: the skin used to style `[class~="border"]` —
+  Tailwind's own generated class — from outside every cascade layer, where it
+  beat every utility unconditionally. `@utility surface` replaced it.
+- **Class strings are canonical and never deprecated**
+  (`eslint-plugin-better-tailwindcss`), and the code is held to modern idioms
+  (`eslint-plugin-sonarjs`, `eslint-plugin-unicorn`). Every rule turned off
+  carries its reason in the config, because two of them were turned off for
+  findings rather than taste — one autofix broke the auth middleware and another
+  shipped a Safari regression.
+- **Accessibility is measured on the rendered page**, not only on the tokens:
+  `tests/e2e/a11y.spec.ts` runs axe at WCAG A and AA over sign-in, the 404, the
+  signed-in pages, the editor with its theme panel open, and a themed public
+  page. `pnpm check:contrast` still measures the token pairs it can compute.
+- **Phone layouts are proved, not eyeballed.** `tests/e2e/responsive.spec.ts`
+  checks six viewports in both orientations, and every check has two halves: the
+  page does not scroll sideways, **and** nothing above the content is hiding
+  that it would — so the `overflow-x: hidden` shortcut fails as loudly as the
+  fault.
+- **The colour invariants are properties, not lists.**
+  `tests/palette-properties.test.ts` runs `fast-check` over every colour the
+  input can produce: the author's background is rendered verbatim, derived text
+  agrees with itself, gradient stops always come back sorted and never mutate
+  the caller's array.
+
+The full account of how this toolchain arrived, what each tool caught, and the
+nine rules that came out of it:
+`docs/superpowers/specs/2026-08-15-toolchain-hardening-design.md`.
+
 - **Development is cloud-only.** No local Docker or Supabase in normal use: push
   and read CI, and verify schema changes by querying the database rather than by
   trusting a CLI's exit code — it prints Docker credential noise while
