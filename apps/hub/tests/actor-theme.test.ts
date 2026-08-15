@@ -652,7 +652,7 @@ describe("the canvas dials", () => {
   // answer than a page that will not render.
   it("clamps what was stored", () => {
     expect(parseTheme({ density: 99, speed: -3, scale: 0 })).toMatchObject({
-      density: 3,
+      density: 5,
       speed: 0.25,
       scale: 0.25,
     });

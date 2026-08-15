@@ -151,6 +151,11 @@ export interface ThemeConfiguratorProps {
  * every pairing of a style and a palette is somebody's page. Tying the two
  * together would have collapsed nine styles into nine colour schemes.
  *
+ * **One dial per row.** Three abreast left each about a third of the panel,
+ * where the label, the multiplier and the track all competed and the track —
+ * the part somebody actually drags — came off worst. Two extra rows of height
+ * is the cheaper cost.
+ *
  * **The three dials appear only where there is something to turn up.** `none`
  * draws nothing, so a density slider beside it would accept a drag and change
  * nothing at all. Busy and fast are separate because they are separate
@@ -421,7 +426,12 @@ export function ThemeConfigurator({
               nothing, so a density slider for it accepts a drag and changes
               nothing — the fault this panel keeps being trimmed for. */}
           {dialsApply(value.canvas) ? (
-            <div className="grid gap-3 sm:grid-cols-3">
+            /* **One per row, not three abreast.** Three sliders sharing a
+                row left each about a third of the panel: the label, the
+                multiplier and the track all competed, and the track — the part
+                somebody actually drags — came off worst. Full width costs two
+                rows of height on a panel that is already scrolled to. */
+            <div className="grid gap-3">
               {(
                 [
                   ["density", labels.density],
@@ -432,14 +442,14 @@ export function ThemeConfigurator({
                 <div key={key} className="grid gap-1.5">
                   <label
                     htmlFor={`${id}-${key}`}
-                    className="flex items-center justify-between gap-2 text-xs font-medium"
+                    className="flex items-center justify-between gap-2 text-sm font-medium"
                   >
                     {label}
                     {/* The multiplier, so a slider position means something.
                         Built as one string rather than a number beside a
                         literal — the lint rule reads a bare literal in JSX as
                         untranslated copy, and it is right that it would be. */}
-                    <span className="text-[0.625rem] text-[var(--muted)]">
+                    <span className="font-mono text-xs text-[var(--muted)] tabular-nums">
                       {`${value[key].toFixed(2)}×`}
                     </span>
                   </label>
@@ -459,7 +469,7 @@ export function ThemeConfigurator({
                       })
                     }
                     {...tid(`theme-${key}`)}
-                    className="w-full accent-[var(--accent)]"
+                    className="h-2 w-full accent-[var(--accent)]"
                   />
                 </div>
               ))}

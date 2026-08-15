@@ -3,6 +3,11 @@ import { slotsFor } from "@/shared/domain/canvas-slots";
 /**
  * How much a canvas may be turned up or down.
  *
+ * One range for all three. They could each have their own — five times the
+ * speed is frantic where five times the size is merely large — but a dial that
+ * stops at a different place from the one beside it, for no reason a person can
+ * see, is worse than one that goes somewhere they will not want to leave it.
+ *
  * **Two dials, not one.** Busy and fast are different complaints and different
  * fixes: a starfield can be crowded and still, and a single box can hurtle. A
  * combined "intensity" would move both and be wrong for one of them every time.
@@ -15,8 +20,16 @@ import { slotsFor } from "@/shared/domain/canvas-slots";
 export const CANVAS_RANGE = {
   /** The least either dial may be. */
   min: 0.25,
-  /** The most either dial may be. */
-  max: 3,
+  /**
+   * The most any dial may be.
+   *
+   * Five rather than three, because three was not much of a zoom: the point of
+   * the size dial is a canvas that reads as a different one, and a starfield
+   * only 3x larger still reads as the same sky. The caps below are what keep
+   * the cost of that bounded, so raising this is safe in a way that removing
+   * them would not be.
+   */
+  max: 5,
   /** What both are when nobody has touched them. */
   default: 1,
 } as const;
