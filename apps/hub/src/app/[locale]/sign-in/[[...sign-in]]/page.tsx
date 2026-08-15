@@ -1,4 +1,4 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { Card, PageShell } from "@/shared/presentation/page-shell";
 import {
   PROVIDERS,
@@ -52,6 +52,8 @@ const CALLBACK_SEGMENT = "sso-callback";
  *
  * It paints nothing of its own: Clerk's form carries the colours, mapped from the same tokens in `clerkAppearanceFor`, so sign-in cannot drift from the app around it.
  *
+ * It no longer calls `setRequestLocale`, which used to be required before any translation was read or the page silently lost static rendering. `next/root-params` removed that step, and with it the chance of forgetting it on a new route.
+ *
  * @returns the sign-in page, or the callback handler on the return leg.
  */
 export default async function SignInPage({
@@ -63,7 +65,6 @@ export default async function SignInPage({
 }) {
   const resolved = await params;
   const { locale } = resolved;
-  setRequestLocale(locale);
   const t = await getTranslations("signIn");
 
   const { redirect_url: redirectUrl } = await searchParams;

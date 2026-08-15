@@ -1,7 +1,8 @@
 # Toolchain hardening — what was adopted, what it caught, and what was refused
 
 **Date:** 2026-08-15
-**Status:** implemented, except where marked open
+**Status:** implemented. One finding remains open — the palette contrast
+shortfall in the last section.
 
 This records a run of work that began as "the editor looks chopped on a phone"
 and ended with five linters, two migrations, a property-based suite and three
@@ -127,7 +128,7 @@ ends. That vocabulary is deliberately tiny: this file was already bitten once by
 a larger grammar changing underneath it, when `:person(…)` constraints were
 removed in path-to-regexp v8 and **silently ignored rather than rejected**.
 
-### next-intl's `setRequestLocale` / `requestLocale` — refused, and this is open
+### next-intl's `setRequestLocale` / `requestLocale` — refused once, then done
 
 `next/root-params` can only expose a segment belonging to the **root layout**.
 Ours is `app/layout.tsx` with `[locale]` nested beneath it, so the import fails
@@ -152,13 +153,36 @@ locale segment, never re-rendered — was silently protecting that, and the visu
 identity notes call the pre-paint attribute load-bearing: "a frame of the wrong
 palette… is the whole design changing under the visitor".
 
-**Reverted in full.** The trade is a root-layout restructure plus a new
-client-side mechanism guarding a pre-paint invariant, in exchange for removing a
-deprecation warning from something that works. A `useLayoutEffect` re-assertion
-in `HtmlLang` is the plausible fix and the failing test above is its regression
-test. **This is the one open item.** Until it is decided,
-`@typescript-eslint/no-deprecated` cannot be enabled, because those six call
-sites are all that is left failing it.
+**Reverted first, on the argument that the trade was bad**: a root-layout
+restructure plus a client-side mechanism guarding a pre-paint invariant, in
+exchange for removing a deprecation warning from something that worked. The
+guarantee would go from "the browser cannot paint before this script runs" to
+"our effect runs before paint", which is weaker and maintained by more code.
+
+**That argument was wrong, and the way it was wrong is the lesson.** It was
+reasoning, not measurement. Measured: 184 animation frames sampled across a
+language change, **zero** painted without the theme. React's layout effect does
+run before paint, exactly as documented.
+
+So it was done. `HtmlLang` now puts back the three attributes a replaced `<html>`
+takes with it, and they are not equal:
+
+- `lang` — React renders it; the component sets it anyway, because a layout is
+  not re-mounted on every navigation.
+- `data-theme` — **recomputed, not remembered**. `resolveTheme` over storage and
+  the media query is exactly what the pre-paint script computes, so the two
+  cannot drift.
+- `data-page-theme` — the one genuinely held in module memory, because
+  `setPageTheme` persists nothing by design: the choice lasts the visit, and the
+  attribute on `<html>` was its only copy.
+
+The honest limitation, written into the component: an inline script in `<head>`
+cannot be beaten by a paint, and a layout effect can only promise to run before
+React yields. On a first load the script still does the work; this covers only
+the navigation that replaces the element, where there is no script to run.
+
+With those six call sites gone, **`@typescript-eslint/no-deprecated` is enabled
+with no exceptions at all.**
 
 ---
 

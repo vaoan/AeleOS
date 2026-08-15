@@ -38,6 +38,36 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+
+  // **Type-aware linting, for one rule that pays for the whole of it.**
+  //
+  // `@typescript-eslint/no-deprecated` reports any use of a symbol carrying a
+  // `@deprecated` tag — ours, and far more usefully our DEPENDENCIES'. Nothing
+  // else here can see that: a library marking an API deprecated in its own
+  // types is invisible to every other check we run. The first thing it found
+  // was Clerk saying that middleware path-matching "can leave protected
+  // resources reachable", and the second was next-intl's whole locale API.
+  //
+  // It cannot work without type information, because whether a call is
+  // deprecated is a property of the thing being called rather than of the text
+  // calling it. `projectService` rather than a `project` array: it resolves
+  // each file against the nearest tsconfig the way the editor does, so a file
+  // in a new package is covered without editing a list here.
+  //
+  // The cost is real — lint goes from about three seconds to twelve — and it is
+  // worth it for the only check that reads the whole dependency surface.
+  {
+    files: ["apps/*/src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-deprecated": "error",
+    },
+  },
   prettier,
   // Node.js scripts — grant Node globals (process, console, Buffer, etc.),
   // mirroring puck's eslint.config.mjs pattern for its scripts/ directory.
@@ -309,6 +339,20 @@ export default tseslint.config(
     rules: {
       ...sonarjs.configs.recommended.rules,
       ...unicorn.configs["flat/recommended"].rules,
+
+      // **Off, and about value rather than difficulty.** It wants
+      // `Readonly<Props>` on every component, preventing a component from
+      // mutating its own props object. Nothing here does, React forbids it by
+      // contract, and `Readonly` is shallow anyway — so it would not stop the
+      // mutation somebody might actually write. Fifty-seven signatures and as
+      // many contract docs is a large diff for a guarantee that thin. Available
+      // work rather than rejected work.
+      "sonarjs/prefer-read-only-props": "off",
+
+      // `@typescript-eslint/no-deprecated` reports the same findings with the
+      // same type information. One voice per finding: two rules flagging the
+      // same call is how people learn to read past both.
+      "sonarjs/deprecation": "off",
 
       // **`null` is a value this domain means.** Postgres columns are nullable,
       // `parseTheme` returns null for "the author picked nothing", and

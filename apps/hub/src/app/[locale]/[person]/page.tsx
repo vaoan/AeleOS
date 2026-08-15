@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { PageShell } from "@/shared/presentation/page-shell";
 import {
@@ -58,6 +58,8 @@ export async function generateMetadata({
  * distinguishable response would let anybody test whether an address is taken,
  * from a page with no session and no rate limit in front of it.
  *
+ * It no longer calls `setRequestLocale`: next-intl reads the segment from `next/root-params` now. It still takes `params` for the address itself.
+ *
  * @returns the profile, or a 404.
  * The page is wrapped in `ThemeScope`, so a stranger sees it as its owner built
  * it. That sets only the accent and the cloud tints — light and dark stay under
@@ -90,8 +92,6 @@ export default async function PublicPersonPage({
   params: Promise<{ locale: string; person: string }>;
 }) {
   const { locale, person } = await params;
-  setRequestLocale(locale);
-
   const actor = await readPublicPerson(person);
   if (!actor) notFound();
 

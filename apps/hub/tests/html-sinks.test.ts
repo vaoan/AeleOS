@@ -34,7 +34,10 @@ const SINKS = [
 ];
 
 /** The sinks that exist on purpose, and the file each lives in. */
-const ALLOWED = new Map([["src/app/layout.tsx", 2]]);
+// The two pre-paint scripts. They moved from `src/app/layout.tsx` when the
+// root layout was folded into `[locale]` so that `next/root-params` could see
+// the segment — the COUNT is what this guards, and it did not change.
+const ALLOWED = new Map([["src/app/[locale]/layout.tsx", 2]]);
 
 describe("the app's HTML and script sinks", () => {
   // **This is the guard a content security policy would otherwise be standing

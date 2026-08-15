@@ -541,14 +541,30 @@ every Tailwind utility for months without anything noticing.
 8. **A migration's cost is not the diff.** Try it, measure, revert with evidence.
 9. **`check:docs` is per symbol and not a formality.** A mechanical rename still
    touched 33 exported contracts.
+10. **An argument about cost is not a measurement of it.** The next-intl
+    migration was refused on the reasoning that it traded a pre-paint guarantee
+    for a weaker one. Sampling 184 frames across the change showed no frame ever
+    painted wrong. Reason to decide what to measure; do not let it stand in for
+    the measurement.
 
-**One deprecation is knowingly unfixed**, and it is the reason
-`@typescript-eslint/no-deprecated` is not enabled: next-intl's `setRequestLocale`
-and `requestLocale` need `next/root-params`, which needs `[locale]` to own the
-ROOT layout. Folding it there builds and keeps static rendering — and wipes
-`data-theme` on a language change, because `<html>` then re-renders and drops
-the attribute the pre-paint script set. Reverted with the failing test recorded.
-**Do not attempt that migration without solving the theme first.**
+**`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
+is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
+found Clerk's warning that middleware path-matching "can leave protected
+resources reachable", and next-intl's whole locale API.
+
+Getting there cost a restructure worth knowing about. `next/root-params` only
+exposes a segment belonging to the ROOT layout, so `[locale]/layout.tsx` owns
+`<html>` now and `app/layout.tsx` is gone. **A language change therefore
+REPLACES the document element** — proved with a marker attribute, not inferred —
+so anything set imperatively on it is lost. `HtmlLang` puts back all three:
+`lang`, `data-theme` recomputed from the same inputs the pre-paint script reads,
+and `data-page-theme` from module memory, because `setPageTheme` persists
+nothing by design.
+
+This was refused once, on the argument that a layout effect is a weaker
+guarantee than a script the browser cannot paint before. **That argument was
+wrong and the way it was wrong is rule 10 below**: 184 frames were sampled across
+a language change and none painted without the theme.
 
 **A second finding is open.** `fast-check` refuted the claim that derived text
 clears 4.5:1 wherever a colour could: on `#e21233` light text reaches 4.12 where

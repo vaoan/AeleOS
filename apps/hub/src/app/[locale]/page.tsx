@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { Card, PageShell } from "@/shared/presentation/page-shell";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -19,15 +19,11 @@ import { tid } from "@/shared/infrastructure/test-id";
  *
  * Every colour it paints comes from a token — `--accent`, `--on-accent` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * It takes no `params` at all any more. The locale was only ever threaded in to hand to `setRequestLocale`, and next-intl reads the segment itself now — a page that needs nothing from the URL should say so.
+ *
  * @returns the home page.
  */
-export default async function HomePage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  setRequestLocale(locale);
+export default async function HomePage() {
   const t = await getTranslations("home");
   // Resolved on the server rather than with a client-side <Show>: the call to
   // action is the page's whole purpose, and rendering the wrong one first

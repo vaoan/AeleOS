@@ -1,3 +1,5 @@
+import * as rootParams from "next/root-params";
+import { hasLocale } from "next-intl";
 import { getRequestConfig } from "next-intl/server";
 import { routing } from "./routing";
 
@@ -14,16 +16,27 @@ async function loadMessages(locale: string) {
 /**
  * Resolves the locale and messages for each request.
  *
- * Mirrors Libra's `createAppRequestConfig`. An unrecognised locale falls back
- * to the default rather than throwing: the segment comes from the URL, so a
- * hand-typed or stale link must render a page in Spanish rather than a 500.
+ * **The locale is read from Next's own root params**, not from a value passed
+ * down. `requestLocale` was next-intl's workaround for a segment a Server
+ * Component could not otherwise see, and it is deprecated now that
+ * `next/root-params` exists — which also means `setRequestLocale` no longer has
+ * to be called in every page before any translation is read. That call was a
+ * step somebody had to remember on every new route, and forgetting it opted the
+ * page out of static rendering silently.
+ *
+ * **An unrecognised locale still falls back to the default rather than
+ * throwing**, and the layer above still 404s. The two are deliberate and
+ * different: `[locale]/layout.tsx` refuses `/fr/me`, because quietly serving
+ * Spanish there would make a broken link look like a working page in the wrong
+ * language. This is the belt underneath that, so a value which somehow reaches
+ * the config renders a page rather than a 500. next-intl's own example calls
+ * `notFound()` here; we do not, on purpose.
  */
-export default getRequestConfig(async ({ requestLocale }) => {
-  const requested = await requestLocale;
-  const locale =
-    requested && routing.locales.includes(requested)
-      ? requested
-      : routing.defaultLocale;
+export default getRequestConfig(async () => {
+  const requested = await rootParams.locale();
+  const locale = hasLocale(routing.locales, requested)
+    ? requested
+    : routing.defaultLocale;
 
   const catalogue = await loadMessages(locale);
   return { locale, messages: catalogue.default };

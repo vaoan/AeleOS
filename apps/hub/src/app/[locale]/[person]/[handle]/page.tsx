@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { PageShell } from "@/shared/presentation/page-shell";
 import {
@@ -51,6 +51,8 @@ export async function generateMetadata({
  * suspended or deleted fursona, one whose owner is suspended, and one that
  * never existed all `notFound()`.
  *
+ * It no longer calls `setRequestLocale`: next-intl reads the segment from `next/root-params` now, so nothing has to be called before a translation is read. It still takes `params`, because the address and the handle are what it looks the page up by.
+ *
  * @returns the fursona's page, or a 404.
  * The page is wrapped in `ThemeScope`, so a stranger sees it as its owner built
  * it. That sets only the accent and the cloud tints — light and dark stay under
@@ -83,8 +85,6 @@ export default async function PublicFursonaPage({
   params: Promise<{ locale: string; person: string; handle: string }>;
 }) {
   const { locale, person, handle } = await params;
-  setRequestLocale(locale);
-
   const actor = await readPublicFursona(person, handle);
   if (!actor) notFound();
 
