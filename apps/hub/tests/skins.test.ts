@@ -119,6 +119,31 @@ describe("the skins", () => {
     expect(GLOBALS).toContain(`.${SKIN_SCOPE} {`);
   });
 
+  // **A rule that reaches elements by a class they already have cannot see what
+  // the element was asking for.** The default skin's `--skin-backdrop` is
+  // `none`; it ties on specificity with Tailwind's `backdrop-blur` utility and
+  // is declared later, so it wins — and every bordered element that had asked
+  // for a blur silently got none. Exactly one had: the editor's language strip
+  // carries `border`, while the two bars above it carry `border-b`, which `~=`
+  // does not match. Two of the three bars blurred what passed under them, the
+  // third did not, and the page's own text read straight through it.
+  //
+  // The shadow already had this exclusion for the same reason. Asserted on the
+  // stylesheet because the symptom is a page that looks slightly wrong in one
+  // place, which no assertion about a skin's values would ever notice.
+  it("leaves alone an element that names its own backdrop", () => {
+    expect(GLOBALS).toContain(
+      '[class~="border"]:not([class*="backdrop-blur"])',
+    );
+    // And the broad selector must not set it any more, or the exclusion is
+    // written down and overridden three lines later.
+    const broad = GLOBALS.slice(
+      GLOBALS.indexOf('[class~="border"] {'),
+      GLOBALS.indexOf("}", GLOBALS.indexOf('[class~="border"] {')),
+    );
+    expect(broad).not.toContain("backdrop-filter");
+  });
+
   // The other direction: a token declared and never reachable is a knob nobody
   // can turn, which is how `globals.css` grows values that look load-bearing
   // and are not.

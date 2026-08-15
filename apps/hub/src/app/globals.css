@@ -389,15 +389,37 @@ option {
   border-width: var(--skin-border);
   background-image: var(--skin-gloss);
   background-size: var(--skin-gloss-size);
-  /* Prefixed as well: Safari has never shipped this unprefixed. Without the
-   * first line glass is plain translucency there, which is the one browser
-   * where that difference is most likely to be read as the design. */
-  -webkit-backdrop-filter: var(--skin-backdrop);
-  backdrop-filter: var(--skin-backdrop);
 }
 
 [class~="border"]:not([class*="shadow"]) {
   box-shadow: var(--skin-shadow);
+}
+
+/*
+ * The same exclusion the shadow gets, and it is owed for the same reason: an
+ * element that names its own backdrop keeps it.
+ *
+ * **Without it this rule turned a blur off.** The default skin's
+ * `--skin-backdrop` is `none`, it ties on specificity with Tailwind's
+ * `backdrop-blur` utility and is declared later, so it wins — and every
+ * bordered element that had asked for a blur silently got none. Exactly one
+ * did: the editor's language strip is `rounded-xl border … backdrop-blur`,
+ * while the two bars above it carry `border-b`, which `~=` does not match. So
+ * two of the three bars blurred what passed under them and the third did not,
+ * and the page's own text read straight through it.
+ *
+ * That is the whole failure mode of reaching elements by a class they already
+ * have: the rule cannot see what the element was asking for. `skins.test.ts`
+ * pins the exclusion, because the symptom is a page that looks slightly wrong
+ * in one place and nothing that any assertion about the skin would notice.
+ *
+ * Prefixed as well: Safari has never shipped this unprefixed. Without the first
+ * line glass is plain translucency there, which is the one browser where that
+ * difference is most likely to be read as the design.
+ */
+[class~="border"]:not([class*="backdrop-blur"]) {
+  -webkit-backdrop-filter: var(--skin-backdrop);
+  backdrop-filter: var(--skin-backdrop);
 }
 
 /*
