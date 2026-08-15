@@ -1378,6 +1378,7 @@ function readRgb(
  * Renders one static frame when animation is off rather than nothing, so
  * reduced motion keeps the design and loses only the movement — and that
  * applies to every canvas here, not only the nebula.
+ * Its colours arrive as `--canvas-N` custom properties read from the document root, never as classes — a canvas mounted above every page cannot be handed a prop by one.
  */
 export function NebulaCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1730,7 +1731,7 @@ export function NebulaCanvas() {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-10 h-full w-full"
+      className="pointer-events-none fixed inset-0 -z-10 size-full"
     />
   );
 }

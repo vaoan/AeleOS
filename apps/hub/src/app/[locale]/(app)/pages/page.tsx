@@ -66,6 +66,8 @@ import {
  * no client role anything: a readable table would enumerate every person on
  * the platform.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted`, `--on-accent` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the fursona list page.
  */
 export default async function FursonasPage() {
@@ -83,7 +85,7 @@ export default async function FursonasPage() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--edge)]/40 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-(--edge)/40 pb-6">
         <div>
           <h1
             className="font-display text-4xl font-extrabold tracking-tight"
@@ -91,13 +93,13 @@ export default async function FursonasPage() {
           >
             {t("title")}
           </h1>
-          <p className="mt-2 text-sm text-[var(--muted)]">{t("subtitle")}</p>
+          <p className="mt-2 text-sm text-(--muted)">{t("subtitle")}</p>
         </div>
         {suspended ? null : (
           <Link
             href="/pages/new"
             {...tid("fursonas-create")}
-            className="shrink-0 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-medium text-[var(--on-accent)]"
+            className="shrink-0 rounded-lg bg-(--accent) px-5 py-2.5 font-medium text-(--on-accent)"
           >
             {t("create")}
           </Link>
@@ -105,7 +107,7 @@ export default async function FursonasPage() {
       </div>
 
       {suspended ? (
-        <p className="mt-8 text-sm text-[var(--muted)]">{t("suspended")}</p>
+        <p className="mt-8 text-sm text-(--muted)">{t("suspended")}</p>
       ) : (
         <FursonaList
           address={address ?? undefined}

@@ -99,16 +99,14 @@ function Cards({
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="flex w-full flex-col gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-5 sm:w-56 sm:shrink-0 lg:w-auto"
+            className="flex w-full flex-col gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-5 sm:w-56 sm:shrink-0 lg:w-auto"
           >
-            <span className="grid size-11 w-fit place-items-center rounded-lg surface border-[var(--edge)] bg-[var(--bar)]">
+            <span className="grid size-11 w-fit place-items-center rounded-lg surface border-(--edge) bg-(--bar)">
               <PublicSectionIcon name={item.icon} fallback={CARD_ICON} />
             </span>
             <h3 className="font-display text-sm/tight font-bold">{title}</h3>
             {description ? (
-              <p className="text-xs/relaxed text-[var(--muted)]">
-                {description}
-              </p>
+              <p className="text-xs/relaxed text-(--muted)">{description}</p>
             ) : null}
           </div>
         );
@@ -140,20 +138,20 @@ function Accordion({
   locale: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl surface border-[var(--edge)] bg-[var(--surface)]">
+    <div className="overflow-hidden rounded-xl surface border-(--edge) bg-(--surface)">
       {items.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
           <details
             key={keyOf(item.sort_order, item.title_en)}
-            className="group border-b border-[var(--edge)]/25 last:border-b-0"
+            className="group border-b border-(--edge)/25 last:border-b-0"
           >
             <summary className="flex cursor-pointer items-center justify-between gap-4 p-5 font-display font-bold [&::-webkit-details-marker]:hidden">
               {title}
-              <Plus className="size-5 shrink-0 text-[var(--muted)] transition-transform group-open:rotate-45" />
+              <Plus className="size-5 shrink-0 text-(--muted) transition-transform group-open:rotate-45" />
             </summary>
             {description ? (
-              <p className="border-t border-[var(--edge)]/25 bg-[var(--bar)] px-5 py-4 text-sm/relaxed text-[var(--muted)]">
+              <p className="border-t border-(--edge)/25 bg-(--bar) px-5 py-4 text-sm/relaxed text-(--muted)">
                 {description}
               </p>
             ) : null}
@@ -203,15 +201,15 @@ function TwoColumn({
   const rows = items.filter((item) => wordsOf(item, locale).description);
   if (rows.length === 0) return null;
   return (
-    <dl className="grid overflow-hidden rounded-xl surface border-[var(--edge)] bg-[var(--surface)]">
+    <dl className="grid overflow-hidden rounded-xl surface border-(--edge) bg-(--surface)">
       {rows.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="flex items-stretch border-b border-[var(--edge)]/25 last:border-b-0 even:bg-[var(--bar)]"
+            className="flex items-stretch border-b border-(--edge)/25 last:border-b-0 even:bg-(--bar)"
           >
-            <dt className="w-1/3 shrink-0 border-r border-[var(--edge)]/25 px-5 py-3.5 font-display text-sm font-bold">
+            <dt className="w-1/3 shrink-0 border-r border-(--edge)/25 px-5 py-3.5 font-display text-sm font-bold">
               {title}
             </dt>
             <dd className="flex-1 px-5 py-3.5 text-sm/relaxed">
@@ -254,10 +252,10 @@ function Gallery({
             <img
               src={item.image_url}
               alt={title}
-              className="w-full rounded-xl surface border-[var(--edge)] object-cover"
+              className="w-full rounded-xl surface border-(--edge) object-cover"
             />
             {description ? (
-              <figcaption className="text-xs text-[var(--muted)]">
+              <figcaption className="text-xs text-(--muted)">
                 {description}
               </figcaption>
             ) : null}
@@ -303,7 +301,7 @@ function Player({
         href={href}
         target="_blank"
         rel="noopener noreferrer nofollow ugc"
-        className="inline-flex items-center gap-2 text-sm text-[var(--accent)] underline underline-offset-4"
+        className="inline-flex items-center gap-2 text-sm text-(--accent) underline underline-offset-4"
       >
         <ExternalLink className="size-4 shrink-0" />
         {fallback}
@@ -322,8 +320,8 @@ function Player({
       sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
       className={
         embed.shape === "video"
-          ? "aspect-video w-full rounded-xl surface border-[var(--edge)]"
-          : "h-[10.5rem] w-full rounded-xl surface border-[var(--edge)]"
+          ? "aspect-video w-full rounded-xl surface border-(--edge)"
+          : "h-42 w-full rounded-xl surface border-(--edge)"
       }
     />
   );
@@ -354,9 +352,7 @@ function Video({
             <figcaption className="grid gap-1">
               <h3 className="font-display font-bold">{title}</h3>
               {description ? (
-                <p className="text-sm/relaxed text-[var(--muted)]">
-                  {description}
-                </p>
+                <p className="text-sm/relaxed text-(--muted)">{description}</p>
               ) : null}
             </figcaption>
           </figure>
@@ -393,7 +389,7 @@ function Music({
             <div className="flex flex-wrap items-baseline gap-x-3">
               <h3 className="font-display font-bold">{title}</h3>
               {description ? (
-                <p className="text-sm text-[var(--muted)]">{description}</p>
+                <p className="text-sm text-(--muted)">{description}</p>
               ) : null}
             </div>
             <Player url={item.link_url} title={title} fallback={title} />
@@ -438,10 +434,10 @@ function Carousel({
             <img
               src={item.image_url}
               alt={title}
-              className="aspect-4/3 w-full rounded-xl surface border-[var(--edge)] object-cover"
+              className="aspect-4/3 w-full rounded-xl surface border-(--edge) object-cover"
             />
-            <figcaption className="text-xs text-[var(--muted)]">
-              <span className="font-medium text-[var(--ink)]">{title}</span>
+            <figcaption className="text-xs text-(--muted)">
+              <span className="font-medium text-(--ink)">{title}</span>
               {description ? ` ${description}` : null}
             </figcaption>
           </figure>
@@ -481,16 +477,14 @@ function Links({
         const inside = (
           <>
             {item.icon ? (
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg surface border-[var(--edge)] bg-[var(--bar)]">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg surface border-(--edge) bg-(--bar)">
                 <PublicSectionIcon name={item.icon} />
               </span>
             ) : null}
             <span className="grid gap-0.5">
               <span className="font-display text-sm font-bold">{title}</span>
               {description ? (
-                <span className="text-xs text-[var(--muted)]">
-                  {description}
-                </span>
+                <span className="text-xs text-(--muted)">{description}</span>
               ) : null}
             </span>
           </>
@@ -503,7 +497,7 @@ function Links({
             href={href}
             target="_blank"
             rel="noopener noreferrer nofollow ugc"
-            className={`${shape} transition-colors hover:border-[var(--accent)]`}
+            className={`${shape} transition-colors hover:border-(--accent)`}
           >
             {inside}
           </a>
@@ -541,13 +535,13 @@ function Stats({
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="grid gap-1 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-4"
+            className="grid gap-1 rounded-xl surface border-(--edge) bg-(--surface) p-4"
           >
-            <span className="text-xs tracking-wide text-[var(--muted)] uppercase">
+            <span className="text-xs tracking-wide text-(--muted) uppercase">
               {title}
             </span>
             {description ? (
-              <span className="font-display text-lg leading-tight font-bold">
+              <span className="font-display text-lg/tight font-bold">
                 {description}
               </span>
             ) : null}
@@ -580,15 +574,15 @@ function Quotes({
         return (
           <figure
             key={keyOf(item.sort_order, item.title_en)}
-            className="grid gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-5"
+            className="grid gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-5"
           >
-            <QuoteMark className="size-5 text-[var(--accent)]" />
+            <QuoteMark className="size-5 text-(--accent)" />
             {description ? (
-              <blockquote className="font-display text-lg leading-snug text-balance">
+              <blockquote className="font-display text-lg/snug text-balance">
                 {description}
               </blockquote>
             ) : null}
-            <figcaption className="text-xs text-[var(--muted)] before:content-['—'] before:mr-1">
+            <figcaption className="text-xs text-(--muted) before:mr-1 before:content-['—']">
               {title}
             </figcaption>
           </figure>
@@ -615,7 +609,7 @@ function Timeline({
   locale: string;
 }) {
   return (
-    <ol className="grid gap-6 border-l border-[var(--edge)] pl-6">
+    <ol className="grid gap-6 border-l border-(--edge) pl-6">
       {items.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
@@ -625,13 +619,11 @@ function Timeline({
           >
             <span
               aria-hidden
-              className="absolute top-1.5 -left-7.5 size-3 rounded-full border-2 border-[var(--surface)] bg-[var(--accent)]"
+              className="absolute top-1.5 -left-7.5 size-3 rounded-full border-2 border-(--surface) bg-(--accent)"
             />
             <h3 className="font-display font-bold">{title}</h3>
             {description ? (
-              <p className="text-sm/relaxed text-[var(--muted)]">
-                {description}
-              </p>
+              <p className="text-sm/relaxed text-(--muted)">{description}</p>
             ) : null}
           </li>
         );

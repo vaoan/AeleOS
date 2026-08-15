@@ -29,6 +29,8 @@ export interface LanguageToggleProps {
  * `replace` rather than `push`, so the back button does not walk through every
  * language the visitor tried.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--ink` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the language control.
  */
 export function LanguageToggle({ label }: LanguageToggleProps) {
@@ -48,7 +50,7 @@ export function LanguageToggle({ label }: LanguageToggleProps) {
       onClick={() => router.replace(pathname, { locale: next })}
       aria-label={label}
       {...tid("language-toggle")}
-      className="grid h-[30px] min-w-[34px] place-items-center rounded-full px-2 font-mono text-xs font-medium text-[var(--ink-2)] uppercase transition-colors hover:bg-[var(--edge)]/20 hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+      className="grid h-[30px] min-w-[34px] place-items-center rounded-full px-2 font-mono text-xs font-medium text-(--ink-2) uppercase transition-colors hover:bg-(--edge)/20 hover:text-(--ink) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
     >
       {next}
     </button>

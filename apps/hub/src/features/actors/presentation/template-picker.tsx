@@ -84,6 +84,8 @@ export interface TemplatePickerProps {
  *
  * The trigger and each template's card are `surface`s, the class skins style.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted`, `--on-accent` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the picker.
  */
 export function TemplatePicker({
@@ -128,14 +130,14 @@ export function TemplatePicker({
           setOpen((was) => !was);
           setPending(undefined);
         }}
-        className="flex w-fit items-center gap-1.5 rounded-lg surface border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+        className="flex w-fit items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
       >
         <LayoutTemplate className="size-4" />
         {labels.useTemplate}
       </button>
 
       {open ? (
-        <div className="grid gap-1 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-2">
+        <div className="grid gap-1 rounded-xl surface border-(--edge) bg-(--surface) p-2">
           {FURSONA_TEMPLATES.map((template) => (
             <button
               key={template.id}
@@ -148,10 +150,10 @@ export function TemplatePicker({
               <span className="font-display text-sm font-bold">
                 {labels.names[template.id]}
               </span>
-              <span className="text-xs text-[var(--muted)]">
+              <span className="text-xs text-(--muted)">
                 {labels.descriptions[template.id]}
               </span>
-              <span className="text-xs text-[var(--muted)]">
+              <span className="text-xs text-(--muted)">
                 {labels.sectionCounts[template.id]}
               </span>
             </button>
@@ -162,21 +164,21 @@ export function TemplatePicker({
       {pending ? (
         <div
           role="alert"
-          className="grid gap-2 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-3"
+          className="grid gap-2 rounded-xl surface border-(--edge) bg-(--surface) p-3"
         >
           <p className="text-sm">{labels.templateConfirm}</p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => apply(pending)}
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm text-[var(--on-accent)]"
+              className="rounded-lg bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent)"
             >
               {labels.templateConfirmYes}
             </button>
             <button
               type="button"
               onClick={() => setPending(undefined)}
-              className="rounded-lg surface border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+              className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
             >
               {labels.templateConfirmNo}
             </button>

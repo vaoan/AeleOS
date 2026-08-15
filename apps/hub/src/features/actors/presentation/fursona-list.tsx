@@ -93,6 +93,8 @@ function inArrangedOrder(
  *
  * Its empty state is a `surface`, so the page looks skinned even with nothing on it.
  *
+ * Every colour it paints comes from a token — `--edge`, `--muted`, `--surface` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the list.
  */
 export function FursonaList({ initial, labels, address }: FursonaListProps) {
@@ -138,12 +140,12 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
       <FursonaFiltersBar labels={labels} />
 
       {ownsNone ? (
-        <p className="text-sm text-[var(--muted)]">{labels.empty}</p>
+        <p className="text-sm text-(--muted)">{labels.empty}</p>
       ) : fursonas.length === 0 ? (
         // Deliberately not the same sentence as `empty`: "you have no
         // fursonas" is wrong when the truth is "none match what you typed",
         // and it invites somebody to create a duplicate of one they have.
-        <p className="text-sm text-[var(--muted)]">{labels.noMatches}</p>
+        <p className="text-sm text-(--muted)">{labels.noMatches}</p>
       ) : null}
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -152,7 +154,7 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
             <ul
               ref={dropProvided.innerRef}
               {...dropProvided.droppableProps}
-              className="overflow-hidden rounded-xl surface border-[var(--edge)] bg-[var(--surface)]"
+              className="overflow-hidden rounded-xl surface border-(--edge) bg-(--surface)"
             >
               {person ? (
                 <FursonaRow

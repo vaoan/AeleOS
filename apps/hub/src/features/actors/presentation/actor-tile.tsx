@@ -71,6 +71,8 @@ export interface ActorTileProps {
  *
  * The tile is a `surface`, which is what makes it follow a skin's radius, edge and shadow.
  *
+ * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the tile.
  */
 export function ActorTile({
@@ -81,29 +83,29 @@ export function ActorTile({
   choose,
 }: ActorTileProps) {
   return (
-    <li className="flex items-center gap-4 rounded-xl surface border-[var(--edge)]/40 p-4">
+    <li className="flex items-center gap-4 rounded-xl surface border-(--edge)/40 p-4">
       {actor.avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={actor.avatarUrl}
           alt=""
-          className="size-12 rounded-full object-cover ring-2 ring-[var(--ring)]"
+          className="size-12 rounded-full object-cover ring-2 ring-(--ring)"
         />
       ) : (
         <span
           aria-hidden="true"
-          className="size-12 rounded-full bg-[var(--bar)] ring-2 ring-[var(--ring)]"
+          className="size-12 rounded-full bg-(--bar) ring-2 ring-(--ring)"
         />
       )}
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">
           {actor.displayName ?? actor.handle}
         </span>
-        <span className="block truncate text-sm text-[var(--muted)]">
+        <span className="block truncate text-sm text-(--muted)">
           @{actor.handle}
         </span>
       </span>
-      <span className="text-xs text-[var(--muted)]">
+      <span className="text-xs text-(--muted)">
         {actor.kind === "person" ? youLabel : visibilityLabel}
       </span>
       {actor.kind === "fursona" && edit ? (
@@ -116,7 +118,7 @@ export function ActorTile({
           type="submit"
           name="actor_ref"
           value={actor.actorRef}
-          className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--on-accent)]"
+          className="shrink-0 rounded-lg bg-(--accent) px-3 py-1.5 text-sm font-medium text-(--on-accent)"
         >
           {choose.label}
         </button>

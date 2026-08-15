@@ -65,13 +65,19 @@ describe("a dropdown's menu", () => {
     expect(transparent).toEqual([]);
   });
 
+  // Matched on the TOKEN rather than on one spelling of it. Tailwind accepts
+  // `bg-[var(--menu)]` and `bg-(--menu)` for the same thing, and the canonical
+  // form changed under us when `better-tailwindcss` began enforcing it — which
+  // failed this test for a rewrite that altered nothing. What this guards is
+  // that a select paints its menu with the opaque token; how that is spelled is
+  // the linter's business, not the regression's.
   it("is painted with a colour every select actually uses", () => {
     const painted = components(SRC).flatMap((path) =>
       selectClasses(readFileSync(path, "utf8")),
     );
     expect(painted.length).toBeGreaterThan(0);
     expect(
-      painted.every((classes) => classes.includes("bg-[var(--menu)]")),
+      painted.every((classes) => /\bbg-(\[var)?\(--menu\)]?/.test(classes)),
     ).toBe(true);
   });
 

@@ -95,6 +95,8 @@ export interface PublicProfileProps {
  *
  * The avatar frame and the empty state are `surface`s, which is how a visitor sees the owner's skin on the page's own furniture.
  *
+ * Every colour it paints comes from a token — `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the page.
  */
 export function PublicProfile({
@@ -123,25 +125,25 @@ export function PublicProfile({
       {/* Wraps, because on a phone the portrait, the name and the theme switch
           do not share a line — and the name is what gives way, since it is the
           only one of the three that reads perfectly well on its own row. */}
-      <header className="flex flex-wrap items-center gap-4 border-b border-[var(--edge)]/40 pb-8 sm:gap-5">
+      <header className="flex flex-wrap items-center gap-4 border-b border-(--edge)/40 pb-8 sm:gap-5">
         {actor.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
           <img
             src={actor.avatarUrl}
             alt=""
-            className="size-20 shrink-0 rounded-full surface border-[var(--edge)] object-cover sm:size-24"
+            className="size-20 shrink-0 rounded-full surface border-(--edge) object-cover sm:size-24"
           />
         ) : (
-          <span className="size-20 shrink-0 rounded-full surface border-dashed border-[var(--edge)] sm:size-24" />
+          <span className="size-20 shrink-0 rounded-full surface border-dashed border-(--edge) sm:size-24" />
         )}
         <div className="grid min-w-0 flex-1 gap-1">
           <h1
-            className="font-display text-3xl font-extrabold tracking-tight break-words sm:text-4xl"
+            className="font-display text-3xl font-extrabold tracking-tight wrap-break-word sm:text-4xl"
             {...tid("public-actor-name")}
           >
             {actor.displayName ?? name}
           </h1>
-          <p className="font-mono text-sm text-[var(--muted)]">{name}</p>
+          <p className="font-mono text-sm text-(--muted)">{name}</p>
         </div>
         {themeSwitch ? (
           <div className="shrink-0" {...tid("public-theme-switch")}>
@@ -158,7 +160,7 @@ export function PublicProfile({
       {empty ? (
         <p
           {...tid("public-empty")}
-          className="rounded-xl surface border-dashed border-[var(--edge)]/60 px-6 py-12 text-center text-sm text-[var(--muted)]"
+          className="rounded-xl surface border-dashed border-(--edge)/60 px-6 py-12 text-center text-sm text-(--muted)"
         >
           {emptyMessage}
         </p>

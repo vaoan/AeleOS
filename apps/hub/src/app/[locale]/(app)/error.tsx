@@ -21,6 +21,8 @@ import { tid } from "@/shared/infrastructure/test-id";
  *
  * Its panel carries `surface`, the class skins style — not Tailwind's `border`, which reaches nothing.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the failure panel.
  */
 export default function AppError({
@@ -38,17 +40,17 @@ export default function AppError({
         <h1 className="font-display text-2xl font-bold tracking-tight">
           {t("title")}
         </h1>
-        <p className="text-sm text-[var(--ink-2)]">{t("body")}</p>
+        <p className="text-sm text-(--ink-2)">{t("body")}</p>
         <button
           type="button"
           onClick={reset}
-          className="rounded-lg surface border-[var(--edge)] px-4 py-2 text-sm transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+          className="rounded-lg surface border-(--edge) px-4 py-2 text-sm transition-colors hover:bg-(--edge)/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
         >
           {t("retry")}
         </button>
         {error.digest ? (
           <p
-            className="font-mono text-xs text-[var(--muted)]"
+            className="font-mono text-xs text-(--muted)"
             {...tid("error-digest")}
           >
             {/* The separator is part of the message, not the markup: where the

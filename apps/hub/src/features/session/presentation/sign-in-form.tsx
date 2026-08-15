@@ -54,6 +54,8 @@ export interface SignInFormProps {
  *
  * Its card is a `surface`, so sign-in is drawn by the same rules as the rest of the app.
  *
+ * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the provider buttons.
  */
 export function SignInForm({
@@ -106,7 +108,7 @@ export function SignInForm({
             disabled={busy}
             onClick={() => void start(provider)}
             {...tid(`sign-in-${provider.id}`)}
-            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg surface border-[var(--edge)] bg-[var(--bar)] font-medium transition-colors hover:bg-[var(--edge)]/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg surface border-(--edge) bg-(--bar) font-medium transition-colors hover:bg-(--edge)/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent) disabled:opacity-60"
           >
             <Mark />
             <span>{labels[provider.id]}</span>
@@ -117,7 +119,7 @@ export function SignInForm({
         <p
           role="alert"
           {...tid("sign-in-error")}
-          className="text-sm text-[var(--accent)]"
+          className="text-sm text-(--accent)"
         >
           {errorLabel}
         </p>

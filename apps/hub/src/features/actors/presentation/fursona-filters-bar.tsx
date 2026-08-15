@@ -63,6 +63,8 @@ export interface FursonaFiltersBarProps {
  *
  * The search field and the filter chips are `surface`s, so they take a skin's edge like every other control.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted`, `--on-accent` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the filter bar.
  */
 export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
@@ -82,13 +84,13 @@ export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <span className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
+        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-(--muted)" />
         <input
           type="search"
           aria-label={labels.search}
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
-          className="rounded-lg surface border-[var(--edge)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm"
+          className="rounded-lg surface border-(--edge) bg-(--surface) py-2 pr-3 pl-9 text-sm"
         />
       </span>
 
@@ -111,11 +113,11 @@ export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
             className={cn(
               "rounded-full surface px-3.5 py-1.5 text-sm transition-colors",
               active
-                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]"
+                ? "border-(--accent) bg-(--accent) text-(--on-accent)"
                 : // Full-strength edge, not a 60% hairline. An unselected control
                   // still has to look like a control — at 60% these read as
                   // decoration next to the search field beside them.
-                  "border-[var(--edge)] text-[var(--ink-2)] hover:bg-[var(--edge)]/15",
+                  "border-(--edge) text-(--ink-2) hover:bg-(--edge)/15",
             )}
           >
             {label}

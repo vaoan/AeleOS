@@ -4,6 +4,7 @@ import prettier from "eslint-config-prettier";
 import globals from "globals";
 import { globalIgnores } from "eslint/config";
 import boundaries from "eslint-plugin-boundaries";
+import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import jsdoc from "eslint-plugin-jsdoc";
 import tsdoc from "eslint-plugin-tsdoc";
@@ -282,6 +283,21 @@ export default tseslint.config(
             "Use page.getByTestId('id') rather than a raw attribute selector.",
         },
       ],
+    },
+  },
+
+  {
+    ...betterTailwindcss.configs["recommended"],
+    files: ["apps/hub/src/**/*.{ts,tsx}"],
+    settings: {
+      "better-tailwindcss": { entryPoint: "apps/hub/src/app/globals.css" },
+    },
+    rules: {
+      ...betterTailwindcss.configs["recommended"].rules,
+      // Off because it fights Prettier, which owns formatting here and has the
+      // final word: the two rewrap the same strings differently and each
+      // undoes the other on the next run.
+      "better-tailwindcss/enforce-consistent-line-wrapping": "off",
     },
   },
 

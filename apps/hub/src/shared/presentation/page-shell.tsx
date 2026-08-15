@@ -133,7 +133,7 @@ export interface PageShellProps {
  * suite selects by. The wordmark itself is a literal rather than a catalogue
  * entry because a proper noun reads the same in every language.
  *
- * **The header is a fixed `--bar-h` tall and carries `bar-yields`.** Both are
+ * **The header is a fixed `--bar-h` tall and carries `short:static`.** Both are
  * mechanism rather than styling: anything else that sticks — the editor's
  * toolbar — parks at that height, and the class is what lets a screen too short
  * for two bars take the stickiness away and zero the offset together. The
@@ -165,19 +165,19 @@ export async function PageShell({
           620px content column instead left the wordmark stranded at x=434 on a
           1440px screen — text dropped in the middle of an empty bar rather
           than a navigation bar. The column still governs the page below. */}
-      {/* `bar-yields` and the fixed height are one mechanism: anything else that
+      {/* `short:static` and the fixed height are one mechanism: anything else that
           sticks — the editor's toolbar — parks at `--bar-top`, which is this
           height, and the class is what lets a short landscape screen take the
           stickiness away and set that offset to zero together. Both live in
           `globals.css`, where the reasoning is. */}
-      <header className="bar-yields sticky top-0 z-10 h-[var(--bar-h)] border-b border-[var(--edge)]/40 bg-[var(--bar)] backdrop-blur-md">
+      <header className="sticky top-0 z-10 h-(--bar-h) border-b border-(--edge)/40 bg-(--bar) backdrop-blur-md short:static">
         {/* Everything here is measured against 320px, the narrowest phone
             still in use. The star, the wordmark, two section links, language,
             theme and the account menu came to 324px there — four over, which
             is a page that scrolls sideways on every screen of the app rather
             than only in the editor. The padding and the gaps are where those
             four came from. */}
-        <div className="flex h-full w-full min-w-0 items-center gap-1 px-2 sm:gap-2 sm:px-6">
+        <div className="flex size-full min-w-0 items-center gap-1 px-2 sm:gap-2 sm:px-6">
           {/* The star sits with the wordmark because it *is* the wordmark's
               light source: switching it off puts out the dust it lights. That
               relationship is the reason it needs no visible label, and it is
@@ -266,11 +266,12 @@ export interface CardProps {
  *
  * Carries the `card` test id.
  * **It carries `surface`, and that class is the whole of how a skin reaches it.** It also keeps its own `shadow-sm`, which now beats the skin's shadow by the ordinary utility ordering — the hand-written `:not([class*="shadow"])` that used to be needed for exactly this is gone.
+ * Every colour it paints comes from a token — `--bar`, `--edge`, `--surface` — and never from a literal. That is what lets a person's theme reach it at all.
  */
 export function Card({ children }: CardProps) {
   return (
     <div
-      className="rounded-2xl surface border-[var(--edge)] bg-[var(--surface)] p-4 shadow-sm backdrop-blur-md sm:p-6"
+      className="rounded-2xl surface border-(--edge) bg-(--surface) p-4 shadow-sm backdrop-blur-md sm:p-6"
       {...tid("card")}
     >
       {children}

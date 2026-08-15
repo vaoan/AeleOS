@@ -49,6 +49,8 @@ import { tid } from "@/shared/infrastructure/test-id";
  * end-to-end suite uses to find somebody's own page without reading the
  * database.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the identity page.
  */
 export default async function MePage({
@@ -70,7 +72,7 @@ export default async function MePage({
         {actor?.displayName ?? user?.firstName ?? t("fallbackTitle")}
       </h1>
       <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
-        <dt className="text-[var(--muted)]">{t("handle")}</dt>
+        <dt className="text-(--muted)">{t("handle")}</dt>
         {/* A person's handle is ALWAYS the provisioned `u-<actor_ref>`: nobody
             chooses one, because a person's handle appears in no address. Shown
             here it was machine text labelled "username", sitting directly above
@@ -80,7 +82,7 @@ export default async function MePage({
         <dd>
           {actor && !isMachineHandle(actor.handle) ? actor.handle : t("empty")}
         </dd>
-        <dt className="text-[var(--muted)]">{t("address")}</dt>
+        <dt className="text-(--muted)">{t("address")}</dt>
         <dd {...tid("my-address")}>
           {address ? (
             <Link
@@ -94,7 +96,7 @@ export default async function MePage({
             t("addressEmpty")
           )}
         </dd>
-        <dt className="text-[var(--muted)]">{t("platformId")}</dt>
+        <dt className="text-(--muted)">{t("platformId")}</dt>
         {/* Monospace on purpose: this string gets read aloud, pasted into
             tickets and compared across apps. */}
         <dd className="font-mono text-xs break-all" {...tid("my-platform-id")}>
@@ -102,12 +104,12 @@ export default async function MePage({
         </dd>
       </dl>
 
-      <p className="mt-6 text-sm text-[var(--muted)]">{t("addressHint")}</p>
-      <p className="mt-2 text-sm text-[var(--muted)]">{t("platformIdHint")}</p>
-      <div className="mt-8 border-t border-[var(--edge)]/40 pt-6">
+      <p className="mt-6 text-sm text-(--muted)">{t("addressHint")}</p>
+      <p className="mt-2 text-sm text-(--muted)">{t("platformIdHint")}</p>
+      <div className="mt-8 border-t border-(--edge)/40 pt-6">
         <Link
           href="/pages"
-          className="block text-sm font-medium text-[var(--accent)]"
+          className="block text-sm font-medium text-(--accent)"
         >
           {t("fursonasLink")}
         </Link>

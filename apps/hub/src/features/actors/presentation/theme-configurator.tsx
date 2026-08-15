@@ -223,6 +223,8 @@ export interface ThemeConfiguratorProps {
  *
  * Ten of its controls are `surface`s, so the panel previews the skin it is setting rather than describing it.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--menu`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the panel.
  */
 export function ThemeConfigurator({
@@ -286,11 +288,11 @@ export function ThemeConfigurator({
   const oversized = Boolean(value.cursor && tooBig === value.cursor);
 
   const swatch = (colour: string, name: string) => (
-    <span className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
+    <span className="flex items-center gap-1.5 text-xs text-(--muted)">
       <span
         aria-hidden
         style={{ background: colour }}
-        className="size-4 rounded surface border-[var(--edge)]"
+        className="size-4 rounded-sm surface border-(--edge)"
       />
       {name}
     </span>
@@ -306,7 +308,7 @@ export function ThemeConfigurator({
         {/* A colour input always carries a value, so without this the design's
             own colour reads as one somebody picked. */}
         {themed ? null : (
-          <span className="text-[0.625rem] text-[var(--muted)]">
+          <span className="text-[0.625rem] text-(--muted)">
             {labels.usingDefault}
           </span>
         )}
@@ -326,13 +328,13 @@ export function ThemeConfigurator({
           onChange(withChosenColour(value, key, event.target.value))
         }
         {...tid(`theme-${key}`)}
-        className="h-9 w-full cursor-pointer rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] p-1"
+        className="h-9 w-full cursor-pointer rounded-lg surface border-(--edge)/60 bg-(--menu) p-1"
       />
     </div>
   );
 
   return (
-    <section className="grid gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-3 sm:p-4">
+    <section className="grid gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -341,10 +343,10 @@ export function ThemeConfigurator({
           {...tid("theme-open")}
           className="flex items-center gap-2 font-display text-sm font-bold"
         >
-          <Palette className="size-4 text-[var(--accent)]" />
+          <Palette className="size-4 text-(--accent)" />
           {labels.title}
         </button>
-        <span className="text-xs text-[var(--muted)]">{labels.live}</span>
+        <span className="text-xs text-(--muted)">{labels.live}</span>
       </div>
 
       {open ? (
@@ -387,14 +389,12 @@ export function ThemeConfigurator({
               leaving somebody to work out which background they are editing.
               The strings are in the catalogues; the reason is here. */}
           <div
-            className="grid gap-3 rounded-xl surface border-[var(--edge)]/60 p-3"
+            className="grid gap-3 rounded-xl surface border-(--edge)/60 p-3"
             {...tid("theme-animation")}
           >
             <div className="grid gap-0.5">
               <span className="text-xs font-medium">{labels.canvasGroup}</span>
-              <p className="text-xs text-[var(--muted)]">
-                {labels.canvasGroupHint}
-              </p>
+              <p className="text-xs text-(--muted)">{labels.canvasGroupHint}</p>
             </div>
 
             <div className="grid gap-1.5">
@@ -408,7 +408,7 @@ export function ThemeConfigurator({
                   onChange({ ...value, canvas: event.target.value as CanvasId })
                 }
                 {...tid("theme-canvas")}
-                className="rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
               >
                 {CANVASES.map((canvas) => (
                   <option key={canvas} value={canvas}>
@@ -443,7 +443,7 @@ export function ThemeConfigurator({
                         )
                       }
                       {...tid(`theme-canvas-colour-${slot}`)}
-                      className="h-9 w-full cursor-pointer rounded-lg surface border-[var(--edge)]/60 bg-transparent p-1"
+                      className="h-9 w-full cursor-pointer rounded-lg surface border-(--edge)/60 bg-transparent p-1"
                     />
                   ))}
                 </div>
@@ -476,7 +476,7 @@ export function ThemeConfigurator({
                           Built as one string rather than a number beside a
                           literal — the lint rule reads a bare literal in JSX as
                           untranslated copy, and it is right that it would be. */}
-                      <span className="font-mono text-xs text-[var(--muted)] tabular-nums">
+                      <span className="font-mono text-xs text-(--muted) tabular-nums">
                         {`${value[key].toFixed(2)}×`}
                       </span>
                     </label>
@@ -496,7 +496,7 @@ export function ThemeConfigurator({
                         })
                       }
                       {...tid(`theme-${key}`)}
-                      className="h-2 w-full accent-[var(--accent)]"
+                      className="h-2 w-full accent-(--accent)"
                     />
                   </div>
                 ))}
@@ -518,9 +518,9 @@ export function ThemeConfigurator({
               }
               aria-describedby={`${id}-cursor-hint`}
               {...tid("theme-cursor")}
-              className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+              className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-1.5 text-sm"
             />
-            <p id={`${id}-cursor-hint`} className="text-xs text-[var(--muted)]">
+            <p id={`${id}-cursor-hint`} className="text-xs text-(--muted)">
               {oversized ? labels.cursorTooBig : labels.cursorHint}
             </p>
           </div>
@@ -540,7 +540,7 @@ export function ThemeConfigurator({
                 onChange({ ...value, skin: event.target.value as SkinId })
               }
               {...tid("theme-skin")}
-              className="rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
             >
               {SKINS.map((skin) => (
                 <option key={skin} value={skin}>
@@ -559,7 +559,7 @@ export function ThemeConfigurator({
                 type="button"
                 onClick={() => onChange(copyable)}
                 {...tid("theme-copy-profile")}
-                className="flex w-fit items-center gap-2 rounded-lg surface border-[var(--edge)] px-3 py-1.5 text-sm"
+                className="flex w-fit items-center gap-2 rounded-lg surface border-(--edge) px-3 py-1.5 text-sm"
               >
                 <ClipboardCopy className="size-4" />
                 {labels.copyFromProfile}
@@ -570,7 +570,7 @@ export function ThemeConfigurator({
               disabled={!customised}
               onClick={() => onChange(DEFAULT_THEME)}
               {...tid("theme-reset")}
-              className="flex w-fit items-center gap-2 rounded-lg surface border-[var(--edge)] px-3 py-1.5 text-sm"
+              className="flex w-fit items-center gap-2 rounded-lg surface border-(--edge) px-3 py-1.5 text-sm"
             >
               <RotateCcw className="size-4" />
               {labels.reset}

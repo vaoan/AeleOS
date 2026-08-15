@@ -58,6 +58,8 @@ export interface IconPickerProps {
  *
  * The trigger, the search field and the grid are `surface`s, the class a skin styles.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted`, `--on-accent` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the picker.
  */
 export function IconPicker({ value, onChange, labels }: IconPickerProps) {
@@ -114,12 +116,12 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
         aria-controls={panelId}
         onClick={() => (open ? close() : setOpen(true))}
         onKeyDown={onKeyDown}
-        className="flex w-fit items-center gap-2 rounded-lg surface border-[var(--edge)]/60 px-2.5 py-1.5 text-sm"
+        className="flex w-fit items-center gap-2 rounded-lg surface border-(--edge)/60 px-2.5 py-1.5 text-sm"
       >
         {known ? (
           <DynamicIcon name={known} className="size-5" />
         ) : (
-          <span className="flex items-center gap-1.5 text-[var(--muted)]">
+          <span className="flex items-center gap-1.5 text-(--muted)">
             <Ban className="size-4" />
             <span className="text-xs">{labels.noIcon}</span>
           </span>
@@ -129,7 +131,7 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
       {open ? (
         <div
           id={panelId}
-          className="grid gap-2 rounded-lg surface border-[var(--edge)] bg-[var(--surface)] p-2"
+          className="grid gap-2 rounded-lg surface border-(--edge) bg-(--surface) p-2"
         >
           <div className="flex items-center gap-2">
             <input
@@ -138,21 +140,21 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               onKeyDown={onKeyDown}
-              className="min-w-0 flex-1 rounded-lg surface border-[var(--edge)]/60 bg-transparent px-2.5 py-1.5 text-sm"
+              className="min-w-0 flex-1 rounded-lg surface border-(--edge)/60 bg-transparent px-2.5 py-1.5 text-sm"
             />
             <button
               type="button"
               aria-label={labels.clearIcon}
               onClick={() => choose("")}
               onKeyDown={onKeyDown}
-              className="rounded-lg p-1.5 text-[var(--muted)]"
+              className="rounded-lg p-1.5 text-(--muted)"
             >
               <Ban className="size-4" />
             </button>
           </div>
 
           {filtered.length === 0 ? (
-            <p className="px-1 py-3 text-center text-xs text-[var(--muted)]">
+            <p className="px-1 py-3 text-center text-xs text-(--muted)">
               {labels.noIconsFound}
             </p>
           ) : (
@@ -165,7 +167,7 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
                   aria-pressed={name === value}
                   onClick={() => choose(name)}
                   onKeyDown={onKeyDown}
-                  className="flex size-8 items-center justify-center rounded-md text-[var(--muted)] aria-pressed:bg-[var(--accent)] aria-pressed:text-[var(--on-accent)]"
+                  className="flex size-8 items-center justify-center rounded-md text-(--muted) aria-pressed:bg-(--accent) aria-pressed:text-(--on-accent)"
                 >
                   <DynamicIcon name={name} className="size-4" />
                 </button>

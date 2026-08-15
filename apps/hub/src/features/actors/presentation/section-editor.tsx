@@ -115,6 +115,8 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  *
  * * Its add button and empty state are `surface`s, so an editor with no sections still shows the skin.
  *
+ * Every colour it paints comes from a token — `--edge`, `--menu`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the sections editor.
  */
 export function SectionEditor<T extends FieldValues>({
@@ -162,7 +164,7 @@ export function SectionEditor<T extends FieldValues>({
       />
 
       {fields.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">{labels.empty}</p>
+        <p className="text-sm text-(--muted)">{labels.empty}</p>
       ) : null}
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -185,7 +187,7 @@ export function SectionEditor<T extends FieldValues>({
                         type="button"
                         aria-label={labels.dragSection}
                         {...dragProvided.dragHandleProps}
-                        className="mt-4 cursor-grab text-[var(--muted)]"
+                        className="mt-4 cursor-grab text-(--muted)"
                       >
                         <GripVertical className="size-4" />
                       </button>
@@ -211,7 +213,7 @@ export function SectionEditor<T extends FieldValues>({
       </DragDropContext>
 
       {atLimit ? (
-        <p className="text-sm text-[var(--muted)]">{labels.atLimit}</p>
+        <p className="text-sm text-(--muted)">{labels.atLimit}</p>
       ) : (
         <div className="flex items-end gap-2">
           <div className="grid gap-1.5">
@@ -225,7 +227,7 @@ export function SectionEditor<T extends FieldValues>({
               onChange={(event) =>
                 setNewType(event.target.value as SectionType)
               }
-              className="rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
             >
               {SECTION_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -245,7 +247,7 @@ export function SectionEditor<T extends FieldValues>({
                 >,
               )
             }
-            className="flex items-center gap-1.5 rounded-lg surface border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+            className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
           >
             <Plus className="size-4" />
             {labels.addSection}

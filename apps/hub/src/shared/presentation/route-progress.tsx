@@ -87,6 +87,8 @@ function navigatesThisTab(event: MouseEvent): boolean {
  * Both listeners are capture-phase, so a handler that calls `stopPropagation`
  * cannot hide a navigation from the bar.
  *
+ * Every colour it paints comes from a token — `--accent` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the bar while a navigation is pending, otherwise nothing.
  */
 export function RouteProgress({ label }: RouteProgressProps) {
@@ -153,7 +155,7 @@ export function RouteProgress({ label }: RouteProgressProps) {
           bar that pretends to would be inventing the number. `motion-reduce`
           holds it still and lets the colour alone say "working", matching how
           the nebula treats the same preference. */}
-      <div className="h-full w-full origin-left animate-[route-progress_1.4s_ease-in-out_infinite] bg-[var(--accent)] motion-reduce:animate-none" />
+      <div className="size-full origin-left animate-[route-progress_1.4s_ease-in-out_infinite] bg-(--accent) motion-reduce:animate-none" />
     </div>
   );
 }

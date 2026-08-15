@@ -105,7 +105,8 @@ async function fits(page: Page, where: string): Promise<void> {
  * element still counts as visible while another paints across it.
  *
  * Only bars actually on screen are compared. On a short screen the ones marked
- * `bar-yields` scroll away, and one that has left is not overlapping anything.
+ * `short:static` scroll away, and one that has left is not overlapping
+ * anything.
  *
  * @param page - the page to measure.
  * @param where - what to name in a failure.

@@ -44,6 +44,8 @@ import { tid } from "@/shared/infrastructure/test-id";
  *
  * Its card carries `surface`, the class skins style, so a themed 404 wears the same form as the pages around it.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the not-found page.
  */
 export default async function NotFoundPage() {
@@ -59,11 +61,11 @@ export default async function NotFoundPage() {
           >
             {t("title")}
           </h1>
-          <p className="text-sm text-[var(--ink-2)]">{t("body")}</p>
+          <p className="text-sm text-(--ink-2)">{t("body")}</p>
           <Link
             href="/"
             {...tid("not-found-home")}
-            className="rounded-lg surface border-[var(--edge)] px-4 py-2 text-sm transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            className="rounded-lg surface border-(--edge) px-4 py-2 text-sm transition-colors hover:bg-(--edge)/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
           >
             {t("home")}
           </Link>

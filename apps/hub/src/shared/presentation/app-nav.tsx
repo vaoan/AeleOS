@@ -59,6 +59,8 @@ const SECTIONS = [
  * 324px on a 320px screen, so every page in the app scrolled sideways rather
  * than only the editor.
  *
+ * Every colour it paints comes from a token — `--edge`, `--ink`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the nav, or null on the picker.
  */
 export function AppNav({ labels }: AppNavProps) {
@@ -81,8 +83,8 @@ export function AppNav({ labels }: AppNavProps) {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`truncate rounded-lg px-1.5 py-1.5 text-sm transition-colors hover:bg-[var(--edge)]/30 sm:px-2.5 ${
-              active ? "font-medium text-[var(--ink)]" : "text-[var(--muted)]"
+            className={`truncate rounded-lg p-1.5 text-sm transition-colors hover:bg-(--edge)/30 sm:px-2.5 ${
+              active ? "font-medium text-(--ink)" : "text-(--muted)"
             }`}
           >
             {labels[key]}

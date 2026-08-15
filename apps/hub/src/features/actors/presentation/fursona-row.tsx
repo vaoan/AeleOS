@@ -121,6 +121,8 @@ export interface FursonaRowProps {
  *
  * The row and its avatar frame are `surface`s — the class skins style, and the reason a row's edge changes with the theme.
  *
+ * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the row.
  */
 export function FursonaRow({
@@ -148,12 +150,12 @@ export function FursonaRow({
     // border and radius gave a list of twenty the same visual weight twenty
     // times over and no hierarchy at all — the container owns the edge now, and
     // rows are separated by a hairline and an alternating tint.
-    <li className="flex items-center gap-3 border-b border-[var(--edge)]/25 px-4 py-3 last:border-b-0 even:bg-[var(--bar)]">
+    <li className="flex items-center gap-3 border-b border-(--edge)/25 px-4 py-3 last:border-b-0 even:bg-(--bar)">
       {canArrange && !isPerson ? (
         <button
           type="button"
           aria-label={labels.dragToReorder}
-          className="cursor-grab text-[var(--muted)]"
+          className="cursor-grab text-(--muted)"
         >
           <GripVertical className="size-4" />
         </button>
@@ -171,7 +173,7 @@ export function FursonaRow({
           className="size-10 rounded-full object-cover"
         />
       ) : (
-        <span className="grid size-10 place-items-center rounded-full bg-[var(--edge)]/40 font-display text-sm">
+        <span className="grid size-10 place-items-center rounded-full bg-(--edge)/40 font-display text-sm">
           {actor.handle.slice(0, 1).toUpperCase()}
         </span>
       )}
@@ -186,14 +188,14 @@ export function FursonaRow({
           {isPerson ? labels.you : (actor.displayName ?? actor.handle)}
         </span>
         {isPerson ? null : (
-          <span className="block truncate font-mono text-xs text-[var(--muted)]">
+          <span className="block truncate font-mono text-xs text-(--muted)">
             @{actor.handle}
           </span>
         )}
       </span>
 
       {isPerson ? null : (
-        <span className="rounded-full surface border-[var(--edge)] px-2 py-0.5 text-xs text-[var(--muted)]">
+        <span className="rounded-full surface border-(--edge) px-2 py-0.5 text-xs text-(--muted)">
           {labels.visibility[actor.visibility]}
         </span>
       )}
@@ -217,7 +219,7 @@ export function FursonaRow({
           // runs in Spanish and may not assert on a translated label, so a test
           // id is the only way to reach this at all.
           {...tid(`view-public-${actor.handle}`)}
-          className="rounded-lg surface border-[var(--edge)] px-2 py-1 text-[var(--muted)]"
+          className="rounded-lg surface border-(--edge) px-2 py-1 text-(--muted)"
         >
           <ExternalLink className="size-3.5" aria-hidden />
         </Link>
@@ -234,7 +236,7 @@ export function FursonaRow({
           href="/me/edit"
           aria-label={labels.edit}
           {...tid("edit-my-profile")}
-          className="rounded-lg p-1.5 text-[var(--muted)]"
+          className="rounded-lg p-1.5 text-(--muted)"
         >
           <Pencil className="size-4" />
         </Link>
@@ -243,14 +245,14 @@ export function FursonaRow({
           <button
             type="button"
             onClick={() => onDelete(actor.actorRef)}
-            className="rounded-lg bg-[var(--accent)] px-2.5 py-1 text-xs font-medium text-[var(--on-accent)]"
+            className="rounded-lg bg-(--accent) px-2.5 py-1 text-xs font-medium text-(--on-accent)"
           >
             {labels.confirm}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="rounded-lg px-2.5 py-1 text-xs text-[var(--muted)]"
+            className="rounded-lg px-2.5 py-1 text-xs text-(--muted)"
           >
             {labels.cancel}
           </button>
@@ -264,7 +266,7 @@ export function FursonaRow({
             onClick={() => onPin(actor.actorRef, !featured)}
             className={cn(
               "rounded-lg p-1.5",
-              featured ? "text-[var(--star)]" : "text-[var(--muted)]",
+              featured ? "text-(--star)" : "text-(--muted)",
             )}
           >
             <Star className="size-4" />
@@ -272,7 +274,7 @@ export function FursonaRow({
           <Link
             href={`/pages/${actor.handle}/edit`}
             aria-label={labels.edit}
-            className="rounded-lg p-1.5 text-[var(--muted)]"
+            className="rounded-lg p-1.5 text-(--muted)"
           >
             <Pencil className="size-4" />
           </Link>
@@ -280,7 +282,7 @@ export function FursonaRow({
             type="button"
             aria-label={labels.remove}
             onClick={() => setConfirming(true)}
-            className="rounded-lg p-1.5 text-[var(--muted)]"
+            className="rounded-lg p-1.5 text-(--muted)"
           >
             <Trash2 className="size-4" />
           </button>

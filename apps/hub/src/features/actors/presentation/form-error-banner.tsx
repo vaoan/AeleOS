@@ -33,6 +33,8 @@ export interface FormErrorBannerProps {
  *
  * The banner is a `surface`, so a refusal is drawn in the same form language as the fields that caused it.
  *
+ * Every colour it paints comes from a token — `--accent`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the banner, or null when there is nothing to report.
  */
 export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
@@ -45,13 +47,13 @@ export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
   return (
     <div
       role="alert"
-      className="mb-6 rounded-xl surface border-[var(--accent)]/50 bg-[var(--accent)]/10 p-4"
+      className="mb-6 rounded-xl surface border-(--accent)/50 bg-(--accent)/10 p-4"
     >
       <p className="flex items-center gap-2 text-sm font-medium">
-        <AlertTriangle className="size-4 text-[var(--accent)]" />
+        <AlertTriangle className="size-4 text-(--accent)" />
         {labels.title}
       </p>
-      <ul className="mt-2 grid gap-1 pl-6 text-sm text-[var(--muted)]">
+      <ul className="mt-2 grid gap-1 pl-6 text-sm text-(--muted)">
         {messages.map((message) => (
           <li key={message} className="list-disc">
             {message}

@@ -54,6 +54,7 @@
     "eslint-config-next": "^16.0.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-better-tailwindcss": "^4.7.0",
     "eslint-plugin-boundaries": "^6.0.2",
     "eslint-plugin-i18next": "^6.1.5",
     "eslint-plugin-jsdoc": "^64.1.0",
@@ -79,6 +80,7 @@
     "stylelint-config-tailwindcss": "^1.0.1",
     "supabase": "^2.95.5",
     "syncpack": "^14.3.1",
+    "tailwindcss": "^4.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.0",
     "vitest": "^4.1.5"

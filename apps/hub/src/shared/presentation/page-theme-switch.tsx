@@ -104,6 +104,8 @@ function subscribe(onChange: () => void): () => void {
  *
  * Its group is a `surface`, so the way out of a theme is drawn in that theme.
  *
+ * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the switch.
  */
 export function PageThemeSwitch({ labels }: PageThemeSwitchProps) {
@@ -145,7 +147,7 @@ export function PageThemeSwitch({ labels }: PageThemeSwitchProps) {
       role="group"
       aria-label={labels.title}
       {...tid("page-theme-switch")}
-      className="flex rounded-lg surface border-[var(--edge)] bg-[var(--bar)] p-0.5"
+      className="flex rounded-lg surface border-(--edge) bg-(--bar) p-0.5"
     >
       {options.map(({ value, label, icon: Icon, choose }) => (
         <button
@@ -157,8 +159,8 @@ export function PageThemeSwitch({ labels }: PageThemeSwitchProps) {
           {...tid(`page-theme-${value}`)}
           className={
             showing === value
-              ? "flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-xs font-medium text-[var(--on-accent)]"
-              : "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-[var(--muted)]"
+              ? "flex items-center gap-1.5 rounded-md bg-(--accent) px-2.5 py-1 text-xs font-medium text-(--on-accent)"
+              : "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-(--muted)"
           }
         >
           <Icon className="size-3.5" aria-hidden />

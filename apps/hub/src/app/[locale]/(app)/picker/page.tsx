@@ -70,6 +70,8 @@ const MAX_APP_NAME = 64;
  * because building one internally imported `server-only` and broke the
  * client bundle the moment a Client Component touched the module.
  *
+ * Every colour it paints comes from a token — `--accent`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the picker, or the refusal when there is nowhere safe to return to.
  */
 export default async function PickerPage({
@@ -90,7 +92,7 @@ export default async function PickerPage({
         <h1 className="font-display text-2xl font-bold tracking-tight">
           {t("refused")}
         </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">{t("refusedHint")}</p>
+        <p className="mt-2 text-sm text-(--muted)">{t("refusedHint")}</p>
         {/*
           The one page that cannot offer `return_to` — that is what it is
           refusing — so the way out has to lead somewhere of ours. Without it
@@ -129,14 +131,12 @@ export default async function PickerPage({
       <h1 className="font-display text-2xl font-bold tracking-tight">
         {t("title")}
       </h1>
-      <p className="mt-1 text-sm text-[var(--muted)]">
+      <p className="mt-1 text-sm text-(--muted)">
         {appName ? t("subtitleFor", { app: appName }) : t("subtitleGeneric")}
       </p>
 
       {choosable.length === 0 ? (
-        <p className="mt-8 text-sm text-[var(--muted)]">
-          {tActors("suspended")}
-        </p>
+        <p className="mt-8 text-sm text-(--muted)">{tActors("suspended")}</p>
       ) : (
         <PickerGrid action={chooseActorAction} returnTo={returnTo}>
           {choosable.map((actor) => (

@@ -38,6 +38,8 @@ export interface PublicSectionIconProps {
  * tile is ragged beside cards that have one; links do not, because a link
  * without an icon is a perfectly ordinary link.
  *
+ * Every colour it paints comes from a token — `--accent` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the icon, or null.
  */
 export function PublicSectionIcon({ name, fallback }: PublicSectionIconProps) {
@@ -48,7 +50,7 @@ export function PublicSectionIcon({ name, fallback }: PublicSectionIconProps) {
   return (
     <DynamicIcon
       name={shown as IconName}
-      className="size-5 shrink-0 text-[var(--accent)]"
+      className="size-5 shrink-0 text-(--accent)"
       aria-hidden
     />
   );

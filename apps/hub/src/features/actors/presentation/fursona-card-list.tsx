@@ -27,6 +27,8 @@ export interface FursonaCardListProps {
  *
  * Each card is a `surface`; that class is what a skin styles, and swapping it back for `border` would leave them wearing no skin at all.
  *
+ * Every colour it paints comes from a token — `--edge`, `--muted`, `--surface` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the list, or null.
  */
 export function FursonaCardList({
@@ -44,23 +46,23 @@ export function FursonaCardList({
           <li key={fursona.handle}>
             <Link
               href={`/${address}/${fursona.handle}`}
-              className="flex items-center gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-3"
+              className="flex items-center gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-3"
             >
               {fursona.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
                 <img
                   src={fursona.avatarUrl}
                   alt=""
-                  className="size-12 shrink-0 rounded-full surface border-[var(--edge)] object-cover"
+                  className="size-12 shrink-0 rounded-full surface border-(--edge) object-cover"
                 />
               ) : (
-                <span className="size-12 shrink-0 rounded-full surface border-dashed border-[var(--edge)]" />
+                <span className="size-12 shrink-0 rounded-full surface border-dashed border-(--edge)" />
               )}
               <span className="grid">
                 <span className="font-display text-sm font-bold">
                   {fursona.displayName ?? fursona.handle}
                 </span>
-                <span className="font-mono text-xs text-[var(--muted)]">
+                <span className="font-mono text-xs text-(--muted)">
                   {fursona.handle}
                 </span>
               </span>

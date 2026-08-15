@@ -50,6 +50,8 @@ const CALLBACK_SEGMENT = "sso-callback";
  * quietly type-check its way past `resolveAfterSignInUrl`'s own runtime check
  * and crash the one page that must always render.
  *
+ * It paints nothing of its own: Clerk's form carries the colours, mapped from the same tokens in `clerkAppearanceFor`, so sign-in cannot drift from the app around it.
+ *
  * @returns the sign-in page, or the callback handler on the return leg.
  */
 export default async function SignInPage({
@@ -104,7 +106,7 @@ export default async function SignInPage({
         >
           {t("title")}
         </h1>
-        <p className="mt-1 mb-6 text-[var(--ink-2)]">{t("subtitle")}</p>
+        <p className="mt-1 mb-6 text-(--ink-2)">{t("subtitle")}</p>
         <SignInForm
           callbackUrl={callbackUrl}
           afterSignInUrl={afterSignInUrl}

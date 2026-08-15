@@ -61,6 +61,8 @@ export interface EditorToolbarProps {
  * Exposes the `editor-save` and `editor-cancel` test ids, so the signed-in end-to-end suite can
  * submit the form without depending on the button's translated label.
  *
+ * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -70,7 +72,7 @@ export function EditorToolbar({
   cancelHref,
 }: EditorToolbarProps) {
   return (
-    <div className="sticky top-[var(--bar-top)] z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-[var(--edge)]/40 bg-[var(--bar)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
+    <div className="sticky top-(--bar-top) z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-(--edge)/40 bg-(--bar) px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
       {/* `truncate` rather than wrap. A two-line title doubled the bar's height
           on a phone and pushed Save down with it, so the one control that must
           never move moved every time the name got longer. */}
@@ -89,7 +91,7 @@ export function EditorToolbar({
         <Link
           href={cancelHref}
           {...tid("editor-cancel")}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-[var(--muted)]"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
         >
           <X className="size-4" />
           {labels.cancel}
@@ -98,7 +100,7 @@ export function EditorToolbar({
           type="submit"
           {...tid("editor-save")}
           disabled={saving}
-          className="flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--on-accent)] disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent) disabled:opacity-60"
         >
           <Check className="size-4" />
           {saving ? labels.saving : labels.save}

@@ -30,6 +30,8 @@ export interface SignOutControlProps {
  *
  * The button is a `surface`, the class a skin styles.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the sign-out button.
  */
 export function SignOutControl({ label, redirectUrl }: SignOutControlProps) {
@@ -39,7 +41,7 @@ export function SignOutControl({ label, redirectUrl }: SignOutControlProps) {
       type="button"
       onClick={() => void signOut({ redirectUrl })}
       {...tid("sign-out")}
-      className="rounded-lg surface border-[var(--edge)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+      className="rounded-lg surface border-(--edge) px-4 py-2 text-sm font-medium transition-colors hover:bg-(--edge)/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
     >
       {label}
     </button>

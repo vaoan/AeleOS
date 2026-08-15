@@ -195,6 +195,8 @@ function UnknownIcon() {
  *
  * The nebula re-tints on its own: it watches the same `data-theme` attribute.
  *
+ * Every colour it paints comes from a token — `--accent`, `--edge`, `--ink` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
  * @returns the theme control.
  */
 export function ThemeToggle({
@@ -229,7 +231,7 @@ export function ThemeToggle({
         authored ? authorLabel : next === "dark" ? toDarkLabel : toLightLabel
       }
       {...tid("theme-toggle")}
-      className="grid size-[30px] place-items-center rounded-full text-[var(--ink-2)] transition-colors hover:bg-[var(--edge)]/20 hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+      className="grid size-[30px] place-items-center rounded-full text-(--ink-2) transition-colors hover:bg-(--edge)/20 hover:text-(--ink) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
     >
       {authored ? (
         <UnknownIcon />

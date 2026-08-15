@@ -191,7 +191,7 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * **The language strip sticks at `--bar-top-2`, which is under both bars above
  * it.** Pinned near the top it was covered by the toolbar and covered the page
  * header in turn, so on every screen size the control it holds was unreachable
- * for as long as anybody scrolled. It carries `bar-yields`, so on a screen too
+ * for as long as anybody scrolled. It carries `short:static`, so on a screen too
  * short for three bars it scrolls away and leaves the top to Save — see
  * `globals.css`, where the offsets are declared together.
  *
@@ -348,9 +348,9 @@ export function FursonaEditor({
                   maxLength={32}
                   aria-invalid={Boolean(errors.handle)}
                   aria-describedby="handle-hint"
-                  className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-2"
+                  className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
                 />
-                <span id="handle-hint" className="text-xs text-[var(--muted)]">
+                <span id="handle-hint" className="text-xs text-(--muted)">
                   {labels.handleHint}
                 </span>
               </>
@@ -358,7 +358,7 @@ export function FursonaEditor({
               // Read-only text rather than a disabled input: update_fursona takes
               // no handle at all, so an editable one would submit a value the
               // database ignores.
-              <span className="px-3 py-2 font-mono text-sm text-[var(--muted)]">
+              <span className="px-3 py-2 font-mono text-sm text-(--muted)">
                 @{initial?.handle}
               </span>
             )}
@@ -375,7 +375,7 @@ export function FursonaEditor({
             {...register("displayName")}
             maxLength={64}
             aria-invalid={Boolean(errors.displayName)}
-            className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-2"
+            className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
           />
         </div>
 
@@ -388,7 +388,7 @@ export function FursonaEditor({
             {...register("avatarUrl")}
             type="url"
             aria-invalid={Boolean(errors.avatarUrl)}
-            className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-2"
+            className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
           />
         </div>
 
@@ -401,7 +401,7 @@ export function FursonaEditor({
             {...tid("editor-visibility")}
             {...register("visibility")}
             aria-invalid={Boolean(errors.visibility)}
-            className="rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-2"
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
           >
             {VISIBILITIES.map((value) => (
               <option key={value} value={value}>
@@ -412,14 +412,12 @@ export function FursonaEditor({
         </div>
       </div>
 
-      <div className="bar-yields sticky top-[var(--bar-top-2)] z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--bar)]/95 p-3 backdrop-blur">
+      <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar)/95 p-3 backdrop-blur-sm short:static">
         <div className="grid gap-0.5">
           <span className="font-display text-sm font-bold">
             {labels.writingIn}
           </span>
-          <span className="text-xs text-[var(--muted)]">
-            {labels.writingInHint}
-          </span>
+          <span className="text-xs text-(--muted)">{labels.writingInHint}</span>
         </div>
 
         {/*
@@ -432,7 +430,7 @@ export function FursonaEditor({
         <div
           role="group"
           aria-label={labels.writingIn}
-          className="flex rounded-lg surface border-[var(--edge)] p-0.5"
+          className="flex rounded-lg surface border-(--edge) p-0.5"
         >
           {(
             [
@@ -448,8 +446,8 @@ export function FursonaEditor({
               {...tid(`writing-in-${value}`)}
               className={
                 lang === value
-                  ? "rounded-md bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--on-accent)]"
-                  : "rounded-md px-4 py-1.5 text-sm font-medium text-[var(--muted)]"
+                  ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
+                  : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
               }
             >
               {name}

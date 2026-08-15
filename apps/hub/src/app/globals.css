@@ -384,8 +384,8 @@ option {
  * On a phone in landscape three bars are half the screen, and there the ones
  * that can yield do: the header and the strip scroll away like ordinary
  * content and the toolbar takes the top, because while editing it is Save that
- * must stay reachable and the wordmark that can wait. `bar-yields` is what
- * marks a bar as able to give up its place. The query is on the VIEWPORT's
+ * must stay reachable and the wordmark that can wait. The `short:` variant
+ * below is what marks a bar as able to give up its place. The query is on the VIEWPORT's
  * height, so it follows a rotation rather than a guess about which devices are
  * phones.
  */
@@ -403,11 +403,26 @@ option {
   :root {
     --bar-top: 0px;
   }
-
-  .bar-yields {
-    position: static;
-  }
 }
+
+/*
+ * "The screen is too short for this many bars."
+ *
+ * A **variant**, not a class of our own, and that is the whole improvement.
+ * This was `.bar-yields`, a name only this stylesheet knew: every element
+ * wearing it was reported as an unknown class, which is the kind of warning
+ * that teaches people to ignore warnings. Written as `@utility` instead,
+ * stylelint could not parse the media query nested inside it.
+ *
+ * `@custom-variant` is what Tailwind v4 offers for exactly this, and it is the
+ * shape both linters already understand. An element now says `short:static` in
+ * its own class list, where the behaviour is visible at the point of use
+ * rather than in a stylesheet somebody has to go and find.
+ *
+ * Its companion `--bar-top: 0px` stays in the media query above, because that
+ * is a token on `:root` rather than a property of any element.
+ */
+@custom-variant short (@media (height <= 600px));
 
 /*
  * The person's own content, and the only thing a skin restyles.

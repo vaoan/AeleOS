@@ -33,6 +33,7 @@ export interface StarToggleProps {
  * Carries the `nebula-toggle` test id. Test ids are the only selector the
  * end-to-end suite is allowed to use — role and text queries break when a
  * string is translated — so renaming one breaks tests rather than styling.
+ * Every colour it paints comes from a token — `--accent`, `--muted`, `--star-glow` — and never from a literal. That is what lets a person's theme reach it at all.
  */
 export function StarToggle({ pressed, onToggle, label }: StarToggleProps) {
   return (
@@ -42,13 +43,13 @@ export function StarToggle({ pressed, onToggle, label }: StarToggleProps) {
       aria-label={label}
       onClick={onToggle}
       {...tid("nebula-toggle")}
-      className="grid size-[30px] place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+      className="grid size-[30px] place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
     >
       <span
         className={`size-[11px] rounded-full transition-all duration-300 ${
           pressed
             ? "bg-star shadow-[0_0_16px_4px_var(--star-glow)]"
-            : "scale-75 bg-[var(--muted)]"
+            : "scale-75 bg-(--muted)"
         }`}
       />
     </button>
