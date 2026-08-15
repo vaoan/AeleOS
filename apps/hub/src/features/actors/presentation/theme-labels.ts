@@ -39,6 +39,11 @@ export type Translate = (key: string) => string;
  * or fails `messages.test.ts`; it can never quietly render its own id at
  * somebody.
  *
+ * The animation carries a group name and a hint as well as its own field
+ * labels. That is a copy decision made visible in the shape: the panel needed a
+ * heading that says WHICH background it edits, because three things here were
+ * named after the background and in Spanish all three carried the same word.
+ *
  * @param t - a translator bound to the `fursonas` namespace.
  * @returns the labels, ready for the panel.
  */
@@ -57,6 +62,8 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
     },
     accent: t("themeAccent"),
     canvasColours: t("themeCanvasColours"),
+    canvasGroup: t("themeCanvasGroup"),
+    canvasGroupHint: t("themeCanvasGroupHint"),
     canvas: t("themeCanvas"),
     density: t("themeDensity"),
     speed: t("themeSpeed"),

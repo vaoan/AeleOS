@@ -37,6 +37,14 @@ import { tid } from "@/shared/infrastructure/test-id";
  * The three dials name what they do rather than what they are — "how busy", "how fast"
  * and "how big" rather than density, speed and scale, which are the code's words.
  *
+ * **`canvasGroup` and `canvasGroupHint` name the box those dials live in, and
+ * they exist because a name was doing too much work.** Three separate things on
+ * this panel were named after the background — the page's gradient, the
+ * animation, and the animation's own colours — and in Spanish all three carried
+ * the same word, so two different "background colours" sat a row apart. The
+ * group says which background it is; the select and the colours under it then
+ * belong to something named.
+ *
  * The skin's strings are a field name and one label per style. They are the
  * app's chrome and so belong in the catalogues, unlike a person's own writing —
  * `messages.test.ts` fails the build when a style is named in one language and
@@ -72,6 +80,10 @@ export interface ThemeConfiguratorLabels {
   accent: string;
   /** Names the group of colours the chosen canvas paints with. */
   canvasColours: string;
+  /** Names the group the animation's own controls live in. */
+  canvasGroup: string;
+  /** One line saying what that animation is, under the group's name. */
+  canvasGroupHint: string;
   /** Field label for the canvas selector. */
   canvas: string;
   /** Field label for how busy the canvas is. */
@@ -127,6 +139,14 @@ export interface ThemeConfiguratorProps {
 
 /**
  * Lets somebody choose how their own page looks, and shows it immediately.
+ *
+ * **The animation's controls are one box, in reading order.** Its colours, its
+ * dials and the menu that PICKS it were scattered down the panel in the order
+ * they were written — the menu last — so somebody set a thing's colours and its
+ * speed before choosing which thing. Nothing was broken, which is why nothing
+ * caught it. `theme-configurator.test.tsx` asserts containment rather than
+ * presence, because "the dials are on the page" passes with them back at the
+ * bottom of it.
  *
  * **Every change is live, and that is the requirement rather than a nicety.** A
  * colour is a decision about how it sits next to everything else, so a panel
@@ -343,41 +363,143 @@ export function ThemeConfigurator({
             {colourField("accent", labels.accent)}
           </div>
 
-          {/* As many as the chosen canvas actually paints with — see
-              CANVAS_SLOTS. Rendering a fixed two gave every canvas the same
-              pair and left the ones with more parts unable to say so. */}
-          {slots > 0 ? (
-            <div className="grid gap-1.5">
-              <span className="text-xs font-medium">
-                {labels.canvasColours}
-              </span>
-              <div className="grid gap-3 sm:grid-cols-4">
-                {Array.from({ length: slots }, (_, slot) => (
-                  <input
-                    key={slot}
-                    type="color"
-                    aria-label={`${labels.canvasColours} ${slot + 1}`}
-                    value={
-                      value.canvasColours?.[slot] ??
-                      THEME_SEEDS.canvasColours[slot] ??
-                      "#000000"
-                    }
-                    onChange={(event) =>
-                      onChange(
-                        withCanvasColour(value, slot, event.target.value),
-                      )
-                    }
-                    {...tid(`theme-canvas-colour-${slot}`)}
-                    className="h-9 w-full cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-transparent p-1"
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium">{labels.adjusted}</span>
             {swatch(preview, labels.accent)}
+          </div>
+
+          {/* **The animation, and everything that belongs to it, in one
+              box.** These three controls used to be scattered down the panel in
+              the order they happened to be written: its colours near the top,
+              its dials in the middle, and the menu that PICKS it at the bottom
+              — so somebody set a thing's colours and speed before choosing
+              which thing. Reading order is the fix, and the border is what says
+              the dials belong to the menu above them rather than to the page.
+
+              The heading is not decoration either. Three separate things here
+              were named after the background — the page's gradient, this
+              animation, and this animation's colours — and in Spanish all
+              three came out carrying the same word, so the panel offered two
+              different "background colours" a row apart. This one is the
+              MOVING backdrop, and its heading now says that rather than
+              leaving somebody to work out which background they are editing.
+              The strings are in the catalogues; the reason is here. */}
+          <div
+            className="grid gap-3 rounded-xl border border-[var(--edge)]/60 p-3"
+            {...tid("theme-animation")}
+          >
+            <div className="grid gap-0.5">
+              <span className="text-xs font-medium">{labels.canvasGroup}</span>
+              <p className="text-xs text-[var(--muted)]">
+                {labels.canvasGroupHint}
+              </p>
+            </div>
+
+            <div className="grid gap-1.5">
+              <label htmlFor={`${id}-canvas`} className="text-xs font-medium">
+                {labels.canvas}
+              </label>
+              <select
+                id={`${id}-canvas`}
+                value={value.canvas}
+                onChange={(event) =>
+                  onChange({ ...value, canvas: event.target.value as CanvasId })
+                }
+                {...tid("theme-canvas")}
+                className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
+              >
+                {CANVASES.map((canvas) => (
+                  <option key={canvas} value={canvas}>
+                    {labels.canvases[canvas]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* As many as the chosen canvas actually paints with — see
+                CANVAS_SLOTS. Rendering a fixed two gave every canvas the same
+                pair and left the ones with more parts unable to say so. */}
+            {slots > 0 ? (
+              <div className="grid gap-1.5">
+                <span className="text-xs font-medium">
+                  {labels.canvasColours}
+                </span>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  {Array.from({ length: slots }, (_, slot) => (
+                    <input
+                      key={slot}
+                      type="color"
+                      aria-label={`${labels.canvasColours} ${slot + 1}`}
+                      value={
+                        value.canvasColours?.[slot] ??
+                        THEME_SEEDS.canvasColours[slot] ??
+                        "#000000"
+                      }
+                      onChange={(event) =>
+                        onChange(
+                          withCanvasColour(value, slot, event.target.value),
+                        )
+                      }
+                      {...tid(`theme-canvas-colour-${slot}`)}
+                      className="h-9 w-full cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-transparent p-1"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {/* **Only where there is something to turn up.** `none` draws
+                nothing, so a density slider for it accepts a drag and changes
+                nothing — the fault this panel keeps being trimmed for. */}
+            {dialsApply(value.canvas) ? (
+              /* **One per row, not three abreast.** Three sliders sharing a
+                  row left each about a third of the panel: the label, the
+                  multiplier and the track all competed, and the track — the part
+                  somebody actually drags — came off worst. Full width costs two
+                  rows of height on a panel that is already scrolled to. */
+              <div className="grid gap-3">
+                {(
+                  [
+                    ["density", labels.density],
+                    ["speed", labels.speed],
+                    ["scale", labels.scale],
+                  ] as const
+                ).map(([key, label]) => (
+                  <div key={key} className="grid gap-1.5">
+                    <label
+                      htmlFor={`${id}-${key}`}
+                      className="flex items-center justify-between gap-2 text-sm font-medium"
+                    >
+                      {label}
+                      {/* The multiplier, so a slider position means something.
+                          Built as one string rather than a number beside a
+                          literal — the lint rule reads a bare literal in JSX as
+                          untranslated copy, and it is right that it would be. */}
+                      <span className="font-mono text-xs text-[var(--muted)] tabular-nums">
+                        {`${value[key].toFixed(2)}×`}
+                      </span>
+                    </label>
+                    <input
+                      id={`${id}-${key}`}
+                      type="range"
+                      min={CANVAS_RANGE.min}
+                      max={CANVAS_RANGE.max}
+                      step={0.05}
+                      value={value[key]}
+                      // Continuous, like the colour inputs: the canvas redraws on
+                      // the next frame, so the drag itself IS the preview.
+                      onChange={(event) =>
+                        onChange({
+                          ...value,
+                          [key]: Number.parseFloat(event.target.value),
+                        })
+                      }
+                      {...tid(`theme-${key}`)}
+                      className="h-2 w-full accent-[var(--accent)]"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-1.5">
@@ -421,81 +543,6 @@ export function ThemeConfigurator({
               {SKINS.map((skin) => (
                 <option key={skin} value={skin}>
                   {labels.skins[skin]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* **Only where there is something to turn up.** `none` draws
-              nothing, so a density slider for it accepts a drag and changes
-              nothing — the fault this panel keeps being trimmed for. */}
-          {dialsApply(value.canvas) ? (
-            /* **One per row, not three abreast.** Three sliders sharing a
-                row left each about a third of the panel: the label, the
-                multiplier and the track all competed, and the track — the part
-                somebody actually drags — came off worst. Full width costs two
-                rows of height on a panel that is already scrolled to. */
-            <div className="grid gap-3">
-              {(
-                [
-                  ["density", labels.density],
-                  ["speed", labels.speed],
-                  ["scale", labels.scale],
-                ] as const
-              ).map(([key, label]) => (
-                <div key={key} className="grid gap-1.5">
-                  <label
-                    htmlFor={`${id}-${key}`}
-                    className="flex items-center justify-between gap-2 text-sm font-medium"
-                  >
-                    {label}
-                    {/* The multiplier, so a slider position means something.
-                        Built as one string rather than a number beside a
-                        literal — the lint rule reads a bare literal in JSX as
-                        untranslated copy, and it is right that it would be. */}
-                    <span className="font-mono text-xs text-[var(--muted)] tabular-nums">
-                      {`${value[key].toFixed(2)}×`}
-                    </span>
-                  </label>
-                  <input
-                    id={`${id}-${key}`}
-                    type="range"
-                    min={CANVAS_RANGE.min}
-                    max={CANVAS_RANGE.max}
-                    step={0.05}
-                    value={value[key]}
-                    // Continuous, like the colour inputs: the canvas redraws on
-                    // the next frame, so the drag itself IS the preview.
-                    onChange={(event) =>
-                      onChange({
-                        ...value,
-                        [key]: Number.parseFloat(event.target.value),
-                      })
-                    }
-                    {...tid(`theme-${key}`)}
-                    className="h-2 w-full accent-[var(--accent)]"
-                  />
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-canvas`} className="text-xs font-medium">
-              {labels.canvas}
-            </label>
-            <select
-              id={`${id}-canvas`}
-              value={value.canvas}
-              onChange={(event) =>
-                onChange({ ...value, canvas: event.target.value as CanvasId })
-              }
-              {...tid("theme-canvas")}
-              className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
-            >
-              {CANVASES.map((canvas) => (
-                <option key={canvas} value={canvas}>
-                  {labels.canvases[canvas]}
                 </option>
               ))}
             </select>
