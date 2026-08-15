@@ -150,6 +150,8 @@ function publicPathFor(
  *
  * Its three control states — the person's edit link, the delete confirmation, the ordinary actions — are three siblings rather than a ternary inside a ternary. One of them is a delete, so which one a reader is in should not need unpicking.
  *
+ * Its avatar is a plain `img` for the reason now written beside the disable — an arbitrary host `next/image` was never configured for. That line used to carry no reason, which reads the same as somebody silencing a warning they did not want.
+ *
  * @returns the row.
  */
 export function FursonaRow({
@@ -191,7 +193,7 @@ export function FursonaRow({
       {/* A plain `img`, as ActorTile uses: avatarUrl is a URL the person
           supplied, and next/image would need every possible host allowed. */}
       {actor.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
         <img
           src={actor.avatarUrl}
           alt=""

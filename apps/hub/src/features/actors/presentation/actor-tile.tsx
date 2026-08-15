@@ -73,6 +73,8 @@ export interface ActorTileProps {
  *
  * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * Its avatar is a plain `img`, and the disable above it now says why: the address is arbitrary and typed by hand, so `next/image` would try to optimise a host it has never been configured for. It carried no reason at all before, which is how a considered exception becomes indistinguishable from a silenced warning.
+ *
  * @returns the tile.
  */
 export function ActorTile({
@@ -85,7 +87,7 @@ export function ActorTile({
   return (
     <li className="flex items-center gap-4 rounded-xl surface border-(--edge)/40 p-4">
       {actor.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
         <img
           src={actor.avatarUrl}
           alt=""

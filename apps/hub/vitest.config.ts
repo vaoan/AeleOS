@@ -22,12 +22,19 @@ export default defineConfig({
       // rendering, not behaviour — and because these files are Next route
       // entry points that need a request context vitest does not have.
       //
-      // It is NOT because the e2e suite covers them. It does not: tests/e2e/
-      // holds auth.spec.ts alone, which drives the sign-in gate, locale
-      // routing and the visual identity — every one of them anonymous, because
-      // driving Google's or Discord's real login is out of our control. **No
-      // end-to-end test has ever loaded a signed-in page**, so /me and every
-      // fursona route are unmeasured by any threshold in this repository.
+      // **This paragraph used to say the opposite and was wrong**, which is
+      // worth leaving a mark: it claimed `tests/e2e/` held `auth.spec.ts`
+      // alone and that no end-to-end test had ever loaded a signed-in page.
+      // Both were true when written and neither survived Clerk sign-in
+      // tickets. Six specs live there now — `auth`, `signed-in`, `picker`,
+      // `public-pages`, `responsive`, `a11y` — and three of them drive signed-in
+      // pages with a real session.
+      //
+      // So these routes ARE exercised end to end. They are still excluded from
+      // the coverage threshold, for the reason above and not for that one: a
+      // percentage over JSX measures rendering rather than behaviour, and a
+      // browser suite is not a substitute for a threshold anyway — it proves
+      // the paths somebody thought to walk.
       //
       // What stands in for it is direct-call tests: fursona-list-page and
       // fursona-edit-page invoke the page functions with a mocked data layer

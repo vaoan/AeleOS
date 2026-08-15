@@ -183,6 +183,8 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  *
  * Every colour it paints comes from a token — `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * Its image preview is a plain `img`, and its disable says why rather than pointing at another file: "see above" survives only until somebody moves one of the two.
+ *
  * @returns the item's fields.
  */
 export function SectionItemFields<T extends FieldValues>({
@@ -248,7 +250,7 @@ export function SectionItemFields<T extends FieldValues>({
           {imageUrl ? (
             // The address is arbitrary and typed by hand, so next/image would
             // try to optimise a host it has never been configured for.
-            // eslint-disable-next-line @next/next/no-img-element -- see above
+            // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
             <img
               src={String(imageUrl)}
               alt={String(title ?? "")}
