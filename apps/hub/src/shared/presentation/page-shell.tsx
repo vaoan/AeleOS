@@ -265,11 +265,12 @@ export interface CardProps {
  * than the background. Do not remove it to "clean up" the look.
  *
  * Carries the `card` test id.
+ * **It carries `surface`, and that class is the whole of how a skin reaches it.** It also keeps its own `shadow-sm`, which now beats the skin's shadow by the ordinary utility ordering — the hand-written `:not([class*="shadow"])` that used to be needed for exactly this is gone.
  */
 export function Card({ children }: CardProps) {
   return (
     <div
-      className="rounded-2xl border border-[var(--edge)] bg-[var(--surface)] p-4 shadow-sm backdrop-blur-md sm:p-6"
+      className="rounded-2xl surface border-[var(--edge)] bg-[var(--surface)] p-4 shadow-sm backdrop-blur-md sm:p-6"
       {...tid("card")}
     >
       {children}

@@ -40,6 +40,29 @@ export default {
       },
     ],
 
+    // **Do not select the `class` attribute.** This is the rule the whole
+    // adoption was for.
+    //
+    // `globals.css` used to carry `[class~="border"]` — Tailwind's own
+    // generated class, selected as if it were ours. It reached the right
+    // elements and could not see what any of them was asking for, and being
+    // unlayered it beat every utility whatever their specificity. One element
+    // lost its `backdrop-blur` that way with nothing to report it, and the
+    // repair was a hand-written `:not()` per collision anybody happened to
+    // notice.
+    //
+    // Selecting a class attribute is how that shape starts every time: it is
+    // the move that reaches into the framework's output instead of styling
+    // something we own. `.surface` is what replaced it. `[data-theme]` and the
+    // other data attributes are untouched by this rule — they are ours.
+    "selector-attribute-name-disallowed-list": [
+      ["class"],
+      {
+        message:
+          "Do not select the class attribute — that reaches into Tailwind's generated output, which cannot see what the element asked for. Give the element a class of your own (see @utility surface) and style that.",
+      },
+    ],
+
     // **Off, and not for convenience.** `globals.css` declares `:root` three
     // times on purpose: the palette, the form tokens a skin overrides, and the
     // geometry the sticky bars share. Each block carries the argument for its

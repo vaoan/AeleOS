@@ -93,6 +93,8 @@ export interface PublicProfileProps {
  * it read as the page's furniture rather than as something its owner put
  * there. The row wraps on a phone, where the three do not share a line.
  *
+ * The avatar frame and the empty state are `surface`s, which is how a visitor sees the owner's skin on the page's own furniture.
+ *
  * @returns the page.
  */
 export function PublicProfile({
@@ -127,10 +129,10 @@ export function PublicProfile({
           <img
             src={actor.avatarUrl}
             alt=""
-            className="size-20 shrink-0 rounded-full border border-[var(--edge)] object-cover sm:size-24"
+            className="size-20 shrink-0 rounded-full surface border-[var(--edge)] object-cover sm:size-24"
           />
         ) : (
-          <span className="size-20 shrink-0 rounded-full border border-dashed border-[var(--edge)] sm:size-24" />
+          <span className="size-20 shrink-0 rounded-full surface border-dashed border-[var(--edge)] sm:size-24" />
         )}
         <div className="grid min-w-0 flex-1 gap-1">
           <h1
@@ -156,7 +158,7 @@ export function PublicProfile({
       {empty ? (
         <p
           {...tid("public-empty")}
-          className="rounded-xl border border-dashed border-[var(--edge)]/60 px-6 py-12 text-center text-sm text-[var(--muted)]"
+          className="rounded-xl surface border-dashed border-[var(--edge)]/60 px-6 py-12 text-center text-sm text-[var(--muted)]"
         >
           {emptyMessage}
         </p>

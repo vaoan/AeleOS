@@ -83,6 +83,8 @@ function positionIn(bar: HTMLElement, clientX: number): number {
  * feature: a gradient is judged by watching it move, and anything that waited
  * for the drag to finish would put back the round trip this exists to remove.
  *
+ * Its bar, swatches and buttons are `surface`s, so the control that edits a theme is itself wearing one.
+ *
  * @returns the picker.
  */
 export function GradientPicker({
@@ -132,7 +134,7 @@ export function GradientPicker({
           onChange(added);
         }}
         {...tid("gradient-bar")}
-        className="relative h-12 w-full cursor-copy rounded-lg border border-[var(--edge)]"
+        className="relative h-12 w-full cursor-copy rounded-lg surface border-[var(--edge)]"
         style={{ background: gradientCss(value) }}
       >
         {value.stops.map((each, index) => (
@@ -166,7 +168,7 @@ export function GradientPicker({
             className={
               index === selected
                 ? "absolute top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-[var(--ink)] shadow"
-                : "absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border border-[var(--edge)]"
+                : "absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full surface border-[var(--edge)]"
             }
           />
         ))}
@@ -188,7 +190,7 @@ export function GradientPicker({
               )
             }
             {...tid("gradient-colour")}
-            className="h-9 w-16 cursor-pointer rounded-lg border border-[var(--edge)]/60 bg-transparent p-1"
+            className="h-9 w-16 cursor-pointer rounded-lg surface border-[var(--edge)]/60 bg-transparent p-1"
           />
         </div>
 
@@ -231,7 +233,7 @@ export function GradientPicker({
           disabled={value.stops.length >= MAX_STOPS}
           onClick={() => onChange(addStop(value, 50))}
           {...tid("gradient-add")}
-          className="flex items-center gap-1.5 rounded-lg border border-[var(--edge)] px-2.5 py-1.5 text-xs disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg surface border-[var(--edge)] px-2.5 py-1.5 text-xs disabled:opacity-50"
         >
           <Plus className="size-3.5" aria-hidden />
           {labels.add}
@@ -245,7 +247,7 @@ export function GradientPicker({
             setSelected(0);
           }}
           {...tid("gradient-remove")}
-          className="flex items-center gap-1.5 rounded-lg border border-[var(--edge)] px-2.5 py-1.5 text-xs disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg surface border-[var(--edge)] px-2.5 py-1.5 text-xs disabled:opacity-50"
         >
           <Trash2 className="size-3.5" aria-hidden />
           {labels.remove}

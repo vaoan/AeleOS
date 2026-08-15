@@ -302,28 +302,51 @@ button:disabled,
 }
 
 /*
- * Where a skin's edge, shadow and gloss actually land.
+ * Where a skin's edge, shadow, gloss and backdrop land: a class we own.
  *
- * **`[class~="border"]` matches Tailwind's `border` utility, which is literally
- * the class `border`** — every bordered surface in this app carries it, all
- * sixty-six of them, always alongside a colour. Reaching them by the class they
- * already have is what lets a skin change the weight of every panel, chip,
- * input and button without each component repeating three tokens it would
- * eventually forget one of.
+ * **This used to be `[class~="border"]`, and reaching for the framework's own
+ * generated class name was the mistake.** Tailwind's `border` utility is
+ * literally the class `border`, so selecting it did work — every bordered
+ * surface carries it. What it could not do is see what the element was ASKING
+ * for. The rule sat outside every cascade layer, and unlayered CSS beats
+ * anything inside a layer regardless of specificity, so it silently won against
+ * every utility for the properties it set. `backdrop-blur` on the editor's
+ * language strip lost that way and nothing reported it; `shadow-sm` on the one
+ * card that names its own had to be rescued by hand with a `:not()`. That list
+ * of hand-written exclusions could only grow, one per collision somebody
+ * happened to notice.
  *
- * `~=` matches whole words, so `border-b` and `border-2` are untouched — the
- * header's underline stays an underline rather than becoming a box, and the
- * two elements that ask for a heavy border keep the one they asked for.
- * Specificity ties with `.border` and wins on order, being declared after the
- * import.
+ * `@utility` is Tailwind's own answer and it removes the whole class of fault.
+ * A custom utility is sorted among the others by how many properties it
+ * declares, so a single-property utility on the same element wins — which means
+ * `shadow-sm` and `backdrop-blur` now beat this by the ordinary rules, with no
+ * exclusion to write and none to forget. `skins.test.ts` pins that.
  *
- * `:not([class*="shadow"])` leaves alone any surface that names its own shadow.
- * Without it the default skin's `none` would strip the one card that has a
- * `shadow-sm`, so shipping skins would have changed a page nobody skinned.
+ * The cost is one real edit: seventy-four class lists say `surface` where they
+ * said `border`. That is the trade — an invisible failure for a greppable one —
+ * and `stylelint` now forbids selecting a `class` attribute at all, so the old
+ * shape cannot come back by accident.
+ *
+ * It sets `border-style` as well as the width because Preflight gives every
+ * element `border: 0 solid`: a width alone renders, but naming the style keeps
+ * `border-dashed` working on a surface, exactly as it does on `border`.
  *
  * The gloss is a background IMAGE, so it layers over whatever colour the
  * element paints instead of replacing it.
  */
+@utility surface {
+  border-style: var(--tw-border-style);
+  border-width: var(--skin-border);
+  background-image: var(--skin-gloss);
+  background-size: var(--skin-gloss-size);
+  box-shadow: var(--skin-shadow);
+
+  /* Prefixed as well: Safari has never shipped this unprefixed. Without the
+   * first line glass is plain translucency there, which is the one browser
+   * where that difference is most likely to be read as the design. */
+  -webkit-backdrop-filter: var(--skin-backdrop);
+  backdrop-filter: var(--skin-backdrop);
+}
 
 /*
  * An `option` carries the menu's colours explicitly as well.
@@ -384,43 +407,6 @@ option {
   .bar-yields {
     position: static;
   }
-}
-
-[class~="border"] {
-  border-width: var(--skin-border);
-  background-image: var(--skin-gloss);
-  background-size: var(--skin-gloss-size);
-}
-
-[class~="border"]:not([class*="shadow"]) {
-  box-shadow: var(--skin-shadow);
-}
-
-/*
- * The same exclusion the shadow gets, and it is owed for the same reason: an
- * element that names its own backdrop keeps it.
- *
- * **Without it this rule turned a blur off.** The default skin's
- * `--skin-backdrop` is `none`, it ties on specificity with Tailwind's
- * `backdrop-blur` utility and is declared later, so it wins — and every
- * bordered element that had asked for a blur silently got none. Exactly one
- * did: the editor's language strip is `rounded-xl border … backdrop-blur`,
- * while the two bars above it carry `border-b`, which `~=` does not match. So
- * two of the three bars blurred what passed under them and the third did not,
- * and the page's own text read straight through it.
- *
- * That is the whole failure mode of reaching elements by a class they already
- * have: the rule cannot see what the element was asking for. `skins.test.ts`
- * pins the exclusion, because the symptom is a page that looks slightly wrong
- * in one place and nothing that any assertion about the skin would notice.
- *
- * Prefixed as well: Safari has never shipped this unprefixed. Without the first
- * line glass is plain translucency there, which is the one browser where that
- * difference is most likely to be read as the design.
- */
-[class~="border"]:not([class*="backdrop-blur"]) {
-  -webkit-backdrop-filter: var(--skin-backdrop);
-  backdrop-filter: var(--skin-backdrop);
 }
 
 /*

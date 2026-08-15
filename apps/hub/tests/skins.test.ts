@@ -120,28 +120,27 @@ describe("the skins", () => {
   });
 
   // **A rule that reaches elements by a class they already have cannot see what
-  // the element was asking for.** The default skin's `--skin-backdrop` is
-  // `none`; it ties on specificity with Tailwind's `backdrop-blur` utility and
-  // is declared later, so it wins — and every bordered element that had asked
-  // for a blur silently got none. Exactly one had: the editor's language strip
-  // carries `border`, while the two bars above it carry `border-b`, which `~=`
-  // does not match. Two of the three bars blurred what passed under them, the
-  // third did not, and the page's own text read straight through it.
+  // the element was asking for**, and this is the assertion that the mechanism
+  // stopped doing that.
   //
-  // The shadow already had this exclusion for the same reason. Asserted on the
-  // stylesheet because the symptom is a page that looks slightly wrong in one
-  // place, which no assertion about a skin's values would ever notice.
-  it("leaves alone an element that names its own backdrop", () => {
-    expect(GLOBALS).toContain(
-      '[class~="border"]:not([class*="backdrop-blur"])',
-    );
-    // And the broad selector must not set it any more, or the exclusion is
-    // written down and overridden three lines later.
-    const broad = GLOBALS.slice(
-      GLOBALS.indexOf('[class~="border"] {'),
-      GLOBALS.indexOf("}", GLOBALS.indexOf('[class~="border"] {')),
-    );
-    expect(broad).not.toContain("backdrop-filter");
+  // The skin used to be `[class~="border"]` — Tailwind's own generated class,
+  // selected as if it were ours. It sat outside every cascade layer, and
+  // unlayered CSS beats anything inside a layer whatever its specificity, so it
+  // won against every utility for the properties it set. The editor's language
+  // strip asked for `backdrop-blur` and silently got none; the one card that
+  // names its own `shadow-sm` had to be rescued by a hand-written `:not()`.
+  // Each exclusion covered one collision somebody had happened to notice.
+  //
+  // A `@utility` is sorted among the other utilities by how many properties it
+  // declares, so a single-property utility on the same element wins by the
+  // ordinary rules. That is why there are no exclusions left to assert: the
+  // absence IS the fix, so what is pinned here is that the old shape has not
+  // come back.
+  it("styles a class of its own rather than Tailwind's", () => {
+    expect(GLOBALS).toContain("@utility surface {");
+    expect(GLOBALS).not.toContain('[class~="border"] {');
+    expect(GLOBALS).not.toContain('[class*="backdrop-blur"])');
+    expect(GLOBALS).not.toContain('[class*="shadow"])');
   });
 
   // The other direction: a token declared and never reachable is a knob nobody

@@ -102,6 +102,8 @@ function subscribe(onChange: () => void): () => void {
  * nothing, which is the shape of thing this repository has already got wrong
  * more than once.
  *
+ * Its group is a `surface`, so the way out of a theme is drawn in that theme.
+ *
  * @returns the switch.
  */
 export function PageThemeSwitch({ labels }: PageThemeSwitchProps) {
@@ -143,7 +145,7 @@ export function PageThemeSwitch({ labels }: PageThemeSwitchProps) {
       role="group"
       aria-label={labels.title}
       {...tid("page-theme-switch")}
-      className="flex rounded-lg border border-[var(--edge)] bg-[var(--bar)] p-0.5"
+      className="flex rounded-lg surface border-[var(--edge)] bg-[var(--bar)] p-0.5"
     >
       {options.map(({ value, label, icon: Icon, choose }) => (
         <button

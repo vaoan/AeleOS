@@ -42,6 +42,8 @@ import { tid } from "@/shared/infrastructure/test-id";
  * because the public actor pages made this page reachable anonymously for the
  * first time — before that no end-to-end test could get here at all.
  *
+ * Its card carries `surface`, the class skins style, so a themed 404 wears the same form as the pages around it.
+ *
  * @returns the not-found page.
  */
 export default async function NotFoundPage() {
@@ -61,7 +63,7 @@ export default async function NotFoundPage() {
           <Link
             href="/"
             {...tid("not-found-home")}
-            className="rounded-lg border border-[var(--edge)] px-4 py-2 text-sm transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            className="rounded-lg surface border-[var(--edge)] px-4 py-2 text-sm transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
           >
             {t("home")}
           </Link>

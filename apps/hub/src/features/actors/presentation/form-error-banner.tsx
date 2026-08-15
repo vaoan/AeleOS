@@ -31,6 +31,8 @@ export interface FormErrorBannerProps {
  * is worse than a banner that never appeared. If that leaves nothing to say,
  * nothing renders.
  *
+ * The banner is a `surface`, so a refusal is drawn in the same form language as the fields that caused it.
+ *
  * @returns the banner, or null when there is nothing to report.
  */
 export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
@@ -43,7 +45,7 @@ export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
   return (
     <div
       role="alert"
-      className="mb-6 rounded-xl border border-[var(--accent)]/50 bg-[var(--accent)]/10 p-4"
+      className="mb-6 rounded-xl surface border-[var(--accent)]/50 bg-[var(--accent)]/10 p-4"
     >
       <p className="flex items-center gap-2 text-sm font-medium">
         <AlertTriangle className="size-4 text-[var(--accent)]" />

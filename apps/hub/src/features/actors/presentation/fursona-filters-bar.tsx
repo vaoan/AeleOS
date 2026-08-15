@@ -61,6 +61,8 @@ export interface FursonaFiltersBarProps {
  * to. Beside the search field next to it, a 60% border reads as decoration
  * rather than as a control somebody may press.
  *
+ * The search field and the filter chips are `surface`s, so they take a skin's edge like every other control.
+ *
  * @returns the filter bar.
  */
 export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
@@ -86,7 +88,7 @@ export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
           aria-label={labels.search}
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
-          className="rounded-lg border border-[var(--edge)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm"
+          className="rounded-lg surface border-[var(--edge)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm"
         />
       </span>
 
@@ -107,7 +109,7 @@ export function FursonaFiltersBar({ labels }: FursonaFiltersBarProps) {
               setFilters({ visibility: value || null }, { history: "push" })
             }
             className={cn(
-              "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
+              "rounded-full surface px-3.5 py-1.5 text-sm transition-colors",
               active
                 ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]"
                 : // Full-strength edge, not a 60% hairline. An unselected control

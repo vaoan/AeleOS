@@ -99,9 +99,9 @@ function Cards({
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="flex w-full flex-col gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5 sm:w-56 sm:shrink-0 lg:w-auto"
+            className="flex w-full flex-col gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-5 sm:w-56 sm:shrink-0 lg:w-auto"
           >
-            <span className="grid size-11 w-fit place-items-center rounded-lg border border-[var(--edge)] bg-[var(--bar)]">
+            <span className="grid size-11 w-fit place-items-center rounded-lg surface border-[var(--edge)] bg-[var(--bar)]">
               <PublicSectionIcon name={item.icon} fallback={CARD_ICON} />
             </span>
             <h3 className="font-display text-sm/tight font-bold">{title}</h3>
@@ -140,7 +140,7 @@ function Accordion({
   locale: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--edge)] bg-[var(--surface)]">
+    <div className="overflow-hidden rounded-xl surface border-[var(--edge)] bg-[var(--surface)]">
       {items.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
@@ -203,7 +203,7 @@ function TwoColumn({
   const rows = items.filter((item) => wordsOf(item, locale).description);
   if (rows.length === 0) return null;
   return (
-    <dl className="grid overflow-hidden rounded-xl border border-[var(--edge)] bg-[var(--surface)]">
+    <dl className="grid overflow-hidden rounded-xl surface border-[var(--edge)] bg-[var(--surface)]">
       {rows.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
@@ -254,7 +254,7 @@ function Gallery({
             <img
               src={item.image_url}
               alt={title}
-              className="w-full rounded-xl border border-[var(--edge)] object-cover"
+              className="w-full rounded-xl surface border-[var(--edge)] object-cover"
             />
             {description ? (
               <figcaption className="text-xs text-[var(--muted)]">
@@ -322,8 +322,8 @@ function Player({
       sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
       className={
         embed.shape === "video"
-          ? "aspect-video w-full rounded-xl border border-[var(--edge)]"
-          : "h-[10.5rem] w-full rounded-xl border border-[var(--edge)]"
+          ? "aspect-video w-full rounded-xl surface border-[var(--edge)]"
+          : "h-[10.5rem] w-full rounded-xl surface border-[var(--edge)]"
       }
     />
   );
@@ -438,7 +438,7 @@ function Carousel({
             <img
               src={item.image_url}
               alt={title}
-              className="aspect-4/3 w-full rounded-xl border border-[var(--edge)] object-cover"
+              className="aspect-4/3 w-full rounded-xl surface border-[var(--edge)] object-cover"
             />
             <figcaption className="text-xs text-[var(--muted)]">
               <span className="font-medium text-[var(--ink)]">{title}</span>
@@ -481,7 +481,7 @@ function Links({
         const inside = (
           <>
             {item.icon ? (
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-[var(--edge)] bg-[var(--bar)]">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg surface border-[var(--edge)] bg-[var(--bar)]">
                 <PublicSectionIcon name={item.icon} />
               </span>
             ) : null}
@@ -496,7 +496,7 @@ function Links({
           </>
         );
         const shape =
-          "flex items-center gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-4";
+          "flex items-center gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-4";
         return href ? (
           <a
             key={keyOf(item.sort_order, item.title_en)}
@@ -541,7 +541,7 @@ function Stats({
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="grid gap-1 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-4"
+            className="grid gap-1 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-4"
           >
             <span className="text-xs tracking-wide text-[var(--muted)] uppercase">
               {title}
@@ -580,7 +580,7 @@ function Quotes({
         return (
           <figure
             key={keyOf(item.sort_order, item.title_en)}
-            className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5"
+            className="grid gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-5"
           >
             <QuoteMark className="size-5 text-[var(--accent)]" />
             {description ? (

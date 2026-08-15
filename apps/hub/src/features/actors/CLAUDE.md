@@ -566,16 +566,36 @@ Four things about it that a later change must not undo:
   end up looking like one radius applied everywhere. `rounded-full` is
   deliberately outside this: it compiles to `calc(infinity * 1px)` rather than
   to a token, so avatars stay circular in every skin.
-- **`[class~="border"]` is where the edge, the shadow and the gloss land.**
-  Tailwind's `border` utility is literally the class `border`, and every
-  bordered surface here carries it. `~=` matches whole words, so `border-b` and
-  `border-2` are untouched — the header's underline stays an underline. The
-  companion `:not([class*="shadow"])` leaves alone the one card that names its
-  own shadow, without which shipping skins would have restyled a page nobody
-  skinned. **The rule itself is global and needs no scope**: the tokens it reads
-  are only overridden inside `SKIN_SCOPE`, so everything above that element
-  inherits the design's own values. Scoping the rule as well would be a second
-  place to keep in step.
+- **`@utility surface` is where the edge, the shadow, the gloss and the
+  backdrop land, and it is a class we own.** Every bordered surface carries it,
+  in place of Tailwind's `border`.
+
+  **It used to be `[class~="border"]`, and that is a mistake worth not
+  repeating.** Tailwind's `border` utility is literally the class `border`, so
+  selecting it reached exactly the right elements — and could not see what any
+  of them was asking for. The rule sat outside every cascade layer, and
+  unlayered CSS beats anything inside a layer whatever its specificity, so it
+  won against every utility for the properties it set. The editor's language
+  strip asked for `backdrop-blur` and silently got none; the one card that
+  names its own `shadow-sm` had to be rescued by a hand-written `:not()`. That
+  list of exclusions could only grow, one per collision somebody happened to
+  see.
+
+  A custom utility is sorted among the others by how many properties it
+  declares, so a single-property utility on the same element wins by the
+  ordinary rules — `shadow-sm` and `backdrop-blur` beat it with no exclusion to
+  write and none to forget. `stylelint` now forbids selecting a `class`
+  attribute at all, so the old shape cannot return by accident, and
+  `skins.test.ts` asserts the absence rather than the exclusions.
+
+  It sets `border-style` as well as the width: Preflight gives everything
+  `border: 0 solid`, so a width alone renders, but naming the style keeps
+  `border-dashed` working on a surface exactly as it does on `border`.
+
+  **The utility is global and needs no scope**: the tokens it reads are only
+  overridden inside `SKIN_SCOPE`, so everything above that element inherits the
+  design's own values. Scoping it as well would be a second place to keep in
+  step.
 
 - **A skin stops at the person's own content, and that boundary is `SKIN_SCOPE`
   on `PageShell`'s `<main>`.** The bar above keeps the app's shape, because the

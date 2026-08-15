@@ -56,6 +56,8 @@ export interface IconPickerProps {
  * deal of surface for a control that overlays nothing. Escape closes it, and so
  * does choosing.
  *
+ * The trigger, the search field and the grid are `surface`s, the class a skin styles.
+ *
  * @returns the picker.
  */
 export function IconPicker({ value, onChange, labels }: IconPickerProps) {
@@ -112,7 +114,7 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
         aria-controls={panelId}
         onClick={() => (open ? close() : setOpen(true))}
         onKeyDown={onKeyDown}
-        className="flex w-fit items-center gap-2 rounded-lg border border-[var(--edge)]/60 px-2.5 py-1.5 text-sm"
+        className="flex w-fit items-center gap-2 rounded-lg surface border-[var(--edge)]/60 px-2.5 py-1.5 text-sm"
       >
         {known ? (
           <DynamicIcon name={known} className="size-5" />
@@ -127,7 +129,7 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
       {open ? (
         <div
           id={panelId}
-          className="grid gap-2 rounded-lg border border-[var(--edge)] bg-[var(--surface)] p-2"
+          className="grid gap-2 rounded-lg surface border-[var(--edge)] bg-[var(--surface)] p-2"
         >
           <div className="flex items-center gap-2">
             <input
@@ -136,7 +138,7 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               onKeyDown={onKeyDown}
-              className="min-w-0 flex-1 rounded-lg border border-[var(--edge)]/60 bg-transparent px-2.5 py-1.5 text-sm"
+              className="min-w-0 flex-1 rounded-lg surface border-[var(--edge)]/60 bg-transparent px-2.5 py-1.5 text-sm"
             />
             <button
               type="button"

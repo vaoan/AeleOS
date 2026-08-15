@@ -108,7 +108,9 @@ const EMPTY_ITEM = {
  * and it rejoins the row as soon as there is room. `responsive.spec.ts` fails
  * by exactly that 150px when the row is put back on one line.
  *
- * * @returns the section card.
+ * * The card, its select and its item boxes are `surface`s — the class a skin styles, not Tailwind's `border`.
+ *
+ * @returns the section card.
  */
 export function SectionCard<T extends FieldValues>({
   control,
@@ -134,7 +136,7 @@ export function SectionCard<T extends FieldValues>({
   const type = useWatch({ control, name: `${path}.type` as Path<T> });
 
   return (
-    <div className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-3 sm:p-4">
+    <div className="grid gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-3 sm:p-4">
       {/* Wraps, and the layout select is what wraps. This row is a handle, a
           name, a menu naming eleven layouts and a bin — and a `select` is as
           wide as its longest option, which no amount of space around it
@@ -166,7 +168,7 @@ export function SectionCard<T extends FieldValues>({
             id={`${id}-name`}
             key={`name-${lang}`}
             {...register(`${path}.name_${lang}` as Path<T>)}
-            className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+            className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
           />
         </div>
 
@@ -177,7 +179,7 @@ export function SectionCard<T extends FieldValues>({
           <select
             id={`${id}-type`}
             {...register(`${path}.type` as Path<T>)}
-            className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
+            className="rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
           >
             {SECTION_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -221,7 +223,7 @@ export function SectionCard<T extends FieldValues>({
                 sort_order: fields.length + 1,
               } as FieldArray<T, ArrayPath<T>>)
             }
-            className="flex items-center gap-1.5 justify-self-start rounded-lg border border-[var(--edge)]/60 px-3 py-1.5 text-sm text-[var(--muted)]"
+            className="flex items-center gap-1.5 justify-self-start rounded-lg surface border-[var(--edge)]/60 px-3 py-1.5 text-sm text-[var(--muted)]"
           >
             <Plus className="size-4" />
             {labels.addItem}

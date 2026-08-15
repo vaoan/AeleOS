@@ -91,9 +91,9 @@ const ELEMENTS = {
   // fully transparent they were three floating logos with stray border
   // fragments between them.
   socialButtonsIconButton:
-    "h-11! border! border-[var(--edge)]! bg-[var(--bar)]! hover:bg-[var(--edge)]/20!",
+    "h-11! surface! border-[var(--edge)]! bg-[var(--bar)]! hover:bg-[var(--edge)]/20!",
   socialButtonsBlockButton:
-    "h-11! border! border-[var(--edge)]! bg-[var(--bar)]! text-[var(--ink)]! hover:bg-[var(--edge)]/20!",
+    "h-11! surface! border-[var(--edge)]! bg-[var(--bar)]! text-[var(--ink)]! hover:bg-[var(--edge)]/20!",
   socialButtonsBlockButtonText: "text-[var(--ink)]! font-medium!",
   formFieldInput:
     "h-11! min-h-11! bg-[var(--bar)]! border-[var(--edge)]! px-3!",

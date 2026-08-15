@@ -489,6 +489,16 @@ replace`, so the newest body of a function could sit in a file named after
   **Do not reintroduce an upload without reopening the budget question**, and if
   it is ever reopened, the three constraints above come back with it.
 
+**The CSS is linted too, and one of its rules is a scar.** `stylelint` runs in
+`check:tools`, mirroring the sister repos — AeleOS was the only one of the three
+without it. Beyond their config it forbids **selecting a `class` attribute**:
+the skin used to be `[class~="border"]`, reaching into Tailwind's own generated
+class, which silently beat every utility because unlayered CSS outranks anything
+in a cascade layer. `@utility surface` replaced it. Two of their rules are off
+with reasons in the config, and one of those is a finding: `--fix` used
+`property-no-vendor-prefix` to delete a `-webkit-` line and ship a Safari
+regression, three lines under a comment calling that line load-bearing.
+
 **CI gates on `main`:** four jobs are **required**, and a pull request cannot
 merge until all four report green — `conformance` (schema suite), `hub` (hub and
 `@aeleos/identity` unit tests, both at 100% coverage, plus the production build),

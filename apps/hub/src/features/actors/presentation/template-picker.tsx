@@ -82,6 +82,8 @@ export interface TemplatePickerProps {
  * time — a template is the shortest honest path from an empty editor to
  * something a stranger can read.
  *
+ * The trigger and each template's card are `surface`s, the class skins style.
+ *
  * @returns the picker.
  */
 export function TemplatePicker({
@@ -126,14 +128,14 @@ export function TemplatePicker({
           setOpen((was) => !was);
           setPending(undefined);
         }}
-        className="flex w-fit items-center gap-1.5 rounded-lg border border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+        className="flex w-fit items-center gap-1.5 rounded-lg surface border-[var(--edge)]/60 px-3 py-1.5 text-sm"
       >
         <LayoutTemplate className="size-4" />
         {labels.useTemplate}
       </button>
 
       {open ? (
-        <div className="grid gap-1 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-2">
+        <div className="grid gap-1 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-2">
           {FURSONA_TEMPLATES.map((template) => (
             <button
               key={template.id}
@@ -160,7 +162,7 @@ export function TemplatePicker({
       {pending ? (
         <div
           role="alert"
-          className="grid gap-2 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-3"
+          className="grid gap-2 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-3"
         >
           <p className="text-sm">{labels.templateConfirm}</p>
           <div className="flex gap-2">
@@ -174,7 +176,7 @@ export function TemplatePicker({
             <button
               type="button"
               onClick={() => setPending(undefined)}
-              className="rounded-lg border border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+              className="rounded-lg surface border-[var(--edge)]/60 px-3 py-1.5 text-sm"
             >
               {labels.templateConfirmNo}
             </button>

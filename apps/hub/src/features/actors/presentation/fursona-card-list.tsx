@@ -25,6 +25,8 @@ export interface FursonaCardListProps {
  * empty space. Somebody with no public fursonas has a profile about themselves,
  * not a profile with a gap in it.
  *
+ * Each card is a `surface`; that class is what a skin styles, and swapping it back for `border` would leave them wearing no skin at all.
+ *
  * @returns the list, or null.
  */
 export function FursonaCardList({
@@ -42,17 +44,17 @@ export function FursonaCardList({
           <li key={fursona.handle}>
             <Link
               href={`/${address}/${fursona.handle}`}
-              className="flex items-center gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-3"
+              className="flex items-center gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--surface)] p-3"
             >
               {fursona.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
                 <img
                   src={fursona.avatarUrl}
                   alt=""
-                  className="size-12 shrink-0 rounded-full border border-[var(--edge)] object-cover"
+                  className="size-12 shrink-0 rounded-full surface border-[var(--edge)] object-cover"
                 />
               ) : (
-                <span className="size-12 shrink-0 rounded-full border border-dashed border-[var(--edge)]" />
+                <span className="size-12 shrink-0 rounded-full surface border-dashed border-[var(--edge)]" />
               )}
               <span className="grid">
                 <span className="font-display text-sm font-bold">

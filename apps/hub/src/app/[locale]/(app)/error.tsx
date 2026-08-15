@@ -19,6 +19,8 @@ import { tid } from "@/shared/infrastructure/test-id";
  * a literal separator, because where the colon sits is a property of the
  * language. The `error-digest` test id is what the suite selects.
  *
+ * Its panel carries `surface`, the class skins style — not Tailwind's `border`, which reaches nothing.
+ *
  * @returns the failure panel.
  */
 export default function AppError({
@@ -40,7 +42,7 @@ export default function AppError({
         <button
           type="button"
           onClick={reset}
-          className="rounded-lg border border-[var(--edge)] px-4 py-2 text-sm transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+          className="rounded-lg surface border-[var(--edge)] px-4 py-2 text-sm transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
         >
           {t("retry")}
         </button>

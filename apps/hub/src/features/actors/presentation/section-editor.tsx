@@ -113,7 +113,9 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  * white in dark mode. `dropdown-legibility.test.ts` guards every select in the
  * app against going back.
  *
- * * @returns the sections editor.
+ * * Its add button and empty state are `surface`s, so an editor with no sections still shows the skin.
+ *
+ * @returns the sections editor.
  */
 export function SectionEditor<T extends FieldValues>({
   control,
@@ -223,7 +225,7 @@ export function SectionEditor<T extends FieldValues>({
               onChange={(event) =>
                 setNewType(event.target.value as SectionType)
               }
-              className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
+              className="rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-1.5 text-sm"
             >
               {SECTION_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -243,7 +245,7 @@ export function SectionEditor<T extends FieldValues>({
                 >,
               )
             }
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--edge)]/60 px-3 py-1.5 text-sm"
+            className="flex items-center gap-1.5 rounded-lg surface border-[var(--edge)]/60 px-3 py-1.5 text-sm"
           >
             <Plus className="size-4" />
             {labels.addSection}

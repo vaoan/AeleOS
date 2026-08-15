@@ -119,6 +119,8 @@ export interface FursonaRowProps {
  * are not theirs to have: nothing to pin when the row is always first, nothing
  * to reorder against, and no retiring yourself.
  *
+ * The row and its avatar frame are `surface`s — the class skins style, and the reason a row's edge changes with the theme.
+ *
  * @returns the row.
  */
 export function FursonaRow({
@@ -191,7 +193,7 @@ export function FursonaRow({
       </span>
 
       {isPerson ? null : (
-        <span className="rounded-full border border-[var(--edge)] px-2 py-0.5 text-xs text-[var(--muted)]">
+        <span className="rounded-full surface border-[var(--edge)] px-2 py-0.5 text-xs text-[var(--muted)]">
           {labels.visibility[actor.visibility]}
         </span>
       )}
@@ -215,7 +217,7 @@ export function FursonaRow({
           // runs in Spanish and may not assert on a translated label, so a test
           // id is the only way to reach this at all.
           {...tid(`view-public-${actor.handle}`)}
-          className="rounded-lg border border-[var(--edge)] px-2 py-1 text-[var(--muted)]"
+          className="rounded-lg surface border-[var(--edge)] px-2 py-1 text-[var(--muted)]"
         >
           <ExternalLink className="size-3.5" aria-hidden />
         </Link>

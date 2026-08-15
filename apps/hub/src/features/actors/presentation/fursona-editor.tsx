@@ -259,6 +259,8 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * at last; the fields are addressed by test id rather than by label because a
  * label is translated and the suite runs in Spanish.
  *
+ * Its panels and fields carry `surface`, the class a skin styles — six of them, so a theme reaches the whole editor rather than half of it.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -346,7 +348,7 @@ export function FursonaEditor({
                   maxLength={32}
                   aria-invalid={Boolean(errors.handle)}
                   aria-describedby="handle-hint"
-                  className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-2"
+                  className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-2"
                 />
                 <span id="handle-hint" className="text-xs text-[var(--muted)]">
                   {labels.handleHint}
@@ -373,7 +375,7 @@ export function FursonaEditor({
             {...register("displayName")}
             maxLength={64}
             aria-invalid={Boolean(errors.displayName)}
-            className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-2"
+            className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-2"
           />
         </div>
 
@@ -386,7 +388,7 @@ export function FursonaEditor({
             {...register("avatarUrl")}
             type="url"
             aria-invalid={Boolean(errors.avatarUrl)}
-            className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-2"
+            className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-2"
           />
         </div>
 
@@ -399,7 +401,7 @@ export function FursonaEditor({
             {...tid("editor-visibility")}
             {...register("visibility")}
             aria-invalid={Boolean(errors.visibility)}
-            className="rounded-lg border border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-2"
+            className="rounded-lg surface border-[var(--edge)]/60 bg-[var(--menu)] px-3 py-2"
           >
             {VISIBILITIES.map((value) => (
               <option key={value} value={value}>
@@ -410,7 +412,7 @@ export function FursonaEditor({
         </div>
       </div>
 
-      <div className="bar-yields sticky top-[var(--bar-top-2)] z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--edge)] bg-[var(--bar)]/95 p-3 backdrop-blur">
+      <div className="bar-yields sticky top-[var(--bar-top-2)] z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-[var(--edge)] bg-[var(--bar)]/95 p-3 backdrop-blur">
         <div className="grid gap-0.5">
           <span className="font-display text-sm font-bold">
             {labels.writingIn}
@@ -430,7 +432,7 @@ export function FursonaEditor({
         <div
           role="group"
           aria-label={labels.writingIn}
-          className="flex rounded-lg border border-[var(--edge)] p-0.5"
+          className="flex rounded-lg surface border-[var(--edge)] p-0.5"
         >
           {(
             [

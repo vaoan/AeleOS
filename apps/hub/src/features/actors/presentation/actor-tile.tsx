@@ -69,6 +69,8 @@ export interface ActorTileProps {
  * is the actor model's own name for the value — the same one `my_actors()`
  * returns and the same one the picker hands back to the calling app.
  *
+ * The tile is a `surface`, which is what makes it follow a skin's radius, edge and shadow.
+ *
  * @returns the tile.
  */
 export function ActorTile({
@@ -79,7 +81,7 @@ export function ActorTile({
   choose,
 }: ActorTileProps) {
   return (
-    <li className="flex items-center gap-4 rounded-xl border border-[var(--edge)]/40 p-4">
+    <li className="flex items-center gap-4 rounded-xl surface border-[var(--edge)]/40 p-4">
       {actor.avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

@@ -179,6 +179,8 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * paddings — column, card, item — which together came to 88px of a 360px screen
  * and were half of why the editor did not fit on a phone.
  *
+ * Every field here is a `surface`, which is why a skin's edge weight reaches the innermost box of the editor.
+ *
  * @returns the item's fields.
  */
 export function SectionItemFields<T extends FieldValues>({
@@ -211,7 +213,7 @@ export function SectionItemFields<T extends FieldValues>({
   const title = useWatch({ control, name: `${path}.title_${lang}` as Path<T> });
 
   return (
-    <div className="grid gap-2 rounded-lg border border-[var(--edge)]/40 p-2.5 sm:p-3">
+    <div className="grid gap-2 rounded-lg surface border-[var(--edge)]/40 p-2.5 sm:p-3">
       {LINKED.has(type) ? (
         <div className="grid gap-1.5">
           <label htmlFor={`${id}-link`} className="text-xs font-medium">
@@ -223,7 +225,7 @@ export function SectionItemFields<T extends FieldValues>({
             inputMode="url"
             aria-describedby={`${id}-link-hint`}
             {...register(`${path}.link_url` as Path<T>)}
-            className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+            className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
           />
           <p id={`${id}-link-hint`} className="text-xs text-[var(--muted)]">
             {labels.linkUrlHint}
@@ -248,10 +250,10 @@ export function SectionItemFields<T extends FieldValues>({
             <img
               src={String(imageUrl)}
               alt={String(title ?? "")}
-              className="size-16 shrink-0 rounded-lg border border-[var(--edge)]/60 object-cover"
+              className="size-16 shrink-0 rounded-lg surface border-[var(--edge)]/60 object-cover"
             />
           ) : (
-            <span className="flex size-16 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--edge)]/60 text-[0.625rem] text-[var(--muted)]">
+            <span className="flex size-16 shrink-0 flex-col items-center justify-center gap-1 rounded-lg surface border-dashed border-[var(--edge)]/60 text-[0.625rem] text-[var(--muted)]">
               <ImageOff className="size-4" />
               {labels.imageMissing}
             </span>
@@ -267,7 +269,7 @@ export function SectionItemFields<T extends FieldValues>({
               value={String(imageUrl ?? "")}
               onChange={(event) => image.field.onChange(event.target.value)}
               aria-describedby={`${id}-image-hint`}
-              className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+              className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
             />
             <p id={`${id}-image-hint`} className="text-xs text-[var(--muted)]">
               {labels.imageUrlHint}
@@ -288,7 +290,7 @@ export function SectionItemFields<T extends FieldValues>({
           key={`title-${lang}`}
           {...tid("item-title")}
           {...register(`${path}.title_${lang}` as Path<T>)}
-          className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+          className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
         />
       </div>
 
@@ -308,7 +310,7 @@ export function SectionItemFields<T extends FieldValues>({
           placeholder={labels.itemDescriptionHint}
           {...tid("item-description")}
           {...register(`${path}.description_${lang}` as Path<T>)}
-          className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
+          className="rounded-lg surface border-[var(--edge)]/60 bg-transparent px-3 py-1.5 text-sm"
         />
       </div>
 

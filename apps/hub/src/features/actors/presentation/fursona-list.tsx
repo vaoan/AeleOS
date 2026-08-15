@@ -91,6 +91,8 @@ function inArrangedOrder(
  *
  * It passes `address` down untouched — see the row for what it does with it.
  *
+ * Its empty state is a `surface`, so the page looks skinned even with nothing on it.
+ *
  * @returns the list.
  */
 export function FursonaList({ initial, labels, address }: FursonaListProps) {
@@ -150,7 +152,7 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
             <ul
               ref={dropProvided.innerRef}
               {...dropProvided.droppableProps}
-              className="overflow-hidden rounded-xl border border-[var(--edge)] bg-[var(--surface)]"
+              className="overflow-hidden rounded-xl surface border-[var(--edge)] bg-[var(--surface)]"
             >
               {person ? (
                 <FursonaRow

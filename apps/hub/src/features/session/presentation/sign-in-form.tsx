@@ -52,6 +52,8 @@ export interface SignInFormProps {
  * hand-off as a success and leave somebody staring at an unchanged page, so the
  * returned error is checked as well as the thrown one.
  *
+ * Its card is a `surface`, so sign-in is drawn by the same rules as the rest of the app.
+ *
  * @returns the provider buttons.
  */
 export function SignInForm({
@@ -104,7 +106,7 @@ export function SignInForm({
             disabled={busy}
             onClick={() => void start(provider)}
             {...tid(`sign-in-${provider.id}`)}
-            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-[var(--edge)] bg-[var(--bar)] font-medium transition-colors hover:bg-[var(--edge)]/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg surface border-[var(--edge)] bg-[var(--bar)] font-medium transition-colors hover:bg-[var(--edge)]/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-60"
           >
             <Mark />
             <span>{labels[provider.id]}</span>

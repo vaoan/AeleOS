@@ -28,6 +28,8 @@ export interface SignOutControlProps {
  * explicit destination Clerk decides where to land, which has already put this
  * app on a Clerk-branded address once — see the proxy's `unauthenticatedUrl`.
  *
+ * The button is a `surface`, the class a skin styles.
+ *
  * @returns the sign-out button.
  */
 export function SignOutControl({ label, redirectUrl }: SignOutControlProps) {
@@ -37,7 +39,7 @@ export function SignOutControl({ label, redirectUrl }: SignOutControlProps) {
       type="button"
       onClick={() => void signOut({ redirectUrl })}
       {...tid("sign-out")}
-      className="rounded-lg border border-[var(--edge)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+      className="rounded-lg surface border-[var(--edge)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--edge)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
     >
       {label}
     </button>
