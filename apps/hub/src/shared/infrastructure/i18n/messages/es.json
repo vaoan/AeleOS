@@ -49,7 +49,7 @@
       "handleHint": "Letras, números, guion y guion bajo. Así se identifica a la fursona.",
       "displayName": "Nombre para mostrar",
       "avatarUrl": "URL del avatar",
-      "visibilityLabel": "Quién puede encontrar esta fursona",
+      "visibilityLabel": "Quién puede encontrar esta página",
       "errors": {
         "handle": "Usa entre 1 y 32 letras, números, guiones o guiones bajos.",
         "handleTaken": "Ya tienes una fursona con ese identificador.",

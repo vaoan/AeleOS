@@ -49,7 +49,7 @@
       "handleHint": "Letters, digits, dash and underscore. This is how the fursona is addressed.",
       "displayName": "Display name",
       "avatarUrl": "Avatar URL",
-      "visibilityLabel": "Who can find this fursona",
+      "visibilityLabel": "Who can find this page",
       "errors": {
         "handle": "Use 1–32 letters, digits, dashes or underscores.",
         "handleTaken": "You already have a fursona with that handle.",

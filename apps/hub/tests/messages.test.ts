@@ -87,6 +87,30 @@ describe("message catalogues", () => {
   // - `fursonas.types.video` is the same word in both languages. Every other
   //   layout name beside it is translated, which is the evidence that this one
   //   was considered rather than skipped.
+  // **The person's editor renders these strings too, and a person is not a
+  // fursona.** One component serves both — that is deliberate, because a
+  // person's public page is a page like any other and a second implementation
+  // of one screen would drift — so every string it shows in BOTH modes has to
+  // be true of both. "Who can find this fursona" sat over the visibility
+  // control on somebody's own profile, naming a thing that was not there.
+  //
+  // The handle strings are deliberately absent from this list: that field is
+  // not rendered for a person at all, so it is free to say fursona.
+  it.each(["en", "es"] as const)(
+    "%s never calls a person's own page a fursona",
+    (locale) => {
+      const form = (locale === "en" ? en : es).fursonas.form as Record<
+        string,
+        unknown
+      >;
+      const shared = ["displayName", "avatarUrl", "visibilityLabel"];
+      const named = shared.filter((key) =>
+        /fursona/i.test(String(form[key] ?? "")),
+      );
+      expect(named).toEqual([]);
+    },
+  );
+
   it("have no Spanish values left identical to the English", () => {
     const allowed = [
       "fursonas.templates.fursuit.name",
