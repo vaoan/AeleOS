@@ -6,6 +6,18 @@ import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   aurora,
   blobs,
+  bokeh,
+  bounced,
+  glyphAt,
+  mystify,
+  rainColumns,
+  wanderers,
+  warpStars,
+  confetti,
+  honeycomb,
+  orbits,
+  ribbons,
+  skyline,
   bubbles,
   constellation,
   nodeAt,
@@ -560,6 +572,495 @@ function drawBlobs(
   }
 }
 
+/** How many points go round in an orbit field. */
+const ORBIT_COUNT = 26;
+
+/**
+ * Draws points orbiting a common centre, each dragging a trail.
+ *
+ * The trail is an arc drawn behind the point rather than a record of where it
+ * has been: every renderer here is a pure function of seed and time, which is
+ * what lets a page be themed, resized or re-read without the animation
+ * carrying state from before.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawOrbits(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const smaller = Math.min(width, height);
+  const cx = width / 2;
+  const cy = height / 2;
+  ctx.lineCap = "round";
+  for (const orbiter of orbits(ORBIT_COUNT, FIELD_SEED)) {
+    const angle = orbiter.phase + seconds * orbiter.speed * TWO_PI;
+    const radius = orbiter.radius * smaller;
+    const [r, g, b] = tints[orbiter.tint] ?? tints[0]!;
+    ctx.strokeStyle = `rgb(${r} ${g} ${b} / 0.4)`;
+    ctx.lineWidth = Math.max(1, dpr * 1.6);
+    ctx.beginPath();
+    // Drawn against the direction of travel, so the trail follows rather than
+    // leads — which is the difference between a comet and an arrow.
+    ctx.arc(
+      cx,
+      cy,
+      radius,
+      angle - Math.sign(orbiter.speed) * orbiter.trail,
+      angle,
+      orbiter.speed < 0,
+    );
+    ctx.stroke();
+    ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.9)`;
+    ctx.beginPath();
+    ctx.arc(
+      cx + Math.cos(angle) * radius,
+      cy + Math.sin(angle) * radius,
+      dpr * 1.8,
+      0,
+      TWO_PI,
+    );
+    ctx.fill();
+  }
+}
+
+/** How many cells across a honeycomb runs. */
+const HEX_COLUMNS = 16;
+
+/** How many rows it runs down. */
+const HEX_ROWS = 14;
+
+/**
+ * Draws a breathing honeycomb.
+ *
+ * The cells are stroked rather than filled: a filled honeycomb is a wall, and
+ * a wall behind text is a page nobody can read.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawHexagons(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const radius = width / HEX_COLUMNS / 1.8;
+  const [lr, lg, lb] = tints[0]!;
+  const [gr, gg, gb] = tints[1] ?? tints[0]!;
+  ctx.lineWidth = Math.max(1, dpr * 0.7);
+  for (const cell of honeycomb(HEX_COLUMNS, HEX_ROWS, FIELD_SEED)) {
+    const breath =
+      (Math.sin(cell.phase + seconds * cell.speed * TWO_PI) + 1) / 2;
+    const x = cell.x * width;
+    const y = cell.y * height;
+    ctx.beginPath();
+    for (let corner = 0; corner < 6; corner += 1) {
+      // Flat-topped, which is what makes the half-column offset tessellate.
+      const angle = (corner / 6) * TWO_PI + Math.PI / 6;
+      const px = x + Math.cos(angle) * radius;
+      const py = y + Math.sin(angle) * radius;
+      if (corner === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = `rgb(${lr} ${lg} ${lb} / ${0.08 + breath * 0.22})`;
+    ctx.stroke();
+    if (breath > 0.85) {
+      ctx.fillStyle = `rgb(${gr} ${gg} ${gb} / ${(breath - 0.85) * 0.8})`;
+      ctx.fill();
+    }
+  }
+}
+
+/** How many ribbons cross the viewport. */
+const RIBBON_COUNT = 3;
+
+/** How many points each ribbon's edges are drawn from. */
+const RIBBON_STEPS = 40;
+
+/**
+ * Draws long bands of light crossing the viewport.
+ *
+ * A band between two offset curves rather than a thick stroke, so its width
+ * varies along its length — the difference between a ribbon and a wire.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawRibbons(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  for (const ribbon of ribbons(RIBBON_COUNT, FIELD_SEED)) {
+    const [r, g, b] = tints[ribbon.tint] ?? tints[0]!;
+    ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.28)`;
+    ctx.beginPath();
+    for (let i = 0; i <= RIBBON_STEPS; i += 1) {
+      const t = i / RIBBON_STEPS;
+      const wave =
+        Math.sin((t * ribbon.bends + seconds * ribbon.speed) * TWO_PI) *
+        ribbon.swing;
+      const y = (ribbon.level + wave) * height;
+      if (i === 0) ctx.moveTo(t * width, y);
+      else ctx.lineTo(t * width, y);
+    }
+    for (let i = RIBBON_STEPS; i >= 0; i -= 1) {
+      const t = i / RIBBON_STEPS;
+      const wave =
+        Math.sin((t * ribbon.bends + seconds * ribbon.speed) * TWO_PI) *
+        ribbon.swing;
+      // The far edge is phase-shifted, so the band pinches and swells instead
+      // of running at one width.
+      const swell =
+        ribbon.thickness *
+        (0.4 + 0.6 * Math.abs(Math.cos(t * ribbon.bends * TWO_PI)));
+      ctx.lineTo(t * width, (ribbon.level + wave + swell) * height);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/** How many pieces of confetti fall at once. */
+const CONFETTO_COUNT = 90;
+
+/**
+ * Draws falling, tumbling confetti.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawConfetti(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const smaller = Math.min(width, height);
+  for (const piece of confetti(CONFETTO_COUNT, FIELD_SEED)) {
+    const fallen = (piece.offset + seconds * piece.speed) % 1;
+    const [r, g, b] = tints[piece.tint] ?? tints[0]!;
+    const size = piece.size * smaller;
+    // The tumble, as a width that narrows to nothing and opens again. A piece
+    // edge-on vanishes for an instant, which is what round particles cannot do.
+    const face = Math.cos(
+      seconds * piece.spin * TWO_PI + piece.offset * TWO_PI,
+    );
+    ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.75)`;
+    ctx.fillRect(
+      (piece.x + Math.sin(fallen * TWO_PI) * piece.drift) * width,
+      fallen * height,
+      size * Math.abs(face),
+      size * 1.6,
+    );
+  }
+}
+
+/** How many layers a skyline has. */
+const SKYLINE_LAYERS = 3;
+
+/**
+ * Draws a skyline scrolling past, far layers slower.
+ *
+ * Each layer is drawn twice side by side and scrolled within one layer-width,
+ * which is what lets it repeat for ever without a seam.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawSkyline(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  for (const layer of skyline(SKYLINE_LAYERS, FIELD_SEED)) {
+    const [r, g, b] = tints[layer.tint] ?? tints[0]!;
+    ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.3)`;
+    const shift = ((seconds * layer.speed) % 1) * width;
+    for (const repeat of [0, 1]) {
+      for (const building of layer.buildings) {
+        ctx.fillRect(
+          building.at * width - shift + repeat * width,
+          height - building.height * height,
+          building.width * width + 1,
+          building.height * height,
+        );
+      }
+    }
+  }
+}
+
+/** How many out-of-focus spots drift about. */
+const SPOT_COUNT = 34;
+
+/**
+ * Draws out-of-focus spots of light.
+ *
+ * Each is a soft-edged disc rather than a hard one: a lens renders an
+ * out-of-focus point as a bright circle with a fading rim, and a flat disc
+ * reads as a sticker.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawBokeh(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const smaller = Math.min(width, height);
+  for (const spot of bokeh(SPOT_COUNT, FIELD_SEED)) {
+    const angle = spot.phase + seconds * spot.speed * TWO_PI;
+    const x = (spot.x + Math.cos(angle) * spot.drift) * width;
+    const y = (spot.y + Math.sin(angle) * spot.drift) * height;
+    const radius = spot.radius * smaller;
+    const [r, g, b] = tints[spot.tint] ?? tints[0]!;
+    const glow = ctx.createRadialGradient(x, y, radius * 0.2, x, y, radius);
+    glow.addColorStop(0, `rgb(${r} ${g} ${b} / ${spot.glow})`);
+    glow.addColorStop(0.75, `rgb(${r} ${g} ${b} / ${spot.glow * 0.7})`);
+    glow.addColorStop(1, `rgb(${r} ${g} ${b} / 0)`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+}
+
+/** How many polygons mystify draws. */
+const MYSTIFY_COUNT = 2;
+
+/** How many corners each has. */
+const MYSTIFY_CORNERS = 4;
+
+/**
+ * Draws bouncing polygons trailing echoes of themselves.
+ *
+ * **The echoes are the same polygon at earlier times, not a history.** The
+ * original kept past shapes in memory; `bounced` makes any past moment as cheap
+ * to compute as the present one, so this needs none — which is what keeps every
+ * renderer here a pure function of seed and time.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawMystify(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  ctx.lineWidth = Math.max(1, dpr);
+  for (const shape of mystify(MYSTIFY_COUNT, MYSTIFY_CORNERS, FIELD_SEED)) {
+    const [r, g, b] = tints[shape.tint] ?? tints[0]!;
+    for (let echo = shape.echoes; echo >= 0; echo -= 1) {
+      const when = seconds - echo * shape.spacing;
+      ctx.strokeStyle = `rgb(${r} ${g} ${b} / ${0.5 * (1 - echo / (shape.echoes + 1))})`;
+      ctx.beginPath();
+      shape.corners.forEach((corner, i) => {
+        const x = bounced(corner.startX + when * corner.speedX) * width;
+        const y = bounced(corner.startY + when * corner.speedY) * height;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+}
+
+/** How many rectangles bounce about. */
+const WANDERER_COUNT = 3;
+
+/**
+ * Draws rectangles bouncing off the edges.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawBounce(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  wanderers(WANDERER_COUNT, FIELD_SEED).forEach((box, i) => {
+    // Bounced within the room the box leaves, so it meets the edge rather than
+    // half-leaving it — the corner is the whole point of watching.
+    const x = bounced(box.startX + seconds * box.speedX) * (1 - box.width);
+    const y = bounced(box.startY + seconds * box.speedY) * (1 - box.height);
+    const [r, g, b] = tints[i % 3] ?? tints[0]!;
+    ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.5)`;
+    ctx.fillRect(x * width, y * height, box.width * width, box.height * height);
+  });
+}
+
+/** How many columns of glyphs fall. */
+const RAIN_COLUMNS = 46;
+
+/** The glyphs the rain is made of. */
+const RAIN_ALPHABET = "01アイウエオカキクケコサシスセソタチツテト";
+
+/** How many times a second a glyph may change. */
+const RAIN_STEPS_PER_SECOND = 8;
+
+/**
+ * Draws columns of glyphs falling down the viewport.
+ *
+ * The head of each column is the brightest and the tail fades, which is what
+ * makes it fall rather than simply exist. Glyphs are chosen by a hash of the
+ * column, the row and the clock step: `Math.random()` here would reroll every
+ * glyph on every frame, which is noise rather than rain.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawRain(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const size = Math.max(10, (width / RAIN_COLUMNS) * 0.9);
+  ctx.font = `${size}px ui-monospace, monospace`;
+  ctx.textBaseline = "top";
+  const rows = Math.ceil(height / size);
+  const step = Math.floor(seconds * RAIN_STEPS_PER_SECOND);
+  const [tr, tg, tb] = tints[0]!;
+  const [hr, hg, hb] = tints[1] ?? tints[0]!;
+  for (const column of rainColumns(RAIN_COLUMNS, FIELD_SEED)) {
+    const head = Math.floor(
+      ((column.offset + seconds * column.speed) % 1) * (rows + column.length),
+    );
+    for (let back = 0; back < column.length; back += 1) {
+      const row = head - back;
+      if (row < 0 || row > rows) continue;
+      const glyph =
+        RAIN_ALPHABET[glyphAt(column.seed, row, step, RAIN_ALPHABET.length)]!;
+      const fade = 1 - back / column.length;
+      ctx.fillStyle =
+        back === 0
+          ? `rgb(${hr} ${hg} ${hb} / 0.95)`
+          : `rgb(${tr} ${tg} ${tb} / ${fade * 0.5})`;
+      ctx.fillText(glyph, column.x * width - size / 2, row * size);
+    }
+  }
+  // Left as it was found: the font is set on a context every other renderer
+  // uses for shapes, and `dpr` is only here to keep the glyphs crisp.
+  ctx.font = `${Math.max(10, dpr * 10)}px ui-monospace, monospace`;
+}
+
+/** How many stars fly outward. */
+const WARP_COUNT = 220;
+
+/**
+ * Draws stars flying outward from the centre.
+ *
+ * Distance grows by a square law: a star near the centre is far away and barely
+ * moves, one at the edge is passing the viewer. Even spacing gives a flat disc
+ * of dots sliding outward, which is what the effect is not.
+ *
+ * @param ctx - the drawing context.
+ * @param width - bitmap width.
+ * @param height - bitmap height.
+ * @param dpr - device pixel ratio.
+ * @param tints - one colour per slot.
+ * @param seconds - seconds since the animation started.
+ * @returns nothing.
+ */
+function drawWarp(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  dpr: number,
+  tints: [number, number, number][],
+  seconds: number,
+): void {
+  const cx = width / 2;
+  const cy = height / 2;
+  const reach = Math.hypot(cx, cy);
+  ctx.lineCap = "round";
+  for (const star of warpStars(WARP_COUNT, FIELD_SEED)) {
+    const t = (star.offset + seconds * star.speed) % 1;
+    const far = t * t * reach;
+    // The streak is the distance travelled since a moment ago, so a star near
+    // the viewer draws a long line and a distant one draws a point.
+    const near = Math.max(0, t - 0.06);
+    const from = near * near * reach;
+    const [r, g, b] = tints[t > 0.6 ? 1 : 0] ?? tints[0]!;
+    ctx.strokeStyle = `rgb(${r} ${g} ${b} / ${Math.min(1, t * 1.6)})`;
+    ctx.lineWidth = Math.max(1, dpr * (0.4 + t * 1.6));
+    ctx.beginPath();
+    ctx.moveTo(
+      cx + Math.cos(star.angle) * from,
+      cy + Math.sin(star.angle) * from,
+    );
+    ctx.lineTo(
+      cx + Math.cos(star.angle) * far,
+      cy + Math.sin(star.angle) * far,
+    );
+    ctx.stroke();
+  }
+}
+
 /**
  * Draws an aurora.
  *
@@ -702,6 +1203,18 @@ function readRgb(
  * 3. The blend mode inverts with the theme — `screen` in dark because dust
  *    emits light, `multiply` in light because it absorbs it. Same texture,
  *    opposite physics.
+ *
+ * **The four retro savers are built from `bounced`**, which folds a sawtooth
+ * back on itself instead of wrapping it. A modulo teleports a thing from one
+ * edge to the other; a reflection is a bounce. That is why none of them
+ * remembers a velocity, and why mystify can draw its echoes as the same polygon
+ * at earlier TIMES rather than as a history it keeps.
+ *
+ * **Every renderer is a pure function of seed and time.** Nothing carries
+ * state between frames, which is what lets a page be themed, resized or
+ * re-read without the animation jumping — and it is why anything needing a
+ * simulation (flocking, a particle swarm following a flow field) is not here.
+ * A trail is drawn as an arc rather than accumulated.
  *
  * **The renderers are a record keyed by name.** A canvas added to `CANVASES`
  * without an entry there falls through to the nebula silently, which is the
@@ -881,6 +1394,16 @@ export function NebulaCanvas() {
           snow: () => drawSnow(ctx, width, height, tints, seconds),
           grid: () => drawGrid(ctx, width, height, dpr, tints, seconds),
           blobs: () => drawBlobs(ctx, width, height, tints, seconds),
+          orbits: () => drawOrbits(ctx, width, height, dpr, tints, seconds),
+          hexagons: () => drawHexagons(ctx, width, height, dpr, tints, seconds),
+          ribbons: () => drawRibbons(ctx, width, height, tints, seconds),
+          confetti: () => drawConfetti(ctx, width, height, tints, seconds),
+          skyline: () => drawSkyline(ctx, width, height, tints, seconds),
+          bokeh: () => drawBokeh(ctx, width, height, tints, seconds),
+          mystify: () => drawMystify(ctx, width, height, dpr, tints, seconds),
+          bounce: () => drawBounce(ctx, width, height, tints, seconds),
+          rain: () => drawRain(ctx, width, height, dpr, tints, seconds),
+          warp: () => drawWarp(ctx, width, height, dpr, tints, seconds),
         };
         const drawChosen = Object.hasOwn(draws, chosen)
           ? draws[chosen]

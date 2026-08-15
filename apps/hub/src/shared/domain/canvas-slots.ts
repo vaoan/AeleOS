@@ -20,6 +20,16 @@
  *  * `snow` — two tints, near and far.
  *  * `grid` — the lines, and the glow along the horizon.
  *  * `blobs` — three glows bleeding into each other.
+ *  * `orbits` — three rings, each dragging a trail.
+ *  * `hexagons` — the cell outlines, and the glow of one that has opened.
+ *  * `ribbons` — three bands of light.
+ *  * `confetti` — four colours of paper.
+ *  * `skyline` — three layers of buildings, far to near.
+ *  * `bokeh` — three tints of out-of-focus light.
+ *  * `mystify` — three polygons, each with its own tint.
+ *  * `bounce` — three rectangles.
+ *  * `rain` — the trailing glyphs, and the bright head of each column.
+ *  * `warp` — distant stars, and the ones passing the viewer.
  *  * `none` — nothing to colour.
  *
  * Adding a canvas means adding its count here, and the editor follows without
@@ -41,6 +51,26 @@ export const CANVAS_SLOTS = {
   grid: 2,
   /** Three large glows bleeding into each other. */
   blobs: 3,
+  /** Three rings of orbiters, each dragging a trail. */
+  orbits: 3,
+  /** The cell outlines, and the glow of one that has opened. */
+  hexagons: 2,
+  /** Three bands of light. */
+  ribbons: 3,
+  /** Four colours of paper. */
+  confetti: 4,
+  /** Three layers of buildings, far to near. */
+  skyline: 3,
+  /** Three tints of out-of-focus light. */
+  bokeh: 3,
+  /** Three polygons, each with its own tint. */
+  mystify: 3,
+  /** Three rectangles. */
+  bounce: 3,
+  /** The trailing glyphs, and the bright head of each column. */
+  rain: 2,
+  /** Distant stars, and the ones passing the viewer. */
+  warp: 2,
   none: 0,
 } as const;
 

@@ -158,6 +158,16 @@
       "snow": "Snow",
       "grid": "Horizon grid",
       "blobs": "Drifting glows",
+      "orbits": "Orbits",
+      "hexagons": "Honeycomb",
+      "ribbons": "Ribbons",
+      "confetti": "Confetti",
+      "skyline": "Skyline",
+      "bokeh": "Bokeh",
+      "mystify": "Mystify",
+      "bounce": "Bouncing boxes",
+      "rain": "Glyph rain",
+      "warp": "Warp speed",
       "none": "None"
     },
     "skins": {

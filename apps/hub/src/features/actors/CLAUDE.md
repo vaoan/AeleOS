@@ -591,7 +591,16 @@ put back and a theme to leave.
 
 `CANVASES` holds **exactly the canvases that exist** — today the nebula, a
 starfield, an aurora, a constellation, waves, bubbles, snow, a horizon grid,
-drifting glows, and stillness. As with the skins, what earns a place is a
+drifting glows, orbits, a honeycomb, ribbons, confetti, a skyline, bokeh, and
+four retro screen savers — mystify, bouncing boxes, glyph rain and warp speed —
+and stillness.
+
+**`bounced` is what every screen saver is built from**, and it is the one idea
+worth keeping. A modulo WRAPS: the thing leaves one edge and reappears at the
+other, which is a teleport. Folding the sawtooth back on itself is a reflection,
+and a reflection is a bounce. It is also why none of them remembers a velocity —
+and why mystify can draw its echoes as the same polygon at earlier TIMES rather
+than as a history it keeps. As with the skins, what earns a place is a
 MECHANISM rather than another arrangement of dots: points joined by fading
 lines, filled bands stacked back to front, rings climbing and wrapping, a
 perspective grid scrolled by the fractional part of time, and a few large

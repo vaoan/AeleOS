@@ -508,3 +508,471 @@ export function blobs(count: number, seed: number): Blob[] {
     tint: i % 3,
   }));
 }
+
+/** One point on an orbit. */
+export interface Orbiter {
+  /** How far from the centre, as a fraction of the viewport's smaller side. */
+  radius: number;
+  /** How fast it goes round, in turns per second. */
+  speed: number;
+  /** Where it starts, in radians. */
+  phase: number;
+  /** How long a trail it drags, in radians. */
+  trail: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Points going round a common centre, each dragging a trail.
+ *
+ * **The trail is an arc behind the point, not a record of where it has been.**
+ * A real trail needs the canvas not to be cleared, and every renderer here is a
+ * pure function of seed and time — which is what lets a page be themed, resized
+ * or re-read without the animation carrying state from before. An arc of the
+ * same length is indistinguishable and costs nothing to reproduce.
+ *
+ * @param count - how many points.
+ * @param seed - the seed to vary them from.
+ * @returns the points.
+ */
+export function orbits(count: number, seed: number): Orbiter[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    radius: 0.08 + random() * 0.42,
+    // Signed, so the rings do not all turn the same way — a field turning as
+    // one reads as a single rotating object rather than as orbits.
+    speed: (0.02 + random() * 0.06) * (random() < 0.5 ? -1 : 1),
+    phase: random() * TAU,
+    trail: 0.2 + random() * 0.9,
+    tint: i % 3,
+  }));
+}
+
+/** One cell of a honeycomb. */
+export interface Cell {
+  /** Its centre, 0..1 across the viewport. */
+  x: number;
+  /** Its centre, 0..1 down the viewport. */
+  y: number;
+  /** How fast it breathes, in turns per second. */
+  speed: number;
+  /** Where in that breath it starts, in radians. */
+  phase: number;
+}
+
+/**
+ * A honeycomb, laid out on a real hexagonal lattice.
+ *
+ * Odd rows are offset by half a column and the rows are spaced by three
+ * quarters of a cell's height — that ratio is what makes hexagons tessellate.
+ * Spacing them like a square grid leaves gaps that read as a mistake.
+ *
+ * @param columns - how many cells across.
+ * @param rows - how many cells down.
+ * @param seed - the seed to vary their breathing from.
+ * @returns the cells.
+ */
+export function honeycomb(columns: number, rows: number, seed: number): Cell[] {
+  const random = seeded(seed);
+  const cells: Cell[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      cells.push({
+        x: (column + (row % 2 === 0 ? 0 : 0.5)) / columns,
+        y: (row * 0.75) / rows,
+        speed: 0.08 + random() * 0.25,
+        phase: random() * TAU,
+      });
+    }
+  }
+  return cells;
+}
+
+/** One ribbon of light. */
+export interface Ribbon {
+  /** Where it crosses the viewport, 0..1 down. */
+  level: number;
+  /** How far it swings from that line, as a fraction of the viewport. */
+  swing: number;
+  /** How thick it is, as a fraction of the viewport. */
+  thickness: number;
+  /** How many bends fit across the viewport. */
+  bends: number;
+  /** How fast it travels, in viewports per second. */
+  speed: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Long bands of light crossing the viewport.
+ *
+ * A ribbon is drawn as a band between two offset sine curves rather than as a
+ * thick stroke, so its width can vary along its length — which is the
+ * difference between a ribbon and a wire.
+ *
+ * @param count - how many ribbons.
+ * @param seed - the seed to vary them from.
+ * @returns the ribbons.
+ */
+export function ribbons(count: number, seed: number): Ribbon[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    level: (i + 0.5) / count + (random() - 0.5) * 0.12,
+    swing: 0.05 + random() * 0.12,
+    thickness: 0.02 + random() * 0.05,
+    bends: 0.8 + random() * 1.4,
+    speed: 0.03 + random() * 0.06,
+    tint: i % 3,
+  }));
+}
+
+/** One piece of falling confetti. */
+export interface Confetto {
+  /** Where it falls, 0..1 across the viewport. */
+  x: number;
+  /** Its size, as a fraction of the viewport's smaller side. */
+  size: number;
+  /** How fast it falls, in viewports per second. */
+  speed: number;
+  /** How fast it tumbles, in turns per second. */
+  spin: number;
+  /** How far it drifts sideways, as a fraction of the viewport. */
+  drift: number;
+  /** Where in its fall it starts, 0..1. */
+  offset: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Confetti, falling and tumbling.
+ *
+ * The tumble is what separates this from snow: a rectangle spun about its
+ * centre presents a changing width, so a piece appears to flip edge-on and
+ * vanish for an instant. Round particles cannot do that at any size.
+ *
+ * @param count - how many pieces.
+ * @param seed - the seed to place them from.
+ * @returns the pieces.
+ */
+export function confetti(count: number, seed: number): Confetto[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: random(),
+    size: 0.004 + random() * 0.008,
+    speed: 0.05 + random() * 0.12,
+    spin: 0.2 + random() * 0.8,
+    drift: 0.01 + random() * 0.04,
+    offset: random(),
+    tint: i % 4,
+  }));
+}
+
+/** One building in a skyline. */
+export interface Building {
+  /** Where its left edge sits, in layer-widths from the start. */
+  at: number;
+  /** How wide it is, in layer-widths. */
+  width: number;
+  /** How tall it is, as a fraction of the viewport. */
+  height: number;
+}
+
+/** One layer of a skyline, nearer or further. */
+export interface Skyline {
+  /** The buildings, left to right. */
+  buildings: Building[];
+  /** How fast the layer scrolls, in viewports per second. */
+  speed: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Layers of buildings, nearer ones taller and faster.
+ *
+ * **Each layer's buildings tile exactly one layer-width**, so the renderer can
+ * draw it twice side by side and scroll for ever without a seam. Generating a
+ * screen's worth and wrapping the position instead leaves a visible cut every
+ * time it repeats.
+ *
+ * @param layers - how many layers, far to near.
+ * @param seed - the seed to build them from.
+ * @returns the layers, far to near.
+ */
+export function skyline(layers: number, seed: number): Skyline[] {
+  const random = seeded(seed);
+  return Array.from({ length: layers }, (_, i) => {
+    const near = i / Math.max(1, layers - 1);
+    const buildings: Building[] = [];
+    let at = 0;
+    while (at < 1) {
+      const width = 0.03 + random() * 0.06;
+      buildings.push({
+        at,
+        width,
+        height: 0.08 + near * 0.22 + random() * (0.06 + near * 0.12),
+      });
+      at += width;
+    }
+    return { buildings, speed: 0.004 + near * 0.02, tint: i % 3 };
+  });
+}
+
+/** One out-of-focus spot of light. */
+export interface Spot {
+  /** Where it sits, 0..1 across the viewport. */
+  x: number;
+  /** Where it sits, 0..1 down the viewport. */
+  y: number;
+  /** Its radius, as a fraction of the viewport's smaller side. */
+  radius: number;
+  /** How far it wanders, as a fraction of the viewport. */
+  drift: number;
+  /** How fast it wanders, in turns per second. */
+  speed: number;
+  /** Where in that wander it starts, in radians. */
+  phase: number;
+  /** How bright it is, 0..1. */
+  glow: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Out-of-focus spots of light, drifting.
+ *
+ * **Size and brightness move together**, because that is what being out of
+ * focus does: a nearer light spreads over more of the lens and is dimmer for
+ * it. Rolling them apart gives small bright discs beside large dull ones, which
+ * reads as flat circles rather than as depth of field.
+ *
+ * @param count - how many spots.
+ * @param seed - the seed to place them from.
+ * @returns the spots.
+ */
+export function bokeh(count: number, seed: number): Spot[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => {
+    const near = random();
+    return {
+      x: random(),
+      y: random(),
+      radius: 0.02 + near * 0.1,
+      drift: 0.01 + random() * 0.04,
+      speed: 0.01 + random() * 0.04,
+      phase: random() * TAU,
+      glow: 0.35 - near * 0.22,
+      tint: i % 3,
+    };
+  });
+}
+
+/**
+ * A value that bounces between 0 and 1 instead of wrapping.
+ *
+ * **The whole of a screensaver's motion is this function.** A modulo wraps —
+ * the thing leaves one edge and reappears at the other, which is a teleport.
+ * Folding the sawtooth back on itself is a reflection, and a reflection is a
+ * bounce. Every retro saver here is built from it, which is also why none of
+ * them needs to remember a velocity.
+ *
+ * @param value - how far along, unbounded.
+ * @returns the folded position, 0..1.
+ */
+export function bounced(value: number): number {
+  const wrapped = ((value % 2) + 2) % 2;
+  return wrapped > 1 ? 2 - wrapped : wrapped;
+}
+
+/** One corner of a bouncing polygon. */
+export interface Corner {
+  /** How fast it crosses, in viewports per second. */
+  speedX: number;
+  /** How fast it descends, in viewports per second. */
+  speedY: number;
+  /** Where it starts across. */
+  startX: number;
+  /** Where it starts down. */
+  startY: number;
+}
+
+/** A polygon whose corners bounce independently, with echoes behind it. */
+export interface Mystified {
+  /** Its corners. */
+  corners: Corner[];
+  /** How many echoes trail it. */
+  echoes: number;
+  /** How far apart the echoes are, in seconds. */
+  spacing: number;
+  /** Which colour slot it takes. */
+  tint: number;
+}
+
+/**
+ * Polygons whose corners bounce around the viewport, trailing echoes.
+ *
+ * **Mystify, and the echoes are the whole point.** The original kept a history
+ * of past shapes; this draws the same polygon at earlier TIMES instead, which
+ * looks identical and needs no memory — `bounced` makes any past moment as
+ * cheap to compute as the present one.
+ *
+ * @param count - how many polygons.
+ * @param corners - how many corners each has.
+ * @param seed - the seed to vary them from.
+ * @returns the polygons.
+ */
+export function mystify(
+  count: number,
+  corners: number,
+  seed: number,
+): Mystified[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    corners: Array.from({ length: corners }, () => ({
+      // Never zero, or a corner sits still and the polygon collapses to a
+      // shape with a pinned vertex, which reads as broken rather than as calm.
+      speedX: 0.03 + random() * 0.09,
+      speedY: 0.03 + random() * 0.09,
+      startX: random(),
+      startY: random(),
+    })),
+    echoes: 5 + Math.floor(random() * 4),
+    spacing: 0.35 + random() * 0.3,
+    tint: i % 3,
+  }));
+}
+
+/** A rectangle bouncing around the viewport. */
+export interface Wanderer {
+  /** Its width, as a fraction of the viewport. */
+  width: number;
+  /** Its height, as a fraction of the viewport. */
+  height: number;
+  /** How fast it crosses, in viewports per second. */
+  speedX: number;
+  /** How fast it descends, in viewports per second. */
+  speedY: number;
+  /** Where it starts across. */
+  startX: number;
+  /** Where it starts down. */
+  startY: number;
+}
+
+/**
+ * The bouncing logo, and its friends.
+ *
+ * Speeds are deliberately not in any tidy ratio: a rectangle whose two speeds
+ * divide evenly retraces one path for ever, and the whole appeal of this is
+ * waiting to see whether it hits a corner.
+ *
+ * @param count - how many rectangles.
+ * @param seed - the seed to vary them from.
+ * @returns the rectangles.
+ */
+export function wanderers(count: number, seed: number): Wanderer[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, () => ({
+    width: 0.06 + random() * 0.06,
+    height: 0.035 + random() * 0.035,
+    speedX: 0.05 + random() * 0.07,
+    speedY: 0.04 + random() * 0.06,
+    startX: random(),
+    startY: random(),
+  }));
+}
+
+/** One column of falling glyphs. */
+export interface Column {
+  /** Where it sits, 0..1 across the viewport. */
+  x: number;
+  /** How fast the head falls, in viewports per second. */
+  speed: number;
+  /** How many glyphs trail the head. */
+  length: number;
+  /** Where the head starts, 0..1. */
+  offset: number;
+  /** Its own seed, so its glyphs differ from its neighbours'. */
+  seed: number;
+}
+
+/**
+ * Columns of glyphs falling down the viewport.
+ *
+ * Each column carries its own seed rather than sharing one, or every column
+ * shows the same glyphs at the same moment and the screen reads as a single
+ * scrolling image.
+ *
+ * @param count - how many columns.
+ * @param seed - the seed to vary them from.
+ * @returns the columns.
+ */
+export function rainColumns(count: number, seed: number): Column[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, (_, i) => ({
+    x: (i + 0.5) / count,
+    speed: 0.08 + random() * 0.3,
+    length: 6 + Math.floor(random() * 16),
+    offset: random(),
+    seed: Math.floor(random() * 100000),
+  }));
+}
+
+/**
+ * Which glyph a column shows at a given row and step.
+ *
+ * Deterministic in all three, so the same frame always draws the same
+ * characters — a `Math.random()` here would make every glyph flicker at the
+ * frame rate, which is noise rather than rain.
+ *
+ * @param column - the column's own seed.
+ * @param row - which row down the column.
+ * @param step - which change of glyph, from the clock.
+ * @param alphabet - how many glyphs to choose between.
+ * @returns the glyph's index.
+ */
+export function glyphAt(
+  column: number,
+  row: number,
+  step: number,
+  alphabet: number,
+): number {
+  // A cheap integer hash: multiply, mix the high bits down, take the modulus.
+  let hash = (column * 73856093) ^ (row * 19349663) ^ (step * 83492791);
+  hash = Math.imul(hash ^ (hash >>> 15), 2246822519);
+  hash = (hash ^ (hash >>> 13)) >>> 0;
+  return hash % alphabet;
+}
+
+/** One star streaking outward. */
+export interface Streak {
+  /** Which way it goes from the centre, in radians. */
+  angle: number;
+  /** How fast it flies, in viewports per second. */
+  speed: number;
+  /** Where in its flight it starts, 0..1. */
+  offset: number;
+}
+
+/**
+ * Stars flying outward from the centre, as through a windscreen.
+ *
+ * The distance grows by a SQUARE law rather than evenly: a star near the
+ * centre is far away and barely moves, and one at the edge is passing the
+ * viewer. Even spacing gives a flat disc of dots sliding outward, which is
+ * exactly what the effect is not.
+ *
+ * @param count - how many stars.
+ * @param seed - the seed to vary them from.
+ * @returns the stars.
+ */
+export function warpStars(count: number, seed: number): Streak[] {
+  const random = seeded(seed);
+  return Array.from({ length: count }, () => ({
+    angle: random() * TAU,
+    speed: 0.1 + random() * 0.35,
+    offset: random(),
+  }));
+}

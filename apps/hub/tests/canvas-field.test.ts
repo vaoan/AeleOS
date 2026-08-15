@@ -13,6 +13,18 @@ import {
   bubbles,
   snow,
   blobs,
+  orbits,
+  honeycomb,
+  ribbons,
+  confetti,
+  skyline,
+  bokeh,
+  bounced,
+  mystify,
+  wanderers,
+  glyphAt,
+  warpStars,
+  rainColumns,
 } from "@/shared/domain/canvas-field";
 
 describe("seeded", () => {
@@ -328,5 +340,193 @@ describe("blobs", () => {
 
   it("spreads the three tints", () => {
     expect(blobs(3, 2).map((b) => b.tint)).toEqual([0, 1, 2]);
+  });
+});
+
+describe("orbits", () => {
+  // Signed speeds, so the rings do not all turn the same way — a field turning
+  // as one reads as a single rotating object rather than as orbits.
+  it("turns some of them the other way", () => {
+    const ring = orbits(30, 8);
+    expect(ring.some((o) => o.speed < 0)).toBe(true);
+    expect(ring.some((o) => o.speed > 0)).toBe(true);
+  });
+
+  it("keeps every orbit inside the viewport", () => {
+    for (const o of orbits(30, 8)) expect(o.radius).toBeLessThanOrEqual(0.5);
+  });
+});
+
+describe("honeycomb", () => {
+  // Odd rows offset by half a column, rows spaced three quarters of a cell —
+  // that ratio is what makes hexagons tessellate. Square spacing leaves gaps
+  // that read as a mistake.
+  it("offsets every other row by half a column", () => {
+    const cells = honeycomb(4, 2, 1);
+    expect(cells[0]!.x).toBeCloseTo(0, 6);
+    expect(cells[4]!.x).toBeCloseTo(0.5 / 4, 6);
+  });
+
+  it("lays out one cell per place in the lattice", () => {
+    expect(honeycomb(5, 3, 1)).toHaveLength(15);
+  });
+});
+
+describe("ribbons", () => {
+  it("spreads them down the viewport", () => {
+    const bands = ribbons(3, 6);
+    expect(bands).toHaveLength(3);
+    for (let i = 1; i < bands.length; i += 1) {
+      expect(bands[i]!.level).toBeGreaterThan(bands[i - 1]!.level);
+    }
+  });
+});
+
+describe("confetti", () => {
+  it("spreads the four colours", () => {
+    expect(confetti(4, 3).map((c) => c.tint)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("gives every piece its own place in the fall", () => {
+    expect(new Set(confetti(30, 3).map((c) => c.offset)).size).toBeGreaterThan(
+      1,
+    );
+  });
+});
+
+describe("skyline", () => {
+  // **Each layer tiles exactly one layer-width**, so the renderer draws it
+  // twice and scrolls for ever without a seam. Generating a screen's worth and
+  // wrapping leaves a visible cut every time it repeats.
+  it("fills a whole layer-width with buildings", () => {
+    for (const layer of skyline(3, 12)) {
+      const last = layer.buildings.at(-1)!;
+      expect(last.at + last.width).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("makes the nearer layers faster and taller", () => {
+    const layers = skyline(3, 12);
+    for (let i = 1; i < layers.length; i += 1) {
+      expect(layers[i]!.speed).toBeGreaterThan(layers[i - 1]!.speed);
+    }
+  });
+
+  it("survives being asked for a single layer", () => {
+    expect(skyline(1, 12)).toHaveLength(1);
+  });
+});
+
+describe("bokeh", () => {
+  // Size and brightness move together, because that is what being out of focus
+  // does: a nearer light spreads over more of the lens and is dimmer for it.
+  it("dims the larger spots", () => {
+    const spots = bokeh(40, 10);
+    const sorted = [...spots].sort((a, b) => a.radius - b.radius);
+    expect(sorted[0]!.glow).toBeGreaterThan(sorted.at(-1)!.glow);
+  });
+});
+
+describe("bounced", () => {
+  // **The whole of a screensaver's motion is this function.** A modulo wraps —
+  // the thing leaves one edge and reappears at the other, which is a teleport.
+  // Folding the sawtooth back on itself is a reflection, and a reflection is a
+  // bounce. It is also why none of these savers remembers a velocity.
+  it("folds back instead of wrapping", () => {
+    expect(bounced(0)).toBeCloseTo(0, 9);
+    expect(bounced(0.5)).toBeCloseTo(0.5, 9);
+    expect(bounced(1)).toBeCloseTo(1, 9);
+    expect(bounced(1.25)).toBeCloseTo(0.75, 9);
+    expect(bounced(2)).toBeCloseTo(0, 9);
+  });
+
+  it("stays inside the viewport for any input", () => {
+    for (const v of [-9.3, -1, -0.2, 0, 3.7, 12.9, 101.4]) {
+      expect(bounced(v)).toBeGreaterThanOrEqual(0);
+      expect(bounced(v)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  // Negative time is reached by the echoes, which draw the shape at earlier
+  // moments — so it has to behave there as it does anywhere else.
+  it("handles time before the start", () => {
+    expect(bounced(-0.25)).toBeCloseTo(0.25, 9);
+  });
+});
+
+describe("mystify", () => {
+  // A corner with zero speed sits still and pins the polygon, which reads as
+  // broken rather than as calm.
+  it("never leaves a corner motionless", () => {
+    for (const shape of mystify(3, 4, 5)) {
+      for (const corner of shape.corners) {
+        expect(corner.speedX).toBeGreaterThan(0);
+        expect(corner.speedY).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("gives every polygon the corners it was asked for", () => {
+    for (const shape of mystify(2, 5, 5)) expect(shape.corners).toHaveLength(5);
+  });
+});
+
+describe("wanderers", () => {
+  it("keeps every box small enough to move", () => {
+    for (const box of wanderers(3, 7)) {
+      expect(box.width).toBeLessThan(1);
+      expect(box.height).toBeLessThan(1);
+    }
+  });
+});
+
+describe("glyphAt", () => {
+  // Deterministic in all three, so a frame always draws the same characters.
+  // `Math.random()` here would reroll every glyph at the frame rate, which is
+  // noise rather than rain.
+  it("is the same glyph for the same column, row and step", () => {
+    expect(glyphAt(3, 4, 5, 20)).toBe(glyphAt(3, 4, 5, 20));
+  });
+
+  it("changes when the clock steps", () => {
+    const before = glyphAt(3, 4, 5, 20);
+    const after = [6, 7, 8, 9].map((step) => glyphAt(3, 4, step, 20));
+    expect(after.some((g) => g !== before)).toBe(true);
+  });
+
+  it("stays inside the alphabet", () => {
+    for (let i = 0; i < 200; i += 1) {
+      const g = glyphAt(i, i * 7, i * 13, 20);
+      expect(g).toBeGreaterThanOrEqual(0);
+      expect(g).toBeLessThan(20);
+    }
+  });
+});
+
+describe("warpStars", () => {
+  it("sends them out in every direction", () => {
+    const angles = warpStars(60, 2).map((s) => s.angle);
+    expect(Math.max(...angles) - Math.min(...angles)).toBeGreaterThan(3);
+  });
+
+  it("gives every star its own place in the flight", () => {
+    expect(new Set(warpStars(40, 2).map((s) => s.offset)).size).toBeGreaterThan(
+      1,
+    );
+  });
+});
+
+describe("rainColumns", () => {
+  // Each column carries its own seed rather than sharing one, or every column
+  // shows the same glyphs at the same moment and the screen reads as a single
+  // scrolling image rather than as rain.
+  it("gives every column its own seed", () => {
+    const columns = rainColumns(20, 3);
+    expect(new Set(columns.map((c) => c.seed)).size).toBeGreaterThan(1);
+  });
+
+  it("spreads them evenly across the viewport", () => {
+    const columns = rainColumns(4, 3);
+    expect(columns.map((c) => c.x)).toEqual([0.125, 0.375, 0.625, 0.875]);
   });
 });

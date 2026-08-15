@@ -158,6 +158,16 @@
       "snow": "Nieve",
       "grid": "Rejilla al horizonte",
       "blobs": "Luces a la deriva",
+      "orbits": "Órbitas",
+      "hexagons": "Panal",
+      "ribbons": "Cintas",
+      "confetti": "Confeti",
+      "skyline": "Horizonte urbano",
+      "bokeh": "Luces desenfocadas",
+      "mystify": "Polígonos",
+      "bounce": "Cajas que rebotan",
+      "rain": "Lluvia de símbolos",
+      "warp": "Velocidad luz",
       "none": "Ninguno"
     },
     "skins": {
