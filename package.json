@@ -67,6 +67,7 @@
     "eslint-plugin-tsdoc": "^0.5.2",
     "eslint-plugin-unicorn": "^64.0.0",
     "eslint-plugin-unused-imports": "^4.4.1",
+    "fast-check": "^4.9.0",
     "globals": "^14.0.0",
     "husky": "^9.1.7",
     "jose": "^6.0.11",
