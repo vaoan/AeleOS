@@ -7,6 +7,7 @@ import {
   createFursona,
   updateFursona,
   FursonaLimitError,
+  HandleRetiredError,
   HandleTakenError,
 } from "@/features/actors/infrastructure/fursonas";
 import { setFursonaSections } from "@/features/actors/infrastructure/fursona-arrangement";
@@ -84,6 +85,10 @@ export interface FursonaEditorState {
  * the server action did — swallowing an unrecognised fault would turn it into a
  * save that silently did nothing, which is the worst outcome available here.
  *
+ * A retired handle is reported on the handle field with its own code, because
+ * it is a different situation from a taken one: nothing wears the name, and it
+ * is being kept out of circulation so links shared under it keep answering 404.
+ *
  * @param actorRef - the actor being edited, or absent to create a fursona.
  * @param kind - whether the actor is the person themselves, which changes
  * which function writes the fields and nothing else.
@@ -128,6 +133,10 @@ export function useFursonaEditor(
       setFieldErrors({});
       return true;
     } catch (error) {
+      if (error instanceof HandleRetiredError) {
+        setFieldErrors({ handle: "handleRetired" });
+        return false;
+      }
       if (error instanceof HandleTakenError) {
         setFieldErrors({ handle: "handleTaken" });
         return false;

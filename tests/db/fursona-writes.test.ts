@@ -581,3 +581,124 @@ describe("update_fursona", () => {
     expect(error?.message).not.toMatch(/no person actor/i);
   });
 });
+
+describe("renaming a fursona", () => {
+  /**
+   * Creates a fursona for Alice under a given handle.
+   *
+   * @param name - the handle to take.
+   * @returns the new actor ref.
+   */
+  async function sonaNamed(name: string): Promise<string> {
+    const c = await clientAs(alice.sub);
+    const { data, error } = await c.rpc("create_fursona", {
+      p_handle: name,
+      p_display_name: "Before",
+      p_avatar_url: null,
+      p_visibility: "private",
+    });
+    if (error) throw error;
+    return data as string;
+  }
+
+  /**
+   * Renames a fursona.
+   *
+   * @param ref - the fursona.
+   * @param name - the handle to take.
+   * @returns the error message, or null when it was accepted.
+   */
+  async function rename(ref: string, name: string): Promise<string | null> {
+    const c = await clientAs(alice.sub);
+    const { error } = await c.rpc("update_fursona", {
+      p_actor_ref: ref,
+      p_display_name: "After",
+      p_avatar_url: null,
+      p_visibility: "private",
+      p_handle: name,
+    });
+    return error?.message ?? null;
+  }
+
+  it("takes the new handle", async () => {
+    const first = handle();
+    const ref = await sonaNamed(first);
+    expect(await rename(ref, `${first}x`)).toBeNull();
+    const row = await withSuperuser(async (pc) => {
+      const r = await pc.query<{ handle: string }>(
+        "select handle from public.actors where actor_ref = $1",
+        [ref],
+      );
+      return r.rows[0];
+    });
+    expect(row?.handle).toBe(`${first}x`);
+  });
+
+  // **The old handle is kept, not released.** That is what makes
+  // `/{address}/{old}` answer 404 for good rather than until somebody takes the
+  // name again: a freed handle is available, so the first new fursona to take
+  // it puts every link shared to the old character onto a different one.
+  it("retires the old handle so nobody can take it again", async () => {
+    const first = handle();
+    const ref = await sonaNamed(first);
+    expect(await rename(ref, `${first}x`)).toBeNull();
+    expect(await rename(ref, first)).toMatch(/retired/i);
+  });
+
+  it("refuses a retired handle on create as well", async () => {
+    const first = handle();
+    const ref = await sonaNamed(first);
+    expect(await rename(ref, `${first}x`)).toBeNull();
+    const c = await clientAs(alice.sub);
+    const { error } = await c.rpc("create_fursona", {
+      p_handle: first,
+      p_display_name: "New",
+      p_avatar_url: null,
+      p_visibility: "private",
+    });
+    expect(error?.message).toMatch(/retired/i);
+  });
+
+  // Re-saving a form without touching the field must not retire the handle it
+  // already has — otherwise a second save would refuse the name the fursona is
+  // wearing, which reads as the editor breaking itself.
+  it("does not retire anything when the handle has not changed", async () => {
+    const first = handle();
+    const ref = await sonaNamed(first);
+    expect(await rename(ref, first)).toBeNull();
+    expect(await rename(ref, first)).toBeNull();
+  });
+
+  it("refuses a handle another of their own fursonas wears", async () => {
+    const mine = handle();
+    await sonaNamed(mine);
+    const other = await sonaNamed(handle());
+    expect(await rename(other, mine)).toMatch(/already yours/i);
+  });
+
+  it("refuses the reserved person shape", async () => {
+    const ref = await sonaNamed(handle());
+    expect(await rename(ref, `u-${"a".repeat(32)}`)).toMatch(/reserved/i);
+  });
+
+  it("refuses a handle the grammar rejects", async () => {
+    const ref = await sonaNamed(handle());
+    expect(await rename(ref, "not a handle!")).toMatch(/invalid/i);
+  });
+
+  // A retirement is scoped to its owner, because handles are: `luna` retired
+  // under one person says nothing about `luna` under another.
+  it("leaves another person free to take the retired name", async () => {
+    const first = handle();
+    const ref = await sonaNamed(first);
+    expect(await rename(ref, `${first}x`)).toBeNull();
+    const c = await clientAs(bob.sub);
+    const { error } = await c.rpc("create_fursona", {
+      p_handle: first,
+      p_display_name: "Theirs",
+      p_avatar_url: null,
+      p_visibility: "private",
+    });
+    expect(error).toBeNull();
+  });
+});

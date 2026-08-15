@@ -26,6 +26,11 @@ import {
  * gets a catalogue entry or fails the message-key test; it can never quietly
  * render its own id at somebody.
  *
+ * `handleRetired` is its own message and not a variant of `handleTaken`: one is
+ * a name another of their fursonas wears, the other a name nothing wears and
+ * nothing may take again. Telling somebody a retired handle is "already yours"
+ * would send them looking for a fursona that does not exist.
+ *
  * `errors` is keyed by error **code**, not by field: it must carry an entry for
  * every code either action can return, including the ones no field produces
  * (`handleTaken`, and `limitReached` for the fursona quota). A code with no
@@ -176,6 +181,7 @@ export async function fursonaEditorLabels(
     errors: {
       handle: t("form.errors.handle"),
       handleTaken: t("form.errors.handleTaken"),
+      handleRetired: t("form.errors.handleRetired"),
       limitReached: t("form.errors.limitReached"),
       displayName: t("form.errors.displayName"),
       avatarUrl: t("form.errors.avatarUrl"),

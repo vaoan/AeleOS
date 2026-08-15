@@ -642,8 +642,24 @@ choice may not overrule it.
   `/api/actors/mine` strips by name.
 - **Never free a handle**, on delete or on rename. A retired character's name
   becoming available lets somebody register it to impersonate the character
-  that wore it. Delete is soft for this reason; any rename feature must retire
-  the old handle to the same fursona rather than releasing it.
+  that wore it. Delete is soft for this reason.
+
+  **Renaming is allowed and the old handle is retired, not released.** It goes
+  into `retired_handles` (`0007`), which nothing routes through — its only job
+  is to be in the way of `create_fursona` and `update_fursona`. So
+  `/{address}/{old}` answers **404 forever**, which is the decision: identity is
+  carried by `actor_ref`, no consuming app keys off a handle, and a broken link
+  is honest.
+
+  The distinction that matters is between retiring and freeing, and it is easy
+  to collapse. Freeing also gives 404 — right up until the owner creates a new
+  fursona under the old name, at which point every link anybody shared to the
+  old character quietly resolves to a different one, under the same address.
+  Retiring is what makes the 404 permanent rather than temporary.
+
+  Retirement is scoped to the owner, because handles are: `luna` retired under
+  one person says nothing about `luna` under another.
+
 - **Never list a fursona a stranger could not otherwise find.** See the listing
   rule above; it is the single easiest thing here to get wrong, because the
   wrong version reads perfectly naturally.

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 
+class HandleRetiredError extends Error {}
 class HandleTakenError extends Error {}
 class FursonaLimitError extends Error {}
 
@@ -25,6 +26,7 @@ vi.mock("@/features/actors/infrastructure/fursonas", () => ({
   createFursona: (...a: unknown[]) => createFursona(...a),
   updateFursona: (...a: unknown[]) => updateFursona(...a),
   HandleTakenError,
+  HandleRetiredError,
   FursonaLimitError,
 }));
 vi.mock("@/shared/infrastructure/supabase-browser", () => ({
@@ -193,6 +195,24 @@ describe("useFursonaEditor", () => {
     expect(result.current.fieldErrors).toEqual({});
     // And it reports success, which is what the editor navigates on.
     expect(landedAgain).toBe(true);
+  });
+});
+
+describe("a handle its owner retired", () => {
+  // **Its own field error, with its own words.** "Already yours" would be a lie
+  // about a name nothing wears — it is being kept out of circulation so links
+  // shared under it keep answering 404 rather than resolving to a new
+  // character. Reported on the handle field, because that is where the person
+  // can do something about it.
+  it("is reported on the handle field", async () => {
+    updateFursona.mockRejectedValueOnce(new HandleRetiredError("retired"));
+    const { result } = renderHook(() => useFursonaEditor("ref-1"), { wrapper });
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.save(values);
+    });
+    expect(saved).toBe(false);
+    expect(result.current.fieldErrors).toEqual({ handle: "handleRetired" });
   });
 });
 

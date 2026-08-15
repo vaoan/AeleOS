@@ -181,6 +181,7 @@ describe("updateFursona", () => {
     const { updateFursona } =
       await import("@/features/actors/infrastructure/fursonas");
     await updateFursona(client(), "ref-1", {
+      handle: "sparky",
       displayName: "New",
       avatarUrl: "https://img.example/a.png",
       visibility: "public",
@@ -190,6 +191,9 @@ describe("updateFursona", () => {
       p_display_name: "New",
       p_avatar_url: "https://img.example/a.png",
       p_visibility: "public",
+      // The handle travels on update now. A rename retires the old one, and
+      // the function treats an unchanged value as no rename at all.
+      p_handle: "sparky",
     });
   });
 
@@ -202,10 +206,59 @@ describe("updateFursona", () => {
       await import("@/features/actors/infrastructure/fursonas");
     await expect(
       updateFursona(client(), "ref-1", {
+        handle: "sparky",
         displayName: "x",
         avatarUrl: "",
         visibility: "private",
       }),
     ).rejects.toThrow(/fursona not found/);
+  });
+});
+
+describe("renaming a fursona", () => {
+  // **A retired handle is its own refusal, with its own words.** "Already
+  // yours" would be a lie: nothing wears the name. It is being kept out of
+  // circulation so that links shared under it keep answering 404 rather than
+  // resolving to a new character — see `retired_handles` in `0007`.
+  it("reports a handle this person retired", async () => {
+    const { updateFursona, HandleRetiredError } =
+      await import("@/features/actors/infrastructure/fursonas");
+    rpc.mockResolvedValueOnce({ error: { message: "handle was retired" } });
+    await expect(
+      updateFursona(client(), "ref-1", {
+        handle: "luna",
+        displayName: "Luna",
+        avatarUrl: "",
+        visibility: "private",
+      }),
+    ).rejects.toBeInstanceOf(HandleRetiredError);
+  });
+
+  it("reports a handle another of their fursonas already wears", async () => {
+    const { updateFursona, HandleTakenError } =
+      await import("@/features/actors/infrastructure/fursonas");
+    rpc.mockResolvedValueOnce({ error: { message: "handle already yours" } });
+    await expect(
+      updateFursona(client(), "ref-1", {
+        handle: "luna",
+        displayName: "Luna",
+        avatarUrl: "",
+        visibility: "private",
+      }),
+    ).rejects.toBeInstanceOf(HandleTakenError);
+  });
+
+  it("reports a retired handle on create too", async () => {
+    const { createFursona, HandleRetiredError } =
+      await import("@/features/actors/infrastructure/fursonas");
+    rpc.mockResolvedValueOnce({ error: { message: "handle was retired" } });
+    await expect(
+      createFursona(client(), {
+        handle: "luna",
+        displayName: "Luna",
+        avatarUrl: "",
+        visibility: "private",
+      }),
+    ).rejects.toBeInstanceOf(HandleRetiredError);
   });
 });

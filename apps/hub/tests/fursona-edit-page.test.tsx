@@ -168,7 +168,10 @@ describe("EditFursonaPage", () => {
     const form = formElement(page);
     expect(form.props).toMatchObject({
       actorRef: "ref-1",
-      handleEditable: false,
+      // **A fursona's handle is editable.** Renaming retires the old one, so
+      // `/{address}/{old}` answers 404 for good rather than until somebody
+      // takes the name again — see `retired_handles` in `0007`.
+      handleEditable: true,
       initial: {
         handle: "sparky",
         displayName: "Sparky",

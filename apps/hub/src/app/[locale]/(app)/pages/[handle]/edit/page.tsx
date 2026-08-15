@@ -37,6 +37,10 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
  * `lower(handle)` — `/fursonas/Sparky/edit` and `/fursonas/sparky/edit`
  * address the same fursona, and only one of them would work otherwise.
  *
+ * **The handle is editable here.** Renaming retires the old one rather than
+ * releasing it, so `/{address}/{old}` answers 404 for good instead of until
+ * somebody takes the name again — see `retired_handles` in `0007`.
+ *
  * It reads the person's own profile theme as well as this fursona's, because a
  * theme belongs to one actor: the two are unrelated rows, which is exactly why
  * the panel offers to copy one onto the other.
@@ -71,7 +75,7 @@ export default async function EditFursonaPage({
   return (
     <FursonaEditor
       labels={await fursonaEditorLabels(t("editorTitleEdit"))}
-      handleEditable={false}
+      handleEditable
       actorRef={actor.actorRef}
       initial={{
         handle: actor.handle,

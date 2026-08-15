@@ -53,6 +53,7 @@
       "errors": {
         "handle": "Usa entre 1 y 32 letras, números, guiones o guiones bajos.",
         "handleTaken": "Ya tienes una fursona con ese identificador.",
+        "handleRetired": "Ya usaste ese identificador y lo dejaste. No se puede volver a usar.",
         "displayName": "Máximo 64 caracteres.",
         "avatarUrl": "Ingresa una dirección de imagen http o https, o déjala vacía.",
         "visibility": "Elige una de las opciones.",

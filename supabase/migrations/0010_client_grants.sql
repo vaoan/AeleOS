@@ -56,7 +56,7 @@ grant execute on function public.whoami_role() to authenticated;
 grant execute on function public.my_actors() to authenticated;
 grant execute on function public.create_fursona(text, text, text, text)
   to authenticated;
-grant execute on function public.update_fursona(uuid, text, text, text)
+grant execute on function public.update_fursona(uuid, text, text, text, text)
   to authenticated;
 grant execute on function public.delete_fursona(uuid) to authenticated;
 

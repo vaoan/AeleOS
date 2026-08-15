@@ -21,6 +21,30 @@ export type Actor = {
 };
 
 /** Raised when a handle is already in use, so a form can say which field. */
+/**
+ * A handle this person once wore and gave up.
+ *
+ * Distinct from {@link HandleTakenError} because it is a different situation
+ * and needs different words: nothing wears this name. It is being kept out of
+ * circulation so that links shared under it keep answering 404 rather than
+ * resolving to a new character — see `retired_handles` in `0007`.
+ */
+export class HandleRetiredError extends Error {
+  /**
+   * @param message - what the database said.
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = "HandleRetiredError";
+  }
+}
+
+/**
+ * A handle the caller already has a fursona under.
+ *
+ * Only ever their own: handles are unique per owner, so a clash cannot be a
+ * stranger's — which is why the message says "yours" and names nobody.
+ */
 export class HandleTakenError extends Error {
   /** @param message - the database's message. */
   constructor(message: string) {
@@ -93,6 +117,9 @@ export async function listMyActors(client: SupabaseClient): Promise<Actor[]> {
  * the browser — every function in this layer now works that way.
  * @param input - the validated fursona fields.
  * @returns the new actor's platform ID.
+ * @throws `HandleRetiredError` when the caller once wore that handle and gave
+ * it up — it is out of circulation for good, so links shared under it keep
+ * answering 404 rather than resolving to a new character.
  * @throws `HandleTakenError` when the caller already has a fursona with that
  * handle, in any case. Handles are unique per owner, so this can only ever be
  * the caller's own clash — never a stranger's.
@@ -111,6 +138,8 @@ export async function createFursona(
   });
 
   if (error) {
+    if (/handle was retired/i.test(error.message))
+      throw new HandleRetiredError(error.message);
     if (/handle already yours/i.test(error.message))
       throw new HandleTakenError(error.message);
     if (/fursona limit reached/i.test(error.message))
@@ -122,6 +151,11 @@ export async function createFursona(
 
 /**
  * Edits a fursona the signed-in person owns.
+ *
+ * **The handle travels, and changing it is a rename.** The old one is retired
+ * rather than released, so `/{address}/{old}` answers 404 for good instead of
+ * until somebody takes the name again. An unchanged value is not a rename, so
+ * re-saving a form does not retire the handle the fursona is wearing.
  *
  * The handle is absent by design — it addresses the fursona, and renaming is a
  * separate concern. Ownership is re-checked in the database, so passing another
@@ -137,13 +171,24 @@ export async function createFursona(
 export async function updateFursona(
   client: SupabaseClient,
   actorRef: string,
-  input: Omit<FursonaInput, "handle">,
+  input: FursonaInput,
 ): Promise<void> {
   const { error } = await client.rpc("update_fursona", {
     p_actor_ref: actorRef,
     p_display_name: orNull(input.displayName),
     p_avatar_url: orNull(input.avatarUrl),
     p_visibility: input.visibility,
+    // **A rename retires the old handle**, so `/{address}/{old}` answers 404
+    // for good rather than until somebody takes the name again. The function
+    // treats an unchanged value as no rename, so re-saving a form does not
+    // retire the handle it already has.
+    p_handle: input.handle,
   });
-  if (error) throw new Error(`Could not update the fursona: ${error.message}`);
+  if (error) {
+    if (/handle was retired/i.test(error.message))
+      throw new HandleRetiredError(error.message);
+    if (/handle already yours/i.test(error.message))
+      throw new HandleTakenError(error.message);
+    throw new Error(`Could not update the fursona: ${error.message}`);
+  }
 }
