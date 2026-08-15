@@ -62,6 +62,11 @@ export async function generateMetadata({
  * resolve a locale, and they are addressed to the visitor rather than to the
  * owner — this is an anonymous read and the page has no idea who is looking.
  *
+ * **The shell is told the page is themed**, because the light/dark toggle
+ * cannot see a theme — it arrives as a `<style>` this page emits. On a themed
+ * page neither light nor dark is in force, so the toggle shows a question mark
+ * rather than a sun or a moon naming a state the page is not in.
+ *
  * A visitor may leave the theme: `PageThemeSwitch` offers the owner's colours
  * and each of the app's two defaults, and it renders only where there is a
  * theme to leave — which it asks as `isCustomised`, not `isThemed`. A page
@@ -85,7 +90,9 @@ export default async function PublicFursonaPage({
   const t = await getTranslations("publicProfile");
 
   return (
-    <PageShell width="wide">
+    // The toggle needs to know: on a themed page neither light nor dark is in
+    // force, so its sun or moon would name a state the page is not in.
+    <PageShell themed={isCustomised(actor.theme)} width="wide">
       <ThemeScope theme={actor.theme}>
         {/* Only where there is a theme to leave. A control offering to remove
             colours a page never had is a control that does nothing. */}

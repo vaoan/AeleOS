@@ -18,6 +18,9 @@ import { readActorPage } from "@/features/actors/infrastructure/actor-page";
  * The cursor travels as an address; nothing is stored, as with every other
  * picture here.
  *
+ * The two canvas dials travel as numbers and are never null: there is no such
+ * thing as an absent multiplier, since one IS the absence.
+ *
  * The skin travels as its NAME, alongside the canvas and unlike the colours: it
  * is not nullable, because `default` is a real skin whose overrides are empty.
  * The properties it stands for are resolved when the page renders, so renaming
@@ -52,6 +55,8 @@ export async function setActorTheme(
   const stored: Record<string, unknown> = {
     canvas: theme.canvas,
     skin: theme.skin,
+    density: theme.density,
+    speed: theme.speed,
   };
   if (theme.background) stored.background = theme.background;
   if (theme.accent) stored.accent = theme.accent;

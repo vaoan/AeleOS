@@ -144,6 +144,8 @@
     "themeLive": "Los cambios se ven al instante",
     "themeAccent": "Color principal",
     "themeCanvas": "Fondo",
+    "themeDensity": "Cuánto pasa",
+    "themeSpeed": "Qué tan rápido",
     "themeSkin": "Estilo",
     "themeAdjusted": "Tu color, como lo ven quienes te visitan",
     "themeReset": "Volver al aspecto original",
@@ -227,6 +229,7 @@
   "controls": {
     "toDark": "Cambiar a modo oscuro",
     "toLight": "Cambiar a modo claro",
+    "authorTheme": "Su propio tema: cambia a uno normal",
     "language": "Cambiar idioma",
     "loading": "Cargando"
   },

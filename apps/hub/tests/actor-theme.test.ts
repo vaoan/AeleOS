@@ -38,6 +38,8 @@ describe("parseTheme", () => {
       canvas: "none",
       cursor: null,
       skin: "retro",
+      density: 1,
+      speed: 1,
     });
   });
 
@@ -613,5 +615,36 @@ describe("a cursor address carrying a control character", () => {
     expect(parseTheme({ cursor: withControl }).cursor).toBe(
       "https://example.test/a%01b.png",
     );
+  });
+});
+
+describe("the canvas dials", () => {
+  // Emitted only when moved, like every other value here: a page nobody has
+  // turned up carries no property at all and the canvas reads its own default.
+  it("says nothing when nobody has moved them", () => {
+    const vars = themeVars(DEFAULT_THEME);
+    expect(vars["--canvas-density"]).toBeUndefined();
+    expect(vars["--canvas-speed"]).toBeUndefined();
+  });
+
+  it("travels once turned up", () => {
+    const vars = themeVars({ ...DEFAULT_THEME, density: 2.5, speed: 0.5 });
+    expect(vars["--canvas-density"]).toBe("2.5");
+    expect(vars["--canvas-speed"]).toBe("0.5");
+  });
+
+  // Clamped rather than refused: a value out of range is a slider from an older
+  // build or a hand-edited row, and the nearest usable number is a better
+  // answer than a page that will not render.
+  it("clamps what was stored", () => {
+    expect(parseTheme({ density: 99, speed: -3 })).toMatchObject({
+      density: 3,
+      speed: 0.25,
+    });
+  });
+
+  it("is enough on its own to count as customised", () => {
+    expect(isCustomised({ ...DEFAULT_THEME, density: 2 })).toBe(true);
+    expect(isCustomised({ ...DEFAULT_THEME, speed: 2 })).toBe(true);
   });
 });

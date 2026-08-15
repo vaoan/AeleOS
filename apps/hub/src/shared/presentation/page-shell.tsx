@@ -25,9 +25,28 @@ import { tid } from "@/shared/infrastructure/test-id";
  * says nothing about who is looking, only about what the page holds. A page
  * asks for it because it renders a table rather than prose.
  */
+/**
+ * What {@link PageShell} needs.
+ *
+ * `themed` is the one thing the shell cannot work out for itself: a theme
+ * arrives as a `<style>` a page emits, so only the caller knows whether the
+ * page it is rendering has one.
+ */
 export interface PageShellProps {
   /** The page's content, laid out in the shared column. */
   children: ReactNode;
+  /**
+   * Whether this page is wearing somebody's own theme.
+   *
+   * **Only the caller can know.** A theme arrives as a `<style>` a page emits,
+   * so the shell cannot see one — and the light/dark toggle has to, because on
+   * a themed page neither light nor dark is in force and its sun or moon would
+   * be describing a state the page is not in.
+   *
+   * Absent everywhere else on purpose: the signed-in pages wear the design's
+   * own colours, where the toggle means exactly what it says.
+   */
+  themed?: boolean;
 
   /**
    * Optional header content pinned to the right — the user button when signed
@@ -76,6 +95,11 @@ export interface PageShellProps {
  * markup here and there should never be any: if a change needs different
  * elements per theme, the tokens are wrong rather than the layout.
  *
+ * **`themed` is passed down to the light/dark toggle.** The shell cannot see a
+ * theme — one arrives as a `<style>` a page emits — and on a themed page
+ * neither light nor dark is in force, so the toggle shows a question mark
+ * rather than a sun or a moon naming a state the page is not in.
+ *
  * The header bar spans the window; only the page below it is held to a column.
  * Constraining the bar's contents to that column too left the wordmark floating
  * mid-screen on a wide display, which read as a mistake rather than a choice.
@@ -120,6 +144,7 @@ export async function PageShell({
   nav,
   homeHref = "/",
   width = "column",
+  themed,
 }: PageShellProps) {
   // The shell resolves its own chrome labels rather than taking them as props.
   // Threading one per control through every page means every new control edits
@@ -164,6 +189,8 @@ export async function PageShell({
             <ThemeToggle
               toDarkLabel={t("toDark")}
               toLightLabel={t("toLight")}
+              authorLabel={t("authorTheme")}
+              themed={themed}
             />
             {trailing ? <div className="ml-1">{trailing}</div> : null}
           </div>

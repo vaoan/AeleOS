@@ -508,6 +508,19 @@ else's problem.
   which default replaces it. Doing only the first leaves the page on whichever
   scheme that visitor last happened to be in.
 - **The switch renders only where there is a theme to leave.**
+- **The choice is NOT remembered, and that is a fix rather than a shortcut.**
+  It lived in `localStorage` under one key for the whole site, so a visitor who
+  took one person's colours off never saw anybody else's again — they had
+  silently opted out of every page on the platform by pressing a button on one
+  of them. Every page starts on its author's theme now and the switch lasts the
+  visit. Per-page storage was the other candidate and is worse: it would follow
+  somebody around one page for ever with no way to discover why it looked wrong.
+- **The light/dark toggle shows a QUESTION MARK on a themed page.** Neither
+  light nor dark is in force there, so a sun or a moon would name a state the
+  page is not in. It takes `themed` as a prop rather than reading the
+  attribute, because the attribute is set on every page — reading it alone put
+  a question mark on the signed-in pages, where the design's own colours are
+  exactly what is in force.
 
 ### Skins — the half of a theme that is not colour
 
@@ -628,6 +641,21 @@ Nothing in that root scope varies by mode. An author picks two colours and those
 are the colours in both schemes; what adapts is `--nebula-blend`, which stays in
 `globals.css` — `screen` in dark because dust emits light, `multiply` in light
 because it absorbs it. Same two colours, opposite physics.
+
+**Two dials scale every canvas: how busy, and how fast.** Density multiplies
+how many of a thing a canvas draws; speed multiplies the clock, so no renderer
+needs to know speed exists — one asked to go twice as fast is handed a time
+twice as large. They are separate because they are separate complaints: a
+starfield can be crowded and still, and a single box can hurtle.
+
+Neither floor is zero. Zero density is an empty canvas, which `none` already
+says better and reversibly; zero speed is a frozen one, which
+`prefers-reduced-motion` already gives whoever asked for it. Neither wants a
+second way to be reached by a slider dragged too far.
+
+`many` caps what a density may produce, per canvas, and the cap is not
+decoration: the constellation compares every PAIR of points, so its cost is the
+square of its count.
 
 **Each canvas declares how many colours it paints with**, in `CANVAS_SLOTS`,
 and the editor renders that many pickers. The number has to be the truth in both

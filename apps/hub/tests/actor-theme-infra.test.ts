@@ -27,6 +27,8 @@ describe("setActorTheme", () => {
       canvas: "none",
       cursor: null,
       skin: "glass",
+      density: 1,
+      speed: 1,
     });
     expect(rpc).toHaveBeenCalledWith("set_actor_theme", {
       p_actor_ref: "actor-1",
@@ -36,6 +38,8 @@ describe("setActorTheme", () => {
         canvasColours: ["#112233", "#445566"],
         canvas: "none",
         skin: "glass",
+        density: 1,
+        speed: 1,
       },
     });
   });
@@ -50,6 +54,8 @@ describe("setActorTheme", () => {
     expect(rpc.mock.calls[0][1].p_theme).toEqual({
       canvas: "nebula",
       skin: "default",
+      density: 1,
+      speed: 1,
     });
   });
 
@@ -62,6 +68,8 @@ describe("setActorTheme", () => {
     expect(rpc.mock.calls[0][1].p_theme).toEqual({
       canvas: "nebula",
       skin: "default",
+      density: 1,
+      speed: 1,
       canvasColours: ["#112233"],
     });
   });

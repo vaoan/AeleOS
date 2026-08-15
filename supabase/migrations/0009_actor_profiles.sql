@@ -473,6 +473,15 @@ begin
       if length(v_value) > 500 then
         raise exception 'cursor: address is too long' using errcode = '22023';
       end if;
+    elsif v_key in ('density', 'speed') then
+      -- How busy the canvas is, and how fast. Numbers, and bounded loosely:
+      -- the client clamps to its own range and a page renders whatever it
+      -- finds, so this only has to keep a hostile value from being stored.
+      if jsonb_typeof(p_theme -> v_key) is distinct from 'number'
+         or (p_theme ->> v_key)::numeric <= 0
+         or (p_theme ->> v_key)::numeric > 100 then
+        raise exception '%: must be a positive number', v_key using errcode = '22023';
+      end if;
     elsif v_key = 'skin' then
       -- The style the page's surfaces are built in — corners, border weight,
       -- shadow, the body's face. Not checked against a list, for the same

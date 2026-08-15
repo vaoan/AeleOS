@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
+import { dial, many } from "@/shared/domain/canvas-motion";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   aurora,
@@ -159,6 +160,17 @@ const LAYERS = [
   { seed: 137, gain: 2.8, bias: 0.58, speed: 0.28, slot: 2, scale: 2.6 },
 ] as const;
 
+/**
+ * The most points a constellation may draw, whatever the density says.
+ *
+ * It compares every PAIR, so its cost is the square of this number — at three
+ * times density an uncapped field is nine times the work.
+ */
+const CONSTELLATION_CAP = 220;
+
+/** The most skyline layers worth drawing; beyond this they hide each other. */
+const SKYLINE_CAP = 6;
+
 /** A full turn, which most of these need at least once. */
 const TWO_PI = Math.PI * 2;
 
@@ -206,6 +218,7 @@ const FIELD_SEED = 0x5eed;
  * @param tints - the two theme colours, as channel triples.
  * @param seconds - elapsed time.
  * @param animated - false when the reader asked for no motion.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawStars(
@@ -216,11 +229,12 @@ function drawStars(
   tints: [number, number, number][],
   seconds: number,
   animated: boolean,
+  density: number,
 ) {
   // One colour per LAYER rather than a mix across the whole sky. A layer is the
   // thing somebody can see and therefore the thing worth being able to colour;
   // mixing every star between two made the field one blended wash.
-  const layers = starfield(FIELD_SEED, STAR_COUNT);
+  const layers = starfield(FIELD_SEED, many(STAR_COUNT, density));
   for (const [index, layer] of layers.entries()) {
     const [r, g, bl] = tints[index % tints.length]!;
     for (const star of layer.stars) {
@@ -292,7 +306,7 @@ function drawStars(
 }
 
 /** How many points a constellation carries. */
-const NODE_COUNT = 70;
+const NODE_COUNT = 130;
 
 /** How close two points must be to be joined, as a fraction of the viewport. */
 const LINK_WITHIN = 0.13;
@@ -312,6 +326,7 @@ const LINK_WITHIN = 0.13;
  * @param dpr - device pixel ratio, so a dot is a dot on every screen.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawConstellation(
@@ -321,10 +336,12 @@ function drawConstellation(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
-  const at = constellation(NODE_COUNT, FIELD_SEED).map((node) =>
-    nodeAt(node, seconds),
-  );
+  const at = constellation(
+    many(NODE_COUNT, density, CONSTELLATION_CAP),
+    FIELD_SEED,
+  ).map((node) => nodeAt(node, seconds));
   const [lr, lg, lb] = tints[1] ?? tints[0]!;
   ctx.lineWidth = Math.max(1, dpr * 0.6);
   for (let i = 0; i < at.length; i += 1) {
@@ -349,7 +366,7 @@ function drawConstellation(
 }
 
 /** How many bands a wave field has. */
-const WAVE_COUNT = 3;
+const WAVE_COUNT = 5;
 
 /** How many points each band is drawn from. More is smoother and slower. */
 const WAVE_STEPS = 48;
@@ -366,6 +383,7 @@ const WAVE_STEPS = 48;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawWaves(
@@ -374,8 +392,9 @@ function drawWaves(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
-  for (const wave of waves(WAVE_COUNT, FIELD_SEED)) {
+  for (const wave of waves(many(WAVE_COUNT, density), FIELD_SEED)) {
     const [r, g, b] = tints[wave.tint] ?? tints[0]!;
     ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.32)`;
     ctx.beginPath();
@@ -394,7 +413,7 @@ function drawWaves(
 }
 
 /** How many bubbles rise at once. */
-const BUBBLE_COUNT = 40;
+const BUBBLE_COUNT = 95;
 
 /**
  * Draws bubbles climbing from the bottom.
@@ -408,6 +427,7 @@ const BUBBLE_COUNT = 40;
  * @param dpr - device pixel ratio.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawBubbles(
@@ -417,10 +437,11 @@ function drawBubbles(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const smaller = Math.min(width, height);
   ctx.lineWidth = Math.max(1, dpr);
-  for (const bubble of bubbles(BUBBLE_COUNT, FIELD_SEED)) {
+  for (const bubble of bubbles(many(BUBBLE_COUNT, density), FIELD_SEED)) {
     const climbed = (bubble.offset + seconds * bubble.speed) % 1;
     const [r, g, b] = tints[bubble.tint] ?? tints[0]!;
     // Faded at both ends of the climb, so nothing pops into or out of being.
@@ -439,7 +460,7 @@ function drawBubbles(
 }
 
 /** How many flakes fall at once. */
-const FLAKE_COUNT = 140;
+const FLAKE_COUNT = 300;
 
 /**
  * Draws falling snow.
@@ -449,6 +470,7 @@ const FLAKE_COUNT = 140;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawSnow(
@@ -457,9 +479,10 @@ function drawSnow(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const smaller = Math.min(width, height);
-  for (const flake of snow(FLAKE_COUNT, FIELD_SEED)) {
+  for (const flake of snow(many(FLAKE_COUNT, density), FIELD_SEED)) {
     const fallen = (flake.offset + seconds * flake.speed) % 1;
     const [r, g, b] = tints[flake.tint] ?? tints[0]!;
     ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.7)`;
@@ -477,7 +500,7 @@ function drawSnow(
 }
 
 /** How many lines run toward the horizon, each way. */
-const GRID_LINES = 14;
+const GRID_LINES = 22;
 
 /** Where the horizon sits, as a fraction of the viewport's height. */
 const HORIZON = 0.55;
@@ -496,6 +519,7 @@ const HORIZON = 0.55;
  * @param dpr - device pixel ratio.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawGrid(
@@ -505,20 +529,22 @@ function drawGrid(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const horizon = height * HORIZON;
   const [r, g, b] = tints[0]!;
   ctx.lineWidth = Math.max(1, dpr * 0.8);
   ctx.strokeStyle = `rgb(${r} ${g} ${b} / 0.35)`;
-  for (let i = -GRID_LINES; i <= GRID_LINES; i += 1) {
+  const lines = many(GRID_LINES, density);
+  for (let i = -lines; i <= lines; i += 1) {
     ctx.beginPath();
-    ctx.moveTo(width / 2 + (i / GRID_LINES) * width * 0.08, horizon);
-    ctx.lineTo(width / 2 + (i / GRID_LINES) * width * 2.2, height);
+    ctx.moveTo(width / 2 + (i / lines) * width * 0.08, horizon);
+    ctx.lineTo(width / 2 + (i / lines) * width * 2.2, height);
     ctx.stroke();
   }
   const scroll = (seconds * 0.25) % 1;
-  for (let i = 0; i < GRID_LINES; i += 1) {
-    const t = (i + scroll) / GRID_LINES;
+  for (let i = 0; i < lines; i += 1) {
+    const t = (i + scroll) / lines;
     ctx.strokeStyle = `rgb(${r} ${g} ${b} / ${0.3 * t})`;
     ctx.beginPath();
     ctx.moveTo(0, horizon + t * t * (height - horizon));
@@ -536,7 +562,7 @@ function drawGrid(
 }
 
 /** How many glows drift past each other. */
-const BLOB_COUNT = 3;
+const BLOB_COUNT = 5;
 
 /**
  * Draws a few large, soft glows.
@@ -546,6 +572,7 @@ const BLOB_COUNT = 3;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawBlobs(
@@ -554,9 +581,10 @@ function drawBlobs(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const larger = Math.max(width, height);
-  for (const blob of blobs(BLOB_COUNT, FIELD_SEED)) {
+  for (const blob of blobs(many(BLOB_COUNT, density), FIELD_SEED)) {
     const angle = blob.phase + seconds * blob.speed * TWO_PI;
     // Unequal in the two axes, so two glows sharing a speed do not travel in
     // parallel — an ellipse rather than a circle.
@@ -573,7 +601,7 @@ function drawBlobs(
 }
 
 /** How many points go round in an orbit field. */
-const ORBIT_COUNT = 26;
+const ORBIT_COUNT = 64;
 
 /**
  * Draws points orbiting a common centre, each dragging a trail.
@@ -589,6 +617,7 @@ const ORBIT_COUNT = 26;
  * @param dpr - device pixel ratio.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawOrbits(
@@ -598,12 +627,13 @@ function drawOrbits(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const smaller = Math.min(width, height);
   const cx = width / 2;
   const cy = height / 2;
   ctx.lineCap = "round";
-  for (const orbiter of orbits(ORBIT_COUNT, FIELD_SEED)) {
+  for (const orbiter of orbits(many(ORBIT_COUNT, density), FIELD_SEED)) {
     const angle = orbiter.phase + seconds * orbiter.speed * TWO_PI;
     const radius = orbiter.radius * smaller;
     const [r, g, b] = tints[orbiter.tint] ?? tints[0]!;
@@ -635,10 +665,10 @@ function drawOrbits(
 }
 
 /** How many cells across a honeycomb runs. */
-const HEX_COLUMNS = 16;
+const HEX_COLUMNS = 22;
 
 /** How many rows it runs down. */
-const HEX_ROWS = 14;
+const HEX_ROWS = 20;
 
 /**
  * Draws a breathing honeycomb.
@@ -652,6 +682,7 @@ const HEX_ROWS = 14;
  * @param dpr - device pixel ratio.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawHexagons(
@@ -661,12 +692,17 @@ function drawHexagons(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const radius = width / HEX_COLUMNS / 1.8;
   const [lr, lg, lb] = tints[0]!;
   const [gr, gg, gb] = tints[1] ?? tints[0]!;
   ctx.lineWidth = Math.max(1, dpr * 0.7);
-  for (const cell of honeycomb(HEX_COLUMNS, HEX_ROWS, FIELD_SEED)) {
+  for (const cell of honeycomb(
+    many(HEX_COLUMNS, density),
+    many(HEX_ROWS, density),
+    FIELD_SEED,
+  )) {
     const breath =
       (Math.sin(cell.phase + seconds * cell.speed * TWO_PI) + 1) / 2;
     const x = cell.x * width;
@@ -691,7 +727,7 @@ function drawHexagons(
 }
 
 /** How many ribbons cross the viewport. */
-const RIBBON_COUNT = 3;
+const RIBBON_COUNT = 5;
 
 /** How many points each ribbon's edges are drawn from. */
 const RIBBON_STEPS = 40;
@@ -707,6 +743,7 @@ const RIBBON_STEPS = 40;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawRibbons(
@@ -715,8 +752,9 @@ function drawRibbons(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
-  for (const ribbon of ribbons(RIBBON_COUNT, FIELD_SEED)) {
+  for (const ribbon of ribbons(many(RIBBON_COUNT, density), FIELD_SEED)) {
     const [r, g, b] = tints[ribbon.tint] ?? tints[0]!;
     ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.28)`;
     ctx.beginPath();
@@ -747,7 +785,7 @@ function drawRibbons(
 }
 
 /** How many pieces of confetti fall at once. */
-const CONFETTO_COUNT = 90;
+const CONFETTO_COUNT = 200;
 
 /**
  * Draws falling, tumbling confetti.
@@ -757,6 +795,7 @@ const CONFETTO_COUNT = 90;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawConfetti(
@@ -765,9 +804,10 @@ function drawConfetti(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const smaller = Math.min(width, height);
-  for (const piece of confetti(CONFETTO_COUNT, FIELD_SEED)) {
+  for (const piece of confetti(many(CONFETTO_COUNT, density), FIELD_SEED)) {
     const fallen = (piece.offset + seconds * piece.speed) % 1;
     const [r, g, b] = tints[piece.tint] ?? tints[0]!;
     const size = piece.size * smaller;
@@ -787,7 +827,7 @@ function drawConfetti(
 }
 
 /** How many layers a skyline has. */
-const SKYLINE_LAYERS = 3;
+const SKYLINE_LAYERS = 4;
 
 /**
  * Draws a skyline scrolling past, far layers slower.
@@ -800,6 +840,7 @@ const SKYLINE_LAYERS = 3;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawSkyline(
@@ -808,8 +849,12 @@ function drawSkyline(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
-  for (const layer of skyline(SKYLINE_LAYERS, FIELD_SEED)) {
+  for (const layer of skyline(
+    many(SKYLINE_LAYERS, density, SKYLINE_CAP),
+    FIELD_SEED,
+  )) {
     const [r, g, b] = tints[layer.tint] ?? tints[0]!;
     ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.3)`;
     const shift = ((seconds * layer.speed) % 1) * width;
@@ -827,7 +872,7 @@ function drawSkyline(
 }
 
 /** How many out-of-focus spots drift about. */
-const SPOT_COUNT = 34;
+const SPOT_COUNT = 70;
 
 /**
  * Draws out-of-focus spots of light.
@@ -841,6 +886,7 @@ const SPOT_COUNT = 34;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawBokeh(
@@ -849,9 +895,10 @@ function drawBokeh(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const smaller = Math.min(width, height);
-  for (const spot of bokeh(SPOT_COUNT, FIELD_SEED)) {
+  for (const spot of bokeh(many(SPOT_COUNT, density), FIELD_SEED)) {
     const angle = spot.phase + seconds * spot.speed * TWO_PI;
     const x = (spot.x + Math.cos(angle) * spot.drift) * width;
     const y = (spot.y + Math.sin(angle) * spot.drift) * height;
@@ -867,7 +914,7 @@ function drawBokeh(
 }
 
 /** How many polygons mystify draws. */
-const MYSTIFY_COUNT = 2;
+const MYSTIFY_COUNT = 4;
 
 /** How many corners each has. */
 const MYSTIFY_CORNERS = 4;
@@ -886,6 +933,7 @@ const MYSTIFY_CORNERS = 4;
  * @param dpr - device pixel ratio.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawMystify(
@@ -895,9 +943,14 @@ function drawMystify(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   ctx.lineWidth = Math.max(1, dpr);
-  for (const shape of mystify(MYSTIFY_COUNT, MYSTIFY_CORNERS, FIELD_SEED)) {
+  for (const shape of mystify(
+    many(MYSTIFY_COUNT, density),
+    MYSTIFY_CORNERS,
+    FIELD_SEED,
+  )) {
     const [r, g, b] = tints[shape.tint] ?? tints[0]!;
     for (let echo = shape.echoes; echo >= 0; echo -= 1) {
       const when = seconds - echo * shape.spacing;
@@ -916,7 +969,7 @@ function drawMystify(
 }
 
 /** How many rectangles bounce about. */
-const WANDERER_COUNT = 3;
+const WANDERER_COUNT = 6;
 
 /**
  * Draws rectangles bouncing off the edges.
@@ -926,6 +979,7 @@ const WANDERER_COUNT = 3;
  * @param height - bitmap height.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawBounce(
@@ -934,8 +988,9 @@ function drawBounce(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
-  wanderers(WANDERER_COUNT, FIELD_SEED).forEach((box, i) => {
+  wanderers(many(WANDERER_COUNT, density), FIELD_SEED).forEach((box, i) => {
     // Bounced within the room the box leaves, so it meets the edge rather than
     // half-leaving it — the corner is the whole point of watching.
     const x = bounced(box.startX + seconds * box.speedX) * (1 - box.width);
@@ -947,7 +1002,7 @@ function drawBounce(
 }
 
 /** How many columns of glyphs fall. */
-const RAIN_COLUMNS = 46;
+const RAIN_COLUMNS = 72;
 
 /** The glyphs the rain is made of. */
 const RAIN_ALPHABET = "01アイウエオカキクケコサシスセソタチツテト";
@@ -969,6 +1024,7 @@ const RAIN_STEPS_PER_SECOND = 8;
  * @param dpr - device pixel ratio.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawRain(
@@ -978,6 +1034,7 @@ function drawRain(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const size = Math.max(10, (width / RAIN_COLUMNS) * 0.9);
   ctx.font = `${size}px ui-monospace, monospace`;
@@ -986,7 +1043,7 @@ function drawRain(
   const step = Math.floor(seconds * RAIN_STEPS_PER_SECOND);
   const [tr, tg, tb] = tints[0]!;
   const [hr, hg, hb] = tints[1] ?? tints[0]!;
-  for (const column of rainColumns(RAIN_COLUMNS, FIELD_SEED)) {
+  for (const column of rainColumns(many(RAIN_COLUMNS, density), FIELD_SEED)) {
     const head = Math.floor(
       ((column.offset + seconds * column.speed) % 1) * (rows + column.length),
     );
@@ -1009,7 +1066,7 @@ function drawRain(
 }
 
 /** How many stars fly outward. */
-const WARP_COUNT = 220;
+const WARP_COUNT = 420;
 
 /**
  * Draws stars flying outward from the centre.
@@ -1024,6 +1081,7 @@ const WARP_COUNT = 220;
  * @param dpr - device pixel ratio.
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawWarp(
@@ -1033,12 +1091,13 @@ function drawWarp(
   dpr: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ): void {
   const cx = width / 2;
   const cy = height / 2;
   const reach = Math.hypot(cx, cy);
   ctx.lineCap = "round";
-  for (const star of warpStars(WARP_COUNT, FIELD_SEED)) {
+  for (const star of warpStars(many(WARP_COUNT, density), FIELD_SEED)) {
     const t = (star.offset + seconds * star.speed) % 1;
     const far = t * t * reach;
     // The streak is the distance travelled since a moment ago, so a star near
@@ -1073,6 +1132,7 @@ function drawWarp(
  * @param height - the bitmap height in device pixels.
  * @param tints - the two theme colours, as channel triples.
  * @param seconds - elapsed time.
+ * @param density - how many of a thing to draw, as a multiplier.
  * @returns nothing.
  */
 function drawAurora(
@@ -1081,8 +1141,9 @@ function drawAurora(
   height: number,
   tints: [number, number, number][],
   seconds: number,
+  density: number,
 ) {
-  for (const curtain of aurora(CURTAIN_COUNT, FIELD_SEED)) {
+  for (const curtain of aurora(many(CURTAIN_COUNT, density), FIELD_SEED)) {
     const centre = swayOf(curtain, seconds) * width;
     const half = (curtain.width * width) / 2;
     // Its own colour per curtain, so four curtains can be four colours.
@@ -1209,6 +1270,12 @@ function readRgb(
  * edge to the other; a reflection is a bounce. That is why none of them
  * remembers a velocity, and why mystify can draw its echoes as the same polygon
  * at earlier TIMES rather than as a history it keeps.
+ *
+ * **Two dials scale it: how busy, and how fast.** Density multiplies how many
+ * of a thing each canvas draws; speed multiplies the clock, so no renderer
+ * needs to know speed exists — one asked to go twice as fast is simply handed a
+ * time twice as large. Both are read from the root like every other themed
+ * value, and both clamp rather than refuse.
  *
  * **Every renderer is a pure function of seed and time.** Nothing carries
  * state between frames, which is what lets a page be themed, resized or
@@ -1379,31 +1446,59 @@ export function NebulaCanvas() {
         const tints = Array.from({ length: MAX_CANVAS_COLOURS }, (_, i) =>
           canvasColour(styles, i),
         );
-        const seconds = elapsed / 1000;
+        // **Two dials, read from the root like every other themed value.**
+        // Density multiplies how many of a thing each canvas draws; speed
+        // multiplies the clock, so no renderer needs to know it exists — one
+        // asked to go twice as fast is simply handed a time twice as large.
+        const density = dial(
+          styles.getPropertyValue("--canvas-density").trim(),
+        );
+        const seconds =
+          (elapsed / 1000) *
+          dial(styles.getPropertyValue("--canvas-speed").trim());
         // A record rather than a chain of branches: a canvas added to `CANVASES`
         // without an entry here would fall through to the nebula silently, and
         // "the control did nothing" is the fault this feature keeps producing.
         const draws: Record<string, () => void> = {
           stars: () =>
-            drawStars(ctx, width, height, dpr, tints, seconds, animated),
-          aurora: () => drawAurora(ctx, width, height, tints, seconds),
+            drawStars(
+              ctx,
+              width,
+              height,
+              dpr,
+              tints,
+              seconds,
+              animated,
+              density,
+            ),
+          aurora: () => drawAurora(ctx, width, height, tints, seconds, density),
           constellation: () =>
-            drawConstellation(ctx, width, height, dpr, tints, seconds),
-          waves: () => drawWaves(ctx, width, height, tints, seconds),
-          bubbles: () => drawBubbles(ctx, width, height, dpr, tints, seconds),
-          snow: () => drawSnow(ctx, width, height, tints, seconds),
-          grid: () => drawGrid(ctx, width, height, dpr, tints, seconds),
-          blobs: () => drawBlobs(ctx, width, height, tints, seconds),
-          orbits: () => drawOrbits(ctx, width, height, dpr, tints, seconds),
-          hexagons: () => drawHexagons(ctx, width, height, dpr, tints, seconds),
-          ribbons: () => drawRibbons(ctx, width, height, tints, seconds),
-          confetti: () => drawConfetti(ctx, width, height, tints, seconds),
-          skyline: () => drawSkyline(ctx, width, height, tints, seconds),
-          bokeh: () => drawBokeh(ctx, width, height, tints, seconds),
-          mystify: () => drawMystify(ctx, width, height, dpr, tints, seconds),
-          bounce: () => drawBounce(ctx, width, height, tints, seconds),
-          rain: () => drawRain(ctx, width, height, dpr, tints, seconds),
-          warp: () => drawWarp(ctx, width, height, dpr, tints, seconds),
+            drawConstellation(ctx, width, height, dpr, tints, seconds, density),
+          waves: () => drawWaves(ctx, width, height, tints, seconds, density),
+          bubbles: () =>
+            drawBubbles(ctx, width, height, dpr, tints, seconds, density),
+          snow: () => drawSnow(ctx, width, height, tints, seconds, density),
+          grid: () =>
+            drawGrid(ctx, width, height, dpr, tints, seconds, density),
+          blobs: () => drawBlobs(ctx, width, height, tints, seconds, density),
+          orbits: () =>
+            drawOrbits(ctx, width, height, dpr, tints, seconds, density),
+          hexagons: () =>
+            drawHexagons(ctx, width, height, dpr, tints, seconds, density),
+          ribbons: () =>
+            drawRibbons(ctx, width, height, tints, seconds, density),
+          confetti: () =>
+            drawConfetti(ctx, width, height, tints, seconds, density),
+          skyline: () =>
+            drawSkyline(ctx, width, height, tints, seconds, density),
+          bokeh: () => drawBokeh(ctx, width, height, tints, seconds, density),
+          mystify: () =>
+            drawMystify(ctx, width, height, dpr, tints, seconds, density),
+          bounce: () => drawBounce(ctx, width, height, tints, seconds, density),
+          rain: () =>
+            drawRain(ctx, width, height, dpr, tints, seconds, density),
+          warp: () =>
+            drawWarp(ctx, width, height, dpr, tints, seconds, density),
         };
         const drawChosen = Object.hasOwn(draws, chosen)
           ? draws[chosen]

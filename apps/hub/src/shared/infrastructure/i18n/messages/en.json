@@ -144,6 +144,8 @@
     "themeLive": "Changes show straight away",
     "themeAccent": "Accent",
     "themeCanvas": "Backdrop",
+    "themeDensity": "How busy",
+    "themeSpeed": "How fast",
     "themeSkin": "Style",
     "themeAdjusted": "Your accent, as visitors see it",
     "themeReset": "Back to the default look",
@@ -227,6 +229,7 @@
   "controls": {
     "toDark": "Switch to dark mode",
     "toLight": "Switch to light mode",
+    "authorTheme": "Their own theme — switch to a default",
     "language": "Change language",
     "loading": "Loading"
   },

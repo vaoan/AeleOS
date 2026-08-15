@@ -2,6 +2,7 @@ import { z } from "zod";
 import { parseHex, toHex } from "@/shared/domain/color";
 import { safeHttpUrl } from "@/features/actors/domain/embeds";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
+import { CANVAS_RANGE, dial } from "@/shared/domain/canvas-motion";
 import {
   DEFAULT_SKIN,
   SKINS,
@@ -69,6 +70,10 @@ export type CanvasId = (typeof CANVASES)[number];
 /**
  * How somebody chose their page to look.
  *
+ * A theme carries **two dials for the canvas** as well: how busy it is and how
+ * fast. They are separate because they are separate complaints — a starfield
+ * can be crowded and still, and a single box can hurtle.
+ *
  * A theme carries a **skin** as well as its colours, and the two are separate
  * on purpose. A skin decides FORM — corners, border weight, shadow, gloss, the
  * body's face — and names no colour of its own; the gradient decides colour and
@@ -131,6 +136,17 @@ export interface ActorTheme {
   canvasColours: string[] | null;
   /** Which canvas moves behind it. */
   canvas: CanvasId;
+  /**
+   * How much of the canvas to draw, as a multiplier.
+   *
+   * **Two dials rather than one**, because busy and fast are different
+   * complaints with different fixes: a starfield can be crowded and still, and
+   * a single box can hurtle. A combined "intensity" would move both and be
+   * wrong for one of them every time.
+   */
+  density: number;
+  /** How fast it moves, as a multiplier on the clock. */
+  speed: number;
   /**
    * Which style the page's surfaces are built in.
    *
@@ -207,6 +223,10 @@ export function cursorUrl(raw: string | undefined): string | null {
 /**
  * What a page looks like when nobody has chosen: nothing overridden.
  *
+ * Includes both canvas dials at 1, which is "as the canvas was drawn". They are
+ * numbers rather than nullable, because there is no such thing as an absent
+ * multiplier — one IS the absence.
+ *
  * Includes the cursor and the canvas's colours, both nullable like the rest,
  * and the skin, which is not: `default` is a real skin whose overrides happen
  * to be empty, so it expresses "nothing chosen" without needing null.
@@ -226,6 +246,8 @@ export const DEFAULT_THEME: ActorTheme = {
   canvas: "nebula",
   cursor: null,
   skin: DEFAULT_SKIN,
+  density: CANVAS_RANGE.default,
+  speed: CANVAS_RANGE.default,
 };
 
 /**
@@ -301,6 +323,10 @@ function colour(value: unknown): string | null {
  * read rather than inventing one — a theme left with no readable stop at all is
  * treated as having no background, and derives no palette.
  *
+ * The two dials are CLAMPED rather than validated. A value out of range is a
+ * slider from an older build or a hand-edited row, and the nearest usable
+ * number is a better answer than a page that will not render.
+ *
  * The skin is matched the same way the canvas is, and against the same kind of
  * list, so a style that was renamed or removed leaves a page on the default
  * rather than on a name nothing implements.
@@ -335,6 +361,11 @@ export function parseTheme(value: unknown): ActorTheme {
       typeof skin === "string" && (SKINS as readonly string[]).includes(skin)
         ? (skin as SkinId)
         : DEFAULT_SKIN,
+    // Clamped rather than validated: a value out of range is a slider from an
+    // older build or a hand-edited row, and the nearest usable number is a
+    // better answer than refusing to render somebody's page.
+    density: dial(stored.density),
+    speed: dial(stored.speed),
   };
 }
 
@@ -350,7 +381,8 @@ export function parseTheme(value: unknown): ActorTheme {
  * is reachable through a colour input, and the database checks the format
  * anyway. What this pins is the SHAPE, so the form cannot submit a theme with a
  * canvas the renderer has no implementation for. The skin is pinned the same
- * way and for the same reason.
+ * way and for the same reason. The two dials are loose numbers here and
+ * clamped where they are read, since a slider cannot produce anything else.
  */
 export const themeSchema = z.object({
   canvasColours: z.array(z.string()).nullable(),
@@ -364,6 +396,8 @@ export const themeSchema = z.object({
   canvas: z.enum(CANVASES),
   cursor: z.string().nullable(),
   skin: z.enum(SKINS),
+  density: z.number(),
+  speed: z.number(),
 });
 
 /**
@@ -468,7 +502,8 @@ export function isThemed(theme: ActorTheme): boolean {
 /**
  * Whether there is anything at all to put back.
  *
- * Everything a theme carries, colour or not. This is what Reset asks, and it
+ * Everything a theme carries, colour or not — the two canvas dials included,
+ * since turning one up is a change to put back like any other. This is what Reset asks, and it
  * used to ask {@link isThemed} instead — so somebody who had chosen only a
  * canvas, a cursor or a skin faced a disabled button with nothing telling them
  * why, which is the same "control that does nothing" fault this feature has
@@ -482,7 +517,9 @@ export function isCustomised(theme: ActorTheme): boolean {
     isThemed(theme) ||
     Boolean(theme.cursor) ||
     theme.canvas !== DEFAULT_THEME.canvas ||
-    theme.skin !== DEFAULT_THEME.skin
+    theme.skin !== DEFAULT_THEME.skin ||
+    theme.density !== DEFAULT_THEME.density ||
+    theme.speed !== DEFAULT_THEME.speed
   );
 }
 
@@ -510,6 +547,10 @@ export function isCustomised(theme: ActorTheme): boolean {
  * canvas asks for the slot it wants rather than for a letter that meant
  * something only while there were two of them. A slot whose value cannot be read
  * emits nothing rather than a property full of `NaN`.
+ *
+ * The two canvas dials are emitted ONLY when moved, like everything else here:
+ * a page nobody has turned up carries no property at all and the canvas reads
+ * its own default.
  *
  * **The skin is NOT here.** `themeCss` emits it separately, scoped to the
  * person's own content — see `SKIN_SCOPE`. Everything this returns belongs at
@@ -558,6 +599,15 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
     ...(theme.canvas === DEFAULT_THEME.canvas
       ? {}
       : { "--canvas": theme.canvas }),
+    // Emitted only when moved, like everything else here: a page nobody has
+    // turned up carries no property at all and the canvas reads its own
+    // default.
+    ...(theme.density === DEFAULT_THEME.density
+      ? {}
+      : { "--canvas-density": String(theme.density) }),
+    ...(theme.speed === DEFAULT_THEME.speed
+      ? {}
+      : { "--canvas-speed": String(theme.speed) }),
     // **The hotspot is fixed at `0 0` and is not the author's to choose.** It
     // decides where a click actually lands relative to the picture, so an offset
     // one makes the arrow somebody sees disagree with the point they hit — a

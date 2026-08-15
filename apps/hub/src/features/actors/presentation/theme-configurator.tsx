@@ -22,6 +22,7 @@ import {
 } from "@/features/actors/presentation/gradient-picker";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import { slotsFor } from "@/shared/domain/canvas-slots";
+import { CANVAS_RANGE, dialsApply } from "@/shared/domain/canvas-motion";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { tid } from "@/shared/infrastructure/test-id";
 
@@ -32,6 +33,9 @@ import { tid } from "@/shared/infrastructure/test-id";
  * and how small it must be, and a warning for a picture too big for any browser
  * to use. Two hints rather than one because the second replaces the first only
  * when it applies — a permanent warning is one nobody reads.
+ *
+ * The two dials name what they do rather than what they are — "how busy" and
+ * "how fast" rather than density and speed, which are the code's words.
  *
  * The skin's strings are a field name and one label per style. They are the
  * app's chrome and so belong in the catalogues, unlike a person's own writing —
@@ -70,6 +74,10 @@ export interface ThemeConfiguratorLabels {
   canvasColours: string;
   /** Field label for the canvas selector. */
   canvas: string;
+  /** Field label for how busy the canvas is. */
+  density: string;
+  /** Field label for how fast it moves. */
+  speed: string;
   /** Field label for the style selector. */
   skin: string;
   /** One label per skin. */
@@ -140,6 +148,12 @@ export interface ThemeConfiguratorProps {
  * decides form — corners, border weight, shadow, gloss, the body's face — so
  * every pairing of a style and a palette is somebody's page. Tying the two
  * together would have collapsed nine styles into nine colour schemes.
+ *
+ * **The two dials appear only where there is something to turn up.** `none`
+ * draws nothing, so a density slider beside it would accept a drag and change
+ * nothing at all. Busy and fast are separate because they are separate
+ * complaints — a starfield can be crowded and still, and a single box can
+ * hurtle.
  *
  * **The canvas gets one picker per part it actually paints with** — see
  * `CANVAS_SLOTS`. Two fixed cloud pickers gave every canvas the same pair and
@@ -400,6 +414,54 @@ export function ThemeConfigurator({
               ))}
             </select>
           </div>
+
+          {/* **Only where there is something to turn up.** `none` draws
+              nothing, so a density slider for it accepts a drag and changes
+              nothing — the fault this panel keeps being trimmed for. */}
+          {dialsApply(value.canvas) ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ["density", labels.density],
+                  ["speed", labels.speed],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className="grid gap-1.5">
+                  <label
+                    htmlFor={`${id}-${key}`}
+                    className="flex items-center justify-between gap-2 text-xs font-medium"
+                  >
+                    {label}
+                    {/* The multiplier, so a slider position means something.
+                        Built as one string rather than a number beside a
+                        literal — the lint rule reads a bare literal in JSX as
+                        untranslated copy, and it is right that it would be. */}
+                    <span className="text-[0.625rem] text-[var(--muted)]">
+                      {`${value[key].toFixed(2)}×`}
+                    </span>
+                  </label>
+                  <input
+                    id={`${id}-${key}`}
+                    type="range"
+                    min={CANVAS_RANGE.min}
+                    max={CANVAS_RANGE.max}
+                    step={0.05}
+                    value={value[key]}
+                    // Continuous, like the colour inputs: the canvas redraws on
+                    // the next frame, so the drag itself IS the preview.
+                    onChange={(event) =>
+                      onChange({
+                        ...value,
+                        [key]: Number.parseFloat(event.target.value),
+                      })
+                    }
+                    {...tid(`theme-${key}`)}
+                    className="w-full accent-[var(--accent)]"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className="grid gap-1.5">
             <label htmlFor={`${id}-canvas`} className="text-xs font-medium">

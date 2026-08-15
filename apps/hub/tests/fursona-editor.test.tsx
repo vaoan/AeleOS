@@ -94,6 +94,8 @@ const labels = {
     accent: "Accent",
     canvasColours: "Canvas colours",
     canvas: "Backdrop",
+    density: "How busy",
+    speed: "How fast",
     canvases: {
       nebula: "Nebula",
       stars: "Starfield",
@@ -361,6 +363,8 @@ describe("FursonaEditor for a person", () => {
           canvas: "nebula",
           cursor: null,
           skin: "default",
+          density: 1,
+          speed: 1,
         }}
       />,
     );

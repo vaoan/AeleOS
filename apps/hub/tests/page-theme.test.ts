@@ -48,44 +48,34 @@ describe("PAGE_THEME_SCRIPT", () => {
     new Function(PAGE_THEME_SCRIPT)();
   };
 
-  // The script is a string and can only repeat the key rather than import it.
-  // Without this the two could read and write different keys and the choice
-  // would be silently ignored on every load.
-  it("reads the key the app writes", () => {
-    expect(PAGE_THEME_SCRIPT).toContain(PAGE_THEME_STORAGE_KEY);
+  it("names the attribute the app reads", () => {
     expect(PAGE_THEME_SCRIPT).toContain(PAGE_THEME_ATTRIBUTE);
   });
 
-  it("defaults to the author's theme", () => {
-    run();
-    expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
-      "author",
-    );
-  });
+  // **THE REGRESSION TEST for one press taking the theme off every page.** The
+  // choice used to live in `localStorage` under a single key for the whole
+  // site, so a visitor who took one person's colours off never saw anybody
+  // else's again — they had silently opted out of every page on the platform
+  // by pressing a button on one of them.
+  //
+  // Every page starts on the author's theme now, whatever storage holds.
+  it.each(["default", "author", "chartreuse"])(
+    "starts on the author's theme even with %s stored",
+    (stored) => {
+      localStorage.setItem(PAGE_THEME_STORAGE_KEY, stored);
+      run();
+      expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
+        "author",
+      );
+    },
+  );
 
-  it.each(["author", "default"])("applies the stored choice %s", (stored) => {
-    localStorage.setItem(PAGE_THEME_STORAGE_KEY, stored);
+  // It reads nothing at all now, which is also what removed the try/catch this
+  // needed when it touched storage that throws in some privacy modes.
+  it("touches no storage", () => {
+    const read = vi.spyOn(Storage.prototype, "getItem");
     run();
-    expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
-      stored,
-    );
-  });
-
-  it("ignores a stored value it does not know", () => {
-    localStorage.setItem(PAGE_THEME_STORAGE_KEY, "chartreuse");
-    run();
-    expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
-      "author",
-    );
-  });
-
-  // Storage throws outright in some privacy modes, and an exception here would
-  // leave a themed page with no attribute and therefore no theme.
-  it("still sets the attribute when storage throws", () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    run();
+    expect(read).not.toHaveBeenCalled();
     expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
       "author",
     );
@@ -99,12 +89,17 @@ describe("PAGE_THEME_SCRIPT", () => {
 });
 
 describe("setPageTheme", () => {
-  it("applies and remembers the choice", () => {
+  // **Applied, and deliberately not remembered.** Persisting it is what made
+  // one press on one person's page take the theme off everybody's, so the
+  // choice lasts the visit and a stranger always arrives at a page as its
+  // owner built it.
+  it("applies the choice without writing it down", () => {
+    const wrote = vi.spyOn(Storage.prototype, "setItem");
     setPageTheme("default");
     expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
       "default",
     );
-    expect(localStorage.getItem(PAGE_THEME_STORAGE_KEY)).toBe("default");
+    expect(wrote).not.toHaveBeenCalled();
   });
 
   it("tells an open page about it", () => {

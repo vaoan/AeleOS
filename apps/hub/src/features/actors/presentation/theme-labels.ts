@@ -25,6 +25,11 @@ export type Translate = (key: string) => string;
  * visibility words are already shared the same way for the same reason: a
  * second copy is two catalogues to keep in step for no gain.
  *
+ * The two canvas dials are resolved here with the rest, even though the panel
+ * hides them for a canvas that draws nothing — which control appears is the
+ * panel's decision, and a label bag that varied by canvas would be several
+ * shapes to keep in step.
+ *
  * It resolves the copy button's label whether or not the caller will render
  * one — the panel decides that from whether a profile theme was handed to it,
  * and a label bag that varied by caller would be two shapes to keep in step.
@@ -53,6 +58,8 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
     accent: t("themeAccent"),
     canvasColours: t("themeCanvasColours"),
     canvas: t("themeCanvas"),
+    density: t("themeDensity"),
+    speed: t("themeSpeed"),
     canvases: Object.fromEntries(
       CANVASES.map((canvas) => [canvas, t(`canvases.${canvas}`)]),
     ) as Record<CanvasId, string>,

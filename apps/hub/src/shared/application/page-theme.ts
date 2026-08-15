@@ -31,15 +31,25 @@ export const PAGE_THEME_CHANGE_EVENT = "aeleos:page-theme-change";
 /**
  * Decides whether to wear the author's theme.
  *
- * **The default is the author's**, which is the whole point: somebody arriving
- * at a fursona page sees it as its owner built it, without having asked for
- * anything. Only a visitor who has explicitly opted out gets the defaults back.
+ * **Every page starts on the author's, and the choice is NOT remembered.**
+ * That is the fix for a real fault, not a simplification: the choice used to
+ * live in `localStorage` under one key for the whole site, so a visitor who
+ * took one person's colours off never saw anybody else's again. Somebody had
+ * silently opted out of every page on the platform by pressing a button on one
+ * of them.
  *
- * Anything stored that is not a known choice is treated as absent rather than
- * trusted — the value is user-writable and outlives deploys, so a stale one
- * must not leave a page with an attribute nothing matches.
+ * Per-page storage was the other candidate and is worse: it needs a key naming
+ * an actor, so leaving a theme once would follow somebody around that one page
+ * for ever, and there would be no way to discover why a page looked different
+ * from how its owner built it.
  *
- * @param stored - the persisted choice, or null when there is none.
+ * So the switch lasts as long as the visit does. A stranger always arrives at a
+ * page as its owner made it, and can always take it off for as long as they are
+ * reading. `stored` is kept as a parameter because the pre-paint script still
+ * calls this shape, and because a future per-visit store would slot straight
+ * in.
+ *
+ * @param stored - a previously chosen value, if a caller has one.
  * @returns the choice to put on the document element.
  */
 export function resolvePageTheme(stored: string | null): PageTheme {
@@ -55,45 +65,31 @@ export function resolvePageTheme(stored: string | null): PageTheme {
  * doing it after hydration shows every visitor a frame of the wrong palette,
  * and on a themed page that frame is the whole design changing under them.
  *
- * It duplicates {@link resolvePageTheme} rather than importing it, because it
- * must run before any bundle loads. Both halves are tested, this one by being
- * evaluated in the suite rather than merely pattern-matched.
- *
- * Wrapped in try/catch because storage access throws outright in some privacy
- * modes; an exception here would leave a themed page with no attribute and
- * therefore no theme.
+ * **It reads nothing.** Every page starts on the author's theme, so there is
+ * no stored value to consult — which also removes the try/catch this needed
+ * when it touched storage that throws in some privacy modes. It used to read
+ * one key for the whole site, and a visitor who took one person's colours off
+ * never saw anybody else's again.
  *
  * Security: a module constant with no interpolation. It is safe to inject with
  * `dangerouslySetInnerHTML` precisely because nothing user-supplied ever
  * reaches it — do not add a parameter to this string.
  */
 export const PAGE_THEME_SCRIPT = `
-try {
-  var s = localStorage.getItem("${PAGE_THEME_STORAGE_KEY}");
-  var v = s === "author" || s === "default" ? s : "author";
-  document.documentElement.setAttribute("${PAGE_THEME_ATTRIBUTE}", v);
-} catch (e) {
-  document.documentElement.setAttribute("${PAGE_THEME_ATTRIBUTE}", "author");
-}
+document.documentElement.setAttribute("${PAGE_THEME_ATTRIBUTE}", "author");
 `.trim();
 
 /**
- * Applies and persists a visitor's choice.
+ * Applies a visitor's choice, for as long as they are on the page.
  *
- * The attribute is set before the write, so the page changes even where storage
- * refuses — a visitor in a privacy mode still gets the switch they asked for,
- * they just do not get it remembered.
+ * **Nothing is written down.** Persisting this is what made one press on one
+ * person's page take the theme off everybody's, so the choice now lasts the
+ * visit — a stranger always arrives at a page as its owner built it.
  *
  * @param choice - what the visitor picked.
  * @returns nothing.
  */
 export function setPageTheme(choice: PageTheme): void {
   document.documentElement.setAttribute(PAGE_THEME_ATTRIBUTE, choice);
-  try {
-    localStorage.setItem(PAGE_THEME_STORAGE_KEY, choice);
-  } catch {
-    // Storage throws outright in some privacy modes. The attribute is already
-    // set, so the only thing lost is remembering it for next time.
-  }
   window.dispatchEvent(new Event(PAGE_THEME_CHANGE_EVENT));
 }
