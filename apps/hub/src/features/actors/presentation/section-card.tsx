@@ -101,6 +101,13 @@ const EMPTY_ITEM = {
  * white in dark mode. `dropdown-legibility.test.ts` guards every select in the
  * app against going back.
  *
+ * **That same select is what made this row too wide for a phone.** A `select`
+ * is as wide as its longest option whatever surrounds it, so the header row —
+ * handle, name, a menu naming eleven layouts, bin — forced the page 150px wider
+ * than a 320px screen. The row wraps, the menu takes a line of its own there,
+ * and it rejoins the row as soon as there is room. `responsive.spec.ts` fails
+ * by exactly that 150px when the row is put back on one line.
+ *
  * * @returns the section card.
  */
 export function SectionCard<T extends FieldValues>({
@@ -127,8 +134,16 @@ export function SectionCard<T extends FieldValues>({
   const type = useWatch({ control, name: `${path}.type` as Path<T> });
 
   return (
-    <div className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-4">
-      <div className="flex items-end gap-3">
+    <div className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-3 sm:p-4">
+      {/* Wraps, and the layout select is what wraps. This row is a handle, a
+          name, a menu naming eleven layouts and a bin — and a `select` is as
+          wide as its longest option, which no amount of space around it
+          changes. On a 320px screen the four together forced the page 150px
+          wider than the phone, so the menu takes a line of its own below
+          (`w-full` is what forces the break) and rejoins the row as soon as
+          there is room for it. Measured, not guessed: `responsive.spec.ts`
+          fails by exactly that 150px when this row is put back on one line. */}
+      <div className="flex flex-wrap items-end gap-2 sm:gap-3">
         <button
           type="button"
           aria-label={collapsed ? labels.expand : labels.collapse}
@@ -142,7 +157,7 @@ export function SectionCard<T extends FieldValues>({
           )}
         </button>
 
-        <div className="grid flex-1 gap-1.5">
+        <div className="grid min-w-0 flex-1 gap-1.5">
           <label htmlFor={`${id}-name`} className="text-xs font-medium">
             {labels.sectionName}
           </label>
@@ -155,7 +170,7 @@ export function SectionCard<T extends FieldValues>({
           />
         </div>
 
-        <div className="grid gap-1.5">
+        <div className="order-last grid w-full min-w-0 gap-1.5 sm:order-none sm:w-auto">
           <label htmlFor={`${id}-type`} className="text-xs font-medium">
             {labels.sectionType}
           </label>
@@ -183,7 +198,7 @@ export function SectionCard<T extends FieldValues>({
       </div>
 
       {collapsed ? null : (
-        <div className="grid gap-2 pl-9">
+        <div className="grid gap-2 pl-2 sm:pl-9">
           {fields.map((field, itemIndex) => (
             <SectionItemFields
               key={field.id}

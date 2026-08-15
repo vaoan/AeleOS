@@ -188,6 +188,13 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * `sectionsSchema`, composed rather than restated so neither set of rules
  * exists twice.
  *
+ * **The language strip sticks at `--bar-top-2`, which is under both bars above
+ * it.** Pinned near the top it was covered by the toolbar and covered the page
+ * header in turn, so on every screen size the control it holds was unreachable
+ * for as long as anybody scrolled. It carries `bar-yields`, so on a screen too
+ * short for three bars it scrolls away and leaves the top to Save — see
+ * `globals.css`, where the offsets are declared together.
+ *
  * **Navigation is decided by what `save` returns, never by reading
  * `fieldErrors` afterwards.** That value is captured from the render that built
  * the submit handler, so it is still empty when a save fails — and this editor
@@ -403,7 +410,7 @@ export function FursonaEditor({
         </div>
       </div>
 
-      <div className="sticky top-2 z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--edge)] bg-[var(--bar)]/95 p-3 backdrop-blur">
+      <div className="bar-yields sticky top-[var(--bar-top-2)] z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--edge)] bg-[var(--bar)]/95 p-3 backdrop-blur">
         <div className="grid gap-0.5">
           <span className="font-display text-sm font-bold">
             {labels.writingIn}

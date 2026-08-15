@@ -197,6 +197,10 @@ export interface ThemeConfiguratorProps {
  * because the resting state is **no override at all** — a page that follows the
  * design — and no colour a picker can produce expresses that.
  *
+ * Its padding is tighter below `sm`, for the same reason the card around it is:
+ * the panel is the widest thing in the editor, and on a phone the chrome it
+ * nests inside was taking more of the screen than the controls.
+ *
  * @returns the panel.
  */
 export function ThemeConfigurator({
@@ -306,7 +310,7 @@ export function ThemeConfigurator({
   );
 
   return (
-    <section className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-4">
+    <section className="grid gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"

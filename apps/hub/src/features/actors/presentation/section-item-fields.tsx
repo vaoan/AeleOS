@@ -175,6 +175,10 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * appeared to cover this used a template, and a template inserts its sections
  * as data without touching a single one of these controls.
  *
+ * Its box is slightly tighter below `sm`. It is the innermost of three nested
+ * paddings — column, card, item — which together came to 88px of a 360px screen
+ * and were half of why the editor did not fit on a phone.
+ *
  * @returns the item's fields.
  */
 export function SectionItemFields<T extends FieldValues>({
@@ -207,7 +211,7 @@ export function SectionItemFields<T extends FieldValues>({
   const title = useWatch({ control, name: `${path}.title_${lang}` as Path<T> });
 
   return (
-    <div className="grid gap-2 rounded-lg border border-[var(--edge)]/40 p-3">
+    <div className="grid gap-2 rounded-lg border border-[var(--edge)]/40 p-2.5 sm:p-3">
       {LINKED.has(type) ? (
         <div className="grid gap-1.5">
           <label htmlFor={`${id}-link`} className="text-xs font-medium">

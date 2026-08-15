@@ -340,6 +340,51 @@ option {
   color: var(--ink);
 }
 
+/*
+ * **Where a second sticky bar sits, and why it is a variable.**
+ *
+ * The page header and the editor's toolbar were both `sticky top-0`, so the
+ * toolbar — higher in the stacking order — parked exactly on top of the header
+ * and hid the wordmark, the language toggle and the account menu the moment
+ * anybody scrolled. It read as the header having been eaten.
+ *
+ * So the header declares its height and the toolbar sticks below it. One token
+ * rather than a repeated magic number, because the two must agree: a gap shows
+ * page content sliding through the band between them, and an overlap is the bug
+ * above.
+ *
+ * The editor stacks THREE of them — header, toolbar, and the strip naming which
+ * language you are writing in — so there are two offsets. The strip was pinned
+ * at `top-2` and lost twice over: it covered the header, and the toolbar
+ * covered it, so the one control it holds was unreachable on every screen size
+ * rather than only on a phone.
+ *
+ * On a phone in landscape three bars are half the screen, and there the ones
+ * that can yield do: the header and the strip scroll away like ordinary
+ * content and the toolbar takes the top, because while editing it is Save that
+ * must stay reachable and the wordmark that can wait. `bar-yields` is what
+ * marks a bar as able to give up its place. The query is on the VIEWPORT's
+ * height, so it follows a rotation rather than a guess about which devices are
+ * phones.
+ */
+:root {
+  --bar-h: 3.5rem;
+  /* Where a second bar sticks: directly under the header. */
+  --bar-top: var(--bar-h);
+  /* And a third, under both — plus the gap the strip carries above itself. */
+  --bar-top-2: calc(var(--bar-top) + var(--bar-h) + 0.5rem);
+}
+
+@media (max-height: 600px) {
+  :root {
+    --bar-top: 0px;
+  }
+
+  .bar-yields {
+    position: static;
+  }
+}
+
 [class~="border"] {
   border-width: var(--skin-border);
   background-image: var(--skin-gloss);

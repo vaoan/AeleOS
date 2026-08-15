@@ -61,13 +61,18 @@ const actor = (over: Partial<PublicActor> = {}): PublicActor => ({
  * @param over - fields to replace on the actor.
  * @param locale - the locale being read.
  */
-function renderProfile(over: Partial<PublicActor> = {}, locale = "en"): void {
+function renderProfile(
+  over: Partial<PublicActor> = {},
+  locale = "en",
+  themeSwitch?: React.ReactNode,
+): void {
   render(
     <PublicProfile
       actor={actor(over)}
       locale={locale}
       fursonasTitle="Fursonas"
       emptyMessage="Nothing here yet."
+      themeSwitch={themeSwitch}
     />,
   );
 }
@@ -101,6 +106,30 @@ describe("PublicProfile", () => {
   it("shows a placeholder when there is no avatar", () => {
     renderProfile({ avatarUrl: null });
     expect(document.querySelector("header img")).toBeNull();
+  });
+
+  // WHERE it renders is the assertion, not whether. It sat alone above the
+  // page, which read as furniture nobody had written a heading for and pushed
+  // the portrait down by its own height; both routes now hand it here so it is
+  // level with the picture. Asserting only that it appears somewhere would
+  // pass with it back where it was.
+  describe("the theme switch", () => {
+    it("rides the header, level with the portrait", () => {
+      renderProfile({}, "en", <button type="button">Theme</button>);
+      const header = document.querySelector("header");
+      expect(header).toContainElement(
+        screen.getByRole("button", { name: "Theme" }),
+      );
+    });
+
+    // Absent is the ordinary case: an unthemed page has no theme to leave, and
+    // the routes pass nothing at all rather than an empty box.
+    it("leaves no empty box behind when there is none", () => {
+      renderProfile();
+      expect(
+        screen.queryByTestId("public-theme-switch"),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("renders what they wrote", () => {

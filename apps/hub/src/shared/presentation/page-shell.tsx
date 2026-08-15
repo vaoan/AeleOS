@@ -133,6 +133,13 @@ export interface PageShellProps {
  * suite selects by. The wordmark itself is a literal rather than a catalogue
  * entry because a proper noun reads the same in every language.
  *
+ * **The header is a fixed `--bar-h` tall and carries `bar-yields`.** Both are
+ * mechanism rather than styling: anything else that sticks — the editor's
+ * toolbar — parks at that height, and the class is what lets a screen too short
+ * for two bars take the stickiness away and zero the offset together. The
+ * padding and gaps are narrower below `sm` because at the wide ones this row
+ * came to 324px on a 320px screen, which is every page scrolling sideways.
+ *
  * The column centres itself vertically when the page is shorter than the
  * window, and scrolls from the top when it is longer. Sign-in used to cling to
  * the header with a third of the window empty beneath it; this fixes that for
@@ -158,8 +165,19 @@ export async function PageShell({
           620px content column instead left the wordmark stranded at x=434 on a
           1440px screen — text dropped in the middle of an empty bar rather
           than a navigation bar. The column still governs the page below. */}
-      <header className="sticky top-0 z-10 border-b border-[var(--edge)]/40 bg-[var(--bar)] backdrop-blur-md">
-        <div className="flex w-full items-center gap-2 px-6 py-3">
+      {/* `bar-yields` and the fixed height are one mechanism: anything else that
+          sticks — the editor's toolbar — parks at `--bar-top`, which is this
+          height, and the class is what lets a short landscape screen take the
+          stickiness away and set that offset to zero together. Both live in
+          `globals.css`, where the reasoning is. */}
+      <header className="bar-yields sticky top-0 z-10 h-[var(--bar-h)] border-b border-[var(--edge)]/40 bg-[var(--bar)] backdrop-blur-md">
+        {/* Everything here is measured against 320px, the narrowest phone
+            still in use. The star, the wordmark, two section links, language,
+            theme and the account menu came to 324px there — four over, which
+            is a page that scrolls sideways on every screen of the app rather
+            than only in the editor. The padding and the gaps are where those
+            four came from. */}
+        <div className="flex h-full w-full min-w-0 items-center gap-1 px-2 sm:gap-2 sm:px-6">
           {/* The star sits with the wordmark because it *is* the wordmark's
               light source: switching it off puts out the dust it lights. That
               relationship is the reason it needs no visible label, and it is
@@ -176,7 +194,7 @@ export async function PageShell({
               the way home. */}
           <Link
             href={homeHref}
-            className="rounded-lg px-1 font-display text-lg font-bold tracking-tight"
+            className="shrink-0 rounded-lg px-1 font-display text-base font-bold tracking-tight sm:text-lg"
             {...tid("wordmark")}
           >
             AeleOS
@@ -184,7 +202,7 @@ export async function PageShell({
           {nav}
           {/* Controls live together on the right. Beside the wordmark the star
               read as a bullet point rather than something pressable. */}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             <LanguageToggle label={t("language")} />
             <ThemeToggle
               toDarkLabel={t("toDark")}
@@ -213,7 +231,12 @@ export async function PageShell({
         // picked a style that silently did nothing.
         className={cn(
           SKIN_SCOPE,
-          "mx-auto flex w-full flex-1 flex-col px-6 py-10",
+          // **The padding is narrower on a phone, and that is load-bearing
+          // rather than cosmetic.** The editor nests a card inside this column
+          // inside an item box, and at `px-6` throughout the chrome alone was
+          // 88px of a 360px screen — which is what pushed the form off the
+          // right-hand edge there. `responsive.spec.ts` measures it.
+          "mx-auto flex w-full min-w-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-10",
           width === "wide" ? "max-w-7xl" : "max-w-[620px] justify-center",
         )}
         {...tid("page-content")}
@@ -233,6 +256,9 @@ export interface CardProps {
 /**
  * The single surface used everywhere content sits on the field.
  *
+ * Its padding is tighter below `sm`: this is the outermost of the nested boxes
+ * the editor stacks, and at `p-6` throughout they took 88px of a 360px screen.
+ *
  * Translucent so the nebula shows through, with a border that carries the
  * separation: at these lightness levels the fill alone cannot reach 3:1
  * against the field, so the border is doing the accessibility work rather
@@ -243,7 +269,7 @@ export interface CardProps {
 export function Card({ children }: CardProps) {
   return (
     <div
-      className="rounded-2xl border border-[var(--edge)] bg-[var(--surface)] p-6 shadow-sm backdrop-blur-md"
+      className="rounded-2xl border border-[var(--edge)] bg-[var(--surface)] p-4 shadow-sm backdrop-blur-md sm:p-6"
       {...tid("card")}
     >
       {children}

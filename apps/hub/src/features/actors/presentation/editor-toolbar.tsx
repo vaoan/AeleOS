@@ -38,6 +38,13 @@ export interface EditorToolbarProps {
  * Sticky because the editor is long and Save must not scroll away — that is
  * the studio's arrangement and the reason for it.
  *
+ * **It sticks at `--bar-top`, not at the top.** The page header is sticky too,
+ * so parking both at zero put this one on top of it and hid the wordmark, the
+ * language toggle and the account menu for as long as somebody was editing.
+ * That token is the header's height, and it becomes zero on a screen short
+ * enough that the header gives up its own stickiness — see `globals.css`, where
+ * the two halves are declared together.
+ *
  * **Save is a submit button, not a click handler.** The form owns submission,
  * so pressing Enter in a text field saves exactly as pressing Save does, and
  * there is one path to guard rather than two.
@@ -63,11 +70,14 @@ export function EditorToolbar({
   cancelHref,
 }: EditorToolbarProps) {
   return (
-    <div className="sticky top-0 z-20 -mx-6 mb-6 flex items-center gap-3 border-b border-[var(--edge)]/40 bg-[var(--bar)] px-6 py-3 backdrop-blur-md">
-      <span className="font-display text-lg font-bold tracking-tight">
+    <div className="sticky top-[var(--bar-top)] z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-[var(--edge)]/40 bg-[var(--bar)] px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
+      {/* `truncate` rather than wrap. A two-line title doubled the bar's height
+          on a phone and pushed Save down with it, so the one control that must
+          never move moved every time the name got longer. */}
+      <span className="min-w-0 truncate font-display text-base font-bold tracking-tight sm:text-lg">
         {title}
       </span>
-      <span className="ml-auto flex items-center gap-2">
+      <span className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         {/* **A link, not a button that pushes.** Cancel goes to one known
             place, so a link is the right element on its own merits: a middle
             click or a modified click opens it in a new tab, which a button

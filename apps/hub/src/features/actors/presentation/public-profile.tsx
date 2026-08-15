@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { tid } from "@/shared/infrastructure/test-id";
 import { isMachineHandle } from "@/features/actors/domain/actor-content";
 import type { PublicActor } from "@/features/actors/infrastructure/public-actors";
@@ -9,6 +10,9 @@ import { PublicSections } from "@/features/actors/presentation/public-sections";
  *
  * The two label props are both resolved by the route, because this renders on
  * both public pages and neither of them knows the locale by itself.
+ *
+ * `themeSwitch` joins them for the same reason and is optional for a different
+ * one: only the route knows whether there is a theme to leave.
  */
 export interface PublicProfileProps {
   /** The actor to render — a person or one of their fursonas. */
@@ -25,6 +29,23 @@ export interface PublicProfileProps {
    * write something — most people who see it are not the person who could.
    */
   emptyMessage: string;
+
+  /**
+   * The control that leaves the owner's theme, rendered on the header's row.
+   *
+   * **A slot rather than something this component builds**, because it is a
+   * client component and both routes already resolve their own labels — and
+   * because only the route knows whether there is a theme to leave. Absent is
+   * the ordinary case: an unthemed page offers no way out of a theme it does
+   * not have.
+   *
+   * It belongs on this row rather than above it. Alone at the top of the page
+   * it read as something the page was missing a heading for, and it pushed the
+   * portrait — the thing a visitor is here to look at — a control's height
+   * further down. Level with the picture it is plainly one of the page's
+   * furniture rather than part of what its owner wrote.
+   */
+  themeSwitch?: ReactNode;
 }
 
 /**
@@ -67,6 +88,11 @@ export interface PublicProfileProps {
  * stranger judges somebody by, and a name at the same size as a section
  * heading gives them nowhere to look first.
  *
+ * **The theme switch rides that header rather than sitting above it.** It is a
+ * slot — see the prop — and it is level with the portrait, which is what makes
+ * it read as the page's furniture rather than as something its owner put
+ * there. The row wraps on a phone, where the three do not share a line.
+ *
  * @returns the page.
  */
 export function PublicProfile({
@@ -74,6 +100,7 @@ export function PublicProfile({
   locale,
   fursonasTitle,
   emptyMessage,
+  themeSwitch,
 }: PublicProfileProps) {
   // **Never the provisioned handle.** A person is minted with `u-<actor_ref>`,
   // which is that reference in a thin disguise — and on a person it is the
@@ -91,26 +118,34 @@ export function PublicProfile({
   const empty = actor.sections.length === 0 && !actor.fursonas?.length;
   return (
     <article className="grid gap-8">
-      <header className="flex items-center gap-5 border-b border-[var(--edge)]/40 pb-8">
+      {/* Wraps, because on a phone the portrait, the name and the theme switch
+          do not share a line — and the name is what gives way, since it is the
+          only one of the three that reads perfectly well on its own row. */}
+      <header className="flex flex-wrap items-center gap-4 border-b border-[var(--edge)]/40 pb-8 sm:gap-5">
         {actor.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
           <img
             src={actor.avatarUrl}
             alt=""
-            className="size-24 shrink-0 rounded-full border border-[var(--edge)] object-cover"
+            className="size-20 shrink-0 rounded-full border border-[var(--edge)] object-cover sm:size-24"
           />
         ) : (
-          <span className="size-24 shrink-0 rounded-full border border-dashed border-[var(--edge)]" />
+          <span className="size-20 shrink-0 rounded-full border border-dashed border-[var(--edge)] sm:size-24" />
         )}
-        <div className="grid gap-1">
+        <div className="grid min-w-0 flex-1 gap-1">
           <h1
-            className="font-display text-4xl font-extrabold tracking-tight"
+            className="font-display text-3xl font-extrabold tracking-tight break-words sm:text-4xl"
             {...tid("public-actor-name")}
           >
             {actor.displayName ?? name}
           </h1>
           <p className="font-mono text-sm text-[var(--muted)]">{name}</p>
         </div>
+        {themeSwitch ? (
+          <div className="shrink-0" {...tid("public-theme-switch")}>
+            {themeSwitch}
+          </div>
+        ) : null}
       </header>
 
       <PublicSections sections={actor.sections} locale={locale} />

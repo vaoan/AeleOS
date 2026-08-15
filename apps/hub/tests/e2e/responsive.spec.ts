@@ -1,0 +1,223 @@
+import { expect, test, type Page } from "@playwright/test";
+import {
+  createTestIdentity,
+  deleteTestIdentity,
+  hasClerk,
+  mintTicket,
+  signIn,
+  type TestIdentity,
+} from "./support/clerk-session";
+
+// WHAT THIS FILE IS FOR, AND THE SHORTCUT IT EXISTS TO FORBID.
+//
+// The editor was cut down its right-hand edge on every phone. At 360px the form
+// asked for 486px and the last 126 of it — the end of every field, and the
+// buttons beside them — were off-screen behind a sideways scroll most people
+// never think to try. At 320px every page did it, not only the editor.
+//
+// Two causes, and which was which was settled by taking each fix away again
+// rather than by reading the markup. A `select` is as wide as its longest
+// option, so the section row — handle, name, a menu naming eleven layouts, bin
+// — forced the page 150px wider than a 320px phone; that row wraps now. And the
+// nested chrome (`px-6` on the column, `p-4` on the card, `pl-9` on the indent)
+// came to 88px of a 360px screen, which is what that size was short by; it is
+// narrower below `sm`.
+//
+// A third candidate was written, believed, and is not here: `min-width: 0` on
+// every form control, which is the textbook answer to a control refusing to
+// shrink below its intrinsic width. Removing it again changed nothing at any of
+// these six sizes. A fix that cannot be made to matter is not the fix.
+//
+// The reason this suite is worth its runtime is the fix that is NOT allowed.
+// `overflow-x: hidden` on the page silences exactly this symptom while making
+// the overflowing part unreachable instead of visible — and it silences it for
+// every future layout too, which is how a whole screen quietly stops fitting.
+// So each check here has two halves: the page does not scroll sideways, AND
+// nothing above the content is hiding that it would. A future change that
+// reaches for the shortcut fails on the second half.
+//
+// The viewports are real, and both orientations are deliberate: 320 is the
+// narrowest phone still in use and the width every other one is safe at, and a
+// phone in landscape is a SHORT screen rather than a wide one — which is what
+// the stacked sticky bars had to answer to.
+
+/** Phone viewports, portrait and landscape, narrowest first. */
+const VIEWPORTS = [
+  { name: "portrait 320", width: 320, height: 568 },
+  { name: "portrait 360", width: 360, height: 740 },
+  { name: "portrait 390", width: 390, height: 844 },
+  { name: "landscape 568", width: 568, height: 320 },
+  { name: "landscape 667", width: 667, height: 375 },
+  { name: "landscape 844", width: 844, height: 390 },
+] as const;
+
+/**
+ * Asserts a page fits its viewport, and that nothing is hiding that it does.
+ *
+ * @param page - the page to measure.
+ * @param where - what to name in a failure.
+ * @returns nothing.
+ */
+async function fits(page: Page, where: string): Promise<void> {
+  // Next's dev overlay is a fixed element of its own and is not part of the
+  // app; it is absent from a production build and must not decide this.
+  await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+
+  const measured = await page.evaluate(`(() => {
+    const root = document.documentElement;
+    const hiding = ["html", "body", "main"]
+      .map((selector) => [selector, document.querySelector(selector)])
+      .filter(([, element]) => element)
+      .map(([selector, element]) => [selector, getComputedStyle(element).overflowX])
+      .filter(([, overflowX]) => overflowX === "hidden" || overflowX === "clip")
+      .map(([selector, overflowX]) => selector + ":" + overflowX);
+    return { overflow: root.scrollWidth - root.clientWidth, hiding };
+  })()`);
+
+  const { overflow, hiding } = measured as {
+    overflow: number;
+    hiding: string[];
+  };
+
+  // A pixel of slack, and no more: sub-pixel rounding is real at a device
+  // pixel ratio of 2 and a scrollable page is not.
+  expect(overflow, `${where} scrolls sideways by ${overflow}px`).toBeLessThan(
+    2,
+  );
+
+  // The half that makes the first half mean something. Passing this suite by
+  // clipping the page is the one repair that must never look like a fix.
+  expect(
+    hiding,
+    `${where} hides horizontal overflow instead of fitting: ${hiding.join(", ")}`,
+  ).toEqual([]);
+}
+
+/**
+ * Asserts that no two bars pinned to the top of the screen are on top of
+ * each other.
+ *
+ * The editor stacks three — the page header, the toolbar, and the strip naming
+ * which language you are writing in — and each was pinned near zero, so the
+ * toolbar covered the header and was itself covered by nothing while covering
+ * the strip. Nothing errored: the controls were simply painted over, which is
+ * why this needs a geometric assertion rather than a visible-element one. An
+ * element still counts as visible while another paints across it.
+ *
+ * Only bars actually on screen are compared. On a short screen the ones marked
+ * `bar-yields` scroll away, and one that has left is not overlapping anything.
+ *
+ * @param page - the page to measure.
+ * @param where - what to name in a failure.
+ * @returns nothing.
+ */
+async function barsDoNotOverlap(page: Page, where: string): Promise<void> {
+  const overlaps = (await page.evaluate(`(() => {
+    const onScreen = Array.from(document.querySelectorAll("body *"))
+      .filter((element) => getComputedStyle(element).position === "sticky")
+      .map((element) => ({
+        top: element.getBoundingClientRect().top,
+        bottom: element.getBoundingClientRect().bottom,
+        what: element.tagName.toLowerCase() + "." + String(element.className).split(" ")[0],
+      }))
+      .filter((bar) => bar.bottom > 0 && bar.top < document.documentElement.clientHeight);
+    const found = [];
+    for (let i = 0; i < onScreen.length; i += 1) {
+      for (let j = i + 1; j < onScreen.length; j += 1) {
+        const a = onScreen[i];
+        const b = onScreen[j];
+        if (a.top < b.bottom - 1 && b.top < a.bottom - 1) {
+          found.push(a.what + " over " + b.what);
+        }
+      }
+    }
+    return found;
+  })()`)) as string[];
+
+  expect(overlaps, `${where}: pinned bars cover each other`).toEqual([]);
+}
+
+test.describe.configure({ mode: "serial" });
+
+let identity: TestIdentity | undefined;
+
+test.beforeAll(async () => {
+  if (!hasClerk()) return;
+  identity = await createTestIdentity();
+});
+
+test.afterAll(async () => {
+  if (identity) await deleteTestIdentity(identity.userId);
+});
+
+// The signed-out pages need no Clerk backend, so they are checked whatever the
+// environment holds. The editor is where the fault actually was, so it runs
+// wherever a session can be made.
+test.describe("every phone screen, signed out", () => {
+  for (const viewport of VIEWPORTS) {
+    test(`sign-in fits ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/es/sign-in");
+      await expect(page.getByTestId("wordmark")).toBeVisible();
+      await fits(page, `sign-in at ${viewport.name}`);
+    });
+
+    test(`a missing page fits ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/es/nobody-has-this-address");
+      await expect(page.getByTestId("not-found-title")).toBeVisible();
+      await fits(page, `not-found at ${viewport.name}`);
+    });
+  }
+});
+
+test.describe("every phone screen, signed in", () => {
+  test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+
+  for (const viewport of VIEWPORTS) {
+    // One session per viewport rather than one per page: signing in is the
+    // slow part, and what is being measured is layout, which does not care
+    // that three routes shared a session.
+    test(`the signed-in pages fit ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await signIn(page, await mintTicket(identity!.userId));
+
+      for (const path of ["/es/me", "/es/pages"]) {
+        await page.goto(path);
+        await expect(page.getByTestId("wordmark")).toBeVisible();
+        await fits(page, `${path} at ${viewport.name}`);
+      }
+    });
+
+    // The editor with EVERYTHING open, which is the state the fault was
+    // reported in and the widest this app ever gets: the theme panel's colour
+    // rows, and a template's sections with their layout menus and their
+    // per-item fields. Checking the empty editor would have passed while the
+    // page a person actually builds was still cut in half.
+    test(`the editor fits ${viewport.name} with the panel and a template open`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await signIn(page, await mintTicket(identity!.userId));
+
+      await page.goto("/es/pages/new");
+      await page.getByTestId("theme-open").click();
+      await page.getByTestId("template-picker").click();
+      await page.getByTestId("template-reference-sheet").click();
+      await expect(page.getByTestId("section-name").first()).toBeVisible();
+
+      await fits(page, `the editor at ${viewport.name}`);
+
+      // And scrolled, because the sticky bars only stack once somebody moves:
+      // three of them pinned at the top is what made this "chopped" rather
+      // than merely narrow, and at the top of the page they are still in flow.
+      await page.evaluate(`window.scrollTo(0, 800)`);
+      await fits(page, `the scrolled editor at ${viewport.name}`);
+      await barsDoNotOverlap(page, `the scrolled editor at ${viewport.name}`);
+
+      // The toolbar is the one bar that never yields — Save must stay
+      // reachable however short the screen is. Above it, the header may.
+      await expect(page.getByTestId("editor-save")).toBeInViewport();
+    });
+  }
+});

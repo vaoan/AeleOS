@@ -75,8 +75,9 @@ export async function generateMetadata({
  * rather than a sun or a moon naming a state the page is not in.
  *
  * A visitor may leave the theme: `PageThemeSwitch` offers the owner's colours
- * and each of the app's two defaults, and it renders only where there is a
- * theme to leave — which it asks as `isCustomised`, not `isThemed`. A page
+ * and each of the app's two defaults, handed to `PublicProfile` so it sits on
+ * the header's row level with the portrait rather than alone above the page.
+ * It renders only where there is a theme to leave — which it asks as `isCustomised`, not `isThemed`. A page
  * whose owner chose only a skin, a canvas or a cursor has no colour of its own
  * and is still unmistakably theirs, so the narrower question would have hidden
  * the way out of exactly the pages hardest to read. That control existing is what lets an author's colours be as
@@ -101,25 +102,28 @@ export default async function PublicPersonPage({
     // force, so its sun or moon would name a state the page is not in.
     <PageShell themed={isCustomised(actor.theme)} width="wide">
       <ThemeScope theme={actor.theme}>
-        {/* Only where there is a theme to leave. A control offering to remove
-            colours a page never had is a control that does nothing. */}
-        {isCustomised(actor.theme) ? (
-          <div className="mb-6 flex justify-end">
-            <PageThemeSwitch
-              labels={{
-                title: t("pageThemeTitle"),
-                author: t("pageThemeAuthor"),
-                light: t("pageThemeLight"),
-                dark: t("pageThemeDark"),
-              }}
-            />
-          </div>
-        ) : null}
         <PublicProfile
           actor={actor}
           locale={locale}
           fursonasTitle={t("fursonas")}
           emptyMessage={t("empty")}
+          // Rendered on the header's own row rather than above the page.
+          // Alone at the top it read as a heading's worth of furniture nobody
+          // had written a heading for, and it pushed the portrait down by its
+          // own height. Only where there is a theme to leave: a control
+          // offering to remove colours a page never had does nothing.
+          themeSwitch={
+            isCustomised(actor.theme) ? (
+              <PageThemeSwitch
+                labels={{
+                  title: t("pageThemeTitle"),
+                  author: t("pageThemeAuthor"),
+                  light: t("pageThemeLight"),
+                  dark: t("pageThemeDark"),
+                }}
+              />
+            ) : null
+          }
         />
       </ThemeScope>
     </PageShell>

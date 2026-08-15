@@ -54,6 +54,11 @@ const SECTIONS = [
  * legible to a screen reader; the weight change alone would only reach people
  * who can see it.
  *
+ * Its gaps and padding are tighter below `sm`. With the wide ones the header —
+ * star, wordmark, these links, language, theme and the account menu — came to
+ * 324px on a 320px screen, so every page in the app scrolled sideways rather
+ * than only the editor.
+ *
  * @returns the nav, or null on the picker.
  */
 export function AppNav({ labels }: AppNavProps) {
@@ -63,7 +68,10 @@ export function AppNav({ labels }: AppNavProps) {
   if (pathname.startsWith("/picker")) return null;
 
   return (
-    <nav aria-label={labels.ariaLabel} className="ml-4 flex items-center gap-1">
+    <nav
+      aria-label={labels.ariaLabel}
+      className="ml-1 flex min-w-0 items-center gap-0.5 sm:ml-4 sm:gap-1"
+    >
       {SECTIONS.map(({ href, key, exact }) => {
         const active = exact
           ? pathname === href
@@ -73,7 +81,7 @@ export function AppNav({ labels }: AppNavProps) {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-[var(--edge)]/30 ${
+            className={`truncate rounded-lg px-1.5 py-1.5 text-sm transition-colors hover:bg-[var(--edge)]/30 sm:px-2.5 ${
               active ? "font-medium text-[var(--ink)]" : "text-[var(--muted)]"
             }`}
           >
