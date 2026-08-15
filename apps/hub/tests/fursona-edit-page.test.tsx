@@ -70,7 +70,7 @@ vi.mock("@/features/actors", () => ({
 }));
 // The real module pulls in next/cache's revalidatePath and the locale-aware
 const { default: EditFursonaPage } =
-  await import("@/app/[locale]/(app)/fursonas/[handle]/edit/page");
+  await import("@/app/[locale]/(app)/pages/[handle]/edit/page");
 const { FursonaEditor } = await import("@/features/actors");
 
 /**

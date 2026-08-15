@@ -118,18 +118,18 @@ describe("ActorTile", () => {
     });
 
     it("still offers the edit link when it is given one", () => {
-      renderTile({ edit: { href: "/fursonas/sparky/edit", label: "Edit" } });
+      renderTile({ edit: { href: "/pages/sparky/edit", label: "Edit" } });
 
       expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
         "href",
-        "/fursonas/sparky/edit",
+        "/pages/sparky/edit",
       );
     });
 
     it("offers no edit link to a person row", () => {
       renderTile({
         actor: actor({ kind: "person" }),
-        edit: { href: "/fursonas/sparky/edit", label: "Edit" },
+        edit: { href: "/pages/sparky/edit", label: "Edit" },
       });
 
       expect(screen.queryByRole("link")).not.toBeInTheDocument();

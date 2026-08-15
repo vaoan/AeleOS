@@ -15,8 +15,8 @@ interface AppNavLabels {
   ariaLabel: string;
   /** The person's own identity page. */
   me: string;
-  /** The fursona list. */
-  fursonas: string;
+  /** The list of pages somebody owns. */
+  pages: string;
 }
 
 /** What {@link AppNav} needs. */
@@ -29,10 +29,10 @@ export interface AppNavProps {
 const SECTIONS = [
   // `/me` matches exactly: a future `/mementos` must not light this up.
   { href: "/me", key: "me", exact: true },
-  // `/fursonas` matches by prefix, so the section stays lit on `/fursonas/new`
+  // `/pages` matches by prefix, so the section stays lit on `/pages/new`
   // and `/fursonas/<handle>/edit`. Those are the pages that answer "where am I"
   // with nothing today, which is most of the reason this component exists.
-  { href: "/fursonas", key: "fursonas", exact: false },
+  { href: "/pages", key: "pages", exact: false },
 ] as const;
 
 /**

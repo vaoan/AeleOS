@@ -195,7 +195,7 @@ Key choices and _why_:
   guess about it.
 
   The test belongs at the level the bug actually lived at, which is rarely
-  where it was noticed. `/fursonas` once threw for every signed-in visitor
+  where it was noticed. `/pages` (then `/fursonas`) once threw for every signed-in visitor
   because `nuqs` shipped without its adapter, and the signed-in error boundary
   reported that as "we could not load your identity" — a message about the
   database, which was never involved. The regression test is not a nicer error

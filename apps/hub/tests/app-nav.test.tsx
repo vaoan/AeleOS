@@ -24,7 +24,7 @@ vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
 
 const { AppNav } = await import("@/shared/presentation/app-nav");
 
-const labels = { ariaLabel: "Sections", me: "Me", fursonas: "Fursonas" };
+const labels = { ariaLabel: "Sections", me: "Me", pages: "Pages" };
 
 /**
  * Renders the nav as if the person were on the given path.
@@ -43,9 +43,9 @@ describe("AppNav", () => {
       "href",
       "/me",
     );
-    expect(screen.getByRole("link", { name: "Fursonas" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Pages" })).toHaveAttribute(
       "href",
-      "/fursonas",
+      "/pages",
     );
   });
 
@@ -55,7 +55,7 @@ describe("AppNav", () => {
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "Fursonas" })).not.toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Pages" })).not.toHaveAttribute(
       "aria-current",
     );
   });
@@ -63,11 +63,11 @@ describe("AppNav", () => {
   // The reason the match is a prefix and not equality. These are the pages that
   // answer "where am I" with nothing today, so they are the ones that most need
   // the section lit.
-  it.each(["/fursonas", "/fursonas/new", "/fursonas/sparky/edit"])(
-    "keeps Fursonas marked on %s",
+  it.each(["/pages", "/pages/new", "/pages/sparky/edit"])(
+    "keeps Pages marked on %s",
     (at) => {
       renderAt(at);
-      expect(screen.getByRole("link", { name: "Fursonas" })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: "Pages" })).toHaveAttribute(
         "aria-current",
         "page",
       );

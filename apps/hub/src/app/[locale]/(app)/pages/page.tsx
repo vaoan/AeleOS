@@ -95,7 +95,7 @@ export default async function FursonasPage() {
         </div>
         {suspended ? null : (
           <Link
-            href="/fursonas/new"
+            href="/pages/new"
             {...tid("fursonas-create")}
             className="shrink-0 rounded-lg bg-[var(--accent)] px-5 py-2.5 font-medium text-[var(--on-accent)]"
           >

@@ -50,7 +50,7 @@ vi.mock("@/features/actors", () => ({
 }));
 
 const { default: FursonasPage } =
-  await import("@/app/[locale]/(app)/fursonas/page");
+  await import("@/app/[locale]/(app)/pages/page");
 
 /**
  * An actor row as `listMyActors` would return it, with overrides.

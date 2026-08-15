@@ -67,7 +67,7 @@ test.describe("the public actor pages, signed out", () => {
   // patterns ever swallowed one, this is where it shows up as a 404 instead of
   // the sign-in redirect.
   test("still sends a signed-in route to sign-in", async ({ page }) => {
-    await page.goto("/es/fursonas");
+    await page.goto("/es/pages");
     expect(page.url()).toContain("sign-in");
   });
 });

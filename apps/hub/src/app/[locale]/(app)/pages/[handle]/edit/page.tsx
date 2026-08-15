@@ -7,7 +7,7 @@ import {
   readActorPage,
   readMyProfileTheme,
 } from "@/features/actors";
-import { fursonaEditorLabels } from "@/app/[locale]/(app)/fursonas/labels";
+import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
 
 /**
  * The page for editing one of your fursonas.

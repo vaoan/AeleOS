@@ -101,17 +101,24 @@ describe("FursonaRow", () => {
     renderRow();
     expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
       "href",
-      "/fursonas/sparky/edit",
+      "/pages/sparky/edit",
     );
   });
 
   // The person row is the account, not a character. Offering delete on it would
   // be offering to delete the person.
-  it("offers no edit, pin or delete on the person row", () => {
+  // **The person's page is edited from here, in the same editor a fursona
+  // uses.** What they do not get is the three controls beside it, and each
+  // absence follows from what a person actor is: nothing to pin when the row is
+  // always first, nothing to reorder against, and no retiring yourself.
+  it("offers the person an edit link and nothing else", () => {
     renderRow({
       actor: actor({ kind: "person", handle: "u-abc", displayName: null }),
     });
-    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
+      "href",
+      "/me/edit",
+    );
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
     expect(screen.getByText("You")).toBeInTheDocument();

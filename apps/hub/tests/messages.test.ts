@@ -97,7 +97,8 @@ describe("message catalogues", () => {
       "home.title",
       "meta.title",
       "profile.empty",
-      "nav.fursonas",
+      // `nav.pages` is translated now ("Pages" / "Páginas"), so the loanword
+      // that used to coincide here has gone with the rename.
       "fursonas.types.video",
       // Latin, and the same word in both languages. The canvases beside it are
       // translated, which is the evidence this one was considered.

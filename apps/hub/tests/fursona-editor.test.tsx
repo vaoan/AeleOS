@@ -255,7 +255,7 @@ describe("FursonaEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/fursonas");
+      expect(push).toHaveBeenCalledWith("/pages");
     });
   });
 
@@ -312,7 +312,60 @@ describe("FursonaEditor", () => {
   it("leaves without saving when cancelled", () => {
     renderEditor();
     const cancel = screen.getByRole("link", { name: "Cancel" });
-    expect(cancel).toHaveAttribute("href", "/fursonas");
+    expect(cancel).toHaveAttribute("href", "/pages");
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe("FursonaEditor for a person", () => {
+  /**
+   * Renders the editor as `/me/edit` does.
+   *
+   * @returns nothing.
+   */
+  function renderPerson(): void {
+    render(
+      <FursonaEditor
+        labels={labels}
+        handleEditable={false}
+        kind="person"
+        actorRef="actor-1"
+        initial={{
+          // The provisioned handle: `u-` and thirty-two hex characters.
+          handle: "u-78797f558e275eb3b3254726f43f1667",
+          displayName: "Aeleos",
+          avatarUrl: "",
+          visibility: "private",
+        }}
+        initialSections={[]}
+        initialTheme={{
+          background: null,
+          accent: null,
+          canvasColours: null,
+          canvas: "nebula",
+          cursor: null,
+          skin: "default",
+        }}
+      />,
+    );
+  }
+
+  it("does not offer a handle nobody chose", () => {
+    renderPerson();
+    expect(screen.queryByTestId("editor-handle")).toBeNull();
+  });
+
+  // **THE REGRESSION TEST for a Save that did nothing at all.** A person's
+  // handle is `u-` plus thirty-two hex characters — thirty-four — and
+  // `fursonaSchema` caps a handle at thirty-two. So the resolver refused the
+  // form on a field that is not rendered: no message could appear, because
+  // there is no input to attach one to, and pressing Save simply did nothing.
+  //
+  // Found by driving the real page, which is the only way it shows: every unit
+  // test used a handle somebody could have typed.
+  it("saves, despite a handle its own schema would reject", async () => {
+    renderPerson();
+    fireEvent.click(screen.getByTestId("editor-save"));
+    await waitFor(() => expect(save).toHaveBeenCalled());
   });
 });

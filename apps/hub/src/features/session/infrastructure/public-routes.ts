@@ -23,7 +23,7 @@ import { routing } from "@/shared/infrastructure/i18n/routing";
  * The public actor pages are the one entry that could not be written as a path
  * pattern. They are addressed as `/{locale}/{person}` and
  * `/{locale}/{person}/{handle}`, where an address is shaped **exactly** like
- * the static segment of a signed-in route — `/es/42` and `/es/fursonas` are the
+ * the static segment of a signed-in route — `/es/42` and `/es/pages` are the
  * same shape. A `/${locale}/:person` pattern would therefore have made every
  * signed-in page public at this layer.
  *
@@ -59,7 +59,11 @@ import { routing } from "@/shared/infrastructure/i18n/routing";
  * its pages become public at the proxy — the layout would still protect them,
  * but the outer gate would stop doing its job silently.
  */
-const RESERVED = ["me", "picker", "fursonas", "sign-in"].join("|");
+// `fursonas` is retired as a section and STILL RESERVED. Freeing it would let
+// somebody take it as a vanity address, and every link anybody had shared to
+// their own list would begin resolving to that stranger's profile — the same
+// reasoning that never frees a handle. It still routes, to a redirect.
+const RESERVED = ["me", "picker", "pages", "fursonas", "sign-in"].join("|");
 
 const PUBLIC_ACTOR_PAGES = routing.locales.map(
   (locale) =>

@@ -24,23 +24,15 @@
     "platformIdHint": "This ID is the same in every Furry Colombia app.",
     "empty": "—",
     "signOut": "Sign out",
-    "fursonasLink": "Your fursonas",
     "address": "Your address",
     "addressHint": "This is where your public profile lives. Share it, or open it to see what others see.",
     "addressEmpty": "Not available.",
-    "viewProfile": "Open your public profile",
-    "editTitle": "Your public profile",
-    "displayName": "Display name",
-    "avatarUrl": "Picture address",
-    "visibilityLabel": "Who can see your profile",
     "save": "Save",
     "saving": "Saving…",
-    "saved": "Saved.",
-    "failed": "That did not save. Try again.",
-    "privateHint": "Your profile page is private. Publishing it does not change your fursonas — each of those has its own setting."
+    "fursonasLink": "Your fursonas"
   },
   "fursonas": {
-    "title": "Your fursonas",
+    "title": "Your pages",
     "subtitle": "The characters you can act as across Furry Colombia.",
     "empty": "You have no fursonas yet.",
     "suspended": "Your account is suspended, so your fursonas are not available right now and no new ones can be created. Nothing has been deleted.",
@@ -79,6 +71,7 @@
     "noMatches": "No fursonas match that.",
     "editorTitleNew": "New fursona",
     "editorTitleEdit": "Edit fursona",
+    "editorTitleProfile": "Your profile",
     "save": "Save",
     "saving": "Saving…",
     "bannerTitle": "Fix these before saving",
@@ -223,7 +216,7 @@
   "nav": {
     "ariaLabel": "Sections",
     "me": "Me",
-    "fursonas": "Fursonas"
+    "pages": "Pages"
   },
   "publicProfile": {
     "notFoundTitle": "Not found",

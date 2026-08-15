@@ -34,7 +34,7 @@ function renderToolbar(props: Record<string, unknown> = {}): void {
       title="New fursona"
       labels={labels}
       saving={false}
-      cancelHref="/fursonas"
+      cancelHref="/pages"
       {...props}
     />,
   );
@@ -67,7 +67,7 @@ describe("EditorToolbar", () => {
   it("leaves by a link, so the bar can see it", () => {
     renderToolbar();
     const cancel = screen.getByRole("link", { name: "Cancel" });
-    expect(cancel).toHaveAttribute("href", "/fursonas");
+    expect(cancel).toHaveAttribute("href", "/pages");
   });
 
   it("says it is saving while it is", () => {

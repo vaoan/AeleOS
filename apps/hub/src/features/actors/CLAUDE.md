@@ -19,6 +19,43 @@ one ownership ledger, so splitting them would put `actor_ref` in two features'
 domains and force the cross-feature import the boundary rules forbid. The
 barrel is the only way in.
 
+## A person is edited where their fursonas are
+
+`/pages` lists every page somebody owns: their own profile pinned at the top,
+then their fursonas. The pencil on any row opens **the same editor** — display
+name, avatar, visibility, sections and the theme panel are identical, because a
+person's public page is a page like any other and a second implementation of one
+screen would drift.
+
+What a person does not get follows from what a person actor IS, not from a rule
+invented for the screen:
+
+- **no handle to choose.** Theirs is the provisioned `u-<actor_ref>`, which
+  appears in no address and which this app does not display anywhere. The field
+  is absent rather than disabled: a locked input invites somebody to look for
+  the key.
+- **nothing to delete.** You cannot retire yourself.
+- **no place in an order.** The row is always first, so there is nothing to pin
+  it above.
+
+Two traps this arrangement set, both of which cost real time:
+
+- **The person's editor lives at `/me/edit`, not under `/pages`.** A static
+  segment beside `/pages/[handle]/edit` would silently make a fursona with that
+  handle uneditable — the reserved-word trap this file already documents — and
+  `me` is reserved already, so it costs no new permanently-reserved word.
+- **A person's form needs its own schema.** `fursonaSchema` caps a handle at 32
+  characters and a person's is 34, so the resolver refused a form on a field
+  that is not rendered: no message could appear, because there is no input to
+  attach one to, and Save did nothing at all. `personEditorSchema` relaxes only
+  that field. Nothing sends it — `update_my_profile` derives its target from the
+  token, which is its authorization, and reads three fields, none of them the
+  handle.
+
+`/me` carries no editing at all now. What is left there is what only that page
+can answer: which address is yours, which platform id every app knows you by,
+and the way out.
+
 ## Two public pages, not one
 
 ```
@@ -60,10 +97,17 @@ What does still hold is a routing fact, not a policy. Next matches a static
 segment before a dynamic one, so a few strings **cannot resolve as an address
 at all**:
 
-`me` · `picker` · `fursonas` · `sign-in` · `api` · `trpc` · every value in
-`routing.locales`
+`me` · `picker` · `pages` · `fursonas` · `sign-in` · `api` · `trpc` · every
+value in `routing.locales`
 
-Assign one of those and the profile is simply unreachable — `/fursonas` is the
+**`fursonas` is retired as a section and still reserved.** It was renamed to
+`pages` when the person's own profile joined the list — every row there is one
+public page — and its old addresses redirect. Freeing the word would let
+somebody take it as a vanity, and every link anybody had shared to their own
+list would begin resolving to that stranger's profile. That is the reasoning
+that never frees a handle, applied to a segment.
+
+Assign one of those and the profile is simply unreachable — `/pages` is the
 signed-in list, so a stranger looking for that person gets bounced to sign-in
 instead. Not dangerous, but confusing to diagnose, because nothing errors.
 

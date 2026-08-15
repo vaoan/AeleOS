@@ -54,6 +54,10 @@ import { UserMenu } from "@/features/session";
  * own: `AppNav` is a client component, so its catalogue lookup has to happen on
  * the server, and this is the server component that renders it.
  *
+ * The nav names the section **Pages**, not Fursonas. Every row in that list is
+ * one public page — the person's own profile pinned at the top, then their
+ * fursonas — so the old name stopped describing what is there.
+ *
  * @returns the signed-in shell.
  */
 export default async function AppLayout({
@@ -84,7 +88,7 @@ export default async function AppLayout({
           labels={{
             ariaLabel: t("ariaLabel"),
             me: t("me"),
-            fursonas: t("fursonas"),
+            pages: t("pages"),
           }}
         />
       }

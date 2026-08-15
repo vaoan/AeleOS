@@ -61,8 +61,8 @@ test.describe("signed in", () => {
   }) => {
     await signIn(page, await mintTicket(identity!.userId));
 
-    await page.goto("/es/fursonas");
-    expect(page.url()).toContain("/fursonas");
+    await page.goto("/es/pages");
+    expect(page.url()).toContain("/pages");
     expect(page.url()).not.toContain("sign-in");
 
     // The page's OWN content, not the shell's. A fresh identity has no
@@ -93,7 +93,7 @@ test.describe("signed in", () => {
     expect(address).not.toBe("");
 
     const handle = `e2e${Date.now().toString().slice(-9)}`;
-    await page.goto("/es/fursonas/new");
+    await page.goto("/es/pages/new");
     await page.getByTestId("editor-handle").fill(handle);
     await page.getByTestId("editor-display-name").fill("End To End");
     await page.getByTestId("editor-visibility").selectOption("public");
@@ -101,7 +101,7 @@ test.describe("signed in", () => {
 
     // The editor navigates to the list only when the save was accepted, so
     // arriving there IS the assertion that the write went through.
-    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+    await page.waitForURL(/\/pages$/, { timeout: 30_000 });
 
     // A genuinely separate browser context: no session, no cookies, nothing
     // carried over. Reading it in the signed-in page would prove only that the
@@ -158,15 +158,18 @@ test.describe("signed in", () => {
       await before.close();
     }
 
-    await page.getByTestId("me-display-name").fill("A Real Person");
-    await page.getByTestId("me-visibility").selectOption("public");
-    // A profile is a public page like any other, so it themes like one. That
-    // panel was missing here for the whole life of theming: the column stored a
-    // theme, the page rendered it, and no screen wrote one.
+    // **Edited in the page editor, reached from the list.** A person's public
+    // page is a page like every other one there, so it is edited where they
+    // are — `/me` carries only the identity card now.
+    await page.goto("/es/pages");
+    await page.getByTestId("edit-my-profile").click();
+    await page.waitForURL(/\/me\/edit$/, { timeout: 30_000 });
+    await page.getByTestId("editor-display-name").fill("A Real Person");
+    await page.getByTestId("editor-visibility").selectOption("public");
     await page.getByTestId("theme-open").click();
     await page.getByTestId("theme-skin").selectOption("candy");
-    await page.getByTestId("me-save").click();
-    await expect(page.getByTestId("me-saved")).toBeVisible();
+    await page.getByTestId("editor-save").click();
+    await page.waitForURL(/\/pages$/, { timeout: 30_000 });
 
     const after = await browser.newContext();
     try {
@@ -183,11 +186,16 @@ test.describe("signed in", () => {
       await after.close();
     }
 
-    // And it comes back into the panel, which is the half a write-only control
-    // would still pass without.
-    await page.reload();
+    // And it comes back into the editor, which is the half a write-only
+    // control would still pass without.
+    await page.goto("/es/me/edit");
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-skin")).toHaveValue("candy");
+    // A person has no handle to choose: theirs is the provisioned
+    // `u-<actor_ref>`, which appears in no address. The field is absent rather
+    // than disabled — and its 34 characters once made the form refuse to save
+    // with no message anywhere, because there was no input to attach one to.
+    await expect(page.getByTestId("editor-handle")).toHaveCount(0);
   });
 
   // Closes one of the two manual steps phase 1b-i left open: "verify a real
@@ -234,7 +242,7 @@ test.describe("signed in", () => {
     const address = (await page.getByTestId("my-address").innerText()).trim();
 
     const handle = `sec${Date.now().toString().slice(-9)}`;
-    await page.goto("/es/fursonas/new");
+    await page.goto("/es/pages/new");
     await page.getByTestId("editor-handle").fill(handle);
     await page.getByTestId("editor-display-name").fill("Has Sections");
     await page.getByTestId("editor-visibility").selectOption("public");
@@ -242,7 +250,7 @@ test.describe("signed in", () => {
     await page.getByTestId("template-picker").click();
     await page.getByTestId("template-reference-sheet").click();
     await page.getByTestId("editor-save").click();
-    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+    await page.waitForURL(/\/pages$/, { timeout: 30_000 });
 
     const stranger = await browser.newContext();
     try {
@@ -278,7 +286,7 @@ test.describe("signed in", () => {
     const address = (await page.getByTestId("my-address").innerText()).trim();
 
     const handle = `full${Date.now().toString().slice(-9)}`;
-    await page.goto("/es/fursonas/new");
+    await page.goto("/es/pages/new");
     await page.getByTestId("editor-handle").fill(handle);
     await page.getByTestId("editor-display-name").fill("The Whole Journey");
     await page.getByTestId("editor-visibility").selectOption("public");
@@ -317,7 +325,7 @@ test.describe("signed in", () => {
     await page.getByTestId("theme-skin").selectOption("neobrutalism");
 
     await page.getByTestId("editor-save").click();
-    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+    await page.waitForURL(/\/pages$/, { timeout: 30_000 });
 
     // The list offers a way to see the page, now that it is public — and it
     // points at the right one. This assertion was `toBeTruthy()` on a locator
@@ -357,14 +365,14 @@ test.describe("signed in", () => {
     // Back into the editor. Everything must come back — and then survive a save
     // that changes nothing, which is exactly the shape of the bug that once
     // deleted people's sections.
-    await page.goto(`/es/fursonas/${handle}/edit`);
+    await page.goto(`/es/pages/${handle}/edit`);
     await expect(page.getByTestId("editor-display-name")).toHaveValue(
       "The Whole Journey",
     );
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-skin")).toHaveValue("neobrutalism");
     await page.getByTestId("editor-save").click();
-    await page.waitForURL(/\/fursonas$/, { timeout: 30_000 });
+    await page.waitForURL(/\/pages$/, { timeout: 30_000 });
 
     const after = await browser.newContext();
     try {

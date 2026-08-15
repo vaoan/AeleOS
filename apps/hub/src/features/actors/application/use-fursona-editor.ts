@@ -15,6 +15,7 @@ import type { FursonaInput } from "@/features/actors/domain/fursona-schema";
 import type { FursonaSection } from "@/features/actors/domain/section-schema";
 import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 import { setActorTheme } from "@/features/actors/infrastructure/actor-theme";
+import { updateMyProfile } from "@/features/actors/infrastructure/my-profile";
 
 /** Everything one save writes: the fields, the page's sections, its theme. */
 export type FursonaDraft = FursonaInput & {
@@ -83,10 +84,15 @@ export interface FursonaEditorState {
  * the server action did — swallowing an unrecognised fault would turn it into a
  * save that silently did nothing, which is the worst outcome available here.
  *
- * @param actorRef - the fursona being edited, or absent to create one.
+ * @param actorRef - the actor being edited, or absent to create a fursona.
+ * @param kind - whether the actor is the person themselves, which changes
+ * which function writes the fields and nothing else.
  * @returns the save function, whether one is in flight, and any field errors.
  */
-export function useFursonaEditor(actorRef?: string): FursonaEditorState {
+export function useFursonaEditor(
+  actorRef?: string,
+  kind: "fursona" | "person" = "fursona",
+): FursonaEditorState {
   const client = useSupabaseBrowserClient();
   const queryClient = useQueryClient();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -95,8 +101,17 @@ export function useFursonaEditor(actorRef?: string): FursonaEditorState {
     // Two writes, and the order is forced on create: set_actor_sections needs
     // an actor_ref that does not exist until the fursona does.
     mutationFn: async ({ sections, theme, ...fields }: FursonaDraft) => {
-      const ref = actorRef ?? (await createFursona(client, fields));
-      if (actorRef) await updateFursona(client, actorRef, fields);
+      // **A person is updated through a function that takes no actor
+      // reference**, because deriving the target from the token IS its
+      // authorization — a caller cannot name somebody else's row. That is also
+      // why a person can never be created here: they are provisioned on first
+      // sign-in and there is exactly one.
+      const ref =
+        kind === "person"
+          ? actorRef!
+          : (actorRef ?? (await createFursona(client, fields)));
+      if (kind === "person") await updateMyProfile(client, fields);
+      else if (actorRef) await updateFursona(client, actorRef, fields);
       await setFursonaSections(client, ref, sections);
       await setActorTheme(client, ref, theme);
     },

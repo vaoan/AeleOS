@@ -11,6 +11,10 @@ const createFursona = vi.fn<(...a: unknown[]) => unknown>();
 const updateFursona = vi.fn<(...a: unknown[]) => unknown>();
 const setFursonaSections = vi.fn<(...a: unknown[]) => unknown>();
 const setActorTheme = vi.fn();
+const updateMyProfile = vi.fn<(...a: unknown[]) => unknown>();
+vi.mock("@/features/actors/infrastructure/my-profile", () => ({
+  updateMyProfile: (...a: unknown[]) => updateMyProfile(...a),
+}));
 vi.mock("@/features/actors/infrastructure/actor-theme", () => ({
   setActorTheme: (...a: unknown[]) => setActorTheme(...a),
 }));
@@ -66,6 +70,8 @@ beforeEach(() => {
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  updateMyProfile.mockReset();
+  updateMyProfile.mockResolvedValue(undefined);
   createFursona.mockReset();
   createFursona.mockResolvedValue("new-ref");
   updateFursona.mockReset();
@@ -187,5 +193,48 @@ describe("useFursonaEditor", () => {
     expect(result.current.fieldErrors).toEqual({});
     // And it reports success, which is what the editor navigates on.
     expect(landedAgain).toBe(true);
+  });
+});
+
+describe("useFursonaEditor, for a person", () => {
+  // **`update_my_profile` takes no actor reference, and that IS the
+  // authorization** — it derives the target from the token, so a caller cannot
+  // name somebody else's row. Which is exactly why a person cannot go through
+  // `update_fursona`, and why this branch exists at all.
+  it("writes the fields through the profile function", async () => {
+    const { result } = renderHook(() => useFursonaEditor("me-1", "person"), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.save(values);
+    });
+    // The fields only: sections and theme are their own writes, and the draft
+    // is destructured before this call.
+    expect(updateMyProfile).toHaveBeenCalledWith({}, fields);
+    expect(updateFursona).not.toHaveBeenCalled();
+  });
+
+  // A person is provisioned on first sign-in and there is exactly one. Reaching
+  // `create_fursona` here would make a second actor out of an editor that is
+  // supposed to be editing the only one.
+  it("never creates", async () => {
+    const { result } = renderHook(() => useFursonaEditor("me-1", "person"), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.save(values);
+    });
+    expect(createFursona).not.toHaveBeenCalled();
+  });
+
+  it("still writes the sections and the theme", async () => {
+    const { result } = renderHook(() => useFursonaEditor("me-1", "person"), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.save(values);
+    });
+    expect(setFursonaSections).toHaveBeenCalledWith({}, "me-1", sections);
+    expect(setActorTheme).toHaveBeenCalledWith({}, "me-1", DEFAULT_THEME);
   });
 });

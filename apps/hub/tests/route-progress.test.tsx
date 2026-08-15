@@ -94,14 +94,14 @@ describe("RouteProgress", () => {
   // as feedback.
   it("stays hidden while a navigation is still within the delay", () => {
     renderAt("/me");
-    clickLink({ href: "/fursonas" });
+    clickLink({ href: "/pages" });
     advance(50);
     expect(bar()).toBeNull();
   });
 
   it("appears once a navigation outlasts the delay", () => {
     renderAt("/me");
-    clickLink({ href: "/fursonas" });
+    clickLink({ href: "/pages" });
     advance(PAST_DELAY);
     expect(bar()).not.toBeNull();
   });
@@ -114,7 +114,7 @@ describe("RouteProgress", () => {
   it("still shows when the click's default was prevented, as Next's Link does", () => {
     renderAt("/me");
     const a = document.createElement("a");
-    a.setAttribute("href", "/fursonas");
+    a.setAttribute("href", "/pages");
     a.addEventListener("click", (e) => e.preventDefault());
     document.body.appendChild(a);
     act(() => {
@@ -128,18 +128,18 @@ describe("RouteProgress", () => {
 
   it("names itself for a screen reader", () => {
     renderAt("/me");
-    clickLink({ href: "/fursonas" });
+    clickLink({ href: "/pages" });
     advance(PAST_DELAY);
     expect(bar()).toHaveAttribute("aria-label", "Loading");
   });
 
   it("clears when the new page arrives", () => {
     const { rerender } = renderAt("/me");
-    clickLink({ href: "/fursonas" });
+    clickLink({ href: "/pages" });
     advance(PAST_DELAY);
     expect(bar()).not.toBeNull();
 
-    pathname = "/fursonas";
+    pathname = "/pages";
     act(() => {
       rerender(<RouteProgress label="Loading" />);
     });
@@ -151,7 +151,7 @@ describe("RouteProgress", () => {
   // which is worse than never showing one.
   it("gives up rather than sticking forever", () => {
     renderAt("/me");
-    clickLink({ href: "/fursonas" });
+    clickLink({ href: "/pages" });
     advance(PAST_DELAY);
     expect(bar()).not.toBeNull();
 
@@ -160,7 +160,7 @@ describe("RouteProgress", () => {
   });
 
   it("starts on a form submission, since those navigate too", () => {
-    renderAt("/fursonas/new");
+    renderAt("/pages/new");
     const form = document.createElement("form");
     document.body.appendChild(form);
     act(() => {
@@ -175,14 +175,14 @@ describe("RouteProgress", () => {
   describe("clicks that do not navigate this tab", () => {
     it("ignores a modified click, which opens a new tab", () => {
       renderAt("/me");
-      clickLink({ href: "/fursonas" }, { metaKey: true });
+      clickLink({ href: "/pages" }, { metaKey: true });
       advance(PAST_DELAY);
       expect(bar()).toBeNull();
     });
 
     it("ignores a middle click", () => {
       renderAt("/me");
-      clickLink({ href: "/fursonas" }, { button: 1 });
+      clickLink({ href: "/pages" }, { button: 1 });
       advance(PAST_DELAY);
       expect(bar()).toBeNull();
     });
@@ -196,7 +196,7 @@ describe("RouteProgress", () => {
 
     it("ignores a link that opens in a new tab", () => {
       renderAt("/me");
-      clickLink({ href: "/fursonas", target: "_blank" });
+      clickLink({ href: "/pages", target: "_blank" });
       advance(PAST_DELAY);
       expect(bar()).toBeNull();
     });

@@ -25,10 +25,6 @@ export {
   type MyProfileInput,
 } from "@/features/actors/infrastructure/my-profile";
 export {
-  MyProfileForm,
-  type MyProfileFormLabels,
-} from "@/features/actors/presentation/my-profile-form";
-export {
   readPublicPerson,
   readPublicFursona,
   type PublicActor,

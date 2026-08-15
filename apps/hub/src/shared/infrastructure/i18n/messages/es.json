@@ -24,23 +24,15 @@
     "platformIdHint": "Este identificador es el mismo en todas las apps de Furry Colombia.",
     "empty": "—",
     "signOut": "Cerrar sesión",
-    "fursonasLink": "Tus fursonas",
     "address": "Tu dirección",
     "addressHint": "Aquí vive tu perfil público. Compártela, o ábrela para ver lo que ven los demás.",
     "addressEmpty": "No disponible.",
-    "viewProfile": "Abre tu perfil público",
-    "editTitle": "Tu perfil público",
-    "displayName": "Nombre visible",
-    "avatarUrl": "Dirección de la imagen",
-    "visibilityLabel": "Quién puede ver tu perfil",
     "save": "Guardar",
     "saving": "Guardando…",
-    "saved": "Guardado.",
-    "failed": "Eso no se guardó. Inténtalo de nuevo.",
-    "privateHint": "Tu página de perfil es privada. Publicarla no cambia tus fursonas: cada una tiene su propio ajuste."
+    "fursonasLink": "Tus fursonas"
   },
   "fursonas": {
-    "title": "Tus fursonas",
+    "title": "Tus páginas",
     "subtitle": "Los personajes con los que puedes actuar en Furry Colombia.",
     "empty": "Aún no tienes fursonas.",
     "suspended": "Tu cuenta está suspendida, así que tus fursonas no están disponibles por ahora y no puedes crear otras. No se ha eliminado nada.",
@@ -79,6 +71,7 @@
     "noMatches": "Ninguna fursona coincide.",
     "editorTitleNew": "Nueva fursona",
     "editorTitleEdit": "Editar fursona",
+    "editorTitleProfile": "Tu perfil",
     "save": "Guardar",
     "saving": "Guardando…",
     "bannerTitle": "Corrige esto antes de guardar",
@@ -223,7 +216,7 @@
   "nav": {
     "ariaLabel": "Secciones",
     "me": "Yo",
-    "fursonas": "Fursonas"
+    "pages": "Páginas"
   },
   "publicProfile": {
     "notFoundTitle": "No encontrado",

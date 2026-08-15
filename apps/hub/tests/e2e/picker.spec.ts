@@ -93,9 +93,7 @@ test.describe("the app handoff, signed out", () => {
   test("a repeated redirect_url still renders the sign-in page", async ({
     page,
   }) => {
-    await page.goto(
-      "/es/sign-in?redirect_url=/es/me&redirect_url=/es/fursonas",
-    );
+    await page.goto("/es/sign-in?redirect_url=/es/me&redirect_url=/es/pages");
     await expect(page.getByTestId("sign-in-discord")).toBeVisible();
   });
 });

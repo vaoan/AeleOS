@@ -114,6 +114,11 @@ export interface FursonaRowProps {
  * and an end-to-end test has to name the row it just created — the suite runs
  * in Spanish and may not reach it by its label.
  *
+ * **The person's row carries an edit link and nothing else.** Their page is
+ * edited in the same editor a fursona's is, but the three controls beside it
+ * are not theirs to have: nothing to pin when the row is always first, nothing
+ * to reorder against, and no retiring yourself.
+ *
  * @returns the row.
  */
 export function FursonaRow({
@@ -216,7 +221,22 @@ export function FursonaRow({
         </Link>
       ) : null}
 
-      {isPerson ? null : confirming ? (
+      {/* **The person gets an edit link and nothing else.** Their page is edited
+          in the same editor a fursona's is — the fields are identical — but the
+          three controls beside it are not theirs to have: there is nothing to
+          pin when the row is always first, nothing to reorder against, and no
+          retiring yourself. Each follows from what a person actor is rather
+          than from a rule invented here. */}
+      {isPerson ? (
+        <Link
+          href="/me/edit"
+          aria-label={labels.edit}
+          {...tid("edit-my-profile")}
+          className="rounded-lg p-1.5 text-[var(--muted)]"
+        >
+          <Pencil className="size-4" />
+        </Link>
+      ) : confirming ? (
         <span className="flex items-center gap-1">
           <button
             type="button"
@@ -248,7 +268,7 @@ export function FursonaRow({
             <Star className="size-4" />
           </button>
           <Link
-            href={`/fursonas/${actor.handle}/edit`}
+            href={`/pages/${actor.handle}/edit`}
             aria-label={labels.edit}
             className="rounded-lg p-1.5 text-[var(--muted)]"
           >

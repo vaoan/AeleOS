@@ -31,7 +31,7 @@ describe("isPublicRoute", () => {
   });
 
   it("protects a route nobody remembered to classify", () => {
-    expect(isPublicRoute(request("/fursonas"))).toBe(false);
+    expect(isPublicRoute(request("/pages"))).toBe(false);
     expect(isPublicRoute(request("/admin"))).toBe(false);
   });
 
@@ -76,7 +76,7 @@ describe("isPublicRoute", () => {
   it("protects each locale's signed-in pages", () => {
     for (const locale of routing.locales) {
       expect(isPublicRoute(request(`/${locale}/me`))).toBe(false);
-      expect(isPublicRoute(request(`/${locale}/fursonas`))).toBe(false);
+      expect(isPublicRoute(request(`/${locale}/pages`))).toBe(false);
     }
   });
 
@@ -97,7 +97,7 @@ describe("isPublicRoute", () => {
   // The reserved segments, and the reason the actor patterns are a RegExp with
   // a negative lookahead rather than a `/:person` path pattern. An address is
   // shaped exactly like the static segment of a signed-in route — `/es/42` and
-  // `/es/fursonas` are indistinguishable — so a naive pattern would have made
+  // `/es/pages` are indistinguishable — so a naive pattern would have made
   // every signed-in page public at this layer.
   describe("the reserved segments stay protected", () => {
     it.each(["me", "picker", "fursonas", "sign-in"])(
@@ -116,8 +116,8 @@ describe("isPublicRoute", () => {
     // follows — which is how the first draft quietly made the whole editor
     // public.
     it("keeps everything BENEATH a reserved segment out too", () => {
-      expect(isPublicRoute(request("/es/fursonas/new"))).toBe(false);
-      expect(isPublicRoute(request("/es/fursonas/luna/edit"))).toBe(false);
+      expect(isPublicRoute(request("/es/pages/new"))).toBe(false);
+      expect(isPublicRoute(request("/es/pages/luna/edit"))).toBe(false);
       expect(isPublicRoute(request("/es/picker/anything"))).toBe(false);
     });
   });

@@ -32,7 +32,7 @@ import {
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
 import { sectionsSchema } from "@/features/actors/domain/section-schema";
-import type { z } from "zod";
+import { z } from "zod";
 
 /**
  * Translated strings {@link FursonaEditor} renders.
@@ -87,6 +87,11 @@ export interface FursonaEditorLabels
  * white in dark mode. `dropdown-legibility.test.ts` guards every select in the
  * app against going back.
  *
+ * `kind` is what makes this the PERSON's editor as well as a fursona's. It
+ * hides the handle field, relaxes the schema that validates it, and sends the
+ * fields through `update_my_profile` instead — nothing else differs, because a
+ * person's public page is a page like any other.
+ *
  * `profileTheme` is genuinely optional: it feeds the panel's "use my profile's
  * look", which renders only where there is something to copy, so a caller that
  * omits it simply offers no button.
@@ -121,10 +126,19 @@ export interface FursonaEditorProps {
   actorRef?: string;
   /** False when editing — the handle is then shown but not submitted. */
   handleEditable: boolean;
+  /**
+   * Whether the actor is the person themselves.
+   *
+   * A person's handle is the provisioned `u-<actor_ref>`: nobody chooses it, it
+   * appears in no address, and it is the string this app stopped displaying
+   * anywhere. So the field is not shown rather than shown-and-locked — a
+   * disabled input invites somebody to wonder how to unlock it.
+   */
+  kind?: "fursona" | "person";
 }
 
 /** Where a save or a cancel returns to. */
-const LIST = "/fursonas";
+const LIST = "/pages";
 
 /**
  * The whole editor's shape: the four fields, plus the page's sections.
@@ -141,6 +155,22 @@ const editorSchema = fursonaSchema.extend({
   sections: sectionsSchema,
   theme: themeSchema,
 });
+
+/**
+ * The same form, for a person, whose handle is not theirs to choose.
+ *
+ * **A person could not save at all without this**, and the reason is worth
+ * keeping: their handle is the provisioned `u-<actor_ref>`, which is 34
+ * characters, and `fursonaSchema` caps a handle at 32. So the resolver refused
+ * a form whose offending field is not even rendered — no message appeared
+ * anywhere, because there is no input to attach one to, and Save simply did
+ * nothing.
+ *
+ * The handle is kept in the values rather than dropped, because the draft type
+ * is shared and nothing downstream sends it: `updateMyProfile` derives its
+ * target from the token and reads three fields, none of them this one.
+ */
+const personEditorSchema = editorSchema.extend({ handle: z.string() });
 
 /**
  * The fursona editor: a full-page form under a sticky toolbar.
@@ -178,6 +208,12 @@ const editorSchema = fursonaSchema.extend({
  * again, and that boundary is `SKIN_SCOPE` on `PageShell`'s content element,
  * which this form renders inside. A second copy here would be exactly the
  * drift the original fault was made of.
+ *
+ * **It edits a person too.** `kind="person"` drops the handle field, because
+ * theirs is the provisioned `u-<actor_ref>` that appears in no address — and
+ * relaxes the schema for it, because that handle is 34 characters against a cap
+ * of 32, so the resolver used to refuse the form on a field nothing renders. No
+ * message could appear, and Save did nothing at all.
  *
  * **Cancel is a link, not a push.** The toolbar takes an href, so leaving the
  * editor raises the loading bar exactly as any other navigation does — a
@@ -226,9 +262,10 @@ export function FursonaEditor({
   profileTheme,
   actorRef,
   handleEditable,
+  kind = "fursona",
 }: FursonaEditorProps) {
   const router = useRouter();
-  const { save, saving, fieldErrors } = useFursonaEditor(actorRef);
+  const { save, saving, fieldErrors } = useFursonaEditor(actorRef, kind);
   const { lang, select } = useLanguageToggle();
 
   const {
@@ -237,7 +274,9 @@ export function FursonaEditor({
     handleSubmit,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(editorSchema),
+    resolver: zodResolver(
+      kind === "person" ? personEditorSchema : editorSchema,
+    ),
     defaultValues: {
       handle: initial?.handle ?? "",
       displayName: initial?.displayName ?? "",
@@ -282,34 +321,40 @@ export function FursonaEditor({
           announced as "Handle 1-32 characters." The hint is attached with
           aria-describedby instead, which is what it is for. */}
       <div className="grid gap-6">
-        <div className="grid gap-1.5">
-          <label htmlFor="handle" className="text-sm font-medium">
-            {labels.handle}
-          </label>
-          {handleEditable ? (
-            <>
-              <input
-                id="handle"
-                {...tid("editor-handle")}
-                {...register("handle")}
-                maxLength={32}
-                aria-invalid={Boolean(errors.handle)}
-                aria-describedby="handle-hint"
-                className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-2"
-              />
-              <span id="handle-hint" className="text-xs text-[var(--muted)]">
-                {labels.handleHint}
+        {/* **A person has no handle field at all.** Theirs is the provisioned
+            `u-<actor_ref>`, which nobody picks and which appears in no
+            address — so there is nothing to edit and nothing worth showing.
+            Everything else on this form is identical for both. */}
+        {kind === "person" ? null : (
+          <div className="grid gap-1.5">
+            <label htmlFor="handle" className="text-sm font-medium">
+              {labels.handle}
+            </label>
+            {handleEditable ? (
+              <>
+                <input
+                  id="handle"
+                  {...tid("editor-handle")}
+                  {...register("handle")}
+                  maxLength={32}
+                  aria-invalid={Boolean(errors.handle)}
+                  aria-describedby="handle-hint"
+                  className="rounded-lg border border-[var(--edge)]/60 bg-transparent px-3 py-2"
+                />
+                <span id="handle-hint" className="text-xs text-[var(--muted)]">
+                  {labels.handleHint}
+                </span>
+              </>
+            ) : (
+              // Read-only text rather than a disabled input: update_fursona takes
+              // no handle at all, so an editable one would submit a value the
+              // database ignores.
+              <span className="px-3 py-2 font-mono text-sm text-[var(--muted)]">
+                @{initial?.handle}
               </span>
-            </>
-          ) : (
-            // Read-only text rather than a disabled input: update_fursona takes
-            // no handle at all, so an editable one would submit a value the
-            // database ignores.
-            <span className="px-3 py-2 font-mono text-sm text-[var(--muted)]">
-              @{initial?.handle}
-            </span>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-1.5">
           <label htmlFor="displayName" className="text-sm font-medium">

@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { FursonaEditor, readMyProfileTheme } from "@/features/actors";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
-import { fursonaEditorLabels } from "@/app/[locale]/(app)/fursonas/labels";
+import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
 
 /**
  * The page for creating a fursona.
