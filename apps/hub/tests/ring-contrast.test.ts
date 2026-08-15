@@ -51,10 +51,16 @@ describe("the avatar ring", () => {
         label.startsWith(theme),
       ) as [string, Oklch, number, Oklch];
       const [l, c, h] = ring;
-      const expected =
-        c === 0
-          ? `oklch(${l} 0 0 / ${alpha})`
-          : `oklch(${l} ${c} ${h} / ${alpha})`;
+      // Rendered in the notation the stylesheet is written in — percentages
+      // for lightness and alpha, degrees for hue — because `stylelint` now
+      // enforces that form and rewrote every colour into it. The comparison is
+      // a string on purpose: this test exists to catch the checker's copy
+      // DRIFTING from the token, and parsing both sides first would hide a
+      // drift in how the value is spelled, which is how it would actually
+      // happen. The float multiply is trimmed because 0.38 * 100 is not 38.
+      const percent = (value: number) =>
+        `${Number((value * 100).toPrecision(10))}%`;
+      const expected = `oklch(${percent(l)} ${c} ${h}deg / ${percent(alpha)})`;
       expect(ringToken(theme)).toBe(expected);
     },
   );

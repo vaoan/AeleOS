@@ -31,9 +31,10 @@
    */
   color-scheme: light;
 
-  --ink: oklch(0.27 0.045 35);
-  --ink-2: oklch(0.45 0.045 30);
-  --muted: oklch(0.5 0.045 30);
+  --ink: oklch(27% 0.045 35deg);
+  --ink-2: oklch(45% 0.045 30deg);
+  --muted: oklch(50% 0.045 30deg);
+
   /*
    * The raw surface colours, and `--surface` / `--bar` as what a panel actually
    * paints. Two names for one colour looks redundant and is not: a skin makes
@@ -42,8 +43,8 @@
    * skin composes `--surface` from it — which is also what keeps a skin honest,
    * since it can reach the author's colour but never replace it.
    */
-  --surface-solid: oklch(0.99 0.01 40 / 0.9);
-  --bar-solid: oklch(1 0 0 / 0.35);
+  --surface-solid: oklch(99% 0.01 40deg / 90%);
+  --bar-solid: oklch(100% 0 0deg / 35%);
 
   /*
    * **What a `select` and its menu are painted with, and it must be OPAQUE.**
@@ -61,12 +62,12 @@
    * `--surface` cannot serve here because it carries an alpha, and a
    * translucent menu is the same bug with an extra step.
    */
-  --menu: oklch(0.99 0.01 40);
+  --menu: oklch(99% 0.01 40deg);
   --surface: var(--surface-solid);
   --bar: var(--bar-solid);
-  --edge: oklch(0.66 0.075 35);
-  --accent: oklch(0.46 0.15 25);
-  --on-accent: oklch(0.98 0.01 40);
+  --edge: oklch(66% 0.075 35deg);
+  --accent: oklch(46% 0.15 25deg);
+  --on-accent: oklch(98% 0.01 40deg);
 
   /*
    * The avatar ring flips with the mode — dark ring on light, light ring on
@@ -84,19 +85,18 @@
    * the "white fursona vanishes on the light field" case the design calls
    * unacceptable. It looked perfectly reasonable.
    */
-  --ring: oklch(0.38 0.05 30 / 0.85);
-
-  --star: oklch(0.62 0.16 32);
-  --star-glow: oklch(0.8 0.15 34 / 0.45);
+  --ring: oklch(38% 0.05 30deg / 85%);
+  --star: oklch(62% 0.16 32deg);
+  --star-glow: oklch(80% 0.15 34deg / 45%);
 
   /* Rose-gold, cooled at the centre: a warm-white core rather than an orange
    * haze, falling through peach to the violet the dark mode lives in. */
   --field: radial-gradient(
     115% 85% at 50% 30%,
-    oklch(0.98 0.016 45) 14%,
-    oklch(0.93 0.055 35) 40%,
-    oklch(0.76 0.1 20) 70%,
-    oklch(0.45 0.13 320) 100%
+    oklch(98% 0.016 45deg) 14%,
+    oklch(93% 0.055 35deg) 40%,
+    oklch(76% 0.1 20deg) 70%,
+    oklch(45% 0.13 320deg) 100%
   );
 
   /* The nebula's cloud tint, read by the canvas. Light absorbs (multiply), so
@@ -104,6 +104,7 @@
   --nebula-a: 236 142 74;
   --nebula-b: 214 106 96;
   --nebula-blend: multiply;
+
   /* Still lower than dark — multiply darkens, and the light field has far less
    * headroom before the dust starts fighting the text above it — but raised
    * from 0.3 when the clouds grew larger and sparser. Half the ink spread over
@@ -117,32 +118,30 @@
    * surfaces and ours can never disagree about which scheme is in force. */
   color-scheme: dark;
 
-  --ink: oklch(0.96 0.012 340);
-  --ink-2: oklch(0.8 0.03 330);
-  --muted: oklch(0.66 0.03 330);
+  --ink: oklch(96% 0.012 340deg);
+  --ink-2: oklch(80% 0.03 330deg);
+  --muted: oklch(66% 0.03 330deg);
+
   /* Only the raw pair. `--surface` and `--bar` are composed from these at
    * `:root` and follow whichever is in force, so restating them here would be a
    * second place to keep in step for no gain. */
-  --surface-solid: oklch(0.16 0.04 305 / 0.82);
-  --bar-solid: oklch(0.14 0.03 305 / 0.55);
-  --menu: oklch(0.19 0.04 305);
-  --edge: oklch(0.52 0.09 325);
+  --surface-solid: oklch(16% 0.04 305deg / 82%);
+  --bar-solid: oklch(14% 0.03 305deg / 55%);
+  --menu: oklch(19% 0.04 305deg);
+  --edge: oklch(52% 0.09 325deg);
 
   /* Not the light accent with a flipped lightness — a different value on
    * purpose. The accent that glows on black is washed out on white. */
-  --accent: oklch(0.74 0.18 350);
-  --on-accent: oklch(0.16 0.04 350);
-
-  --ring: oklch(0.8 0 0 / 0.34);
-
-  --star: oklch(0.86 0.15 78);
-  --star-glow: oklch(0.8 0.16 60 / 0.65);
-
+  --accent: oklch(74% 0.18 350deg);
+  --on-accent: oklch(16% 0.04 350deg);
+  --ring: oklch(80% 0 0deg / 34%);
+  --star: oklch(86% 0.15 78deg);
+  --star-glow: oklch(80% 0.16 60deg / 65%);
   --field: radial-gradient(
     130% 100% at 50% 26%,
-    oklch(0.12 0.03 305) 32%,
-    oklch(0.22 0.08 332) 68%,
-    oklch(0.34 0.12 350) 100%
+    oklch(12% 0.03 305deg) 32%,
+    oklch(22% 0.08 332deg) 68%,
+    oklch(34% 0.12 350deg) 100%
   );
 
   /* Dark emits (screen), so the dust is hydrogen pink and magenta. Same
@@ -276,7 +275,6 @@
   --radius-2xl: calc(var(--skin-round) * 1rem);
   --radius-3xl: calc(var(--skin-round) * 1.5rem);
   --blur-md: var(--skin-blur);
-
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -326,6 +324,7 @@ button:disabled,
  * The gloss is a background IMAGE, so it layers over whatever colour the
  * element paints instead of replacing it.
  */
+
 /*
  * An `option` carries the menu's colours explicitly as well.
  *
@@ -369,13 +368,15 @@ option {
  */
 :root {
   --bar-h: 3.5rem;
+
   /* Where a second bar sticks: directly under the header. */
   --bar-top: var(--bar-h);
+
   /* And a third, under both — plus the gap the strip carries above itself. */
   --bar-top-2: calc(var(--bar-top) + var(--bar-h) + 0.5rem);
 }
 
-@media (max-height: 600px) {
+@media (height <= 600px) {
   :root {
     --bar-top: 0px;
   }
@@ -440,6 +441,7 @@ option {
 
 body {
   background: var(--field);
+
   /* Fixed, so the gradient is the window's rather than the document's: a long
    * page must not scroll the star out of the sky. */
   background-attachment: fixed;
@@ -464,10 +466,12 @@ body {
     transform: scaleX(0);
     transform-origin: left;
   }
+
   50% {
     transform: scaleX(0.7);
     transform-origin: left;
   }
+
   100% {
     transform: scaleX(1);
     transform-origin: right;

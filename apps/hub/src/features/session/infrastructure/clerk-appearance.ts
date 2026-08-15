@@ -31,20 +31,20 @@
 /** The palette Clerk derives its scale from, per theme. */
 const PALETTE = {
   light: {
-    colorPrimary: "oklch(0.46 0.15 25)",
-    colorForeground: "oklch(0.27 0.045 35)",
-    colorMutedForeground: "oklch(0.5 0.045 30)",
-    colorBackground: "oklch(0.99 0.01 40)",
-    colorInputForeground: "oklch(0.27 0.045 35)",
-    colorBorder: "oklch(0.66 0.075 35)",
+    colorPrimary: "oklch(46% 0.15 25deg)",
+    colorForeground: "oklch(27% 0.045 35deg)",
+    colorMutedForeground: "oklch(50% 0.045 30deg)",
+    colorBackground: "oklch(99% 0.01 40deg)",
+    colorInputForeground: "oklch(27% 0.045 35deg)",
+    colorBorder: "oklch(66% 0.075 35deg)",
   },
   dark: {
-    colorPrimary: "oklch(0.74 0.18 350)",
-    colorForeground: "oklch(0.96 0.012 340)",
-    colorMutedForeground: "oklch(0.66 0.03 330)",
-    colorBackground: "oklch(0.16 0.04 305)",
-    colorInputForeground: "oklch(0.96 0.012 340)",
-    colorBorder: "oklch(0.52 0.09 325)",
+    colorPrimary: "oklch(74% 0.18 350deg)",
+    colorForeground: "oklch(96% 0.012 340deg)",
+    colorMutedForeground: "oklch(66% 0.03 330deg)",
+    colorBackground: "oklch(16% 0.04 305deg)",
+    colorInputForeground: "oklch(96% 0.012 340deg)",
+    colorBorder: "oklch(52% 0.09 325deg)",
   },
 } as const;
 

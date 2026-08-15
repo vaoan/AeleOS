@@ -26,7 +26,7 @@
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint:fix",
     "typecheck": "tsc --noEmit && pnpm --filter hub typecheck && pnpm --filter @aeleos/identity typecheck",
-    "check:tools": "pnpm test:tools && pnpm check:contrast && cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && sherif && syncpack lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
+    "check:tools": "pnpm test:tools && pnpm check:contrast && cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && pnpm check:style && sherif && syncpack lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
     "secretlint": "secretlint \"**/*\"",
     "sync-secrets": "node scripts/sync-secrets.mjs",
     "prepare": "husky",
@@ -37,7 +37,8 @@
     "syncpack:lint": "syncpack lint",
     "syncpack:fix": "syncpack fix",
     "sherif": "sherif",
-    "sherif:fix": "sherif --fix"
+    "sherif:fix": "sherif --fix",
+    "check:style": "stylelint \"apps/*/src/**/*.css\""
   },
   "devDependencies": {
     "@cspell/dict-es-es": "^3.0.8",
