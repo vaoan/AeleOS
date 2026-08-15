@@ -45,7 +45,7 @@ function tidy(stops: GradientStop[]): GradientStop[] {
       color: stop.color,
       at: Math.max(0, Math.min(100, Math.round(stop.at))),
     }))
-    .sort((a, b) => a.at - b.at)
+    .toSorted((a, b) => a.at - b.at)
     .slice(0, MAX_STOPS);
   return cleaned.length > 0 ? cleaned : DEFAULT_GRADIENT.stops;
 }
@@ -182,6 +182,8 @@ export function removeStop(gradient: Gradient, index: number): Gradient {
  * through a drag, which is exactly what shipped here once behind a line of code
  * that looked like it was tracking identity and was in fact a no-op.
  *
+ * Returns a sorted list built with `toSorted`, so the caller's stops cannot be reordered underneath them.
+ *
  * @param gradient - the background.
  * @param index - which stop.
  * @param change - the colour, the position, or both.
@@ -208,7 +210,7 @@ export function setStop(
       },
       edited,
     }))
-    .sort((a, b) => a.stop.at - b.stop.at)
+    .toSorted((a, b) => a.stop.at - b.stop.at)
     .slice(0, MAX_STOPS);
 
   const moved = tagged.findIndex((each) => each.edited);
@@ -227,15 +229,16 @@ export function setStop(
  * Linear between the two stops either side, and the end stop's colour beyond
  * the last one — which is what CSS itself does.
  *
+ * Walks the stops with `toReversed`, which copies by construction — the previous spread-then-reverse did the same thing and relied on remembering the spread.
+ *
  * @param gradient - the background.
  * @param at - the point, 0 to 100.
  * @returns the colour there, as `#rrggbb`.
  */
 export function colourAt(gradient: Gradient, at: number): string {
   const stops = tidy(gradient.stops);
-  const before =
-    [...stops].reverse().find((stop) => stop.at <= at) ?? stops[0]!;
-  const after = stops.find((stop) => stop.at >= at) ?? stops[stops.length - 1]!;
+  const before = stops.toReversed().find((stop) => stop.at <= at) ?? stops[0]!;
+  const after = stops.find((stop) => stop.at >= at) ?? stops.at(-1)!;
   if (before === after || before.at === after.at) return before.color;
 
   const t = (at - before.at) / (after.at - before.at);

@@ -4,6 +4,8 @@ import prettier from "eslint-config-prettier";
 import globals from "globals";
 import { globalIgnores } from "eslint/config";
 import boundaries from "eslint-plugin-boundaries";
+import sonarjs from "eslint-plugin-sonarjs";
+import unicorn from "eslint-plugin-unicorn";
 import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import jsdoc from "eslint-plugin-jsdoc";
@@ -298,6 +300,85 @@ export default tseslint.config(
       // final word: the two rewrap the same strings differently and each
       // undoes the other on the next run.
       "better-tailwindcss/enforce-consistent-line-wrapping": "off",
+    },
+  },
+
+  {
+    files: ["apps/hub/src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"],
+    plugins: { sonarjs, unicorn },
+    rules: {
+      ...sonarjs.configs.recommended.rules,
+      ...unicorn.configs["flat/recommended"].rules,
+
+      // **`null` is a value this domain means.** Postgres columns are nullable,
+      // `parseTheme` returns null for "the author picked nothing", and
+      // `displayName: null` is different from `displayName: ""` — one is unset
+      // and the other is empty. The rule wants `undefined` everywhere, which
+      // would erase that distinction at exactly the boundary where it matters,
+      // between a row and a form. Both sister repos turn it off too.
+      "unicorn/no-null": "off",
+
+      // **Off, because its autofix broke the auth gate.**
+      //
+      // It rewrote the middleware `matcher` — the regular expression deciding
+      // which requests Clerk even sees — into a `String.raw` template. Next
+      // reads that config STATICALLY, so a tagged template is not a value it
+      // can read at all: `next build` refused the whole app with "Invalid
+      // segment configuration export detected", naming no file.
+      //
+      // The rule is reasonable in general and wrong for anything a build tool
+      // parses rather than executes. It fired in exactly one place, and that
+      // place was the one where a silent failure would have meant routes going
+      // ungated. Nothing here is worth the escape it saves.
+      "unicorn/prefer-string-raw": "off",
+
+      // **Prettier lowercases hex digits and this rule wants them upper.**
+      // Left at its default the two fought: the fix ran, Prettier undid it,
+      // and the next lint reported the same four literals again. Prettier is
+      // the formatter of record here — pre-commit runs `--check` — so the rule
+      // is told which case that is rather than being turned off.
+      "unicorn/number-literal-case": [
+        "error",
+        { hexadecimalValue: "lowercase" },
+      ],
+
+      // **Calibrated, not silenced.** Two functions exceed the default 15:
+      // the row, which is one element with six conditional controls, and the
+      // canvas effect, whose shape is argued for in the actors note — a record
+      // of renderers keyed by name, deliberately not a chain of branches. Both
+      // are wide rather than deep, which is the kind of complexity this metric
+      // scores badly and readers do not. 20 still catches a genuine tangle.
+      "sonarjs/cognitive-complexity": ["error", 20],
+
+      // **`| 0` here is an int32 COERCION, not a truncation.** It feeds
+      // `Math.imul` in the hash and the xorshift, where 32-bit wrap-around is
+      // the point; `Math.trunc` does not wrap, so the rule's replacement is a
+      // different function that happens to agree on the values we pass today.
+      // A rule that is right in general and wrong in the only place it fires.
+      "unicorn/prefer-math-trunc": "off",
+
+      // **A handler defined inside a list callback is React's own idiom.**
+      // Every finding is an `onPin`/`onRemove` prop inside a `.map()`, where
+      // hoisting means either a component per row or a factory that closes
+      // over the same values by hand. The rule is about deeply nested logic;
+      // JSX props are not that.
+      "sonarjs/no-nested-functions": "off",
+
+      // **Separators help a decimal and hurt a hex constant.** `100_000` reads
+      // better than `100000`; `0x9e_37_79_b9` reads worse than `0x9e3779b9`,
+      // which is a constant people recognise on sight — it is the golden ratio
+      // the xorshift seeds from. The autofix rewrote four of those before this
+      // was noticed. Decimals keep the rule; hex keeps its shape unless
+      // somebody deliberately groups it.
+      "unicorn/numeric-separators-style": [
+        "error",
+        { hexadecimal: { onlyIfContainsSeparator: true } },
+      ],
+
+      // Renames `props` to `properties`, `ref` to `reference`, `params` to
+      // `parameters` — including the ones React and Next define. A convention
+      // this app does not own is not a convention it should paraphrase.
+      "unicorn/prevent-abbreviations": "off",
     },
   },
 

@@ -85,6 +85,31 @@ export interface FursonaRowProps {
 }
 
 /**
+ * Where a row's public link points, or nothing when there is no page to see.
+ *
+ * Three cases, written as three rather than as a ternary inside a ternary. A
+ * `private` actor answers 404 to everybody, its owner included, so it gets no
+ * link at all — a link that 404s teaches somebody the feature is broken rather
+ * than that their page is unpublished. `unlisted` does get one, because it
+ * serves to whoever holds the link and its owner is exactly who does.
+ *
+ * @param handle - the segment that hangs under the owner's address.
+ * @param visibility - whether the page serves anybody at all.
+ * @param address - the owner's public address, absent until one is granted.
+ * @param isPerson - whether this row is the person themselves.
+ * @returns the path, or null when nothing should be linked.
+ */
+function publicPathFor(
+  handle: string,
+  visibility: string,
+  address: string | null | undefined,
+  isPerson: boolean,
+): string | null {
+  if (!address || visibility === "private") return null;
+  return isPerson ? `/${address}` : `/${address}/${handle}`;
+}
+
+/**
  * One row in the fursona list.
  *
  * A separate component from `ActorTile` rather than a variant of it. The tile
@@ -123,6 +148,8 @@ export interface FursonaRowProps {
  *
  * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * Its three control states — the person's edit link, the delete confirmation, the ordinary actions — are three siblings rather than a ternary inside a ternary. One of them is a delete, so which one a reader is in should not need unpicking.
+ *
  * @returns the row.
  */
 export function FursonaRow({
@@ -136,14 +163,12 @@ export function FursonaRow({
 }: FursonaRowProps) {
   const [confirming, setConfirming] = useState(false);
   const isPerson = actor.kind === "person";
-  // A person's own profile is at their address; a fursona's is that address
-  // followed by its handle. Neither is worth linking to when it will 404.
-  const publicHref =
-    address && actor.visibility !== "private"
-      ? isPerson
-        ? `/${address}`
-        : `/${address}/${actor.handle}`
-      : null;
+  const publicHref = publicPathFor(
+    actor.handle,
+    actor.visibility,
+    address,
+    isPerson,
+  );
 
   return (
     // A row in a table, not a card of its own. Every row carrying its own
@@ -240,7 +265,12 @@ export function FursonaRow({
         >
           <Pencil className="size-4" />
         </Link>
-      ) : confirming ? (
+      ) : null}
+
+      {/* Three states, written as three siblings rather than as a ternary
+          inside a ternary. Which one a reader is in was the part that had gone
+          hard to see, and one of them is a delete. */}
+      {!isPerson && confirming ? (
         <span className="flex items-center gap-1">
           <button
             type="button"
@@ -257,7 +287,9 @@ export function FursonaRow({
             {labels.cancel}
           </button>
         </span>
-      ) : (
+      ) : null}
+
+      {!isPerson && !confirming ? (
         <span className="flex items-center gap-1">
           <button
             type="button"
@@ -287,7 +319,7 @@ export function FursonaRow({
             <Trash2 className="size-4" />
           </button>
         </span>
-      )}
+      ) : null}
     </li>
   );
 }

@@ -89,6 +89,8 @@ export async function setActorTheme(
  * has never themed their profile gets — and the editor renders no button for
  * either, because there is nothing to copy in both cases.
  *
+ * Each await is named before it is used. `(await x).y` reads as one operation and is two, and this one is two awaits deep.
+ *
  * @param client - a Supabase client authenticated as the person.
  * @returns their profile's theme, or the default when there is none.
  * @throws when either read fails, which is not the same as "not themed yet".
@@ -96,9 +98,9 @@ export async function setActorTheme(
 export async function readMyProfileTheme(
   client: SupabaseClient,
 ): Promise<ActorTheme> {
-  const person = (await listMyActors(client)).find(
-    (actor) => actor.kind === "person",
-  );
+  const mine = await listMyActors(client);
+  const person = mine.find((actor) => actor.kind === "person");
   if (!person) return DEFAULT_THEME;
-  return (await readActorPage(client, person.actorRef)).theme;
+  const page = await readActorPage(client, person.actorRef);
+  return page.theme;
 }

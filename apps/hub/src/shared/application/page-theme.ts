@@ -86,10 +86,12 @@ document.documentElement.setAttribute("${PAGE_THEME_ATTRIBUTE}", "author");
  * person's page take the theme off everybody's, so the choice now lasts the
  * visit — a stranger always arrives at a page as its owner built it.
  *
+ * Unchanged in behaviour; it reaches the global through `globalThis` rather than `window`, which is the same object and one that also exists where `window` does not.
+ *
  * @param choice - what the visitor picked.
  * @returns nothing.
  */
 export function setPageTheme(choice: PageTheme): void {
   document.documentElement.setAttribute(PAGE_THEME_ATTRIBUTE, choice);
-  window.dispatchEvent(new Event(PAGE_THEME_CHANGE_EVENT));
+  globalThis.dispatchEvent(new Event(PAGE_THEME_CHANGE_EVENT));
 }

@@ -67,14 +67,14 @@ function subscribe(onChange: () => void): () => void {
     attributes: true,
     attributeFilter: ["data-theme", PAGE_THEME_ATTRIBUTE],
   });
-  window.addEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
-  window.addEventListener(THEME_CHANGE_EVENT, onChange);
-  window.addEventListener("storage", onChange);
+  globalThis.addEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
+  globalThis.addEventListener(THEME_CHANGE_EVENT, onChange);
+  globalThis.addEventListener("storage", onChange);
   return () => {
     observer.disconnect();
-    window.removeEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
-    window.removeEventListener(THEME_CHANGE_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
+    globalThis.removeEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
+    globalThis.removeEventListener(THEME_CHANGE_EVENT, onChange);
+    globalThis.removeEventListener("storage", onChange);
   };
 }
 

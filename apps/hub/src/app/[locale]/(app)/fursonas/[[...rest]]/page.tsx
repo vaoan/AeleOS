@@ -15,6 +15,8 @@ import { redirect } from "@/shared/infrastructure/i18n/navigation";
  * anybody had shared to their own list would begin resolving to that stranger's
  * profile. A reserved word costs nothing; that costs trust.
  *
+ * The tail is carried across unchanged, so a link shared under the old name lands on the same page rather than on the list.
+ *
  * @returns never; it always redirects.
  */
 export default async function FursonasRedirect({
@@ -23,8 +25,8 @@ export default async function FursonasRedirect({
   params: Promise<{ locale: string; rest?: string[] }>;
 }) {
   const { locale, rest } = await params;
-  redirect({
-    href: `/pages${rest?.length ? `/${rest.join("/")}` : ""}`,
-    locale,
-  });
+  // The tail is whatever followed /fursonas, carried across unchanged so a
+  // shared link to a page under the old name still lands on the same page.
+  const tail = rest?.length ? `/${rest.join("/")}` : "";
+  redirect({ href: `/pages${tail}`, locale });
 }

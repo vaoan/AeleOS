@@ -693,17 +693,19 @@ const LAYOUTS: Record<
  * heading outweighs an item title. Without that the page is one flat list of
  * everything somebody wrote, which is how it read before.
  *
+ * Sorts with `toSorted`, which cannot mutate the sections a caller handed in even by accident.
+ *
  * @returns the sections, in the order the author put them.
  */
 export function PublicSections({ sections, locale }: PublicSectionsProps) {
   if (sections.length === 0) return null;
 
-  const ordered = [...sections].sort((a, b) => a.sort_order - b.sort_order);
+  const ordered = sections.toSorted((a, b) => a.sort_order - b.sort_order);
 
   return (
     <div className="grid gap-10">
       {ordered.map((section) => {
-        const items = [...section.items].sort(
+        const items = section.items.toSorted(
           (a, b) => a.sort_order - b.sort_order,
         );
         const Layout = LAYOUTS[section.type];

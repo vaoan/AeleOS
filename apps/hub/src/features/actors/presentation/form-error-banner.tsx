@@ -35,12 +35,14 @@ export interface FormErrorBannerProps {
  *
  * Every colour it paints comes from a token — `--accent`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * Unchanged in behaviour; its class list moved to the canonical token spelling with everything else.
+ *
  * @returns the banner, or null when there is nothing to report.
  */
 export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
   const messages = Object.values(errors)
     .map((code) => labels.errors[code])
-    .filter((message): message is string => Boolean(message));
+    .filter(Boolean);
 
   if (messages.length === 0) return null;
 

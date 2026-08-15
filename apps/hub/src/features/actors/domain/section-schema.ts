@@ -40,6 +40,11 @@ export type SectionType = (typeof SECTION_TYPES)[number];
  * fails if any of these four stops matching.
  *
  * Change one of these only by changing `0009` too. The guard will say so.
+ *
+ * The byte cap is written `65_536` so it reads as the power of two it is
+ * rather than as a number somebody picked. The migration states the same value
+ * in SQL, where separators are not available, and the guard compares them as
+ * numbers — so the two spellings cannot drift apart.
  */
 export const SECTION_LIMITS = {
   /** Sections per fursona. */
@@ -49,7 +54,7 @@ export const SECTION_LIMITS = {
   /** Characters in any one text field. */
   text: 2000,
   /** Bytes in the whole serialised array. */
-  bytes: 65536,
+  bytes: 65_536,
 } as const;
 
 /** A text field somebody writes in one language. */

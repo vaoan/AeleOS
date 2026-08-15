@@ -83,18 +83,20 @@ export const THEME_CHANGE_EVENT = "aeleos:theme-change";
  * page renders from, so a storage failure in a privacy mode must still leave
  * the visitor with the theme they asked for, just not a lasting one.
  *
+ * Unchanged in behaviour; it reaches the global through `globalThis` rather than `window`, which is the same object and one that also exists where `window` does not.
+ *
  * @param theme - the theme to apply.
  * @returns nothing.
  */
 export function setTheme(theme: Theme): void {
-  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.dataset.theme = theme;
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch {
     // Storage is unavailable in some privacy modes. The choice still applies to
     // this page view; it simply will not survive a reload.
   }
-  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+  globalThis.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 }
 
 /**

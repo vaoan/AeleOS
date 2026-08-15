@@ -68,6 +68,30 @@ function parse(raw: string): URL | null {
 }
 
 /**
+ * The id YouTube is being asked for, whichever of its four shapes was pasted.
+ *
+ * `youtu.be/ID`, `watch?v=ID`, and the `shorts` / `embed` / `live` / `v` path
+ * forms. Written as four cases because it decides what this app will put in a
+ * frame: nested ternaries hid which one a URL had fallen into, and the one that
+ * matters most — an unrecognised shape yielding nothing — was the innermost.
+ *
+ * @param url - the parsed address.
+ * @param first - its first path segment, if any.
+ * @param second - its second, if any.
+ * @returns the candidate id, which the caller still validates.
+ */
+function youtubeCandidate(
+  url: URL,
+  first: string | undefined,
+  second: string | undefined,
+): string | undefined {
+  if (url.hostname === "youtu.be") return first;
+  if (first === "watch") return url.searchParams.get("v") ?? "";
+  if (["shorts", "embed", "live", "v"].includes(first ?? "")) return second;
+  return "";
+}
+
+/**
  * Resolves YouTube's several address forms to one video id.
  *
  * @param url - a parsed URL already known to be on a YouTube host.
@@ -77,14 +101,9 @@ function youtubeId(url: URL): string | null {
   const [first, second] = url.pathname.split("/").filter(Boolean);
   // youtu.be/<id> carries the id as the whole path; every youtube.com form
   // either names it in `v` or puts it after a segment naming the player.
-  const candidate =
-    url.hostname === "youtu.be"
-      ? first
-      : first === "watch"
-        ? (url.searchParams.get("v") ?? "")
-        : ["shorts", "embed", "live", "v"].includes(first ?? "")
-          ? second
-          : "";
+  // Four shapes, listed as four. Nested ternaries hid which one a URL fell
+  // into, and this is the function that decides what may be framed.
+  const candidate = youtubeCandidate(url, first, second);
   return YOUTUBE_ID.test(candidate ?? "") ? (candidate as string) : null;
 }
 
@@ -98,7 +117,7 @@ function vimeoId(url: URL): string | null {
   const parts = url.pathname.split("/").filter(Boolean);
   // player.vimeo.com/video/<id> against vimeo.com/<id>: the id is the last
   // segment either way, and everything that is not all-digits is refused.
-  const candidate = parts[parts.length - 1] ?? "";
+  const candidate = parts.at(-1) ?? "";
   return VIMEO_ID.test(candidate) ? candidate : null;
 }
 

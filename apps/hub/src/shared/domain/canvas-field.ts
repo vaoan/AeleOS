@@ -905,6 +905,8 @@ export interface Column {
  * shows the same glyphs at the same moment and the screen reads as a single
  * scrolling image.
  *
+ * Unchanged in behaviour; its seed constant keeps the unseparated hex form people recognise it by.
+ *
  * @param count - how many columns.
  * @param seed - the seed to vary them from.
  * @returns the columns.
@@ -916,7 +918,7 @@ export function rainColumns(count: number, seed: number): Column[] {
     speed: 0.08 + random() * 0.3,
     length: 6 + Math.floor(random() * 16),
     offset: random(),
-    seed: Math.floor(random() * 100000),
+    seed: Math.floor(random() * 100_000),
   }));
 }
 
@@ -926,6 +928,8 @@ export function rainColumns(count: number, seed: number): Column[] {
  * Deterministic in all three, so the same frame always draws the same
  * characters — a `Math.random()` here would make every glyph flicker at the
  * frame rate, which is noise rather than rain.
+ *
+ * Unchanged in behaviour; the bitwise mixing is deliberate int32 arithmetic and is left exactly as it was.
  *
  * @param column - the column's own seed.
  * @param row - which row down the column.
@@ -940,8 +944,8 @@ export function glyphAt(
   alphabet: number,
 ): number {
   // A cheap integer hash: multiply, mix the high bits down, take the modulus.
-  let hash = (column * 73856093) ^ (row * 19349663) ^ (step * 83492791);
-  hash = Math.imul(hash ^ (hash >>> 15), 2246822519);
+  let hash = (column * 73_856_093) ^ (row * 19_349_663) ^ (step * 83_492_791);
+  hash = Math.imul(hash ^ (hash >>> 15), 2_246_822_519);
   hash = (hash ^ (hash >>> 13)) >>> 0;
   return hash % alphabet;
 }

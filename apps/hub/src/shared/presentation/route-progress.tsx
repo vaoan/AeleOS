@@ -60,12 +60,12 @@ function navigatesThisTab(event: MouseEvent): boolean {
   const href = anchor.getAttribute("href");
   if (!href) return false;
 
-  const url = new URL(href, window.location.href);
-  if (url.origin !== window.location.origin) return false;
+  const url = new URL(href, globalThis.location.href);
+  if (url.origin !== globalThis.location.origin) return false;
   // A hash link scrolls; it does not fetch anything.
   if (
-    url.pathname === window.location.pathname &&
-    url.search === window.location.search
+    url.pathname === globalThis.location.pathname &&
+    url.search === globalThis.location.search
   )
     return false;
 

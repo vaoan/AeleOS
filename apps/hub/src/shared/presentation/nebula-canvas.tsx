@@ -48,16 +48,16 @@ const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
  * @returns the unsubscribe function.
  */
 function subscribe(onChange: () => void): () => void {
-  const media = window.matchMedia(REDUCED_MOTION);
+  const media = globalThis.matchMedia(REDUCED_MOTION);
   media.addEventListener("change", onChange);
   // `storage` covers the same preference changed in another tab; the custom
   // event covers this tab, where `storage` deliberately does not fire.
-  window.addEventListener("storage", onChange);
-  window.addEventListener(NEBULA_CHANGE_EVENT, onChange);
+  globalThis.addEventListener("storage", onChange);
+  globalThis.addEventListener(NEBULA_CHANGE_EVENT, onChange);
   return () => {
     media.removeEventListener("change", onChange);
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(NEBULA_CHANGE_EVENT, onChange);
+    globalThis.removeEventListener("storage", onChange);
+    globalThis.removeEventListener(NEBULA_CHANGE_EVENT, onChange);
   };
 }
 
@@ -78,7 +78,7 @@ function getSnapshot(): string {
     // Storage throws outright in some privacy modes. Falling through with null
     // means the nebula shows, which is the intended default.
   }
-  return `${stored ?? ""}|${window.matchMedia(REDUCED_MOTION).matches}`;
+  return `${stored ?? ""}|${globalThis.matchMedia(REDUCED_MOTION).matches}`;
 }
 
 /**
@@ -985,12 +985,12 @@ function drawMystify(
       const when = seconds - echo * shape.spacing;
       ctx.strokeStyle = `rgb(${r} ${g} ${b} / ${0.5 * (1 - echo / (shape.echoes + 1))})`;
       ctx.beginPath();
-      shape.corners.forEach((corner, i) => {
+      for (const [i, corner] of shape.corners.entries()) {
         const x = bounced(corner.startX + when * corner.speedX) * width;
         const y = bounced(corner.startY + when * corner.speedY) * height;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
-      });
+      }
       ctx.closePath();
       ctx.stroke();
     }
@@ -1021,7 +1021,10 @@ function drawBounce(
   density: number,
   scale: number,
 ): void {
-  wanderers(many(WANDERER_COUNT, density), FIELD_SEED).forEach((box, i) => {
+  for (const [i, box] of wanderers(
+    many(WANDERER_COUNT, density),
+    FIELD_SEED,
+  ).entries()) {
     // Bounced within the room the box leaves, so it meets the edge rather than
     // half-leaving it — the corner is the whole point of watching.
     const x = bounced(box.startX + seconds * box.speedX) * (1 - box.width);
@@ -1034,7 +1037,7 @@ function drawBounce(
       box.width * width * scale,
       box.height * height * scale,
     );
-  });
+  }
 }
 
 /** How many columns of glyphs fall. */
@@ -1266,9 +1269,11 @@ function canvasColour(
   slot: number,
 ): [number, number, number] {
   const chosen = styles.getPropertyValue(`--canvas-${slot + 1}`).trim();
-  return chosen
-    ? readRgb(styles, `--canvas-${slot + 1}`)
-    : readRgb(styles, slot % 2 === 0 ? "--nebula-a" : "--nebula-b");
+  // The design's own two, alternating, for a canvas whose author picked
+  // nothing. Named rather than chosen inside the conditional, so the two cases
+  // read as "theirs" and "ours" instead of as three branches.
+  const ours = slot % 2 === 0 ? "--nebula-a" : "--nebula-b";
+  return readRgb(styles, chosen ? `--canvas-${slot + 1}` : ours);
 }
 
 function readRgb(
@@ -1379,6 +1384,7 @@ function readRgb(
  * reduced motion keeps the design and loses only the movement — and that
  * applies to every canvas here, not only the nebula.
  * Its colours arrive as `--canvas-N` custom properties read from the document root, never as classes — a canvas mounted above every page cannot be handed a prop by one.
+ * Unchanged in behaviour; its slot colours resolve through one named fallback rather than a conditional inside a conditional.
  */
 export function NebulaCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1626,7 +1632,7 @@ export function NebulaCanvas() {
         styles.getPropertyValue("--canvas-scale").trim(),
       );
       ctx.globalAlpha = Math.min(1, ctx.globalAlpha * nebulaDensity);
-      tiles.forEach((tile, i) => {
+      for (const [i, tile] of tiles.entries()) {
         const layer = LAYERS[i]!;
         // Both are device pixels, and both are multiplied by `dpr` for the same
         // reason: everything here is a size on screen, and a size in device
@@ -1647,15 +1653,12 @@ export function NebulaCanvas() {
             ctx.drawImage(tile, x + offset, y + offset * 0.4, span, span);
           }
         }
-      });
+      }
     };
 
     build();
 
-    if (!animated) {
-      // A single frame, so reduced motion keeps the design without the movement.
-      draw(0);
-    } else {
+    if (animated) {
       const start = performance.now();
       /**
        * The animation loop.
@@ -1668,6 +1671,9 @@ export function NebulaCanvas() {
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
+    } else {
+      // A single frame, so reduced motion keeps the design without the movement.
+      draw(0);
     }
 
     /**

@@ -25,8 +25,6 @@ export default getRequestConfig(async ({ requestLocale }) => {
       ? requested
       : routing.defaultLocale;
 
-  return {
-    locale,
-    messages: (await loadMessages(locale)).default,
-  };
+  const catalogue = await loadMessages(locale);
+  return { locale, messages: catalogue.default };
 });

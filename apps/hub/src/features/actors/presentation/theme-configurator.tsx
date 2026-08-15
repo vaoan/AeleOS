@@ -225,6 +225,8 @@ export interface ThemeConfiguratorProps {
  *
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--menu`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * Its image probe listens with `addEventListener` rather than assigning `onerror`, so a second listener could be added without silently replacing the first.
+ *
  * @returns the panel.
  */
 export function ThemeConfigurator({
@@ -268,18 +270,18 @@ export function ThemeConfigurator({
     if (!address) return;
     const probe = new Image();
     let cancelled = false;
-    probe.onload = () => {
+    probe.addEventListener("load", () => {
       if (cancelled) return;
       const over =
         probe.naturalWidth > CURSOR_MAX_PX ||
         probe.naturalHeight > CURSOR_MAX_PX;
       setTooBig(over ? address : null);
-    };
+    });
     // A picture that will not load is not reported as too big. That is a
     // different problem, and naming the wrong one is worse than saying nothing.
-    probe.onerror = () => {
+    probe.addEventListener("error", () => {
       if (!cancelled) setTooBig(null);
-    };
+    });
     probe.src = address;
     return () => {
       cancelled = true;

@@ -21,11 +21,11 @@ export interface NebulaToggleProps {
  * @returns the unsubscribe function.
  */
 function subscribe(onChange: () => void): () => void {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(NEBULA_CHANGE_EVENT, onChange);
+  globalThis.addEventListener("storage", onChange);
+  globalThis.addEventListener(NEBULA_CHANGE_EVENT, onChange);
   return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(NEBULA_CHANGE_EVENT, onChange);
+    globalThis.removeEventListener("storage", onChange);
+    globalThis.removeEventListener(NEBULA_CHANGE_EVENT, onChange);
   };
 }
 
@@ -65,6 +65,7 @@ function getServerSnapshot(): string {
  * Reports the toggle as pressed based on the preference alone, not on whether
  * the nebula is currently moving: under reduced motion the layer is still on,
  * and showing the star as off would be a lie about what the control did.
+ * Unchanged in behaviour; it reaches the global through `globalThis` rather than `window`.
  */
 export function NebulaToggle({ label }: NebulaToggleProps) {
   const stored = useSyncExternalStore(
@@ -86,7 +87,7 @@ export function NebulaToggle({ label }: NebulaToggleProps) {
           // fires, so the change applies for this page view and simply does
           // not persist — better than the control doing nothing at all.
         }
-        window.dispatchEvent(new Event(NEBULA_CHANGE_EVENT));
+        globalThis.dispatchEvent(new Event(NEBULA_CHANGE_EVENT));
       }}
     />
   );

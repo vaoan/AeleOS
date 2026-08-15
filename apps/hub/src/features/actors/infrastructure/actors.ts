@@ -5,7 +5,14 @@ import {
 } from "@aeleos/identity";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
 
-export type { PersonActor };
+// **Type-only, and the `type` keyword is load-bearing.** `unicorn/prefer-export-from`
+// rewrote this as `export { type PersonActor } from …`, which is a value-space
+// re-export carrying a type modifier: TypeScript erases the name but still
+// emits the re-export binding, so a runtime export appeared on a module that
+// routes import through the feature barrel — and `next build` refused the
+// whole app with "Invalid segment configuration export detected". A type-only
+// re-export is erased entirely and satisfies the rule as well.
+export type { PersonActor } from "@aeleos/identity";
 
 /**
  * Ensures the signed-in person has an actor row, returning its `actor_ref`.

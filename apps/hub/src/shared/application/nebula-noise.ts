@@ -46,12 +46,12 @@ const BIAS_CEILING = 0.95;
  */
 function hash(x: number, y: number, seed: number): number {
   let n =
-    Math.imul(x | 0, 374761393) ^
-    Math.imul(y | 0, 668265263) ^
-    Math.imul(seed | 0, 1274126177);
-  n = Math.imul(n ^ (n >>> 13), 1274126177);
+    Math.imul(x | 0, 374_761_393) ^
+    Math.imul(y | 0, 668_265_263) ^
+    Math.imul(seed | 0, 1_274_126_177);
+  n = Math.imul(n ^ (n >>> 13), 1_274_126_177);
   n ^= n >>> 16;
-  return (n >>> 0) / 4294967296;
+  return (n >>> 0) / 4_294_967_296;
 }
 
 /**
@@ -167,6 +167,8 @@ export interface TileOptions {
  * styling problem and gets debugged for hours, whereas a thrown error names its
  * cause immediately.
  *
+ * Unchanged in behaviour; only its numeric literals took the canonical spelling.
+ *
  * @param width - tile width in pixels; a positive multiple of {@link CELL_SIZE}.
  * @param height - tile height in pixels; a positive multiple of
  * {@link CELL_SIZE}.
@@ -188,7 +190,7 @@ export function tilePixels(
     throw new Error("tilePixels needs a positive width and height");
   }
   if (!Number.isInteger(width) || !Number.isInteger(height)) {
-    throw new Error("tilePixels needs an integer width and height");
+    throw new TypeError("tilePixels needs an integer width and height");
   }
   if (width % CELL_SIZE !== 0 || height % CELL_SIZE !== 0) {
     throw new Error(

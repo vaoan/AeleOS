@@ -537,6 +537,32 @@ export function isCustomised(theme: ActorTheme): boolean {
 }
 
 /**
+ * A hex colour as the space-separated channels a `rgb()` token wants.
+ *
+ * At module scope because it closes over nothing: inside `themeVars` it was
+ * rebuilt on every call, and this runs on every render of every themed page.
+ *
+ * @param hex - the colour somebody picked.
+ * @returns the channels, or null when the value does not parse.
+ */
+function rgb(hex: string): string | null {
+  const parsed = parseHex(hex);
+  return parsed ? parsed.map((ch) => Math.round(ch * 255)).join(" ") : null;
+}
+
+/**
+ * Custom properties, written out as the body of a CSS rule.
+ *
+ * @param properties - the properties to write.
+ * @returns the declarations, semicolon-separated.
+ */
+function declarations(properties: Record<string, string>): string {
+  return Object.entries(properties)
+    .map(([name, value]) => `${name}:${value}`)
+    .join(";");
+}
+
+/**
  * Every custom property a theme sets.
  *
  * **No mode parameter, and that is the whole point of the redesign.** A theme
@@ -586,15 +612,12 @@ export function isCustomised(theme: ActorTheme): boolean {
  * unreachable from the editor — `withChosenColour` fills every colour the
  * moment one is picked — but the column predates all of this and may hold it.
  *
+ * Its hex conversion is a module-level function now, not a closure rebuilt on every call: this runs for every render of every themed page.
+ *
  * @param theme - the chosen theme.
  * @returns the custom properties, ready for a rule.
  */
 export function themeVars(theme: ActorTheme): Record<string, string> {
-  const rgb = (hex: string) => {
-    const parsed = parseHex(hex);
-    return parsed ? parsed.map((ch) => Math.round(ch * 255)).join(" ") : null;
-  };
-
   // One property per colour, indexed from one, so a canvas asks for the slot it
   // wants rather than for a letter that meant something only while there were
   // two of them.
@@ -691,6 +714,8 @@ export function accentPreview(accentHex: string, background: Gradient): string {
  * stylesheet safe; a raw stored value would let a `}` close the rule and
  * everything after it would be CSS somebody else wrote.
  *
+ * Its declaration writer is a module-level function now rather than a closure, for the same reason `themeVars` has one — both run on every render of a themed page.
+ *
  * @param theme - the chosen theme.
  * @returns the CSS text, or empty when the theme overrides nothing.
  */
@@ -701,11 +726,6 @@ export function themeCss(theme: ActorTheme): string {
   // "author" means a page still wears its owner's colours when that script
   // never ran, and only an explicit opt-out takes them off.
   const gate = `:root:not([data-page-theme="default"])`;
-  const declarations = (properties: Record<string, string>) =>
-    Object.entries(properties)
-      .map(([name, value]) => `${name}:${value}`)
-      .join(";");
-
   const root = declarations(themeVars(theme));
   const skin = declarations(skinVars(theme.skin));
   return [

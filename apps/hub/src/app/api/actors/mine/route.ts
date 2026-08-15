@@ -73,6 +73,8 @@ function toResponseActor(actor: Actor) {
  * because building one internally imported `server-only` and broke the
  * client bundle the moment a Client Component touched the module.
  *
+ * The awaited list is named before it is mapped, and the mapper is called explicitly — `.map(toResponseActor)` would hand it an index and an array it never asked for, which is one added parameter away from a silent bug in a response that must not grow a field.
+ *
  * @returns `200` with `{ actors }` for a signed-in caller; `401` when
  * unauthenticated; `500` when the read fails.
  */
@@ -87,9 +89,8 @@ export async function GET(): Promise<Response> {
 
   let actors;
   try {
-    actors = (await listMyActors(await createServerClient())).map(
-      toResponseActor,
-    );
+    const mine = await listMyActors(await createServerClient());
+    actors = mine.map((actor) => toResponseActor(actor));
   } catch {
     return Response.json(
       { error: "Could not read your actors" },

@@ -78,6 +78,8 @@ export type Env = {
  * picker still starts — and starts fully, since the Supabase values every
  * request needs are validated in this same call.
  *
+ * Its origin parser is called explicitly rather than passed by reference, so a second parameter added to it later cannot silently receive an array index.
+ *
  * @param raw - the unvalidated values, normally read from `process.env`.
  * @returns the validated values in their typed shape.
  * @throws naming every missing or malformed variable, so the message says which
@@ -98,7 +100,7 @@ export function readEnv(raw: Record<string, string | undefined>): Env {
     allowedReturnOrigins: parsed.data.AELEOS_ALLOWED_RETURN_ORIGINS.split(",")
       .map((origin) => origin.trim())
       .filter((origin) => origin !== "")
-      .map(toOrigin),
+      .map((origin) => toOrigin(origin)),
   };
 }
 
@@ -130,14 +132,28 @@ let cached: Env | undefined;
  * @throws on first property access, naming every missing or malformed
  * variable — see `readEnv`.
  */
+/**
+ * The parsed environment, read once and kept.
+ *
+ * Named rather than assigned inside each getter's return expression: three
+ * copies of `(cached ??= loadEnv())` put the one side effect this module has
+ * inside a member lookup, where it reads as a property access.
+ *
+ * @returns the environment, loading it on first use.
+ */
+function loaded(): Env {
+  cached ??= loadEnv();
+  return cached;
+}
+
 export const env: Env = {
   get supabaseUrl() {
-    return (cached ??= loadEnv()).supabaseUrl;
+    return loaded().supabaseUrl;
   },
   get supabaseAnonKey() {
-    return (cached ??= loadEnv()).supabaseAnonKey;
+    return loaded().supabaseAnonKey;
   },
   get allowedReturnOrigins() {
-    return (cached ??= loadEnv()).allowedReturnOrigins;
+    return loaded().allowedReturnOrigins;
   },
 };

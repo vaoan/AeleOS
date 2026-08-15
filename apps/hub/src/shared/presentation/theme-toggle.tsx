@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactElement } from "react";
 import {
   otherTheme,
   setTheme,
@@ -59,14 +59,14 @@ function subscribe(onChange: () => void): () => void {
     // as on the first.
     attributeFilter: ["data-theme", PAGE_THEME_ATTRIBUTE],
   });
-  window.addEventListener(THEME_CHANGE_EVENT, onChange);
-  window.addEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
-  window.addEventListener("storage", onChange);
+  globalThis.addEventListener(THEME_CHANGE_EVENT, onChange);
+  globalThis.addEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
+  globalThis.addEventListener("storage", onChange);
   return () => {
     observer.disconnect();
-    window.removeEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
-    window.removeEventListener(THEME_CHANGE_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
+    globalThis.removeEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
+    globalThis.removeEventListener(THEME_CHANGE_EVENT, onChange);
+    globalThis.removeEventListener("storage", onChange);
   };
 }
 
@@ -183,6 +183,28 @@ function UnknownIcon() {
 }
 
 /**
+ * What the button says and shows when it is offering one of the two defaults.
+ *
+ * The pair is returned together because they are one decision: a moon that
+ * says "switch to light" is a state this shape cannot express, and it was two
+ * nested ternaries that had to be kept in agreement by hand.
+ *
+ * @param next - the theme pressing would move to.
+ * @param toDarkLabel - what to say when that is dark.
+ * @param toLightLabel - what to say when that is light.
+ * @returns the icon component and the label that belongs with it.
+ */
+function nextTheme(
+  next: Theme,
+  toDarkLabel: string,
+  toLightLabel: string,
+): { Icon: () => ReactElement; label: string } {
+  return next === "dark"
+    ? { Icon: MoonIcon, label: toDarkLabel }
+    : { Icon: SunIcon, label: toLightLabel };
+}
+
+/**
  * Switches between the two themes.
  *
  * The icon shows the destination rather than the current state — a sun means
@@ -196,6 +218,8 @@ function UnknownIcon() {
  * The nebula re-tints on its own: it watches the same `data-theme` attribute.
  *
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--ink` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
+ * Its icon and its accessible name are decided together in `nextTheme`, so a moon labelled "switch to light" is a state this shape cannot express.
  *
  * @returns the theme control.
  */
@@ -223,23 +247,22 @@ export function ThemeToggle({
   // page, so it alone put a question mark on the signed-in ones.
   const authored = themed && stillTheirs;
 
+  // The label and the glyph are one decision made twice, and they were two
+  // nested ternaries that had to agree. Deciding once means they cannot drift
+  // into a moon that says "switch to light".
+  const { Icon, label } = authored
+    ? { Icon: UnknownIcon, label: authorLabel }
+    : nextTheme(next, toDarkLabel, toLightLabel);
+
   return (
     <button
       type="button"
       onClick={() => setTheme(next)}
-      aria-label={
-        authored ? authorLabel : next === "dark" ? toDarkLabel : toLightLabel
-      }
+      aria-label={label}
       {...tid("theme-toggle")}
       className="grid size-[30px] place-items-center rounded-full text-(--ink-2) transition-colors hover:bg-(--edge)/20 hover:text-(--ink) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
     >
-      {authored ? (
-        <UnknownIcon />
-      ) : next === "dark" ? (
-        <MoonIcon />
-      ) : (
-        <SunIcon />
-      )}
+      <Icon />
     </button>
   );
 }

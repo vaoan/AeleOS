@@ -62,7 +62,7 @@ function inArrangedOrder(
   arrangement: Arrangement[],
 ): FursonaRowActor[] {
   const by = new Map(arrangement.map((a) => [a.actorRef, a]));
-  return [...rows].sort((a, b) => {
+  return rows.toSorted((a, b) => {
     const left = by.get(a.actorRef);
     const right = by.get(b.actorRef);
     if (Boolean(left?.featured) !== Boolean(right?.featured))
@@ -72,6 +72,32 @@ function inArrangedOrder(
     if (l !== r) return l - r;
     return a.handle.localeCompare(b.handle);
   });
+}
+
+/**
+ * What to say above the list when it has nothing in it, if anything.
+ *
+ * **Two different silences, and saying the wrong one is the fault this
+ * prevents.** "You have no fursonas" is untrue when the truth is "none match
+ * what you typed", and it invites somebody to create a duplicate of one they
+ * already have. Written as two guards rather than nested ternaries, because
+ * which case a reader is in was the part that had gone hard to see.
+ *
+ * @param ownsNone - whether they own none at all.
+ * @param shown - how many survive the current filter.
+ * @param empty - shown when they own none at all.
+ * @param noMatches - shown when a filter hid the ones they own.
+ * @returns the sentence, or null when there is a list to show.
+ */
+function emptyNote(
+  ownsNone: boolean,
+  shown: number,
+  empty: string,
+  noMatches: string,
+): string | null {
+  if (ownsNone) return empty;
+  if (shown === 0) return noMatches;
+  return null;
 }
 
 /**
@@ -94,6 +120,8 @@ function inArrangedOrder(
  * Its empty state is a `surface`, so the page looks skinned even with nothing on it.
  *
  * Every colour it paints comes from a token — `--edge`, `--muted`, `--surface` — and never from a literal. That is what lets a person's theme reach it at all.
+ *
+ * Its two empty states are decided in `emptyNote` rather than in nested ternaries — saying "you have no fursonas" when the truth is "none match your filter" invites somebody to create a duplicate of one they own, so which case is in force has to be legible.
  *
  * @returns the list.
  */
@@ -128,25 +156,25 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
     const next = [...fursonas];
     const [moved] = next.splice(result.source.index, 1);
     if (moved) next.splice(to, 0, moved);
-    next.forEach((row, index) => {
+    for (const [index, row] of next.entries()) {
       const before = fursonas[index];
       if (before?.actorRef !== row.actorRef)
         reorder.mutate({ actorRef: row.actorRef, sortOrder: index + 1 });
-    });
+    }
   };
+
+  const note = emptyNote(
+    ownsNone,
+    fursonas.length,
+    labels.empty,
+    labels.noMatches,
+  );
 
   return (
     <div className="mt-8 grid gap-6">
       <FursonaFiltersBar labels={labels} />
 
-      {ownsNone ? (
-        <p className="text-sm text-(--muted)">{labels.empty}</p>
-      ) : fursonas.length === 0 ? (
-        // Deliberately not the same sentence as `empty`: "you have no
-        // fursonas" is wrong when the truth is "none match what you typed",
-        // and it invites somebody to create a duplicate of one they have.
-        <p className="text-sm text-(--muted)">{labels.noMatches}</p>
-      ) : null}
+      {note ? <p className="text-sm text-(--muted)">{note}</p> : null}
 
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="fursonas">
@@ -164,8 +192,8 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
                   labels={labels}
                   featured={false}
                   canArrange={false}
-                  onPin={() => undefined}
-                  onDelete={() => undefined}
+                  onPin={() => {}}
+                  onDelete={() => {}}
                 />
               ) : null}
 
