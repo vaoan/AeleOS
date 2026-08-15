@@ -340,13 +340,28 @@ still open.
   feature, layers point inward only, and `packages/identity` must not import
   an app or a framework — Clerk, Next or React — so swapping the token issuer
   stays a one-column backfill rather than a change to every app on the
-  platform. Note that flat config **replaces** `no-restricted-imports` for
-  overlapping globs instead of merging — so every block repeats the patterns
-  still binding its files, except the barrel pattern, which only the floor
-  block carries because a feature's own files must be free to deep-import
-  within that feature — and a new block that forgets a pattern it still owes
-  is a silently disabled rule. Spec:
+  platform. **Those rules are `eslint-plugin-boundaries` now, declared once as
+  a graph over named element types**, matching the sister repos' tool — though
+  not their graph, which is looser and lets features import each other. They
+  were ~390 lines of `no-restricted-imports` blocks, one per feature per layer,
+  each restating every pattern that still bound its files: flat config
+  **replaces** that rule for overlapping globs instead of merging it, so a
+  block that forgot a pattern it still owed was a silently disabled rule, and a
+  fourth feature meant editing nine blocks correctly or quietly losing a
+  boundary. Two properties are new rather than preserved: the graph denies by
+  **default**, where the old blocks listed what was forbidden and so failed
+  OPEN; and `no-unknown-files` fails a file that declares no home at all. Only
+  the `../` ban and the package's framework ban are still
+  `no-restricted-imports` — they are module names rather than elements.
+
+  **The graph is only as real as its resolver.** `boundaries` asks
+  `import/resolver` where a specifier points, and an import it cannot place is
+  one it cannot police; the TypeScript resolver is configured for exactly that
+  reason. `sabotage.py`-style verification is not optional here — nine
+  violations were introduced one at a time and each was watched to fail before
+  this was believed. Spec:
   `2026-08-12-hub-layering-and-contract-seam-design.md`.
+
 - **`@aeleos/identity` is the cross-repo seam.** `packages/identity` holds
   `createIdentityClient` and the actor accessors — the code every app would
   otherwise copy — with `@supabase/supabase-js` as its only, peer, dependency.

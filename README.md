@@ -117,12 +117,15 @@ advice. The reasons are the useful part:
   other fails the build. But a person's own writing — a fursona's section names,
   their `*_es` fields — is **not** next-intl, and a missing value there is
   somebody who has not written it yet, never an error.
-- **The hub is layered and the layers are enforced** in `eslint.config.mjs`: a
-  feature is reached through its barrel, no feature imports another, `shared/`
-  never depends on a feature, and `packages/identity` may not import an app or a
-  framework. Note that flat config **replaces** `no-restricted-imports` for
-  overlapping globs rather than merging, so a new block that forgets a pattern
-  it still owes is a silently disabled rule.
+- **The hub is layered and the layers are enforced** in `eslint.config.mjs` by
+  `eslint-plugin-boundaries`: a feature is reached through its barrel, no
+  feature imports another, `shared/` never depends on a feature, layers point
+  inward only, and `packages/identity` may not import an app or a framework.
+  The graph denies by default and `no-unknown-files` fails a file that declares
+  no home, so a boundary cannot be lost by forgetting to restate it — which is
+  what the ~390 lines of `no-restricted-imports` blocks it replaced could do,
+  because flat config replaces that rule for overlapping globs rather than
+  merging it.
 - **Filenames are kebab-case**; `pnpm check:tools` runs `ls-lint`, `knip`,
   `jscpd`, `cspell` and `secretlint`.
 - **Development is cloud-only.** No local Docker or Supabase in normal use: push

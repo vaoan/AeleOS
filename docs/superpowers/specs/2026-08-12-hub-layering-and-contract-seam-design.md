@@ -155,14 +155,35 @@ paid tier, consistent with the $0 constraint.
 
 ## Enforcement
 
-ESLint `no-restricted-imports`, matching Libra's rules:
+`eslint-plugin-boundaries`, which is the sister repos' tool — though this
+declares a stricter graph than theirs, since Libra lets features import each
+other and we do not:
 
-| Rule                                       | Prevents                         |
-| ------------------------------------------ | -------------------------------- |
-| No feature imports another feature         | Tangled domains                  |
-| Absolute `@/…` for cross-directory imports | `../../../` chains               |
-| Layer direction inward only                | Presentation leaking into domain |
-| `packages/` never imports from `apps/`     | The dependency rule inverting    |
+| Rule                                            | Prevents                         | Enforced by                   |
+| ----------------------------------------------- | -------------------------------- | ----------------------------- |
+| No feature imports another feature              | Tangled domains                  | `boundaries/dependencies`     |
+| A feature is entered through its barrel         | Callers pinned to file locations | `boundaries/dependencies`     |
+| Layer direction inward only                     | Presentation leaking into domain | `boundaries/dependencies`     |
+| `shared/` never depends on a feature            | The dependency rule inverting    | `boundaries/dependencies`     |
+| Every file has a declared home                  | Code landing beside the scheme   | `boundaries/no-unknown-files` |
+| Absolute `@/…` for cross-directory imports      | `../../../` chains               | `no-restricted-imports`       |
+| `packages/` never imports an app or a framework | The seam closing over            | `no-restricted-imports`       |
+
+**Originally this was `no-restricted-imports` alone, and the shape of that
+mistake is worth keeping.** It grew to ~390 lines — one block per feature per
+layer, each restating every pattern that still bound its files — because flat
+config REPLACES that rule for overlapping globs instead of merging it. A block
+that forgot a pattern it still owed was a silently disabled rule, and adding a
+fourth feature meant editing nine blocks correctly or losing a boundary with
+nothing to report the loss. The graph has no such failure: a feature is added
+by naming it.
+
+Two properties are new rather than preserved. The graph denies by **default**,
+where the old blocks listed what was forbidden and so failed OPEN. And an
+import the plugin cannot RESOLVE is an import it cannot police, so the
+TypeScript `import/resolver` is part of the enforcement rather than a
+convenience — without it, relative imports inside `packages/identity` came back
+as unknown elements.
 
 `madge --circular` is already part of `check:tools` and covers the rest.
 
