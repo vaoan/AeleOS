@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/syncpack@14/dist/index.json",
+  "versionGroups": [
+    {
+      "label": "The workspace package is reached by protocol, never by version",
+      "packages": ["**"],
+      "dependencies": ["@aeleos/identity"],
+      "dependencyTypes": ["prod", "dev"],
+      "pinVersion": "workspace:*"
+    },
+    {
+      "label": "@supabase/supabase-js is a PEER of the package on purpose — it may float wider there than the app pins",
+      "dependencies": ["@supabase/supabase-js"],
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    }
+  ]
+}

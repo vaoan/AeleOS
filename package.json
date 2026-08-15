@@ -26,14 +26,18 @@
     "fix:staged": "lint-staged --concurrent false",
     "fix:all": "pnpm format && pnpm lint:fix",
     "typecheck": "tsc --noEmit && pnpm --filter hub typecheck && pnpm --filter @aeleos/identity typecheck",
-    "check:tools": "pnpm test:tools && pnpm check:contrast && cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
+    "check:tools": "pnpm test:tools && pnpm check:contrast && cspell \"**/*.{ts,tsx,md,json}\" --no-progress && ls-lint && sherif && syncpack lint && knip --no-exit-code && jscpd . && (madge --circular --extensions ts,tsx,mjs tests scripts apps/hub/src || true)",
     "secretlint": "secretlint \"**/*\"",
     "sync-secrets": "node scripts/sync-secrets.mjs",
     "prepare": "husky",
     "test:hub:coverage": "pnpm --filter hub test:coverage",
     "check:docs": "node scripts/check-doc-freshness.mjs",
     "test:tools": "vitest run -c vitest.config.tools.ts",
-    "check:contrast": "node scripts/check-contrast.mjs"
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "syncpack:lint": "syncpack lint",
+    "syncpack:fix": "syncpack fix",
+    "sherif": "sherif",
+    "sherif:fix": "sherif --fix"
   },
   "devDependencies": {
     "@cspell/dict-es-es": "^3.0.8",
@@ -68,10 +72,12 @@
     "pg": "^8.13.1",
     "prettier": "^3.8.3",
     "secretlint": "^12.3.1",
+    "sherif": "^1.13.0",
     "stylelint": "^17.14.1",
     "stylelint-config-standard": "^40.0.0",
     "stylelint-config-tailwindcss": "^1.0.1",
     "supabase": "^2.95.5",
+    "syncpack": "^14.3.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.0",
     "vitest": "^4.1.5"

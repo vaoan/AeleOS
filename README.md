@@ -127,7 +127,12 @@ advice. The reasons are the useful part:
   because flat config replaces that rule for overlapping globs rather than
   merging it.
 - **Filenames are kebab-case**; `pnpm check:tools` runs `ls-lint`, `knip`,
-  `jscpd`, `cspell` and `secretlint`.
+  `jscpd`, `cspell`, `secretlint`, and — since three package.json files can
+  disagree about one dependency without anything noticing — `sherif` and
+  `syncpack`. `.syncpackrc.json` records the two deliberate exceptions:
+  `@aeleos/identity` is reached by workspace protocol rather than by version,
+  and `@supabase/supabase-js` is a **peer** of that package on purpose, so it
+  may float wider there than the app pins.
 - **Development is cloud-only.** No local Docker or Supabase in normal use: push
   and read CI, and verify schema changes by querying the database rather than by
   trusting a CLI's exit code — it prints Docker credential noise while
