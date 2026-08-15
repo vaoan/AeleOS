@@ -1,4 +1,5 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
+import type { NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing } from "@/shared/infrastructure/i18n/routing";
 import { isPublicRoute } from "@/features/session";
@@ -21,7 +22,12 @@ const intlMiddleware = createIntlMiddleware(routing);
  * `/apikeys` and `/trpcx` — harmless in `config.matcher`, where over-matching
  * only means the middleware runs and then does nothing, but not harmless
  * here: a match here skips locale negotiation entirely, so `/apidocs` would
- * silently stop getting a `/es` prefix and a locale cookie. Measured directly
+ * silently stop getting a `/es` prefix and a locale cookie.
+ *
+ * Written out rather than expressed with Clerk's `createRouteMatcher`, which is
+ * deprecated. This never needed a pattern language: the rule is "the segment is
+ * exactly `api`", and saying that directly is both shorter and impossible to
+ * get subtly wrong. Measured directly
  * — `curl -i` against a running dev server showed `/docs` still redirecting
  * to `/es/docs` while a route matched by the broad pattern did not redirect
  * at all, just a bare 404 with no cookie. `public-routes.ts` drew the same
@@ -31,13 +37,16 @@ const intlMiddleware = createIntlMiddleware(routing);
  * Exported so `tests/proxy.test.ts` can assert the boundary directly —
  * `src/proxy.ts` sits outside the coverage `include`, so a passing test suite
  * proves nothing about this file unless something calls it on purpose.
+ *
+ * @param request - the incoming request.
+ * @returns true when the path is an API or tRPC route.
  */
-export const isApiRoute = createRouteMatcher([
-  "/api",
-  "/api/(.*)",
-  "/trpc",
-  "/trpc/(.*)",
-]);
+export function isApiRoute(request: NextRequest): boolean {
+  const { pathname } = request.nextUrl;
+  return ["/api", "/trpc"].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 /**
  * Auth and locale, in that order.

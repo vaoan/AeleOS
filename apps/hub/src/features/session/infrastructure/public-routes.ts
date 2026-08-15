@@ -1,4 +1,4 @@
-import { createRouteMatcher } from "@clerk/nextjs/server";
+import type { NextRequest } from "next/server";
 import { routing } from "@/shared/infrastructure/i18n/routing";
 
 /**
@@ -85,4 +85,54 @@ const PUBLIC_ROUTES = [
   ...PUBLIC_ACTOR_PAGES,
 ];
 
-export const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES);
+/**
+ * Turns one of the path patterns above into an anchored regular expression.
+ *
+ * **The vocabulary is deliberately tiny**: a literal path, optionally with
+ * `(.*)` standing for "and anything under it". Everything else is escaped. That
+ * is the whole of what this app's patterns use, and keeping it that small is
+ * the point — the previous matcher understood a much larger grammar, and this
+ * file has already been bitten once by a piece of it changing underneath us:
+ * `:person(…)` constraints were removed in path-to-regexp v8 and were silently
+ * IGNORED rather than rejected, so a pattern that looked constrained matched
+ * everything.
+ *
+ * Anchored at both ends, so `/sign-in` cannot match `/sign-in-admin` — the
+ * boundary this file's notes are most insistent about.
+ *
+ * @param pattern - the path pattern to compile.
+ * @returns an anchored expression matching exactly that pattern.
+ */
+function pathPattern(pattern: string): RegExp {
+  const literals = pattern
+    .split("(.*)")
+    .map((part) => part.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`));
+  return new RegExp(`^${literals.join(".*")}$`);
+}
+
+const PUBLIC_PATTERNS = PUBLIC_ROUTES.map((route) =>
+  typeof route === "string" ? pathPattern(route) : route,
+);
+
+/**
+ * Whether a request may be served without a session.
+ *
+ * **Ours rather than Clerk's `createRouteMatcher`**, which is deprecated: Clerk
+ * is moving auth decisions to the resource because middleware path-matching can
+ * diverge from how Next actually routes a request, leaving something protected
+ * reachable. That argument is already answered here — the `(app)` layout checks
+ * the session itself, and its note says so — which is exactly why this one may
+ * stay a path check without being the guarantee.
+ *
+ * What it guards is the OUTER gate: redirecting before a page renders, and
+ * carrying the destination into the sign-in URL so the app handoff survives it.
+ * `picker.spec.ts` pins that contract. Moving this decision into the layout
+ * would lose it, because a layout is not told the path it was reached by.
+ *
+ * @param request - the incoming request.
+ * @returns true when no session is required to reach it.
+ */
+export function isPublicRoute(request: NextRequest): boolean {
+  const { pathname } = request.nextUrl;
+  return PUBLIC_PATTERNS.some((pattern) => pattern.test(pathname));
+}
