@@ -146,6 +146,7 @@
     "themeCanvas": "Backdrop",
     "themeDensity": "How busy",
     "themeSpeed": "How fast",
+    "themeScale": "How big",
     "themeSkin": "Style",
     "themeAdjusted": "Your accent, as visitors see it",
     "themeReset": "Back to the default look",

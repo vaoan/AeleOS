@@ -40,6 +40,7 @@ describe("parseTheme", () => {
       skin: "retro",
       density: 1,
       speed: 1,
+      scale: 1,
     });
   });
 
@@ -628,23 +629,38 @@ describe("the canvas dials", () => {
   });
 
   it("travels once turned up", () => {
-    const vars = themeVars({ ...DEFAULT_THEME, density: 2.5, speed: 0.5 });
+    const vars = themeVars({
+      ...DEFAULT_THEME,
+      density: 2.5,
+      speed: 0.5,
+      scale: 1.75,
+    });
     expect(vars["--canvas-density"]).toBe("2.5");
     expect(vars["--canvas-speed"]).toBe("0.5");
+    expect(vars["--canvas-scale"]).toBe("1.75");
+  });
+
+  // The third dial changes what a canvas IS rather than how much of it there
+  // is: a starfield at three times the size is a different sky, not a fuller
+  // one. Which is why it is its own dial and not a second reading of density.
+  it("says nothing about size until somebody changes it", () => {
+    expect(themeVars(DEFAULT_THEME)["--canvas-scale"]).toBeUndefined();
   });
 
   // Clamped rather than refused: a value out of range is a slider from an older
   // build or a hand-edited row, and the nearest usable number is a better
   // answer than a page that will not render.
   it("clamps what was stored", () => {
-    expect(parseTheme({ density: 99, speed: -3 })).toMatchObject({
+    expect(parseTheme({ density: 99, speed: -3, scale: 0 })).toMatchObject({
       density: 3,
       speed: 0.25,
+      scale: 0.25,
     });
   });
 
   it("is enough on its own to count as customised", () => {
     expect(isCustomised({ ...DEFAULT_THEME, density: 2 })).toBe(true);
     expect(isCustomised({ ...DEFAULT_THEME, speed: 2 })).toBe(true);
+    expect(isCustomised({ ...DEFAULT_THEME, scale: 2 })).toBe(true);
   });
 });

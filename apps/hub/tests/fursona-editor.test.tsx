@@ -96,6 +96,7 @@ const labels = {
     canvas: "Backdrop",
     density: "How busy",
     speed: "How fast",
+    scale: "How big",
     canvases: {
       nebula: "Nebula",
       stars: "Starfield",
@@ -365,6 +366,7 @@ describe("FursonaEditor for a person", () => {
           skin: "default",
           density: 1,
           speed: 1,
+          scale: 1,
         }}
       />,
     );

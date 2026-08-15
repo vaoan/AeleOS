@@ -219,6 +219,7 @@ const FIELD_SEED = 0x5eed;
  * @param seconds - elapsed time.
  * @param animated - false when the reader asked for no motion.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawStars(
@@ -230,6 +231,7 @@ function drawStars(
   seconds: number,
   animated: boolean,
   density: number,
+  scale: number,
 ) {
   // One colour per LAYER rather than a mix across the whole sky. A layer is the
   // thing somebody can see and therefore the thing worth being able to colour;
@@ -245,7 +247,7 @@ function drawStars(
         : Math.min(0.95, star.alpha * 0.78 * layer.brightness);
       const x = star.x * width;
       const y = star.y * height;
-      const size = star.r * dpr;
+      const size = star.r * dpr * scale;
 
       ctx.globalAlpha = alpha;
       ctx.fillStyle = `rgb(${r} ${g} ${bl})`;
@@ -327,6 +329,7 @@ const LINK_WITHIN = 0.13;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawConstellation(
@@ -337,13 +340,14 @@ function drawConstellation(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
   const at = constellation(
     many(NODE_COUNT, density, CONSTELLATION_CAP),
     FIELD_SEED,
   ).map((node) => nodeAt(node, seconds));
   const [lr, lg, lb] = tints[1] ?? tints[0]!;
-  ctx.lineWidth = Math.max(1, dpr * 0.6);
+  ctx.lineWidth = Math.max(1, dpr * 0.6 * scale);
   for (let i = 0; i < at.length; i += 1) {
     for (let j = i + 1; j < at.length; j += 1) {
       const distance = Math.hypot(at[i]!.x - at[j]!.x, at[i]!.y - at[j]!.y);
@@ -360,7 +364,7 @@ function drawConstellation(
   ctx.fillStyle = `rgb(${pr} ${pg} ${pb} / 0.85)`;
   for (const point of at) {
     ctx.beginPath();
-    ctx.arc(point.x * width, point.y * height, dpr * 1.4, 0, TWO_PI);
+    ctx.arc(point.x * width, point.y * height, dpr * 1.4 * scale, 0, TWO_PI);
     ctx.fill();
   }
 }
@@ -384,6 +388,7 @@ const WAVE_STEPS = 48;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawWaves(
@@ -393,6 +398,7 @@ function drawWaves(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
   for (const wave of waves(many(WAVE_COUNT, density), FIELD_SEED)) {
     const [r, g, b] = tints[wave.tint] ?? tints[0]!;
@@ -404,7 +410,7 @@ function drawWaves(
       const crest =
         Math.sin((t * wave.length + seconds * wave.speed) * TWO_PI) *
         wave.height;
-      ctx.lineTo(t * width, (wave.level + crest) * height);
+      ctx.lineTo(t * width, (wave.level + crest * scale) * height);
     }
     ctx.lineTo(width, height);
     ctx.closePath();
@@ -428,6 +434,7 @@ const BUBBLE_COUNT = 95;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawBubbles(
@@ -438,8 +445,9 @@ function drawBubbles(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const smaller = Math.min(width, height);
+  const smaller = Math.min(width, height) * scale;
   ctx.lineWidth = Math.max(1, dpr);
   for (const bubble of bubbles(many(BUBBLE_COUNT, density), FIELD_SEED)) {
     const climbed = (bubble.offset + seconds * bubble.speed) % 1;
@@ -471,6 +479,7 @@ const FLAKE_COUNT = 300;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawSnow(
@@ -480,8 +489,9 @@ function drawSnow(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const smaller = Math.min(width, height);
+  const smaller = Math.min(width, height) * scale;
   for (const flake of snow(many(FLAKE_COUNT, density), FIELD_SEED)) {
     const fallen = (flake.offset + seconds * flake.speed) % 1;
     const [r, g, b] = tints[flake.tint] ?? tints[0]!;
@@ -520,6 +530,7 @@ const HORIZON = 0.55;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawGrid(
@@ -530,6 +541,7 @@ function drawGrid(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
   const horizon = height * HORIZON;
   const [r, g, b] = tints[0]!;
@@ -539,7 +551,7 @@ function drawGrid(
   for (let i = -lines; i <= lines; i += 1) {
     ctx.beginPath();
     ctx.moveTo(width / 2 + (i / lines) * width * 0.08, horizon);
-    ctx.lineTo(width / 2 + (i / lines) * width * 2.2, height);
+    ctx.lineTo(width / 2 + (i / lines) * width * 2.2 * scale, height);
     ctx.stroke();
   }
   const scroll = (seconds * 0.25) % 1;
@@ -573,6 +585,7 @@ const BLOB_COUNT = 5;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawBlobs(
@@ -582,8 +595,9 @@ function drawBlobs(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const larger = Math.max(width, height);
+  const larger = Math.max(width, height) * scale;
   for (const blob of blobs(many(BLOB_COUNT, density), FIELD_SEED)) {
     const angle = blob.phase + seconds * blob.speed * TWO_PI;
     // Unequal in the two axes, so two glows sharing a speed do not travel in
@@ -618,6 +632,7 @@ const ORBIT_COUNT = 64;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawOrbits(
@@ -628,8 +643,9 @@ function drawOrbits(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const smaller = Math.min(width, height);
+  const smaller = Math.min(width, height) * scale;
   const cx = width / 2;
   const cy = height / 2;
   ctx.lineCap = "round";
@@ -683,6 +699,7 @@ const HEX_ROWS = 20;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawHexagons(
@@ -693,8 +710,9 @@ function drawHexagons(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const radius = width / HEX_COLUMNS / 1.8;
+  const radius = (width / HEX_COLUMNS / 1.8) * scale;
   const [lr, lg, lb] = tints[0]!;
   const [gr, gg, gb] = tints[1] ?? tints[0]!;
   ctx.lineWidth = Math.max(1, dpr * 0.7);
@@ -744,6 +762,7 @@ const RIBBON_STEPS = 40;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawRibbons(
@@ -753,6 +772,7 @@ function drawRibbons(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
   for (const ribbon of ribbons(many(RIBBON_COUNT, density), FIELD_SEED)) {
     const [r, g, b] = tints[ribbon.tint] ?? tints[0]!;
@@ -776,6 +796,7 @@ function drawRibbons(
       // of running at one width.
       const swell =
         ribbon.thickness *
+        scale *
         (0.4 + 0.6 * Math.abs(Math.cos(t * ribbon.bends * TWO_PI)));
       ctx.lineTo(t * width, (ribbon.level + wave + swell) * height);
     }
@@ -796,6 +817,7 @@ const CONFETTO_COUNT = 200;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawConfetti(
@@ -805,8 +827,9 @@ function drawConfetti(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const smaller = Math.min(width, height);
+  const smaller = Math.min(width, height) * scale;
   for (const piece of confetti(many(CONFETTO_COUNT, density), FIELD_SEED)) {
     const fallen = (piece.offset + seconds * piece.speed) % 1;
     const [r, g, b] = tints[piece.tint] ?? tints[0]!;
@@ -841,6 +864,7 @@ const SKYLINE_LAYERS = 4;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawSkyline(
@@ -850,6 +874,7 @@ function drawSkyline(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
   for (const layer of skyline(
     many(SKYLINE_LAYERS, density, SKYLINE_CAP),
@@ -862,9 +887,9 @@ function drawSkyline(
       for (const building of layer.buildings) {
         ctx.fillRect(
           building.at * width - shift + repeat * width,
-          height - building.height * height,
+          height - building.height * height * scale,
           building.width * width + 1,
-          building.height * height,
+          building.height * height * scale,
         );
       }
     }
@@ -887,6 +912,7 @@ const SPOT_COUNT = 70;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawBokeh(
@@ -896,8 +922,9 @@ function drawBokeh(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const smaller = Math.min(width, height);
+  const smaller = Math.min(width, height) * scale;
   for (const spot of bokeh(many(SPOT_COUNT, density), FIELD_SEED)) {
     const angle = spot.phase + seconds * spot.speed * TWO_PI;
     const x = (spot.x + Math.cos(angle) * spot.drift) * width;
@@ -934,6 +961,7 @@ const MYSTIFY_CORNERS = 4;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawMystify(
@@ -944,8 +972,9 @@ function drawMystify(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  ctx.lineWidth = Math.max(1, dpr);
+  ctx.lineWidth = Math.max(1, dpr * scale);
   for (const shape of mystify(
     many(MYSTIFY_COUNT, density),
     MYSTIFY_CORNERS,
@@ -980,6 +1009,7 @@ const WANDERER_COUNT = 6;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawBounce(
@@ -989,6 +1019,7 @@ function drawBounce(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
   wanderers(many(WANDERER_COUNT, density), FIELD_SEED).forEach((box, i) => {
     // Bounced within the room the box leaves, so it meets the edge rather than
@@ -997,7 +1028,12 @@ function drawBounce(
     const y = bounced(box.startY + seconds * box.speedY) * (1 - box.height);
     const [r, g, b] = tints[i % 3] ?? tints[0]!;
     ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.5)`;
-    ctx.fillRect(x * width, y * height, box.width * width, box.height * height);
+    ctx.fillRect(
+      x * width,
+      y * height,
+      box.width * width * scale,
+      box.height * height * scale,
+    );
   });
 }
 
@@ -1025,6 +1061,7 @@ const RAIN_STEPS_PER_SECOND = 8;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawRain(
@@ -1035,8 +1072,9 @@ function drawRain(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
-  const size = Math.max(10, (width / RAIN_COLUMNS) * 0.9);
+  const size = Math.max(10, (width / RAIN_COLUMNS) * 0.9 * scale);
   ctx.font = `${size}px ui-monospace, monospace`;
   ctx.textBaseline = "top";
   const rows = Math.ceil(height / size);
@@ -1082,6 +1120,7 @@ const WARP_COUNT = 420;
  * @param tints - one colour per slot.
  * @param seconds - seconds since the animation started.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawWarp(
@@ -1092,6 +1131,7 @@ function drawWarp(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ): void {
   const cx = width / 2;
   const cy = height / 2;
@@ -1106,7 +1146,7 @@ function drawWarp(
     const from = near * near * reach;
     const [r, g, b] = tints[t > 0.6 ? 1 : 0] ?? tints[0]!;
     ctx.strokeStyle = `rgb(${r} ${g} ${b} / ${Math.min(1, t * 1.6)})`;
-    ctx.lineWidth = Math.max(1, dpr * (0.4 + t * 1.6));
+    ctx.lineWidth = Math.max(1, dpr * (0.4 + t * 1.6) * scale);
     ctx.beginPath();
     ctx.moveTo(
       cx + Math.cos(star.angle) * from,
@@ -1133,6 +1173,7 @@ function drawWarp(
  * @param tints - the two theme colours, as channel triples.
  * @param seconds - elapsed time.
  * @param density - how many of a thing to draw, as a multiplier.
+ * @param scale - how large to draw it, as a multiplier.
  * @returns nothing.
  */
 function drawAurora(
@@ -1142,10 +1183,11 @@ function drawAurora(
   tints: [number, number, number][],
   seconds: number,
   density: number,
+  scale: number,
 ) {
   for (const curtain of aurora(many(CURTAIN_COUNT, density), FIELD_SEED)) {
     const centre = swayOf(curtain, seconds) * width;
-    const half = (curtain.width * width) / 2;
+    const half = (curtain.width * width * scale) / 2;
     // Its own colour per curtain, so four curtains can be four colours.
     const [r, g, b] = tints[curtain.tint % tints.length]!;
 
@@ -1271,11 +1313,19 @@ function readRgb(
  * remembers a velocity, and why mystify can draw its echoes as the same polygon
  * at earlier TIMES rather than as a history it keeps.
  *
- * **Two dials scale it: how busy, and how fast.** Density multiplies how many
+ * **Three dials scale it: how busy, how fast, and how big.** Density multiplies how many
  * of a thing each canvas draws; speed multiplies the clock, so no renderer
  * needs to know speed exists — one asked to go twice as fast is simply handed a
- * time twice as large. Both are read from the root like every other themed
- * value, and both clamp rather than refuse.
+ * time twice as large. Size multiplies what each thing measures, which changes
+ * what a canvas IS rather than how much of it there is. All three are read from
+ * the root like every other themed value, and all three clamp rather than
+ * refuse.
+ *
+ * **The nebula answers them too, and did not used to.** It read raw `elapsed`
+ * and a fixed set of layers, so the one canvas a page gets by default was the
+ * one canvas the sliders did not move. Density is its OPACITY rather than a
+ * count: the clouds tile the whole viewport whatever happens, so "busier" means
+ * thicker.
  *
  * **Every renderer is a pure function of seed and time.** Nothing carries
  * state between frames, which is what lets a page be themed, resized or
@@ -1456,6 +1506,7 @@ export function NebulaCanvas() {
         const seconds =
           (elapsed / 1000) *
           dial(styles.getPropertyValue("--canvas-speed").trim());
+        const scale = dial(styles.getPropertyValue("--canvas-scale").trim());
         // A record rather than a chain of branches: a canvas added to `CANVASES`
         // without an entry here would fall through to the nebula silently, and
         // "the control did nothing" is the fault this feature keeps producing.
@@ -1470,35 +1521,78 @@ export function NebulaCanvas() {
               seconds,
               animated,
               density,
+              scale,
             ),
-          aurora: () => drawAurora(ctx, width, height, tints, seconds, density),
+          aurora: () =>
+            drawAurora(ctx, width, height, tints, seconds, density, scale),
           constellation: () =>
-            drawConstellation(ctx, width, height, dpr, tints, seconds, density),
-          waves: () => drawWaves(ctx, width, height, tints, seconds, density),
+            drawConstellation(
+              ctx,
+              width,
+              height,
+              dpr,
+              tints,
+              seconds,
+              density,
+              scale,
+            ),
+          waves: () =>
+            drawWaves(ctx, width, height, tints, seconds, density, scale),
           bubbles: () =>
-            drawBubbles(ctx, width, height, dpr, tints, seconds, density),
-          snow: () => drawSnow(ctx, width, height, tints, seconds, density),
+            drawBubbles(
+              ctx,
+              width,
+              height,
+              dpr,
+              tints,
+              seconds,
+              density,
+              scale,
+            ),
+          snow: () =>
+            drawSnow(ctx, width, height, tints, seconds, density, scale),
           grid: () =>
-            drawGrid(ctx, width, height, dpr, tints, seconds, density),
-          blobs: () => drawBlobs(ctx, width, height, tints, seconds, density),
+            drawGrid(ctx, width, height, dpr, tints, seconds, density, scale),
+          blobs: () =>
+            drawBlobs(ctx, width, height, tints, seconds, density, scale),
           orbits: () =>
-            drawOrbits(ctx, width, height, dpr, tints, seconds, density),
+            drawOrbits(ctx, width, height, dpr, tints, seconds, density, scale),
           hexagons: () =>
-            drawHexagons(ctx, width, height, dpr, tints, seconds, density),
+            drawHexagons(
+              ctx,
+              width,
+              height,
+              dpr,
+              tints,
+              seconds,
+              density,
+              scale,
+            ),
           ribbons: () =>
-            drawRibbons(ctx, width, height, tints, seconds, density),
+            drawRibbons(ctx, width, height, tints, seconds, density, scale),
           confetti: () =>
-            drawConfetti(ctx, width, height, tints, seconds, density),
+            drawConfetti(ctx, width, height, tints, seconds, density, scale),
           skyline: () =>
-            drawSkyline(ctx, width, height, tints, seconds, density),
-          bokeh: () => drawBokeh(ctx, width, height, tints, seconds, density),
+            drawSkyline(ctx, width, height, tints, seconds, density, scale),
+          bokeh: () =>
+            drawBokeh(ctx, width, height, tints, seconds, density, scale),
           mystify: () =>
-            drawMystify(ctx, width, height, dpr, tints, seconds, density),
-          bounce: () => drawBounce(ctx, width, height, tints, seconds, density),
+            drawMystify(
+              ctx,
+              width,
+              height,
+              dpr,
+              tints,
+              seconds,
+              density,
+              scale,
+            ),
+          bounce: () =>
+            drawBounce(ctx, width, height, tints, seconds, density, scale),
           rain: () =>
-            drawRain(ctx, width, height, dpr, tints, seconds, density),
+            drawRain(ctx, width, height, dpr, tints, seconds, density, scale),
           warp: () =>
-            drawWarp(ctx, width, height, dpr, tints, seconds, density),
+            drawWarp(ctx, width, height, dpr, tints, seconds, density, scale),
         };
         const drawChosen = Object.hasOwn(draws, chosen)
           ? draws[chosen]
@@ -1512,6 +1606,25 @@ export function NebulaCanvas() {
         }
       }
 
+      // **The nebula answers the dials as well.** It used raw `elapsed` and a
+      // fixed set of layers, so speed and size passed it by entirely — the one
+      // canvas a page gets by default was the one canvas the sliders did not
+      // move.
+      //
+      // Density is opacity here rather than a count. There is nothing to have
+      // more of: the clouds tile the whole viewport whatever happens, so
+      // "busier" means thicker, and the alpha is what carries that. Clamped,
+      // because past one it is a wall.
+      const nebulaDensity = dial(
+        styles.getPropertyValue("--canvas-density").trim(),
+      );
+      const nebulaSpeed = dial(
+        styles.getPropertyValue("--canvas-speed").trim(),
+      );
+      const nebulaScale = dial(
+        styles.getPropertyValue("--canvas-scale").trim(),
+      );
+      ctx.globalAlpha = Math.min(1, ctx.globalAlpha * nebulaDensity);
       tiles.forEach((tile, i) => {
         const layer = LAYERS[i]!;
         // Both are device pixels, and both are multiplied by `dpr` for the same
@@ -1519,9 +1632,14 @@ export function NebulaCanvas() {
         // pixels is half as large on a retina display as on an ordinary one.
         // Leaving the `dpr` out is what made the clouds small and numerous on
         // exactly the machines the design was being judged on.
-        const span = TILE * layer.scale * dpr;
+        const span = TILE * layer.scale * dpr * nebulaScale;
         const offset =
-          ((elapsed / 1000) * DRIFT_PX_PER_SECOND * layer.speed * dpr) % span;
+          ((elapsed / 1000) *
+            nebulaSpeed *
+            DRIFT_PX_PER_SECOND *
+            layer.speed *
+            dpr) %
+          span;
         // Two extra tiles each way, so the drifting edge never enters view.
         for (let x = -span; x < width + span; x += span) {
           for (let y = -span; y < height + span; y += span) {

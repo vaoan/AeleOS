@@ -642,11 +642,18 @@ are the colours in both schemes; what adapts is `--nebula-blend`, which stays in
 `globals.css` — `screen` in dark because dust emits light, `multiply` in light
 because it absorbs it. Same two colours, opposite physics.
 
-**Two dials scale every canvas: how busy, and how fast.** Density multiplies
+**Three dials scale every canvas: how busy, how fast, and how big.** Density multiplies
 how many of a thing a canvas draws; speed multiplies the clock, so no renderer
 needs to know speed exists — one asked to go twice as fast is handed a time
-twice as large. They are separate because they are separate complaints: a
-starfield can be crowded and still, and a single box can hurtle.
+twice as large. Size multiplies what each
+thing measures. They are separate because they are separate complaints: a
+starfield can be crowded and still, a single box can hurtle, and a sky of
+enormous stars is a different sky rather than a fuller one.
+
+**The nebula answers them too, and did not used to.** It read raw `elapsed` and
+a fixed set of layers, so the one canvas a page gets by default was the one
+canvas the sliders did not move. Density is its OPACITY rather than a count:
+the clouds tile the whole viewport whatever happens, so busier means thicker.
 
 Neither floor is zero. Zero density is an empty canvas, which `none` already
 says better and reversibly; zero speed is a frozen one, which

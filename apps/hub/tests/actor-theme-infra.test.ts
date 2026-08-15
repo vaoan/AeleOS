@@ -29,6 +29,7 @@ describe("setActorTheme", () => {
       skin: "glass",
       density: 1,
       speed: 1,
+      scale: 1,
     });
     expect(rpc).toHaveBeenCalledWith("set_actor_theme", {
       p_actor_ref: "actor-1",
@@ -40,6 +41,7 @@ describe("setActorTheme", () => {
         skin: "glass",
         density: 1,
         speed: 1,
+        scale: 1,
       },
     });
   });
@@ -56,6 +58,7 @@ describe("setActorTheme", () => {
       skin: "default",
       density: 1,
       speed: 1,
+      scale: 1,
     });
   });
 
@@ -70,6 +73,7 @@ describe("setActorTheme", () => {
       skin: "default",
       density: 1,
       speed: 1,
+      scale: 1,
       canvasColours: ["#112233"],
     });
   });

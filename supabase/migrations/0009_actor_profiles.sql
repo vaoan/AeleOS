@@ -473,7 +473,7 @@ begin
       if length(v_value) > 500 then
         raise exception 'cursor: address is too long' using errcode = '22023';
       end if;
-    elsif v_key in ('density', 'speed') then
+    elsif v_key in ('density', 'speed', 'scale') then
       -- How busy the canvas is, and how fast. Numbers, and bounded loosely:
       -- the client clamps to its own range and a page renders whatever it
       -- finds, so this only has to keep a hostile value from being stored.

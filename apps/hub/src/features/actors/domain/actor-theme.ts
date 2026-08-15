@@ -70,9 +70,10 @@ export type CanvasId = (typeof CANVASES)[number];
 /**
  * How somebody chose their page to look.
  *
- * A theme carries **two dials for the canvas** as well: how busy it is and how
- * fast. They are separate because they are separate complaints — a starfield
- * can be crowded and still, and a single box can hurtle.
+ * A theme carries **three dials for the canvas** as well: how busy it is, how
+ * fast, and how big. They are separate because they are separate complaints —
+ * a starfield can be crowded and still, a single box can hurtle, and a sky of
+ * enormous stars is a different sky rather than a fuller one.
  *
  * A theme carries a **skin** as well as its colours, and the two are separate
  * on purpose. A skin decides FORM — corners, border weight, shadow, gloss, the
@@ -147,6 +148,14 @@ export interface ActorTheme {
   density: number;
   /** How fast it moves, as a multiplier on the clock. */
   speed: number;
+  /**
+   * How large the things it draws are, as a multiplier.
+   *
+   * The third of the three, and the one that changes what a canvas IS rather
+   * than how much of it there is: a starfield at three times the size is a
+   * different sky, not a fuller one.
+   */
+  scale: number;
   /**
    * Which style the page's surfaces are built in.
    *
@@ -223,7 +232,7 @@ export function cursorUrl(raw: string | undefined): string | null {
 /**
  * What a page looks like when nobody has chosen: nothing overridden.
  *
- * Includes both canvas dials at 1, which is "as the canvas was drawn". They are
+ * Includes all three canvas dials at 1, which is "as the canvas was drawn". They are
  * numbers rather than nullable, because there is no such thing as an absent
  * multiplier — one IS the absence.
  *
@@ -248,6 +257,7 @@ export const DEFAULT_THEME: ActorTheme = {
   skin: DEFAULT_SKIN,
   density: CANVAS_RANGE.default,
   speed: CANVAS_RANGE.default,
+  scale: CANVAS_RANGE.default,
 };
 
 /**
@@ -323,7 +333,7 @@ function colour(value: unknown): string | null {
  * read rather than inventing one — a theme left with no readable stop at all is
  * treated as having no background, and derives no palette.
  *
- * The two dials are CLAMPED rather than validated. A value out of range is a
+ * The three dials are CLAMPED rather than validated. A value out of range is a
  * slider from an older build or a hand-edited row, and the nearest usable
  * number is a better answer than a page that will not render.
  *
@@ -366,6 +376,7 @@ export function parseTheme(value: unknown): ActorTheme {
     // better answer than refusing to render somebody's page.
     density: dial(stored.density),
     speed: dial(stored.speed),
+    scale: dial(stored.scale),
   };
 }
 
@@ -381,7 +392,7 @@ export function parseTheme(value: unknown): ActorTheme {
  * is reachable through a colour input, and the database checks the format
  * anyway. What this pins is the SHAPE, so the form cannot submit a theme with a
  * canvas the renderer has no implementation for. The skin is pinned the same
- * way and for the same reason. The two dials are loose numbers here and
+ * way and for the same reason. The three dials are loose numbers here and
  * clamped where they are read, since a slider cannot produce anything else.
  */
 export const themeSchema = z.object({
@@ -398,6 +409,7 @@ export const themeSchema = z.object({
   skin: z.enum(SKINS),
   density: z.number(),
   speed: z.number(),
+  scale: z.number(),
 });
 
 /**
@@ -502,7 +514,7 @@ export function isThemed(theme: ActorTheme): boolean {
 /**
  * Whether there is anything at all to put back.
  *
- * Everything a theme carries, colour or not — the two canvas dials included,
+ * Everything a theme carries, colour or not — the three canvas dials included,
  * since turning one up is a change to put back like any other. This is what Reset asks, and it
  * used to ask {@link isThemed} instead — so somebody who had chosen only a
  * canvas, a cursor or a skin faced a disabled button with nothing telling them
@@ -519,7 +531,8 @@ export function isCustomised(theme: ActorTheme): boolean {
     theme.canvas !== DEFAULT_THEME.canvas ||
     theme.skin !== DEFAULT_THEME.skin ||
     theme.density !== DEFAULT_THEME.density ||
-    theme.speed !== DEFAULT_THEME.speed
+    theme.speed !== DEFAULT_THEME.speed ||
+    theme.scale !== DEFAULT_THEME.scale
   );
 }
 
@@ -548,7 +561,7 @@ export function isCustomised(theme: ActorTheme): boolean {
  * something only while there were two of them. A slot whose value cannot be read
  * emits nothing rather than a property full of `NaN`.
  *
- * The two canvas dials are emitted ONLY when moved, like everything else here:
+ * The three canvas dials are emitted ONLY when moved, like everything else here:
  * a page nobody has turned up carries no property at all and the canvas reads
  * its own default.
  *
@@ -608,6 +621,9 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
     ...(theme.speed === DEFAULT_THEME.speed
       ? {}
       : { "--canvas-speed": String(theme.speed) }),
+    ...(theme.scale === DEFAULT_THEME.scale
+      ? {}
+      : { "--canvas-scale": String(theme.scale) }),
     // **The hotspot is fixed at `0 0` and is not the author's to choose.** It
     // decides where a click actually lands relative to the picture, so an offset
     // one makes the arrow somebody sees disagree with the point they hit — a

@@ -34,8 +34,8 @@ import { tid } from "@/shared/infrastructure/test-id";
  * to use. Two hints rather than one because the second replaces the first only
  * when it applies — a permanent warning is one nobody reads.
  *
- * The two dials name what they do rather than what they are — "how busy" and
- * "how fast" rather than density and speed, which are the code's words.
+ * The three dials name what they do rather than what they are — "how busy", "how fast"
+ * and "how big" rather than density, speed and scale, which are the code's words.
  *
  * The skin's strings are a field name and one label per style. They are the
  * app's chrome and so belong in the catalogues, unlike a person's own writing —
@@ -78,6 +78,8 @@ export interface ThemeConfiguratorLabels {
   density: string;
   /** Field label for how fast it moves. */
   speed: string;
+  /** Field label for how large the things it draws are. */
+  scale: string;
   /** Field label for the style selector. */
   skin: string;
   /** One label per skin. */
@@ -149,7 +151,7 @@ export interface ThemeConfiguratorProps {
  * every pairing of a style and a palette is somebody's page. Tying the two
  * together would have collapsed nine styles into nine colour schemes.
  *
- * **The two dials appear only where there is something to turn up.** `none`
+ * **The three dials appear only where there is something to turn up.** `none`
  * draws nothing, so a density slider beside it would accept a drag and change
  * nothing at all. Busy and fast are separate because they are separate
  * complaints — a starfield can be crowded and still, and a single box can
@@ -419,11 +421,12 @@ export function ThemeConfigurator({
               nothing, so a density slider for it accepts a drag and changes
               nothing — the fault this panel keeps being trimmed for. */}
           {dialsApply(value.canvas) ? (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               {(
                 [
                   ["density", labels.density],
                   ["speed", labels.speed],
+                  ["scale", labels.scale],
                 ] as const
               ).map(([key, label]) => (
                 <div key={key} className="grid gap-1.5">

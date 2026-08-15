@@ -18,7 +18,7 @@ import { readActorPage } from "@/features/actors/infrastructure/actor-page";
  * The cursor travels as an address; nothing is stored, as with every other
  * picture here.
  *
- * The two canvas dials travel as numbers and are never null: there is no such
+ * The three canvas dials travel as numbers and are never null: there is no such
  * thing as an absent multiplier, since one IS the absence.
  *
  * The skin travels as its NAME, alongside the canvas and unlike the colours: it
@@ -57,6 +57,7 @@ export async function setActorTheme(
     skin: theme.skin,
     density: theme.density,
     speed: theme.speed,
+    scale: theme.scale,
   };
   if (theme.background) stored.background = theme.background;
   if (theme.accent) stored.accent = theme.accent;
