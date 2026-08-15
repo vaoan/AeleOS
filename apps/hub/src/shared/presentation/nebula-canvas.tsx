@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { CELL_SIZE, tilePixels } from "@/shared/application/nebula-noise";
+import {
+  cellPixels,
+  latticePoints,
+  plasmaPixels,
+} from "@/shared/application/canvas-raster";
 import { dial, many } from "@/shared/domain/canvas-motion";
+import { renderScale } from "@/shared/domain/canvas-resolution";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   blobs,
@@ -180,6 +186,16 @@ const TWO_PI = Math.PI * 2;
 /** How many stars the far layer draws; the nearer layers scale from it. */
 const STAR_COUNT = 1200;
 
+/**
+ * The most stars the far layer may draw, whatever the density says.
+ *
+ * The nearer two layers add another 54% on top, so five times density was 9,240
+ * stars — each an arc and a fill, and the bright ones a pair of strokes as
+ * well. A sky is dense overhead by design; past this the individual stars stop
+ * being individual and the top of the field is simply a solid band.
+ */
+const STAR_CAP = 3600;
+
 /** How many streaks are in one cycle of the sky. */
 const SHOT_COUNT = 4;
 
@@ -192,8 +208,218 @@ const SHOT_ANGLE = (25 * Math.PI) / 180;
 /** How many curtains an aurora has. Few and wide — see `curtains`. */
 const CURTAIN_COUNT = 4;
 
+/**
+ * The most curtains worth drawing, whatever the density says.
+ *
+ * **The aurora was the only canvas with a superlinear cost and no cap**, which
+ * is how five times density reached twenty curtains of nine additive passes
+ * each and 636ms a frame. Ten already saturates: the passes composite with
+ * `lighter`, so past that the overlaps are white and the eleventh curtain
+ * changes nothing anybody can see while costing exactly as much as the first.
+ */
+const CURTAIN_CAP = 10;
+
+/**
+ * The widest a single curtain may be, as a fraction of the viewport.
+ *
+ * See the clamp in `drawAurora` for why this is a picture and not only a
+ * budget.
+ */
+const CURTAIN_WIDEST = 0.25;
+
 /** The seed every field is generated from, so the sky is the same every time. */
 const FIELD_SEED = 0x5eed;
+
+/**
+ * Remembers the last field a generator built, so a frame does not rebuild it.
+ *
+ * **Every generator here is a pure function of a count and the one fixed seed**,
+ * which is the property that makes this safe: the same count gives the same
+ * field, so keeping it is not caching a guess, it is declining to recompute a
+ * constant. Motion comes from the CLOCK, applied to the field at draw time —
+ * nothing in the stored value depends on when it was built.
+ *
+ * The saving is worth having only where the field is large. A honeycomb at five
+ * times density is 11,000 objects and a starfield is 9,240, each of nine
+ * fields — rebuilt sixty times a second, for a result identical to the one
+ * already in hand, and handed to the collector immediately afterwards. The
+ * small fields are left alone: a wrapper around six bouncing rectangles costs
+ * more to read than it saves.
+ *
+ * One entry, not a map. The count changes only when somebody moves a slider,
+ * so a second entry would never be read, and an unbounded cache keyed on a
+ * number somebody can drag is a leak with a user interface.
+ *
+ * @param build - the generator, taking the count it should build.
+ * @returns the same generator, answering repeat counts from memory. The array
+ * it returns is SHARED between frames and must not be mutated by the caller —
+ * every caller here either reads it or maps it into a fresh array.
+ */
+function remembered<T>(build: (count: number) => T): (count: number) => T {
+  let built = -1;
+  let field: T | undefined;
+  return (count) => {
+    if (count !== built || field === undefined) {
+      built = count;
+      field = build(count);
+    }
+    return field;
+  };
+}
+
+/** The sky, rebuilt only when the density dial moves. */
+const theStarfield = remembered((count: number) =>
+  starfield(FIELD_SEED, count),
+);
+
+/** The constellation's points, rebuilt only when the density dial moves. */
+const theConstellation = remembered((count: number) =>
+  constellation(count, FIELD_SEED),
+);
+
+/** The falling flakes, rebuilt only when the density dial moves. */
+const theSnow = remembered((count: number) => snow(count, FIELD_SEED));
+
+/** The falling paper, rebuilt only when the density dial moves. */
+const theConfetti = remembered((count: number) => confetti(count, FIELD_SEED));
+
+/** The outward streaks, rebuilt only when the density dial moves. */
+const theWarpStars = remembered((count: number) =>
+  warpStars(count, FIELD_SEED),
+);
+
+/** The columns of glyphs, rebuilt only when the density dial moves. */
+const theRainColumns = remembered((count: number) =>
+  rainColumns(count, FIELD_SEED),
+);
+
+/** The lines of the current, rebuilt only when the density dial moves. */
+const theStreamlines = remembered((count: number) =>
+  streamlines(count, FIELD_SEED),
+);
+
+/** The wandering lights, rebuilt only when the density dial moves. */
+const theFireflies = remembered((count: number) =>
+  fireflies(count, FIELD_SEED),
+);
+
+/** The out-of-focus spots, rebuilt only when the density dial moves. */
+const theBokeh = remembered((count: number) => bokeh(count, FIELD_SEED));
+
+/**
+ * The honeycomb, rebuilt only when the density dial moves.
+ *
+ * Keyed on the DIAL rather than on a count, because this is the one generator
+ * taking two of them. Deriving the second from the first would mean dividing
+ * a rounded number back out, which is a different value for some densities.
+ */
+const theHoneycomb = remembered((density: number) =>
+  honeycomb(
+    many(HEX_COLUMNS, density, HEX_COLUMN_CAP),
+    many(HEX_ROWS, density, HEX_ROW_CAP),
+    FIELD_SEED,
+  ),
+);
+
+/**
+ * Somewhere for the two lattice canvases to shade into before it is blitted up.
+ *
+ * `plasma` and `cells` colour every point of a grid. Done as one `fillRect` per
+ * point they were the two most expensive canvases here for a reason that had
+ * nothing to do with their arithmetic: a colour assigned as a `rgb(…)` string
+ * is CSS parsed, and at the default dials `cells` built one for each of about
+ * 26,000 points on every frame.
+ *
+ * Shading into bytes and blitting once removes that entirely. The bitmap is
+ * created ONCE for the life of the canvas rather than per frame — allocating a
+ * `<canvas>` sixty times a second is its own leak-shaped problem, and the
+ * lattice size only changes when a dial or the window does.
+ */
+interface Scratch {
+  /** The bitmap to blit from, once {@link Scratch.shade} has filled it. */
+  canvas: HTMLCanvasElement;
+  /**
+   * Resizes the bitmap to the lattice and writes the shaded bytes into it.
+   *
+   * @param columns - lattice width in points.
+   * @param rows - lattice height in points.
+   * @param pixels - four bytes per point, row-major.
+   * @returns false when the bitmap has no 2D context, so the caller can skip
+   * drawing rather than blit an empty rectangle over the page.
+   */
+  shade(
+    columns: number,
+    rows: number,
+    pixels: Uint8ClampedArray<ArrayBuffer>,
+  ): boolean;
+}
+
+/**
+ * Builds the reusable lattice bitmap.
+ *
+ * @returns the scratch surface.
+ */
+function makeScratch(): Scratch {
+  const canvas = document.createElement("canvas");
+  return {
+    canvas,
+    shade(columns, rows, pixels) {
+      // Assigning the same width again would needlessly clear the bitmap, and
+      // this runs every frame — so both are compared before being set.
+      if (canvas.width !== columns) canvas.width = columns;
+      if (canvas.height !== rows) canvas.height = rows;
+      const context = canvas.getContext("2d");
+      if (!context) return false;
+      // `putImageData` REPLACES, so the previous frame's alpha cannot survive
+      // under a point this frame leaves transparent.
+      context.putImageData(new ImageData(pixels, columns, rows), 0, 0);
+      return true;
+    },
+  };
+}
+
+/**
+ * Blits a shaded lattice up to the visible canvas.
+ *
+ * **Nearest neighbour, deliberately.** The lattice IS the picture's
+ * resolution — both canvases were drawn as flat blocks of `step` pixels — so
+ * smoothing the blit would turn them into a blur, which is a different canvas
+ * rather than a faster one.
+ *
+ * @param ctx - the drawing context.
+ * @param scratch - the shaded surface.
+ * @param columns - lattice width in points.
+ * @param rows - lattice height in points.
+ * @param step - how many bitmap pixels one lattice point covers.
+ * @returns nothing.
+ */
+function blitLattice(
+  ctx: CanvasRenderingContext2D,
+  scratch: Scratch,
+  columns: number,
+  rows: number,
+  step: number,
+): void {
+  const previousAlpha = ctx.globalAlpha;
+  const previousSmoothing = ctx.imageSmoothingEnabled;
+  // Half, replacing rather than multiplying the nebula's own opacity, which is
+  // what these two canvases did before and is therefore what they still do.
+  ctx.globalAlpha = 0.5;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(
+    scratch.canvas,
+    0,
+    0,
+    columns,
+    rows,
+    0,
+    0,
+    columns * step,
+    rows * step,
+  );
+  ctx.imageSmoothingEnabled = previousSmoothing;
+  ctx.globalAlpha = previousAlpha;
+}
 
 /**
  * Draws the sky.
@@ -239,9 +465,17 @@ function drawStars(
   // One colour per LAYER rather than a mix across the whole sky. A layer is the
   // thing somebody can see and therefore the thing worth being able to colour;
   // mixing every star between two made the field one blended wash.
-  const layers = starfield(FIELD_SEED, many(STAR_COUNT, density));
+  const layers = theStarfield(many(STAR_COUNT, density, STAR_CAP));
   for (const [index, layer] of layers.entries()) {
     const [r, g, bl] = tints[index % tints.length]!;
+    // **Set once per layer, not once per star.** The colour is the same for
+    // every star in a layer — only the alpha twinkles, and that has its own
+    // property — but it was assigned as a string inside the loop, so the canvas
+    // parsed the identical CSS colour for each of up to nine thousand stars.
+    const ink = `rgb(${r} ${g} ${bl})`;
+    ctx.fillStyle = ink;
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 0.8 * dpr;
     for (const star of layer.stars) {
       // Still on the still path: one frame at a representative brightness,
       // so reduced motion keeps the sky and loses only the movement.
@@ -253,7 +487,6 @@ function drawStars(
       const size = star.r * dpr * scale;
 
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = `rgb(${r} ${g} ${bl})`;
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI * 2);
       ctx.fill();
@@ -262,8 +495,6 @@ function drawStars(
       // plus signs; on a few it is a sky.
       if (star.r > 1.8 && alpha > 0.45) {
         ctx.globalAlpha = alpha * 0.35;
-        ctx.strokeStyle = `rgb(${r} ${g} ${bl})`;
-        ctx.lineWidth = 0.8 * dpr;
         ctx.beginPath();
         ctx.moveTo(x - size * 1.6, y);
         ctx.lineTo(x + size * 1.6, y);
@@ -345,10 +576,9 @@ function drawConstellation(
   density: number,
   scale: number,
 ): void {
-  const at = constellation(
-    many(NODE_COUNT, density, CONSTELLATION_CAP),
-    FIELD_SEED,
-  ).map((node) => nodeAt(node, seconds));
+  const at = theConstellation(many(NODE_COUNT, density, CONSTELLATION_CAP)).map(
+    (node) => nodeAt(node, seconds),
+  );
   const [lr, lg, lb] = tints[1] ?? tints[0]!;
   ctx.lineWidth = Math.max(1, dpr * 0.6 * scale);
   for (let i = 0; i < at.length; i += 1) {
@@ -425,6 +655,25 @@ function drawWaves(
 const BUBBLE_COUNT = 95;
 
 /**
+ * The most bubbles worth drawing, whatever the density says.
+ *
+ * A ring's cost is its circumference, and the size dial multiplies that, so
+ * this is the same count-times-size shape as `bokeh` — 475 rings of up to a
+ * sixth of the viewport across measured 42ms a frame. Water does not get more
+ * convincing past this; it gets foamier.
+ */
+const BUBBLE_CAP = 260;
+
+/**
+ * The widest a bubble may be, as a fraction of the smaller side.
+ *
+ * Larger than {@link GLOW_WIDEST} because a bubble is an outline rather than a
+ * filled glow, so a big one still reads as a bubble where a big blob reads as
+ * a wash. It is here for the cost of the circumference, not for the picture.
+ */
+const BUBBLE_WIDEST = 0.12;
+
+/**
  * Draws bubbles climbing from the bottom.
  *
  * Each is a ring rather than a disc — a filled circle at this size is a dot,
@@ -450,9 +699,14 @@ function drawBubbles(
   density: number,
   scale: number,
 ): void {
-  const smaller = Math.min(width, height) * scale;
+  const side = Math.min(width, height);
+  const smaller = side * scale;
+  const widest = side * BUBBLE_WIDEST;
   ctx.lineWidth = Math.max(1, dpr);
-  for (const bubble of bubbles(many(BUBBLE_COUNT, density), FIELD_SEED)) {
+  for (const bubble of bubbles(
+    many(BUBBLE_COUNT, density, BUBBLE_CAP),
+    FIELD_SEED,
+  )) {
     const climbed = (bubble.offset + seconds * bubble.speed) % 1;
     const [r, g, b] = tints[bubble.tint] ?? tints[0]!;
     // Faded at both ends of the climb, so nothing pops into or out of being.
@@ -462,7 +716,7 @@ function drawBubbles(
     ctx.arc(
       (bubble.x + Math.sin(climbed * TWO_PI) * bubble.wander) * width,
       (1 - climbed) * height,
-      bubble.radius * smaller,
+      Math.min(bubble.radius * smaller, widest),
       0,
       TWO_PI,
     );
@@ -495,7 +749,7 @@ function drawSnow(
   scale: number,
 ): void {
   const smaller = Math.min(width, height) * scale;
-  for (const flake of snow(many(FLAKE_COUNT, density), FIELD_SEED)) {
+  for (const flake of theSnow(many(FLAKE_COUNT, density))) {
     const fallen = (flake.offset + seconds * flake.speed) % 1;
     const [r, g, b] = tints[flake.tint] ?? tints[0]!;
     ctx.fillStyle = `rgb(${r} ${g} ${b} / 0.7)`;
@@ -580,6 +834,16 @@ function drawGrid(
 const BLOB_COUNT = 5;
 
 /**
+ * The most glows worth drawing, whatever the density says.
+ *
+ * These are the largest single shapes any canvas here paints — a radial
+ * gradient over the longer side of the viewport — so a linear rise in count is
+ * a linear rise in full-screen fills. Fifteen already covers the page twice
+ * over.
+ */
+const BLOB_CAP = 15;
+
+/**
  * Draws a few large, soft glows.
  *
  * @param ctx - the drawing context.
@@ -601,7 +865,16 @@ function drawBlobs(
   scale: number,
 ): void {
   const larger = Math.max(width, height) * scale;
-  for (const blob of blobs(many(BLOB_COUNT, density), FIELD_SEED)) {
+  // **Deliberately NOT clamped, unlike `bokeh`.** A blob's own radius is
+  // already 0.25 to 0.55 of the longer side, so the width that bounds bokeh's
+  // little discs sits UNDER a blob's natural size and clipped one at the
+  // default dials — caught by comparing frames before and after, where this
+  // was the only canvas whose default moved. It needs no clamp anyway: these
+  // are the one shape here that is routinely larger than the viewport, and the
+  // canvas clips a fill to its own bounds, so a blob past the edge costs one
+  // screen of gradient however large it is told to be. The count is what
+  // multiplies that, and `BLOB_CAP` is what bounds the count.
+  for (const blob of blobs(many(BLOB_COUNT, density, BLOB_CAP), FIELD_SEED)) {
     const angle = blob.phase + seconds * blob.speed * TWO_PI;
     // Unequal in the two axes, so two glows sharing a speed do not travel in
     // parallel — an ellipse rather than a circle.
@@ -690,10 +963,51 @@ const HEX_COLUMNS = 22;
 const HEX_ROWS = 20;
 
 /**
+ * The most cells across, whatever the density says.
+ *
+ * At five times density this ran 110 columns of 100 rows — eleven thousand
+ * cells on a 1440-pixel viewport, which is thirteen pixels each. Their outlines
+ * merge into a flat grey wash well before that, so the cap costs a texture
+ * nobody could resolve and saves the frame it was taking.
+ */
+const HEX_COLUMN_CAP = 60;
+
+/** The most rows, for the same reason. */
+const HEX_ROW_CAP = 54;
+
+/**
+ * How many brightnesses a honeycomb's breathing is sorted into.
+ *
+ * **Every cell used to be its own `stroke()` call**, and that — not the drawing
+ * — was what made this the most expensive canvas here: eleven thousand draw
+ * operations a frame, each one a state change the rasteriser cannot batch past.
+ * Only the ALPHA differs between them, so the cells are sorted into this many
+ * buckets and each bucket is stroked once as a single path.
+ *
+ * Twelve, because the alpha spans 0.08 to 0.30 — a step of under two hundredths
+ * of an alpha, which is below what anybody can see on a translucent hairline,
+ * while turning eleven thousand draw calls into twelve.
+ */
+const BREATH_STEPS = 12;
+
+/**
  * Draws a breathing honeycomb.
  *
  * The cells are stroked rather than filled: a filled honeycomb is a wall, and
  * a wall behind text is a page nobody can read.
+ *
+ * **A cell is sized by how many cells there actually are.** It used to divide
+ * the viewport by the CONSTANT `HEX_COLUMNS` while `honeycomb` laid the cells
+ * out across the density-multiplied count — so turning density up did not make
+ * a finer honeycomb, it made the same giant cells five deep on top of each
+ * other. That is why this was the most expensive canvas here by a factor of
+ * three: at both dials on five it cost 2191ms a frame, which is not a dropped
+ * frame but a page that has stopped answering. At the default density the two
+ * counts are the same number and the picture is unchanged.
+ *
+ * **The colours are set once and the breath rides `globalAlpha`.** Assigning a
+ * `rgb(… / …)` string per cell had the canvas parse CSS eleven thousand times
+ * a frame; the alpha is the only part that varies, and it has its own property.
  *
  * @param ctx - the drawing context.
  * @param width - bitmap width.
@@ -715,36 +1029,62 @@ function drawHexagons(
   density: number,
   scale: number,
 ): void {
-  const radius = (width / HEX_COLUMNS / 1.8) * scale;
+  const columns = many(HEX_COLUMNS, density, HEX_COLUMN_CAP);
+  const radius = (width / columns / 1.8) * scale;
   const [lr, lg, lb] = tints[0]!;
   const [gr, gg, gb] = tints[1] ?? tints[0]!;
   ctx.lineWidth = Math.max(1, dpr * 0.7);
-  for (const cell of honeycomb(
-    many(HEX_COLUMNS, density),
-    many(HEX_ROWS, density),
-    FIELD_SEED,
-  )) {
+  ctx.strokeStyle = `rgb(${lr} ${lg} ${lb})`;
+  ctx.fillStyle = `rgb(${gr} ${gg} ${gb})`;
+  // The pass's own translucency, which the alphas below multiply rather than
+  // replace — exactly as they did when each was baked into a colour string.
+  const base = ctx.globalAlpha;
+
+  // The corner offsets, worked out once. They are the same six for every cell,
+  // and at eleven thousand cells that is 66,000 trigonometric calls a frame
+  // spent rediscovering one hexagon. Flat-topped, which is what makes the
+  // half-column offset tessellate.
+  const corners = Array.from({ length: 6 }, (_, corner) => {
+    const angle = (corner / 6) * TWO_PI + Math.PI / 6;
+    return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+  });
+
+  // One path per brightness, so the whole honeycomb is a dozen draw calls.
+  const outlines = Array.from({ length: BREATH_STEPS }, () => new Path2D());
+  const opened = new Path2D();
+
+  for (const cell of theHoneycomb(density)) {
     const breath =
       (Math.sin(cell.phase + seconds * cell.speed * TWO_PI) + 1) / 2;
     const x = cell.x * width;
     const y = cell.y * height;
-    ctx.beginPath();
-    for (let corner = 0; corner < 6; corner += 1) {
-      // Flat-topped, which is what makes the half-column offset tessellate.
-      const angle = (corner / 6) * TWO_PI + Math.PI / 6;
-      const px = x + Math.cos(angle) * radius;
-      const py = y + Math.sin(angle) * radius;
-      if (corner === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+    const hexagon = new Path2D();
+    for (const [corner, offset] of corners.entries()) {
+      if (corner === 0) hexagon.moveTo(x + offset.x, y + offset.y);
+      else hexagon.lineTo(x + offset.x, y + offset.y);
     }
-    ctx.closePath();
-    ctx.strokeStyle = `rgb(${lr} ${lg} ${lb} / ${0.08 + breath * 0.22})`;
-    ctx.stroke();
-    if (breath > 0.85) {
-      ctx.fillStyle = `rgb(${gr} ${gg} ${gb} / ${(breath - 0.85) * 0.8})`;
-      ctx.fill();
-    }
+    hexagon.closePath();
+    // `breath` reaches exactly one when the sine peaks, which would index one
+    // past the end.
+    const step = Math.min(BREATH_STEPS - 1, Math.floor(breath * BREATH_STEPS));
+    outlines[step]!.addPath(hexagon);
+    if (breath > 0.85) opened.addPath(hexagon);
   }
+
+  for (const [step, outline] of outlines.entries()) {
+    // The middle of the bucket, so the quantising does not also darken the
+    // whole field by half a step.
+    ctx.globalAlpha = base * (0.08 + ((step + 0.5) / BREATH_STEPS) * 0.22);
+    ctx.stroke(outline);
+  }
+  // The glow of the open cells, at the alpha the brightest of them had. It was
+  // per cell and is now one pass, which is the one place this quantises
+  // something visible: the cells that have just opened glow as strongly as the
+  // ones fully open. They are within a fifth of an alpha of each other and
+  // every one of them is a cell at its brightest, so the field reads the same.
+  ctx.globalAlpha = base * 0.12;
+  ctx.fill(opened);
+  ctx.globalAlpha = base;
 }
 
 /** How many ribbons cross the viewport. */
@@ -833,7 +1173,7 @@ function drawConfetti(
   scale: number,
 ): void {
   const smaller = Math.min(width, height) * scale;
-  for (const piece of confetti(many(CONFETTO_COUNT, density), FIELD_SEED)) {
+  for (const piece of theConfetti(many(CONFETTO_COUNT, density))) {
     const fallen = (piece.offset + seconds * piece.speed) % 1;
     const [r, g, b] = tints[piece.tint] ?? tints[0]!;
     const size = piece.size * smaller;
@@ -903,6 +1243,31 @@ function drawSkyline(
 const SPOT_COUNT = 70;
 
 /**
+ * The most spots worth drawing, whatever the density says.
+ *
+ * Each is a radial gradient over a square of its own diameter, so this is the
+ * canvas where count and size multiply most directly: at five on both dials it
+ * was 350 spots of up to 0.6 of the viewport across, which measured 1077ms a
+ * frame. It is also the canvas where the count matters least — out-of-focus
+ * light overlaps into one wash long before this many.
+ */
+const SPOT_CAP = 150;
+
+/**
+ * The widest a spot of bokeh may be, as a fraction of the smaller side.
+ *
+ * A spot's own radius is 0.02 to 0.12, so this leaves the size dial most of a
+ * doubling before it bites and the default frame is untouched. Past it a disc
+ * is not a bigger highlight but a tint over the whole page, and with 150 of
+ * them the cost is 150 screens of radial gradient a frame.
+ *
+ * **`blobs` deliberately does not share this**, though it first did. Its own
+ * radius starts at 0.25 — twice this — so the same number clipped it at the
+ * default dials.
+ */
+const GLOW_WIDEST = 0.22;
+
+/**
  * Draws out-of-focus spots of light.
  *
  * Each is a soft-edged disc rather than a hard one: a lens renders an
@@ -927,12 +1292,14 @@ function drawBokeh(
   density: number,
   scale: number,
 ): void {
-  const smaller = Math.min(width, height) * scale;
-  for (const spot of bokeh(many(SPOT_COUNT, density), FIELD_SEED)) {
+  const side = Math.min(width, height);
+  const smaller = side * scale;
+  const widest = side * GLOW_WIDEST;
+  for (const spot of theBokeh(many(SPOT_COUNT, density, SPOT_CAP))) {
     const angle = spot.phase + seconds * spot.speed * TWO_PI;
     const x = (spot.x + Math.cos(angle) * spot.drift) * width;
     const y = (spot.y + Math.sin(angle) * spot.drift) * height;
-    const radius = spot.radius * smaller;
+    const radius = Math.min(spot.radius * smaller, widest);
     const [r, g, b] = tints[spot.tint] ?? tints[0]!;
     const glow = ctx.createRadialGradient(x, y, radius * 0.2, x, y, radius);
     glow.addColorStop(0, `rgb(${r} ${g} ${b} / ${spot.glow})`);
@@ -945,6 +1312,16 @@ function drawBokeh(
 
 /** How many polygons mystify draws. */
 const MYSTIFY_COUNT = 4;
+
+/**
+ * The most polygons worth drawing, whatever the density says.
+ *
+ * Each drags five to eight echoes of itself, so the count on screen is roughly
+ * eight times this — and every one is a stroke across the whole viewport at a
+ * line width the size dial multiplies. Twenty polygons was 150 such strokes,
+ * which is not a screensaver but a scribble.
+ */
+const MYSTIFY_CAP = 8;
 
 /** How many corners each has. */
 const MYSTIFY_CORNERS = 4;
@@ -979,7 +1356,7 @@ function drawMystify(
 ): void {
   ctx.lineWidth = Math.max(1, dpr * scale);
   for (const shape of mystify(
-    many(MYSTIFY_COUNT, density),
+    many(MYSTIFY_COUNT, density, MYSTIFY_CAP),
     MYSTIFY_CORNERS,
     FIELD_SEED,
   )) {
@@ -1087,7 +1464,7 @@ function drawRain(
   const step = Math.floor(seconds * RAIN_STEPS_PER_SECOND);
   const [tr, tg, tb] = tints[0]!;
   const [hr, hg, hb] = tints[1] ?? tints[0]!;
-  for (const column of rainColumns(many(RAIN_COLUMNS, density), FIELD_SEED)) {
+  for (const column of theRainColumns(many(RAIN_COLUMNS, density))) {
     const head = Math.floor(
       ((column.offset + seconds * column.speed) % 1) * (rows + column.length),
     );
@@ -1143,7 +1520,7 @@ function drawWarp(
   const cy = height / 2;
   const reach = Math.hypot(cx, cy);
   ctx.lineCap = "round";
-  for (const star of warpStars(many(WARP_COUNT, density), FIELD_SEED)) {
+  for (const star of theWarpStars(many(WARP_COUNT, density))) {
     const t = (star.offset + seconds * star.speed) % 1;
     const far = t * t * reach;
     // The streak is the distance travelled since a moment ago, so a star near
@@ -1217,10 +1594,35 @@ function drawAurora(
   const previous = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
 
-  for (const curtain of curtains(many(CURTAIN_COUNT, density), FIELD_SEED)) {
+  for (const curtain of curtains(
+    many(CURTAIN_COUNT, density, CURTAIN_CAP),
+    FIELD_SEED,
+  )) {
     const [r, g, b] = tints[curtain.tint % tints.length]!;
-    const half = (curtain.width * width * scale) / 2;
+    // **Clamped, and the clamp is a picture as much as a budget.** A curtain
+    // is 0.1 to 0.26 of the viewport wide, so at five times size it reached
+    // 1.3 viewports — which is not a larger aurora, it is one wall of light
+    // with its folds off both edges of the screen. Half the viewport is
+    // already the widest a curtain reads as a curtain, and above roughly
+    // twice size this is what bounds the fill the nine passes multiply.
+    const half = Math.min(
+      (curtain.width * width * scale) / 2,
+      width * CURTAIN_WIDEST,
+    );
     const bottom = curtain.reach * height;
+
+    // **The fold is computed once per band, not once per band per pass.** It
+    // depends on the curtain, the depth and the clock — never on how wide the
+    // pass is — yet it was sampled inside both edge loops of all nine, so
+    // `valueNoise` ran 486 times per curtain to produce 27 distinct values.
+    // The passes are nested outlines of ONE shape; sharing the centre line is
+    // what makes them so.
+    const centres = Array.from({ length: CURTAIN_BANDS + 1 }, (_, band) => {
+      const at = band / CURTAIN_BANDS;
+      const folded =
+        valueNoise(at * 2.4 + seconds * curtain.speed, curtain.seed) - 0.5;
+      return { x: (curtain.x + folded * 0.22) * width, y: at * bottom };
+    });
 
     // Brightest at the top and gone by the bottom, with a soft head — an
     // aurora is lit from above and does not begin abruptly. One gradient for
@@ -1245,20 +1647,13 @@ function drawAurora(
       // Down the left edge, then back up the right, so the fold is one shape
       // rather than a stack of rectangles.
       for (let band = 0; band <= CURTAIN_BANDS; band += 1) {
-        const at = band / CURTAIN_BANDS;
-        const folded =
-          valueNoise(at * 2.4 + seconds * curtain.speed, curtain.seed) - 0.5;
-        const centre = (curtain.x + folded * 0.22) * width;
-        const y = at * bottom;
-        if (band === 0) ctx.moveTo(centre - half * pass, y);
-        else ctx.lineTo(centre - half * pass, y);
+        const { x, y } = centres[band]!;
+        if (band === 0) ctx.moveTo(x - half * pass, y);
+        else ctx.lineTo(x - half * pass, y);
       }
       for (let band = CURTAIN_BANDS; band >= 0; band -= 1) {
-        const at = band / CURTAIN_BANDS;
-        const folded =
-          valueNoise(at * 2.4 + seconds * curtain.speed, curtain.seed) - 0.5;
-        const centre = (curtain.x + folded * 0.22) * width;
-        ctx.lineTo(centre + half * pass, at * bottom);
+        const { x, y } = centres[band]!;
+        ctx.lineTo(x + half * pass, y);
       }
       ctx.closePath();
       ctx.fill();
@@ -1268,9 +1663,6 @@ function drawAurora(
   ctx.globalCompositeOperation = previous;
 }
 
-/** How many colour bands a plasma is quantised into. */
-const PLASMA_BANDS = 22;
-
 /**
  * Draws a plasma: interfering sine fields, the demoscene's oldest trick.
  *
@@ -1279,11 +1671,20 @@ const PLASMA_BANDS = 22;
  * per-pixel: at one cell per pixel this is a shader's job, and at this size the
  * difference is invisible while the cost is not.
  *
- * Three sines at different frequencies and one radial term. The radial one is
- * what stops it looking like corduroy: without it the field is separable and
- * the eye reads the two axes independently.
+ * **The grid is shaded into bytes and blitted once**, rather than filled as one
+ * rectangle per cell. The arithmetic was never the cost: building a
+ * `rgb(…)` string per cell and having the canvas parse it as CSS was, and at
+ * five times density that is nearly twelve thousand of them a frame.
+ * `canvas-raster` carries the field itself, where its output can be asserted.
+ *
+ * **Tiled exactly, and the alpha is set once.** The first version drew each
+ * cell a pixel wider than its step so there would be no seams, and painted each
+ * one at `rgb(… / 0.5)` — so every overlap composited twice and the whole field
+ * was covered in a bright grid. A single blit cannot overlap itself, and
+ * `globalAlpha` applies the translucency to the pass rather than to each cell.
  *
  * @param ctx - the drawing context.
+ * @param scratch - the reusable lattice bitmap.
  * @param width - bitmap width.
  * @param height - bitmap height.
  * @param tints - one colour per slot.
@@ -1294,6 +1695,7 @@ const PLASMA_BANDS = 22;
  */
 function drawPlasma(
   ctx: CanvasRenderingContext2D,
+  scratch: Scratch,
   width: number,
   height: number,
   tints: [number, number, number][],
@@ -1301,56 +1703,25 @@ function drawPlasma(
   density: number,
   scale: number,
 ) {
-  const cellsAcross = many(48, density, 160);
-  const step = width / cellsAcross;
-  const rows = Math.ceil(height / step);
-  const frequency = 3.2 / scale;
-
-  // **Tiled exactly, and the alpha is set once.** The first version drew each
-  // cell a pixel wider than its step so there would be no seams, and painted
-  // each one at `rgb(… / 0.5)` — so every overlap composited twice and the
-  // whole field was covered in a bright grid. Integer edges leave no gap to
-  // cover, and `globalAlpha` applies the translucency to the pass rather than
-  // to each cell.
-  const previous = ctx.globalAlpha;
-  ctx.globalAlpha = 0.5;
-
-  for (let column = 0; column <= cellsAcross; column += 1) {
-    for (let row = 0; row <= rows; row += 1) {
-      const left = Math.round(column * step);
-      const top = Math.round(row * step);
-      const right = Math.round((column + 1) * step);
-      const foot = Math.round((row + 1) * step);
-      const x = (column * step) / width;
-      const y = (row * step) / height;
-
-      const value =
-        Math.sin((x * frequency + seconds * 0.6) * TWO_PI) +
-        Math.sin((y * frequency * 0.8 - seconds * 0.4) * TWO_PI) +
-        Math.sin(((x + y) * frequency * 0.5 + seconds * 0.3) * TWO_PI) +
-        // The radial term. Without it the field is separable and reads as a
-        // woven texture rather than as plasma.
-        Math.sin(
-          Math.hypot(x - 0.5, y - 0.5) * frequency * 2.4 - seconds * 0.7,
-        ) *
-          TWO_PI *
-          0.16;
-
-      // Quantised into bands, which is what gives plasma its poster edges.
-      const band = Math.round(((value / 4 + 1) / 2) * PLASMA_BANDS);
-      const mixed = band / PLASMA_BANDS;
-      const [ar, ag, ab] = tints[0]!;
-      const [br, bg, bb] = tints[1] ?? tints[0]!;
-      const red = Math.round(ar + (br - ar) * mixed);
-      const green = Math.round(ag + (bg - ag) * mixed);
-      const blue = Math.round(ab + (bb - ab) * mixed);
-
-      ctx.fillStyle = `rgb(${red} ${green} ${blue})`;
-      ctx.fillRect(left, top, right - left, foot - top);
-    }
-  }
-
-  ctx.globalAlpha = previous;
+  const step = width / many(48, density, 160);
+  const columns = latticePoints(width, step);
+  const rows = latticePoints(height, step);
+  const shaded = scratch.shade(
+    columns,
+    rows,
+    plasmaPixels(
+      columns,
+      rows,
+      step,
+      width,
+      height,
+      3.2 / scale,
+      seconds,
+      tints[0]!,
+      tints[1] ?? tints[0]!,
+    ),
+  );
+  if (shaded) blitLattice(ctx, scratch, columns, rows, step);
 }
 
 /** How many points a cellular pattern is measured from. */
@@ -1368,7 +1739,19 @@ const CELL_COUNT = 26;
  * The points drift, so cells slowly take territory from each other rather than
  * sitting in a fixed mosaic.
  *
+ * **This was the slowest canvas here after the aurora and the honeycomb**, and
+ * neither of the two things costing it was the Voronoi idea. It measured a
+ * distance with `Math.hypot`, once per lattice point per site — and `hypot`
+ * rescales its arguments to survive an overflow no screen coordinate can reach,
+ * which measured about thirty nanoseconds against roughly one for the plain
+ * arithmetic. Then it assigned a `rgb(…)` string per point for the canvas to
+ * parse as CSS. `canvas-raster` does neither: it orders by SQUARED distance,
+ * which is the same ordering, and roots only the two winners; and it writes
+ * bytes. Tiled exactly and made translucent once, for the reason `drawPlasma`
+ * carries at length.
+ *
  * @param ctx - the drawing context.
+ * @param scratch - the reusable lattice bitmap.
  * @param width - bitmap width.
  * @param height - bitmap height.
  * @param tints - one colour per slot.
@@ -1379,6 +1762,7 @@ const CELL_COUNT = 26;
  */
 function drawCells(
   ctx: CanvasRenderingContext2D,
+  scratch: Scratch,
   width: number,
   height: number,
   tints: [number, number, number][],
@@ -1395,48 +1779,14 @@ function drawCells(
   );
 
   const step = Math.max(6, 14 / scale);
-  const aspect = width / height;
-
-  // Tiled exactly and made translucent once, for the reason `drawPlasma`
-  // carries at length: a per-cell alpha with a pixel of overlap composites
-  // twice at every seam and draws a grid over the whole field.
-  const previousAlpha = ctx.globalAlpha;
-  ctx.globalAlpha = 0.5;
-
-  for (let x = 0; x <= width; x += step) {
-    for (let y = 0; y <= height; y += step) {
-      const at = { x: x / width, y: y / height };
-      let nearest = Infinity;
-      let second = Infinity;
-      let tint = 0;
-      for (const point of points) {
-        // Measured in viewport proportions, or the cells stretch with the
-        // window and stop being cells.
-        const distance = Math.hypot((at.x - point.x) * aspect, at.y - point.y);
-        if (distance < nearest) {
-          second = nearest;
-          nearest = distance;
-          tint = point.tint;
-        } else if (distance < second) {
-          second = distance;
-        }
-      }
-
-      // Zero on the boundary between two points, growing inward.
-      const edge = Math.max(0, 1 - (second - nearest) * 14);
-      if (edge < 0.02) continue;
-      const [r, g, b] = tints[tint % tints.length]!;
-      ctx.fillStyle = `rgb(${r} ${g} ${b} / ${edge})`;
-      ctx.fillRect(
-        Math.round(x),
-        Math.round(y),
-        Math.round(x + step) - Math.round(x),
-        Math.round(y + step) - Math.round(y),
-      );
-    }
-  }
-
-  ctx.globalAlpha = previousAlpha;
+  const columns = latticePoints(width, step);
+  const rows = latticePoints(height, step);
+  const shaded = scratch.shade(
+    columns,
+    rows,
+    cellPixels(columns, rows, step, width, height, points, tints),
+  );
+  if (shaded) blitLattice(ctx, scratch, columns, rows, step);
 }
 
 /** How many lines follow the flow field. */
@@ -1482,10 +1832,7 @@ function drawFlow(
   ctx.lineCap = "round";
   ctx.lineWidth = Math.max(1, dpr * 0.9 * scale);
 
-  for (const line of streamlines(
-    many(STREAM_COUNT, density, 260),
-    FIELD_SEED,
-  )) {
+  for (const line of theStreamlines(many(STREAM_COUNT, density, 260))) {
     const [r, g, b] = tints[line.tint % tints.length]!;
     // The whole line drifts along its own path over time, so the current moves
     // without any point being remembered between frames.
@@ -1542,10 +1889,7 @@ function drawFireflies(
   ctx.globalCompositeOperation = "lighter";
   const smaller = Math.min(width, height);
 
-  for (const light of fireflies(
-    many(FIREFLY_COUNT, density, 400),
-    FIELD_SEED,
-  )) {
+  for (const light of theFireflies(many(FIREFLY_COUNT, density, 400))) {
     const wander = light.phase + seconds * light.speed * TWO_PI;
     const x = (light.x + Math.cos(wander) * light.range) * width;
     const y = (light.y + Math.sin(wander * 0.7) * light.range) * height;
@@ -1743,6 +2087,42 @@ function readRgb(
  * so a half-transparent fill draws the very grid the overlap was meant to
  * prevent: plasma and cells tile on exact integers with `ctx.globalAlpha` set
  * once, which paints every pixel exactly once.
+ *
+ * **The bitmap is not always the device's resolution, and that is where most
+ * of the speed here comes from.** `renderScale` names a fraction per canvas
+ * and `resize` folds it into `dpr`, so every renderer follows without being
+ * told: each measures its lines and radii in device pixels, so a bitmap at half
+ * resolution gets half-size lines that land the same size on screen, and the
+ * compositor stretches the result for nothing. It is compared against
+ * `sizedAt` rather than assigned each frame, because setting `canvas.width`
+ * clears and reallocates the bitmap. A canvas with a visible EDGE — a star, a
+ * glyph of rain, a constellation line — is not in that table and must not be
+ * added to it for speed alone.
+ *
+ * **`resize` and `bake` are separate, and a resize no longer bakes.** A tile is
+ * `TILE` square whatever the window is, so dragging a window edge was
+ * recomputing three layers of five-octave fractal noise for a result already
+ * in hand.
+ *
+ * **Every field generator large enough to matter is remembered between
+ * frames**, through `remembered`. They are pure functions of a count and the
+ * one fixed seed, so keeping the result is not caching a guess — it is
+ * declining to rebuild a constant eleven thousand objects at a time. Motion
+ * comes from the CLOCK, applied to the stored field at draw time. The arrays
+ * it hands back are SHARED, so a renderer may read one or map it into a fresh
+ * array, and may never mutate it in place.
+ *
+ * **The two lattice canvases shade into bytes rather than into thousands of
+ * parsed colours.** `cells` and `plasma` colour every point of a grid, which is
+ * tens of thousands of points where every other canvas here paints tens or
+ * hundreds of things; a `fillRect` and a fresh `rgb(…)` string each was what
+ * made them expensive, not their arithmetic. See `canvas-raster`.
+ *
+ * **Where a dial's cost grows faster than the dial, there is a cap, and each
+ * one is named.** Density multiplies how many; size multiplies each one's AREA.
+ * The product is what ran the honeycomb to 2192ms a frame and the aurora to
+ * 636ms — and in both cases the picture at that setting was a solid wall
+ * rather than a dense one, so the cap is as much a picture as a budget.
  */
 export function NebulaCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1772,20 +2152,46 @@ export function NebulaCanvas() {
     let width = 0;
     let height = 0;
     let dpr = 1;
+    // The fraction of device resolution the bitmap currently has. Zero until
+    // the first `resize`, which no `renderScale` returns, so the first draw
+    // always sizes the bitmap rather than relying on a sentinel nobody set.
+    let sizedAt = 0;
+    const scratch = makeScratch();
 
     /**
-     * Rebuilds the offscreen tiles for the current size and theme.
+     * Sizes the bitmap for a canvas's resolution.
      *
+     * **The soft canvases are given a smaller bitmap and the compositor
+     * stretches it**, which is where most of the fill-rate saving in this file
+     * comes from — see `canvas-resolution`. Folding the fraction into `dpr` is
+     * what makes every renderer follow without being told: each measures its
+     * line widths and radii in device pixels, so a bitmap at half resolution
+     * gets half-size lines that land at the same size on the screen.
+     *
+     * @param fraction - how much of the device ratio to render at.
      * @returns nothing.
      */
-    const build = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    const resize = (fraction: number) => {
+      sizedAt = fraction;
+      dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR) * fraction;
       width = Math.max(1, Math.floor(window.innerWidth * dpr));
       height = Math.max(1, Math.floor(window.innerHeight * dpr));
       // Attributes, not CSS: this is the bitmap size. See the note above.
       canvas.width = width;
       canvas.height = height;
+    };
 
+    /**
+     * Rebuilds the nebula's offscreen tiles for the current theme.
+     *
+     * **Separate from `resize`, and that separation is a real saving.** The
+     * tiles are `TILE` square whatever the window is, so a resize never needed
+     * to recompute them — and doing so cost three layers of five-octave fractal
+     * noise, about 24ms each, on every frame of a window drag.
+     *
+     * @returns nothing.
+     */
+    const bake = () => {
       const styles = getComputedStyle(document.documentElement);
       bakedWith = tintSignature(styles);
       tiles = LAYERS.map((layer) => {
@@ -1831,13 +2237,20 @@ export function NebulaCanvas() {
         return;
       }
 
+      // Resize when the chosen canvas wants a different resolution from the one
+      // the bitmap has. Compared rather than assigned every frame because
+      // setting `canvas.width` CLEARS the bitmap and reallocates it, which at
+      // sixty frames a second is both a stutter and a steady stream of garbage.
+      const wanted = renderScale(chosen);
+      if (wanted !== sizedAt) resize(wanted);
+
       // Rebuild when the theme's colours have moved. Checked here rather than
       // watched, because the values arrive as a `<style>` element React
       // replaces on every keystroke of a colour input — a mutation observer for
       // that is both noisier and later than simply comparing what we drew with.
       // The comparison is two string reads against a computed style this
       // function already holds.
-      if (tintSignature(styles) !== bakedWith) build();
+      if (tintSignature(styles) !== bakedWith) bake();
 
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation =
@@ -1891,9 +2304,27 @@ export function NebulaCanvas() {
           aurora: () =>
             drawAurora(ctx, width, height, tints, seconds, density, scale),
           plasma: () =>
-            drawPlasma(ctx, width, height, tints, seconds, density, scale),
+            drawPlasma(
+              ctx,
+              scratch,
+              width,
+              height,
+              tints,
+              seconds,
+              density,
+              scale,
+            ),
           cells: () =>
-            drawCells(ctx, width, height, tints, seconds, density, scale),
+            drawCells(
+              ctx,
+              scratch,
+              width,
+              height,
+              tints,
+              seconds,
+              density,
+              scale,
+            ),
           flow: () =>
             drawFlow(ctx, width, height, dpr, tints, seconds, density, scale),
           fireflies: () =>
@@ -2022,7 +2453,14 @@ export function NebulaCanvas() {
       }
     };
 
-    build();
+    resize(
+      renderScale(
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--canvas")
+          .trim(),
+      ),
+    );
+    bake();
 
     if (animated) {
       const start = performance.now();
@@ -2043,12 +2481,18 @@ export function NebulaCanvas() {
     }
 
     /**
-     * Rebuilds and redraws after a resize.
+     * Resizes the bitmap and redraws after the window changes size.
+     *
+     * **It no longer re-bakes the nebula's tiles**, and that is a fix rather
+     * than a tidy-up: a tile is `TILE` square whatever the window is, so
+     * dragging a window edge was recomputing three layers of five-octave
+     * fractal noise — the single most expensive thing this component does —
+     * for a result identical to the one already in hand.
      *
      * @returns nothing.
      */
     const onResize = () => {
-      build();
+      resize(sizedAt);
       if (!animated) draw(0);
     };
     window.addEventListener("resize", onResize);
@@ -2074,14 +2518,14 @@ export function NebulaCanvas() {
     const onThemeChanged = () => {
       const styles = getComputedStyle(document.documentElement);
       if (tintSignature(styles) === bakedWith) return;
-      build();
+      bake();
       if (!animated) draw(0);
     };
 
     // `data-theme` for the reader's own light/dark switch, and the subtree for
     // the `<style>` an actor's theme arrives in. A resize is a separate signal
-    // and still rebuilds unconditionally, because the bitmap itself changed
-    // size and no comparison of colours would show that.
+    // and still resizes unconditionally, because the bitmap itself changed size
+    // and no comparison of colours would show that.
     const observer = new MutationObserver(onThemeChanged);
     observer.observe(document.documentElement, {
       attributes: true,
