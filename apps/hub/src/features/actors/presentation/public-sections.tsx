@@ -62,6 +62,18 @@ const CARD_ICON = "circle-dot";
  * and a fluid grid of bordered boxes does not read as cards — it reads as a
  * list that happens to have gaps in it.
  *
+ * **On a phone they stack, and the row starts at `sm`.** A 224px tile beside
+ * another one on a 360px screen shows a card and a sliver of the next, which
+ * reads as the page having been cut rather than as an invitation to swipe — and
+ * a sideways scroll inside a page that itself scrolls down is the gesture most
+ * often missed entirely. So the smallest screen gets full-width cards, one per
+ * row. The argument above still holds everywhere it can be seen: the tiles, the
+ * icon anchors and the row all survive from `sm` up.
+ *
+ * `carousel` is the layout that keeps scrolling sideways at every size, and
+ * that is the difference between the two: one is a set of cards, the other is
+ * a thing you swipe through. Somebody who wants the second picks it by name.
+ *
  * **Every card carries an icon tile, including the ones with no icon set.** The
  * tile is what gives a card its anchor, and rendering it only sometimes makes a
  * row of them ragged — which was the other half of why these did not look like
@@ -78,13 +90,16 @@ function Cards({
   locale: string;
 }) {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-3 lg:grid lg:grid-cols-3 lg:pb-0">
+    <div
+      className="grid gap-4 sm:flex sm:overflow-x-auto sm:pb-3 lg:grid lg:grid-cols-3 lg:pb-0"
+      {...tid("public-cards")}
+    >
       {items.map((item) => {
         const { title, description } = wordsOf(item, locale);
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="flex w-56 shrink-0 flex-col gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5 lg:w-auto"
+            className="flex w-full flex-col gap-3 rounded-xl border border-[var(--edge)] bg-[var(--surface)] p-5 sm:w-56 sm:shrink-0 lg:w-auto"
           >
             <span className="grid size-11 w-fit place-items-center rounded-lg border border-[var(--edge)] bg-[var(--bar)]">
               <PublicSectionIcon name={item.icon} fallback={CARD_ICON} />
