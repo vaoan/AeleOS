@@ -154,6 +154,70 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  # The frame-cost guard, on its own check and on its own trigger.
+  #
+  # It drives a real browser through every canvas in the app at the top of both
+  # dials, twice each — minutes of work whose answer almost never changes. The
+  # regressions it exists to catch (2192ms, 1077ms, 636ms a frame) all arrived
+  # the same way: a batch of new canvases written together. So it does the work
+  # when a canvas is ADDED and steps aside otherwise.
+  #
+  # **The job always runs; only its expensive half is conditional.** Guarding
+  # the whole job with `if:` would leave a check that never reports on most pull
+  # requests, and a required check that never reports blocks the merge for ever.
+  # This way it reports green either way and says which it did.
+  #
+  # What the trigger misses is written down in `scripts/canvas-additions.mjs`:
+  # a change that slows an EXISTING canvas adds no key and will not run this.
+  canvas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Same fork guard as `e2e`: the dev server needs Clerk keys to boot.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      # fetch-depth: 0 so the base branch exists to compare the table against.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Has a canvas been added?
+        id: added
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/canvas-added.mjs "$BASE" >> "$GITHUB_OUTPUT"
+
+      - name: Install Chromium
+        if: steps.added.outputs.added == 'true'
+        run: pnpm --filter hub exec playwright install --with-deps chromium
+
+      - name: Measure every canvas
+        if: steps.added.outputs.added == 'true'
+        run: pnpm --filter hub test:canvas
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          AELEOS_ALLOWED_RETURN_ORIGINS: ""
+
+      - name: Upload Playwright output on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: canvas-report
+          path: |
+            apps/hub/test-results/
+            apps/hub/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 3
+
   idp-cloud:
     runs-on: ubuntu-latest
     timeout-minutes: 15

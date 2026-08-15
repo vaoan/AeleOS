@@ -9,8 +9,9 @@
     "start": "next start -p 5100",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
-    "test:coverage": "vitest run --coverage"
+    "test:e2e": "playwright test --project=chromium",
+    "test:coverage": "vitest run --coverage",
+    "test:canvas": "playwright test --project=canvas"
   },
   "dependencies": {
     "@aeleos/identity": "workspace:*",
