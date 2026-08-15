@@ -400,6 +400,17 @@ decisions, so they are not quietly undone:
   text on the field for every hostile background it tries, which is a stronger
   guarantee than the one it replaced.
 
+- **`--menu` is derived like everything else, and it must be.** It is the
+  colour a native dropdown's list is painted with, and `globals.css` declares
+  it per MODE — so a themed page kept the design's menu while `--ink` became
+  whatever the author's gradient derived. An author picking a dark background,
+  read on a light screen, got near-white text on a near-white menu: the
+  original dropdown bug, rebuilt by theming. It is solved against the surface,
+  and it is **opaque by construction** — a translucent menu composites onto
+  whatever the browser paints behind it, which is the white the whole thing
+  exists to escape. Anything else `globals.css` declares per mode and the
+  palette overrides the text of has the same trap waiting.
+
 - **What the author does not pick is still solved.** Text takes whichever
   extreme measures better against the field, muted takes the dimmest value that
   still clears 4.5:1, borders clear 3:1 — or the best available, when the

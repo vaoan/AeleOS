@@ -153,6 +153,10 @@ function dimmestLegible(
  * `--field` is **the author's gradient, verbatim** — however many stops they
  * built and at whatever angle. Nothing here adjusts it.
  *
+ * **`--menu` is derived too**, because it is a surface that carries text and a
+ * themed page overrides the text. Leaving it to `globals.css` left the two to
+ * disagree, which is exactly how a dropdown becomes unreadable.
+ *
  * **`--surface` and `--bar` are NOT written here — `--surface-solid` and
  * `--bar-solid` are.** `globals.css` composes the pair a panel actually paints
  * from those raw colours, which is what leaves room for a skin to recompose
@@ -257,6 +261,18 @@ export function derivePalette(
     // which a custom property cannot do to itself. Writing `--surface` here
     // instead would win over the skin and glass would silently be opaque.
     "--surface-solid": css(...surface),
+    "--menu": css(...surface),
+    // **The dropdown's own colour, and it has to be derived like the rest.**
+    // It is declared per MODE in `globals.css`, so a themed page used to keep
+    // the design's menu while `--ink` became whatever the author's gradient
+    // derived — an author picking a dark background, read on a light screen,
+    // got near-white text on a near-white menu. The original dropdown bug,
+    // rebuilt by theming.
+    //
+    // The surface rather than the field, so text on it carries the same
+    // guarantee the cards do. Opaque by construction: `css` emits no alpha, and
+    // a translucent menu composites onto whatever the browser paints behind it.
+
     // The bar is a translucent wash over whatever is behind it, so it is the
     // surface again with an alpha rather than a solved colour.
     "--bar-solid": `oklch(${surface[0].toFixed(4)} ${surface[1].toFixed(4)} ${bgH.toFixed(2)} / 0.55)`,

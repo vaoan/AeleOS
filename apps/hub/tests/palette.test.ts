@@ -320,3 +320,43 @@ describe("the memoised solve", () => {
     expect(again["--field"]).toBe("#1a1a2e");
   });
 });
+
+describe("the menu colour", () => {
+  // **THE REGRESSION TEST for a themed page's unreadable dropdown.** `--menu`
+  // is declared per MODE in `globals.css`, so a page wearing an author's theme
+  // used to keep the design's own menu while `--ink` became whatever their
+  // gradient derived. An author picking a dark background on a light reader's
+  // screen got near-white text on the near-white default menu — the original
+  // dropdown bug, rebuilt by theming.
+  //
+  // Measured in a browser before the fix: menu `lab(98.8 …)`, ink
+  // `oklch(0.97 …)`.
+  it("is derived alongside every other colour", () => {
+    expect(derivePalette(flat("#101736"), "#6ee7c8")["--menu"]).toBeTruthy();
+  });
+
+  // **Opaque, or it is the same bug with an extra step.** A translucent menu
+  // composites onto whatever the browser paints behind it, which is the white
+  // this exists to escape. `--surface` carries an alpha and cannot serve.
+  it.each(["#101736", "#ffffff", "#808080", "#ff00ff"])(
+    "is opaque on %s",
+    (background) => {
+      expect(derivePalette(flat(background), "#6ee7c8")["--menu"]).not.toMatch(
+        /\//,
+      );
+    },
+  );
+
+  // The point of deriving it at all: text on it stays readable whatever the
+  // author picked. Solved against the surface, which is a step from the field,
+  // so this is the same guarantee the cards already carry.
+  it.each(["#101736", "#ffffff", "#000000", "#808080", "#ff00ff", "#0000ff"])(
+    "carries readable text on %s",
+    (background) => {
+      const palette = derivePalette(flat(background), "#6ee7c8");
+      expect(
+        contrastRatio(colourOf(palette, "--ink"), colourOf(palette, "--menu")),
+      ).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+});
