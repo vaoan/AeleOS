@@ -340,13 +340,19 @@ export default tseslint.config(
       ...sonarjs.configs.recommended.rules,
       ...unicorn.configs["flat/recommended"].rules,
 
-      // **Off, and about value rather than difficulty.** It wants
-      // `Readonly<Props>` on every component, preventing a component from
-      // mutating its own props object. Nothing here does, React forbids it by
-      // contract, and `Readonly` is shallow anyway — so it would not stop the
-      // mutation somebody might actually write. Fifty-seven signatures and as
-      // many contract docs is a large diff for a guarantee that thin. Available
-      // work rather than rejected work.
+      // **Off, because this codebase cannot express the thing it prevents.**
+      // It wants `Readonly<Props>` on every component, which stops a component
+      // mutating its own props OBJECT. Counted: 56 components destructure in
+      // the signature and 0 take `props` whole, so there is no props object in
+      // scope to mutate — and 0 assignments to a props member exist anywhere.
+      //
+      // `Readonly` is shallow as well, so even where it applied it would catch
+      // `props.x = 1` and not `props.items.push(…)` or `props.actor.handle =
+      // "…"` — the mutations that would actually hurt.
+      //
+      // Fifty-seven signatures and as many contract docs, to guard a pattern
+      // nobody can write here against a check that would miss the dangerous
+      // form. If components ever start taking `props` whole, revisit this.
       "sonarjs/prefer-read-only-props": "off",
 
       // `@typescript-eslint/no-deprecated` reports the same findings with the
