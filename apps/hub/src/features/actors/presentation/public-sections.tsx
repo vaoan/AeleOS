@@ -10,6 +10,7 @@ import type {
   FursonaSectionItem,
   SectionType,
 } from "@/features/actors/domain/section-schema";
+import { resolveSocial } from "@/features/actors/domain/social-links";
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
 import { tid } from "@/shared/infrastructure/test-id";
 
@@ -300,6 +301,16 @@ const FRAME_SHAPE: Record<EmbedShape, string> = {
   video: "aspect-video w-full rounded-xl surface border-(--edge)",
   portrait: "aspect-9/16 w-full max-w-80 rounded-xl surface border-(--edge)",
   audio: "h-42 w-full rounded-xl surface border-(--edge)",
+  // A post's height is whatever its author wrote, not a ratio, so it is a
+  // fixed-height column that scrolls its own content — a narrow one, because
+  // every provider's own widget (Telegram, Instagram, a tweet, a Mastodon
+  // status) is designed to sit in a sidebar rather than span a page. 600px
+  // tall, 420px wide — chosen by that reasoning, not measured against any
+  // provider's real rendered content. The frame scrolls its own content, so a
+  // wrong guess costs dead space rather than a broken render; that is why
+  // this is a deliberate, proportionate exception to "measure, do not
+  // eyeball" rather than an oversight of it.
+  post: "h-150 w-full max-w-105 rounded-xl surface border-(--edge)",
 };
 
 /**
@@ -565,6 +576,199 @@ function Links({
 }
 
 /**
+ * What a chip shows when it carries neither an author's icon nor a
+ * recognised brand's.
+ *
+ * `resolveSocial` returns `icon: undefined` for a host it does not know, by
+ * design — see its own TSDoc. Leaving the tile empty then would make it
+ * ragged beside chips that do have one, the same fault {@link CARD_ICON}
+ * exists to avoid for cards. A globe reads as "somewhere on the web" for any
+ * host at all, which is exactly what a chip with no other information is.
+ */
+const SOCIAL_ICON = "globe";
+
+/**
+ * One branded link chip — an anchor when `resolveSocial` can build one, a
+ * plain `span` otherwise.
+ *
+ * **Extracted from `Socials` so `Posts` can render the identical chip** as
+ * its fallback for an address that resolves to no post provider — reusing
+ * this rather than growing a second copy is what keeps the two from
+ * quietly disagreeing about how an unrecognised or unsafe address looks. An
+ * address `resolveSocial` refuses — `javascript:`, `data:`, anything that
+ * fails to parse — must never reach an `href`; React escapes text, not URL
+ * schemes, and this is a page strangers read. The item still renders as
+ * text so its author can see what they typed.
+ *
+ * **The item's own icon wins over the derived one.** An author who picked an
+ * icon meant it; only an empty selection falls through to what `resolveSocial`
+ * derived from the address, and then to {@link SOCIAL_ICON} when neither
+ * exists.
+ *
+ * **The authored title is the chip's main text**, falling back to the brand's
+ * own label only when the title is empty — which the schema does not allow in
+ * practice, but this file never trusts a caller's validation over its own
+ * rendering. The handle sits beneath it, and only appears at all when
+ * `resolveSocial` found one in the address.
+ *
+ * Every anchor carries `nofollow ugc` alongside `noopener noreferrer`, the
+ * same pairing `Links` carries and for the same reason: the second pair is
+ * about the reader's own tab, and the first is about this being a page
+ * anybody can publish links on.
+ *
+ * @returns the chip.
+ */
+function SocialChip({
+  item,
+  locale,
+}: {
+  item: FursonaSectionItem;
+  locale: string;
+}) {
+  const { title } = wordsOf(item, locale);
+  const social = resolveSocial(item.link_url);
+  const label = title || social?.label || "";
+  const shape =
+    "flex items-center gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-4";
+  const inside = (
+    <>
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg surface border-(--edge) bg-(--bar)">
+        <PublicSectionIcon
+          name={item.icon || social?.icon}
+          fallback={SOCIAL_ICON}
+        />
+      </span>
+      <span className="grid gap-0.5">
+        <span className="font-display text-sm font-bold">{label}</span>
+        {social?.handle ? (
+          <span className="text-xs text-(--muted)">{social.handle}</span>
+        ) : null}
+      </span>
+    </>
+  );
+  return social ? (
+    <a
+      href={social.href}
+      target="_blank"
+      rel="noopener noreferrer nofollow ugc"
+      className={`${shape} transition-colors hover:border-(--accent)`}
+    >
+      {inside}
+    </a>
+  ) : (
+    <span className={shape}>{inside}</span>
+  );
+}
+
+/**
+ * A wall of branded link chips, one per address the author pasted.
+ *
+ * **This is the layout that carries the whole "as connected as possible"
+ * promise on its own, and it needs no third-party cooperation to do it.**
+ * Where `Links` turns an address into a plain button, this one names the
+ * service — `resolveSocial` brands a known host with its own label, icon and
+ * handle, and still turns an unknown host into a usable chip labelled with
+ * its own hostname. There is no "is this host known" branch here: that
+ * decision already happened in `resolveSocial`, and repeating it here would
+ * only give the two a chance to disagree.
+ *
+ * Every item renders through {@link SocialChip}; see that component for the
+ * anchor-vs-text and icon-precedence rules.
+ *
+ * @returns the chips.
+ */
+function Socials({
+  items,
+  locale,
+}: {
+  items: FursonaSectionItem[];
+  locale: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-3" {...tid("public-socials")}>
+      {items.map((item) => (
+        <SocialChip
+          key={keyOf(item.sort_order, item.title_en)}
+          item={item}
+          locale={locale}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A section of embedded social posts.
+ *
+ * **An address that resolves to no post provider renders as a `SocialChip`,
+ * never as nothing and never as a bare link.** Telegram, Instagram,
+ * X/Twitter, Pinterest and a named list of Mastodon instances cover only a
+ * slice of "as connected as possible"; Bluesky is the case this fallback
+ * exists for, since `embed.bsky.app` hard-refuses the handle a pasted Bluesky
+ * address carries (see `embed-providers.ts`) and so never resolves here. The
+ * chip still names the service and links to it, which is strictly better than
+ * an author's post silently not appearing.
+ *
+ * Unlike `Player`, which the video and music layouts use, this never falls
+ * back to a plain link: a fursona page that already brands Bluesky as a chip
+ * on the `socials` layout would be inconsistent showing it as an unbranded
+ * button here instead.
+ *
+ * @returns the posts.
+ */
+function Posts({
+  items,
+  locale,
+}: {
+  items: FursonaSectionItem[];
+  locale: string;
+}) {
+  return (
+    <div
+      className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+      {...tid("public-posts")}
+    >
+      {items.map((item) => {
+        const embed = resolveEmbed(item.link_url);
+        if (!embed) {
+          return (
+            <SocialChip
+              key={keyOf(item.sort_order, item.title_en)}
+              item={item}
+              locale={locale}
+            />
+          );
+        }
+        const { title, description } = wordsOf(item, locale);
+        return (
+          <figure
+            key={keyOf(item.sort_order, item.title_en)}
+            className="grid gap-2"
+          >
+            <iframe
+              src={embed.src}
+              title={title}
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+              // No `autoplay`. Everything else is what a player legitimately
+              // needs — see `Player`'s own doc for the same rule.
+              allow="clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+              sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
+              className={FRAME_SHAPE[embed.shape]}
+            />
+            {description ? (
+              <figcaption className="text-xs text-(--muted)">
+                {description}
+              </figcaption>
+            ) : null}
+          </figure>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * A section of short facts.
  *
  * The title is the LABEL and the description is the VALUE, which is the reverse
@@ -720,6 +924,8 @@ const LAYOUTS: Record<
   stats: Stats,
   quote: Quotes,
   timeline: Timeline,
+  socials: Socials,
+  posts: Posts,
 };
 
 /**

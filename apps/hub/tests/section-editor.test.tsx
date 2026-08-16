@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import type { ReactNode } from "react";
 import { SECTION_LIMITS } from "@/features/actors/domain/section-schema";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
+import { SECTION_PRESETS } from "@/features/actors/presentation/section-presets";
 
 // Flattened, so this tests ordering and what is offered rather than the drag
 // library's own behaviour, which is its to test.
@@ -75,12 +76,14 @@ const labels = {
   imageUrlHint: "Paste a link to a picture.",
   linkUrl: "Link address",
   linkUrlHint: "A video or music link plays here.",
+  linkUrlPlainHint: "This becomes a button or a chip.",
   imageMissing: "No image",
   chooseIcon: "Choose an icon",
   searchIcons: "Search icons",
   noIconsFound: "No icons match that.",
   clearIcon: "Remove the icon",
   noIcon: "No icon",
+  addSectionFor: "Add a section for…",
   useTemplate: "Start from a template",
   templateConfirm: "This replaces the sections you have.",
   templateConfirmYes: "Replace them",
@@ -254,6 +257,42 @@ describe("SectionEditor", () => {
         screen.getByRole("button", { name: labels.templateConfirmNo }),
       );
       expect(names()).toEqual(["Mine"]);
+    });
+  });
+
+  describe("brand presets", () => {
+    const instagram = SECTION_PRESETS.find((p) => p.id === "instagram")!;
+
+    /** Opens the preset list. */
+    const openPresets = () =>
+      fireEvent.click(screen.getByTestId("section-presets"));
+
+    it("appends a section of the brand's layout, named for the brand", () => {
+      renderEditor();
+      openPresets();
+      fireEvent.click(screen.getByTestId(`preset-${instagram.id}`));
+
+      expect(names()).toEqual([instagram.name]);
+      expect(screen.getByLabelText("Layout")).toHaveValue(instagram.type);
+    });
+
+    // Appends, unlike the template picker's replace — nothing already written
+    // is lost, and there is nothing to confirm.
+    it("appends without touching what was already there", () => {
+      renderEditor([section({ name_en: "Mine" })]);
+      openPresets();
+      fireEvent.click(screen.getByTestId(`preset-${instagram.id}`));
+
+      expect(names()).toEqual(["Mine", instagram.name]);
+    });
+
+    it("is withdrawn at the same limit as the manual add control", () => {
+      renderEditor(
+        Array.from({ length: SECTION_LIMITS.sections }, (_, n) =>
+          section({ name_en: `Section ${n + 1}`, sort_order: n + 1 }),
+        ),
+      );
+      expect(screen.queryByTestId("section-presets")).toBeNull();
     });
   });
 

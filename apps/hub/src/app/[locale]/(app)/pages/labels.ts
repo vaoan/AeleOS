@@ -88,6 +88,17 @@ import {
  * the editor has an app language and an authoring language, and somebody with no
  * reason to suspect a second axis reads the switch as the app's own.
  *
+ * `linkUrlHint` and `linkUrlPlainHint` are two strings for one field, for the
+ * same reason `writingIn`/`writingInHint` are two for one control: what a
+ * pasted address becomes genuinely differs by layout, so a single hint vague
+ * enough to be true for `video`/`music`/`posts` (which embed) and for
+ * `links`/`socials` (which never do) would be true of neither. See
+ * `SectionItemFieldsLabels` for which layout gets which.
+ *
+ * `addSectionFor` names the brand preset control's own group, not any brand —
+ * a brand's name is never translated, so `section-presets.ts` supplies those
+ * verbatim rather than this function resolving them from the catalogue.
+ *
  * @param title - what the toolbar says is being edited. The two pages differ
  * only in this and in whether the handle can be typed, which is why they share
  * one function rather than each carrying a near-identical copy.
@@ -109,6 +120,7 @@ export async function fursonaEditorLabels(
     empty: t("sectionsEmpty"),
     addSection: t("addSection"),
     newSectionType: t("newSectionType"),
+    addSectionFor: t("addSectionFor"),
     atLimit: t("sectionsAtLimit"),
     dragSection: t("dragSection"),
     sectionName: t("sectionName"),
@@ -130,6 +142,7 @@ export async function fursonaEditorLabels(
     theme: themeConfiguratorLabels(t),
     linkUrl: t("linkUrl"),
     linkUrlHint: t("linkUrlHint"),
+    linkUrlPlainHint: t("linkUrlPlainHint"),
     imageMissing: t("imageMissing"),
     chooseIcon: t("chooseIcon"),
     searchIcons: t("searchIcons"),

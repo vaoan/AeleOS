@@ -53,6 +53,11 @@ describe("EMBED_PROVIDERS, over any hostile address", () => {
   it.each(EMBED_PROVIDERS.map((provider) => [provider.id, provider] as const))(
     "%s's resolve never throws, for any path or query",
     (_id, provider) => {
+      // A generator that never produces a constructible URL would make every
+      // run return early and this property would pass having called
+      // `resolve` zero times. Counting the runs that actually reached it
+      // turns that silent no-op into a failure.
+      let attempted = 0;
       fc.assert(
         fc.property(hostilePath, fc.string(), (path, query) => {
           let url: URL;
@@ -65,6 +70,7 @@ describe("EMBED_PROVIDERS, over any hostile address", () => {
             // property is about `resolve`, not about `URL`'s own parser.
             return;
           }
+          attempted++;
           const call = () => provider.resolve(url);
           expect(call).not.toThrow();
           const result = call();
@@ -72,6 +78,7 @@ describe("EMBED_PROVIDERS, over any hostile address", () => {
         }),
         { numRuns: 300 },
       );
+      expect(attempted).toBeGreaterThan(0);
     },
   );
 });
@@ -105,6 +112,31 @@ const PLAUSIBLE_PATH: Record<string, fc.Arbitrary<string>> = {
   tidal: digits.map((id) => `/track/${id}`),
   mixcloud: fc.tuple(segment, segment).map(([a, b]) => `/${a}/${b}/`),
   twitch: fc.stringMatching(/^\w{3,25}$/).map((name) => `/${name}`),
+  telegram: fc
+    .tuple(fc.stringMatching(/^\w{5,32}$/), fc.stringMatching(/^\d{1,10}$/))
+    .map(([channel, id]) => `/${channel}/${id}`),
+  instagram: fc
+    .tuple(
+      fc.constantFrom("p", "reel", "tv"),
+      fc.stringMatching(/^[\w-]{5,20}$/),
+    )
+    .map(([kind, code]) => `/${kind}/${code}`),
+  twitter: fc
+    .tuple(fc.stringMatching(/^\w{1,15}$/), fc.stringMatching(/^\d{1,25}$/))
+    .map(([user, id]) => `/${user}/status/${id}`),
+  pinterest: fc.stringMatching(/^\d{5,25}$/).map((id) => `/pin/${id}`),
+  "mastodon-social": fc
+    .tuple(fc.stringMatching(/^[\w.]{1,30}$/), fc.stringMatching(/^\d{1,25}$/))
+    .map(([user, id]) => `/@${user}/${id}`),
+  "mstdn-social": fc
+    .tuple(fc.stringMatching(/^[\w.]{1,30}$/), fc.stringMatching(/^\d{1,25}$/))
+    .map(([user, id]) => `/@${user}/${id}`),
+  "meow-social": fc
+    .tuple(fc.stringMatching(/^[\w.]{1,30}$/), fc.stringMatching(/^\d{1,25}$/))
+    .map(([user, id]) => `/@${user}/${id}`),
+  "furry-engineer": fc
+    .tuple(fc.stringMatching(/^[\w.]{1,30}$/), fc.stringMatching(/^\d{1,25}$/))
+    .map(([user, id]) => `/@${user}/${id}`),
 };
 
 /** The host each generated pathname above should be attached to. */
@@ -120,6 +152,14 @@ const PLAUSIBLE_HOST: Record<string, string> = {
   tidal: "tidal.com",
   mixcloud: "mixcloud.com",
   twitch: "twitch.tv",
+  telegram: "t.me",
+  instagram: "instagram.com",
+  twitter: "x.com",
+  pinterest: "pinterest.com",
+  "mastodon-social": "mastodon.social",
+  "mstdn-social": "mstdn.social",
+  "meow-social": "meow.social",
+  "furry-engineer": "furry.engineer",
 };
 
 describe("EMBED_PROVIDERS, wherever resolve succeeds", () => {
@@ -128,17 +168,25 @@ describe("EMBED_PROVIDERS, wherever resolve succeeds", () => {
     (id, provider) => {
       const path = PLAUSIBLE_PATH[id];
       const host = PLAUSIBLE_HOST[id];
+      // Same guard as the "never throws" property above: if a generator
+      // drifted out of its provider's accepted shape, `value === null` would
+      // return early on every run and this property would pass having
+      // checked nothing. Counting the runs that actually resolved catches
+      // that silently.
+      let resolved = 0;
       fc.assert(
         fc.property(path, (pathname) => {
           const url = new URL(`https://${host}${pathname}`);
           const value = provider.resolve(url);
           if (value === null) return;
+          resolved++;
           const origin = new URL(provider.src(value, "example.test")).origin;
           expect(origin).toBe(provider.origin);
           expect(PLAYER_ORIGINS).toContain(origin);
         }),
         { numRuns: 200 },
       );
+      expect(resolved).toBeGreaterThan(0);
     },
   );
 });

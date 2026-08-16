@@ -9,10 +9,22 @@ import {
 
 vi.mock("lucide-react/dynamic", () => ({
   DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
-  // `circle-dot` is here because Cards falls back to it, and a mock that
-  // omitted it would make the fallback look broken when it is not — the mocked
+  // `circle-dot` is here because Cards falls back to it, `globe` because
+  // Socials does the same, `camera` because it is Instagram's brand icon in
+  // `social-links.ts`, and `cloud` because it is Bluesky's — the posts layout
+  // falls back to that exact chip for a Bluesky link, which is the case the
+  // fallback exists for. A mock that omitted any of them would make a
+  // fallback or a derived brand icon look broken when it is not, the mocked
   // dependency hiding its own setup requirement, again.
-  iconNames: ["sparkles", "heart", "paw-print", "circle-dot"],
+  iconNames: [
+    "sparkles",
+    "heart",
+    "paw-print",
+    "circle-dot",
+    "globe",
+    "camera",
+    "cloud",
+  ],
 }));
 const { PublicSections } =
   await import("@/features/actors/presentation/public-sections");
@@ -407,6 +419,227 @@ describe("the expressive layouts", () => {
     });
   });
 
+  describe("socials", () => {
+    it("shows a known brand's label and handle when the title is empty", () => {
+      one("socials", {
+        title_en: "",
+        link_url: "https://www.instagram.com/luna.fox",
+      });
+      expect(screen.getByText("Instagram")).toBeInTheDocument();
+      expect(screen.getByText("@luna.fox")).toBeInTheDocument();
+    });
+
+    it("falls back to the hostname for a host it does not know", () => {
+      one("socials", {
+        title_en: "",
+        link_url: "https://some-artist-site.example/luna",
+      });
+      expect(screen.getByText("some-artist-site.example")).toBeInTheDocument();
+    });
+
+    it("prefers the author's own title over the brand label", () => {
+      one("socials", {
+        title_en: "My Instagram",
+        link_url: "https://www.instagram.com/luna.fox",
+      });
+      expect(screen.getByText("My Instagram")).toBeInTheDocument();
+      expect(screen.queryByText("Instagram")).toBeNull();
+    });
+
+    // The whole point of the layout: an unrecognised host is still a usable,
+    // clickable chip, exactly like a known one.
+    it("links an unrecognised host", () => {
+      one("socials", { link_url: "https://some-artist-site.example/luna" });
+      expect(screen.getByRole("link")).toHaveAttribute(
+        "href",
+        "https://some-artist-site.example/luna",
+      );
+    });
+
+    it("renders an unlinkable address as text, never as an anchor", () => {
+      render(
+        <PublicSections
+          locale="en"
+          parentHost=""
+          sections={[
+            {
+              name_en: "Elsewhere",
+              type: "socials",
+              sort_order: 1,
+              items: [
+                {
+                  title_en: "Somewhere",
+                  description_en: "",
+                  link_url: "javascript:alert(1)",
+                  sort_order: 1,
+                },
+              ],
+            },
+          ]}
+        />,
+      );
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(screen.getByText("Somewhere")).toBeInTheDocument();
+    });
+
+    it("marks every anchor untrusted, user-generated, and opened in a new tab", () => {
+      one("socials", { link_url: "https://www.instagram.com/luna.fox" });
+      const link = screen.getByRole("link");
+      expect(link).toHaveAttribute("target", "_blank");
+      const rel = link.getAttribute("rel") ?? "";
+      expect(rel).toContain("noopener");
+      expect(rel).toContain("noreferrer");
+      expect(rel).toContain("nofollow");
+      expect(rel).toContain("ugc");
+    });
+
+    it("lets the item's own icon override the derived brand icon", () => {
+      one("socials", {
+        icon: "paw-print",
+        link_url: "https://www.instagram.com/luna.fox",
+      });
+      expect(document.querySelector('[data-icon="paw-print"]')).not.toBeNull();
+      expect(document.querySelector('[data-icon="camera"]')).toBeNull();
+    });
+
+    it("uses the derived brand icon when the author picked none", () => {
+      one("socials", { link_url: "https://www.instagram.com/luna.fox" });
+      expect(document.querySelector('[data-icon="camera"]')).not.toBeNull();
+    });
+
+    it("falls back to the generic icon for an unrecognised host with no chosen icon", () => {
+      one("socials", { link_url: "https://some-artist-site.example/luna" });
+      expect(document.querySelector('[data-icon="globe"]')).not.toBeNull();
+    });
+  });
+
+  describe("posts", () => {
+    it("frames a Telegram post", () => {
+      const { container } = one("posts", {
+        link_url: "https://t.me/telegram/436",
+      });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        "https://t.me/telegram/436?embed=1",
+      );
+    });
+
+    it("frames an Instagram post", () => {
+      const { container } = one("posts", {
+        link_url: "https://www.instagram.com/p/DbbY9pdm6Q2/",
+      });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        "https://www.instagram.com/p/DbbY9pdm6Q2/embed",
+      );
+    });
+
+    it("frames a tweet", () => {
+      const { container } = one("posts", {
+        link_url: "https://x.com/NASA/status/2088355206723477740",
+      });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        "https://platform.twitter.com/embed/Tweet.html?id=2088355206723477740",
+      );
+    });
+
+    it("frames a Pinterest pin", () => {
+      const { container } = one("posts", {
+        link_url: "https://www.pinterest.com/pin/21744010694976967/",
+      });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        "https://assets.pinterest.com/ext/embed.html?id=21744010694976967",
+      );
+    });
+
+    // One table entry per Mastodon instance, so a post on any allowed
+    // instance must frame — not just the one somebody happens to try first.
+    it.each([
+      [
+        "https://mastodon.social/@Mastodon/116765910384325070",
+        "https://mastodon.social/@Mastodon/116765910384325070/embed",
+      ],
+      [
+        "https://mstdn.social/@Desa13l/117103829078125562",
+        "https://mstdn.social/@Desa13l/117103829078125562/embed",
+      ],
+      [
+        "https://meow.social/@avithetiger/113250402988268487",
+        "https://meow.social/@avithetiger/113250402988268487/embed",
+      ],
+      [
+        "https://furry.engineer/@sudaksis/117103833536639917",
+        "https://furry.engineer/@sudaksis/117103833536639917/embed",
+      ],
+    ])("frames a Mastodon post on %s", (link_url, expectedSrc) => {
+      const { container } = one("posts", { link_url });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        expectedSrc,
+      );
+    });
+
+    it("asks for the post frame shape, not the video one", () => {
+      const { container } = one("posts", {
+        link_url: "https://t.me/telegram/436",
+      });
+      const frame = container.querySelector("iframe");
+      expect(frame?.className).toContain("h-150");
+      expect(frame?.className).not.toContain("aspect-video");
+    });
+
+    it("never grants the frame autoplay", () => {
+      const { container } = one("posts", {
+        link_url: "https://t.me/telegram/436",
+      });
+      expect(
+        container.querySelector("iframe")?.getAttribute("allow"),
+      ).not.toContain("autoplay");
+    });
+
+    // Bluesky is exactly the case this fallback exists for: `embed.bsky.app`
+    // hard-refuses the handle a shareable Bluesky link carries (see
+    // `embed-providers.ts`), so it never resolves to a frame here — and must
+    // still show up as the same branded chip the socials layout would give it,
+    // never as nothing and never as a bare link.
+    it("falls back to a branded Bluesky chip when no provider can frame it", () => {
+      const { container } = one("posts", {
+        title_en: "",
+        link_url: "https://bsky.app/profile/bsky.app/post/3msqpuobiwk2t",
+      });
+      expect(container.querySelector("iframe")).toBeNull();
+      expect(screen.getByText("Bluesky")).toBeInTheDocument();
+      expect(screen.getByText("@bsky.app")).toBeInTheDocument();
+      expect(document.querySelector('[data-icon="cloud"]')).not.toBeNull();
+      expect(screen.getByRole("link")).toHaveAttribute(
+        "href",
+        "https://bsky.app/profile/bsky.app/post/3msqpuobiwk2t",
+      );
+    });
+
+    // The same fallback also covers a host `resolveSocial` has never heard
+    // of — still a usable, clickable chip rather than a dead item.
+    it("falls back to an hostname chip for a host no provider or brand knows", () => {
+      one("posts", {
+        title_en: "",
+        link_url: "https://some-artist-site.example/luna",
+      });
+      expect(screen.getByText("some-artist-site.example")).toBeInTheDocument();
+    });
+
+    // An address that is not even linkable — the one case where the fallback
+    // chip has nothing to build an anchor from — still shows the author's own
+    // title as text, exactly as the socials layout does for the same input.
+    it("renders as text, never as a link, when the address is not safe to link at all", () => {
+      const { container } = one("posts", { link_url: "javascript:alert(1)" });
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(container.querySelector("iframe")).toBeNull();
+      expect(screen.getByText("English title")).toBeInTheDocument();
+    });
+  });
+
   describe("carousel", () => {
     it("shows a picture per item", () => {
       one("carousel", { image_url: "https://example.test/a.png" });
@@ -474,7 +707,11 @@ describe("an item whose description nobody wrote", () => {
         ...(type === "gallery" || type === "carousel"
           ? { image_url: "https://example.test/a.png" }
           : {}),
-        ...(type === "links" || type === "video" || type === "music"
+        ...(type === "links" ||
+        type === "video" ||
+        type === "music" ||
+        type === "socials" ||
+        type === "posts"
           ? { link_url: "https://example.test/" }
           : {}),
         sort_order: 1,

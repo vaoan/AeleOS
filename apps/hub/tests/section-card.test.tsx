@@ -36,6 +36,7 @@ const labels = {
   imageUrlHint: "Paste a link to a picture.",
   linkUrl: "Link address",
   linkUrlHint: "A video or music link plays here.",
+  linkUrlPlainHint: "This becomes a button or a chip.",
   imageMissing: "No image yet",
   chooseIcon: "Choose an icon",
   searchIcons: "Search icons",

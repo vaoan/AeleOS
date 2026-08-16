@@ -31,7 +31,7 @@ function fromMigration(name: string): number {
   );
   if (!found?.[1])
     throw new Error(
-      `c_max_${name} was not found in 0013. If it was renamed, this guard is ` +
+      `c_max_${name} was not found in 0009. If it was renamed, this guard is ` +
         `now checking nothing and must be updated with it.`,
     );
   return Number(found[1]);
@@ -51,7 +51,7 @@ describe("the client's section limits", () => {
     ["items", "items"],
     ["text", "text"],
     ["bytes", "bytes"],
-  ])("match 0013's c_max_%s", (name, key) => {
+  ])("match 0009's c_max_%s", (name, key) => {
     expect({
       [key]: SECTION_LIMITS[key as keyof typeof SECTION_LIMITS],
     }).toEqual({ [key]: fromMigration(name) });

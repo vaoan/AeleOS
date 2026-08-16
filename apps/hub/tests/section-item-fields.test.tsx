@@ -27,6 +27,7 @@ const labels = {
   imageUrlHint: "Paste a link to a picture.",
   linkUrl: "Link address",
   linkUrlHint: "A video or music link plays here.",
+  linkUrlPlainHint: "This becomes a button or a chip.",
   imageMissing: "No image yet",
   chooseIcon: "Choose an icon",
   searchIcons: "Search icons",
@@ -176,6 +177,29 @@ describe("SectionItemFields", () => {
         renderFields(type);
         expect(screen.getByLabelText("Title")).toBeInTheDocument();
         expect(screen.getByLabelText("Description")).toBeInTheDocument();
+      },
+    );
+
+    // The link field's hint must never promise embedding for a layout that
+    // cannot: `links` always renders a button and `socials` always renders a
+    // chip, whatever host was pasted. `EMBEDS` is what decides which of the
+    // two hints shows, and this is the test that would fail if it stopped
+    // deciding correctly.
+    it.each(["video", "music", "posts"] as const)(
+      "shows the embedding hint on a %s item",
+      (type) => {
+        renderFields(type);
+        expect(screen.getByText(labels.linkUrlHint)).toBeInTheDocument();
+        expect(screen.queryByText(labels.linkUrlPlainHint)).toBeNull();
+      },
+    );
+
+    it.each(["links", "socials"] as const)(
+      "shows the button-or-chip hint on a %s item, never the embedding one",
+      (type) => {
+        renderFields(type);
+        expect(screen.getByText(labels.linkUrlPlainHint)).toBeInTheDocument();
+        expect(screen.queryByText(labels.linkUrlHint)).toBeNull();
       },
     );
   });

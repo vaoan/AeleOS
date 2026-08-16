@@ -2,7 +2,7 @@
 
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
-import { GripVertical, Plus } from "lucide-react";
+import { GripVertical, Plus, Sparkles } from "lucide-react";
 import { useId, useState } from "react";
 import { tid } from "@/shared/infrastructure/test-id";
 import {
@@ -24,6 +24,10 @@ import {
   type SectionCardLabels,
 } from "@/features/actors/presentation/section-card";
 import {
+  SECTION_PRESETS,
+  presetSection,
+} from "@/features/actors/presentation/section-presets";
+import {
   TemplatePicker,
   type TemplatePickerLabels,
 } from "@/features/actors/presentation/template-picker";
@@ -36,6 +40,10 @@ import {
  * confirmation words are named for what they confirm rather than `confirm` and
  * `cancel`: the toolbar's `cancel` already means "stop editing", and in one bag
  * they would be the same key with two meanings.
+ *
+ * `addSectionFor` is the one string the brand preset control needs from this
+ * bag — see its own field doc for why a brand's own name is never one of
+ * these fields.
  */
 export interface SectionEditorLabels
   extends SectionCardLabels, TemplatePickerLabels {
@@ -51,6 +59,14 @@ export interface SectionEditorLabels
   atLimit: string;
   /** Names a section's drag handle. */
   dragSection: string;
+  /**
+   * Opens the brand preset list — "Add a section for…" or similar.
+   *
+   * Names the group, not any one brand: a brand's own name is never
+   * translated, so this is the only string {@link SectionEditor} needs from
+   * the catalogue for the whole preset control.
+   */
+  addSectionFor: string;
 }
 
 /**
@@ -96,6 +112,16 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  * A template fills the whole array rather than adding to it, which is why the
  * picker asks first when there is anything to lose.
  *
+ * **The brand presets append; they never ask first.** Choosing "Instagram"
+ * from the preset list appends a `posts` section already named Instagram —
+ * see `section-presets.ts` for the full list and the rule behind which layout
+ * each brand targets. Appending is not destructive, so unlike the template
+ * picker there is nothing to confirm — and adding a confirmation here would
+ * make the two controls look interchangeable when they are not. The preset
+ * list is withdrawn at the same limit as the manual add control, for the same
+ * reason: offering a control that silently does nothing at the cap is the
+ * fault this project keeps catching.
+ *
  * Dragging reorders sections; each card carries its own item list. Reordering
  * writes `sort_order` on drop rather than relying on array position, because
  * position is not what the database stores.
@@ -127,6 +153,7 @@ export function SectionEditor<T extends FieldValues>({
 }: SectionEditorProps<T>) {
   const id = useId();
   const [newType, setNewType] = useState<SectionType>("cards");
+  const [presetsOpen, setPresetsOpen] = useState(false);
 
   const { fields, append, remove, move, replace } = useFieldArray({
     control,
@@ -215,44 +242,88 @@ export function SectionEditor<T extends FieldValues>({
       {atLimit ? (
         <p className="text-sm text-(--muted)">{labels.atLimit}</p>
       ) : (
-        <div className="flex items-end gap-2">
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-new-type`} className="text-xs font-medium">
-              {labels.newSectionType}
-            </label>
-            <select
-              id={`${id}-new-type`}
-              {...tid("new-section-type")}
-              value={newType}
-              onChange={(event) =>
-                setNewType(event.target.value as SectionType)
+        <>
+          <div className="flex items-end gap-2">
+            <div className="grid gap-1.5">
+              <label htmlFor={`${id}-new-type`} className="text-xs font-medium">
+                {labels.newSectionType}
+              </label>
+              <select
+                id={`${id}-new-type`}
+                {...tid("new-section-type")}
+                value={newType}
+                onChange={(event) =>
+                  setNewType(event.target.value as SectionType)
+                }
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                {SECTION_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {labels.types[type]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              {...tid("add-section")}
+              onClick={() =>
+                append(
+                  emptySection(newType, fields.length + 1) as FieldArray<
+                    T,
+                    ArrayPath<T>
+                  >,
+                )
               }
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
             >
-              {SECTION_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {labels.types[type]}
-                </option>
-              ))}
-            </select>
+              <Plus className="size-4" />
+              {labels.addSection}
+            </button>
           </div>
-          <button
-            type="button"
-            {...tid("add-section")}
-            onClick={() =>
-              append(
-                emptySection(newType, fields.length + 1) as FieldArray<
-                  T,
-                  ArrayPath<T>
-                >,
-              )
-            }
-            className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-          >
-            <Plus className="size-4" />
-            {labels.addSection}
-          </button>
-        </div>
+
+          {/* Brand presets append at once — there is nothing to lose by
+              adding a box, unlike the template picker's replace. The list is
+              withdrawn at the same limit as the control above, for the same
+              reason: a control that silently does nothing at the cap reads as
+              broken. */}
+          <div className="grid gap-1.5">
+            <button
+              type="button"
+              aria-expanded={presetsOpen}
+              {...tid("section-presets")}
+              onClick={() => setPresetsOpen((was) => !was)}
+              className="flex w-fit items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+            >
+              <Sparkles className="size-4" />
+              {labels.addSectionFor}
+            </button>
+
+            {presetsOpen ? (
+              <div className="flex flex-wrap gap-1.5">
+                {SECTION_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    {...tid(`preset-${preset.id}`)}
+                    onClick={() => {
+                      append(
+                        presetSection(preset, fields.length + 1) as FieldArray<
+                          T,
+                          ArrayPath<T>
+                        >,
+                      );
+                      setPresetsOpen(false);
+                    }}
+                    className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </>
       )}
     </section>
   );

@@ -329,6 +329,141 @@ describe("resolveEmbed", () => {
     });
   });
 
+  describe("Telegram", () => {
+    it("accepts a post address", () => {
+      expect(src("https://t.me/telegram/436")).toBe(
+        "https://t.me/telegram/436?embed=1",
+      );
+    });
+
+    it("drops every parameter and forces the embed one back on", () => {
+      expect(src("https://t.me/telegram/436?a=b")).toBe(
+        "https://t.me/telegram/436?embed=1",
+      );
+    });
+
+    it.each([
+      "https://t.me.evil.example/telegram/436",
+      "https://evil-t.me/telegram/436",
+      "https://user@t.me@evil.example/telegram/436",
+      "https://t.me/telegram",
+      "https://t.me/abc/436",
+      "https://t.me/telegram/abc",
+      "https://t.me/",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Instagram", () => {
+    it.each([
+      ["https://www.instagram.com/p/DbbY9pdm6Q2/", "p"],
+      ["https://www.instagram.com/reel/DbbY9pdm6Q2/", "reel"],
+      ["https://www.instagram.com/tv/DbbY9pdm6Q2/", "tv"],
+    ])("accepts a %s address, always embedded as /p/", (raw) => {
+      expect(src(raw)).toBe("https://www.instagram.com/p/DbbY9pdm6Q2/embed");
+    });
+
+    it.each([
+      "https://instagram.com.evil.example/p/DbbY9pdm6Q2/",
+      "https://evil-instagram.com/p/DbbY9pdm6Q2/",
+      "https://user@instagram.com@evil.example/p/DbbY9pdm6Q2/",
+      "https://www.instagram.com/story/DbbY9pdm6Q2/",
+      // A recognised kind whose code still fails the pattern — two characters,
+      // shorter than Instagram's own shortcode alphabet allows.
+      "https://www.instagram.com/p/ab/",
+      "https://www.instagram.com/p/",
+      "https://www.instagram.com/",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("X/Twitter", () => {
+    it.each([
+      "https://x.com/NASA/status/2088355206723477740",
+      "https://twitter.com/NASA/status/2088355206723477740",
+    ])("accepts %s", (raw) => {
+      expect(src(raw)).toBe(
+        "https://platform.twitter.com/embed/Tweet.html?id=2088355206723477740",
+      );
+    });
+
+    it.each([
+      "https://x.com.evil.example/NASA/status/2088355206723477740",
+      "https://evil-x.com/NASA/status/2088355206723477740",
+      "https://user@x.com@evil.example/NASA/status/2088355206723477740",
+      "https://x.com/NASA/likes/2088355206723477740",
+      // The `status` segment is present and the id segment is present but not
+      // all digits — the case the pattern check exists for, distinct from the
+      // id being absent entirely.
+      "https://x.com/NASA/status/abc",
+      "https://x.com/NASA/status/",
+      "https://x.com/NASA",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Pinterest", () => {
+    it("accepts a pin address", () => {
+      expect(src("https://www.pinterest.com/pin/21744010694976967/")).toBe(
+        "https://assets.pinterest.com/ext/embed.html?id=21744010694976967",
+      );
+    });
+
+    it.each([
+      "https://pinterest.com.evil.example/pin/21744010694976967/",
+      "https://evil-pinterest.com/pin/21744010694976967/",
+      "https://user@pinterest.com@evil.example/pin/21744010694976967/",
+      "https://www.pinterest.com/board/21744010694976967/",
+      "https://www.pinterest.com/pin/abc/",
+      "https://www.pinterest.com/",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Mastodon", () => {
+    // One instance per entry, never a wildcard — see embed-providers.ts for
+    // why, and for why pawb.social is not here at all: it answers this exact
+    // path with a 404 because it runs Lemmy rather than Mastodon.
+    it.each([
+      [
+        "https://mastodon.social/@Mastodon/116765910384325070",
+        "https://mastodon.social/@Mastodon/116765910384325070/embed",
+      ],
+      [
+        "https://mstdn.social/@Desa13l/117103829078125562",
+        "https://mstdn.social/@Desa13l/117103829078125562/embed",
+      ],
+      [
+        "https://meow.social/@avithetiger/113250402988268487",
+        "https://meow.social/@avithetiger/113250402988268487/embed",
+      ],
+      [
+        "https://furry.engineer/@sudaksis/117103833536639917",
+        "https://furry.engineer/@sudaksis/117103833536639917/embed",
+      ],
+    ])("accepts %s", (raw, expected) => {
+      expect(src(raw)).toBe(expected);
+    });
+
+    // pawb.social is not an allowlisted host at all — a Mastodon-shaped
+    // address on it must resolve to nothing rather than to a guess.
+    it.each([
+      "https://mastodon.social.evil.example/@Mastodon/116765910384325070",
+      "https://evil-mastodon.social/@Mastodon/116765910384325070",
+      "https://user@mastodon.social@evil.example/@Mastodon/116765910384325070",
+      "https://pawb.social/@somebody/1",
+      "https://mastodon.social/Mastodon/116765910384325070",
+      "https://mastodon.social/@Mastodon",
+      "https://mastodon.social/",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
   describe("what it refuses", () => {
     it("refuses nothing at all", () => {
       expect(src(undefined)).toBe("");
@@ -442,6 +577,14 @@ describe("PLAYER_ORIGINS", () => {
       ["https://tidal.com/track/12345"],
       ["https://www.mixcloud.com/luna/night-tape/"],
       ["https://www.twitch.tv/luna", { parentHost: "example.test" }],
+      ["https://t.me/telegram/436"],
+      ["https://www.instagram.com/p/DbbY9pdm6Q2/"],
+      ["https://x.com/NASA/status/2088355206723477740"],
+      ["https://www.pinterest.com/pin/21744010694976967/"],
+      ["https://mastodon.social/@Mastodon/116765910384325070"],
+      ["https://mstdn.social/@Desa13l/117103829078125562"],
+      ["https://meow.social/@avithetiger/113250402988268487"],
+      ["https://furry.engineer/@sudaksis/117103833536639917"],
     ];
     for (const [raw, options] of samples) {
       const resolved = resolveEmbed(raw, options);
@@ -469,6 +612,14 @@ describe("PLAYER_ORIGINS", () => {
           ["https://tidal.com/track/12345"],
           ["https://www.mixcloud.com/luna/night-tape/"],
           ["https://www.twitch.tv/luna", { parentHost: "example.test" }],
+          ["https://t.me/telegram/436"],
+          ["https://www.instagram.com/p/DbbY9pdm6Q2/"],
+          ["https://x.com/NASA/status/2088355206723477740"],
+          ["https://www.pinterest.com/pin/21744010694976967/"],
+          ["https://mastodon.social/@Mastodon/116765910384325070"],
+          ["https://mstdn.social/@Desa13l/117103829078125562"],
+          ["https://meow.social/@avithetiger/113250402988268487"],
+          ["https://furry.engineer/@sudaksis/117103833536639917"],
         ] as [string, { parentHost?: string }?][]
       ).map(
         ([raw, options]) => new URL(resolveEmbed(raw, options)!.src).origin,

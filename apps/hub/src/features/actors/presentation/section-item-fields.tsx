@@ -39,6 +39,13 @@ import {
  * purpose: which fields appear is decided by `LINKED`, `ICONED` and `PICTURED`
  * below, and splitting the labels the same way would mean two places to keep in
  * step and one of them silently winning.
+ *
+ * `linkUrl` carries TWO hints rather than one, for the same reason: what a
+ * pasted address becomes genuinely differs by layout — the layouts in
+ * `EMBEDS` can embed it, the remaining `LINKED` layouts never do — and one
+ * hint worded vague enough to cover both would be true of neither. `EMBEDS`
+ * decides which of {@link SectionItemFieldsLabels.linkUrlHint} and
+ * {@link SectionItemFieldsLabels.linkUrlPlainHint} is shown.
  */
 export interface SectionItemFieldsLabels extends IconPickerLabels {
   /** Field label for the item's title. */
@@ -61,8 +68,25 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
   imageUrlHint: string;
   /** Field label for the address a media or link item points at. */
   linkUrl: string;
-  /** Says which addresses become a player and what happens to the rest. */
+  /**
+   * Says which addresses become a player and what happens to the rest.
+   *
+   * Shown only for the layouts that can embed — `video`, `music`, `posts` —
+   * see {@link EMBEDS}. It must never claim embedding for a layout that
+   * cannot: `links` always renders a button and `socials` always renders a
+   * chip, whatever host was pasted, which is what {@link linkUrlPlainHint}
+   * exists to say instead.
+   */
   linkUrlHint: string;
+  /**
+   * Says the address becomes a button or a chip, with no mention of playing
+   * or embedding.
+   *
+   * Shown for `links` and `socials` — see {@link EMBEDS} — neither of which
+   * ever embeds anything regardless of the host pasted, so a hint borrowed
+   * from {@link linkUrlHint} would promise behaviour they do not have.
+   */
+  linkUrlPlainHint: string;
   /** Stands in for the preview until an address is written. */
   imageMissing: string;
 }
@@ -104,18 +128,47 @@ export interface SectionItemFieldsProps<T extends FieldValues> {
 /**
  * The layouts whose items carry an address.
  *
- * `music` and `video` play theirs; `links` turns theirs into a button. Every
- * other layout would accept the field, store it, and render nothing — which is
- * the worst kind of control, because it refuses nothing and shows nothing and
- * gives somebody no way to learn it did nothing.
+ * `music` and `video` play theirs; `links` turns theirs into a button;
+ * `socials` is what `resolveSocial` brands into a chip; `posts` frames it as
+ * an embedded social post where a provider allows it, and falls back to the
+ * same branded chip `socials` uses otherwise — the address is the whole point
+ * of the layout either way. Every other layout would accept the field, store
+ * it, and render nothing — which is the worst kind of control, because it
+ * refuses nothing and shows nothing and gives somebody no way to learn it did
+ * nothing.
  */
-const LINKED = new Set<SectionType>(["video", "music", "links"]);
+const LINKED = new Set<SectionType>([
+  "video",
+  "music",
+  "links",
+  "socials",
+  "posts",
+]);
 
-/** The layouts that render an item's icon. */
-const ICONED = new Set<SectionType>(["cards", "links"]);
+/**
+ * The layouts that render an item's icon.
+ *
+ * `socials` offers it so an author can override the icon `resolveSocial`
+ * would otherwise derive from the address — an author who picked one meant
+ * it.
+ */
+const ICONED = new Set<SectionType>(["cards", "links", "socials"]);
 
 /** The layouts that render an item's picture. */
 const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
+
+/**
+ * The `LINKED` layouts that can actually turn an address into a player.
+ *
+ * `links` and `socials` are `LINKED` but never embed anything — `links`
+ * always renders a button and `socials` always renders a chip, whatever host
+ * was pasted. The layouts in `EMBEDS` put the address in a frame and show
+ * {@link SectionItemFieldsLabels.linkUrlHint}; the remaining `LINKED` layouts
+ * always render a button or a chip and show
+ * {@link SectionItemFieldsLabels.linkUrlPlainHint} instead, which says
+ * nothing about embedding because there is nothing to say.
+ */
+const EMBEDS = new Set<SectionType>(["video", "music", "posts"]);
 
 /**
  * One item's fields, in whichever language is being written.
@@ -136,10 +189,12 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * `FURSONA_TEMPLATES`, which used to ship that guidance as content and so
  * published it.
  *
- * `linkUrl` and `linkUrlHint` name the address field the media and link
- * layouts carry. The hint says which addresses become a player and what happens
- * to the rest, because "paste a link" is otherwise a promise the page cannot
- * keep for every host.
+ * `linkUrl` names the address field the media, link and post layouts carry.
+ * Which of its two hints is shown — {@link SectionItemFieldsLabels.linkUrlHint}
+ * or {@link SectionItemFieldsLabels.linkUrlPlainHint} — is decided by
+ * {@link EMBEDS}, because "paste a link" is otherwise a promise this field
+ * cannot keep the same way for every layout that shows it: some embed, some
+ * only ever link or chip.
  *
  * **What is offered depends on the section's layout**, matching what the public
  * page will render: an icon on `cards`, an image address on `gallery`, neither
@@ -147,11 +202,12 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * accepts what somebody types, refuses nothing, and shows nothing, with no way
  * for them to learn that it did nothing.
  *
- * The three sets above the component — `LINKED`, `ICONED`, `PICTURED` — are
- * what decide that, one per optional field. They are sets rather than a chain
- * of comparisons because each field is now wanted by more than one layout, and
- * `type === "cards" || type === "links"` repeated three times is the shape that
- * quietly loses a layout when a fourth is added.
+ * The sets above the component — `LINKED`, `ICONED`, `PICTURED`, `EMBEDS` —
+ * are what decide that, one per optional field or per wrinkle within one.
+ * They are sets rather than a chain of comparisons because each field or hint
+ * is wanted by more than one layout, and repeating
+ * `type === "cards" || type === "links"` for every layout is the shape that
+ * quietly loses one when another is added.
  *
  * **A picture is an address somebody pasted, and nothing here stores a file.**
  * That is the platform's rule for every piece of external media — see
@@ -232,7 +288,7 @@ export function SectionItemFields<T extends FieldValues>({
             className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-1.5 text-sm"
           />
           <p id={`${id}-link-hint`} className="text-xs text-(--muted)">
-            {labels.linkUrlHint}
+            {EMBEDS.has(type) ? labels.linkUrlHint : labels.linkUrlPlainHint}
           </p>
         </div>
       ) : null}

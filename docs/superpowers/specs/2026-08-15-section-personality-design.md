@@ -134,40 +134,69 @@ Three traps the table shape introduces that the branch chain did not have:
 **Video** — YouTube · Vimeo · Dailymotion · TikTok · Twitch
 **Music** — Spotify · SoundCloud · Apple Music · Deezer · Tidal · Mixcloud
 **Posts** — Twitter/X · Instagram · Telegram · Pinterest · Bluesky · Mastodon
+(the six candidates investigated in Phase B; Bluesky settled as a `socials`
+chip rather than a provider — see "What was uncertain, and how it settled"
+below)
 
 `EmbedShape` grows past `video | audio`. A tweet and a pin are neither, and the
 renderer cannot ask a cross-origin frame how tall it wants to be — so the shape
 travels with the resolution, exactly as it does today.
 
-### What is uncertain, stated as uncertain
+### What was uncertain, and how it settled
 
-The design must not claim these all work equally. They do not.
+Phase A of this design left the six candidates below genuinely unknown. Phase
+B answered every one of them: each was loaded at its exact embed address,
+logged out, in a real Chromium browser, on 2026-08-16 — method and evidence in
+`.superpowers/sdd/2026-08-16-section-personality-phase-b-posts-and-socials/task-3-findings.md`.
+The design must still not claim these all work equally, because two answers
+below are "works today, on a foundation nobody promised" rather than "works."
 
+- **Instagram works.** `/p/{code}/embed` rendered the post for a logged-out
+  visitor, with no login wall. The caution above this paragraph used to be
+  written from Meta's reputation for walling off logged-out access elsewhere
+  on the site; the real, logged-out browser disagreed.
 - **Twitter/X (`platform.twitter.com/embed/Tweet.html?id=`) and Pinterest
-  (`assets.pinterest.com/ext/embed.html?id=`) run on undocumented endpoints.**
-  They work today. Nobody promised they will tomorrow, and the officially
-  supported path for both is a third-party `<script>` in our page, which
-  `script-src` does not allow and which this design will not add.
-- **Instagram's `/p/{id}/embed` degrades for logged-out visitors.** Meta has
-  been progressively restricting it. It may render a login wall instead of the
-  post.
-- **Bluesky's official embed is keyed by DID**
-  (`embed.bsky.app/embed/{did}/app.bsky.feed.post/{rkey}`) while the shareable
-  URL carries a **handle** (`bsky.app/profile/{handle}/post/{rkey}`). Resolving
-  handle→DID is a fetch, which is out of scope. **Verify during Phase A**: if the
-  embed endpoint does not accept a handle, Bluesky becomes a link chip and that
-  is the correct outcome, not a shortfall to work around.
+  (`assets.pinterest.com/ext/embed.html?id=`) work, and are still undocumented
+  endpoints.** Both rendered cleanly, with no login wall. Neither is a
+  supported, documented API — the officially supported path for both is a
+  third-party `<script>` in our page, which `script-src` does not allow and
+  which this design will not add. **Verified working 2026-08-16, undocumented
+  endpoint, may break without notice** is the only honest way to describe
+  either. Verification proves it worked that day; it does not make it
+  supported, and it must never be shortened to a bare "works."
+- **Telegram works.** `t.me/{channel}/{id}?embed=1` rendered the post cleanly
+  for a logged-out visitor.
+- **Bluesky is settled and refused, permanently.** Its official embed is keyed
+  by DID (`embed.bsky.app/embed/{did}/app.bsky.feed.post/{rkey}`) while the
+  shareable URL carries a **handle**
+  (`bsky.app/profile/{handle}/post/{rkey}`). Requesting the embed with a
+  handle in the DID position returns **HTTP 400**
+  (`Invalid DID: DID syntax didn't validate via regex`) — a hard rejection,
+  not a degraded render. Turning a pasted Bluesky link into a working embed
+  would need an outbound handle→DID lookup at save- or render-time, and this
+  project refuses outbound fetches (see above) — that resolution path is
+  closed, not merely unimplemented. **Bluesky is a `socials` chip.** This is
+  recorded here so it is not reopened hoping a workaround exists without a
+  fetch: there isn't one.
 - **Twitch requires `parent=` naming the embedding domain.** So a Twitch embed
   works on `me.furrycolombia.com` and on localhost, and **not on a preview
   deployment**. That is a property of Twitch, and the parameter is built from
   configuration rather than from anything an author typed.
-- **Mastodon and PeerTube are federated**, so the host is not knowable in
-  advance. They get a **named list of instances** — `mastodon.social`,
-  `mstdn.social`, and the furry ones (`meow.social`, `furry.engineer`,
-  `pawb.social`) — and any other instance falls back to a link chip.
-  **`frame-src` must never be opened to `https:` for this.** That directive is
-  the entire second layer under the media layouts, and trading it for one feature
-  would be trading the guarantee for the thing it guards.
+- **Mastodon works, on a named list of instances verified individually —
+  never a wildcard, and never inferred from the protocol.** `mastodon.social`,
+  `mstdn.social`, `meow.social` and `furry.engineer` each render
+  `/@user/{id}/embed` for a logged-out visitor. A fifth candidate,
+  `pawb.social`, was considered and refused: it runs Lemmy, a link
+  aggregator, not Mastodon — confirmed via its own `/nodeinfo/2.1`, which
+  names `"software":{"name":"lemmy"}` — so its `/@user/{id}/embed` 404s. A
+  Mastodon-shaped hostname is not evidence of Mastodon software running
+  behind it, and that is the mistake that would have shipped a fifth roster
+  entry that 404s on every render. PeerTube is the same federated shape and
+  remains unimplemented; adding it later needs the same per-instance
+  verification, not an assumption from the pattern above. **`frame-src` must
+  never be opened to `https:` for either.** That directive is the entire
+  second layer under the media layouts, and trading it for one feature would
+  be trading the guarantee for the thing it guards.
 
 ### The failure this design cannot close, and does not pretend to
 
@@ -188,7 +217,10 @@ the seventeen are load-bearing on somebody else's goodwill. **Do not describe th
 Two new layouts, not seventeen.
 
 - **`posts`** frames a social post: Twitter/X, Instagram, Telegram, Pinterest,
-  Bluesky, Mastodon.
+  and Mastodon on a named list of instances (`mastodon.social`,
+  `mstdn.social`, `meow.social`, `furry.engineer`). Bluesky was investigated
+  and settled the other way — see "What was uncertain, and how it settled"
+  above — and renders as a `socials` chip instead of a frame.
 - **`socials`** is proudly a wall of links — a brand icon and the handle pulled
   out of the pasted URL, so `instagram.com/luna.fox` reads "Instagram ·
   @luna.fox" rather than as an address. It covers everything with no embed at

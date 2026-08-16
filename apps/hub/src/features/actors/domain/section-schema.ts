@@ -8,6 +8,20 @@ import { z } from "zod";
  * is somebody's character rather than a product listing, and the layouts that
  * serve a catalogue do not stretch to a page whose whole job is to be theirs.
  *
+ * **`socials` needs no third-party cooperation and so cannot break.** Every
+ * other expressive layout frames or fetches something from elsewhere; this one
+ * only brands whatever address the author pasted, through `resolveSocial`, so
+ * there is nothing upstream that can go down and take it with it.
+ *
+ * **`posts` embeds a social post directly, and only where a provider was
+ * verified to allow it.** Telegram, Instagram, X/Twitter, Pinterest and a
+ * named list of Mastodon instances back it — see `embed-providers.ts` for
+ * exactly which, found by loading each candidate embed address in a real,
+ * logged-out browser rather than by plausibility. An address that resolves to
+ * none of them — Bluesky's shareable link is the case this exists for — falls
+ * back to the same branded chip `socials` renders, never to nothing and never
+ * to a bare link.
+ *
  * **The database holds this same list in `is_section_type()`**, and it is
  * authoritative — a type it does not know is refused whatever this array says.
  * `section-limits-match-migration.test.ts` reads the SQL and fails the build if
@@ -25,6 +39,8 @@ export const SECTION_TYPES = [
   "stats",
   "quote",
   "timeline",
+  "socials",
+  "posts",
 ] as const;
 
 /** One of the layouts. */

@@ -56,7 +56,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}]}]. Validated by set_actor_sections.';
+  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}]}]. type is one of is_section_type()''s list, which now includes socials and posts. Validated by set_actor_sections.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -235,7 +235,16 @@ as $$
     -- The expressive ones. A fursona page is somebody's character rather than
     -- a product listing, and the layouts that serve a catalogue do not stretch
     -- to a page whose whole job is to be theirs.
-    'video', 'music', 'carousel', 'links', 'stats', 'quote', 'timeline'
+    'video', 'music', 'carousel', 'links', 'stats', 'quote', 'timeline',
+    -- A wall of branded link chips, built from `link_url` alone — it needs no
+    -- third-party cooperation, unlike the embed layouts above, so it is the one
+    -- layout that cannot break.
+    'socials',
+    -- Embedded social posts — Telegram, Instagram, X/Twitter, Pinterest and a
+    -- named list of Mastodon instances, each verified to allow framing before
+    -- being added. An address none of them can play falls back to the same
+    -- branded chip 'socials' renders.
+    'posts'
   )
 $$;
 

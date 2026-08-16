@@ -288,7 +288,7 @@ as if it hid the connection.
 ## The layouts, and what the two text fields mean in each
 
 A page is sections, a section has a layout, and a layout decides what its items
-look like. There are eleven. The first four came from Libra; the rest exist
+look like. The first four came from Libra; the rest exist
 because **a fursona page is somebody's character, not a product listing** — the
 layouts that serve a catalogue do not stretch to a page whose whole job is to
 be theirs. More are wanted; this list is a floor, not a ceiling.
@@ -306,6 +306,8 @@ be theirs. More are wanted; this list is a floor, not a ceiling.
 | `stats`      | one fact             | **the label**   | **the value**     | —                  |
 | `quote`      | a quotation          | **who said it** | **what was said** | —                  |
 | `timeline`   | an entry in order    | heading         | the story         | —                  |
+| `socials`    | a branded link chip  | chip label      | —                 | `link_url`, `icon` |
+| `posts`      | an embedded post     | frame title     | caption           | `link_url`         |
 
 **`stats` and `quote` invert the pair**, and that is the one thing here somebody
 will get wrong. Everywhere else the title is the big text; in those two the
@@ -329,8 +331,8 @@ Two consequences that must not be undone:
   description there is a perfectly good card. `0009` always accepted an empty
   description; only `sectionItemSchema` forbade it.
 - **Every layout leaves the element out when the description is empty**, or an
-  empty `<p>` becomes a visible hole in a gap-spaced grid. A test walks all
-  eleven.
+  empty `<p>` becomes a visible hole in a gap-spaced grid. A test walks every
+  layout.
 - **`two-column` drops the whole ROW, and the whole list when no row is left.**
   It is the only layout that hides an item rather than one element of one, and
   the reason is what the layout is: a table of label and value. A `dt` without
@@ -439,6 +441,52 @@ wrong and both fail quietly:
   something are `frame-src`, `object-src`, `base-uri`, `form-action` and
   `frame-ancestors`, none of which depend on `script-src`. A nonce is the
   upgrade, and its cost is that every page renders dynamically.
+
+### `socials` accepts anything; `posts` and the media layouts do not
+
+`resolveSocial` (`domain/social-links.ts`) is deliberately the opposite of
+`resolveEmbed`. **It accepts any `http(s)` address.** A host in its brand
+table becomes a chip carrying that brand's label, icon and the handle pulled
+from the URL; a host outside the table still becomes a chip, labelled with its
+own hostname rather than dropped. It returns `null` only for an address that
+must not be linked at all — `javascript:`, `data:`, or nothing parseable as a
+URL.
+
+**This is the property that makes the layout worth having, and the one
+somebody will look at and want to "fix" by refusing an unknown host. Do not.**
+`socials` exists precisely so FurAffinity, Toyhouse, Weasyl, Ko-fi, itch.io,
+Bandcamp and ArtStation — and whatever a person links next — all have
+somewhere to go, with no table entry required and nothing that can break.
+Nothing here reaches a frame or executes anything, so tightening this to a
+known-hosts allowlist would not be a security fix; it would just delete the
+layout's reason for existing.
+
+Some services give each person their own subdomain — `luna.itch.io`,
+`luna.bandcamp.com` — which an exact-hostname table cannot brand, because the
+hostname differs for every user. These fall through to the generic chip,
+labelled with their own hostname, and that is a correct outcome, not a gap.
+**Do not "fix" it with suffix matching.** Suffix matching is exactly the
+mistake `resolveEmbed`'s allowlist already refuses, for exactly the same
+reason `return_to` had to avoid it in the picker: `evil-itch.io` and
+`itch.io.evil.example` both look plausible under a suffix rule, and a chip
+that can be spoofed into wearing a brand's name is worse than one labelled
+with its own honest hostname.
+
+A `posts` item whose address resolves to no provider — Bluesky, always;
+anything else `resolveEmbed` cannot place — renders as a `socials` chip,
+never as nothing and never as a bare link. `posts` and `socials` share the
+same chip component for exactly this reason: a page that already brands
+Bluesky as a chip on `socials` would be inconsistent showing it unbranded
+here instead.
+
+`FRAME_SHAPE.post` (`presentation/public-sections.tsx`) is a fixed 420×600px
+column, chosen by reasoning about how each provider's own widget — Telegram,
+Instagram, a tweet, a Mastodon status — is designed — narrow, meant for a
+sidebar — **not measured against any of their real rendered content.** That is
+a deliberate, proportionate exception to
+"measure, do not eyeball": the frame scrolls its own content, so a wrong
+guess costs dead space rather than a broken render. Do not read this as
+having been checked.
 
 ## Per-profile theming — built
 

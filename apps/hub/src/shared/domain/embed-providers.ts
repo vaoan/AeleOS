@@ -5,9 +5,12 @@
  * so the shape travels with the resolution rather than being guessed from the
  * provider at the call site. `portrait` is a phone-shaped frame — TikTok is
  * the only provider that asks for it, since a landscape frame would letterbox
- * a vertical video into a strip.
+ * a vertical video into a strip. `post` is none of the others: a social post's
+ * height varies with how much its author wrote, so its frame is a fixed-height,
+ * narrow column that scrolls its own content rather than an aspect ratio tuned
+ * for a video or a player's controls.
  */
-export type EmbedShape = "video" | "audio" | "portrait";
+export type EmbedShape = "video" | "audio" | "portrait" | "post";
 
 /**
  * The shape `EMBED_PROVIDERS`' entries are checked against.
@@ -356,6 +359,113 @@ function twitchTarget(url: URL): string | null {
   return TWITCH_NAME.test(first) ? `channel:${first}` : null;
 }
 
+/** A Telegram channel username: 5-32 word characters, Telegram's own rule. */
+const TELEGRAM_CHANNEL = /^\w{5,32}$/;
+
+/** A Telegram post id: digits only. */
+const TELEGRAM_POST_ID = /^\d{1,10}$/;
+
+/**
+ * Resolves a Telegram post address to its channel and post id.
+ *
+ * @param url - a parsed URL already known to be on `t.me`.
+ * @returns `channel/id`, or null.
+ */
+function telegramPath(url: URL): string | null {
+  const [channel, id] = url.pathname.split("/").filter(Boolean);
+  if (!channel || !id) return null;
+  return TELEGRAM_CHANNEL.test(channel) && TELEGRAM_POST_ID.test(id)
+    ? `${channel}/${id}`
+    : null;
+}
+
+/** The Instagram post kinds Instagram's own `/p/<code>/embed` endpoint serves. */
+const INSTAGRAM_KINDS = new Set(["p", "reel", "tv"]);
+
+/** An Instagram shortcode: Instagram's own URL-safe alphabet. */
+const INSTAGRAM_CODE = /^[\w-]{5,20}$/;
+
+/**
+ * Resolves an Instagram post address to its shortcode.
+ *
+ * `/p/`, `/reel/` and `/tv/` all resolve — Instagram's embed endpoint serves
+ * all three from the same `/p/<code>/embed` path, so the kind is checked and
+ * then discarded rather than carried into the template.
+ *
+ * @param url - a parsed URL already known to be on Instagram's host.
+ * @returns the shortcode, or null.
+ */
+function instagramCode(url: URL): string | null {
+  const [kind, code] = url.pathname.split("/").filter(Boolean);
+  if (!kind || !INSTAGRAM_KINDS.has(kind) || !code) return null;
+  return INSTAGRAM_CODE.test(code) ? code : null;
+}
+
+/** An X/Twitter handle: word characters, one to fifteen — Twitter's own limit. */
+const TWITTER_USER = /^\w{1,15}$/;
+
+/** A tweet id: digits only. */
+const TWEET_ID = /^\d{1,25}$/;
+
+/**
+ * Resolves an X/Twitter status address to its tweet id.
+ *
+ * The author's handle is part of the pasted address but not of the embed —
+ * `platform.twitter.com`'s widget takes only the id — so it is validated and
+ * discarded rather than carried into the template.
+ *
+ * @param url - a parsed URL already known to be on `x.com` or `twitter.com`.
+ * @returns the tweet id, or null.
+ */
+function tweetId(url: URL): string | null {
+  const [user, kind, id] = url.pathname.split("/").filter(Boolean);
+  if (!user || kind !== "status" || !id) return null;
+  return TWITTER_USER.test(user) && TWEET_ID.test(id) ? id : null;
+}
+
+/** A Pinterest pin id: digits only. */
+const PIN_ID = /^\d{5,25}$/;
+
+/**
+ * Resolves a Pinterest pin address to its id.
+ *
+ * @param url - a parsed URL already known to be on `pinterest.com`.
+ * @returns the pin id, or null.
+ */
+function pinterestPinId(url: URL): string | null {
+  const [kind, id] = url.pathname.split("/").filter(Boolean);
+  if (kind !== "pin" || !id) return null;
+  return PIN_ID.test(id) ? id : null;
+}
+
+/** A Mastodon username: word characters and dots, one to thirty — Mastodon's own limit. */
+const MASTODON_USER = /^[\w.]{1,30}$/;
+
+/** A Mastodon status id: digits only. */
+const MASTODON_POST_ID = /^\d{1,25}$/;
+
+/**
+ * Resolves a Mastodon post address to its user and status id.
+ *
+ * **Shared by every Mastodon-instance entry in the table.** Which instance a
+ * pasted address is on is already decided by which entry's `hosts` matched it
+ * — the table has one entry per allowed instance, never a wildcard — so this
+ * function only has to parse the `@user/id` shape every instance uses, and
+ * each entry's own `src` re-attaches its own host. Adding an instance is a
+ * table entry, never a change to this parser.
+ *
+ * @param url - a parsed URL already known to be on an allowlisted instance.
+ * @returns `user/id`, or null.
+ */
+function mastodonPath(url: URL): string | null {
+  const [handle, id] = url.pathname.split("/").filter(Boolean);
+  if (!handle?.startsWith("@") || !id) return null;
+  const user = handle.slice(1);
+  return MASTODON_USER.test(user) && MASTODON_POST_ID.test(id)
+    ? `${user}/${id}`
+    : null;
+}
+
 /**
  * Every service this platform can build a player address for.
  *
@@ -401,6 +511,28 @@ function twitchTarget(url: URL): string | null {
  *   parsed, pattern-matched value like every other value these templates
  *   interpolate, so it is `encodeURIComponent`-ed on the way in rather than
  *   trusted as an exception to that rule.
+ * - **Telegram** — `t.me/<channel>/<id>`, a five-to-thirty-two-character
+ *   channel name and a numeric post id.
+ * - **Instagram** — `instagram.com/p/<code>`, `/reel/<code>` or `/tv/<code>`;
+ *   all three resolve to the same `/p/<code>/embed` address.
+ * - **X/Twitter** — `x.com/<user>/status/<id>` or the equivalent
+ *   `twitter.com` address; the handle is validated and then discarded, since
+ *   the widget takes only the tweet id.
+ * - **Pinterest** — `pinterest.com/pin/<id>`, a numeric pin id, embedded on
+ *   `assets.pinterest.com` — a dedicated widget host distinct from
+ *   Pinterest's own logged-out web app, which walls off anonymous visitors.
+ * - **Mastodon** — `<instance>/@<user>/<id>`, one table entry per allowed
+ *   instance rather than one entry for the whole protocol, because
+ *   `EmbedProviderDef.origin` is a single string and every entry's `src` must
+ *   build on the host it declares. The allowed instances — `mastodon.social`,
+ *   `mstdn.social`, `meow.social`, `furry.engineer` — were each verified
+ *   directly: its `/@user/id/embed` address was loaded logged out and
+ *   confirmed to render the post, with no `X-Frame-Options` and no
+ *   `frame-ancestors` excluding this app. Another candidate, `pawb.social`,
+ *   was considered and refused: it answers `/@user/id/embed` with a 404
+ *   because it runs Lemmy, not Mastodon — confirmed via its own
+ *   `/nodeinfo/2.1`, which names `"software":{"name":"lemmy"}`. A
+ *   Mastodon-shaped host is not evidence of Mastodon software.
  */
 export const EMBED_PROVIDERS = [
   {
@@ -501,6 +633,73 @@ export const EMBED_PROVIDERS = [
       const [kind, id] = value.split(":");
       return `https://player.twitch.tv/?${kind === "video" ? "video" : "channel"}=${id}&parent=${encodeURIComponent(parentHost)}`;
     },
+  },
+  {
+    id: "telegram",
+    hosts: ["t.me"],
+    origin: "https://t.me",
+    shape: "post",
+    resolve: telegramPath,
+    src: (value) => `https://t.me/${value}?embed=1`,
+  },
+  {
+    id: "instagram",
+    hosts: ["instagram.com"],
+    origin: "https://www.instagram.com",
+    shape: "post",
+    resolve: instagramCode,
+    src: (code) => `https://www.instagram.com/p/${code}/embed`,
+  },
+  {
+    id: "twitter",
+    hosts: ["x.com", "twitter.com"],
+    origin: "https://platform.twitter.com",
+    shape: "post",
+    resolve: tweetId,
+    src: (id) => `https://platform.twitter.com/embed/Tweet.html?id=${id}`,
+  },
+  {
+    id: "pinterest",
+    hosts: ["pinterest.com"],
+    origin: "https://assets.pinterest.com",
+    shape: "post",
+    resolve: pinterestPinId,
+    src: (id) => `https://assets.pinterest.com/ext/embed.html?id=${id}`,
+  },
+  // Mastodon is one entry per instance, never a wildcard — see this table's
+  // own TSDoc for why `origin` forces that shape, and for the fifth instance
+  // considered and refused.
+  {
+    id: "mastodon-social",
+    hosts: ["mastodon.social"],
+    origin: "https://mastodon.social",
+    shape: "post",
+    resolve: mastodonPath,
+    src: (value) => `https://mastodon.social/@${value}/embed`,
+  },
+  {
+    id: "mstdn-social",
+    hosts: ["mstdn.social"],
+    origin: "https://mstdn.social",
+    shape: "post",
+    resolve: mastodonPath,
+    src: (value) => `https://mstdn.social/@${value}/embed`,
+  },
+  {
+    id: "meow-social",
+    hosts: ["meow.social"],
+    origin: "https://meow.social",
+    shape: "post",
+    resolve: mastodonPath,
+    src: (value) => `https://meow.social/@${value}/embed`,
+  },
+  {
+    id: "furry-engineer",
+    hosts: ["furry.engineer"],
+    origin: "https://furry.engineer",
+    shape: "post",
+    resolve: mastodonPath,
+    src: (value) => `https://furry.engineer/@${value}/embed`,
   },
 ] as const satisfies readonly EmbedProviderDef[];
 
