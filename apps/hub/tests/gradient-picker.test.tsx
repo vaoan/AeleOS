@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { GradientPicker } from "@/features/actors/presentation/gradient-picker";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import type { Gradient } from "@/shared/domain/gradient";
@@ -169,10 +169,42 @@ describe("GradientPicker", () => {
 describe("GradientPicker, the shape of the gradient", () => {
   it("changes the kind", () => {
     const { latest } = renderPicker();
-    fireEvent.change(screen.getByTestId("gradient-kind"), {
-      target: { value: "conic" },
-    });
+    fireEvent.click(screen.getByTestId("gradient-kind-conic"));
     expect(latest().kind).toBe("conic");
+  });
+
+  // Three kinds, three buttons, all three visible at once. A `select` showed
+  // one answer and hid the other two behind a click, on the control that
+  // decides what every control below it even is.
+  it("offers every kind at once and marks the chosen one", () => {
+    renderPicker();
+    expect(screen.getByTestId("gradient-kind-linear")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByTestId("gradient-kind-radial")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByTestId("gradient-kind-conic")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  // Each button previews itself with the person's OWN stops, so choosing a
+  // kind is a choice between three pictures rather than three words. Naming
+  // them alone left "conic" meaning nothing to anybody who had not met one.
+  it("paints each kind's button with that kind of gradient", () => {
+    renderPicker();
+    const glyph = (kind: string) =>
+      screen
+        .getByTestId(`gradient-kind-${kind}`)
+        .querySelector("span[style]")
+        ?.getAttribute("style") ?? "";
+    expect(glyph("linear")).toContain("linear-gradient(");
+    expect(glyph("radial")).toContain("radial-gradient(");
+    expect(glyph("conic")).toContain("conic-gradient(");
   });
 
   // A radial gradient runs outward from a point and has no direction. A slider
@@ -195,9 +227,7 @@ describe("GradientPicker, the shape of the gradient", () => {
     renderPicker();
     expect(screen.queryByTestId("gradient-shape")).toBeNull();
     expect(screen.queryByTestId("gradient-extent")).toBeNull();
-    fireEvent.change(screen.getByTestId("gradient-kind"), {
-      target: { value: "radial" },
-    });
+    fireEvent.click(screen.getByTestId("gradient-kind-radial"));
     expect(screen.getByTestId("gradient-shape")).toBeInTheDocument();
     expect(screen.getByTestId("gradient-extent")).toBeInTheDocument();
   });
@@ -219,9 +249,7 @@ describe("GradientPicker, the shape of the gradient", () => {
   it("offers a centre to the two kinds that have one", () => {
     renderPicker();
     expect(screen.queryByTestId("gradient-x")).toBeNull();
-    fireEvent.change(screen.getByTestId("gradient-kind"), {
-      target: { value: "radial" },
-    });
+    fireEvent.click(screen.getByTestId("gradient-kind-radial"));
     expect(screen.getByTestId("gradient-x")).toBeInTheDocument();
     expect(screen.getByTestId("gradient-y")).toBeInTheDocument();
   });
@@ -284,5 +312,95 @@ describe("GradientPicker, what it shows", () => {
   it("names the result for anybody who cannot see it", () => {
     renderPicker();
     expect(screen.getByLabelText(labels.preview)).toBeInTheDocument();
+  });
+
+  // The result is what somebody is building, so it is the first thing and the
+  // largest. It used to be a tile at the END of a wrapping row, which put it
+  // somewhere different for every kind — while the biggest element on screen
+  // was the stop bar, a deliberately FAKE left-to-right ramp.
+  it("puts the result above the stops rather than after them", () => {
+    renderPicker();
+    const before = screen
+      .getByTestId("gradient-preview")
+      .compareDocumentPosition(screen.getByTestId("gradient-bar"));
+    expect(before & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // A slider's position means nothing on its own. The canvas dials on the
+  // panel around this one have carried a readout since they shipped; these
+  // did not, so "how far round is the angle" was answerable only by dragging
+  // it to an end and back.
+  it("reads out every value a slider sets", () => {
+    renderPicker({ ...three(), kind: "conic", repeating: true, every: 40 });
+    fireEvent.click(screen.getByRole("button", { name: "Colour 1" }));
+    for (const readout of ["0%", "90°", "50%", "40%"]) {
+      expect(screen.getAllByText(readout).length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("GradientPicker, where the controls sit", () => {
+  /**
+   * Every control the current kind offers, by test id.
+   *
+   * @returns the ids present.
+   */
+  const shown = () =>
+    [
+      "gradient-angle",
+      "gradient-shape",
+      "gradient-extent",
+      "gradient-x",
+      "gradient-y",
+      "gradient-repeating",
+      "gradient-every",
+    ].filter((id) => screen.queryByTestId(id) !== null);
+
+  // **THE REGRESSION TEST for the panel rearranging itself.** Every control
+  // that only some kinds read used to be scattered across four wrapping rows —
+  // `every` in the row ABOVE the bar, the angle beside Add and Remove, the
+  // shape and the centre below. So ticking Repeat pushed the bar and
+  // everything under it down, and choosing Radial made the angle vanish from
+  // one row while four controls appeared in another: the whole panel shifted
+  // under somebody's hands every time they touched the kind.
+  //
+  // Containment and position, not presence: "the shape control is on the page"
+  // passes with it back where it was. Sabotage this by moving any one of them
+  // out of the box and the loop below fails by name.
+  it("keeps every kind-specific control in one box, after everything else", () => {
+    const { view } = renderPicker({ ...three(), kind: "radial" });
+    fireEvent.click(screen.getByTestId("gradient-repeating"));
+    const options = screen.getByTestId("gradient-shape-options");
+    for (const id of shown()) {
+      expect(within(options).getByTestId(id)).toBeInTheDocument();
+    }
+    expect(view.container.querySelector("section")?.lastElementChild).toBe(
+      options,
+    );
+  });
+
+  // The corollary, and the thing somebody actually feels: what a kind does NOT
+  // read may only ever disappear from that one box. So the result, the stops
+  // and the stop's own controls hold their places through every switch.
+  //
+  // Compared by which controls each row holds rather than by its markup —
+  // the result tile MUST repaint when the kind changes, since it is the
+  // result.
+  it("leaves the result and the stops in place through every kind", () => {
+    const { view } = renderPicker();
+    const above = () =>
+      [...(view.container.querySelector("section")?.children ?? [])]
+        .slice(0, -1)
+        .map((row) =>
+          [...row.querySelectorAll("[data-testid]")]
+            .map((each) => each.getAttribute("data-testid"))
+            .join(" "),
+        );
+    const linear = above();
+    expect(linear).toHaveLength(4);
+    for (const kind of ["radial", "conic", "linear"]) {
+      fireEvent.click(screen.getByTestId(`gradient-kind-${kind}`));
+      expect(above()).toEqual(linear);
+    }
   });
 });

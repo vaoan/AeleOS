@@ -136,10 +136,14 @@ describe("ThemeConfigurator", () => {
 
     // The page's own gradient is a different thing that was called the same
     // word, which is the whole reason this box exists. It must stay outside.
+    // Selected by test id rather than by label text: every slider in the
+    // gradient picker reads its own value out inside its `<label>`, the way
+    // the canvas dials beside it always have, so the label's text is "Angle"
+    // followed by the degrees and an exact match on the name finds nothing.
     it("leaves the page's background outside it", () => {
       openPanel();
       expect(screen.getByTestId("theme-animation")).not.toContainElement(
-        screen.getByLabelText("Angle"),
+        screen.getByTestId("gradient-angle"),
       );
     });
 
