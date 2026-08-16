@@ -14,7 +14,6 @@ vi.mock("lucide-react/dynamic", () => ({
   // dependency hiding its own setup requirement, again.
   iconNames: ["sparkles", "heart", "paw-print", "circle-dot"],
 }));
-
 const { PublicSections } =
   await import("@/features/actors/presentation/public-sections");
 
@@ -52,18 +51,38 @@ const section = (over: Record<string, unknown> = {}) =>
 /**
  * Renders the sections.
  *
+ * `parentHost` defaults to a value rather than `""` so the Twitch cases below
+ * exercise the resolved-address branch by default. The only test that passes
+ * `""` explicitly (below) renders zero sections, so it does not exercise
+ * Twitch degrading to a link — that behaviour is covered at the resolver
+ * level, in `embeds.test.ts`'s "resolves to nothing when no parent host is
+ * configured".
+ *
  * @param sections - what to render.
  * @param locale - the locale being read.
+ * @param parentHost - this deployment's hostname, as a route would resolve it.
  */
-function renderSections(sections: FursonaSection[], locale = "en") {
-  return render(<PublicSections sections={sections} locale={locale} />);
+function renderSections(
+  sections: FursonaSection[],
+  locale = "en",
+  parentHost = "me.furrycolombia.com",
+) {
+  return render(
+    <PublicSections
+      sections={sections}
+      locale={locale}
+      parentHost={parentHost}
+    />,
+  );
 }
 
 describe("PublicSections", () => {
   // Not an empty state. A page with no sections is one somebody has not
   // finished, and a stranger has no use for being told so.
   it("renders nothing at all when there are no sections", () => {
-    const { container } = render(<PublicSections sections={[]} locale="en" />);
+    const { container } = render(
+      <PublicSections sections={[]} locale="en" parentHost="" />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -313,6 +332,48 @@ describe("the expressive layouts", () => {
         "https://example.test/a-video",
       );
     });
+
+    // The one prop this file threads beyond `items`/`locale`: Twitch's player
+    // needs `parent=` naming the embedding domain, and that can only come
+    // from the route-resolved `parentHost`, never from what the author
+    // pasted.
+    it("frames a Twitch channel using the configured hub host", () => {
+      const { container } = one("video", {
+        link_url: "https://www.twitch.tv/luna",
+      });
+      expect(container.querySelector("iframe")).toHaveAttribute(
+        "src",
+        "https://player.twitch.tv/?channel=luna&parent=me.furrycolombia.com",
+      );
+    });
+
+    it("frames a portrait player without the video aspect", () => {
+      render(
+        <PublicSections
+          locale="en"
+          parentHost="me.furrycolombia.com"
+          sections={[
+            {
+              name_en: "Clips",
+              type: "video",
+              sort_order: 1,
+              items: [
+                {
+                  title_en: "A clip",
+                  description_en: "",
+                  link_url:
+                    "https://www.tiktok.com/@luna/video/7123456789012345678",
+                  sort_order: 1,
+                },
+              ],
+            },
+          ]}
+        />,
+      );
+      const frame = screen.getByTitle("A clip");
+      expect(frame.className).toContain("aspect-9/16");
+      expect(frame.className).not.toContain("aspect-video");
+    });
   });
 
   describe("links", () => {
@@ -425,7 +486,11 @@ describe("an item whose description nobody wrote", () => {
     "renders %s with no empty element in its place",
     (type) => {
       const { container } = render(
-        <PublicSections sections={[blank(type)]} locale="en" />,
+        <PublicSections
+          sections={[blank(type)]}
+          locale="en"
+          parentHost="me.furrycolombia.com"
+        />,
       );
       const blanks = [
         ...container.querySelectorAll("p, blockquote, figcaption"),
@@ -464,6 +529,7 @@ describe("an item whose description nobody wrote", () => {
           },
         ]}
         locale="en"
+        parentHost="me.furrycolombia.com"
       />,
     );
     expect(container.querySelectorAll("dt")).toHaveLength(1);
@@ -476,7 +542,11 @@ describe("an item whose description nobody wrote", () => {
   // box with nothing in it — the blank cell again, one level up.
   it("renders no list at all when every row is empty", () => {
     const { container } = render(
-      <PublicSections sections={[blank("two-column")]} locale="en" />,
+      <PublicSections
+        sections={[blank("two-column")]}
+        locale="en"
+        parentHost="me.furrycolombia.com"
+      />,
     );
     expect(container.querySelector("dl")).toBeNull();
   });

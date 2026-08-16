@@ -77,6 +77,26 @@ describe("readEnv", () => {
     expect(result.supabaseUrl).toBe("http://127.0.0.1:54321");
   });
 
+  it("defaults the hub host to empty rather than throwing", () => {
+    // Same reasoning as the return-origin allowlist: an unset variable is a
+    // deployment that does not embed Twitch, not a broken one.
+    const result = readEnv({
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      NEXT_PUBLIC_HUB_HOST: undefined,
+    });
+    expect(result.hubHost).toBe("");
+  });
+
+  it("passes a configured hub host through unchanged", () => {
+    const result = readEnv({
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+      NEXT_PUBLIC_HUB_HOST: "me.furrycolombia.com",
+    });
+    expect(result.hubHost).toBe("me.furrycolombia.com");
+  });
+
   /**
    * The allowlist parsed out of one raw comma-separated value.
    *
@@ -136,6 +156,7 @@ describe("env", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
     vi.stubEnv("AELEOS_ALLOWED_RETURN_ORIGINS", "");
+    vi.stubEnv("NEXT_PUBLIC_HUB_HOST", "");
   });
 
   afterEach(() => {
@@ -147,6 +168,7 @@ describe("env", () => {
     expect(env.supabaseUrl).toBe("http://127.0.0.1:54321");
     expect(env.supabaseAnonKey).toBe("anon-key");
     expect(env.allowedReturnOrigins).toEqual([]);
+    expect(env.hubHost).toBe("");
   });
 
   // Memoized after the first successful read, so a per-request read of both

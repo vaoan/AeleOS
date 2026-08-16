@@ -1,17 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render } from "@testing-library/react";
 
 const readPublicPerson = vi.fn();
 const readPublicFursona = vi.fn();
 const notFound = vi.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
+// Records the props each route hands it rather than discarding them, so
+// "the route resolves parentHost from env.hubHost and passes it down" is
+// something this suite can assert rather than merely arrange for. A stub
+// that returned null outright proved nothing: the route could pass "" and
+// every test here would still pass, which is exactly the silent-failure
+// shape — a value accepted, forwarded, and never checked.
+const publicProfile = vi.fn();
 
 vi.mock("@/features/actors", () => ({
   readPublicPerson: (...a: unknown[]) => readPublicPerson(...a),
   readPublicFursona: (...a: unknown[]) => readPublicFursona(...a),
-  // A stub, not a render: this suite is about which branch each route takes,
-  // and PublicProfile has its own suite.
-  PublicProfile: () => null,
+  // This suite is about which branch each route takes and, since round 2,
+  // what it hands PublicProfile — not about PublicProfile's own rendering,
+  // which has its own suite. Recording is separate from the return value so
+  // the stub is still a valid component: `publicProfile` itself follows the
+  // same untyped `vi.fn()` shape as readPublicPerson/readPublicFursona above.
+  // Captured as one argument rather than spread — React calls a function
+  // component with a second argument too (`undefined` in modern React), and
+  // `toHaveBeenCalledWith` checks the whole argument list, not just its head.
+  PublicProfile: (props: unknown) => {
+    publicProfile(props);
+    return null;
+  },
   // Passes its children through. The theme it would apply is the owner's, and
   // this suite asserts routing rather than appearance — but it cannot be
   // omitted, or the route renders nothing and every branch assertion below
@@ -33,6 +50,15 @@ vi.mock("@/shared/presentation/page-shell", () => ({
   PageShell: ({ children }: { children: unknown }) => children,
 }));
 
+// Both routes now resolve `parentHost` from `env.hubHost` themselves, exactly
+// as they already resolve `locale` — see PublicProfileProps/PublicSectionsProps.
+// This suite is about which branch each route takes, not about the value that
+// reaches a mocked-out PublicProfile, so a stub is enough; the real module
+// would otherwise demand the Supabase variables this file never sets.
+vi.mock("@/shared/infrastructure/env", () => ({
+  env: { hubHost: "parent-host-test.example" },
+}));
+
 const personRoute = await import("@/app/[locale]/[person]/page");
 const fursonaRoute = await import("@/app/[locale]/[person]/[handle]/page");
 
@@ -49,6 +75,7 @@ beforeEach(() => {
   readPublicPerson.mockReset();
   readPublicFursona.mockReset();
   notFound.mockClear();
+  publicProfile.mockClear();
 });
 
 const personParams = Promise.resolve({ locale: "es", person: "42" });
@@ -71,6 +98,22 @@ describe("the person route", () => {
       personRoute.default({ params: personParams }),
     ).resolves.toBeDefined();
     expect(notFound).not.toHaveBeenCalled();
+  });
+
+  // The plumbing round 1 added: this route resolves parentHost from
+  // env.hubHost itself and hands it to PublicProfile, exactly as it already
+  // does for locale. Asserting the exact mocked value — never "", never a
+  // hard-coded default — is what would catch the wiring silently dropping it.
+  it("passes the configured hub host to PublicProfile", async () => {
+    readPublicPerson.mockResolvedValue(actor);
+    // The mocked PublicProfile only records its props once React actually
+    // renders it — awaiting the route alone builds the element tree but
+    // never walks it, which is why the stub it replaced (`() => null`)
+    // could not have caught a dropped prop either.
+    render(await personRoute.default({ params: personParams }));
+    expect(publicProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ parentHost: "parent-host-test.example" }),
+    );
   });
 
   // Private, suspended, deleted and never-registered all arrive as no row, and
@@ -142,6 +185,17 @@ describe("the fursona route", () => {
     await expect(
       fursonaRoute.default({ params: fursonaParams }),
     ).resolves.toBeDefined();
+  });
+
+  // Same plumbing, same reason as the person route's equivalent test above —
+  // this route resolves parentHost from env.hubHost independently, so it
+  // needs its own proof rather than inheriting the other route's.
+  it("passes the configured hub host to PublicProfile", async () => {
+    readPublicFursona.mockResolvedValue(actor);
+    render(await fursonaRoute.default({ params: fursonaParams }));
+    expect(publicProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ parentHost: "parent-host-test.example" }),
+    );
   });
 
   it("404s when there is nothing to show", async () => {

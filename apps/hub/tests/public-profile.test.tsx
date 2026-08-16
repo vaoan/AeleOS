@@ -58,6 +58,10 @@ const actor = (over: Partial<PublicActor> = {}): PublicActor => ({
 /**
  * Renders a profile.
  *
+ * `parentHost` is route-resolved config nothing in this file exercises —
+ * `PublicSections` only reads it for Twitch, which no test here embeds — so it
+ * is a fixed stand-in value rather than a parameter.
+ *
  * @param over - fields to replace on the actor.
  * @param locale - the locale being read.
  */
@@ -73,6 +77,7 @@ function renderProfile(
       fursonasTitle="Fursonas"
       emptyMessage="Nothing here yet."
       themeSwitch={themeSwitch}
+      parentHost="me.furrycolombia.com"
     />,
   );
 }
@@ -227,6 +232,7 @@ describe("a person whose handle nobody chose", () => {
         emptyMessage="Nothing here yet."
         locale="en"
         fursonasTitle="Fursonas"
+        parentHost="me.furrycolombia.com"
       />,
     );
     expect(screen.queryByText(machine)).toBeNull();
@@ -242,6 +248,7 @@ describe("a person whose handle nobody chose", () => {
         emptyMessage="Nothing here yet."
         locale="en"
         fursonasTitle="Fursonas"
+        parentHost="me.furrycolombia.com"
       />,
     );
     expect(screen.getByTestId("public-actor-name")).toHaveTextContent("15");
@@ -256,6 +263,7 @@ describe("a person whose handle nobody chose", () => {
         emptyMessage="Nothing here yet."
         locale="en"
         fursonasTitle="Fursonas"
+        parentHost="me.furrycolombia.com"
       />,
     );
     expect(screen.getByText("luna")).toBeInTheDocument();

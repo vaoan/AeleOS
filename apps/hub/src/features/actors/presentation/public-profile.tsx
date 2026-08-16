@@ -13,6 +13,11 @@ import { PublicSections } from "@/features/actors/presentation/public-sections";
  *
  * `themeSwitch` joins them for the same reason and is optional for a different
  * one: only the route knows whether there is a theme to leave.
+ *
+ * `parentHost` joins them too, for a third reason: it is not locale or theme
+ * data at all but deployment configuration (`env.hubHost`), which a
+ * presentation component has no way to read for itself without every route
+ * that renders it losing the ability to test the rendering in isolation.
  */
 export interface PublicProfileProps {
   /** The actor to render — a person or one of their fursonas. */
@@ -21,6 +26,13 @@ export interface PublicProfileProps {
   locale: string;
   /** Heading above the fursona list, when there is one. */
   fursonasTitle: string;
+  /**
+   * This deployment's own hostname, threaded to {@link PublicSections} for
+   * Twitch's `parent=`. Resolved by the route from `env.hubHost`; empty means
+   * Twitch resolves to nothing and renders as a link. See
+   * `PublicSectionsProps.parentHost` and `domain/embeds.ts`.
+   */
+  parentHost: string;
   /**
    * What a visitor reads when the page carries nothing at all.
    *
@@ -97,6 +109,10 @@ export interface PublicProfileProps {
  *
  * Every colour it paints comes from a token — `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * `parentHost` passes straight through to {@link PublicSections} — this
+ * component resolves nothing about it, exactly as it resolves neither
+ * `locale` nor its two label props. See the prop's own doc.
+ *
  * @returns the page.
  */
 export function PublicProfile({
@@ -105,6 +121,7 @@ export function PublicProfile({
   fursonasTitle,
   emptyMessage,
   themeSwitch,
+  parentHost,
 }: PublicProfileProps) {
   // **Never the provisioned handle.** A person is minted with `u-<actor_ref>`,
   // which is that reference in a thin disguise — and on a person it is the
@@ -152,7 +169,11 @@ export function PublicProfile({
         ) : null}
       </header>
 
-      <PublicSections sections={actor.sections} locale={locale} />
+      <PublicSections
+        sections={actor.sections}
+        locale={locale}
+        parentHost={parentHost}
+      />
 
       {/* Without this a published-but-empty page was a screen of gradient and
           nothing else: a visitor could not tell it from one that failed to

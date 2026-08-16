@@ -82,6 +82,11 @@ const CLERK_TELEMETRY = "https://clerk-telemetry.com";
  *    frame can only ever point at a player this app can produce. That is the
  *    second layer under the media layouts: `resolveEmbed` already refuses to
  *    build any other address, and this refuses to load one even if it did.
+ *    {@link PLAYER_ORIGINS} is itself derived from `EMBED_PROVIDERS` in
+ *    `embed-providers.ts` rather than listed separately, so this policy
+ *    cannot name a host the resolver refuses to build, or omit one it can —
+ *    the agreement is structural, not two lists somebody has to keep in
+ *    step.
  *  * **`object-src 'none'`** removes `<object>`, `<embed>` and `<applet>`,
  *    which are frames that predate every rule anybody wrote about frames.
  *  * **`base-uri 'self'`** stops an injected `<base>` from silently repointing

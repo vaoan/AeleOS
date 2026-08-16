@@ -1,3 +1,5 @@
+import { providerOrigins } from "./embed-providers";
+
 /**
  * Every origin this platform is willing to put in a frame.
  *
@@ -9,15 +11,15 @@
  * — and the rule is right here, because this is a statement about the platform
  * rather than about fursonas.
  *
- * The two are pinned to each other by tests on both sides. A provider added to
- * the resolver without this list would resolve correctly and then be blocked by
- * the browser — an empty box on somebody's page with nothing in the network tab
- * to explain it. A host left here after its provider was removed would be a
- * frame origin nobody meant to keep allowing.
+ * **It is derived from `EMBED_PROVIDERS` rather than listed.** The two used to
+ * be separate lists pinned to each other by tests on both sides; deriving makes
+ * the agreement structural instead of asserted, so a provider added to the
+ * table is allowed in `frame-src` in the same edit. A host left here after its
+ * provider was removed is now impossible rather than merely tested for.
+ *
+ * The import is RELATIVE, and that is load-bearing: `next.config.ts` imports
+ * `csp.ts`, which imports this file, and Next transpiles that config without
+ * the app's path aliases. An `@/` import builds under Vitest and then fails the
+ * production build with MODULE_NOT_FOUND.
  */
-export const PLAYER_ORIGINS = [
-  "https://www.youtube-nocookie.com",
-  "https://player.vimeo.com",
-  "https://open.spotify.com",
-  "https://w.soundcloud.com",
-] as const;
+export const PLAYER_ORIGINS: readonly string[] = providerOrigins();

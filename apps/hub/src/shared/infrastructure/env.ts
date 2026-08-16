@@ -11,6 +11,11 @@ const schema = z.object({
   // merely refuse every `return_to`. An absent allowlist is a deployment that
   // does not use the picker, not a broken one.
   AELEOS_ALLOWED_RETURN_ORIGINS: z.string().default(""),
+  // Defaulted for the same reason the return-origin allowlist is: `z.string()`
+  // alone rejects `undefined`, and this is read on public pages that every
+  // visitor loads. An unset value is a deployment that cannot embed Twitch —
+  // which degrades to a link — not one that should 500.
+  NEXT_PUBLIC_HUB_HOST: z.string().default(""),
 });
 
 /**
@@ -51,9 +56,11 @@ function toOrigin(entry: string): string {
  * The Clerk secret key is deliberately absent: it is read from `process.env` at
  * the point of use and never travels through here.
  *
- * The two Supabase values are required and the allowlist is not: every request
- * reads the Supabase URL, so a deployment missing it is broken, while one
- * missing the allowlist is merely a deployment no app hands off to.
+ * The two Supabase values are required; the allowlist and the hub host are
+ * not: every request reads the Supabase URL, so a deployment missing it is
+ * broken, while one missing the allowlist is merely a deployment no app hands
+ * off to, and one missing the hub host is merely a deployment that cannot
+ * embed Twitch.
  */
 export type Env = {
   supabaseUrl: string;
@@ -66,6 +73,16 @@ export type Env = {
    * refuses every candidate against an empty list.
    */
   allowedReturnOrigins: string[];
+  /**
+   * This deployment's own hostname, with no scheme.
+   *
+   * Twitch's player refuses to load unless `parent=` names the embedding
+   * domain, so this is the one provider that needs to know where it is. Empty
+   * when unset, which makes Twitch resolve to nothing and render as a link —
+   * the correct outcome on a preview deployment, where no fixed value could be
+   * right.
+   */
+  hubHost: string;
 };
 
 /**
@@ -76,7 +93,9 @@ export type Env = {
  * normalised through `toOrigin`. An **absent or empty** value yields an empty
  * array rather than a boot failure, so a deployment that does not use the
  * picker still starts — and starts fully, since the Supabase values every
- * request needs are validated in this same call.
+ * request needs are validated in this same call. `hubHost` is defaulted the
+ * same way, to `""` rather than required, so a deployment that does not embed
+ * Twitch boots too.
  *
  * Its origin parser is called explicitly rather than passed by reference, so a second parameter added to it later cannot silently receive an array index.
  *
@@ -101,6 +120,7 @@ export function readEnv(raw: Record<string, string | undefined>): Env {
       .map((origin) => origin.trim())
       .filter((origin) => origin !== "")
       .map((origin) => toOrigin(origin)),
+    hubHost: parsed.data.NEXT_PUBLIC_HUB_HOST,
   };
 }
 
@@ -109,6 +129,7 @@ function loadEnv(): Env {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     AELEOS_ALLOWED_RETURN_ORIGINS: process.env.AELEOS_ALLOWED_RETURN_ORIGINS,
+    NEXT_PUBLIC_HUB_HOST: process.env.NEXT_PUBLIC_HUB_HOST,
   });
 }
 
@@ -126,13 +147,6 @@ function loadEnv(): Env {
 let cached: Env | undefined;
 
 /**
- * The validated environment, read from `process.env` and memoized after the
- * first successful access — see the implementation comment above for why.
- *
- * @throws on first property access, naming every missing or malformed
- * variable — see `readEnv`.
- */
-/**
  * The parsed environment, read once and kept.
  *
  * Named rather than assigned inside each getter's return expression: three
@@ -146,6 +160,17 @@ function loaded(): Env {
   return cached;
 }
 
+/**
+ * The validated environment, read from `process.env` and memoized after the
+ * first successful access — see the implementation comment above for why.
+ *
+ * One getter per {@link Env} field — `supabaseUrl`, `supabaseAnonKey`,
+ * `allowedReturnOrigins` and `hubHost` — all sharing the one `readEnv` call
+ * `loaded` memoizes.
+ *
+ * @throws on first property access, naming every missing or malformed
+ * variable — see `readEnv`.
+ */
 export const env: Env = {
   get supabaseUrl() {
     return loaded().supabaseUrl;
@@ -155,5 +180,8 @@ export const env: Env = {
   },
   get allowedReturnOrigins() {
     return loaded().allowedReturnOrigins;
+  },
+  get hubHost() {
+    return loaded().hubHost;
   },
 };

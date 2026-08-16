@@ -1,54 +1,39 @@
 export { PLAYER_ORIGINS } from "@/shared/domain/player-origins";
+export type { EmbedShape } from "@/shared/domain/embed-providers";
 
-/** A service whose player a fursona's page may frame. */
-export type EmbedProvider = "youtube" | "vimeo" | "spotify" | "soundcloud";
+import { findProvider } from "@/shared/domain/embed-providers";
+import type {
+  EmbedProviderId,
+  EmbedShape,
+} from "@/shared/domain/embed-providers";
 
 /**
- * How tall a player wants to be.
+ * A player address this module built, and what it built it from.
  *
- * The renderer cannot ask the frame, and a cross-origin frame cannot tell it,
- * so the shape travels with the resolution instead of being guessed from the
- * provider at the call site.
+ * `provider` is an {@link EmbedProviderId} — the union that used to be named
+ * `EmbedProvider`, before that name was claimed by the table-entry interface
+ * in `@/shared/domain/embed-providers`.
  */
-export type EmbedShape = "video" | "audio";
-
-/** A player address this module built, and what it built it from. */
 export interface ResolvedEmbed {
   /** Whose player it is. */
-  provider: EmbedProvider;
+  provider: EmbedProviderId;
   /** The address to frame. Always `https:`, always on the provider's host. */
   src: string;
   /** How tall the frame should be. */
   shape: EmbedShape;
 }
 
-/**
- * A YouTube video id.
- *
- * Exactly eleven of the URL-safe alphabet, which is what YouTube issues. The
- * length is part of the check rather than decoration: it is what stops a path
- * segment that merely looks like an id from being pasted into the address.
- */
-const YOUTUBE_ID = /^[\w-]{11}$/;
-
-/** A Vimeo video id — digits, and nothing else. */
-const VIMEO_ID = /^\d+$/;
-
-/** A Spotify id: base62, and no separator of any kind. */
-const SPOTIFY_ID = /^[A-Za-z0-9]{16,32}$/;
-
-/** One path segment of a SoundCloud address. */
-const SOUNDCLOUD_SEGMENT = /^[\w-]{1,64}$/;
-
-/** The Spotify resources that have an embeddable player. */
-const SPOTIFY_KINDS = new Set([
-  "track",
-  "album",
-  "playlist",
-  "artist",
-  "episode",
-  "show",
-]);
+/** What {@link resolveEmbed} needs beyond the address. */
+export interface ResolveEmbedOptions {
+  /**
+   * This deployment's hostname, for the one provider that demands it.
+   *
+   * Twitch's player refuses to load unless `parent=` names the embedding
+   * domain. Absent means Twitch resolves to null and the caller renders a
+   * link — never a frame that would load an error.
+   */
+  parentHost?: string;
+}
 
 /**
  * Parses a URL, or gives up.
@@ -65,97 +50,6 @@ function parse(raw: string): URL | null {
   } catch {
     return null;
   }
-}
-
-/**
- * The id YouTube is being asked for, whichever of its four shapes was pasted.
- *
- * `youtu.be/ID`, `watch?v=ID`, and the `shorts` / `embed` / `live` / `v` path
- * forms. Written as four cases because it decides what this app will put in a
- * frame: nested ternaries hid which one a URL had fallen into, and the one that
- * matters most — an unrecognised shape yielding nothing — was the innermost.
- *
- * @param url - the parsed address.
- * @param first - its first path segment, if any.
- * @param second - its second, if any.
- * @returns the candidate id, which the caller still validates.
- */
-function youtubeCandidate(
-  url: URL,
-  first: string | undefined,
-  second: string | undefined,
-): string | undefined {
-  if (url.hostname === "youtu.be") return first;
-  if (first === "watch") return url.searchParams.get("v") ?? "";
-  if (["shorts", "embed", "live", "v"].includes(first ?? "")) return second;
-  return "";
-}
-
-/**
- * Resolves YouTube's several address forms to one video id.
- *
- * @param url - a parsed URL already known to be on a YouTube host.
- * @returns the video id, or null.
- */
-function youtubeId(url: URL): string | null {
-  const [first, second] = url.pathname.split("/").filter(Boolean);
-  // youtu.be/<id> carries the id as the whole path; every youtube.com form
-  // either names it in `v` or puts it after a segment naming the player.
-  // Four shapes, listed as four. Nested ternaries hid which one a URL fell
-  // into, and this is the function that decides what may be framed.
-  const candidate = youtubeCandidate(url, first, second);
-  return YOUTUBE_ID.test(candidate ?? "") ? (candidate as string) : null;
-}
-
-/**
- * Resolves a Vimeo address to one video id.
- *
- * @param url - a parsed URL already known to be on a Vimeo host.
- * @returns the video id, or null.
- */
-function vimeoId(url: URL): string | null {
-  const parts = url.pathname.split("/").filter(Boolean);
-  // player.vimeo.com/video/<id> against vimeo.com/<id>: the id is the last
-  // segment either way, and everything that is not all-digits is refused.
-  const candidate = parts.at(-1) ?? "";
-  return VIMEO_ID.test(candidate) ? candidate : null;
-}
-
-/**
- * Resolves a Spotify address to a kind and an id.
- *
- * @param url - a parsed URL already known to be on Spotify's host.
- * @returns the embed path, or null.
- */
-function spotifyPath(url: URL): string | null {
-  const parts = url.pathname.split("/").filter(Boolean);
-  // Shared links carry the country as `intl-es` ahead of the kind.
-  const rest = parts[0]?.startsWith("intl-") ? parts.slice(1) : parts;
-  const [kind, id] = rest;
-  if (!kind || !id) return null;
-  // The kind is interpolated into an address this module assembles, so it must
-  // come from the allowlist rather than from the string — and the id must
-  // carry no separator, or `track/aaa/../../evil` walks out of the path.
-  if (!SPOTIFY_KINDS.has(kind) || !SPOTIFY_ID.test(id)) return null;
-  return `${kind}/${id}`;
-}
-
-/**
- * Rebuilds a canonical SoundCloud track address.
- *
- * @param url - a parsed URL already known to be on SoundCloud's host.
- * @returns the canonical `https://soundcloud.com/…` address, or null.
- */
-function soundcloudUrl(url: URL): string | null {
-  const parts = url.pathname.split("/").filter(Boolean);
-  // A bare profile has one segment and no player. A track has two; a set has
-  // three, the middle one literally `sets`.
-  const shape =
-    parts.length === 2 || (parts.length === 3 && parts[1] === "sets");
-  if (!shape || !parts.every((part) => SOUNDCLOUD_SEGMENT.test(part))) {
-    return null;
-  }
-  return `https://soundcloud.com/${parts.join("/")}`;
 }
 
 /**
@@ -176,72 +70,56 @@ function soundcloudUrl(url: URL): string | null {
  *   * Every query parameter on the pasted address is discarded. Carrying them
  *     over would let whoever pasted the link set whatever options the provider
  *     happens to honour.
- *   * SoundCloud is the one provider whose player takes an address as a
- *     parameter. That inner address is rebuilt from the parsed path segments
- *     and then encoded, so a `&` in what somebody pasted cannot add parameters
- *     to the widget.
+ *   * Any provider whose player takes an address as a parameter rebuilds it
+ *     from the parsed path segments and then encodes it, so a `&` in what
+ *     somebody pasted cannot add parameters to the widget. SoundCloud and
+ *     Mixcloud both do — the URL-inside-a-URL case is not unique to one
+ *     provider, and a third provider shaped this way inherits the same rule.
+ *   * Twitch is the one provider whose player needs configuration nobody
+ *     typed: `parent=` must name the domain doing the embedding, or Twitch
+ *     refuses to load. That can only come from `options.parentHost`, never
+ *     from the pasted address, so Twitch resolves to null without it rather
+ *     than framing a player guaranteed to error.
  *
  * Returning null is an ordinary outcome and the caller must have somewhere to
  * put it: the renderer shows the item as a plain link instead. An address that
  * silently rendered nothing would leave somebody staring at a gap with no way
  * to learn their link was not one this hub can play.
  *
+ * **The branches are a table now.** `EMBED_PROVIDERS` holds one entry per
+ * service and this function is the lookup; the guarantees above are properties
+ * of every entry rather than of a chain somebody has to read to the end.
+ *
  * @param raw - the address somebody pasted, which may be anything at all.
+ * @param options - {@link ResolveEmbedOptions}. Twitch is the only provider
+ * that reads `parentHost`; every other provider ignores it.
  * @returns the player to frame, or null when there is none.
  */
-export function resolveEmbed(raw: string | undefined): ResolvedEmbed | null {
+export function resolveEmbed(
+  raw: string | undefined,
+  options?: ResolveEmbedOptions,
+): ResolvedEmbed | null {
   const url = raw ? parse(raw.trim()) : null;
   // Checked before the host, because a `javascript:` URL parses fine and its
-  // `hostname` is empty — the scheme is the thing that makes it dangerous.
+  // `hostname` is empty — the scheme is what makes it dangerous.
   if (!url || url.protocol !== "https:") return null;
 
-  const host = url.hostname.replace(/^(www|m)\./, "");
+  const provider = findProvider(url.hostname.replace(/^(www|m)\./, ""));
+  if (!provider) return null;
 
-  if (host === "youtube.com" || host === "youtu.be") {
-    const id = youtubeId(url);
-    return id
-      ? {
-          provider: "youtube",
-          src: `https://www.youtube-nocookie.com/embed/${id}`,
-          shape: "video",
-        }
-      : null;
-  }
+  // Twitch is the only provider that cannot be built without knowing where it
+  // will be embedded. Refusing here rather than building a broken address is
+  // what routes it to the link fallback.
+  if (provider.id === "twitch" && !options?.parentHost) return null;
 
-  if (host === "vimeo.com" || host === "player.vimeo.com") {
-    const id = vimeoId(url);
-    return id
-      ? {
-          provider: "vimeo",
-          src: `https://player.vimeo.com/video/${id}`,
-          shape: "video",
-        }
-      : null;
-  }
-
-  if (host === "open.spotify.com") {
-    const path = spotifyPath(url);
-    return path
-      ? {
-          provider: "spotify",
-          src: `https://open.spotify.com/embed/${path}`,
-          shape: "audio",
-        }
-      : null;
-  }
-
-  if (host === "soundcloud.com") {
-    const track = soundcloudUrl(url);
-    return track
-      ? {
-          provider: "soundcloud",
-          src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(track)}`,
-          shape: "audio",
-        }
-      : null;
-  }
-
-  return null;
+  const value = provider.resolve(url);
+  return value
+    ? {
+        provider: provider.id,
+        src: provider.src(value, options?.parentHost ?? ""),
+        shape: provider.shape,
+      }
+    : null;
 }
 
 /**

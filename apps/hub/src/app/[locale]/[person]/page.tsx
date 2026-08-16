@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { PageShell } from "@/shared/presentation/page-shell";
+import { env } from "@/shared/infrastructure/env";
 import {
   PublicProfile,
   ThemeScope,
@@ -85,6 +86,12 @@ export async function generateMetadata({
  * the way out of exactly the pages hardest to read. That control existing is what lets an author's colours be as
  * unreadable as they like without it being anybody else's problem.
  *
+ * **This route resolves `parentHost` from `env.hubHost`**, the same way it
+ * resolves `locale` and the empty-state words: `PublicProfile` and
+ * `PublicSections` are presentation components rendered on two different
+ * routes, and neither is where deployment configuration belongs. Twitch's
+ * player is the one thing that reads it — see `domain/embeds.ts`.
+ *
  */
 export default async function PublicPersonPage({
   params,
@@ -107,6 +114,10 @@ export default async function PublicPersonPage({
           locale={locale}
           fursonasTitle={t("fursonas")}
           emptyMessage={t("empty")}
+          // Twitch's player needs to know the domain embedding it, which is
+          // deployment configuration rather than anything the component could
+          // resolve for itself. Empty degrades Twitch to a link.
+          parentHost={env.hubHost}
           // Rendered on the header's own row rather than above the page.
           // Alone at the top it read as a heading's worth of furniture nobody
           // had written a heading for, and it pushed the portrait down by its

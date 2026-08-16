@@ -151,6 +151,184 @@ describe("resolveEmbed", () => {
     });
   });
 
+  describe("Dailymotion", () => {
+    it.each([
+      "https://www.dailymotion.com/video/x8abc12",
+      "https://dailymotion.com/video/x8abc12",
+      "https://dai.ly/x8abc12",
+    ])("accepts %s", (raw) => {
+      expect(src(raw)).toBe(
+        "https://geo.dailymotion.com/player.html?video=x8abc12",
+      );
+    });
+
+    it.each([
+      "https://dailymotion.com.evil.example/video/x8abc12",
+      "https://evil-dailymotion.com/video/x8abc12",
+      "https://www.dailymotion.com/video/not_a_valid_id!",
+      "https://www.dailymotion.com/",
+      "http://www.dailymotion.com/video/x8abc12",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("TikTok", () => {
+    it("accepts a video address", () => {
+      expect(
+        src("https://www.tiktok.com/@luna/video/7123456789012345678"),
+      ).toBe("https://www.tiktok.com/embed/v2/7123456789012345678");
+    });
+
+    it("asks for a portrait frame", () => {
+      expect(
+        resolveEmbed("https://www.tiktok.com/@luna/video/7123456789012345678")
+          ?.shape,
+      ).toBe("portrait");
+    });
+
+    it.each([
+      "https://tiktok.com.evil.example/@luna/video/7123456789012345678",
+      "https://www.tiktok.com/@luna",
+      "https://www.tiktok.com/@luna/video/abc",
+      // A `/video` segment with nothing after it — `kind` still reads
+      // "video", so this is the case that exercises the id-is-absent branch
+      // rather than the id-fails-the-pattern one above.
+      "https://www.tiktok.com/@luna/video",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Apple Music", () => {
+    it("accepts an album", () => {
+      expect(
+        src("https://music.apple.com/us/album/some-record/1546861236"),
+      ).toBe("https://embed.music.apple.com/us/album/1546861236");
+    });
+
+    it("accepts a playlist, whose id is not all digits", () => {
+      expect(
+        src("https://music.apple.com/gb/playlist/chill/pl.u-abc123XYZ"),
+      ).toBe("https://embed.music.apple.com/gb/playlist/pl.u-abc123XYZ");
+    });
+
+    it.each([
+      "https://music.apple.com.evil.example/us/album/x/1546861236",
+      "https://music.apple.com/us/podcast/x/1546861236",
+      "https://music.apple.com/USA/album/x/1546861236",
+      "https://music.apple.com/us/album/x/../../evil",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Deezer", () => {
+    it.each([
+      ["https://www.deezer.com/album/12345", "album/12345"],
+      ["https://www.deezer.com/en/track/98765", "track/98765"],
+      ["https://deezer.com/es/playlist/555", "playlist/555"],
+    ])("accepts %s", (raw, path) => {
+      expect(src(raw)).toBe(`https://widget.deezer.com/widget/dark/${path}`);
+    });
+
+    it.each([
+      "https://deezer.com.evil.example/album/12345",
+      "https://www.deezer.com/podcast/12345",
+      "https://www.deezer.com/album/abc",
+      "https://www.deezer.com/",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Tidal", () => {
+    it.each([
+      ["https://tidal.com/browse/track/12345", "tracks/12345"],
+      ["https://tidal.com/track/12345", "tracks/12345"],
+      ["https://listen.tidal.com/album/98765", "albums/98765"],
+    ])("accepts %s", (raw, path) => {
+      expect(src(raw)).toBe(`https://embed.tidal.com/${path}`);
+    });
+
+    it("accepts a playlist, whose id is a UUID", () => {
+      expect(
+        src("https://tidal.com/playlist/1c5d01ed-4f05-40c4-bd28-0f73099e9648"),
+      ).toBe(
+        "https://embed.tidal.com/playlists/1c5d01ed-4f05-40c4-bd28-0f73099e9648",
+      );
+    });
+
+    it.each([
+      "https://tidal.com.evil.example/track/12345",
+      "https://tidal.com/video/12345",
+      "https://tidal.com/track/abc",
+      // No path segment at all, so `kind` is undefined rather than merely
+      // unrecognised — the branch the `kind ?? ""` fallback exists for.
+      "https://tidal.com/",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Mixcloud", () => {
+    it("accepts a show", () => {
+      expect(src("https://www.mixcloud.com/luna/night-tape/")).toBe(
+        "https://player.mixcloud.com/widget/iframe/?feed=%2Fluna%2Fnight-tape%2F",
+      );
+    });
+
+    // The inner address is a PARAMETER, so an ampersand in the path must not be
+    // able to add one. This is SoundCloud's trap, in a second place.
+    it("encodes a path that would otherwise add a parameter", () => {
+      expect(src("https://www.mixcloud.com/luna/a&autoplay=1/")).toBe("");
+    });
+
+    it.each([
+      "https://mixcloud.com.evil.example/luna/night-tape/",
+      "https://www.mixcloud.com/luna/",
+      "https://www.mixcloud.com/",
+    ])("refuses %s", (raw) => {
+      expect(src(raw)).toBe("");
+    });
+  });
+
+  describe("Twitch", () => {
+    const opts = { parentHost: "me.furrycolombia.com" };
+
+    it("accepts a past broadcast", () => {
+      expect(
+        resolveEmbed("https://www.twitch.tv/videos/123456789", opts)?.src,
+      ).toBe(
+        "https://player.twitch.tv/?video=123456789&parent=me.furrycolombia.com",
+      );
+    });
+
+    it("accepts a channel", () => {
+      expect(resolveEmbed("https://www.twitch.tv/luna", opts)?.src).toBe(
+        "https://player.twitch.tv/?channel=luna&parent=me.furrycolombia.com",
+      );
+    });
+
+    // Without a configured parent the player cannot work, so it must degrade to
+    // the link fallback rather than frame a box that will never load.
+    it("resolves to nothing when no parent host is configured", () => {
+      expect(resolveEmbed("https://www.twitch.tv/luna")).toBeNull();
+    });
+
+    it.each([
+      "https://twitch.tv.evil.example/luna",
+      "https://www.twitch.tv/videos/abc",
+      "https://www.twitch.tv/",
+      // A `/videos` segment with nothing after it — `second` is undefined
+      // rather than merely failing the digits pattern, which is the branch
+      // the `second ?? ""` fallback exists for.
+      "https://www.twitch.tv/videos",
+    ])("refuses %s", (raw) => {
+      expect(resolveEmbed(raw, opts)).toBeNull();
+    });
+  });
+
   describe("what it refuses", () => {
     it("refuses nothing at all", () => {
       expect(src(undefined)).toBe("");
@@ -246,18 +424,27 @@ describe("PLAYER_ORIGINS", () => {
   // policy knowing resolves correctly and is then blocked by the browser — an
   // empty box with nothing in the network tab to explain it.
   it("covers every address the resolver can produce", () => {
-    const samples = [
-      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      "https://youtu.be/dQw4w9WgXcQ",
-      "https://vimeo.com/123456789",
-      "https://player.vimeo.com/video/123456789",
-      "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
-      "https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT",
-      "https://soundcloud.com/artist/some-track",
-      "https://soundcloud.com/artist/sets/an-album",
+    // Twitch alone needs `parentHost` — without it `resolveEmbed` returns
+    // null, and the `!` below would throw rather than assert.
+    const samples: [string, { parentHost?: string }?][] = [
+      ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+      ["https://youtu.be/dQw4w9WgXcQ"],
+      ["https://vimeo.com/123456789"],
+      ["https://player.vimeo.com/video/123456789"],
+      ["https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"],
+      ["https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT"],
+      ["https://soundcloud.com/artist/some-track"],
+      ["https://soundcloud.com/artist/sets/an-album"],
+      ["https://dailymotion.com/video/x8abc12"],
+      ["https://www.tiktok.com/@luna/video/7123456789012345678"],
+      ["https://music.apple.com/us/album/some-record/1546861236"],
+      ["https://www.deezer.com/album/12345"],
+      ["https://tidal.com/track/12345"],
+      ["https://www.mixcloud.com/luna/night-tape/"],
+      ["https://www.twitch.tv/luna", { parentHost: "example.test" }],
     ];
-    for (const raw of samples) {
-      const resolved = resolveEmbed(raw);
+    for (const [raw, options] of samples) {
+      const resolved = resolveEmbed(raw, options);
       expect(resolved).not.toBeNull();
       expect([...PLAYER_ORIGINS]).toContain(new URL(resolved!.src).origin);
     }
@@ -267,13 +454,25 @@ describe("PLAYER_ORIGINS", () => {
   // nothing can produce — which is a permission nobody is using and nobody
   // will remember to remove.
   it("has no origin the resolver cannot reach", () => {
+    // Twitch alone needs `parentHost`, for the same reason as above.
     const reachable = new Set(
-      [
-        "https://youtu.be/dQw4w9WgXcQ",
-        "https://vimeo.com/1",
-        "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
-        "https://soundcloud.com/artist/track",
-      ].map((raw) => new URL(resolveEmbed(raw)!.src).origin),
+      (
+        [
+          ["https://youtu.be/dQw4w9WgXcQ"],
+          ["https://vimeo.com/1"],
+          ["https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"],
+          ["https://soundcloud.com/artist/track"],
+          ["https://dai.ly/x8abc12"],
+          ["https://www.tiktok.com/@luna/video/7123456789012345678"],
+          ["https://music.apple.com/us/album/some-record/1546861236"],
+          ["https://www.deezer.com/album/12345"],
+          ["https://tidal.com/track/12345"],
+          ["https://www.mixcloud.com/luna/night-tape/"],
+          ["https://www.twitch.tv/luna", { parentHost: "example.test" }],
+        ] as [string, { parentHost?: string }?][]
+      ).map(
+        ([raw, options]) => new URL(resolveEmbed(raw, options)!.src).origin,
+      ),
     );
     expect([...PLAYER_ORIGINS].sort()).toEqual([...reachable].sort());
   });

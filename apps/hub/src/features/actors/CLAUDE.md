@@ -369,6 +369,29 @@ address, checks the host against an exact set on the parsed `hostname`,
 extracts an id matching a strict pattern, and then BUILDS a new address from a
 fixed template. A hostile value cannot become anything worse than no embed.
 
+**The allowlist itself is a table, `shared/domain/embed-providers.ts`, not a
+chain of branches in `embeds.ts`.** `EMBED_PROVIDERS` holds one entry per
+service — its hosts, its player origin, its `resolve` and its `src` — and
+`embeds.ts` is the lookup over it. `PLAYER_ORIGINS` (in `player-origins.ts`,
+which feeds the CSP's `frame-src` below) is **derived** from that same table
+rather than kept as a second list pinned to it by tests on both sides, so a
+host cannot be allowed in the policy without a provider that builds on it, or
+built without being allowed. Adding another service is one entry in
+`EMBED_PROVIDERS`; nothing else has to be told about it.
+
+A `fast-check` property test,
+`apps/hub/tests/embed-providers-properties.test.ts`, asserts that no
+provider's `resolve` throws, across hundreds of generated hostile paths per
+provider. It exists because a named-case suite already had 100% branch
+coverage on `tidalPath` and still missed a real fault: `TIDAL_KINDS` was a
+plain object once, and indexing it with an untrusted path segment like
+`__proto__` or `constructor` resolved to an inherited, truthy value that
+passed the `!entry` guard and then had no `.id` to call `.test` on — a thrown
+`TypeError` with no case anyone had written that chose such a key. Coverage
+measures which branches ran, not which inputs were tried; the property test
+tries the input nobody thought of, on every provider, so the next one that
+makes the same mistake fails here rather than in production.
+
 - Only `https:` survives, so `javascript:` and `data:` cannot reach a frame and
   run in this page's origin.
 - Hosts are never matched by prefix or suffix. `youtube.com.evil.example`,
@@ -377,9 +400,11 @@ fixed template. A hostile value cannot become anything worse than no embed.
   same mistake `return_to` had to avoid in the picker, and it is the same fix.
 - Every query parameter is discarded. Carrying them would let whoever pasted
   the link set whatever options the provider honours.
-- SoundCloud's widget takes an address as a parameter — the one URL-inside-a-URL
-  here. It is rebuilt from parsed path segments and then encoded, so a `&` in
-  what somebody pasted cannot add parameters to the widget.
+- Any provider whose player takes an address as a parameter rebuilds it from
+  parsed path segments and then encodes it, so a `&` in what somebody pasted
+  cannot add parameters to the widget. SoundCloud and Mixcloud both do —
+  URL-inside-a-URL is not unique to one provider, and a third provider shaped
+  this way inherits the same rule.
 - Anchors go through `safeHttpUrl` and an address that fails renders as plain
   text. React escapes text, not URL schemes; nothing upstream is catching this.
 - Public links carry `nofollow ugc` as well as `noopener noreferrer`. A page
@@ -392,8 +417,10 @@ fixed template. A hostile value cannot become anything worse than no embed.
 **There is a second layer now.** `shared/domain/csp.ts` sets a
 Content-Security-Policy on every route whose `frame-src` is built from
 `PLAYER_ORIGINS` — so a frame can only ever point at a player this app can
-produce, even if the resolver were made to build something else. The two lists
-are pinned to each other by tests on both sides.
+produce, even if the resolver were made to build something else. As above,
+that agreement is structural now rather than two lists kept in step by
+tests: `PLAYER_ORIGINS` is derived from `EMBED_PROVIDERS`, so there is only
+ever one list to have gotten wrong.
 
 Read that file before editing the policy. Two things about it are easy to get
 wrong and both fail quietly:
@@ -556,7 +583,7 @@ blur and the body's face. It names **no colour of its own**, and that separation
 is the whole design — every pairing of a style and a palette is somebody's page,
 where nine themed presets would have been nine colour schemes.
 
-`shared/domain/skins.ts` holds the table and `SKINS` is the list — fifteen of
+`shared/domain/skins.ts` holds the table and `SKINS` is the list — fourteen of
 them. Adding one is a table entry and a name in both catalogues; a test fails if
 either is missing.
 

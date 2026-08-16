@@ -1,6 +1,10 @@
 import { ExternalLink, Plus, Quote as QuoteMark } from "lucide-react";
 import { contentFor } from "@/features/actors/domain/actor-content";
-import { resolveEmbed, safeHttpUrl } from "@/features/actors/domain/embeds";
+import {
+  resolveEmbed,
+  safeHttpUrl,
+  type EmbedShape,
+} from "@/features/actors/domain/embeds";
 import type {
   FursonaSection,
   FursonaSectionItem,
@@ -9,12 +13,29 @@ import type {
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
 import { tid } from "@/shared/infrastructure/test-id";
 
-/** What {@link PublicSections} needs. */
+/**
+ * What {@link PublicSections} needs.
+ *
+ * `parentHost` is route-resolved config, not something this component reads
+ * for itself — see its own doc below.
+ */
 export interface PublicSectionsProps {
   /** What the author wrote. */
   sections: FursonaSection[];
   /** The locale being read, which decides which language is preferred. */
   locale: string;
+  /**
+   * This deployment's own hostname, for Twitch's `parent=`.
+   *
+   * **Resolved by the route, not read here.** This component renders on both
+   * public pages and neither is the thing that knows its own deployment
+   * configuration — the same reason `locale`, `fursonasTitle` and
+   * `emptyMessage` are route-resolved props on {@link PublicProfileProps}
+   * rather than something a presentation component reaches for itself. Empty
+   * means Twitch resolves to nothing and renders as a link; see
+   * `domain/embeds.ts`.
+   */
+  parentHost: string;
 }
 
 /**
@@ -267,6 +288,21 @@ function Gallery({
 }
 
 /**
+ * The frame classes for each {@link EmbedShape}.
+ *
+ * A `Record<EmbedShape, …>` rather than a chain of ternaries, and the type is
+ * the point: it fails to compile the moment `EmbedShape` grows a member with
+ * no class behind it, where a ternary would compile happily and send an
+ * unrecognised shape down whichever branch it fell into by accident — exactly
+ * the trap `LAYOUTS` above this exists to avoid for section types.
+ */
+const FRAME_SHAPE: Record<EmbedShape, string> = {
+  video: "aspect-video w-full rounded-xl surface border-(--edge)",
+  portrait: "aspect-9/16 w-full max-w-80 rounded-xl surface border-(--edge)",
+  audio: "h-42 w-full rounded-xl surface border-(--edge)",
+};
+
+/**
  * One embedded player, or the link it could not resolve to one.
  *
  * **`resolveEmbed` decides the address, never the author.** What it returns is
@@ -282,18 +318,25 @@ function Gallery({
  * most fondly and least accurately about the pages this is modelled on; the
  * layouts are welcome back, that part is not.
  *
+ * Its aspect comes from {@link FRAME_SHAPE}, keyed on `embed.shape` — never
+ * guessed from the provider here, and never a ternary: a two-way test on
+ * `shape === "video"` sent every future shape down the `audio` branch, which
+ * is exactly the mistake TikTok's `portrait` shape would have made silent.
+ *
  * @returns the player, the link, or nothing when the author left it empty.
  */
 function Player({
   url,
   title,
   fallback,
+  parentHost,
 }: {
   url: string | undefined;
   title: string;
   fallback: string;
+  parentHost: string;
 }) {
-  const embed = resolveEmbed(url);
+  const embed = resolveEmbed(url, { parentHost });
   if (!embed) {
     const href = safeHttpUrl(url);
     return href ? (
@@ -318,11 +361,7 @@ function Player({
       // No `autoplay`. Everything else is what a player legitimately needs.
       allow="clipboard-write; encrypted-media; picture-in-picture; fullscreen"
       sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
-      className={
-        embed.shape === "video"
-          ? "aspect-video w-full rounded-xl surface border-(--edge)"
-          : "h-42 w-full rounded-xl surface border-(--edge)"
-      }
+      className={FRAME_SHAPE[embed.shape]}
     />
   );
 }
@@ -335,9 +374,11 @@ function Player({
 function Video({
   items,
   locale,
+  parentHost,
 }: {
   items: FursonaSectionItem[];
   locale: string;
+  parentHost: string;
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -348,7 +389,12 @@ function Video({
             key={keyOf(item.sort_order, item.title_en)}
             className="grid gap-2"
           >
-            <Player url={item.link_url} title={title} fallback={title} />
+            <Player
+              url={item.link_url}
+              title={title}
+              fallback={title}
+              parentHost={parentHost}
+            />
             <figcaption className="grid gap-1">
               <h3 className="font-display font-bold">{title}</h3>
               {description ? (
@@ -373,9 +419,11 @@ function Video({
 function Music({
   items,
   locale,
+  parentHost,
 }: {
   items: FursonaSectionItem[];
   locale: string;
+  parentHost: string;
 }) {
   return (
     <div className="grid gap-5">
@@ -392,7 +440,12 @@ function Music({
                 <p className="text-sm text-(--muted)">{description}</p>
               ) : null}
             </div>
-            <Player url={item.link_url} title={title} fallback={title} />
+            <Player
+              url={item.link_url}
+              title={title}
+              fallback={title}
+              parentHost={parentHost}
+            />
           </div>
         );
       })}
@@ -640,11 +693,21 @@ function Timeline({
  * name with no renderer behind it. The chain of ternaries this replaced would
  * have compiled happily and rendered a heading with nothing underneath it.
  *
+ * **Every layout is handed `parentHost`, and only `Video` and `Music` read
+ * it.** The props type is widened rather than giving those two a different
+ * signature: a `Record` whose entries disagree on signature stops being the
+ * compile-time guard that makes a missing renderer impossible, which is the
+ * whole reason this is a `Record` and not a chain of tests.
+ *
  * @returns nothing — this is the table, not a function.
  */
 const LAYOUTS: Record<
   SectionType,
-  (props: { items: FursonaSectionItem[]; locale: string }) => React.ReactNode
+  (props: {
+    items: FursonaSectionItem[];
+    locale: string;
+    parentHost: string;
+  }) => React.ReactNode
 > = {
   cards: Cards,
   accordion: Accordion,
@@ -695,9 +758,19 @@ const LAYOUTS: Record<
  *
  * Sorts with `toSorted`, which cannot mutate the sections a caller handed in even by accident.
  *
+ * **`parentHost` is the only configuration this component is handed**, and it
+ * exists for exactly one provider: Twitch's player refuses to load without a
+ * `parent=` naming the embedding domain. It is resolved by the route from
+ * `env.hubHost`, not read here — see the prop. An empty value degrades Twitch
+ * to a plain link rather than breaking the page; see `domain/embeds.ts`.
+ *
  * @returns the sections, in the order the author put them.
  */
-export function PublicSections({ sections, locale }: PublicSectionsProps) {
+export function PublicSections({
+  sections,
+  locale,
+  parentHost,
+}: PublicSectionsProps) {
   if (sections.length === 0) return null;
 
   const ordered = sections.toSorted((a, b) => a.sort_order - b.sort_order);
@@ -720,7 +793,7 @@ export function PublicSections({ sections, locale }: PublicSectionsProps) {
             >
               {contentFor(section, "name", locale)}
             </h2>
-            <Layout items={items} locale={locale} />
+            <Layout items={items} locale={locale} parentHost={parentHost} />
           </section>
         );
       })}
