@@ -5,6 +5,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { SKINS, type SkinId } from "@/shared/domain/skins";
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
@@ -75,6 +76,22 @@ const labels = {
   removeSection: "Remove section",
   collapse: "Collapse section",
   expand: "Expand section",
+  style: {
+    open: "Section style",
+    title: "This section's own style",
+    skin: "Style",
+    skins: Object.fromEntries(SKINS.map((skin) => [skin, skin])) as Record<
+      SkinId,
+      string
+    >,
+    inheritSkin: "Inherit the page",
+    backgroundUrl: "Background picture",
+    backgroundUrlHint: "Paste an address. Nothing is stored.",
+    fit: "Fit",
+    fitDefault: "Original size",
+    fitCover: "Cover",
+    fitTile: "Tile",
+  },
   itemTitle: "Title",
   itemDescription: "Description",
   itemDescriptionHint: "What do you want to say here?",
@@ -357,6 +374,25 @@ describe("FursonaEditor", () => {
     const cancel = screen.getByRole("link", { name: "Cancel" });
     expect(cancel).toHaveAttribute("href", "/pages");
     expect(save).not.toHaveBeenCalled();
+  });
+
+  // `lang` reaches only the sections, so the strip belongs directly above
+  // them, below the theme panel — not above the top fields it does not touch.
+  // Sabotage-verified: reverting the render order makes both of these fail.
+  it("puts the theme panel above the language strip, and the strip above the sections", () => {
+    renderEditor();
+    const theme = screen.getByTestId("theme-open");
+    const writingIn = screen.getByTestId("writing-in-en");
+    const sections = screen.getByTestId("add-section");
+
+    expect(
+      theme.compareDocumentPosition(writingIn) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      writingIn.compareDocumentPosition(sections) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 

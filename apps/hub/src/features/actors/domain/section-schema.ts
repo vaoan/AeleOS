@@ -131,29 +131,133 @@ export const sectionItemSchema = z.object({
   sort_order: z.number().int(),
 });
 
-/** One section of a fursona's page. */
+/**
+ * The keys a section's own style bag may carry, shared by the strict (write)
+ * and lenient (read) schemas below — see {@link sectionStyleSchema} and
+ * {@link readSectionsSchema} for why there are two.
+ */
+const sectionStyleShape = {
+  skin: z.string().max(32).optional(),
+  background_url: z.string().max(500).optional(),
+  background_fit: z.enum(["cover", "tile"]).optional(),
+};
+
+/**
+ * How one section chooses to LOOK. Form only — never colour.
+ *
+ * Colour is the page's, chosen once in the theme configurator, and that split
+ * is what every one of this hub's skins rests on: a skin names no colour of
+ * its own. A per-section colour would collapse every pairing of a style and a
+ * palette into a colour scheme.
+ *
+ * Every key is optional and **absent means "inherit the page"** — a real
+ * answer, not a gap, exactly as the theme's own keys work.
+ *
+ * **`.strict()` refuses an unknown key rather than silently dropping it**,
+ * which `z.object` does by default. That matches `set_actor_sections` in
+ * `0009`, which refuses the same typo at the write instead of storing it and
+ * rendering nothing — the "control that does nothing" fault this project
+ * keeps catching. **This is the WRITE-path schema only** — see
+ * {@link readSectionsSchema} for why reading stored data needs the opposite
+ * choice.
+ *
+ * `skin` is deliberately **not** checked against `SKINS` here, matching how
+ * `set_actor_theme` treats the page's own skin: the renderer falls back for a
+ * name it does not know, and a list here would be a second place to keep in
+ * step with every skin this hub adds.
+ */
+export const sectionStyleSchema = z.object(sectionStyleShape).strict();
+
+/**
+ * The lenient counterpart of {@link sectionStyleSchema}, used only by
+ * {@link readSectionsSchema} to parse what is already stored.
+ *
+ * Carries the same keys, without `.strict()` — so `z.object`'s default
+ * behaviour applies: an unrecognised key is stripped rather than refused.
+ */
+const sectionStyleSchemaForReading = z.object(sectionStyleShape);
+
+/**
+ * One section of a fursona's page.
+ *
+ * `style` is optional and absent whenever the author has not chosen to
+ * override the page — see {@link sectionStyleSchema}, which owns the shape.
+ * This is the WRITE-path shape; {@link readSectionsSchema} composes a
+ * lenient variant of it rather than reusing this one directly.
+ */
 export const sectionSchema = z.object({
   name_en: text.min(1),
   name_es: optionalText,
   type: z.enum(SECTION_TYPES),
   sort_order: z.number().int(),
   items: z.array(sectionItemSchema).max(SECTION_LIMITS.items),
+  style: sectionStyleSchema.optional(),
 });
 
 /**
- * Everything a fursona's page is made of.
- *
- * The byte cap is checked last, on the serialised value, exactly as `0009`
- * does — it is the backstop that catches a payload legal in every individual
- * field and ruinous in total, which no per-field rule can see.
+ * The read-path counterpart of {@link sectionSchema}: identical, except its
+ * `style` accepts an unknown key by stripping it rather than refusing the
+ * whole section.
  */
-export const sectionsSchema = z
-  .array(sectionSchema)
-  .max(SECTION_LIMITS.sections)
-  .refine(
-    (sections) => JSON.stringify(sections).length <= SECTION_LIMITS.bytes,
-    { message: "sections are too large" },
-  );
+const sectionSchemaForReading = sectionSchema.extend({
+  style: sectionStyleSchemaForReading.optional(),
+});
+
+/**
+ * The array-level rules shared by the write and read schemas below — a count
+ * cap and a serialised byte cap, checked identically whichever section shape
+ * is inside.
+ *
+ * Factored out so the byte cap — the backstop that catches a payload legal in
+ * every individual field and ruinous in total, exactly as `0009` checks it
+ * last on the serialised value — is written once rather than kept in step by
+ * hand across both callers.
+ *
+ * @param schema - the section shape to validate: {@link sectionSchema} for
+ *   {@link sectionsSchema}, {@link sectionSchemaForReading} for
+ *   {@link readSectionsSchema}.
+ * @returns the array schema.
+ */
+function sectionsArraySchema<T extends z.ZodType>(schema: T) {
+  return z
+    .array(schema)
+    .max(SECTION_LIMITS.sections)
+    .refine(
+      (sections) => JSON.stringify(sections).length <= SECTION_LIMITS.bytes,
+      { message: "sections are too large" },
+    );
+}
+
+/**
+ * Everything a fursona's page is made of, as the EDITOR validates it before
+ * saving.
+ *
+ * **Strict on every unknown key, section or style alike** — a typo the author
+ * just typed is refused rather than silently dropped, matching
+ * `set_actor_sections` in `0009`. Use {@link readSectionsSchema} instead when
+ * parsing what is already stored; the two differ on purpose, see there.
+ */
+export const sectionsSchema = sectionsArraySchema(sectionSchema);
+
+/**
+ * Everything a fursona's page is made of, as it is READ back from storage.
+ *
+ * **Lenient on an unknown style key, where {@link sectionsSchema} is strict —
+ * this is a deliberate ruling, not an oversight.** `sectionStyleSchema`'s
+ * `.strict()` is right at the write: a typo the author just typed should be
+ * refused. It is wrong at the read: `z`'s array validation fails the WHOLE
+ * array the moment one section's `style` carries a key this build does not
+ * recognise, and both `readActorPage` and `parseSections` treat that failure
+ * as "no sections at all" — an owner's editor and a stranger's public page
+ * both render EMPTY. Phase D adds `card_size` to this exact bag, so any
+ * window where the database is ahead of the running app — a migration
+ * deployed before the code that reads its new key, or a rollback — would
+ * blank every page carrying that key, not merely fail to show it. Stripping
+ * an unrecognised style key here costs nothing a stranger would notice: the
+ * key was never going to render regardless, and every other key on the
+ * section still does.
+ */
+export const readSectionsSchema = sectionsArraySchema(sectionSchemaForReading);
 
 /** One section, as the editor holds it. */
 export type FursonaSection = z.infer<typeof sectionSchema>;

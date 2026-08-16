@@ -12,6 +12,7 @@ import type {
 } from "@/features/actors/domain/section-schema";
 import { resolveSocial } from "@/features/actors/domain/social-links";
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
+import { nestedSkinVars, type SkinId } from "@/shared/domain/skins";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
@@ -63,6 +64,122 @@ const wordsOf = (item: FursonaSectionItem, locale: string) => ({
  * @returns a stable key.
  */
 const keyOf = (order: number, label: string) => `${order}-${label}`;
+
+/**
+ * A CSS `url("…")` value built from a pasted address, or `undefined` when
+ * the address must not be trusted with one.
+ *
+ * **A second refusal on top of `safeHttpUrl`'s own, scoped to what THIS
+ * function does with the result.** `safeHttpUrl` rules out a scheme that could
+ * execute something; that alone is not enough here, because this value gets
+ * interpolated into a double-quoted CSS string. `safeHttpUrl`'s WHATWG
+ * normalisation percent-encodes a stray `"` in a path or query, but **leaves
+ * one in the HOST untouched** — confirmed directly:
+ * `new URL('https://ex"ample.test/a.png').toString()` keeps the quote
+ * verbatim. An address whose serialised form still contains a `"` would
+ * therefore close the CSS string early, so it is refused outright here,
+ * before this function ever builds a value from it.
+ *
+ * **A backslash is refused for the identical reason, and normalisation does
+ * not help here either.** A stray `\` surviving in the query or fragment —
+ * `new URL('https://example.test/?x\\').toString()` keeps it verbatim, the
+ * same untouched-by-percent-encoding gap the host quote has — sits directly
+ * before the closing `"` this function appends, so the built value ends
+ * `…\"`, which CSS reads as an ESCAPED quote rather than the string's own
+ * closing one: the string never closes, and everything after is appended to
+ * it. Nothing downstream is exploitable today only because everything after
+ * that point happens to be app-generated, which is ordering, not a
+ * guarantee — the same trap this function exists to close for the host
+ * quote.
+ *
+ * **This refusal exists independently of whichever sink renders the
+ * result.** A browser's CSSOM happens to reject a malformed `style`
+ * declaration today, which is why nothing is exploitable yet through
+ * {@link sectionStyle}'s own `style` object — but that is defence in depth,
+ * not the reason this is safe. `themeCss` elsewhere in this feature
+ * interpolates a value into a raw `<style>` block, which gets no such
+ * protection for free; a value trusted only because of where it currently
+ * lands is a trap for whichever sink reuses it next. Refusing the quote by
+ * construction, here, is what makes the returned value safe in ANY CSS
+ * context.
+ *
+ * @param url - the address an author pasted, or `undefined` when they left
+ *   it unset.
+ * @returns a `url("…")` value safe to interpolate into a CSS declaration, or
+ *   `undefined` when the address is absent, not http(s), or would break out
+ *   of its own quoting.
+ */
+export function backgroundImageValue(
+  url: string | undefined,
+): string | undefined {
+  const href = safeHttpUrl(url);
+  return href && !/["\\]/.test(href) ? `url("${href}")` : undefined;
+}
+
+/**
+ * A section wrapper's own inline style — its chosen skin, its background
+ * picture, both, or neither.
+ *
+ * **Exported so `SectionStylePopup`'s live preview can call this SAME
+ * function**, rather than a second copy of it — the popup applies this to the
+ * card it is editing, watched on every keystroke, before anything is saved.
+ * A second implementation would have looked identical on the day it was
+ * written and drifted silently the first time this one changed: no type
+ * error and no failing test, because each file's tests exercise only its own
+ * copy. `section-style-popup.test.tsx` imports this export directly for
+ * exactly that reason.
+ *
+ * **This returns `undefined`, never `{}`, for a section carrying no
+ * `style`** — but that is this function's own contract ("is there anything
+ * to override" answered honestly), not the reason an unthemed page stays
+ * byte-for-byte what it was before this feature existed. React's SSR
+ * serializer drops an empty `style={{}}` exactly as it drops no `style` prop
+ * at all — confirmed directly, `renderToStaticMarkup` emits identical markup
+ * either way — so the DOM-level guarantee actually comes from React, and a
+ * test that only reads the rendered attribute cannot tell the two apart. What
+ * `undefined` earns here is a caller that can rely on the RETURN VALUE
+ * itself: `sectionStyle`'s own suite in `public-sections.test.tsx` asserts
+ * that directly, because it is the one place this can still go red if the
+ * early return were ever swapped for `return {}`.
+ *
+ * The skin comes from {@link nestedSkinVars}, never `skinVars` — this scope
+ * is nested inside the page's own skin, so only the full property set stops
+ * whatever this section does not override from falling through to the
+ * enclosing skin instead of the design's own default. `skin` is never
+ * checked against `SKINS` here either: an unrecognised name resolves to the
+ * same fallback `nestedSkinVars` already gives one, matching the page-level
+ * skin's own behaviour.
+ *
+ * The background address goes through {@link backgroundImageValue}, which
+ * carries its own argument for why an address that fails is refused rather
+ * than rendered: nothing is painted, never something built from what was
+ * typed.
+ *
+ * @param style - the section's own style bag, or `undefined` when the author
+ *   left it unset.
+ * @returns inline styles to spread onto the wrapper, or `undefined` when
+ *   nothing about this section overrides the page.
+ */
+export function sectionStyle(
+  style: FursonaSection["style"],
+): React.CSSProperties | undefined {
+  if (!style) return undefined;
+
+  const vars: React.CSSProperties & Record<`--${string}`, string> = {};
+  if (style.skin) Object.assign(vars, nestedSkinVars(style.skin as SkinId));
+
+  const backgroundImage = backgroundImageValue(style.background_url);
+  if (backgroundImage) {
+    vars.backgroundImage = backgroundImage;
+    if (style.background_fit === "tile") {
+      vars.backgroundRepeat = "repeat";
+    } else if (style.background_fit === "cover") {
+      vars.backgroundSize = "cover";
+    }
+  }
+
+  return Object.keys(vars).length > 0 ? vars : undefined;
+}
 
 /**
  * What a card shows when its author chose no icon.
@@ -953,6 +1070,12 @@ const LAYOUTS: Record<
  * `domain/embeds.ts` for the whole argument. This file must never grow a branch
  * that puts a stored value into either attribute directly.
  *
+ * **A section may carry its own look, entirely separate from its layout.**
+ * `sectionStyle` turns the author's `style` bag into the wrapper's own inline
+ * properties — a skin's full property set from `nestedSkinVars`, a background
+ * picture guarded by `safeHttpUrl`, or nothing at all when the author left it
+ * unset, which is the case that must keep emitting no `style` attribute.
+ *
  * Each section heading carries the `public-section` test id, so the end-to-end
  * suite can assert that what somebody wrote in the editor reached a stranger's
  * browser — without depending on the author's own words, which are data, or on
@@ -992,6 +1115,7 @@ export function PublicSections({
           <section
             key={keyOf(section.sort_order, section.name_en)}
             className="grid gap-3"
+            style={sectionStyle(section.style)}
           >
             <h2
               className="font-display text-2xl font-bold tracking-tight"

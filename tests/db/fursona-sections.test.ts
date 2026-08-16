@@ -255,6 +255,78 @@ describe("the shape it refuses", () => {
   });
 });
 
+// The database side of `sectionStyleSchema`. `section-schema.test.ts` pins
+// the Zod copy; this pins the SQL the Zod copy is a mirror of, exactly as
+// `actor-theme.test.ts` does for `set_actor_theme`'s own style bag.
+describe("the style bag it refuses", () => {
+  it("accepts a well-formed style and reads it back unchanged", async () => {
+    const style = {
+      skin: "glass",
+      background_url: "https://example.test/bg.png",
+      background_fit: "cover",
+    };
+    expect(
+      await write(alice.sub, alice.sonaRef, [section({ style })]),
+    ).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual([section({ style })]);
+  });
+
+  it("refuses a style that is not an object", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      section({ style: "not-an-object" }),
+    ]);
+    expect(message).toMatch(/section 1/i);
+    expect(message).toMatch(/style must be an object/i);
+  });
+
+  it("refuses a skin name over the limit", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      section({ style: { skin: "s".repeat(33) } }),
+    ]);
+    expect(message).toMatch(/skin name is too long/i);
+  });
+
+  it("refuses a background address over the limit", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      section({
+        style: { background_url: `https://example.test/${"a".repeat(500)}` },
+      }),
+    ]);
+    expect(message).toMatch(/background address is too long/i);
+  });
+
+  it("refuses a background fit it does not render", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      section({ style: { background_fit: "parallax" } }),
+    ]);
+    expect(message).toMatch(/unknown background fit/i);
+  });
+
+  it("refuses a style key nothing reads", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      section({ style: { corner_radius: "8px" } }),
+    ]);
+    expect(message).toMatch(/unknown style key/i);
+  });
+
+  // The regression: `jsonb_each_text` yields SQL NULL, not the string
+  // "null", for a JSON null value — so `length(NULL) > 32` and
+  // `NULL not in (…)` are themselves NULL, and neither `raise exception`
+  // fired. `{"style":{"skin":null}}` and `{"style":{"background_fit":null}}`
+  // were accepted by the database while `sectionStyleSchema` — none of whose
+  // keys is nullable — refused both, a live divergence between the two
+  // validators the design says must agree.
+  it.each(["skin", "background_url", "background_fit"])(
+    "refuses a null %s rather than silently storing it",
+    async (key) => {
+      const message = await write(alice.sub, alice.sonaRef, [
+        section({ style: { [key]: null } }),
+      ]);
+      expect(message).toMatch(/must not be null/i);
+    },
+  );
+});
+
 // A jsonb reachable by any signed-in caller is the same hazard 0011's quota
 // closed, and worse: a fursona row costs a handle, a sections blob costs
 // storage on every write with no natural ceiling. Each number below is a

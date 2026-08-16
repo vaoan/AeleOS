@@ -67,6 +67,51 @@ describe("the client's section limits", () => {
  */
 const layoutSql = sql;
 
+/**
+ * The style-bag validation block inside `set_actor_sections`.
+ *
+ * Anchored on the phrase `unknown style key`, which appears nowhere else in
+ * `0009` — the page-level skin lives in `set_actor_theme`'s own loop and
+ * raises a differently worded exception instead, so a plain search for
+ * `'skin'` would find that block first rather than this one.
+ */
+const styleBlock = sql.match(
+  /for v_key, v_value in select \* from jsonb_each_text\(v_section -> 'style'\)[\s\S]*?end loop;/,
+)?.[0];
+
+describe("the client's style limits", () => {
+  it("the style block is found in 0009", () => {
+    // Asserted before anything below is compared, for the same reason the
+    // section-limit guard checks its own regex first: a pattern that quietly
+    // matched nothing would make every comparison after it pass forever.
+    expect(styleBlock).toBeTruthy();
+  });
+
+  it("the skin length matches 0009's style block", () => {
+    const found = styleBlock?.match(
+      /v_key = 'skin' then[\s\S]*?length\(v_value\) > (\d+)/,
+    );
+    expect(Number(found?.[1])).toBe(32);
+  });
+
+  it("the background address length matches 0009's style block", () => {
+    const found = styleBlock?.match(
+      /v_key = 'background_url' then[\s\S]*?length\(v_value\) > (\d+)/,
+    );
+    expect(Number(found?.[1])).toBe(500);
+  });
+
+  it("the background fit values match 0009's style block", () => {
+    const found = styleBlock?.match(
+      /v_key = 'background_fit' then[\s\S]*?v_value not in \(([^)]+)\)/,
+    );
+    const values = found?.[1]
+      .split(",")
+      .map((value) => value.trim().replaceAll("'", ""));
+    expect(values?.toSorted()).toEqual(["cover", "tile"]);
+  });
+});
+
 describe("the client's layout list", () => {
   // The same drift argument as the caps, with a sharper edge: a layout the
   // client offers and the database refuses is not a warning somebody sees while

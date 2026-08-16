@@ -188,12 +188,20 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * `sectionsSchema`, composed rather than restated so neither set of rules
  * exists twice.
  *
- * **The language strip sticks at `--bar-top-2`, which is under both bars above
- * it.** Pinned near the top it was covered by the toolbar and covered the page
- * header in turn, so on every screen size the control it holds was unreachable
- * for as long as anybody scrolled. It carries `short:static`, so on a screen too
- * short for three bars it scrolls away and leaves the top to Save — see
- * `globals.css`, where the offsets are declared together.
+ * **The language strip sits directly above the sections it governs, below the
+ * theme panel.** `lang` reaches only `SectionEditor` — `fursonaSchema` has no
+ * `_en`/`_es` field at all — so a strip that used to sit above the theme panel
+ * announced itself over the top fields it does not touch, separated from the
+ * ones it does by however tall that panel happened to be open. Its sticky
+ * offset, `top-(--bar-top-2)`, which is under both bars above it, is correct
+ * as a consequence of the new position rather than by design: it now comes
+ * into force exactly when the sections are on screen, instead of hovering
+ * over somebody picking colours. Pinned near the top it was covered by the
+ * toolbar and covered the page header in turn, so on every screen size the
+ * control it holds was unreachable for as long as anybody scrolled. It
+ * carries `short:static`, so on a screen too short for three bars it scrolls
+ * away and leaves the top to Save — see `globals.css`, where the offsets are
+ * declared together.
  *
  * **Navigation is decided by what `save` returns, never by reading
  * `fieldErrors` afterwards.** That value is captured from the render that built
@@ -232,12 +240,12 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * button appears — the panel does, from whether there is anything to copy — so
  * passing it unconditionally is correct rather than lazy.
  *
- * **The theme panel sits above the sections**, because it governs how all of
- * them look, and it is collapsed until somebody opens it — theming is a thing
- * people do once and then leave alone, so an open colour panel would push the
- * sections down the page for everybody who never touches it. Its changes are
- * previewed locally and written with the rest of the form: what has to be
- * instant is SEEING a colour, not storing it.
+ * **The theme panel sits above the language strip and the sections**, because
+ * it governs how all of them look, and it is collapsed until somebody opens
+ * it — theming is a thing people do once and then leave alone, so an open
+ * colour panel would push everything below it down the page for everybody who
+ * never touches it. Its changes are previewed locally and written with the
+ * rest of the form: what has to be instant is SEEING a colour, not storing it.
  *
  * **The language switch shows both languages rather than the current one.** It
  * was a single button reading "EN", which is ambiguous in the way that matters:
@@ -245,7 +253,8 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * they could go. Both sides are on screen now, each naming itself in its own
  * language — an endonym is deliberately not translated, because a picker whose
  * options rename themselves is unreadable to whoever needs it — and the switch
- * sticks to the top, since it governs fields further down the page than it sits.
+ * sticks to the top, since it governs the sections further down the page than
+ * it sits.
  *
  * **The visibility `select` is painted with `--menu`, not left transparent.** A
  * dropdown's list is drawn from the control's own background, so a transparent
@@ -258,6 +267,12 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * test ids. They exist because a signed-in end-to-end test can reach this page
  * at last; the fields are addressed by test id rather than by label because a
  * label is translated and the suite runs in Spanish.
+ *
+ * **`setValue` reaches `SectionEditor` too, alongside `control` and
+ * `register`.** A drag or an add there has to rewrite a section's
+ * `sort_order` to match its position — see `SectionEditor`'s own TSDoc —
+ * and that write goes through the form's own setter, not through anything
+ * this component does with the value itself.
  *
  * Its panels and fields carry `surface`, the class a skin styles — six of them, so a theme reaches the whole editor rather than half of it.
  *
@@ -280,6 +295,7 @@ export function FursonaEditor({
   const {
     control,
     register,
+    setValue,
     handleSubmit,
     formState: { errors },
   } = useForm({
@@ -412,6 +428,25 @@ export function FursonaEditor({
         </div>
       </div>
 
+      {/* Above the language strip and the sections, because it governs how
+          all of them look. The panel is collapsed until somebody opens it —
+          theming is a thing people do once and then leave alone, and an open
+          colour panel would push everything below it down the page for
+          everybody who never touches it. */}
+      <div className="mt-8">
+        <ThemeController
+          control={control}
+          labels={labels.theme}
+          profileTheme={profileTheme}
+        />
+      </div>
+
+      {/* Directly above the sections it governs, and nothing else: `lang`
+          reaches only `SectionEditor`, so a strip sitting between the top
+          fields and the theme panel used to announce itself over content it
+          does not touch. Its `sticky` offset is what makes this position
+          correct rather than merely tidier — it comes into force exactly
+          when the sections it governs are on screen. */}
       <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar)/95 p-3 backdrop-blur-sm short:static">
         <div className="grid gap-0.5">
           <span className="font-display text-sm font-bold">
@@ -456,19 +491,10 @@ export function FursonaEditor({
         </div>
       </div>
 
-      {/* Above the sections, because it governs how all of them look. The
-          panel is collapsed until somebody opens it — theming is a thing people
-          do once and then leave alone, and an open colour panel would push the
-          sections down the page for everybody who never touches it. */}
-      <ThemeController
-        control={control}
-        labels={labels.theme}
-        profileTheme={profileTheme}
-      />
-
       <SectionEditor
         control={control}
         register={register}
+        setValue={setValue}
         lang={lang}
         labels={labels}
       />

@@ -113,6 +113,21 @@ test.describe("the signed-in pages are accessible", () => {
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
     await isAccessible(page, "the editor with the theme panel open");
+
+    // Close the theme panel before opening a section's own style popup, so
+    // axe reads one open overlay at a time rather than two stacked ones.
+    await page.getByTestId("theme-open").click();
+
+    // A section's own paintbrush popup — an OVERLAY, unlike the theme panel
+    // above and `IconPicker`'s inline one, so it is the one surface in this
+    // screen that owes Escape, an outside-click close, and its own focus
+    // management rather than merely a name on every control. Never opened by
+    // any e2e suite before this finding: a popup axe never sees is a popup it
+    // cannot fail on, which is not the same as one that passes.
+    await page.getByTestId("add-section").click();
+    await page.getByTestId("section-style-open").click();
+    await expect(page.getByTestId("section-style-panel")).toBeVisible();
+    await isAccessible(page, "the editor with a section's style popup open");
   });
 });
 

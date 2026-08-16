@@ -5,7 +5,7 @@ import {
 import { createIdentityClient } from "@aeleos/identity";
 import { env } from "@/shared/infrastructure/env";
 import {
-  sectionsSchema,
+  readSectionsSchema,
   type FursonaSection,
 } from "@/features/actors/domain/section-schema";
 
@@ -95,11 +95,19 @@ const anonClient = () =>
  * name. Throwing here would turn one bad row into a 500 on somebody's public
  * profile, which is a worse failure than a page with nothing under the heading.
  *
+ * **Uses `readSectionsSchema`, not `sectionsSchema`.** The write schema's
+ * `style` bag is `.strict()`, which is right for an author's own typo and
+ * wrong here: a single unrecognised style key — the exact shape Phase D's
+ * `card_size` will be, in any window where the database is ahead of this
+ * build — would otherwise fail the WHOLE array and blank a stranger's page
+ * rather than costing it just that one key. See `readSectionsSchema`'s own
+ * TSDoc.
+ *
  * @param value - whatever the database returned.
  * @returns the sections, or `[]` when they do not parse.
  */
 function parseSections(value: unknown): FursonaSection[] {
-  const result = sectionsSchema.safeParse(value);
+  const result = readSectionsSchema.safeParse(value);
   return result.success ? (result.data as FursonaSection[]) : [];
 }
 

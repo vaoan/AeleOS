@@ -2,7 +2,7 @@
 
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
-import { GripVertical, Plus, Sparkles } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { useId, useState } from "react";
 import { tid } from "@/shared/infrastructure/test-id";
 import {
@@ -11,7 +11,9 @@ import {
   type Control,
   type FieldArray,
   type FieldValues,
+  type Path,
   type UseFormRegister,
+  type UseFormSetValue,
 } from "react-hook-form";
 import {
   SECTION_LIMITS,
@@ -44,6 +46,11 @@ import {
  * `addSectionFor` is the one string the brand preset control needs from this
  * bag — see its own field doc for why a brand's own name is never one of
  * these fields.
+ *
+ * `dragSection` used to be declared here, for a handle this component drew
+ * itself. It moved to {@link SectionCardLabels} along with the handle it
+ * names — the extension still carries it through, so nothing that already
+ * read `labels.dragSection` had to change.
  */
 export interface SectionEditorLabels
   extends SectionCardLabels, TemplatePickerLabels {
@@ -57,8 +64,6 @@ export interface SectionEditorLabels
   newSectionType: string;
   /** Explains why the add control is gone. */
   atLimit: string;
-  /** Names a section's drag handle. */
-  dragSection: string;
   /**
    * Opens the brand preset list — "Add a section for…" or similar.
    *
@@ -72,12 +77,22 @@ export interface SectionEditorLabels
 /**
  * What {@link SectionEditor} needs.
  *
+ * `setValue` is new: a drag or an add renumbers every section's
+ * `sort_order` to its position, and that write has to land through the
+ * form's own setter rather than through `useFieldArray`'s `move` or
+ * `append` alone — see {@link SectionEditor}'s own TSDoc.
  */
 export interface SectionEditorProps<T extends FieldValues> {
   /** The form's control, for the sections array. */
   control: Control<T>;
   /** The form's register, so every field joins the surrounding form. */
   register: UseFormRegister<T>;
+  /**
+   * The form's own setter, used to rewrite a section's `sort_order` after a
+   * drag or an add — see {@link SectionEditor}'s own TSDoc for why this
+   * cannot go through `useFieldArray`'s `move` or `append` alone.
+   */
+  setValue: UseFormSetValue<T>;
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
   /** The fursona being edited, absent while creating one. */
@@ -122,9 +137,43 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
  * reason: offering a control that silently does nothing at the cap is the
  * fault this project keeps catching.
  *
- * Dragging reorders sections; each card carries its own item list. Reordering
- * writes `sort_order` on drop rather than relying on array position, because
- * position is not what the database stores.
+ * Dragging reorders sections; each card carries its own item list. `move`
+ * from `useFieldArray` reorders the client-side array, and `onDragEnd`
+ * follows it with a `setValue` per section rewriting `sort_order` to match
+ * the new position — one-based, the same scheme {@link emptySection} already
+ * used. **This is the field `0009` and the public page's own render actually
+ * sort by**, and array position is not: `move` alone shipped once, reordered
+ * the screen, and saved every section under its original `sort_order`, so a
+ * drag was invisible to a visitor the moment the page reloaded. `setValue`
+ * rather than `replace` is deliberate — `replace` regenerates every field's
+ * `id`, which would remount every untouched `SectionCard` on a drag anywhere
+ * in the list and lose each one's own collapsed state; `setValue` touches
+ * only the one field nothing renders.
+ *
+ * **Adding a section renumbers the whole array the same way**, not only its
+ * own `sort_order`. A plain `fields.length + 1` looked sufficient and is not:
+ * removing a section from the middle leaves a gap in the survivors'
+ * `sort_order` values, which is harmless on its own — the sequence stays
+ * monotonic — but a later add computed from the post-removal `fields.length`
+ * can land **below** a surviving section's `sort_order`, so the section just
+ * appended at the visual end would sort before one already there. Renumbering
+ * every section on every add closes that regardless of how many removals
+ * came before it, without needing to touch `remove` itself.
+ *
+ * **Its `Draggable` carries `disableInteractiveElementBlocking`.** The handle
+ * is a real `<button>`, and `@hello-pangea/dnd` refuses to start a drag — by
+ * mouse or keyboard — whose source event targets a tag it treats as
+ * interactive, unless told otherwise: without this, lifting a section did
+ * nothing at all, silently, for every input method. Found by
+ * `tests/e2e/section-drag-reorder.spec.ts`, the first test anywhere in this
+ * project to actually drive a drag rather than mock the library away.
+ *
+ * **This no longer wraps each row in a handle of its own.** It used to pair a
+ * grip button beside `SectionCard`, which is where the empty gutter down the
+ * left came from — a control floating beside what it governs rather than on
+ * it. `SectionCard` now renders the handle itself, in its own header row
+ * beside the collapse chevron, and this component only hands it the drag
+ * library's `dragHandleProps` for the row.
  *
  * **It carries test ids**, because the end-to-end suite runs in Spanish and may
  * not assert on translated text — so a control without one cannot be reached by
@@ -148,6 +197,7 @@ const emptySection = (type: SectionType, sortOrder: number) => ({
 export function SectionEditor<T extends FieldValues>({
   control,
   register,
+  setValue,
   lang,
   labels,
 }: SectionEditorProps<T>) {
@@ -163,7 +213,30 @@ export function SectionEditor<T extends FieldValues>({
   const atLimit = fields.length >= SECTION_LIMITS.sections;
 
   /**
-   * Moves a section to where it was dropped.
+   * Rewrites every section's `sort_order` to its position among the first
+   * `count` sections, one-based to match {@link emptySection}'s own scheme.
+   *
+   * Reads by index rather than by any array this function is handed: `move`
+   * and `append` mutate `useFieldArray`'s underlying form state
+   * synchronously, so by the time this runs, position `index` already holds
+   * whichever section belongs there — this only has to know how many there
+   * are.
+   *
+   * @param count - how many sections to renumber, starting from the first.
+   */
+  const renumber = (count: number): void => {
+    for (let index = 0; index < count; index += 1) {
+      setValue(
+        `sections.${index}.sort_order` as Path<T>,
+        (index + 1) as unknown as never,
+      );
+    }
+  };
+
+  /**
+   * Moves a section to where it was dropped, then renumbers every section so
+   * `sort_order` matches the array position — the field the public page
+   * actually sorts by.
    *
    * @param result - where the drag started and ended.
    */
@@ -171,6 +244,7 @@ export function SectionEditor<T extends FieldValues>({
     const to = result.destination?.index;
     if (to === undefined || to === result.source.index) return;
     move(result.source.index, to);
+    renumber(fields.length);
   };
 
   return (
@@ -203,32 +277,37 @@ export function SectionEditor<T extends FieldValues>({
               className="grid gap-3"
             >
               {fields.map((field, index) => (
-                <Draggable key={field.id} draggableId={field.id} index={index}>
+                <Draggable
+                  key={field.id}
+                  draggableId={field.id}
+                  index={index}
+                  // The handle is a real `<button>`, and `@hello-pangea/dnd`
+                  // refuses to start ANY drag — mouse or keyboard — whose
+                  // source event targets a tag it treats as interactive
+                  // (`button` among them) unless told otherwise. Without this,
+                  // `tryStart` returns null before ever calling
+                  // `preventDefault`, so lifting silently does nothing: no
+                  // error, no announcement, the grip simply inert. Found by
+                  // `section-drag-reorder.spec.ts`, the first test anywhere in
+                  // this project to actually drive a drag.
+                  disableInteractiveElementBlocking
+                >
                   {(dragProvided) => (
                     <div
                       ref={dragProvided.innerRef}
                       {...dragProvided.draggableProps}
-                      className="flex items-start gap-2"
                     >
-                      <button
-                        type="button"
-                        aria-label={labels.dragSection}
-                        {...dragProvided.dragHandleProps}
-                        className="mt-4 cursor-grab text-(--muted)"
-                      >
-                        <GripVertical className="size-4" />
-                      </button>
-                      <div className="flex-1">
-                        <SectionCard
-                          control={control}
-                          register={register}
-                          path={`sections.${index}`}
-                          index={index}
-                          lang={lang}
-                          labels={labels}
-                          onRemove={() => remove(index)}
-                        />
-                      </div>
+                      <SectionCard
+                        control={control}
+                        register={register}
+                        setValue={setValue}
+                        path={`sections.${index}`}
+                        index={index}
+                        lang={lang}
+                        labels={labels}
+                        dragHandleProps={dragProvided.dragHandleProps}
+                        onRemove={() => remove(index)}
+                      />
                     </div>
                   )}
                 </Draggable>
@@ -267,14 +346,15 @@ export function SectionEditor<T extends FieldValues>({
             <button
               type="button"
               {...tid("add-section")}
-              onClick={() =>
+              onClick={() => {
                 append(
                   emptySection(newType, fields.length + 1) as FieldArray<
                     T,
                     ArrayPath<T>
                   >,
-                )
-              }
+                );
+                renumber(fields.length + 1);
+              }}
               className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
             >
               <Plus className="size-4" />
@@ -313,6 +393,7 @@ export function SectionEditor<T extends FieldValues>({
                           ArrayPath<T>
                         >,
                       );
+                      renumber(fields.length + 1);
                       setPresetsOpen(false);
                     }}
                     className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"

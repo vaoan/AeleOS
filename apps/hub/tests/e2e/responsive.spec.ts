@@ -17,7 +17,7 @@ import {
 //
 // Two causes, and which was which was settled by taking each fix away again
 // rather than by reading the markup. A `select` is as wide as its longest
-// option, so the section row — handle, name, a menu naming eleven layouts, bin
+// option, so the section row — handle, name, a menu naming every layout, bin
 // — forced the page 150px wider than a 320px phone; that row wraps now. And the
 // nested chrome (`px-6` on the column, `p-4` on the card, `pl-9` on the indent)
 // came to 88px of a 360px screen, which is what that size was short by; it is

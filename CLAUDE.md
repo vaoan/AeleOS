@@ -208,6 +208,28 @@ Key choices and _why_:
   regression test has to use the real thing, and it will usually be the only
   test that does.
 
+  **A second instance, 2026-08-16.** A section's drag handle had never worked —
+  not by mouse, not by keyboard — since it was first written in commit
+  `fa9d3dc`. `@hello-pangea/dnd` refuses to start a drag whose source event
+  targets a tag it treats as interactive; the handle is a `<button>`; nothing
+  set `disableInteractiveElementBlocking` on its `Draggable`. Lifting a
+  section did nothing at all, silently, for every input method. It survived
+  because `section-editor.test.tsx`'s only coverage mocks
+  `@hello-pangea/dnd` entirely and counts buttons by `aria-label` — wiring
+  that passes whether or not a lift ever begins. The guard is now
+  `tests/e2e/section-drag-reorder.spec.ts`, which drives a real drag by
+  keyboard and is sabotage-verified against the original fault: removing the
+  prop leaves the library's own `aria-live` announcement empty, because the
+  lift never starts. Same lesson, same shape: the suite that mocked the
+  dependency away is the one that could not have caught this, and the one
+  that used the real thing did on its first run.
+
+  **The fix landed only in `section-editor.tsx`.**
+  `fursona-list.tsx`'s own drag grip carries the identical missing
+  `disableInteractiveElementBlocking`, still unfixed as of the 2026-08-16
+  final review — noted here rather than silently left for the next person to
+  rediscover the same way.
+
 - **Change an implementation, move its documentation.** `pnpm check:docs`
   compares each exported symbol against the base branch — and against the index
   in pre-commit — failing when the code moved and the TSDoc did not. It is a
@@ -488,6 +510,24 @@ replace`, so the newest body of a function could sit in a file named after
 
   **Do not reintroduce an upload without reopening the budget question**, and if
   it is ever reopened, the three constraints above come back with it.
+
+- **A section may carry its own form (2026-08-16).** A skin, a background
+  picture and a fit, apart from the page's — edited in a paintbrush popup with
+  a live preview, using the same `sectionStyle` the public page renders with
+  so the two cannot drift. **Absent means "inherit the page,"** a real answer
+  rather than a gap. **Colour stays page-level and always will** — a skin
+  names no colour of its own, and every pairing of a style and a palette is
+  somebody's page; a per-section colour would collapse that. Read
+  `apps/hub/src/features/actors/CLAUDE.md` for what a section may set, the
+  nesting fix a skin needed to apply twice without falling through to the
+  wrong scope, and why the readability escape hatch stays page-level rather
+  than growing a per-section correction. `card_size` did not ship with this —
+  see the spec's Phasing section — because nothing yet renders it.
+
+  The same pass fixed a section's drag handle, dead since it was first
+  written and invisible to the only test that covered it — see "Every bug
+  gets a regression test" above for the fault, the fix, and the lesson it is
+  the second instance of.
 
 ## The toolchain, and the nine rules it cost
 

@@ -208,6 +208,21 @@ describe("the sections it will accept", () => {
     answer({ ...fursonaRow, sections: "not an array" });
     expect((await readPublicFursona("42", "luna"))?.sections).toEqual([]);
   });
+
+  // Finding 4 of the final review: an unrecognised STYLE key must cost only
+  // that key, never the whole page — `parseSections` uses
+  // `readSectionsSchema` rather than the editor's `.strict()` write schema
+  // for exactly this reason. A stranger reading this page must still see the
+  // section; only the key nothing here renders is dropped.
+  it("renders a section carrying an unrecognised style key, rather than emptying the page", async () => {
+    const sectionWithUnknownStyleKey = [
+      { ...SECTIONS[0], style: { skin: "glass", card_size: "lg" } },
+    ];
+    answer({ ...fursonaRow, sections: sectionWithUnknownStyleKey });
+    expect((await readPublicFursona("42", "luna"))?.sections).toEqual([
+      { ...SECTIONS[0], style: { skin: "glass" } },
+    ]);
+  });
 });
 
 describe("the client it builds", () => {

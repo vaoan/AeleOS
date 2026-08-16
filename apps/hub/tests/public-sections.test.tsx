@@ -26,7 +26,7 @@ vi.mock("lucide-react/dynamic", () => ({
     "cloud",
   ],
 }));
-const { PublicSections } =
+const { PublicSections, backgroundImageValue, sectionStyle } =
   await import("@/features/actors/presentation/public-sections");
 
 /**
@@ -786,5 +786,212 @@ describe("an item whose description nobody wrote", () => {
       />,
     );
     expect(container.querySelector("dl")).toBeNull();
+  });
+});
+
+describe("a section's own style", () => {
+  // The unthemed case has to stay a genuine absence, not an empty style
+  // object — an empty `style=""` attribute is still a change to markup that
+  // used to carry none at all.
+  it("adds no extra attributes when the section carries no style", () => {
+    const { container } = renderSections([section()]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.hasAttribute("style")).toBe(false);
+  });
+
+  // **This is the sabotage-provable regression test for the claim above; the
+  // DOM-level one is not.** React's SSR serializer drops an empty
+  // `style={{}}` exactly as it drops no `style` prop at all —
+  // `renderToStaticMarkup` emits identical markup for both — so swapping
+  // `sectionStyle`'s early return for `return {}` leaves every DOM-level
+  // assertion in this file green. Calling the function directly, before
+  // React's serializer gets a chance to hide the difference, is the one
+  // place this can actually go red.
+  it("returns undefined, not an empty object, for a section with no style", () => {
+    expect(sectionStyle(undefined)).toBeUndefined();
+  });
+
+  // Asserting the VALUES, not merely that a style attribute exists — a
+  // wrapper emitting the wrong skin, or none at all beyond an empty object,
+  // would pass a test that only checked for a non-empty attribute.
+  it("carries its chosen skin's own overrides", () => {
+    const { container } = renderSections([
+      section({ style: { skin: "neobrutalism" } }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.style.getPropertyValue("--skin-round")).toBe("0");
+    expect(wrapper?.style.getPropertyValue("--skin-border")).toBe("3px");
+  });
+
+  // The regression this feature exists to fix: a skin has to carry the FULL
+  // property set, defaults included, or a property neobrutalism does not
+  // mention would fall through to whatever the enclosing page happens to be
+  // wearing rather than resetting to the design's own default.
+  it("resets a property its own skin does not set, rather than inheriting the page's", () => {
+    const { container } = renderSections([
+      section({ style: { skin: "neobrutalism" } }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.style.getPropertyValue("--skin-font")).toBe(
+      "var(--font-sans)",
+    );
+  });
+
+  it("paints a background picture it was given", () => {
+    const { container } = renderSections([
+      section({
+        style: { background_url: "https://example.test/bg.png" },
+      }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.style.backgroundImage).toBe(
+      'url("https://example.test/bg.png")',
+    );
+  });
+
+  it("tiles the background when told to", () => {
+    const { container } = renderSections([
+      section({
+        style: {
+          background_url: "https://example.test/bg.png",
+          background_fit: "tile",
+        },
+      }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.style.backgroundRepeat).toBe("repeat");
+    expect(wrapper?.style.backgroundSize).toBe("");
+  });
+
+  it("covers with the background when told to", () => {
+    const { container } = renderSections([
+      section({
+        style: {
+          background_url: "https://example.test/bg.png",
+          background_fit: "cover",
+        },
+      }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.style.backgroundSize).toBe("cover");
+    expect(wrapper?.style.backgroundRepeat).toBe("");
+  });
+
+  // The same rule every other pasted address on this page follows: an
+  // address `safeHttpUrl` refuses paints nothing, never something built from
+  // what was typed. `javascript:` is refused for the same reason an anchor
+  // never carries one unescaped.
+  it("paints nothing when the address is not http(s)", () => {
+    const { container } = renderSections([
+      section({ style: { background_url: "javascript:alert(1)" } }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.hasAttribute("style")).toBe(false);
+  });
+
+  it("carries both a skin and a background at once", () => {
+    const { container } = renderSections([
+      section({
+        style: {
+          skin: "glass",
+          background_url: "https://example.test/bg.png",
+          background_fit: "cover",
+        },
+      }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.style.getPropertyValue("--skin-round")).toBe("2");
+    expect(wrapper?.style.backgroundImage).toBe(
+      'url("https://example.test/bg.png")',
+    );
+  });
+
+  // Integration-level coverage for the quote regression below: rendered end
+  // to end, a host that still carries a `"` after normalisation paints
+  // nothing. This alone is **not** the sabotage-provable regression test —
+  // see the note on `backgroundImageValue`'s own suite for why jsdom's
+  // CSSOM already hides the difference at this layer, whether or not the
+  // refusal exists.
+  it("refuses a background address whose host still carries a quote", () => {
+    const { container } = renderSections([
+      section({
+        style: { background_url: 'https://ex"ample.test/a.png' },
+      }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.hasAttribute("style")).toBe(false);
+  });
+
+  // The sharper version of the same case: a skin chosen alongside the
+  // quoted address proves the background is what gets refused, rather than
+  // merely proving the whole style bag came back empty.
+  it("keeps its skin but paints no background when the host still carries a quote", () => {
+    const { container } = renderSections([
+      section({
+        style: {
+          skin: "glass",
+          background_url: 'https://ex"ample.test/a.png',
+        },
+      }),
+    ]);
+    const wrapper = container.querySelector("section");
+    expect(wrapper?.style.getPropertyValue("--skin-round")).toBe("2");
+    expect(wrapper?.style.backgroundImage).toBe("");
+  });
+});
+
+describe("backgroundImageValue", () => {
+  // **This is the sabotage-provable regression test, and the DOM-level ones
+  // above are not.** jsdom's `CSSStyleDeclaration` silently drops a
+  // malformed value on assignment — confirmed directly: setting
+  // `element.style.backgroundImage` to the exact string this function would
+  // build from a quoted host, were it not refused, reads back as `""`,
+  // identically whether or not that refusal exists. A test that only
+  // observes the rendered DOM therefore cannot go red on the unfixed code;
+  // this one calls the pure function directly, before any sink gets a
+  // chance to hide the difference.
+  it("builds a url() value for a safe address", () => {
+    expect(backgroundImageValue("https://example.test/bg.png")).toBe(
+      'url("https://example.test/bg.png")',
+    );
+  });
+
+  it("returns nothing for an address with no scheme http(s) can trust", () => {
+    expect(backgroundImageValue("javascript:alert(1)")).toBeUndefined();
+  });
+
+  it("returns nothing when no address was given", () => {
+    expect(backgroundImageValue(undefined)).toBeUndefined();
+  });
+
+  // The regression: `safeHttpUrl`'s WHATWG normalisation percent-encodes a
+  // `"` in a path or query, but leaves one in the HOST untouched — confirmed
+  // directly: `new URL('https://ex"ample.test/a.png').toString()` still
+  // carries the quote. Built into `url("…")` unchecked, that quote would
+  // close the CSS string early in ANY context that string is later
+  // interpolated into, not only the one this file happens to use today.
+  it("refuses an address whose host still carries a quote after normalisation", () => {
+    expect(backgroundImageValue('https://ex"ample.test/a.png')).toBeUndefined();
+  });
+
+  // The second gap normalisation leaves open: a raw `\` in the query or
+  // fragment survives `safeHttpUrl` untouched, and sitting right before the
+  // closing `"` this function appends, it turns that closing quote into a
+  // CSS escape sequence rather than the string's own end — the built value
+  // never closes. `new URL('https://example.test/?x\\').toString()` keeps
+  // the backslash verbatim, confirming this is not something normalisation
+  // already handles.
+  it("refuses an address whose query still carries a backslash", () => {
+    expect(backgroundImageValue("https://example.test/?x\\")).toBeUndefined();
+  });
+
+  // A quote surviving in the path or query, by contrast, is exactly what
+  // `safeHttpUrl` already neutralises — percent-encoded before this function
+  // ever sees it — so it must still build a value rather than over-refusing.
+  it("still builds a value when a quote only ever reached the path", () => {
+    expect(backgroundImageValue('https://example.test/a".png')).toBe(
+      'url("https://example.test/a%22.png")',
+    );
   });
 });

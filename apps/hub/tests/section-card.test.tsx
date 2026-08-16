@@ -4,8 +4,10 @@ import {
 } from "@/features/actors/domain/section-schema";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
+import { useEffect } from "react";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
+import { SKINS, type SkinId } from "@/shared/domain/skins";
 
 // ImageField reaches for the browser Supabase client, which is Clerk-backed.
 // These suites are about the fields, not about a session.
@@ -29,6 +31,7 @@ const labels = {
   removeSection: "Remove section",
   collapse: "Collapse section",
   expand: "Expand section",
+  dragSection: "Drag to reorder section",
   itemTitle: "Title",
   itemDescription: "Description",
   itemDescriptionHint: "What do you want to say here?",
@@ -48,6 +51,24 @@ const labels = {
   types: Object.fromEntries(
     SECTION_TYPES.map((type) => [type, type]),
   ) as Record<SectionType, string>,
+  style: {
+    open: "Section style",
+    title: "This section's own style",
+    skin: "Style",
+    // Derived, for the same reason `types` above is: a skin added later
+    // cannot leave this fixture silently short of one.
+    skins: Object.fromEntries(SKINS.map((skin) => [skin, skin])) as Record<
+      SkinId,
+      string
+    >,
+    inheritSkin: "Inherit the page",
+    backgroundUrl: "Background picture",
+    backgroundUrlHint: "Paste an address. Nothing is stored.",
+    fit: "Fit",
+    fitDefault: "Original size",
+    fitCover: "Cover",
+    fitTile: "Tile",
+  },
 };
 
 /**
@@ -64,6 +85,21 @@ const item = (over: Record<string, unknown> = {}) => ({
   sort_order: 1,
   ...over,
 });
+
+/**
+ * The form `Harness` most recently rendered — `sort_order` reaches no
+ * visible input, so a test reading it back needs the form directly rather
+ * than the DOM `render` hands back.
+ */
+let capturedForm: UseFormReturn<{
+  sections: {
+    name_en: string;
+    name_es: string;
+    type: string;
+    sort_order: number;
+    items: ReturnType<typeof item>[];
+  }[];
+}>;
 
 /**
  * Renders one card inside a real form.
@@ -94,14 +130,24 @@ function Harness({
       ],
     },
   });
+  // Capturing during render is a side effect the rules of hooks forbid; an
+  // effect is the escape hatch, and Testing Library's `render` flushes it
+  // before returning, so it is ready for the assertion straight after.
+  useEffect(() => {
+    capturedForm = form;
+  });
   return (
     <SectionCard
       control={form.control}
       register={form.register}
+      setValue={form.setValue}
       path="sections.0"
       index={0}
       lang={lang}
       labels={labels}
+      // No `Draggable` wraps this harness, so there is nothing real to spread
+      // — matching what the library itself hands a disabled handle.
+      dragHandleProps={null}
       onRemove={onRemove}
     />
   );
@@ -129,6 +175,13 @@ const titles = () =>
   screen.getAllByLabelText("Title").map((el) => (el as HTMLInputElement).value);
 
 describe("SectionCard", () => {
+  it("offers a drag handle in its own header row", () => {
+    renderCard();
+    expect(
+      screen.getByRole("button", { name: "Drag to reorder section" }),
+    ).toBeInTheDocument();
+  });
+
   it("binds the section name to the language being written", () => {
     renderCard("es");
     expect(screen.getByLabelText("Section name")).toHaveValue("Sobre mi");
@@ -151,6 +204,29 @@ describe("SectionCard", () => {
     renderCard();
     fireEvent.click(screen.getByRole("button", { name: "Add item" }));
     expect(titles()).toHaveLength(2);
+  });
+
+  // The same collision `SectionEditor` has for sections, found while fixing
+  // its drag: `sort_order: fields.length + 1` alone is computed from the
+  // CURRENT count, which a removal has already shrunk — so a later add can
+  // land at or below a surviving item's `sort_order`, and the public page
+  // sorts items by that field exactly as it sorts sections.
+  it("keeps a later add above every survivor, even after removals left a gap", () => {
+    renderCard("en", [
+      item({ title_en: "Item 1", sort_order: 1 }),
+      item({ title_en: "Item 2", sort_order: 2 }),
+      item({ title_en: "Item 3", sort_order: 3 }),
+    ]);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove item" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove item" })[0]!);
+    expect(titles()).toEqual(["Item 3"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add item" }));
+
+    const items = capturedForm.getValues("sections.0.items");
+    expect(items.map((i) => i.title_en)).toEqual(["Item 3", ""]);
+    expect(items.map((i) => i.sort_order)).toEqual([1, 2]);
   });
 
   // The assertion worth writing carefully. An index-based remove that closes

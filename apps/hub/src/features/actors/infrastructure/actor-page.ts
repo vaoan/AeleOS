@@ -5,7 +5,7 @@ import {
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
 import {
-  sectionsSchema,
+  readSectionsSchema,
   type FursonaSection,
 } from "@/features/actors/domain/section-schema";
 
@@ -35,6 +35,14 @@ export interface ActorPage {
  * A missing row is an ordinary state, not a fault: a fursona that has never
  * been edited has no profile row, and saving creates it.
  *
+ * **Parses sections with `readSectionsSchema`, not the editor's
+ * `sectionsSchema`.** The two differ only on an unrecognised STYLE key: the
+ * write schema refuses it, the read schema strips it. Using the strict one
+ * here would reopen the exact bug this function exists to fix — a single
+ * style key this build does not yet recognise would fail the WHOLE array's
+ * parse and open the editor on an empty page, ready to save over what its
+ * owner actually wrote.
+ *
  * @param client - a Supabase client authenticated as the owner.
  * @param actorRef - whose page.
  * @returns the sections and the theme, both defaulted when absent.
@@ -58,7 +66,11 @@ export async function readActorPage(
   // Sections that no longer parse come back as none rather than throwing. A
   // throw here would make the fursona permanently uneditable, which is a worse
   // outcome than an editor that opens empty and can be saved over.
-  const parsed = sectionsSchema.safeParse(
+  //
+  // `readSectionsSchema`, not `sectionsSchema`: an unknown STYLE key must not
+  // blank the whole array the way an unknown section key already does not —
+  // see that export's own TSDoc for why the two schemas disagree on purpose.
+  const parsed = readSectionsSchema.safeParse(
     (data as { sections: unknown }).sections,
   );
   return {

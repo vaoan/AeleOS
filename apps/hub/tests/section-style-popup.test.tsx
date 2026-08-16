@@ -1,0 +1,423 @@
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useForm, type UseFormReturn } from "react-hook-form";
+import type {
+  FieldValues,
+  UseFormRegister,
+  UseFormSetValue,
+  Control,
+} from "react-hook-form";
+import { SKINS, type SkinId } from "@/shared/domain/skins";
+import {
+  SECTION_TYPES,
+  type SectionType,
+} from "@/features/actors/domain/section-schema";
+
+// The card reaches for the browser Supabase client, which is Clerk-backed.
+// These suites are about the style popup, not about a session.
+vi.mock("@/shared/infrastructure/supabase-browser", () => ({
+  useSupabaseBrowserClient: () => ({}),
+}));
+
+vi.mock("lucide-react/dynamic", () => ({
+  DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
+  iconNames: ["sparkles"],
+}));
+
+const { SectionCard } =
+  await import("@/features/actors/presentation/section-card");
+
+/** One label per skin, the id standing in for the translated name. */
+const skinLabels = Object.fromEntries(
+  SKINS.map((skin) => [skin, skin]),
+) as Record<SkinId, string>;
+
+/** {@link SectionCardLabels}, filled in with `SectionStylePopupLabels`. */
+const labels = {
+  sectionName: "Section name",
+  sectionType: "Layout",
+  addItem: "Add item",
+  removeItem: "Remove item",
+  removeSection: "Remove section",
+  collapse: "Collapse section",
+  expand: "Expand section",
+  dragSection: "Drag to reorder section",
+  itemTitle: "Title",
+  itemDescription: "Description",
+  itemDescriptionHint: "What do you want to say here?",
+  imageUrl: "Image address",
+  imageUrlHint: "Paste a link to a picture.",
+  linkUrl: "Link address",
+  linkUrlHint: "A video or music link plays here.",
+  linkUrlPlainHint: "This becomes a button or a chip.",
+  imageMissing: "No image yet",
+  chooseIcon: "Choose an icon",
+  searchIcons: "Search icons",
+  noIconsFound: "No icons match that.",
+  clearIcon: "Remove the icon",
+  noIcon: "No icon",
+  types: Object.fromEntries(
+    SECTION_TYPES.map((type) => [type, type]),
+  ) as Record<SectionType, string>,
+  style: {
+    open: "Section style",
+    title: "This section's own style",
+    skin: "Style",
+    skins: skinLabels,
+    inheritSkin: "Inherit the page",
+    backgroundUrl: "Background picture",
+    backgroundUrlHint: "Paste an address. Nothing is stored.",
+    fit: "Fit",
+    fitDefault: "Original size",
+    fitCover: "Cover",
+    fitTile: "Tile",
+  },
+};
+
+/** A bare section, with no items and no `style`. */
+const bareSection = (name: string) => ({
+  name_en: name,
+  name_es: "",
+  type: "cards",
+  sort_order: 1,
+  items: [] as unknown[],
+  style: undefined as
+    | {
+        skin?: string;
+        background_url?: string;
+        background_fit?: "cover" | "tile";
+      }
+    | undefined,
+});
+
+/** What the harnesses' form holds. */
+type FormValues = { sections: ReturnType<typeof bareSection>[] };
+
+/**
+ * One card in a real form, for the tests that only need one section.
+ *
+ * @returns the form, so a test can read back what was written.
+ */
+function OneSectionHarness({
+  capture,
+}: {
+  capture: (form: UseFormReturn<FormValues>) => void;
+}) {
+  const form = useForm<FormValues>({
+    defaultValues: { sections: [bareSection("Only")] },
+  });
+  capture(form);
+  return (
+    <SectionCard
+      control={form.control as unknown as Control<FieldValues>}
+      register={form.register as unknown as UseFormRegister<FieldValues>}
+      setValue={form.setValue as unknown as UseFormSetValue<FieldValues>}
+      path="sections.0"
+      index={0}
+      lang="en"
+      labels={labels}
+      dragHandleProps={null}
+      onRemove={() => {}}
+    />
+  );
+}
+
+/**
+ * Three cards sharing one form — the shape the "writes to THAT section and
+ * no other" tests need. A single-section harness cannot tell a correctly
+ * scoped write from one that happened to land on the only row there was.
+ *
+ * @returns the form, so a test can read every section back.
+ */
+function ThreeSectionHarness({
+  capture,
+}: {
+  capture: (form: UseFormReturn<FormValues>) => void;
+}) {
+  const form = useForm<FormValues>({
+    defaultValues: {
+      sections: [
+        bareSection("First"),
+        bareSection("Second"),
+        bareSection("Third"),
+      ],
+    },
+  });
+  capture(form);
+  return (
+    <>
+      {[0, 1, 2].map((index) => (
+        <SectionCard
+          key={index}
+          control={form.control as unknown as Control<FieldValues>}
+          register={form.register as unknown as UseFormRegister<FieldValues>}
+          setValue={form.setValue as unknown as UseFormSetValue<FieldValues>}
+          path={`sections.${index}`}
+          index={index}
+          lang="en"
+          labels={labels}
+          dragHandleProps={null}
+          onRemove={() => {}}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Opens the (only, in a one-section harness) style popup. */
+function openPopup() {
+  fireEvent.click(screen.getByRole("button", { name: "Section style" }));
+}
+
+describe("SectionStylePopup", () => {
+  it("is closed until the paintbrush is pressed", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    expect(screen.queryByLabelText("Style")).toBeNull();
+  });
+
+  it("shows the skin list and the background fields once opened", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    openPopup();
+    expect(screen.getByLabelText("Style")).toBeInTheDocument();
+    expect(screen.getByLabelText("Background picture")).toBeInTheDocument();
+  });
+
+  it("offers every skin, in order, behind an inherit option", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    openPopup();
+    const options = within(screen.getByLabelText("Style"))
+      .getAllByRole("option")
+      .map((el) => (el as HTMLOptionElement).value);
+    expect(options).toEqual(["", ...SKINS]);
+  });
+
+  it("hides the fit field until a background address is set", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    openPopup();
+    expect(screen.queryByLabelText("Fit")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "https://example.test/bg.png" },
+    });
+    expect(screen.getByLabelText("Fit")).toBeInTheDocument();
+  });
+
+  // The assertion the whole task exists for. Sections live in a
+  // `useFieldArray`, and a write scoped to a captured INDEX rather than to
+  // this section's own `path` would be indistinguishable from a correct one
+  // in a harness with only one row.
+  it("writes a chosen skin to that section, and no other", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<ThreeSectionHarness capture={(f) => (form = f)} />);
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Section style" })[1]!,
+    );
+    fireEvent.change(screen.getByLabelText("Style"), {
+      target: { value: "glass" },
+    });
+
+    const sections = form!.getValues().sections as {
+      style?: { skin?: string };
+    }[];
+    expect(sections[0]?.style).toBeUndefined();
+    expect(sections[1]?.style).toEqual({ skin: "glass" });
+    expect(sections[2]?.style).toBeUndefined();
+  });
+
+  it("writes a background address to that section, and no other", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<ThreeSectionHarness capture={(f) => (form = f)} />);
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Section style" })[2]!,
+    );
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "https://example.test/bg.png" },
+    });
+
+    const sections = form!.getValues().sections as {
+      style?: { background_url?: string };
+    }[];
+    expect(sections[0]?.style).toBeUndefined();
+    expect(sections[1]?.style).toBeUndefined();
+    expect(sections[2]?.style).toEqual({
+      background_url: "https://example.test/bg.png",
+    });
+  });
+
+  // The rule most likely to be got wrong, named explicitly: clearing a field
+  // must remove the key, never store "".
+  it("removes the skin key when cleared, rather than storing an empty string", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} />);
+    openPopup();
+
+    fireEvent.change(screen.getByLabelText("Style"), {
+      target: { value: "glass" },
+    });
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { skin: "glass" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Style"), {
+      target: { value: "" },
+    });
+    const cleared = form!.getValues().sections[0] as { style?: unknown };
+    // Not merely falsy — genuinely ABSENT. A stored `{ skin: "" }` would
+    // still be a third state `sectionStyleSchema` does not recognise.
+    expect(cleared.style).toBeUndefined();
+  });
+
+  it("removes the background key when cleared, rather than storing an empty string", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} />);
+    openPopup();
+
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "https://example.test/bg.png" },
+    });
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "" },
+    });
+
+    const cleared = form!.getValues().sections[0] as { style?: unknown };
+    expect(cleared.style).toBeUndefined();
+  });
+
+  it("clears only the cleared field, leaving a sibling field of the same section intact", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} />);
+    openPopup();
+
+    fireEvent.change(screen.getByLabelText("Style"), {
+      target: { value: "glass" },
+    });
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "https://example.test/bg.png" },
+    });
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "" },
+    });
+
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { skin: "glass" },
+    });
+  });
+
+  it("writes cover and tile, and clears the fit back to neither", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} />);
+    openPopup();
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "https://example.test/bg.png" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Fit"), {
+      target: { value: "tile" },
+    });
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { background_fit: "tile" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Fit"), {
+      target: { value: "cover" },
+    });
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { background_fit: "cover" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Fit"), {
+      target: { value: "" },
+    });
+    const cleared = form!.getValues().sections[0] as {
+      style?: { background_fit?: unknown; background_url?: unknown };
+    };
+    expect(cleared.style?.background_fit).toBeUndefined();
+    // The address itself is a different field and must survive.
+    expect(cleared.style?.background_url).toBe("https://example.test/bg.png");
+  });
+
+  // The point of the task: the card behind the popup previews the choice
+  // live, through the SAME `nestedSkinVars` the public page renders with —
+  // asserted on the preview element's own custom properties, not merely that
+  // the popup opened.
+  it("previews the chosen skin on the card behind it while the popup is open", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    const card = screen.getByTestId("section-card");
+    expect(card.hasAttribute("style")).toBe(false);
+
+    openPopup();
+    fireEvent.change(screen.getByLabelText("Style"), {
+      target: { value: "neobrutalism" },
+    });
+
+    // Values pinned against `skins.ts`'s own table for `neobrutalism` — the
+    // same ones `public-sections.test.tsx` asserts for the public renderer.
+    expect(card.style.getPropertyValue("--skin-round")).toBe("0");
+    expect(card.style.getPropertyValue("--skin-border")).toBe("3px");
+    expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
+  });
+
+  it("previews a background picture on the card behind the popup", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    const card = screen.getByTestId("section-card");
+    openPopup();
+    fireEvent.change(screen.getByLabelText("Background picture"), {
+      target: { value: "https://example.test/bg.png" },
+    });
+    expect(card.style.backgroundImage).toBe(
+      'url("https://example.test/bg.png")',
+    );
+  });
+
+  // An overlay, unlike `IconPicker`'s inline panel — what follows is what an
+  // overlay owes and an inline one does not.
+  describe("as an overlay", () => {
+    it("moves focus into the panel on open", () => {
+      render(<OneSectionHarness capture={() => {}} />);
+      openPopup();
+      expect(screen.getByLabelText("Style")).toHaveFocus();
+    });
+
+    it("closes on Escape and returns focus to the trigger", () => {
+      render(<OneSectionHarness capture={() => {}} />);
+      openPopup();
+      expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(screen.queryByTestId("section-style-panel")).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Section style" }),
+      ).toHaveFocus();
+    });
+
+    it("closes on a click outside it and returns focus to the trigger", () => {
+      render(<OneSectionHarness capture={() => {}} />);
+      openPopup();
+      expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
+
+      fireEvent.mouseDown(document.body);
+
+      expect(screen.queryByTestId("section-style-panel")).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Section style" }),
+      ).toHaveFocus();
+    });
+
+    it("does not close on a click inside the panel itself", () => {
+      render(<OneSectionHarness capture={() => {}} />);
+      openPopup();
+
+      fireEvent.mouseDown(screen.getByTestId("section-style-panel"));
+
+      expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
+    });
+  });
+});
+
+// `sectionStyle` itself — the function the preview above calls — carries its
+// own suite in `public-sections.test.tsx`, describe("a section's own
+// style"). It is imported here rather than reimplemented (see
+// `public-sections.tsx`'s own TSDoc on the export), so there is exactly one
+// place its branches are pinned, not two that could quietly drift apart.

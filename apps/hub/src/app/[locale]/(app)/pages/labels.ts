@@ -6,6 +6,7 @@ import {
   type FursonaEditorLabels,
   type SectionType,
 } from "@/features/actors";
+import { SKINS, type SkinId } from "@/shared/domain/skins";
 
 /**
  * Resolves every label {@link FursonaForm} needs, on the server where the
@@ -47,6 +48,11 @@ import {
  * `themeConfiguratorLabels`, shared with `/me` — the panel appears in both
  * places, and those live in route folders that may not import each other, so a
  * copy here would be one a later string could be added to and not the other.
+ *
+ * `style.skins` is built by mapping `SKINS`, the same way the theme panel's
+ * own `skins` record is — reusing the SAME `skins.*` catalogue keys rather
+ * than inventing a second set of names for the same styles. A skin is a skin
+ * whether it is chosen for the whole page or for one section of it.
  *
  * The two cloud labels became one, `canvasColours`, naming the group — the
  * editor renders as many pickers as the chosen canvas actually paints with, so
@@ -130,6 +136,23 @@ export async function fursonaEditorLabels(
     removeSection: t("removeSection"),
     collapse: t("collapseSection"),
     expand: t("expandSection"),
+    // Nested, like `theme` below — the popup has a `title` of its own, and a
+    // flat bag would have it silently collide with this level's.
+    style: {
+      open: t("sectionStyleOpen"),
+      title: t("sectionStyleTitle"),
+      skin: t("sectionStyleSkin"),
+      skins: Object.fromEntries(
+        SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
+      ) as Record<SkinId, string>,
+      inheritSkin: t("sectionStyleInherit"),
+      backgroundUrl: t("sectionStyleBackgroundUrl"),
+      backgroundUrlHint: t("sectionStyleBackgroundUrlHint"),
+      fit: t("sectionStyleFit"),
+      fitDefault: t("sectionStyleFitDefault"),
+      fitCover: t("sectionStyleFitCover"),
+      fitTile: t("sectionStyleFitTile"),
+    },
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),
     itemDescriptionHint: t("itemDescriptionHint"),

@@ -95,6 +95,42 @@ export async function mintTicket(userId: string): Promise<string> {
 }
 
 /**
+ * Mints a real, short-lived Clerk session JWT for an identity — with no
+ * browser involved at all.
+ *
+ * **This is the escape hatch from `signIn`'s browser dependency.** Every other
+ * helper here exists to get a real session into a Playwright `Page`; some
+ * assertions need the opposite — a token usable directly against Supabase from
+ * Node, so a suite can write through the real `security definer` functions
+ * without waiting on a UI control that may not exist yet. `scripts/run-cloud-idp.mjs`
+ * establishes the same two calls for the same reason: a session, then a token
+ * on it.
+ *
+ * The token is valid for roughly a minute. That is Clerk's own window for a
+ * freshly minted one, not a value this file chooses, so a caller doing more
+ * than a handful of RPC calls with it should mint again rather than assume
+ * more time.
+ *
+ * @param userId - whose session.
+ * @returns a Clerk-issued JWT carrying `role: authenticated`.
+ */
+export async function mintSessionToken(userId: string): Promise<string> {
+  const session = await backend("/sessions", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+  const minted = await backend(
+    `/sessions/${(session as unknown as { id: string }).id}/tokens`,
+    { method: "POST" },
+  );
+  const { jwt, token } = minted as unknown as {
+    jwt?: string;
+    token?: string;
+  };
+  return (jwt ?? token) as string;
+}
+
+/**
  * Removes the identity again.
  *
  * Deliberately swallows a failure: a test that has already asserted what it

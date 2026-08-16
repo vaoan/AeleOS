@@ -56,6 +56,28 @@ describe("readActorPage", () => {
     );
     expect(page.sections).toEqual([]);
   });
+
+  // Finding 4 of the final review: an unrecognised STYLE key must cost only
+  // that key, never the whole page. `sectionsSchema`'s `.strict()` style bag
+  // would have failed this array's parse entirely and reopened the exact bug
+  // this function exists to fix — an editor opening empty and then saving
+  // over what its owner actually wrote. `readSectionsSchema` strips the key
+  // instead, so the section the owner can see and edit survives.
+  it("renders a section carrying an unrecognised style key, rather than emptying the page", async () => {
+    const sections = [
+      {
+        name_en: "About",
+        type: "cards",
+        sort_order: 1,
+        items: [],
+        style: { skin: "glass", card_size: "lg" },
+      },
+    ];
+    const page = await readActorPage(client({ sections, theme: {} }), "ref");
+    expect(page.sections).toEqual([
+      { ...sections[0], style: { skin: "glass" } },
+    ]);
+  });
 });
 
 // A read that FAILS is not the same as a page nobody has written, and

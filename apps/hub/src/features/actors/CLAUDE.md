@@ -629,7 +629,8 @@ else's problem.
 A **skin** decides FORM: corner radius, border weight, shadow, gloss, backdrop
 blur and the body's face. It names **no colour of its own**, and that separation
 is the whole design — every pairing of a style and a palette is somebody's page,
-where nine themed presets would have been nine colour schemes.
+where a palette baked into each skin would have made as many colour schemes as
+skins, no more.
 
 `shared/domain/skins.ts` holds the table and `SKINS` is the list — fourteen of
 them. Adding one is a table entry and a name in both catalogues; a test fails if
@@ -721,6 +722,94 @@ carries the name of what was picked.
 is the wider question and is what Reset and the visitor's `PageThemeSwitch` ask,
 because somebody who chose only a skin, a canvas or a cursor still has a page to
 put back and a theme to leave.
+
+### A section's own form (2026-08-16)
+
+A section may carry its own `style`, apart from the page's:
+
+```ts
+style?: {
+  skin?: SkinId;
+  background_url?: string;
+  background_fit?: "cover" | "tile";
+}
+```
+
+**Every key is optional, and absent means "inherit the page."** That is a real
+answer, not a gap: a section with no `style` at all gets no `style` attribute
+in the markup either, so a page nobody has touched with this feature is
+byte-for-byte what it was before the feature existed. `SectionStylePopup`
+enforces this on write — it owns the whole `style` field through one
+`useController` rather than one per key, so clearing a field **deletes the
+key** instead of storing `""`. A per-key `register` cannot do that; it can
+only ever write a value, and an empty string sitting in `style` would be a
+third state the schema does not recognise, between "inherit" and "chosen."
+
+**Colour is not one of these keys, and never will be.** The split is what
+every skin in `SKINS` rests on: a skin names no colour of its own, and every
+pairing of a style and a palette is somebody's page. A per-section colour
+would collapse that into as many colour schemes as there are skins. This was
+a decision, not an oversight — see the section-personality spec's "What must
+not be undone."
+
+**`card_size` is not one of these keys either, not yet.** It was drawn into
+the schema's original shape before phasing split the work, and shipped in
+neither the schema nor this popup: nothing renders it, and a schema key
+nothing renders is the "control that does nothing" fault this project keeps
+catching, worn by a column instead of a button. It belongs to Phase D, beside
+the `auto-fill` cards grid that is the only thing that would ever read it.
+
+#### The nesting fix, and why `skinVars` was left alone
+
+A skin works by overriding custom properties an element and its descendants
+read — `--skin-round`, `--skin-border`, `--skin-shadow`, and the rest.
+`SKIN_VARS` (`shared/domain/skins.ts`) holds only each skin's **differences**
+from what `globals.css` declares at `:root`. That is correct at exactly one
+scope, where "not set" falls through to the design's own defaults. Nest a
+second skin scope inside the first — a section wearing its own skin, inside a
+page wearing another — and "not set" falls through to the **enclosing** skin
+instead, silently: a `paper` section inside a `comic` page kept comic's
+halftone, an `outline` page made every section transparent whatever it chose,
+and a section set to `default` inside a `glass` page was still glass.
+
+`nestedSkinVars` is the fix: it spreads a `SKIN_DEFAULTS` constant (the same
+properties `globals.css` declares, pinned to the stylesheet by
+`skins.test.ts` rather than trusted) underneath the chosen skin's own
+overrides, so a nested scope always gets the complete set — never a partial
+one that can fall through to whatever happens to be outside it. `sectionStyle`
+calls `nestedSkinVars`, never plain `skinVars`, for exactly this reason.
+
+**`skinVars` itself was deliberately left alone**, not widened to return the
+complete set everywhere. `themeCss` keys the page-level skin rule on `skinVars`
+being **empty** for the default skin (`skin ? … : ""`) — that is what lets an
+untouched page emit no style element at all and stay byte-for-byte what it was
+before theming existed. Widening `skinVars` to always return the full set
+would make that check pass unconditionally and start emitting a `<style>`
+element on every page, themed or not.
+
+#### The preview and the public page share one function
+
+`sectionStyle` (`presentation/public-sections.tsx`) is the only place this
+renders. `SectionStylePopup`'s live preview calls the same export, applied to
+the card being edited on every keystroke, rather than a second copy — a
+second implementation would have looked identical the day it was written and
+drifted the first time this one changed, with no type error and no failing
+test to catch it, because each file's tests would have exercised only its own
+copy. This was found and fixed as review, not written correctly the first
+time: the two bodies were briefly byte-for-byte identical, which defeated the
+whole point of a live preview that is supposed to prove it cannot drift.
+
+#### Readability keeps no per-section escape hatch
+
+A section wearing `outline` over a busy background picture may be unreadable.
+**It needs no per-section way out, and none should be added.** `PageThemeSwitch`
+already drops all of it at once — colour and skin are gated on the same
+`data-page-theme` attribute, so a visitor is never trapped by one author's
+choice. That is the same argument that already lets an author's colours be as
+garish as they like: the page-level escape hatch is what makes the freedom
+safe, and correcting somebody's page behind their back — even one section of
+it — is exactly what `palette.test.ts` asserts against. Do not read an
+unreadable section as a gap to close; it is the freedom working as designed.
 
 ### Canvases
 

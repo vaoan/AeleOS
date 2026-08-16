@@ -1,6 +1,6 @@
 # Section personality — embeds, per-section form, and an editor that admits what it governs
 
-**Status:** design, approved 2026-08-15.
+**Status:** design, approved 2026-08-15. **Phase C shipped 2026-08-16.**
 **Supersedes nothing.** Extends `2026-08-13-fursona-studio-port-design.md` and the
 per-profile theming recorded in `apps/hub/src/features/actors/CLAUDE.md`.
 
@@ -249,13 +249,19 @@ style?: {
   skin?: SkinId;
   background_url?: string;
   background_fit?: "cover" | "tile";
-  card_size?: "s" | "m" | "l";
 }
 ```
 
-All four optional. **Absent means "inherit the page"**, which is the same resting
-state the theme's own keys have and for the same reason: absence is a real answer
-and must not be stored as a default.
+**`card_size` shipped in neither the schema nor the popup.** It was drawn here
+as part of the original shape, before phasing split the work; it moved to
+**Phase D**, alongside the `auto-fill` grid in §5 that is the only thing that
+would ever read it. A schema key with no renderer is the "control that does
+nothing" fault this project keeps catching, worn by a column instead of a
+button — so the two ship together or not at all.
+
+All three are optional. **Absent means "inherit the page"**, which is the same
+resting state the theme's own keys have and for the same reason: absence is a
+real answer and must not be stored as a default.
 
 `0009`'s `set_actor_sections` gains a matching validation block, written
 key-by-key with an **`unknown style key` fallthrough**, the way `set_actor_theme`
@@ -456,12 +462,19 @@ in a new place. Bluesky's handle→DID verification therefore belongs to B, not 
 **B — `posts` and `socials`.** The two layouts, the brand presets in the
 add-section control, host-derived icons.
 
-**C — per-section form.** The nesting fix first (it is a prerequisite, not a
-detail), then the schema, the `0009` edit, the grip move, the style popup with
-its live preview, and the language-strip move.
+**C — per-section form — done, 2026-08-16.** The nesting fix first (it was a
+prerequisite, not a detail), then the schema, the `0009` edit, the grip move,
+the style popup with its live preview, and the language-strip move. `card_size`
+did **not** ship with it — see §3 — because nothing in C renders it.
+
+The same pass also fixed a defect this feature did not introduce but exposed:
+the section drag handle had never worked, by any input method, since it was
+first written. See "Every bug gets a regression test" in the root `CLAUDE.md`
+for the fault and the fix; it is not particular to per-section form and is
+recorded there rather than here.
 
 **D — cards and the page background.** The `auto-fill` grid, the `card_size`
-dial, the page-level background picture.
+dial it consumes, and the page-level background picture.
 
 ## What must not be undone
 

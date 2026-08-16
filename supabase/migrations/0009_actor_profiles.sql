@@ -20,10 +20,16 @@ create table public.actor_profiles (
   -- divergence here is what would make a future port from that repository stop
   -- being mechanical:
   --
-  --   section: { name_en, name_es, type, sort_order, items[] }
+  --   section: { name_en, name_es, type, sort_order, items[], style? }
   --   item:    { title_en, title_es, description_en, description_es,
   --              icon?, image_url?, sort_order }
   --   type:    whatever is_section_type() accepts
+  --   style:   { skin?, background_url?, background_fit? } — how the SECTION
+  --            chooses to look, form only and never colour. Every key is
+  --            optional and absence means "inherit the page", exactly as the
+  --            theme's own keys work. `skin` is not checked against a list of
+  --            skins, for the same reason `set_actor_theme`'s page-level skin
+  --            is not: the renderer falls back for a name it does not know.
   --
   -- This is NOT next-intl. Those catalogues are the app's own chrome, owned by
   -- the repository. These are a person's own words about their own character,
@@ -56,7 +62,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}]}]. type is one of is_section_type()''s list, which now includes socials and posts. Validated by set_actor_sections.';
+  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}], style?: {skin?, background_url?, background_fit?}}]. type is one of is_section_type()''s list, which now includes socials and posts. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. Validated by set_actor_sections.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -294,6 +300,8 @@ declare
 
   v_section jsonb;
   v_item    jsonb;
+  v_key     text;
+  v_value   text;
   i         int := 0;
   j         int;
 begin
@@ -386,6 +394,54 @@ begin
           i, j, c_max_text using errcode = '22023';
       end if;
     end loop;
+
+    -- A section's own style: {skin?, background_url?, background_fit?}. Form
+    -- only, never colour — see the column comment. Optional and absent as a
+    -- whole, exactly like every other key on a section.
+    if v_section ? 'style' then
+      if jsonb_typeof(v_section -> 'style') is distinct from 'object' then
+        raise exception 'section %: style must be an object', i using errcode = '22023';
+      end if;
+
+      -- Key by key with an unknown-key fallthrough, exactly as
+      -- set_actor_theme does: a typo is refused at the write rather than
+      -- stored and silently ignored.
+      for v_key, v_value in select * from jsonb_each_text(v_section -> 'style') loop
+        -- jsonb_each_text yields SQL NULL, not the string "null", for a JSON
+        -- null value — so length(v_value) > 32 and v_value not in (…) below
+        -- are themselves NULL and neither raises. None of the style bag's
+        -- keys accepts null in sectionStyleSchema (each is an optional
+        -- STRING, never a nullable one), so without this check
+        -- {"skin": null} and {"background_fit": null} were silently stored,
+        -- a live divergence from the validator this SQL is supposed to agree
+        -- with.
+        if v_value is null then
+          raise exception 'section %: style key % must not be null', i, v_key
+            using errcode = '22023';
+        end if;
+
+        if v_key = 'skin' then
+          -- Not checked against a list of skins, for the same reason the
+          -- page-level skin is not: a skin is a set of CSS the app either
+          -- implements or does not, the renderer falls back for a name it
+          -- does not know, and a list here would be a migration every time a
+          -- skin is added.
+          if length(v_value) > 32 then
+            raise exception 'section %: skin name is too long', i using errcode = '22023';
+          end if;
+        elsif v_key = 'background_url' then
+          if length(v_value) > 500 then
+            raise exception 'section %: background address is too long', i using errcode = '22023';
+          end if;
+        elsif v_key = 'background_fit' then
+          if v_value not in ('cover', 'tile') then
+            raise exception 'section %: unknown background fit', i using errcode = '22023';
+          end if;
+        else
+          raise exception 'section %: unknown style key %', i, v_key using errcode = '22023';
+        end if;
+      end loop;
+    end if;
   end loop;
 
   -- Checked LAST, on the serialised value, so it catches whatever the

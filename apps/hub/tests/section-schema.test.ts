@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SECTION_LIMITS,
   SECTION_TYPES,
+  readSectionsSchema,
   sectionsSchema,
 } from "@/features/actors/domain/section-schema";
 
@@ -104,6 +105,107 @@ describe("sectionsSchema", () => {
 
   it("accepts a section with no items", () => {
     expect(accepts([section({ items: [] })])).toBe(true);
+  });
+});
+
+describe("a section's style", () => {
+  it("accepts a section with no style at all", () => {
+    expect(accepts([section()])).toBe(true);
+  });
+
+  it("accepts a style that sets only one thing", () => {
+    expect(accepts([section({ style: { skin: "comic" } })])).toBe(true);
+  });
+
+  it.each(["cover", "tile"])("accepts the %s background fit", (fit) => {
+    expect(accepts([section({ style: { background_fit: fit } })])).toBe(true);
+  });
+
+  it("refuses a background fit it does not render", () => {
+    expect(accepts([section({ style: { background_fit: "parallax" } })])).toBe(
+      false,
+    );
+  });
+
+  it("refuses a style key nothing reads", () => {
+    expect(accepts([section({ style: { corner_radius: "8px" } })])).toBe(false);
+  });
+
+  it("accepts a skin name at the longest length allowed", () => {
+    expect(accepts([section({ style: { skin: "x".repeat(32) } })])).toBe(true);
+  });
+
+  it("refuses a skin name one character over", () => {
+    expect(accepts([section({ style: { skin: "x".repeat(33) } })])).toBe(false);
+  });
+
+  it("accepts a background address at the longest length allowed", () => {
+    const base = "https://example.test/";
+    const longest = base + "x".repeat(500 - base.length);
+    expect(longest).toHaveLength(500);
+    expect(accepts([section({ style: { background_url: longest } })])).toBe(
+      true,
+    );
+  });
+
+  it("refuses a background address one character over", () => {
+    const base = "https://example.test/";
+    const tooLong = base + "x".repeat(500 - base.length + 1);
+    expect(tooLong).toHaveLength(501);
+    expect(accepts([section({ style: { background_url: tooLong } })])).toBe(
+      false,
+    );
+  });
+
+  it("accepts a style that sets every key at once", () => {
+    expect(
+      accepts([
+        section({
+          style: {
+            skin: "glass",
+            background_url: "https://example.test/bg.png",
+            background_fit: "cover",
+          },
+        }),
+      ]),
+    ).toBe(true);
+  });
+});
+
+// Finding 4 of the final review: `.strict()` is right at the write and wrong
+// at the read. `sectionsSchema` (above) must still refuse the typo; this is
+// the schema `readActorPage` and `parseSections` use instead, and it must
+// NOT blank the whole page over one key neither of them recognises.
+describe("readSectionsSchema", () => {
+  it("still refuses a section shape it does not recognise", () => {
+    expect(
+      readSectionsSchema.safeParse([without(section(), "name_en")]).success,
+    ).toBe(false);
+  });
+
+  // The regression this schema exists to fix: `sectionsSchema` fails the
+  // WHOLE array over one unknown style key, and both readers that see stored
+  // data treat a failed parse as "no sections at all" — an owner's editor and
+  // a stranger's public page both render empty. `readSectionsSchema` strips
+  // the key instead, which is what lets everything else on the section still
+  // render.
+  it("strips an unknown style key rather than refusing the whole section", () => {
+    const withUnknownKey = section({
+      style: { skin: "glass", card_size: "lg" },
+    });
+    const parsed = readSectionsSchema.parse([withUnknownKey]);
+    expect(parsed[0]?.style).toEqual({ skin: "glass" });
+  });
+
+  it("still accepts a well-formed style, unchanged", () => {
+    const withStyle = section({
+      style: { skin: "glass", background_fit: "cover" },
+    });
+    const parsed = readSectionsSchema.parse([withStyle]);
+    expect(parsed[0]?.style).toEqual({
+      skin: "glass",
+      background_fit: "cover",
+    });
   });
 });
 

@@ -267,3 +267,52 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
 export function skinVars(skin: SkinId): Record<string, string> {
   return { ...(SKIN_VARS[skin] ?? SKIN_VARS[DEFAULT_SKIN]) };
 }
+
+/**
+ * What `globals.css` declares for every property a skin can override.
+ *
+ * **This duplicates values from a stylesheet, which this repo would normally
+ * refuse.** It is pinned rather than trusted: `skins.test.ts` parses
+ * `globals.css` and fails when the two disagree, the same idiom that file
+ * already uses. The duplication buys the only thing that makes a skin nest —
+ * see {@link nestedSkinVars}.
+ *
+ * `--surface` and `--bar` are the composed forms, not the raw colours. A skin
+ * changes their ALPHA and never their hue, so the reset has to restore the
+ * composition rather than a literal — and `--surface-solid`/`--bar-solid` vary
+ * by light and dark mode, which is exactly why this indirection exists.
+ */
+export const SKIN_DEFAULTS: Record<string, string> = {
+  "--skin-round": "1",
+  "--skin-border": "1px",
+  "--skin-shadow": "none",
+  "--skin-gloss": "none",
+  "--skin-gloss-size": "auto",
+  "--skin-blur": "12px",
+  "--skin-backdrop": "none",
+  "--skin-font": "var(--font-sans)",
+  "--surface": "var(--surface-solid)",
+  "--bar": "var(--bar-solid)",
+};
+
+/**
+ * A skin's properties in FULL, for a scope nested inside another skin.
+ *
+ * **{@link skinVars} holds differences; this holds the whole set.** At one
+ * scope "not set" falls through to `globals.css`, which is right. Nested, "not
+ * set" falls through to the ENCLOSING skin — so a `paper` section inside a
+ * `comic` page kept comic's halftone, an `outline` page made every section
+ * transparent whatever it chose, and a section set to `default` inside a
+ * `glass` page was still glass. All three are silent.
+ *
+ * `skinVars` is deliberately left alone rather than widened: `themeCss` keys
+ * the page-level rule on it being empty, so widening it would make an unthemed
+ * page start emitting a style element and lose the byte-for-byte guarantee
+ * that page carries today.
+ *
+ * @param skin - the chosen skin.
+ * @returns every property a skin can set, the chosen skin's values over the defaults.
+ */
+export function nestedSkinVars(skin: SkinId): Record<string, string> {
+  return { ...SKIN_DEFAULTS, ...skinVars(skin) };
+}

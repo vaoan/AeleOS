@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { derivePalette } from "@/shared/domain/palette";
 import {
   DEFAULT_SKIN,
+  nestedSkinVars,
+  SKIN_DEFAULTS,
   SKIN_SCOPE,
   SKINS,
   skinVars,
@@ -157,5 +159,69 @@ describe("the skins", () => {
     );
     const used = new Set(SKINS.flatMap((skin) => Object.keys(skinVars(skin))));
     expect(declared.filter((name) => !used.has(name))).toEqual([]);
+  });
+});
+
+describe("SKIN_DEFAULTS", () => {
+  // The defaults are duplicated from globals.css, which this repo would
+  // normally refuse. The duplication is pinned rather than trusted — the same
+  // idiom skins.test.ts already uses to read the stylesheet.
+  it("matches what globals.css declares", () => {
+    for (const [name, value] of Object.entries(SKIN_DEFAULTS)) {
+      const declared = new RegExp(
+        `${name.replace(/[-]/g, "\\-")}:\\s*([^;]+);`,
+      ).exec(GLOBALS);
+      expect(declared, `${name} is not declared in globals.css`).not.toBeNull();
+      expect(declared![1].trim()).toBe(value);
+    }
+  });
+
+  it("covers every property any skin overrides", () => {
+    for (const skin of SKINS) {
+      for (const name of Object.keys(skinVars(skin))) {
+        expect(Object.keys(SKIN_DEFAULTS)).toContain(name);
+      }
+    }
+  });
+});
+
+describe("nestedSkinVars", () => {
+  it("emits every property, so nothing falls through to an enclosing skin", () => {
+    for (const skin of SKINS) {
+      expect(Object.keys(nestedSkinVars(skin)).sort()).toEqual(
+        Object.keys(SKIN_DEFAULTS).sort(),
+      );
+    }
+  });
+
+  // The regression the spike found. `paper` never mentions --skin-gloss, so
+  // nested inside `comic` it used to inherit the halftone.
+  it("resets a property the chosen skin does not set", () => {
+    expect(nestedSkinVars("paper")["--skin-gloss"]).toBe(
+      SKIN_DEFAULTS["--skin-gloss"],
+    );
+    expect(nestedSkinVars("paper")["--skin-gloss"]).not.toBe(
+      skinVars("comic")["--skin-gloss"],
+    );
+  });
+
+  it("keeps what the chosen skin does set", () => {
+    expect(nestedSkinVars("comic")["--skin-gloss"]).toBe(
+      skinVars("comic")["--skin-gloss"],
+    );
+  });
+
+  // `default` overrides nothing, which is exactly why it needs the full reset:
+  // a section set to `default` inside a `glass` page must not still be glass.
+  it("makes default a real choice rather than an absence", () => {
+    expect(nestedSkinVars("default")).toEqual(SKIN_DEFAULTS);
+  });
+});
+
+describe("skinVars", () => {
+  // Unchanged on purpose: themeCss keys the page-level skin rule on this
+  // record being EMPTY, so an unthemed page emits no style element at all.
+  it("still returns nothing for the default skin", () => {
+    expect(skinVars("default")).toEqual({});
   });
 });
