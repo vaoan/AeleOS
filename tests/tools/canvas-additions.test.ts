@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-// @ts-expect-error -- a .mjs tool with no declaration file, like its siblings.
-import { addedCanvases, canvasNames } from "../../scripts/canvas-additions.mjs";
+import { existsSync, readFileSync } from "node:fs";
+import {
+  addedCanvases,
+  canvasNames,
+  isCanvasSource,
+  touchedCanvasSources,
+  // @ts-expect-error -- a .mjs tool with no declaration file, like its siblings.
+} from "../../scripts/canvas-additions.mjs";
 
 /** A table in the shape the real one has, with the given entries. */
 function table(entries: string): string {
@@ -122,5 +127,96 @@ describe("addedCanvases", () => {
         table("  nebula: 3,\n  aurora: 4,\n  plasma: 2,\n  cells: 3,"),
       ),
     ).toEqual(["aurora", "plasma", "cells"]);
+  });
+});
+
+describe("isCanvasSource", () => {
+  it.each([
+    "apps/hub/src/shared/presentation/nebula-canvas.tsx",
+    "apps/hub/src/shared/domain/canvas-field.ts",
+    "apps/hub/src/shared/domain/canvas-motion.ts",
+    "apps/hub/src/shared/domain/canvas-resolution.ts",
+    "apps/hub/src/shared/domain/canvas-slots.ts",
+    "apps/hub/src/shared/application/canvas-raster.ts",
+    "apps/hub/src/shared/application/nebula-noise.ts",
+    "apps/hub/src/shared/application/nebula-preference.ts",
+    "apps/hub/tests/e2e/canvas-performance.spec.ts",
+    "apps/hub/tests/canvas-raster.test.ts",
+  ])("watches %s", (path) => {
+    expect(isCanvasSource(path)).toBe(true);
+  });
+
+  it.each([
+    "supabase/migrations/0009_sections.sql",
+    "apps/hub/messages/es.json",
+    "apps/hub/src/features/actors/presentation/gradient-picker.tsx",
+    "apps/hub/src/shared/presentation/page-shell.tsx",
+    "docs/integrating.md",
+    // Named for a canvas but not in the app — the picker's own copy of the
+    // list lives elsewhere and cannot change what a frame costs.
+    "packages/identity/src/canvas.ts",
+  ])("ignores %s", (path) => {
+    expect(isCanvasSource(path)).toBe(false);
+  });
+
+  it("reads a Windows path, which is what git prints on one", () => {
+    expect(
+      isCanvasSource("apps\\hub\\src\\shared\\domain\\canvas-field.ts"),
+    ).toBe(true);
+  });
+
+  it("does not match a name that merely contains the word", () => {
+    // `sub-canvas-thing.ts` is not part of this family; the pattern anchors to
+    // the start of the basename so a future unrelated module is not swept in.
+    expect(
+      isCanvasSource("apps/hub/src/shared/domain/my-canvas-notes.ts"),
+    ).toBe(false);
+  });
+
+  it("watches every canvas module that exists today", () => {
+    // The assertion that fails if one of them is renamed out of the family —
+    // which is the only way this pattern can quietly stop watching something.
+    const real = [
+      "apps/hub/src/shared/presentation/nebula-canvas.tsx",
+      "apps/hub/src/shared/domain/canvas-field.ts",
+      "apps/hub/src/shared/domain/canvas-slots.ts",
+      "apps/hub/src/shared/application/canvas-raster.ts",
+    ];
+    for (const path of real) {
+      expect(
+        existsSync(new URL(`../../${path}`, import.meta.url)),
+        `${path} no longer exists — the pattern may have stopped matching it`,
+      ).toBe(true);
+    }
+    expect(real.filter((path) => !isCanvasSource(path))).toEqual([]);
+  });
+});
+
+describe("touchedCanvasSources", () => {
+  it("picks the canvas files out of a real-looking change", () => {
+    expect(
+      touchedCanvasSources([
+        "docs/integrating.md",
+        "apps/hub/src/shared/domain/canvas-field.ts",
+        "supabase/migrations/0009_sections.sql",
+        "apps/hub/src/shared/presentation/nebula-canvas.tsx",
+      ]),
+    ).toEqual([
+      "apps/hub/src/shared/domain/canvas-field.ts",
+      "apps/hub/src/shared/presentation/nebula-canvas.tsx",
+    ]);
+  });
+
+  it("finds nothing in a change that touches none of them", () => {
+    expect(
+      touchedCanvasSources([
+        "docs/integrating.md",
+        "apps/hub/messages/es.json",
+      ]),
+    ).toEqual([]);
+  });
+
+  it("drops the blank line git leaves at the end of its output", () => {
+    expect(touchedCanvasSources(["", "  ", ""])).toEqual([]);
   });
 });

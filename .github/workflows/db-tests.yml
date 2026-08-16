@@ -157,18 +157,18 @@ jobs:
   # The frame-cost guard, on its own check and on its own trigger.
   #
   # It drives a real browser through every canvas in the app at the top of both
-  # dials, twice each — minutes of work whose answer almost never changes. The
-  # regressions it exists to catch (2192ms, 1077ms, 636ms a frame) all arrived
-  # the same way: a batch of new canvases written together. So it does the work
-  # when a canvas is ADDED and steps aside otherwise.
+  # dials, twice each — minutes of work whose answer almost never changes. So it
+  # does that work when the answer CAN have changed: a canvas added to
+  # `CANVAS_SLOTS`, or a change to the code that draws one. Everything else — a
+  # migration, a translation, a copy change — steps past it in seconds.
   #
   # **The job always runs; only its expensive half is conditional.** Guarding
   # the whole job with `if:` would leave a check that never reports on most pull
   # requests, and a required check that never reports blocks the merge for ever.
-  # This way it reports green either way and says which it did.
+  # This way it reports green either way and the log says which it did and why.
   #
-  # What the trigger misses is written down in `scripts/canvas-additions.mjs`:
-  # a change that slows an EXISTING canvas adds no key and will not run this.
+  # The two triggers and why it fails open are in
+  # `scripts/canvas-suite-needed.mjs`.
   canvas:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -187,18 +187,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Has a canvas been added?
-        id: added
+      - name: Does this change need measuring?
+        id: needed
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: node scripts/canvas-added.mjs "$BASE" >> "$GITHUB_OUTPUT"
+        run: node scripts/canvas-suite-needed.mjs "$BASE" >> "$GITHUB_OUTPUT"
 
       - name: Install Chromium
-        if: steps.added.outputs.added == 'true'
+        if: steps.needed.outputs.run == 'true'
         run: pnpm --filter hub exec playwright install --with-deps chromium
 
       - name: Measure every canvas
-        if: steps.added.outputs.added == 'true'
+        if: steps.needed.outputs.run == 'true'
         run: pnpm --filter hub test:canvas
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}

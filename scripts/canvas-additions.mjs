@@ -9,17 +9,18 @@
  * canvases, written together and reviewed by eye. So it runs when a canvas is
  * ADDED, and otherwise steps aside.
  *
- * **The gap that leaves is real and worth naming**, because a check nobody
- * understands the edges of is worse than one nobody has. A change that slows an
- * EXISTING canvas — an extra pass in the aurora, a wider stroke in the
- * honeycomb — adds no key here and will not trigger the suite. If that becomes
- * the way a regression arrives, widen the trigger to the renderer's own files
- * rather than dropping the check: the workflow already has the base commit it
- * would need.
+ * **A new canvas is not the only way a frame gets slower, so it is not the only
+ * trigger.** Adding one was the first rule here, and the gap it left was named
+ * on the way in: an extra pass in the aurora or a wider stroke in the honeycomb
+ * adds no key to the table and would have sailed past. The suite now also runs
+ * when the code that DRAWS a canvas changes, which is the other half of the
+ * same question and closes it.
  *
  * The names are read out of `CANVAS_SLOTS` rather than out of a list kept
  * beside it, for the reason that table exists: it is the one place a canvas is
- * declared, and anything else would need to be remembered.
+ * declared, and anything else would need to be remembered. {@link isCanvasSource}
+ * follows the same principle for the files — a pattern rather than a list, so a
+ * module added next to the others is watched without anybody adding it here.
  */
 
 /**
@@ -68,4 +69,37 @@ export function canvasNames(source) {
 export function addedCanvases(before, after) {
   const had = new Set(canvasNames(before));
   return canvasNames(after).filter((name) => !had.has(name));
+}
+
+/**
+ * Whether a changed file is one that decides what a canvas costs to draw.
+ *
+ * **A pattern rather than a list of paths**, and that is the point: every
+ * module in this family is named for it — `nebula-canvas`, `canvas-field`,
+ * `canvas-motion`, `canvas-raster`, `canvas-resolution`, `canvas-slots`,
+ * `nebula-noise` — so a new one is watched the moment it is written. A list
+ * would have to be edited by the same person who forgot to measure, which is
+ * the failure this whole check exists to survive.
+ *
+ * Test files match too. Running the suite because its own spec changed is
+ * correct, and running it because a unit test beside the renderer changed is a
+ * few wasted minutes in the direction that cannot hide a regression.
+ *
+ * @param path - a repository-relative path, as `git diff --name-only` prints.
+ * @returns whether a change to it should run the frame-cost suite.
+ */
+export function isCanvasSource(path) {
+  const clean = path.trim().replaceAll("\\", "/");
+  if (!clean.startsWith("apps/hub/")) return false;
+  return /(^|\/)(canvas|nebula)[\w.-]*\.(ts|tsx)$/.test(clean);
+}
+
+/**
+ * The changed files that decide what a canvas costs to draw.
+ *
+ * @param changed - every path the change touches.
+ * @returns those worth re-measuring for, sorted, with blanks dropped.
+ */
+export function touchedCanvasSources(changed) {
+  return changed.filter((path) => path.trim() && isCanvasSource(path)).sort();
 }
