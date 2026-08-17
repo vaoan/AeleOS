@@ -69,6 +69,9 @@ function renderRow(props: Record<string, unknown> = {}) {
       labels={labels}
       featured={false}
       canArrange
+      // No `Draggable` wraps this render, so there is nothing real to
+      // spread — matching what the library itself hands a disabled handle.
+      dragHandleProps={null}
       onPin={onPin}
       onDelete={onDelete}
       {...props}
@@ -129,6 +132,18 @@ describe("FursonaRow", () => {
     expect(
       screen.queryByRole("button", { name: "Drag to reorder" }),
     ).toBeNull();
+  });
+
+  // The grip is the handle, not the row body — `dragHandleProps` has to reach
+  // this exact button. A real `Draggable` hands an object of DOM props
+  // (`draggable`, event handlers, …); a plain attribute here is enough to
+  // prove it lands on the grip and not on some ancestor, which is what an
+  // end-to-end drag alone cannot show as directly.
+  it("spreads the drag handle props onto the grip", () => {
+    renderRow({ dragHandleProps: { "data-drag-handle": "yes" } });
+    expect(
+      screen.getByRole("button", { name: "Drag to reorder" }),
+    ).toHaveAttribute("data-drag-handle", "yes");
   });
 
   it("asks before deleting", () => {

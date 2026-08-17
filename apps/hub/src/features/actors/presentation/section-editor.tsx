@@ -81,6 +81,9 @@ export interface SectionEditorLabels
  * `sort_order` to its position, and that write has to land through the
  * form's own setter rather than through `useFieldArray`'s `move` or
  * `append` alone — see {@link SectionEditor}'s own TSDoc.
+ *
+ * Carries no `fursona` prop. A doc line for one survived here after images
+ * became links rather than uploads — nothing in this interface ever read it.
  */
 export interface SectionEditorProps<T extends FieldValues> {
   /** The form's control, for the sections array. */
@@ -95,7 +98,6 @@ export interface SectionEditorProps<T extends FieldValues> {
   setValue: UseFormSetValue<T>;
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
-  /** The fursona being edited, absent while creating one. */
   /** Already-translated strings. */
   labels: SectionEditorLabels;
 }

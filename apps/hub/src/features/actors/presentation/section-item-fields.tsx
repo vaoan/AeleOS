@@ -96,10 +96,14 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
  *
  * `type` is the section's layout, not the item's: an item has no layout of its
  * own, and this is what decides which of the optional columns it offers.
- * `control` joins `register` because neither the icon nor the image address is
- * typed into a plain input any more — one is chosen by a picker and the other
- * can be written by an upload.
+ * `control` joins `register` because the icon is not typed into a plain
+ * input — it is chosen by a picker.
  *
+ * Carries no `fursona` prop. A doc line for one survived here from when an
+ * image address could be written by an upload, threaded down for the actor
+ * ref its storage path needed. Images are pasted links now — see
+ * `domain/embeds.ts` — and nothing in this interface has needed an actor ref
+ * since.
  */
 export interface SectionItemFieldsProps<T extends FieldValues> {
   /** The form's control, for the fields no plain input can drive. */
@@ -110,13 +114,6 @@ export interface SectionItemFieldsProps<T extends FieldValues> {
   path: string;
   /** Its section's layout, which decides what is offered. */
   type: SectionType;
-  /**
-   * The fursona being edited, absent while creating one.
-   *
-   * Threaded down from the editor because an uploaded object's path carries the
-   * actor's ref, and there is no ref until the fursona exists. Absent simply
-   * means the upload control is not offered yet.
-   */
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
   /** Already-translated strings. */

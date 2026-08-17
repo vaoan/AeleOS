@@ -145,6 +145,16 @@ describe("resolveSocial", () => {
     expect(resolveSocial("https://pawb.social/u/luna")?.handle).toBe("@luna");
   });
 
+  // Pins `handleAt: 0` for Toyhouse, verified 2026-08-16 against real profile
+  // links (toyhou.se/ronnie, toyhou.se/AviCode) and the toyhouse-data API
+  // wrapper's documented grammar: a profile is a single bare segment with no
+  // prefix and no tilde — unlike Weasyl's `~username`, `~` on Toyhouse marks
+  // the site's own system paths (`~forums`, `~account`) rather than a
+  // profile's own segment.
+  it("toyhouse: reads the handle from the bare profile URL", () => {
+    expect(resolveSocial("https://toyhou.se/AviCode")?.handle).toBe("@AviCode");
+  });
+
   // Regression class: BRANDS must stay a Map. A plain object literal indexed
   // with a user-controlled hostname returns truthy inherited members for
   // these names, which shipped a crash in Phase A — resolveSocial must

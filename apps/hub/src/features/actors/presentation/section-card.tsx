@@ -82,6 +82,9 @@ export interface SectionCardLabels extends SectionItemFieldsLabels {
  * to its position, and that write has to land through the form's own setter
  * rather than through `useFieldArray`'s `append` alone — see this
  * component's own TSDoc.
+ *
+ * Carries no `fursona` prop. A doc line for one survived here after images
+ * became links rather than uploads — nothing in this interface ever read it.
  */
 export interface SectionCardProps<T extends FieldValues> {
   /** The form's control, for this section's item array. */
@@ -98,7 +101,6 @@ export interface SectionCardProps<T extends FieldValues> {
   path: string;
   /** Its position, for the label a screen reader reads. */
   index: number;
-  /** The fursona being edited, absent while creating one. */
   /** Which language's fields to bind to. */
   lang: AuthoringLanguage;
   /** Already-translated strings. */

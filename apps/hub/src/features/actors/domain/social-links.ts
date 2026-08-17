@@ -81,6 +81,11 @@ const BRANDS = new Map<string, SocialBrand>([
   ["furaffinity.net", { label: "FurAffinity", icon: "paw-print", handleAt: 1 }],
   // weasyl.com/~<username> — a single segment, tilde-prefixed.
   ["weasyl.com", { label: "Weasyl", icon: "paw-print", handleAt: 0 }],
+  // toyhou.se/<username> — a single bare segment, confirmed 2026-08-16 against
+  // real profile links (e.g. toyhou.se/ronnie, toyhou.se/AviCode) and the
+  // third-party toyhouse-data API wrapper's own documented URL grammar. `~` is
+  // reserved for the site's own system paths (`~forums`, `~account`) rather
+  // than appearing in a profile's own segment, unlike Weasyl above.
   ["toyhou.se", { label: "Toyhouse", icon: "paw-print", handleAt: 0 }],
   ["ko-fi.com", { label: "Ko-fi", icon: "coffee", handleAt: 0 }],
   // patreon.com/c/<creator> is the current form; patreon.com/<creator> still

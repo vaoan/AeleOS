@@ -234,12 +234,12 @@ Four consequences, all of which landed with it:
   write on a free-tier database are. Soft delete's rationale narrowed the same
   way — a freed handle now returns only to its own owner — so what survives
   there is the quota and the fact that a handle is part of a public address.
-- **`docs/integrating.md` must say handles are unique per person only** — still
-  outstanding. The
-  contract already tells apps to key off `actor_ref` and never the handle, so it
-  holds — but an app that quietly used `handle` as a key would begin colliding
-  across users, silently, in a different repository. Say it there rather than
-  trusting the existing sentence to be read that way.
+- **`docs/integrating.md` says handles are unique per person only** — done, in
+  its own section, "`handle` is unique per person, not globally". The contract
+  already told apps to key off `actor_ref` and never the handle, so it held —
+  but an app that quietly used `handle` as a key would begin colliding across
+  users, silently, in a different repository. That section says so out loud
+  rather than trusting the existing sentence to be read that way.
 - **`/api/actors/mine` keeps returning `handle`** and keeps _not_ returning
   `identity_sub` or `owner_ref`. Nothing about this change relaxes that: the
   linkability columns are picked out by name, and a per-owner handle is not a

@@ -111,6 +111,24 @@ function emptyNote(
  * one fursona. A reorder computed from a narrowed view would move rows the
  * person cannot see, and one fursona has nothing to be ordered against.
  *
+ * **Its `Draggable` carries `disableInteractiveElementBlocking`, and the grip
+ * is the handle rather than the row.** `FursonaRow`'s grip is a real
+ * `<button>`, and `@hello-pangea/dnd` refuses to start a drag — by mouse or
+ * keyboard — whose source event targets a tag it treats as interactive,
+ * unless told otherwise; without this the grip was focusable, announced
+ * itself as "drag to reorder", and could not start a drag by any input. The
+ * handle is scoped to the grip alone, not the whole row: a row-wide handle
+ * would also need the same opt-out, which lifts the interactive-tag block off
+ * every button and link the row carries too, turning a keyboard Space on
+ * Edit, Pin or Delete into a drag lift instead of that control's own action.
+ * Matches the fix already shipped in `SectionEditor`/`SectionCard`.
+ *
+ * **The write happens on drop, not on a later save.** `onDragEnd` calls
+ * `reorder.mutate` for every row whose position changed, which is
+ * `setFursonaOrder` → `set_fursona_order` — so unlike the section editor,
+ * there is no client-only reorder step that a save could silently fail to
+ * persist: the drop itself is the write.
+ *
  * The `ul` owns the border and the surface, and the rows own neither. Every row
  * carrying its own card gave a list of twenty the same visual weight twenty
  * times over — this is a table, which is what a list of fursonas is.
@@ -192,6 +210,7 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
                   labels={labels}
                   featured={false}
                   canArrange={false}
+                  dragHandleProps={null}
                   onPin={() => {}}
                   onDelete={() => {}}
                 />
@@ -203,12 +222,18 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
                   draggableId={row.actorRef}
                   index={index}
                   isDragDisabled={!canArrange}
+                  // The handle is a real `<button>` (the grip in `FursonaRow`),
+                  // and `@hello-pangea/dnd` refuses to start ANY drag — mouse
+                  // or keyboard — whose source event targets a tag it treats
+                  // as interactive, unless the `Draggable` opts out. Matches
+                  // `SectionEditor`'s `Draggable`, which needed the same fix
+                  // for the same reason.
+                  disableInteractiveElementBlocking
                 >
                   {(dragProvided) => (
                     <div
                       ref={dragProvided.innerRef}
                       {...dragProvided.draggableProps}
-                      {...dragProvided.dragHandleProps}
                     >
                       <FursonaRow
                         address={address}
@@ -219,6 +244,7 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
                             ?.featured,
                         )}
                         canArrange={canArrange}
+                        dragHandleProps={dragProvided.dragHandleProps}
                         onPin={(actorRef, featured) =>
                           pin.mutate({ actorRef, featured })
                         }

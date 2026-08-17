@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import { GripVertical, Pencil, Star, Trash2 } from "lucide-react";
 import { ExternalLink } from "lucide-react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
@@ -61,6 +62,10 @@ export interface FursonaRowActor {
  *
  * `address` is optional because a row cannot assume its caller fetched one, and
  * a row without it simply offers no link rather than guessing an address.
+ *
+ * `dragHandleProps` is new: the row now renders its own drag handle on the
+ * grip, so it needs the drag library's props for that button rather than its
+ * caller wrapping the whole row in a handle of its own.
  */
 export interface FursonaRowProps {
   /**
@@ -78,6 +83,13 @@ export interface FursonaRowProps {
   featured: boolean;
   /** False while the list is filtered, when reordering has no meaning. */
   canArrange: boolean;
+  /**
+   * The drag library's own props for this row's handle, spread onto the grip
+   * button — the row body itself is not part of the handle. `null` while
+   * dragging is disabled, matching what `@hello-pangea/dnd` hands a disabled
+   * `Draggable`.
+   */
+  dragHandleProps: DraggableProvidedDragHandleProps | null;
   /** Called with the actor ref and the pin state being asked for. */
   onPin: (actorRef: string, featured: boolean) => void;
   /** Called with the actor ref once a delete is confirmed. */
@@ -139,6 +151,13 @@ function publicPathFor(
  * and an end-to-end test has to name the row it just created — the suite runs
  * in Spanish and may not reach it by its label.
  *
+ * **The grip is the handle; the row body is not.** `dragHandleProps` is spread
+ * onto the grip button alone, matching `SectionCard`'s handle — a row-wide
+ * handle would need `disableInteractiveElementBlocking` on the enclosing
+ * `Draggable`, which also lifts the interactive-tag block off every other
+ * button and link in the row, turning a keyboard Space on Edit, Pin or Delete
+ * into a drag lift instead of that control's own action.
+ *
  * **The person's row carries an edit link and nothing else.** Their page is
  * edited in the same editor a fursona's is, but the three controls beside it
  * are not theirs to have: nothing to pin when the row is always first, nothing
@@ -160,6 +179,7 @@ export function FursonaRow({
   labels,
   featured,
   canArrange,
+  dragHandleProps,
   onPin,
   onDelete,
 }: FursonaRowProps) {
@@ -182,6 +202,8 @@ export function FursonaRow({
         <button
           type="button"
           aria-label={labels.dragToReorder}
+          {...tid("drag-fursona")}
+          {...(dragHandleProps ?? {})}
           className="cursor-grab text-(--muted)"
         >
           <GripVertical className="size-4" />
