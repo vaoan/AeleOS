@@ -44,6 +44,9 @@ const labels = {
   dragSection: "Drag to reorder section",
   itemTitle: "Title",
   itemDescription: "Description",
+  itemLabel: "Label",
+  itemValue: "Value",
+  itemValueHint: "A number, a percentage, or one out of another",
   itemDescriptionHint: "What do you want to say here?",
   imageUrl: "Image address",
   imageUrlHint: "Paste a link to a picture.",
@@ -77,6 +80,14 @@ const labels = {
     cardSizeS: "Compact",
     cardSizeM: "Medium",
     cardSizeL: "Spacious",
+    border: "Border",
+    borderHint: "The edge around this section's own cards and panels.",
+    borderInherit: "Inherit the page",
+    borderNone: "No border",
+    borderSolid: "Solid line",
+    borderDashed: "Dashed line",
+    borderDotted: "Dotted line",
+    borderDouble: "Double line",
   },
 };
 
@@ -99,6 +110,7 @@ const bareSection = (name: string, type: string = "cards") => ({
         background_url?: string;
         background_fit?: "cover" | "tile";
         card_size?: "s" | "m" | "l";
+        border?: "solid" | "dashed" | "dotted" | "double" | "none";
       }
     | undefined,
 });
@@ -275,6 +287,33 @@ describe("SectionStylePopup", () => {
     expect(options).toEqual(["", "s", "m", "l"]);
   });
 
+  // Unlike card_size, a border is not gated on a layout: every layout renders
+  // at least one `surface` element, so the field is offered whatever this
+  // section's own layout is — asserted on the one layout card_size hides
+  // itself on, to make the contrast concrete rather than assumed.
+  it("shows the border field on every layout, unlike card size", () => {
+    render(<OneSectionHarness capture={() => {}} type="gallery" />);
+    openPopup();
+    expect(screen.getByLabelText("Border")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Card size")).toBeNull();
+  });
+
+  it("offers every border option, in order, behind an inherit option", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    openPopup();
+    const options = within(screen.getByLabelText("Border"))
+      .getAllByRole("option")
+      .map((el) => (el as HTMLOptionElement).value);
+    expect(options).toEqual([
+      "",
+      "solid",
+      "dashed",
+      "dotted",
+      "double",
+      "none",
+    ]);
+  });
+
   // The assertion the whole task exists for. Sections live in a
   // `useFieldArray`, and a write scoped to a captured INDEX rather than to
   // this section's own `path` would be indistinguishable from a correct one
@@ -340,6 +379,27 @@ describe("SectionStylePopup", () => {
     expect(sections[2]?.style).toBeUndefined();
   });
 
+  // The same fault again, for the border field: a stale captured index would
+  // land this write on the wrong row exactly as it would for the others.
+  it("writes a chosen border to that section, and no other", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<ThreeSectionHarness capture={(f) => (form = f)} />);
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Section style" })[1]!,
+    );
+    fireEvent.change(screen.getByLabelText("Border"), {
+      target: { value: "dashed" },
+    });
+
+    const sections = form!.getValues().sections as {
+      style?: { border?: string };
+    }[];
+    expect(sections[0]?.style).toBeUndefined();
+    expect(sections[1]?.style).toEqual({ border: "dashed" });
+    expect(sections[2]?.style).toBeUndefined();
+  });
+
   // The rule most likely to be got wrong, named explicitly: clearing a field
   // must remove the key, never store "".
   it("removes the skin key when cleared, rather than storing an empty string", () => {
@@ -400,6 +460,48 @@ describe("SectionStylePopup", () => {
     // Not merely falsy — genuinely ABSENT. A stored `{ card_size: "" }`
     // would still be a third state `sectionStyleSchema` does not recognise.
     expect(cleared.style).toBeUndefined();
+  });
+
+  // The rule most likely to be got wrong, named explicitly, for the border
+  // field too: clearing (the empty option) must remove the key, never store
+  // "".
+  it("removes the border key when cleared, rather than storing an empty string", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} />);
+    openPopup();
+
+    fireEvent.change(screen.getByLabelText("Border"), {
+      target: { value: "dotted" },
+    });
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { border: "dotted" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Border"), {
+      target: { value: "" },
+    });
+    const cleared = form!.getValues().sections[0] as { style?: unknown };
+    // Not merely falsy — genuinely ABSENT. A stored `{ border: "" }` would
+    // still be a third state `sectionStyleSchema` does not recognise.
+    expect(cleared.style).toBeUndefined();
+  });
+
+  // `"none"` is a CHOICE, not the clearing state — see `sectionStyleSchema`'s
+  // own doc for `border`. Selecting it must store the literal string, never
+  // be treated as equivalent to the empty "inherit" option.
+  it('stores an explicit "none" as a real value, distinct from clearing', () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} />);
+    openPopup();
+
+    fireEvent.change(screen.getByLabelText("Border"), {
+      target: { value: "none" },
+    });
+    const stored = form!.getValues().sections[0] as {
+      style?: { border?: unknown };
+    };
+    expect(stored.style?.border).toBe("none");
+    expect(stored.style).not.toBeUndefined();
   });
 
   it("clears only the cleared field, leaving a sibling field of the same section intact", () => {
@@ -476,16 +578,25 @@ describe("SectionStylePopup", () => {
     expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
   });
 
-  it("previews a background picture on the card behind the popup", () => {
+  // **On the card's FACE, not on its root, and the distinction is the whole
+  // point.** The root is the ancestor every `surface` below it inherits the
+  // skin's custom properties from; the face is the element that paints, and
+  // the only one carrying the card's corners and — under `cutout` — its
+  // chamfer. A picture on the root would paint a square rect behind a rounded
+  // face and bleed at all four corners. `tests/e2e/section-card-face.spec.ts`
+  // measures the pixels; this pins which element carries the value.
+  it("previews a background picture on the face of the card behind the popup", () => {
     render(<OneSectionHarness capture={() => {}} />);
-    const card = screen.getByTestId("section-card");
+    const face = screen.getByTestId("section-card-face");
     openPopup();
     fireEvent.change(screen.getByLabelText("Background picture"), {
       target: { value: "https://example.test/bg.png" },
     });
-    expect(card.style.backgroundImage).toBe(
+    expect(face.style.backgroundImage).toBe(
       'url("https://example.test/bg.png")',
     );
+    // The root keeps only what inherits, so the picture is not on it twice.
+    expect(screen.getByTestId("section-card").style.backgroundImage).toBe("");
   });
 
   // The point of the task, for the newest field: the card previews the
@@ -502,6 +613,33 @@ describe("SectionStylePopup", () => {
       target: { value: "l" },
     });
     expect(card.style.getPropertyValue("--card-size")).toBe("20rem");
+  });
+
+  // The point of the task: the card behind the popup previews the chosen
+  // border live, through the SAME `sectionStyle` the public page renders
+  // with — asserted on the preview element's own `--skin-border-style`
+  // custom property, the token Task 1 made reachable and this control is the
+  // first thing to write.
+  it("previews the chosen border on the card behind the popup", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    const card = screen.getByTestId("section-card");
+    openPopup();
+    fireEvent.change(screen.getByLabelText("Border"), {
+      target: { value: "dashed" },
+    });
+    expect(card.style.getPropertyValue("--skin-border-style")).toBe("dashed");
+  });
+
+  // `"none"` previews exactly like any other member of the enum — it is a
+  // real, emitted value, not a state `sectionStyle` special-cases away.
+  it('previews an explicit "none" border the same way as any other choice', () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    const card = screen.getByTestId("section-card");
+    openPopup();
+    fireEvent.change(screen.getByLabelText("Border"), {
+      target: { value: "none" },
+    });
+    expect(card.style.getPropertyValue("--skin-border-style")).toBe("none");
   });
 
   // An overlay, unlike `IconPicker`'s inline panel — what follows is what an

@@ -175,11 +175,130 @@
   --skin-round: 1;
 
   /*
+   * The surface's OUTLINE as a path, which is the one thing a radius cannot
+   * express: a corner cut off straight rather than rounded off.
+   *
+   * `none` is the CSS initial value, so declaring it changes nothing until a
+   * skin says otherwise — the same shape every token here takes.
+   *
+   * **A clipped surface casts no shadow, and that is not a bug to work
+   * around.** `clip-path` clips an element's whole paint, `box-shadow`
+   * included, so a skin setting this and a `--skin-shadow` together would
+   * ship a shadow nobody can ever see — the "the control did nothing" fault
+   * this feature keeps producing. A skin that cuts its corners leaves
+   * `--skin-shadow` at `none` on purpose; `nestedSkinVars` resets it to
+   * `none` for such a skin nested inside a shadowed page, so the pairing
+   * cannot be reintroduced by nesting either.
+   *
+   * **The same sentence applies verbatim to `outline`, and it is why
+   * `@utility surface` draws its focus ring INSIDE.** A focus ring is painted
+   * immediately outside the border box and this path is resolved against that
+   * box, so an outline at the default offset falls entirely outside the clip
+   * and never appears — a keyboard visitor loses every focus indicator on
+   * every surface at once (WCAG 2.4.7). That was reasoned about here for
+   * `box-shadow` and not for `outline` on the first pass; both are the
+   * element's paint and `clip-path` takes both.
+   *
+   * **It also clips the whole SUBTREE, positioned descendants included**,
+   * which is a fact about containment rather than paint and the one a caller
+   * has to design around: an overlay rendered inside a clipped surface cannot
+   * escape it by any offset or `z-index`, because the clip also makes its
+   * element a stacking context. `section-card.tsx` puts the editor card's
+   * painted face on a layer of its own for exactly this reason — see its
+   * comment for what went wrong before it did.
+   *
+   * It is a separate token from `--skin-round` rather than folded into it
+   * because the two are different questions with different answers: every
+   * skin has a radius and almost none has a path, so folding them would make
+   * every other skin restate `none`.
+   */
+  --skin-clip: none;
+
+  /*
    * Applied to every element carrying Tailwind's `border` utility — see the
    * rule below. Its default is that utility's own 1px, so writing it changes
    * nothing until a skin says otherwise.
    */
   --skin-border: 1px;
+
+  /*
+   * A FLOOR under that width, raised by a section that picks a border style
+   * needing room to be itself. **No skin sets this and none should** —
+   * `sectionStyle` is its only writer.
+   *
+   * `double` is why it exists, and the number is measured rather than
+   * reasoned: at 1px Chromium paints `[0]`, at 2px `[0 0]` — byte-identical
+   * to `solid` at the same width, because two lines and a gap do not fit —
+   * and only at 3px does it become `[0 gap 0]`. Every skin but
+   * `neobrutalism`, `comic` and `sticker` sets a narrower edge than that, so
+   * without a floor "Double line" was a control that accepted a choice and
+   * changed nothing on most pages — the exact fault this project already
+   * refused once when repetition shipped with a length rather than alone.
+   *
+   * It is a FLOOR rather than a width so that a skin already wide enough
+   * keeps its own edge: `neobrutalism` and `comic` at 3px and `sticker` at
+   * 4px are untouched by it.
+   *
+   * A `max()` rather than a second `border-width` declaration because the
+   * two values come from different scopes — the width from whichever skin is
+   * in force, the floor from one section — and only the consuming rule can
+   * see both. A custom property cannot be defined in terms of itself, so
+   * `--skin-border: max(var(--skin-border), 3px)` is a cycle and would make
+   * the property invalid at computed-value time, deleting the border rather
+   * than widening it.
+   */
+  --skin-border-min: 0px;
+
+  /*
+   * The border's STYLE, alongside `--skin-border`'s width — solid, dashed,
+   * dotted, doubled.
+   *
+   * **Points at Tailwind's own `--tw-border-style` rather than copying its
+   * value, and that indirection is the whole design — it looks redundant and
+   * is not.** A custom property inherits UNRESOLVED: what a descendant
+   * inherits is the literal TEXT `var(--tw-border-style)`, not a resolved
+   * keyword, and that text is looked up again — against the DESCENDANT'S OWN
+   * `--tw-border-style` — only once the rule using it is finally resolved on
+   * that element. That is what keeps a PLAIN `surface` (one naming no
+   * border-style utility of its own) in step with whatever `--tw-border-style`
+   * resolves to right there, rather than freezing whatever it happened to be
+   * when this declaration was written.
+   *
+   * A scope that sets `--skin-border-style` itself, to a literal keyword
+   * rather than a `var()`, breaks that chain on purpose: the literal is what
+   * inherits from there down, so it governs every PLAIN `surface` beneath
+   * it. That is the knob `skins.ts` turns per section; this declaration only
+   * wires its default through.
+   *
+   * **It does NOT reach an element carrying its own border-style utility —
+   * `border-dashed`, `border-dotted`, and so on — in either case, default or
+   * overridden, and that is not this token's doing.** `.border-dashed`
+   * declares `border-style: dashed` as a literal, and Tailwind v4 sorts
+   * `@utility` rules in its utilities layer by how many properties each one
+   * declares: `surface` declares far more than `.border-dashed` does, so
+   * the shorter rule wins the `border-style` property outright — the
+   * cascade settles it before any custom property is substituted, on this
+   * element's `border-style` or on `--skin-border-style`'s own reference
+   * alike. **This is wanted, not merely tolerated**: this app's own
+   * `border-dashed` empty-state placeholders mean "nothing here yet", and
+   * that meaning must survive whatever border style a page or a section
+   * picks. It does not weaken the per-section control this token exists
+   * for: a section's own wrapper carries no border-style utility, so its
+   * choice still governs everything inside it exactly as described above.
+   *
+   * Writing directly to `--tw-border-style` instead of introducing this
+   * token would look equivalent — nothing here would render any
+   * differently — and would be the `[class~="border"]` mistake in a new
+   * shape: `--tw-border-style` is shared by every Tailwind border utility in
+   * the app, not only the ones wearing `surface`, so setting it at a skin's
+   * scope would silently reach plain bordered elements that never opted into
+   * a skin at all. `tests/e2e/border-style-cascade.spec.ts` proves both
+   * halves of this against the real, compiled stylesheet in a real browser —
+   * a model of variable substitution alone cannot represent a second
+   * declaration winning the cascade first, which is exactly the shape of the
+   * exception above.
+   */
+  --skin-border-style: var(--tw-border-style);
 
   /* Travels with the border, because these styles do: a hard offset shadow
    * over a hairline edge is neither brutalist nor anything else. */
@@ -201,16 +320,16 @@
    */
   --skin-gloss-size: auto;
 
-  /* What `backdrop-blur-md` resolves to. Tailwind's own value, so the four
-   * places that use it are unchanged until a skin asks for more or none. */
+  /* What `backdrop-blur-md` resolves to. Tailwind's own value, so every
+   * place that uses it is unchanged until a skin asks for more or none. */
   --skin-blur: 12px;
 
   /*
    * What a bordered surface blurs BEHIND itself.
    *
-   * Separate from `--skin-blur`, which only reaches the four elements that ask
+   * Separate from `--skin-blur`, which only reaches the elements that ask
    * for `backdrop-blur-md`. Glass without this was translucent and not frosted:
-   * the token was set, stored, emitted — and read by four elements that are not
+   * the token was set, stored, emitted — and read only by elements that are not
    * the panels. A skin's headline effect must not depend on a class its
    * surfaces do not carry.
    */
@@ -322,8 +441,8 @@ button:disabled,
  * `shadow-sm` and `backdrop-blur` now beat this by the ordinary rules, with no
  * exclusion to write and none to forget. `skins.test.ts` pins that.
  *
- * The cost is one real edit: seventy-four class lists say `surface` where they
- * said `border`. That is the trade — an invisible failure for a greppable one —
+ * The cost is one real edit: every class list that said `border` says
+ * `surface`. That is the trade — an invisible failure for a greppable one —
  * and `stylelint` now forbids selecting a `class` attribute at all, so the old
  * shape cannot come back by accident.
  *
@@ -331,12 +450,33 @@ button:disabled,
  * element `border: 0 solid`: a width alone renders, but naming the style keeps
  * `border-dashed` working on a surface, exactly as it does on `border`.
  *
+ * The width is a `max()` of the skin's own and `--skin-border-min`, which is
+ * how a section choosing `double` gets an edge wide enough to be double —
+ * see that token's own declaration for the pixels behind the number, and for
+ * why the floor cannot live on `--skin-border` itself.
+ *
+ * It reads `--skin-border-style` rather than `--tw-border-style` directly, so
+ * a skin can override a section's edge style the same way it overrides the
+ * width — for every PLAIN surface. See that token's own declaration above
+ * for why the indirection through `--tw-border-style` is still there rather
+ * than a plain default, and for the one thing this rule does NOT reach: an
+ * element wearing its own border-style utility, such as `border-dashed`,
+ * which wins `border-style` outright by Tailwind's own utility sort order —
+ * on purpose, since that is how this app's empty-state placeholders keep
+ * meaning "nothing here yet" under any border style a page or section picks.
+ *
  * The gloss is a background IMAGE, so it layers over whatever colour the
  * element paints instead of replacing it.
+ *
+ * `clip-path` is the one property here that changes a surface's SHAPE rather
+ * than its decoration, and it is declared last because it governs everything
+ * above it: a clipped surface's border, gloss and shadow are all cut to the
+ * same path. See `--skin-clip`'s own declaration for why a skin that sets it
+ * must leave `--skin-shadow` alone.
  */
 @utility surface {
-  border-style: var(--tw-border-style);
-  border-width: var(--skin-border);
+  border-style: var(--skin-border-style);
+  border-width: max(var(--skin-border), var(--skin-border-min));
   background-image: var(--skin-gloss);
   background-size: var(--skin-gloss-size);
   box-shadow: var(--skin-shadow);
@@ -346,6 +486,51 @@ button:disabled,
    * where that difference is most likely to be read as the design. */
   -webkit-backdrop-filter: var(--skin-backdrop);
   backdrop-filter: var(--skin-backdrop);
+  clip-path: var(--skin-clip);
+
+  /*
+   * **A surface draws its focus ring inside itself, always.**
+   *
+   * A focus ring is painted immediately OUTSIDE the border box, and
+   * `clip-path` clips an element's whole paint — outline as much as
+   * box-shadow. So under a skin that sets `--skin-clip`, a ring at the
+   * default offset is entirely outside the clip and simply never appears,
+   * and a keyboard visitor loses the indicator on every link chip, button,
+   * input and select that is a surface (WCAG 2.4.7).
+   *
+   * Unconditional rather than paired with `--skin-clip`: an inset ring is
+   * correct under every skin and costs the others nothing but three pixels,
+   * so one declaration replaces a second token that every future clipping
+   * skin would have to remember to set.
+   *
+   * **What it does NOT get is immunity from being overridden, and an earlier
+   * version of this comment claimed exactly that.** A
+   * `focus-visible:outline-offset-2` on an element is a single-property
+   * utility with a variant, so it beats this on Tailwind's sort order and on
+   * specificity alike — and four elements in this app were already pairing
+   * the two when this landed, none of them reachable on a themed page, so the
+   * fault was latent and nothing would ever have failed. Those offsets are
+   * gone and `tests/surface-focus-ring.test.ts` scans the source for the
+   * pairing, which is what actually makes this unforgettable. The cascade
+   * does not.
+   *
+   * It does not survive INTO a chamfered corner — the ring is cut where the
+   * notch cuts, leaving the corners open and the runs along each edge
+   * intact, which is a visible indicator rather than a complete one.
+   * `tests/e2e/section-card-face.spec.ts` measures that it appears at all,
+   * which is the part that was previously false.
+   *
+   * Declared flat rather than under a nested `&:focus-visible`, and that is
+   * about honesty as much as about the linter that rejects a `&` here for
+   * having no scoping root. `outline-offset` moves an outline and does
+   * nothing whatever when there is none, so the state selector was adding a
+   * condition the property already carries — and a single-property rule of
+   * its own, at `.surface:focus-visible`, would have out-specified any
+   * `focus-visible:outline-*` utility an element asked for, which is the
+   * `[class~="border"]` mistake in a third shape. Here it is sorted among
+   * the utilities like everything else this block declares.
+   */
+  outline-offset: -3px;
 }
 
 /*

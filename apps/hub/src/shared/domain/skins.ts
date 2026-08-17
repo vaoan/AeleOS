@@ -6,7 +6,7 @@
  * a sticker or as a window from 1995. Which colours those surfaces are is the
  * gradient's business, and the two are chosen separately on purpose: every
  * combination of a skin and a palette is somebody's page, and tying them
- * together would collapse nine styles into nine colour schemes.
+ * together would collapse every style into a colour scheme of its own.
  *
  * The two rules that keep that true, and that a new skin must not break:
  *
@@ -22,10 +22,12 @@
  * `default` is first because a select opens on its first option, and the list's
  * order is the order somebody reads.
  *
- * Fourteen of them, and the ones worth adding were the ones reaching for a
- * MECHANISM none of the others used — a surface that is not there, a tiled
- * texture, a shadow that steps instead of fading. Another set of radius and
- * shadow numbers would have read as a variant of something already here.
+ * The ones worth adding were the ones reaching for a MECHANISM none of the
+ * others used — a surface that is not there, a tiled texture, a shadow that
+ * steps instead of fading, a shadow with no offset at all, a corner cut off
+ * rather than rounded, concentric rings instead of one edge. Another set of
+ * radius and shadow numbers would have read as a variant of something already
+ * here.
  */
 export const SKINS = [
   "default",
@@ -42,6 +44,9 @@ export const SKINS = [
   "comic",
   "inset",
   "sticker",
+  "neon",
+  "cutout",
+  "frame",
 ] as const;
 
 /**
@@ -180,6 +185,14 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
       "repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px)",
   },
 
+  /** The bevelled grey box: a lit top-left, a shaded bottom-right, no curve. */
+  retro: {
+    "--skin-round": "0",
+    "--skin-border": "2px",
+    "--skin-blur": "0px",
+    "--skin-shadow":
+      "inset 1px 1px 0 rgb(255 255 255 / 0.55), inset -1px -1px 0 rgb(0 0 0 / 0.35), 2px 2px 0 rgb(0 0 0 / 0.4)",
+  },
   /**
    * No surface at all: the page's own background shows through every panel.
    *
@@ -241,13 +254,91 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
     "--skin-shadow": "0 6px 14px rgb(0 0 0 / 0.3)",
   },
 
-  /** The bevelled grey box: a lit top-left, a shaded bottom-right, no curve. */
-  retro: {
+  /**
+   * A halo, not a cast shadow: spread with no offset in either axis.
+   *
+   * Every other shadow here is displaced — glass falls 8px, neobrutalism 5 and
+   * 5, retro 2 and 2 — so each reads as a light source somewhere off the page.
+   * A shadow at `0 0` cannot be read that way: nothing is casting it, so the
+   * surface itself is emitting, which is the only glow `box-shadow` can make.
+   * `frame` also writes a spread, but a hard one with no blur, which is an
+   * edge; a spread blurred and centred is a light.
+   *
+   * **The glow is `--ink`, and that is what keeps it a skin rather than a
+   * colour scheme.** On a light page ink is dark and the halo reads as a
+   * bloom of shade; on a dark page it is near-white and the sign is lit.
+   * Same gesture in both directions — the reasoning neobrutalism's offset
+   * already rests on. This is the skin most likely to be "fixed" with a
+   * literal cyan, and that would be the skin overruling a colour its author
+   * picked somewhere else.
+   */
+  neon: {
+    "--skin-round": "1.5",
+    "--skin-shadow":
+      "0 0 16px 2px color-mix(in oklab, var(--ink) 34%, transparent), inset 0 0 12px color-mix(in oklab, var(--ink) 14%, transparent)",
+  },
+
+  /**
+   * Cut from paper: every corner sliced off straight rather than rounded.
+   *
+   * **The only skin that changes a surface's SHAPE**, which is the thing a
+   * radius cannot express however far it is turned — a curve and a chamfer are
+   * different cuts, not two settings of one. `--skin-clip` exists for it, and
+   * `@utility surface` reads it; see that token's declaration in `globals.css`.
+   *
+   * `--skin-round` goes to `0` because the two cuts fight: a rounded border
+   * arcs inward and the clip then takes a straight chord across the arc,
+   * leaving a nub at every corner that looks like a rendering fault rather
+   * than a style.
+   *
+   * **It sets no shadow, and must not.** `clip-path` clips an element's whole
+   * paint, `box-shadow` included, so a shadow here would be stored, emitted
+   * and invisible — the control that does nothing. The default is `none`
+   * already; `nestedSkinVars` restores it, so a `cutout` section inside a
+   * shadowed page does not acquire one by inheritance either.
+   *
+   * **The notch is `min(10px, 25%)` and the bound is load-bearing, not
+   * tidiness.** A percentage inside `polygon()` resolves against the reference
+   * box's WIDTH on an x coordinate and its HEIGHT on a y one, so one
+   * expression clamps each axis by itself. A flat `10px` self-intersects the
+   * moment a surface is under 20px in either direction: the `progress`
+   * layout's track is `h-2`, so its vertical vertices resolved to `10px` and
+   * `-2px`, the path crossed itself, and what a browser paints for that is a
+   * winding-rule artefact rather than a chamfer. Bounded, a short surface
+   * simply gets a shallower notch — the gesture degrades instead of
+   * inverting. This is the same class of failure as a skin that offers a
+   * choice and changes nothing, one step worse: it changes something nobody
+   * asked for.
+   */
+  cutout: {
     "--skin-round": "0",
     "--skin-border": "2px",
-    "--skin-blur": "0px",
-    "--skin-shadow":
-      "inset 1px 1px 0 rgb(255 255 255 / 0.55), inset -1px -1px 0 rgb(0 0 0 / 0.35), 2px 2px 0 rgb(0 0 0 / 0.4)",
+    "--skin-clip":
+      "polygon(min(10px, 25%) 0, calc(100% - min(10px, 25%)) 0, 100% min(10px, 25%), 100% calc(100% - min(10px, 25%)), calc(100% - min(10px, 25%)) 100%, min(10px, 25%) 100%, 0 calc(100% - min(10px, 25%)), 0 min(10px, 25%))",
+  },
+
+  /**
+   * Matted and hung: a hairline, a mount board, and the moulding round it.
+   *
+   * **Depth from concentric edges rather than from one border.** Its
+   * `box-shadow` layers sit at `0 0 0 Npx` — no offset, no blur, only a
+   * growing spread — and draw as rings one outside the next, because every
+   * layer is clipped to outside the same border box and the earlier one is
+   * painted over the later. A hairline, then the mount board, then the
+   * moulding; a last, ordinary drop shadow hangs the result on the wall. Every
+   * other edge here is a single line whose weight is `--skin-border`, which is
+   * the setting this cannot be expressed as: one line cannot have a gap in it.
+   *
+   * The mat is `--surface-solid`, the raw panel colour the palette writes, so
+   * the mount board is the author's own — a skin reaching their colours the
+   * one sanctioned way rather than naming one. `--skin-border` goes to `0`
+   * because the innermost ring IS the edge; leaving it would put a second line
+   * immediately inside the first.
+   */
+  frame: {
+    "--skin-round": "0.25",
+    "--skin-border": "0px",
+    "--skin-shadow": `0 0 0 1px color-mix(in oklab, var(--edge) 60%, transparent), 0 0 0 6px var(--surface-solid), 0 0 0 8px var(--edge), 0 8px 18px ${SHADE}`,
   },
 };
 
@@ -281,10 +372,45 @@ export function skinVars(skin: SkinId): Record<string, string> {
  * changes their ALPHA and never their hue, so the reset has to restore the
  * composition rather than a literal — and `--surface-solid`/`--bar-solid` vary
  * by light and dark mode, which is exactly why this indirection exists.
+ *
+ * `--skin-border-style` is the one entry whose default is itself a reference,
+ * `var(--tw-border-style)`, rather than a resolved value — and that has to be
+ * copied byte for byte, not merely equal in effect. A custom property inherits
+ * UNRESOLVED, so restating the reference here (instead of the keyword it
+ * currently resolves to) is what keeps a PLAIN `surface` — one naming no
+ * border-style utility of its own — in step with Tailwind's own
+ * `--tw-border-style` rather than a keyword frozen at declaration time; a
+ * scope that overrides this entry with a literal governs those plain
+ * surfaces the same way. It does **not** reach an element that carries its
+ * own border-style utility (`border-dashed` and friends): Tailwind sorts
+ * that shorter utility above `surface` in the cascade and it wins
+ * `border-style` outright, in the default case and the overridden one alike
+ * — see `globals.css`'s own declaration for the full reasoning and
+ * `tests/e2e/border-style-cascade.spec.ts` for the proof against a real
+ * browser. No skin sets this property yet; the entry exists so
+ * {@link nestedSkinVars} still resets to it for every skin, exactly like
+ * every other property here.
+ *
+ * `--skin-clip` is the entry whose reset matters most and is easiest to
+ * forget. It changes a surface's SHAPE, so a nested scope that failed to
+ * restore it would inherit an enclosing skin's chamfered corners onto a style
+ * that never asked for one — the `paper`-inside-`comic` fault, in the one
+ * property where it is not a texture but the outline of the box. It also
+ * suppresses `--skin-shadow`, since `clip-path` clips an element's whole paint:
+ * resetting it here is what lets a shadowed skin nested inside `cutout` cast
+ * its shadow at all.
  */
 export const SKIN_DEFAULTS: Record<string, string> = {
   "--skin-round": "1",
+  "--skin-clip": "none",
   "--skin-border": "1px",
+  // Deliberately the unresolved reference `var(--tw-border-style)`, not a
+  // baked-in "solid" — see the token's own declaration in globals.css. A
+  // scope that overrides this with a literal governs every PLAIN surface
+  // beneath it; an element carrying its own border-style utility
+  // (`border-dashed` and friends) keeps it regardless, because Tailwind's
+  // utility sort order — not this token — is what decides that.
+  "--skin-border-style": "var(--tw-border-style)",
   "--skin-shadow": "none",
   "--skin-gloss": "none",
   "--skin-gloss-size": "auto",

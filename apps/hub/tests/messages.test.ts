@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { CANVASES } from "@/features/actors/domain/actor-theme";
 import en from "@/shared/infrastructure/i18n/messages/en.json";
 import es from "@/shared/infrastructure/i18n/messages/es.json";
 import { routing } from "@/shared/infrastructure/i18n/routing";
+import { SECTION_TYPES } from "@/features/actors/domain/section-schema";
+import { SKINS } from "@/shared/domain/skins";
 
 /**
  * Every leaf key in a nested catalogue, dot-joined.
@@ -127,8 +130,8 @@ describe("message catalogues", () => {
       // Latin, and the same word in both languages. The canvases beside it are
       // translated, which is the evidence this one was considered.
       "fursonas.canvases.aurora",
-      // The same word in Spanish, and the eight style names beside it are
-      // translated — including the ones that could have been left as loanwords.
+      // The same word in Spanish, and the style names beside it are translated
+      // — including the ones that could have been left as loanwords.
       "fursonas.skins.terminal",
       // Greek by way of physics, and the same word in both languages. The
       // three canvases added beside it — Celdas, Corriente, Luciérnagas — are
@@ -143,4 +146,54 @@ describe("message catalogues", () => {
     );
     expect(untranslated.sort()).toEqual(allowed.sort());
   });
+});
+
+/**
+ * Every list a `<select>` in the editor is built from, with the catalogue
+ * branch whose keys have to be that list.
+ *
+ * The label comes from a `t()` call over an interpolated key — one per list, in
+ * `pages/labels.ts`. That call is untyped — there is no `IntlMessages`
+ * augmentation here — so a missing name is not a compile error, and it survives
+ * the parity check above because a name absent from BOTH catalogues leaves them
+ * equal. What reaches the page then is the raw key.
+ */
+const NAMED_LISTS = [
+  ["fursonas.skins", SKINS],
+  ["fursonas.types", SECTION_TYPES],
+  ["fursonas.canvases", CANVASES],
+] as const;
+
+// **This is the app's own chrome, and only that.** A person's own writing — a
+// section's `name_es`, an item's description — is never next-intl, and a
+// missing one is somebody who has not written the Spanish yet rather than a
+// fault. What is checked here is the opposite case: a name the app owes and
+// did not write.
+describe.each(NAMED_LISTS)("%s", (path, ids) => {
+  const branchIn = (locale: "en" | "es"): Record<string, unknown> =>
+    valueAt(locale === "en" ? en : es, path) as Record<string, unknown>;
+
+  // Without this the two assertions below both hold for an empty list, which is
+  // the shape a renamed constant would leave behind.
+  it("is a list with something on it", () => {
+    expect(ids.length).toBeGreaterThan(0);
+    expect(Object.keys(branchIn("en")).length).toBeGreaterThan(0);
+  });
+
+  it.each(["en", "es"] as const)("names every entry in %s", (locale) => {
+    const branch = branchIn(locale);
+    // `Object.hasOwn` rather than `in`: a member called `constructor` or
+    // `toString` would inherit a truthy answer and pass with no name written.
+    expect(ids.filter((id) => !Object.hasOwn(branch, id))).toEqual([]);
+  });
+
+  it.each(["en", "es"] as const)(
+    "names nothing in %s that is not on the list",
+    (locale) => {
+      const listed = new Set<string>(ids);
+      expect(
+        Object.keys(branchIn(locale)).filter((key) => !listed.has(key)),
+      ).toEqual([]);
+    },
+  );
 });

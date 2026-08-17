@@ -46,12 +46,33 @@ import {
  * hint worded vague enough to cover both would be true of neither. `EMBEDS`
  * decides which of {@link SectionItemFieldsLabels.linkUrlHint} and
  * {@link SectionItemFieldsLabels.linkUrlPlainHint} is shown.
+ *
+ * `itemLabel` and `itemValue` are a second pair for `itemTitle` and
+ * `itemDescription`, and `itemValueHint` a second one for
+ * `itemDescriptionHint`, all shown instead of the generic set for
+ * `progress` alone — see {@link itemLabel}'s own doc and `FIELD_NAMES` in
+ * this file for why only that one layout gets an override.
  */
 export interface SectionItemFieldsLabels extends IconPickerLabels {
   /** Field label for the item's title. */
   itemTitle: string;
   /** Field label for the item's description. */
   itemDescription: string;
+  /**
+   * Field label for `progress`'s title — the LABEL of the measured thing,
+   * shown instead of {@link itemTitle} for that one layout. Its pair is
+   * inverted exactly as `stats` and `quote` already invert theirs when they
+   * RENDER — see `Progress` in `public-sections.tsx` — and a field whose
+   * meaning changes silently between layouts is worse than a differently
+   * named one, which is what {@link FIELD_NAMES} exists to give it.
+   */
+  itemLabel: string;
+  /**
+   * Field label for `progress`'s description — the VALUE `Progress` reads a
+   * bar from, shown instead of {@link itemDescription} for that one layout.
+   * See {@link itemLabel}.
+   */
+  itemValue: string;
   /**
    * The description field's placeholder.
    *
@@ -60,6 +81,19 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
    * theirs.
    */
   itemDescriptionHint: string;
+  /**
+   * `progress`'s value field placeholder, shown instead of
+   * {@link itemDescriptionHint} for that one layout — see {@link FIELD_NAMES}.
+   *
+   * Names the forms `progressValue` (`public-sections.tsx`) actually reads,
+   * because nothing else in the editor does: renaming the label to "Value"
+   * says the field means something different, but not what it accepts, and
+   * an author writing "almost done" or "two of five" got their words stored
+   * and no bar drawn, with no way to learn why. Kept in the catalogue and
+   * not derived from the parser, because the accepted forms are a fact about
+   * this string, not the reverse.
+   */
+  itemValueHint: string;
   /** Names the remove control for a screen reader. */
   removeItem: string;
   /** Field label for a gallery item's image address. */
@@ -147,12 +181,60 @@ const LINKED = new Set<SectionType>([
  *
  * `socials` offers it so an author can override the icon `resolveSocial`
  * would otherwise derive from the address — an author who picked one meant
- * it.
+ * it. `masonry` offers it for the same reason `cards` does: every item gets
+ * an icon tile on the public page, including one with no icon chosen, so the
+ * editor must let an icon be chosen at all.
  */
-const ICONED = new Set<SectionType>(["cards", "links", "socials"]);
+const ICONED = new Set<SectionType>(["cards", "links", "socials", "masonry"]);
 
 /** The layouts that render an item's picture. */
 const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
+
+/**
+ * Which catalogue keys name an item's title, description, and description
+ * placeholder, keyed by layout. Every layout not in this map falls through
+ * to the generic `itemTitle`/`itemDescription`/`itemDescriptionHint` set —
+ * a heading and the body under it, which is what those words mean for
+ * every layout but this one.
+ *
+ * `progress` is the exception: its title is a LABEL and its description is
+ * the VALUE `Progress` draws a bar from (see `public-sections.tsx`), and
+ * showing the generic "Title"/"Description" beside a field that means
+ * something else is exactly the "field whose meaning changes silently
+ * between layouts" fault this file already avoids for `linkUrl`'s two
+ * hints — see {@link EMBEDS}. `stats` and `quote` invert their own pair the
+ * same way when they RENDER, but neither is in this map: it only grows when
+ * a layout's editor fields need it, not merely because a layout's public
+ * rendering does.
+ *
+ * **A `Map`, not a plain object indexed by `type`.** Every neighbouring
+ * lookup in this file — `LINKED`, `ICONED`, `PICTURED`, `EMBEDS` — is a
+ * `Set` for the same reason: `type` is a string, and a plain object indexed
+ * by a string key resolves an inherited key (`"toString"`, `"__proto__"`)
+ * to a truthy, wrong value instead of `undefined`. This repo shipped a
+ * Critical from exactly that shape (`TIDAL_KINDS`, in `embed-providers.ts`)
+ * — `type` is validated by `z.enum(SECTION_TYPES)` on save and by
+ * `is_section_type()` in the database, so an inherited key is not reachable
+ * today, but reachability is the thing that changes without anyone
+ * noticing, and a `Map` costs nothing here.
+ */
+const FIELD_NAMES = new Map<
+  SectionType,
+  {
+    title: "itemLabel";
+    description: "itemValue";
+    descriptionHint: "itemValueHint";
+  }
+>([
+  [
+    "progress",
+    {
+      title: "itemLabel",
+      description: "itemValue",
+      descriptionHint: "itemValueHint",
+    },
+  ],
+]);
 
 /**
  * The `LINKED` layouts that can actually turn an address into a player.
@@ -186,6 +268,15 @@ const EMBEDS = new Set<SectionType>(["video", "music", "posts"]);
  * `FURSONA_TEMPLATES`, which used to ship that guidance as content and so
  * published it.
  *
+ * **`progress` swaps that placeholder too, through `FIELD_NAMES`.** Renaming
+ * the label to "Value" says the field means something different; it does not
+ * say what it accepts, and a field that renames itself but keeps prompting
+ * "What do you want to say here?" leaves an author writing "almost done" with
+ * no way to learn that only a number, a percentage or a fraction draws a bar.
+ * `itemValueHint` names the accepted forms directly, in both languages —
+ * Spanish is the fallback and is what most people meet first, so it is not
+ * the one left generic.
+ *
  * `linkUrl` names the address field the media, link and post layouts carry.
  * Which of its two hints is shown — {@link SectionItemFieldsLabels.linkUrlHint}
  * or {@link SectionItemFieldsLabels.linkUrlPlainHint} — is decided by
@@ -205,6 +296,13 @@ const EMBEDS = new Set<SectionType>(["video", "music", "posts"]);
  * is wanted by more than one layout, and repeating
  * `type === "cards" || type === "links"` for every layout is the shape that
  * quietly loses one when another is added.
+ *
+ * **The title and description fields themselves are renamed for `progress`**,
+ * through {@link FIELD_NAMES}, because that layout's pair means "label" and
+ * "value" rather than "heading" and "body" — the generic "Title"/"Description"
+ * beside an inverted field is the same silent-meaning-change fault the sets
+ * above exist to avoid, applied to the two fields every layout carries rather
+ * than to an optional one.
  *
  * **A picture is an address somebody pasted, and nothing here stores a file.**
  * That is the platform's rule for every piece of external media — see
@@ -233,6 +331,17 @@ const EMBEDS = new Set<SectionType>(["video", "music", "posts"]);
  * and were half of why the editor did not fit on a phone.
  *
  * Every field here is a `surface`, which is why a skin's edge weight reaches the innermost box of the editor.
+ *
+ * **Its box paints `bg-(--surface)`, and that is what makes it readable over a
+ * section's background picture.** The card face behind it shows that picture at
+ * full strength on purpose — see `SectionCard` — so an item box left
+ * transparent puts these labels and inputs straight on somebody's photograph,
+ * where `--ink` over a mid-grey measures 3.87:1 against the 4.5:1 text needs.
+ * The public page has the same picture and stays readable for exactly this
+ * reason: its item cards carry `bg-(--surface)` and the picture shows in the
+ * gaps between them. This box is that card. The fields inside it stay
+ * `bg-transparent` and inherit the backing, the way the public page's text
+ * inherits its card's.
  *
  * Every colour it paints comes from a token — `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
@@ -269,8 +378,22 @@ export function SectionItemFields<T extends FieldValues>({
   const imageUrl = image.field.value;
   const title = useWatch({ control, name: `${path}.title_${lang}` as Path<T> });
 
+  // Absent for every layout but `progress` — see `FIELD_NAMES`'s own doc for
+  // why only that one earns an override.
+  const fieldNames = FIELD_NAMES.get(type);
+  const titleLabel = fieldNames ? labels[fieldNames.title] : labels.itemTitle;
+  const descriptionLabel = fieldNames
+    ? labels[fieldNames.description]
+    : labels.itemDescription;
+  const descriptionHint = fieldNames
+    ? labels[fieldNames.descriptionHint]
+    : labels.itemDescriptionHint;
+
   return (
-    <div className="grid gap-2 rounded-lg surface border-(--edge)/40 p-2.5 sm:p-3">
+    <div
+      {...tid("section-item")}
+      className="grid gap-2 rounded-lg surface border-(--edge)/40 bg-(--surface) p-2.5 sm:p-3"
+    >
       {LINKED.has(type) ? (
         <div className="grid gap-1.5">
           <label htmlFor={`${id}-link`} className="text-xs font-medium">
@@ -337,7 +460,7 @@ export function SectionItemFields<T extends FieldValues>({
 
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-title`} className="text-xs font-medium">
-          {labels.itemTitle}
+          {titleLabel}
         </label>
         <input
           id={`${id}-title`}
@@ -353,7 +476,7 @@ export function SectionItemFields<T extends FieldValues>({
 
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-description`} className="text-xs font-medium">
-          {labels.itemDescription}
+          {descriptionLabel}
         </label>
         {/* **The prompt lives here, not in the stored value.** Templates
             used to seed this field with a guidance sentence, which meant a page
@@ -364,7 +487,7 @@ export function SectionItemFields<T extends FieldValues>({
           id={`${id}-description`}
           key={`description-${lang}`}
           rows={3}
-          placeholder={labels.itemDescriptionHint}
+          placeholder={descriptionHint}
           {...tid("item-description")}
           {...register(`${path}.description_${lang}` as Path<T>)}
           className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-1.5 text-sm"

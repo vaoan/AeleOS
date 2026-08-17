@@ -27,17 +27,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PROJECT_NAME, PROJECT_REF, poolerUrl } from "./aeleos-project.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
 const secretsPath = resolve(rootDir, ".secrets");
 
-/** The AeleOS project. Libra's production ref must never appear here. */
-const PROJECT_REF = "vmmpssydbrtkgvrlkijh";
-const PROJECT_NAME = "AeleOS";
-/** Free-plan projects have no IPv4 on the direct host, so use the pooler. */
-const POOLER_HOST = "aws-0-ca-central-1.pooler.supabase.com";
-const POOLER_PORT = 5432;
 /**
  * One identity per run, never shared. Two runs against the same address would
  * share an `identity_sub`, and the suite's `afterAll` deletes every row for it —
@@ -175,9 +170,7 @@ if (claims.role !== "authenticated") {
 }
 
 // 5. Run the suite. The token is valid for about 60 seconds from here.
-const dbUrl =
-  `postgresql://postgres.${PROJECT_REF}:${encodeURIComponent(dbPassword)}` +
-  `@${POOLER_HOST}:${POOLER_PORT}/postgres`;
+const dbUrl = poolerUrl(dbPassword);
 
 let status = 1;
 try {

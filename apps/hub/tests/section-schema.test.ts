@@ -179,6 +179,17 @@ describe("a section's style", () => {
   it("refuses a card size it cannot render", () => {
     expect(accepts([section({ style: { card_size: "xl" } })])).toBe(false);
   });
+
+  it.each(["solid", "dashed", "dotted", "double", "none"])(
+    "accepts the %s border style",
+    (border) => {
+      expect(accepts([section({ style: { border } })])).toBe(true);
+    },
+  );
+
+  it("refuses a border style it does not render", () => {
+    expect(accepts([section({ style: { border: "groove" } })])).toBe(false);
+  });
 });
 
 // Finding 4 of the final review: `.strict()` is right at the write and wrong

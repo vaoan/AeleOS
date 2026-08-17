@@ -120,7 +120,7 @@ Three traps the table shape introduces that the branch chain did not have:
 - **A template with an unvalidated interpolation is a hole in every provider at
   once.** Each `resolve` returns a value that must already match its pattern; the
   template does no checking. That is the same contract the branches had, but it
-  is now stated in one place and depended on seventeen times.
+  is now stated in one place and depended on by every entry in the table.
 - **`hosts` is matched exactly, never by suffix.** `youtube.com.evil.example`,
   `evil-youtube.com` and `https://www.youtube.com@evil.example` all fail. The
   last one only fails because the comparison is on the parsed authority. This is
@@ -209,8 +209,8 @@ cannot see inside it.
 
 So a broken provider looks broken on a stranger's page, and no test we can write
 will catch it. The honest mitigations are the only ones available: the fallback
-chip for anything unresolvable, and the knowledge — written here — that three of
-the seventeen are load-bearing on somebody else's goodwill. **Do not describe the
+chip for anything unresolvable, and the knowledge — written here — that the
+`posts` providers are load-bearing on somebody else's goodwill. **Do not describe the
 `posts` layout to anybody as reliable in the way `video` is.**
 
 ## 2. `posts` and `socials`
@@ -505,7 +505,7 @@ grid and the page background — is built.
 - **No pasted HTML**, and no `frame-src https:`.
 - **The provider table's origins stay derived**, never restated beside it.
 - **Colour stays page-level.** A per-section colour would collapse the skin /
-  palette split that fourteen skins rest on.
+  palette split that every skin rests on.
 - **Nested skins emit the complete token set.** The differences-only table is
   correct at one scope and wrong at two, and the failure is silent.
 - **`posts` is not described as reliable.** Three of its providers depend on

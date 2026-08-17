@@ -22,6 +22,23 @@ import { z } from "zod";
  * back to the same branded chip `socials` renders, never to nothing and never
  * to a bare link.
  *
+ * **`masonry` packs columns by height rather than laying out a uniform
+ * grid**, through CSS multi-column layout — the one structural thing neither
+ * `cards` nor `gallery` can do, which is what earns a new layout its place
+ * rather than a rearrangement of one already here.
+ *
+ * **`progress` draws a proportion; `stats` only ever states one.** Its title
+ * is the label and its description is the value, inverting the pair exactly
+ * as `stats` and `quote` already do — but it also tries to READ that value,
+ * through `progressValue` in `public-sections.tsx`, and draws a bar sized to
+ * it. A description that cannot be read as a number renders as the same
+ * plain label/value row `stats` renders, never a broken bar.
+ *
+ * **`tabs` shows one panel at a time, horizontally, switched by a radio
+ * group and CSS's own `:checked`** — never a client component. `accordion`
+ * is vertical and every item may be open at once; this is a switcher, and
+ * saying so is what keeps the two from reading as duplicates of each other.
+ *
  * **The database holds this same list in `is_section_type()`**, and it is
  * authoritative — a type it does not know is refused whatever this array says.
  * `section-limits-match-migration.test.ts` reads the SQL and fails the build if
@@ -41,6 +58,9 @@ export const SECTION_TYPES = [
   "timeline",
   "socials",
   "posts",
+  "masonry",
+  "progress",
+  "tabs",
 ] as const;
 
 /** One of the layouts. */
@@ -145,6 +165,15 @@ const sectionStyleShape = {
   // grid track does — this sets no column count of its own. Absent means
   // the page's default, the same resting state as every other key here.
   card_size: z.enum(["s", "m", "l"]).optional(),
+  // **`none` is a CHOICE and absence is INHERITANCE — the two are not the
+  // same state.** Absent means the section takes whatever
+  // `--skin-border-style` the page (or an enclosing scope) already set;
+  // `"none"` means the author explicitly turned the border off for this
+  // section, regardless of what the page around it does. Storing `""` for
+  // either would be the third state this bag has refused everywhere else in
+  // it — `none` is a member of the enum for exactly that reason, rather than
+  // the empty string standing in for it.
+  border: z.enum(["solid", "dashed", "dotted", "double", "none"]).optional(),
 };
 
 /**

@@ -324,6 +324,17 @@ describe("resolveEmbed", () => {
       // rather than merely failing the digits pattern, which is the branch
       // the `second ?? ""` fallback exists for.
       "https://www.twitch.tv/videos",
+      // **A single segment that reaches `TWITCH_NAME` and fails it.** Every
+      // other refusal above leaves `twitchTarget` before that test — a wrong
+      // host never gets there, `/videos/abc` returns from the broadcast
+      // branch, and `/` and `/videos` return from the `!first || second`
+      // guard. Without these two the only thing that ever made the channel
+      // pattern FALSE was the hostile property test happening to generate
+      // such a path, which is a coin flip rather than a case: the suite's
+      // branch coverage went to 99.84% on the runs it did not come up. Two
+      // segments below its floor and one carrying a character `\w` excludes.
+      "https://www.twitch.tv/ab",
+      "https://www.twitch.tv/lu-na",
     ])("refuses %s", (raw) => {
       expect(resolveEmbed(raw, opts)).toBeNull();
     });
@@ -459,6 +470,16 @@ describe("resolveEmbed", () => {
       "https://mastodon.social/Mastodon/116765910384325070",
       "https://mastodon.social/@Mastodon",
       "https://mastodon.social/",
+      // **The two that reach the patterns and fail them**, which nothing
+      // named did until now. Every refusal above returns from the
+      // `!handle?.startsWith("@") || !id` guard one line earlier, so the only
+      // thing that ever made `MASTODON_USER.test(user) &&
+      // MASTODON_POST_ID.test(id)` false was the hostile property test
+      // drawing such a path at random — the branch the whole suite's 100%
+      // was intermittently missing, at 654/655. A handle carrying a
+      // character `[\w.]` excludes, then an id that is not digits.
+      "https://mastodon.social/@bad!user/116765910384325070",
+      "https://mastodon.social/@Mastodon/11676591038432507o",
     ])("refuses %s", (raw) => {
       expect(src(raw)).toBe("");
     });

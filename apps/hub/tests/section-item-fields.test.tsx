@@ -22,6 +22,9 @@ const labels = {
   itemTitle: "Title",
   itemDescription: "Description",
   itemDescriptionHint: "What do you want to say here?",
+  itemLabel: "Label",
+  itemValue: "Value",
+  itemValueHint: "A number, a percentage, or one out of another — 60, 60%, 3/5",
   removeItem: "Remove item",
   imageUrl: "Image address",
   imageUrlHint: "Paste a link to a picture.",
@@ -137,6 +140,43 @@ describe("SectionItemFields", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  // `progress`'s pair means "label" and "value", not "heading" and "body",
+  // so the generic "Title"/"Description" would be a field whose meaning
+  // changed silently between layouts — the fault `FIELD_NAMES` exists to
+  // avoid.
+  it("names the fields Label and Value on a progress item", () => {
+    renderFields("progress");
+    expect(screen.getByLabelText("Label")).toBeInTheDocument();
+    expect(screen.getByLabelText("Value")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Title")).toBeNull();
+    expect(screen.queryByLabelText("Description")).toBeNull();
+  });
+
+  it("still names the fields Title and Description on every other layout", () => {
+    renderFields("stats");
+    expect(screen.getByLabelText("Title")).toBeInTheDocument();
+    expect(screen.getByLabelText("Description")).toBeInTheDocument();
+  });
+
+  // Renaming the label to "Value" says the field means something different;
+  // it does not say what it accepts. Without this, an author writing "almost
+  // done" gets their words stored and no bar drawn, with no way to learn why.
+  it("prompts a progress item's value field with the forms it accepts", () => {
+    renderFields("progress");
+    expect(screen.getByLabelText("Value")).toHaveAttribute(
+      "placeholder",
+      labels.itemValueHint,
+    );
+  });
+
+  it("prompts every other layout's description field with the generic hint", () => {
+    renderFields("stats");
+    expect(screen.getByLabelText("Description")).toHaveAttribute(
+      "placeholder",
+      labels.itemDescriptionHint,
+    );
+  });
+
   it("removes on request", () => {
     const onRemove = renderFields();
     fireEvent.click(screen.getByRole("button", { name: "Remove item" }));
@@ -146,6 +186,17 @@ describe("SectionItemFields", () => {
   describe("the fields a layout offers", () => {
     it("offers an icon on a cards item, and no image address", () => {
       renderFields("cards");
+      expect(
+        screen.getByRole("button", { name: labels.chooseIcon }),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText(labels.imageUrl)).toBeNull();
+    });
+
+    // `masonry` items carry an icon tile on the public page exactly as
+    // `cards` items do — including the ones with no icon chosen — so the
+    // editor has to offer the same control.
+    it("offers an icon on a masonry item too", () => {
+      renderFields("masonry");
       expect(
         screen.getByRole("button", { name: labels.chooseIcon }),
       ).toBeInTheDocument();

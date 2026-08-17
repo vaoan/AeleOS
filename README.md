@@ -51,8 +51,8 @@ their fursonas. It is the only deployable thing in this repository.
 It is bilingual (Spanish is the fallback, deliberately unlike Libra), carries
 its own visual identity, and includes a **fursona studio**: a filterable,
 drag-reorderable list and a full-page editor where somebody composes their
-character's page out of sections in four layouts, with per-item bilingual
-fields, an icon picker and shipped starting templates.
+character's page out of sections in whichever of the layouts suits it, with
+per-item bilingual fields, an icon picker and shipped starting templates.
 
 It is live at **[me.furrycolombia.com](https://me.furrycolombia.com)**, deployed
 from GitHub Actions on every push to `main`.
@@ -148,7 +148,8 @@ advice. The reasons are the useful part:
   signed-in pages, the editor with its theme panel open, and a themed public
   page. `pnpm check:contrast` still measures the token pairs it can compute.
 - **Phone layouts are proved, not eyeballed.** `tests/e2e/responsive.spec.ts`
-  checks six viewports in both orientations, and every check has two halves: the
+  checks every viewport in `VIEWPORTS`, each of which names an orientation, and
+  every check has two halves: the
   page does not scroll sideways, **and** nothing above the content is hiding
   that it would — so the `overflow-x: hidden` shortcut fails as loudly as the
   fault.
@@ -159,7 +160,7 @@ advice. The reasons are the useful part:
   the caller's array.
 
 The full account of how this toolchain arrived, what each tool caught, and the
-nine rules that came out of it:
+rules that came out of it:
 `docs/superpowers/specs/2026-08-15-toolchain-hardening-design.md`.
 
 - **Development is cloud-only.** No local Docker or Supabase in normal use: push
@@ -281,16 +282,22 @@ own migration set:
 | `0006_provisioning.sql`         | idempotent `ensure_person_actor()` — the only definition                                    |
 | `0007_fursona_self_service.sql` | `create_fursona()` with its quota, `update_fursona()`, soft `delete_fursona()`              |
 | `0008_idp_introspection.sql`    | `whoami_sub()`, `whoami_role()` — used by the trust tests                                   |
-| `0009_fursona_profiles.sql`     | ordering, pinning, and the validated bilingual `sections` write                             |
+| `0009_actor_profiles.sql`       | ordering, pinning, and the validated bilingual `sections` write                             |
 | `0010_client_grants.sql`        | the complete client surface, in one file                                                    |
 | `0011_person_addresses.sql`     | one permanent number per person, assigned by trigger, plus optional vanity                  |
+| `0012_public_actor_reads.sql`   | the entire anonymous read surface — the only functions granted to `anon`                    |
+| `0013_my_address.sql`           | `my_address()`, so a person can learn their own public address                              |
+| `0014_person_self_service.sql`  | a person edits and publishes their own profile                                              |
+
+The table is the list. Copy every row of it — an app that stops partway has a
+schema that looks installed and refuses reads it should serve.
 
 ### Every object is defined exactly once
 
 **This is the rule to preserve, and it is newer than most of the schema.** The
-migrations were consolidated on 2026-08-13: they had grown to fourteen files in
-which six objects were redefined by `create or replace` — the `actors_public`
-view four times, `ensure_person_actor` three. The newest body of a function
+migrations were consolidated on 2026-08-13, when six objects had been redefined
+by `create or replace` — the `actors_public` view four times,
+`ensure_person_actor` three. The newest body of a function
 could therefore sit in a file named after something unrelated, so replacing it
 meant hunting for the right ancestor first, and restating the wrong one silently
 reverted a fix. That nearly shipped.
@@ -307,12 +314,12 @@ their own tables.
 
 But `0005` is also the **fixture the conformance suite runs against**:
 `tests/db/authoring.test.ts` and `tests/db/transfer-accountability.test.ts`
-(13 tests) require `public.comments` to exist. **Apply `0005` too, or those
+require `public.comments` to exist. **Apply `0005` too, or those
 tests fail on the first run.** An app has two honest options:
 
 - **Keep `0005`.** Simplest. `comments` sits unused alongside the app's real
-  tables and the 13 tests keep proving the pattern is installed correctly.
-- **Port the 13 tests.** Drop `0005` and repoint `authoring.test.ts` and
+  tables and those two suites keep proving the pattern is installed correctly.
+- **Port them.** Drop `0005` and repoint `authoring.test.ts` and
   `transfer-accountability.test.ts` at the app's own authored table. This is
   strictly better — it proves _the app's_ table is correct — but it is work,
   and skipping the port means shipping the pattern untested.

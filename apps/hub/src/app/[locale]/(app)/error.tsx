@@ -23,6 +23,11 @@ import { tid } from "@/shared/infrastructure/test-id";
  *
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * Its retry button's focus ring names a width and a colour but **no offset**,
+ * so it takes the inset one `@utility surface` sets. Naming an offset here
+ * would win on specificity and leave this one control ringed outside its edge
+ * while every other surface in the app is ringed inside.
+ *
  * @returns the failure panel.
  */
 export default function AppError({
@@ -44,7 +49,7 @@ export default function AppError({
         <button
           type="button"
           onClick={reset}
-          className="rounded-lg surface border-(--edge) px-4 py-2 text-sm transition-colors hover:bg-(--edge)/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
+          className="rounded-lg surface border-(--edge) px-4 py-2 text-sm transition-colors hover:bg-(--edge)/15 focus-visible:outline-2 focus-visible:outline-(--accent)"
         >
           {t("retry")}
         </button>

@@ -1,6 +1,60 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { admin, clientAs, closePool, newSub } from "./helpers";
+
+/**
+ * Every layout `is_section_type()` declares, read out of the migration itself.
+ *
+ * **Derived rather than typed out, because the typed-out version was wrong.**
+ * This suite used to walk the four Libra originals under the name "accepts
+ * every one of the four types"; `is_section_type()` had grown well past them
+ * by then, and every layout added since — `socials`, `posts`, `masonry`,
+ * `progress` and `tabs` among them — went unwritten through
+ * `set_actor_sections` entirely. A hand-kept
+ * copy of a growable list drifts the moment somebody adds to the list and not
+ * to the copy, which is the whole reason the count in that name was a defect
+ * and not merely untidy.
+ *
+ * The migration is the right source here because it is the authority the
+ * database is built from, and it travels with this suite: a consuming app
+ * copies `supabase/migrations/` and `tests/db/` together, so the path holds
+ * wherever the pair lands. The client's own `SECTION_TYPES` is pinned against
+ * this same SQL by `apps/hub/tests/section-limits-match-migration.test.ts`,
+ * which completes the chain — what the client offers is what the file
+ * declares, and the test below is the missing link: what the file declares is
+ * what the function actually accepts.
+ *
+ * Throws rather than returning nothing when the function cannot be found: an
+ * empty list here would make the test below pass while proving nothing.
+ */
+const DECLARED_TYPES: string[] = (() => {
+  const sql = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../supabase/migrations/0009_actor_profiles.sql",
+    ),
+    "utf8",
+  );
+  const body = sql.match(
+    /create or replace function public\.is_section_type[\s\S]*?select p_type in \(([\s\S]*?)\)\s*\$\$/,
+  )?.[1];
+  if (!body)
+    throw new Error(
+      "is_section_type was not found in 0009_actor_profiles.sql. If it was " +
+        "renamed or its shape changed, every layout below would go untested " +
+        "and this guard must be updated with it.",
+    );
+  // Comments come out FIRST, and the anchor above is why the match reaches
+  // the end of the list at all: the prose inside it carries both apostrophes
+  // and a closing parenthesis, either of which a quote- or paren-matching
+  // pass over the raw text would read as the end of a value or of the list.
+  return [...body.replace(/--.*/g, "").matchAll(/'([^']+)'/g)]
+    .map((match) => match[1])
+    .filter((type): type is string => type !== undefined);
+})();
 
 type Person = { sub: string; personRef: string; sonaRef: string };
 
@@ -246,12 +300,18 @@ describe("the shape it refuses", () => {
     ).toBeNull();
   });
 
-  it("accepts every one of the four types", async () => {
-    for (const type of ["cards", "accordion", "two-column", "gallery"]) {
-      expect(
-        await write(alice.sub, alice.sonaRef, [section({ type })]),
-      ).toBeNull();
-    }
+  // Asserted before anything is driven through the function, for the same
+  // reason the client's own drift guard checks its regex first: a pattern
+  // that quietly matched nothing would leave the test below iterating an
+  // empty list and passing forever.
+  it("finds the layouts the migration declares", () => {
+    expect(DECLARED_TYPES.length).toBeGreaterThan(0);
+  });
+
+  it.each(DECLARED_TYPES)("accepts the %s layout", async (type) => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [section({ type })]),
+    ).toBeNull();
   });
 });
 
@@ -317,16 +377,39 @@ describe("the style bag it refuses", () => {
     expect(message).toMatch(/unknown card size/i);
   });
 
+  // `border` is Task 2's key: `sectionStyleSchema`'s `z.enum(["solid",
+  // "dashed", "dotted", "double", "none"])`, mirrored here against the SQL
+  // that is actually authoritative.
+  it.each(["solid", "dashed", "dotted", "double", "none"])(
+    "accepts the %s border style and reads it back unchanged",
+    async (border) => {
+      const style = { border };
+      expect(
+        await write(alice.sub, alice.sonaRef, [section({ style })]),
+      ).toBeNull();
+      expect(await read(alice.sonaRef)).toEqual([section({ style })]);
+    },
+  );
+
+  it("refuses a border style it cannot render", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      section({ style: { border: "groove" } }),
+    ]);
+    expect(message).toMatch(/unknown border style/i);
+  });
+
   // The regression: `jsonb_each_text` yields SQL NULL, not the string
   // "null", for a JSON null value — so `length(NULL) > 32` and
   // `NULL not in (…)` are themselves NULL, and neither `raise exception`
   // fired. `{"style":{"skin":null}}` and `{"style":{"background_fit":null}}`
   // were accepted by the database while `sectionStyleSchema` — none of whose
   // keys is nullable — refused both, a live divergence between the two
-  // validators the design says must agree. `card_size` shares the same
-  // per-key loop guard, so it is covered here too rather than trusted by
-  // reading the SQL alone.
-  it.each(["skin", "background_url", "background_fit", "card_size"])(
+  // validators the design says must agree. `card_size` and `border` share
+  // the same per-key loop guard, sitting above the key-by-key branches
+  // rather than inside any one of them, so each new key is covered by it
+  // without a change to the guard itself — confirmed by reading the SQL, not
+  // assumed, and re-confirmed here rather than trusted by reading alone.
+  it.each(["skin", "background_url", "background_fit", "card_size", "border"])(
     "refuses a null %s rather than silently storing it",
     async (key) => {
       const message = await write(alice.sub, alice.sonaRef, [

@@ -195,7 +195,7 @@ export interface ThemeConfiguratorProps {
  * **A skin is chosen separately from the colours, and changes no colour.** It
  * decides form — corners, border weight, shadow, gloss, the body's face — so
  * every pairing of a style and a palette is somebody's page. Tying the two
- * together would have collapsed nine styles into nine colour schemes.
+ * together would have collapsed every style into a colour scheme of its own.
  *
  * **A background picture sits beside the cursor, not the gradient.** Both are
  * pasted addresses for a picture rather than a colour, and it sits OVER the
@@ -256,7 +256,7 @@ export interface ThemeConfiguratorProps {
  * the panel is the widest thing in the editor, and on a phone the chrome it
  * nests inside was taking more of the screen than the controls.
  *
- * Ten of its controls are `surface`s, so the panel previews the skin it is setting rather than describing it.
+ * Its controls are `surface`s, so the panel previews the skin it is setting rather than describing it.
  *
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--menu`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *

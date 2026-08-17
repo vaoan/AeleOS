@@ -42,6 +42,13 @@ export type SectionStyle = NonNullable<FursonaSection["style"]>;
  * own for a section to inherit. It is the browser's own unscaled, unrepeated
  * placement, offered as a third option beside `fitCover` and `fitTile`.
  *
+ * **That sentence used to be false and is worth the note.** `sectionStyle`
+ * emitted `background-repeat` only for `tile`, and the property's INITIAL
+ * value is `repeat` — so "Default" and "Tile" painted the same tiled picture
+ * and this doc promised a placement no option produced. `sectionStyle` now
+ * emits both `background-repeat` and `background-size` for every fit, which
+ * is what makes the three options three paints.
+ *
  * `cardSizeDefault` names the option that clears `style.card_size`, and it
  * carries the same "not inherit" caveat as `fitDefault`: the page has no
  * card size of its own either, only `Cards`' own literal fallback. It is
@@ -50,6 +57,14 @@ export type SectionStyle = NonNullable<FursonaSection["style"]>;
  * `m` pins that width regardless of what the fallback becomes later, where
  * clearing the key means "whatever `Cards` falls back to," which only
  * happens to be `m` right now.
+ *
+ * `borderInherit` names the option that clears `style.border`, and here the
+ * "not inherit" caveat that applies to `fitDefault` and `cardSizeDefault`
+ * does NOT apply: a border genuinely has a page (or enclosing section) to
+ * inherit from, the same way `inheritSkin` does. `borderNone` is a separate,
+ * explicit choice — "no edge here regardless of what surrounds it" — and
+ * collapsing it into `borderInherit` would make that choice unreachable, the
+ * same trap `inheritSkin`'s own doc names for `skins.default`.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -97,6 +112,30 @@ export interface SectionStylePopupLabels {
   cardSizeM: string;
   /** The card-size select's option for `"l"`. */
   cardSizeL: string;
+  /** Field label for the border select. */
+  border: string;
+  /**
+   * What the border field sets, beneath the select: this section's own
+   * cards and panels, not the popup's own frame. Said once here rather than
+   * on every option, the same shape {@link cardSizeHint} uses.
+   */
+  borderHint: string;
+  /** The border select's option that clears `style.border`. */
+  borderInherit: string;
+  /**
+   * The border select's option for `"none"` — an explicit "no edge here",
+   * distinct from {@link borderInherit}. See this interface's own doc for
+   * why the two cannot collapse into one option.
+   */
+  borderNone: string;
+  /** The border select's option for `"solid"`. */
+  borderSolid: string;
+  /** The border select's option for `"dashed"`. */
+  borderDashed: string;
+  /** The border select's option for `"dotted"`. */
+  borderDotted: string;
+  /** The border select's option for `"double"`. */
+  borderDouble: string;
 }
 
 /**
@@ -125,21 +164,28 @@ export interface SectionStylePopupProps<T extends FieldValues> {
 
 /**
  * A paintbrush button and the popup it opens: one section's own skin,
- * background picture and card size, apart from its layout.
+ * background picture, card size and border, apart from its layout.
  *
- * **The card-size field is gated on `type === "cards"`, unlike skin and
- * background.** Those two are genuinely layout-agnostic — `nestedSkinVars`
- * sets tokens every layout's `rounded-xl surface` elements read, and a
- * background paints the wrapper visible under any of them — but
- * `card_size` is the first key in this bag that only ONE layout's CSS ever
- * reads (`Cards`, via `--card-size`). Offering it on every OTHER layout would
- * be exactly the fault `section-item-fields.tsx`'s own TSDoc names: "a field
- * a layout never renders … accepts what somebody types, refuses nothing,
- * and shows nothing, with no way for them to learn that it did nothing."
- * `sectionStyle`'s own note that every other layout "ignores" `--card-size`
- * is a statement about the DATA plumbing — it is harmless to leave the key
- * set — not a claim that the editor should offer the choice regardless of
- * layout; those are different questions.
+ * **The card-size field is gated on `type === "cards"`, unlike skin,
+ * background and border.** Those three are genuinely layout-agnostic —
+ * `nestedSkinVars` sets tokens every layout's `rounded-xl surface` elements
+ * read, a background paints the wrapper visible under any of them, and
+ * `--skin-border-style` is read by that same `surface` utility on every
+ * layout's own surfaces — but `card_size` is the first key in this bag that
+ * only ONE layout's CSS ever reads (`Cards`, via `--card-size`). Offering it
+ * on every OTHER layout would be exactly the fault `section-item-fields.tsx`'s
+ * own TSDoc names: "a field a layout never renders … accepts what somebody
+ * types, refuses nothing, and shows nothing, with no way for them to learn
+ * that it did nothing." `sectionStyle`'s own note that every other layout
+ * "ignores" `--card-size` is a statement about the DATA plumbing — it is
+ * harmless to leave the key set — not a claim that the editor should offer
+ * the choice regardless of layout; those are different questions.
+ *
+ * **The border field is offered unconditionally, and that is deliberate
+ * rather than an oversight this consistency later "fixes."** Every layout
+ * renders at least one `surface` element, so there is no layout for which
+ * this control would do nothing — the one condition that gates `card_size`
+ * simply never arises here.
  *
  * **Gating hides the FIELD, never the stored value** — the same shape
  * `LINKED`/`ICONED`/`PICTURED` already use for item fields. Switching a
@@ -386,6 +432,35 @@ export function SectionStylePopup<T extends FieldValues>({
               </p>
             </div>
           ) : null}
+
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-border`} className="text-xs font-medium">
+              {labels.border}
+            </label>
+            <select
+              id={`${id}-border`}
+              value={style.border ?? ""}
+              onChange={(event) =>
+                setField(
+                  "border",
+                  event.target.value as SectionStyle["border"] | "",
+                )
+              }
+              aria-describedby={`${id}-border-hint`}
+              {...tid("section-style-border")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              <option value="">{labels.borderInherit}</option>
+              <option value="solid">{labels.borderSolid}</option>
+              <option value="dashed">{labels.borderDashed}</option>
+              <option value="dotted">{labels.borderDotted}</option>
+              <option value="double">{labels.borderDouble}</option>
+              <option value="none">{labels.borderNone}</option>
+            </select>
+            <p id={`${id}-border-hint`} className="text-xs text-(--muted)">
+              {labels.borderHint}
+            </p>
+          </div>
         </div>
       ) : null}
     </div>

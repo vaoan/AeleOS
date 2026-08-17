@@ -8,9 +8,12 @@ page must implement, and the traps that model creates.
 The schema itself is owned by `supabase/migrations/` at the repository root,
 not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and
 squashed again whenever a change would otherwise stack a redefinition on top of
-an existing file. The section layouts landed as an edit to `0009`, not as an
-`0017`. See the root `CLAUDE.md` for when that is legitimate and what a squash
-obliges you to update afterwards.
+an existing file. The section layouts landed as an edit to `0009`, not as a new
+file stacked on top. See the root `CLAUDE.md` for when that is legitimate and
+what a squash obliges you to update afterwards — **including the part that
+bites here specifically: an edit to an already-applied migration never reaches
+the live database on its own**, and every style key in the section bag was
+unvalidated at the database level for days because of it.
 
 ## Why this feature holds both persons and fursonas
 
@@ -293,27 +296,77 @@ because **a fursona page is somebody's character, not a product listing** — th
 layouts that serve a catalogue do not stretch to a page whose whole job is to
 be theirs. More are wanted; this list is a floor, not a ceiling.
 
-| layout       | what an item is      | `title`         | `description`     | uses               |
-| ------------ | -------------------- | --------------- | ----------------- | ------------------ |
-| `cards`      | a card               | heading         | body              | `icon`             |
-| `accordion`  | a disclosure         | summary         | the answer        | —                  |
-| `two-column` | a row of a table     | label           | value             | —                  |
-| `gallery`    | a picture            | alt text        | caption           | `image_url`        |
-| `carousel`   | a picture on one row | alt text        | caption           | `image_url`        |
-| `video`      | an embedded player   | frame title     | caption           | `link_url`         |
-| `music`      | an embedded player   | track name      | note              | `link_url`         |
-| `links`      | a button out         | button text     | subtitle          | `link_url`, `icon` |
-| `stats`      | one fact             | **the label**   | **the value**     | —                  |
-| `quote`      | a quotation          | **who said it** | **what was said** | —                  |
-| `timeline`   | an entry in order    | heading         | the story         | —                  |
-| `socials`    | a branded link chip  | chip label      | —                 | `link_url`, `icon` |
-| `posts`      | an embedded post     | frame title     | caption           | `link_url`         |
+| layout       | what an item is          | `title`         | `description`     | uses               |
+| ------------ | ------------------------ | --------------- | ----------------- | ------------------ |
+| `cards`      | a card                   | heading         | body              | `icon`             |
+| `accordion`  | a disclosure             | summary         | the answer        | —                  |
+| `two-column` | a row of a table         | label           | value             | —                  |
+| `gallery`    | a picture                | alt text        | caption           | `image_url`        |
+| `carousel`   | a picture on one row     | alt text        | caption           | `image_url`        |
+| `video`      | an embedded player       | frame title     | caption           | `link_url`         |
+| `music`      | an embedded player       | track name      | note              | `link_url`         |
+| `links`      | a button out             | button text     | subtitle          | `link_url`, `icon` |
+| `stats`      | one fact                 | **the label**   | **the value**     | —                  |
+| `quote`      | a quotation              | **who said it** | **what was said** | —                  |
+| `timeline`   | an entry in order        | heading         | the story         | —                  |
+| `socials`    | a branded link chip      | chip label      | —                 | `link_url`, `icon` |
+| `posts`      | an embedded post         | frame title     | caption           | `link_url`         |
+| `masonry`    | a card of its own height | heading         | body              | `icon`             |
+| `progress`   | one measured thing       | **the label**   | **the value**     | —                  |
+| `tabs`       | one panel                | the tab         | the panel         | —                  |
 
-**`stats` and `quote` invert the pair**, and that is the one thing here somebody
-will get wrong. Everywhere else the title is the big text; in those two the
-description is. The editor names its fields per layout for this reason — a
-field whose meaning changes silently between layouts is worse than a field that
-does not exist.
+**`stats`, `quote` and `progress` invert the pair**, and that is the one thing
+here somebody will get wrong. Everywhere else the title is the big text; in
+those the description is. **For `stats` and `quote` that claim is about
+RENDERING only** — their editor's title/description fields keep their generic
+names; typing into `stats`' title still shows "Title", not "Label".
+`progress` is the one whose EDITOR fields ARE actually renamed, through
+`FIELD_NAMES` in `section-item-fields.tsx`, because a field whose meaning
+changes silently between layouts is worse than a differently-named one, and
+`progress` is the layout where getting it backwards draws a bar of the wrong
+length with nothing saying why. `stats` and `quote` do not get that treatment
+merely because their rendering inverts the pair too — `FIELD_NAMES` only grows
+when a layout's editor fields actually need it, not because its public page
+does.
+
+### The newest layouts, and the mechanism each earned its place by
+
+Added 2026-08-16, against the bar this list has always set itself: a layout
+earns its place by doing something structurally none of the others can, not by
+rearranging what they already do.
+
+- **`masonry` packs by height.** `gallery` and `cards` are uniform grids, so a
+  long entry and a short one leave a ragged gap between rows; CSS columns fill
+  each column to the height it needs and the two sit together. Items keep the
+  icon tile `cards` have, and nothing here embeds, so it is `ICONED` and not
+  `LINKED`.
+- **`progress` draws a proportion.** `stats` states a number and nothing else
+  renders one as a length. It reads its value from the **description**, and
+  `progressValue` (`presentation/public-sections.tsx`) accepts a fraction
+  (`3/5`), a percentage (`60%`) or a bare number (`60`), decimals allowed
+  wherever a whole number is, clamped to 0–100 because nothing stops somebody
+  writing `150`.
+  **Anything it cannot read renders as a plain `stats`-style row with no bar
+  at all** — prose, a unit it does not know, an empty description. That
+  refusal is the common case rather than an edge: a template's unedited
+  placeholder is prose. Read the TSDoc before touching the parse; a
+  fraction whose sides both overflow to `Infinity` once reached the DOM as
+  `width: NaN%`, which CSSOM rejects, which left the bar at its parent's full
+  width — the "refuses nothing, shows nothing" trap inverted into a bar
+  reading 100% on nonsense, which is worse because it looks like an answer.
+- **`tabs` shows one panel at a time, horizontally.** `accordion` is vertical
+  and multi-open; this is a switcher. It is a radio group and `:checked`, so
+  it stays a **server component** and every panel is reachable by keyboard
+  with nothing hydrated — the same reason `cards` and `carousel` are two
+  layouts rather than one setting. `tabs-switching.spec.ts` drives it in a real
+  Chromium, because what code cannot prove is the layout: that `order-1` and
+  `order-2` inside a wrapping flex really do paint every tab above the single
+  full-width panel. Its `aria-controls` is built from two integers — the
+  section's index composed with its `sort_order`, then the item's — and never
+  from `name_en`. It once was: a section named "About me" emitted an id with a
+  space in it, `aria-controls` is an ID-reference **list**, so it tokenised
+  into two fragments and neither resolved. A dangling `aria-controls` is worse
+  than none.
 
 **A template ships structure, never prose.** Titles, layouts, icons and order
 are ours; every description is empty. They used to carry guidance sentences in
@@ -347,13 +400,26 @@ Two consequences that must not be undone:
   back to English — it is the same behaviour every other layout already has,
   made visible because here it decides a whole row.
 
-**Adding a layout is four edits and a guard will catch you missing one.**
+**Adding a layout is four edits and every one of them is guarded.**
 `SECTION_TYPES`, `is_section_type()` in `0009`, a renderer in the `LAYOUTS`
 record, and a name in both catalogues. The record is typed
-`Record<SectionType, …>` so the compiler refuses a missing renderer, and
+`Record<SectionType, …>` so the compiler refuses a missing renderer;
 `section-limits-match-migration.test.ts` reads the SQL and fails when the two
-lists disagree. Nothing checks that a layout is _good_; that part is still on
-you.
+lists disagree; and `messages.test.ts` compares `SECTION_TYPES` against
+`fursonas.types` in each catalogue separately. Nothing checks that a layout is
+_good_; that part is still on you.
+
+**That third guard is newer than the sentence that promised it**, which is the
+part worth remembering rather than the guard. Four documents said a test caught
+a missing name and none did: `skins.test.ts` imports no catalogue,
+`messages.test.ts` compared en against es only — so a name absent from **both**
+passed — and the `t()` call over an interpolated key is untyped, there being
+no `IntlMessages`
+augmentation in this app. A layout added to neither catalogue therefore
+rendered `fursonas.types.<id>` at somebody, which is not hypothetical: it
+happened, at 155px, overflowing a 320px viewport. The lesson generalises past
+this file — **a sentence crediting a guard is not the guard**, and the ones
+most likely to be false are the ones nobody has watched go red.
 
 **A layout that renders no field must not offer it.** `LINKED`, `ICONED` and
 `PICTURED` in `section-item-fields.tsx` decide what the editor shows. A control
@@ -637,19 +703,67 @@ is the whole design — every pairing of a style and a palette is somebody's pag
 where a palette baked into each skin would have made as many colour schemes as
 skins, no more.
 
-`shared/domain/skins.ts` holds the table and `SKINS` is the list — fourteen of
-them. Adding one is a table entry and a name in both catalogues; a test fails if
-either is missing.
+`shared/domain/skins.ts` holds the table and `SKINS` is the list. Adding one is
+a table entry and a name in both catalogues, and `messages.test.ts` fails if
+either name is missing — it checks each catalogue against `SKINS` separately,
+because the parity check beside it cannot see a name absent from both. See
+"Adding a layout" above for why that distinction is written down rather than
+assumed.
 
-**What earns a place is a MECHANISM, not another set of numbers.** The six added
-last each reach for something none of the others used: a surface that is not
-there (`outline`, where `--surface: transparent` makes the author's gradient the
-card itself), a tiled texture (`comic`'s halftone, which is what
+**What earns a place is a MECHANISM, not another set of numbers.** Each of these
+reaches for something none of the others used: a surface that is not there
+(`outline`, where `--surface: transparent` makes the author's gradient the card
+itself), a tiled texture (`comic`'s halftone, which is what
 `--skin-gloss-size` exists for — a `radial-gradient` with no size is one dot the
-width of the panel), a shadow that steps instead of fading (`pixel`), a ruled
-grid (`blueprint`), a surface pressed in rather than raised (`inset`), and a
-die-cut ring (`sticker`). Another radius-and-shadow pairing would read as a
-variant of something already here.
+width of the panel), a ruled grid (`blueprint`), a surface pressed in rather
+than raised (`inset`), a die-cut ring (`sticker`), a shadow with no offset at
+all (`neon`, a glow rather than a cast), a corner cut off straight rather than
+rounded (`cutout`), and concentric rings where every other edge is one line
+(`frame`). Another radius-and-shadow pairing would read as a variant of
+something already here.
+
+An earlier version of this paragraph credited `pixel` with the stepped shadow.
+**There is no `pixel` in `SKINS` and there never was** — the description
+belonged to `retro`'s bevel, which is not a stepped shadow either. A note that
+names something the code does not have is worse than no note; check the list
+before adding to this one.
+
+#### What `cutout` cost, which is the part worth reading before the next skin
+
+`cutout` is the only skin that needed a token the others did not already have —
+`--skin-clip`, declared in `globals.css`, read by `@utility surface`, defaulted
+in `SKIN_DEFAULTS` so `nestedSkinVars` resets it — and the reason it is the only
+one is that it is the only one that changes a surface's **shape**. What that
+cost is worth knowing before the next skin reaches for a token of its own,
+because neither consequence is visible from the declaration:
+
+- **`clip-path` clips the element's whole subtree, positioned descendants
+  included.** The editor's section card holds the style popup as a descendant,
+  so a card that was itself the clipped surface cut the popup away. On a
+  **collapsed** card that removed the panel entirely — including the select
+  that would undo the choice. A control able to disable its own undo. The fix
+  is not an exemption for the popup: `section-card.tsx` paints the card's face
+  on a **layer inside** the root, so the notch is still previewed and any later
+  token that clips _or transforms_ inherits the same protection.
+  `section-card-face.spec.ts` drives the real popup on a collapsed card in a
+  real browser, hit-tests the panel's centre with `elementFromPoint`, and
+  compares its pixels against the same coordinates with the panel closed —
+  neither of which `toBeVisible()` can tell you.
+- **`clip-path` clips the element's own `outline` too**, which is a focus ring
+  that does not exist rather than one that is merely dim. So `@utility surface`
+  declares `outline-offset: -3px` and rings every surface on the inside. **That
+  is global — every focusable surface in the app, for one skin's sake** — and
+  it is not a guarantee: an element naming its own
+  `focus-visible:outline-offset-2` is a single-property utility and beats the
+  utility on both sort order and specificity. Kept anyway, because it degrades
+  only by abutting the border on the 3–4px skins; recorded here accurately
+  enough to reverse, since an earlier note claimed it was the version that could
+  not be forgotten and that was false.
+
+The notch is `min(10px, 25%)` and the bound is load-bearing rather than tidy: a
+flat `10px` self-intersects on any surface under 20px, which `progress`' `h-2`
+track is. The reasoning in full is in `skins.ts`'s TSDoc and `globals.css`'s own
+declaration of the token.
 
 Four things about it that a later change must not undo:
 
@@ -738,6 +852,7 @@ style?: {
   background_url?: string;
   background_fit?: "cover" | "tile";
   card_size?: "s" | "m" | "l";
+  border?: "solid" | "dashed" | "dotted" | "double" | "none";
 }
 ```
 
@@ -751,12 +866,110 @@ key** instead of storing `""`. A per-key `register` cannot do that; it can
 only ever write a value, and an empty string sitting in `style` would be a
 third state the schema does not recognise, between "inherit" and "chosen."
 
+**`background_fit`'s three options are three paints, and for a while two of
+them were one.** `sectionStyle` emitted `background-repeat` only for `tile`
+and `background-size` only for `cover`, leaving the absent fit — the one a
+person lands on, whose own label promises the browser's unscaled, **unrepeated**
+placement — with neither. `background-repeat`'s initial value is `repeat`, so
+"Default" and "Tile" were one behaviour under two names: measured, an 8px
+picture over a 64x64 box darkened 2048 of its 4096 pixels either way, against
+32 for a genuinely unrepeated copy. **Both properties are emitted for every
+fit now**, exactly as `bodyBackgroundVars` already did for the page's own
+picture, and `section-card-face.spec.ts` measures the three as three.
+
+The `background-size` half fixed a second thing worth knowing: `@utility
+surface` declares `background-size: var(--skin-gloss-size)` for the gloss, so
+on the editor's face a section picture with no explicit size took the SKIN's
+texture tile — `comic` sets `6px 6px` — and previewed as a mosaic of a picture
+the public `<section>`, which carries no `surface`, renders at natural size.
+
 **Colour is not one of these keys, and never will be.** The split is what
 every skin in `SKINS` rests on: a skin names no colour of its own, and every
 pairing of a style and a palette is somebody's page. A per-section colour
 would collapse that into as many colour schemes as there are skins. This was
 a decision, not an oversight — see the section-personality spec's "What must
 not be undone."
+
+#### `border` (2026-08-16), and the token it deliberately is not
+
+A section chooses `solid`, `dashed`, `dotted`, `double` or `none`. This was
+the literal thing the previous phase was asked for and answered with skins
+instead; the correction, and why substituting one for the other was a near-miss
+rather than a delivery, is in
+`docs/superpowers/specs/2026-08-16-a-border-of-ones-own-design.md`. Until it
+shipped nothing in the style bag could make a section's edge dashed at all.
+
+**`none` is a choice and absent is inheritance**, the same distinction every
+other key here keeps, and `""` is never stored for either.
+
+**A choice also raises a FLOOR under the border's width, `--skin-border-min`,
+and without it most of the choices did nothing.** Measured in a real Chromium
+rather than reasoned from the spec: `double` is two lines and a gap summing to
+the border width, so at 1px it paints one dark pixel and at 2px two —
+byte-identical to `solid` at the same width — and only from 3px does the run
+become line, gap, line. Every skin but `neobrutalism`, `comic` and `sticker`
+sets a narrower edge than that. The
+same fault one step down: `clay`, `paper`, `inset` and `frame` set
+`--skin-border: 0px`, where `solid`, `dashed` and `dotted` are equally
+invisible. So `double` floors at 3px, the other three at 1px, and `none` at
+nothing — a floor under a style that paints nothing would be a width with
+nothing to draw. `@utility surface` takes the `max()` of the skin's own width
+and the floor, so `neobrutalism`, `comic` and `sticker` keep their heavier
+edges.
+
+Two things about that token a later change must not undo. **No skin sets it
+and none should** — a skin that did would widen every edge on the page, and
+`skins.test.ts` exempts it from the "every form token reaches a skin" guard on
+exactly that basis. And **the floor cannot live on `--skin-border` itself**:
+`--skin-border: max(var(--skin-border), 3px)` is a custom property defined in
+terms of itself, which is a cycle, invalid at computed-value time, and would
+delete the border rather than widen it.
+
+**The token is `--skin-border-style`, declared in `globals.css` as
+`var(--tw-border-style)` and read by `@utility surface`. It is deliberately not
+a write to `--tw-border-style` itself**, which is Tailwind's own generated
+variable — writing to it is the `[class~="border"]` mistake in its other form:
+reaching exactly the right elements while unable to see what any of them asked
+for. The indirection also buys the behaviour: a custom property inherits
+**unresolved**, so a descendant re-resolves the reference against its own
+`--tw-border-style` and Tailwind's `border-dashed` keeps working underneath a
+section that chose something else.
+
+**A scope's `--skin-border-style` does not override a descendant carrying its
+own `border-dashed`, and that is correct.** It reads as a bug and somebody will
+try to "fix" it. `.border-dashed` declares a literal `border-style`, Tailwind
+sorts by declared-property count, and the shorter utility wins the property
+outright — no variable is consulted at all. A dashed edge is this app's
+semantic empty state, and it must survive a section's border choice. The
+documentation that once claimed the override reached everything beneath it was
+the thing that was wrong. `border-style-cascade.spec.ts` proves both directions
+in a browser.
+
+The control is **not gated on a layout**, unlike `card_size`. Every layout
+renders a surface, so gating it would hide a control that does something — the
+opposite of the fault the `card_size` gate exists to prevent, and the reason
+the difference is stated rather than left to read as an inconsistency.
+
+#### The section card's face is not the card
+
+In the editor, `sectionStyle`'s output is split across two elements by what
+each property **does**, not by naming keys: a custom property is inherited by
+definition and goes on the **root**, where the popup and the item fields read
+it; a painted property goes on the **face**, the `absolute inset-0` layer that
+carries `surface`. The public page needs no such split because its `<section>`
+is bare.
+
+Get the split backwards and it fails quietly in both directions. A picture
+painted on the root shows as a square rect behind a rounded — or chamfered —
+face: four bright corner wedges. A picture painted on the face sits **behind**
+that face's own 90%/82% alpha and is roughly nine-tenths hidden, which is a
+live preview barely showing what it previews. Both of those shipped on this
+branch before `section-card-face.spec.ts` measured them. The picture belongs on
+the face, **above** that element's own `bg-(--surface)` rather than behind it —
+which is also what stops `glass` blurring the very picture it is meant to show
+through, since the face is the element carrying the `backdrop-filter`. Note
+that the layer the skin paints on is the layer nothing else drives: delete its
+`surface` class and every unit test stays green while the preview goes blank.
 
 **`card_size` is in both the schema and this popup now (Phase D).** It sets a
 **minimum** card width — the author picks the size, not the count, and the

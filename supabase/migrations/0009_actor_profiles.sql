@@ -24,14 +24,18 @@ create table public.actor_profiles (
   --   item:    { title_en, title_es, description_en, description_es,
   --              icon?, image_url?, sort_order }
   --   type:    whatever is_section_type() accepts
-  --   style:   { skin?, background_url?, background_fit?, card_size? } — how
-  --            the SECTION chooses to look, form only and never colour. Every
-  --            key is optional and absence means "inherit the page", exactly
-  --            as the theme's own keys work. `skin` is not checked against a
-  --            list of skins, for the same reason `set_actor_theme`'s
-  --            page-level skin is not: the renderer falls back for a name it
-  --            does not know. `card_size` (s/m/l) sets a minimum card width;
-  --            the browser decides how many fit.
+  --   style:   { skin?, background_url?, background_fit?, card_size?,
+  --              border? } — how the SECTION chooses to look, form only and
+  --            never colour. Every key is optional and absence means
+  --            "inherit the page", exactly as the theme's own keys work.
+  --            `skin` is not checked against a list of skins, for the same
+  --            reason `set_actor_theme`'s page-level skin is not: the
+  --            renderer falls back for a name it does not know. `card_size`
+  --            (s/m/l) sets a minimum card width; the browser decides how
+  --            many fit. `border` (solid/dashed/dotted/double/none) sets
+  --            `--skin-border-style` for the section; `none` is a CHOICE and
+  --            absence is INHERITANCE of whatever the page already set — the
+  --            two are different states, not the same one spelled two ways.
   --
   -- This is NOT next-intl. Those catalogues are the app's own chrome, owned by
   -- the repository. These are a person's own words about their own character,
@@ -72,7 +76,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}], style?: {skin?, background_url?, background_fit?, card_size?}}]. type is one of is_section_type()''s list, which now includes socials and posts. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) sets a minimum card width for the grid; the browser decides how many fit. Validated by set_actor_sections.';
+  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}], style?: {skin?, background_url?, background_fit?, card_size?, border?}}]. type is one of is_section_type()''s list, which now includes socials, posts, masonry, progress and tabs. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) sets a minimum card width for the grid; the browser decides how many fit. border (solid/dashed/dotted/double/none) sets --skin-border-style for the section; none is a choice and absence is inheritance of whatever the page already set. Validated by set_actor_sections.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -221,9 +225,9 @@ $$;
 -- The layouts a section may use.
 --
 -- Its own function rather than an `in (...)` inlined in the validator below:
--- adding a layout would otherwise mean restating a hundred and fifty lines of
--- validation to change one of them, and restating a long function to edit one
--- line is how the other hundred and forty-nine acquire a typo.
+-- adding a layout would otherwise mean restating the whole of
+-- `set_actor_sections` to change one line of it, and restating a long function
+-- to edit one line is how the rest of it acquires a typo.
 --
 -- `immutable` because it is a constant set — the same answer for the same input
 -- forever, which is what lets it be called once per section for free.
@@ -260,7 +264,21 @@ as $$
     -- named list of Mastodon instances, each verified to allow framing before
     -- being added. An address none of them can play falls back to the same
     -- branded chip 'socials' renders.
-    'posts'
+    'posts',
+    -- Variable-height packing. `gallery` and `cards` are uniform grids, where
+    -- a long entry and a short one leave a ragged gap; this fills columns by
+    -- height with CSS multi-column layout, so long and short entries sit
+    -- together instead.
+    'masonry',
+    -- Draws a proportion as a bar. `stats` only ever states a number; this
+    -- reads one out of the description (title/description inverted exactly
+    -- as `stats` and `quote` already invert them) and renders a plain
+    -- label/value row instead of a bar when it cannot be read as one.
+    'progress',
+    -- One panel at a time, horizontally, switched by a radio group and
+    -- CSS's own `:checked`. `accordion` is vertical and every item may be
+    -- open at once; this is a switcher.
+    'tabs'
   )
 $$;
 
@@ -406,8 +424,9 @@ begin
     end loop;
 
     -- A section's own style: {skin?, background_url?, background_fit?,
-    -- card_size?}. Form only, never colour — see the column comment. Optional
-    -- and absent as a whole, exactly like every other key on a section.
+    -- card_size?, border?}. Form only, never colour — see the column comment.
+    -- Optional and absent as a whole, exactly like every other key on a
+    -- section.
     if v_section ? 'style' then
       if jsonb_typeof(v_section -> 'style') is distinct from 'object' then
         raise exception 'section %: style must be an object', i using errcode = '22023';
@@ -450,6 +469,10 @@ begin
         elsif v_key = 'card_size' then
           if v_value not in ('s', 'm', 'l') then
             raise exception 'section %: unknown card size', i using errcode = '22023';
+          end if;
+        elsif v_key = 'border' then
+          if v_value not in ('solid', 'dashed', 'dotted', 'double', 'none') then
+            raise exception 'section %: unknown border style', i using errcode = '22023';
           end if;
         else
           raise exception 'section %: unknown style key %', i, v_key using errcode = '22023';

@@ -90,7 +90,7 @@ export type CanvasId = (typeof CANVASES)[number];
  * on purpose. A skin decides FORM — corners, border weight, shadow, gloss, the
  * body's face — and names no colour of its own; the gradient decides colour and
  * knows nothing about form. Every pairing of the two is somebody's page, which
- * is what nine skins times any palette buys that nine themed presets would not.
+ * is what a skin times any palette buys that a shelf of themed presets would not.
  *
  * A theme may also carry a **cursor**: a link to a picture, like every other
  * picture here. What a browser will accept is narrower than people expect —

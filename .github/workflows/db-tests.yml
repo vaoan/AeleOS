@@ -218,6 +218,98 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  # The only check that looks at the database the app actually runs against.
+  #
+  # `conformance` above resets and rebuilds a FRESH database from every file in
+  # `supabase/migrations/`, so an in-place edit is always present in the schema
+  # it exercises — by construction, whether or not that edit ever reached the
+  # live project. And the migration set is squashed so that every object is
+  # defined exactly once, which makes an edit in place the normal way to change
+  # a function. Supabase records the file as applied and `db push` will not
+  # re-run an applied file. Those two facts together are a hole, and something
+  # fell through it: `set_actor_sections()` on the live project was missing its
+  # entire per-section style-validation block for five merged pull requests,
+  # with every check green the whole time — and the `actor_profiles.sections`
+  # column comment, the one signal this repo's conventions ask to be kept in
+  # step, was current, so it was truthful about the file and false about the
+  # database. Why the check is shaped the way it is — which diff engines, and
+  # which of them is honest about a failure — is in
+  # `scripts/check-schema-drift.mjs`.
+  #
+  # Same fork guard as `idp-cloud`: this needs the project's database password,
+  # and secrets are withheld from fork pull requests, so without the guard it
+  # would be a check that can never report green there.
+  #
+  # 🧑 **Making this a REQUIRED check is repository settings, not this file.**
+  # The required-check list lives in branch protection and the two can disagree
+  # without anything failing — `e2e` was made required after the fact and
+  # nothing in this directory says so. Until a maintainer adds `schema-drift`,
+  # a merge can ignore it. Read the current list, never infer it from here:
+  #   gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
+  #
+  # ⚠️ **Settle this before requiring it: the check does not serialise, and
+  # the remedy for its main finding does.** It compares LIVE against THE
+  # BRANCH's migrations, and the only way a branch that edits a migration in
+  # place goes green is a hand-push to live — which makes live the newer side
+  # for everybody. So pull request A's route to green turns B, C and `main`
+  # red for the whole window until A merges, and nothing B's author can do
+  # fixes B. If A is then abandoned, live is stranded ahead of `main` with no
+  # rollback and no record of what was pushed. Required, that is a merge queue
+  # of one enforced by nothing, and an undocumented deadlock is how a check
+  # gets disabled in anger. Three ways out, and one of them has to be chosen
+  # rather than discovered:
+  #   1. Diff live against `origin/main`'s migrations instead of the branch's,
+  #      keeping the branch's own diff as information. "Drift" then means
+  #      "`main` and live disagree" — the actual invariant, and one no open
+  #      pull request can move. Preferred.
+  #   2. Keep it as it is and write the serialisation rule down: hand-push is
+  #      the LAST step before a merge, one pull request at a time, and an
+  #      abandoned push is reversed by hand. `check-schema-drift.mjs` already
+  #      prints this beside the remedy it applies to.
+  #   3. Leave it non-required, which is what this file honestly says today.
+  schema-drift:
+    runs-on: ubuntu-latest
+    # Every pass builds its own shadow database and pulls its own engine image.
+    # Settles in a few minutes; this is a ceiling for a hung pull, not a target.
+    timeout-minutes: 20
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # No supabase/setup-cli here, unlike `conformance`. The script runs the
+      # `supabase` devDependency, so the version comparing the schemas is the one
+      # `--frozen-lockfile` just installed rather than whatever `latest` resolved
+      # to this morning.
+      #
+      # **That is not a pin, and this comment used to imply it was.**
+      # package.json's range is a caret; the lockfile is the only thing holding
+      # the version, and `--frozen-lockfile` is the only thing holding the
+      # lockfile. So the engine still moves whenever the lockfile is updated —
+      # a `pnpm up`, a Dependabot bump, a resolution changed by an unrelated
+      # package — and nothing about that is visible from this file. It matters
+      # because migra reports "the two disagree" and "these two were never
+      # going to compare equal" identically: a CLI bump can arrive dressed as
+      # schema drift. `check-schema-drift.mjs` prints the CLI version and the
+      # shadow database's PostgreSQL major on every run and repeats both in the
+      # failure, so a run that goes red for no reason in the diff can be
+      # compared against the last green one. Pin the range exactly if that
+      # stops being enough.
+      #
+      # Docker comes with the runner; the CLI needs it to build the shadow
+      # database.
+      - run: pnpm check:schema-drift
+        env:
+          # The only secret this needs. The project is a constant inside the
+          # script — no ref, host or URL is read from the environment, so this
+          # cannot be aimed at Libra by a mistyped variable.
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
   idp-cloud:
     runs-on: ubuntu-latest
     timeout-minutes: 15

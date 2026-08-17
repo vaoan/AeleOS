@@ -14,13 +14,76 @@ import {
 } from "@/shared/domain/skins";
 
 /** Every colour a skin writes literally, rather than reading from the theme. */
-const LITERAL_COLOUR = /rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/g;
+const LITERAL_COLOUR = /rgb\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/gi;
 
 /** The stylesheet that has to declare a default for everything a skin sets. */
 const GLOBALS = readFileSync(
   join(process.cwd(), "src", "app", "globals.css"),
   "utf8",
 );
+
+/**
+ * The same stylesheet with its comments removed.
+ *
+ * **Every test below that looks for a declaration reads THIS, not `GLOBALS`.**
+ * All of them are substring or loose-regex searches, and this file's comments
+ * are long and quote tokens constantly — `--skin-clip`, `var(--skin-shadow)`
+ * and `border-style: var(--tw-border-style)` all appear in prose. A comment
+ * satisfying a check that a RULE was meant to satisfy would leave the check
+ * permanently green with nothing behind it, which is the failure mode every
+ * guard in this file exists to prevent.
+ */
+const RULES = GLOBALS.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+
+/**
+ * Every word a skin's values may legitimately contain.
+ *
+ * CSS function names, keywords and directions — everything except a colour.
+ * A bare identifier outside this set is, in practice, a named colour, which
+ * is the one thing a skin may never write; see the test that uses it.
+ */
+const ALLOWED_WORDS = new Set([
+  "auto",
+  "blur",
+  "bottom",
+  "calc",
+  "color-mix",
+  "in",
+  "inset",
+  "left",
+  "linear-gradient",
+  "max",
+  "min",
+  "none",
+  "oklab",
+  "polygon",
+  "radial-gradient",
+  "repeating-linear-gradient",
+  "rgb",
+  "right",
+  "solid",
+  "to",
+  "top",
+  "transparent",
+  "var",
+]);
+
+/**
+ * A bare identifier: a word not attached to a number and not a custom
+ * property's name.
+ *
+ * The lookbehind is what excludes both — `px` in `8px` and `ink` in `--ink`
+ * are each preceded by a character this refuses, so neither is reported as a
+ * word the skin chose.
+ *
+ * **Case-insensitive, and that was a real hole rather than a tidy-up.** CSS
+ * keywords are case-insensitive, so `CYAN` is a working named colour; without
+ * the flag it matched nothing at all and sailed straight through the guard
+ * whose own TSDoc warns about that exact literal. Matched words are lowered
+ * before the allowlist is consulted, so the flag adds no second spelling of
+ * every permitted keyword.
+ */
+const BARE_WORD = /(?<![\w.-])[a-z][a-z-]*/gi;
 
 describe("the skins", () => {
   it("leaves the default overriding nothing", () => {
@@ -75,6 +138,31 @@ describe("the skins", () => {
     }
   });
 
+  // **The test above cannot see the literal its own TSDoc warns about.** It
+  // matches `#rgb` and a non-grey `rgb()`; `neon`'s doc says out loud that the
+  // mistake somebody will make is "fixed with a literal cyan" — a NAMED
+  // keyword, which sails through both patterns. That warning lived in prose
+  // while every other rule in this file lived in an assertion.
+  //
+  // Inverted rather than listing colour names: a keyword list is a list of the
+  // hues somebody happened to think of, and `hotpink` is not on it until it
+  // has already shipped. Every word a value may contain is a CSS function,
+  // keyword or direction, and there are few of them — so anything else is
+  // either a colour or a construct nobody has decided about yet, and both are
+  // worth failing on.
+  it("writes no word that is not a CSS function or keyword", () => {
+    for (const skin of SKINS) {
+      const foreign = Object.entries(skinVars(skin)).flatMap(
+        ([property, value]) =>
+          [...value.matchAll(BARE_WORD)]
+            .map(([word]) => word.toLowerCase())
+            .filter((word) => !ALLOWED_WORDS.has(word))
+            .map((word) => `${skin} ${property}: ${word}`),
+      );
+      expect(foreign).toEqual([]);
+    }
+  });
+
   // A skin setting a property `globals.css` never declares is a property with
   // no default: the page it is taken off would keep the last page's value, or
   // nothing at all, depending on which one the visitor loaded first.
@@ -82,7 +170,7 @@ describe("the skins", () => {
     const missing = new Set<string>();
     for (const skin of SKINS) {
       for (const property of Object.keys(skinVars(skin))) {
-        if (!GLOBALS.includes(`${property}:`)) missing.add(property);
+        if (!RULES.includes(`${property}:`)) missing.add(property);
       }
     }
     expect([...missing]).toEqual([]);
@@ -153,12 +241,110 @@ describe("the skins", () => {
   // The other direction: a token declared and never reachable is a knob nobody
   // can turn, which is how `globals.css` grows values that look load-bearing
   // and are not.
+  //
+  // Two tokens are exempt, and both deliberately rather than by oversight.
+  // Every other form token is reachable ONLY through a skin choosing a value;
+  // these two are reachable a different way, so "no skin uses it" is not the
+  // same claim as "nobody can turn it".
+  //
+  //  * `--skin-border-style`'s default is the unresolved reference
+  //    `var(--tw-border-style)`, so Tailwind's own
+  //    `border-dashed`/`border-dotted`/… utilities turn it directly, with no
+  //    skin involved at all. A skin may still gain the ability to override
+  //    it; the control that turns it today is a SECTION, through
+  //    `sectionStyle`.
+  //  * `--skin-border-min` is turned by that same control and by nothing
+  //    else: it is a floor a section's own border choice raises, never a
+  //    property a skin sets. A skin setting it would be wrong — it would
+  //    silently widen every edge on the page.
   it("reaches every form token the stylesheet declares", () => {
-    const declared = [...GLOBALS.matchAll(/(--skin-[a-z-]+):/g)].map(
-      ([, name]) => name!,
-    );
+    const reachableWithoutASkin = new Set([
+      "--skin-border-style",
+      "--skin-border-min",
+    ]);
+    const declared = [...RULES.matchAll(/(--skin-[a-z-]+):/g)]
+      .map(([, name]) => name!)
+      .filter((name) => !reachableWithoutASkin.has(name));
     const used = new Set(SKINS.flatMap((skin) => Object.keys(skinVars(skin))));
     expect(declared.filter((name) => !used.has(name))).toEqual([]);
+  });
+
+  // **Declaring a token is half of wiring one, and the missing half is
+  // silent.** `sets only properties the stylesheet gives a default` above
+  // checks that `globals.css` DECLARES each one; nothing checked that any rule
+  // ever READS it. A skin whose property no rule consumes is stored, emitted,
+  // inherited correctly and invisible — the same shape as the canvases named
+  // after animations nobody had written, and as `--skin-backdrop` before glass
+  // was found to be translucent rather than frosted, where the token was set
+  // and read only by four elements that were not the panels.
+  //
+  // `--skin-clip` is why this exists: it is the first token whose consumer is
+  // a property (`clip-path`) that no other skin sets, so forgetting the one
+  // line in `@utility surface` would have left `cutout` a name in a select
+  // that changed nothing at all.
+  it("is read by a rule and not merely declared", () => {
+    const unread = Object.keys(SKIN_DEFAULTS).filter(
+      (name) => !RULES.includes(`var(${name})`),
+    );
+    expect(unread).toEqual([]);
+  });
+
+  // **A clipped surface cannot cast a shadow**, because `clip-path` clips an
+  // element's whole paint and `box-shadow` is part of it. So a skin that sets
+  // both would ship a shadow nobody can ever see — the control that accepts a
+  // choice and does nothing, which is the fault this feature keeps producing.
+  // Written as a rule over every skin rather than an assertion about `cutout`,
+  // since what must hold is the pairing and not the one skin that has it
+  // today.
+  it("casts no shadow from a skin that cuts its own shape", () => {
+    const clipped = SKINS.filter((skin) => {
+      const clip = skinVars(skin)["--skin-clip"];
+      return clip !== undefined && clip !== "none";
+    });
+    // Collected and asserted empty rather than checked one at a time, so a
+    // failure names the skin — the idiom this file already uses above.
+    expect(clipped).not.toEqual([]);
+
+    expect(
+      clipped.filter(
+        (skin) => nestedSkinVars(skin)["--skin-shadow"] !== "none",
+      ),
+    ).toEqual([]);
+  });
+
+  // **A notch measured only in pixels inverts on a small surface.** The
+  // `progress` layout's track is `h-2` and carries `surface`, so a flat 10px
+  // chamfer put its vertical vertices at `10px` and `-2px`: the path crossed
+  // itself, and what a browser paints for a self-intersecting clip is a
+  // winding-rule artefact rather than a chamfer. Every surface in the app is a
+  // candidate, and nobody adding a skin will remember which of them are short.
+  //
+  // A percentage inside `polygon()` resolves against the box's WIDTH on an x
+  // coordinate and its HEIGHT on a y one, so one bounded expression clamps
+  // each axis by itself. This asserts the SHAPE of the value rather than its
+  // number: strip every `min()` or `clamp()` that carries a percentage, and no
+  // bare length may be left.
+  //
+  // **Two things it deliberately does not claim.** It checks `polygon()` only,
+  // because that is the shape function whose vertices can cross — `inset()`
+  // and `circle()` degenerate to an empty shape rather than an inverted one,
+  // so a bare length is not a fault there and flagging it would be a rule
+  // against a correct value. And a bound that does not bind — `min(10px,
+  // 400%)` — passes: catching it means evaluating the arithmetic against a box
+  // size this test does not have, which is the browser's job and not a unit
+  // test's. What it does catch is the version that shipped, which had no bound
+  // at all.
+  it("bounds every length in a polygon clip path against the box", () => {
+    const unbounded = SKINS.map((skin) => ({
+      skin,
+      clip: skinVars(skin)["--skin-clip"],
+    }))
+      .filter(({ clip }) => clip?.startsWith("polygon("))
+      .filter(({ clip }) =>
+        clip!.replaceAll(/(?:min|clamp)\([^()]*%[^()]*\)/g, "").includes("px"),
+      )
+      .map(({ skin }) => skin);
+    expect(unbounded).toEqual([]);
   });
 });
 
@@ -170,7 +356,7 @@ describe("SKIN_DEFAULTS", () => {
     for (const [name, value] of Object.entries(SKIN_DEFAULTS)) {
       const declared = new RegExp(
         `${name.replace(/[-]/g, "\\-")}:\\s*([^;]+);`,
-      ).exec(GLOBALS);
+      ).exec(RULES);
       expect(declared, `${name} is not declared in globals.css`).not.toBeNull();
       expect(declared![1].trim()).toBe(value);
     }
@@ -225,3 +411,15 @@ describe("skinVars", () => {
     expect(skinVars("default")).toEqual({});
   });
 });
+
+// **No unit test models what `--skin-border-style` resolves to, on purpose.**
+// An earlier version of this file did — a hand-written var()-substitution
+// model — and every test built on it passed under a real bug: `.border-dashed`
+// declares `border-style: dashed` as a LITERAL and wins the property outright
+// by Tailwind's own utility sort order, so the cascade never reaches
+// substitution at all for such an element. A model of variable substitution
+// has no way to represent a second declaration winning the cascade first, so
+// it could not have caught that, in either direction — see
+// `tests/e2e/border-style-cascade.spec.ts` for the real proof, against the
+// compiled app CSS in a real browser, and the token's own declaration in
+// `globals.css` for the full reasoning.

@@ -118,6 +118,27 @@ export function composite(fg, alpha, bg) {
 }
 
 /**
+ * WCAG contrast ratio between two gamma-encoded sRGB colours.
+ *
+ * The pair form of {@link contrastRatioSrgb}, and the one a caller holding two
+ * MEASURED colours needs: the end-to-end suite reads a control's painted
+ * background off a screenshot and its text colour off the browser's own
+ * computed style, and by then neither is an OKLCH literal to compare against.
+ * Kept here rather than reimplemented beside those callers so there is one
+ * WCAG formula in the repository and not two.
+ *
+ * @param one - a gamma-encoded sRGB triple, each channel 0..1.
+ * @param two - the other, in the same form.
+ * @returns the ratio, from 1 (identical) to 21 (black against white).
+ */
+export function contrastRatioBetweenSrgb(one, two) {
+  const a = luminance(one);
+  const b = luminance(two);
+  const [hi, lo] = a > b ? [a, b] : [b, a];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
  * WCAG contrast ratio between an already-composited sRGB colour and an OKLCH one.
  *
  * @param rgb - a gamma-encoded sRGB triple, as returned by {@link composite}.
@@ -125,10 +146,7 @@ export function composite(fg, alpha, bg) {
  * @returns the ratio, from 1 to 21.
  */
 export function contrastRatioSrgb(rgb, other) {
-  const a = luminance(rgb);
-  const b = luminance(oklchToSrgb(...other));
-  const [hi, lo] = a > b ? [a, b] : [b, a];
-  return (hi + 0.05) / (lo + 0.05);
+  return contrastRatioBetweenSrgb(rgb, oklchToSrgb(...other));
 }
 
 /**

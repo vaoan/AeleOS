@@ -56,6 +56,12 @@ export interface SignInFormProps {
  *
  * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * The provider buttons' focus ring names a width and a colour but **no
+ * offset**, so it takes the inset one `@utility surface` sets. Naming an offset
+ * here would win on specificity and leave the first controls anybody meets
+ * ringed outside their edge while every other surface in the app is ringed
+ * inside.
+ *
  * @returns the provider buttons.
  */
 export function SignInForm({
@@ -108,7 +114,7 @@ export function SignInForm({
             disabled={busy}
             onClick={() => void start(provider)}
             {...tid(`sign-in-${provider.id}`)}
-            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg surface border-(--edge) bg-(--bar) font-medium transition-colors hover:bg-(--edge)/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent) disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-lg surface border-(--edge) bg-(--bar) font-medium transition-colors hover:bg-(--edge)/20 focus-visible:outline-2 focus-visible:outline-(--accent) disabled:opacity-60"
           >
             <Mark />
             <span>{labels[provider.id]}</span>

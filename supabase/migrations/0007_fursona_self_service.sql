@@ -165,6 +165,16 @@ alter table public.retired_handles enable row level security;
 -- definer`. Nobody needs to read this: it is not an index of anything, it is a
 -- list of names that may not be taken again.
 
+-- `service_role` explicitly, the same as every other table here — this was the
+-- one that was left to inherit it. Inheriting works on the hosted project,
+-- whose default privileges grant new tables to `service_role`, and does not
+-- work on the local CLI stack, which applies no such default. So the two
+-- disagreed about this table and only this table, and the `schema-drift` job
+-- reported it the first time it was run. Stating it closes the gap on the side
+-- that was wrong: the hosted project already held the privileges below, so
+-- this changes nothing there.
+grant select, insert, update, delete on public.retired_handles to service_role;
+
 create or replace function public.update_fursona(
   p_actor_ref    uuid,
   p_display_name text,

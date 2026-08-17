@@ -1,4 +1,5 @@
 import { ExternalLink, Plus, Quote as QuoteMark } from "lucide-react";
+import { Fragment } from "react";
 import { contentFor } from "@/features/actors/domain/actor-content";
 import {
   backgroundImageValue,
@@ -116,6 +117,43 @@ const CARD_SIZE_MIN: Record<CardSize, string> = {
 };
 
 /**
+ * The narrowest edge each border style can be drawn on and still be that
+ * style, as `--skin-border-min`.
+ *
+ * **`double` is the reason this exists, and the number was measured rather
+ * than reasoned.** CSS defines `double` as two lines and a gap summing to the
+ * border width, so below 3px there is nothing to divide: sampling the pixel
+ * run across a border in a real Chromium gives `[0]` at 1px and `[0 0]` at
+ * 2px, byte-identical to `solid` at the same width, and `[0 gap 0]` only from
+ * 3px up. Every skin but `neobrutalism`, `comic` and `sticker` sets a
+ * narrower edge than that, so an author picking "Double line" on almost any
+ * page saw nothing change at all — a control that accepts a choice and does
+ * nothing, with no way to learn why.
+ *
+ * It is a floor and not a width: `@utility surface` takes the `max()` of the
+ * skin's own `--skin-border` and this, so `neobrutalism` and `comic` (3px)
+ * and `sticker` (4px) keep their own weight.
+ *
+ * The other styles carry 1px for the same reason one step down: four skins —
+ * `clay`, `paper`, `inset` and `frame` — set `--skin-border: 0px`, where
+ * `solid`, `dashed` and `dotted` are equally invisible. Choosing a border is
+ * asking for one; **`none` is how somebody asks for no edge**, and it is
+ * absent from this map because a floor under a style that paints nothing
+ * would be a width with nothing to draw.
+ *
+ * A `Map` rather than a record because the key arrives from stored data. The
+ * enum on both the read and the write path already bounds it, but indexing a
+ * plain object with a value that came from a database is the shape that put a
+ * `__proto__` through `TIDAL_KINDS`.
+ */
+const BORDER_MIN_WIDTH = new Map<string, string>([
+  ["solid", "1px"],
+  ["dashed", "1px"],
+  ["dotted", "1px"],
+  ["double", "3px"],
+]);
+
+/**
  * A section wrapper's own inline style — its chosen skin, its background
  * picture, both, or neither.
  *
@@ -152,7 +190,10 @@ const CARD_SIZE_MIN: Record<CardSize, string> = {
  * The background address goes through {@link backgroundImageValue}, which
  * carries its own argument for why an address that fails is refused rather
  * than rendered: nothing is painted, never something built from what was
- * typed.
+ * typed. `background-repeat` and `background-size` are then BOTH emitted for
+ * every fit, the absent one included, so that "Default", "Tile" and "Cover"
+ * are three paints rather than two — see the comment at the emission for the
+ * measurement that showed the first two were one.
  *
  * `card_size` becomes `--card-size` through {@link CARD_SIZE_MIN}, read only
  * by `Cards` — every other layout ignores a property it never declares an
@@ -162,6 +203,22 @@ const CARD_SIZE_MIN: Record<CardSize, string> = {
  * through to its own literal default — sections are SIBLINGS under one grid
  * container, never ancestor and descendant, so there is no other section's
  * value to inherit in the first place.
+ *
+ * `border` becomes `--skin-border-style` **and a `--skin-border-min` floor
+ * under the width**, both read by `@utility surface` on every plain surface
+ * beneath this scope — the token Task 1 made reachable and this
+ * function is the only thing that sets per section. Without the floor the
+ * choice was measurably invisible on most pages: `double` needs 3px to be two
+ * lines and a gap, and almost every skin's own edge is narrower than
+ * that. `"none"` is a CHOICE and
+ * is emitted exactly like `"solid"` or any other member; leaving the KEY out
+ * of `style` entirely is the separate state, INHERITANCE — the scope then
+ * carries no `--skin-border-style` of its own and falls through to whatever
+ * the page or an enclosing section already set. An element naming its own
+ * Tailwind border-style utility (`border-dashed` and its siblings) keeps that
+ * utility regardless of what this emits, by Tailwind's own class ordering —
+ * see `sectionStyleSchema`'s `border` key in `domain/section-schema.ts` for
+ * the same distinction stated at the write.
  *
  * @param style - the section's own style bag, or `undefined` when the author
  *   left it unset.
@@ -179,11 +236,27 @@ export function sectionStyle(
   const backgroundImage = backgroundImageValue(style.background_url);
   if (backgroundImage) {
     vars.backgroundImage = backgroundImage;
-    if (style.background_fit === "tile") {
-      vars.backgroundRepeat = "repeat";
-    } else if (style.background_fit === "cover") {
-      vars.backgroundSize = "cover";
-    }
+    // **Both properties are always emitted, for every fit including the
+    // absent one**, exactly as `bodyBackgroundVars` already does for the
+    // page's own picture. Emitting only the difference from the initial
+    // value left two of the three options painting the same picture, and it
+    // was measured rather than argued: `background-repeat`'s initial value
+    // is `repeat`, so an 8px tile covering a 64x64 box darkened 2048 of its
+    // 4096 pixels with the property unset and 2048 with `repeat` — the same
+    // screenshot — where a genuinely unrepeated copy darkens 32. "Default"
+    // and "Tile" were two names for one behaviour, and `fitDefault`'s own
+    // label promised the one nobody could get.
+    //
+    // `background-size` is the same shape one step further: `@utility
+    // surface` declares `background-size: var(--skin-gloss-size)` for the
+    // gloss, so on the editor's face a section picture with no explicit size
+    // fell through to whatever the skin's TEXTURE tile is — `comic` sets
+    // `6px 6px`, so the preview showed a 6px mosaic of a picture the public
+    // page renders at natural size. `auto` here is what the public
+    // `<section>`, which carries no `surface`, was already getting.
+    vars.backgroundRepeat =
+      style.background_fit === "tile" ? "repeat" : "no-repeat";
+    vars.backgroundSize = style.background_fit === "cover" ? "cover" : "auto";
   }
 
   // `--card-size` is read by `Cards`, several elements further down the
@@ -197,6 +270,24 @@ export function sectionStyle(
   // simply what a `var()` with no value set on this element and nothing to
   // inherit resolves to.
   if (style.card_size) vars["--card-size"] = CARD_SIZE_MIN[style.card_size];
+
+  // `--skin-border-style` is read by `@utility surface` on every plain
+  // surface beneath this scope — Task 1 made the token reachable; this is
+  // the only place a section's own choice reaches it. `none` is a CHOICE
+  // ("solid"|…|"none" are all real, equally-valid values) and is emitted
+  // like any other; absence of the KEY is what leaves the token unset here,
+  // so the scope inherits whatever `--skin-border-style` the page (or an
+  // enclosing section) already set — see {@link sectionStyleSchema}'s
+  // `border` doc for why those are different states.
+  if (style.border) {
+    vars["--skin-border-style"] = style.border;
+    // …and a floor under the WIDTH, because a style with no room to be drawn
+    // is the same do-nothing control as no style at all. See
+    // {@link BORDER_MIN_WIDTH} for the pixels. `none` is absent from that map
+    // on purpose, so it emits no floor.
+    const floor = BORDER_MIN_WIDTH.get(style.border);
+    if (floor) vars["--skin-border-min"] = floor;
+  }
 
   return Object.keys(vars).length > 0 ? vars : undefined;
 }
@@ -439,6 +530,362 @@ function Gallery({
               </figcaption>
             ) : null}
           </figure>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * A section packed into columns of unequal height.
+ *
+ * **Variable-height packing, not another uniform grid.** `Cards` and
+ * `Gallery` both lay out a CSS `grid`, and a grid's ROWS all take the
+ * height of the tallest item in them — a long entry beside a short one
+ * leaves a gap under the short one for every row they share. CSS
+ * multi-column layout (`columns-*`) does not have rows at all: it flows
+ * items down one column before starting the next, so a short item is simply
+ * followed by whatever comes after it, regardless of how tall the item
+ * beside it in a neighbouring column happens to be. That is the one thing
+ * neither `Cards` nor `Gallery` can do, which is what earns this its own
+ * layout rather than a variant of one of them.
+ *
+ * **Every item keeps its icon tile, exactly as `Cards` does — including an
+ * item with no icon, which gets {@link CARD_ICON}.** A column where only
+ * some items are anchored by a tile reads as ragged for the same reason a
+ * grid of them did before `Cards` stopped rendering the tile conditionally;
+ * the fix carries over unchanged rather than being rediscovered here.
+ *
+ * `break-inside-avoid` is load-bearing: without it, a browser is free to
+ * split one card across a column break, leaving its last line stranded at
+ * the top of the next column. Column layout has no row gap to lean on
+ * either, so the vertical space between stacked items is a literal margin
+ * rather than the `gap` a grid gets for free.
+ *
+ * @returns the packed items.
+ */
+function Masonry({
+  items,
+  locale,
+}: {
+  items: FursonaSectionItem[];
+  locale: string;
+}) {
+  return (
+    <div
+      className="columns-1 gap-4 sm:columns-2 lg:columns-3"
+      {...tid("public-masonry")}
+    >
+      {items.map((item) => {
+        const { title, description } = wordsOf(item, locale);
+        return (
+          <div
+            key={keyOf(item.sort_order, item.title_en)}
+            className="mb-4 grid break-inside-avoid gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-5"
+          >
+            <span className="grid size-11 w-fit place-items-center rounded-lg surface border-(--edge) bg-(--bar)">
+              <PublicSectionIcon name={item.icon} fallback={CARD_ICON} />
+            </span>
+            <h3 className="font-display text-sm/tight font-bold">{title}</h3>
+            {description ? (
+              <p className="text-xs/relaxed text-(--muted)">{description}</p>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Clamps a percentage to what a bar can actually draw.
+ *
+ * @param value - a percentage, from any of the forms {@link progressValue}
+ *   reads — none of which refuses a value outside 0–100 on its own.
+ * @returns `value` clamped to the range a bar can render, `[0, 100]`.
+ */
+function clampPercent(value: number): number {
+  return Math.min(100, Math.max(0, value));
+}
+
+/**
+ * A whole number or a decimal, as the pattern fragment shared by every form
+ * {@link progressValue} reads.
+ *
+ * **Written as an alternation, `(\d+|\d+\.\d+)`, rather than `\d+(?:\.\d+)?`
+ * — the two accept the same strings, but only the alternation is
+ * star-height 1.** The optional-group form puts a `+` inside a `?`, which
+ * `security/detect-unsafe-regex` flags on principle when it can see a
+ * pattern at all — regardless of whether the input is actually attacker-
+ * controlled or the pattern can actually backtrack catastrophically (it
+ * cannot: there is nothing here for two quantifiers to disagree about).
+ * Verified directly against the `safe-regex` package the rule is built on:
+ * the optional form is rejected, the alternation is accepted.
+ *
+ * **The rule cannot actually see either form here, and that is worth
+ * saying plainly rather than leaving the sentence above to imply
+ * otherwise.** `detect-unsafe-regex` only inspects a regex `Literal` or
+ * `new RegExp(<Literal>)` — {@link FRACTION_PATTERN} and its siblings below
+ * are `new RegExp` calls over a template literal WITH an interpolation, a
+ * node shape the rule does not evaluate at all, so `\d+(?:\.\d+)?` would
+ * lint clean if it were substituted in today. The alternation stays anyway,
+ * on its own merits: it is still the genuinely simpler, linear shape, and
+ * keeping it is what lets these ever become literals again — say, if
+ * `NUMBER`'s indirection is later found not to be worth it — without
+ * silently reintroducing the pattern the rule exists to catch.
+ */
+const NUMBER = String.raw`\d+|\d+\.\d+`;
+
+/**
+ * The patterns {@link progressValue} tries, in the order it tries them,
+ * each built from {@link NUMBER} once at module load rather than compiled
+ * fresh on every call — none carries the `g`/`y` flags that would make
+ * reusing a compiled `RegExp` across calls unsafe.
+ */
+const FRACTION_PATTERN = new RegExp(`^(${NUMBER})\\s*/\\s*(${NUMBER})$`);
+const PERCENT_PATTERN = new RegExp(`^(${NUMBER})\\s*%$`);
+const BARE_NUMBER_PATTERN = new RegExp(`^(?:${NUMBER})$`);
+
+/**
+ * Reads `progress`'s description as a percentage, or refuses it.
+ *
+ * A fraction ("3/5", or "7.5/10" — divided and scaled; a zero denominator is
+ * refused rather than producing `Infinity`), a percentage ("60%" or
+ * "7.5%"), and a bare number ("60" or "7.5", read directly as a
+ * percentage) — tried in that order, and nothing else is read. Every form
+ * is clamped to `[0, 100]` by {@link clampPercent}, since nothing stops
+ * somebody writing "150" or "150%" and a bar has no way to draw past its
+ * own edge.
+ *
+ * **Anything else returns `null`, and that is the point.** Prose, an empty
+ * string, or a unit this does not recognise all refuse gracefully rather
+ * than producing a broken bar — the same "refuses nothing, shows nothing"
+ * trap the embed layouts already avoid by falling back to a link. This is
+ * also the common case: a template's unedited placeholder is prose, not a
+ * number, and `Progress` reads a refusal as "render the plain label/value
+ * row `Stats` already renders, and draw no bar" — never as an error.
+ *
+ * @param description - the item's description, already resolved to the
+ *   locale being read.
+ * @returns a percentage from 0 to 100, or `null` when it cannot be read as
+ *   one.
+ */
+function progressValue(description: string): number | null {
+  const trimmed = description.trim();
+
+  const fraction = FRACTION_PATTERN.exec(trimmed);
+  if (fraction) {
+    const denominator = Number(fraction[2]);
+    if (denominator === 0) return null;
+    const ratio = (Number(fraction[1]) / denominator) * 100;
+    // A numerator AND denominator that both overflow `Number` (roughly 309+
+    // digits each — reachable, since the text cap is 2000) read as
+    // `Infinity / Infinity`, which is `NaN`. Neither side being zero, the
+    // guard above does not catch it, and `NaN` is not `null` — so without
+    // this, the bar rendered anyway: `aria-valuenow="NaN"` and a
+    // `width: "NaN%"` style CSSOM rejects outright, leaving the bar at its
+    // block parent's full width. This same check ALSO refuses a NUMERATOR-
+    // only overflow (`Infinity / 5` is `Infinity`, not finite) — the right
+    // answer for the same reason: nobody could read either as a genuine
+    // proportion. Only a DENOMINATOR-only overflow survives it, and not as
+    // a special case — `5 / Infinity` is a real, finite `0`, which is
+    // exactly what an unreadably large total should draw. Checked after the
+    // divide rather than by rejecting a long digit run up front, so this one
+    // finite outcome is not thrown away along with the two that are not.
+    if (!Number.isFinite(ratio)) return null;
+    return clampPercent(ratio);
+  }
+
+  const percent = PERCENT_PATTERN.exec(trimmed);
+  if (percent) return clampPercent(Number(percent[1]));
+
+  if (BARE_NUMBER_PATTERN.test(trimmed)) return clampPercent(Number(trimmed));
+
+  return null;
+}
+
+/**
+ * A section of measured proportions, each drawn as a bar.
+ *
+ * **The title is the label and the description is the value** — the same
+ * inversion `Stats` and `Quotes` already carry, because this is one more
+ * layout whose two fields do not mean "heading" and "body". Unlike those
+ * two, this layout ALSO tries to read the value as a number, through
+ * {@link progressValue}: a commission queue, a ref sheet's completion, a
+ * species trait on a scale.
+ *
+ * **A description `progressValue` cannot read renders as a plain row, never
+ * a broken bar.** That is `progressValue` returning `null` — see its own
+ * doc for the "refuses nothing, shows nothing" trap this avoids and for
+ * which forms it does read. A description it CAN read still renders
+ * verbatim beside the bar, so nothing an author wrote is hidden behind a
+ * rounded percentage it was turned into.
+ *
+ * @returns the bars.
+ */
+function Progress({
+  items,
+  locale,
+}: {
+  items: FursonaSectionItem[];
+  locale: string;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2" {...tid("public-progress")}>
+      {items.map((item) => {
+        const { title, description } = wordsOf(item, locale);
+        const value = progressValue(description);
+        return (
+          <div
+            key={keyOf(item.sort_order, item.title_en)}
+            className="grid gap-2 rounded-xl surface border-(--edge) bg-(--surface) p-4"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-xs tracking-wide text-(--muted) uppercase">
+                {title}
+              </span>
+              {description ? (
+                <span className="font-display text-sm font-bold">
+                  {description}
+                </span>
+              ) : null}
+            </div>
+            {value === null ? null : (
+              <div
+                role="progressbar"
+                aria-label={title}
+                aria-valuenow={Math.round(value)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-2 overflow-hidden rounded-full surface border-(--edge) bg-(--bar)"
+              >
+                <div
+                  className="h-full rounded-full bg-(--accent)"
+                  style={{ width: `${value}%` }}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * A section switched one panel at a time, horizontally.
+ *
+ * **The distinction from `Accordion` that keeps the two from reading as
+ * duplicates: `accordion` is vertical and every `<details>` opens
+ * independently of every other; this shows exactly ONE panel at a time,
+ * chosen from a row of tabs.** A `<details>` element cannot do that on its
+ * own, because each one only knows its own open state — nothing coordinates
+ * them into a group where opening one closes the rest.
+ *
+ * **A native radio group and CSS's `:has()`/`:checked` decide which panel
+ * shows, so this stays a server component with no script of its own.** Every
+ * tab is a real, focusable `<input type="radio">`; arrow keys move between
+ * them exactly as they do in any other native radio group, and a screen
+ * reader announces each as one choice among the others — all of it free,
+ * where a hand-rolled `role="tablist"` needs a script managing focus to get
+ * the same thing.
+ *
+ * **A tab's radio and its own panel are interleaved in the DOM, each pair a
+ * `Fragment`, not grouped into two separate lists.** `label:has(:checked)+&`
+ * — one fixed selector, identical for every item — selects a panel by its
+ * ONE immediately preceding sibling, so no item needs an index-specific class
+ * name Tailwind's build-time scan could never see anyway, since these render
+ * from a list whose length is not known until a page is requested. The tab
+ * row still sits visually above every panel: `order-1`/`order-2` reorders the
+ * two kinds of element for LAYOUT without moving them in the document, and a
+ * CSS combinator reads document order, never the painted one.
+ *
+ * `sectionKey` names the radio group's own `name` attribute, so two `tabs`
+ * sections on the same page do not fight over which of their own tabs is
+ * selected — an HTML radio group's `name` is unique to the whole document,
+ * not scoped to the component that renders it. `PublicSections` prefixes it
+ * with the section's own array index for exactly this, since `sort_order`/
+ * `name_en` alone do not guarantee two sections cannot collide. A `name`
+ * tolerates whatever an author typed, including whitespace — HTML places no
+ * character restriction on it — which is NOT true of the id built below.
+ *
+ * **Each radio carries `aria-controls`, pointing at its own panel's `id` —
+ * built from `sectionId` and the item's own array index, never from
+ * `sectionKey`.** `sectionKey` carries `name_en`, an author's free text, and
+ * an HTML `id` must not contain whitespace; `aria-controls` is worse than
+ * merely fussy about it, because it takes a space-separated ID-reference
+ * LIST, so a single id containing a space tokenises into pieces that
+ * resolve to nothing. A dangling `aria-controls` is worse than none at
+ * all — it tells a screen reader a relationship exists and then fails to
+ * deliver it — so `panelId` is built only from values that cannot carry
+ * whitespace: `sectionId` (see `PublicSections`'s own doc) and a plain
+ * array index.
+ *
+ * **The panel is a plain rounded card, not visually joined to its tab.** An
+ * earlier version pulled the panel up over the label's own bottom border
+ * with `-mb-px`, meant to merge the two into one continuous edge — but nothing
+ * here has a container bottom rule for that negative margin to disappear
+ * into, the arrangement `-mb-px` normally relies on, so it instead ate half
+ * of the active tab's own underline where the two met. Rounding every corner
+ * and adding a small gap reads correctly regardless of which tab is
+ * selected, where the previous square top-left corner read as "the panel
+ * belongs to the first tab" the moment any other one was chosen.
+ *
+ * **Reading order is not painted order, and that is a known cost of this
+ * mechanism rather than an oversight.** DOM order is tab, panel, tab, panel
+ * — a screen reader or a linear reader reaches panel 1 before tab 2, even
+ * though panel 1 paints BELOW tab 2 once `order-1`/`order-2` place every tab
+ * above every panel. This is what buys the whole layout being a server
+ * component with no script managing focus; the trade is accepted, not
+ * hidden.
+ *
+ * @returns the tabs.
+ */
+function Tabs({
+  items,
+  locale,
+  sectionKey,
+  sectionId,
+}: {
+  items: FursonaSectionItem[];
+  locale: string;
+  sectionKey: string;
+  sectionId: string;
+}) {
+  return (
+    <div className="flex flex-wrap" {...tid("public-tabs")}>
+      {items.map((item, index) => {
+        const { title, description } = wordsOf(item, locale);
+        // Built from `sectionId` and this item's own array index — both
+        // plain numbers — never from `sectionKey`, which carries the
+        // section's `name_en` and can contain whitespace or anything else
+        // an author typed. An HTML `id` must not contain whitespace, and
+        // `aria-controls` takes a space-separated ID-reference LIST, so a
+        // single id with a space in it tokenises into pieces that resolve
+        // to nothing — a dangling reference, which is worse than no
+        // `aria-controls` at all rather than merely useless.
+        const panelId = `${sectionId}-panel-${index}`;
+        return (
+          <Fragment key={keyOf(item.sort_order, item.title_en)}>
+            <label className="order-1 cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm font-medium text-(--muted) has-checked:border-(--accent) has-checked:text-(--ink) has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--accent)">
+              <input
+                type="radio"
+                name={sectionKey}
+                defaultChecked={index === 0}
+                aria-controls={panelId}
+                className="sr-only"
+              />
+              {title}
+            </label>
+            <div
+              id={panelId}
+              className="order-2 mt-2 hidden w-full rounded-xl surface border-(--edge) bg-(--surface) p-5 [label:has(:checked)+&]:block"
+            >
+              {description ? (
+                <p className="text-sm/relaxed text-(--muted)">{description}</p>
+              ) : null}
+            </div>
+          </Fragment>
         );
       })}
     </div>
@@ -930,8 +1377,11 @@ function Posts({
  *
  * The title is the LABEL and the description is the VALUE, which is the reverse
  * of how the two read on every other layout — a stat is "Species: arctic fox",
- * and the half worth setting large is the answer. The editor names the fields
- * accordingly rather than leaving somebody to discover it by saving.
+ * and the half worth setting large is the answer. **This is a claim about
+ * RENDERING only** — the editor's own title/description fields keep their
+ * generic names here; `progress` is the one layout whose editor fields are
+ * actually renamed, through `FIELD_NAMES` in `section-item-fields.tsx`, and
+ * that file's own doc says why only that one earns it.
  *
  * @returns the stats.
  */
@@ -1054,8 +1504,14 @@ function Timeline({
  * name with no renderer behind it. The chain of ternaries this replaced would
  * have compiled happily and rendered a heading with nothing underneath it.
  *
- * **Every layout is handed `parentHost`, and only `Video` and `Music` read
- * it.** The props type is widened rather than giving those two a different
+ * **Every layout is handed `parentHost`, `sectionKey` and `sectionId`, and
+ * only `Tabs` reads `sectionKey` or `sectionId`.** `Video` and `Music` read
+ * `parentHost`. `Tabs` reads `sectionKey` to name its radio group, so two
+ * `tabs` sections on the same page do not fight over each other's
+ * selection, and `sectionId` to build each panel's `id` — a SEPARATE value
+ * from `sectionKey` because `sectionKey` carries the section's own
+ * `name_en`, free text that can contain whitespace, which an HTML `id` must
+ * not. The props type is widened rather than giving any of them a different
  * signature: a `Record` whose entries disagree on signature stops being the
  * compile-time guard that makes a missing renderer impossible, which is the
  * whole reason this is a `Record` and not a chain of tests.
@@ -1068,6 +1524,8 @@ const LAYOUTS: Record<
     items: FursonaSectionItem[];
     locale: string;
     parentHost: string;
+    sectionKey: string;
+    sectionId: string;
   }) => React.ReactNode
 > = {
   cards: Cards,
@@ -1083,6 +1541,9 @@ const LAYOUTS: Record<
   timeline: Timeline,
   socials: Socials,
   posts: Posts,
+  masonry: Masonry,
+  progress: Progress,
+  tabs: Tabs,
 };
 
 /**
@@ -1133,6 +1594,26 @@ const LAYOUTS: Record<
  * `env.hubHost`, not read here — see the prop. An empty value degrades Twitch
  * to a plain link rather than breaking the page; see `domain/embeds.ts`.
  *
+ * **Each section's `sectionKey` is computed once here and handed to its
+ * `Layout`, reusing the same value as the `<section>` wrapper's own React
+ * `key`.** Only `Tabs` reads it, to name its radio group so two `tabs`
+ * sections on one page cannot fight over each other's selection — see
+ * `LAYOUTS`'s own doc for why every layout is handed it regardless.
+ * **Prefixed with the section's own array index**, which `sort_order`/
+ * `name_en` alone do not guarantee is unique — two sections sharing both
+ * would otherwise collide, as a React key and, worse, as two `tabs`
+ * sections' shared radio-group `name`.
+ *
+ * **`sectionId` is a SEPARATE value, computed alongside `sectionKey` and
+ * carrying none of `name_en`.** `sectionKey` is safe as a `name` attribute,
+ * which tolerates any text an author typed, but not as the seed of an HTML
+ * `id` — `id`s must not contain whitespace, and `Tabs`' own `aria-controls`
+ * takes a space-separated ID-reference list, so a single id built from a
+ * multi-word section name silently tokenises into pieces that resolve to
+ * nothing. `sectionId` is built only from the section's own array index and
+ * `sort_order`, both plain numbers, for exactly the callers — `Tabs`, today
+ * — that need an identifier rather than a display value.
+ *
  * @returns the sections, in the order the author put them.
  */
 export function PublicSections({
@@ -1146,14 +1627,24 @@ export function PublicSections({
 
   return (
     <div className="grid gap-10">
-      {ordered.map((section) => {
+      {ordered.map((section, index) => {
         const items = section.items.toSorted(
           (a, b) => a.sort_order - b.sort_order,
         );
         const Layout = LAYOUTS[section.type];
+        // Prefixed with the section's own position in THIS render, which is
+        // always unique, unlike `sort_order`/`name_en` alone — two sections
+        // sharing both would otherwise collide, both as a React key and
+        // (worse) as `Tabs`' own radio-group `name`, letting two `tabs`
+        // sections fight over one selection. See this component's own doc.
+        const sectionKey = `${index}-${keyOf(section.sort_order, section.name_en)}`;
+        // Whitespace-free, unlike `sectionKey` above — carries no `name_en`,
+        // so it is safe to build an HTML `id` from. See this component's own
+        // doc and `Tabs`'s.
+        const sectionId = `${index}-${section.sort_order}`;
         return (
           <section
-            key={keyOf(section.sort_order, section.name_en)}
+            key={sectionKey}
             className="grid gap-3"
             style={sectionStyle(section.style)}
           >
@@ -1163,7 +1654,13 @@ export function PublicSections({
             >
               {contentFor(section, "name", locale)}
             </h2>
-            <Layout items={items} locale={locale} parentHost={parentHost} />
+            <Layout
+              items={items}
+              locale={locale}
+              parentHost={parentHost}
+              sectionKey={sectionKey}
+              sectionId={sectionId}
+            />
           </section>
         );
       })}

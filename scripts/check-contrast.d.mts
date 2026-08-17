@@ -52,6 +52,21 @@ export declare function composite(
  */
 export declare function contrastRatioSrgb(rgb: number[], other: Oklch): number;
 
+/**
+ * Contrast ratio between two gamma-encoded sRGB colours, each channel 0..1.
+ *
+ * The pair form, for callers holding two measured colours rather than a
+ * measurement and a token.
+ *
+ * @param one - a gamma-encoded sRGB triple.
+ * @param two - the other, in the same form.
+ * @returns the ratio, from 1 to 21.
+ */
+export declare function contrastRatioBetweenSrgb(
+  one: number[],
+  two: number[],
+): number;
+
 /** The avatar ring per mode: label, ring, alpha, and the field behind it. */
 export declare const RINGS: [string, Oklch, number, Oklch][];
 

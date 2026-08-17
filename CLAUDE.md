@@ -250,6 +250,31 @@ Key choices and _why_:
   migrations**. When Puck copies them, this ends permanently and every change
   becomes additive forever.
 
+  **An in-place edit never reaches the live database, and nothing tells you.**
+  This is the trap the convention above creates, and it is measured rather than
+  theorised. Supabase's migration history records a file as applied; `db push`
+  will not re-run an applied file. So editing `0009` changes what a fresh
+  database would build and changes **nothing** about the database the app
+  actually runs against — silently, permanently, and in exactly the case the
+  convention makes normal. Found 2026-08-16: `set_actor_sections()` on the live
+  project was missing its **entire** per-section style-validation block, so
+  `skin`, `background_url`, `background_fit` and `card_size` were unvalidated at
+  the database level from the day `#150`–`#154` merged until this was found. The
+  zod schema was the only thing checking them; the database backstop `0009`
+  appears to provide was never there.
+
+  Every check was green throughout. Unit tests at 100% cannot see a database.
+  **`pnpm test:db` cannot see it either, by construction** — it resets to a
+  **fresh** database built from the files, where drift cannot exist. And the
+  `actor_profiles.sections` column comment, the one signal this convention asks
+  to be kept in step, **was current**: truthful about the file and false about
+  the database. So the designed signal pointed the wrong way.
+
+  What guards it now is the `schema-drift` job below. Until it is a required
+  check, the obligation is yours: **after editing an applied migration, apply
+  the changed statements to the live project yourself** — a `create or replace`
+  in its own transaction — and re-run the check.
+
   **A squash is not finished when the SQL is.** It is finished when every
   document, comment and test that named the old arrangement says the new one —
   the AI-facing notes (`CLAUDE.md`, `AGENTS.md`, the feature notes), the specs
@@ -307,9 +332,9 @@ port is complete through phase 6. Phase 1b-i's 🧑 steps are the only thing
 still open.
 
 - **Phase 1a (actor model seam) — done, and the schema is now consolidated.**
-  `supabase/migrations/` holds the canonical schema in **ten files, every object
-  defined exactly once** (2026-08-13). It grew to fourteen migrations in which
-  six objects had been redefined by `create or replace` — `actors_public` four
+  `supabase/migrations/` holds the canonical schema, **every object defined
+  exactly once** (2026-08-13). Before that consolidation, six objects had been
+  redefined by `create or replace` — `actors_public` four
   times, `ensure_person_actor` three — so the newest body of a function could
   sit in a file named after something else, and restating the wrong ancestor
   silently reverted a fix. That nearly shipped. **Before replacing anything,
@@ -436,8 +461,8 @@ still open.
 
 - **The fursona studio — done.** Libra's product editor, ported whole and
   without its theme: a filterable, drag-reorderable list; a full-page editor on
-  react-hook-form with a sticky toolbar; sections in four layouts with
-  bilingual, per-item fields; an icon picker; and four starting templates
+  react-hook-form with a sticky toolbar; sections in several layouts with
+  bilingual, per-item fields; an icon picker; and starting templates
   shipped in code rather than in a table. Spec:
   `2026-08-13-fursona-studio-port-design.md`; plans
   `2026-08-13-fursona-studio-phase-*.md`.
@@ -474,8 +499,8 @@ still open.
     suspended is still `active` itself, so its page would keep serving.
 
   Two things that phase established beyond the pages themselves. **The schema
-  was consolidated to ten files with every object defined exactly once** — it
-  had grown to fourteen in which six objects were redefined by `create or
+  was consolidated so that every object is defined exactly once** — six had
+  been redefined by `create or
 replace`, so the newest body of a function could sit in a file named after
   something unrelated and restating the wrong ancestor silently reverted a fix.
   Keep that property. And **`0012` is the only thing `anon` may execute**;
@@ -544,7 +569,25 @@ replace`, so the newest body of a function could sit in a file named after
   (`posts`) and the one thing reasoned from the CSS spec rather than watched
   in a browser (the page background's `background-attachment`).
 
-## The toolchain, and the nine rules it cost
+- **A border of one's own (2026-08-16) — done.** A section picks its own
+  border style, which is the literal thing the phase above was asked for and
+  answered with skins instead. A skin is a whole aesthetic — choosing `comic`
+  for a heavy edge also brings a halftone, a radius and a hard shadow — where
+  what was asked for composes with whatever skin is already worn; and it was
+  not merely bundled but **unreachable**, since nothing in the style bag could
+  make a section dashed. The same phase took the feature note's own "this list
+  is a floor, not a ceiling" at its word: `masonry`, `progress` and `tabs`
+  join the layouts, `neon`, `cutout` and `frame` join the skins, each earning
+  its place by a mechanism nothing else uses. Read
+  `apps/hub/src/features/actors/CLAUDE.md` for what `progress` reads as a
+  value (and that it inverts the title/description pair), why the border token
+  is `--skin-border-style` rather than a write to Tailwind's own variable, and
+  what `cutout` cost — `clip-path` clips overlay UI and focus rings alike,
+  which is why the editor's card paints its face on a layer of its own and why
+  every surface in the app now rings on the inside. Spec:
+  `2026-08-16-a-border-of-ones-own-design.md`.
+
+## The toolchain, and the rules it cost
 
 Full account, with every measurement:
 `docs/superpowers/specs/2026-08-15-toolchain-hardening-design.md`. Read it before
@@ -601,6 +644,39 @@ every Tailwind utility for months without anything noticing.
     for a weaker one. Sampling 184 frames across the change showed no frame ever
     painted wrong. Reason to decide what to measure; do not let it stand in for
     the measurement.
+11. **A branch reached only by a random draw is not covered, and the coverage
+    number lies about it at a low rate.** `embed-providers.ts`'s Mastodon
+    resolver had no named case reaching the FALSE arm of its `&&` — every
+    hand-written reject returned a line earlier, and the property test's own
+    generator produced only valid pairs. The one thing that ever made it false
+    was the unseeded hostile property _happening_ to draw a failing pair, so
+    about one run in 42 came back `99.84% (654/655)` on a check that requires
+    100, and the same shape sat unnoticed in the Twitch resolver beside it.
+    Two things kept it invisible for weeks: the miss is rare enough to read as
+    infrastructure noise rather than as a defect, and `test:coverage` is
+    configured for `text-summary`, which reports the percentage and **never
+    names the line**. So the diagnostic is worth remembering on its own —
+    `--coverage.reporter=text` names it. The rule generalises past coverage,
+    because the shape recurs wherever a property test sits beside named cases:
+    a property test states a claim about ALL inputs; it does not stand in for
+    a case about ONE. If a branch is only entered when a generator happens to
+    produce the right input, that branch is untested and the suite is telling
+    you otherwise. The check that settles it is the suite run with the
+    property files excluded: everything must still be at 100%.
+12. **Never diagnose a browser failure against a server older than the code.**
+    A `next dev` already running when the message catalogues change keeps
+    serving the modules it started with, forever. New keys then render as raw
+    keys, and because a `select` is as wide as its longest option,
+    `fursonas.types.progress` at 155px where `Progreso` is eight characters
+    overflows the 320px editor by a real 4px — so `responsive.spec.ts` fails
+    honestly, about a page that genuinely was broken, for a reason that is not
+    in any diff. **What makes it dangerous rather than annoying is that it
+    disguises itself as a bad commit and survives the check you would use to
+    rule that out.** An agent stashed its work, watched the failure persist,
+    and correctly concluded "pre-existing" — because stashing does not restart
+    a server. It cost a full bisect across twenty commits. Restart after
+    touching the catalogues, and treat a server that predates the code as no
+    evidence at all.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
@@ -648,6 +724,27 @@ anything failing. Read it from the API rather than inferring it from the YAML:
 ```bash
 gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
 ```
+
+**`schema-drift` (`pnpm check:schema-drift`) is the newest job and it is 🧑 NOT
+YET REQUIRED** — adding it is branch-protection settings rather than YAML, the
+same gap this file already records for `e2e`, and until Heiner does it a merge
+can ignore a red run. It exists because of the in-place-migration hazard above:
+it compares `supabase/migrations/` against the **live** project, which is the
+one thing no other check looks at. It carries the same fork `if:` guard as
+`idp-cloud`, because it needs the database password.
+
+It runs `supabase db diff` under each of the engines it needs, and **no pass is
+ever skipped because an earlier one was clean** — that ordering is the design
+rather than belt-and-braces. `migra` reads structure with no noise and is
+**blind to `COMMENT ON`**, proven by perturbing a live column comment and
+watching it report nothing, so a `pg-delta` pass counting only `COMMENT ON`
+runs first. That pass is also what makes a green verdict honest: given a wrong
+password the CLI's migra engine exits 0 and prints "No schema changes found",
+byte-identical to a clean project, so a migra-only job would have gone
+permanently green the moment the secret rotated. Where it goes red for
+something other than drift, it is still working: a pull request that **adds** a
+migration stays red until it is pushed to live, which is how this repo already
+works, and a new table stays red until it grants `service_role`.
 
 Claude's role throughout: build and test the hub here, specify exactly what to
 configure in Clerk, and write the per-app integration code in the respective app

@@ -44,6 +44,11 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * catalogue entry like the rest; what somebody types into that field is theirs
  * and is not.
  *
+ * `itemLabel`, `itemValue` and `itemValueHint` are catalogue entries too,
+ * resolved the same way as `itemTitle`/`itemDescription`/
+ * `itemDescriptionHint` — `SectionItemFields` is what decides per layout
+ * which set is actually shown, through `FIELD_NAMES`.
+ *
  * The theme panel's own strings are resolved by `themeConfiguratorLabels`,
  * shared with `/me` — the panel appears in both places, and those live in
  * route folders that may not import each other, so a copy here would be one a
@@ -58,6 +63,14 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * `s`/`m`/`l` wire values — those are stored, not shown. `cardSizeHint` says
  * the mechanism once (smaller fits more per row) so the option labels do
  * not each have to restate it.
+ *
+ * `style.border*` names what the edge looks like — a solid, dashed, dotted or
+ * double line — never the schema's own wire values. `borderInherit` is the
+ * option that clears `style.border`, distinct from `borderNone`: clearing
+ * leaves the section following whatever the page (or an enclosing section)
+ * already set, while `borderNone` is an explicit choice to turn the border
+ * off regardless of that. `borderHint` says the field reaches this section's
+ * own surfaces, not the popup's.
  *
  * The two cloud labels became one, `canvasColours`, naming the group — the
  * editor renders as many pickers as the chosen canvas actually paints with, so
@@ -163,10 +176,21 @@ export async function fursonaEditorLabels(
       cardSizeS: t("sectionStyleCardSizeS"),
       cardSizeM: t("sectionStyleCardSizeM"),
       cardSizeL: t("sectionStyleCardSizeL"),
+      border: t("sectionStyleBorder"),
+      borderHint: t("sectionStyleBorderHint"),
+      borderInherit: t("sectionStyleBorderInherit"),
+      borderNone: t("sectionStyleBorderNone"),
+      borderSolid: t("sectionStyleBorderSolid"),
+      borderDashed: t("sectionStyleBorderDashed"),
+      borderDotted: t("sectionStyleBorderDotted"),
+      borderDouble: t("sectionStyleBorderDouble"),
     },
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),
     itemDescriptionHint: t("itemDescriptionHint"),
+    itemLabel: t("itemLabel"),
+    itemValue: t("itemValue"),
+    itemValueHint: t("itemValueHint"),
     imageUrl: t("imageUrl"),
     imageUrlHint: t("imageUrlHint"),
     // Nested rather than spread into the same bag as everything else. Both

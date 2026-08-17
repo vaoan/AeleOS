@@ -54,6 +54,13 @@ const VIEWPORTS = [
 /**
  * Asserts a page fits its viewport, and that nothing is hiding that it does.
  *
+ * **Catches rightward overflow only.** `scrollWidth - clientWidth` grows when
+ * content extends past the RIGHT edge; content pushed off the LEFT edge —
+ * exactly what `section-style-popup.tsx`'s own comment on its `right-0`
+ * anchor describes — creates no scrollbar and no measurable delta here, so it
+ * passes silently. A caller relying on this to catch "any" overflow of a
+ * popup or overlay is relying on a direction this cannot see.
+ *
  * @param page - the page to measure.
  * @param where - what to name in a failure.
  * @returns nothing.
@@ -208,6 +215,22 @@ test.describe("every phone screen, signed in", () => {
       await expect(page.getByTestId("section-name").first()).toBeVisible();
 
       await fits(page, `the editor at ${viewport.name}`);
+
+      // The style popup is a real overlay — `position: absolute`, `w-72`,
+      // anchored off a section card's own right edge — so the `fits` call
+      // above, taken before opening it, proves the PAGE'S OWN layout fits; it
+      // says nothing about the popup itself once open. Every field in this
+      // panel (skin, background, fit, card size, border) has carried that gap
+      // since the popup shipped; checking it here closes it for all of them,
+      // not only the border select this task added.
+      await page.getByTestId("section-style-open").first().click();
+      await expect(page.getByTestId("section-style-panel")).toBeVisible();
+      await fits(
+        page,
+        `the editor at ${viewport.name} with the style popup open`,
+      );
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("section-style-panel")).toBeHidden();
 
       // And scrolled, because the sticky bars only stack once somebody moves:
       // three of them pinned at the top is what made this "chopped" rather
