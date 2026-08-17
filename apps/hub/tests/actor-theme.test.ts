@@ -5,6 +5,7 @@ import {
   DEFAULT_THEME,
   THEME_SEEDS,
   accentPreview,
+  bodyBackgroundVars,
   isCustomised,
   isThemed,
   parseTheme,
@@ -58,6 +59,8 @@ describe("parseTheme", () => {
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
       cursor: null,
+      backgroundUrl: null,
+      backgroundFit: "cover",
       skin: "retro",
       density: 1,
       speed: 1,
@@ -292,6 +295,17 @@ describe("themeCss", () => {
     expect(themeCss(THEMED)).toContain("--field");
   });
 
+  // **The guarantee two new keys must not break.** `DEFAULT_THEME` now
+  // carries `backgroundUrl: null` and `backgroundFit: "cover"` alongside
+  // every other field, and an untouched page must still emit no style
+  // element at all — `ThemeScope` renders nothing when this is empty. This is
+  // the assertion most likely to be skipped in favour of the interesting
+  // case, so it is pinned on its own rather than trusted to the general one
+  // above.
+  it("still emits nothing for an untouched theme, background picture keys included", () => {
+    expect(themeCss(DEFAULT_THEME)).toBe("");
+  });
+
   it("emits nothing for a theme that overrides nothing", () => {
     expect(themeCss(DEFAULT_THEME)).toBe("");
   });
@@ -315,6 +329,112 @@ describe("themeCss", () => {
       expect(css).not.toContain("</style>");
     },
   );
+});
+
+describe("bodyBackgroundVars", () => {
+  // **On body, never at :root** — the fault the browser check exists to
+  // catch. `--field` is consumed by `body`'s own background in globals.css;
+  // `body` is a descendant of `<html>` with an opaque background of its own,
+  // so a picture written at `:root` would sit on an element nothing shows.
+  // This is why the picture is a SECOND LAYER of `body`'s own
+  // `background-image`, `var(--field)` included, rather than a property at
+  // `:root` beside the ones `themeVars` writes.
+  it("paints an address as cover by default, layered over --field", () => {
+    const vars = bodyBackgroundVars({
+      ...DEFAULT_THEME,
+      backgroundUrl: "https://example.test/wallpaper.png",
+    });
+    expect(vars["background-image"]).toBe(
+      'url("https://example.test/wallpaper.png"), var(--field)',
+    );
+    expect(vars["background-size"]).toBe("cover, cover");
+    expect(vars["background-repeat"]).toBe("no-repeat, no-repeat");
+  });
+
+  it("paints an address as a tile when that is the chosen fit", () => {
+    const vars = bodyBackgroundVars({
+      ...DEFAULT_THEME,
+      backgroundUrl: "https://example.test/wallpaper.png",
+      backgroundFit: "tile",
+    });
+    expect(vars["background-image"]).toBe(
+      'url("https://example.test/wallpaper.png"), var(--field)',
+    );
+    expect(vars["background-repeat"]).toBe("repeat, no-repeat");
+    expect(vars["background-size"]).toBe("auto, cover");
+  });
+
+  it("emits nothing when nobody chose a picture", () => {
+    expect(bodyBackgroundVars(DEFAULT_THEME)).toEqual({});
+  });
+
+  // The reuse this feature exists to prove: `backgroundImageValue`'s refusal
+  // — widened in an earlier phase to cover the host quote and the query
+  // backslash `safeHttpUrl`'s own normalisation leaves untouched — applies
+  // here exactly as it does to a section's own background picture. An
+  // address it refuses paints nothing rather than reaching the stylesheet.
+  it.each([
+    'https://ex"ample.test/a.png',
+    "https://example.test/?x\\",
+    "javascript:alert(1)",
+  ])("paints nothing for the refused address %s", (backgroundUrl) => {
+    expect(bodyBackgroundVars({ ...DEFAULT_THEME, backgroundUrl })).toEqual({});
+  });
+});
+
+describe("themeCss and a background picture", () => {
+  // The picture sits OVER the gradient as a second background-image LAYER
+  // of body's own rule, never in place of it and never at :root — both
+  // reach the SAME element's stylesheet rule together, so a transparent or
+  // partial picture still shows the author's own colours underneath.
+  it("emits a body rule with the picture layered over --field", () => {
+    const css = themeCss({
+      ...DEFAULT_THEME,
+      background: {
+        ...DEFAULT_GRADIENT,
+        angle: 90,
+        stops: [{ color: "#1a1a2e", at: 0 }],
+      },
+      backgroundUrl: "https://example.test/wallpaper.png",
+    });
+    expect(css).toContain("--field");
+    expect(css).toContain(
+      'body{background-image:url("https://example.test/wallpaper.png"), var(--field)',
+    );
+  });
+
+  // The whole point: the picture's declarations reach `body`, not `:root`.
+  // A regression that moved them back to `:root` would still pass every test
+  // that only checks for the SUBSTRING — this pins where the substring is.
+  it("puts the picture's rule on body, not on :root's own rule", () => {
+    const css = themeCss({
+      ...DEFAULT_THEME,
+      backgroundUrl: "https://example.test/wallpaper.png",
+    });
+    const [rootRule, bodyRule] = css.split("body{");
+    expect(rootRule).not.toContain("background-image");
+    expect(bodyRule).toContain("background-image");
+  });
+
+  it("emits no body rule when there is no picture", () => {
+    expect(themeCss(DEFAULT_THEME)).not.toContain("body{");
+  });
+
+  // The escape hatch: `PageThemeSwitch` works by writing `data-page-theme`,
+  // and every rule this function emits has to answer to it or a visitor who
+  // opts out still keeps whatever that rule set. Neither test above pins
+  // this — `toContain("body{background-image:…")` and a split on `"body{"`
+  // both still pass with the gate missing from the front of the selector,
+  // because neither looks at what precedes `body{`. This one does.
+  it("gates the body rule the same way as the other two", () => {
+    const css = themeCss({
+      ...DEFAULT_THEME,
+      backgroundUrl: "https://example.test/wallpaper.png",
+    });
+    expect(css).toContain(
+      ':root:not([data-page-theme="default"]) body{background-image',
+    );
+  });
 });
 
 describe("withChosenColour", () => {
@@ -376,6 +496,13 @@ describe("isThemed", () => {
       false,
     );
   });
+
+  // Same reason the cursor is not a colour: a picture is not one either.
+  it("is not made true by a background picture", () => {
+    expect(
+      isThemed({ ...DEFAULT_THEME, backgroundUrl: "https://e.test/bg.png" }),
+    ).toBe(false);
+  });
 });
 
 describe("isCustomised", () => {
@@ -390,8 +517,18 @@ describe("isCustomised", () => {
     ["a canvas", { canvas: "stars" as const }],
     ["a cursor", { cursor: "https://example.test/c.png" }],
     ["a skin", { skin: "neobrutalism" as const }],
+    ["a background picture", { backgroundUrl: "https://example.test/bg.png" }],
   ])("is true once there is %s to put back", (_what, part) => {
     expect(isCustomised({ ...DEFAULT_THEME, ...part })).toBe(true);
+  });
+
+  // `backgroundFit` renders nothing on its own while `backgroundUrl` is
+  // null — the control that changes nothing this project keeps trimming.
+  // Only the address flips this, exactly like the cursor.
+  it("is not made true by the fit alone, with no picture chosen", () => {
+    expect(isCustomised({ ...DEFAULT_THEME, backgroundFit: "tile" })).toBe(
+      false,
+    );
   });
 });
 
@@ -556,6 +693,46 @@ describe("the canvas colours a stored theme carries", () => {
       }).canvasColours,
     ).toHaveLength(MAX_CANVAS_COLOURS);
   });
+});
+
+describe("a page background picture", () => {
+  // Kept as pasted, unlike the cursor: safety is `themeCss`'s job, through
+  // `backgroundImageValue`, exactly as `sectionStyle` defers a section's own
+  // background picture rather than sanitising it at parse time.
+  it("reads an address somebody chose", () => {
+    expect(
+      parseTheme({ backgroundUrl: "https://example.test/wallpaper.png" })
+        .backgroundUrl,
+    ).toBe("https://example.test/wallpaper.png");
+  });
+
+  it("overrides nothing when nobody chose one", () => {
+    expect(parseTheme({}).backgroundUrl).toBeNull();
+  });
+
+  it.each([null, undefined, 42, {}, []])(
+    "falls back to null for %o, which is not a string",
+    (value) => {
+      expect(parseTheme({ backgroundUrl: value }).backgroundUrl).toBeNull();
+    },
+  );
+
+  it("reads a fit somebody chose", () => {
+    expect(parseTheme({ backgroundFit: "tile" }).backgroundFit).toBe("tile");
+    expect(parseTheme({ backgroundFit: "cover" }).backgroundFit).toBe("cover");
+  });
+
+  // Not nullable, unlike the address: a select always carries the name of
+  // what is picked, so garbage falls back to the same default DEFAULT_THEME
+  // carries rather than to null.
+  it.each(["diagonal", 42, null, undefined, "toString"])(
+    "falls back to the default fit for %o",
+    (value) => {
+      expect(parseTheme({ backgroundFit: value }).backgroundFit).toBe(
+        DEFAULT_THEME.backgroundFit,
+      );
+    },
+  );
 });
 
 describe("a custom cursor", () => {

@@ -31,6 +31,8 @@ describe("setActorTheme", () => {
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
       cursor: null,
+      backgroundUrl: null,
+      backgroundFit: "tile",
       skin: "glass",
       density: 1,
       speed: 1,
@@ -47,6 +49,7 @@ describe("setActorTheme", () => {
         accent: "#00ff88",
         canvasColours: ["#112233", "#445566"],
         canvas: "none",
+        backgroundFit: "tile",
         skin: "glass",
         density: 1,
         speed: 1,
@@ -68,6 +71,7 @@ describe("setActorTheme", () => {
       density: 1,
       speed: 1,
       scale: 1,
+      backgroundFit: "cover",
     });
   });
 
@@ -83,6 +87,7 @@ describe("setActorTheme", () => {
       density: 1,
       speed: 1,
       scale: 1,
+      backgroundFit: "cover",
       canvasColours: ["#112233"],
     });
   });
@@ -113,6 +118,35 @@ describe("the cursor a theme carries", () => {
     const { client: c, rpc } = client();
     await setActorTheme(c, "actor-1", DEFAULT_THEME);
     expect(rpc.mock.calls[0][1].p_theme.cursor).toBeUndefined();
+  });
+});
+
+describe("the background picture a theme carries", () => {
+  it("is sent when somebody chose one", async () => {
+    const { client: c, rpc } = client();
+    await setActorTheme(c, "actor-1", {
+      ...DEFAULT_THEME,
+      backgroundUrl: "https://example.test/wallpaper.png",
+    });
+    expect(rpc.mock.calls[0][1].p_theme.backgroundUrl).toBe(
+      "https://example.test/wallpaper.png",
+    );
+  });
+
+  // Omitted rather than sent as null, like the cursor: a stored null is a
+  // value pretending to be an absence.
+  it("is omitted when nobody chose one", async () => {
+    const { client: c, rpc } = client();
+    await setActorTheme(c, "actor-1", DEFAULT_THEME);
+    expect(rpc.mock.calls[0][1].p_theme.backgroundUrl).toBeUndefined();
+  });
+
+  // Sent unconditionally, unlike the address: it is not nullable, so there is
+  // no "nobody chose" state for a conditional send to express.
+  it("sends the fit even when it is still the default", async () => {
+    const { client: c, rpc } = client();
+    await setActorTheme(c, "actor-1", DEFAULT_THEME);
+    expect(rpc.mock.calls[0][1].p_theme.backgroundFit).toBe("cover");
   });
 });
 

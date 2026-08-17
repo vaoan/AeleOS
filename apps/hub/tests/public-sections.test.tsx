@@ -179,6 +179,65 @@ describe("PublicSections", () => {
       ]);
       expect(document.querySelector("[data-icon]")).toBeNull();
     });
+
+    // The resolved TEMPLATE, not a class name — a grid that always renders one
+    // column would still carry whatever static class it was given. This is the
+    // literal value a browser's `auto-fill` reads to decide how many columns
+    // fit, so asserting it is asserting the behaviour itself, not a proxy for
+    // it. `card_size: "l"` is Task 1's schema key; nothing before this task
+    // read it, and this is that reading. The `min(…, 100%)` wrapper around
+    // the minimum is asserted here too — jsdom cannot tell it apart from a
+    // bare `minmax(size, 1fr)` since neither one lays anything out, so this
+    // is a template-text check, not proof it stops the overflow it exists
+    // for. `card-size-grid.spec.ts` is what proves that, in a real browser.
+    it("grids with the large minimum when the section chose card_size l", () => {
+      const { container } = renderSections([
+        section({ type: "cards", style: { card_size: "l" } }),
+      ]);
+      const grid = container.querySelector('[data-testid="public-cards"]');
+      expect(grid).toHaveStyle({
+        gridTemplateColumns:
+          "repeat(auto-fill, minmax(min(var(--card-size, 16rem), 100%), 1fr))",
+      });
+      // The section wrapper is what actually carries the chosen minimum — the
+      // grid's own template never changes; it always reads through the same
+      // `var()`. `--card-size` on the ancestor is the value that resolves it.
+      const wrapper = container.querySelector("section");
+      expect(wrapper?.style.getPropertyValue("--card-size")).toBe("20rem");
+    });
+
+    it("grids with the small minimum when the section chose card_size s", () => {
+      const { container } = renderSections([
+        section({ type: "cards", style: { card_size: "s" } }),
+      ]);
+      const wrapper = container.querySelector("section");
+      expect(wrapper?.style.getPropertyValue("--card-size")).toBe("12rem");
+    });
+
+    // No `card_size` at all: the wrapper carries no `--card-size` of its own,
+    // so the grid falls through to the literal default baked into its
+    // template — asserted below, once, since it is the same string regardless
+    // of which section renders it.
+    it("sets no --card-size on the wrapper when the section chose none", () => {
+      const { container } = renderSections([section({ type: "cards" })]);
+      const wrapper = container.querySelector("section");
+      expect(wrapper?.style.getPropertyValue("--card-size")).toBe("");
+    });
+
+    // The template's own fallback — read directly off the grid, independent of
+    // whether any section ever sets `--card-size` at all. A section with no
+    // `style` renders no wrapper `style` attribute (Phase C's guarantee,
+    // asserted in "a section's own style" below) and still grids correctly,
+    // because the default lives in the template's literal, not in anything
+    // `sectionStyle` has to emit.
+    it("grids with the default minimum when the section carries no style at all", () => {
+      const { container } = renderSections([section({ type: "cards" })]);
+      const grid = container.querySelector('[data-testid="public-cards"]');
+      expect(grid).toHaveStyle({
+        gridTemplateColumns:
+          "repeat(auto-fill, minmax(min(var(--card-size, 16rem), 100%), 1fr))",
+      });
+    });
   });
 
   // A disclosure that needs no script, on the one page a stranger might reach
@@ -810,6 +869,25 @@ describe("a section's own style", () => {
   // place this can actually go red.
   it("returns undefined, not an empty object, for a section with no style", () => {
     expect(sectionStyle(undefined)).toBeUndefined();
+  });
+
+  // Calling the pure function directly: the resolved VALUE `--card-size`
+  // carries for each size, not merely that some class exists that mentions
+  // one. `sectionStyle` is what Task 1's `card_size` reaches a page through —
+  // this is the reading side that key had nothing render before this task.
+  it.each([
+    ["s", "12rem"],
+    ["m", "16rem"],
+    ["l", "20rem"],
+  ] as const)("maps card_size %s to --card-size %s", (card_size, min) => {
+    expect(sectionStyle({ card_size })).toEqual({ "--card-size": min });
+  });
+
+  // No `card_size` chosen, but something else in the bag is — proves the key
+  // is genuinely absent from what is emitted, rather than merely unobserved
+  // because nothing else was set either.
+  it("emits no --card-size when a style is chosen but card_size is not", () => {
+    expect(sectionStyle({ skin: "glass" })).not.toHaveProperty("--card-size");
   });
 
   // Asserting the VALUES, not merely that a style attribute exists — a

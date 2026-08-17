@@ -71,14 +71,26 @@ const labels = {
     fitDefault: "Original size",
     fitCover: "Cover",
     fitTile: "Tile",
+    cardSize: "Card size",
+    cardSizeHint: "Smaller fits more per row.",
+    cardSizeDefault: "Default",
+    cardSizeS: "Compact",
+    cardSizeM: "Medium",
+    cardSizeL: "Spacious",
   },
 };
 
-/** A bare section, with no items and no `style`. */
-const bareSection = (name: string) => ({
+/**
+ * A bare section, with no items and no `style`.
+ *
+ * @param name - the section's English name.
+ * @param type - its layout; defaults to `"cards"`, the one layout the
+ *   card-size field is offered on.
+ */
+const bareSection = (name: string, type: string = "cards") => ({
   name_en: name,
   name_es: "",
-  type: "cards",
+  type,
   sort_order: 1,
   items: [] as unknown[],
   style: undefined as
@@ -86,6 +98,7 @@ const bareSection = (name: string) => ({
         skin?: string;
         background_url?: string;
         background_fit?: "cover" | "tile";
+        card_size?: "s" | "m" | "l";
       }
     | undefined,
 });
@@ -100,11 +113,14 @@ type FormValues = { sections: ReturnType<typeof bareSection>[] };
  */
 function OneSectionHarness({
   capture,
+  type,
 }: {
   capture: (form: UseFormReturn<FormValues>) => void;
+  /** The lone section's layout; defaults to `"cards"` via `bareSection`. */
+  type?: string;
 }) {
   const form = useForm<FormValues>({
-    defaultValues: { sections: [bareSection("Only")] },
+    defaultValues: { sections: [bareSection("Only", type)] },
   });
   capture(form);
   return (
@@ -201,6 +217,64 @@ describe("SectionStylePopup", () => {
     expect(screen.getByLabelText("Fit")).toBeInTheDocument();
   });
 
+  // Unlike skin and background — which paint every layout — card_size is
+  // read by Cards alone. Offering the field on a layout that never reads it
+  // would be exactly the "control that does nothing" fault
+  // section-item-fields.tsx already names for LINKED/ICONED/PICTURED.
+  it("shows the card size field on a cards section", () => {
+    render(<OneSectionHarness capture={() => {}} type="cards" />);
+    openPopup();
+    expect(screen.getByLabelText("Card size")).toBeInTheDocument();
+  });
+
+  it("hides the card size field on a non-cards section", () => {
+    render(<OneSectionHarness capture={() => {}} type="gallery" />);
+    openPopup();
+    expect(screen.queryByLabelText("Card size")).toBeNull();
+  });
+
+  // The gate hides the FIELD, never the stored value: switching a section's
+  // own layout away from cards and back must find style.card_size exactly
+  // as it was, the same "value survives, control disappears" shape
+  // LINKED/ICONED/PICTURED already use for item fields.
+  it("keeps a stored card size when the layout switches away and back", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} type="cards" />);
+    openPopup();
+
+    fireEvent.change(screen.getByLabelText("Card size"), {
+      target: { value: "l" },
+    });
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { card_size: "l" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Layout"), {
+      target: { value: "gallery" },
+    });
+    expect(screen.queryByLabelText("Card size")).toBeNull();
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { card_size: "l" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Layout"), {
+      target: { value: "cards" },
+    });
+    expect(screen.getByLabelText("Card size")).toBeInTheDocument();
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { card_size: "l" },
+    });
+  });
+
+  it("offers every card size, in order, behind a default option", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    openPopup();
+    const options = within(screen.getByLabelText("Card size"))
+      .getAllByRole("option")
+      .map((el) => (el as HTMLOptionElement).value);
+    expect(options).toEqual(["", "s", "m", "l"]);
+  });
+
   // The assertion the whole task exists for. Sections live in a
   // `useFieldArray`, and a write scoped to a captured INDEX rather than to
   // this section's own `path` would be indistinguishable from a correct one
@@ -245,6 +319,27 @@ describe("SectionStylePopup", () => {
     });
   });
 
+  // The same fault, for the newest field: a stale captured index would land
+  // this write on the wrong row exactly as it would for skin or background.
+  it("writes a chosen card size to that section, and no other", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<ThreeSectionHarness capture={(f) => (form = f)} />);
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Section style" })[0]!,
+    );
+    fireEvent.change(screen.getByLabelText("Card size"), {
+      target: { value: "l" },
+    });
+
+    const sections = form!.getValues().sections as {
+      style?: { card_size?: string };
+    }[];
+    expect(sections[0]?.style).toEqual({ card_size: "l" });
+    expect(sections[1]?.style).toBeUndefined();
+    expect(sections[2]?.style).toBeUndefined();
+  });
+
   // The rule most likely to be got wrong, named explicitly: clearing a field
   // must remove the key, never store "".
   it("removes the skin key when cleared, rather than storing an empty string", () => {
@@ -281,6 +376,29 @@ describe("SectionStylePopup", () => {
     });
 
     const cleared = form!.getValues().sections[0] as { style?: unknown };
+    expect(cleared.style).toBeUndefined();
+  });
+
+  // The rule most likely to be got wrong, named explicitly, for the newest
+  // field too: clearing must remove the key, never store "".
+  it("removes the card_size key when cleared, rather than storing an empty string", () => {
+    let form: UseFormReturn<FormValues> | undefined;
+    render(<OneSectionHarness capture={(f) => (form = f)} />);
+    openPopup();
+
+    fireEvent.change(screen.getByLabelText("Card size"), {
+      target: { value: "s" },
+    });
+    expect(form!.getValues().sections[0]).toMatchObject({
+      style: { card_size: "s" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Card size"), {
+      target: { value: "" },
+    });
+    const cleared = form!.getValues().sections[0] as { style?: unknown };
+    // Not merely falsy — genuinely ABSENT. A stored `{ card_size: "" }`
+    // would still be a third state `sectionStyleSchema` does not recognise.
     expect(cleared.style).toBeUndefined();
   });
 
@@ -368,6 +486,22 @@ describe("SectionStylePopup", () => {
     expect(card.style.backgroundImage).toBe(
       'url("https://example.test/bg.png")',
     );
+  });
+
+  // The point of the task, for the newest field: the card previews the
+  // chosen card size live, through the SAME `sectionStyle` the public page
+  // renders with — asserted on the preview element's own `--card-size`
+  // custom property, pinned against `CARD_SIZE_MIN`'s own `l` entry (see
+  // `public-sections.test.tsx`'s identical assertion for the public
+  // renderer).
+  it("previews the chosen card size on the card behind the popup", () => {
+    render(<OneSectionHarness capture={() => {}} />);
+    const card = screen.getByTestId("section-card");
+    openPopup();
+    fireEvent.change(screen.getByLabelText("Card size"), {
+      target: { value: "l" },
+    });
+    expect(card.style.getPropertyValue("--card-size")).toBe("20rem");
   });
 
   // An overlay, unlike `IconPicker`'s inline panel — what follows is what an

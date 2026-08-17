@@ -17,8 +17,8 @@ export type Translate = (key: string) => string;
  * **One resolver, used by both places the panel appears.** It is on the fursona
  * editor and on `/me`, and those live in different route folders which may not
  * import each other — so without this each would carry its own near-identical
- * copy of eighteen catalogue lookups, and a string added to one would quietly
- * be missing from the other.
+ * copy of the panel's catalogue lookups, and a string added to one would
+ * quietly be missing from the other.
  *
  * The namespace is `fursonas` on both, deliberately. A person's profile means
  * exactly what a fursona's page means by "accent" and "backdrop", and the
@@ -110,5 +110,10 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
     cursor: t("themeCursor"),
     cursorHint: t("themeCursorHint"),
     cursorTooBig: t("themeCursorTooBig"),
+    backgroundUrl: t("themeBackgroundUrl"),
+    backgroundUrlHint: t("themeBackgroundUrlHint"),
+    backgroundFit: t("themeBackgroundFit"),
+    backgroundFitCover: t("themeBackgroundFitCover"),
+    backgroundFitTile: t("themeBackgroundFitTile"),
   };
 }

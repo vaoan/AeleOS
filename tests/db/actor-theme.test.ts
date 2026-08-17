@@ -252,6 +252,66 @@ describe("set_actor_theme", () => {
       ).toMatch(/too long/i);
     });
 
+    // A picture behind the whole page, like the cursor: length only, for the
+    // same reason — which addresses exist is not the database's question.
+    it("accepts a background picture address", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          backgroundUrl: "https://example.test/wallpaper.png",
+        }),
+      ).toBeNull();
+    });
+
+    it("refuses an absurdly long background picture address", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, {
+          backgroundUrl: `https://example.test/${"a".repeat(600)}.png`,
+        }),
+      ).toMatch(/too long/i);
+    });
+
+    // Unlike the skin and the canvas, this IS checked against a fixed list —
+    // it is a closed, two-value choice rather than an open set of renderer
+    // names, the same reasoning `set_actor_sections` applies to `card_size`.
+    it.each(["cover", "tile"])("accepts the fit %s", async (backgroundFit) => {
+      expect(
+        await write(alice.sub, alice.sonaRef, { backgroundFit }),
+      ).toBeNull();
+    });
+
+    it("refuses an unknown fit", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, { backgroundFit: "diagonal" }),
+      ).toMatch(/unknown fit/i);
+    });
+
+    // The regression: `jsonb_each_text` yields SQL NULL, not the string
+    // "null", for a JSON null value — so `length(NULL) > 500` and
+    // `NULL not in (…)` are themselves NULL, and neither `raise exception`
+    // fired. `{"accent": null}`, `{"cursor": null}` and the like were
+    // accepted and stored while the client never sends one — `setActorTheme`
+    // omits a key rather than writing null — a live divergence between the
+    // two the design says must agree. Every key shares the same per-key loop
+    // guard, so each is covered here rather than trusted by reading the SQL
+    // alone.
+    it.each([
+      "background",
+      "accent",
+      "canvasColours",
+      "cursor",
+      "density",
+      "speed",
+      "scale",
+      "skin",
+      "canvas",
+      "backgroundUrl",
+      "backgroundFit",
+    ])("refuses a null %s rather than silently storing it", async (key) => {
+      expect(await write(alice.sub, alice.sonaRef, { [key]: null })).toMatch(
+        /must not be null/i,
+      );
+    });
+
     // The byte cap is the backstop, and it guards the one hole the shape check
     // leaves open: a stop's COLOUR is not length-checked here, because which
     // colours exist is not a question the database answers. So a hostile client

@@ -26,11 +26,16 @@ export interface ThemeScopeProps {
  * `globals.css` under the reader's toggle, so somebody who needs a dark page
  * gets one — wearing the owner's colours rather than instead of them.
  *
- * **It emits one rule at `:root` and wraps nothing.** A theme is the whole
- * page: the field the body paints and the canvas mounted in the root layout are
- * both outside any element a page could scope to. An earlier version scoped its
- * rules to a nested `div`, which is exactly why the backdrop colours reached
- * the canvas and the accent reached the editor — neither.
+ * **It wraps nothing, and what it emits is up to three rules now** — see
+ * `themeCss`'s own doc for the account in full. The colours still go to
+ * `:root`, because a theme is the whole page: the field the body paints and
+ * the canvas mounted in the root layout are both outside any element a page
+ * could scope to. An earlier version scoped its rules to a nested `div`,
+ * which is exactly why the backdrop colours reached the canvas and the
+ * accent reached the editor — neither. The skin and the page's own
+ * background picture reach further elements of their own (`SKIN_SCOPE` and
+ * `body`, respectively) within the same `<style>` element this component
+ * emits, not a second one.
  *
  * A theme that overrides nothing emits no element at all, so an unthemed page
  * is byte-for-byte what it was before any of this existed.
@@ -42,7 +47,7 @@ export function ThemeScope({ theme, children }: ThemeScopeProps) {
   if (!css) return children;
   return (
     <>
-      {/* Generated from numbers, never from a stored string — see themeCss. */}
+      {/* Either generated or refused first, never stored raw — see themeCss. */}
       <style>{css}</style>
       {children}
     </>

@@ -281,9 +281,19 @@ export function parseGradient(value: unknown): Gradient | null {
 /**
  * The gradient as a CSS value.
  *
- * A **single stop renders as a flat colour**, not as a gradient from a colour
- * to itself. Browsers cope with either, but the flat form is what somebody
- * reading the stylesheet expects to see for a page that has one colour.
+ * A **single stop renders as a gradient from that colour to itself**, not as
+ * a bare `#rrggbb`. Visually the two are identical — a flat fill either way —
+ * but only the gradient form is a valid CSS `<image>`. This return value is
+ * `--field` (see `derivePalette`), and `--field` is now a LAYER in a
+ * multi-layer `background-image` list — `bodyBackgroundVars` in
+ * `actor-theme.ts` writes `background-image: url(picture), var(--field)` on
+ * `body` so an author's picture paints above their own colour. A bare colour
+ * is not a valid `<image>`, and one invalid layer makes the WHOLE
+ * `background-image` declaration invalid — which used to mean picking a
+ * single-stop background silently deleted the picture layer beside it. This
+ * used to say the flat form was kept because it is "what somebody reading the
+ * stylesheet expects" — true, and the wrong thing to optimise for once this
+ * value became load-bearing in a second sink it has no way to know about.
  *
  * Every number here is generated — angles and positions are rounded integers,
  * colours are rebuilt by `toHex` — so nothing a person typed reaches the
@@ -296,14 +306,23 @@ export function parseGradient(value: unknown): Gradient | null {
  * do something for every gradient somebody already had.
  *
  * @param gradient - the background.
- * @returns a CSS gradient, or a plain colour for one stop.
+ * @returns a CSS gradient — a degenerate one, from a colour to itself, for a
+ *   single stop.
  */
 export function gradientCss(gradient: Gradient): string {
   const stops = tidy(gradient.stops);
-  // One colour is a flat background whatever shape was chosen: a radial or a
-  // conic gradient between a colour and itself is the same flat colour, and
-  // saying so plainly is what somebody reading the stylesheet expects.
-  if (stops.length === 1) return stops[0]!.color;
+  // A degenerate gradient rather than a bare colour, even for one stop: this
+  // return value has to stay a valid CSS <image> at every stop count — see
+  // the doc above for why a bare colour broke silently the moment it became
+  // one layer of several.
+  if (stops.length === 1) {
+    return `linear-gradient(${stops[0]!.color}, ${stops[0]!.color})`;
+  }
+
+  // A radial or a conic gradient between a colour and itself is the same flat
+  // colour regardless of shape, so every kind collapses to the same linear
+  // form above for one stop — there is no "flat radial" to distinguish it
+  // from a "flat linear".
 
   const span = gradient.repeating ? gradient.every / 100 : 1;
   const parts = stops

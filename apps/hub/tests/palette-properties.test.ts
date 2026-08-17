@@ -59,11 +59,19 @@ describe("derivePalette, over every colour a person can pick", () => {
   // **The freedom, as a property.** The design renders an author's background
   // verbatim — no lift, no chroma cap — and `palette.test.ts` asserts that for
   // fifteen colours. It is true of all of them.
+  //
+  // "Verbatim" is the colour, not the literal string any more: `gradientCss`
+  // wraps a single stop as a degenerate gradient from that colour to itself
+  // rather than a bare `#rrggbb`, because `--field` is now a LAYER in `body`'s
+  // own `background-image` list beside an author's picture, and a bare colour
+  // is not a valid CSS `<image>` there. The chosen colour still reaches both
+  // ends of that gradient unchanged, which this still proves for all sixteen
+  // million of them.
   it("never alters the background it was given", () => {
     fc.assert(
       fc.property(hex, hex, (background, accent) => {
         expect(derivePalette(flat(background), accent)["--field"]).toBe(
-          background,
+          `linear-gradient(${background}, ${background})`,
         );
       }),
       { numRuns: 500 },

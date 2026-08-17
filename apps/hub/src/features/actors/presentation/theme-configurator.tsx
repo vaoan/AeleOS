@@ -65,6 +65,16 @@ import { tid } from "@/shared/infrastructure/test-id";
  * person's own profile. It is resolved even where no profile is offered, since
  * the panel decides whether to render the button and the catalogue does not.
  *
+ * `backgroundUrl`, `backgroundUrlHint` and `backgroundFit` name the page's
+ * own background PICTURE, grouped beside the cursor rather than the
+ * gradient — both are pasted addresses for a picture, and the gradient is
+ * the one colour control on this panel that is not. Another thing here whose
+ * name starts with "background", after the gradient's own `gradient.title`
+ * and the animation's `canvasGroup` — both of which exist because the
+ * earlier ones collided in Spanish. The copy for this one says "picture"
+ * explicitly for the same reason `canvasGroup` says "moving backdrop": a
+ * bare "Background" here would collide with the gradient's again.
+ *
  * `usingDefault` marks a colour nobody has chosen. A colour input always
  * carries a value, so without saying so the design's own colour reads as a
  * choice somebody made.
@@ -112,6 +122,22 @@ export interface ThemeConfiguratorLabels {
   cursorHint: string;
   /** Warns that a picture is too big for any browser to use as a cursor. */
   cursorTooBig: string;
+  /**
+   * Field label for the picture behind the whole page.
+   *
+   * Grouped beside the cursor rather than the gradient: both are pasted
+   * addresses for a picture, and the gradient is the one control on this
+   * panel that is not.
+   */
+  backgroundUrl: string;
+  /** Says the background picture is a link, and that it sits over the gradient. */
+  backgroundUrlHint: string;
+  /** Field label for the fit select — tiled, or scaled to cover the page. */
+  backgroundFit: string;
+  /** The fit select's option for `"cover"`. */
+  backgroundFitCover: string;
+  /** The fit select's option for `"tile"`. */
+  backgroundFitTile: string;
 }
 
 /**
@@ -170,6 +196,15 @@ export interface ThemeConfiguratorProps {
  * decides form — corners, border weight, shadow, gloss, the body's face — so
  * every pairing of a style and a palette is somebody's page. Tying the two
  * together would have collapsed nine styles into nine colour schemes.
+ *
+ * **A background picture sits beside the cursor, not the gradient.** Both are
+ * pasted addresses for a picture rather than a colour, and it sits OVER the
+ * gradient when rendered — `bodyBackgroundVars` layers both into one
+ * `background-image` on `body`, the element that actually paints the
+ * gradient, so a transparent or partial picture still shows the author's own
+ * colours beneath it. Its fit select appears only once there is a picture to
+ * place, the same rule the cursor's oversize warning and the section style
+ * popup's own fit select both follow.
  *
  * **One dial per row.** Three abreast left each about a third of the panel,
  * where the label, the multiplier and the track all competed and the track —
@@ -526,6 +561,73 @@ export function ThemeConfigurator({
               {oversized ? labels.cursorTooBig : labels.cursorHint}
             </p>
           </div>
+
+          {/* **Beside the cursor, not the gradient.** Both are pasted
+              addresses for a picture, and the gradient is the one colour
+              control on this panel that is not — grouping this here is
+              honest about what kind of control it is. Sits OVER the
+              gradient at render time; nothing here removes that field, so a
+              transparent or partial picture still shows it. */}
+          <div className="grid gap-1.5">
+            <label
+              htmlFor={`${id}-background-url`}
+              className="text-xs font-medium"
+            >
+              {labels.backgroundUrl}
+            </label>
+            <input
+              id={`${id}-background-url`}
+              type="url"
+              inputMode="url"
+              value={value.backgroundUrl ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  backgroundUrl: event.target.value || null,
+                })
+              }
+              aria-describedby={`${id}-background-url-hint`}
+              {...tid("theme-background-url")}
+              className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-1.5 text-sm"
+            />
+            <p
+              id={`${id}-background-url-hint`}
+              className="text-xs text-(--muted)"
+            >
+              {labels.backgroundUrlHint}
+            </p>
+          </div>
+
+          {/* **Only where there is a picture to place**, the same rule the
+              cursor's warning follows and the section popup's own fit select
+              follows: a control that changes nothing nobody can see is the
+              fault this project keeps trimming. */}
+          {value.backgroundUrl ? (
+            <div className="grid gap-1.5">
+              <label
+                htmlFor={`${id}-background-fit`}
+                className="text-xs font-medium"
+              >
+                {labels.backgroundFit}
+              </label>
+              <select
+                id={`${id}-background-fit`}
+                value={value.backgroundFit}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    backgroundFit: event.target
+                      .value as ActorTheme["backgroundFit"],
+                  })
+                }
+                {...tid("theme-background-fit")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="cover">{labels.backgroundFitCover}</option>
+                <option value="tile">{labels.backgroundFitTile}</option>
+              </select>
+            </div>
+          ) : null}
 
           {/* **Form, not colour** — see `skins.ts`. It sits above the canvas
               because it changes every surface on the page, which is the biggest

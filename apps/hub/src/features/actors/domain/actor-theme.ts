@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { parseHex, toHex } from "@/shared/domain/color";
-import { safeHttpUrl } from "@/features/actors/domain/embeds";
+import {
+  backgroundImageValue,
+  safeHttpUrl,
+} from "@/features/actors/domain/embeds";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import { CANVAS_RANGE, dial } from "@/shared/domain/canvas-motion";
 import {
@@ -94,6 +97,17 @@ export type CanvasId = (typeof CANVASES)[number];
  * see `CURSOR_MAX_PX` — and what may be written into a stylesheet is narrower
  * still; see `cursorUrl`.
  *
+ * A theme may also carry a **background picture** — `backgroundUrl` and
+ * `backgroundFit` — a link like the cursor, and like every other picture here:
+ * nothing is stored. It sits OVER the gradient as a second `background-image`
+ * LAYER on the same element the gradient paints on — see `bodyBackgroundVars`
+ * for why that has to be `body` rather than `:root` — so a transparent or
+ * partial picture still shows the author's own colours, and a page with a
+ * picture and no gradient still has the design's own field beneath it. See
+ * `backgroundImageValue` (`domain/embeds.ts`) for what may safely reach a
+ * stylesheet — an address it refuses paints nothing, the same rule the
+ * cursor follows.
+ *
  * The canvas's colours are a **list, one per part it paints with**, because how
  * many a canvas takes is the canvas's business — three cloud layers, three star
  * layers, four aurora curtains. Two named fields made every canvas reuse the
@@ -183,6 +197,29 @@ export interface ActorTheme {
    * smaller than people expect.
    */
   cursor: string | null;
+  /**
+   * A picture behind the whole page, as an address, or null for none.
+   *
+   * A link like every other picture here — nothing is stored, and the address
+   * is stored as pasted rather than pre-sanitised: `bodyBackgroundVars`,
+   * called from {@link themeCss}, is the one place it is turned into CSS,
+   * through `backgroundImageValue` (`domain/embeds.ts`), the same function
+   * `sectionStyle` uses for a section's own background picture. An address
+   * that function refuses paints nothing rather than throwing, exactly like
+   * every other field here.
+   */
+  backgroundUrl: string | null;
+  /**
+   * How the background picture is placed: tiled, or scaled to cover the page.
+   *
+   * Meaningless while {@link ActorTheme.backgroundUrl} is null, and not
+   * nullable itself — like `skin` and `canvas`, and unlike the cursor and the
+   * background picture's own address, there is no "nobody chose" state to
+   * express: a select always carries the name of what is picked, and
+   * `DEFAULT_THEME`'s value here is never rendered until there is a picture to
+   * place.
+   */
+  backgroundFit: "cover" | "tile";
 }
 
 /**
@@ -248,6 +285,11 @@ export function cursorUrl(raw: string | undefined): string | null {
  * and the skin, which is not: `default` is a real skin whose overrides happen
  * to be empty, so it expresses "nothing chosen" without needing null.
  *
+ * Includes the background picture's address, nullable like the cursor, and
+ * its fit, which is not — for the same reason the skin is not: a select
+ * always carries the name of what is picked, and the value renders nothing
+ * until there is a picture to place.
+ *
  * Includes the background, which is nullable like the rest: a page nobody has
  * themed follows the design and switches with the reader, exactly as it did
  * before any of this existed.
@@ -262,6 +304,8 @@ export const DEFAULT_THEME: ActorTheme = {
   canvasColours: null,
   canvas: "nebula",
   cursor: null,
+  backgroundUrl: null,
+  backgroundFit: "cover",
   skin: DEFAULT_SKIN,
   density: CANVAS_RANGE.default,
   speed: CANVAS_RANGE.default,
@@ -333,6 +377,12 @@ function colour(value: unknown): string | null {
  * The cursor goes through `cursorUrl`, which refuses anything that could close
  * the `url("…")` it will be written into.
  *
+ * The background picture's address is kept as pasted — a plain string check
+ * only, deferring safety to `themeCss`/`themeVars` through
+ * `backgroundImageValue`, exactly as `sectionStyle` defers a section's own
+ * background picture. Its fit falls back to {@link DEFAULT_THEME}'s when the
+ * stored value is not one of the two known ones.
+ *
  * The canvas colours go through the same rule as a gradient's stops: an entry
  * that is not a colour is dropped rather than defaulted, and a list left with
  * none is treated as absent.
@@ -363,6 +413,7 @@ export function parseTheme(value: unknown): ActorTheme {
       : {};
   const canvas = stored.canvas;
   const skin = stored.skin;
+  const backgroundFit = stored.backgroundFit;
   return {
     background: parseGradient(stored.background),
     accent: colour(stored.accent),
@@ -370,6 +421,12 @@ export function parseTheme(value: unknown): ActorTheme {
     cursor: cursorUrl(
       typeof stored.cursor === "string" ? stored.cursor : undefined,
     ),
+    backgroundUrl:
+      typeof stored.backgroundUrl === "string" ? stored.backgroundUrl : null,
+    backgroundFit:
+      backgroundFit === "cover" || backgroundFit === "tile"
+        ? backgroundFit
+        : DEFAULT_THEME.backgroundFit,
     canvas:
       typeof canvas === "string" &&
       (CANVASES as readonly string[]).includes(canvas)
@@ -393,7 +450,11 @@ export function parseTheme(value: unknown): ActorTheme {
  *
  * The canvas colours are a list of strings, and the cursor a string, both
  * checked for shape only — the rules that matter are enforced where each is
- * used.
+ * used. The background picture's address is pinned the same loose way, for
+ * the same reason: what may reach a stylesheet is `backgroundImageValue`'s
+ * decision, not this schema's. Its fit IS pinned to the two known values,
+ * like the gradient's own enums below, so the form cannot submit a fit the
+ * renderer has no branch for.
  *
  * The background is the gradient's shape rather than a string. Loose on the
  * colours by design — they are `#rrggbb` or null and nothing else
@@ -427,6 +488,8 @@ export const themeSchema = z.object({
   accent: z.string().nullable(),
   canvas: z.enum(CANVASES),
   cursor: z.string().nullable(),
+  backgroundUrl: z.string().nullable(),
+  backgroundFit: z.enum(["cover", "tile"]),
   skin: z.enum(SKINS),
   density: z.number(),
   speed: z.number(),
@@ -542,6 +605,13 @@ export function isThemed(theme: ActorTheme): boolean {
  * why, which is the same "control that does nothing" fault this feature has
  * already been trimmed for twice.
  *
+ * `backgroundFit` is deliberately absent from this test, for the same reason
+ * it is absent from {@link isThemed}: it renders nothing on its own while
+ * `backgroundUrl` is null, so a stray change to it with no picture set would
+ * be a "customised" flag for a change nobody can see — the exact control that
+ * does nothing this project keeps trimming. Only the address is checked, like
+ * the cursor.
+ *
  * @param theme - the theme.
  * @returns true when the theme differs from the default in any way.
  */
@@ -549,6 +619,7 @@ export function isCustomised(theme: ActorTheme): boolean {
   return (
     isThemed(theme) ||
     Boolean(theme.cursor) ||
+    Boolean(theme.backgroundUrl) ||
     theme.canvas !== DEFAULT_THEME.canvas ||
     theme.skin !== DEFAULT_THEME.skin ||
     theme.density !== DEFAULT_THEME.density ||
@@ -581,6 +652,80 @@ function declarations(properties: Record<string, string>): string {
   return Object.entries(properties)
     .map(([name, value]) => `${name}:${value}`)
     .join(";");
+}
+
+/**
+ * The page's own background picture, as a `body` rule's declarations.
+ *
+ * **On `body`, never at `:root`, and that is the one fact this function
+ * exists to get right.** `--field` — the author's gradient — is consumed by
+ * `body { background: var(--field) }` in `globals.css`. `body` is a
+ * descendant of `<html>` (`:root`) and its own background is OPAQUE, painted
+ * on top of whatever `<html>` shows beneath it — a browser paints an
+ * ancestor's background first and a descendant's over it, always, regardless
+ * of property order or specificity. An earlier version of this function
+ * wrote `background-image` into the `:root` rule instead, reasoning that
+ * spreading it in alongside `derivePalette`'s output would layer it "over"
+ * `--field` the way two properties compete within one cascade. They are not
+ * two properties in one cascade; they are backgrounds of two different
+ * elements, one entirely hidden behind the other, so the picture painted on
+ * an element nothing ever shows through. It rendered in every unit test that
+ * read the generated CSS **string** and in no browser.
+ *
+ * **The fix is to paint both layers on the SAME element `--field` already
+ * targets.** `background-image` accepts a comma-separated list where the
+ * FIRST layer paints on top, so this returns
+ * `background-image: url(picture), var(--field)` for `body`, gated on the
+ * visitor's own choice exactly like the `:root` rule — a page nobody has
+ * customised, or one whose picture is refused, gets no `body` rule at all
+ * and keeps the single-layer `background: var(--field)` `globals.css`
+ * already declares.
+ *
+ * **`--field` had to stop being a bare colour for one stop, for this to be
+ * sound.** A layer that is not a valid CSS `<image>` makes the WHOLE
+ * `background-image` list invalid — see `gradientCss` in `shared/domain/gradient.ts`,
+ * which now returns a degenerate gradient (a colour to itself) rather than a
+ * bare `#rrggbb`, precisely so `--field` stays usable here at every stop
+ * count.
+ *
+ * `background-repeat` and `background-size` are written as TWO values each,
+ * one per layer, because a shorter list would cycle across both and give the
+ * gradient the picture's own tiling. The picture gets the author's chosen
+ * fit; `--field` gets `no-repeat`/`cover` explicitly, matching what it
+ * already rendered as a single layer — a CSS gradient has no intrinsic size,
+ * so `cover` and the browser's own default resolve to the same fill either
+ * way, but leaving it implicit here would mean trusting that equivalence
+ * silently rather than saying it.
+ *
+ * **Reuses `backgroundImageValue`, the same function `sectionStyle` calls for
+ * a section's own background picture, rather than a second escaping path.**
+ * `themeCss` interpolates its result into a raw `<style>` block, where CSSOM
+ * offers no protection at all — that sink is exactly why `backgroundImageValue`
+ * refuses a `"` or a `\` outright rather than trusting `safeHttpUrl`'s own
+ * normalisation, which leaves both untouched in a URL's host or query. An
+ * address it refuses paints nothing here, precisely as it does for a section.
+ *
+ * `tile` and `cover` are the only two fits `ActorTheme` can hold, so the
+ * `else` branch below is `cover` for anything else that reaches this
+ * function directly — it is exported and its input is only typed, not
+ * proven.
+ *
+ * @param theme - the chosen theme.
+ * @returns the declarations for a `body` rule, or an empty object when there
+ *   is no picture or the address is refused.
+ */
+export function bodyBackgroundVars(theme: ActorTheme): Record<string, string> {
+  const image = backgroundImageValue(theme.backgroundUrl ?? undefined);
+  if (!image) return {};
+  const [repeat, size] =
+    theme.backgroundFit === "tile"
+      ? ["repeat", "auto"]
+      : ["no-repeat", "cover"];
+  return {
+    "background-image": `${image}, var(--field)`,
+    "background-repeat": `${repeat}, no-repeat`,
+    "background-size": `${size}, cover`,
+  };
 }
 
 /**
@@ -632,6 +777,14 @@ function declarations(properties: Record<string, string>): string {
  * there is nothing to solve the rest against. In practice that state is
  * unreachable from the editor — `withChosenColour` fills every colour the
  * moment one is picked — but the column predates all of this and may hold it.
+ *
+ * **The background PICTURE is NOT here**, and that is a correction rather
+ * than a design choice carried over from the start: `bodyBackgroundVars`
+ * emits it separately, on `body`, because that is the element `--field`
+ * actually paints. This return value belongs at `:root`, which `body` sits
+ * BENEATH — an opaque descendant background always paints over an ancestor's,
+ * so a `background-image` written here would be hidden behind `body`'s own
+ * and never render. See `bodyBackgroundVars`'s own doc for the full account.
  *
  * Its hex conversion is a module-level function now, not a closure rebuilt on every call: this runs for every render of every themed page.
  *
@@ -707,16 +860,17 @@ export function accentPreview(accentHex: string, background: Gradient): string {
 /**
  * A theme as CSS.
  *
- * **Two rules, and no media queries at all.** The media queries went when a
+ * **Three rules, and no media queries at all.** The media queries went when a
  * theme became one palette: it used to emit three selectors per scope so the
  * reader's light or dark choice could pick between two renderings, and there is
  * only one rendering now.
  *
- * The two rules are the colours and the skin, and they are separate because
- * they reach different things — the comment on the return says which and why.
- * Both carry the same gate on the visitor's choice, so leaving the theme leaves
- * all of it. Either may be empty, and a theme overriding nothing produces the
- * empty string, which is what lets `ThemeScope` render no element at all.
+ * The three rules are the colours, the skin and the body's own background
+ * picture, and each is separate because each reaches a different element —
+ * the comment on the return says which and why. All three carry the same gate
+ * on the visitor's choice, so leaving the theme leaves all of it. Any of them
+ * may be empty, and a theme overriding nothing produces the empty string,
+ * which is what lets `ThemeScope` render no element at all.
  *
  * **The rule is gated on the visitor's own choice.** A page wears its owner's
  * colours by default and a visitor may take them off — see `page-theme.ts` for
@@ -729,11 +883,31 @@ export function accentPreview(accentHex: string, background: Gradient): string {
  * version to a nested element is exactly why its colours reached neither — so
  * do not "tidy" the colours into the skin's selector.
  *
- * **Every value interpolated here is generated, never stored.** `themeVars`
- * builds them out of numbers, and the canvas name comes from a fixed list, so
- * nothing a person typed reaches this string. That is what makes emitting a
- * stylesheet safe; a raw stored value would let a `}` close the rule and
- * everything after it would be CSS somebody else wrote.
+ * **`body`, for the background picture, is its own rule and not folded into
+ * the `:root` one — this is load-bearing, not a style choice.** `--field`,
+ * the colour rule writes at `:root`, is consumed by `body`'s own
+ * `background`; `body` is a descendant of `:root` with an OPAQUE background
+ * of its own, and a descendant's background always paints over an ancestor's.
+ * A `background-image` written into the `:root` rule would sit on an element
+ * nothing ever shows — which is exactly what an earlier version of this did,
+ * and it rendered correctly in every test that read this function's return
+ * value as a **string** and in no browser at all, because a string assertion
+ * cannot see which element a selector reaches. `bodyBackgroundVars` writes
+ * `background-image: url(picture), var(--field)` on `body` itself instead,
+ * so the picture and the gradient are two LAYERS of one element's background
+ * rather than two elements stacked wrong. See its own doc for the account in
+ * full, including why `--field` can no longer be a bare colour.
+ *
+ * **Every value interpolated here is either generated or refused first, never
+ * stored raw.** Most of `themeVars` is built out of numbers, and the canvas
+ * and skin names come from fixed lists, so most of what reaches this string
+ * is not something a person typed at all. The two exceptions — the cursor and
+ * the background picture, both addresses somebody pasted — go through their
+ * own escaping (`cursorUrl`, `backgroundImageValue`) before this ever sees
+ * them, and each refuses anything that could close the rule rather than
+ * writing it verbatim. That is what makes emitting a stylesheet safe; a raw
+ * stored value would let a `}` close the rule and everything after it would
+ * be CSS somebody else wrote.
  *
  * Its declaration writer is a module-level function now rather than a closure, for the same reason `themeVars` has one — both run on every render of a themed page.
  *
@@ -749,18 +923,23 @@ export function themeCss(theme: ActorTheme): string {
   const gate = `:root:not([data-page-theme="default"])`;
   const root = declarations(themeVars(theme));
   const skin = declarations(skinVars(theme.skin));
+  const body = declarations(bodyBackgroundVars(theme));
   return [
     root ? `${gate}{${root}}` : "",
-    // **Two selectors, because the two halves reach different things.** Colour
-    // has to reach the canvas and the field, which are mounted outside anything
-    // a page can wrap, so it goes to the root. A skin only ever restyles
-    // surfaces, and every surface is inside the person's own content — so it
-    // stops there, and the bar above keeps the app's own shape. The visitor's
-    // language and theme controls live in that bar, and a control that changes
-    // form on somebody else's page is harder to recognise as one.
+    // **Three selectors, because the three halves reach different elements.**
+    // Colour has to reach the canvas and the field, which are mounted outside
+    // anything a page can wrap, so it goes to the root. A skin only ever
+    // restyles surfaces, and every surface is inside the person's own
+    // content — so it stops there, and the bar above keeps the app's own
+    // shape. The visitor's language and theme controls live in that bar, and
+    // a control that changes form on somebody else's page is harder to
+    // recognise as one. The background picture reaches `body`, because that
+    // is the element `--field` is consumed by — see the doc above for why
+    // this cannot be folded into the `:root` rule.
     //
-    // Both carry the same gate, so taking the theme off takes the style with
-    // it rather than leaving a page half in each.
+    // All three carry the same gate, so taking the theme off takes the style
+    // with it rather than leaving a page split between them.
     skin ? `${gate} .${SKIN_SCOPE}{${skin}}` : "",
+    body ? `${gate} body{${body}}` : "",
   ].join("");
 }

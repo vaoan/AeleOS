@@ -24,23 +24,33 @@ create table public.actor_profiles (
   --   item:    { title_en, title_es, description_en, description_es,
   --              icon?, image_url?, sort_order }
   --   type:    whatever is_section_type() accepts
-  --   style:   { skin?, background_url?, background_fit? } — how the SECTION
-  --            chooses to look, form only and never colour. Every key is
-  --            optional and absence means "inherit the page", exactly as the
-  --            theme's own keys work. `skin` is not checked against a list of
-  --            skins, for the same reason `set_actor_theme`'s page-level skin
-  --            is not: the renderer falls back for a name it does not know.
+  --   style:   { skin?, background_url?, background_fit?, card_size? } — how
+  --            the SECTION chooses to look, form only and never colour. Every
+  --            key is optional and absence means "inherit the page", exactly
+  --            as the theme's own keys work. `skin` is not checked against a
+  --            list of skins, for the same reason `set_actor_theme`'s
+  --            page-level skin is not: the renderer falls back for a name it
+  --            does not know. `card_size` (s/m/l) sets a minimum card width;
+  --            the browser decides how many fit.
   --
   -- This is NOT next-intl. Those catalogues are the app's own chrome, owned by
   -- the repository. These are a person's own words about their own character,
   -- stored as data — so a missing `*_es` is somebody who has not written the
   -- Spanish yet, which is an ordinary state and never an error.
   sections   jsonb not null default '[]'::jsonb,
-  -- How the owner chose their page to look: {background?, accent?, backdropA?,
-  -- canvasColours?, cursor?, canvas?}. `accent` is an `#rrggbb` string; `background` is
-  -- a gradient — {angle, stops: [{color, at}]} — and `canvasColours` is one
-  -- colour per part the chosen canvas paints with. Both are lists because a
-  -- fursona can carry more colours than any fixed set of fields would allow.
+  -- How the owner chose their page to look: {background?, accent?,
+  -- canvasColours?, cursor?, canvas?, backgroundUrl?, backgroundFit?}. `accent`
+  -- is an `#rrggbb` string; `background` is a gradient — {angle, stops:
+  -- [{color, at}]} — and `canvasColours` is one colour per part the chosen
+  -- canvas paints with. Both are lists because a fursona can carry more
+  -- colours than any fixed set of fields would allow.
+  --
+  -- `backgroundUrl` is a picture behind the whole page, an address like
+  -- `cursor` — nothing is stored — and `backgroundFit` is `cover` or `tile`.
+  -- It sits OVER `background`, the gradient, never in place of it: see
+  -- `bodyBackgroundVars` in the hub, which layers both into one
+  -- `background-image` on `body` — the element the gradient itself paints on,
+  -- not the `:root` rule the rest of the theme's colours reach.
   --
   -- The background is the one every other colour is solved against, which is
   -- what makes a custom theme one palette rather than a light and a dark
@@ -62,7 +72,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}], style?: {skin?, background_url?, background_fit?}}]. type is one of is_section_type()''s list, which now includes socials and posts. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. Validated by set_actor_sections.';
+  'Actor sections: [{name_en, name_es?, type, sort_order, items: [{title_en, title_es?, description_en, description_es?, icon?, image_url?, link_url?, sort_order}], style?: {skin?, background_url?, background_fit?, card_size?}}]. type is one of is_section_type()''s list, which now includes socials and posts. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) sets a minimum card width for the grid; the browser decides how many fit. Validated by set_actor_sections.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -395,9 +405,9 @@ begin
       end if;
     end loop;
 
-    -- A section's own style: {skin?, background_url?, background_fit?}. Form
-    -- only, never colour — see the column comment. Optional and absent as a
-    -- whole, exactly like every other key on a section.
+    -- A section's own style: {skin?, background_url?, background_fit?,
+    -- card_size?}. Form only, never colour — see the column comment. Optional
+    -- and absent as a whole, exactly like every other key on a section.
     if v_section ? 'style' then
       if jsonb_typeof(v_section -> 'style') is distinct from 'object' then
         raise exception 'section %: style must be an object', i using errcode = '22023';
@@ -436,6 +446,10 @@ begin
         elsif v_key = 'background_fit' then
           if v_value not in ('cover', 'tile') then
             raise exception 'section %: unknown background fit', i using errcode = '22023';
+          end if;
+        elsif v_key = 'card_size' then
+          if v_value not in ('s', 'm', 'l') then
+            raise exception 'section %: unknown card size', i using errcode = '22023';
           end if;
         else
           raise exception 'section %: unknown style key %', i, v_key using errcode = '22023';
@@ -478,6 +492,16 @@ revoke all on function public.set_fursona_featured(uuid, boolean) from public;
 -- legibility rule lives where the colour is rendered, not here.
 --
 -- An absent key means "override nothing", which is why nothing is required.
+--
+-- **A JSON null is refused for every key, up front.** `jsonb_each_text`
+-- yields SQL NULL, not the string "null", for one — so `length(v_value) >
+-- 500` and `v_value !~ '^#...'` below are themselves NULL and neither raises.
+-- The hub never sends one (`setActorTheme` omits a key rather than writing
+-- null, per the column comment), so without this a `{"accent": null}` or
+-- `{"cursor": null}` sent directly against this function was silently
+-- stored — a live divergence from the client this SQL is supposed to agree
+-- with, exactly the fault `set_actor_sections`'s style block was given this
+-- same guard for.
 create or replace function public.set_actor_theme(
   p_actor_ref uuid,
   p_theme     jsonb
@@ -508,6 +532,10 @@ begin
   end if;
 
   for v_key, v_value in select * from jsonb_each_text(p_theme) loop
+    if v_value is null then
+      raise exception 'theme key % must not be null', v_key using errcode = '22023';
+    end if;
+
     if v_key = 'background' then
       -- A gradient: {angle?, stops: [{color, at}]}. Shape and size only — which
       -- colours exist is not a question the database can answer, and the client
@@ -565,6 +593,25 @@ begin
       -- client does not guard already.
       if length(v_value) > 32 then
         raise exception 'canvas: name is too long' using errcode = '22023';
+      end if;
+    elsif v_key = 'backgroundUrl' then
+      -- A picture behind the whole page, like every other picture here.
+      -- Length only, for the same reason `cursor` is: which addresses exist
+      -- is not a question the database answers, and what may be written into
+      -- a stylesheet is enforced where it is written, by `backgroundImageValue`
+      -- in the hub.
+      if length(v_value) > 500 then
+        raise exception 'backgroundUrl: address is too long' using errcode = '22023';
+      end if;
+    elsif v_key = 'backgroundFit' then
+      -- Tiled or covering the page. Checked against this fixed pair, unlike
+      -- `skin` and `canvas`, for the same reason the section style block
+      -- checks `card_size` against its own: it is a closed, two-value
+      -- choice rather than an open set of renderer names that grows with no
+      -- migration here, so there is nothing lost by refusing a third value
+      -- at the write.
+      if v_value not in ('cover', 'tile') then
+        raise exception 'backgroundFit: unknown fit' using errcode = '22023';
       end if;
     else
       raise exception 'unknown theme key %', v_key using errcode = '22023';

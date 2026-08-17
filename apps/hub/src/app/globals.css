@@ -441,6 +441,13 @@ option {
 }
 
 body {
+  /* A themed page with a background picture overrides `background-image`
+   * here with a higher-specificity rule injected by `themeCss`
+   * (`bodyBackgroundVars` in actor-theme.ts): `url(picture), var(--field)`,
+   * so the picture layers over this same gradient rather than being painted
+   * on `<html>`, which this element's own opaque background would hide
+   * completely. That injected rule targets `body` deliberately, for that
+   * reason — do not move `--field`'s consumer off this element. */
   background: var(--field);
 
   /* Fixed, so the gradient is the window's rather than the document's: a long

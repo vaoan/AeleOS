@@ -79,6 +79,11 @@ const LABELS: ThemeConfiguratorLabels = {
   cursor: "Cursor picture",
   cursorHint: "A link to a small picture.",
   cursorTooBig: "That picture is too big.",
+  backgroundUrl: "Background picture",
+  backgroundUrlHint: "A link to a picture, over your gradient.",
+  backgroundFit: "Fit",
+  backgroundFitCover: "Cover",
+  backgroundFitTile: "Tile",
 };
 
 /**
@@ -156,6 +161,51 @@ describe("ThemeConfigurator", () => {
       expect(screen.getByTestId("theme-animation")).toContainElement(
         screen.getByTestId("theme-canvas"),
       );
+    });
+  });
+
+  describe("the background picture", () => {
+    it("changes the address", () => {
+      const onChange = openPanel();
+      fireEvent.change(screen.getByTestId("theme-background-url"), {
+        target: { value: "https://example.test/wallpaper.png" },
+      });
+      expect(onChange).toHaveBeenCalledWith({
+        ...DEFAULT_THEME,
+        backgroundUrl: "https://example.test/wallpaper.png",
+      });
+    });
+
+    // The same control-that-does-nothing rule as the canvas dials: a fit
+    // select is pointless while there is no picture to place.
+    it("offers no fit until there is a picture", () => {
+      openPanel();
+      expect(
+        screen.queryByTestId("theme-background-fit"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("offers the fit once there is a picture", () => {
+      openPanel({
+        ...DEFAULT_THEME,
+        backgroundUrl: "https://example.test/wallpaper.png",
+      });
+      expect(screen.getByTestId("theme-background-fit")).toBeInTheDocument();
+    });
+
+    it("changes the fit", () => {
+      const onChange = openPanel({
+        ...DEFAULT_THEME,
+        backgroundUrl: "https://example.test/wallpaper.png",
+      });
+      fireEvent.change(screen.getByTestId("theme-background-fit"), {
+        target: { value: "tile" },
+      });
+      expect(onChange).toHaveBeenCalledWith({
+        ...DEFAULT_THEME,
+        backgroundUrl: "https://example.test/wallpaper.png",
+        backgroundFit: "tile",
+      });
     });
   });
 });

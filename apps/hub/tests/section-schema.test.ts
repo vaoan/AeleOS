@@ -165,10 +165,19 @@ describe("a section's style", () => {
             skin: "glass",
             background_url: "https://example.test/bg.png",
             background_fit: "cover",
+            card_size: "m",
           },
         }),
       ]),
     ).toBe(true);
+  });
+
+  it.each(["s", "m", "l"])("accepts the %s card size", (size) => {
+    expect(accepts([section({ style: { card_size: size } })])).toBe(true);
+  });
+
+  it("refuses a card size it cannot render", () => {
+    expect(accepts([section({ style: { card_size: "xl" } })])).toBe(false);
   });
 });
 
@@ -191,7 +200,7 @@ describe("readSectionsSchema", () => {
   // render.
   it("strips an unknown style key rather than refusing the whole section", () => {
     const withUnknownKey = section({
-      style: { skin: "glass", card_size: "lg" },
+      style: { skin: "glass", corner_radius: "8px" },
     });
     const parsed = readSectionsSchema.parse([withUnknownKey]);
     expect(parsed[0]?.style).toEqual({ skin: "glass" });

@@ -1,6 +1,7 @@
 # Section personality — embeds, per-section form, and an editor that admits what it governs
 
-**Status:** design, approved 2026-08-15. **Phase C shipped 2026-08-16.**
+**Status:** design, approved 2026-08-15. **Phase D shipped 2026-08-16 — this
+spec is complete.**
 **Supersedes nothing.** Extends `2026-08-13-fursona-studio-port-design.md` and the
 per-profile theming recorded in `apps/hub/src/features/actors/CLAUDE.md`.
 
@@ -252,12 +253,12 @@ style?: {
 }
 ```
 
-**`card_size` shipped in neither the schema nor the popup.** It was drawn here
-as part of the original shape, before phasing split the work; it moved to
-**Phase D**, alongside the `auto-fill` grid in §5 that is the only thing that
-would ever read it. A schema key with no renderer is the "control that does
-nothing" fault this project keeps catching, worn by a column instead of a
-button — so the two ship together or not at all.
+**`card_size` did not ship with C.** It was drawn here as part of the original
+shape, before phasing split the work; it moved to **Phase D**, alongside the
+`auto-fill` grid in §5 that is the only thing that would ever read it, and
+shipped there — see Phasing below. A schema key with no renderer is the
+"control that does nothing" fault this project keeps catching, worn by a
+column instead of a button — so the two shipped together, not separately.
 
 All three are optional. **Absent means "inherit the page"**, which is the same
 resting state the theme's own keys have and for the same reason: absence is a
@@ -394,10 +395,21 @@ never true and this is when that is fixed.
 becoming a three-column grid at `lg`. Its own TSDoc argues for the scroll row at
 length and then apologises for it on phones.
 
-It becomes `repeat(auto-fill, minmax(var(--card-size), 1fr))`, the size coming
-from the section's `card_size`. The author picks how big a card is; the browser
-picks how many fit. That is "the amount and the size change with the screen"
-without a breakpoint guess anywhere.
+It becomes `repeat(auto-fill, minmax(min(var(--card-size), 100%), 1fr))`, the
+size coming from the section's `card_size`. The author picks how big a card
+is; the browser picks how many fit. That is "the amount and the size change
+with the screen" without a breakpoint guess anywhere.
+
+The `min(…, 100%)` clamp is load-bearing, not decoration: `minmax`'s lower
+bound is a floor, and a bare `minmax(size, 1fr)` does not shrink that floor
+when the container is narrower than `size` — the collapsed single column
+stays exactly `size` wide and overflows rather than shrinking to fit.
+Measured in Chromium at a 320px viewport: the unguarded template left
+`document.documentElement.scrollWidth` at 336 against an `innerWidth` of 320,
+real horizontal scroll on a real phone; the clamped form measured 0px of
+overflow at every width tried, with identical layout at 1280px where the
+floor was never the binding constraint. `card-size-grid.spec.ts` is what
+stands guard against this regressing.
 
 `carousel` keeps scrolling sideways at every size, and that remains the honest
 difference between the two: one is a set of cards, the other is a thing you swipe
@@ -473,8 +485,19 @@ first written. See "Every bug gets a regression test" in the root `CLAUDE.md`
 for the fault and the fix; it is not particular to per-section form and is
 recorded there rather than here.
 
-**D — cards and the page background.** The `auto-fill` grid, the `card_size`
-dial it consumes, and the page-level background picture.
+**D — cards and the page background — done, 2026-08-16.** The `auto-fill`
+grid, the `card_size` dial it consumes, and the page-level background
+picture. `card_size` landed here rather than in C with the rest of the style
+bag for exactly the reason §3 gives: it was drawn into the schema's original
+shape before phasing split the work, and shipping it before the grid that
+reads it existed would have been a schema key nothing renders — the "control
+that does nothing" fault this project keeps catching. It ships in the same
+change as the grid instead, so no schema key ever shipped ahead of its own
+renderer.
+
+This phase completes the spec: every move in "What this is for" — the
+provider table, `posts` and `socials`, per-section form, and now the cards
+grid and the page background — is built.
 
 ## What must not be undone
 

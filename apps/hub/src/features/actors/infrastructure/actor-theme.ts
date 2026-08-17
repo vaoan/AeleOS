@@ -18,6 +18,11 @@ import { readActorPage } from "@/features/actors/infrastructure/actor-page";
  * The cursor travels as an address; nothing is stored, as with every other
  * picture here.
  *
+ * The background picture's address travels the same way, and only when
+ * chosen. Its fit travels unconditionally, alongside the canvas and the
+ * skin, because it is not nullable either — there is no "nobody chose a fit"
+ * state to omit, only one the picture happens to be absent for.
+ *
  * The three canvas dials travel as numbers and are never null: there is no such
  * thing as an absent multiplier, since one IS the absence.
  *
@@ -58,11 +63,13 @@ export async function setActorTheme(
     density: theme.density,
     speed: theme.speed,
     scale: theme.scale,
+    backgroundFit: theme.backgroundFit,
   };
   if (theme.background) stored.background = theme.background;
   if (theme.accent) stored.accent = theme.accent;
   if (theme.canvasColours) stored.canvasColours = theme.canvasColours;
   if (theme.cursor) stored.cursor = theme.cursor;
+  if (theme.backgroundUrl) stored.backgroundUrl = theme.backgroundUrl;
 
   const { error } = await client.rpc("set_actor_theme", {
     p_actor_ref: actorRef,

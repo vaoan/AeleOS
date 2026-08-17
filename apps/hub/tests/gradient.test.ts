@@ -167,10 +167,16 @@ describe("gradientCss", () => {
     ).toBe("linear-gradient(45deg, #ff0000 0%, #0000ff 100%)");
   });
 
-  // Browsers cope with a gradient from a colour to itself, but the flat form is
-  // what somebody reading the stylesheet expects for a one-colour page.
-  it("writes a single stop as a flat colour", () => {
-    expect(gradientCss(g([["#ff0000", 0]]))).toBe("#ff0000");
+  // A degenerate gradient rather than a bare colour, even for one stop: it
+  // renders identically (a flat fill) but stays a valid CSS <image>, which a
+  // bare colour is not — `--field` is this value, and it is now a LAYER in
+  // `body`'s own `background-image` list beside an author's picture (see
+  // `bodyBackgroundVars` in actor-theme.ts). One invalid layer makes the
+  // whole `background-image` declaration invalid.
+  it("writes a single stop as a gradient from that colour to itself", () => {
+    expect(gradientCss(g([["#ff0000", 0]]))).toBe(
+      "linear-gradient(#ff0000, #ff0000)",
+    );
   });
 
   it("writes them in order however they arrive", () => {
@@ -605,9 +611,11 @@ describe("gradientCss, by kind", () => {
     );
   });
 
-  it("is a flat colour for one stop, whatever shape was chosen", () => {
+  it("is a flat gradient for one stop, whatever shape was chosen", () => {
     for (const kind of ["linear", "radial", "conic"] as const) {
-      expect(gradientCss(g([["#123456", 0]], 0, { kind }))).toBe("#123456");
+      expect(gradientCss(g([["#123456", 0]], 0, { kind }))).toBe(
+        "linear-gradient(#123456, #123456)",
+      );
     }
   });
 });

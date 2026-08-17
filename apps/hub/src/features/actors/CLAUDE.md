@@ -581,14 +581,19 @@ decisions, so they are not quietly undone:
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once
   depended on which mode they happened to be editing in.
-- **The emitted CSS is two rules, and the split is deliberate.** The COLOURS go
-  to `:root`, because a palette is the whole page — the field the body paints
-  and the canvas in the root layout are both outside anything a page could
-  scope to, and scoping to a nested element is exactly why an earlier version
-  reached neither. The SKIN goes to `SKIN_SCOPE`, the person's own content,
-  because a skin only ever restyles surfaces and every surface is inside it.
-  Both carry the same gate on the visitor's choice, so leaving the theme leaves
-  all of it. Do not tidy the colours into the skin's selector.
+- **The emitted CSS is three rules since `b158b66`, and the split is
+  deliberate.** The COLOURS go to `:root`, because a palette is the whole
+  page — the field the body paints and the canvas in the root layout are both
+  outside anything a page could scope to, and scoping to a nested element is
+  exactly why an earlier version reached neither. The SKIN goes to
+  `SKIN_SCOPE`, the person's own content, because a skin only ever restyles
+  surfaces and every surface is inside it. The page's own BACKGROUND PICTURE
+  goes to `body` itself, because that is the element `--field` is consumed
+  by — see "The page's own background picture" below for the full account of
+  why that one cannot be folded into the `:root` rule the way it first was.
+  All three carry the same gate on the visitor's choice, so leaving the theme
+  leaves all of it. Do not tidy the colours into the skin's selector, and do
+  not fold the picture back into `:root`.
 
 ### How a visitor gets out
 
@@ -732,6 +737,7 @@ style?: {
   skin?: SkinId;
   background_url?: string;
   background_fit?: "cover" | "tile";
+  card_size?: "s" | "m" | "l";
 }
 ```
 
@@ -752,12 +758,34 @@ would collapse that into as many colour schemes as there are skins. This was
 a decision, not an oversight — see the section-personality spec's "What must
 not be undone."
 
-**`card_size` is not one of these keys either, not yet.** It was drawn into
-the schema's original shape before phasing split the work, and shipped in
-neither the schema nor this popup: nothing renders it, and a schema key
-nothing renders is the "control that does nothing" fault this project keeps
-catching, worn by a column instead of a button. It belongs to Phase D, beside
-the `auto-fill` cards grid that is the only thing that would ever read it.
+**`card_size` is in both the schema and this popup now (Phase D).** It sets a
+**minimum** card width — the author picks the size, not the count, and the
+browser decides how many fit at that width, the same way an `auto-fill` grid
+track always has. `Cards`' template wraps the minimum in `min(var(--card-size),
+100%)` **for every size, not only the large one**: `minmax`'s lower bound is a
+floor, not a suggestion, so a bare `minmax(size, 1fr)` does not shrink below
+`size` even when the container is narrower — `auto-fill` collapses the
+_count_ to one column, but that surviving column still overflows. `l`'s 20rem
+produced 16px of real horizontal scroll at a 320px phone width, measured on
+the live app before the `min(…, 100%)` wrapper was added. Write this down
+again if it is ever tempted away as redundant — it is the fix, not decoration.
+
+**The control is gated on the `cards` layout; the stored value is not.** The
+field is hidden in the popup for any other layout, but `style.card_size`
+itself is untouched by that gating — nothing writes to it except a change on
+the select — so switching a section's layout away from `cards` and back finds
+the choice still there. This is what resolves two rules that read as if they
+conflicted: "a layout that renders no field must not offer it" (above), and
+`0009`'s deliberate keeping of `icon`/`image_url` on every item regardless of
+layout. `card_size` is the first key in the style bag that only ONE layout's
+CSS ever reads — every other style key is layout-agnostic — and this
+gate-the-field-not-the-value shape is the pattern for the next key that is
+this narrow.
+
+`carousel` keeps scrolling sideways **at every size**, and that remains the
+honest difference between the two layouts: `cards` is a set of cards sized by
+`card_size`, `carousel` is a thing you swipe through regardless of size,
+chosen by picking a different layout by name — not a setting on this one.
 
 #### The nesting fix, and why `skinVars` was left alone
 
@@ -810,6 +838,71 @@ garish as they like: the page-level escape hatch is what makes the freedom
 safe, and correcting somebody's page behind their back — even one section of
 it — is exactly what `palette.test.ts` asserts against. Do not read an
 unreadable section as a gap to close; it is the freedom working as designed.
+
+### The page's own background picture (Phase D)
+
+A theme carries one page-level picture, `backgroundUrl`/`backgroundFit`,
+distinct from a section's own — a link like every other picture here, nothing
+stored. It renders as a **second `background-image` layer on `body`**, above
+`var(--field)`, the gradient `globals.css` already paints there — never at
+`:root`. That is not a stylistic choice; it is the one fact `bodyBackgroundVars`
+(`domain/actor-theme.ts`) exists to get right. `body` is a descendant of
+`:root` with its own OPAQUE background, and a browser always paints a
+descendant's background over its ancestor's, regardless of property order or
+specificity. An earlier version wrote the picture into the `:root` rule,
+reasoning it would layer "over" `--field` the way two properties compete
+within one cascade — they are not two properties in one cascade, they are the
+backgrounds of two different elements, one entirely hidden behind the other,
+so the picture painted on an element nothing ever shows through and never
+appeared at all.
+
+**The tests missed it because every one of them asserted the generated CSS as
+a string.** Property order within one rule was correct; the order that
+mattered — paint order across two elements, `body` over `:root` — was wrong,
+and a string assertion cannot see which element a selector reaches. Any test
+added for a similar layering bug has to look at the rendered DOM, not the
+string `themeVars`/`themeCss` returns.
+
+**`gradientCss` (`shared/domain/gradient.ts`) now emits
+`linear-gradient(#rrggbb, #rrggbb)` for a one-stop gradient, never a bare
+colour**, because a bare colour is not a valid CSS `<image>` and cannot sit in
+a `background-image` list beside the picture. Visually identical to the flat
+colour it replaces; required only so `--field` stays usable as a layer at
+every stop count, including one.
+
+**It reuses `backgroundImageValue` (`domain/embeds.ts`)**, the same function a
+section's own background picture goes through, rather than a second escaping
+path. That function refuses any address containing a `"` or a `\` outright,
+and the reason is where the value lands: `themeCss` interpolates it into a raw
+`<style>` block, where CSSOM offers no protection at all — unlike
+`sectionStyle`'s `style` object, which a browser's CSSOM happens to reject if
+malformed. The refusal, not the sink, is what makes the value safe in that
+context; trusting it only because of where it currently lands would be a trap
+for whichever sink reuses it next.
+
+**One residual — measured, not merely reasoned about.** `globals.css`'s
+`body` rule keeps its own `background-attachment: fixed`, which
+`bodyBackgroundVars`'s injected rule never restates — it sets only
+`background-image`, `background-repeat` and `background-size`. That a single
+`fixed` value applies to BOTH layers rather than only the first follows from
+CSS's own value-cycling rule for multi-layer backgrounds — a
+shorter-than-`background-image` list of any other `background-*` property
+repeats its values across the remaining layers — and this was watched happen
+in a real Chromium rather than left to that reasoning alone: `getComputedStyle(document.body).backgroundAttachment`
+resolves to `fixed, fixed` on a themed page, and a real 137px scroll down a
+3000px-tall page left a screenshot byte-identical before and after, while a
+control built with `background-attachment: fixed, scroll` changed visibly
+under the same scroll — proof the check has power to fail, not only pass. Do
+not read the earlier draft of this paragraph, which called this unverified,
+as still current.
+
+`backgroundImageValue` itself **lives in `embeds.ts` (domain), not
+`presentation/public-sections.tsx`**, where it was written first. It moved
+because `actor-theme.ts` is a domain file and `eslint-plugin-boundaries`
+forbids a domain file importing presentation; its presentation-layer home was
+an accident nobody had reason to notice until a domain caller needed it too.
+`public-sections.tsx` re-exports it unchanged, so nothing importing it from
+there had to move.
 
 ### Canvases
 
@@ -949,3 +1042,16 @@ choice may not overrule it.
   profile included. A person
   carries the sanction and must not shed it by switching persona; a page that
   ignores the owner's status sheds it in the one place strangers look.
+
+## Two operational traps, so nobody loses time to them a third time
+
+- **Neither `pnpm test:e2e` nor a bare `npx playwright test` loads
+  `apps/hub/.env.local`.** It has to be sourced manually, in the same shell
+  invocation as the test command. Skip it and the failures look like broken
+  Clerk auth or a missing Supabase project, not a missing environment
+  variable — two separate agents already lost time chasing that instead.
+- **Run `pnpm lint` from the repository root, never from `apps/hub`.** From the
+  app, `tailwindcss` resolves from the wrong place and nine
+  `better-tailwindcss` rules silently disable themselves — see rule 1 in the
+  root `CLAUDE.md`'s toolchain section — so the run reports a false clean
+  instead of failing.

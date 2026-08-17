@@ -110,6 +110,16 @@ describe("the client's style limits", () => {
       .map((value) => value.trim().replaceAll("'", ""));
     expect(values?.toSorted()).toEqual(["cover", "tile"]);
   });
+
+  it("the card size values match 0009's style block", () => {
+    const found = styleBlock?.match(
+      /v_key = 'card_size' then[\s\S]*?v_value not in \(([^)]+)\)/,
+    );
+    const values = found?.[1]
+      .split(",")
+      .map((value) => value.trim().replaceAll("'", ""));
+    expect(values?.toSorted()).toEqual(["l", "m", "s"]);
+  });
 });
 
 describe("the client's layout list", () => {

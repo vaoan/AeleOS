@@ -1,10 +1,17 @@
 import { ExternalLink, Plus, Quote as QuoteMark } from "lucide-react";
 import { contentFor } from "@/features/actors/domain/actor-content";
 import {
+  backgroundImageValue,
   resolveEmbed,
   safeHttpUrl,
   type EmbedShape,
 } from "@/features/actors/domain/embeds";
+
+// Re-exported so this stays the one place `sectionStyle`'s tests and callers
+// import it from — it moved to `embeds.ts` so `themeVars` in
+// `domain/actor-theme.ts` could reuse the identical function without a
+// domain file importing this presentation one; see its own doc there for why.
+export { backgroundImageValue } from "@/features/actors/domain/embeds";
 import type {
   FursonaSection,
   FursonaSectionItem,
@@ -66,55 +73,47 @@ const wordsOf = (item: FursonaSectionItem, locale: string) => ({
 const keyOf = (order: number, label: string) => `${order}-${label}`;
 
 /**
- * A CSS `url("…")` value built from a pasted address, or `undefined` when
- * the address must not be trusted with one.
- *
- * **A second refusal on top of `safeHttpUrl`'s own, scoped to what THIS
- * function does with the result.** `safeHttpUrl` rules out a scheme that could
- * execute something; that alone is not enough here, because this value gets
- * interpolated into a double-quoted CSS string. `safeHttpUrl`'s WHATWG
- * normalisation percent-encodes a stray `"` in a path or query, but **leaves
- * one in the HOST untouched** — confirmed directly:
- * `new URL('https://ex"ample.test/a.png').toString()` keeps the quote
- * verbatim. An address whose serialised form still contains a `"` would
- * therefore close the CSS string early, so it is refused outright here,
- * before this function ever builds a value from it.
- *
- * **A backslash is refused for the identical reason, and normalisation does
- * not help here either.** A stray `\` surviving in the query or fragment —
- * `new URL('https://example.test/?x\\').toString()` keeps it verbatim, the
- * same untouched-by-percent-encoding gap the host quote has — sits directly
- * before the closing `"` this function appends, so the built value ends
- * `…\"`, which CSS reads as an ESCAPED quote rather than the string's own
- * closing one: the string never closes, and everything after is appended to
- * it. Nothing downstream is exploitable today only because everything after
- * that point happens to be app-generated, which is ordering, not a
- * guarantee — the same trap this function exists to close for the host
- * quote.
- *
- * **This refusal exists independently of whichever sink renders the
- * result.** A browser's CSSOM happens to reject a malformed `style`
- * declaration today, which is why nothing is exploitable yet through
- * {@link sectionStyle}'s own `style` object — but that is defence in depth,
- * not the reason this is safe. `themeCss` elsewhere in this feature
- * interpolates a value into a raw `<style>` block, which gets no such
- * protection for free; a value trusted only because of where it currently
- * lands is a trap for whichever sink reuses it next. Refusing the quote by
- * construction, here, is what makes the returned value safe in ANY CSS
- * context.
- *
- * @param url - the address an author pasted, or `undefined` when they left
- *   it unset.
- * @returns a `url("…")` value safe to interpolate into a CSS declaration, or
- *   `undefined` when the address is absent, not http(s), or would break out
- *   of its own quoting.
+ * The `card_size` an author may choose, derived from the schema's own enum
+ * rather than restated — so a value {@link CARD_SIZE_MIN} does not cover is a
+ * compile error here, not a silent `undefined`.
  */
-export function backgroundImageValue(
-  url: string | undefined,
-): string | undefined {
-  const href = safeHttpUrl(url);
-  return href && !/["\\]/.test(href) ? `url("${href}")` : undefined;
-}
+type CardSize = NonNullable<NonNullable<FursonaSection["style"]>["card_size"]>;
+
+/**
+ * The minimum a card in {@link Cards}'s grid may shrink to, by the size an
+ * author chose.
+ *
+ * **The one place these values are written.** `sectionStyle` reads `s`, `m`
+ * or `l` from here to fill `--card-size`, and `Cards`'s own template — what
+ * `var()` falls back to when a section chose none — interpolates `m`'s entry
+ * directly rather than restating it, so there is exactly one number to have
+ * gotten wrong per size, not two kept in step by hand.
+ *
+ * **Chosen so a minimum wider than the viewport is the SMALL screen's
+ * behaviour — one column, not an overflow.** A bare `auto-fill`/`minmax`
+ * collapses to one column the moment the minimum exceeds what is
+ * available, but the collapsed column does **not** shrink below that
+ * minimum — the lower bound of `minmax` is a floor, not a suggestion, so
+ * that one column overflows its container by exactly the difference. `l`'s
+ * 20rem (320px) is wider than the ~288px a 320px phone has left after the
+ * page's own padding — `responsive.spec.ts`'s narrowest supported width —
+ * so `l` alone would overflow by 16px there, real horizontal scroll on a
+ * phone. `Cards` wraps every size's minimum in CSS's own `min()` against
+ * `100%` for exactly this reason: that clamps the floor to the container's
+ * own width, uniformly, so no size — not `l` today, not a wider one added
+ * later — can ever push past it, on any container this ever renders
+ * inside. On a laptop-width page (roughly 1200px of content, where every
+ * size already fits) the clamp changes nothing: `s` still spreads across
+ * several columns and `l` still gives a clean row of its own, confirmed
+ * against a real layout engine in `card-size-grid.spec.ts`, because what
+ * `auto-fill` actually resolves to is the browser's decision, not this
+ * file's.
+ */
+const CARD_SIZE_MIN: Record<CardSize, string> = {
+  s: "12rem",
+  m: "16rem",
+  l: "20rem",
+};
 
 /**
  * A section wrapper's own inline style — its chosen skin, its background
@@ -155,6 +154,15 @@ export function backgroundImageValue(
  * than rendered: nothing is painted, never something built from what was
  * typed.
  *
+ * `card_size` becomes `--card-size` through {@link CARD_SIZE_MIN}, read only
+ * by `Cards` — every other layout ignores a property it never declares an
+ * interest in, which is what lets this live on the same wrapper as the skin
+ * and the background rather than needing a layout-specific style path. Left
+ * out of the returned object when the author chose none, so `Cards` falls
+ * through to its own literal default — sections are SIBLINGS under one grid
+ * container, never ancestor and descendant, so there is no other section's
+ * value to inherit in the first place.
+ *
  * @param style - the section's own style bag, or `undefined` when the author
  *   left it unset.
  * @returns inline styles to spread onto the wrapper, or `undefined` when
@@ -178,6 +186,18 @@ export function sectionStyle(
     }
   }
 
+  // `--card-size` is read by `Cards`, several elements further down the
+  // tree, exactly the way `--skin-round` and the rest already are — a
+  // custom property set here and left to inherit, rather than a value
+  // threaded through `LAYOUTS` as a prop. Absent when the author chose none,
+  // so the grid falls through to its own literal default. Sections are
+  // SIBLINGS under one grid container, not ancestor and descendant, so one
+  // section's custom property was never reachable from another's in the
+  // first place — the fallback is not preventing a leak between them; it is
+  // simply what a `var()` with no value set on this element and nothing to
+  // inherit resolves to.
+  if (style.card_size) vars["--card-size"] = CARD_SIZE_MIN[style.card_size];
+
   return Object.keys(vars).length > 0 ? vars : undefined;
 }
 
@@ -194,30 +214,47 @@ const CARD_ICON = "circle-dot";
 /**
  * A section laid out as cards.
  *
- * **A row that scrolls sideways until it is wide enough to be a grid**, which
- * is Libra's structure and the part two earlier attempts here missed. Cards are
- * fixed-width tiles: `w-56` while the row scrolls, `lg:w-auto` once three of
- * them fit. A fluid `sm:grid-cols-2 lg:grid-cols-3` was what this had before,
- * and a fluid grid of bordered boxes does not read as cards — it reads as a
- * list that happens to have gaps in it.
+ * **The author says how big a card is; the browser says how many fit.** The
+ * grid's `grid-template-columns` reads `repeat(auto-fill, minmax(min(var(--card-size, DEFAULT), 100%), 1fr))`,
+ * where `DEFAULT` is {@link CARD_SIZE_MIN}'s `m` entry, interpolated in
+ * directly rather than typed out again. `--card-size` is an author-chosen
+ * minimum set by {@link sectionStyle} on the wrapping `<section>` and read
+ * here purely through CSS inheritance, exactly the way `--skin-round`
+ * already reaches every `rounded-xl` beneath it. No breakpoint is guessed
+ * anywhere: the grid places as many columns as fit at that width and gives
+ * each an equal share of what is left, at every viewport, with no
+ * `sm:`/`lg:` step between them.
  *
- * **On a phone they stack, and the row starts at `sm`.** A 224px tile beside
- * another one on a 360px screen shows a card and a sliver of the next, which
- * reads as the page having been cut rather than as an invitation to swipe — and
- * a sideways scroll inside a page that itself scrolls down is the gesture most
- * often missed entirely. So the smallest screen gets full-width cards, one per
- * row. The argument above still holds everywhere it can be seen: the tiles, the
- * icon anchors and the row all survive from `sm` up.
+ * **The `min(…, 100%)` wrapper is load-bearing, not decoration.** Bare
+ * `minmax(size, 1fr)` does not shrink its floor when the container is
+ * narrower than `size` — the collapsed single column stays exactly `size`
+ * wide and overflows. `min(size, 100%)` clamps that floor to the
+ * container's own width, so no chosen size can ever push a card wider than
+ * the space it has, on any container this renders inside — see
+ * {@link CARD_SIZE_MIN} for the measured case this closes and
+ * `card-size-grid.spec.ts` for the browser-level guard against it
+ * regressing.
  *
- * `carousel` is the layout that keeps scrolling sideways at every size, and
- * that is the difference between the two: one is a set of cards, the other is
- * a thing you swipe through. Somebody who wants the second picks it by name.
+ * **This replaced a row that scrolled sideways until it was wide enough to be
+ * a grid** — fixed `w-56` tiles below `lg`, three fixed columns above it. That
+ * design's own doc argued for the scroll row at length and then apologised
+ * for it on phones, because a fixed tile width and a fluid viewport are
+ * fighting each other from the start: the row was there to hide that a
+ * breakpoint-stepped grid cannot make every width look intentional.
+ * `auto-fill` does not have that problem, because it is never guessing a
+ * breakpoint in the first place — it is asked for a minimum and it lays out
+ * however many of them the current width actually holds.
  *
- * **Every card carries an icon tile, including the ones with no icon set.** The
- * tile is what gives a card its anchor, and rendering it only sometimes makes a
- * row of them ragged — which was the other half of why these did not look like
- * cards. An item with no icon, or with a name lucide does not have, gets the
- * default rather than a hole.
+ * **`carousel` is untouched, and it is the honest difference now.** It keeps
+ * scrolling sideways at every size — a thing you swipe through, on purpose,
+ * chosen by name. `Cards` is no longer that at any width; it is a set of
+ * cards that wraps, full stop.
+ *
+ * **Every card carries an icon tile, including the ones with no icon set.**
+ * The tile is what gives a card its anchor, and rendering it only sometimes
+ * makes a row of them ragged — which was the other half of why these did not
+ * look like cards. An item with no icon, or with a name lucide does not have,
+ * gets the default rather than a hole.
  *
  * @returns the cards.
  */
@@ -230,7 +267,10 @@ function Cards({
 }) {
   return (
     <div
-      className="grid gap-4 sm:flex sm:overflow-x-auto sm:pb-3 lg:grid lg:grid-cols-3 lg:pb-0"
+      className="grid gap-4"
+      style={{
+        gridTemplateColumns: `repeat(auto-fill, minmax(min(var(--card-size, ${CARD_SIZE_MIN.m}), 100%), 1fr))`,
+      }}
       {...tid("public-cards")}
     >
       {items.map((item) => {
@@ -238,7 +278,7 @@ function Cards({
         return (
           <div
             key={keyOf(item.sort_order, item.title_en)}
-            className="flex w-full flex-col gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-5 sm:w-56 sm:shrink-0 lg:w-auto"
+            className="flex flex-col gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-5"
           >
             <span className="grid size-11 w-fit place-items-center rounded-lg surface border-(--edge) bg-(--bar)">
               <PublicSectionIcon name={item.icon} fallback={CARD_ICON} />

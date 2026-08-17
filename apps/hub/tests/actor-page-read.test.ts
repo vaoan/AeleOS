@@ -70,7 +70,7 @@ describe("readActorPage", () => {
         type: "cards",
         sort_order: 1,
         items: [],
-        style: { skin: "glass", card_size: "lg" },
+        style: { skin: "glass", corner_radius: "8px" },
       },
     ];
     const page = await readActorPage(client({ sections, theme: {} }), "ref");

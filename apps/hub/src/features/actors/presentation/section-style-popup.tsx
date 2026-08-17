@@ -41,6 +41,15 @@ export type SectionStyle = NonNullable<FursonaSection["style"]>;
  * not "inherit" in the same sense — a page has no background picture of its
  * own for a section to inherit. It is the browser's own unscaled, unrepeated
  * placement, offered as a third option beside `fitCover` and `fitTile`.
+ *
+ * `cardSizeDefault` names the option that clears `style.card_size`, and it
+ * carries the same "not inherit" caveat as `fitDefault`: the page has no
+ * card size of its own either, only `Cards`' own literal fallback. It is
+ * kept distinct from `cardSizeM` even though both resolve to the identical
+ * `--card-size` today — `CARD_SIZE_MIN`'s own `m` entry — because choosing
+ * `m` pins that width regardless of what the fallback becomes later, where
+ * clearing the key means "whatever `Cards` falls back to," which only
+ * happens to be `m` right now.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -65,21 +74,79 @@ export interface SectionStylePopupLabels {
   fitCover: string;
   /** The fit select's option for `"tile"`. */
   fitTile: string;
+  /** Field label for the card-size select. */
+  cardSize: string;
+  /**
+   * What the card-size field sets, beneath the select. The enum's own
+   * values read `s`/`m`/`l` on the wire and must never appear on screen —
+   * see {@link cardSizeS}'s own doc — so this is where the actual mechanism
+   * (a MINIMUM width; the browser decides how many cards fit at it) is said
+   * once, rather than folded into every option label, each of which would
+   * otherwise have to repeat it.
+   */
+  cardSizeHint: string;
+  /** The card-size select's option that clears `style.card_size`. */
+  cardSizeDefault: string;
+  /**
+   * The card-size select's option for `"s"` — never the letter itself.
+   * `s`/`m`/`l` are this schema's own wire values, not words a person reads;
+   * the label says what choosing it changes (more, narrower cards per row).
+   */
+  cardSizeS: string;
+  /** The card-size select's option for `"m"`. */
+  cardSizeM: string;
+  /** The card-size select's option for `"l"`. */
+  cardSizeL: string;
 }
 
-/** What {@link SectionStylePopup} needs. */
+/**
+ * What {@link SectionStylePopup} needs.
+ *
+ * `type` is new: it is what lets the popup gate its card-size field on
+ * `"cards"` — see that field's own doc, and the component's own TSDoc for
+ * why skin and background need no equivalent gate.
+ */
 export interface SectionStylePopupProps<T extends FieldValues> {
   /** The form's control, for this section's own `style` field. */
   control: Control<T>;
   /** Where this section lives, as in `sections.0` — `.style` is appended. */
   path: string;
+  /**
+   * This section's own layout, watched by the caller — `SectionCard`
+   * already does, for `SectionItemFields`' identical need. Decides only
+   * whether the card-size FIELD is offered; the stored `style.card_size`
+   * itself is untouched whatever this is, so switching away and back finds
+   * the choice still there.
+   */
+  type: string;
   /** Already-translated strings. */
   labels: SectionStylePopupLabels;
 }
 
 /**
- * A paintbrush button and the popup it opens: one section's own skin and
- * background picture, apart from its layout.
+ * A paintbrush button and the popup it opens: one section's own skin,
+ * background picture and card size, apart from its layout.
+ *
+ * **The card-size field is gated on `type === "cards"`, unlike skin and
+ * background.** Those two are genuinely layout-agnostic — `nestedSkinVars`
+ * sets tokens every layout's `rounded-xl surface` elements read, and a
+ * background paints the wrapper visible under any of them — but
+ * `card_size` is the first key in this bag that only ONE layout's CSS ever
+ * reads (`Cards`, via `--card-size`). Offering it on every OTHER layout would
+ * be exactly the fault `section-item-fields.tsx`'s own TSDoc names: "a field
+ * a layout never renders … accepts what somebody types, refuses nothing,
+ * and shows nothing, with no way for them to learn that it did nothing."
+ * `sectionStyle`'s own note that every other layout "ignores" `--card-size`
+ * is a statement about the DATA plumbing — it is harmless to leave the key
+ * set — not a claim that the editor should offer the choice regardless of
+ * layout; those are different questions.
+ *
+ * **Gating hides the FIELD, never the stored value** — the same shape
+ * `LINKED`/`ICONED`/`PICTURED` already use for item fields. Switching a
+ * section's layout away from `cards` and back finds `style.card_size`
+ * exactly as it was: nothing here ever writes to it except a change on the
+ * select itself, so hiding the control changes what is offered, not what is
+ * held.
  *
  * **It owns the whole `style` field through one `useController`**, rather
  * than one per key, because clearing a field has to REMOVE that key from the
@@ -119,6 +186,7 @@ export interface SectionStylePopupProps<T extends FieldValues> {
 export function SectionStylePopup<T extends FieldValues>({
   control,
   path,
+  type,
   labels,
 }: SectionStylePopupProps<T>) {
   const id = useId();
@@ -284,6 +352,38 @@ export function SectionStylePopup<T extends FieldValues>({
                 <option value="cover">{labels.fitCover}</option>
                 <option value="tile">{labels.fitTile}</option>
               </select>
+            </div>
+          ) : null}
+
+          {type === "cards" ? (
+            <div className="grid gap-1.5">
+              <label
+                htmlFor={`${id}-card-size`}
+                className="text-xs font-medium"
+              >
+                {labels.cardSize}
+              </label>
+              <select
+                id={`${id}-card-size`}
+                value={style.card_size ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "card_size",
+                    event.target.value as SectionStyle["card_size"] | "",
+                  )
+                }
+                aria-describedby={`${id}-card-size-hint`}
+                {...tid("section-style-card-size")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.cardSizeDefault}</option>
+                <option value="s">{labels.cardSizeS}</option>
+                <option value="m">{labels.cardSizeM}</option>
+                <option value="l">{labels.cardSizeL}</option>
+              </select>
+              <p id={`${id}-card-size-hint`} className="text-xs text-(--muted)">
+                {labels.cardSizeHint}
+              </p>
             </div>
           ) : null}
         </div>

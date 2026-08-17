@@ -216,7 +216,7 @@ describe("the sections it will accept", () => {
   // section; only the key nothing here renders is dropped.
   it("renders a section carrying an unrecognised style key, rather than emptying the page", async () => {
     const sectionWithUnknownStyleKey = [
-      { ...SECTIONS[0], style: { skin: "glass", card_size: "lg" } },
+      { ...SECTIONS[0], style: { skin: "glass", corner_radius: "8px" } },
     ];
     answer({ ...fursonaRow, sections: sectionWithUnknownStyleKey });
     expect((await readPublicFursona("42", "luna"))?.sections).toEqual([

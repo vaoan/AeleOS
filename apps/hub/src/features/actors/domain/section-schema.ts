@@ -140,6 +140,11 @@ const sectionStyleShape = {
   skin: z.string().max(32).optional(),
   background_url: z.string().max(500).optional(),
   background_fit: z.enum(["cover", "tile"]).optional(),
+  // The MINIMUM width a card in this section's grid may shrink to; the
+  // browser decides how many fit at that width, exactly as an `auto-fill`
+  // grid track does — this sets no column count of its own. Absent means
+  // the page's default, the same resting state as every other key here.
+  card_size: z.enum(["s", "m", "l"]).optional(),
 };
 
 /**

@@ -150,3 +150,65 @@ export function safeHttpUrl(raw: string | undefined): string | null {
     ? url.toString()
     : null;
 }
+
+/**
+ * A CSS `url("…")` value built from a pasted address, or `undefined` when
+ * the address must not be trusted with one.
+ *
+ * **A second refusal on top of `safeHttpUrl`'s own, scoped to what THIS
+ * function does with the result.** `safeHttpUrl` rules out a scheme that could
+ * execute something; that alone is not enough here, because this value gets
+ * interpolated into a double-quoted CSS string. `safeHttpUrl`'s WHATWG
+ * normalisation percent-encodes a stray `"` in a path or query, but **leaves
+ * one in the HOST untouched** — confirmed directly:
+ * `new URL('https://ex"ample.test/a.png').toString()` keeps the quote
+ * verbatim. An address whose serialised form still contains a `"` would
+ * therefore close the CSS string early, so it is refused outright here,
+ * before this function ever builds a value from it.
+ *
+ * **A backslash is refused for the identical reason, and normalisation does
+ * not help here either.** A stray `\` surviving in the query or fragment —
+ * `new URL('https://example.test/?x\\').toString()` keeps it verbatim, the
+ * same untouched-by-percent-encoding gap the host quote has — sits directly
+ * before the closing `"` this function appends, so the built value ends
+ * `…\"`, which CSS reads as an ESCAPED quote rather than the string's own
+ * closing one: the string never closes, and everything after is appended to
+ * it. Nothing downstream is exploitable today only because everything after
+ * that point happens to be app-generated, which is ordering, not a
+ * guarantee — the same trap this function exists to close for the host
+ * quote.
+ *
+ * **This refusal exists independently of whichever sink renders the
+ * result.** A browser's CSSOM happens to reject a malformed `style`
+ * declaration today, which is why nothing is exploitable yet through
+ * `sectionStyle`'s own `style` object — but that is defence in depth, not
+ * the reason this is safe. `themeCss`, in this feature's `domain/actor-theme.ts`,
+ * interpolates a value into a raw `<style>` block, which gets no such
+ * protection for free; a value trusted only because of where it currently
+ * lands is a trap for whichever sink reuses it next. Refusing the quote by
+ * construction, here, is what makes the returned value safe in ANY CSS
+ * context.
+ *
+ * **Lives in `embeds.ts` rather than beside a caller**, deliberately:
+ * `sectionStyle` (`presentation/public-sections.tsx`) and `themeVars`
+ * (`domain/actor-theme.ts`) sit on opposite sides of the domain/presentation
+ * boundary `eslint-plugin-boundaries` enforces, and a domain file may only
+ * import another domain file of the same feature. Putting this beside
+ * `safeHttpUrl` — which it already depends on — is what lets every caller
+ * reuse the identical function rather than the presentation layer keeping the
+ * only copy and the domain layer growing a second, narrower one for the same
+ * job. `public-sections.tsx` re-exports it unchanged, so nothing importing it
+ * from there had to move.
+ *
+ * @param url - the address an author pasted, or `undefined` when they left
+ *   it unset.
+ * @returns a `url("…")` value safe to interpolate into a CSS declaration, or
+ *   `undefined` when the address is absent, not http(s), or would break out
+ *   of its own quoting.
+ */
+export function backgroundImageValue(
+  url: string | undefined,
+): string | undefined {
+  const href = safeHttpUrl(url);
+  return href && !/["\\]/.test(href) ? `url("${href}")` : undefined;
+}

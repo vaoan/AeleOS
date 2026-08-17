@@ -44,15 +44,20 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * catalogue entry like the rest; what somebody types into that field is theirs
  * and is not.
  *
- * The theme panel's own eighteen strings are resolved by
- * `themeConfiguratorLabels`, shared with `/me` — the panel appears in both
- * places, and those live in route folders that may not import each other, so a
- * copy here would be one a later string could be added to and not the other.
+ * The theme panel's own strings are resolved by `themeConfiguratorLabels`,
+ * shared with `/me` — the panel appears in both places, and those live in
+ * route folders that may not import each other, so a copy here would be one a
+ * later string could be added to and not the other.
  *
  * `style.skins` is built by mapping `SKINS`, the same way the theme panel's
  * own `skins` record is — reusing the SAME `skins.*` catalogue keys rather
  * than inventing a second set of names for the same styles. A skin is a skin
  * whether it is chosen for the whole page or for one section of it.
+ *
+ * `style.cardSize*` names a MINIMUM card width, never the schema's own
+ * `s`/`m`/`l` wire values — those are stored, not shown. `cardSizeHint` says
+ * the mechanism once (smaller fits more per row) so the option labels do
+ * not each have to restate it.
  *
  * The two cloud labels became one, `canvasColours`, naming the group — the
  * editor renders as many pickers as the chosen canvas actually paints with, so
@@ -152,6 +157,12 @@ export async function fursonaEditorLabels(
       fitDefault: t("sectionStyleFitDefault"),
       fitCover: t("sectionStyleFitCover"),
       fitTile: t("sectionStyleFitTile"),
+      cardSize: t("sectionStyleCardSize"),
+      cardSizeHint: t("sectionStyleCardSizeHint"),
+      cardSizeDefault: t("sectionStyleCardSizeDefault"),
+      cardSizeS: t("sectionStyleCardSizeS"),
+      cardSizeM: t("sectionStyleCardSizeM"),
+      cardSizeL: t("sectionStyleCardSizeL"),
     },
     itemTitle: t("itemTitle"),
     itemDescription: t("itemDescription"),

@@ -102,6 +102,12 @@
     "sectionStyleFitDefault": "Original size",
     "sectionStyleFitCover": "Cover",
     "sectionStyleFitTile": "Tile",
+    "sectionStyleCardSize": "Card size",
+    "sectionStyleCardSizeHint": "The smallest a card may shrink to — smaller fits more per row.",
+    "sectionStyleCardSizeDefault": "Default",
+    "sectionStyleCardSizeS": "Compact",
+    "sectionStyleCardSizeM": "Medium",
+    "sectionStyleCardSizeL": "Spacious",
     "itemTitle": "Title",
     "itemDescription": "Description",
     "itemDescriptionHint": "What do you want to say here?",
@@ -238,7 +244,12 @@
     "viewPublic": "See the public page",
     "themeCursor": "Cursor picture",
     "themeCursorHint": "A link to a small picture — 128×128 or less, or browsers ignore it.",
-    "themeCursorTooBig": "That picture is bigger than 128×128, so browsers will ignore it."
+    "themeCursorTooBig": "That picture is bigger than 128×128, so browsers will ignore it.",
+    "themeBackgroundUrl": "Background picture",
+    "themeBackgroundUrlHint": "A link to a picture. Nothing is stored, and it sits over your gradient.",
+    "themeBackgroundFit": "Fit",
+    "themeBackgroundFitCover": "Cover",
+    "themeBackgroundFitTile": "Tile"
   },
   "picker": {
     "title": "Who do you want to be?",

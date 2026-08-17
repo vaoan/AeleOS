@@ -264,6 +264,7 @@ describe("the style bag it refuses", () => {
       skin: "glass",
       background_url: "https://example.test/bg.png",
       background_fit: "cover",
+      card_size: "m",
     };
     expect(
       await write(alice.sub, alice.sonaRef, [section({ style })]),
@@ -309,14 +310,23 @@ describe("the style bag it refuses", () => {
     expect(message).toMatch(/unknown style key/i);
   });
 
+  it("refuses a card size it cannot render", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      section({ style: { card_size: "xl" } }),
+    ]);
+    expect(message).toMatch(/unknown card size/i);
+  });
+
   // The regression: `jsonb_each_text` yields SQL NULL, not the string
   // "null", for a JSON null value — so `length(NULL) > 32` and
   // `NULL not in (…)` are themselves NULL, and neither `raise exception`
   // fired. `{"style":{"skin":null}}` and `{"style":{"background_fit":null}}`
   // were accepted by the database while `sectionStyleSchema` — none of whose
   // keys is nullable — refused both, a live divergence between the two
-  // validators the design says must agree.
-  it.each(["skin", "background_url", "background_fit"])(
+  // validators the design says must agree. `card_size` shares the same
+  // per-key loop guard, so it is covered here too rather than trusted by
+  // reading the SQL alone.
+  it.each(["skin", "background_url", "background_fit", "card_size"])(
     "refuses a null %s rather than silently storing it",
     async (key) => {
       const message = await write(alice.sub, alice.sonaRef, [

@@ -522,12 +522,27 @@ replace`, so the newest body of a function could sit in a file named after
   nesting fix a skin needed to apply twice without falling through to the
   wrong scope, and why the readability escape hatch stays page-level rather
   than growing a per-section correction. `card_size` did not ship with this —
-  see the spec's Phasing section — because nothing yet renders it.
+  see the spec's Phasing section — because nothing yet rendered it; it landed
+  in the phase below, beside the grid that does.
 
   The same pass fixed a section's drag handle, dead since it was first
   written and invisible to the only test that covered it — see "Every bug
   gets a regression test" above for the fault, the fix, and the lesson it is
   the second instance of.
+
+- **The section-personality design is delivered end to end (2026-08-16).** The
+  embed provider table, with the Content-Security-Policy's `frame-src`
+  derived from it rather than kept as a second list somebody has to remember
+  to update; the `posts` and `socials` layouts; the per-section form (skin,
+  background picture, card size); the `cards` grid the size dial actually
+  feeds; and a background picture behind the whole page, layered correctly
+  over the author's own gradient. Read
+  `apps/hub/src/features/actors/CLAUDE.md` and
+  `docs/superpowers/specs/2026-08-15-section-personality-design.md` — the
+  latter is now marked complete — for what each piece does and does not do,
+  including the parts still resting on somebody else's undocumented behaviour
+  (`posts`) and the one thing reasoned from the CSS spec rather than watched
+  in a browser (the page background's `background-attachment`).
 
 ## The toolchain, and the nine rules it cost
 

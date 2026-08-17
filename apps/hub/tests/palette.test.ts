@@ -67,11 +67,19 @@ describe("derivePalette", () => {
   // can switch to the default light or dark theme. The escape hatch is what
   // makes the freedom safe, not the correction.
   // The field is the author's gradient VERBATIM. Nothing lifts it, shifts it,
-  // or caps its chroma any more — a one-stop gradient is exactly the hex they
-  // picked, which is the strongest form this assertion can take.
+  // or caps its chroma any more — a one-stop gradient carries exactly the hex
+  // they picked, at both ends of a degenerate gradient from that colour to
+  // itself, which is the strongest form this assertion can take.
+  //
+  // **Not a bare `#rrggbb` any more.** `gradientCss` used to return one for a
+  // single stop; it now always returns a valid CSS `<image>`, because
+  // `--field` is a LAYER in `body`'s own `background-image` list beside an
+  // author's picture (`bodyBackgroundVars` in `actor-theme.ts`), and a bare
+  // colour there is not a valid `<image>` — it invalidated the whole
+  // declaration and silently deleted the picture beside it.
   it.each(BACKGROUNDS)("renders %s exactly as it was picked", (background) => {
     expect(derivePalette(flat(background), "#00ff88")["--field"]).toBe(
-      background,
+      `linear-gradient(${background}, ${background})`,
     );
   });
 
@@ -142,7 +150,10 @@ describe("derivePalette", () => {
     "gives %s readable text on its own field",
     (background) => {
       const palette = derivePalette(flat(background), "#00ff88");
-      const field = srgbToOklch(parseHex(palette["--field"] ?? "") as number[]);
+      // `--field` is a gradient string now even for one stop (see the note
+      // above), so the colour to measure against comes from `background`
+      // itself rather than from parsing it back out of `--field`.
+      const field = srgbToOklch(parseHex(background) as number[]);
       expect(
         contrastRatio(colourOf(palette, "--ink"), field),
       ).toBeGreaterThanOrEqual(4.5);
@@ -178,11 +189,12 @@ describe("derivePalette", () => {
     );
   });
 
-  // A one-stop background is flat and says so; more than one is a gradient.
-  // Both are the author's, verbatim.
-  it("writes a flat background flat and a gradient as a gradient", () => {
+  // A one-stop background is a degenerate gradient, from its colour to
+  // itself; more than one stop is an ordinary gradient. Both are the
+  // author's, verbatim.
+  it("writes a flat background as a gradient and a gradient as a gradient", () => {
     expect(derivePalette(flat("#1a1a2e"), "#00ff88")["--field"]).toBe(
-      "#1a1a2e",
+      "linear-gradient(#1a1a2e, #1a1a2e)",
     );
     expect(
       derivePalette(
@@ -341,7 +353,7 @@ describe("the memoised solve", () => {
       "#00ff88",
     );
     expect(again["--ink"]).toBeTruthy();
-    expect(again["--field"]).toBe("#1a1a2e");
+    expect(again["--field"]).toBe("linear-gradient(#1a1a2e, #1a1a2e)");
   });
 });
 

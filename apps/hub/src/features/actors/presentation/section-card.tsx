@@ -183,6 +183,11 @@ const EMPTY_ITEM = {
  * theme configurator share `themeCss`. Nothing is written until the ordinary
  * save: what has to be instant is SEEING the change, not storing it.
  *
+ * **The popup is handed the same watched `type` `SectionItemFields` already
+ * gets**, so it can hide its card-size field on every layout but `cards` —
+ * the identical "a field a layout never renders must not be offered" rule
+ * that already governs `LINKED`/`ICONED`/`PICTURED` there.
+ *
  * * The card, its select and its item boxes are `surface`s — the class a skin styles, not Tailwind's `border`.
  *
  * Every colour it paints comes from a token — `--edge`, `--menu`, `--muted`, `--surface` — and never from a literal. That is what lets a person's theme reach it at all.
@@ -310,6 +315,7 @@ export function SectionCard<T extends FieldValues>({
         <SectionStylePopup
           control={control}
           path={path}
+          type={(type ?? "cards") as SectionType}
           labels={labels.style}
         />
 

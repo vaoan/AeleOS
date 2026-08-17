@@ -68,6 +68,12 @@ const labels = {
     fitDefault: "Original size",
     fitCover: "Cover",
     fitTile: "Tile",
+    cardSize: "Card size",
+    cardSizeHint: "Smaller fits more per row.",
+    cardSizeDefault: "Default",
+    cardSizeS: "Compact",
+    cardSizeM: "Medium",
+    cardSizeL: "Spacious",
   },
 };
 
