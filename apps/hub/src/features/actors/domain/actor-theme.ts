@@ -4,7 +4,10 @@ import {
   backgroundImageValue,
   safeHttpUrl,
 } from "@/features/actors/domain/embeds";
-import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
+import {
+  DEFAULT_CANVAS,
+  MAX_CANVAS_COLOURS,
+} from "@/shared/domain/canvas-slots";
 import { CANVAS_RANGE, dial } from "@/shared/domain/canvas-motion";
 import {
   DEFAULT_SKIN,
@@ -285,6 +288,14 @@ export function cursorUrl(raw: string | undefined): string | null {
  * and the skin, which is not: `default` is a real skin whose overrides happen
  * to be empty, so it expresses "nothing chosen" without needing null.
  *
+ * **Its canvas is `DEFAULT_CANVAS`, the same constant the renderer resolves an
+ * absent `--canvas` to, and it must stay that constant rather than a name
+ * spelled out here.** `themeVars` emits the property only when the theme's
+ * canvas differs from this one, so the two are the two ends of the same
+ * agreement — and while they were two separate spellings of it the renderer
+ * drew the default canvas at four times its intended resolution on every page
+ * in the app. `canvas-slots.test.ts` pins them together.
+ *
  * Includes the background picture's address, nullable like the cursor, and
  * its fit, which is not — for the same reason the skin is not: a select
  * always carries the name of what is picked, and the value renders nothing
@@ -302,7 +313,7 @@ export const DEFAULT_THEME: ActorTheme = {
   background: null,
   accent: null,
   canvasColours: null,
-  canvas: "nebula",
+  canvas: DEFAULT_CANVAS,
   cursor: null,
   backgroundUrl: null,
   backgroundFit: "cover",

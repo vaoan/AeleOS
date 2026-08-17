@@ -32,6 +32,19 @@
  */
 
 /**
+ * The most of a device's pixel ratio any canvas is drawn at.
+ *
+ * Beyond two the bitmap costs memory and fill rate for a difference nobody can
+ * see on a canvas made of soft gradients — a phone at a ratio of three would
+ * otherwise pay 2.25 times what one at two pays, for the same picture.
+ *
+ * It lives here rather than beside the loop that applies it so that a test can
+ * predict the bitmap the renderer will produce from the same constants the
+ * renderer uses, instead of restating the cap and drifting from it.
+ */
+export const MAX_DPR = 2;
+
+/**
  * The canvases with nothing crisp in them, and how far each may be turned down.
  *
  * A half in each axis is a quarter of the pixels. The aurora goes further than
@@ -70,7 +83,15 @@ const SOFT_CANVASES: Record<string, number> = {
 /**
  * How much of the device's resolution to render a canvas at.
  *
- * @param canvas - the chosen canvas's name.
+ * **Hand it a name that has been through `resolveCanvas` first.** It answers
+ * about the canvas it is NAMED, and the empty string names nothing — so an
+ * unset `--canvas`, which is what a page with no theme and a page that kept the
+ * default both serve, used to arrive here as `""` and be given full resolution
+ * while the renderer went on to draw the nebula. Four times the pixels, on
+ * every page in the app. The fallback belongs where a `--canvas` value is read,
+ * not repeated by each thing that consumes one.
+ *
+ * @param canvas - the chosen canvas's name, already resolved.
  * @returns a fraction of the device pixel ratio, above zero and at most one.
  */
 export function renderScale(canvas: string): number {

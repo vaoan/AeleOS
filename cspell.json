@@ -144,6 +144,7 @@
     "proname",
     "Puck",
     "puck",
+    "recalc",
     "regclass",
     "relacl",
     "relkind",
@@ -184,6 +185,7 @@
     "unl",
     "unlisted",
     "unparseable",
+    "unthrottled",
     "unreconstructable",
     "unrunnable",
     "unskinned",
@@ -235,7 +237,8 @@
         "tests/db/actor-profiles.test.ts",
         "tests/db/public-reads.test.ts",
         "apps/hub/tests/actor-content.test.ts",
-        "apps/hub/tests/public-sections.test.tsx"
+        "apps/hub/tests/public-sections.test.tsx",
+        "apps/hub/tests/e2e/personalised-page-cost.spec.ts"
       ],
       "language": "en,en-GB,es"
     }

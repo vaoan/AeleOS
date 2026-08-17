@@ -8,8 +8,12 @@ import {
   plasmaPixels,
 } from "@/shared/application/canvas-raster";
 import { dial, many } from "@/shared/domain/canvas-motion";
-import { renderScale } from "@/shared/domain/canvas-resolution";
-import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
+import { MAX_DPR, renderScale } from "@/shared/domain/canvas-resolution";
+import {
+  DEFAULT_CANVAS,
+  MAX_CANVAS_COLOURS,
+  resolveCanvas,
+} from "@/shared/domain/canvas-slots";
 import {
   blobs,
   bokeh,
@@ -172,9 +176,6 @@ function frameSignature(styles: CSSStyleDeclaration): string {
 
 /** How far the field drifts each second, in CSS pixels. */
 const DRIFT_PX_PER_SECOND = 4;
-
-/** Device pixel ratio is capped here: beyond 2 costs memory for no visible gain. */
-const MAX_DPR = 2;
 
 /**
  * The cloud layers, drifting at different speeds and scales so the field has
@@ -2080,6 +2081,16 @@ function readRgb(
  * and a page nested inside it has no way to hand it one. That is the same
  * channel `--nebula-blend` and `--nebula-opacity` already travel on.
  *
+ * **That fallback is resolved ONCE, by `resolveCanvas`, before anything reads
+ * the name.** It used to be applied where the drawing was chosen and nowhere
+ * else, so the resolution table was asked about the raw string instead — and
+ * `renderScale("")` answers 1 where `renderScale("nebula")` answers 0.5. Since
+ * `themeCss` emits `--canvas` only for a canvas other than the default, `""` is
+ * what nearly every page in the app serves, and every one of them drew the
+ * nebula at four times its intended pixels: 35.8ms a frame at a device ratio of
+ * two, against 8.9ms named. A fallback that each consumer applies for itself is
+ * a fallback each consumer gets a separate chance to disagree about.
+ *
  * **Every canvas takes one colour per part it paints with**, read from
  * `--canvas-N` and falling back to the design's own two when unset — so a page
  * nobody has themed looks exactly as it did before canvases had slots. The
@@ -2283,9 +2294,17 @@ export function NebulaCanvas() {
       const blend = styles.getPropertyValue("--nebula-blend").trim();
       // The chosen animation, read from the document root because that is where
       // an actor's theme puts it — the canvas is mounted in the root layout and
-      // cannot be handed a prop by a page nested inside it. An unknown name
-      // falls through to the nebula, which is what an unthemed page shows.
-      const chosen = styles.getPropertyValue("--canvas").trim();
+      // cannot be handed a prop by a page nested inside it.
+      //
+      // **Resolved once, here, and every line below uses the resolved name.**
+      // An unset property and an unknown one both mean the default canvas, and
+      // this function used to say so in one place and not in another: it drew
+      // the nebula for `""` and then asked `renderScale("")`, which answers 1
+      // where `renderScale("nebula")` answers 0.5. `themeCss` emits `--canvas`
+      // only for a NON-default canvas, so `""` is what almost every page in the
+      // app serves — and every one of them drew the nebula at four times the
+      // pixels it was designed for. See `resolveCanvas`.
+      const chosen = resolveCanvas(styles.getPropertyValue("--canvas").trim());
 
       // **`none` is handled here, by name.** It used to be expressed as an
       // opacity of zero, which never worked: the guard below rejects a
@@ -2331,7 +2350,7 @@ export function NebulaCanvas() {
 
       // Every canvas but the nebula draws from the same tint list, so it is
       // read once here rather than by each of them.
-      if (chosen !== "nebula" && chosen !== "") {
+      if (chosen !== DEFAULT_CANVAS) {
         const tints = Array.from({ length: MAX_CANVAS_COLOURS }, (_, i) =>
           canvasColour(styles, i),
         );
@@ -2516,9 +2535,11 @@ export function NebulaCanvas() {
 
     resize(
       renderScale(
-        getComputedStyle(document.documentElement)
-          .getPropertyValue("--canvas")
-          .trim(),
+        resolveCanvas(
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--canvas")
+            .trim(),
+        ),
       ),
     );
     bake();

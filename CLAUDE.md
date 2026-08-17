@@ -224,11 +224,17 @@ Key choices and _why_:
   dependency away is the one that could not have caught this, and the one
   that used the real thing did on its first run.
 
-  **The fix landed only in `section-editor.tsx`.**
-  `fursona-list.tsx`'s own drag grip carries the identical missing
-  `disableInteractiveElementBlocking`, still unfixed as of the 2026-08-16
-  final review — noted here rather than silently left for the next person to
-  rediscover the same way.
+  The fix landed first in `section-editor.tsx` alone, and this note recorded
+  `fursona-list.tsx` as still carrying the identical fault rather than leaving
+  the next person to rediscover it. **It was then fixed in `#154`** —
+  `fursona-list.tsx:231` sets the prop today.
+
+  Which makes this note's own history the smaller lesson beside the bug's: it
+  went on asserting an open fault for a day after that fault was closed, and
+  was believed, because a sentence naming a file and a line reads like a
+  measurement. **A note recording something as unfixed has to be deleted by
+  whoever fixes it**, or it becomes the confident, wrong instruction this file
+  warns about everywhere else.
 
 - **Change an implementation, move its documentation.** `pnpm check:docs`
   compares each exported symbol against the base branch — and against the index
@@ -677,6 +683,79 @@ every Tailwind utility for months without anything noticing.
     a server. It cost a full bisect across twenty commits. Restart after
     touching the catalogues, and treat a server that predates the code as no
     evidence at all.
+13. **A test can exercise a path the product never takes and look exactly like
+    coverage.** `canvas-performance.spec.ts` set `--canvas` by name for every
+    canvas, the default one included. The product never does that for the
+    default — `themeVars` emits the property only for a canvas OTHER than the
+    default, so that the untouched page stays byte-for-byte what it was — so
+    the one caller exercising the nebula was the one caller that could not
+    reproduce how the nebula is reached. It measured the half-resolution path
+    while every page in the app served the full-resolution one: four times the
+    pixels, 35.8ms a frame against 8.9, from the day `renderScale` was written.
+
+    This is the repository's own "a mocked dependency hides its own setup
+    requirements" with the TEST supplying what was missing instead of a mock,
+    and it generalises the same way: **a suite that supplies setup the product
+    does not is measuring a different program.** When a value has a fallback,
+    the check has to reach it the way production does — by leaving it unset —
+    and a fallback that each consumer applies for itself is a fallback each
+    consumer gets a separate chance to disagree about. Both faults here were
+    that: `renderScale("")` answered 1 where `renderScale("nebula")` answered
+    0.5, and nothing owned the resolution until `resolveCanvas` did.
+
+    **The other half is rule 10 at its sharpest.** Three of us reasoned
+    confidently about which CSS was expensive — `backdrop-filter`,
+    `background-attachment: fixed`, the comic halftone, `neon`'s spread,
+    `cutout`'s `clip-path` — and every one of those arguments was wrong.
+    Measured on a throttled phone, all of them together cost 4.0 points of the
+    main thread and the canvas cost 65.6; the fixed attachment, the single
+    measurement the feature notes flagged as highest-value, was zero three
+    times over. The thing nobody had looked at was a one-line fallback. Suspect
+    what is measured, not what is interesting.
+
+14. **A budget is only real if it separates the two builds, and one reading of
+    each does not establish that.** The dial-latency ceiling in
+    `personalised-page-cost.spec.ts` was set from a single pair — 31ms fixed,
+    557ms sabotaged — and it failed CI at 283ms on code that was correct. Read
+    again, the same unmodified build measured a median of 17.6ms and 575.4ms at
+    a 6x throttle in two runs minutes apart, against 836.1ms sabotaged. The
+    distributions overlapped, so **no ceiling existed that could have been
+    right**, and recalibrating it would only have moved which runs lied. It was
+    replaced rather than relaxed, by a ratio of two counts taken in the same
+    run — theme commits per delivered movement — which reads 0.006 fixed and
+    1.000 sabotaged at throttles of 1x, 4x, 6x and 8x. The general form:
+    **before trusting a performance budget, measure the good build twice and the
+    bad build once, and check the gap is bigger than the spread.** A single
+    green and a single red look identical to a real signal and to a coin toss.
+
+    **The half of that which cost the most time is the sabotage.** An agent
+    tried to check the budget by defeating the coalescing at RUNTIME —
+    monkey-patching `requestAnimationFrame` — rather than in the source, saw the
+    number barely move, and concluded the budget might be measuring nothing.
+    Both halves of that were wrong and each on its own is enough. The patch does
+    not reproduce the fault: the component's pending-frame flag still collapses
+    a burst arriving in one task, so the keyboard burst reported 0.006 commits
+    per movement WITH the patch applied — the coalescing intact. And the
+    instrument is built out of the very thing being patched, `rAF` twice over,
+    so it reported 2.6ms where the honest fixed build reports 27.0 and the truly
+    sabotaged build 37.7: a page committing on every single event scoring ten
+    times better than one that does not. **Never sabotage a mechanism your
+    instrument is built on**; and when a runtime shortcut and a source edit
+    disagree, the source edit is the measurement and the shortcut is a third
+    program neither of you meant to run.
+
+    A smaller finding from the same pass, worth keeping because it decides what
+    a check CAN assert: **headless Chromium rasterises everything on the CPU.**
+    Asked over CDP, it answers `2d_canvas: unavailable_software`,
+    `gpu_compositing: disabled_software`, `rasterization: disabled_software` on
+    a SwiftShader device, where the same browser headed on the same machine
+    answers `enabled` to all three on the real adapter. Every canvas
+    millisecond this repository has ever recorded is therefore software raster.
+    That is the right regime for a CI budget — the runner has no GPU either, and
+    it is the pessimistic side — and it leaves the resolution assertions
+    untouched, since those compare integers. What it forbids is quoting those
+    milliseconds as what a visitor's machine pays. The account is in
+    `canvas-performance.spec.ts`'s own header.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

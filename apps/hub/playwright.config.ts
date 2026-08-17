@@ -3,6 +3,15 @@ import { e2eTarget } from "./e2e-target";
 
 const target = e2eTarget();
 
+/**
+ * The specs the `canvas` project owns, and the ordinary suite therefore skips.
+ *
+ * One constant rather than two regexes: the `testMatch` below and the
+ * `testIgnore` beside it must name exactly the same files, and a spec added to
+ * one and forgotten in the other either runs twice or runs nowhere.
+ */
+const COST_SUITE = /(canvas-performance|personalised-page-cost)\.spec\.ts/;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   // Obtains Clerk's testing token so an automated browser may sign in. It is a
@@ -20,26 +29,29 @@ export default defineConfig({
   // **Two projects, and the split is about WHEN each runs rather than how.**
   //
   // `chromium` is the ordinary suite: it runs on every pull request and must
-  // stay quick enough that nobody minds. `canvas` is the frame-cost guard,
-  // which drives a real browser through every canvas in the app at the top of
-  // both dials — minutes of work whose answer almost never changes. It has its
-  // own CI job, and that job only does the work when a canvas has been ADDED;
-  // see `scripts/canvas-additions.mjs` for why that trigger and what it misses.
+  // stay quick enough that nobody minds. `canvas` is the cost guard, which
+  // drives a real browser through every canvas in the app at the top of both
+  // dials and then through a heavily personalised page on a throttled phone —
+  // minutes of work whose answer almost never changes. It has its own CI job,
+  // and that job only does the work when something that decides what a page
+  // costs has changed; see `scripts/canvas-additions.mjs` for the trigger.
   //
   // `testIgnore` on the ordinary project is what keeps the two from both
-  // running it. Without it `pnpm test:e2e` would still pick the file up, since
+  // running these. Without it `pnpm test:e2e` would still pick them up, since
   // Playwright matches every spec under `testDir` by default — which is exactly
-  // how it came to be part of the `e2e` job in the first place.
+  // how the frame-cost file came to be part of the `e2e` job in the first
+  // place. **The two patterns have to be kept in step by hand**, so they are
+  // one constant used twice rather than two regexes that can drift.
   projects: [
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: /canvas-performance\.spec\.ts/,
+      testIgnore: COST_SUITE,
     },
     {
       name: "canvas",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: /canvas-performance\.spec\.ts/,
+      testMatch: COST_SUITE,
     },
   ],
   ...(target.startsServer

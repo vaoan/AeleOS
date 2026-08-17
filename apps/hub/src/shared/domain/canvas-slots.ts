@@ -110,3 +110,46 @@ export function slotsFor(canvas: string): number {
     ? CANVAS_SLOTS[canvas as keyof typeof CANVAS_SLOTS]
     : 0;
 }
+
+/**
+ * The canvas a page draws when its author has chosen none.
+ *
+ * **It lives here, beside the table of canvases that exist, rather than in the
+ * theme that offers them.** `themeVars` deliberately emits `--canvas` only for
+ * a canvas OTHER than this one, so that a page nobody has themed carries no
+ * property at all and stays byte-for-byte what it was before theming existed.
+ * That makes the empty string a value the renderer sees on almost every page,
+ * and something above the feature has to know which canvas it names.
+ *
+ * `DEFAULT_THEME.canvas` is this constant, so the two cannot drift apart.
+ */
+export const DEFAULT_CANVAS = "nebula";
+
+/**
+ * Which canvas a `--canvas` value actually draws.
+ *
+ * **Every reader of `--canvas` must go through this, and the reason is a real
+ * bug rather than tidiness.** The renderer treated the empty string as the
+ * nebula when deciding what to DRAW and as an unknown name when deciding what
+ * resolution to draw it at — so the one canvas nearly every page serves was
+ * drawn at four times the pixels it was designed for, on every page in the app,
+ * for as long as `renderScale` had existed. A fallback and its named equivalent
+ * have to resolve to one name in one place, or every consumer gets its own
+ * chance to disagree about them.
+ *
+ * A name that is not a canvas at all resolves the same way, which is what the
+ * renderer already did when it fell through to the nebula for a canvas it had
+ * no drawing for — a page whose stored canvas was later renamed. `renderScale`
+ * still answers 1 for a canvas that exists and has no entry of its own; that
+ * is a different question and stays the safe default it was.
+ *
+ * @param chosen - whatever `--canvas` reads as, already trimmed.
+ * @returns the name of the canvas that will be drawn.
+ */
+export function resolveCanvas(chosen: string): string {
+  // `Object.hasOwn`, never a bare index or `in`: `CANVAS_SLOTS["toString"]` is
+  // the inherited function, so both would report that `toString` is a canvas —
+  // the trap this repository has now documented in `slotsFor`, `dialsApply`
+  // and `renderScale`.
+  return Object.hasOwn(CANVAS_SLOTS, chosen) ? chosen : DEFAULT_CANVAS;
+}

@@ -146,11 +146,30 @@ describe("isCanvasSource", () => {
     expect(isCanvasSource(path)).toBe(true);
   });
 
+  // **The half this check was missing, and it cost every pull request in a
+  // run of them.** None of these is named for a canvas, every one of them decides
+  // what a personalised page costs to paint, and the suite was skipped from
+  // #150 to #155 — runs which between them changed skins, layouts, section
+  // styles and the page background — because the pattern only knew the
+  // renderers.
+  it.each([
+    "apps/hub/src/shared/domain/skins.ts",
+    "apps/hub/src/app/globals.css",
+    "apps/hub/src/features/actors/domain/actor-theme.ts",
+    "apps/hub/src/features/actors/presentation/public-sections.tsx",
+    "apps/hub/src/features/actors/presentation/section-card.tsx",
+    "apps/hub/src/features/actors/presentation/gradient-picker.tsx",
+    "apps/hub/src/features/actors/presentation/theme-configurator.tsx",
+    "apps/hub/tests/e2e/personalised-page-cost.spec.ts",
+  ])("watches %s, which decides what a page costs", (path) => {
+    expect(isCanvasSource(path)).toBe(true);
+  });
+
   it.each([
     "supabase/migrations/0009_sections.sql",
     "apps/hub/messages/es.json",
-    "apps/hub/src/features/actors/presentation/gradient-picker.tsx",
     "apps/hub/src/shared/presentation/page-shell.tsx",
+    "apps/hub/src/features/actors/domain/embeds.ts",
     "docs/integrating.md",
     // Named for a canvas but not in the app — the picker's own copy of the
     // list lives elsewhere and cannot change what a frame costs.

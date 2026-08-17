@@ -12,9 +12,18 @@
  * **A new canvas is not the only way a frame gets slower, so it is not the only
  * trigger.** Adding one was the first rule here, and the gap it left was named
  * on the way in: an extra pass in the aurora or a wider stroke in the honeycomb
- * adds no key to the table and would have sailed past. The suite now also runs
- * when the code that DRAWS a canvas changes, which is the other half of the
- * same question and closes it.
+ * adds no key to the table and would have sailed past. The suite also runs when
+ * the code that DRAWS a canvas changes, which is the other half of the same
+ * question about the canvas.
+ *
+ * **And the canvas is not the only thing the suite measures any more**, so it
+ * is not the only thing that triggers it either. A personalised page's own cost
+ * — a skin's backdrop blur, a layout's markup, the tokens in `globals.css`, the
+ * editor a theme dial is dragged in — is watched by
+ * `personalised-page-cost.spec.ts`, and none of the files that decide it is
+ * named for a canvas. That gap was not hypothetical: it skipped the whole
+ * expensive half through a run of pull requests that changed every one of those
+ * things. {@link isCanvasSource} names them.
  *
  * The names are read out of `CANVAS_SLOTS` rather than out of a list kept
  * beside it, for the reason that table exists: it is the one place a canvas is
@@ -71,31 +80,59 @@ export function addedCanvases(before, after) {
   return canvasNames(after).filter((name) => !had.has(name));
 }
 
+/** The modules named for the thing they draw. */
+const RENDERERS = /(^|\/)(canvas|nebula)[\w.-]*\.(ts|tsx)$/;
+
 /**
- * Whether a changed file is one that decides what a canvas costs to draw.
+ * The tables and stylesheets that decide what a PERSONALISED page costs.
  *
- * **A pattern rather than a list of paths**, and that is the point: every
- * module in this family is named for it — `nebula-canvas`, `canvas-field`,
- * `canvas-motion`, `canvas-raster`, `canvas-resolution`, `canvas-slots`,
- * `nebula-noise` — so a new one is watched the moment it is written. A list
- * would have to be edited by the same person who forgot to measure, which is
- * the failure this whole check exists to survive.
+ * Named individually because none of them is named for a canvas, and none of
+ * them would have been matched by the renderer pattern above — which is how
+ * every skin, layout, section-style and page-background change from #150 to
+ * #155 stepped straight past this check. The expensive half was skipped on
+ * every one of those runs, each of which changed what a page costs to paint.
+ */
+const COST_DECIDERS =
+  /(^|\/)(skins|actor-theme|public-sections|section-card|globals|personalised-page-cost\.spec)\.(ts|tsx|css)$/;
+
+/** Where the editor a theme dial is dragged in lives. */
+const EDITOR = "apps/hub/src/features/actors/presentation/";
+
+/**
+ * Whether a changed file is one that decides what a page costs to paint.
+ *
+ * **Patterns rather than a list of paths wherever a family has a name**, and
+ * that is the point: every renderer is named for what it draws —
+ * `nebula-canvas`, `canvas-field`, `canvas-motion`, `canvas-raster`,
+ * `canvas-resolution`, `canvas-slots`, `nebula-noise` — so a new one is watched
+ * the moment it is written. A list would have to be edited by the same person
+ * who forgot to measure, which is the failure this whole check exists to
+ * survive.
+ *
+ * **The families that have no such name are listed, and that is the half this
+ * check was missing.** A skin's backdrop blur, a layout's markup, the tokens in
+ * `globals.css` and the editor's own components all decide what the throttled
+ * budget in `personalised-page-cost.spec.ts` measures, and not one of them has
+ * "canvas" in its name. The whole editor directory is included rather than the
+ * files that happen to matter today: what the dial costs is linear in how much
+ * that directory renders, so any component added there changes the answer.
  *
  * Test files match too. Running the suite because its own spec changed is
  * correct, and running it because a unit test beside the renderer changed is a
  * few wasted minutes in the direction that cannot hide a regression.
  *
  * @param path - a repository-relative path, as `git diff --name-only` prints.
- * @returns whether a change to it should run the frame-cost suite.
+ * @returns whether a change to it should run the cost suite.
  */
 export function isCanvasSource(path) {
   const clean = path.trim().replaceAll("\\", "/");
   if (!clean.startsWith("apps/hub/")) return false;
-  return /(^|\/)(canvas|nebula)[\w.-]*\.(ts|tsx)$/.test(clean);
+  if (clean.startsWith(EDITOR)) return true;
+  return RENDERERS.test(clean) || COST_DECIDERS.test(clean);
 }
 
 /**
- * The changed files that decide what a canvas costs to draw.
+ * The changed files that decide what a page costs to paint.
  *
  * @param changed - every path the change touches.
  * @returns those worth re-measuring for, sorted, with blanks dropped.

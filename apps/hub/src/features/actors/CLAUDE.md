@@ -1209,6 +1209,21 @@ directions: a canvas claiming more than it uses gives somebody controls that
 change nothing, and one claiming fewer makes some of its colours unreachable
 with no way to find out why.
 
+**`--canvas` is read through `resolveCanvas`, never raw, and that is a fault
+rather than a style rule.** `themeVars` emits the property only for a canvas
+other than the default — which is what keeps an untouched page byte-for-byte
+what it was — so the empty string is what nearly every page in the app serves.
+The renderer treated it as the nebula when deciding what to DRAW and as an
+unknown name when deciding what resolution to draw it at, because
+`renderScale("")` answers 1 where `renderScale("nebula")` answers 0.5. Every
+page in the app drew the default canvas at four times its intended pixels:
+35.8ms a frame at a device ratio of two against 8.9 named, a main thread 100%
+busy at 28fps while nobody touched the page. `DEFAULT_CANVAS` and
+`resolveCanvas` live in `shared/domain/canvas-slots.ts`, `DEFAULT_THEME.canvas`
+is that same constant, and `canvas-performance.spec.ts` asserts the bitmap with
+the property ABSENT — which is how production reaches it, and which the suite
+had never done because it named every canvas including the default.
+
 Colours travel as `--canvas-N`, indexed from one, falling back to the design's
 own two when unset — so a page nobody has themed is unchanged. They used to be
 two named fields, which made every canvas reuse the same pair rather than each animation inventing its

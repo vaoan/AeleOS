@@ -24,6 +24,7 @@ import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import { slotsFor } from "@/shared/domain/canvas-slots";
 import { CANVAS_RANGE, dialsApply } from "@/shared/domain/canvas-motion";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
+import { FrameCoalescedRange } from "@/shared/presentation/frame-coalesced-range";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
@@ -205,6 +206,17 @@ export interface ThemeConfiguratorProps {
  * colours beneath it. Its fit select appears only once there is a picture to
  * place, the same rule the cursor's oversize warning and the section style
  * popup's own fit select both follow.
+ *
+ * **A dial reports at most once per animation frame**, through
+ * `FrameCoalescedRange`, and that is a measured fix rather than a precaution.
+ * Each report rewrites a custom property at `:root`, which restyles every
+ * element beneath it — 15.6ms per update on this editor's DOM on a desktop and
+ * 178.5ms on a mid-range phone, whether the properties arrive as this `<style>`
+ * element or inline, which was measured rather than assumed. A blocked main
+ * thread then delivers input in bursts and every event in the burst was being
+ * paid in full. **The colour input above is the same shape and is not coalesced
+ * yet** — it was never measured, and a change nobody has measured is not one
+ * this file should claim.
  *
  * **One dial per row.** Three abreast left each about a third of the panel,
  * where the label, the multiplier and the track all competed and the track —
@@ -517,22 +529,23 @@ export function ThemeConfigurator({
                         {`${value[key].toFixed(2)}×`}
                       </span>
                     </label>
-                    <input
+                    {/* Continuous, like the colour inputs: the canvas redraws
+                        on the next frame, so the drag itself IS the preview.
+                        **At most one report per frame**, because each one
+                        rewrites a custom property at `:root` and restyles every
+                        element beneath it — 178ms on this editor's DOM on a
+                        throttled phone, paid once per input event, of which a
+                        blocked main thread delivers several per frame. See
+                        `FrameCoalescedRange` for why the element is
+                        uncontrolled rather than merely deferred. */}
+                    <FrameCoalescedRange
                       id={`${id}-${key}`}
-                      type="range"
                       min={CANVAS_RANGE.min}
                       max={CANVAS_RANGE.max}
                       step={0.05}
                       value={value[key]}
-                      // Continuous, like the colour inputs: the canvas redraws on
-                      // the next frame, so the drag itself IS the preview.
-                      onChange={(event) =>
-                        onChange({
-                          ...value,
-                          [key]: Number.parseFloat(event.target.value),
-                        })
-                      }
-                      {...tid(`theme-${key}`)}
+                      onCommit={(dial) => onChange({ ...value, [key]: dial })}
+                      testId={`theme-${key}`}
                       className="h-2 w-full accent-(--accent)"
                     />
                   </div>

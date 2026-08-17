@@ -154,13 +154,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
-  # The frame-cost guard, on its own check and on its own trigger.
+  # The cost guard, on its own check and on its own trigger.
   #
   # It drives a real browser through every canvas in the app at the top of both
-  # dials, twice each — minutes of work whose answer almost never changes. So it
-  # does that work when the answer CAN have changed: a canvas added to
-  # `CANVAS_SLOTS`, or a change to the code that draws one. Everything else — a
-  # migration, a translation, a copy change — steps past it in seconds.
+  # dials, and then through the largest personalised page the database will
+  # accept on a throttled phone — minutes of work whose answer almost never
+  # changes. So it does that work when the answer CAN have changed: a canvas
+  # added to `CANVAS_SLOTS`, or a change to anything that decides what a page
+  # costs to paint. Everything else — a migration, a translation, a copy change
+  # — steps past it in seconds.
+  #
+  # **`isCanvasSource` was too narrow and that is why this is worth reading.**
+  # It matched only modules named for a canvas, so #150 through #155 — every
+  # skin, layout, section-style and page-background change — skipped the
+  # expensive half on all six runs. It now also watches `skins.ts`,
+  # `globals.css`, `actor-theme.ts`, `public-sections.tsx` and the whole editor
+  # presentation directory.
   #
   # **The job always runs; only its expensive half is conditional.** Guarding
   # the whole job with `if:` would leave a check that never reports on most pull
@@ -169,6 +178,17 @@ jobs:
   #
   # The two triggers and why it fails open are in
   # `scripts/canvas-suite-needed.mjs`.
+  #
+  # 🧑 **This check is still not REQUIRED, and only a maintainer can change
+  # that.** The required list lives in repository settings rather than in this
+  # file, so nothing here can say so and nothing here will fail if it is wrong:
+  #
+  #     gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
+  #     → ["conformance","hub","idp-cloud","e2e"]
+  #
+  # Until `canvas` joins that list it can go red without stopping a merge, which
+  # is one step from a check that does nothing — and the two faults this job
+  # now guards against both shipped to `main` under a green tick.
   canvas:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -197,7 +217,10 @@ jobs:
         if: steps.needed.outputs.run == 'true'
         run: pnpm --filter hub exec playwright install --with-deps chromium
 
-      - name: Measure every canvas
+      # Every canvas at the top of both dials, and then the personalised page
+      # budget on a throttled phone — `playwright.config.ts`'s `canvas` project
+      # owns both.
+      - name: Measure every canvas, and what a personalised page costs
         if: steps.needed.outputs.run == 'true'
         run: pnpm --filter hub test:canvas
         env:

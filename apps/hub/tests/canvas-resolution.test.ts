@@ -18,6 +18,12 @@ describe("renderScale", () => {
 
   it("gives an unknown canvas full resolution rather than a blurry one", () => {
     expect(renderScale("no-such-canvas")).toBe(1);
+    // **This line is the bug's other half, kept deliberately.** It is the right
+    // answer to the question this function asks — the empty string names no
+    // canvas — and it was the WRONG answer for the caller, because the renderer
+    // went on to draw the nebula for it. Nothing may hand a raw `--canvas`
+    // value here any more; `resolveCanvas` decides the name first. See
+    // `canvas-slots.test.ts`, which pins the two together.
     expect(renderScale("")).toBe(1);
   });
 
