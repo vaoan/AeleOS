@@ -227,18 +227,21 @@ test.describe("signed in", () => {
     }
   });
 
-  // THE TEST THAT USED TO LIVE HERE, AND WHY IT DOES NOT.
+  // THE TEST THAT USED TO LIVE HERE, AND WHERE IT WENT.
   //
   // "Sections written in the editor reach a stranger's browser" inserted a
   // template through the real picker, saved, and counted the sections on the
-  // public page. **The editor cannot write a page at all right now**: it
-  // composes a flat list of sections and `set_actor_sections` walks a tree of
-  // blocks, so the save is refused until the editor is ported (phase 3).
+  // public page. It was removed when `set_actor_sections` began validating a
+  // tree of blocks and the flat editor's save was refused — which was the
+  // production bug, sitting in plain sight as a deleted test.
   //
-  // The half that is still true — what is STORED reaches a stranger's browser,
-  // in every mode and every kind — is `blocks-render.spec.ts`, which seeds the
-  // page directly because that is the only writer there is. The half that is
-  // owed back is the editor's own, and it comes back with the editor.
+  // It is back, wider, in `editor-saves-page.spec.ts`: EVERY template, driven
+  // from the list that ships them, saved, reopened in the editor, saved again
+  // and read as a stranger; a page built by hand; and the person's own editor
+  // at `/me/edit`, which is where it was actually reported. The other half —
+  // what is STORED reaches a stranger's browser, in every mode and every kind
+  // — is `blocks-render.spec.ts`, which seeds directly because a flat editor
+  // cannot compose most of those trees.
 
   // **The whole journey, in one test.** The others each prove one hop; this
   // walks the path a person actually takes — create, theme it, save, read it
@@ -249,9 +252,8 @@ test.describe("signed in", () => {
   // editor that reopened without somebody's page deleted every block of it the
   // moment they pressed save. That shipped once, silently, and a unit test of
   // the page props is a weaker proof than doing it in a browser. **It is
-  // asserted on the THEME here rather than on the page**, because the editor
-  // cannot write a page at all until phase 3 — the section half of this
-  // assertion comes back with it.
+  // asserted on the THEME here**; the section half of the same assertion lives
+  // in `editor-saves-page.spec.ts`, once per template.
   test("a fursona survives being created, themed, read and saved again", async ({
     page,
     browser,
@@ -267,12 +269,12 @@ test.describe("signed in", () => {
     await page.getByTestId("editor-display-name").fill("The Whole Journey");
     await page.getByTestId("editor-visibility").selectOption("public");
 
-    // **No sections.** This test used to build two from a template and one by
-    // hand, and assert their count on the public page either side of the
-    // re-save. The editor's flat shape is refused by `set_actor_sections`
-    // until phase 3 ports it, so what is left here is the THEME half of the
-    // journey — which is untouched by the block model, travels its own RPC,
-    // and is what most of the assertions below were always about.
+    // **No sections here on purpose.** This journey is the THEME half — a
+    // theme travels its own RPC and is what every assertion below is about.
+    // The sections half is `editor-saves-page.spec.ts`, which does the same
+    // create/save/read/reopen/re-save walk for every template rather than for
+    // one page, and a second copy of it here would only be a slower way to
+    // find the same failure.
 
     // Theme it: a background colour, an accent, a canvas that is not the
     // default, and a skin. Every one of these travels a different route into

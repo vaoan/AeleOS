@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Actor } from "@/features/actors/infrastructure/fursonas";
+import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
+import type { FursonaSection } from "@/features/actors/domain/section-schema";
 
 /** How one fursona is arranged in its owner's list. */
 export interface Arrangement {
@@ -205,14 +207,19 @@ export async function deleteFursona(
  * The database validates the shape and raises a message naming the PATH of the
  * block that is wrong — `block 2.3:` — because the editor has to say what to
  * fix. It enforces `BLOCK_LIMITS` rather than `SECTION_LIMITS`: what it accepts
- * is a tree of blocks, so **the flat document this function still sends is
- * refused outright** until the editor is ported — as
- * {@link PageRefusedError}, which is what puts the refusal in front of the
- * person rather than past them.
+ * is a tree of blocks, and the editor still composes a flat list.
+ *
+ * **This is where the two meet, and `sectionsToBlocks` is the seam.** Every
+ * save carrying a section was refused in production until it existed — the
+ * template button being the fastest way to reach it, since one click fills a
+ * whole page. Converting here rather than in the editor means every caller and
+ * every template keeps working unchanged, and the conversion has exactly one
+ * place to be deleted from when the block editor lands; see that function for
+ * what deletes it.
  *
  * @param client - a Supabase client authenticated as the person.
  * @param actorRef - the fursona whose sections these are.
- * @param sections - the whole document.
+ * @param sections - the whole document, as the flat editor composed it.
  * @throws PageRefusedError when the shape, the depth or the limits are
  * refused.
  * @throws when the caller does not own an active fursona with that ref.
@@ -220,10 +227,10 @@ export async function deleteFursona(
 export async function setFursonaSections(
   client: SupabaseClient,
   actorRef: string,
-  sections: unknown,
+  sections: readonly FursonaSection[],
 ): Promise<void> {
   await call(client, "set_actor_sections", {
     p_actor_ref: actorRef,
-    p_sections: sections,
+    p_sections: sectionsToBlocks(sections),
   });
 }

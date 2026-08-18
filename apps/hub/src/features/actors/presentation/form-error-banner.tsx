@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { tid } from "@/shared/infrastructure/test-id";
 
 /** Translated strings {@link FormErrorBanner} renders. */
 export interface FormErrorBannerLabels {
@@ -37,6 +38,14 @@ export interface FormErrorBannerProps {
  *
  * Unchanged in behaviour; its class list moved to the canonical token spelling with everything else.
  *
+ * **Exposes the `editor-error-banner` test id**, which `role="alert"` cannot
+ * stand in for: the template picker's own confirmation is an alert too, so a
+ * suite asserting that a save was NOT refused would be reading whichever of
+ * the two happened to be on screen. The end-to-end suite that drives every
+ * template through a real save needs to name this one — without it, a refused
+ * save is only ever a navigation that never happened, which reports as a
+ * timeout naming nothing.
+ *
  * @returns the banner, or null when there is nothing to report.
  */
 export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
@@ -49,6 +58,7 @@ export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
   return (
     <div
       role="alert"
+      {...tid("editor-error-banner")}
       className="mb-6 rounded-xl surface border-(--accent)/50 bg-(--accent)/10 p-4"
     >
       <p className="flex items-center gap-2 text-sm font-medium">

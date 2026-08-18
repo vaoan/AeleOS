@@ -303,6 +303,57 @@ describe("the page it will accept", () => {
       { ...PARSED[0], style: { skin: "glass" } },
     ]);
   });
+
+  // A LIVE REGRESSION, NOT A HYPOTHETICAL. Nothing converted the pages written
+  // before `set_actor_sections` began validating blocks — the blocks-and-grids
+  // design says so in as many words — so every one of them stopped parsing
+  // here and served a stranger a heading with nothing under it. The flat shape
+  // goes through the same `sectionsToBlocks` the editor's own save uses, so a
+  // page reads the same before and after its owner next saves it.
+  it("renders a page still stored in the flat shape", async () => {
+    answer({
+      ...fursonaRow,
+      sections: [
+        {
+          name_en: "About",
+          type: "stats",
+          sort_order: 1,
+          items: [
+            {
+              title_en: "Species",
+              description_en: "A wolf.",
+              sort_order: 1,
+            },
+          ],
+        },
+      ],
+    });
+    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([
+      {
+        kind: "container",
+        mode: "grid",
+        columns: 4,
+        span: 1,
+        name_en: "About",
+        children: [
+          {
+            kind: "stat",
+            span: 1,
+            title_en: "Species",
+            description_en: "A wolf.",
+          },
+        ],
+      },
+    ]);
+  });
+
+  // The control that keeps the case above from being vacuous in the other
+  // direction: a value that is neither shape is still nothing, rather than
+  // whatever a lenient reading of it would produce.
+  it("treats a page that is neither shape as none", async () => {
+    answer({ ...fursonaRow, sections: [{ name_en: "About", type: "spiral" }] });
+    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
+  });
 });
 
 describe("the client it builds", () => {

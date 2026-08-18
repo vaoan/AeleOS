@@ -8,6 +8,8 @@ import {
   lenientBlocksSchema,
   type Block,
 } from "@/features/actors/domain/block-schema";
+import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
+import { readSectionsSchema } from "@/features/actors/domain/section-schema";
 
 /** One fursona as a person's public profile lists it. */
 export interface PublicFursonaSummary {
@@ -120,12 +122,23 @@ const anonClient = () =>
  * the write — so a failed parse still means something is genuinely wrong
  * rather than merely newer.
  *
+ * **A page stored in the FLAT shape is converted rather than refused**, and
+ * that is a live regression rather than a nicety. No migration converted the
+ * pages written before `set_actor_sections` began validating blocks — the
+ * blocks-and-grids design says as much — so every one of them fell straight
+ * through to the `[]` above and served a stranger a heading with nothing under
+ * it. `sectionsToBlocks` is the same conversion the editor's own save goes
+ * through, so a page reads the same before and after its owner next saves it,
+ * and it is deleted with the rest of the shim when the block editor lands.
+ *
  * @param value - whatever the database returned.
- * @returns the blocks, or `[]` when they do not parse.
+ * @returns the blocks, or `[]` when they do not parse as either shape.
  */
 function parseBlocks(value: unknown): Block[] {
   const result = lenientBlocksSchema.safeParse(value);
-  return result.success ? result.data : [];
+  if (result.success) return result.data;
+  const flat = readSectionsSchema.safeParse(value);
+  return flat.success ? sectionsToBlocks(flat.data) : [];
 }
 
 /**

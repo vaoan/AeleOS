@@ -595,7 +595,7 @@ prevent, and the leniency had only ever been extended to unknown keys. The read
 is a floor now: one empty title costs that title, never the page, and every
 renderer already handles it.
 
-### The editor is still the flat one, and it refuses rather than erases
+### The editor is still the flat one, and a shim converts at the boundary
 
 Phase 1 shipped the model and the renderer, proven with fixtures written
 straight to the database. **The editor is phase 3**, so `section-schema.ts`,
@@ -603,16 +603,59 @@ straight to the database. **The editor is phase 3**, so `section-schema.ts`,
 code awaiting its own deletion, and adding a layout to `SECTION_TYPES` changes
 nothing anywhere.
 
-The part to know before touching any of it: `readActorPage` parses with the
-flat schema, so a page stored as blocks does not parse. **`ActorPage.sections`
-is a union for exactly that reason** — `[]` means nothing is written and an
-editor may replace it; `null` means a page IS stored and this build could not
-read its shape, and the save refuses outright, before the fields, before the
-sections and before the theme. The two states used to be one, and the
-consequence was that opening any block-tree page and pressing Save erased it:
-the parse failed, the read answered `[]`, the mutation sent an empty tree,
-`set_actor_sections` accepts an empty tree and REPLACES. A page gone, no
-warning, and the RPC reporting success.
+**Between the two sits `domain/section-block-shim.ts`, and it exists because
+this was shipped without one.** `set_actor_sections` walks `validate_block` and
+refuses the flat shape outright, so from the moment the block model merged
+every save carrying a section was refused in production — the template button
+being the fastest way to reach it, since one click fills a whole page. That
+outcome was known before the merge and ruled acceptable; the ruling drew its
+line at data loss and stopped, and what it missed is that a core surface which
+cannot save is not a degraded state. The shim converts at the write
+(`setFursonaSections`) and back at the read (`readActorPage`), so the flat
+editor and every template keep working unchanged. **What deletes it is phase 3**
+— it goes with `section-schema.ts`, the templates and the section editor, in
+one change.
+
+Three things about it that a later change must not undo:
+
+- **Every flat layout gets a DISTINCT `mode`/`kind` pair**, because the reverse
+  direction recovers the layout from that pair. Two layouts sharing one would
+  silently retype somebody's section on the way back — which they discover a
+  week later, not when they save. `cards` keeps the grid and `links` takes the
+  stack for exactly this reason; they are the flat vocabulary's one genuinely
+  redundant pair.
+- **A tree the shim does not recognise reads as `null`, never as a best
+  effort.** A container inside a container, a leaf spanning two tracks, a leaf
+  wearing its own style, a container holding two kinds — every one of those is
+  a page only a block editor could have built, and flattening it would let the
+  next save write the flattening back over the whole.
+- **A page written before the block model still parses**, on both the editor's
+  read and the public one. Nothing converted them, so until their owners next
+  save they are the flat shape in the column — and for the length of one branch
+  every one of them served a stranger a heading with nothing under it.
+
+The part to know before touching any of it: **`ActorPage.sections` is a union**
+— `[]` means nothing is written and an editor may replace it; `null` means a
+page IS stored and this build could not hold its shape, and the save refuses
+outright, before the fields, before the sections and before the theme. The two
+states used to be one, and the consequence was that opening any block-tree page
+and pressing Save erased it: the parse failed, the read answered `[]`, the
+mutation sent an empty tree, `set_actor_sections` accepts an empty tree and
+REPLACES. A page gone, no warning, and the RPC reporting success. **The shim
+does not weaken that and must not be made to**: it either produces the whole
+page or answers null.
+
+The one thing that does not survive the round trip is a section saved with **no
+items at all** — an empty container carries no leaf kind, so `grid` alone
+cannot say which of eight layouts it was, and it reopens as `cards`. Nothing
+written is lost, because there is nothing in it.
+
+`tests/e2e/editor-saves-page.spec.ts` is what proves all of this in a browser:
+every template, applied through the real picker, saved, **reopened in the
+editor and compared field by field**, saved again, and read as a stranger —
+plus a page built by hand and the person's own editor at `/me/edit`. The
+reopen is the assertion that matters; a one-way test passes on a conversion
+that retypes a section.
 
 **`--card-size` currently has no reader** while the flat popup still offers the
 control. It named the minimum width a card in an `auto-fill` grid could shrink

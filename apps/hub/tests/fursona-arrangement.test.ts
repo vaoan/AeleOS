@@ -8,6 +8,7 @@ import {
   setFursonaOrder,
   setFursonaSections,
 } from "@/features/actors/infrastructure/fursona-arrangement";
+import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const rpc = vi.fn();
@@ -201,14 +202,28 @@ describe("the write functions", () => {
 
   // Sends the whole document, because 0009 replaces rather than merges — which
   // is also what makes retrying a failed save safe.
-  it("writes sections by actor ref", async () => {
+  //
+  // **And it sends BLOCKS, never the flat sections it was handed.**
+  // `set_actor_sections` walks `validate_block` and refuses the flat shape
+  // outright, so every save carrying a section was refused in production until
+  // `sectionsToBlocks` sat here. Asserting the converted payload rather than
+  // the argument is what makes this test able to fail: the version that
+  // asserted `p_sections: sections` passed happily against the code that was
+  // refused by the database on every call.
+  it("writes sections by actor ref, as blocks", async () => {
     const sections = [
-      { name_en: "About", type: "cards", sort_order: 1, items: [] },
+      { name_en: "About", type: "cards" as const, sort_order: 1, items: [] },
     ];
     await setFursonaSections(client(), "ref-1", sections);
     expect(rpc).toHaveBeenCalledWith("set_actor_sections", {
       p_actor_ref: "ref-1",
-      p_sections: sections,
+      p_sections: sectionsToBlocks(sections),
+    });
+    const sent = rpc.mock.calls[0]?.[1] as { p_sections: unknown[] };
+    expect(sent.p_sections[0]).toMatchObject({
+      kind: "container",
+      mode: "grid",
+      name_en: "About",
     });
   });
 

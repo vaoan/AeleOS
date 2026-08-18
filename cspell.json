@@ -235,6 +235,7 @@
         "apps/hub/tests/section-card.test.tsx",
         "apps/hub/tests/section-item-fields.test.tsx",
         "apps/hub/tests/section-schema.test.ts",
+        "apps/hub/tests/section-block-shim.test.ts",
         "apps/hub/tests/block-schema.test.ts",
         "apps/hub/src/features/actors/domain/fursona-templates.ts",
         "tests/db/public-fursona.test.ts",

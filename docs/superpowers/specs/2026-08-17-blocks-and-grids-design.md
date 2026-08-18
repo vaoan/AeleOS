@@ -329,7 +329,12 @@ are the recorded starting points.
 - **No server-side fetch.** Same spec, same refusal.
 - **No file hosting.** Pictures remain pasted addresses; AeleOS stores no files,
   and reopening that means reopening the $0 budget.
-- **No conversion of existing pages.** Stated above.
+- **No conversion of existing pages.** Stated above. **What that cost was not
+  reckoned with**: nothing migrated the pages already stored in the flat shape,
+  and the public read parsed only blocks — so every one of those pages served a
+  stranger a heading with nothing under it until `parseBlocks` grew the same
+  flat fallback the editor's read has. A stored shape nothing converts still
+  has to be a shape something READS.
 
 ## Phasing
 
@@ -351,9 +356,19 @@ The work splits along seams that each leave something testable:
 Phase 3 is where the unknown cost sits, and phase 1 did not wait on it.
 
 **Phases 3–5 have no plan yet, and the state they inherit is not neutral.** The
-editor is still the flat one: it cannot open a page stored as blocks, and it
-now refuses to save one rather than replacing it with nothing, which is the
-honest state but not a working one. `--card-size` is a control with no reader
+editor is still the flat one, and it shipped unable to save at all: every save
+carrying a section was refused by `set_actor_sections`, in production, from the
+day phase 1 merged. **That was known and ruled acceptable here, and the ruling
+was wrong** — it drew its line at data loss and stopped, and a core surface
+that cannot save is not a degraded state. What closed it is
+`domain/section-block-shim.ts`, which converts flat sections to blocks at the
+write and back at the read, so the editor and every template keep working
+unchanged; it is deleted by phase 3, with `section-schema.ts`, the templates
+and the section editor, in one change. Read that file and
+`features/actors/CLAUDE.md` before the port: the reverse direction recovers a
+layout from a container's mode and its children's kind, so the pairs have to
+stay distinct, and a tree it cannot flatten reads as `null` rather than as
+something approximate. `--card-size` is a control with no reader
 until `masonry` grows one. `personalised-page-cost.spec.ts`'s dial-latency half
 is `test.fixme` because the page it measured is no longer heavy, with its body,
 node guard and every ceiling kept verbatim and the restoration note written as

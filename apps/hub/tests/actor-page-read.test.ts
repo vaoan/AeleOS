@@ -22,6 +22,9 @@ describe("readActorPage", () => {
   // opening a fursona and pressing save deleted everything its owner had
   // written. Nothing failed and nothing warned; the page simply came back
   // empty.
+  // The FLAT shape, which is what every page written before the block model
+  // still holds — nothing converted them. It must open, or its owner cannot
+  // reach their own page at all.
   it("returns what the owner already wrote", async () => {
     const sections = [
       { name_en: "About", type: "cards", sort_order: 1, items: [] },
@@ -63,10 +66,47 @@ describe("readActorPage", () => {
     expect(page.sections).toBeNull();
   });
 
-  // The block model, which is exactly the shape this flat schema stopped being
-  // able to read — the fixture is a real container rather than nonsense, so
-  // this fails if the read is ever quietly widened to accept both.
-  it("answers null for a page stored as a tree of blocks", async () => {
+  // WHAT IS STORED IS A TREE AND WHAT THE EDITOR HOLDS IS A FLAT LIST, so this
+  // reads both. Every save writes a tree, so this is the ordinary case rather
+  // than the exception — and the fixture is a real container rather than
+  // nonsense, so a read that quietly stopped converting would go red here
+  // instead of leaving the editor unable to open anything it had just written.
+  it("reads a page stored as blocks back as the sections the editor holds", async () => {
+    const page = await readActorPage(
+      client({
+        sections: [
+          {
+            kind: "container",
+            mode: "grid",
+            columns: 4,
+            name_en: "About",
+            children: [
+              { kind: "stat", title_en: "Species", description_en: "A wolf." },
+            ],
+          },
+        ],
+        theme: {},
+      }),
+      "ref",
+    );
+    expect(page.sections).toEqual([
+      {
+        name_en: "About",
+        type: "stats",
+        sort_order: 1,
+        items: [
+          { title_en: "Species", description_en: "A wolf.", sort_order: 1 },
+        ],
+      },
+    ]);
+  });
+
+  // **A tree only a block editor could have built is `null`, not a best
+  // effort**, and that is the property the erasure Critical rests on: this
+  // caller's next act is to REPLACE, so flattening a tree it half-understood
+  // would write the half back over the whole. A container inside a container
+  // is the one thing a flat list has no way to hold at all.
+  it("answers null for a tree the flat editor cannot hold", async () => {
     const page = await readActorPage(
       client({
         sections: [
@@ -74,7 +114,13 @@ describe("readActorPage", () => {
             kind: "container",
             mode: "stack",
             name_en: "About",
-            children: [{ kind: "text", title_en: "Species" }],
+            children: [
+              {
+                kind: "container",
+                mode: "grid",
+                children: [{ kind: "text", title_en: "Species" }],
+              },
+            ],
           },
         ],
         theme: {},

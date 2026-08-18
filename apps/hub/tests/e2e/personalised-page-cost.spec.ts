@@ -32,8 +32,9 @@ import {
 //    number that regresses when somebody adds a block kind or a control.
 //
 // **The second of those is stood down until phase 3 and the first is not**, so
-// they are two tests rather than one. The editor still reads the flat section
-// schema, which cannot parse a stored block tree, so it opens empty and there
+// they are two tests rather than one. The editor holds a flat list of sections
+// and this fixture is built from mode/kind pairs the flat vocabulary has no
+// name for, so it opens empty and there
 // is no heavy DOM left to invalidate — its own node guard is what noticed. The
 // full reasoning, and what restores it, is written above `test.fixme` below;
 // do not relax a ceiling to make it run.
@@ -594,20 +595,32 @@ test.describe("what a heavily personalised page costs on a phone", () => {
   // what keeps that fix from being undone.
   //
   // **It has lost its subject, and its own guard is what noticed.** The
-  // database stores a tree of blocks now; `readActorPage` still parses with
-  // `readSectionsSchema`, the FLAT schema, which cannot read one — so the
-  // editor opens on `sections: []` and renders 309 nodes where the guard wants
-  // more than 2 000. That guard fired exactly as designed: the thing under
-  // measurement was no longer the thing.
+  // database stores a tree of blocks now, and the editor holds a flat list —
+  // so the editor opens on `sections: []` and renders 309 nodes where the
+  // guard wants more than 2 000. That guard fired exactly as designed: the
+  // thing under measurement was no longer the thing.
+  //
+  // **A shim now converts between the two shapes and this page is still not
+  // one of them, deliberately.** `blocksToSections` recovers a flat layout
+  // from a container's mode and its children's kind, and it recognises only
+  // the sixteen pairs the flat vocabulary has a name for; `PLAN` above is
+  // built from pairs it does not — `grid`/`text`, `masonry`/`text`,
+  // `carousel`/`text`, `stack`/`quote` — because it was written to exercise
+  // the RENDERER rather than to be expressible as flat sections. So the read
+  // answers null, the editor opens empty and refuses to save, and this
+  // measurement still has no subject. Rewriting `PLAN` into flat-shaped pairs
+  // would change the page whose cost the ceilings below were calibrated
+  // against, which is the same "relax it until it passes" move rejected three
+  // paragraphs down.
   //
   // **Three ways out were considered and two are worse than standing down.**
   // Lowering the threshold makes the assertion pass for ever while measuring a
   // page the budget was never written for — a green performance check that
   // tells nobody anything, which is the defect this branch has already found
-  // several times. Seeding a heavy editor page is not possible either: the
-  // only writer is `set_actor_sections`, which walks `validate_block` and
-  // refuses the flat document the editor reads, and building 2 000 nodes some
-  // other way would measure a shape the product can no longer render. So the
+  // several times. Seeding a heavy editor page is not possible either: what
+  // the editor can hold is what the shim can flatten, and a page built only
+  // out of flat-shaped pairs is a different page from the one these ceilings
+  // were calibrated against. So the
   // measurement stands down in place, visibly, rather than being relaxed into
   // one that cannot fail.
   //

@@ -8,6 +8,8 @@ import {
   readSectionsSchema,
   type FursonaSection,
 } from "@/features/actors/domain/section-schema";
+import { lenientBlocksSchema } from "@/features/actors/domain/block-schema";
+import { blocksToSections } from "@/features/actors/domain/section-block-shim";
 
 /**
  * Everything the editor needs to open a page as its owner left it.
@@ -56,13 +58,10 @@ export interface ActorPage {
  * for that window every editor save wrote `[]` over a real page with nothing
  * failing and nothing warning, which is verbatim the paragraph above.
  *
- * **Parses sections with `readSectionsSchema`, not the editor's
- * `sectionsSchema`.** The two differ only on an unrecognised STYLE key: the
- * write schema refuses it, the read schema strips it. Using the strict one
- * here would reopen the exact bug this function exists to fix — a single
- * style key this build does not yet recognise would fail the WHOLE array's
- * parse and open the editor on an empty page, ready to save over what its
- * owner actually wrote.
+ * **What is stored is a tree of blocks and what the editor holds is a flat
+ * list, so this reads both** — see {@link readEitherShape}, which owns that
+ * split and the reason a tree it cannot flatten answers `null` rather than
+ * something approximate.
  *
  * @param client - a Supabase client authenticated as the owner.
  * @param actorRef - whose page.
@@ -91,15 +90,43 @@ export async function readActorPage(
   // than an editor that opens without them; but `[]` says "nothing is written"
   // to a caller whose next act is to REPLACE, and that is data loss rather than
   // a degraded read. The distinction is the whole reason this returns a union.
-  //
-  // `readSectionsSchema`, not `sectionsSchema`: an unknown STYLE key must not
-  // blank the whole array the way an unknown section key already does not —
-  // see that export's own TSDoc for why the two schemas disagree on purpose.
-  const parsed = readSectionsSchema.safeParse(
-    (data as { sections: unknown }).sections,
-  );
   return {
-    sections: parsed.success ? parsed.data : null,
+    sections: readEitherShape((data as { sections: unknown }).sections),
     theme: parseTheme((data as { theme: unknown }).theme),
   };
+}
+
+/**
+ * A stored page as the flat editor can hold it, whichever of the two shapes it
+ * is stored in.
+ *
+ * **Two shapes, because two shapes exist.** Everything written since
+ * `set_actor_sections` began validating blocks is a tree; everything written
+ * before it is the flat list, and no migration converted them — the
+ * blocks-and-grids design says so in as many words. Both must open, and the
+ * first save of either writes a tree.
+ *
+ * Neither can be mistaken for the other: a container carries no `type` and a
+ * flat section carries no `kind`, so the schemas are disjoint and the order
+ * these are tried in decides nothing.
+ *
+ * **A tree the shim does not recognise is `null`, not a best effort**, which
+ * is the property `ActorPage.sections`' own doc rests on: a page a block
+ * editor built must not be flattened into what a flat editor can hold and then
+ * saved back over itself. Read `blocksToSections` for the exact list of what
+ * it refuses.
+ *
+ * `readSectionsSchema`, not `sectionsSchema`, for the flat half: an unknown
+ * STYLE key must not blank the whole array the way an unknown section key
+ * already does not — see that export's own TSDoc for why the two schemas
+ * disagree on purpose.
+ *
+ * @param value - whatever the column held.
+ * @returns the sections, or null when this build cannot hold what is stored.
+ */
+function readEitherShape(value: unknown): FursonaSection[] | null {
+  const blocks = lenientBlocksSchema.safeParse(value);
+  if (blocks.success) return blocksToSections(blocks.data);
+  const flat = readSectionsSchema.safeParse(value);
+  return flat.success ? flat.data : null;
 }
