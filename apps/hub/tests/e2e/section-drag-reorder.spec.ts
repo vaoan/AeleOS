@@ -101,77 +101,20 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   await expect.poll(names).toEqual(["Second", "First"]);
 });
 
-// THE ASSERTION THAT WOULD HAVE CAUGHT THE OTHER HALF OF THE BUG.
+// THE OTHER HALF OF THIS FILE IS GONE, AND THE FAULT IT GUARDED CANNOT
+// RECUR.
 //
-// The test above proves the drag reorders the DOM. It would still pass if
-// `onDragEnd` called only `move` and nothing rewrote `sort_order` — which is
-// exactly what shipped first: the array reordered on screen, the save sent
-// every section under its ORIGINAL `sort_order`, and `0009` and the public
-// page both sort by that field, not by array position. So the save silently
-// undid the drag, and nothing before this file drove a save and a reload of
-// the PUBLIC route to notice. This test does: drag, save, then read the
-// order back from a fresh page load of the address a stranger would see.
-test("a section's dragged order survives a save and reaches the public page", async ({
-  page,
-}) => {
-  await signIn(page, await mintTicket(identity!.userId));
-
-  // `/me` first: it is what provisions the person actor, and without one
-  // `create_fursona` refuses with "no person actor for caller".
-  await page.goto("/es/me");
-  const address = (await page.getByTestId("my-address").innerText()).trim();
-
-  await page.goto("/es/pages/new");
-  await page.getByTestId("editor-handle").fill("dragreorder");
-  await page.getByTestId("editor-display-name").fill("Drag reorder");
-  await page.getByTestId("editor-visibility").selectOption("public");
-
-  // Sections built by hand, one per name below — a template inserts sections
-  // as data without touching the drag handle, which would prove nothing here.
-  for (const name of ["First", "Second", "Third"]) {
-    await page.getByTestId("new-section-type").selectOption("cards");
-    await page.getByTestId("add-section").click();
-    await page.getByTestId("section-name").last().fill(name);
-  }
-
-  const names = () =>
-    page
-      .getByTestId("section-name")
-      .evaluateAll((inputs) =>
-        inputs.map((input) => (input as HTMLInputElement).value),
-      );
-  await expect.poll(names).toEqual(["First", "Second", "Third"]);
-
-  // Lift First, move it past Second and Third, drop it last — the same
-  // keyboard mechanics the test above already proved reach the handle.
-  const announcement = page.locator('[id^="rfd-announcement-"]');
-  await page.getByTestId("drag-section").first().focus();
-  await page.keyboard.press("Space");
-  await expect(announcement).not.toBeEmpty();
-
-  await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/to position 2/);
-  await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/to position 3/);
-  await page.keyboard.press("Space");
-
-  await expect.poll(names).toEqual(["Second", "Third", "First"]);
-
-  await page.getByTestId("editor-save").click();
-  await page.waitForURL(/\/pages(\?|$)/);
-
-  const response = await page.goto(`/es/${address}/dragreorder`);
-  expect(response?.status()).toBe(200);
-
-  // The assertion the whole test exists for: the PUBLIC page's own order,
-  // read from a fresh navigation rather than anything still held in the
-  // editor's client-side state. `evaluateAll` rather than `toHaveText` —
-  // the lint rule below bans asserting translated text in an e2e test, and
-  // while these three names are content somebody typed rather than a
-  // catalogue string, reading them the same way `names()` already does above
-  // keeps this file to one pattern rather than two.
-  const publicOrder = await page
-    .getByTestId("public-section")
-    .evaluateAll((headings) => headings.map((h) => h.textContent));
-  expect(publicOrder).toEqual(["Second", "Third", "First"]);
-});
+// A second test used to drag, SAVE, and read the order back from a fresh load
+// of the public route. It existed because `onDragEnd` once called only `move`
+// and nothing rewrote `sort_order`: the array reordered on screen, the save
+// sent every section under its ORIGINAL `sort_order`, and both the database
+// and the public page sorted by that field rather than by array position — so
+// the save silently undid the drag.
+//
+// **A block has no `sort_order`.** The array IS the order, at every depth;
+// `PublicBlocks` sorts nothing and has nothing to sort by, which is asserted
+// directly in `blocks.test.tsx`. There is no field left for a save to send
+// stale, so the test's subject no longer exists — and it could not be kept in
+// any case, because the editor still writes the flat shape the database now
+// refuses. When the editor is ported (phase 3) the round trip is worth a spec
+// again, for whatever the new save actually risks.

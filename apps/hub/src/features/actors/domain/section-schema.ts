@@ -30,7 +30,7 @@ import { z } from "zod";
  * **`progress` draws a proportion; `stats` only ever states one.** Its title
  * is the label and its description is the value, inverting the pair exactly
  * as `stats` and `quote` already do — but it also tries to READ that value,
- * through `progressValue` in `public-sections.tsx`, and draws a bar sized to
+ * through `progressValue` in `domain/progress-value.ts`, and draws a bar sized to
  * it. A description that cannot be read as a number renders as the same
  * plain label/value row `stats` renders, never a broken bar.
  *
@@ -39,10 +39,13 @@ import { z } from "zod";
  * is vertical and every item may be open at once; this is a switcher, and
  * saying so is what keeps the two from reading as duplicates of each other.
  *
- * **The database holds this same list in `is_section_type()`**, and it is
- * authoritative — a type it does not know is refused whatever this array says.
- * `section-limits-match-migration.test.ts` reads the SQL and fails the build if
- * the two ever disagree, so neither side can be extended alone.
+ * **Nothing in the database holds this list any more, and no guard pins it.**
+ * `is_section_type()` and the flat validation in `set_actor_sections` were
+ * replaced by the block model — `is_block_kind()`, `is_container_mode()` and
+ * `validate_block()` — and `section-limits-match-migration.test.ts` went with
+ * them. This file is dead code awaiting its own deletion; adding a layout here
+ * would change nothing anywhere. Add a block kind or a container mode in
+ * `block-schema.ts` instead, where the drift guard still runs.
  */
 export const SECTION_TYPES = [
   "cards",
@@ -67,20 +70,19 @@ export const SECTION_TYPES = [
 export type SectionType = (typeof SECTION_TYPES)[number];
 
 /**
- * What `0009` will accept, mirrored so somebody hears about a cap while typing.
+ * What `0009` used to accept, mirrored so somebody heard about a cap while
+ * typing.
  *
- * **The database is authoritative and this is a copy**, which is a thing worth
- * being nervous about: a copy that drifts either rejects what the database
- * would have taken or promises what it will refuse. So it is not trusted to
- * stay right — `section-limits-match-migration.test.ts` reads the migration and
- * fails if any of these four stops matching.
- *
- * Change one of these only by changing `0009` too. The guard will say so.
+ * **These are no longer the database's caps and nothing pins them.** `0009`
+ * carries the block model's own — `BLOCK_LIMITS` in `block-schema.ts`, pinned
+ * by `block-limits-match-migration.test.ts` — and `c_max_sections` and
+ * `c_max_items` no longer exist at all. Only the character and byte caps happen
+ * to have survived unchanged, which is a coincidence rather than a guarantee.
+ * This file is dead code awaiting its own deletion; do not reason about the
+ * database from it.
  *
  * The byte cap is written `65_536` so it reads as the power of two it is
- * rather than as a number somebody picked. The migration states the same value
- * in SQL, where separators are not available, and the guard compares them as
- * numbers — so the two spellings cannot drift apart.
+ * rather than as a number somebody picked.
  */
 export const SECTION_LIMITS = {
   /** Sections per fursona. */
@@ -188,10 +190,11 @@ const sectionStyleShape = {
  * answer, not a gap, exactly as the theme's own keys work.
  *
  * **`.strict()` refuses an unknown key rather than silently dropping it**,
- * which `z.object` does by default. That matches `set_actor_sections` in
- * `0009`, which refuses the same typo at the write instead of storing it and
- * rendering nothing — the "control that does nothing" fault this project
- * keeps catching. **This is the WRITE-path schema only** — see
+ * which `z.object` does by default. That matched `set_actor_sections`, which
+ * refused the same typo at the write instead of storing it and rendering
+ * nothing — the "control that does nothing" fault this project keeps
+ * catching. That function validates blocks now, and refuses this shape
+ * outright. **This is the WRITE-path schema only** — see
  * {@link readSectionsSchema} for why reading stored data needs the opposite
  * choice.
  *
@@ -267,9 +270,10 @@ function sectionsArraySchema<T extends z.ZodType>(schema: T) {
  * saving.
  *
  * **Strict on every unknown key, section or style alike** — a typo the author
- * just typed is refused rather than silently dropped, matching
- * `set_actor_sections` in `0009`. Use {@link readSectionsSchema} instead when
- * parsing what is already stored; the two differ on purpose, see there.
+ * just typed is refused rather than silently dropped. Use
+ * {@link readSectionsSchema} instead when parsing what is already stored; the
+ * two differ on purpose, see there. **Nothing this schema accepts is writable
+ * any more**: `set_actor_sections` validates blocks, and refuses this shape.
  */
 export const sectionsSchema = sectionsArraySchema(sectionSchema);
 
@@ -295,6 +299,3 @@ export const readSectionsSchema = sectionsArraySchema(sectionSchemaForReading);
 
 /** One section, as the editor holds it. */
 export type FursonaSection = z.infer<typeof sectionSchema>;
-
-/** One item within a section. */
-export type FursonaSectionItem = z.infer<typeof sectionItemSchema>;

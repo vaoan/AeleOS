@@ -10,7 +10,10 @@ import {
   HandleRetiredError,
   HandleTakenError,
 } from "@/features/actors/infrastructure/fursonas";
-import { setFursonaSections } from "@/features/actors/infrastructure/fursona-arrangement";
+import {
+  PageRefusedError,
+  setFursonaSections,
+} from "@/features/actors/infrastructure/fursona-arrangement";
 import { FURSONAS_QUERY_KEY } from "@/features/actors/application/use-fursonas";
 import type { FursonaInput } from "@/features/actors/domain/fursona-schema";
 import type { FursonaSection } from "@/features/actors/domain/section-schema";
@@ -81,7 +84,7 @@ export interface FursonaEditorState {
  * finishes the job.
  *
  * Three refusals become field errors because the person can act on them: a taken
- * handle, the quota, and a section the database would not hold. **Everything else is left to propagate**, exactly as
+ * handle, the quota, and a page the database would not hold. **Everything else is left to propagate**, exactly as
  * the server action did — swallowing an unrecognised fault would turn it into a
  * save that silently did nothing, which is the worst outcome available here.
  *
@@ -89,14 +92,29 @@ export interface FursonaEditorState {
  * it is a different situation from a taken one: nothing wears the name, and it
  * is being kept out of circulation so links shared under it keep answering 404.
  *
+ * **A page this build could not READ refuses the save outright**, before any
+ * of the three writes. `set_actor_sections` replaces rather than merges and an
+ * empty tree is a valid tree, so an editor that opened on a page it could not
+ * parse and then saved would write `[]` over it: the RPC succeeds, nothing
+ * warns, and the page is gone. That is not the same failure as a refused
+ * section write below — nothing was wrong with what the person typed, and
+ * there is nothing they can fix — so it is a NO-OP with a reason rather than a
+ * partial save. `readActorPage` is what knows; see {@link ActorPage.sections}
+ * for why `null` and `[]` had to stop being the same answer.
+ *
  * @param actorRef - the actor being edited, or absent to create a fursona.
  * @param kind - whether the actor is the person themselves, which changes
  * which function writes the fields and nothing else.
+ * @param pageIsReadable - false when the stored page could not be parsed, which
+ * refuses every save on this actor rather than replacing the page with nothing.
+ * Absent means yes, which is the ordinary case and the only possible answer on
+ * the create page.
  * @returns the save function, whether one is in flight, and any field errors.
  */
 export function useFursonaEditor(
   actorRef?: string,
   kind: "fursona" | "person" = "fursona",
+  pageIsReadable = true,
 ): FursonaEditorState {
   const client = useSupabaseBrowserClient();
   const queryClient = useQueryClient();
@@ -127,6 +145,17 @@ export function useFursonaEditor(
   });
 
   const save = async (values: FursonaDraft): Promise<boolean> => {
+    // **Before any write, and it must stay before any write.** The editor is
+    // holding `[]` for a page it could not read, and every one of the three
+    // writes below would land — the fields, then `[]` over the whole page,
+    // then the theme. Refusing the save entirely is the only answer that
+    // cannot lose anything: a partial save would leave somebody believing the
+    // sections they can no longer see are still there, which is exactly what
+    // they would be, until the next save.
+    if (!pageIsReadable) {
+      setFieldErrors({ form: "pageUnreadable" });
+      return false;
+    }
     try {
       await mutation.mutateAsync(values);
       // Cleared on success, so a fixed handle stops being reported as taken.
@@ -145,16 +174,22 @@ export function useFursonaEditor(
         setFieldErrors({ form: "limitReached" });
         return false;
       }
-      // A section write that the database refused. The fursona itself may
-      // already exist — on create it certainly does — and that is a state to
-      // report rather than undo: deleting a just-created fursona would spend a
-      // handle from a namespace that never reclaims one, which is worse than a
+      // A page write the database refused. The fursona itself may already
+      // exist — on create it certainly does — and that is a state to report
+      // rather than undo: deleting a just-created fursona would spend a handle
+      // from a namespace that never reclaims one, which is worse than a
       // fursona with no sections yet. The caller keeps the person on the page
       // with their writing intact, and a second Save simply replaces.
-      if (
-        error instanceof Error &&
-        /section|too many|too large|too long/i.test(error.message)
-      ) {
+      //
+      // **Matched on the CLASS, never on the message, and that is a fix.**
+      // This was `/section|too many|too large|too long/i`, written when every
+      // refusal `set_actor_sections` could raise carried the word "section".
+      // Every per-block message begins `block N:` now and none of them
+      // contains any of those four words, so the commonest refusal stopped
+      // matching, threw straight past this handler, and left the fields
+      // written and the banner empty. `PageRefusedError` is built from the
+      // SQLSTATE the migration sets on purpose; see its own doc.
+      if (error instanceof PageRefusedError) {
         setFieldErrors({ form: "sectionsRefused" });
         return false;
       }

@@ -104,14 +104,25 @@ export interface FursonaEditorLabels
  * `initialSections` is separate from `initial` because the two come from
  * different reads: the fields from `my_actors()`, the sections from
  * `actor_profiles`. `0009` deliberately did not join them.
+ *
+ * **A `null` there is not an absent one**, and the difference is what stops
+ * this editor erasing a page it cannot read — see the prop.
  */
 export interface FursonaEditorProps {
   /** Already-translated strings. */
   labels: FursonaEditorLabels;
   /** Existing values when editing; absent when creating. */
   initial?: Partial<FursonaInput>;
-  /** The fursona's existing sections, absent when creating. */
-  initialSections?: FursonaSection[];
+  /**
+   * The fursona's existing sections, absent when creating.
+   *
+   * **`null` is a third state and is not the same as absent.** It means a page
+   * IS stored and `readActorPage` could not read its shape — so the form opens
+   * with nothing, exactly as it would for a new page, and the SAVE is refused
+   * rather than allowed to write that nothing over the page. See
+   * {@link ActorPage.sections} and `useFursonaEditor`'s `pageIsReadable`.
+   */
+  initialSections?: FursonaSection[] | null;
   /** How the page already looks, absent when creating. */
   initialTheme?: ActorTheme;
   /**
@@ -144,9 +155,10 @@ const LIST = "/pages";
  * The whole editor's shape: the four fields, plus the page's sections.
  *
  * Composed from the two schemas rather than restated, so neither the field
- * rules nor the section rules exist twice — and `sectionsSchema` is the same
- * one whose limits are checked against `0009` by
- * `section-limits-match-migration.test.ts`.
+ * rules nor the section rules exist twice. **`sectionsSchema`'s limits are no
+ * longer checked against `0009` by anything** — the guard that did went with
+ * the flat validation the block model replaced, and this editor is dead code
+ * awaiting the same deletion.
  */
 /** What the editor's form holds. */
 type FursonaFormValues = z.infer<typeof editorSchema>;
@@ -240,6 +252,12 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * button appears — the panel does, from whether there is anything to copy — so
  * passing it unconditionally is correct rather than lazy.
  *
+ * **A page it could not read opens empty and refuses to save.** That is not
+ * two behaviours: `useFieldArray` needs an array, so the form always opens on
+ * one, and the refusal therefore has to live at the save — which is the only
+ * place that can still tell "nothing written" from "unreadable". See
+ * `initialSections`.
+ *
  * **The theme panel sits above the language strip and the sections**, because
  * it governs how all of them look, and it is collapsed until somebody opens
  * it — theming is a thing people do once and then leave alone, so an open
@@ -289,7 +307,14 @@ export function FursonaEditor({
   kind = "fursona",
 }: FursonaEditorProps) {
   const router = useRouter();
-  const { save, saving, fieldErrors } = useFursonaEditor(actorRef, kind);
+  // `null` means a page is stored and could not be read. The form still opens
+  // on `[]` below, because `useFieldArray` needs an array — so the refusal has
+  // to live at the SAVE, which is the only place that can tell the two apart.
+  const { save, saving, fieldErrors } = useFursonaEditor(
+    actorRef,
+    kind,
+    initialSections !== null,
+  );
   const { lang, select } = useLanguageToggle();
 
   const {

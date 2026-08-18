@@ -35,20 +35,29 @@ async function seed(): Promise<{
   return { sub, personRef: personRef as string, sonaRef };
 }
 
-/** One well-formed section, the shape the editor sends. */
+/**
+ * One well-formed page, the shape the editor sends: a section is a container
+ * at depth 0 carrying a name, and what is in it are leaves.
+ *
+ * The shape is pinned by `tests/db/blocks.test.ts`; what this file is about is
+ * WHO may write one, so it needs only a value the validator accepts.
+ */
 const SECTIONS = [
   {
+    kind: "container",
+    mode: "stack",
+    columns: 1,
+    span: 1,
     name_en: "About me",
     name_es: "Sobre mí",
-    type: "cards",
-    sort_order: 1,
-    items: [
+    children: [
       {
+        kind: "text",
+        span: 1,
         title_en: "Who I am",
         title_es: "Quién soy",
         description_en: "Some words.",
         description_es: "Unas palabras.",
-        sort_order: 1,
       },
     ],
   },

@@ -71,15 +71,47 @@ export async function readMyActors(client: SupabaseClient): Promise<Actor[]> {
 }
 
 /**
- * Calls one of `0012`'s arrangement functions and turns a refusal into a throw.
+ * The database refused the page itself — its shape, its depth, or its size.
+ *
+ * **A class rather than a message the caller matches on, and the reason is a
+ * bug this replaced.** The editor used to classify a refusal with
+ * `/section|too many|too large|too long/i`, written when every message
+ * `set_actor_sections` could raise carried the word "section". Every per-block
+ * message begins `block N:` now — `unknown kind`, `too deep`,
+ * `title_en is required`, `a leaf holds no children` — and none of them
+ * contains any of those four words, so the commonest refusal stopped matching,
+ * threw past the handler, and the person was shown nothing at all. Prose is
+ * not an interface; a class is.
+ *
+ * **What it is built from is the SQLSTATE, which the migration sets
+ * deliberately.** Every validation refusal in `0009` raises `22023`
+ * (`invalid_parameter_value`) and every ownership refusal raises `42501`
+ * (`insufficient_privilege`) — two codes, chosen so the two are
+ * distinguishable without reading a sentence. `tests/db/blocks.test.ts` asserts
+ * both codes reach a PostgREST client, because that is the layer this contract
+ * actually crosses.
+ */
+export class PageRefusedError extends Error {}
+
+/** The SQLSTATE every validation refusal in `0009` raises. */
+const INVALID_PARAMETER_VALUE = "22023";
+
+/**
+ * Calls one of `0009`'s or `0012`'s functions and turns a refusal into a throw.
+ *
+ * A validation refusal becomes {@link PageRefusedError}; everything else keeps
+ * the database's own message on a plain `Error`, so an unrecognised fault
+ * propagates rather than being flattened into something a caller might swallow.
  *
  * @param client - a Supabase client authenticated as the person.
  * @param fn - the function name.
  * @param args - its named arguments.
- * @throws with the database's message when the call is refused. Every one of
- * these raises `fursona not found` for a row that is missing, someone else's,
- * or not active — deliberately indistinguishable, so a caller cannot probe
- * which actor_refs are real.
+ * @throws PageRefusedError when the database refused the payload's shape,
+ * depth or size — SQLSTATE `22023`.
+ * @throws with the database's message otherwise. The arrangement functions all
+ * raise `fursona not found` for a row that is missing, someone else's, or not
+ * active — deliberately indistinguishable, so a caller cannot probe which
+ * actor_refs are real.
  */
 async function call(
   client: SupabaseClient,
@@ -87,7 +119,10 @@ async function call(
   args: Record<string, unknown>,
 ): Promise<void> {
   const { error } = await client.rpc(fn, args);
-  if (error) throw new Error(error.message);
+  if (!error) return;
+  if (error.code === INVALID_PARAMETER_VALUE)
+    throw new PageRefusedError(error.message);
+  throw new Error(error.message);
 }
 
 /**
@@ -162,21 +197,25 @@ export async function deleteFursona(
 /**
  * Replaces a fursona's sections.
  *
- * **Replaces rather than merges**, matching `set_actor_sections` in `0013`:
+ * **Replaces rather than merges**, matching `set_actor_sections` in `0009`:
  * the editor sends the whole document on every save, so merging would double it
  * on the second one. That also makes a retry after a failed save safe, which is
  * what lets the editor keep somebody's writing on screen and simply try again.
  *
- * The database validates the shape and raises a message naming which section
- * and which item is wrong, because the editor has to say what to fix. It also
- * enforces the limits `SECTION_LIMITS` mirrors — the client copy is a courtesy,
- * this call is the authority.
+ * The database validates the shape and raises a message naming the PATH of the
+ * block that is wrong — `block 2.3:` — because the editor has to say what to
+ * fix. It enforces `BLOCK_LIMITS` rather than `SECTION_LIMITS`: what it accepts
+ * is a tree of blocks, so **the flat document this function still sends is
+ * refused outright** until the editor is ported — as
+ * {@link PageRefusedError}, which is what puts the refusal in front of the
+ * person rather than past them.
  *
  * @param client - a Supabase client authenticated as the person.
  * @param actorRef - the fursona whose sections these are.
  * @param sections - the whole document.
- * @throws when the caller does not own an active fursona with that ref, or when
- * the shape or the limits are refused.
+ * @throws PageRefusedError when the shape, the depth or the limits are
+ * refused.
+ * @throws when the caller does not own an active fursona with that ref.
  */
 export async function setFursonaSections(
   client: SupabaseClient,

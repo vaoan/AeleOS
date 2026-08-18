@@ -109,6 +109,39 @@ describe("the skins", () => {
     expect(skinVars("stained-glass" as SkinId)).toEqual({});
   });
 
+  // The shape this repo shipped a Critical from. A skin name is
+  // `z.string().max(32)` in the block style bag and in the page theme alike —
+  // never checked against `SKINS`, deliberately — so these reach the lookup,
+  // and a plain record answers every one of them with a truthy INHERITED
+  // value that defeats the `?? default` outright. The block model reaches this
+  // from every block at every depth, not from one section's style bag.
+  it.each([
+    "__proto__",
+    "constructor",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+  ])(
+    "falls back to the default for %s, which a record would answer for",
+    (name) => {
+      expect(Reflect.get({}, name)).toBeDefined();
+      expect(skinVars(name as SkinId)).toEqual({});
+    },
+  );
+
+  // And the same names through the composing wrapper every block actually
+  // calls, which is where a truthy inherited entry would have landed: a
+  // partial property set, which is precisely the nesting fault
+  // `nestedSkinVars` exists to prevent.
+  it.each(["__proto__", "constructor", "toString"])(
+    "resets the complete property set for %s",
+    (name) => {
+      expect(nestedSkinVars(name as SkinId)).toEqual(
+        nestedSkinVars(DEFAULT_SKIN),
+      );
+    },
+  );
+
   // The table is a module constant. Handing it out directly would let one
   // page's edit reach every later page rendered by the same process.
   it("hands out a copy rather than the table", () => {
@@ -252,7 +285,7 @@ describe("the skins", () => {
   //    `border-dashed`/`border-dotted`/… utilities turn it directly, with no
   //    skin involved at all. A skin may still gain the ability to override
   //    it; the control that turns it today is a SECTION, through
-  //    `sectionStyle`.
+  //    `blockStyle`.
   //  * `--skin-border-min` is turned by that same control and by nothing
   //    else: it is a floor a section's own border choice raises, never a
   //    property a skin sets. A skin setting it would be wrong — it would

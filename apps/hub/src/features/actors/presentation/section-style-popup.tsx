@@ -42,10 +42,10 @@ export type SectionStyle = NonNullable<FursonaSection["style"]>;
  * own for a section to inherit. It is the browser's own unscaled, unrepeated
  * placement, offered as a third option beside `fitCover` and `fitTile`.
  *
- * **That sentence used to be false and is worth the note.** `sectionStyle`
+ * **That sentence used to be false and is worth the note.** `blockStyle`
  * emitted `background-repeat` only for `tile`, and the property's INITIAL
  * value is `repeat` — so "Default" and "Tile" painted the same tiled picture
- * and this doc promised a placement no option produced. `sectionStyle` now
+ * and this doc promised a placement no option produced. `blockStyle` now
  * emits both `background-repeat` and `background-size` for every fit, which
  * is what makes the three options three paints.
  *
@@ -176,7 +176,7 @@ export interface SectionStylePopupProps<T extends FieldValues> {
  * on every OTHER layout would be exactly the fault `section-item-fields.tsx`'s
  * own TSDoc names: "a field a layout never renders … accepts what somebody
  * types, refuses nothing, and shows nothing, with no way for them to learn
- * that it did nothing." `sectionStyle`'s own note that every other layout
+ * that it did nothing." `blockStyle`'s own note that every other layout
  * "ignores" `--card-size` is a statement about the DATA plumbing — it is
  * harmless to leave the key set — not a claim that the editor should offer
  * the choice regardless of layout; those are different questions.

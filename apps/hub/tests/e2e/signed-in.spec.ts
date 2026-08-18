@@ -227,55 +227,31 @@ test.describe("signed in", () => {
     }
   });
 
-  // WHAT THE WHOLE STUDIO WAS FOR. Phases 4a to 4c built an editor that
-  // composes a page out of sections, and phase 5 built the page a stranger
-  // reads — but nothing had ever shown that something written in the one
-  // arrives in the other. A template is the shortest honest path: it inserts
-  // real sections through the real picker.
-  test("sections written in the editor reach a stranger's browser", async ({
-    page,
-    browser,
-  }) => {
-    await signIn(page, await mintTicket(identity!.userId));
-
-    await page.goto("/es/me");
-    const address = (await page.getByTestId("my-address").innerText()).trim();
-
-    const handle = `sec${Date.now().toString().slice(-9)}`;
-    await page.goto("/es/pages/new");
-    await page.getByTestId("editor-handle").fill(handle);
-    await page.getByTestId("editor-display-name").fill("Has Sections");
-    await page.getByTestId("editor-visibility").selectOption("public");
-
-    await page.getByTestId("template-picker").click();
-    await page.getByTestId("template-reference-sheet").click();
-    await page.getByTestId("editor-save").click();
-    await page.waitForURL(/\/pages$/, { timeout: 30_000 });
-
-    const stranger = await browser.newContext();
-    try {
-      const anonymous = await stranger.newPage();
-      const response = await anonymous.goto(`/es/${address}/${handle}`);
-      expect(response?.status()).toBe(200);
-
-      // The template ships two sections. Asserting the COUNT rather than the
-      // words keeps this independent of both the author's content and the
-      // catalogue, and still fails if the sections never made the round trip.
-      await expect(anonymous.getByTestId("public-section")).toHaveCount(2);
-    } finally {
-      await stranger.close();
-    }
-  });
+  // THE TEST THAT USED TO LIVE HERE, AND WHY IT DOES NOT.
+  //
+  // "Sections written in the editor reach a stranger's browser" inserted a
+  // template through the real picker, saved, and counted the sections on the
+  // public page. **The editor cannot write a page at all right now**: it
+  // composes a flat list of sections and `set_actor_sections` walks a tree of
+  // blocks, so the save is refused until the editor is ported (phase 3).
+  //
+  // The half that is still true — what is STORED reaches a stranger's browser,
+  // in every mode and every kind — is `blocks-render.spec.ts`, which seeds the
+  // page directly because that is the only writer there is. The half that is
+  // owed back is the editor's own, and it comes back with the editor.
 
   // **The whole journey, in one test.** The others each prove one hop; this
-  // walks the path a person actually takes — create with sections, theme it,
-  // save, read it as a stranger, come back, save again — because the faults
-  // worth catching live between the hops rather than inside them.
+  // walks the path a person actually takes — create, theme it, save, read it
+  // as a stranger, come back, save again — because the faults worth catching
+  // live between the hops rather than inside them.
   //
   // The re-save at the end is the point. `set_actor_sections` REPLACES, so an
-  // editor that reopened without somebody's sections deleted every one of them
-  // the moment they pressed save. That shipped once, silently, and a unit test
-  // of the page props is a weaker proof than doing it in a browser.
+  // editor that reopened without somebody's page deleted every block of it the
+  // moment they pressed save. That shipped once, silently, and a unit test of
+  // the page props is a weaker proof than doing it in a browser. **It is
+  // asserted on the THEME here rather than on the page**, because the editor
+  // cannot write a page at all until phase 3 — the section half of this
+  // assertion comes back with it.
   test("a fursona survives being created, themed, read and saved again", async ({
     page,
     browser,
@@ -290,18 +266,13 @@ test.describe("signed in", () => {
     await page.getByTestId("editor-handle").fill(handle);
     await page.getByTestId("editor-display-name").fill("The Whole Journey");
     await page.getByTestId("editor-visibility").selectOption("public");
-    await page.getByTestId("template-picker").click();
-    await page.getByTestId("template-reference-sheet").click();
 
-    // **A section built by hand, not from a template.** The template path was
-    // the only one any test drove, and a template inserts its sections as data
-    // — so every control a person actually uses to compose one was unexercised.
-    await page.getByTestId("new-section-type").selectOption("stats");
-    await page.getByTestId("add-section").click();
-    await page.getByTestId("section-name").last().fill("Hecho a mano");
-    await page.getByTestId("add-item").last().click();
-    await page.getByTestId("item-title").last().fill("Especie");
-    await page.getByTestId("item-description").last().fill("Zorro ártico");
+    // **No sections.** This test used to build two from a template and one by
+    // hand, and assert their count on the public page either side of the
+    // re-save. The editor's flat shape is refused by `set_actor_sections`
+    // until phase 3 ports it, so what is left here is the THEME half of the
+    // journey — which is untouched by the block model, travels its own RPC,
+    // and is what most of the assertions below were always about.
 
     // Theme it: a background colour, an accent, a canvas that is not the
     // default, and a skin. Every one of these travels a different route into
@@ -343,10 +314,8 @@ test.describe("signed in", () => {
       const anonymous = await stranger.newPage();
       const response = await anonymous.goto(`/es/${address}/${handle}`);
       expect(response?.status()).toBe(200);
-      // Two from the template, one built by hand.
-      await expect(anonymous.getByTestId("public-section")).toHaveCount(3);
 
-      // The theme reached them. Asserted on the emitted rule rather than on a
+      // The theme reached the page. Asserted on the emitted rule rather than on a
       // rendered colour: a computed style would be reading the browser's
       // opinion of the stylesheet, where this reads what the page actually
       // shipped.
@@ -378,12 +347,13 @@ test.describe("signed in", () => {
     try {
       const anonymous = await after.newPage();
       await anonymous.goto(`/es/${address}/${handle}`);
-      // Still three. A re-save that dropped them would leave zero.
-      await expect(anonymous.getByTestId("public-section")).toHaveCount(3);
+      // Still themed. A re-save that dropped what the editor reopened with
+      // would leave a page wearing nothing.
       const themed = (await anonymous.locator("style").allTextContents()).join(
         "",
       );
       expect(themed).toContain("--accent");
+      expect(themed).toContain("--skin-border:3px");
     } finally {
       await after.close();
     }

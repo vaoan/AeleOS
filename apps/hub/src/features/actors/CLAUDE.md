@@ -8,11 +8,11 @@ page must implement, and the traps that model creates.
 The schema itself is owned by `supabase/migrations/` at the repository root,
 not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and
 squashed again whenever a change would otherwise stack a redefinition on top of
-an existing file. The section layouts landed as an edit to `0009`, not as a new
+an existing file. The block model landed as an edit to `0009`, not as a new
 file stacked on top. See the root `CLAUDE.md` for when that is legitimate and
 what a squash obliges you to update afterwards — **including the part that
 bites here specifically: an edit to an already-applied migration never reaches
-the live database on its own**, and every style key in the section bag was
+the live database on its own**, and every style key in the block style bag was
 unvalidated at the database level for days because of it.
 
 ## Why this feature holds both persons and fursonas
@@ -288,147 +288,345 @@ So `unlisted` protects the address, not the association. A character that must
 be genuinely unlinkable stays `private`. Do not describe `unlisted` to a user
 as if it hid the connection.
 
-## The layouts, and what the two text fields mean in each
+## Blocks: a container arranges, a leaf holds content
 
-A page is sections, a section has a layout, and a layout decides what its items
-look like. The first four came from Libra; the rest exist
-because **a fursona page is somebody's character, not a product listing** — the
-layouts that serve a catalogue do not stretch to a page whose whole job is to
-be theirs. More are wanted; this list is a floor, not a ceiling.
+A page used to be a flat array of sections, each with a `type`, and **that type
+decided two unrelated things at once**: how the section's children were
+arranged, and what kind of thing each child was. `gallery` was a grid _of
+pictures_ and `links` a list _of links_, so every new idea had to become
+another welded pair — and "a player beside a paragraph beside a table" was not
+merely unsupported but unrepresentable, because every item in a section
+rendered identically.
 
-| layout       | what an item is          | `title`         | `description`     | uses               |
-| ------------ | ------------------------ | --------------- | ----------------- | ------------------ |
-| `cards`      | a card                   | heading         | body              | `icon`             |
-| `accordion`  | a disclosure             | summary         | the answer        | —                  |
-| `two-column` | a row of a table         | label           | value             | —                  |
-| `gallery`    | a picture                | alt text        | caption           | `image_url`        |
-| `carousel`   | a picture on one row     | alt text        | caption           | `image_url`        |
-| `video`      | an embedded player       | frame title     | caption           | `link_url`         |
-| `music`      | an embedded player       | track name      | note              | `link_url`         |
-| `links`      | a button out             | button text     | subtitle          | `link_url`, `icon` |
-| `stats`      | one fact                 | **the label**   | **the value**     | —                  |
-| `quote`      | a quotation              | **who said it** | **what was said** | —                  |
-| `timeline`   | an entry in order        | heading         | the story         | —                  |
-| `socials`    | a branded link chip      | chip label      | —                 | `link_url`, `icon` |
-| `posts`      | an embedded post         | frame title     | caption           | `link_url`         |
-| `masonry`    | a card of its own height | heading         | body              | `icon`             |
-| `progress`   | one measured thing       | **the label**   | **the value**     | —                  |
-| `tabs`       | one panel                | the tab         | the panel         | —                  |
+A page is a **tree of blocks** now, and the two axes are separate.
 
-**`stats`, `quote` and `progress` invert the pair**, and that is the one thing
-here somebody will get wrong. Everywhere else the title is the big text; in
-those the description is. **For `stats` and `quote` that claim is about
-RENDERING only** — their editor's title/description fields keep their generic
-names; typing into `stats`' title still shows "Title", not "Label".
-`progress` is the one whose EDITOR fields ARE actually renamed, through
-`FIELD_NAMES` in `section-item-fields.tsx`, because a field whose meaning
-changes silently between layouts is worse than a differently-named one, and
-`progress` is the layout where getting it backwards draws a bar of the wrong
-length with nothing saying why. `stats` and `quote` do not get that treatment
-merely because their rendering inverts the pair too — `FIELD_NAMES` only grows
-when a layout's editor fields actually need it, not because its public page
-does.
+- A **container** decides arrangement and nothing else. It holds children and
+  lays them out in a `mode`.
+- A **leaf** is one piece of content, rendered on its own `kind`'s terms. A
+  container may hold leaves of different kinds side by side, which is exactly
+  what the welded types could not express.
+- **A section is a container at depth 0 that carries a name.** That is what
+  collapses two parallel models into one — one style bag, one renderer, one
+  validator, and one editor component when phase 3 writes it. A container
+  further down may name itself too; an unnamed one is a group with no heading,
+  which is the ordinary case for a container inside another and the only honest
+  rendering, since inventing a heading would put words on somebody's page that
+  they did not write.
 
-### The newest layouts, and the mechanism each earned its place by
+`domain/block-schema.ts` is the vocabulary and `presentation/blocks.tsx` is the
+renderer. This note says what the model IS; their TSDoc says what each piece
+does and does not do, and between them they are longer than this section, for a
+reason.
 
-Added 2026-08-16, against the bar this list has always set itself: a layout
-earns its place by doing something structurally none of the others can, not by
-rearranging what they already do.
+### Nothing was thrown away — every old type is somewhere in here
 
-- **`masonry` packs by height.** `gallery` and `cards` are uniform grids, so a
-  long entry and a short one leave a ragged gap between rows; CSS columns fill
-  each column to the height it needs and the two sit together. Items keep the
-  icon tile `cards` have, and nothing here embeds, so it is `ICONED` and not
-  `LINKED`.
-- **`progress` draws a proportion.** `stats` states a number and nothing else
-  renders one as a length. It reads its value from the **description**, and
-  `progressValue` (`presentation/public-sections.tsx`) accepts a fraction
-  (`3/5`), a percentage (`60%`) or a bare number (`60`), decimals allowed
-  wherever a whole number is, clamped to 0–100 because nothing stops somebody
-  writing `150`.
-  **Anything it cannot read renders as a plain `stats`-style row with no bar
-  at all** — prose, a unit it does not know, an empty description. That
-  refusal is the common case rather than an edge: a template's unedited
-  placeholder is prose. Read the TSDoc before touching the parse; a
-  fraction whose sides both overflow to `Infinity` once reached the DOM as
-  `width: NaN%`, which CSSOM rejects, which left the bar at its parent's full
-  width — the "refuses nothing, shows nothing" trap inverted into a bar
-  reading 100% on nonsense, which is worse because it looks like an answer.
-- **`tabs` shows one panel at a time, horizontally.** `accordion` is vertical
-  and multi-open; this is a switcher. It is a radio group and `:checked`, so
-  it stays a **server component** and every panel is reachable by keyboard
-  with nothing hydrated — the same reason `cards` and `carousel` are two
-  layouts rather than one setting. `tabs-switching.spec.ts` drives it in a real
-  Chromium, because what code cannot prove is the layout: that `order-1` and
-  `order-2` inside a wrapping flex really do paint every tab above the single
-  full-width panel. Its `aria-controls` is built from two integers — the
-  section's index composed with its `sort_order`, then the item's — and never
-  from `name_en`. It once was: a section named "About me" emitted an id with a
-  space in it, `aria-controls` is an ID-reference **list**, so it tokenised
-  into two fragments and neither resolved. A dangling `aria-controls` is worse
-  than none.
+The old list was a flattened cross-product, so unwelding it expands what is
+expressible by more than another welded pair ever could while losing none of
+the work. Somebody looking for `gallery` should find this table rather than
+conclude it was dropped.
 
-**A template ships structure, never prose.** Titles, layouts, icons and order
-are ours; every description is empty. They used to carry guidance sentences in
-those descriptions, so a page created from a template and published unedited
-read its own instructions out to strangers in its owner's voice — "Say what your
-character is: one species, a hybrid, or something of your own", presented as
-what that person had written. The prompt is the description field's
-**placeholder** now: it helps while somebody writes, is never stored, never
-published, and never has to be deleted.
+| the old `type`   | what it is now                                       |
+| ---------------- | ---------------------------------------------------- |
+| `cards`          | a `grid` container                                   |
+| `gallery`        | a `grid` container holding `picture` leaves          |
+| `masonry`        | a `masonry` container                                |
+| `carousel`       | a `carousel` container                               |
+| `tabs`           | a `tabs` container                                   |
+| `accordion`      | an `accordion` container                             |
+| `timeline`       | a `timeline` container                               |
+| `links`          | any container holding `link` leaves                  |
+| `socials`        | any container holding `social` leaves                |
+| `posts`          | any container holding `post` leaves                  |
+| `video`, `music` | `player` leaves                                      |
+| `stats`          | `stat` leaves                                        |
+| `quote`          | `quote` leaves                                       |
+| `progress`       | `progress` leaves                                    |
+| `two-column`     | a `table` leaf — or a `stat` leaf, for a single pair |
 
-Two consequences that must not be undone:
+What the old list had no entry for at all, and the model now admits without a
+new layout: a `text` leaf for a paragraph of prose, and a `table` leaf for the
+thing the request actually asked for.
 
-- **A description may be empty and a title may not.** An item is a heading with
-  something under it — without the heading there is a blank box, without the
-  description there is a perfectly good card. `0009` always accepted an empty
-  description; only `sectionItemSchema` forbade it.
-- **Every layout leaves the element out when the description is empty**, or an
-  empty `<p>` becomes a visible hole in a gap-spaced grid. A test walks every
-  layout.
-- **`two-column` drops the whole ROW, and the whole list when no row is left.**
-  It is the only layout that hides an item rather than one element of one, and
-  the reason is what the layout is: a table of label and value. A `dt` without
-  its `dd` is invalid markup, so the answer is to drop both — not to render half
-  a row. The list goes too when nothing survives, because `dl` carries the
-  border and the surface and would otherwise be a bordered box with nothing in
-  it. Everywhere else a title with no description is a perfectly good card;
-  here it is half a pair.
+**`two-column` is the one row that changed shape rather than moving**, and it
+is worth reading rather than skimming, because it is the row the decomposition
+originally got wrong. It said "container, paired-column mode" — filing a
+CONTENT concern as an arrangement. What made that layout worth having was never
+the two columns: it was the PAIRING, a `<dl>` whose `dt` and `dd` a screen
+reader announces together, dropping a whole row when its localised value is
+empty rather than rendering half of one. That is a property of what an item IS,
+so it belongs to `stat` (one pair) and `table` (many). Two columns of PROSE, if
+anybody ever wants them, are a style key — `align: "stretch" | "start"` — which
+composes with every mode instead of being welded to one.
 
-  The filter reads the LOCALISED value, so a row written in one language only
-  appears for readers of that language. That follows `contentFor`, which falls
-  back to English — it is the same behaviour every other layout already has,
-  made visible because here it decides a whole row.
+**The drop rule came with the pairing, and one half of it deliberately
+inverts.** A row whose localised value is empty still disappears entirely,
+label and all: a `dt` with no `dd` is invalid markup, and because the value is
+read AFTER `contentFor` has chosen a language, a row written in one language
+only is a row for readers of that language. But where the flat layout then
+dropped the whole list — correctly, since an item was one row among others and
+dropping it closed the gap — **a leaf must not.** A block sits in a grid track
+its author deliberately placed it in, so a leaf that vanished would leave a
+hole nothing on the page explains. `stat` and `table` drop the pair or the row
+and then fall back to the plain leaf, which shows the author's own words. Never
+nothing, and never a bordered box with nothing in it either.
 
-**Adding a layout is four edits and every one of them is guarded.**
-`SECTION_TYPES`, `is_section_type()` in `0009`, a renderer in the `LAYOUTS`
-record, and a name in both catalogues. The record is typed
-`Record<SectionType, …>` so the compiler refuses a missing renderer;
-`section-limits-match-migration.test.ts` reads the SQL and fails when the two
-lists disagree; and `messages.test.ts` compares `SECTION_TYPES` against
-`fursonas.types` in each catalogue separately. Nothing checks that a layout is
-_good_; that part is still on you.
+### The container modes
 
-**That third guard is newer than the sentence that promised it**, which is the
-part worth remembering rather than the guard. Four documents said a test caught
-a missing name and none did: `skins.test.ts` imports no catalogue,
+| mode        | the mechanism it earns its place by                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stack`     | the resting state — children down the page, arranging nothing                                                                                     |
+| `grid`      | uniform tracks: `repeat(<columns>, minmax(0, 1fr))`                                                                                               |
+| `masonry`   | CSS multi-column, which has no rows at all, so a short item is followed by whatever comes next instead of waiting for the tallest one beside it   |
+| `carousel`  | scrolls sideways, at every width                                                                                                                  |
+| `tabs`      | one panel at a time — a radio group and `:checked`, so it stays a server component and every panel is reachable by keyboard with nothing hydrated |
+| `accordion` | disclosures, every one openable at once, where `tabs` is a switcher                                                                               |
+| `timeline`  | a sequence, marked and ordered                                                                                                                    |
+
+**A mode earns its place by a mechanism none of the others has, not by another
+set of numbers** — the same bar the layout list always set itself. What is new
+is a way of applying that bar which does not depend on arguing about
+mechanisms. `columns` was in this list and **was removed before anything could
+store one**, and it failed in a way nobody had to debate: three consecutive
+tasks wrote down three different meanings for it. `block-schema.ts` said it
+laid uniform tracks exactly as `grid` does; `0009` said **`grid` fills them
+across and `columns` down** — a real mechanism, column-major fill order, which
+nothing else has and which was never implemented; and the renderer shipped the
+same grid as `grid` with `items-start`. **A vocabulary entry whose meaning
+three consecutive authors cannot state the same way twice does not have a
+mechanism — it has a name each of them filled in from context.** That test is
+better than "is there a mechanism" because it is observable. The track count is
+already a PARAMETER of `grid`, so a second mode for it was the welded
+cross-product this model exists to undo, one level down; and `items-start` is a
+dial, which belongs in the style bag where it composes with every mode.
+
+### The leaf kinds
+
+| kind       | what it holds        | `title_*`       | `description_*`   | also reads         |
+| ---------- | -------------------- | --------------- | ----------------- | ------------------ |
+| `text`     | a paragraph          | heading         | body              | —                  |
+| `link`     | a button out         | button text     | subtitle          | `link_url`, `icon` |
+| `picture`  | a picture            | alt text        | caption           | `image_url`        |
+| `player`   | an embedded player   | frame title     | caption           | `link_url`         |
+| `post`     | an embedded post     | frame title     | caption           | `link_url`         |
+| `social`   | a branded chip       | chip label      | **not rendered**  | `link_url`, `icon` |
+| `stat`     | one fact             | **the label**   | **the value**     | —                  |
+| `quote`    | a quotation          | **who said it** | **what was said** | —                  |
+| `progress` | one measured thing   | **the label**   | **the value**     | —                  |
+| `table`    | rows of paired cells | the caption     | a note under it   | `rows`             |
+
+**`stat`, `quote` and `progress` invert the pair**, and that is the one thing
+here somebody will get wrong — it has been got wrong once already. Everywhere
+else the title is the big text; in those the description is. The inversion is a
+RENDERING fact and never a schema one: the fields keep their generic names on
+the block, so switching a kind to look at it and switching back finds what was
+typed still there.
+
+`progress` is the kind that additionally tries to READ its value.
+`progressValue` (`domain/progress-value.ts`) accepts a fraction (`3/5`), a
+percentage (`60%`) or a bare number (`60`), decimals allowed wherever a whole
+number is, clamped to 0–100 because nothing stops somebody writing `150`.
+**Anything it cannot read renders the plain row with no bar at all** — prose, a
+unit it does not know, an empty description — and that refusal is the common
+case rather than an edge, since a template's unedited placeholder is prose.
+Read its TSDoc before touching the parse: a fraction whose sides both overflow
+to `Infinity` once reached the DOM as `width: NaN%`, which CSSOM rejects, which
+left the bar at its parent's full width — the "refuses nothing, shows nothing"
+trap inverted into a bar reading 100% on nonsense, which is worse because it
+looks like an answer.
+
+**`social` renders no description and the editor must not offer it one.** Its
+sub-line is the handle `resolveSocial` derived from the address, which is all a
+chip has room for. A control that accepts what somebody types, stores it,
+refuses nothing and renders nothing is the worst kind — there is no way for
+them to learn it did nothing. That rule is why `LINKED`, `ICONED` and
+`PICTURED` exist in `section-item-fields.tsx`, and phase 4's block palette owes
+the same gating per kind.
+
+### Depth is capped at three, and the database is what enforces it
+
+A section, a container inside it, a container inside that, then leaves.
+`MAX_DEPTH` says so in `block-schema.ts` and `validate_block` in `0009` says so
+again, **with an explicit counter passed down its own recursion**.
+
+The duplication is the design rather than belt-and-braces.
+`actor_profiles.sections` is user-controlled `jsonb`, so an unbounded recursive
+validator over it is a stack whose depth somebody else gets to choose; a cap in
+the editor is a suggestion and a cap in `set_actor_sections` is the guarantee.
+
+**And that is a guarantee only because the write grant on `actor_profiles`
+names its columns.** `authenticated` may `update` exactly `sort_order` and
+`featured`; `sections` and `theme` are reachable only through the two
+`security definer` functions. Before that, PostgREST exposed the table and a
+signed-in person could `PATCH` `sections` on their own row with no cap applied
+at all — the sentence above was a convention wearing a guarantee's words.
+`tests/db/blocks.test.ts` pins it in both directions: the direct write is
+refused, and arranging still works.
+The Zod side is not a walk anybody has to remember to run either — every
+exported schema is built by a factory that threads depth through the recursion,
+so a container at the cap meets an option that fails **by name**, and both
+sides carry that same `TOO_DEEP_MESSAGE` string. Without it, a container one
+level too far is refused for naming a `kind` no leaf has: the editor would tell
+somebody their block kind is invalid and their title is missing, neither of
+which they got wrong. That is the fault class this repo already paid for once,
+when a missing `nuqs` adapter was reported as "we could not load your
+identity".
+
+Three is where two independent costs bite. Beyond it, "where am I" stops being
+answerable at a glance on a phone. And style recalculation is linear in DOM
+size — measured at 15.6 ms on the editor's own DOM, times roughly twelve under
+CPU throttling — which nesting multiplies.
+
+**The cap's arithmetic is the thing to be careful about, not the cap.** Two
+people got it wrong independently and from opposite directions on the branch
+that built this: a leaf's deepest seat is three containers down, and a test
+that nests two and calls itself "at the deepest level" is sitting one level
+above the only place the refusal it exists to prove can happen.
+
+### Spans are whole tracks, never coordinates
+
+A container declares `columns`, and a block declares the `span` it takes of its
+PARENT's tracks. Both come from one small vocabulary — `BLOCK_LIMITS.tracks` is
+the ceiling for both, because a span is a count of its parent's tracks and a
+vocabulary wider than the widest container could never be satisfied.
+
+**Free positioning — x, y, width, height on a canvas — is refused, and the
+refusal is hard to walk back once shipped.** It cannot degrade to a narrow
+viewport, and this project has already shipped one overflow at exactly 320px;
+it makes the editor close to unusable on a phone, which is where most people
+will build; and it is how the pages this product is inspired by became
+unreadable.
+
+**A span wider than its parent is legal, is stored exactly as typed, and is
+narrowed only at render**, by `effectiveSpan`. Two rules meet there and both
+matter. A page must never become unsavable — a block dragged into a narrower
+container that made the whole page refuse to save would cost somebody a page
+over a value they cannot see. And rewriting the stored span would have
+satisfied that too, and is the wrong half: it destroys what was typed, so
+dragging the block back out could not restore it, which contradicts this
+feature's own rule that switching something and switching back finds what was
+typed still there. Gate the field, never the value — the shape `card_size`
+already uses.
+
+**The narrowing is a CLASS and not an inline property, and the reason is the
+breakpoint.** Every block is one track below `sm` and takes its declared share
+above it; an inline `grid-template-columns` cannot carry a media query, and a
+span that survives the collapse is the 320px overflow again — `grid-column:
+span 3` inside a single-track grid does not clamp, it creates two implicit
+tracks and pushes the row past the viewport. See `TRACK_CLASS` and `SPAN_CLASS`.
+
+**`minmax(0, 1fr)` is load-bearing wherever a track is laid**, and the
+measurement that established it is worth not having to repeat. At 320px with an
+eight-cell `table`, `document.scrollWidth` read 656 against a `clientWidth` of
+320 — and the `overflow-x-auto` box round the table had itself resolved to
+638px, so there was nothing left to scroll and the class was decoration. The
+table was not overflowing the page: **the page had grown to fit the table**,
+through a chain of `auto` tracks each floored at its content's min-content
+contribution. Identical to a reader, opposite cause, and therefore a fix in the
+opposite place. Two notes in `blocks.tsx` exist only because none of that is
+visible without a browser — `tabs`' panel survives on `w-full` capping its
+automatic minimum, and `min-w-0` on a leaf is load-bearing for `timeline` and
+for nothing else.
+
+### Adding a mode or a kind — what is guarded, and what is not
+
+`CONTAINER_MODES` and `LEAF_KINDS` in `block-schema.ts` are the vocabulary;
+`is_container_mode()` and `is_block_kind()` in `0009` are the authority, and a
+name the database does not know is refused whatever the array says.
+`block-limits-match-migration.test.ts` reads those lists out of the SQL and
+fails when the two sides disagree, so neither can be extended alone — and it
+asserts its own regexes matched something before comparing anything, because a
+pattern that quietly matches nothing makes every comparison after it pass
+forever. `MODES` and `LEAVES` in `blocks.tsx` are `Map`s built from private
+records carrying `satisfies Record<ContainerMode, …>` and
+`satisfies Record<LeafKind, …>`, so a name with no renderer behind it fails to
+compile.
+
+**Those lookups are `Map`s rather than records because of a fault, not a style
+rule.** `mode` and `kind` arrive from `jsonb`, and a plain object indexed by
+user-controlled text answers `__proto__`, `constructor` and `toString` with
+truthy inherited values. This repo shipped a Critical of exactly that shape
+through `TIDAL_KINDS`, where the inherited value passed a `!entry` guard and
+then threw during a public page render. A `Map` has no inherited entries to
+find. The same argument covers `TRACK_CLASS`, `SPAN_CLASS` and `MASONRY_CLASS`,
+whose keys arrive from `jsonb` too.
+
+Two things are **not** guarded and must not be assumed. **Nothing yet names a
+mode or a kind to a person in either catalogue**, because no editor offers
+them: `messages.test.ts` still pins the flat `SECTION_TYPES` against
+`fursonas.types`, and phase 4 owes the equivalent for blocks. And nothing
+checks that a mode is _good_; that part is still on you.
+
+**That catalogue guard is newer than the sentence that promised it**, which is
+the part worth remembering rather than the guard. Four documents said a test
+caught a missing name and none did: `skins.test.ts` imports no catalogue,
 `messages.test.ts` compared en against es only — so a name absent from **both**
-passed — and the `t()` call over an interpolated key is untyped, there being
-no `IntlMessages`
-augmentation in this app. A layout added to neither catalogue therefore
-rendered `fursonas.types.<id>` at somebody, which is not hypothetical: it
-happened, at 155px, overflowing a 320px viewport. The lesson generalises past
-this file — **a sentence crediting a guard is not the guard**, and the ones
-most likely to be false are the ones nobody has watched go red.
+passed — and the `t()` call over an interpolated key is untyped, there being no
+`IntlMessages` augmentation in this app. A layout added to neither catalogue
+therefore rendered `fursonas.types.<id>` at somebody, which is not
+hypothetical: it happened, at 155px, overflowing a 320px viewport. The lesson
+generalises past this file — **a sentence crediting a guard is not the guard**,
+and the ones most likely to be false are the ones nobody has watched go red.
 
-**A layout that renders no field must not offer it.** `LINKED`, `ICONED` and
-`PICTURED` in `section-item-fields.tsx` decide what the editor shows. A control
-that accepts what somebody types, stores it, refuses nothing and renders
-nothing is the worst kind — there is no way for them to learn it did nothing.
+### What a template ships, and what a title and a description mean
+
+**A template ships structure, never prose.** Titles, arrangement, icons and
+order are ours; every description is empty. They used to carry guidance
+sentences in those descriptions, so a page created from a template and
+published unedited read its own instructions out to strangers in its owner's
+voice — "Say what your character is: one species, a hybrid, or something of
+your own", presented as what that person had written. The prompt is the
+description field's **placeholder** now: it helps while somebody writes, is
+never stored, never published, and never has to be deleted. The templates
+themselves are still flat and phase 3 rewrites them; the rule outlives them.
+
+**A description may be empty and a title may not.** A block is a heading with
+something under it: without the heading there is a blank box and nothing to
+render, while without the description there is a perfectly good card — which is
+exactly what a template hands somebody to fill in. Every kind leaves the
+element out when the description is empty, or an empty `<p>` becomes a visible
+hole in a gap-spaced grid.
+
+**That rule is enforced on the WRITE and deliberately not on the read.**
+`validate_block` refuses a zero-length `title_en` beside its type check, and so
+does the strict schema. `min(1)` on the READ path made one leaf's empty title
+fail the whole page, because a failed parse answers "nothing here yet" over a
+page full of content — precisely the blast radius the lenient read exists to
+prevent, and the leniency had only ever been extended to unknown keys. The read
+is a floor now: one empty title costs that title, never the page, and every
+renderer already handles it.
+
+### The editor is still the flat one, and it refuses rather than erases
+
+Phase 1 shipped the model and the renderer, proven with fixtures written
+straight to the database. **The editor is phase 3**, so `section-schema.ts`,
+`fursona-templates.ts` and the section editor are the flat model still — dead
+code awaiting its own deletion, and adding a layout to `SECTION_TYPES` changes
+nothing anywhere.
+
+The part to know before touching any of it: `readActorPage` parses with the
+flat schema, so a page stored as blocks does not parse. **`ActorPage.sections`
+is a union for exactly that reason** — `[]` means nothing is written and an
+editor may replace it; `null` means a page IS stored and this build could not
+read its shape, and the save refuses outright, before the fields, before the
+sections and before the theme. The two states used to be one, and the
+consequence was that opening any block-tree page and pressing Save erased it:
+the parse failed, the read answered `[]`, the mutation sent an empty tree,
+`set_actor_sections` accepts an empty tree and REPLACES. A page gone, no
+warning, and the RPC reporting success.
+
+**`--card-size` currently has no reader** while the flat popup still offers the
+control. It named the minimum width a card in an `auto-fill` grid could shrink
+to, leaving the browser to decide how many fit — and a container declares an
+explicit track count now, so that sentence cannot become true again for `grid`.
+The meaning survives exactly in CSS multi-column's `column-width`, which is
+`masonry`'s to read and the intended home; whoever wires it moves the comment
+in `block-schema.ts` and `0009`'s column comment with it. Until then it is a
+stored value with no reader, which is one step from the "the control did
+nothing" fault this feature keeps producing.
 
 ### Embedded media is allowlist-and-rebuild, never pass-through
 
-`domain/embeds.ts` is the whole security model of the media layouts and its
+`domain/embeds.ts` is the whole security model of the media leaves and its
 TSDoc carries the argument in full. The short version, because it must not be
 weakened by somebody who only read this file:
 
@@ -508,7 +706,7 @@ wrong and both fail quietly:
   `frame-ancestors`, none of which depend on `script-src`. A nonce is the
   upgrade, and its cost is that every page renders dynamically.
 
-### `socials` accepts anything; `posts` and the media layouts do not
+### `social` accepts anything; `post` and the media leaves do not
 
 `resolveSocial` (`domain/social-links.ts`) is deliberately the opposite of
 `resolveEmbed`. **It accepts any `http(s)` address.** A host in its brand
@@ -518,14 +716,14 @@ own hostname rather than dropped. It returns `null` only for an address that
 must not be linked at all — `javascript:`, `data:`, or nothing parseable as a
 URL.
 
-**This is the property that makes the layout worth having, and the one
-somebody will look at and want to "fix" by refusing an unknown host. Do not.**
-`socials` exists precisely so FurAffinity, Toyhouse, Weasyl, Ko-fi, itch.io,
-Bandcamp and ArtStation — and whatever a person links next — all have
+**This is the property that makes the kind worth having, and the one somebody
+will look at and want to "fix" by refusing an unknown host. Do not.** A
+`social` leaf exists precisely so FurAffinity, Toyhouse, Weasyl, Ko-fi,
+itch.io, Bandcamp and ArtStation — and whatever a person links next — all have
 somewhere to go, with no table entry required and nothing that can break.
 Nothing here reaches a frame or executes anything, so tightening this to a
 known-hosts allowlist would not be a security fix; it would just delete the
-layout's reason for existing.
+kind's reason for existing.
 
 Some services give each person their own subdomain — `luna.itch.io`,
 `luna.bandcamp.com` — which an exact-hostname table cannot brand, because the
@@ -538,14 +736,13 @@ reason `return_to` had to avoid it in the picker: `evil-itch.io` and
 that can be spoofed into wearing a brand's name is worse than one labelled
 with its own honest hostname.
 
-A `posts` item whose address resolves to no provider — Bluesky, always;
-anything else `resolveEmbed` cannot place — renders as a `socials` chip,
-never as nothing and never as a bare link. `posts` and `socials` share the
-same chip component for exactly this reason: a page that already brands
-Bluesky as a chip on `socials` would be inconsistent showing it unbranded
-here instead.
+A `post` leaf whose address resolves to no provider — Bluesky, always;
+anything else `resolveEmbed` cannot place — renders as a `social` chip, never
+as nothing and never as a bare link. The two kinds share the same chip
+component for exactly this reason: a page that already brands Bluesky as a
+chip on one would be inconsistent showing it unbranded on the other.
 
-`FRAME_SHAPE.post` (`presentation/public-sections.tsx`) is a fixed 420×600px
+`FRAME_SHAPE.post` (`presentation/blocks.tsx`) is a fixed 420×600px
 column, chosen by reasoning about how each provider's own widget — Telegram,
 Instagram, a tweet, a Mastodon status — is designed — narrow, meant for a
 sidebar — **not measured against any of their real rendered content.** That is
@@ -707,8 +904,8 @@ skins, no more.
 a table entry and a name in both catalogues, and `messages.test.ts` fails if
 either name is missing — it checks each catalogue against `SKINS` separately,
 because the parity check beside it cannot see a name absent from both. See
-"Adding a layout" above for why that distinction is written down rather than
-assumed.
+"Adding a mode or a kind" above for why that distinction is written down
+rather than assumed.
 
 **What earns a place is a MECHANISM, not another set of numbers.** Each of these
 reaches for something none of the others used: a surface that is not there
@@ -842,9 +1039,15 @@ is the wider question and is what Reset and the visitor's `PageThemeSwitch` ask,
 because somebody who chose only a skin, a canvas or a cursor still has a page to
 put back and a theme to leave.
 
-### A section's own form (2026-08-16)
+### A block's own form (2026-08-16)
 
-A section may carry its own `style`, apart from the page's:
+**Every block may carry its own `style`, apart from the page's** — a container
+two levels down chooses a skin, a background picture and a border exactly as a
+section does, because a section is only a container at depth 0. It shipped as a
+per-SECTION bag and became per-block unchanged in meaning, which is the whole
+argument for collapsing the two models into one: had a nested grid been a
+second thing, it would have needed its own skin handling, its own background
+and its own span logic, and the two would have drifted.
 
 ```ts
 style?: {
@@ -856,10 +1059,11 @@ style?: {
 }
 ```
 
-**Every key is optional, and absent means "inherit the page."** That is a real
-answer, not a gap: a section with no `style` at all gets no `style` attribute
-in the markup either, so a page nobody has touched with this feature is
-byte-for-byte what it was before the feature existed. `SectionStylePopup`
+**Every key is optional, and absent means "inherit whatever encloses this."**
+That is a real answer, not a gap: a block with no `style` at all gets no
+`style` attribute in the markup either, so a page nobody has touched with this
+feature is byte-for-byte what it was before the feature existed. The flat
+editor's `SectionStylePopup`
 enforces this on write — it owns the whole `style` field through one
 `useController` rather than one per key, so clearing a field **deletes the
 key** instead of storing `""`. A per-key `register` cannot do that; it can
@@ -867,7 +1071,7 @@ only ever write a value, and an empty string sitting in `style` would be a
 third state the schema does not recognise, between "inherit" and "chosen."
 
 **`background_fit`'s three options are three paints, and for a while two of
-them were one.** `sectionStyle` emitted `background-repeat` only for `tile`
+them were one.** The style function emitted `background-repeat` only for `tile`
 and `background-size` only for `cover`, leaving the absent fit — the one a
 person lands on, whose own label promises the browser's unscaled, **unrepeated**
 placement — with neither. `background-repeat`'s initial value is `repeat`, so
@@ -885,10 +1089,10 @@ the public `<section>`, which carries no `surface`, renders at natural size.
 
 **Colour is not one of these keys, and never will be.** The split is what
 every skin in `SKINS` rests on: a skin names no colour of its own, and every
-pairing of a style and a palette is somebody's page. A per-section colour
-would collapse that into as many colour schemes as there are skins. This was
-a decision, not an oversight — see the section-personality spec's "What must
-not be undone."
+pairing of a style and a palette is somebody's page. A per-block colour would
+collapse that into as many colour schemes as there are skins. Form is the
+block's; colour is the page's. This was a decision, not an oversight — see the
+section-personality spec's "What must not be undone."
 
 #### `border` (2026-08-16), and the token it deliberately is not
 
@@ -945,14 +1149,14 @@ documentation that once claimed the override reached everything beneath it was
 the thing that was wrong. `border-style-cascade.spec.ts` proves both directions
 in a browser.
 
-The control is **not gated on a layout**, unlike `card_size`. Every layout
+The control is **not gated on anything**, unlike `card_size`. Every block
 renders a surface, so gating it would hide a control that does something — the
 opposite of the fault the `card_size` gate exists to prevent, and the reason
 the difference is stated rather than left to read as an inconsistency.
 
 #### The section card's face is not the card
 
-In the editor, `sectionStyle`'s output is split across two elements by what
+In the editor, `blockStyle`'s output is split across two elements by what
 each property **does**, not by naming keys: a custom property is inherited by
 definition and goes on the **root**, where the popup and the item fields read
 it; a painted property goes on the **face**, the `absolute inset-0` layer that
@@ -971,34 +1175,40 @@ through, since the face is the element carrying the `backdrop-filter`. Note
 that the layer the skin paints on is the layer nothing else drives: delete its
 `surface` class and every unit test stays green while the preview goes blank.
 
-**`card_size` is in both the schema and this popup now (Phase D).** It sets a
-**minimum** card width — the author picks the size, not the count, and the
-browser decides how many fit at that width, the same way an `auto-fill` grid
-track always has. `Cards`' template wraps the minimum in `min(var(--card-size),
-100%)` **for every size, not only the large one**: `minmax`'s lower bound is a
-floor, not a suggestion, so a bare `minmax(size, 1fr)` does not shrink below
-`size` even when the container is narrower — `auto-fill` collapses the
-_count_ to one column, but that surviving column still overflows. `l`'s 20rem
-produced 16px of real horizontal scroll at a 320px phone width, measured on
-the live app before the `min(…, 100%)` wrapper was added. Write this down
-again if it is ever tempted away as redundant — it is the fix, not decoration.
+**`card_size` is in the schema and in this popup, and no page reads it.** Its
+whole meaning was an `auto-fill` grid: the author picked a minimum card width
+and the browser decided how many fit. A container declares an explicit track
+count now, so that sentence cannot become true again for `grid`, and the
+reader was deliberately not invented to keep the dial company. See "The editor
+is still the flat one" above for where the meaning does survive — CSS
+multi-column's `column-width`, which is `masonry`'s to read.
 
-**The control is gated on the `cards` layout; the stored value is not.** The
-field is hidden in the popup for any other layout, but `style.card_size`
-itself is untouched by that gating — nothing writes to it except a change on
-the select — so switching a section's layout away from `cards` and back finds
-the choice still there. This is what resolves two rules that read as if they
-conflicted: "a layout that renders no field must not offer it" (above), and
-`0009`'s deliberate keeping of `icon`/`image_url` on every item regardless of
-layout. `card_size` is the first key in the style bag that only ONE layout's
-CSS ever reads — every other style key is layout-agnostic — and this
-gate-the-field-not-the-value shape is the pattern for the next key that is
-this narrow.
+What the `auto-fill` template cost is kept here because whoever wires
+`column-width` will meet the same shape. It wrapped the minimum in
+`min(var(--card-size), 100%)` **for every size, not only the large one**:
+`minmax`'s lower bound is a floor rather than a suggestion, so a bare
+`minmax(size, 1fr)` does not shrink below `size` even when the container is
+narrower — `auto-fill` collapses the _count_ to one column, and that surviving
+column still overflows. `l`'s 20rem produced 16px of real horizontal scroll at
+a 320px phone width, measured on the live app. It is the same argument
+`minmax(0, 1fr)` rests on everywhere a block lays a track.
+
+**The control is gated on what renders it; the stored value is not.** The field
+is hidden in the popup where nothing reads it, but `style.card_size` itself is
+untouched by that gating — nothing writes to it except a change on the select —
+so switching away and back finds the choice still there. This is what resolves
+two rules that read as if they conflicted: "a kind that renders no field must
+not offer it", and the schema's deliberate keeping of `icon`, `image_url` and
+`link_url` on every block regardless of kind. `card_size` was the first key in
+the style bag that only ONE arrangement's CSS ever read — every other style key
+is arrangement-agnostic — and this gate-the-field-not-the-value shape is the
+pattern for the next key that is this narrow. A stored span wider than its
+parent is the same pattern again, one level up.
 
 `carousel` keeps scrolling sideways **at every size**, and that remains the
-honest difference between the two layouts: `cards` is a set of cards sized by
-`card_size`, `carousel` is a thing you swipe through regardless of size,
-chosen by picking a different layout by name — not a setting on this one.
+honest difference between it and `grid`: a grid is a set of cards laid in
+declared tracks, a carousel is a thing you swipe through regardless of size,
+chosen by naming a different mode — not a setting on one of them.
 
 #### The nesting fix, and why `skinVars` was left alone
 
@@ -1017,8 +1227,10 @@ and a section set to `default` inside a `glass` page was still glass.
 properties `globals.css` declares, pinned to the stylesheet by
 `skins.test.ts` rather than trusted) underneath the chosen skin's own
 overrides, so a nested scope always gets the complete set — never a partial
-one that can fall through to whatever happens to be outside it. `sectionStyle`
-calls `nestedSkinVars`, never plain `skinVars`, for exactly this reason.
+one that can fall through to whatever happens to be outside it. `blockStyle`
+calls `nestedSkinVars`, never plain `skinVars`, for exactly this reason — and
+it matters more now than when it was written for one level, because a block
+tree can put three skin scopes inside each other.
 
 **`skinVars` itself was deliberately left alone**, not widened to return the
 complete set everywhere. `themeCss` keys the page-level skin rule on `skinVars`
@@ -1030,7 +1242,7 @@ element on every page, themed or not.
 
 #### The preview and the public page share one function
 
-`sectionStyle` (`presentation/public-sections.tsx`) is the only place this
+`blockStyle` (`presentation/block-style.ts`) is the only place this
 renders. `SectionStylePopup`'s live preview calls the same export, applied to
 the card being edited on every keystroke, rather than a second copy — a
 second implementation would have looked identical the day it was written and
@@ -1040,17 +1252,17 @@ copy. This was found and fixed as review, not written correctly the first
 time: the two bodies were briefly byte-for-byte identical, which defeated the
 whole point of a live preview that is supposed to prove it cannot drift.
 
-#### Readability keeps no per-section escape hatch
+#### Readability keeps no per-block escape hatch
 
-A section wearing `outline` over a busy background picture may be unreadable.
-**It needs no per-section way out, and none should be added.** `PageThemeSwitch`
+A block wearing `outline` over a busy background picture may be unreadable.
+**It needs no per-block way out, and none should be added.** `PageThemeSwitch`
 already drops all of it at once — colour and skin are gated on the same
 `data-page-theme` attribute, so a visitor is never trapped by one author's
 choice. That is the same argument that already lets an author's colours be as
 garish as they like: the page-level escape hatch is what makes the freedom
-safe, and correcting somebody's page behind their back — even one section of
+safe, and correcting somebody's page behind their back — even one block of
 it — is exactly what `palette.test.ts` asserts against. Do not read an
-unreadable section as a gap to close; it is the freedom working as designed.
+unreadable block as a gap to close; it is the freedom working as designed.
 
 ### The page's own background picture (Phase D)
 
@@ -1088,7 +1300,7 @@ section's own background picture goes through, rather than a second escaping
 path. That function refuses any address containing a `"` or a `\` outright,
 and the reason is where the value lands: `themeCss` interpolates it into a raw
 `<style>` block, where CSSOM offers no protection at all — unlike
-`sectionStyle`'s `style` object, which a browser's CSSOM happens to reject if
+`blockStyle`'s `style` object, which a browser's CSSOM happens to reject if
 malformed. The refusal, not the sink, is what makes the value safe in that
 context; trusting it only because of where it currently lands would be a trap
 for whichever sink reuses it next.
@@ -1109,13 +1321,13 @@ under the same scroll — proof the check has power to fail, not only pass. Do
 not read the earlier draft of this paragraph, which called this unverified,
 as still current.
 
-`backgroundImageValue` itself **lives in `embeds.ts` (domain), not
-`presentation/public-sections.tsx`**, where it was written first. It moved
-because `actor-theme.ts` is a domain file and `eslint-plugin-boundaries`
-forbids a domain file importing presentation; its presentation-layer home was
-an accident nobody had reason to notice until a domain caller needed it too.
-`public-sections.tsx` re-exports it unchanged, so nothing importing it from
-there had to move.
+`backgroundImageValue` itself **lives in `embeds.ts` (domain), not in the
+presentation layer**, where it was written first. It moved because
+`actor-theme.ts` is a domain file and `eslint-plugin-boundaries` forbids a
+domain file importing presentation; its presentation-layer home was an accident
+nobody had reason to notice until a domain caller needed it too. Every caller
+imports it from there directly now — the re-export that stood in for that
+lived in `public-sections.tsx`, which is deleted.
 
 ### Canvases
 

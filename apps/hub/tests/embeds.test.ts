@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 import {
   PLAYER_ORIGINS,
+  backgroundImageValue,
   resolveEmbed,
   safeHttpUrl,
 } from "@/features/actors/domain/embeds";
+import { EMBED_PROVIDERS } from "@/shared/domain/embed-providers";
 
 /**
  * The address this resolves to, or the empty string.
@@ -647,5 +650,184 @@ describe("PLAYER_ORIGINS", () => {
       ),
     );
     expect([...PLAYER_ORIGINS].sort()).toEqual([...reachable].sort());
+  });
+});
+
+// THE PROPERTY IS ABOUT `resolveEmbed` ITSELF, where
+// `embed-providers-properties.test.ts` is about each provider's own `resolve`.
+// The difference is the layer, and it is the layer the fault actually reached:
+// the prototype-pollution Critical arrived as a THROW out of this function,
+// which puts no try/catch around a provider's `resolve` — and every block leaf
+// on a page a stranger can open now calls it. A named case only ever tries the
+// input somebody thought of; this tries the ones nobody did, against the whole
+// function including its own trimming, scheme check and `www.`/`m.` stripping.
+
+/** Every host the table claims, plus the near-misses an allowlist must refuse. */
+const HOSTS = [
+  ...EMBED_PROVIDERS.flatMap((provider) => [...provider.hosts]),
+  "www.youtube.com",
+  "m.youtube.com",
+  "youtube.com.evil.example",
+  "evil-youtube.com",
+  "www.youtube.com@evil.example",
+  "",
+  "127.0.0.1",
+];
+
+/** Schemes, including the two an `href` or a frame must never carry. */
+const SCHEMES = ["https", "http", "javascript", "data", "ftp", "HTTPS", "file"];
+
+/** A path segment nobody pasting "just a video id" would type. */
+const SEGMENTS = [
+  "__proto__",
+  "constructor",
+  "prototype",
+  "toString",
+  "hasOwnProperty",
+  "valueOf",
+  "..",
+  "%2e%2e",
+  "%00",
+  "%",
+  // The words the resolvers themselves branch on, so a generated path reaches
+  // past the first guard often enough to exercise what is behind it.
+  "watch",
+  "embed",
+  "shorts",
+  "video",
+  "track",
+  "sets",
+  "browse",
+  "status",
+  "pin",
+  "@user",
+];
+
+const segment = fc.oneof(
+  fc.constantFrom(...SEGMENTS),
+  fc.string({ maxLength: 60 }),
+);
+
+const address = fc.oneof(
+  fc.string({ maxLength: 200 }),
+  fc
+    .tuple(
+      fc.constantFrom(...SCHEMES),
+      fc.constantFrom(...HOSTS),
+      fc.array(segment, { maxLength: 5 }),
+      fc.string({ maxLength: 40 }),
+    )
+    .map(
+      ([scheme, host, parts, query]) =>
+        `${scheme}://${host}/${parts.join("/")}?${query}`,
+    ),
+  // One arm that genuinely resolves, so the `framed` counter below can be
+  // non-zero and the origin half of this property has something to check.
+  fc.stringMatching(/^[\w-]{11}$/).map((id) => `  https://youtu.be/${id}  `),
+);
+
+describe("resolveEmbed, over any address at all", () => {
+  it("never throws, and never builds a frame off an origin the policy forbids", () => {
+    // Without this, a generator that stopped producing anything resolvable
+    // would leave the origin assertion checking nothing and the property
+    // passing forever — the silent no-op the sibling properties count runs
+    // against for the same reason.
+    let framed = 0;
+    fc.assert(
+      fc.property(
+        address,
+        fc.option(fc.string({ maxLength: 40 }), { nil: undefined }),
+        (raw, parentHost) => {
+          const call = () => resolveEmbed(raw, { parentHost });
+          expect(call).not.toThrow();
+          const resolved = call();
+          if (!resolved) return;
+          framed++;
+          expect(PLAYER_ORIGINS).toContain(new URL(resolved.src).origin);
+        },
+      ),
+      { numRuns: 1000 },
+    );
+    expect(framed).toBeGreaterThan(0);
+  });
+
+  // `safeHttpUrl` is the other half of what a leaf calls on untrusted text —
+  // the `link` and `picture` kinds, and every embed fallback — so it carries
+  // the same claim: an address it cannot make safe is refused, never escaped.
+  it("keeps safeHttpUrl to http and https, whatever it is handed", () => {
+    // The same anti-vacuity counter its sibling above carries, and for the
+    // same reason: the assertion sits behind an early return on `null`, so a
+    // generator change that stopped producing anything linkable would leave
+    // this property passing forever while checking nothing. The shared
+    // `address` arbitrary makes that unlikely today — relying on that is
+    // exactly what the sibling's own comment argues against.
+    let accepted = 0;
+    fc.assert(
+      fc.property(address, (raw) => {
+        const call = () => safeHttpUrl(raw);
+        expect(call).not.toThrow();
+        const href = call();
+        if (href === null) return;
+        accepted++;
+        expect(["http:", "https:"]).toContain(new URL(href).protocol);
+      }),
+      { numRuns: 1000 },
+    );
+    expect(accepted).toBeGreaterThan(0);
+  });
+});
+
+describe("backgroundImageValue", () => {
+  // **This is the sabotage-provable regression test, and a DOM-level one
+  // cannot be.** jsdom's `CSSStyleDeclaration` silently drops a
+  // malformed value on assignment — confirmed directly: setting
+  // `element.style.backgroundImage` to the exact string this function would
+  // build from a quoted host, were it not refused, reads back as `""`,
+  // identically whether or not that refusal exists. A test that only
+  // observes the rendered DOM therefore cannot go red on the unfixed code;
+  // this one calls the pure function directly, before any sink gets a
+  // chance to hide the difference.
+  it("builds a url() value for a safe address", () => {
+    expect(backgroundImageValue("https://example.test/bg.png")).toBe(
+      'url("https://example.test/bg.png")',
+    );
+  });
+
+  it("returns nothing for an address with no scheme http(s) can trust", () => {
+    expect(backgroundImageValue("javascript:alert(1)")).toBeUndefined();
+  });
+
+  it("returns nothing when no address was given", () => {
+    expect(backgroundImageValue(undefined)).toBeUndefined();
+  });
+
+  // The regression: `safeHttpUrl`'s WHATWG normalisation percent-encodes a
+  // `"` in a path or query, but leaves one in the HOST untouched — confirmed
+  // directly: `new URL('https://ex"ample.test/a.png').toString()` still
+  // carries the quote. Built into `url("…")` unchecked, that quote would
+  // close the CSS string early in ANY context that string is later
+  // interpolated into, not only the one this file happens to use today.
+  it("refuses an address whose host still carries a quote after normalisation", () => {
+    expect(backgroundImageValue('https://ex"ample.test/a.png')).toBeUndefined();
+  });
+
+  // The second gap normalisation leaves open: a raw `\` in the query or
+  // fragment survives `safeHttpUrl` untouched, and sitting right before the
+  // closing `"` this function appends, it turns that closing quote into a
+  // CSS escape sequence rather than the string's own end — the built value
+  // never closes. `new URL('https://example.test/?x\\').toString()` keeps
+  // the backslash verbatim, confirming this is not something normalisation
+  // already handles.
+  it("refuses an address whose query still carries a backslash", () => {
+    expect(backgroundImageValue("https://example.test/?x\\")).toBeUndefined();
+  });
+
+  // A quote surviving in the path or query, by contrast, is exactly what
+  // `safeHttpUrl` already neutralises — percent-encoded before this function
+  // ever sees it — so it must still build a value rather than over-refusing.
+  it("still builds a value when a quote only ever reached the path", () => {
+    expect(backgroundImageValue('https://example.test/a".png')).toBe(
+      'url("https://example.test/a%22.png")',
+    );
   });
 });

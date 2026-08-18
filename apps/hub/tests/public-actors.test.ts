@@ -33,16 +33,36 @@ function answer(data: unknown, error: unknown = null): void {
   rpc.mockReturnValue({ maybeSingle: async () => ({ data, error }) });
 }
 
-const SECTIONS = [
+// **A section is a container at depth 0 carrying a name.** Written as the
+// database stores it — with `span`, `columns` and `description_en` absent,
+// which is legal — so that `PARSED` below is what the read schema
+// materialises rather than a copy of the input, and a defaulting that stopped
+// happening would go red here.
+const STORED = [
   {
+    kind: "container",
+    mode: "stack",
     name_en: "About",
-    type: "cards",
-    sort_order: 1,
-    items: [
+    children: [
+      { kind: "stat", title_en: "Species", description_en: "A wolf." },
+    ],
+  },
+];
+
+/** The same page, with every default the read schema materialises. */
+const PARSED = [
+  {
+    kind: "container",
+    mode: "stack",
+    columns: 1,
+    span: 1,
+    name_en: "About",
+    children: [
       {
+        kind: "stat",
+        span: 1,
         title_en: "Species",
         description_en: "A wolf.",
-        sort_order: 1,
       },
     ],
   },
@@ -54,7 +74,7 @@ const personRow = {
   avatar_url: "https://example.test/p.png",
   address: "luna",
   listed: true,
-  sections: SECTIONS,
+  sections: STORED,
   fursonas: [
     {
       handle: "luna",
@@ -70,7 +90,7 @@ const fursonaRow = {
   avatar_url: null,
   owner_address: "42",
   listed: false,
-  sections: SECTIONS,
+  sections: STORED,
 };
 
 beforeEach(() => {
@@ -94,7 +114,7 @@ describe("readPublicPerson", () => {
       address: "luna",
       listed: true,
     });
-    expect(person?.sections).toEqual(SECTIONS);
+    expect(person?.blocks).toEqual(PARSED);
   });
 
   it("carries the owner's public fursonas", async () => {
@@ -190,37 +210,97 @@ describe("readPublicFursona", () => {
   });
 });
 
-describe("the sections it will accept", () => {
-  it("renders sections the schema accepts", async () => {
+describe("the page it will accept", () => {
+  it("renders a page the schema accepts", async () => {
     answer(fursonaRow);
-    expect((await readPublicFursona("42", "luna"))?.sections).toEqual(SECTIONS);
+    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual(PARSED);
   });
 
   // A page stored before a schema change must still render its header and its
   // name. Throwing would turn one bad row into a 500 on a public profile, which
   // is worse than a heading with nothing under it.
-  it("treats sections the schema rejects as none", async () => {
+  it("treats a page the schema rejects as none", async () => {
     answer({ ...fursonaRow, sections: [{ nonsense: true }] });
-    expect((await readPublicFursona("42", "luna"))?.sections).toEqual([]);
+    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
   });
 
   it("treats a non-array as none", async () => {
     answer({ ...fursonaRow, sections: "not an array" });
-    expect((await readPublicFursona("42", "luna"))?.sections).toEqual([]);
+    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
   });
 
-  // Finding 4 of the final review: an unrecognised STYLE key must cost only
-  // that key, never the whole page — `parseSections` uses
-  // `readSectionsSchema` rather than the editor's `.strict()` write schema
-  // for exactly this reason. A stranger reading this page must still see the
-  // section; only the key nothing here renders is dropped.
-  it("renders a section carrying an unrecognised style key, rather than emptying the page", async () => {
-    const sectionWithUnknownStyleKey = [
-      { ...SECTIONS[0], style: { skin: "glass", corner_radius: "8px" } },
-    ];
-    answer({ ...fursonaRow, sections: sectionWithUnknownStyleKey });
-    expect((await readPublicFursona("42", "luna"))?.sections).toEqual([
-      { ...SECTIONS[0], style: { skin: "glass" } },
+  /**
+   * A container holding what it is given.
+   *
+   * @param children - the blocks inside it.
+   * @returns the container, as the database would store it.
+   */
+  const nest = (children: unknown[]): unknown => ({
+    kind: "container",
+    mode: "stack",
+    children,
+  });
+
+  // The cap the database enforces with its own counter, mirrored here so a
+  // tree one level too deep is refused on the read side too rather than
+  // reaching a renderer that has no heading entry for that level. Containers
+  // are legal at depths 0, 1 and 2, so FOUR of them is the first illegal
+  // shape — the off-by-one two people on this branch got wrong from opposite
+  // directions.
+  it("treats a tree nested past the cap as none", async () => {
+    answer({ ...fursonaRow, sections: [nest([nest([nest([nest([])])])])] });
+    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
+  });
+
+  // **One leaf's empty title must cost that title and nothing else.** It used
+  // to cost the whole page: `title_en` was `min(1)` on the read schema as well
+  // as the write, so `parseBlocks` answered `[]` and a stranger got "nothing
+  // here yet" over a page full of content. The rule lives at the write now —
+  // `validate_block` refuses a zero-length title — and the read is a floor
+  // that must never take a page down with it. Nested, because the damage was
+  // proportional to how deep the offending leaf was buried: nothing about the
+  // page said which one it was.
+  it("renders a whole page rather than blanking it for one empty title", async () => {
+    answer({
+      ...fursonaRow,
+      sections: [
+        nest([
+          {
+            kind: "container",
+            mode: "stack",
+            children: [
+              { kind: "text", title_en: "" },
+              { kind: "text", title_en: "Written" },
+            ],
+          },
+        ]),
+      ],
+    });
+    expect((await readPublicFursona("42", "luna"))?.blocks).toHaveLength(1);
+  });
+
+  // The control that stops the case above being vacuous. Three containers is
+  // the deepest legal nesting, and it must come back whole — without this, a
+  // parse that refused every tree at all would pass the refusal case happily.
+  it("keeps a tree nested exactly to the cap", async () => {
+    answer({ ...fursonaRow, sections: [nest([nest([nest([])])])] });
+    expect((await readPublicFursona("42", "luna"))?.blocks).toHaveLength(1);
+  });
+
+  // An unrecognised STYLE key must cost only that key, never the whole page —
+  // `parseBlocks` uses `lenientBlocksSchema` rather than the editor's
+  // `.strict()` write schema for exactly this reason, and the window it exists
+  // for is a deploy where the database is ahead of this build. A stranger must
+  // still see the block; only the key nothing here renders is dropped.
+  it("renders a block carrying an unrecognised style key, rather than emptying the page", async () => {
+    answer({
+      ...fursonaRow,
+      sections: [
+        { ...STORED[0], style: { skin: "glass", corner_radius: "8px" } },
+      ],
+    });
+    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([
+      { ...PARSED[0], style: { skin: "glass" } },
     ]);
   });
 });

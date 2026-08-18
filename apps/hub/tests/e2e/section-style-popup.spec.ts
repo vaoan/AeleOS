@@ -8,24 +8,28 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 
-// WHAT THIS FILE PROVES THAT section-skin-nesting.spec.ts DOES NOT.
+// WHAT THIS FILE PROVES, AND THE HALF IT LOST.
 //
-// That suite proves the READ side: given a section whose `style` was already
-// in the database, `nestedSkinVars`, `sectionStyle` and the stylesheet
-// resolve it correctly in a real browser. It writes that `style` straight
-// through `set_actor_sections`, deliberately bypassing the editor, because at
-// the time it was written there was no control in the editor to drive —
-// Task 5 of this plan is what built one.
+// It used to drive the popup, SAVE, and read the choice back off the public
+// page — the whole write path in one test. **That half is gone, because the
+// path is.** The editor still composes a flat list of sections and
+// `set_actor_sections` now walks a tree of blocks, so its save is refused
+// outright until the editor is ported (phase 3). A test asserting a round trip
+// through a write nothing can make is not a weaker test; it is one that cannot
+// pass, and keeping it green by pointing it somewhere else would be a test
+// about a different thing wearing this one's name.
 //
-// This is the other half: does the WRITE side work at all? `SectionStylePopup`
-// writes to `${path}.style` through react-hook-form, `useFursonaEditor` sends
-// the form's `sections` to `set_actor_sections` on save, and nothing before
-// this file drove that path with a real browser — every unit test mocks the
-// form or reads it back through `getValues`, never through a save, a reload of
-// the PUBLIC route, and a fresh render. A wiring mistake between the popup and
-// the save button — the popup writing to the wrong field name, `useFieldArray`
-// dropping the key on submit, the schema stripping it — would pass every
-// existing suite and still ship a paintbrush that painted nothing.
+// What survives is the half that still has a mechanism: **the popup writes to
+// the form field the card reads, live, before anything is saved.** That is the
+// paintbrush's whole promise — see somebody's choice on their own card at once
+// — and it is a real browser fact rather than a unit one, because the card is
+// painted by a `useWatch` subscription through react-hook-form's own store,
+// which a unit test drives synthetically.
+//
+// The READ half — a style already in the database resolving correctly in a
+// real CSS engine — is `section-skin-nesting.spec.ts` and
+// `border-style-cascade.spec.ts`, both of which seed a block tree directly and
+// are unaffected.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -40,20 +44,12 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
-test("a section's chosen skin and background, saved through the popup, reach the public page", async ({
+test("a skin chosen in the popup paints the card behind it at once", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
 
-  // `/me` first: it is what provisions the person actor, and without one
-  // `create_fursona` refuses with "no person actor for caller".
-  await page.goto("/es/me");
-  const address = (await page.getByTestId("my-address").innerText()).trim();
-
   await page.goto("/es/pages/new");
-  await page.getByTestId("editor-handle").fill("stylepopup");
-  await page.getByTestId("editor-display-name").fill("Style popup");
-  await page.getByTestId("editor-visibility").selectOption("public");
 
   // One section, built by hand — a template inserts sections as data without
   // touching a single control, which would prove nothing here.
@@ -61,61 +57,39 @@ test("a section's chosen skin and background, saved through the popup, reach the
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Styled");
 
-  // The control under test: open the popup, choose a skin distinctive enough
-  // that no other skin could produce the same values by coincidence, paste a
-  // background address, and choose how it fits.
+  const card = page.getByTestId("section-card").first();
+  // Nothing chosen yet: the card carries no inline style at all, which is what
+  // makes every assertion below a CHANGE rather than a state that was already
+  // there.
+  expect(await card.evaluate((el) => el.hasAttribute("style"))).toBe(false);
+
   await page.getByTestId("section-style-open").click();
   await expect(page.getByTestId("section-style-panel")).toBeVisible();
+
+  // A skin distinctive enough that no other could produce these values by
+  // coincidence, pinned against `skins.ts`'s own table for `neobrutalism`
+  // rather than asserted as "a style attribute exists".
   await page.getByTestId("section-style-skin").selectOption("neobrutalism");
+  await expect
+    .poll(() =>
+      card.evaluate((el) => el.style.getPropertyValue("--skin-round")),
+    )
+    .toBe("0");
+  expect(
+    await card.evaluate((el) => el.style.getPropertyValue("--skin-border")),
+  ).toBe("3px");
+
+  // The background picture and its fit land on the FACE rather than the root —
+  // a painted property behind a rounded face would show four bright corner
+  // wedges, which is why `SectionCard` splits what inherits from what paints.
+  // Reading them off the face is what makes that split a measurement.
+  const face = page.getByTestId("section-card-face").first();
   await page
     .getByTestId("section-style-background-url")
     .fill("https://example.com/section-style-popup.png");
   await page.getByTestId("section-style-fit").selectOption("cover");
-
-  // The preview is the point of the task: the card behind the popup carries
-  // the choice live, before any save.
-  const preview = page.getByTestId("section-card").first();
   await expect
-    .poll(() =>
-      preview.evaluate((el) => el.style.getPropertyValue("--skin-round")),
-    )
-    .toBe("0");
-
-  await page.getByTestId("editor-save").click();
-  await page.waitForURL(/\/pages(\?|$)/);
-
-  const response = await page.goto(`/es/${address}/stylepopup`);
-  expect(response?.status()).toBe(200);
-  await expect(page.getByTestId("public-section")).toHaveCount(1);
-
-  // The wrapper `sectionStyle` writes the inline properties onto — see
-  // `public-sections.tsx` — is the `<section>` enclosing the heading that
-  // carries the `public-section` test id, not the heading itself.
-  const wrapper = page
-    .locator("section")
-    .filter({ has: page.getByTestId("public-section") });
-
-  // `neobrutalism`'s own values, from `skins.ts` — pinned rather than merely
-  // "a style attribute exists", the same discipline `public-sections.test.tsx`
-  // uses for the same skin.
-  await expect(
-    wrapper.evaluate((el) =>
-      (el as HTMLElement).style.getPropertyValue("--skin-round"),
-    ),
-  ).resolves.toBe("0");
-  await expect(
-    wrapper.evaluate((el) =>
-      (el as HTMLElement).style.getPropertyValue("--skin-border"),
-    ),
-  ).resolves.toBe("3px");
-
-  // The background address the popup was given, and the fit it was told —
-  // proof the whole path from the control to the saved row to the renderer
-  // carried both, not only the skin.
-  await expect(
-    wrapper.evaluate((el) => (el as HTMLElement).style.backgroundImage),
-  ).resolves.toBe('url("https://example.com/section-style-popup.png")');
-  await expect(
-    wrapper.evaluate((el) => (el as HTMLElement).style.backgroundSize),
-  ).resolves.toBe("cover");
+    .poll(() => face.evaluate((el) => el.style.backgroundImage))
+    .toBe('url("https://example.com/section-style-popup.png")');
+  expect(await face.evaluate((el) => el.style.backgroundSize)).toBe("cover");
 });

@@ -95,9 +95,11 @@ const anonExecutable = (): Promise<string[]> =>
 describe("what anon may execute", () => {
   // `0010_client_grants.sql` is the readable index of the client surface and it
   // says 0012's two readers are the only exception. That sentence was true when
-  // written and then quietly stopped being: `is_section_type` was added to 0009
+  // written and then quietly stopped being: a lookup function was added to 0009
   // without a revoke, and Postgres grants execute to `public` by default — so a
   // new function is exposed unless somebody remembers, and nothing complained.
+  // 0009 has grown more of them since — `is_block_kind`, `is_container_mode`,
+  // `is_track_count`, `validate_block` — and each had to remember separately.
   //
   // The list is exact rather than a subset check. A subset check passes when a
   // function is ADDED, which is the direction the mistake actually goes.

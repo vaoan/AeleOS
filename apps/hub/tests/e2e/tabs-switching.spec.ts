@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
 import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintSessionToken,
 } from "./support/clerk-session";
+import { container, leaf, seedPage } from "./support/blocks";
 
 // WHY THIS FILE EXISTS.
 //
@@ -17,28 +16,25 @@ import {
 //     tab's own panel, and no other panel's.
 //   - `order-1`/`order-2` actually paints every tab ABOVE the one visible
 //     panel in a real, wrapping `flex` container — this is the exact class
-//     of claim `card-size-grid.spec.ts` was written for, after a `minmax`
+//     of claim `blocks-render.spec.ts` was written for, after a `minmax`
 //     floor that looked correct on paper overflowed a real phone.
 //   - A native radio group is actually operable by keyboard end to end —
 //     arrow keys move focus AND selection together, which is browser
 //     behaviour this repo does not implement and therefore cannot assert
 //     from source.
 //
-// `border-style-cascade.spec.ts`, `card-size-grid.spec.ts` and
-// `section-skin-nesting.spec.ts` all exist for weaker versions of the same
-// argument — each of those rests on ONE resolved CSS fact, where this one
-// needs a selector to win, a layout to hold, AND a browser's own keyboard
-// handling, together — and unlike them it shipped with no browser proof at
-// all until this file.
+// `border-style-cascade.spec.ts` and `section-skin-nesting.spec.ts` both exist
+// for weaker versions of the same argument — each rests on ONE resolved CSS
+// fact, where this one needs a selector to win, a layout to hold, AND a
+// browser's own keyboard handling, together.
 //
-// It writes through `set_actor_sections` as a real Clerk-authenticated
-// caller, exactly as those other specs do, rather than through the editor:
-// what is under test is entirely on the READ side — the production route,
-// `PublicSections`, `Tabs`, and whatever a real Chromium makes of the
-// selectors and the flex layout it emits.
+// It writes the page straight into the database as a real Clerk-authenticated
+// caller — see `support/blocks.ts` — rather than through the editor: what is
+// under test is entirely on the READ side, and there is no editor that can
+// write a block tree at all until phase 3.
 //
 // Every locator here is structural (test id, tag, position), never role or
-// text — this suite runs in Spanish and an item's own title is data, not a
+// text — this suite runs in Spanish and a block's own title is data, not a
 // catalogue string, but the project-wide rule is blanket for good reason:
 // nothing here should ever need to change if a label's WORDING does.
 
@@ -50,36 +46,9 @@ test.describe("tabs, switched in a real browser", () => {
   }) => {
     const identity = await createTestIdentity();
     try {
-      const jwt = await mintSessionToken(identity.userId);
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-        {
-          auth: { persistSession: false },
-          global: { headers: { Authorization: `Bearer ${jwt}` } },
-        },
-      );
-
-      const { error: provisionError } = await supabase.rpc(
-        "ensure_person_actor",
-      );
-      expect(provisionError).toBeNull();
-
-      const handle = `tabs${Date.now().toString().slice(-9)}`;
-      const { data: actorRef, error: createError } = await supabase.rpc(
-        "create_fursona",
-        {
-          p_handle: handle,
-          p_display_name: "Tab Switching",
-          p_avatar_url: null,
-          p_visibility: "public",
-        },
-      );
-      expect(createError).toBeNull();
-
       // Enough tabs that a 320px viewport genuinely wraps the row, which is
       // the shape the last assertion needs. Each panel's own text is what
-      // identifies it in the assertions below, keyed by POSITION (item
+      // identifies it in the assertions below, keyed by POSITION (child
       // order), never by reading a tab's own label back.
       //
       // **This count is also load-bearing for assertion 3, below, and that
@@ -90,66 +59,44 @@ test.describe("tabs, switched in a real browser", () => {
       // items fall back to document order, which puts the later tabs
       // (third onward) BELOW the second panel rather than above it — that
       // is what the assertion actually catches. Trim this list down to two
-      // items, or measure the LAST tab's own panel instead of the second's,
-      // and no tab would remain below the measured panel to catch the
-      // regression: the assertion would stay green whether or not
+      // children, or measure the LAST tab's own panel instead of the
+      // second's, and no tab would remain below the measured panel to catch
+      // the regression: the assertion would stay green whether or not
       // `order-1`/`order-2` exists. Do not shrink this fixture without
       // re-deriving that the assertion still has something to fail against.
-      const items = [
-        { title_en: "First", description_en: "First panel.", sort_order: 0 },
-        {
-          title_en: "Second",
-          description_en: "Second panel.",
-          sort_order: 1,
-        },
-        { title_en: "Third", description_en: "Third panel.", sort_order: 2 },
-        {
-          title_en: "Fourth",
-          description_en: "Fourth panel.",
-          sort_order: 3,
-        },
-        { title_en: "Fifth", description_en: "Fifth panel.", sort_order: 4 },
-      ];
-
-      const { error: sectionsError } = await supabase.rpc(
-        "set_actor_sections",
-        {
-          p_actor_ref: actorRef,
-          // A multi-word name, deliberately: it is free text a section's
-          // own author typed, and `panelId` must never carry it whitespace
-          // and all into an HTML `id` — see the `aria-controls` assertion
-          // below, and `public-sections.tsx`'s own `sectionId` doc for the
-          // full fault this catches. Every other e2e fixture in this repo
-          // happens to use a single-word section name, which is exactly why
-          // none of them could have caught this.
-          p_sections: [
-            { name_en: "About Me", type: "tabs", sort_order: 0, items },
-          ],
-        },
+      const children = ["First", "Second", "Third", "Fourth", "Fifth"].map(
+        (name) => leaf({ title_en: name, description_en: `${name} panel.` }),
       );
-      expect(sectionsError).toBeNull();
 
-      const { data: address, error: addressError } =
-        await supabase.rpc("my_address");
-      expect(addressError).toBeNull();
+      const { address, handle } = await seedPage({
+        userId: identity.userId,
+        handlePrefix: "tabs",
+        displayName: "Tab Switching",
+        // A multi-word name, deliberately: it is free text this container's
+        // own author typed, and no `id` on the page may carry it. In the
+        // block model that is structural rather than careful — every
+        // identifier is built from the block's PATH, which is digits and
+        // hyphens — and the `aria-controls` assertion below is what proves
+        // the property held rather than merely being intended.
+        blocks: [container({ mode: "tabs", name_en: "About Me", children })],
+      });
 
       await page.setViewportSize({ width: 1280, height: 800 });
       const response = await page.goto(`/es/${address}/${handle}`);
       expect(response?.status()).toBe(200);
       await expect(page.getByTestId("public-section")).toHaveCount(1);
 
-      const tabs = page.getByTestId("public-tabs");
+      const tabs = page.getByTestId("block-tabs");
       const labels = tabs.locator("> label");
       const radios = tabs.locator('input[type="radio"]');
       const panels = tabs.locator("> div");
       await expect(panels).toHaveCount(5);
 
       // Every radio's aria-controls resolves to a real element, in a real
-      // browser, on a section whose name has a space in it — the exact case
-      // that produced a dangling ID-reference before panelId was rebuilt
-      // from whitespace-free values. A value containing a space would
-      // tokenise into pieces that resolve to nothing; asserting there is no
-      // whitespace at all is the more direct claim.
+      // browser, on a section whose name has a space in it. A value
+      // containing a space would tokenise into pieces that resolve to
+      // nothing — `aria-controls` takes an ID-reference LIST — so asserting
+      // there is no whitespace at all is the more direct claim.
       const controlsValues = await radios.evaluateAll((elements) =>
         elements.map((element) => element.getAttribute("aria-controls")),
       );
@@ -211,7 +158,7 @@ test.describe("tabs, switched in a real browser", () => {
       //
       // **Measuring the SECOND panel, with tabs after it still in the
       // fixture, is what gives this power to fail** — see the comment on
-      // `items` above for why. A hidden panel is not laid out at all, so
+      // `children` above for why. A hidden panel is not laid out at all, so
       // with `order-1`/`order-2` removed, only the tabs and the one visible
       // panel remain in flow; the later tabs falling below that panel in
       // document order is the only thing `labelsBottom` can catch here.
@@ -229,9 +176,9 @@ test.describe("tabs, switched in a real browser", () => {
       expect(labelsBottom).toBeLessThanOrEqual(visiblePanelBox!.y);
 
       // 4. At the narrowest phone still in use, the page does not scroll
-      // sideways — the same shape of risk `card-size-grid.spec.ts` guards,
-      // since a wrapping flex row of many tabs is exactly where a fixed
-      // width could push the page wider than its viewport.
+      // sideways — the same shape of risk `blocks-render.spec.ts` guards for
+      // the grid, since a wrapping flex row of many tabs is exactly where a
+      // fixed width could push the page wider than its viewport.
       await page.setViewportSize({ width: 320, height: 800 });
       const overflow = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,

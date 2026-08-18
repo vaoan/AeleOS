@@ -5,9 +5,9 @@ import {
 import { createIdentityClient } from "@aeleos/identity";
 import { env } from "@/shared/infrastructure/env";
 import {
-  readSectionsSchema,
-  type FursonaSection,
-} from "@/features/actors/domain/section-schema";
+  lenientBlocksSchema,
+  type Block,
+} from "@/features/actors/domain/block-schema";
 
 /** One fursona as a person's public profile lists it. */
 export interface PublicFursonaSummary {
@@ -21,6 +21,13 @@ export interface PublicFursonaSummary {
 
 /**
  * An actor's page, as a stranger may see it.
+ *
+ * **What they wrote is `blocks`, and the rename is the model rather than
+ * tidying.** It was `sections`, a flat array whose every element was one
+ * welded arrangement-and-content type; it is a recursive tree now, and a
+ * section is simply a container at depth 0 that carries a name. The database
+ * column keeps the old name — see {@link toPublicActor} — because renaming a
+ * column is a migration and this is a reading.
  *
  * It carries the owner's `theme`, always — its resting state overrides nothing,
  * so a page nobody has themed is exactly what it was before theming existed.
@@ -46,8 +53,12 @@ export interface PublicActor {
    * somebody chose not to publish must not arrive in a search result.
    */
   listed: boolean;
-  /** What they wrote. Empty when they have written nothing. */
-  sections: FursonaSection[];
+  /**
+   * What they wrote, as a tree of blocks. Empty when they have written
+   * nothing, and empty too when what is stored does not parse — see
+   * {@link parseBlocks}.
+   */
+  blocks: Block[];
   /**
    * How the owner chose the page to look.
    *
@@ -89,26 +100,32 @@ const anonClient = () =>
   });
 
 /**
- * Parses stored sections, treating a shape the schema rejects as none.
+ * Parses a stored page, treating a shape the schema rejects as none.
  *
  * A page written before a schema change must still render its header and its
  * name. Throwing here would turn one bad row into a 500 on somebody's public
  * profile, which is a worse failure than a page with nothing under the heading.
  *
- * **Uses `readSectionsSchema`, not `sectionsSchema`.** The write schema's
- * `style` bag is `.strict()`, which is right for an author's own typo and
- * wrong here: a single unrecognised style key — the exact shape Phase D's
- * `card_size` will be, in any window where the database is ahead of this
- * build — would otherwise fail the WHOLE array and blank a stranger's page
- * rather than costing it just that one key. See `readSectionsSchema`'s own
- * TSDoc.
+ * **Uses `lenientBlocksSchema`, not `blocksSchema`.** The write schema refuses
+ * a typo an author just made, which is right at the moment they can still fix
+ * it and wrong here: one block this build does not fully recognise would
+ * otherwise fail the WHOLE page and blank a stranger's profile, in exactly the
+ * window where a newer deployment's writes are being read by an older one.
+ *
+ * **Three things are tolerated and the rest are not.** An unknown KEY is
+ * stripped (`specialise`); an unrecognised `kind` or `mode` is kept verbatim
+ * for the renderer's own fallbacks (`unknownKindSchema`); an empty `title_en`
+ * is a floor. A container past the depth cap, a malformed block of a kind this
+ * build DOES know, and every size cap are refused here exactly as they are on
+ * the write — so a failed parse still means something is genuinely wrong
+ * rather than merely newer.
  *
  * @param value - whatever the database returned.
- * @returns the sections, or `[]` when they do not parse.
+ * @returns the blocks, or `[]` when they do not parse.
  */
-function parseSections(value: unknown): FursonaSection[] {
-  const result = readSectionsSchema.safeParse(value);
-  return result.success ? (result.data as FursonaSection[]) : [];
+function parseBlocks(value: unknown): Block[] {
+  const result = lenientBlocksSchema.safeParse(value);
+  return result.success ? result.data : [];
 }
 
 /**
@@ -128,7 +145,9 @@ function toPublicActor(
     avatarUrl: (row.avatar_url as string | null) ?? null,
     address,
     listed: Boolean(row.listed),
-    sections: parseSections(row.sections),
+    // The column is still called `sections`; what it holds is a tree of
+    // blocks, and a section is a container at depth 0 that carries a name.
+    blocks: parseBlocks(row.sections),
     // parseTheme falls back per field rather than throwing, so a stored theme
     // that is nonsense costs the page its colours and never the page itself.
     theme: parseTheme(row.theme),

@@ -135,6 +135,13 @@ export type CanvasId = (typeof CANVASES)[number];
  *
  * So an untouched page emits no accent at all and `globals.css` stays entirely
  * in charge of it. Only a page whose owner actually picked something overrides.
+ *
+ * **The page's own picture and one block's are the same address, turned into
+ * CSS by the same function.** `backgroundUrl` here and `background_url` on a
+ * block both go through `backgroundImageValue`, so an address that cannot be
+ * safely quoted paints nothing at either level rather than being escaped at one
+ * and built at the other. That is stated here because the two live in different
+ * layers and the shared guard is the only thing keeping them in step.
  */
 export interface ActorTheme {
   /**
@@ -207,7 +214,7 @@ export interface ActorTheme {
    * is stored as pasted rather than pre-sanitised: `bodyBackgroundVars`,
    * called from {@link themeCss}, is the one place it is turned into CSS,
    * through `backgroundImageValue` (`domain/embeds.ts`), the same function
-   * `sectionStyle` uses for a section's own background picture. An address
+   * `blockStyle` uses for a block's own background picture. An address
    * that function refuses paints nothing rather than throwing, exactly like
    * every other field here.
    */
@@ -390,7 +397,7 @@ function colour(value: unknown): string | null {
  *
  * The background picture's address is kept as pasted — a plain string check
  * only, deferring safety to `themeCss`/`themeVars` through
- * `backgroundImageValue`, exactly as `sectionStyle` defers a section's own
+ * `backgroundImageValue`, exactly as `blockStyle` defers a block's own
  * background picture. Its fit falls back to {@link DEFAULT_THEME}'s when the
  * stored value is not one of the two known ones.
  *
@@ -708,7 +715,7 @@ function declarations(properties: Record<string, string>): string {
  * way, but leaving it implicit here would mean trusting that equivalence
  * silently rather than saying it.
  *
- * **Reuses `backgroundImageValue`, the same function `sectionStyle` calls for
+ * **Reuses `backgroundImageValue`, the same function `blockStyle` calls for
  * a section's own background picture, rather than a second escaping path.**
  * `themeCss` interpolates its result into a raw `<style>` block, where CSSOM
  * offers no protection at all — that sink is exactly why `backgroundImageValue`

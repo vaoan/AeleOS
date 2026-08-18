@@ -222,9 +222,9 @@
   --skin-border: 1px;
 
   /*
-   * A FLOOR under that width, raised by a section that picks a border style
+   * A FLOOR under that width, raised by a block that picks a border style
    * needing room to be itself. **No skin sets this and none should** —
-   * `sectionStyle` is its only writer.
+   * `blockStyle` is its only writer.
    *
    * `double` is why it exists, and the number is measured rather than
    * reasoned: at 1px Chromium paints `[0]`, at 2px `[0 0]` — byte-identical

@@ -58,7 +58,8 @@
         "avatarUrl": "Ingresa una dirección de imagen http o https, o déjala vacía.",
         "visibility": "Elige una de las opciones.",
         "limitReached": "Ya tienes el máximo de fursonas.",
-        "sectionsRefused": "Tus secciones fueron rechazadas. Corrígelas y guarda otra vez; no se perdió nada más."
+        "sectionsRefused": "Tus secciones fueron rechazadas. Corrígelas y guarda otra vez; no se perdió nada más.",
+        "pageUnreadable": "No pudimos leer esta página, así que no se guardó nada: guardar ahora la reemplazaría por nada. No se ha cambiado nada."
       }
     },
     "pin": "Fijar primero",

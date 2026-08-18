@@ -29,14 +29,25 @@ vi.mock("lucide-react/dynamic", () => ({
 const { PublicProfile } =
   await import("@/features/actors/presentation/public-profile");
 
-const SECTIONS = [
+// One section: a container at depth 0 that carries a name, which is what the
+// heading assertions below read.
+const BLOCKS = [
   {
+    kind: "container",
+    mode: "stack",
+    columns: 1,
+    span: 1,
     name_en: "About",
-    type: "cards",
-    sort_order: 1,
-    items: [{ title_en: "Species", description_en: "A wolf.", sort_order: 1 }],
+    children: [
+      {
+        kind: "stat",
+        span: 1,
+        title_en: "Species",
+        description_en: "A wolf.",
+      },
+    ],
   },
-] as unknown as PublicActor["sections"];
+] as unknown as PublicActor["blocks"];
 
 /**
  * An actor, with overrides.
@@ -51,7 +62,7 @@ const actor = (over: Partial<PublicActor> = {}): PublicActor => ({
   address: "42",
   theme: DEFAULT_THEME,
   listed: true,
-  sections: SECTIONS,
+  blocks: BLOCKS,
   ...over,
 });
 
@@ -59,7 +70,7 @@ const actor = (over: Partial<PublicActor> = {}): PublicActor => ({
  * Renders a profile.
  *
  * `parentHost` is route-resolved config nothing in this file exercises —
- * `PublicSections` only reads it for Twitch, which no test here embeds — so it
+ * only a `player` leaf reads it, for Twitch, which no test here embeds — so it
  * is a fixed stand-in value rather than a parameter.
  *
  * @param over - fields to replace on the actor.
@@ -145,7 +156,7 @@ describe("PublicProfile", () => {
   });
 
   it("renders a header and nothing else when they wrote nothing", () => {
-    renderProfile({ sections: [] });
+    renderProfile({ blocks: [] });
     expect(
       screen.getByRole("heading", { name: "Luna", level: 1 }),
     ).toBeInTheDocument();
@@ -272,7 +283,7 @@ describe("a person whose handle nobody chose", () => {
 
 describe("a page with nothing on it", () => {
   // **A published profile with nothing written on it was a screen of empty
-  // gradient.** Correct — no sections and no public fursonas is exactly what it
+  // gradient.** Correct — no blocks and no public fursonas is exactly what it
   // says — but a stranger has no way to tell a page still being built from one
   // that failed to load, and its owner has no way to tell publishing worked.
   //
@@ -280,7 +291,7 @@ describe("a page with nothing on it", () => {
   // the page cannot know who is looking, so it must not tell somebody to go and
   // add something — most people seeing it are not the person who could.
   it("says so when there is nothing to show", () => {
-    renderProfile({ sections: [], fursonas: [] });
+    renderProfile({ blocks: [], fursonas: [] });
     expect(screen.getByTestId("public-empty")).toHaveTextContent(
       "Nothing here yet.",
     );
@@ -289,7 +300,7 @@ describe("a page with nothing on it", () => {
   // A fursona's page carries no fursona list at all, so the absent key and the
   // empty list have to mean the same thing here.
   it("says so on a fursona's own page too", () => {
-    renderProfile({ sections: [], fursonas: undefined });
+    renderProfile({ blocks: [], fursonas: undefined });
     expect(screen.getByTestId("public-empty")).toBeInTheDocument();
   });
 
@@ -298,12 +309,12 @@ describe("a page with nothing on it", () => {
     expect(screen.queryByTestId("public-empty")).toBeNull();
   });
 
-  // **A person with no sections but a public fursona is not empty.** The list
+  // **A person with no blocks but a public fursona is not empty.** The list
   // is the page, and hiding it behind "nothing here yet" would be worse than
   // the blank screen this replaces.
   it("stays away when the only content is the fursona list", () => {
     renderProfile({
-      sections: [],
+      blocks: [],
       fursonas: [{ handle: "shadow", displayName: "Shadow", avatarUrl: null }],
     });
     expect(screen.queryByTestId("public-empty")).toBeNull();

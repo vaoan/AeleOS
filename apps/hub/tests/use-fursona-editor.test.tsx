@@ -7,6 +7,7 @@ import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 class HandleRetiredError extends Error {}
 class HandleTakenError extends Error {}
 class FursonaLimitError extends Error {}
+class PageRefusedError extends Error {}
 
 const createFursona = vi.fn<(...a: unknown[]) => unknown>();
 const updateFursona = vi.fn<(...a: unknown[]) => unknown>();
@@ -21,6 +22,7 @@ vi.mock("@/features/actors/infrastructure/actor-theme", () => ({
 }));
 vi.mock("@/features/actors/infrastructure/fursona-arrangement", () => ({
   setFursonaSections: (...a: unknown[]) => setFursonaSections(...a),
+  PageRefusedError,
 }));
 vi.mock("@/features/actors/infrastructure/fursonas", () => ({
   createFursona: (...a: unknown[]) => createFursona(...a),
@@ -128,10 +130,23 @@ describe("useFursonaEditor", () => {
   // The partial failure the plan calls out: the fursona exists and its content
   // does not. Reported, never rolled back — deleting a just-created fursona
   // would spend a handle from a namespace that never reclaims one.
-  it("reports a refused section write rather than undoing the fursona", async () => {
-    setFursonaSections.mockRejectedValueOnce(
-      new Error("section 1: unknown type"),
-    );
+  //
+  // **The messages here are real ones, and that is the point of the case.**
+  // This used to reject with `"section 1: unknown type"` — `origin/main`'s
+  // wording, which `0009` cannot emit any more — against a classifier that
+  // matched on prose. Both were wrong together, so the suite stayed green
+  // while the commonest refusal in the product threw past the handler and
+  // showed the person nothing. `PageRefusedError` is built from the SQLSTATE
+  // instead, and these strings are read out of the migration's own `raise`
+  // statements.
+  it.each([
+    "block 1: unknown kind",
+    "block 1: too deep",
+    "block 1: title_en is required",
+    "block 1.2: a leaf holds no children",
+    "blocks are too large (limit 65536 bytes)",
+  ])("reports %o rather than undoing the fursona", async (message) => {
+    setFursonaSections.mockRejectedValueOnce(new PageRefusedError(message));
     const { result } = renderHook(() => useFursonaEditor(), { wrapper });
     let landed: boolean | undefined;
     await act(async () => {
@@ -139,6 +154,17 @@ describe("useFursonaEditor", () => {
     });
     expect(landed).toBe(false);
     expect(result.current.fieldErrors).toEqual({ form: "sectionsRefused" });
+  });
+
+  // The other side of the same contract: a refusal that is NOT about the page
+  // keeps propagating. Flattening every failure into "your sections were
+  // refused" would tell somebody to fix writing that is perfectly fine.
+  it("lets a refusal that is not about the page propagate", async () => {
+    setFursonaSections.mockRejectedValueOnce(new Error("fursona not found"));
+    const { result } = renderHook(() => useFursonaEditor(), { wrapper });
+    await expect(result.current.save(values)).rejects.toThrow(
+      /fursona not found/,
+    );
   });
 
   // Without this the list still shows the old rows after a save, and somebody
@@ -178,6 +204,82 @@ describe("useFursonaEditor", () => {
     await expect(result.current.save(values)).rejects.toThrow(
       /no person actor/,
     );
+  });
+
+  // THE ERASURE. This is a regression test for a Critical, and the fault it
+  // reproduces is the one `actor-page.ts`'s own TSDoc says that function exists
+  // to prevent — returned, in a new shape, the moment the stored page stopped
+  // being a flat list of sections.
+  //
+  // `readActorPage` parses with the flat schema, fails on a block tree, and
+  // used to return `sections: []` — indistinguishable from "nothing written
+  // yet". The editor then opened empty and this mutation sent
+  // `setFursonaSections(ref, [])` unconditionally. `set_actor_sections` accepts
+  // an empty tree and REPLACES, so the RPC succeeded, nothing warned, and the
+  // whole page was gone.
+  //
+  // **The assertion is on the WRITE, not on the return value**, because that is
+  // where the data was lost. A test that only checked `save` reported false
+  // would have passed against an implementation that reported false AFTER
+  // writing.
+  describe("a page this build could not read", () => {
+    it("writes nothing at all, not even the fields", async () => {
+      const { result } = renderHook(
+        () => useFursonaEditor("ref-1", "fursona", false),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.save(values);
+      });
+      expect(setFursonaSections).not.toHaveBeenCalled();
+      expect(updateFursona).not.toHaveBeenCalled();
+      expect(setActorTheme).not.toHaveBeenCalled();
+    });
+
+    it("reports it on the form rather than failing silently", async () => {
+      const { result } = renderHook(
+        () => useFursonaEditor("ref-1", "fursona", false),
+        { wrapper },
+      );
+      let landed: boolean | undefined;
+      await act(async () => {
+        landed = await result.current.save(values);
+      });
+      // False, so the editor keeps the person on the page — the return value
+      // is what it navigates on, never `fieldErrors`.
+      expect(landed).toBe(false);
+      expect(result.current.fieldErrors).toEqual({ form: "pageUnreadable" });
+    });
+
+    // A person's own page goes through a different first write
+    // (`update_my_profile`), so the refusal has to be before the branch rather
+    // than inside one of its arms.
+    it("refuses a person's own page the same way", async () => {
+      const { result } = renderHook(
+        () => useFursonaEditor("person-ref", "person", false),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.save(values);
+      });
+      expect(updateMyProfile).not.toHaveBeenCalled();
+      expect(setFursonaSections).not.toHaveBeenCalled();
+    });
+
+    // The control that stops all three above being vacuous: the same hook with
+    // the flag left at its default writes everything, so what they observe is
+    // the flag rather than a harness that never writes anything.
+    it("still writes everything when the page WAS readable", async () => {
+      const { result } = renderHook(
+        () => useFursonaEditor("ref-1", "fursona", true),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.save(values);
+      });
+      expect(setFursonaSections).toHaveBeenCalledWith({}, "ref-1", sections);
+      expect(setActorTheme).toHaveBeenCalled();
+    });
   });
 
   it("clears a previous field error when a later save succeeds", async () => {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  PageRefusedError,
   deleteFursona,
   readArrangement,
   readMyActors,
@@ -81,6 +82,41 @@ describe("readArrangement", () => {
     await expect(readArrangement(client())).resolves.toEqual([
       { actorRef: "ref-1", sortOrder: null, featured: true },
     ]);
+  });
+});
+
+describe("a refusal the caller can act on", () => {
+  // The branch this covers is the whole reason `PageRefusedError` exists. The
+  // editor used to classify refusals by matching prose — `/section|too many|
+  // too large|too long/i` — written when every message `set_actor_sections`
+  // could raise carried the word "section". Every per-block message begins
+  // `block N:` now and contains none of those four words, so the commonest
+  // refusal stopped matching, threw past the handler, and the person was shown
+  // nothing while their fields had already been written.
+  //
+  // Asserting the TYPE rather than the message is the point: a message is the
+  // database's to change and a class is ours.
+  it("raises PageRefusedError for the shape refusal, not a bare Error", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: "22023", message: "block 1: unknown kind" },
+    });
+    await expect(setFursonaSections(client(), "ref-1", [])).rejects.toThrow(
+      PageRefusedError,
+    );
+  });
+
+  // The other side, and it is what stops the case above passing for the wrong
+  // reason: every refusal must NOT become a PageRefusedError, or the editor
+  // would offer "your page was refused" for a fursona somebody does not own.
+  it("leaves every other refusal a plain Error", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: "P0001", message: "fursona not found" },
+    });
+    const raised = setFursonaSections(client(), "ref-1", []);
+    await expect(raised).rejects.toThrow("fursona not found");
+    await expect(raised).rejects.not.toBeInstanceOf(PageRefusedError);
   });
 });
 

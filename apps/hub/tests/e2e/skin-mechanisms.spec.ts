@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
 import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintSessionToken,
 } from "./support/clerk-session";
+import { container, leaf, seedPage } from "./support/blocks";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 
 // WHY THIS FILE EXISTS.
@@ -92,57 +91,29 @@ test.describe("the skin mechanisms, painted rather than merely declared", () => 
   }) => {
     const identity = await createTestIdentity();
     try {
-      const jwt = await mintSessionToken(identity.userId);
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-        {
-          auth: { persistSession: false },
-          global: { headers: { Authorization: `Bearer ${jwt}` } },
-        },
-      );
-
-      const { error: provisionError } = await supabase.rpc(
-        "ensure_person_actor",
-      );
-      expect(provisionError).toBeNull();
-
-      const handle = `mech${Date.now().toString().slice(-9)}`;
-      const { data: actorRef, error: createError } = await supabase.rpc(
-        "create_fursona",
-        {
-          p_handle: handle,
-          p_display_name: "Skin Mechanisms",
-          p_avatar_url: null,
-          p_visibility: "public",
-        },
-      );
-      expect(createError).toBeNull();
-
-      // Written straight through `set_actor_sections` — the same
-      // `security definer` function the editor's own save button calls — for
-      // the reason `section-skin-nesting.spec.ts` gives at length: what is
-      // under test here is entirely on the read side, and driving the popup to
-      // get there would make this fail for reasons that have nothing to do
-      // with what it claims.
-      const { error: sectionsError } = await supabase.rpc(
-        "set_actor_sections",
-        {
-          p_actor_ref: actorRef,
-          p_sections: SECTIONS.map((skin, index) => ({
+      // One section per skin, each holding one `text` leaf. A leaf's card is
+      // the plain `surface` every probe below reads — it names no skin token
+      // of its own, so what it paints is whatever the block enclosing it set.
+      // `plain` carries no `style` at all and is the control.
+      //
+      // Seeded straight into the database as a real Clerk-authenticated
+      // caller — see `support/blocks.ts` — for the reason
+      // `section-skin-nesting.spec.ts` gives at length: what is under test is
+      // entirely on the read side, and driving the editor to get there would
+      // make this fail for reasons that have nothing to do with what it
+      // claims.
+      const { address, handle } = await seedPage({
+        userId: identity.userId,
+        handlePrefix: "mech",
+        displayName: "Skin Mechanisms",
+        blocks: SECTIONS.map((skin) =>
+          container({
             name_en: skin,
-            type: "cards",
-            sort_order: index,
-            items: [{ title_en: "Card", description_en: "", sort_order: 0 }],
+            children: [leaf({ title_en: "Card" })],
             ...(skin === "plain" ? {} : { style: { skin } }),
-          })),
-        },
-      );
-      expect(sectionsError).toBeNull();
-
-      const { data: address, error: addressError } =
-        await supabase.rpc("my_address");
-      expect(addressError).toBeNull();
+          }),
+        ),
+      });
 
       // The nebula is a live canvas behind every page, so two screenshots
       // would otherwise catch it on different frames. Reduced motion is the
@@ -152,7 +123,7 @@ test.describe("the skin mechanisms, painted rather than merely declared", () => 
       await page.setViewportSize(VIEWPORT);
       const response = await page.goto(`/es/${address}/${handle}`);
       expect(response?.status()).toBe(200);
-      const cards = page.getByTestId("public-cards").locator("> div");
+      const cards = page.getByTestId("public-leaf").locator("> div");
       await expect(cards).toHaveCount(SECTIONS.length);
       expect(await page.evaluate(() => window.scrollY)).toBe(0);
 

@@ -469,7 +469,8 @@ still open.
   without its theme: a filterable, drag-reorderable list; a full-page editor on
   react-hook-form with a sticky toolbar; sections in several layouts with
   bilingual, per-item fields; an icon picker; and starting templates
-  shipped in code rather than in a table. Spec:
+  shipped in code rather than in a table. **That editor is the flat one and is
+  now superseded** — see the blocks bullet at the end of this list. Spec:
   `2026-08-13-fursona-studio-port-design.md`; plans
   `2026-08-13-fursona-studio-phase-*.md`.
 
@@ -542,19 +543,19 @@ replace`, so the newest body of a function could sit in a file named after
   **Do not reintroduce an upload without reopening the budget question**, and if
   it is ever reopened, the three constraints above come back with it.
 
-- **A section may carry its own form (2026-08-16).** A skin, a background
+- **A block may carry its own form (2026-08-16).** A skin, a background
   picture and a fit, apart from the page's — edited in a paintbrush popup with
-  a live preview, using the same `sectionStyle` the public page renders with
-  so the two cannot drift. **Absent means "inherit the page,"** a real answer
-  rather than a gap. **Colour stays page-level and always will** — a skin
-  names no colour of its own, and every pairing of a style and a palette is
-  somebody's page; a per-section colour would collapse that. Read
-  `apps/hub/src/features/actors/CLAUDE.md` for what a section may set, the
+  a live preview, using the same `blockStyle` the public page renders with
+  so the two cannot drift. It shipped per SECTION and is per BLOCK now,
+  unchanged in meaning, which is the whole payoff of a section being only a
+  container at depth 0. **Absent means "inherit whatever encloses this,"** a
+  real answer rather than a gap. **Colour stays page-level and always will** —
+  a skin names no colour of its own, and every pairing of a style and a palette
+  is somebody's page; a per-block colour would collapse that. Read
+  `apps/hub/src/features/actors/CLAUDE.md` for what a block may set, the
   nesting fix a skin needed to apply twice without falling through to the
   wrong scope, and why the readability escape hatch stays page-level rather
-  than growing a per-section correction. `card_size` did not ship with this —
-  see the spec's Phasing section — because nothing yet rendered it; it landed
-  in the phase below, beside the grid that does.
+  than growing a per-block correction.
 
   The same pass fixed a section's drag handle, dead since it was first
   written and invisible to the only test that covered it — see "Every bug
@@ -564,10 +565,13 @@ replace`, so the newest body of a function could sit in a file named after
 - **The section-personality design is delivered end to end (2026-08-16).** The
   embed provider table, with the Content-Security-Policy's `frame-src`
   derived from it rather than kept as a second list somebody has to remember
-  to update; the `posts` and `socials` layouts; the per-section form (skin,
-  background picture, card size); the `cards` grid the size dial actually
-  feeds; and a background picture behind the whole page, layered correctly
-  over the author's own gradient. Read
+  to update; embedded posts and branded social chips; the per-section form
+  (skin, background picture, card size); the `cards` grid the size dial fed;
+  and a background picture behind the whole page, layered correctly
+  over the author's own gradient. The layouts named there are container modes
+  and leaf kinds now — the blocks bullet below carries the mapping — and
+  `card_size` lost its reader with the `auto-fill` grid it was a minimum width
+  for. Read
   `apps/hub/src/features/actors/CLAUDE.md` and
   `docs/superpowers/specs/2026-08-15-section-personality-design.md` — the
   latter is now marked complete — for what each piece does and does not do,
@@ -583,8 +587,9 @@ replace`, so the newest body of a function could sit in a file named after
   not merely bundled but **unreachable**, since nothing in the style bag could
   make a section dashed. The same phase took the feature note's own "this list
   is a floor, not a ceiling" at its word: `masonry`, `progress` and `tabs`
-  join the layouts, `neon`, `cutout` and `frame` join the skins, each earning
-  its place by a mechanism nothing else uses. Read
+  arrived — as layouts then, as two modes and a leaf kind now — and `neon`,
+  `cutout` and `frame` joined the skins, each earning its place by a mechanism
+  nothing else uses. Read
   `apps/hub/src/features/actors/CLAUDE.md` for what `progress` reads as a
   value (and that it inverts the title/description pair), why the border token
   is `--skin-border-style` rather than a write to Tailwind's own variable, and
@@ -592,6 +597,53 @@ replace`, so the newest body of a function could sit in a file named after
   which is why the editor's card paints its face on a layer of its own and why
   every surface in the app now rings on the inside. Spec:
   `2026-08-16-a-border-of-ones-own-design.md`.
+
+- **Blocks and grids (2026-08-18) — the model and the renderer are done; the
+  editor is not.** A page was a flat array of sections whose `type` **welded
+  arrangement to content** — `gallery` was a grid _of pictures_, `links` a list
+  _of links_ — so heterogeneity was not merely unsupported but unrepresentable.
+  A page is a recursive tree of **blocks** now: a **container** arranges its
+  children in a mode, a **leaf** holds one piece of content, and **a section is
+  a container at depth 0 that carries a name.**
+
+  Read `apps/hub/src/features/actors/CLAUDE.md` before touching any of it — it
+  carries the container modes, the leaf kinds, and **the table saying where
+  every old `type` went**, which is the thing to check before concluding that
+  `gallery` was dropped. Nothing was.
+
+  The parts worth knowing before reading the code:
+
+  - **Depth is capped at three and the DATABASE enforces it**, with an explicit
+    counter passed down `validate_block`'s own recursion. `sections` is
+    user-controlled `jsonb`, so an unbounded recursive validator is a stack
+    somebody else chooses the depth of; a cap in the editor is a suggestion.
+    Both sides also refuse a too-deep tree **by name**, because a container one
+    level too far is otherwise refused for naming a `kind` no leaf has — which
+    tells somebody their block kind is invalid and their title is missing,
+    neither of which they got wrong.
+  - **Spans are whole grid tracks, never coordinates.** A container declares
+    `columns` and a block declares the `span` it takes of its parent's tracks,
+    both from one small vocabulary, collapsing to a single track below `sm`.
+    Free positioning is refused because it cannot degrade to a narrow viewport,
+    because it makes the editor close to unusable on a phone — which is where
+    most people will build — and because it is how the pages this product is
+    inspired by became unreadable.
+  - **A stored span wider than its parent is kept exactly as typed and narrowed
+    only at render.** A page must never become unsavable; and rewriting the
+    stored value would destroy what was typed, so dragging the block back
+    somewhere wider could not restore it. Gate the field, never the value.
+  - **`columns` was a mode and was removed before anything could store one**,
+    for a reason worth reusing: three consecutive tasks wrote down three
+    different meanings for it. See rule 15 below.
+
+  **The editor is phase 3 and is still the flat one.** It cannot open a page
+  stored as blocks, and it now refuses to save one rather than replacing it
+  with nothing. Phases 3–5 — the dnd-kit migration, the block palette, the DOM
+  reduction — are unwritten, and the spec records what they inherit and what
+  the dnd-kit spike found, all of which fails silently. Spec:
+  `docs/superpowers/specs/2026-08-17-blocks-and-grids-design.md`, marked
+  complete for phases 1 and 2; plan:
+  `docs/superpowers/plans/2026-08-17-blocks-and-grids-phase-1-model-and-renderer.md`.
 
 ## The toolchain, and the rules it cost
 
@@ -757,6 +809,89 @@ every Tailwind utility for months without anything noticing.
     milliseconds as what a visitor's machine pays. The account is in
     `canvas-performance.spec.ts`'s own header.
 
+15. **A name three consecutive authors cannot define the same way twice has no
+    mechanism — it has a meaning each of them filled in from context.** The
+    `columns` container mode was in the vocabulary, in the SQL and in the
+    renderer, and each of those three said something different about it: the
+    schema said it laid uniform tracks exactly as `grid` does, `0009` said
+    `grid` fills them across and `columns` down, and the renderer shipped
+    `grid` plus `items-start`. The middle one is a real mechanism, column-major
+    fill order, which nothing else has — **and it was never implemented**, so
+    the file whose comments are the readable index of the model was describing
+    behaviour the product did not have, where `check:docs` cannot see it. The
+    rule generalises past vocabularies, because it replaces an argument with an
+    observation: this repo's standing bar is that a thing earns its place by a
+    mechanism none of the others has, and "is there a mechanism" is arguable
+    where "can three people who wrote it down agree" is not. It was removed
+    before anything could store one.
+
+16. **A summary wrong in the safe-sounding direction is worse than one that is
+    simply wrong, because it closes the question.** A report said "the editor
+    cannot save at all", which sounded like a limitation and read as settled.
+    The truth was that the editor could not save a page WITH sections and saved
+    perfectly well when it believed there were none — which, after the model
+    changed under it, was every page. So opening any page and pressing Save
+    erased it: the parse failed, the read answered `[]`, the mutation sent an
+    empty tree, the RPC accepted it and reported success. Nobody looked,
+    because the sentence had already told them nothing could be written. When
+    writing down what a broken thing cannot do, state the failing input and the
+    observed behaviour, not the conclusion — "it refuses a tree" and "it cannot
+    save" are not the same claim, and only one of them is checkable.
+
+17. **Being right for the wrong reason is the worse way to be right, because
+    the reasoning is what the next person reuses.** The `min-w-0` fix was
+    correct and its stated mechanism was false: a flex item is NOT floored at
+    `min-width: auto` in a column container — per Flexbox §4.5 an automatic
+    minimum size applies on the main axis, so it computes to `0` — and the
+    guard that actually did the work everywhere except `timeline` was
+    `minmax(0, 1fr)`. The credited sabotage was false too: removing the
+    `min-w-0` guards left the whole suite green, because no fixture put a wide
+    leaf in the one mode that lays `auto` tracks. A conclusion that survives a
+    wrong explanation will be copied to the next place with the explanation
+    attached, and there it will be wrong about the outcome as well. Measure
+    which half of a fix is load-bearing before writing down why it worked.
+
+18. **`check:docs` catches a symbol whose CODE moved. It cannot catch one whose
+    WORLD moved.** `LEAF_KINDS`' TSDoc described an owed behaviour — the
+    pairing debt inherited from `two-column`, including "the list disappears
+    when no row survives" — and two leaves had by then paid that debt and
+    deliberately INVERTED that half of it. The constant itself never changed a
+    character, so nothing about the TypeScript moved and the freshness check
+    had nothing to compare. The exposure is any TSDoc that describes something
+    other than its own symbol: a debt, a plan, another file's behaviour, a
+    guard that runs elsewhere. Those are the comments to grep for by hand when
+    a phase closes, and the giveaway is the future or obligatory tense.
+
+19. **A guard credited in REASONING is harder to catch than one credited in a
+    comment, because there is nothing to read.** This file already says a
+    sentence crediting a guard is not the guard. The new shape is a report or a
+    review arguing "axe covers this" about `heading-order` and
+    `scope-attr-valid` — both `best-practice` in `axe-core@4.13.0`, and
+    `a11y.spec.ts` runs `wcag2a/2aa/21a/21aa` only, so neither ever fires. No
+    file contained a false claim; the false claim was in the argument for why
+    no file needed one. Settle it by reading `getRules()` out of the installed
+    version rather than by recalling which tag a rule carries. And the naive
+    fix is worse than the gap: `AxeBuilder` cannot mix `withTags` and
+    `withRules`, so adding them means adopting the whole `best-practice`
+    family — which would flag `empty-table-header`, a blank `<th>` beside a
+    written value that `TableLeaf` renders **on purpose**. That is the second
+    time "just turn the rule on" would have broken something deliberate; the
+    first was `unicorn/prefer-string-raw` rewriting a middleware matcher Next
+    reads statically.
+
+20. **An agent that sabotages live state must restore it in the same run, and a
+    session limit does not care.** One died mid-sabotage with its probe still
+    on the live database — and worse, it had MOVED the probe from the end of a
+    column comment to the front before dying, so the containment check somebody
+    would reach for (`live.startsWith(file)`) answered false and the obvious
+    "is the suffix still there" check would not have found it. Restoring meant
+    executing the `comment on column` statement verbatim out of `0009` rather
+    than retyping it, which is the idiom for every hand-applied migration edit
+    here. The safer shape is to sabotage a COPY — the shadow database or a
+    local stack, and `pnpm test:db` runs here now — and to reserve live probes
+    for the one case that genuinely needs them. Where a live probe is
+    unavoidable, write down where it is before making it, not after.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected
@@ -804,10 +939,21 @@ anything failing. Read it from the API rather than inferring it from the YAML:
 gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
 ```
 
-**`schema-drift` (`pnpm check:schema-drift`) is the newest job and it is 🧑 NOT
-YET REQUIRED** — adding it is branch-protection settings rather than YAML, the
-same gap this file already records for `e2e`, and until Heiner does it a merge
-can ignore a red run. It exists because of the in-place-migration hazard above:
+**Two jobs are 🧑 NOT YET REQUIRED, and both need Heiner** — `schema-drift` and
+`canvas`. Adding either is branch-protection settings rather than YAML, the
+same gap this file already records for `e2e`, so nothing in
+`.github/workflows/` can be edited to fix it and nothing there will tell you it
+is missing. Until then a merge can ignore a red run of either, which is one
+step from a check that does nothing.
+
+`canvas` measures every canvas at the top of both dials and then what a
+personalised page costs on a throttled phone; both faults it guards against
+shipped to `main` under a green tick. Note that its dial-latency half is
+currently `test.fixme` — see the blocks bullet above — so the job is green on a
+narrower subject than its name suggests.
+
+`schema-drift` runs `pnpm check:schema-drift`, and it exists because of the
+in-place-migration hazard above:
 it compares `supabase/migrations/` against the **live** project, which is the
 one thing no other check looks at. It carries the same fork `if:` guard as
 `idp-cloud`, because it needs the database password.

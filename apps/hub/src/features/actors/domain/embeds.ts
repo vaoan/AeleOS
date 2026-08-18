@@ -181,7 +181,7 @@ export function safeHttpUrl(raw: string | undefined): string | null {
  * **This refusal exists independently of whichever sink renders the
  * result.** A browser's CSSOM happens to reject a malformed `style`
  * declaration today, which is why nothing is exploitable yet through
- * `sectionStyle`'s own `style` object — but that is defence in depth, not
+ * `blockStyle`'s own `style` object — but that is defence in depth, not
  * the reason this is safe. `themeCss`, in this feature's `domain/actor-theme.ts`,
  * interpolates a value into a raw `<style>` block, which gets no such
  * protection for free; a value trusted only because of where it currently
@@ -190,15 +190,14 @@ export function safeHttpUrl(raw: string | undefined): string | null {
  * context.
  *
  * **Lives in `embeds.ts` rather than beside a caller**, deliberately:
- * `sectionStyle` (`presentation/public-sections.tsx`) and `themeVars`
+ * `blockStyle` (`presentation/block-style.ts`) and `themeVars`
  * (`domain/actor-theme.ts`) sit on opposite sides of the domain/presentation
  * boundary `eslint-plugin-boundaries` enforces, and a domain file may only
  * import another domain file of the same feature. Putting this beside
  * `safeHttpUrl` — which it already depends on — is what lets every caller
  * reuse the identical function rather than the presentation layer keeping the
  * only copy and the domain layer growing a second, narrower one for the same
- * job. `public-sections.tsx` re-exports it unchanged, so nothing importing it
- * from there had to move.
+ * job.
  *
  * @param url - the address an author pasted, or `undefined` when they left
  *   it unset.

@@ -25,17 +25,21 @@
  *
  * | engine          | `COMMENT ON` | noise with no drift present |
  * | --------------- | ------------ | --------------------------- |
- * | `pg-delta`      | yes          | grants and default privileges |
+ * | `pg-delta`      | yes          | none, as of 2026-08-17      |
  * | `migra`         | no           | none                        |
  * | `pg-schema-diff`| no           | none                        |
  *
  * So `migra` is the structural pass and any output at all fails it, and
- * `pg-delta` is the comment pass where only `COMMENT ON` counts. `pg-delta`'s
- * noise is the hosted project's own default privileges — the cloud grants new
- * objects to `service_role` and the local CLI stack does not, a difference
- * `0001` names and deliberately does not restate. It is not drift, it cannot be
- * fixed in a migration file without copying a platform default into the schema,
- * and it never takes the form of a `COMMENT ON`.
+ * `pg-delta` is the comment pass where only `COMMENT ON` counts.
+ *
+ * **That noise column moved under us, and it is the reason this file has a
+ * history.** On 2026-08-16 pg-delta added ~26 `GRANT` and `ALTER DEFAULT
+ * PRIVILEGES` statements to every diff — the hosted project's own default
+ * privileges, which `0001` names and deliberately does not restate. On
+ * 2026-08-17 they are gone: pg-delta is an alpha the CLI fetches at run time,
+ * so "what this engine always prints" is somebody else's release schedule.
+ * Nothing here may depend on that noise again. What it cost is written up in
+ * `schema-drift-output.mjs`, which had made it the proof that anything ran.
  *
  * **Every pass always runs, and the comment pass goes first, because migra lies
  * about failure.** Measured the same day: `--use-migra` given a deliberately
@@ -56,6 +60,17 @@
  * coupled to what this file depends on, rather than merely asking whether
  * anything still looks like a statement.
  *
+ * **A pass is accepted on a positive signal and never on silence.** The CLI
+ * splits its answer across two streams — a diff on stdout, "No schema changes
+ * found" on stderr — so a pass that wrote nothing anywhere has not told us it
+ * ran, and that is exactly what a wrong password or a connection lost mid-run
+ * looks like. Both streams are therefore captured rather than inherited, and
+ * an empty stdout is believed only when the verdict says so. The cost is that
+ * the CLI's own progress no longer streams as it happens: it is written out
+ * when the pass ends, which for a shadow-database build is a minute of
+ * apparent silence. Worth it, and the alternative was reading a clean run's
+ * only evidence off a stream nothing was keeping.
+ *
  * **The structural pass has no equivalent, and cannot have one here.** migra
  * emits SQL or nothing, so "the schemas differ" and "these two were never
  * going to compare equal" — a CLI bump, or a shadow database built at a
@@ -63,6 +78,12 @@
  * answer. What stands in for a canary is honesty: the versions are printed on
  * every run and repeated in the failure, and the failure says outright that
  * they are a candidate explanation. See `versions` and `drifted`'s shape 4.
+ *
+ * It is still held to the same positive signal: an empty stdout counts as
+ * clean only when the verdict was printed. That is worth less here than it is
+ * for pg-delta and is not sold as more — migra prints the verdict on a wrong
+ * password too — but a migra pass that printed NEITHER a diff nor a verdict is
+ * a run that did not happen, and this check will not read that as agreement.
  *
  * **Making this a required check has a cost that is not this script's to pay,
  * and it must be settled first.** The comparison is live against THE BRANCH's
@@ -114,8 +135,10 @@ import {
   poolerUrl,
 } from "./aeleos-project.mjs";
 import {
+  explainCliFailure,
   OutputShapeError,
-  readDiffStatements,
+  readDiffRun,
+  reportedNoChanges,
 } from "./schema-drift-output.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -277,12 +300,20 @@ function readSecret(key) {
 }
 
 /**
- * Runs one `supabase db diff` pass and returns what it printed.
+ * Runs one `supabase db diff` pass and returns both of the streams it wrote.
  *
  * Exits the process when the CLI itself fails. A check that reports "no drift"
  * because it could not reach the database is worse than no check: it is a green
  * tick that means nothing, which is the exact failure three tools in this
  * repository shipped with.
+ *
+ * **stderr is captured and written back out, rather than inherited.** The CLI
+ * puts its "No schema changes found" verdict there, and that verdict is the
+ * only evidence a clean run leaves — inheriting the stream sends it to the
+ * terminal where this check cannot read it, which is how a clean database came
+ * to be reported as "nothing was compared". Everything the CLI wrote is
+ * printed unchanged so its own errors still reach whoever is reading, at the
+ * cost of arriving when the pass ends instead of as it happens.
  *
  * @param dbUrl - the connection string, never logged.
  * @param engine - the CLI's engine flag. Required, and there is no "let the CLI
@@ -290,7 +321,8 @@ function readSecret(key) {
  *   design once rested on, and a moved default would have cost comment
  *   sensitivity and the honest exit code in one silent step. An unknown flag
  *   fails loudly instead. Do not reintroduce a nullable engine here.
- * @returns the diff the engine produced, trimmed.
+ * @returns the diff on `stdout`, trimmed, and everything the CLI wrote to
+ *   `stderr`.
  */
 function diff(dbUrl, engine) {
   const result = spawnSync(
@@ -311,52 +343,61 @@ function diff(dbUrl, engine) {
       "no",
       "--yes",
     ],
-    { cwd: rootDir, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
+    { cwd: rootDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
+  const stderr = result.stderr ?? "";
+  // Straight back out, before any verdict, so the CLI's own account of a
+  // failure still precedes ours exactly as it did when this stream was
+  // inherited.
+  process.stderr.write(stderr);
   if (result.status !== 0) {
     // Deliberately not a guess at the cause. A wrong password, an unreachable
     // host, a stopped Docker daemon and a migration that will not apply to the
     // shadow database all leave through here, and the CLI's own stderr is
-    // inherited — so the real error is already on screen, and naming a couple
-    // of them below it would assert something this check never established.
+    // printed above — so the real error is already on screen, and naming a
+    // couple of them below it would assert something this check never
+    // established. The one exception is a failure whose signature says exactly
+    // what happened and what to do: see {@link explainCliFailure}, which names
+    // the shadow database's port and nothing else.
     abort(
       `supabase db diff exited ${result.status ?? "on a signal"}.`,
-      "The CLI's own error is above.",
+      explainCliFailure(stderr) ?? "The CLI's own error is above.",
     );
   }
-  return (result.stdout ?? "").trim();
+  return { stdout: (result.stdout ?? "").trim(), stderr };
 }
 
 /**
- * Parses the comment pass's output, or aborts saying it could not be read.
+ * Reads the comment pass's run, or aborts saying it could not be read.
  *
  * **This parse must be able to notice its own blindness.** Reading another
  * tool's output by shape means an upstream formatting change — single newlines
- * between statements, an added indent, a wrapping header — could turn the
+ * between statements, an added indent, a lower-cased keyword — could turn the
  * comment filter into a permanent, silent zero that logs "0 comment(s) differ"
  * for ever, with nothing to distinguish it from a clean project.
  *
- * The guards live in {@link readDiffStatements} rather than here, and they are
- * coupled to what this caller depends on: a `COMMENT ON` present in the raw
- * output but not isolated as a statement raises. So the parse cannot succeed
- * while the comment pass is blind, which is the property an earlier "does
- * anything still look like a statement" check did not have — collapse the
- * separator and the whole diff is one chunk that still looks like a statement.
+ * The guards live in {@link readDiffRun} rather than here, and they are coupled
+ * to what this caller depends on: a `COMMENT ON` present in the raw output but
+ * not isolated as a statement raises, and so does a run that ended without
+ * either a diff or the CLI's clean verdict. So the parse cannot succeed while
+ * the comment pass is blind, nor while nothing has established that the pass
+ * happened at all.
  *
- * An unreadable shape is a could-not-look, not a finding, so it leaves through
+ * An unreadable run is a could-not-look, not a finding, so it leaves through
  * {@link abort} and carries the "Nothing was compared" line.
  *
- * @param raw - the pg-delta pass's stdout.
- * @returns the statements read and the comment ones among them.
+ * @param run - the pg-delta pass's two streams.
+ * @returns whether it was clean, the statements read, and the comment ones
+ *   among them.
  */
-function readStatements(raw) {
+function readStatements(run) {
   try {
-    return readDiffStatements(raw);
+    return readDiffRun(run);
   } catch (error) {
     if (!(error instanceof OutputShapeError)) throw error;
-    abort("pg-delta's output no longer parses into statements.", error.message);
+    abort("pg-delta's run could not be read as an answer.", error.message);
     // Unreachable: abort() exits. Present so every path returns a value.
-    return { statements: [], comments: [] };
+    return { clean: false, statements: [], comments: [] };
   }
 }
 
@@ -419,15 +460,38 @@ log(
 // whole check would go permanently green on a blank password — the failure this
 // shape exists to prevent, walking back in through the door marked "default".
 log("comment pass (pg-delta) — the one thing migra cannot see");
-const { statements, comments } = readStatements(diff(dbUrl, "--use-pg-delta"));
+const { clean, statements, comments } = readStatements(
+  diff(dbUrl, "--use-pg-delta"),
+);
+// Both outcomes are named, and neither is silence. "reported no changes" is
+// the CLI's own verdict quoted back; a count of statements is a diff that was
+// actually read. A reader can tell from the log which of the two happened,
+// which is the thing this check could not say when it treated the first as a
+// broken parse.
 log(
-  `comment pass: ${statements.length} statement(s) read, ${comments.length} comment(s) differ`,
+  clean
+    ? "comment pass: pg-delta reported no changes at all"
+    : `comment pass: ${statements.length} statement(s) read, ${comments.length} comment(s) differ`,
 );
 
 log(
   "structural pass (migra) — tables, functions, views, constraints, policies",
 );
-const structural = diff(dbUrl, "--use-migra");
+const migra = diff(dbUrl, "--use-migra");
+const structural = migra.stdout;
+
+// An empty stdout is believed only when migra said so. It is a weaker claim
+// than the comment pass's — migra prints this verdict on a wrong password too,
+// which is why that pass runs first — but a run that printed neither a diff nor
+// a verdict never reached a conclusion, and this must not be read as agreement.
+if (structural === "" && !reportedNoChanges(migra.stderr)) {
+  abort(
+    'migra printed neither a diff nor its "No schema changes found" verdict.',
+    "The structural half of the comparison reached no conclusion. The CLI's\n" +
+      "own output is above; a changed message, a changed flag or a run that\n" +
+      "died quietly are the candidates.",
+  );
+}
 
 // Structure before comments when both differ. A drifted function body is the
 // bigger fact, and it is also the one that can make the line-shaped match above

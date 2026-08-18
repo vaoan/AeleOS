@@ -46,12 +46,50 @@ describe("readActorPage", () => {
     expect(page).toEqual({ sections: [], theme: DEFAULT_THEME });
   });
 
-  // Stored sections that no longer parse must not take the editor down. They
-  // come back as none, which is recoverable; an exception here would make the
-  // fursona permanently uneditable.
-  it("treats sections it cannot parse as none", async () => {
+  // Stored sections that no longer parse must not take the editor down — an
+  // exception here would make the fursona permanently uneditable.
+  //
+  // **But they come back as `null`, never `[]`, and the difference is the
+  // whole point.** `[]` says "nothing is written" to a caller whose next act
+  // is to REPLACE, so returning it for a page that IS written is data loss
+  // dressed as a degraded read. That is not hypothetical: it is what happened
+  // the moment a stored page became a tree of blocks this flat schema cannot
+  // parse. See `useFursonaEditor`'s own suite for the save that refuses.
+  it("answers null for a stored page it cannot parse, never an empty one", async () => {
     const page = await readActorPage(
       client({ sections: { not: "an array" }, theme: {} }),
+      "ref",
+    );
+    expect(page.sections).toBeNull();
+  });
+
+  // The block model, which is exactly the shape this flat schema stopped being
+  // able to read — the fixture is a real container rather than nonsense, so
+  // this fails if the read is ever quietly widened to accept both.
+  it("answers null for a page stored as a tree of blocks", async () => {
+    const page = await readActorPage(
+      client({
+        sections: [
+          {
+            kind: "container",
+            mode: "stack",
+            name_en: "About",
+            children: [{ kind: "text", title_en: "Species" }],
+          },
+        ],
+        theme: {},
+      }),
+      "ref",
+    );
+    expect(page.sections).toBeNull();
+  });
+
+  // The other half of the same distinction, and the control that stops the two
+  // above passing on a function that answers null for everything: a row whose
+  // sections really are empty is `[]`, which an editor MAY replace.
+  it("answers an empty array for a row whose page is genuinely empty", async () => {
+    const page = await readActorPage(
+      client({ sections: [], theme: {} }),
       "ref",
     );
     expect(page.sections).toEqual([]);

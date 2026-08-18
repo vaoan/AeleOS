@@ -58,7 +58,8 @@
         "avatarUrl": "Enter an http or https image address, or leave it empty.",
         "visibility": "Choose one of the options.",
         "limitReached": "You already have the maximum number of fursonas.",
-        "sectionsRefused": "Your sections were refused. Fix them and save again — nothing else was lost."
+        "sectionsRefused": "Your sections were refused. Fix them and save again — nothing else was lost.",
+        "pageUnreadable": "We could not read this page, so nothing was saved — saving now would replace it with nothing. Nothing has been changed."
       }
     },
     "pin": "Pin first",

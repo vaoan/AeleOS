@@ -697,7 +697,7 @@ describe("the canvas colours a stored theme carries", () => {
 
 describe("a page background picture", () => {
   // Kept as pasted, unlike the cursor: safety is `themeCss`'s job, through
-  // `backgroundImageValue`, exactly as `sectionStyle` defers a section's own
+  // `backgroundImageValue`, exactly as `blockStyle` defers a block's own
   // background picture rather than sanitising it at parse time.
   it("reads an address somebody chose", () => {
     expect(

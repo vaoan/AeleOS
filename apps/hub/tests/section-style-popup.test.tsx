@@ -572,7 +572,7 @@ describe("SectionStylePopup", () => {
     });
 
     // Values pinned against `skins.ts`'s own table for `neobrutalism` — the
-    // same ones `public-sections.test.tsx` asserts for the public renderer.
+    // same ones `block-style.test.ts` asserts for the public renderer.
     expect(card.style.getPropertyValue("--skin-round")).toBe("0");
     expect(card.style.getPropertyValue("--skin-border")).toBe("3px");
     expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
@@ -600,10 +600,10 @@ describe("SectionStylePopup", () => {
   });
 
   // The point of the task, for the newest field: the card previews the
-  // chosen card size live, through the SAME `sectionStyle` the public page
+  // chosen card size live, through the SAME `blockStyle` the public page
   // renders with — asserted on the preview element's own `--card-size`
   // custom property, pinned against `CARD_SIZE_MIN`'s own `l` entry (see
-  // `public-sections.test.tsx`'s identical assertion for the public
+  // `block-style.test.ts`'s identical assertion for the public
   // renderer).
   it("previews the chosen card size on the card behind the popup", () => {
     render(<OneSectionHarness capture={() => {}} />);
@@ -616,7 +616,7 @@ describe("SectionStylePopup", () => {
   });
 
   // The point of the task: the card behind the popup previews the chosen
-  // border live, through the SAME `sectionStyle` the public page renders
+  // border live, through the SAME `blockStyle` the public page renders
   // with — asserted on the preview element's own `--skin-border-style`
   // custom property, the token Task 1 made reachable and this control is the
   // first thing to write.
@@ -631,7 +631,7 @@ describe("SectionStylePopup", () => {
   });
 
   // `"none"` previews exactly like any other member of the enum — it is a
-  // real, emitted value, not a state `sectionStyle` special-cases away.
+  // real, emitted value, not a state `blockStyle` special-cases away.
   it('previews an explicit "none" border the same way as any other choice', () => {
     render(<OneSectionHarness capture={() => {}} />);
     const card = screen.getByTestId("section-card");
@@ -688,8 +688,8 @@ describe("SectionStylePopup", () => {
   });
 });
 
-// `sectionStyle` itself — the function the preview above calls — carries its
-// own suite in `public-sections.test.tsx`, describe("a section's own
-// style"). It is imported here rather than reimplemented (see
-// `public-sections.tsx`'s own TSDoc on the export), so there is exactly one
-// place its branches are pinned, not two that could quietly drift apart.
+// `blockStyle` itself — the function the preview above calls — carries its
+// own suite in `block-style.test.ts`. It is imported here rather than
+// reimplemented (see `block-style.ts`'s own TSDoc on the export), so there is
+// exactly one place its branches are pinned, not two that could quietly drift
+// apart.

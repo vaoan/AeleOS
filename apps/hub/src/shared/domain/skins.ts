@@ -107,240 +107,259 @@ const SHEEN = "rgb(255 255 255 / 0.35)";
  *    the raw colours the palette produces. **A skin changes their ALPHA and
  *    never their hue**, which is the whole distinction this file rests on:
  *    glass is the author's colour seen through, not a different colour.
+ *
+ * **A `Map`, not a record, because the name arrives from `jsonb`.** A skin is
+ * `z.string().max(32)` in the block style bag and in the page theme alike —
+ * never checked against this list, deliberately, so a page whose stored skin
+ * was renamed still renders. That means `"__proto__"`, `"constructor"` and
+ * `"toString"` all reach the lookup, and a plain record answers each of them
+ * with a truthy INHERITED value, which defeats the `?? default` in
+ * {@link skinVars} outright. Traced, the outcome happened to be benign — each
+ * of the three spreads to `{}` and so lands on the defaults anyway — but it
+ * was benign by luck rather than by construction, and a block model reaches
+ * this from every block at every depth rather than from one section's style
+ * bag. A `Map` has no inherited entries to find. Same rule and same reason as
+ * `MODES` and `LEAVES` in `blocks.tsx`.
+ *
+ * The private object below is a compile-time completeness check and is never
+ * indexed: `satisfies Record<SkinId, …>` fails to compile the moment `SKINS`
+ * gains a name with no entry, and `Object.entries` reads only its own keys.
  */
-const SKIN_VARS: Record<SkinId, Record<string, string>> = {
-  /** The design's own. Overrides nothing, exactly as an unchosen colour does. */
-  default: {},
+const SKIN_VARS: ReadonlyMap<string, Record<string, string>> = new Map(
+  Object.entries<Record<string, string>>({
+    /** The design's own. Overrides nothing, exactly as an unchosen colour does. */
+    default: {},
 
-  /** Frosted panels over the field, which is what the blur is actually for. */
-  glass: {
-    "--skin-round": "2",
-    "--skin-shadow": `0 8px 32px ${SHADE}`,
-    "--skin-blur": "22px",
-    "--skin-backdrop": "blur(14px)",
-    "--skin-gloss": `linear-gradient(150deg, ${SHEEN}, transparent 55%)`,
-    "--surface": "color-mix(in oklab, var(--surface-solid) 40%, transparent)",
-    "--bar": "color-mix(in oklab, var(--bar-solid) 45%, transparent)",
-  },
+    /** Frosted panels over the field, which is what the blur is actually for. */
+    glass: {
+      "--skin-round": "2",
+      "--skin-shadow": `0 8px 32px ${SHADE}`,
+      "--skin-blur": "22px",
+      "--skin-backdrop": "blur(14px)",
+      "--skin-gloss": `linear-gradient(150deg, ${SHEEN}, transparent 55%)`,
+      "--surface": "color-mix(in oklab, var(--surface-solid) 40%, transparent)",
+      "--bar": "color-mix(in oklab, var(--bar-solid) 45%, transparent)",
+    },
 
-  /**
-   * Square, heavy-bordered, with a hard shadow in the ink colour.
-   *
-   * The shadow is `--ink` rather than black because on a dark page a black
-   * offset is invisible, which is the whole gesture gone.
-   */
-  neobrutalism: {
-    "--skin-round": "0",
-    "--skin-border": "3px",
-    "--skin-shadow": "5px 5px 0 var(--ink)",
-    "--skin-blur": "0px",
-  },
+    /**
+     * Square, heavy-bordered, with a hard shadow in the ink colour.
+     *
+     * The shadow is `--ink` rather than black because on a dark page a black
+     * offset is invisible, which is the whole gesture gone.
+     */
+    neobrutalism: {
+      "--skin-round": "0",
+      "--skin-border": "3px",
+      "--skin-shadow": "5px 5px 0 var(--ink)",
+      "--skin-blur": "0px",
+    },
 
-  /** The glossy, over-lit window: a bright top half falling to a dark one. */
-  aero: {
-    "--skin-round": "1.8",
-    "--skin-shadow": `0 3px 12px ${SHADE}, inset 0 1px 0 ${SHEEN}`,
-    "--skin-blur": "16px",
-    "--skin-backdrop": "blur(8px)",
-    "--skin-gloss":
-      "linear-gradient(to bottom, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.05) 48%, rgb(0 0 0 / 0.06) 52%, transparent)",
-    "--surface": "color-mix(in oklab, var(--surface-solid) 72%, transparent)",
-    "--bar": "color-mix(in oklab, var(--bar-solid) 70%, transparent)",
-  },
+    /** The glossy, over-lit window: a bright top half falling to a dark one. */
+    aero: {
+      "--skin-round": "1.8",
+      "--skin-shadow": `0 3px 12px ${SHADE}, inset 0 1px 0 ${SHEEN}`,
+      "--skin-blur": "16px",
+      "--skin-backdrop": "blur(8px)",
+      "--skin-gloss":
+        "linear-gradient(to bottom, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.05) 48%, rgb(0 0 0 / 0.06) 52%, transparent)",
+      "--surface": "color-mix(in oklab, var(--surface-solid) 72%, transparent)",
+      "--bar": "color-mix(in oklab, var(--bar-solid) 70%, transparent)",
+    },
 
-  /** Round to the point of being edible, sitting on a flat colour block. */
-  candy: {
-    "--skin-round": "3",
-    "--skin-border": "2px",
-    "--skin-shadow":
-      "0 5px 0 color-mix(in oklab, var(--edge) 70%, transparent)",
-    "--skin-gloss":
-      "linear-gradient(to bottom, rgb(255 255 255 / 0.2), transparent 60%)",
-  },
+    /** Round to the point of being edible, sitting on a flat colour block. */
+    candy: {
+      "--skin-round": "3",
+      "--skin-border": "2px",
+      "--skin-shadow":
+        "0 5px 0 color-mix(in oklab, var(--edge) 70%, transparent)",
+      "--skin-gloss":
+        "linear-gradient(to bottom, rgb(255 255 255 / 0.2), transparent 60%)",
+    },
 
-  /** Pillowy and borderless: shape comes entirely from light on the surface. */
-  clay: {
-    "--skin-round": "3.5",
-    "--skin-border": "0px",
-    "--skin-shadow": `inset 0 2px 4px ${SHEEN}, inset 0 -3px 6px ${SHADE}, 0 10px 24px ${SHADE}`,
-  },
+    /** Pillowy and borderless: shape comes entirely from light on the surface. */
+    clay: {
+      "--skin-round": "3.5",
+      "--skin-border": "0px",
+      "--skin-shadow": `inset 0 2px 4px ${SHEEN}, inset 0 -3px 6px ${SHADE}, 0 10px 24px ${SHADE}`,
+    },
 
-  /** Flat sheets with almost no corner and a shadow instead of an edge. */
-  paper: {
-    "--skin-round": "0.4",
-    "--skin-border": "0px",
-    "--skin-shadow": `0 1px 2px ${SHADE}, 0 10px 22px rgb(0 0 0 / 0.1)`,
-  },
+    /** Flat sheets with almost no corner and a shadow instead of an edge. */
+    paper: {
+      "--skin-round": "0.4",
+      "--skin-border": "0px",
+      "--skin-shadow": `0 1px 2px ${SHADE}, 0 10px 22px rgb(0 0 0 / 0.1)`,
+    },
 
-  /** Monospaced and square, with scanlines across every surface. */
-  terminal: {
-    "--skin-round": "0",
-    "--skin-blur": "0px",
-    "--skin-font": "var(--font-mono)",
-    // **Black, not white, and not faint.** The first version was white at 0.05,
-    // which is invisible on a light page and nearly so on a dark one — a gloss
-    // that changes nothing, which is the fault this feature keeps being trimmed
-    // for. Black reads as a darker line against either.
-    "--skin-gloss":
-      "repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px)",
-  },
+    /** Monospaced and square, with scanlines across every surface. */
+    terminal: {
+      "--skin-round": "0",
+      "--skin-blur": "0px",
+      "--skin-font": "var(--font-mono)",
+      // **Black, not white, and not faint.** The first version was white at 0.05,
+      // which is invisible on a light page and nearly so on a dark one — a gloss
+      // that changes nothing, which is the fault this feature keeps being trimmed
+      // for. Black reads as a darker line against either.
+      "--skin-gloss":
+        "repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px)",
+    },
 
-  /** The bevelled grey box: a lit top-left, a shaded bottom-right, no curve. */
-  retro: {
-    "--skin-round": "0",
-    "--skin-border": "2px",
-    "--skin-blur": "0px",
-    "--skin-shadow":
-      "inset 1px 1px 0 rgb(255 255 255 / 0.55), inset -1px -1px 0 rgb(0 0 0 / 0.35), 2px 2px 0 rgb(0 0 0 / 0.4)",
-  },
-  /**
-   * No surface at all: the page's own background shows through every panel.
-   *
-   * `transparent` rather than a very low alpha, because the point is that there
-   * is nothing there — a wash would be a fourth translucent skin beside glass,
-   * aero and the rest. It is the one skin where the author's gradient IS the
-   * card, which makes their choice of background and canvas matter more here
-   * than anywhere else.
-   *
-   * Text stays readable without any special handling: the palette already
-   * solves it against the gradient's hardest stop, which is exactly what these
-   * panels now show.
-   */
-  outline: {
-    "--skin-round": "1.5",
-    "--skin-shadow": "none",
-    "--surface": "transparent",
-    "--bar": "transparent",
-  },
+    /** The bevelled grey box: a lit top-left, a shaded bottom-right, no curve. */
+    retro: {
+      "--skin-round": "0",
+      "--skin-border": "2px",
+      "--skin-blur": "0px",
+      "--skin-shadow":
+        "inset 1px 1px 0 rgb(255 255 255 / 0.55), inset -1px -1px 0 rgb(0 0 0 / 0.35), 2px 2px 0 rgb(0 0 0 / 0.4)",
+    },
+    /**
+     * No surface at all: the page's own background shows through every panel.
+     *
+     * `transparent` rather than a very low alpha, because the point is that there
+     * is nothing there — a wash would be a fourth translucent skin beside glass,
+     * aero and the rest. It is the one skin where the author's gradient IS the
+     * card, which makes their choice of background and canvas matter more here
+     * than anywhere else.
+     *
+     * Text stays readable without any special handling: the palette already
+     * solves it against the gradient's hardest stop, which is exactly what these
+     * panels now show.
+     */
+    outline: {
+      "--skin-round": "1.5",
+      "--skin-shadow": "none",
+      "--surface": "transparent",
+      "--bar": "transparent",
+    },
 
-  /** Ruled drafting paper: a fine grid across every surface, and no curve. */
-  blueprint: {
-    "--skin-round": "0",
-    "--skin-blur": "0px",
-    "--skin-shadow": "none",
-    // Two rulings crossed, black so they read on a pale page and a dark one
-    // alike. `auto` is deliberate here — a repeating gradient tiles itself, so
-    // the spacing is in the stops rather than in the size.
-    "--skin-gloss":
-      "repeating-linear-gradient(to right, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 24px), repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 24px)",
-  },
+    /** Ruled drafting paper: a fine grid across every surface, and no curve. */
+    blueprint: {
+      "--skin-round": "0",
+      "--skin-blur": "0px",
+      "--skin-shadow": "none",
+      // Two rulings crossed, black so they read on a pale page and a dark one
+      // alike. `auto` is deliberate here — a repeating gradient tiles itself, so
+      // the spacing is in the stops rather than in the size.
+      "--skin-gloss":
+        "repeating-linear-gradient(to right, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 24px), repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 24px)",
+    },
 
-  /**
-   * Printed, not rendered: a heavy line and a halftone dot field.
-   *
-   * This is the skin `--skin-gloss-size` exists for. A `radial-gradient` with
-   * no size is one dot the width of the panel; tiled at six pixels it is
-   * newsprint.
-   */
-  comic: {
-    "--skin-round": "0.6",
-    "--skin-border": "3px",
-    "--skin-blur": "0px",
-    "--skin-gloss": "radial-gradient(rgb(0 0 0 / 0.16) 22%, transparent 23%)",
-    "--skin-gloss-size": "6px 6px",
-  },
+    /**
+     * Printed, not rendered: a heavy line and a halftone dot field.
+     *
+     * This is the skin `--skin-gloss-size` exists for. A `radial-gradient` with
+     * no size is one dot the width of the panel; tiled at six pixels it is
+     * newsprint.
+     */
+    comic: {
+      "--skin-round": "0.6",
+      "--skin-border": "3px",
+      "--skin-blur": "0px",
+      "--skin-gloss": "radial-gradient(rgb(0 0 0 / 0.16) 22%, transparent 23%)",
+      "--skin-gloss-size": "6px 6px",
+    },
 
-  /** Pressed into the page rather than raised off it — clay, inverted. */
-  inset: {
-    "--skin-round": "1.5",
-    "--skin-border": "0px",
-    "--skin-shadow": `inset 0 3px 6px ${SHADE}, inset 0 -1px 0 ${SHEEN}`,
-  },
+    /** Pressed into the page rather than raised off it — clay, inverted. */
+    inset: {
+      "--skin-round": "1.5",
+      "--skin-border": "0px",
+      "--skin-shadow": `inset 0 3px 6px ${SHADE}, inset 0 -1px 0 ${SHEEN}`,
+    },
 
-  /** Die-cut: a thick ring all the way round, and a shadow beneath it. */
-  sticker: {
-    "--skin-round": "2.5",
-    "--skin-border": "4px",
-    "--skin-shadow": "0 6px 14px rgb(0 0 0 / 0.3)",
-  },
+    /** Die-cut: a thick ring all the way round, and a shadow beneath it. */
+    sticker: {
+      "--skin-round": "2.5",
+      "--skin-border": "4px",
+      "--skin-shadow": "0 6px 14px rgb(0 0 0 / 0.3)",
+    },
 
-  /**
-   * A halo, not a cast shadow: spread with no offset in either axis.
-   *
-   * Every other shadow here is displaced — glass falls 8px, neobrutalism 5 and
-   * 5, retro 2 and 2 — so each reads as a light source somewhere off the page.
-   * A shadow at `0 0` cannot be read that way: nothing is casting it, so the
-   * surface itself is emitting, which is the only glow `box-shadow` can make.
-   * `frame` also writes a spread, but a hard one with no blur, which is an
-   * edge; a spread blurred and centred is a light.
-   *
-   * **The glow is `--ink`, and that is what keeps it a skin rather than a
-   * colour scheme.** On a light page ink is dark and the halo reads as a
-   * bloom of shade; on a dark page it is near-white and the sign is lit.
-   * Same gesture in both directions — the reasoning neobrutalism's offset
-   * already rests on. This is the skin most likely to be "fixed" with a
-   * literal cyan, and that would be the skin overruling a colour its author
-   * picked somewhere else.
-   */
-  neon: {
-    "--skin-round": "1.5",
-    "--skin-shadow":
-      "0 0 16px 2px color-mix(in oklab, var(--ink) 34%, transparent), inset 0 0 12px color-mix(in oklab, var(--ink) 14%, transparent)",
-  },
+    /**
+     * A halo, not a cast shadow: spread with no offset in either axis.
+     *
+     * Every other shadow here is displaced — glass falls 8px, neobrutalism 5 and
+     * 5, retro 2 and 2 — so each reads as a light source somewhere off the page.
+     * A shadow at `0 0` cannot be read that way: nothing is casting it, so the
+     * surface itself is emitting, which is the only glow `box-shadow` can make.
+     * `frame` also writes a spread, but a hard one with no blur, which is an
+     * edge; a spread blurred and centred is a light.
+     *
+     * **The glow is `--ink`, and that is what keeps it a skin rather than a
+     * colour scheme.** On a light page ink is dark and the halo reads as a
+     * bloom of shade; on a dark page it is near-white and the sign is lit.
+     * Same gesture in both directions — the reasoning neobrutalism's offset
+     * already rests on. This is the skin most likely to be "fixed" with a
+     * literal cyan, and that would be the skin overruling a colour its author
+     * picked somewhere else.
+     */
+    neon: {
+      "--skin-round": "1.5",
+      "--skin-shadow":
+        "0 0 16px 2px color-mix(in oklab, var(--ink) 34%, transparent), inset 0 0 12px color-mix(in oklab, var(--ink) 14%, transparent)",
+    },
 
-  /**
-   * Cut from paper: every corner sliced off straight rather than rounded.
-   *
-   * **The only skin that changes a surface's SHAPE**, which is the thing a
-   * radius cannot express however far it is turned — a curve and a chamfer are
-   * different cuts, not two settings of one. `--skin-clip` exists for it, and
-   * `@utility surface` reads it; see that token's declaration in `globals.css`.
-   *
-   * `--skin-round` goes to `0` because the two cuts fight: a rounded border
-   * arcs inward and the clip then takes a straight chord across the arc,
-   * leaving a nub at every corner that looks like a rendering fault rather
-   * than a style.
-   *
-   * **It sets no shadow, and must not.** `clip-path` clips an element's whole
-   * paint, `box-shadow` included, so a shadow here would be stored, emitted
-   * and invisible — the control that does nothing. The default is `none`
-   * already; `nestedSkinVars` restores it, so a `cutout` section inside a
-   * shadowed page does not acquire one by inheritance either.
-   *
-   * **The notch is `min(10px, 25%)` and the bound is load-bearing, not
-   * tidiness.** A percentage inside `polygon()` resolves against the reference
-   * box's WIDTH on an x coordinate and its HEIGHT on a y one, so one
-   * expression clamps each axis by itself. A flat `10px` self-intersects the
-   * moment a surface is under 20px in either direction: the `progress`
-   * layout's track is `h-2`, so its vertical vertices resolved to `10px` and
-   * `-2px`, the path crossed itself, and what a browser paints for that is a
-   * winding-rule artefact rather than a chamfer. Bounded, a short surface
-   * simply gets a shallower notch — the gesture degrades instead of
-   * inverting. This is the same class of failure as a skin that offers a
-   * choice and changes nothing, one step worse: it changes something nobody
-   * asked for.
-   */
-  cutout: {
-    "--skin-round": "0",
-    "--skin-border": "2px",
-    "--skin-clip":
-      "polygon(min(10px, 25%) 0, calc(100% - min(10px, 25%)) 0, 100% min(10px, 25%), 100% calc(100% - min(10px, 25%)), calc(100% - min(10px, 25%)) 100%, min(10px, 25%) 100%, 0 calc(100% - min(10px, 25%)), 0 min(10px, 25%))",
-  },
+    /**
+     * Cut from paper: every corner sliced off straight rather than rounded.
+     *
+     * **The only skin that changes a surface's SHAPE**, which is the thing a
+     * radius cannot express however far it is turned — a curve and a chamfer are
+     * different cuts, not two settings of one. `--skin-clip` exists for it, and
+     * `@utility surface` reads it; see that token's declaration in `globals.css`.
+     *
+     * `--skin-round` goes to `0` because the two cuts fight: a rounded border
+     * arcs inward and the clip then takes a straight chord across the arc,
+     * leaving a nub at every corner that looks like a rendering fault rather
+     * than a style.
+     *
+     * **It sets no shadow, and must not.** `clip-path` clips an element's whole
+     * paint, `box-shadow` included, so a shadow here would be stored, emitted
+     * and invisible — the control that does nothing. The default is `none`
+     * already; `nestedSkinVars` restores it, so a `cutout` section inside a
+     * shadowed page does not acquire one by inheritance either.
+     *
+     * **The notch is `min(10px, 25%)` and the bound is load-bearing, not
+     * tidiness.** A percentage inside `polygon()` resolves against the reference
+     * box's WIDTH on an x coordinate and its HEIGHT on a y one, so one
+     * expression clamps each axis by itself. A flat `10px` self-intersects the
+     * moment a surface is under 20px in either direction: the `progress`
+     * layout's track is `h-2`, so its vertical vertices resolved to `10px` and
+     * `-2px`, the path crossed itself, and what a browser paints for that is a
+     * winding-rule artefact rather than a chamfer. Bounded, a short surface
+     * simply gets a shallower notch — the gesture degrades instead of
+     * inverting. This is the same class of failure as a skin that offers a
+     * choice and changes nothing, one step worse: it changes something nobody
+     * asked for.
+     */
+    cutout: {
+      "--skin-round": "0",
+      "--skin-border": "2px",
+      "--skin-clip":
+        "polygon(min(10px, 25%) 0, calc(100% - min(10px, 25%)) 0, 100% min(10px, 25%), 100% calc(100% - min(10px, 25%)), calc(100% - min(10px, 25%)) 100%, min(10px, 25%) 100%, 0 calc(100% - min(10px, 25%)), 0 min(10px, 25%))",
+    },
 
-  /**
-   * Matted and hung: a hairline, a mount board, and the moulding round it.
-   *
-   * **Depth from concentric edges rather than from one border.** Its
-   * `box-shadow` layers sit at `0 0 0 Npx` — no offset, no blur, only a
-   * growing spread — and draw as rings one outside the next, because every
-   * layer is clipped to outside the same border box and the earlier one is
-   * painted over the later. A hairline, then the mount board, then the
-   * moulding; a last, ordinary drop shadow hangs the result on the wall. Every
-   * other edge here is a single line whose weight is `--skin-border`, which is
-   * the setting this cannot be expressed as: one line cannot have a gap in it.
-   *
-   * The mat is `--surface-solid`, the raw panel colour the palette writes, so
-   * the mount board is the author's own — a skin reaching their colours the
-   * one sanctioned way rather than naming one. `--skin-border` goes to `0`
-   * because the innermost ring IS the edge; leaving it would put a second line
-   * immediately inside the first.
-   */
-  frame: {
-    "--skin-round": "0.25",
-    "--skin-border": "0px",
-    "--skin-shadow": `0 0 0 1px color-mix(in oklab, var(--edge) 60%, transparent), 0 0 0 6px var(--surface-solid), 0 0 0 8px var(--edge), 0 8px 18px ${SHADE}`,
-  },
-};
+    /**
+     * Matted and hung: a hairline, a mount board, and the moulding round it.
+     *
+     * **Depth from concentric edges rather than from one border.** Its
+     * `box-shadow` layers sit at `0 0 0 Npx` — no offset, no blur, only a
+     * growing spread — and draw as rings one outside the next, because every
+     * layer is clipped to outside the same border box and the earlier one is
+     * painted over the later. A hairline, then the mount board, then the
+     * moulding; a last, ordinary drop shadow hangs the result on the wall. Every
+     * other edge here is a single line whose weight is `--skin-border`, which is
+     * the setting this cannot be expressed as: one line cannot have a gap in it.
+     *
+     * The mat is `--surface-solid`, the raw panel colour the palette writes, so
+     * the mount board is the author's own — a skin reaching their colours the
+     * one sanctioned way rather than naming one. `--skin-border` goes to `0`
+     * because the innermost ring IS the edge; leaving it would put a second line
+     * immediately inside the first.
+     */
+    frame: {
+      "--skin-round": "0.25",
+      "--skin-border": "0px",
+      "--skin-shadow": `0 0 0 1px color-mix(in oklab, var(--edge) 60%, transparent), 0 0 0 6px var(--surface-solid), 0 0 0 8px var(--edge), 0 8px 18px ${SHADE}`,
+    },
+  } satisfies Record<SkinId, Record<string, string>>),
+);
 
 /**
  * The custom properties a skin sets.
@@ -351,12 +370,15 @@ const SKIN_VARS: Record<SkinId, Record<string, string>> = {
  * An unknown name gives the default's — nothing — rather than throwing, for the
  * same reason `parseTheme` falls back per field: the value arrives from a
  * `jsonb` column and a page whose stored skin was renamed must still render.
+ * The parameter is typed `SkinId`, but nothing upstream narrows it to one — see
+ * {@link SKIN_VARS} for why the lookup is a `Map` and not the record the type
+ * makes it look like it could be.
  *
  * @param skin - the chosen skin.
  * @returns its overrides, which are empty for the default.
  */
 export function skinVars(skin: SkinId): Record<string, string> {
-  return { ...(SKIN_VARS[skin] ?? SKIN_VARS[DEFAULT_SKIN]) };
+  return { ...(SKIN_VARS.get(skin) ?? SKIN_VARS.get(DEFAULT_SKIN)) };
 }
 
 /**

@@ -1,0 +1,1047 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { admin, clientAs, closePool, newSub } from "./helpers";
+
+/**
+ * The migration this suite is the conformance proof of.
+ *
+ * Read rather than typed out, because a hand-kept copy of a growable list
+ * drifts the moment somebody adds to the list and not to the copy. The
+ * migration is the right source here because it is the authority the database
+ * is built from, and it travels with this suite: a consuming app copies
+ * `supabase/migrations/` and `tests/db/` together, so the path holds wherever
+ * the pair lands.
+ */
+const MIGRATION = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../supabase/migrations/0009_actor_profiles.sql",
+  ),
+  "utf8",
+);
+
+/**
+ * Every value one `in (...)` list in the migration declares.
+ *
+ * Throws rather than returning nothing when the function cannot be found: an
+ * empty list here would make the cases below pass while proving nothing, which
+ * is the one way a guard like this fails silently.
+ *
+ * @param fn - the function to read, unqualified.
+ * @param parameter - the name of the parameter it tests, as in `p_kind`.
+ * @returns the strings that function accepts.
+ */
+function declared(fn: string, parameter: string): string[] {
+  const body = MIGRATION.match(
+    new RegExp(
+      `create or replace function public\\.${fn}[\\s\\S]*?select ${parameter} in \\(([\\s\\S]*?)\\)\\s*\\$\\$`,
+    ),
+  )?.[1];
+  if (!body)
+    throw new Error(
+      `${fn} was not found in 0009_actor_profiles.sql. If it was renamed or ` +
+        `its shape changed, every value below would go untested and this ` +
+        `guard must be updated with it.`,
+    );
+  // Comments come out FIRST, and the anchor above is why the match reaches the
+  // end of the list at all: the prose inside it carries both apostrophes and
+  // closing parentheses, either of which a quote- or paren-matching pass over
+  // the raw text would read as the end of a value or of the list.
+  return [...body.replace(/--.*/g, "").matchAll(/'([^']+)'/g)]
+    .map((match) => match[1])
+    .filter((value): value is string => value !== undefined);
+}
+
+const DECLARED_KINDS = declared("is_block_kind", "p_kind");
+const DECLARED_MODES = declared("is_container_mode", "p_mode");
+const DECLARED_LEAF_KINDS = DECLARED_KINDS.filter(
+  (kind) => kind !== "container",
+);
+
+type Person = { sub: string; personRef: string; sonaRef: string };
+
+/**
+ * Seeds a person and one active private fursona they own.
+ *
+ * @returns the identity, its person ref, and the fursona's actor ref.
+ */
+async function seedPerson(): Promise<Person> {
+  const sub = newSub();
+  const personRef = randomUUID();
+  const sonaRef = randomUUID();
+  const a = admin();
+
+  const { error: pErr } = await a.from("actors").insert({
+    actor_ref: personRef,
+    kind: "person",
+    identity_sub: sub,
+    handle: `p-${personRef.slice(0, 8)}`,
+  });
+  if (pErr) throw pErr;
+
+  const { error: sErr } = await a.from("actors").insert({
+    actor_ref: sonaRef,
+    kind: "fursona",
+    owner_ref: personRef,
+    handle: `s-${sonaRef.slice(0, 8)}`,
+    visibility: "private",
+  });
+  if (sErr) throw sErr;
+
+  return { sub, personRef, sonaRef };
+}
+
+/**
+ * One well-formed leaf.
+ *
+ * @param over - fields to replace.
+ * @returns the leaf.
+ */
+const leaf = (over: Record<string, unknown> = {}) => ({
+  kind: "text",
+  span: 1,
+  title_en: "A title",
+  title_es: "Un título",
+  description_en: "Some words.",
+  description_es: "Unas palabras.",
+  ...over,
+});
+
+/**
+ * One well-formed container, holding a single leaf.
+ *
+ * @param over - fields to replace.
+ * @returns the container.
+ */
+const container = (over: Record<string, unknown> = {}) => ({
+  kind: "container",
+  mode: "stack",
+  columns: 1,
+  span: 1,
+  name_en: "About",
+  name_es: "Acerca de",
+  children: [leaf()],
+  ...over,
+});
+
+/**
+ * The smallest block the database will take, for the counting and sizing cases
+ * where the fixtures have to stay well under the byte cap to prove anything
+ * about the other one.
+ *
+ * @returns a leaf carrying nothing but what is required.
+ */
+const tiny = () => ({ kind: "text", title_en: "a" });
+
+/**
+ * A copy of an object without one key.
+ *
+ * A helper rather than destructuring the key into an unused variable, which
+ * eslint rejects — and this reads as what the test means: the field is absent.
+ *
+ * @param source - the object to copy.
+ * @param key - the field to leave out.
+ * @returns the copy.
+ */
+function without(
+  source: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  const copy = { ...source };
+  delete copy[key];
+  return copy;
+}
+
+/**
+ * A run of blocks built from one factory.
+ *
+ * @param count - how many to build.
+ * @param build - what each one is.
+ * @returns the blocks.
+ */
+const many = <T>(count: number, build: (index: number) => T): T[] =>
+  Array.from({ length: count }, (_, n) => build(n));
+
+let alice: Person;
+let mallory: Person;
+
+beforeAll(async () => {
+  alice = await seedPerson();
+  mallory = await seedPerson();
+});
+
+afterAll(async () => {
+  await closePool();
+});
+
+/**
+ * Writes a page as the given identity.
+ *
+ * @param sub - the caller's identity subject.
+ * @param actorRef - the actor to write to.
+ * @param blocks - the value to write.
+ * @returns the error message, or null when it succeeded.
+ */
+async function write(
+  sub: string,
+  actorRef: string,
+  blocks: unknown,
+): Promise<string | null> {
+  const c = await clientAs(sub);
+  const { error } = await c.rpc("set_actor_sections", {
+    p_actor_ref: actorRef,
+    p_sections: blocks,
+  });
+  return error?.message ?? null;
+}
+
+/**
+ * Reads back the page stored for an actor, as the service role.
+ *
+ * @param actorRef - the actor to read.
+ * @returns whatever is stored.
+ */
+async function read(actorRef: string): Promise<unknown> {
+  const { data, error } = await admin()
+    .from("actor_profiles")
+    .select("sections")
+    .eq("actor_ref", actorRef)
+    .single();
+  if (error) throw error;
+  return data.sections;
+}
+
+// Asserted before anything is driven through the function, for the same reason
+// the client's own drift guard checks its regexes first: a pattern that quietly
+// matched nothing would leave every case below iterating an empty list and
+// passing forever.
+describe("the vocabulary the migration declares", () => {
+  it("finds the kinds", () => {
+    expect(DECLARED_KINDS.length).toBeGreaterThan(0);
+  });
+
+  it("finds the modes", () => {
+    expect(DECLARED_MODES.length).toBeGreaterThan(0);
+  });
+
+  // The one value the container/leaf split turns on. Were it missing from the
+  // list, every container case below would be refused for an unknown kind and
+  // the depth guard would never be reached at all.
+  it("finds the container kind among them", () => {
+    expect(DECLARED_KINDS).toContain("container");
+  });
+
+  it("finds leaf kinds beside it", () => {
+    expect(DECLARED_LEAF_KINDS.length).toBeGreaterThan(0);
+  });
+});
+
+describe("set_actor_sections", () => {
+  it("stores a well-formed tree and reads it back unchanged", async () => {
+    expect(await write(alice.sub, alice.sonaRef, [container()])).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual([container()]);
+  });
+
+  it("takes a leaf at the top level, with no container around it", async () => {
+    expect(await write(alice.sub, alice.sonaRef, [leaf()])).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual([leaf()]);
+  });
+
+  // Replaces rather than appends. An editor sends the whole document every
+  // save, so appending would double it on the second save.
+  it("replaces what was there rather than appending", async () => {
+    await write(alice.sub, alice.sonaRef, [container(), container()]);
+    await write(alice.sub, alice.sonaRef, [container({ name_en: "Only" })]);
+    expect(await read(alice.sonaRef)).toEqual([container({ name_en: "Only" })]);
+  });
+
+  // The profile row only exists once somebody arranges or writes something, so
+  // this has to create it, exactly as set_fursona_order does.
+  it("creates the profile row on first write", async () => {
+    const fresh = await seedPerson();
+    expect(await write(fresh.sub, fresh.sonaRef, [container()])).toBeNull();
+    expect(await read(fresh.sonaRef)).toEqual([container()]);
+  });
+
+  it("refuses somebody else's fursona, saying nothing about why", async () => {
+    const message = await write(mallory.sub, alice.sonaRef, [container()]);
+    expect(message).toMatch(/fursona not found/i);
+    expect(message).not.toMatch(/owner|permission|belongs/i);
+  });
+
+  // **THE SQLSTATE IS AN INTERFACE, and this is where it is proven.** The
+  // editor classifies a refusal by code rather than by prose — it used to
+  // match on the word "section", which every message stopped carrying the day
+  // the model changed, so the commonest refusal threw past the handler and
+  // showed the person nothing. `PageRefusedError` reads `error.code`, which
+  // means the two codes below are a contract this suite has to hold: `22023`
+  // for anything about the payload, `42501` for anything about who is asking.
+  // A test on the client's side alone would only prove the client's mock.
+  describe("the SQLSTATE a refusal carries", () => {
+    /**
+     * The code PostgREST reports for a write.
+     *
+     * @param sub - the caller's identity subject.
+     * @param actorRef - the actor to write to.
+     * @param blocks - the value to write.
+     * @returns the SQLSTATE, or null when the write succeeded.
+     */
+    async function codeOf(
+      sub: string,
+      actorRef: string,
+      blocks: unknown,
+    ): Promise<string | null> {
+      const c = await clientAs(sub);
+      const { error } = await c.rpc("set_actor_sections", {
+        p_actor_ref: actorRef,
+        p_sections: blocks,
+      });
+      return error?.code ?? null;
+    }
+
+    /**
+     * Four containers, which is one level past the cap.
+     *
+     * @returns the too-deep page.
+     */
+    const tooDeep = () => [
+      container({
+        children: [
+          container({ children: [container({ children: [container()] })] }),
+        ],
+      }),
+    ];
+
+    it.each([
+      ["an unknown kind", [{ kind: "nonsense", title_en: "x" }]],
+      ["a container too deep", tooDeep()],
+      ["a leaf with no title", [without(leaf(), "title_en")]],
+      ["a page that is not an array", "nope"],
+    ])("answers 22023 for %s", async (_name, blocks) => {
+      expect(await codeOf(alice.sub, alice.sonaRef, blocks)).toBe("22023");
+    });
+
+    // The other code, so the pair is distinguishable rather than "everything
+    // is 22023" — the editor must not report somebody else's fursona as a
+    // problem with their own writing.
+    it("answers 42501 for a fursona the caller does not own", async () => {
+      expect(await codeOf(mallory.sub, alice.sonaRef, [container()])).toBe(
+        "42501",
+      );
+    });
+
+    // The control: a write that succeeds carries no code at all, so the cases
+    // above are reading a refusal rather than a constant.
+    it("answers nothing at all for a write that lands", async () => {
+      expect(await codeOf(alice.sub, alice.sonaRef, [container()])).toBeNull();
+    });
+  });
+
+  // **`validate_block` IS the only way in, and until this it was not.**
+  //
+  // The grant on `actor_profiles` named no columns, and PostgREST exposes the
+  // table, so a signed-in person could PATCH `sections` on a row they own and
+  // set it to arbitrary `jsonb` with this function never invoked — no depth
+  // cap, no byte cap, no block count, no vocabulary. Five places in this
+  // repository call those caps "the guard this whole model rests on", which is
+  // a sentence that has to be true in the file every consuming app copies.
+  //
+  // The grant names its columns now. These are what make that a guarantee
+  // rather than a convention, and they belong in the conformance suite because
+  // a consuming app copies this file along with the migration.
+  describe("the only route to a page", () => {
+    it("refuses a direct write to sections, even by the owner", async () => {
+      const c = await clientAs(alice.sub);
+      const { error } = await c
+        .from("actor_profiles")
+        .update({ sections: [{ kind: "nonsense" }] })
+        .eq("actor_ref", alice.sonaRef);
+      expect(error).not.toBeNull();
+      expect(`${error?.message} ${error?.code}`).toMatch(
+        /permission denied|42501/i,
+      );
+    });
+
+    it("refuses a direct write to theme, even by the owner", async () => {
+      const c = await clientAs(alice.sub);
+      const { error } = await c
+        .from("actor_profiles")
+        .update({ theme: { accent: "#000000" } })
+        .eq("actor_ref", alice.sonaRef);
+      expect(error).not.toBeNull();
+    });
+
+    // The other half, without which the two above would be satisfied by a
+    // grant that simply revoked everything: arranging is still a direct write
+    // and must keep working, because that is what the column list exists to
+    // keep rather than to close.
+    it("still lets the owner arrange directly", async () => {
+      const fresh = await seedPerson();
+      const c = await clientAs(fresh.sub);
+      const { error: seedError } = await c
+        .from("actor_profiles")
+        .insert({ actor_ref: fresh.sonaRef, sort_order: 1 });
+      expect(seedError).toBeNull();
+
+      const { error } = await c
+        .from("actor_profiles")
+        .update({ featured: true, sort_order: 2 })
+        .eq("actor_ref", fresh.sonaRef);
+      expect(error).toBeNull();
+    });
+
+    // And the page still arrives through the function, so what was closed is
+    // the bypass rather than the feature.
+    it("still lets the owner write a page through the function", async () => {
+      expect(await write(alice.sub, alice.sonaRef, [container()])).toBeNull();
+    });
+  });
+
+  it("defaults to an empty array for a row created by arranging", async () => {
+    const fresh = await seedPerson();
+    const c = await clientAs(fresh.sub);
+    const { error } = await c.rpc("set_fursona_order", {
+      p_actor_ref: fresh.sonaRef,
+      p_sort_order: 1,
+    });
+    expect(error).toBeNull();
+    expect(await read(fresh.sonaRef)).toEqual([]);
+  });
+});
+
+describe("the vocabulary it accepts", () => {
+  it.each(DECLARED_LEAF_KINDS)("accepts the %s leaf", async (kind) => {
+    expect(await write(alice.sub, alice.sonaRef, [leaf({ kind })])).toBeNull();
+  });
+
+  it.each(DECLARED_MODES)("accepts a container in %s mode", async (mode) => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [container({ mode })]),
+    ).toBeNull();
+  });
+
+  it("refuses a kind nothing renders", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      leaf({ kind: "not-a-block" }),
+    ]);
+    // Names which block and which rule, because the editor has to tell
+    // somebody what to fix. Unlike the ownership error, this is not a secret.
+    expect(message).toMatch(/block 1:/i);
+    expect(message).toMatch(/unknown kind/i);
+  });
+
+  // The regression for a fault the flat validator this replaces actually had:
+  // `not is_section_type(NULL)` is NULL, not true, so `if` never fired and a
+  // section carrying no type at all was accepted. Every list lookup here is
+  // paired with a `jsonb_typeof` test that is TRUE — never NULL — when the key
+  // is absent, and these two cases are what prove it.
+  it("refuses a block with no kind at all", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [without(leaf(), "kind")]),
+    ).toMatch(/unknown kind/i);
+  });
+
+  it("refuses a container with no mode at all", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [without(container(), "mode")]),
+    ).toMatch(/unknown mode/i);
+  });
+
+  it("refuses a mode nothing arranges by", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      container({ mode: "kaleidoscope" }),
+    ]);
+    expect(message).toMatch(/block 1:/i);
+    expect(message).toMatch(/unknown mode/i);
+  });
+});
+
+describe("the shape it refuses", () => {
+  it("refuses a value that is not an array", async () => {
+    expect(await write(alice.sub, alice.sonaRef, { not: "an array" })).toMatch(
+      /blocks must be an array/i,
+    );
+  });
+
+  it("refuses a block that is not an object", async () => {
+    expect(await write(alice.sub, alice.sonaRef, ["nope"])).toMatch(
+      /block 1: must be an object/i,
+    );
+  });
+
+  it("refuses a leaf with no English title", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      without(leaf(), "title_en"),
+    ]);
+    expect(message).toMatch(/block 1:/i);
+    expect(message).toMatch(/title_en is required/i);
+  });
+
+  // **`jsonb_typeof` answers 'string' for `""`, so the type check alone let
+  // this through** — and the client's read schema refused it, which answers a
+  // failed parse with an EMPTY PAGE. One such leaf anywhere in a tree showed a
+  // stranger "nothing here yet" over a page full of content. The read is a
+  // floor now and this is the rule; a write that accepts a shape the model
+  // calls illegal is how the two get to disagree in the first place.
+  it("refuses a leaf whose English title is empty", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      leaf({ title_en: "" }),
+    ]);
+    expect(message).toMatch(/block 1:/i);
+    expect(message).toMatch(/title_en is required/i);
+  });
+
+  // Nested, because the guard is inside the recursion and a rule that fired
+  // only at the top would be worse than none — the path is what the editor
+  // shows somebody.
+  it("names the path of a nested leaf whose English title is empty", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      container({ children: [leaf(), leaf({ title_en: "" })] }),
+    ]);
+    expect(message).toMatch(/block 1\.2:/i);
+    expect(message).toMatch(/title_en is required/i);
+  });
+
+  // The Spanish is the person's own writing, not a catalogue key. Not having
+  // written it yet is an ordinary state, never an error.
+  it("accepts a leaf with no Spanish title or description", async () => {
+    const englishOnly = without(without(leaf(), "title_es"), "description_es");
+    expect(await write(alice.sub, alice.sonaRef, [englishOnly])).toBeNull();
+  });
+
+  it("accepts a leaf with no description at all", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        without(without(leaf(), "description_en"), "description_es"),
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts a container with no name in either language", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        without(without(container(), "name_en"), "name_es"),
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts a container with no children key at all", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [without(container(), "children")]),
+    ).toBeNull();
+  });
+
+  it("accepts a container with no children", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [container({ children: [] })]),
+    ).toBeNull();
+  });
+
+  it("refuses children that are not an array", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [container({ children: "nope" })]),
+    ).toMatch(/children must be an array/i);
+  });
+
+  // **The one unknown-key rule the database keeps**, and it is not tidiness: a
+  // `children` array on a leaf is a subtree the depth counter never descends
+  // into and no cap above ever sees.
+  it("refuses children on a leaf", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      leaf({ children: [leaf()] }),
+    ]);
+    expect(message).toMatch(/block 1:/i);
+    expect(message).toMatch(/a leaf holds no children/i);
+  });
+
+  // The path is what makes a tree's errors legible at all — an ordinal cannot
+  // name a block inside one. Asserted on a block two levels down so a path
+  // built from the wrong counter shows up as the wrong number rather than as
+  // no number.
+  it("names the path of the block it refuses", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      container(),
+      container({
+        children: [leaf(), leaf(), without(leaf(), "title_en")],
+      }),
+    ]);
+    expect(message).toMatch(/block 2\.3:/);
+  });
+});
+
+// The guard this whole model rests on, because `sections` is user-controlled
+// jsonb reachable by any signed-in caller and a recursive walk with no counter
+// is the shape that exhausts its own stack.
+describe("the depth cap", () => {
+  /**
+   * A chain of containers with one leaf at the bottom.
+   *
+   * @param depth - how many containers to nest.
+   * @returns the outermost container.
+   */
+  const nest = (depth: number): Record<string, unknown> =>
+    depth === 1
+      ? container({ children: [leaf()] })
+      : container({ children: [nest(depth - 1)] });
+
+  // Three containers deep is the deepest legal tree: a container at depth 0, 1
+  // and 2, with leaves at depth 3. Written as a literal rather than computed
+  // from anything the migration declares — an expectation derived from the
+  // constant under test moves with a sabotage and proves nothing.
+  it("accepts a container at the deepest legal level", async () => {
+    expect(await write(alice.sub, alice.sonaRef, [nest(3)])).toBeNull();
+  });
+
+  it("refuses a container one level deeper", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [nest(4)]);
+    expect(message).toMatch(/too deep/i);
+    // The refusal names the container that was too deep, not its parent and
+    // not the leaf under it. `TOO_DEEP_MESSAGE` in the client's schema carries
+    // the same words, so the app and the database say one thing about one
+    // payload.
+    expect(message).toMatch(/block 1\.1\.1\.1:/);
+  });
+
+  // **The counter is on the container, not on what it holds.** An empty
+  // container one level too deep carries nothing at all, so a guard that fired
+  // on the contents rather than on the block would let this through — and the
+  // recursion it bounds would then be bounded by the payload instead of by the
+  // cap, which is the whole fault this guard exists to prevent.
+  it("refuses a container that is too deep even when it is empty", async () => {
+    // Four containers, so the innermost sits at depth 3 — the same level
+    // `nest(4)` reaches, with nothing inside it. Counted deliberately rather
+    // than reused from `nest`, and the first draft of this case had three:
+    // that tree is legal, it was accepted, and the case passed as an
+    // acceptance dressed up as a refusal.
+    const empty = container({ children: [] });
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({
+          children: [
+            container({ children: [container({ children: [empty] })] }),
+          ],
+        }),
+      ]),
+    ).toMatch(/too deep/i);
+  });
+});
+
+describe("span and columns", () => {
+  it.each([1, 2, 3, 4])("accepts a span of %s", async (span) => {
+    expect(await write(alice.sub, alice.sonaRef, [leaf({ span })])).toBeNull();
+  });
+
+  it.each([1, 2, 3, 4])(
+    "accepts a container of %s columns",
+    async (columns) => {
+      expect(
+        await write(alice.sub, alice.sonaRef, [container({ columns })]),
+      ).toBeNull();
+    },
+  );
+
+  it("accepts a block with no span at all", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [without(leaf(), "span")]),
+    ).toBeNull();
+  });
+
+  it("accepts a container with no columns at all", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [without(container(), "columns")]),
+    ).toBeNull();
+  });
+
+  // **The ruling this case exists for.** A span wider than the container it
+  // currently sits in is accepted AND STORED AS TYPED. Refusing it would make
+  // a page unsavable over a value nobody can see; rewriting it would destroy
+  // what somebody typed, so dragging the block back out could not restore it.
+  // The renderer narrows instead.
+  it("accepts a span wider than its parent's columns, and stores it", async () => {
+    const wide = [container({ columns: 1, children: [leaf({ span: 4 })] })];
+    expect(await write(alice.sub, alice.sonaRef, wide)).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual(wide);
+  });
+
+  it.each([0, 5, 1.5, -1])("refuses a span of %s", async (span) => {
+    expect(await write(alice.sub, alice.sonaRef, [leaf({ span })])).toMatch(
+      /span must be a whole number/i,
+    );
+  });
+
+  it.each([0, 5, 1.5, -1])("refuses %s columns", async (columns) => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [container({ columns })]),
+    ).toMatch(/columns must be a whole number/i);
+  });
+
+  it("refuses a span written as a string", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [leaf({ span: "2" })]),
+    ).toMatch(/span must be a whole number/i);
+  });
+
+  it("refuses a span that is a boolean", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [leaf({ span: true })]),
+    ).toMatch(/span must be a whole number/i);
+  });
+
+  // The one that matters most: JSON null reaches the check as a value rather
+  // than as an absent key, and an absent key is legal — so the two must not
+  // collapse into one answer. It is also the shape that makes a chain of
+  // `and`s unsafe in SQL, which is why the check is a `case`.
+  it("refuses a span that is null, where an absent one is fine", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [leaf({ span: null })]),
+    ).toMatch(/span must be a whole number/i);
+  });
+});
+
+// The database side of the style bag. It is validated identically at every
+// depth, because a nested container styles itself the way a section does — a
+// section IS a container.
+describe("the style bag it refuses", () => {
+  it("accepts a well-formed style and reads it back unchanged", async () => {
+    const style = {
+      skin: "glass",
+      background_url: "https://example.test/bg.png",
+      background_fit: "cover",
+      card_size: "m",
+    };
+    expect(
+      await write(alice.sub, alice.sonaRef, [container({ style })]),
+    ).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual([container({ style })]);
+  });
+
+  it("refuses a style that is not an object", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      leaf({ style: "not-an-object" }),
+    ]);
+    expect(message).toMatch(/block 1:/i);
+    expect(message).toMatch(/style must be an object/i);
+  });
+
+  it("refuses a skin name over the limit", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { skin: "s".repeat(33) } }),
+      ]),
+    ).toMatch(/skin name is too long/i);
+  });
+
+  it("refuses a background address over the limit", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({
+          style: { background_url: `https://example.test/${"a".repeat(500)}` },
+        }),
+      ]),
+    ).toMatch(/background address is too long/i);
+  });
+
+  it("refuses a background fit it does not render", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { background_fit: "parallax" } }),
+      ]),
+    ).toMatch(/unknown background fit/i);
+  });
+
+  it("refuses a card size it cannot render", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { card_size: "xl" } }),
+      ]),
+    ).toMatch(/unknown card size/i);
+  });
+
+  it.each(["solid", "dashed", "dotted", "double", "none"])(
+    "accepts the %s border style and reads it back unchanged",
+    async (border) => {
+      const style = { border };
+      expect(
+        await write(alice.sub, alice.sonaRef, [leaf({ style })]),
+      ).toBeNull();
+      expect(await read(alice.sonaRef)).toEqual([leaf({ style })]);
+    },
+  );
+
+  it("refuses a border style it cannot render", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { border: "groove" } }),
+      ]),
+    ).toMatch(/unknown border style/i);
+  });
+
+  it("refuses a style key nothing reads", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { corner_radius: "8px" } }),
+      ]),
+    ).toMatch(/unknown style key/i);
+  });
+
+  // `jsonb_each_text` yields SQL NULL, not the string "null", for a JSON null
+  // value — so `length(NULL) > 32` and `NULL not in (…)` are themselves NULL,
+  // and neither `raise exception` fires. The guard sits above the key-by-key
+  // branches rather than inside any one of them, so each new key is covered by
+  // it without a change to the guard itself.
+  it.each(["skin", "background_url", "background_fit", "card_size", "border"])(
+    "refuses a null %s rather than silently storing it",
+    async (key) => {
+      expect(
+        await write(alice.sub, alice.sonaRef, [
+          leaf({ style: { [key]: null } }),
+        ]),
+      ).toMatch(/must not be null/i);
+    },
+  );
+
+  it("validates a nested container's style, not only a section's", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      container({
+        children: [container({ style: { card_size: "xl" }, children: [] })],
+      }),
+    ]);
+    expect(message).toMatch(/block 1\.1:/);
+    expect(message).toMatch(/unknown card size/i);
+  });
+});
+
+// The rows of a `table` leaf. Validated for every block that carries one
+// rather than only for a `table`, because the client stores what was typed
+// when a kind changes and an array reached by no cap at all is what this
+// exists to prevent.
+describe("a table's rows", () => {
+  const ROWS_MAX = 50;
+  const CELLS_MAX = 8;
+
+  /**
+   * A table of blank cells.
+   *
+   * @param rows - how many rows.
+   * @param cells - how many cells in each.
+   * @returns the rows.
+   */
+  const table = (rows: number, cells: number) =>
+    many(rows, () => many(cells, () => ({ text_en: "a", text_es: "b" })));
+
+  it("accepts the most rows allowed", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: table(ROWS_MAX, 2) }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("refuses one row more", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: table(ROWS_MAX + 1, 2) }),
+      ]),
+    ).toMatch(/too many rows/i);
+  });
+
+  it("accepts the most cells allowed in a row", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: table(2, CELLS_MAX) }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("refuses one cell more, naming the row", async () => {
+    const message = await write(alice.sub, alice.sonaRef, [
+      leaf({
+        kind: "table",
+        rows: [...table(1, 2), ...table(1, CELLS_MAX + 1)],
+      }),
+    ]);
+    expect(message).toMatch(/block 1, row 2:/);
+    expect(message).toMatch(/too many cells/i);
+  });
+
+  it("refuses rows that are not an array", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: "nope" }),
+      ]),
+    ).toMatch(/rows must be an array/i);
+  });
+
+  it("refuses a row that is not an array", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: ["nope"] }),
+      ]),
+    ).toMatch(/block 1, row 1: must be an array/i);
+  });
+
+  it("refuses a cell that is not an object", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: [["nope"]] }),
+      ]),
+    ).toMatch(/a cell must be an object/i);
+  });
+
+  it("refuses cell text over the character cap", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: [[{ text_en: "x".repeat(2001) }]] }),
+      ]),
+    ).toMatch(/cell text is too long/i);
+  });
+
+  // A blank row is a real row — a table with a gap in it is an ordinary
+  // table — so neither an empty row nor an empty table is a fault.
+  it("accepts a row with no cells", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: [[], []] }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts a table with no rows", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: [] }),
+      ]),
+    ).toBeNull();
+  });
+});
+
+// A jsonb reachable by any signed-in caller is the same hazard the fursona
+// quota closed, and worse: a fursona row costs a handle, a page costs storage
+// on every write with no natural ceiling. Each number below is a product knob
+// rather than a safety law — nothing else depends on it.
+describe("the limits", () => {
+  const CHILDREN_MAX = 50;
+  const TEXT_MAX = 2000;
+
+  it("accepts the most children allowed in a container", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ children: many(CHILDREN_MAX, () => tiny()) }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("refuses one child more", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ children: many(CHILDREN_MAX + 1, () => tiny()) }),
+      ]),
+    ).toMatch(/too many children/i);
+  });
+
+  it("accepts the longest text allowed", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ description_en: "x".repeat(TEXT_MAX) }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("refuses one character more", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ description_en: "x".repeat(TEXT_MAX + 1) }),
+      ]),
+    ).toMatch(/text is too long/i);
+  });
+
+  it("caps a container's name by the same rule", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ name_en: "x".repeat(TEXT_MAX + 1) }),
+      ]),
+    ).toMatch(/text is too long/i);
+  });
+
+  // **Counted at every depth, not at the top.** Ten containers of forty-nine
+  // leaves is ten blocks by the wrong measure and five hundred by the right
+  // one, which is why both fixtures here are trees rather than flat lists —
+  // a top-level count would accept them both.
+  it("accepts the most blocks allowed, counting every depth", async () => {
+    const page = many(10, () => ({
+      kind: "container",
+      mode: "stack",
+      children: many(49, () => tiny()),
+    }));
+    expect(await write(alice.sub, alice.sonaRef, page)).toBeNull();
+  });
+
+  it("refuses a tree over the block cap", async () => {
+    const page = many(11, () => ({
+      kind: "container",
+      mode: "stack",
+      children: many(45, () => tiny()),
+    }));
+    expect(await write(alice.sub, alice.sonaRef, page)).toMatch(
+      /too many blocks/i,
+    );
+  });
+});
+
+// The backstop that does not depend on getting the field rules right. Every
+// individual value in these fixtures is legal; only the total is not.
+describe("the byte cap", () => {
+  const TEXT_MAX = 2000;
+
+  /**
+   * A leaf carrying two fields of the longest text allowed.
+   *
+   * @param character - what to fill them with.
+   * @returns the leaf, serialising to a little over four thousand characters.
+   */
+  const fat = (character: string) => ({
+    kind: "text",
+    title_en: character.repeat(TEXT_MAX),
+    description_en: character.repeat(TEXT_MAX),
+  });
+
+  it("accepts a page just under the cap", async () => {
+    expect(
+      await write(
+        alice.sub,
+        alice.sonaRef,
+        many(16, () => fat("x")),
+      ),
+    ).toBeNull();
+  });
+
+  it("refuses a page that is legal field by field and far too large", async () => {
+    expect(
+      await write(
+        alice.sub,
+        alice.sonaRef,
+        many(17, () => fat("x")),
+      ),
+    ).toMatch(/too large/i);
+  });
+
+  // **The unit, measured rather than assumed.** This page is about 36,400
+  // CHARACTERS — comfortably under the cap — and about 72,400 BYTES, well
+  // over it, because every character in it is two bytes in UTF-8. A validator
+  // measuring `length()` accepts it; one measuring `octet_length` refuses it.
+  // The client measures the same thing with `TextEncoder`, and this is the
+  // case that proves the two agree. Spanish is this app's fallback language,
+  // so accented text is the ordinary case rather than the edge one.
+  it("measures bytes, not characters", async () => {
+    expect(
+      await write(
+        alice.sub,
+        alice.sonaRef,
+        many(9, () => fat("á")),
+      ),
+    ).toMatch(/too large/i);
+  });
+});

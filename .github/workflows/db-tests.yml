@@ -168,8 +168,8 @@ jobs:
   # It matched only modules named for a canvas, so #150 through #155 — every
   # skin, layout, section-style and page-background change — skipped the
   # expensive half on all six runs. It now also watches `skins.ts`,
-  # `globals.css`, `actor-theme.ts`, `public-sections.tsx` and the whole editor
-  # presentation directory.
+  # `globals.css`, `actor-theme.ts`, `blocks.tsx`/`block-style.ts` and the whole
+  # actors presentation directory.
   #
   # **The job always runs; only its expensive half is conditional.** Guarding
   # the whole job with `if:` would leave a check that never reports on most pull

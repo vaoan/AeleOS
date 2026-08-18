@@ -93,7 +93,7 @@ const RENDERERS = /(^|\/)(canvas|nebula)[\w.-]*\.(ts|tsx)$/;
  * every one of those runs, each of which changed what a page costs to paint.
  */
 const COST_DECIDERS =
-  /(^|\/)(skins|actor-theme|public-sections|section-card|globals|personalised-page-cost\.spec)\.(ts|tsx|css)$/;
+  /(^|\/)(skins|actor-theme|blocks|block-style|section-card|globals|personalised-page-cost\.spec)\.(ts|tsx|css)$/;
 
 /** Where the editor a theme dial is dragged in lives. */
 const EDITOR = "apps/hub/src/features/actors/presentation/";

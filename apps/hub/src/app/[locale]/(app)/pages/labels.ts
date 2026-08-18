@@ -39,6 +39,12 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
+ * `pageUnreadable` is the newest, and it is not a refusal of anything the
+ * person typed: it says a page is stored that this build cannot read, so the
+ * save was a no-op. It has to be a message rather than silence, because the
+ * alternative — saving what the editor believes, which is nothing — deletes
+ * the page.
+ *
  * `itemDescriptionHint` is the description field's placeholder, and it is where
  * a template's guidance moved to. It is the app's own words, so it is a
  * catalogue entry like the rest; what somebody types into that field is theirs
@@ -258,6 +264,7 @@ export async function fursonaEditorLabels(
       avatarUrl: t("form.errors.avatarUrl"),
       visibility: t("form.errors.visibility"),
       sectionsRefused: t("form.errors.sectionsRefused"),
+      pageUnreadable: t("form.errors.pageUnreadable"),
     },
   };
 }

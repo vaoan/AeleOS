@@ -7,6 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import { container, leaf, seedPage } from "./support/blocks";
 
 // WHAT THIS FILE IS FOR, AND THE SHORTCUT IT EXISTS TO FORBID.
 //
@@ -246,13 +247,17 @@ test.describe("every phone screen, signed in", () => {
   }
 });
 
-// THE FIRST BROWSER-LEVEL CHECK OF A REAL PUBLISHED PAGE.
+// THE BROWSER-LEVEL CHECK OF A REAL PUBLISHED PAGE.
 //
 // `public-pages.spec.ts` proves the plumbing and the refusal against addresses
 // nobody holds, and says outright that no test renders somebody's actual
-// profile — seeding one would have meant giving this runner write credentials
-// it does not have. It does not need them: a signed-in session can build the
-// page through the product's own editor, which is what this does.
+// profile. This does, on every portrait size.
+//
+// **It seeds the page rather than building it in the editor**, which it used to
+// do. The editor composes a flat list of sections and `set_actor_sections` now
+// walks a tree of blocks, so its save is refused until the editor is ported
+// (phase 3) — and seeding is the better fixture anyway, because it can declare
+// a four-track grid, which no template does.
 //
 // It builds ONE page and reads it at every portrait size, rather than one per
 // size. Each run leaves a soft-deleted actor row behind — deletion is soft so a
@@ -261,49 +266,55 @@ test.describe("every phone screen, signed in", () => {
 test.describe("a published page on a phone", () => {
   test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
-  test("stacks its cards instead of scrolling them sideways", async ({
+  test("stacks its tracks instead of scrolling them sideways", async ({
     page,
   }) => {
-    await signIn(page, await mintTicket(identity!.userId));
-
-    // `/me` first: it is what provisions the person actor, and without one
-    // `create_fursona` refuses with "no person actor for caller".
-    await page.goto("/es/me");
-    const address = (await page.getByTestId("my-address").innerText()).trim();
-
-    await page.goto("/es/pages/new");
-    await page.getByTestId("editor-handle").fill("cards");
-    await page.getByTestId("editor-display-name").fill("Cards");
-    await page.getByTestId("editor-visibility").selectOption("public");
-    // The reference sheet opens with a `cards` section, which is the layout
-    // being measured. A page assembled by hand would test the same thing and
-    // take twenty controls to reach it.
-    await page.getByTestId("template-picker").click();
-    await page.getByTestId("template-reference-sheet").click();
-    await page.getByTestId("editor-save").click();
-    await page.waitForURL(/\/pages(\?|$)/);
+    // The widest grid the model admits, holding blocks that span it. Below
+    // `sm` every one of those collapses to a single track, and the whole point
+    // of putting the track count in a `sm:`-prefixed class rather than an
+    // inline `grid-template-columns` is that a media query can do that and an
+    // inline style cannot. A span that survived the collapse creates implicit
+    // columns and pushes the row past the viewport, which is precisely what
+    // this measures.
+    const { address, handle } = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "cards",
+      displayName: "Cards",
+      blocks: [
+        container({
+          name_en: "Wide",
+          mode: "grid",
+          columns: 4,
+          children: [
+            leaf({ title_en: "One", span: 4 }),
+            leaf({ title_en: "Two", span: 3 }),
+            leaf({ title_en: "Three", span: 2 }),
+            leaf({ title_en: "Four" }),
+          ],
+        }),
+      ],
+    });
 
     for (const viewport of VIEWPORTS.filter((size) => size.width < 640)) {
       await page.setViewportSize(viewport);
-      await page.goto(`/es/${address}/cards`);
-      await expect(page.getByTestId("public-cards")).toBeVisible();
+      await page.goto(`/es/${address}/${handle}`);
+      await expect(page.getByTestId("block-grid")).toBeVisible();
 
       await fits(page, `the published page at ${viewport.name}`);
 
-      // The assertion the change is about. A 224px tile beside another on a
-      // 360px screen shows one card and a sliver of the next, which reads as
-      // the page having been cut — and a sideways scroll inside a page that
-      // scrolls down is the gesture most often missed entirely. Measuring the
-      // container's own overflow catches it where `fits` cannot: the page
-      // itself never scrolled sideways, because the row scrolled instead.
-      const cards = (await page.evaluate(`(() => {
-        const row = document.querySelector('[data-testid="public-cards"]');
+      // The assertion the change is about, and `fits` cannot make it: a row
+      // that scrolls sideways INSIDE a page which itself does not is the
+      // gesture most often missed entirely, and the page's own overflow stays
+      // zero throughout. Measuring the container's own scrollWidth catches it
+      // where the document's cannot.
+      const grid = (await page.evaluate(`(() => {
+        const row = document.querySelector('[data-testid="block-grid"]');
         return [row.scrollWidth, row.clientWidth];
       })()`)) as [number, number];
-      const [content, visible] = cards;
+      const [content, visible] = grid;
       expect(
         content,
-        `the cards at ${viewport.name} scroll sideways by ${content - visible}px`,
+        `the grid at ${viewport.name} scrolls sideways by ${content - visible}px`,
       ).toBeLessThanOrEqual(visible + 1);
     }
   });

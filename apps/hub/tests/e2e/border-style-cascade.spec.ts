@@ -1,13 +1,12 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
 import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintSessionToken,
   mintTicket,
   signIn,
 } from "./support/clerk-session";
+import { container, leaf, seedPage } from "./support/blocks";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 
 // WHY THIS FILE EXISTS, AND WHY A MODEL IN skins.test.ts WAS NOT ENOUGH.
@@ -39,12 +38,12 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 // depending on what rules happen to exist in it.
 //
 // **And against the real SCOPE, which is the correction this file needed.**
-// `sectionStyle` is the only thing in the app that sets the token, and it
-// sets it INLINE: on the public page's `<section>` (`public-sections.tsx`)
-// and on the editor's section-card root (`section-card.tsx`). Nothing sets
-// it at `.actor-skin` — no skin does, which is exactly why `skins.test.ts`
-// has to exempt it from the "every form token reaches a skin" guard. An
-// earlier version of this file injected the token at `.actor-skin` with
+// `blockStyle` is the only thing in the app that sets the token, and it sets
+// it INLINE: on a public page's block element (`blocks.tsx`) and on the
+// editor's section-card root (`section-card.tsx`). Nothing sets it at
+// `.actor-skin` — no skin does, which is exactly why `skins.test.ts` has to
+// exempt it from the "every form token reaches a skin" guard. An earlier
+// version of this file injected the token at `.actor-skin` with
 // `addStyleTag` and said in a comment that no control wrote it yet; the
 // control shipped later on the same branch, and both halves of that comment
 // ended up false while the test went on exercising a scope production never
@@ -52,10 +51,10 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 //
 // So there are three tests, and none is a duplicate of another:
 //
-//  1. The PUBLIC page, written through `set_actor_sections` as a real
+//  1. The PUBLIC page, seeded straight into the database as a real
 //     Clerk-authenticated caller — the read path a stranger gets. A styled
-//     section and an unstyled one on the same page, so "the token reached
-//     it" is distinguished from "everything is dotted anyway".
+//     block and an unstyled one on the same page, so "the token reached it"
+//     is distinguished from "everything is dotted anyway".
 //  2. The EDITOR, driving the popup's own border select. This is the only
 //     place in the app where a `surface border-dashed` element sits BENEATH
 //     a scope that sets the token — the public page's dashed placeholders
@@ -82,82 +81,45 @@ const borderStyleOf = (locator: Locator): Promise<string> =>
   locator.evaluate((el) => getComputedStyle(el).borderTopStyle);
 
 test.describe("--skin-border-style vs. a descendant's own border utility", () => {
-  test("a section's own border reaches the plain surfaces inside it, and no others", async ({
+  test("a block's own border reaches the plain surfaces inside it, and no others", async ({
     page,
   }) => {
     const identity = await createTestIdentity();
     try {
-      const jwt = await mintSessionToken(identity.userId);
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-        {
-          auth: { persistSession: false },
-          global: { headers: { Authorization: `Bearer ${jwt}` } },
-        },
-      );
-
-      const { error: provisionError } = await supabase.rpc(
-        "ensure_person_actor",
-      );
-      expect(provisionError).toBeNull();
-
-      const handle = `border${Date.now().toString().slice(-9)}`;
-      const { data: actorRef, error: createError } = await supabase.rpc(
-        "create_fursona",
-        {
-          p_handle: handle,
-          p_display_name: "Border Cascade",
-          p_avatar_url: null,
-          p_visibility: "public",
-        },
-      );
-      expect(createError).toBeNull();
-
-      // Two `cards` sections, the first choosing a border and the second
-      // choosing nothing. The second is the control: it makes "the section's
-      // own token reached this element" a different observation from "every
-      // surface on the page is dotted for some other reason", which a single
-      // section could not distinguish. It is also the scoping claim —
-      // sections are siblings, so one section's choice must not reach the
-      // next.
-      const items = [
-        { title_en: "An item", description_en: "", sort_order: 1 },
-      ];
-      const { error: sectionsError } = await supabase.rpc(
-        "set_actor_sections",
-        {
-          p_actor_ref: actorRef,
-          p_sections: [
-            {
-              name_en: "Chosen",
-              type: "cards",
-              sort_order: 1,
-              items,
-              style: { border: "dotted" },
-            },
-            { name_en: "Untouched", type: "cards", sort_order: 2, items },
-          ],
-        },
-      );
-      expect(sectionsError).toBeNull();
-
-      const { data: address, error: addressError } =
-        await supabase.rpc("my_address");
-      expect(addressError).toBeNull();
+      // Two sections, the first choosing a border and the second choosing
+      // nothing. The second is the control: it makes "the block's own token
+      // reached this element" a different observation from "every surface on
+      // the page is dotted for some other reason", which a single section
+      // could not distinguish. It is also the scoping claim — sections are
+      // siblings, so one block's choice must not reach the next.
+      //
+      // Each holds one `text` leaf, whose card is a PLAIN `surface`: it names
+      // no border-style utility of its own, which is what makes it the
+      // element the token is supposed to govern.
+      const { address, handle } = await seedPage({
+        userId: identity.userId,
+        handlePrefix: "border",
+        displayName: "Border Cascade",
+        blocks: [
+          container({
+            name_en: "Chosen",
+            style: { border: "dotted" },
+            children: [leaf({ title_en: "An item" })],
+          }),
+          container({
+            name_en: "Untouched",
+            children: [leaf({ title_en: "An item" })],
+          }),
+        ],
+      });
 
       const response = await page.goto(`/es/${address}/${handle}`);
       expect(response?.status()).toBe(200);
 
-      const grids = page.getByTestId("public-cards");
-      await expect(grids).toHaveCount(2);
-      // A card is a direct child of its grid, and a card is a PLAIN
-      // `surface` — it names no border-style utility of its own, which is
-      // what makes it the element the section's token is supposed to govern.
-      const chosen = grids.nth(0).locator("> div").first();
-      const untouched = grids.nth(1).locator("> div").first();
-      await expect(chosen).toHaveCount(1);
-      await expect(untouched).toHaveCount(1);
+      const cards = page.getByTestId("public-leaf").locator("> div");
+      await expect(cards).toHaveCount(2);
+      const chosen = cards.nth(0);
+      const untouched = cards.nth(1);
 
       expect(await borderStyleOf(chosen)).toBe("dotted");
       expect(await borderStyleOf(untouched)).toBe("solid");

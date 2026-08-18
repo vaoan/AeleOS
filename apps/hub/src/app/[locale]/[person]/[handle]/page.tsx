@@ -81,7 +81,7 @@ export async function generateMetadata({
  *
  * **This route resolves `parentHost` from `env.hubHost`**, the same way it
  * resolves `locale` and the empty-state words: `PublicProfile` and
- * `PublicSections` are presentation components rendered on two different
+ * `PublicBlocks` are presentation components rendered on two different
  * routes, and neither is where deployment configuration belongs. Twitch's
  * player is the one thing that reads it — see `domain/embeds.ts`.
  *

@@ -156,7 +156,7 @@ describe("isCanvasSource", () => {
     "apps/hub/src/shared/domain/skins.ts",
     "apps/hub/src/app/globals.css",
     "apps/hub/src/features/actors/domain/actor-theme.ts",
-    "apps/hub/src/features/actors/presentation/public-sections.tsx",
+    "apps/hub/src/features/actors/presentation/blocks.tsx",
     "apps/hub/src/features/actors/presentation/section-card.tsx",
     "apps/hub/src/features/actors/presentation/gradient-picker.tsx",
     "apps/hub/src/features/actors/presentation/theme-configurator.tsx",

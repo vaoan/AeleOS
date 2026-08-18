@@ -71,7 +71,17 @@ export default defineConfig({
         // all: actor-tile and fursona-form render only for a signed-in person,
         // which no end-to-end test reaches. sign-in-form is the exception —
         // auth.spec.ts asserts its providers and that it offers no password.
-        "src/features/*/presentation/**",
+        //
+        // **`.tsx` only, which is narrower than it was and deliberately so.**
+        // The rationale above is entirely about JSX — "a coverage number on
+        // JSX measures rendering, not behaviour" — and a `.ts` file in a
+        // presentation directory renders nothing. `block-style.ts` is the case
+        // that forced the question: it is pure data-in/data-out, it is what
+        // both the public page and the editor's preview compute a style bag
+        // with, and it sat unmeasured only because of where it happens to
+        // live. Same argument that moved `progressValue` into
+        // `domain/progress-value.ts` rather than leaving it in `blocks.tsx`.
+        "src/features/*/presentation/**/*.tsx",
         "src/features/*/index.ts",
       ],
       reporter: ["text-summary"],

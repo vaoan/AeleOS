@@ -35,7 +35,7 @@ import {
   SectionStylePopup,
   type SectionStylePopupLabels,
 } from "@/features/actors/presentation/section-style-popup";
-import { sectionStyle } from "@/features/actors/presentation/public-sections";
+import { blockStyle } from "@/features/actors/presentation/block-style";
 
 /**
  * Translated strings {@link SectionCard} renders.
@@ -178,7 +178,7 @@ const EMPTY_ITEM = {
  * **It carries its own skin and background picture, previewed live.** The
  * paintbrush button in the header opens `SectionStylePopup`, and the whole
  * card — this component's own root element — wears the chosen style at once,
- * through `sectionStyle`, imported straight from `public-sections.tsx` rather
+ * through `blockStyle`, imported straight from `block-style.ts` rather
  * than a second copy of it: that is the SAME function the public page renders
  * with, not merely the same tokens it reads from, so what somebody judges
  * here is what a stranger will be shown — the same reasoning that has the
@@ -276,7 +276,7 @@ export function SectionCard<T extends FieldValues>({
 
   // **What INHERITS goes on the root; what is PAINTED goes on the face.**
   //
-  // `sectionStyle` returns one object holding both — the skin's custom
+  // `blockStyle` returns one object holding both — the skin's custom
   // properties, which every `surface` below this element reads, and the
   // background picture, which is an ordinary painted property. On the public
   // page they can share an element because that element is a bare
@@ -288,9 +288,9 @@ export function SectionCard<T extends FieldValues>({
   //
   // Split by name rather than by naming the keys, because the rule is about
   // what a property DOES: a custom property is inherited by definition and a
-  // painted one is not, so anything `sectionStyle` grows later lands on the
+  // painted one is not, so anything `blockStyle` grows later lands on the
   // right element without this having to be told about it.
-  const chosen = sectionStyle(style as FursonaSection["style"]);
+  const chosen = blockStyle(style as FursonaSection["style"]);
   const inherited: Record<string, unknown> = {};
   const painted: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(chosen ?? {})) {
@@ -299,7 +299,7 @@ export function SectionCard<T extends FieldValues>({
   }
   // `undefined` rather than an empty object on both, so a section nobody has
   // styled still renders with no `style` attribute at all — the shape
-  // `sectionStyle`'s own early return exists to give.
+  // `blockStyle`'s own early return exists to give.
   const rootStyle =
     Object.keys(inherited).length > 0
       ? (inherited as React.CSSProperties)

@@ -52,6 +52,20 @@ import {
  * `itemDescriptionHint`, all shown instead of the generic set for
  * `progress` alone — see {@link itemLabel}'s own doc and `FIELD_NAMES` in
  * this file for why only that one layout gets an override.
+ *
+ * **`itemValueHint` names what a parser accepts, and it is a catalogue string
+ * rather than something derived from that parser.** The parse lives in
+ * `domain/progress-value.ts`, which this file must not import: these are the
+ * app's own words in two languages, and a list of accepted forms generated
+ * from code would be untranslatable and would read like an error message.
+ * The invariant is one direction only — the string has to keep telling the
+ * truth about the parser, and nothing checks that it does.
+ *
+ * **The renderer these labels describe is `blocks.tsx` now**, where `progress`
+ * is a leaf kind rather than a section layout. Nothing about the labels
+ * themselves changed with it — the inversion they name is the same one — but
+ * a reader following the cross-references needs to arrive somewhere that
+ * exists, and this editor still speaks the flat model until phase 3 ports it.
  */
 export interface SectionItemFieldsLabels extends IconPickerLabels {
   /** Field label for the item's title. */
@@ -62,7 +76,7 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
    * Field label for `progress`'s title — the LABEL of the measured thing,
    * shown instead of {@link itemTitle} for that one layout. Its pair is
    * inverted exactly as `stats` and `quote` already invert theirs when they
-   * RENDER — see `Progress` in `public-sections.tsx` — and a field whose
+   * RENDER — see `ProgressLeaf` in `blocks.tsx` — and a field whose
    * meaning changes silently between layouts is worse than a differently
    * named one, which is what {@link FIELD_NAMES} exists to give it.
    */
@@ -85,7 +99,7 @@ export interface SectionItemFieldsLabels extends IconPickerLabels {
    * `progress`'s value field placeholder, shown instead of
    * {@link itemDescriptionHint} for that one layout — see {@link FIELD_NAMES}.
    *
-   * Names the forms `progressValue` (`public-sections.tsx`) actually reads,
+   * Names the forms `progressValue` (`domain/progress-value.ts`) actually reads,
    * because nothing else in the editor does: renaming the label to "Value"
    * says the field means something different, but not what it accepts, and
    * an author writing "almost done" or "two of five" got their words stored
@@ -198,7 +212,7 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * every layout but this one.
  *
  * `progress` is the exception: its title is a LABEL and its description is
- * the VALUE `Progress` draws a bar from (see `public-sections.tsx`), and
+ * the VALUE `ProgressLeaf` draws a bar from (see `blocks.tsx`), and
  * showing the generic "Title"/"Description" beside a field that means
  * something else is exactly the "field whose meaning changes silently
  * between layouts" fault this file already avoids for `linkUrl`'s two
@@ -213,10 +227,11 @@ const PICTURED = new Set<SectionType>(["gallery", "carousel"]);
  * by a string key resolves an inherited key (`"toString"`, `"__proto__"`)
  * to a truthy, wrong value instead of `undefined`. This repo shipped a
  * Critical from exactly that shape (`TIDAL_KINDS`, in `embed-providers.ts`)
- * — `type` is validated by `z.enum(SECTION_TYPES)` on save and by
- * `is_section_type()` in the database, so an inherited key is not reachable
- * today, but reachability is the thing that changes without anyone
- * noticing, and a `Map` costs nothing here.
+ * — `type` is validated by `z.enum(SECTION_TYPES)` on save, so an inherited
+ * key is not reachable today, but reachability is the thing that changes
+ * without anyone noticing, and a `Map` costs nothing here. It used to be
+ * validated in the database too, by `is_section_type()`; that function went
+ * with the flat model, so this schema is now the only thing checking it.
  */
 const FIELD_NAMES = new Map<
   SectionType,
