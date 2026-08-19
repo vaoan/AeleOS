@@ -375,10 +375,25 @@ const sections = [
     { spaces: 3 },
   ),
 
+  // **Seven cards rather than three, and the count is the point.** A carousel
+  // is a scroll container at every width, but three 384px cards and their gaps
+  // come to 1184px inside a 1232px section — so at a desktop width they simply
+  // FIT, nothing scrolls, and it reads as a grid that forgot to be one. It was
+  // reported as a broken carousel on exactly those grounds. Enough cards to
+  // overflow is what makes the mechanism visible on the page it is showcased
+  // on.
   section("A carousel", "carousel", [
     leaf("picture", "One", { image_url: PICTURES[0] }),
     leaf("picture", "Two", { image_url: PICTURES[1] }),
     leaf("picture", "Three", { image_url: PICTURES[3] }),
+    leaf("picture", "Four", { image_url: PICTURES[2] }),
+    leaf("text", "Five", {
+      description_en: "Swipe, or drag the bar underneath.",
+    }),
+    leaf("picture", "Six", { image_url: PICTURES[1] }),
+    leaf("text", "Seven", {
+      description_en: "It snaps each card to the centre as you go.",
+    }),
   ]),
 
   section(
