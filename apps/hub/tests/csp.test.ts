@@ -82,6 +82,23 @@ describe("contentSecurityPolicy", () => {
     expect(connect).toContain(HOSTS.supabase);
   });
 
+  it("lets a skin be fetched from any https host", () => {
+    // The ONE deliberate widening in this policy. A Winamp `.wsz` comes from
+    // the Skin Museum, from our own set, or from wherever its owner keeps it —
+    // and no allowlist can be written in advance for the third. Without this
+    // the fetch is refused and the chrome silently falls back to its tokens,
+    // which is what shipped before this line existed.
+    expect(directive(policy, "connect-src")).toContain("https:");
+  });
+
+  it("keeps the widening to connect-src, not to script-src", () => {
+    // The cost of `connect-src https:` is READING a response back. Letting
+    // `script-src` go the same way would be a different order of decision, so
+    // this pins that it did not travel.
+    expect(directive(policy, "script-src")).not.toContain("https:");
+    expect(directive(policy, "frame-src")).not.toContain("https:");
+  });
+
   // Realtime is a websocket to the same host, and `https:` does not cover it.
   it("lets the app reach Supabase over a websocket", () => {
     expect(directive(policy, "connect-src")).toContain(

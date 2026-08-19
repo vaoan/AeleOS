@@ -107,6 +107,12 @@ function ChromeButton(props: {
  * that is not cosmetic: it is the only place a YouTube embed may legally be
  * shown, since YouTube's terms forbid hiding the player.
  *
+ *
+ * **The readout names what WILL play when nothing has been selected.** Before a
+ * track is chosen there is none, and falling through to the empty label over a
+ * playlist holding songs contradicts the list under it — which is what the
+ * showcase page showed before this was fixed.
+ *
  * @param props - the chrome, the playlist and its words.
  * @returns the player.
  */
@@ -139,7 +145,13 @@ export function PlayerChrome(props: PlayerChromeProps): ReactNode {
     volume,
   } = useJukebox(tracks);
   const playing = status === "playing";
-  const line = marqueeLine(track, index + 1);
+  // **The readout names what WILL play, not nothing.** Before anything is
+  // selected `track` is undefined, and falling through to "no songs yet" over a
+  // playlist holding two of them is a readout that contradicts the list right
+  // under it — seen on the showcase page before this line existed.
+  const showing = track ?? tracks[0];
+  const showingAt = track ? index + 1 : 1;
+  const line = marqueeLine(showing, showingAt);
   // Position named once, the way the renderer and the leaf editor already do
   // it: a track has no identity but where it sits — the same song may appear
   // twice in one playlist — and `react/no-array-index-key` reads the map

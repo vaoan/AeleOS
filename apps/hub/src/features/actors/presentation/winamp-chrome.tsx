@@ -115,6 +115,12 @@ function AmpControl(props: {
  * here would be the wrong question rather than a weaker one: a block in one
  * place of a three-space section is about a third of the page wide.
  *
+ *
+ * **The readout names what WILL play when nothing has been selected.** Before a
+ * track is chosen there is none, and falling through to the empty label over a
+ * playlist holding songs contradicts the list under it — which is what the
+ * showcase page showed before this was fixed.
+ *
  * @param props - the playlist, the skin, and every word it says.
  * @returns the window.
  */
@@ -144,7 +150,13 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
   } = useJukebox(tracks);
 
   const playing = status === "playing";
-  const line = unplayable ? labels.unplayable : marqueeLine(track, index + 1);
+  // **The readout names what WILL play, not nothing.** Before anything is
+  // selected `track` is undefined, and falling through to "no songs yet" over a
+  // playlist holding two of them is a readout that contradicts the list right
+  // under it — seen on the showcase page before this line existed.
+  const showing = track ?? tracks[0];
+  const showingAt = track ? index + 1 : 1;
+  const line = unplayable ? labels.unplayable : marqueeLine(showing, showingAt);
   const digits = clockDigits(elapsed);
   const window_ = spriteStyle("MAIN_WINDOW_BACKGROUND", sheets);
   const trough = mainBox("position");

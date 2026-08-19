@@ -150,6 +150,14 @@ describe("WinampChrome", () => {
     expect((volume as HTMLInputElement).value).toBe("0.3");
   });
 
+  it("names the first track before anything is selected", () => {
+    // A readout saying "no songs yet" over a playlist holding two of them
+    // contradicts the list right under it. Seen on the showcase page.
+    draw();
+    expect(screen.getByText("1. Luna - Howl")).toBeInTheDocument();
+    expect(screen.queryByText("Nothing here yet")).toBeNull();
+  });
+
   it("says so when a playlist is empty", () => {
     render(
       <WinampChrome

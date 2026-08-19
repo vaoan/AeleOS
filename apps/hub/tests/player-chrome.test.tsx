@@ -119,6 +119,19 @@ describe("PlayerChrome", () => {
     expect(entries[0]).not.toHaveAttribute("aria-current");
   });
 
+  it("names the first track before anything is selected", () => {
+    // A readout saying "no songs yet" over a playlist holding two of them
+    // contradicts the list right under it. Seen on the showcase page.
+    //
+    // Scoped to the READOUT rather than the page: the playlist below carries
+    // the same words, so an unscoped query finds two and the case fails for a
+    // reason that has nothing to do with what it is asserting.
+    const { container } = draw();
+    const readout = container.querySelector('[aria-live="polite"]');
+    expect(readout?.textContent).toBe("1. Luna - Howl");
+    expect(screen.queryByText("Nothing here yet")).toBeNull();
+  });
+
   it("says so when the playlist is empty, rather than showing a blank line", () => {
     // A blank readout reads as a player that failed to load rather than as one
     // nobody has filled in.

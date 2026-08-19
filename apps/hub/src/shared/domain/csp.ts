@@ -95,6 +95,11 @@ const CLERK_TELEMETRY = "https://clerk-telemetry.com";
  *  * **`frame-ancestors 'none'`** is clickjacking protection: nobody may put
  *    this app in a frame. It replaces `X-Frame-Options` and is stricter.
  *
+ * **`connect-src` allows any https host, and that is the ONE deliberate
+ * widening.** A Winamp skin is a `.wsz` fetched from wherever its owner keeps
+ * it, so no allowlist can be written in advance. What it costs, and why that is
+ * less than it looks, is at the directive itself.
+ *
  * **`img-src` allows any https host, and that is deliberate.** Every picture on
  * a fursona page is an address somebody pasted at a host that was never ours —
  * that is the platform's rule for external media — so an allowlist here would
@@ -129,7 +134,25 @@ export function contentSecurityPolicy(hosts: CspHosts): string {
     // Any https host: a picture is a pasted address, by design.
     "img-src": ["'self'", "data:", "blob:", "https:"],
     "font-src": ["'self'"],
+    // **`https:` rather than an allowlist, and this is the one deliberate
+    // widening in the policy.** A `jukebox` wearing the Winamp chrome fetches a
+    // `.wsz`, and the point of that feature is that somebody may point it at
+    // ANY host — the Skin Museum's ~100,000, our own set, or a file they keep
+    // themselves. No allowlist can be written in advance for the third.
+    //
+    // The cost is real and SMALLER than it first looks, said here so nobody
+    // re-litigates it from the frightening version. This policy already carries
+    // `script-src 'unsafe-inline'` — Next inlines its hydration payload — and
+    // `img-src https:`, so an injected script can already exfiltrate one-way
+    // through an image beacon. What this adds is the ability to READ a response
+    // back, not the ability to leak.
+    //
+    // Rejected alternative: proxy arbitrary skins through a same-origin route.
+    // It keeps this tight and buys an SSRF surface, egress filtering nobody
+    // will maintain, and bandwidth on a free tier — three problems for one
+    // directive.
     "connect-src": [
+      "https:",
       "'self'",
       ...clerk,
       ...supabase,
