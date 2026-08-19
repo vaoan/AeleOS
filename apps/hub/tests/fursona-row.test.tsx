@@ -69,9 +69,9 @@ function renderRow(props: Record<string, unknown> = {}) {
       labels={labels}
       featured={false}
       canArrange
-      // No `Draggable` wraps this render, so there is nothing real to
-      // spread — matching what the library itself hands a disabled handle.
-      dragHandleProps={null}
+      // Nothing sortable wraps this render, so there is no grip to hand
+      // down — which is also what a row that may not be arranged gets.
+      drag={null}
       onPin={onPin}
       onDelete={onDelete}
       {...props}
@@ -134,16 +134,39 @@ describe("FursonaRow", () => {
     ).toBeNull();
   });
 
-  // The grip is the handle, not the row body — `dragHandleProps` has to reach
-  // this exact button. A real `Draggable` hands an object of DOM props
-  // (`draggable`, event handlers, …); a plain attribute here is enough to
-  // prove it lands on the grip and not on some ancestor, which is what an
-  // end-to-end drag alone cannot show as directly.
-  it("spreads the drag handle props onto the grip", () => {
-    renderRow({ dragHandleProps: { "data-drag-handle": "yes" } });
+  // THE GRIP THE LIST HANDED IT, IN THE ROW, AND NOT A COPY OF ONE.
+  //
+  // The row draws no grip of its own any more: `FursonaList` builds it, wires
+  // it, and hands it down, so the four things `useSortable` returns are spread
+  // in exactly one place. What this asserts is the half that belongs to the
+  // row — that the element it is given is rendered, at the head of the row
+  // rather than swallowed. Whether that element can actually start a drag is
+  // `block-slot.test.tsx`'s and the browser suite's, because a props-shaped
+  // assertion here would pass on a grip nothing had wired.
+  it("renders the grip the list handed it", () => {
+    renderRow({
+      drag: {
+        ref: () => {},
+        style: {},
+        handle: (
+          <button type="button" aria-label="Drag to reorder">
+            grip
+          </button>
+        ),
+      },
+    });
     expect(
       screen.getByRole("button", { name: "Drag to reorder" }),
-    ).toHaveAttribute("data-drag-handle", "yes");
+    ).toBeInTheDocument();
+  });
+
+  // A row that may not be arranged is handed nothing, and must not invent a
+  // grip of its own to fill the gap.
+  it("offers no drag handle when the list hands it none", () => {
+    renderRow({ drag: null });
+    expect(
+      screen.queryByRole("button", { name: "Drag to reorder" }),
+    ).toBeNull();
   });
 
   it("asks before deleting", () => {

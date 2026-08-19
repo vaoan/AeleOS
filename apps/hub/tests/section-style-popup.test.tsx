@@ -58,6 +58,7 @@ function harness(page: Block[], path: BlockPath = [0]) {
         parentHost=""
         atBlockLimit={false}
         problems={[]}
+        dragHandle={null}
       />
     );
   };
@@ -113,6 +114,7 @@ function threeHarness() {
             parentHost=""
             atBlockLimit={false}
             problems={[]}
+            dragHandle={null}
           />
         ) : null,
       )}

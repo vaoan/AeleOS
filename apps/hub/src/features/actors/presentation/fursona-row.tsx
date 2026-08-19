@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
-import { GripVertical, Pencil, Star, Trash2 } from "lucide-react";
+import { useState, type CSSProperties, type ReactNode } from "react";
+import { Pencil, Star, Trash2 } from "lucide-react";
 import { ExternalLink } from "lucide-react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -58,14 +57,32 @@ export interface FursonaRowActor {
 }
 
 /**
+ * What a sortable list hands a row so it can be dragged.
+ *
+ * The grip is an ELEMENT rather than a bag of props, because the four things
+ * `useSortable` returns have to be spread onto the right two elements and
+ * dropping any of them fails silently — see `FursonaList`, which is the only
+ * place that spreads them.
+ */
+interface FursonaRowDrag {
+  /** Attaches the row, which is what the library measures and moves. */
+  ref: (node: HTMLElement | null) => void;
+  /** The transform and transition to paint while a drag is in flight. */
+  style: CSSProperties;
+  /** The grip, already wired — the row decides only where it sits. */
+  handle: ReactNode;
+}
+
+/**
  * What {@link FursonaRow} needs.
  *
  * `address` is optional because a row cannot assume its caller fetched one, and
  * a row without it simply offers no link rather than guessing an address.
  *
- * `dragHandleProps` is new: the row now renders its own drag handle on the
- * grip, so it needs the drag library's props for that button rather than its
- * caller wrapping the whole row in a handle of its own.
+ * `drag` is what a sortable list hands a row: the element to measure and
+ * move, the transform to paint while it is in flight, and the grip itself
+ * already wired. A row that is not arrangeable is handed `null` and draws the
+ * spacer instead.
  */
 export interface FursonaRowProps {
   /**
@@ -84,12 +101,14 @@ export interface FursonaRowProps {
   /** False while the list is filtered, when reordering has no meaning. */
   canArrange: boolean;
   /**
-   * The drag library's own props for this row's handle, spread onto the grip
-   * button — the row body itself is not part of the handle. `null` while
-   * dragging is disabled, matching what `@hello-pangea/dnd` hands a disabled
-   * `Draggable`.
+   * What lets this row be dragged, or `null` while it may not be.
+   *
+   * The grip arrives already wired rather than as a bag of props to spread —
+   * the four things a drag needs belong in one component, and dropping any of
+   * them leaves a grip that looks right and does nothing at all, silently, by
+   * mouse as well as by keyboard.
    */
-  dragHandleProps: DraggableProvidedDragHandleProps | null;
+  drag: FursonaRowDrag | null;
   /** Called with the actor ref and the pin state being asked for. */
   onPin: (actorRef: string, featured: boolean) => void;
   /** Called with the actor ref once a delete is confirmed. */
@@ -151,12 +170,11 @@ function publicPathFor(
  * and an end-to-end test has to name the row it just created — the suite runs
  * in Spanish and may not reach it by its label.
  *
- * **The grip is the handle; the row body is not.** `dragHandleProps` is spread
- * onto the grip button alone, matching `SectionCard`'s handle — a row-wide
- * handle would need `disableInteractiveElementBlocking` on the enclosing
- * `Draggable`, which also lifts the interactive-tag block off every other
- * button and link in the row, turning a keyboard Space on Edit, Pin or Delete
- * into a drag lift instead of that control's own action.
+ * **The grip is the handle; the row body is not.** `useSortable`'s listeners
+ * go on the grip alone, which is what `setActivatorNodeRef` is for — a
+ * row-wide handle would turn a keyboard Space on Edit, Pin or Delete into a
+ * drag lift instead of that control's own action, and would make a click
+ * anywhere on the row start a drag.
  *
  * **The person's row carries an edit link and nothing else.** Their page is
  * edited in the same editor a fursona's is, but the three controls beside it
@@ -179,7 +197,7 @@ export function FursonaRow({
   labels,
   featured,
   canArrange,
-  dragHandleProps,
+  drag,
   onPin,
   onDelete,
 }: FursonaRowProps) {
@@ -197,17 +215,13 @@ export function FursonaRow({
     // border and radius gave a list of twenty the same visual weight twenty
     // times over and no hierarchy at all — the container owns the edge now, and
     // rows are separated by a hairline and an alternating tint.
-    <li className="flex items-center gap-3 border-b border-(--edge)/25 px-4 py-3 last:border-b-0 even:bg-(--bar)">
-      {canArrange && !isPerson ? (
-        <button
-          type="button"
-          aria-label={labels.dragToReorder}
-          {...tid("drag-fursona")}
-          {...(dragHandleProps ?? {})}
-          className="cursor-grab text-(--muted)"
-        >
-          <GripVertical className="size-4" />
-        </button>
+    <li
+      ref={drag?.ref}
+      style={drag?.style}
+      className="relative flex items-center gap-3 border-b border-(--edge)/25 px-4 py-3 last:border-b-0 even:bg-(--bar)"
+    >
+      {canArrange && !isPerson && drag ? (
+        drag.handle
       ) : (
         <span className="size-4" aria-hidden />
       )}

@@ -248,7 +248,10 @@
         "apps/hub/tests/public-sections.test.tsx",
         "apps/hub/tests/blocks.test.tsx",
         "apps/hub/tests/e2e/personalised-page-cost.spec.ts",
-        "apps/hub/tests/e2e/nested-page-build.spec.ts"
+        "apps/hub/tests/e2e/nested-page-build.spec.ts",
+        "apps/hub/tests/e2e/section-drag-reorder.spec.ts",
+        "apps/hub/tests/e2e/fursona-drag-reorder.spec.ts",
+        "apps/hub/tests/e2e/block-drag.spec.ts"
       ],
       "language": "en,en-GB,es"
     }

@@ -153,6 +153,14 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * `LeafFields.embeds` in `domain/leaf-fields.ts` is what decides which is
  * shown.
  *
+ * **`drag` is one bag for the five things a drag says and the three ways a
+ * drop can be refused.** The five are the words `@dnd-kit`'s own defaults
+ * would otherwise supply in hard-coded English built out of raw drag ids; the
+ * three are `MoveRefusal` in words, and without them a refused drop is a drag
+ * that silently did nothing. Nested, like `style` and `theme`, because
+ * `dropped` and `cancelled` would collide flat with the toolbar's own
+ * vocabulary.
+ *
  * `addSectionFor` names the brand preset control's own group, not any brand —
  * a brand's name is never translated, so `section-presets.ts` supplies those
  * verbatim rather than this function resolving them from the catalogue.
@@ -181,6 +189,19 @@ export async function fursonaEditorLabels(
     addSectionFor: t("addSectionFor"),
     atLimit: t("sectionsAtLimit"),
     dragSection: t("dragSection"),
+    dragBlock: t("dragBlock"),
+    // Nested for the reason `style` and `theme` are: `dropped` and
+    // `cancelled` would collide flat with words this bag already has.
+    drag: {
+      instructions: t("dragInstructions"),
+      lifted: t("dragLifted"),
+      over: t("dragOver"),
+      dropped: t("dragDropped"),
+      cancelled: t("dragCancelled"),
+      intoItself: t("dragRefusedIntoItself"),
+      tooDeep: t("dragRefusedTooDeep"),
+      noSuchPlace: t("dragRefusedNoSuchPlace"),
+    },
     sectionName: t("sectionName"),
     sectionMode: t("sectionMode"),
     sectionSpaces: t("sectionSpaces"),

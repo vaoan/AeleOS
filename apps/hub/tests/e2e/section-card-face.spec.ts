@@ -153,7 +153,7 @@ const READABLE: {
   {
     what: "the drag grip's icon",
     area: "section-header",
-    ink: "drag-section",
+    ink: "drag-0",
     at: (box) => ({ x: Math.round(box.x) + 20, y: Math.round(box.y) + 4 }),
     min: 3,
   },

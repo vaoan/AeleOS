@@ -24,7 +24,9 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * `problemTitle` and `problemGeneric` are what a refused save marks a block
  * with; the suites assert against these values rather than against a
  * substring, so a reworded message is a fixture change rather than a silent
- * pass.
+ * pass. `drag.tooDeep` and its two neighbours are read the same
+ * way, by the suite that drives a real keyboard drag into a place one level
+ * too deep.
  *
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
@@ -38,6 +40,17 @@ export function blockEditorLabels(): BlockEditorLabels {
     addSectionFor: "Add a section for…",
     atLimit: "At the limit.",
     dragSection: "Drag to reorder section",
+    dragBlock: "Drag to move this",
+    drag: {
+      instructions: "Space to pick up, arrows to move, space to drop.",
+      lifted: "Picked up",
+      over: "Moved over",
+      dropped: "Dropped on",
+      cancelled: "Left where it was.",
+      intoItself: "That would put a section inside itself.",
+      tooDeep: "That is one level too deep.",
+      noSuchPlace: "That place is no longer there.",
+    },
     sectionName: "Section name",
     sectionMode: "Arrangement",
     sectionSpaces: "Spaces across",

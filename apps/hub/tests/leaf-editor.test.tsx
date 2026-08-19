@@ -75,6 +75,7 @@ function harness(
         lang={lang}
         labels={labels}
         problems={problems}
+        dragHandle={null}
       />
     );
   };

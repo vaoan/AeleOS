@@ -66,6 +66,11 @@ import {
  * no client role anything: a readable table would enumerate every person on
  * the platform.
  *
+ * It resolves the five words a drag says out loud, nested under `drag`.
+ * dnd-kit's own announcements are hard-coded English built out of raw drag
+ * ids, which in this list are actor refs — a UUID read out at somebody in the
+ * wrong language.
+ *
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted`, `--on-accent` — and never from a literal. That is what lets a person's theme reach it at all.
  *
  * @returns the fursona list page.
@@ -121,6 +126,15 @@ export default async function FursonasPage() {
             confirm: t("confirmDelete"),
             cancel: t("cancel"),
             dragToReorder: t("dragToReorder"),
+            // Nested rather than flat: `dropped` and `cancelled` would
+            // collide with words this bag already has.
+            drag: {
+              instructions: t("dragInstructions"),
+              lifted: t("dragLifted"),
+              over: t("dragOver"),
+              dropped: t("dragDropped"),
+              cancelled: t("dragCancelled"),
+            },
             viewPublic: t("viewPublic"),
             search: t("search"),
             all: t("filterAll"),

@@ -7,37 +7,46 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import { liftByKeyboard } from "./support/drag";
 
 // THE ONE INTERACTION NOBODY WOULD NOTICE FROM A SCREENSHOT.
 //
-// Every unit test of the editor mocks `@hello-pangea/dnd` away entirely, so
-// each of them would pass if `dragHandleProps` reached the wrong element or
-// nothing at all. The block editor rebuilt the card the handle lives on, which
-// is exactly the edit most likely to break the threading silently: the grip
-// still renders, still looks right, and simply does nothing.
+// This file is the PORT of the `@hello-pangea/dnd` spec that preceded it, not
+// a rewrite: what it asserted is what it asserts, and only the announcement
+// selectors are re-derived from `@dnd-kit`'s own output. The reason it exists
+// has not changed either.
 //
-// This drives a REAL drag, by KEYBOARD. `@hello-pangea/dnd` supports keyboard
-// dragging natively — focus the handle, Space to lift, Arrow to move, Space to
-// drop — and that path is both more reliable in Playwright than synthesising
-// pointer events for this library, and worth having independently: it is the
-// only proof anywhere in this project that the handle is reachable and
-// operable without a mouse.
+// It drives a REAL drag, by KEYBOARD — focus the grip, Space to lift, an arrow
+// to move, Space to drop — and that path is both more reliable in Playwright
+// than synthesising pointer events, and worth having independently: with
+// `block-slot.test.tsx` it is the proof that the grips in this editor are
+// reachable and operable without a mouse.
 //
-// It found a real defect on its first run, before any threading was broken on
-// purpose: the handle is a `<button>`, and `@hello-pangea/dnd` refuses to
-// start a drag — by mouse OR keyboard — whose source event targets a tag it
-// treats as interactive, unless the `Draggable` opts out with
-// `disableInteractiveElementBlocking`. Nothing in the flat editor of the day
-// did, so lifting a section did nothing at all: no error, no announcement,
-// silently inert — for every input method, not only this one. That editor is
-// deleted; the prop travelled to `block-editor.tsx`, which is where a section
-// is dragged now, and this spec is what would notice if it did not.
+// It found a real defect on its first run under the old library, before any
+// threading was broken on purpose: the grip is a `<button>`, and
+// `@hello-pangea/dnd` refused to start a drag whose source event targeted a
+// tag it treats as interactive, so lifting a section did nothing at all,
+// silently, for every input method. `@dnd-kit` has no such rule — a grip is
+// whatever element carries `listeners` — so the prop that fixed it is gone
+// along with the library, and what could break now is the threading itself.
+// That is `block-slot.test.tsx`'s subject, driven through the real hook; this
+// is the proof in a real browser, with real layout, that the whole chain works
+// end to end.
 //
-// No save happens here. `BlockEditor` reorders the tree it is holding entirely
-// on the client, so the assertion — read the order back from the section-name
-// inputs' own DOM values — needs nothing written to the database.
+// **The selectors changed and the assertions did not.** The grip's test id is
+// its PATH — `drag-0` is the first section, `drag-0.1` the second place of it —
+// because a block has no identity but where it sits, and a path-shaped id is
+// what lets a spec name a grip three levels down without counting. The
+// announcement is `@dnd-kit`'s own live region, `[id^="DndLiveRegion-"]`, and
+// the wording is OURS rather than the library's: its defaults are hard-coded
+// English built out of raw drag ids, so `dragAnnouncements` says "Movido sobre
+// 2." instead, where the number is the place's one-based designation.
 //
-// **The shape is what each section is built with now**, because a section is
+// No save happens here. `BlockEditor` rearranges the tree it is holding
+// entirely on the client, so the assertion — read the order back from the
+// section-name inputs' own DOM values — needs nothing written to the database.
+//
+// **The shape is what each section is built with**, because a section is
 // defined by how many places it has across rather than by a layout name. Two
 // different widths, so a passing drag cannot be a coincidence of two
 // identically-built cards.
@@ -62,7 +71,7 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   await page.goto("/es/pages/new");
 
   // Two sections, built by hand — a template inserts sections as data without
-  // touching the drag handle at all, which would prove nothing here.
+  // touching a grip at all, which would prove nothing here.
   await page.getByTestId("new-section-spaces").selectOption("2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("First");
@@ -80,28 +89,101 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
 
   await expect.poll(names).toEqual(["First", "Second"]);
 
-  // Lift the first section's handle, move it down one, drop it. The library
+  // Lift the first section's grip, move it down one, drop it. dnd-kit
   // announces each step to an `aria-live` region it manages itself; waiting on
-  // that text changing — rather than a blind timeout — is what lets each key
-  // wait for the previous one's reducer update and re-render to actually land
-  // before the next one fires.
-  const announcement = page.locator('[id^="rfd-announcement-"]');
+  // that text — rather than a blind timeout — is what lets each key wait for
+  // the previous one's state update and re-render to land before the next one
+  // fires.
+  const announcement = page.locator('[id^="DndLiveRegion-"]');
 
-  await page.getByTestId("drag-section").first().focus();
-  await page.keyboard.press("Space");
+  // `liftByKeyboard` rather than a bare Space: the sensor's own keydown
+  // listener arrives a macrotask after the drag starts, and the arrow pressed
+  // inside that window is lost silently. `support/drag.ts` carries the whole
+  // account.
+  await liftByKeyboard(page, page.getByTestId("drag-0"));
   await expect(announcement).not.toBeEmpty();
 
   await page.keyboard.press("ArrowDown");
-  // The library's own wording for a move from slot 1 to slot 2 — see
-  // `withLocation` in its source. Waiting on this rather than a fixed delay
-  // is what proves the move actually landed before the drop key fires.
-  await expect.poll(() => announcement.textContent()).toMatch(/to position 2/);
+  // Our own wording, from `fursonas.dragOver` in the Spanish catalogue, with
+  // the place's one-based designation on the end, ANCHORED — `Movido sobre 2.`
+  // is a prefix of `Movido sobre 2.1.`, so an unanchored match would report
+  // arrival at a place a level above the one asked for. Waiting on this rather
+  // than a fixed delay is what proves the step actually landed before the drop
+  // key fires.
+  await expect
+    .poll(() => announcement.textContent())
+    .toMatch(/Movido sobre 2\.$/);
 
   await page.keyboard.press("Space");
 
   // The assertion the whole test exists for: the DOM order changed, read from
   // the inputs themselves — not a toast, not an internal state value.
+  //
+  // **Two sections cannot tell a shift from a swap**, and this fixture is not
+  // asked to. Moving one of two by one step reads `Second First` whichever the
+  // code does, which is the trap `block-drag.spec.ts:37-43` documents; the
+  // three-section case that DOES discriminate lives there, on a page seeded for
+  // it. What this file proves is the chain — a real grip, a real sensor, a real
+  // browser, an order that changed — and that is worth having on its own.
   await expect.poll(names).toEqual(["Second", "First"]);
+});
+
+// WHAT THE OLD LIBRARY COULD NOT DO AT ALL, PROVED IN A BROWSER.
+//
+// `@hello-pangea/dnd`'s own README rules out dragging an item from a parent
+// list into a child list, and rules out grids separately. This model is nested
+// grids and nothing else, which is why the library was replaced rather than
+// configured. So this half of the file is new rather than ported: it drags a
+// piece of content out of one section and into a place in another, which is
+// the capability the migration was for.
+test("a piece of content dragged by keyboard moves into another section's place", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  await page.getByTestId("new-section-spaces").selectOption("2");
+  await page.getByTestId("add-section").click();
+  await page.getByTestId("add-section").click();
+
+  // One piece of content, in the first place of the first section. Its title
+  // is what the assertion follows across the page.
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").first().fill("Travelled");
+
+  const placesHolding = () =>
+    page
+      .getByTestId("leaf-editor")
+      .evaluateAll((nodes) =>
+        nodes.map((node) =>
+          node.closest("[data-testid^='place-']")?.getAttribute("data-testid"),
+        ),
+      );
+
+  await expect.poll(placesHolding).toEqual(["place-0.0"]);
+
+  const announcement = page.locator('[id^="DndLiveRegion-"]');
+
+  // The places, in drawing order, are 0.0 0.1 1.0 1.1 — the sections
+  // themselves are not offered, because a nested block dropped onto one would
+  // exchange with the whole section rather than land in it.
+  await liftByKeyboard(page, page.getByTestId("drag-0.0"));
+  await expect(announcement).not.toBeEmpty();
+
+  // Anchored on the end of the sentence: `1.2.` is a prefix of `1.2.3.`, and
+  // an unanchored match would report arrival two levels above the place asked
+  // for.
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(() => announcement.textContent()).toMatch(/\s1\.2\.$/);
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.1\.$/);
+
+  await page.keyboard.press("Space");
+
+  // It left its old place EMPTY rather than closing it up — a place is
+  // positional, and the width its author gave it is the model.
+  await expect.poll(placesHolding).toEqual(["place-1.0"]);
+  await expect(page.getByTestId("empty-place")).toHaveCount(3);
 });
 
 // THE OTHER HALF OF THIS FILE IS GONE, AND THE FAULT IT GUARDED CANNOT

@@ -85,7 +85,7 @@ const GAP = 16;
 const ACROSS = 3;
 
 /**
- * The direct children of a container's places row.
+ * What is IN each place of a container's places row, in order.
  *
  * A place is addressed by POSITION and by nothing else — the same claim
  * `BlockPath` makes — so the assertions below name the first, second and third
@@ -93,10 +93,17 @@ const ACROSS = 3;
  * That is what lets "the empty one is still third" be a failure rather than a
  * different query.
  *
+ * **Two levels, because a place is its own element now.** Each direct child of
+ * the row is the `BlockSlot` wrapper — the thing the drag library measures,
+ * carrying `place-<path>` — and its one child is the card, the leaf editor or
+ * the empty-place invitation. The wrapper is a grid item exactly where the
+ * content used to be one, so nothing about the ORDER changed; only the depth
+ * did.
+ *
  * @param places - the element carrying the `places` test id.
- * @returns a locator over its places, in the order they are laid.
+ * @returns a locator over what fills its places, in the order they are laid.
  */
-const eachPlace = (places: Locator): Locator => places.locator("> *");
+const eachPlace = (places: Locator): Locator => places.locator("> * > *");
 
 test("a section inside a section is built by hand, saved, reopened and read by a stranger", async ({
   page,

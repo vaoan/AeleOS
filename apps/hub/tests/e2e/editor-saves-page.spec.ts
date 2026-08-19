@@ -243,12 +243,18 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // appended an empty place at the end would satisfy every count assertion
   // above and fail this one, which is exactly the shift a "tidy the nulls
   // away" change produces.
+  //
+  // Two levels down, because a place is its own element now: each direct child
+  // of the row is the `BlockSlot` wrapper the drag library measures, and its
+  // one child is the leaf editor or the empty-place invitation. The wrapper is
+  // a grid item exactly where the content used to be one, so nothing about the
+  // order changed; only the depth did.
   expect(
     await page
       .getByTestId("section-card")
       .first()
       .getByTestId("places")
-      .locator("> *")
+      .locator("> * > *")
       .evaluateAll((nodes) =>
         nodes.map((node) => node.getAttribute("data-testid")),
       ),

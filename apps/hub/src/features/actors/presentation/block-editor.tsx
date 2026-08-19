@@ -1,9 +1,25 @@
 "use client";
 
-import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import type { DropResult } from "@hello-pangea/dnd";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+  type KeyboardCoordinateGetter,
+} from "@dnd-kit/core";
 import { Plus, Sparkles } from "lucide-react";
-import { useId, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   useController,
   type Control,
@@ -17,11 +33,24 @@ import {
   type Block,
 } from "@/features/actors/domain/block-schema";
 import {
-  moveSection,
   newContainer,
   setAt,
   SPACE_CHOICES,
+  type BlockPath,
 } from "@/features/actors/domain/block-edits";
+import {
+  placeId,
+  placeName,
+  placeOrder,
+  placePath,
+  placeUnderPointer,
+  stepPlace,
+  type PlaceCandidate,
+} from "@/features/actors/domain/block-drag";
+import {
+  moveBlock,
+  type MoveRefusal,
+} from "@/features/actors/domain/block-moves";
 import type { BlockProblem } from "@/features/actors/domain/block-problems";
 import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
@@ -29,6 +58,11 @@ import {
   BlockCard,
   type BlockCardLabels,
 } from "@/features/actors/presentation/block-card";
+import { BlockSlot } from "@/features/actors/presentation/block-slot";
+import {
+  dragAnnouncements,
+  type DragAnnouncementLabels,
+} from "@/features/actors/presentation/drag-announcements";
 import { LeafEditor } from "@/features/actors/presentation/leaf-editor";
 import {
   SECTION_PRESETS,
@@ -41,6 +75,23 @@ import {
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
+ * What a drag says, plus the three ways a drop can be refused.
+ *
+ * **The refusals are `MoveRefusal` in words.** `moveBlock` answers why a drop
+ * did not happen, and until this bag existed there was nowhere for it to be
+ * said — a refused drag was a drag that silently did nothing, which is the
+ * fault this repository keeps catching.
+ */
+interface BlockDragLabels extends DragAnnouncementLabels {
+  /** Says a block was dropped somewhere inside itself. */
+  intoItself: string;
+  /** Says a drop would nest one level past the cap. */
+  tooDeep: string;
+  /** Says the place a drop named is no longer there. */
+  noSuchPlace: string;
+}
+
+/**
  * Translated strings {@link BlockEditor} renders.
  *
  * Extends the card's and the template picker's, because this level owns one
@@ -48,6 +99,9 @@ import { tid } from "@/shared/infrastructure/test-id";
  * confirmation words are named for what they confirm rather than `confirm` and
  * `cancel`: the toolbar's `cancel` already means "stop editing", and in one bag
  * they would be the same key with two meanings.
+ *
+ * `drag` is nested for the same reason `style` and `theme` are: it has words
+ * of its own that would collide flat.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -61,6 +115,10 @@ export interface BlockEditorLabels
   newSectionSpaces: string;
   /** Explains why the add controls are gone. */
   atLimit: string;
+  /** Names a section's own grip. */
+  dragSection: string;
+  /** What a drag says out loud. */
+  drag: BlockDragLabels;
   /**
    * Opens the brand preset list — "Add a section for…" or similar.
    *
@@ -101,6 +159,15 @@ export interface BlockEditorProps<T extends FieldValues> {
 /** The shape a new section starts at, before anybody changes it. */
 const NEW_SPACES = 2;
 
+/** How far a pointer travels before a press becomes a drag rather than a click. */
+const DRAG_THRESHOLD = 8;
+
+/** Which arrow keys step towards the end of the list of places. */
+const FORWARD_KEYS = new Set(["ArrowDown", "ArrowRight"]);
+
+/** Which arrow keys step back towards its start. */
+const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
+
 /**
  * The page: sections, what is in each of their places, and what is in those.
  *
@@ -119,26 +186,45 @@ const NEW_SPACES = 2;
  * does — the fault the flat editor documented at length and which produced a
  * delete landing on the wrong row.
  *
- * **Dragging reorders SECTIONS and nothing else.** Moving a block between
- * places is phase 4, on `@dnd-kit`: `@hello-pangea/dnd` cannot express a
- * nested drag at all, by its own README, which rules out both dragging between
- * a parent and a child list and grid layouts. Until then a place is filled and
- * emptied explicitly, which is enough to build a page with — dragging is how
- * one gets rearranged pleasantly, not how one gets built.
+ * **Anything may be dragged anywhere a place will hold it**, which is what
+ * `@dnd-kit` bought and `@hello-pangea/dnd` could not sell: its own README
+ * rules out dragging between a parent list and a child list, and rules out
+ * grids, and a grid of places nested three deep is exactly this. What a drop
+ * MEANS is `moveBlock`'s, computed with no library in sight; this component
+ * decides only which two places a gesture named.
  *
- * **The `draggableId` is the position rather than a generated key**, because
- * there is no generated key to use: a block carries no identity but where it
- * sits, exactly as `PublicBlocks` and `seatsOf` already say. The library maps
- * id to index on every render, so a reorder re-registers rather than moving an
- * id with an item.
+ * **The collision function resolves to the DEEPEST place under the pointer.**
+ * Places nest, so every enclosing place contains the pointer too and a
+ * distance-to-centre ranking answers a leaf inside the container somebody is
+ * hovering — silently, one level in. Ranking by path length is the same fact
+ * as "innermost" at any depth, which is what makes it hold at three rather
+ * than being a two-level special case. See `placeUnderPointer`.
  *
- * **Its `Draggable` carries `disableInteractiveElementBlocking`.** The handle
- * is a real `<button>`, and `@hello-pangea/dnd` refuses to start a drag — by
- * mouse or keyboard — whose source event targets a tag it treats as
- * interactive, unless told otherwise: without this, lifting a section does
- * nothing at all, silently, for every input method. Found by
- * `tests/e2e/section-drag-reorder.spec.ts`, the first test anywhere in this
- * project to actually drive a drag rather than mock the library away.
+ * **A keyboard drag walks a list rather than reading geometry**, and the two
+ * differ on purpose: a pointer cannot avoid the places inside the block it is
+ * carrying, while a list can simply leave them out — so arrowing a section
+ * along lands on the next section rather than inside the one being moved. The
+ * coordinate getter names the place and the collision function is told it
+ * directly, because a keyboard drag is discrete navigation and inferring it
+ * back from a synthesised rectangle would be a second, guessable answer.
+ * **The walk steps over any place nothing is showing** — a collapsed card
+ * registers no drop target for its places, and stopping on one announced that
+ * the drag had ended while it was still running.
+ *
+ * **A refused drop's sentence is retired by the next EDIT.** It used to be
+ * cleared only at the next lift, so it stayed on the page through everything
+ * somebody did afterwards, describing a gesture they had moved on from.
+ *
+ * **`<DndContext id={useId()}>`, and it is not decoration.** dnd-kit generates
+ * ids from a module-level counter, and that id reaches the DOM as
+ * `aria-describedby` on every grip — so two server renders in one warm process
+ * emit different ids and every request after the first hydrates mismatched.
+ * React's own id is stable across the pair.
+ *
+ * **A refused drop says why, in words.** `moveBlock` names three refusals and
+ * a drag that silently did nothing would be the "the control did nothing"
+ * fault this repository keeps paying for. It is spoken to the live region and
+ * shown beside the heading.
  *
  * **The add controls are withdrawn at the block cap, with a sentence saying
  * why.** A button that silently does nothing reads as broken, and the cap is
@@ -181,11 +267,31 @@ export function BlockEditor<T extends FieldValues>({
   problems,
 }: BlockEditorProps<T>) {
   const id = useId();
+  const dndId = useId();
   const [spaces, setSpaces] = useState(NEW_SPACES);
   const [presetsOpen, setPresetsOpen] = useState(false);
+  const [refusal, setRefusal] = useState<MoveRefusal | null>(null);
 
   const field = useController({ control, name: "sections" as Path<T> });
-  const blocks = (field.field.value ?? []) as Block[];
+  // Memoized so an unwritten field — which answers a fresh `[]` each time —
+  // does not give every effect below a new dependency on every render.
+  const value: unknown = field.field.value;
+  const blocks = useMemo(() => (value ?? []) as Block[], [value]);
+
+  // Read by the two callbacks the sensors hold across a whole drag. They are
+  // memoized so the sensor is not rebuilt on every keystroke, which means they
+  // cannot close over the render's own `blocks` — and it is synced in an
+  // EFFECT rather than during render, which is both what React asks for and
+  // sufficient: a key event is not a render, and every effect has run long
+  // before one arrives.
+  const pageRef = useRef(blocks);
+  useEffect(() => {
+    pageRef.current = blocks;
+  }, [blocks]);
+  // Where a KEYBOARD drag is now. There is no pointer to infer it from, and a
+  // rectangle synthesised from the last arrow key would be a second answer to
+  // a question the coordinate getter already answered exactly.
+  const keyboardAt = useRef<BlockPath | undefined>(undefined);
 
   /**
    * Hands the form a whole new page.
@@ -193,38 +299,189 @@ export function BlockEditor<T extends FieldValues>({
    * Every control below writes through this, so the form holds one value and
    * the edits themselves stay pure functions somebody can test without a DOM.
    *
+   * **It also retires the last refused drop.** The sentence explaining a
+   * refusal used to be cleared only by the NEXT drag, so it sat on the page
+   * through every subsequent edit — describing a gesture somebody had since
+   * moved on from, about blocks they may have deleted. Any edit at all is
+   * evidence they moved on.
+   *
    * @param edit - what to make of the page.
    */
   const apply = (edit: (current: Block[]) => Block[]): void => {
+    setRefusal(null);
     field.field.onChange(edit(blocks));
+  };
+
+  /**
+   * The place under the pointer, or the one a keyboard drag has stepped to.
+   *
+   * @param args - what the library is measuring, and where the pointer is.
+   * @returns the one place a drop would land on, or none.
+   */
+  const detectCollision = useCallback<CollisionDetection>((args) => {
+    const from = placePath(String(args.active.id));
+    if (!from) return [];
+    if (!args.pointerCoordinates) {
+      const target = keyboardAt.current;
+      return target ? [{ id: placeId(target) }] : [];
+    }
+    const candidates: PlaceCandidate[] = [];
+    for (const container of args.droppableContainers) {
+      const path = placePath(String(container.id));
+      const rect = args.droppableRects.get(container.id);
+      if (path && rect) {
+        candidates.push({ id: String(container.id), path, rect });
+      }
+    }
+    const hit = placeUnderPointer(
+      candidates,
+      args.pointerCoordinates.x,
+      args.pointerCoordinates.y,
+      from,
+    );
+    return hit ? [{ id: hit.id }] : [];
+  }, []);
+
+  /**
+   * Where an arrow key moves a keyboard drag to.
+   *
+   * **It steps over any place nothing is showing**, and that is a fix rather
+   * than a refinement. `placeOrder` walks the whole stored tree, while a
+   * COLLAPSED card renders none of its places — so those places register no
+   * droppable and the library has no rectangle for them. Landing on one used to
+   * keep the new path anyway and fall back to the current coordinates, after
+   * which the collision named an id nothing had registered, dnd-kit resolved
+   * `over` to null, and the drag announced "it stayed where it was" while it
+   * was still running; a space bar pressed there dropped nothing at all,
+   * because `onDragEnd` returns early on a null `over`. So the walk keeps
+   * stepping until it finds a place the library is actually measuring, which
+   * makes every place the keyboard can reach one a drop can land on.
+   *
+   * @param event - the key.
+   * @param args - the drag, and where it is now.
+   * @returns the coordinates of the place it steps to, or nothing when the walk
+   * runs out of places that are on screen.
+   */
+  const coordinateGetter = useCallback<KeyboardCoordinateGetter>(
+    (event, args) => {
+      const forward = FORWARD_KEYS.has(event.code);
+      if (!forward && !BACK_KEYS.has(event.code)) return;
+      const from = placePath(String(args.active));
+      if (!from) return;
+      const order = placeOrder(pageRef.current, from);
+      let next = stepPlace(order, keyboardAt.current ?? from, forward);
+      while (next) {
+        const rect = args.context.droppableRects.get(placeId(next));
+        if (rect) {
+          keyboardAt.current = next;
+          return { x: rect.left, y: rect.top };
+        }
+        next = stepPlace(order, next, forward);
+      }
+    },
+    [],
+  );
+
+  const keyboardOptions = useMemo(
+    () => ({ coordinateGetter }),
+    [coordinateGetter],
+  );
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: DRAG_THRESHOLD },
+    }),
+    useSensor(KeyboardSensor, keyboardOptions),
+  );
+
+  /**
+   * What a refusal says to the person who made the drop.
+   *
+   * @param why - the refusal `moveBlock` answered.
+   * @returns the sentence.
+   */
+  const refusalText = (why: MoveRefusal): string => {
+    if (why === "into itself") return labels.drag.intoItself;
+    if (why === "too deep") return labels.drag.tooDeep;
+    return labels.drag.noSuchPlace;
+  };
+
+  /**
+   * Remembers where a keyboard drag begins, and clears the last refusal.
+   *
+   * @param event - the lift.
+   */
+  const onDragStart = (event: DragStartEvent): void => {
+    keyboardAt.current = placePath(String(event.active.id));
+    setRefusal(null);
+  };
+
+  /**
+   * Exchanges the two places a drag named, or says why it did not.
+   *
+   * A block carries no `sort_order` — the array IS the order, at every depth —
+   * so there is nothing to renumber afterwards and nothing a save can send
+   * stale. A no-op comes back as the very array it was given, which is why the
+   * write is skipped by identity rather than by comparing trees.
+   *
+   * @param event - what was lifted, and what it was over.
+   */
+  const onDragEnd = (event: DragEndEvent): void => {
+    keyboardAt.current = undefined;
+    const from = placePath(String(event.active.id));
+    const to = event.over ? placePath(String(event.over.id)) : undefined;
+    if (!from || !to) return;
+    const result = moveBlock(blocks, from, to);
+    if (!result.ok) {
+      setRefusal(result.refusal);
+      return;
+    }
+    if (result.blocks !== blocks) apply(() => result.blocks);
+  };
+
+  /**
+   * What a drop should be ANNOUNCED as, when it is not an ordinary move.
+   *
+   * It asks `moveBlock` again rather than reading what `onDragEnd` decided out
+   * of a mutable box. That is not a second decision: the same pure function on
+   * the same page answers the same thing, and there is no moment at which the
+   * two could disagree — `@dnd-kit` dispatches to the accessibility monitor
+   * inside the same batched update as the handler above, so `blocks` here is
+   * still the page the drop was computed against.
+   *
+   * @param activeId - the drag id of what was lifted.
+   * @param overId - the drag id of what it was dropped on.
+   * @returns the refusal in words, or nothing when the drop succeeded.
+   */
+  const refusalOf = (activeId: string, overId: string): string | undefined => {
+    const from = placePath(activeId);
+    const to = placePath(overId);
+    if (!from || !to) return;
+    const result = moveBlock(blocks, from, to);
+    return result.ok ? undefined : refusalText(result.refusal);
+  };
+
+  // Not memoized. It closes over the page, which changes on every edit, so a
+  // `useMemo` over that buys nothing and costs the React Compiler its ability
+  // to memoize the component at all. `useDndMonitor` re-registers a listener
+  // when this changes, which is a set add and remove in an effect.
+  const accessibility = {
+    announcements: dragAnnouncements(
+      labels.drag,
+      (id) => placeName(placePath(id) ?? []),
+      refusalOf,
+    ),
+    screenReaderInstructions: { draggable: labels.drag.instructions },
   };
 
   const atBlockLimit = countBlocks(blocks) >= BLOCK_LIMITS.blocks;
   // Position named once, exactly as `PublicBlocks` does it and for the same
   // reason: a block has no identity but where it sits, and
-  // `react/no-array-index-key` reads the map callback's index parameter. It is
-  // also the drag library's own id, which is why it is a string.
+  // `react/no-array-index-key` reads the map callback's index parameter.
   const seats = blocks.map((block, position) => ({
     block,
-    id: `section-${position}`,
+    key: `seat-${position}`,
     position,
   }));
-
-  /**
-   * Moves a section to where it was dropped.
-   *
-   * A block carries no `sort_order` — the array IS the order, at every depth —
-   * so there is nothing to renumber afterwards and nothing a save can send
-   * stale. The flat editor needed a write per section here, and a drag that
-   * skipped it was silently undone by the next reload.
-   *
-   * @param result - where the drag started and ended.
-   */
-  const onDragEnd = (result: DropResult): void => {
-    const to = result.destination?.index;
-    if (to === undefined || to === result.source.index) return;
-    apply((current) => moveSection(current, result.source.index, to));
-  };
 
   return (
     <section className="mt-8 grid gap-4">
@@ -241,73 +498,74 @@ export function BlockEditor<T extends FieldValues>({
         onApply={(sections) => apply(() => sectionsToBlocks(sections))}
       />
 
+      {/* A refused drop, in words. `moveBlock` names three of them, and a
+          drag that quietly changed nothing would be indistinguishable from a
+          broken grip. */}
+      {refusal ? (
+        <p
+          role="status"
+          {...tid("drag-refusal")}
+          className="text-sm text-(--accent)"
+        >
+          {refusalText(refusal)}
+        </p>
+      ) : null}
+
       {blocks.length === 0 ? (
         <p className="text-sm text-(--muted)">{labels.empty}</p>
       ) : null}
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="sections">
-          {(dropProvided) => (
-            <div
-              ref={dropProvided.innerRef}
-              {...dropProvided.droppableProps}
-              className="grid gap-3"
+      <DndContext
+        id={dndId}
+        sensors={sensors}
+        collisionDetection={detectCollision}
+        accessibility={accessibility}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+        <div className="grid gap-3">
+          {seats.map((seat) => (
+            <BlockSlot
+              key={seat.key}
+              path={[seat.position]}
+              filled
+              label={labels.dragSection}
             >
-              {seats.map((seat) => (
-                <Draggable
-                  key={seat.id}
-                  draggableId={seat.id}
-                  index={seat.position}
-                  // The handle is a real `<button>`, and `@hello-pangea/dnd`
-                  // refuses to start ANY drag — mouse or keyboard — whose
-                  // source event targets a tag it treats as interactive
-                  // unless told otherwise. Without this, lifting silently
-                  // does nothing: no error, no announcement, the grip simply
-                  // inert.
-                  disableInteractiveElementBlocking
-                >
-                  {(dragProvided) => (
-                    <div
-                      ref={dragProvided.innerRef}
-                      {...dragProvided.draggableProps}
-                    >
-                      {isContainer(seat.block) ? (
-                        <BlockCard
-                          block={seat.block}
-                          path={[seat.position]}
-                          apply={apply}
-                          lang={lang}
-                          labels={labels}
-                          parentHost={parentHost}
-                          atBlockLimit={atBlockLimit}
-                          problems={problems}
-                          dragHandleProps={dragProvided.dragHandleProps}
-                        />
-                      ) : (
-                        // **A page may hold a leaf at the top level**, and one
-                        // this editor could not show would be content nobody
-                        // can read or remove while every save kept writing it
-                        // back. Nothing here builds one — the add control makes
-                        // sections — but the schema admits one and a page
-                        // written by anything else may carry one.
-                        <LeafEditor
-                          leaf={seat.block}
-                          path={[seat.position]}
-                          apply={apply}
-                          lang={lang}
-                          labels={labels}
-                          problems={problems}
-                        />
-                      )}
-                    </div>
-                  )}
-                </Draggable>
-              ))}
-              {dropProvided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+              {(handle) =>
+                isContainer(seat.block) ? (
+                  <BlockCard
+                    block={seat.block}
+                    path={[seat.position]}
+                    apply={apply}
+                    lang={lang}
+                    labels={labels}
+                    parentHost={parentHost}
+                    atBlockLimit={atBlockLimit}
+                    problems={problems}
+                    dragHandle={handle}
+                  />
+                ) : (
+                  // **A page may hold a leaf at the top level**, and one this
+                  // editor could not show would be content nobody can read or
+                  // remove while every save kept writing it back. Nothing here
+                  // builds one — the add control makes sections — but the
+                  // schema admits one, and a drag can now make one: a section
+                  // dropped into a place puts whatever was there at the top.
+                  <LeafEditor
+                    leaf={seat.block}
+                    path={[seat.position]}
+                    apply={apply}
+                    lang={lang}
+                    labels={labels}
+                    problems={problems}
+                    dragHandle={handle}
+                  />
+                )
+              }
+            </BlockSlot>
+          ))}
+        </div>
+      </DndContext>
 
       {atBlockLimit ? (
         <p className="text-sm text-(--muted)">{labels.atLimit}</p>

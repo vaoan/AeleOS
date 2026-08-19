@@ -8,42 +8,17 @@ vi.mock("nuqs", () => ({
   parseAsString: { withDefault: () => ({}) },
 }));
 
-// The drag library renders through render props. Flattening it here keeps this
-// a test of ordering and of when dragging is offered, rather than of the
-// library's own behaviour — which is its to test, not ours.
-vi.mock("@hello-pangea/dnd", () => ({
-  DragDropContext: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Droppable: ({
-    children,
-  }: {
-    children: (p: {
-      innerRef: undefined;
-      droppableProps: Record<string, never>;
-      placeholder: null;
-    }) => ReactNode;
-  }) => (
-    <>
-      {children({ innerRef: undefined, droppableProps: {}, placeholder: null })}
-    </>
-  ),
-  Draggable: ({
-    children,
-  }: {
-    children: (p: {
-      innerRef: undefined;
-      draggableProps: Record<string, never>;
-      dragHandleProps: Record<string, never>;
-    }) => ReactNode;
-  }) => (
-    <>
-      {children({
-        innerRef: undefined,
-        draggableProps: {},
-        dragHandleProps: {},
-      })}
-    </>
-  ),
-}));
+// **The drag library is NOT mocked here, and that is deliberate.** The mock
+// this file used to carry supplied what the real hook would have and so could
+// not observe whether the component passed any of it on — the exact blindness
+// that let a dead grip ship once already. `@dnd-kit`'s hooks fall back to
+// their own default context outside a provider and register no ResizeObserver
+// while nothing is being dragged, so the real thing renders here with no
+// stubbing at all. What actually STARTS this grip is proved in
+// `fursona-drag-reorder.spec.ts`, which drives a real keyboard drag in a real
+// browser — NOT in `block-slot.test.tsx`, which a comment here used to credit
+// and which tests the editor's grip, a different component with its own four
+// props.
 
 vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
   Link: ({
@@ -91,6 +66,13 @@ const labels = {
   empty: "No fursonas yet",
   noMatches: "Nothing matches that",
   visibility: { private: "Private", unlisted: "Unlisted", public: "Public" },
+  drag: {
+    instructions: "Space to pick up, arrows to move, space to drop.",
+    lifted: "Picked up",
+    over: "Moved over",
+    dropped: "Dropped on",
+    cancelled: "Left where it was.",
+  },
 };
 
 /**
@@ -194,6 +176,26 @@ describe("FursonaList", () => {
     expect(
       screen.getAllByRole("button", { name: "Drag to reorder" }),
     ).toHaveLength(2);
+  });
+
+  // THE HALF NOTHING ELSE CATCHES. `listeners` and `setNodeRef` are covered by
+  // the browser drag in `fursona-drag-reorder.spec.ts` — drop either and the
+  // drag never starts or never lands. `attributes` is different: this grip is
+  // already a `<button>`, so losing them leaves it focusable, clickable and
+  // completely unannounced, which no screenshot and no drag would show.
+  // `block-slot.test.tsx` has this assertion for the editor's grip; the row's
+  // had none.
+  it("puts the library's own aria attributes on the grip", () => {
+    renderList([
+      actor({ actorRef: "a", handle: "aaa" }),
+      actor({ actorRef: "b", handle: "bbb" }),
+    ]);
+    const [grip] = screen.getAllByRole("button", { name: "Drag to reorder" });
+    // `sortable` rather than `draggable`: this list uses `useSortable`, which
+    // overrides the base hook's word. The editor's grip is a plain
+    // `useDraggable` and says `draggable`, which is why the two assertions
+    // differ.
+    expect(grip).toHaveAttribute("aria-roledescription", "sortable");
   });
 
   // A reorder computed from a narrowed view would move rows the person cannot

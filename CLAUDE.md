@@ -227,9 +227,19 @@ Key choices and _why_:
 
   The fix landed first in the flat editor's own card alone, and this note
   recorded `fursona-list.tsx` as still carrying the identical fault rather than
-  leaving the next person to rediscover it. **It was then fixed in `#154`**,
-  and `fursona-list.tsx` sets the prop today; so does `block-editor.tsx`, which
-  is where a section is dragged now.
+  leaving the next person to rediscover it. **It was then fixed in `#154`.**
+
+  **The prop is gone, and the LESSON is not, which is why this note now says
+  where the guard moved rather than which line sets it.** `@hello-pangea/dnd`
+  is no longer a dependency — see the dragging bullet below — and dnd-kit has
+  no interactive-tag rule at all: a grip is whatever element carries
+  `listeners`. So the original fault cannot recur in that form, and the one
+  that replaces it is the same shape with a different cause — a grip that
+  renders, looks right, and was never handed the four things `useDraggable`
+  returns. `block-slot.test.tsx` is where that is caught now, driving the real
+  hook inside a real `DndContext` and carrying a deliberately unwired grip
+  beside it as a permanent control, because a suite where the negative case
+  cannot fail is a suite that proves nothing about the positive one.
 
   Which makes this note's own history the smaller lesson beside the bug's: it
   went on asserting an open fault for a day after that fault was closed, and
@@ -600,13 +610,14 @@ replace`, so the newest body of a function could sit in a file named after
   every surface in the app now rings on the inside. Spec:
   `2026-08-16-a-border-of-ones-own-design.md`.
 
-- **Blocks, and then spaces (2026-08-18) — the model, the renderer and the
-  editor are done; dragging is not.** A page was a flat array of sections whose
-  `type` **welded arrangement to content** — `gallery` was a grid _of pictures_,
-  `links` a list _of links_ — so heterogeneity was not merely unsupported but
-  unrepresentable. A page is a recursive tree of **blocks** now: a **container**
-  arranges its children in a mode, a **leaf** holds one piece of content, and
-  **a section is a container at depth 0 that carries a name.**
+- **Blocks, then spaces, then dragging (2026-08-18) — the model, the renderer,
+  the editor and the drag are all done.** A page was a flat array of sections
+  whose `type` **welded arrangement to content** — `gallery` was a grid _of
+  pictures_, `links` a list _of links_ — so heterogeneity was not merely
+  unsupported but unrepresentable. A page is a recursive tree of **blocks**
+  now: a **container** arranges its children in a mode, a **leaf** holds one
+  piece of content, and **a section is a container at depth 0 that carries a
+  name.**
 
   **The arrangement was then a FLOW for a week, and that was the second half of
   the same correction.** A container declared a track count and its children
@@ -674,20 +685,101 @@ replace`, so the newest body of a function could sit in a file named after
   removes what is there, and sees the section drawn by the renderer a
   stranger's page uses rather than by a preview that could drift from it.
 
-  **What is left is DRAGGING, and it is unwritten.** Sections reorder at the
-  top level and nothing else does; moving a block between places is phase 4, on
-  `@dnd-kit`, because `@hello-pangea/dnd` cannot express a nested drag at all
-  by its own README. The feature note carries what the spike found, and the
-  reason to read it there is that every part of it fails silently: a
-  nesting-naive collision decision, four props that must not be dropped and
-  that a mocked test cannot see dropped, and an id generator that hydrates
-  mismatched unless it is handed `useId()`.
+  **Dragging is written, and `@hello-pangea/dnd` is gone (2026-08-18).**
+  Anything may be dragged anywhere a place will hold it — content between
+  sections, a section into a place, at the depth cap — by mouse and by
+  keyboard. `@dnd-kit/core` + `@dnd-kit/sortable` replaced it because the old
+  library's own README rules out dragging from a parent list into a child one
+  and rules out grids separately, and this model is nested grids and nothing
+  else. Measured on what each is actually imported for: 13.9 kB min+gzip
+  against 28.5 kB, so the migration is a net reduction as the spike said,
+  though not at the numbers it quoted.
+
+  **A drop is an exchange of two places, and the flow semantics a list would
+  give you were refused rather than overlooked.** Insert here and everything
+  after slides along — which assumes the gaps between things mean nothing, and
+  here they are the author's. A place is positional and an empty one keeps its
+  width, so sliding the row along to make room would move the empty places
+  somebody deliberately left, which is the one thing a rearrangement must not
+  do to a shape they chose. Onto an empty place is a move, onto an occupied one
+  a swap, and the top level shifts because the page's own list has no empty
+  entries and cannot hold one. If swapping ever feels wrong in use, the fix is
+  a ruling rather than a change to the model — the positions are stored either
+  way.
+
+  Two things carry the design and neither is in a component. `moveBlock`
+  (`domain/block-moves.ts`) decides what a drop MEANS, with no library in
+  sight; `domain/block-drag.ts` decides which two places a gesture NAMED, and
+  that is where the phase's one real unknown was. **The collision resolves to
+  the deepest place under the pointer** — places nest, so every enclosing place
+  contains the pointer too, and a distance-to-centre ranking answers a leaf
+  inside the container somebody is hovering, silently, one level in.
+  "Innermost" and "longest path" are the same fact at any depth, which is what
+  makes it hold at three rather than being the two-level special case the spike
+  had. **A keyboard drag walks a list instead**, deliberately: a pointer cannot
+  avoid the places inside the block it is carrying and a list can simply leave
+  them out.
+
+  **A pointer drag has now been driven in a browser, and it agrees with the
+  unit fixtures.** Until `tests/e2e/block-drag.spec.ts` every browser-level
+  proof was by KEYBOARD, which exercises a different branch: the keyboard side
+  of `detectCollision` hands back the place the coordinate getter already chose
+  and never calls `placeUnderPointer` at all, so the geometry was proved only
+  against rectangles a unit test wrote for itself. **Four** of that spec's cases
+  run by mouse AND by keyboard against a real layout — a swap inside one
+  section, a move into a place at the depth cap and back out, a section reorder,
+  and the refusal one level past the cap. The rest are single-gesture BY DESIGN,
+  and this bullet claimed otherwise for a while: the cycle refusal and the plane
+  rule have no keyboard gesture that expresses them, because the walk never
+  offers those targets; the descendant-exclusion case IS the keyboard proof of
+  that; and the save-and-reload, the abandoned drag and the collapsed-card walk
+  each drive the one gesture their subject has. Its
+  pointer half asserts the `data-over` highlight BEFORE it releases, which is
+  `placeUnderPointer` ranking rectangles Chromium measured. Replacing
+  deepest-wins with nearest-centre reddens it at the highlight and leaves the
+  keyboard half green, which is the two paths being different said out loud.
+
+  **Two of its fixtures are shaped by a trap rather than by taste**, and both
+  are the "a case that passed because both orderings landed identically" shape.
+  A swap and an insert-and-shift leave two ADJACENT places reading the same
+  thing, so the swap is asserted across a place that is not adjacent to its
+  source; and a shift and a swap leave the same page when there are only two
+  sections, so the reorder gets a page of three. Each was verified by making
+  the code do the other thing and watching it go red. Rule 27 is that trap
+  written out, along with the third instance the same phase found and the one
+  case where no fixture could have discriminated at all.
+
+  **The cycle guard is checked in BOTH directions**, and only one of the two is
+  the easy miss. An exchange moves the target as well as the source, so
+  dropping a block onto its own ancestor is the same fault mirrored — and
+  neither can hang, because the writes are immutable and no reference cycle can
+  form: what forms is a duplicated subtree that the other half of the exchange
+  then deletes, which is a section silently lost. `moveBlock` answers this and
+  every other bad drop rather than throwing, because a refused drop is an
+  ordinary outcome of dragging and the person is owed a sentence.
+
+  The feature note carries the rest — the plane rule that keeps a nested block
+  from being swapped with a whole section, what each of the three refusals says
+  and which input can reach it, why a no-op comes back as the very array it was
+  given, why every grip in the editor comes from one component, and the
+  hydration mismatch dnd-kit's module-level id counter causes on every request
+  after the first unless the context is given a `useId()`.
 
   Specs: `docs/superpowers/specs/2026-08-18-sections-of-spaces-design.md`,
-  complete for phases 1–3 and the current word on the model; and
-  `docs/superpowers/specs/2026-08-17-blocks-and-grids-design.md`, which it
-  supersedes on tracks and spans and which still describes them — it carries a
-  note at the top saying so, and is left otherwise as delivered. Plans:
+  complete and the current word on the model;
+  `docs/superpowers/specs/2026-08-18-dragging-design.md`, complete, and where
+  the traps, the corrected bundle measurement and what dragging still owes are
+  written down; and
+  `docs/superpowers/specs/2026-08-17-blocks-and-grids-design.md`, which the
+  first of those supersedes on tracks and spans and which still describes them.
+  Its banner is what to read before anything under it: it is kept current, and
+  the body is left as delivered. **Do not take that arrangement on trust** —
+  the banner spent a day claiming phases 3–5 were unwritten and that the
+  dnd-kit findings were "still what phase 4 inherits", after this branch had
+  closed them, and this bullet vouched for it. A banner is only a banner while
+  somebody updates it; whoever closes one of a superseded spec's phases updates
+  the banner in the same change.
+  Plans: `docs/superpowers/plans/2026-08-18-dragging.md`,
   `docs/superpowers/plans/2026-08-18-sections-of-spaces.md` and
   `docs/superpowers/plans/2026-08-17-blocks-and-grids-phase-1-model-and-renderer.md`.
 
@@ -1005,6 +1097,57 @@ every Tailwind utility for months without anything noticing.
     open**, specifically for writes: a claim about the schema is checked by
     `check:schema-drift`, and a claim about what is IN the rows is checked by
     nobody at all.
+
+26. **An event you can OBSERVE is not proof that the thing which acts on it is
+    listening yet.** `@dnd-kit/core@6.3.1`'s `KeyboardSensor.attach()` starts
+    the drag synchronously and then adds its own `keydown` listener inside a
+    `setTimeout`. The lift is announced out of the state that synchronous call
+    set — so the announcement, which is the only signal a browser test has, is
+    rendered INSIDE the window where an arrow key reaches nothing at all. One
+    run in three lost its first arrow, the walk then sat on the place it
+    started from, and the poll timed out five seconds later quoting an
+    announcement that was entirely correct. It reads as a slow machine and is
+    not: the key was never delivered, so no timeout is large enough to fix it.
+
+    Two things generalise past this library. **Waiting for a visible effect
+    proves the effect and never the wiring behind it** — and where a dependency
+    defers its own listeners, the wait has to be ORDERED against that deferral
+    rather than made longer: yielding one macrotask inside the page closes this
+    window by construction, because the sensor's timer was queued first and
+    timers of equal delay fire in the order they were queued. And **a
+    "did it happen" check built on a signal that is already dirty is vacuous**:
+    the second drag in a test begins with the first drag's own DROP
+    announcement still on screen, so `expect(liveRegion).not.toBeEmpty()`
+    passed before anything had been lifted — an assertion that could not fail,
+    in the one place a dead grip would first be noticed. Wait for a CHANGE from
+    what was there, not for presence.
+
+27. **A FIXTURE can make a right answer and a wrong one identical, and then the
+    assertion is perfect and proves nothing.** This is the failure that hides
+    best, because everything a review looks at is correct: the case reads
+    exactly like the behaviour it names, the sabotage is the honest one, and
+    the suite stays green through it. The dragging phase sprang it on subject
+    after subject. A swap and an insert-and-shift leave the same page when the
+    two places are ADJACENT, so the case had to move a block across a place
+    rather than beside one. A shift and a swap leave the same page when there
+    are only two sections, so the reorder needed a page of three. And a
+    write-order guard survived its own removal because the case
+    removed a section AFTER the one holding the other half of the exchange,
+    where both orders land identically — rewritten to remove the section
+    BEFORE it, the same removal reddens.
+
+    The diagnostic is cheap and belongs in the writing rather than the review:
+    **name the wrong behaviour you are excluding and ask whether this fixture
+    could tell it from the right one.** Two operations, one page, and the
+    answer is often no. And where the answer is no and no fixture at that level
+    can be built, say so — the dragging suite could not distinguish
+    deepest-wins from first-match in a browser at all, because `useDroppable`
+    registers children before parents and the first containing candidate simply
+    IS the deepest one in that DOM. That was reported rather than added to a
+    total, and the discriminating proof was found a level down where the
+    candidate order is the test's to make hostile. Rule 23 is the same honesty
+    about a different mechanism: there, the assertion never got the chance to
+    fail; here, it got the chance and the fixture wasted it.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

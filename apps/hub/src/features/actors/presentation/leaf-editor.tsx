@@ -1,7 +1,7 @@
 "use client";
 
 import { ImageOff, Plus, Trash2, X } from "lucide-react";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import {
   BLOCK_LIMITS,
   LEAF_KINDS,
@@ -130,6 +130,9 @@ export interface LeafEditorLabels extends IconPickerLabels {
 /**
  * What {@link LeafEditor} needs.
  *
+ * `dragHandle` is the newest: a leaf is dragged like anything else, and the
+ * grip arrives already wired rather than as props to spread.
+ *
  * `problems` is the whole page's, not this leaf's share, because the
  * components above pass one value down the tree; `problemFields` narrows it.
  */
@@ -151,6 +154,14 @@ export interface LeafEditorProps {
    * above pass one value down the tree; {@link problemFields} narrows it.
    */
   problems: readonly BlockProblem[];
+  /**
+   * The grip that lifts this piece of content, already wired.
+   *
+   * An element rather than a bag of props, for the reason `BlockCard` states:
+   * the four things a drag needs belong in one component, and `BlockSlot` is
+   * the only one in the editor that spreads them.
+   */
+  dragHandle: ReactNode;
 }
 
 /** The class every text input in this editor wears. */
@@ -218,6 +229,11 @@ const INPUT =
  * control's own background, and a transparent one is painted on white.
  * `dropdown-legibility.test.ts` guards every select in the app.
  *
+ * **Its grip comes from `BlockSlot` and it draws no grip of its own.** The
+ * four things a drag needs are spread in exactly one component, because
+ * dropping any of them leaves a control that renders, looks right and does
+ * nothing at all — silently, by mouse as well as by keyboard.
+ *
  * @returns the leaf's fields.
  */
 export function LeafEditor({
@@ -227,6 +243,7 @@ export function LeafEditor({
   lang,
   labels,
   problems,
+  dragHandle,
 }: LeafEditorProps) {
   // Ids rather than wrapping labels: a wrapping label takes its whole text
   // content as the field's accessible name, which is how the fursona editor's
@@ -288,6 +305,7 @@ export function LeafEditor({
       className="grid gap-2 rounded-lg surface border-(--edge)/40 bg-(--surface) p-2.5"
     >
       <div className="flex flex-wrap items-end gap-2">
+        {dragHandle}
         <div className="grid min-w-0 flex-1 gap-1.5">
           <label htmlFor={`${id}-kind`} className="text-xs font-medium">
             {labels.leafKind}

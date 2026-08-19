@@ -72,6 +72,7 @@ function harness(
         parentHost=""
         atBlockLimit={atBlockLimit}
         problems={problems}
+        dragHandle={null}
       />
     );
   };
@@ -493,6 +494,7 @@ describe("BlockCard", () => {
         labels={labels}
         parentHost="me.furrycolombia.com"
         atBlockLimit={false}
+        dragHandle={null}
         problems={[]}
       />,
     );

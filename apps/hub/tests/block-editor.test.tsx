@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useForm, type UseFormReturn } from "react-hook-form";
-import type { ReactNode } from "react";
-import type { DropResult } from "@hello-pangea/dnd";
 import {
   BLOCK_LIMITS,
   CONTAINER_MODES,
@@ -18,57 +16,24 @@ import { blockEditorLabels } from "./support/editor-labels";
 // PRESENTATION IS COVERAGE-EXCLUDED, so a named test is the only thing that
 // catches a gap here. What this file is for is the SHAPE of the editor — the
 // controls that exist, when they are withdrawn, and what each of them hands to
-// the tree — while `block-edits.test.ts` owns what the edits themselves do.
+// the tree — while `block-edits.test.ts` and `block-moves.test.ts` own what the
+// edits themselves do.
 
-// `DragDropContext` is flattened, exactly like `Draggable` and `Droppable`, so
-// a real drag is never driven here — that is `section-drag-reorder.spec.ts`'s
-// job, against a real browser. What this captures is the `onDragEnd` callback
-// the editor registers, so a test can call it directly and assert what a drop
-// did to the page.
-let capturedOnDragEnd: ((result: DropResult) => void) | undefined;
-
-vi.mock("@hello-pangea/dnd", () => ({
-  DragDropContext: ({
-    children,
-    onDragEnd,
-  }: {
-    children: ReactNode;
-    onDragEnd: (result: DropResult) => void;
-  }) => {
-    capturedOnDragEnd = onDragEnd;
-    return <>{children}</>;
-  },
-  Droppable: ({
-    children,
-  }: {
-    children: (p: {
-      innerRef: undefined;
-      droppableProps: Record<string, never>;
-      placeholder: null;
-    }) => ReactNode;
-  }) => (
-    <>
-      {children({ innerRef: undefined, droppableProps: {}, placeholder: null })}
-    </>
-  ),
-  Draggable: ({
-    children,
-  }: {
-    children: (p: {
-      innerRef: undefined;
-      draggableProps: Record<string, never>;
-      dragHandleProps: Record<string, never>;
-    }) => ReactNode;
-  }) => (
-    <>
-      {children({
-        innerRef: undefined,
-        draggableProps: {},
-        dragHandleProps: {},
-      })}
-    </>
-  ),
-}));
+// **THE DRAG LIBRARY IS NOT MOCKED, and the drags below are real.**
+//
+// This file used to flatten `@hello-pangea/dnd` and capture the `onDragEnd`
+// callback so a test could call it with a hand-made result. That measured the
+// handler and nothing else: it would have passed with the grips wired to
+// nothing, which is precisely how a grip in this repository shipped dead by
+// every input method. `@dnd-kit`'s hooks work in jsdom — they register no
+// ResizeObserver while nothing is dragging, and the keyboard sensor needs no
+// geometry here because a keyboard drag walks a LIST of places rather than
+// reading rectangles — so the drags below go through the real sensor, the real
+// collision function and the real `moveBlock`.
+//
+// The keyboard sensor attaches its document listener inside a `setTimeout`, so
+// the lift has to be flushed before the arrow keys are sent; `drag` below is
+// where that lives.
 
 vi.mock("lucide-react/dynamic", () => ({
   DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
@@ -110,6 +75,96 @@ function harness(sections: Block[] = []) {
   render(<Harness />);
   return () => form!.getValues().sections;
 }
+
+/** The section names of a page, in order. */
+const names = (page: Block[]) =>
+  page.map((block) => isContainer(block) && block.name_en);
+
+/** A leaf carrying a title, so an assertion can name it. */
+const titled = (title: string) => ({ ...newLeaf("text"), title_en: title });
+
+/**
+ * A page nested as deeply as the schema admits: three containers, then a leaf.
+ *
+ * @returns the section.
+ */
+const deepPage = (): ContainerBlock => ({
+  ...newContainer("grid", 2),
+  children: [
+    {
+      ...newContainer("grid", 2),
+      children: [
+        { ...newContainer("grid", 2), children: [titled("buried"), null] },
+        null,
+      ],
+    },
+    null,
+  ],
+});
+
+/**
+ * What sits in the deepest container of {@link deepPage}, by title.
+ *
+ * @param page - the page to read.
+ * @returns one entry per place, the title or nothing.
+ */
+const deepest = (page: Block[]) => {
+  const [section] = page;
+  const inner =
+    section && isContainer(section) ? section.children[0] : undefined;
+  const deep = inner && isContainer(inner) ? inner.children[0] : undefined;
+  if (!deep || !isContainer(deep)) throw new Error("not nested");
+  return deep.children.map((child) =>
+    child && "title_en" in child ? child.title_en : null,
+  );
+};
+
+/**
+ * The live region `@dnd-kit` manages itself, which is what a screen reader
+ * hears.
+ *
+ * @returns the element.
+ */
+const liveRegion = (): HTMLElement => {
+  const region = document.querySelector('[id^="DndLiveRegion-"]');
+  if (!region) throw new Error("no live region");
+  return region as HTMLElement;
+};
+
+/**
+ * Drives a real keyboard drag: lift, step, drop.
+ *
+ * The sensor attaches its own document listener inside a `setTimeout`, so the
+ * lift is flushed before any arrow key is sent — without that the steps land
+ * on nothing and the drop looks like a no-op rather than a failure.
+ *
+ * @param handle - the grip's test id.
+ * @param steps - the arrow keys to press between the lift and the drop.
+ */
+const drag = async (handle: string, steps: string[]): Promise<void> => {
+  fireEvent.keyDown(screen.getByTestId(handle), { code: "Space", key: " " });
+  await settle();
+  for (const code of steps) {
+    fireEvent.keyDown(document, { code });
+    await settle();
+  }
+  fireEvent.keyDown(document, { code: "Space", key: " " });
+  await settle();
+};
+
+/**
+ * Lets the sensor's own timers and the drop's own promise run.
+ *
+ * The keyboard sensor attaches its document listener inside a `setTimeout`, so
+ * the lift has to be flushed before an arrow key is sent — without that the
+ * steps land on nothing and the drop looks like a no-op rather than a failure.
+ * The drop itself is `async` in the library, which is the other half.
+ */
+const settle = async (): Promise<void> => {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+};
 
 /** The page's first block, narrowed to a container. */
 const firstContainer = (page: Block[]): ContainerBlock => {
@@ -183,41 +238,78 @@ describe("BlockEditor", () => {
     expect(first && !isContainer(first) && first.kind).toBe(preset!.kind);
   });
 
-  // A drop reorders the page and nothing else: a block carries no `sort_order`
-  // — the array IS the order at every depth — so there is nothing to renumber
-  // afterwards and nothing a save can send stale.
-  it("reorders sections on a drop", () => {
+  // A DROP REORDERS THE PAGE AND NOTHING ELSE: a block carries no
+  // `sort_order` — the array IS the order at every depth — so there is nothing
+  // to renumber afterwards and nothing a save can send stale.
+  it("shifts a section past its neighbour on a keyboard drag", async () => {
     const page = harness([
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
     ]);
-    capturedOnDragEnd!({
-      source: { index: 0, droppableId: "sections" },
-      destination: { index: 1, droppableId: "sections" },
-    } as DropResult);
-    expect(page().map((block) => isContainer(block) && block.name_en)).toEqual([
-      "two",
-      "one",
-    ]);
+    await drag("drag-0", ["ArrowDown"]);
+    expect(names(page())).toEqual(["two", "one"]);
   });
 
-  it("leaves the order alone when a drag is cancelled", () => {
+  it("leaves the order alone when a lift is dropped where it started", async () => {
     const page = harness([
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
     ]);
-    capturedOnDragEnd!({
-      source: { index: 0, droppableId: "sections" },
-      destination: null,
-    } as DropResult);
-    capturedOnDragEnd!({
-      source: { index: 0, droppableId: "sections" },
-      destination: { index: 0, droppableId: "sections" },
-    } as DropResult);
-    expect(page().map((block) => isContainer(block) && block.name_en)).toEqual([
-      "one",
-      "two",
+    await drag("drag-0", []);
+    expect(names(page())).toEqual(["one", "two"]);
+  });
+
+  // MOVING CONTENT BETWEEN SECTIONS IS THE THING THE OLD LIBRARY COULD NOT DO
+  // AT ALL — its own README rules out dragging from a parent list into a child
+  // one. The leaf leaves its place empty, because a place is positional and
+  // must keep the width its author gave it.
+  it("moves a piece of content into an empty place in another section", async () => {
+    const page = harness([
+      { ...newContainer("grid", 2), children: [titled("moved"), null] },
+      newContainer("grid", 2),
     ]);
+    // The places, in drawing order, are [0,0] [0,1] [1,0] [1,1]; the sections
+    // themselves are not offered, because a nested block dropped onto one
+    // would SWAP with the whole section rather than land in it.
+    await drag("drag-0.0", ["ArrowDown", "ArrowDown"]);
+
+    const [first, second] = page();
+    expect(isContainer(first) && first.children).toEqual([null, null]);
+    expect(
+      isContainer(second) &&
+        second.children.map((c) => c && "title_en" in c && c.title_en),
+    ).toEqual(["moved", null]);
+  });
+
+  // DEPTH THREE, WHICH THE SPIKE DID NOT PROVE. A leaf at the deepest seat the
+  // schema admits — three containers above it — moves to the place beside it,
+  // and nothing about the path length is special-cased anywhere.
+  it("moves a leaf at the depth cap to the place beside it", async () => {
+    const page = harness([deepPage()]);
+    await drag("drag-0.0.0.0", ["ArrowDown"]);
+    expect(deepest(page())).toEqual([null, "buried"]);
+  });
+
+  // A REFUSAL IS SAID OUT LOUD. `moveBlock` answers why a drop did not happen,
+  // and a drag that quietly changed nothing would be indistinguishable from a
+  // broken grip — which is the fault this repository keeps paying for.
+  it("says why a drop one level too deep changed nothing", async () => {
+    const page = harness([deepPage(), newContainer("grid", 2)]);
+    // The section already reaches three levels of its own, so putting it in a
+    // place at depth one would land its leaf at depth four. The places, in
+    // order, are [0] [1] [1,0] [1,1] — everything inside the section being
+    // carried is left out, because a keyboard drag walks a list and a list can
+    // simply not offer them.
+    await drag("drag-0", ["ArrowDown", "ArrowDown"]);
+    expect(screen.getByTestId("drag-refusal")).toHaveTextContent(
+      labels.drag.tooDeep,
+    );
+    // And it is SAID, not only shown — the library's own live region is what a
+    // screen reader is listening to, and a refusal that reached the page but
+    // not that region would be silent to exactly the person dragging by
+    // keyboard.
+    expect(liveRegion()).toHaveTextContent(labels.drag.tooDeep);
+    expect(deepest(page())).toEqual(["buried", null]);
   });
 
   // WITHDRAWN AT THE CAP, WITH A SENTENCE SAYING WHY. A button that silently

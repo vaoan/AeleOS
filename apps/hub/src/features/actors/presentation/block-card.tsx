@@ -1,10 +1,8 @@
 "use client";
 
-import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import {
   ChevronDown,
   ChevronRight,
-  GripVertical,
   Layers,
   Plus,
   Trash2,
@@ -39,6 +37,7 @@ import {
 } from "@/features/actors/domain/block-problems";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
 import { blockStyle } from "@/features/actors/presentation/block-style";
+import { BlockSlot } from "@/features/actors/presentation/block-slot";
 import { Block as BlockView } from "@/features/actors/presentation/blocks";
 import {
   LeafEditor,
@@ -56,6 +55,12 @@ import { tid } from "@/shared/infrastructure/test-id";
  * `style` carries the paintbrush popup's own strings, nested rather than
  * spread flat in — the popup has a `title` of its own, and a flat bag would
  * have it silently collide with this level's.
+ *
+ * `dragBlock` replaced `dragSection`, which moved up to `BlockEditorLabels`.
+ * The card no longer draws a section's own grip — the editor's slot does —
+ * and the two grips genuinely say different things to somebody who cannot see
+ * them: one moves a whole section among the sections, the other moves one
+ * piece of a page between places.
  */
 export interface BlockCardLabels extends LeafEditorLabels {
   /** Field label for a section's name. */
@@ -80,8 +85,15 @@ export interface BlockCardLabels extends LeafEditorLabels {
   collapse: string;
   /** Expands them again. */
   expand: string;
-  /** Names a section's drag handle. */
-  dragSection: string;
+  /**
+   * Names the grip on a block sitting in a place.
+   *
+   * A section's own grip is named by `BlockEditorLabels.dragSection`, because
+   * the two are different things to somebody who cannot see them: one moves a
+   * whole section among the sections, the other moves one piece of a page
+   * between places.
+   */
+  dragBlock: string;
   /** Puts a piece of content in an empty place. */
   addContent: string;
   /** Puts a section inside an empty place. */
@@ -101,9 +113,14 @@ export interface BlockCardLabels extends LeafEditorLabels {
 /**
  * What {@link BlockCard} needs.
  *
- * `problems` is the newest, and it is passed whole rather than filtered per
- * card: a container has to know about refusals BELOW it as well as on it, so
- * that a collapsed card holding one opens itself.
+ * `problems` is passed whole rather than filtered per card: a container has to
+ * know about refusals BELOW it as well as on it, so that a collapsed card
+ * holding one opens itself.
+ *
+ * `dragHandle` is the newest, and it is required rather than optional now:
+ * every container has a grip, a nested one included, because `@dnd-kit`
+ * expresses a drag between a parent and a child where the library it replaced
+ * could not.
  */
 export interface BlockCardProps {
   /** The container being edited, as the form is holding it. */
@@ -137,13 +154,14 @@ export interface BlockCardProps {
    */
   problems: readonly BlockProblem[];
   /**
-   * The drag library's own props for a section's handle.
+   * The grip that lifts this card, already wired.
    *
-   * Absent for a container nested inside one: dragging is phase 4, on
-   * `@dnd-kit`, and `@hello-pangea/dnd` cannot express a nested drag at all —
-   * its own README rules out dragging between a parent and a child list.
+   * An element rather than a bag of props, because the four things a drag
+   * needs belong in one component — see `BlockSlot`, which is the only place
+   * in the editor that spreads them. The card decides only where in its header
+   * the grip sits.
    */
-  dragHandleProps?: DraggableProvidedDragHandleProps | null;
+  dragHandle: ReactNode;
 }
 
 /**
@@ -225,8 +243,10 @@ const PLACES_CLASS = new Map<number, string>([
  *
  * **A section is a container at depth 0 that carries a name, so this is one
  * component and not two.** A container nested inside another gets the same
- * controls, minus a drag handle it has no library to be dragged by, and its
- * removal empties the place it sat in rather than taking the place away.
+ * controls, its own grip included — `@dnd-kit` expresses a drag between a
+ * parent and a child, which is the whole reason it replaced the library that
+ * could not — and its removal empties the place it sat in rather than taking
+ * the place away.
  *
  * **Narrowing the shape cannot destroy anything, and that is the model rather
  * than a rescue.** `spaces` is how many places a container lays ACROSS;
@@ -319,7 +339,7 @@ export function BlockCard({
   parentHost,
   atBlockLimit,
   problems,
-  dragHandleProps,
+  dragHandle,
 }: BlockCardProps) {
   const id = useId();
   const [hidden, setHidden] = useState(false);
@@ -420,17 +440,7 @@ export function BlockCard({
         {...tid(ids.header)}
         className="relative -m-1 flex flex-wrap items-end gap-2 rounded-lg bg-(--surface) p-1 @xl:gap-3"
       >
-        {dragHandleProps === undefined ? null : (
-          <button
-            type="button"
-            aria-label={labels.dragSection}
-            {...tid("drag-section")}
-            {...(dragHandleProps ?? {})}
-            className="cursor-grab rounded-lg p-1.5 text-(--muted)"
-          >
-            <GripVertical className="size-4" />
-          </button>
-        )}
+        {dragHandle}
 
         <button
           type="button"
@@ -681,6 +691,45 @@ function Place({
   atBlockLimit,
   problems,
 }: PlaceProps): ReactNode {
+  return (
+    <BlockSlot path={path} filled={Boolean(child)} label={labels.dragBlock}>
+      {(handle) => (
+        <PlaceContent
+          child={child}
+          path={path}
+          apply={apply}
+          lang={lang}
+          labels={labels}
+          parentHost={parentHost}
+          atBlockLimit={atBlockLimit}
+          problems={problems}
+          dragHandle={handle}
+        />
+      )}
+    </BlockSlot>
+  );
+}
+
+/**
+ * What is actually in the place, or the invitation to fill it.
+ *
+ * Split from {@link Place} so the drop target and the grip are declared once,
+ * above the three things a place may render, rather than three times inside
+ * them.
+ *
+ * @returns the contents.
+ */
+function PlaceContent({
+  child,
+  path,
+  apply,
+  lang,
+  labels,
+  parentHost,
+  atBlockLimit,
+  problems,
+  dragHandle,
+}: PlaceProps & { dragHandle: ReactNode }): ReactNode {
   if (child && isContainer(child)) {
     return (
       <BlockCard
@@ -692,6 +741,7 @@ function Place({
         parentHost={parentHost}
         atBlockLimit={atBlockLimit}
         problems={problems}
+        dragHandle={dragHandle}
       />
     );
   }
@@ -704,6 +754,7 @@ function Place({
         lang={lang}
         labels={labels}
         problems={problems}
+        dragHandle={dragHandle}
       />
     );
   }

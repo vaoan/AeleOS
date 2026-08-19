@@ -1,8 +1,12 @@
 # Blocks and grids — a page composed rather than chosen from a list
 
-**Status:** COMPLETE for phases 1 and 2, 2026-08-18. The model and the public
-renderer shipped in `feat/blocks-and-grids`; phases 3–5 are unwritten — see
-Phasing.
+**Status:** COMPLETE for phases 1 through 4, 2026-08-18. The model and the
+public renderer shipped in `feat/blocks-and-grids`; the editor and the block
+palette shipped in `feat/sections-of-spaces`; the dnd-kit migration and the
+nested reorder shipped in `feat/dragging`. **Phase 5 — DOM reduction — is the
+only one still unwritten**, and it is untouched: a card can be collapsed by
+hand, nothing collapses by default, and nothing virtualises. See Phasing, and
+read the banner below before believing anything under it.
 **Follows:** `2026-08-15-section-personality-design.md`,
 `2026-08-16-a-border-of-ones-own-design.md`, delivered in `#150`–`#155`.
 
@@ -19,8 +23,19 @@ Phasing.
 > query, and delivered the editor this one left for its phase 3 — so a
 > paragraph here standing a performance guard down until that phase has been
 > acted on. What still holds: the container/leaf split, the section as a
-> container at depth 0, the depth cap and where it is enforced, the embed
-> refusals, and the dnd-kit findings, which are still what phase 4 inherits.
+> container at depth 0, the depth cap and where it is enforced, and the embed
+> refusals.
+>
+> **The dnd-kit findings are no longer owed to anybody: they were acted on,
+> in `feat/dragging`, under `2026-08-18-dragging-design.md`.** This banner used
+> to say they were "still what phase 4 inherits" — a phase number that did not
+> match this document's own phasing, where the dnd-kit migration is phase 3.
+> All three traps were real, all three have guards, and one of the three
+> bundle figures quoted below was never measured on this repository. Read the
+> dragging spec for what each cost. Everything under Phasing about phases 3
+> and 4 being unwritten is stale for the same reason; only phase 5, the DOM
+> reduction, is still untouched.
+>
 > **It is left otherwise untouched on purpose** — rewriting a delivered
 > document to match later reality would make "complete" mean nothing, which is
 > the same argument that made the successor a new spec rather than a reopening

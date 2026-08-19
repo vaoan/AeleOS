@@ -1,11 +1,13 @@
 # Sections of spaces — the shape an author chooses, and the editor that builds it
 
-**Status:** COMPLETE for phases 1, 2 and 3, 2026-08-18 — the model, the
-renderer and the editor shipped in `feat/sections-of-spaces`. **Phase 4,
-dragging, is unwritten**: sections reorder at the top level and nothing else
-does, and moving a block between places is not implemented anywhere. Its traps
-are recorded below and in the spec this one follows; every one of them fails
-silently, so treat that section as the brief rather than as background.
+**Status:** COMPLETE, 2026-08-18 — the model, the renderer and the editor
+shipped in `feat/sections-of-spaces`, and **phase 4, dragging, has since
+shipped too**, on `feat/dragging` and under its own spec,
+`2026-08-18-dragging-design.md`. Anything may now be dragged anywhere a place
+will hold it, by mouse and by keyboard, to the depth cap. The traps this
+document recorded for that phase were all real; read the dragging spec and
+`apps/hub/src/features/actors/CLAUDE.md` for what each cost and where its guard
+is, rather than this section, which is left as the brief it was.
 **Follows:** `2026-08-17-blocks-and-grids-design.md`, delivered in `#157`–`#158`,
 and **supersedes it** on tracks and spans — that spec carries a note at its top
 saying so, and is otherwise left as it was delivered.
@@ -170,14 +172,15 @@ three.
 3. **The editor — DONE.** Shape, placement, nesting, content kinds, editing,
    removal — `block-editor.tsx`, `block-card.tsx` and `leaf-editor.tsx`, with
    the flat editor deleted and the public renderer drawing the preview.
-4. **Dragging — NOT WRITTEN.** `@dnd-kit`, nested, keyboard-operable, with the
-   traps the spike recorded: four props that must not be dropped, and an id
-   generator that causes a hydration mismatch unless given `useId()`.
+4. **Dragging — DONE**, under its own spec and its own branch. `@dnd-kit`,
+   nested, keyboard-operable, and every trap the spike recorded turned out to
+   be real: four props that must not be dropped, and an id generator that
+   causes a hydration mismatch unless given `useId()`.
 
 Phases 1 and 2 were a correction and were small. Phase 3 was the work. Phase 4
-is the refinement that makes it pleasant, and it carries the only genuine
-unknown — so what is shipped is a page somebody builds by filling and emptying
-places explicitly, which is enough to build one with and is not enough to
-rearrange one comfortably. `apps/hub/src/features/actors/CLAUDE.md` is where
-the traps are written out at length, and it is the file to read before starting
-that phase rather than this one.
+was the refinement that makes it pleasant, and it carried the only genuine
+unknown — the nesting-aware collision — which closed by ranking candidates on
+path length rather than by branching on depth.
+`apps/hub/src/features/actors/CLAUDE.md` is where all of it is written out at
+length, and it is the file to read before touching any of it rather than this
+one.

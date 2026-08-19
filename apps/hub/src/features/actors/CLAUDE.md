@@ -756,27 +756,209 @@ identical the day it was written and drifted the first time either changed,
 with no type error and no failing test; it is the same argument that already
 has the live style preview calling `blockStyle` rather than a copy of it.
 
-**Dragging reorders SECTIONS and nothing else, and the rest of it is phase 4.**
-Moving a block between places needs `@dnd-kit`; `@hello-pangea/dnd`, which the
-top-level list still uses, cannot express a nested drag at all — its own README
-rules out dragging from a parent list into a child one, and rules out grid
-layouts separately, and this model is nested grids and nothing else. Until then
-a place is filled and emptied explicitly, which is enough to build a page with:
-dragging is how a page gets rearranged pleasantly, not how one gets built.
+### Dragging (2026-08-18) — anything, anywhere a place will hold it
 
-What the spike recorded is waiting for whoever does it, and every part of it
-fails SILENTLY. dnd-kit hands you the collision decision, and a nesting-naive
-one resolves `over.id` to a leaf INSIDE the hovered container, so the container
-reorder never fires — it was proved working at two levels and **not** at three,
-which is the level this model allows. The one prop that left this repo's own
-drag handle dead becomes four you must not drop, and **a mocked test hides
-those identically**, because the mock supplies what the real hook would have
-and therefore cannot observe whether the component passed it on — so the
-keyboard end-to-end specs are ported rather than dropped. And dnd-kit's id
-generator is a module-level counter rather than React's `useId`, so two server
-renders in one warm process emit different ids and every request after the
-first hydrates mismatched; `<DndContext id={useId()}>` is the fix, and
-forgetting it is invisible in development.
+`@hello-pangea/dnd` is **gone**. `@dnd-kit/core` and `@dnd-kit/sortable`
+replaced it, in the editor and in the fursona list both, because the old
+library's own README rules out dragging from a parent list into a child one and
+rules out grids separately — and this model is nested grids and nothing else.
+Measured on exactly what each is imported for — an entry importing those exact
+symbols, React external, minified and gzipped — **13.9 kB min+gzip against
+28.5**, so the migration is a net reduction. The spike had quoted 17 against
+31, which was the right direction and the wrong pair; the measured one is the
+one above, and it is written down here because the spike's number is what the
+plan told the next person to confirm.
+
+**The two halves of a drag live in `domain/`, not in a component.**
+`moveBlock` (`block-moves.ts`) decides what a drop MEANS — an exchange of two
+places, so a drop onto an empty place is a move, onto an occupied one a swap,
+and between two top-level entries a shift — and refuses a cycle, a drop past
+the cap and a stale path by name. `block-drag.ts` decides which two places a
+gesture NAMED. `block-editor.tsx` only wires the library to those two.
+
+**A drop is an EXCHANGE, and insert-and-shift was refused rather than
+overlooked.** The flow semantics a list would give you — insert here, and
+everything after it slides along — assume the gaps between things carry no
+meaning, and here they carry the author's. A place is positional: place three
+is place three whether or not anything sits in it, and an empty place keeps its
+width and draws nothing. Sliding the row along to make room would therefore
+move the empty places somebody deliberately left, which is the one thing a
+rearrangement must not do to a shape they chose. So the drop onto an empty
+place is a move and the source place is left empty, the drop onto an occupied
+place is a swap and exactly two things change, and the top level shifts —
+because the page's own list has no empty entries to disturb and cannot hold
+one. That last is one operation and not a third code path: a top-level entry
+whose place is taken by nothing is removed and the ones after it move up, which
+is also how a leaf reaches depth 0. Three separate implementations of "a drop"
+would be three chances to disagree with each other later.
+
+**`moveBlock` answers; it never throws.** It returns
+`{ ok: true; blocks } | { ok: false; refusal }`, because refusing a drop is an
+ordinary outcome of dragging rather than a fault in its caller — the person
+gets a sentence, not a stack. A no-op comes back `ok: true` carrying **the very
+array it was handed**, so the drag layer compares by identity and skips the
+write rather than diffing a tree to discover nothing happened. The refusals are
+`into itself`, `too deep` and `no such place`. The first is checked in **both
+directions**, and that is the half worth remembering: an exchange moves the
+TARGET as well, so dropping a block onto its own ancestor is the same fault
+mirrored, and the mirror is the one an implementation misses. Neither can hang
+— the writes are immutable, so no reference cycle can form; what forms instead
+is a duplicated subtree that the other half of the exchange then deletes, which
+is a section silently lost. `too deep` measures the carried subtree's own reach
+against the target's depth and the displaced block against the source's, and a
+container counts a level for itself even when all its places are empty, because
+the deepest level admits a leaf and refuses a container. `no such place` is for
+the path a stale drag produces — an empty path, a negative index, one past the
+end, a walk through a leaf or through an empty place — and it exists because
+writing at one past the end extends an array with holes, which is not a page
+any renderer or schema has a shape for. Returning the tree unchanged there
+would be the "the control did nothing" fault this repository keeps paying for.
+
+**The collision resolves to the DEEPEST place under the pointer**, and that is
+the whole of the nesting problem rather than a heuristic about it. Places nest,
+so every enclosing place contains the pointer too; a collision function that
+ranks by distance to a rectangle's centre answers a leaf INSIDE the container
+somebody is hovering — silently, one level in, which is what the spike hit on
+its first run. Ranking by path length is the same fact as "innermost" at any
+depth, which is why it holds at three where the spike's own detector was
+two-level-specific. It is proved at the cap in `block-drag.test.ts`, on four
+nested rectangles that all contain the same point, beside a fifth candidate off
+to the side that does not — and, since `tests/e2e/block-drag.spec.ts`, against
+rectangles a real layout engine measured. **The case that actually
+discriminates nearest-centre is not the flagship one**: at the point the
+flagship uses, nearest-centre happens to answer the innermost place as well.
+The case below it, where the parent's centre is nearer than the child's, is
+the one that would redden.
+
+**That browser proof is newer than it looks, and the sentence it replaced was
+the misleading kind.** This paragraph used to end "and again in a browser",
+crediting `section-drag-reorder.spec.ts` — which drives the KEYBOARD, and the
+keyboard branch of `detectCollision` hands back the place the coordinate getter
+already chose without calling `placeUnderPointer` at all. So the collision
+geometry had never met a rectangle Chromium produced. `block-drag.spec.ts` runs
+FOUR of its cases by mouse and by keyboard both — the swap, the move in and out
+of a nested place, the section reorder and the refusal one level past the
+depth cap — and its pointer
+half asserts the `data-over` highlight BEFORE releasing — `useDroppable`'s own `isOver`, which is
+the collision's answer rendered. Swap the ranking for nearest-centre and the
+pointer case reddens at the highlight while the keyboard case stays green.
+
+**One sabotage of that ranking could not be made to fail, and it is written
+down rather than counted.** Replacing deepest-wins with "the first candidate
+containing the pointer" changes nothing at all in a browser, because
+`useDroppable` registers from the inside out — children before parents — so the
+first containing candidate happens to be the deepest one in this DOM. That is a
+property of dnd-kit's registration order and not of our ranking, and it could
+change under us without a word. What the browser proof actually defends is the
+ranking against a WRONG one, which is the nearest-centre sabotage above. The
+claim that the candidates' ORDER is not being leant on is proved a level down
+instead, in `block-drag.test.ts`, where the same first-match sabotage does
+redden — the rectangles there are written by the test rather than registered by
+a hook, so their order is ours to make hostile.
+
+Two of its fixtures are shaped against a trap this repository has sprung
+before: a swap and an insert-and-shift leave two ADJACENT places reading the
+same thing, and a shift and a swap leave the same page when there are only two
+sections. So the swap is asserted across a place that is not adjacent to its
+source, and the reorder has a three-section page of its own. And a section
+dropped on its own SECOND place rather than on the deep one inside its nested
+container, because `Dos` needs two levels and a drop two levels down is refused
+by the DEPTH rule whether or not the cycle guard exists — the shallow place is
+the only drop whose sole fault is the cycle. The same shape had already caught
+`block-moves.test.ts`'s write-order case, which removed a section AFTER the one
+holding the other half of the exchange, where both orders land identically and
+the guard's removal changed nothing. See rule 27 in the root `CLAUDE.md`: the
+assertion is fine in every one of these, and the fixture is what could not tell
+a right answer from a wrong one.
+
+**A keyboard drag in a browser must yield a macrotask after the lift.**
+`KeyboardSensor.attach()` starts the drag synchronously and adds its own
+`keydown` listener in a `setTimeout`, so the lift is announced inside a window
+where the first arrow key reaches nothing — a flake in one run of three, wearing
+the face of a slow machine. See rule 26 in the root `CLAUDE.md` for the general
+shape. **Every lift in the browser suite goes through
+`tests/e2e/support/drag.ts` now**, and that is not tidiness: the fix was
+written inline in `block-drag.spec.ts` and the two specs the same phase ported
+kept the unprotected lift, so the mechanism was diagnosed once and applied
+once. A helper is the only version of "written down" that the next spec cannot
+skip.
+
+**The walk steps over places nothing is showing, and it did not.**
+`placeOrder` walks the whole STORED tree while a collapsed card renders none of
+its places — so those places register no droppable and dnd-kit has no rectangle
+for them. Landing on one used to keep the new path and fall back to the current
+coordinates, after which the collision named an unregistered id, `over`
+resolved to **null**, and the drag announced "it stayed where it was" while it
+was still running; a space bar pressed there dropped nothing, because
+`onDragEnd` returns early on a null `over`. `coordinateGetter` keeps stepping
+until it finds a place the library is measuring, so every place the keyboard
+can reach is one a drop can land on. The guard is
+`block-drag.spec.ts`'s collapsed-card walk, and its fixture collapses a card in
+the MIDDLE of the walk on purpose — collapse the last one instead and the fault
+looks like a walk that stopped, which is a legal answer at the end of a list.
+
+**A refusal sentence is retired by the next EDIT, not by the next drag.** It
+used to be cleared only in `onDragStart`, so a refused drop left its line on
+the page through everything somebody did afterwards, describing a gesture they
+had moved on from and blocks they may since have deleted. `apply` clears it,
+which is every control in the editor.
+
+**A keyboard drag walks a LIST and a mouse drag reads geometry**, and they
+differ on purpose. A pointer cannot avoid the places inside the block it is
+carrying — they are under it — while a list can simply not offer them, so
+arrowing a section along lands on the next section rather than inside the very
+thing being moved. The coordinate getter names the place and the collision
+function is told it directly; inferring it back from a synthesised rectangle
+would be a second, guessable answer to a question already settled.
+
+**The top level is a plane of its own, and this is the ruling most likely to
+look like a bug.** `moveBlock` SHIFTS two paths of length one and SWAPS a
+length-one path against a nested one — so a nested block resolved onto a
+section's own path would exchange with the whole section, putting the section
+in the place the block left. Legal, and not what anybody dragging content
+between two sections meant. So a section's own place is offered only to another
+top-level entry; something from inside a section hovering a section's chrome
+resolves to **nothing at all**, which is the deliberate answer rather than a
+gap. A section dropped INTO a place still works, and is how a leaf reaches
+depth 0.
+
+**A refused drop says why.** `MoveRefusal`'s three values have words in both
+catalogues — `dragRefusedIntoItself`, `dragRefusedTooDeep`,
+`dragRefusedNoSuchPlace` — shown beside the heading and spoken to dnd-kit's own
+live region. A drag that quietly changed nothing would be indistinguishable
+from a broken grip, which is the fault this repository keeps paying for. Note
+which refusals are reachable from which input: `too deep` and `no such place`
+from both, `into itself` from the POINTER only, because the keyboard list
+leaves a block's own descendants out.
+
+**Every grip in the editor comes from `BlockSlot`, and that is the point of the
+component.** `useDraggable` returns four things that have to land on two
+elements: `setNodeRef` on the element the library measures and moves,
+`listeners` and `attributes` on the grip, and `setActivatorNodeRef` on the grip
+so focus returns to it after a keyboard drop. Drop `listeners` or the node ref
+and the grip still renders, still looks right, and starts no drag at all — by
+mouse OR keyboard, with no error. Drop `attributes` and only the keyboard dies.
+**A mocked test hides all of it identically**, because the mock supplies what
+the real hook would have and cannot observe whether the component passed it on;
+`block-slot.test.tsx` drives the real hook inside a real `DndContext` and keeps
+a deliberately unwired grip beside it as a permanent control.
+
+**`<DndContext id={useId()}>` on both contexts.** dnd-kit's id generator is a
+module-level counter, and that id reaches the DOM as `aria-describedby` on
+every grip — so two server renders in one warm process emit different ids and
+every request after the first hydrates mismatched, invisibly in development.
+
+**The announcements are ours.** dnd-kit's defaults are hard-coded English built
+out of raw drag ids, which here are place paths and actor refs.
+`dragAnnouncements` (`presentation/drag-announcements.ts`) says the app's own
+words with the thing's one-based position appended — appended rather than
+interpolated, because these strings are resolved on the server and handed to a
+client component as data, and a function cannot make that crossing.
+
+**A grip's test id is its PATH** — `drag-0` is the first section, `drag-0.1.2`
+is a block three levels down — and each place's wrapper carries `place-<path>`.
+A block has no identity but where it sits, and a path-shaped id is what lets a
+spec name a grip at the cap without counting.
 
 **`domain/section-block-shim.ts` survives, converting ONE way.** It used to run
 at the write as well, because the only editor there was composed flat sections

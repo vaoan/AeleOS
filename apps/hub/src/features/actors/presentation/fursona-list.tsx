@@ -1,8 +1,24 @@
 "use client";
 
-import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import type { DropResult } from "@hello-pangea/dnd";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 import { useQueryStates } from "nuqs";
+import { useId } from "react";
 import {
   applyFursonaFilters,
   isFiltering,
@@ -15,20 +31,39 @@ import {
   type FursonaFiltersBarLabels,
 } from "@/features/actors/presentation/fursona-filters-bar";
 import {
+  dragAnnouncements,
+  type DragAnnouncementLabels,
+} from "@/features/actors/presentation/drag-announcements";
+import {
   FursonaRow,
   type FursonaRowActor,
   type FursonaRowLabels,
 } from "@/features/actors/presentation/fursona-row";
 import type { Arrangement } from "@/features/actors/infrastructure/fursona-arrangement";
 import type { Actor } from "@/features/actors/infrastructure/fursonas";
+import { tid } from "@/shared/infrastructure/test-id";
 
-/** Translated strings the list and everything inside it needs. */
+/**
+ * Translated strings the list and everything inside it needs.
+ *
+ * `drag` is what a drag says out loud, nested for the reason the editor's bag
+ * nests its own: `dropped` and `cancelled` would collide flat with words this
+ * bag already has.
+ */
 export interface FursonaListLabels
   extends FursonaRowLabels, FursonaFiltersBarLabels {
   /** Shown when the person owns no fursonas at all. */
   empty: string;
   /** Shown when a filter matches nothing — deliberately not the same. */
   noMatches: string;
+  /**
+   * What a drag says out loud.
+   *
+   * Nested for the same reason the editor's is: these are the same five words
+   * in both places and they carry a `dropped` and a `cancelled` that would
+   * collide with this bag's own vocabulary if they were flat.
+   */
+  drag: DragAnnouncementLabels;
 }
 
 /**
@@ -100,6 +135,101 @@ function emptyNote(
   return null;
 }
 
+/** How far a pointer travels before a press becomes a drag rather than a click. */
+const DRAG_THRESHOLD = 8;
+
+/**
+ * How the keyboard steps a row through the list.
+ *
+ * Hoisted so its identity is stable: `useSensor` memoizes on the options
+ * object, and one built inline would rebuild the sensor on every render.
+ */
+const KEYBOARD_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
+
+/**
+ * One row, wired to be sorted.
+ *
+ * A component of its own because `useSortable` is a hook and a row is one of
+ * many: calling it in a loop is not allowed, and calling it inside
+ * `FursonaRow` would make that component know which library moves it.
+ *
+ * **The four things it returns land on two elements**, and dropping any of
+ * them fails silently. `setNodeRef` goes on the row, so the library has
+ * something to measure and move; `listeners` and `attributes` go on the grip,
+ * so a press or a space bar starts a drag at all; and `setActivatorNodeRef`
+ * goes on the grip too, so focus returns to it after a keyboard drop rather
+ * than to the top of the page.
+ *
+ * @returns the row.
+ */
+function SortableFursonaRow({
+  actor,
+  address,
+  labels,
+  featured,
+  canArrange,
+  onPin,
+  onDelete,
+}: {
+  /** The fursona this row is for. */
+  actor: FursonaRowActor;
+  /** The owner's public address, when they have one. */
+  address?: string;
+  /** Already-translated strings. */
+  labels: FursonaListLabels;
+  /** Whether this fursona is pinned first. */
+  featured: boolean;
+  /** False while the list is filtered, when reordering has no meaning. */
+  canArrange: boolean;
+  /** Called with the actor ref and the pin state being asked for. */
+  onPin: (actorRef: string, featured: boolean) => void;
+  /** Called with the actor ref once a delete is confirmed. */
+  onDelete: (actorRef: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: actor.actorRef, disabled: !canArrange });
+
+  return (
+    <FursonaRow
+      address={address}
+      actor={actor}
+      labels={labels}
+      featured={featured}
+      canArrange={canArrange}
+      drag={{
+        ref: setNodeRef,
+        style: {
+          transform: CSS.Translate.toString(transform),
+          transition,
+          zIndex: isDragging ? 1 : undefined,
+        },
+        handle: (
+          <button
+            type="button"
+            ref={setActivatorNodeRef}
+            aria-label={labels.dragToReorder}
+            {...tid("drag-fursona")}
+            {...attributes}
+            {...listeners}
+            className="cursor-grab touch-none text-(--muted)"
+          >
+            <GripVertical className="size-4" />
+          </button>
+        ),
+      }}
+      onPin={onPin}
+      onDelete={onDelete}
+    />
+  );
+}
+
 /**
  * The fursona list: filters, rows, and the three writes.
  *
@@ -111,17 +241,21 @@ function emptyNote(
  * one fursona. A reorder computed from a narrowed view would move rows the
  * person cannot see, and one fursona has nothing to be ordered against.
  *
- * **Its `Draggable` carries `disableInteractiveElementBlocking`, and the grip
- * is the handle rather than the row.** `FursonaRow`'s grip is a real
- * `<button>`, and `@hello-pangea/dnd` refuses to start a drag — by mouse or
- * keyboard — whose source event targets a tag it treats as interactive,
- * unless told otherwise; without this the grip was focusable, announced
- * itself as "drag to reorder", and could not start a drag by any input. The
- * handle is scoped to the grip alone, not the whole row: a row-wide handle
- * would also need the same opt-out, which lifts the interactive-tag block off
- * every button and link the row carries too, turning a keyboard Space on
- * Edit, Pin or Delete into a drag lift instead of that control's own action.
- * Matches the fix already shipped in `SectionEditor`/`SectionCard`.
+ * **The grip is the handle and the row is not.** `useSortable`'s listeners go
+ * on the grip alone — `setActivatorNodeRef` is exactly that seam — so a
+ * keyboard Space on Edit, Pin or Delete stays that control's own action, and a
+ * press anywhere on the row does not begin a drag.
+ *
+ * **`<DndContext id={useId()}>`, and it is not decoration.** dnd-kit generates
+ * ids from a module-level counter, and that id reaches the DOM as
+ * `aria-describedby` on every grip — so two server renders in one warm process
+ * emit different ids and every request after the first hydrates mismatched.
+ * React's own id is stable across the pair.
+ *
+ * **The announcements are ours rather than the library's.** dnd-kit's defaults
+ * are hard-coded English built out of raw drag ids, which here are actor
+ * refs — a UUID read out at somebody in the wrong language. `dragAnnouncements`
+ * names a row by its position instead.
  *
  * **The write happens on drop, not on a later save.** `onDragEnd` calls
  * `reorder.mutate` for every row whose position changed, which is
@@ -144,6 +278,7 @@ function emptyNote(
  * @returns the list.
  */
 export function FursonaList({ initial, labels, address }: FursonaListProps) {
+  const dndId = useId();
   const [filters] = useQueryStates(fursonaSearchParams);
   const { rows, arrangement } = useFursonas(initial);
   const { remove, reorder, pin } = useFursonaMutations();
@@ -159,6 +294,25 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
   const canArrange = !filtering && fursonas.length > 1;
   const ownsNone = rows.filter((row) => row.kind === "fursona").length === 0;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: DRAG_THRESHOLD },
+    }),
+    useSensor(KeyboardSensor, KEYBOARD_OPTIONS),
+  );
+
+  // Not memoized: the list's own order is what a position is read from, and
+  // that changes with every filter and every write, so a `useMemo` over it
+  // buys nothing and costs the React Compiler its ability to memoize the
+  // component at all. `useDndMonitor` re-registers a listener when this
+  // changes, which is a set add and remove in an effect.
+  const accessibility = {
+    announcements: dragAnnouncements(labels.drag, (id) =>
+      String(fursonas.findIndex((row) => row.actorRef === id) + 1),
+    ),
+    screenReaderInstructions: { draggable: labels.drag.instructions },
+  };
+
   /**
    * Writes the new position of every row the drop moved.
    *
@@ -166,13 +320,16 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
    * round trip, and rewriting positions that did not change would multiply
    * them for no gain.
    *
-   * @param result - where the drag started and ended.
+   * @param event - what was lifted, and what it was dropped on.
    */
-  const onDragEnd = (result: DropResult): void => {
-    const to = result.destination?.index;
-    if (to === undefined || to === result.source.index) return;
+  const onDragEnd = (event: DragEndEvent): void => {
+    const { active, over } = event;
+    if (!over || over.id === active.id) return;
+    const from = fursonas.findIndex((row) => row.actorRef === active.id);
+    const to = fursonas.findIndex((row) => row.actorRef === over.id);
+    if (from === -1 || to === -1) return;
     const next = [...fursonas];
-    const [moved] = next.splice(result.source.index, 1);
+    const [moved] = next.splice(from, 1);
     if (moved) next.splice(to, 0, moved);
     for (const [index, row] of next.entries()) {
       const before = fursonas[index];
@@ -194,71 +351,52 @@ export function FursonaList({ initial, labels, address }: FursonaListProps) {
 
       {note ? <p className="text-sm text-(--muted)">{note}</p> : null}
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="fursonas">
-          {(dropProvided) => (
-            <ul
-              ref={dropProvided.innerRef}
-              {...dropProvided.droppableProps}
-              className="overflow-hidden rounded-xl surface border-(--edge) bg-(--surface)"
-            >
-              {person ? (
-                <FursonaRow
-                  address={address}
-                  key={person.actorRef}
-                  actor={person}
-                  labels={labels}
-                  featured={false}
-                  canArrange={false}
-                  dragHandleProps={null}
-                  onPin={() => {}}
-                  onDelete={() => {}}
-                />
-              ) : null}
+      <DndContext
+        id={dndId}
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        accessibility={accessibility}
+        onDragEnd={onDragEnd}
+      >
+        <ul className="overflow-hidden rounded-xl surface border-(--edge) bg-(--surface)">
+          {person ? (
+            <FursonaRow
+              address={address}
+              key={person.actorRef}
+              actor={person}
+              labels={labels}
+              featured={false}
+              canArrange={false}
+              drag={null}
+              onPin={() => {}}
+              onDelete={() => {}}
+            />
+          ) : null}
 
-              {fursonas.map((row, index) => (
-                <Draggable
-                  key={row.actorRef}
-                  draggableId={row.actorRef}
-                  index={index}
-                  isDragDisabled={!canArrange}
-                  // The handle is a real `<button>` (the grip in `FursonaRow`),
-                  // and `@hello-pangea/dnd` refuses to start ANY drag — mouse
-                  // or keyboard — whose source event targets a tag it treats
-                  // as interactive, unless the `Draggable` opts out. Matches
-                  // `SectionEditor`'s `Draggable`, which needed the same fix
-                  // for the same reason.
-                  disableInteractiveElementBlocking
-                >
-                  {(dragProvided) => (
-                    <div
-                      ref={dragProvided.innerRef}
-                      {...dragProvided.draggableProps}
-                    >
-                      <FursonaRow
-                        address={address}
-                        actor={row}
-                        labels={labels}
-                        featured={Boolean(
-                          arrangement.find((a) => a.actorRef === row.actorRef)
-                            ?.featured,
-                        )}
-                        canArrange={canArrange}
-                        dragHandleProps={dragProvided.dragHandleProps}
-                        onPin={(actorRef, featured) =>
-                          pin.mutate({ actorRef, featured })
-                        }
-                        onDelete={(actorRef) => remove.mutate(actorRef)}
-                      />
-                    </div>
-                  )}
-                </Draggable>
-              ))}
-              {dropProvided.placeholder}
-            </ul>
-          )}
-        </Droppable>
-      </DragDropContext>
+          <SortableContext
+            items={fursonas.map((row) => row.actorRef)}
+            strategy={verticalListSortingStrategy}
+          >
+            {fursonas.map((row) => (
+              <SortableFursonaRow
+                key={row.actorRef}
+                address={address}
+                actor={row}
+                labels={labels}
+                featured={Boolean(
+                  arrangement.find((a) => a.actorRef === row.actorRef)
+                    ?.featured,
+                )}
+                canArrange={canArrange}
+                onPin={(actorRef, featured) =>
+                  pin.mutate({ actorRef, featured })
+                }
+                onDelete={(actorRef) => remove.mutate(actorRef)}
+              />
+            ))}
+          </SortableContext>
+        </ul>
+      </DndContext>
     </div>
   );
 }
