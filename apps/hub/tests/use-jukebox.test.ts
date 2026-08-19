@@ -21,10 +21,21 @@ const tracks: PlaylistTrack[] = [
 function mount(list: readonly PlaylistTrack[] = tracks) {
   const hook = renderHook(() => useJukebox(list));
   const audio = document.createElement("audio");
+  // jsdom implements neither, and they are the whole point of the cases below:
+  // a chrome may change its own button all it likes, but if nothing calls
+  // `pause()` the music keeps playing.
+  const calls: string[] = [];
+  audio.play = vi.fn(() => {
+    calls.push("play");
+    return Promise.resolve();
+  });
+  audio.pause = vi.fn(() => {
+    calls.push("pause");
+  });
   act(() => {
     hook.result.current.attach(audio);
   });
-  return { ...hook, audio };
+  return { ...hook, audio, calls };
 }
 
 /** Pretends the element learned how long the track is. */
@@ -70,6 +81,70 @@ describe("useJukebox", () => {
     expect(result.current.status).toBe("paused");
     act(() => result.current.toggle());
     expect(result.current.status).toBe("playing");
+  });
+
+  describe("driving the element itself", () => {
+    it("plays the element when play is pressed", () => {
+      const { result, calls } = mount();
+      act(() => result.current.toggle());
+      expect(calls).toContain("play");
+    });
+
+    it("PAUSES the element, not merely the button", () => {
+      // The bug this exists for: the chrome was driven by `autoPlay`, which is
+      // a LOAD-TIME attribute. Flipping it to false after playback has begun
+      // does nothing whatever, so the icon changed to a play triangle while the
+      // music carried on — a control that accepts a choice and changes nothing.
+      const { result, calls } = mount();
+      act(() => result.current.toggle());
+      act(() => result.current.toggle());
+      expect(result.current.status).toBe("paused");
+      expect(calls).toEqual(["play", "pause"]);
+    });
+
+    it("swallows a refused play rather than crashing the page", async () => {
+      // `play()` rejects when a browser's autoplay policy blocks it or the
+      // source will not load. Neither is an error here — the element's own
+      // `error` event drives the CORS retry — and an unhandled rejection would
+      // surface on somebody's public page for an outcome already handled.
+      const hook = renderHook(() => useJukebox(tracks));
+      const audio = document.createElement("audio");
+      audio.play = vi.fn(() => Promise.reject(new Error("NotAllowedError")));
+      audio.pause = vi.fn();
+      act(() => hook.result.current.attach(audio));
+
+      const unhandled: unknown[] = [];
+      const onUnhandled = (event: PromiseRejectionEvent) => {
+        unhandled.push(event.reason);
+      };
+      globalThis.addEventListener?.("unhandledrejection", onUnhandled);
+      act(() => hook.result.current.toggle());
+      await act(async () => {
+        await Promise.resolve();
+      });
+      globalThis.removeEventListener?.("unhandledrejection", onUnhandled);
+
+      expect(audio.play).toHaveBeenCalled();
+      expect(unhandled).toEqual([]);
+      // And the player still believes it is playing, because the element's own
+      // error event is what decides otherwise.
+      expect(hook.result.current.status).toBe("playing");
+    });
+
+    it("pauses the element when stopped", () => {
+      const { result, calls } = mount();
+      act(() => result.current.select(0));
+      act(() => result.current.stop());
+      expect(calls).toContain("pause");
+    });
+
+    it("plays again when resumed", () => {
+      const { result, calls } = mount();
+      act(() => result.current.toggle());
+      act(() => result.current.toggle());
+      act(() => result.current.toggle());
+      expect(calls).toEqual(["play", "pause", "play"]);
+    });
   });
 
   it("stops and rewinds", () => {

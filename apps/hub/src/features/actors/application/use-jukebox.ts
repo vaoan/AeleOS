@@ -192,6 +192,12 @@ function within(value: number): number {
  * supplies a number and applies the answer, so the choosing can be tested
  * exhaustively over every draw rather than sampled through a hook.
  *
+ *
+ * **It DRIVES the element rather than describing it**, calling `play()` and
+ * `pause()` from an effect. A chrome that merely rendered `autoPlay={playing}`
+ * changed its own icon and nothing else, because `autoplay` is a load-time
+ * attribute — which is how pause once failed to stop the music.
+ *
  * @param tracks - the playlist, in order.
  * @returns the state and the controls.
  */
@@ -220,6 +226,35 @@ export function useJukebox(tracks: readonly PlaylistTrack[]): Jukebox {
     const audio = audioRef.current;
     if (audio) audio.volume = volume;
   }, [volume, index]);
+
+  // **The element is DRIVEN here, and this is the bug that made it necessary.**
+  // A chrome used to be handed `autoPlay={playing}` and nothing else — but
+  // `autoplay` is a LOAD-TIME attribute: flipping it to false after playback
+  // has begun does nothing whatever. So pressing pause changed the icon to a
+  // play triangle while the music carried on, which is the exact
+  // "accepts a choice and changes nothing" fault this feature refuses
+  // everywhere else.
+  //
+  // `index` is a dependency as well as `status`, because moving to the next
+  // track leaves `status` at "playing" and the new source would otherwise sit
+  // loaded and silent.
+  //
+  // `play()` rejects when the source cannot be loaded, and that is not an error
+  // here: the element's own `error` event drives the CORS retry, and a rejected
+  // promise nobody catches is an unhandled rejection on somebody's public page.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (status === "playing") {
+      void audio.play().catch(() => {
+        // Swallowed deliberately: the element's own `error` event is what
+        // drives the CORS retry, and an unhandled rejection here would surface
+        // on somebody's public page for an outcome already handled.
+      });
+      return;
+    }
+    audio.pause();
+  }, [status, index]);
 
   const select = useCallback((next: number) => {
     setIndex(next);

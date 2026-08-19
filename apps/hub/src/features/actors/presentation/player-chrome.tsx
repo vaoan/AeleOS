@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 
 import { useJukebox } from "@/features/actors/application/use-jukebox";
 import type { ChromeKind } from "@/features/actors/domain/chromes";
+import { tid } from "@/shared/infrastructure/test-id";
 import {
   marqueeLine,
   type PlaylistTrack,
@@ -77,12 +78,14 @@ function ChromeButton(props: {
   readonly label: string;
   readonly onClick: () => void;
   readonly pressed?: boolean;
+  readonly testId: string;
   readonly children: ReactNode;
 }): ReactNode {
-  const { label, onClick, pressed, children } = props;
+  const { label, onClick, pressed, testId, children } = props;
   return (
     <button
       type="button"
+      {...tid(testId)}
       aria-label={label}
       aria-pressed={pressed}
       onClick={onClick}
@@ -112,6 +115,13 @@ function ChromeButton(props: {
  * track is chosen there is none, and falling through to the empty label over a
  * playlist holding songs contradicts the list under it — which is what the
  * showcase page showed before this was fixed.
+ *
+ *
+ * **The media element is not told to play by an attribute.** `useJukebox` calls
+ * `play()` and `pause()` on it directly; this only mounts it and hands over the
+ * ref. Every transport control carries a test id, because the browser suite
+ * queries by test id rather than by role — and play and pause share
+ * `player-toggle`, since they are one control whose label toggles.
  *
  * @param props - the chrome, the playlist and its words.
  * @returns the player.
@@ -174,7 +184,6 @@ export function PlayerChrome(props: PlayerChromeProps): ReactNode {
             ref={attach}
             src={track?.url}
             crossOrigin={crossOrigin}
-            autoPlay={playing}
             className="absolute inset-0 size-full"
             {...audioProps}
           />
@@ -186,7 +195,6 @@ export function PlayerChrome(props: PlayerChromeProps): ReactNode {
           ref={attach}
           src={track?.url}
           crossOrigin={crossOrigin}
-          autoPlay={playing}
           {...audioProps}
         />
       )}
@@ -221,10 +229,15 @@ export function PlayerChrome(props: PlayerChromeProps): ReactNode {
         </label>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <ChromeButton label={labels.previous} onClick={back}>
+          <ChromeButton
+            testId="player-previous"
+            label={labels.previous}
+            onClick={back}
+          >
             <SkipBack size={14} aria-hidden />
           </ChromeButton>
           <ChromeButton
+            testId="player-toggle"
             label={playing ? labels.pause : labels.play}
             onClick={toggle}
           >
@@ -234,13 +247,18 @@ export function PlayerChrome(props: PlayerChromeProps): ReactNode {
               <Play size={14} aria-hidden />
             )}
           </ChromeButton>
-          <ChromeButton label={labels.stop} onClick={stop}>
+          <ChromeButton testId="player-stop" label={labels.stop} onClick={stop}>
             <Square size={14} aria-hidden />
           </ChromeButton>
-          <ChromeButton label={labels.next} onClick={forward}>
+          <ChromeButton
+            testId="player-next"
+            label={labels.next}
+            onClick={forward}
+          >
             <SkipForward size={14} aria-hidden />
           </ChromeButton>
           <ChromeButton
+            testId="player-shuffle"
             label={labels.shuffle}
             pressed={mode.shuffle}
             onClick={toggleShuffle}
@@ -248,6 +266,7 @@ export function PlayerChrome(props: PlayerChromeProps): ReactNode {
             <Shuffle size={14} aria-hidden />
           </ChromeButton>
           <ChromeButton
+            testId="player-repeat"
             label={labels.repeat}
             pressed={mode.repeat}
             onClick={toggleRepeat}

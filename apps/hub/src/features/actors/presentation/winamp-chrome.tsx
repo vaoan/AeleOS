@@ -23,6 +23,7 @@ import {
   chromeStyle,
   fillPercent,
 } from "@/features/actors/presentation/chrome-style";
+import { tid } from "@/shared/infrastructure/test-id";
 import {
   controlStyle,
   sliderStyle,
@@ -76,14 +77,17 @@ function AmpControl(props: {
   readonly onClick: () => void;
   readonly pressed?: boolean;
   readonly sheets: ReadonlyMap<string, string>;
+  readonly testId: string;
   readonly children: ReactNode;
 }): ReactNode {
-  const { control, sprite, label, onClick, pressed, sheets, children } = props;
+  const { control, sprite, label, onClick, pressed, sheets, testId, children } =
+    props;
   const style = controlStyle(control, sprite, sheets);
   const painted = style?.backgroundImage !== undefined;
   return (
     <button
       type="button"
+      {...tid(testId)}
       aria-label={label}
       aria-pressed={pressed}
       onClick={onClick}
@@ -120,6 +124,11 @@ function AmpControl(props: {
  * track is chosen there is none, and falling through to the empty label over a
  * playlist holding songs contradicts the list under it — which is what the
  * showcase page showed before this was fixed.
+ *
+ *
+ * **The audio element is not told to play by an attribute.** `useJukebox` calls
+ * `play()` and `pause()` on it directly; this only mounts it. Controls carry
+ * the same test ids as the token chrome, so one browser spec covers both.
  *
  * @param props - the playlist, the skin, and every word it says.
  * @returns the window.
@@ -175,7 +184,6 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
         ref={attach}
         src={track?.url}
         crossOrigin={crossOrigin}
-        autoPlay={playing}
         {...audioProps}
       />
 
@@ -263,6 +271,7 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
 
         <AmpControl
           control="previous"
+          testId="player-previous"
           sprite="MAIN_PREVIOUS_BUTTON"
           label={labels.previous}
           onClick={back}
@@ -272,6 +281,7 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
         </AmpControl>
         <AmpControl
           control="play"
+          testId="player-toggle"
           sprite={playing ? "MAIN_PAUSE_BUTTON" : "MAIN_PLAY_BUTTON"}
           label={playing ? labels.pause : labels.play}
           onClick={toggle}
@@ -285,6 +295,7 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
         </AmpControl>
         <AmpControl
           control="stop"
+          testId="player-stop"
           sprite="MAIN_STOP_BUTTON"
           label={labels.stop}
           onClick={stop}
@@ -294,6 +305,7 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
         </AmpControl>
         <AmpControl
           control="next"
+          testId="player-next"
           sprite="MAIN_NEXT_BUTTON"
           label={labels.next}
           onClick={forward}
@@ -303,6 +315,7 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
         </AmpControl>
         <AmpControl
           control="shuffle"
+          testId="player-shuffle"
           sprite={
             mode.shuffle
               ? "MAIN_SHUFFLE_BUTTON_SELECTED"
@@ -317,6 +330,7 @@ export function WinampChrome(props: WinampChromeProps): ReactNode {
         </AmpControl>
         <AmpControl
           control="repeat"
+          testId="player-repeat"
           sprite={
             mode.repeat ? "MAIN_REPEAT_BUTTON_SELECTED" : "MAIN_REPEAT_BUTTON"
           }

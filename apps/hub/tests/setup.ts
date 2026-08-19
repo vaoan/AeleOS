@@ -25,3 +25,19 @@ class NoResizeObserver implements ResizeObserver {
   disconnect() {}
 }
 globalThis.ResizeObserver ??= NoResizeObserver;
+
+// jsdom implements neither `HTMLMediaElement.prototype.play` nor `.pause` —
+// both throw "Not implemented" — and `useJukebox` now DRIVES the element rather
+// than describing it, because `autoplay` is a load-time attribute and flipping
+// it off never stopped anything. So any test that merely renders a player would
+// die on a mechanism it was not testing.
+//
+// **These are supplied because every real browser has them, which is a
+// different thing from supplying behaviour the product does not.** They record
+// nothing and assert nothing; a test that cares whether the element was played
+// or paused replaces them with its own spies, as `use-jukebox.test.ts` does.
+// What playback really does is proved in `tests/e2e/`, against a browser.
+HTMLMediaElement.prototype.play = function play() {
+  return Promise.resolve();
+};
+HTMLMediaElement.prototype.pause = function pause() {};
