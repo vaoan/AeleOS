@@ -29,7 +29,18 @@ export type JukeboxStatus = "stopped" | "playing" | "paused";
  */
 export type JukeboxFidelity = "trying" | "full" | "plain";
 
-/** Everything a chrome needs to draw itself and drive playback. */
+/**
+ * Everything a chrome needs to draw itself and drive playback.
+ *
+ * **DESTRUCTURE this rather than reading through it, and that is a contract
+ * rather than a style note.** {@link Jukebox.attach} is a ref, and React 19's
+ * `react-hooks/refs` back-propagates: once it lands in a `ref=` position the
+ * compiler treats the WHOLE object as holding a ref, and every unrelated read —
+ * `volume`, `status`, `mode` — becomes "cannot access refs during render".
+ * Binding the fields separately confines the inference to the one value that
+ * really is one. Making `attach` a callback rather than a `RefObject` does NOT
+ * avoid this; the taint is on the object, not on the type.
+ */
 export interface Jukebox {
   /** Which track is loaded, or -1 when none is. */
   readonly index: number;
@@ -55,8 +66,21 @@ export interface Jukebox {
   readonly fidelity: JukeboxFidelity;
   /** True when the current track could not be played at all. */
   readonly unplayable: boolean;
-  /** Attach to the `<audio>` element. */
-  readonly audioRef: React.RefObject<HTMLAudioElement | null>;
+  /**
+   * Hand the media element to the hook. Use as `ref={jukebox.attach}`.
+   *
+   * **A callback ref rather than a `RefObject`, and that is not a preference.**
+   * React 19's `react-hooks/refs` treats an object CONTAINING a ref as a ref
+   * throughout, so returning one here made every unrelated read — `volume`,
+   * `status`, `mode` — an error for accessing a ref during render. A callback
+   * is a plain function, so the state bag stays a state bag.
+   *
+   * `HTMLMediaElement` rather than `HTMLAudioElement`, because a `player`
+   * chrome mounts a `<video>` where a `jukebox` mounts an `<audio>`. Everything
+   * this hook touches is declared on the shared base, so one hook serves both
+   * without knowing which it drives.
+   */
+  readonly attach: (element: HTMLMediaElement | null) => void;
   /** What to put on the element's `crossOrigin`, or undefined for none. */
   readonly crossOrigin: "anonymous" | undefined;
   /** Play, or pause if already playing. */
@@ -79,7 +103,7 @@ export interface Jukebox {
   toggleShuffle(): void;
   /** Turn repeat on or off. */
   toggleRepeat(): void;
-  /** The element's own handlers, to spread onto `<audio>`. */
+  /** The element's own handlers, to spread onto the media element. */
   readonly audioProps: {
     onTimeUpdate(): void;
     onLoadedMetadata(): void;
@@ -145,7 +169,7 @@ function within(value: number): number {
 }
 
 /**
- * Drives an `<audio>` element from a playlist, for any retro chrome.
+ * Drives a media element from a playlist, for any retro chrome.
  *
  * **One hook serves both chromes**, because what a Winamp window and a WMP7
  * window do is identical — they differ only in how they are drawn. A second
@@ -172,7 +196,10 @@ function within(value: number): number {
  * @returns the state and the controls.
  */
 export function useJukebox(tracks: readonly PlaylistTrack[]): Jukebox {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLMediaElement | null>(null);
+  const attach = useCallback((element: HTMLMediaElement | null) => {
+    audioRef.current = element;
+  }, []);
   const [index, setIndex] = useState(-1);
   const [status, setStatus] = useState<JukeboxStatus>("stopped");
   const [elapsed, setElapsed] = useState(0);
@@ -313,7 +340,7 @@ export function useJukebox(tracks: readonly PlaylistTrack[]): Jukebox {
     mode,
     fidelity,
     unplayable,
-    audioRef,
+    attach,
     crossOrigin: fidelity === "plain" ? undefined : "anonymous",
     toggle,
     stop,

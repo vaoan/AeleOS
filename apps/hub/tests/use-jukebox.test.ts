@@ -22,7 +22,7 @@ function mount(list: readonly PlaylistTrack[] = tracks) {
   const hook = renderHook(() => useJukebox(list));
   const audio = document.createElement("audio");
   act(() => {
-    hook.result.current.audioRef.current = audio;
+    hook.result.current.attach(audio);
   });
   return { ...hook, audio };
 }
