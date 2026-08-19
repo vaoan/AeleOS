@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
+
+import messages from "@/shared/infrastructure/i18n/messages/en.json";
 import { render, screen } from "@testing-library/react";
 import {
   BLOCK_LIMITS,
@@ -96,14 +99,22 @@ function renderBlock(
     path = "0",
     parentHost = "me.furrycolombia.com",
   } = over;
+  // **The real provider with the real catalogue.** The retro player leaves are
+  // the first here to reach for `useTranslations`, and rendering them bare
+  // throws — which is right, because every page in this app renders inside
+  // `NextIntlClientProvider`. Stubbing the translation function would measure a
+  // different program; supplying what production supplies means a missing
+  // catalogue key fails here too.
   return render(
-    <Block
-      block={block}
-      locale={locale}
-      depth={depth}
-      path={path}
-      parentHost={parentHost}
-    />,
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <Block
+        block={block}
+        locale={locale}
+        depth={depth}
+        path={path}
+        parentHost={parentHost}
+      />
+    </NextIntlClientProvider>,
   );
 }
 
@@ -812,11 +823,13 @@ describe("the containment context", () => {
       }),
     );
     const { container: root } = render(
-      <PublicBlocks
-        blocks={page}
-        locale="en"
-        parentHost="me.furrycolombia.com"
-      />,
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <PublicBlocks
+          blocks={page}
+          locale="en"
+          parentHost="me.furrycolombia.com"
+        />
+      </NextIntlClientProvider>,
     );
     // Read through `getAttribute` rather than `className`: an SVG element's
     // `className` is an `SVGAnimatedString`, which has no `split` — and a
@@ -1235,9 +1248,14 @@ const PROVIDER_SAMPLE = new Map<string, string>([
   ["furry-engineer", "https://furry.engineer/@user/123456"],
 ]);
 
-describe("a player leaf", () => {
+describe("an embed leaf", () => {
   /**
-   * A `player` leaf pointing at something.
+   * A `post` leaf pointing at something.
+   *
+   * **These cases used to say `player`.** The two embed kinds were one leaf
+   * under two names — byte-identical field sets, one renderer — and `post`
+   * absorbed both, so every provider that framed under `player` frames here.
+   * `player` is a retro media player now.
    *
    * @param url - the address its author pasted.
    * @param over - anything else to change.
@@ -1246,7 +1264,7 @@ describe("a player leaf", () => {
   const playerLeaf = (
     url: string | undefined,
     over: Record<string, unknown> = {},
-  ) => leaf({ kind: "player", link_url: url, ...over });
+  ) => leaf({ kind: "embed", link_url: url, ...over });
 
   /**
    * The box a frame is sized by.
@@ -1476,7 +1494,7 @@ describe("a player leaf", () => {
 
   it("captions the player with its author's own words", () => {
     renderBlock(playerLeaf("https://youtu.be/dQw4w9WgXcQ"));
-    expect(screen.getByTestId("block-player").textContent).toBe(
+    expect(screen.getByTestId("block-embed").textContent).toBe(
       "English titleEnglish words.",
     );
   });
@@ -1501,7 +1519,7 @@ describe("a post leaf", () => {
    * @returns the leaf.
    */
   const postLeaf = (url: string | undefined) =>
-    leaf({ kind: "post", link_url: url });
+    leaf({ kind: "embed", link_url: url });
 
   it("frames a post the table can place", () => {
     renderBlock(postLeaf("https://t.me/channelname/123"));
@@ -1522,13 +1540,31 @@ describe("a post leaf", () => {
     expect(document.querySelector('[data-icon="cloud"]')).not.toBeNull();
   });
 
-  // The only provider that reads `parentHost` is Twitch, whose player is a
-  // video rather than a post — so a post resolves without one and a Twitch
-  // address takes the branded chip.
-  it("chips a Twitch address rather than framing a video in a post's column", () => {
+  // **This case INVERTED when the two embed kinds merged, and the previous
+  // behaviour was deliberate rather than a bug.** It used to chip, and the
+  // reason was written down: Twitch is the only provider reading `parentHost`,
+  // its player is a video rather than a post, and a video did not belong in a
+  // post's column — the `player` leaf framed it instead.
+  //
+  // There is no post's column any more. `post` absorbed every embed, and it
+  // already frames YouTube, Vimeo, TikTok and Dailymotion, so a chipped Twitch
+  // would be the one arbitrary case rather than the consistent one. The old
+  // reasoning did not become wrong; its premise went away.
+  it("frames a Twitch address now that one kind holds every embed", () => {
     renderBlock(postLeaf("https://twitch.tv/luna"), {
       parentHost: "me.furrycolombia.com",
     });
+    const frame = document.querySelector("iframe");
+    expect(frame).not.toBeNull();
+    // Twitch refuses to load unless `parent=` names the embedding domain, so
+    // the merged kind has to pass it — which is what changed here.
+    expect(frame?.getAttribute("src")).toContain("parent=me.furrycolombia.com");
+  });
+
+  it("still chips a Twitch address when no parent host is known", () => {
+    // Without it Twitch would frame a player guaranteed to error, so the
+    // resolver refuses and the chip is the honest outcome.
+    renderBlock(postLeaf("https://twitch.tv/luna"), { parentHost: "" });
     expect(document.querySelector("iframe")).toBeNull();
     expect(screen.getByTestId("block-social")).toBeInTheDocument();
   });
@@ -2529,7 +2565,7 @@ describe("PublicBlocks", () => {
         blocks={[
           container({
             children: [
-              leaf({ kind: "player", link_url: "https://twitch.tv/aeleos" }),
+              leaf({ kind: "embed", link_url: "https://twitch.tv/aeleos" }),
             ],
           }),
         ]}

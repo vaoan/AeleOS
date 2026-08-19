@@ -75,7 +75,7 @@ test.afterAll(async () => {
  * @returns the leaf.
  */
 const player = (title: string, url: string) =>
-  leaf({ kind: "player", title_en: title, link_url: url });
+  leaf({ kind: "embed", title_en: title, link_url: url });
 
 /**
  * How much viewport one frame actually gets, found by its accessible name.
@@ -148,7 +148,7 @@ test.describe("the height a frame is served at", () => {
             ),
             player("A video", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
             leaf({
-              kind: "post",
+              kind: "embed",
               title_en: "A post",
               link_url: "https://t.me/telegram/83",
             }),
@@ -231,7 +231,7 @@ test.describe("where a frame narrower than its place sits", () => {
           spaces: 1,
           children: [
             leaf({
-              kind: "post",
+              kind: "embed",
               title_en: "A post",
               link_url: "https://t.me/telegram/83",
             }),
@@ -355,12 +355,12 @@ test.describe("a page with no JavaScript at all", () => {
               "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
             ),
             leaf({
-              kind: "post",
+              kind: "embed",
               title_en: "A post",
               link_url: "https://t.me/telegram/83",
             }),
             leaf({
-              kind: "post",
+              kind: "embed",
               title_en: "A status",
               link_url: "https://mastodon.social/@user/117111027223007552",
             }),

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
+
+import messages from "@/shared/infrastructure/i18n/messages/en.json";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import {
   BLOCK_LIMITS,
@@ -475,28 +478,33 @@ describe("BlockCard", () => {
       ...newLeaf(kind),
       title_en: `One ${kind}`,
     }));
+    // The card's live preview renders the real `Block`, and a retro player leaf
+    // reaches for `useTranslations` — so the editor's own suite needs the
+    // provider the app always supplies, exactly as the public renderer's does.
     const { container: root } = render(
-      <BlockCard
-        block={
-          {
-            ...newContainer("grid", BLOCK_LIMITS.spaces),
-            name_en: "About",
-            children: [
-              { ...newContainer("grid", 3), children: [...kinds, null] },
-              ...kinds,
-              null,
-            ],
-          } as ContainerBlock
-        }
-        path={[0]}
-        apply={() => undefined}
-        lang="en"
-        labels={labels}
-        parentHost="me.furrycolombia.com"
-        atBlockLimit={false}
-        dragHandle={null}
-        problems={[]}
-      />,
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <BlockCard
+          block={
+            {
+              ...newContainer("grid", BLOCK_LIMITS.spaces),
+              name_en: "About",
+              children: [
+                { ...newContainer("grid", 3), children: [...kinds, null] },
+                ...kinds,
+                null,
+              ],
+            } as ContainerBlock
+          }
+          path={[0]}
+          apply={() => undefined}
+          lang="en"
+          labels={labels}
+          parentHost="me.furrycolombia.com"
+          atBlockLimit={false}
+          dragHandle={null}
+          problems={[]}
+        />
+      </NextIntlClientProvider>,
     );
     // Through `getAttribute`, because an SVG element's `className` is an
     // `SVGAnimatedString` with no `split` — and lucide glyphs are all over

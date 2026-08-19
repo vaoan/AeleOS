@@ -325,9 +325,19 @@ as $$
     'container',
     -- The plain leaves: a heading with prose, an anchor, a pasted picture.
     'text', 'link', 'picture',
-    -- The embedded leaves. Each resolves through the provider table rather
-    -- than framing whatever somebody pasted.
-    'player', 'post', 'social',
+    -- The embedded leaf. `embed` frames ANY provider the table recognises, and
+    -- it resolves through that table rather than framing whatever somebody
+    -- pasted. It absorbed what `player` used to mean: the two were one leaf
+    -- under two names, with byte-identical field sets and one renderer, and
+    -- they differed only in a fallback and in an undocumented bug where one
+    -- passed Twitch's `parent=` and the other did not.
+    'embed', 'social',
+    -- The retro players, which are OURS rather than a provider's. `player` has
+    -- a video pane and `jukebox` does not, and that line is LICENSING rather
+    -- than technical: YouTube's terms forbid hiding its player, so only a
+    -- chrome with somewhere to show one may offer a YouTube address. Both read
+    -- `rows` as a playlist and `icon` as which chrome to wear.
+    'player', 'jukebox',
     -- The leaves that invert the title/description pair when they render —
     -- the description is the big text and the title is its label. That
     -- inversion is a rendering fact rather than a schema one, so the fields

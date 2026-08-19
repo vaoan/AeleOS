@@ -148,3 +148,106 @@ export function marqueeLine(
   const named = [track.artist, track.title].filter(Boolean).join(" - ");
   return `${position}. ${named || track.url}`;
 }
+
+/**
+ * One cell of a stored row, as the block schema shapes it.
+ *
+ * Declared here rather than imported so this module stays free of the schema —
+ * it is read by a client component, and the schema pulls in zod.
+ */
+interface StoredCell {
+  /** The English text, which is the default language of a cell. */
+  readonly text_en?: string;
+  /** The Spanish text, when its author wrote one. */
+  readonly text_es?: string;
+}
+
+/**
+ * Which cell of a row holds what.
+ *
+ * **The positions are the contract, and they are opaque in the data.** A
+ * playlist is stored in a leaf's `rows` — the same field a `table` leaf uses —
+ * because that field is already validated and capped by the live database at
+ * 50 rows of 8 cells, with no migration written and no statement hand-applied.
+ * A purpose-built `playlist` array would have arrived with no cap at all until
+ * somebody wrote one, which `validate_block`'s own comment calls the thing it
+ * exists to prevent.
+ *
+ * What it costs is this table: nothing in the stored JSON says cell 0 is an
+ * address. It is named once here and once in {@link rowsFromPlaylist}, and
+ * `playlist.test.ts` pins the round trip — but it IS a convention, which is
+ * what rule 15 warns about, so it is written down where both directions can
+ * see it rather than inferred at each end.
+ */
+const CELL = { url: 0, title: 1, artist: 2 } as const;
+
+/**
+ * The text of one cell, in the language somebody is reading.
+ *
+ * Same rule as `contentFor`: the reader's language when its author wrote one,
+ * and English otherwise. **A song title is the author's own writing, so an
+ * empty Spanish cell is somebody who has not written it yet and never a fault.**
+ *
+ * @param cell - the stored cell, if there is one.
+ * @param locale - the language being read.
+ * @returns the text, or an empty string.
+ */
+function cellText(cell: StoredCell | undefined, locale: string): string {
+  if (!cell) return "";
+  const localised = locale === "en" ? undefined : cell.text_es;
+  const chosen = localised?.trim() ? localised : cell.text_en;
+  return chosen?.trim() ?? "";
+}
+
+/**
+ * A stored `rows` array read as a playlist.
+ *
+ * **A row with no address is dropped**, because a track that cannot be played
+ * is not a track — it would sit in the list, be selectable, and do nothing.
+ * That is the one silent-control failure this feature refuses everywhere.
+ * A row whose title and artist are both blank is kept: `marqueeLine` falls back
+ * to the address, so it is still tellable from its neighbours.
+ *
+ * @param rows - the leaf's stored rows, if it has any.
+ * @param locale - the language being read.
+ * @returns the playlist, in stored order.
+ */
+export function playlistFromRows(
+  rows: readonly (readonly StoredCell[])[] | undefined,
+  locale: string,
+): PlaylistTrack[] {
+  return (rows ?? []).flatMap((cells) => {
+    const url = cellText(cells[CELL.url], locale);
+    if (!url) return [];
+    const title = cellText(cells[CELL.title], locale);
+    const artist = cellText(cells[CELL.artist], locale);
+    return [
+      {
+        url,
+        ...(title ? { title } : {}),
+        ...(artist ? { artist } : {}),
+      },
+    ];
+  });
+}
+
+/**
+ * A playlist written back as stored rows.
+ *
+ * The other half of {@link CELL}, so the editor and the renderer cannot
+ * disagree about which cell is which. **English only**: the editor writes what
+ * somebody typed into the default language, and a Spanish title is added by
+ * editing the row rather than by this function inventing one.
+ *
+ * @param tracks - the playlist.
+ * @returns rows, ready to store.
+ */
+export function rowsFromPlaylist(
+  tracks: readonly PlaylistTrack[],
+): { text_en: string }[][] {
+  return tracks.map((track) => [
+    { text_en: track.url },
+    { text_en: track.title ?? "" },
+    { text_en: track.artist ?? "" },
+  ]);
+}

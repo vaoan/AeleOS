@@ -223,27 +223,20 @@ const PLAYER_CHROMES = [
 /**
  * Every chrome a `jukebox` may wear, in the order the editor offers them.
  *
+ * **The first entry is the DEFAULT, and Winamp is deliberately not it.** Not
+ * taste: Winamp is the one chrome behind a dynamic import, so it produces no
+ * server markup at all — a public page wearing it by default would render
+ * nothing for its player until hydration, where every other leaf on this
+ * platform paints something a reader can see before script runs. `EmbedFrame`
+ * sets that standard and this follows it. Winamp is one click away in the
+ * picker, and choosing it is a choice to wait a moment for the sprite engine.
+ *
+ * `leaf-fields.test.tsx` is what caught this, by rendering a `jukebox` to
+ * static markup and finding the fields it claims to read change nothing.
+ *
  * See {@link PLAYER_CHROMES} for why this is `as const`.
  */
 const JUKEBOX_CHROMES = [
-  {
-    id: "winamp",
-    kind: "jukebox",
-    sprites: true,
-    // Sprites decide everything a skin paints. These are read only by the
-    // parts NO sheet covers — the fallback text when a skin ships no
-    // `text.bmp`, and the frame the window sits in.
-    tokens: {
-      "--chrome-shell": "#31363f",
-      "--chrome-edge": "#0f1115",
-      "--chrome-ink": "#00ff4a",
-      "--chrome-ink-dim": "#1d7f3c",
-      "--chrome-accent": "#00ff4a",
-      "--chrome-radius": "0px",
-      "--chrome-gloss": "none",
-      "--chrome-font": "ui-monospace, 'Cascadia Mono', Consolas, monospace",
-    },
-  },
   {
     id: "wmp64",
     kind: "jukebox",
@@ -262,6 +255,24 @@ const JUKEBOX_CHROMES = [
       "--chrome-gloss": "none",
       "--chrome-shadow": "none",
       "--chrome-font": "Tahoma, 'MS Sans Serif', ui-sans-serif, sans-serif",
+    },
+  },
+  {
+    id: "winamp",
+    kind: "jukebox",
+    sprites: true,
+    // Sprites decide everything a skin paints. These are read only by the
+    // parts NO sheet covers — the fallback text when a skin ships no
+    // `text.bmp`, and the frame the window sits in.
+    tokens: {
+      "--chrome-shell": "#31363f",
+      "--chrome-edge": "#0f1115",
+      "--chrome-ink": "#00ff4a",
+      "--chrome-ink-dim": "#1d7f3c",
+      "--chrome-accent": "#00ff4a",
+      "--chrome-radius": "0px",
+      "--chrome-gloss": "none",
+      "--chrome-font": "ui-monospace, 'Cascadia Mono', Consolas, monospace",
     },
   },
   {

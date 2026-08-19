@@ -271,13 +271,14 @@
       "text": "Texto",
       "link": "Enlace",
       "picture": "Imagen",
-      "player": "Reproductor",
-      "post": "Publicación",
+      "player": "Reproductor multimedia",
       "social": "Chip social",
       "stat": "Dato",
       "quote": "Cita",
       "progress": "Progreso",
-      "table": "Tabla"
+      "table": "Tabla",
+      "jukebox": "Reproductor de música",
+      "embed": "Contenido incrustado"
     },
     "leafFields": {
       "text": {
@@ -296,14 +297,9 @@
         "hint": "Se muestra debajo de la imagen."
       },
       "player": {
-        "title": "Título del marco",
+        "title": "Nombre del reproductor",
         "description": "Leyenda",
         "hint": "Se muestra debajo del reproductor."
-      },
-      "post": {
-        "title": "Título del marco",
-        "description": "Leyenda",
-        "hint": "Se muestra debajo de la publicación."
       },
       "social": {
         "title": "Etiqueta del chip"
@@ -327,6 +323,16 @@
         "title": "Leyenda",
         "description": "Una nota debajo",
         "hint": "Se muestra debajo de la leyenda."
+      },
+      "jukebox": {
+        "title": "Nombre del reproductor",
+        "description": "Leyenda",
+        "hint": "Se muestra debajo del reproductor."
+      },
+      "embed": {
+        "title": "Título del marco",
+        "description": "Leyenda",
+        "hint": "Se muestra debajo del contenido incrustado."
       }
     },
     "tableRows": "Filas",
@@ -336,7 +342,19 @@
     "removeCell": "Quitar esta celda",
     "cellText": "Celda",
     "problemTitle": "Esto necesita un título en inglés para poder guardar la página.",
-    "problemGeneric": "Algo de aquí fue rechazado. Revisa los campos de este bloque."
+    "problemGeneric": "Algo de aquí fue rechazado. Revisa los campos de este bloque.",
+    "playerPlay": "Reproducir",
+    "playerPause": "Pausar",
+    "playerStop": "Detener",
+    "playerPrevious": "Pista anterior",
+    "playerNext": "Pista siguiente",
+    "playerShuffle": "Aleatorio",
+    "playerRepeat": "Repetir",
+    "playerVolume": "Volumen",
+    "playerSeek": "Buscar",
+    "playerPlaylist": "Lista de reproducción",
+    "playerUnplayable": "Ese enlace no se pudo reproducir.",
+    "playerEmpty": "Aún no hay canciones"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

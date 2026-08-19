@@ -325,23 +325,23 @@ expressible by more than another welded pair ever could while losing none of
 the work. Somebody looking for `gallery` should find this table rather than
 conclude it was dropped.
 
-| the old `type`   | what it is now                                       |
-| ---------------- | ---------------------------------------------------- |
-| `cards`          | a `grid` container                                   |
-| `gallery`        | a `grid` container holding `picture` leaves          |
-| `masonry`        | a `masonry` container                                |
-| `carousel`       | a `carousel` container                               |
-| `tabs`           | a `tabs` container                                   |
-| `accordion`      | an `accordion` container                             |
-| `timeline`       | a `timeline` container                               |
-| `links`          | any container holding `link` leaves                  |
-| `socials`        | any container holding `social` leaves                |
-| `posts`          | any container holding `post` leaves                  |
-| `video`, `music` | `player` leaves                                      |
-| `stats`          | `stat` leaves                                        |
-| `quote`          | `quote` leaves                                       |
-| `progress`       | `progress` leaves                                    |
-| `two-column`     | a `table` leaf — or a `stat` leaf, for a single pair |
+| the old `type`   | what it is now                                                |
+| ---------------- | ------------------------------------------------------------- |
+| `cards`          | a `grid` container                                            |
+| `gallery`        | a `grid` container holding `picture` leaves                   |
+| `masonry`        | a `masonry` container                                         |
+| `carousel`       | a `carousel` container                                        |
+| `tabs`           | a `tabs` container                                            |
+| `accordion`      | an `accordion` container                                      |
+| `timeline`       | a `timeline` container                                        |
+| `links`          | any container holding `link` leaves                           |
+| `socials`        | any container holding `social` leaves                         |
+| `posts`          | any container holding `embed` leaves                          |
+| `video`, `music` | `embed` leaves — NOT `player`, which means something else now |
+| `stats`          | `stat` leaves                                                 |
+| `quote`          | `quote` leaves                                                |
+| `progress`       | `progress` leaves                                             |
+| `two-column`     | a `table` leaf — or a `stat` leaf, for a single pair          |
 
 What the old list had no entry for at all, and the model now admits without a
 new layout: a `text` leaf for a paragraph of prose, and a `table` leaf for the
@@ -401,18 +401,19 @@ dial, which belongs in the style bag where it composes with every mode.
 
 ### The leaf kinds
 
-| kind       | what it holds        | `title_*`       | `description_*`   | also reads         |
-| ---------- | -------------------- | --------------- | ----------------- | ------------------ |
-| `text`     | a paragraph          | heading         | body              | —                  |
-| `link`     | a button out         | button text     | subtitle          | `link_url`, `icon` |
-| `picture`  | a picture            | alt text        | caption           | `image_url`        |
-| `player`   | an embedded player   | frame title     | caption           | `link_url`         |
-| `post`     | an embedded post     | frame title     | caption           | `link_url`         |
-| `social`   | a branded chip       | chip label      | **not rendered**  | `link_url`, `icon` |
-| `stat`     | one fact             | **the label**   | **the value**     | —                  |
-| `quote`    | a quotation          | **who said it** | **what was said** | —                  |
-| `progress` | one measured thing   | **the label**   | **the value**     | —                  |
-| `table`    | rows of paired cells | the caption     | a note under it   | `rows`             |
+| kind       | what it holds        | `title_*`       | `description_*`   | also reads                 |
+| ---------- | -------------------- | --------------- | ----------------- | -------------------------- |
+| `text`     | a paragraph          | heading         | body              | —                          |
+| `link`     | a button out         | button text     | subtitle          | `link_url`, `icon`         |
+| `picture`  | a picture            | alt text        | caption           | `image_url`                |
+| `embed`    | anybody's embed      | frame title     | caption           | `link_url`, `icon`         |
+| `player`   | a retro media player | player name     | caption           | `rows`, `icon`             |
+| `jukebox`  | a retro music player | player name     | caption           | `rows`, `icon`, `link_url` |
+| `social`   | a branded chip       | chip label      | **not rendered**  | `link_url`, `icon`         |
+| `stat`     | one fact             | **the label**   | **the value**     | —                          |
+| `quote`    | a quotation          | **who said it** | **what was said** | —                          |
+| `progress` | one measured thing   | **the label**   | **the value**     | —                          |
+| `table`    | rows of paired cells | the caption     | a note under it   | `rows`                     |
 
 **`stat`, `quote` and `progress` invert the pair**, and that is the one thing
 here somebody will get wrong — it has been got wrong once already. Everywhere
@@ -454,6 +455,88 @@ read the ICON**, because an address neither can frame falls back to a link or
 to a branded chip and both draw one — and a Bluesky `post` is ALWAYS the chip,
 since `embed.bsky.app` hard-refuses the handle a shareable address carries. A
 single-state measurement reports that as a field nobody reads.
+
+### The players (2026-08-19) — and a name that was taken back
+
+Three kinds where there were two, and one of the two changed meaning. Read this
+before assuming `player` still means what it did.
+
+| kind      | what it is                   | plays                               |
+| --------- | ---------------------------- | ----------------------------------- |
+| `embed`   | ANY provider's own embed     | whatever `resolveEmbed` recognises  |
+| `player`  | a retro media player of OURS | audio and video files; a video pane |
+| `jukebox` | a retro music player of OURS | audio files; no video pane          |
+
+**`embed` is `post` renamed, and it absorbed `player`.** The two embed kinds
+were one leaf under two names: `LEAF_FIELDS` gave them byte-identical entries,
+both resolved through `EMBED_PROVIDERS` and both rendered `EmbedFrame`. Nothing
+about an embed varies per leaf — the height, the shape and the aspect all come
+from the provider table — which is why no per-embed option was ever needed and
+why the merge cost nothing. It is called `embed` rather than `post` because it
+holds YouTube, Spotify and Tidal as well as Instagram and Mastodon, and "post"
+described about a third of what it does.
+
+**The two kinds differed in exactly two ways, and one of them has been
+misdescribed once already — do not repeat it.** `player` passed `parentHost` to
+`resolveEmbed` and `post` did not, so the same Twitch address framed under one
+and chipped under the other. That looks exactly like a bug and **it was
+deliberate**, with the reason written above the case: Twitch is the only
+provider reading `parentHost`, its player is a `video` shape rather than a post,
+and a video did not belong in a post's 420px column. A review of this branch
+called it "a latent bug nobody chose" in a commit message, a pull request and
+the spec before anybody read the comment. The merged kind passes `parentHost`
+now — but because the premise went away, not because the old behaviour was
+wrong. There is no post's column, and a chipped Twitch beside a framed YouTube
+would be the one arbitrary case.
+
+**A `player` has a video pane and a `jukebox` does not, and that line is
+LICENSING rather than technical.** A playlist can hold a YouTube address and
+play it by driving the provider's own embed with `postMessage` over
+`enablejsapi=1` — no third-party script, no `script-src` origin, and `frame-src`
+already allows the host. But YouTube's terms forbid hiding or obscuring the
+player, so only a chrome with somewhere to SHOW it may offer that. Winamp's
+275x116 window, whose largest free area is a 76x16 visualiser, has nowhere.
+Splitting by capability rather than by product is what makes the rule survive
+the next chrome.
+
+**Not one new field was added for any of it.** A playlist is `rows` — the same
+field a `table` leaf uses — because that field is already capped by the live
+database at 50 rows of 8 cells, with no migration written and no statement
+hand-applied. `icon` names the CHROME, and `link_url` on a `jukebox` is the
+`.wsz` skin. The whole database delta for the feature is the kind list in
+`is_block_kind()`.
+
+Two consequences that are easy to get wrong:
+
+- **`icon` is not an icon for these two kinds.** `LEAF_FIELDS` says what the
+  RENDERER reads, which is what `leaf-fields.test.tsx` measures; which control
+  the EDITOR draws for it is a separate decision, and for these two it is a
+  chrome picker rather than the glyph picker.
+- **The skin is deliberately absent from `LEAF_FIELDS`.** Its sheets arrive from
+  a fetch in an effect, so writing one changes no static markup and that table
+  cannot honestly claim it is read. It gets a bespoke control with a live
+  preview instead.
+
+**A chrome is DATA — a token set over one component per kind** — which is what
+makes a long roster cost a few hundred bytes rather than a chunk each.
+`chromes.ts` holds it. Winamp is the ONE exception and carries a `sprites` flag:
+it is a sprite engine reading a real `.wsz`, so it sits behind its own dynamic
+import and a page wearing any other chrome never loads it.
+
+**Winamp is deliberately NOT the default jukebox chrome**, and the reason is not
+taste. Being behind a dynamic import it produces no server markup, so a public
+page wearing it by default would render nothing for its player until hydration —
+where every other leaf here paints something before script runs. `EmbedFrame`
+sets that standard. `leaf-fields.test.tsx` is what caught it, by finding that a
+`jukebox`'s claimed fields changed no static markup.
+
+**No skin artwork is in the repository, and none should be added.** A control
+whose sprite is missing draws itself from the chrome's tokens in the classic
+layout's own box, so the unskinned window is this app's own look, a museum skin
+makes it authentic, and there is ONE rendering path rather than a special
+unskinned mode that would drift. It falls out of `controlStyle` answering the
+BOX even with no picture — which is also why a skin supplying only some sheets
+draws the rest of the window instead of piling it into the top-left corner.
 
 ### Depth is capped at three, and the database is what enforces it
 

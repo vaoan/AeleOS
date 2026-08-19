@@ -273,12 +273,12 @@ const EVERY_KIND = [
     mode: "carousel",
     children: [
       leaf({
-        kind: "player",
+        kind: "embed",
         title_en: "A song",
         link_url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
       }),
       leaf({
-        kind: "post",
+        kind: "embed",
         title_en: "A post",
         link_url: "https://t.me/telegram/83",
       }),

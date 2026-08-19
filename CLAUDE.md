@@ -1149,6 +1149,39 @@ every Tailwind utility for months without anything noticing.
     about a different mechanism: there, the assertion never got the chance to
     fail; here, it got the chance and the fixture wasted it.
 
+28. **A migration applied from a Windows checkout writes CRLF into every
+    function body, and only CI can see it.** `supabase db reset --linked` sends
+    the files as they sit on disk. With `core.autocrlf=true` — the Windows
+    default, and what this machine has — the working tree is CRLF while the
+    repository stores LF, so `prosrc` on the live project ends up carrying a
+    `\r` on every line that the checked-out file does not have. `migra`
+    compares function SOURCE, so all ten multi-line functions in `0009` were
+    reported as drift at once, including four nobody had touched.
+
+    **What makes it a trap rather than an inconvenience is that every local
+    check agrees it is fine.** `pnpm check:schema-drift` builds its shadow from
+    the same CRLF files, so both sides match and it prints "the live database
+    matches". CI checks out LF, so its shadow is LF, and it is the only place
+    the two sides differ. A local green here is therefore not evidence about
+    CI — the two are not running the same comparison.
+
+    It also survived a hand-written diagnostic, which is the part worth
+    carrying. A script written to answer "does live match the file" compared
+    `prosrc` against the file and reported `same` for all six functions it
+    checked — because it normalised line endings before comparing, having been
+    written by somebody who assumed whitespace was noise. **A comparison that
+    normalises cannot see the fault it is looking for**, and this one normalised
+    away exactly the byte in question. Rule 23's cousin: the assertion ran, it
+    just could not fail.
+
+    The fix is to send LF: convert `supabase/migrations/*.sql` in the working
+    tree before applying anything to a live project — `git diff` stays empty,
+    because the repository already holds LF — and re-apply. The general form:
+    **anything that ships file CONTENT to a server, rather than committing it,
+    is exposed to the checkout's line endings.** `db reset --linked`,
+    `db push`, and any hand-applied `create or replace` pasted from an editor
+    all qualify.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected

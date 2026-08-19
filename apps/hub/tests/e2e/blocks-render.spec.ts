@@ -624,19 +624,19 @@ test.describe("what a leaf puts inside a track", () => {
           children: [
             // video: aspect-video w-full
             leaf({
-              kind: "player",
+              kind: "embed",
               title_en: "A video",
               link_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             }),
             // audio: h-42 w-full
             leaf({
-              kind: "player",
+              kind: "embed",
               title_en: "A song",
               link_url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
             }),
             // post: h-150 w-full max-w-105
             leaf({
-              kind: "post",
+              kind: "embed",
               title_en: "A post",
               link_url: "https://t.me/telegram/83",
             }),
@@ -1047,7 +1047,7 @@ test.describe("the policy the route serves", () => {
           name_en: "Framed",
           children: [
             leaf({
-              kind: "player",
+              kind: "embed",
               title_en: "A video",
               link_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             }),
@@ -1134,7 +1134,7 @@ test.describe("a narrow space inside a wide window", () => {
           children: [
             wideTable("Eight columns in a third of the page"),
             leaf({
-              kind: "player",
+              kind: "embed",
               title_en: "A video",
               link_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             }),

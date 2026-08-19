@@ -103,13 +103,30 @@ export type ContainerMode = (typeof CONTAINER_MODES)[number];
  *    that happened to have two per row.
  *
  * The arrangement half is a container's business now and carries none of this.
+ *
+ * **Three kinds changed here on 2026-08-19 and one of them changed MEANING**,
+ * which is the thing to know before reading anything older. `post` became
+ * `embed` and absorbed what `player` used to be — they were one leaf under two
+ * names, with byte-identical `LEAF_FIELDS` entries and one renderer. `player`
+ * now means a retro media player of ours, and `jukebox` one without a video
+ * pane. A document describing `player` as a frame around somebody else's page
+ * predates that.
  */
 export const LEAF_KINDS = [
   "text",
   "link",
   "picture",
+  // **`player` no longer means an embed.** It is a retro media player with a
+  // video pane, and `jukebox` is one without; `post` absorbed every embed the
+  // two of them used to split. The name was taken back deliberately rather
+  // than left to mean two things — see the actors feature note.
   "player",
-  "post",
+  "jukebox",
+  // **`embed` is what `post` was renamed to**, and the rename is the point:
+  // it holds YouTube, Spotify, Tidal and Twitch as well as Instagram and
+  // Mastodon, so "post" described a third of what it does. One kind, any
+  // provider the table recognises.
+  "embed",
   "social",
   "stat",
   "quote",

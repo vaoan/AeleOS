@@ -271,13 +271,14 @@
       "text": "Text",
       "link": "Link",
       "picture": "Picture",
-      "player": "Player",
-      "post": "Post",
+      "player": "Media player",
       "social": "Social chip",
       "stat": "Fact",
       "quote": "Quote",
       "progress": "Progress",
-      "table": "Table"
+      "table": "Table",
+      "jukebox": "Music player",
+      "embed": "Embed"
     },
     "leafFields": {
       "text": {
@@ -296,14 +297,9 @@
         "hint": "Shown under the picture."
       },
       "player": {
-        "title": "Frame title",
+        "title": "Player name",
         "description": "Caption",
         "hint": "Shown under the player."
-      },
-      "post": {
-        "title": "Frame title",
-        "description": "Caption",
-        "hint": "Shown under the post."
       },
       "social": {
         "title": "Chip label"
@@ -327,6 +323,16 @@
         "title": "Caption",
         "description": "A note under it",
         "hint": "Shown under the caption."
+      },
+      "jukebox": {
+        "title": "Player name",
+        "description": "Caption",
+        "hint": "Shown under the player."
+      },
+      "embed": {
+        "title": "Frame title",
+        "description": "Caption",
+        "hint": "Shown under the embed."
       }
     },
     "tableRows": "Rows",
@@ -336,7 +342,19 @@
     "removeCell": "Remove this cell",
     "cellText": "Cell",
     "problemTitle": "This needs a title in English before the page can be saved.",
-    "problemGeneric": "Something here was refused. Check this block's fields."
+    "problemGeneric": "Something here was refused. Check this block's fields.",
+    "playerPlay": "Play",
+    "playerPause": "Pause",
+    "playerStop": "Stop",
+    "playerPrevious": "Previous track",
+    "playerNext": "Next track",
+    "playerShuffle": "Shuffle",
+    "playerRepeat": "Repeat",
+    "playerVolume": "Volume",
+    "playerSeek": "Seek",
+    "playerPlaylist": "Playlist",
+    "playerUnplayable": "That link would not play.",
+    "playerEmpty": "No songs yet"
   },
   "picker": {
     "title": "Who do you want to be?",

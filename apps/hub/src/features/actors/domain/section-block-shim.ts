@@ -107,7 +107,7 @@ const SHAPES = {
   quote: { mode: "grid", spaces: 2, kind: "quote" },
   timeline: { mode: "timeline", spaces: 1, kind: "text" },
   socials: { mode: "grid", spaces: 3, kind: "social" },
-  posts: { mode: "grid", spaces: 3, kind: "post" },
+  posts: { mode: "grid", spaces: 3, kind: "embed" },
   masonry: { mode: "masonry", spaces: 3, kind: "link" },
   progress: { mode: "grid", spaces: 2, kind: "progress" },
   tabs: { mode: "tabs", spaces: 1, kind: "text" },

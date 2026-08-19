@@ -15,6 +15,12 @@ import {
  *
  * `title_en` and `title_es` are not here because every kind draws a title, and
  * a set with one always-true member is a set nobody reads.
+ *
+ * **One entry stopped describing itself on 2026-08-19.** `icon` is the CHROME
+ * for `player` and `jukebox` rather than a glyph, so the editor draws a
+ * different control for those two — see {@link RETRO}. This table's job is to
+ * say what the RENDERER reads, which is what `leaf-fields.test.tsx` measures;
+ * which control the editor offers is a separate decision.
  */
 export interface LeafFields {
   /**
@@ -39,13 +45,17 @@ export interface LeafFields {
   /**
    * Whether `icon` is drawn.
    *
-   * True for `player` and `post` as well as for `link` and `social`, which
-   * reads as wrong until you know why: an address neither of them can frame
-   * falls back to a link or to a branded chip, and both of those draw the
-   * icon. That is not a rare state — `embed.bsky.app` hard-refuses the handle
-   * a pasted Bluesky address carries, so a Bluesky `post` is ALWAYS the chip.
-   * Measured rather than reasoned: `leaf-fields.test.tsx` draws each kind in
-   * every state its own renderer can reach.
+   * True for `embed` as well as for `link` and `social`, which reads as wrong
+   * until you know why: an address it cannot frame falls back to a branded
+   * chip, and the chip draws the icon. That is not a rare state —
+   * `embed.bsky.app` hard-refuses the handle a pasted Bluesky address carries,
+   * so a Bluesky embed is ALWAYS the chip. Measured rather than reasoned:
+   * `leaf-fields.test.tsx` draws each kind in every state its own renderer can
+   * reach.
+   *
+   * **True for `player` and `jukebox` too, and there it is not an icon at
+   * all** — it names the CHROME. See {@link RETRO}, which is also where the
+   * editor's obligation to draw a different control for it is written down.
    */
   icon: boolean;
   /** Whether `image_url` is drawn. */
@@ -53,6 +63,34 @@ export interface LeafFields {
   /** Whether `rows` are drawn. */
   rows: boolean;
 }
+
+/**
+ * What both retro players draw: a playlist, and a chrome to draw it in.
+ *
+ * **`icon` here is the CHROME, not an icon**, and that is the one place this
+ * table's names stop describing themselves. `chromes.ts` holds the roster and
+ * `icon` stores which one — so the editor offers a CHROME PICKER for these
+ * kinds rather than the glyph picker every other `icon: true` kind gets. The
+ * table's job is to say what the RENDERER reads, which is what
+ * `leaf-fields.test.tsx` measures; which control the editor draws for it is a
+ * separate decision, and for these two it is a different control.
+ *
+ * **The SKIN is deliberately absent from this table.** A `jukebox` wearing the
+ * Winamp chrome reads `link_url` as a `.wsz` address — but the sheets arrive
+ * from a FETCH in an effect, so writing one changes no static markup and this
+ * table cannot honestly claim it is read. It gets a bespoke control with a live
+ * preview instead, which is where the "somebody can see what it did"
+ * obligation is met for it. Saying `link: true` here would make
+ * `leaf-fields.test.tsx` assert something it has no way to observe.
+ */
+const RETRO: LeafFields = {
+  description: true,
+  link: false,
+  embeds: false,
+  icon: true,
+  picture: false,
+  rows: true,
+};
 
 /** Nothing optional, and a description — what a plain card shows. */
 const PLAIN: LeafFields = {
@@ -86,14 +124,18 @@ const PLAIN: LeafFields = {
  * `satisfies Record<LeafKind, …>` fails to compile the moment `LEAF_KINDS`
  * gains a member with no entry here, so a kind cannot reach the editor with no
  * opinion about its own fields.
+ *
+ * `embed` is what `post` was renamed to, and it carries what `player` used to;
+ * `player` and `jukebox` are the retro players and share {@link RETRO}.
  */
 export const LEAF_FIELDS: ReadonlyMap<string, LeafFields> = new Map(
   Object.entries({
     text: PLAIN,
     link: { ...PLAIN, link: true, icon: true },
     picture: { ...PLAIN, picture: true },
-    player: { ...PLAIN, link: true, embeds: true, icon: true },
-    post: { ...PLAIN, link: true, embeds: true, icon: true },
+    player: RETRO,
+    jukebox: RETRO,
+    embed: { ...PLAIN, link: true, embeds: true, icon: true },
     social: { ...PLAIN, description: false, link: true, icon: true },
     stat: PLAIN,
     quote: PLAIN,

@@ -20,6 +20,8 @@ import { resolveSocial } from "@/features/actors/domain/social-links";
 import { blockStyle } from "@/features/actors/presentation/block-style";
 import { EmbedFrame } from "@/features/actors/presentation/embed-frame";
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
+import { RetroPlayer } from "@/features/actors/presentation/retro-player";
+import type { ChromeKind } from "@/features/actors/domain/chromes";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
@@ -1134,38 +1136,33 @@ function PictureLeaf(props: LeafProps): ReactNode {
 }
 
 /**
- * One embedded player.
+ * The body of both retro player leaves.
  *
- * **An address `resolveEmbed` cannot place renders as a {@link LinkLeaf}, never
- * as an empty frame.** Silence would leave somebody looking at a gap on their
- * own page with no way to learn that what they pasted is not one this hub can
- * play; a frame built from it would be the pass-through the whole embed model
- * exists to refuse. That fallback cascades once more on its own terms — an
- * address `safeHttpUrl` also refuses renders as the plain card — so a `player`
- * leaf reaches a plain row and never nothing.
+ * **The whole of the doc that used to sit here has MOVED to {@link PostLeaf},
+ * because the behaviour did.** This is no longer an embed of any kind: it
+ * draws a player of ours, over a playlist stored in `rows`, wearing the chrome
+ * named in `icon`. Nothing here resolves a provider.
  *
- * `parentHost` is threaded through for the one provider that cannot be built
- * without it: Twitch's player refuses to load unless `parent=` names the
- * embedding domain, so without one it resolves to null and takes the link
- * fallback rather than framing a player guaranteed to error.
+ * The two kinds differ only in whether the chrome has a video pane, so they
+ * share this and differ by the argument — a second copy would be two chances
+ * to disagree about a caption.
  *
+ * @param kind - which chrome roster to draw from.
  * @param props - the leaf and how to read it.
- * @returns the player, or the link it could not become one.
+ * @returns the player, with the author's own caption under it.
  */
-function PlayerLeaf(props: LeafProps): ReactNode {
-  const { leaf, locale, labelled, parentHost } = props;
-  const embed = resolveEmbed(leaf.link_url, { parentHost });
-  if (!embed) return LinkLeaf(props);
+function retroLeaf(kind: ChromeKind, props: LeafProps): ReactNode {
+  const { leaf, locale, labelled } = props;
   const { title, description } = wordsOf(leaf, locale);
   return (
-    <figure
-      className={`grid gap-2 ${FRAME_BOX[embed.shape]}`}
-      {...tid("block-player")}
-    >
-      <EmbedFrame
-        embed={embed}
+    <figure className="grid gap-2" {...tid(`block-${kind}`)}>
+      <RetroPlayer
+        kind={kind}
+        chrome={leaf.icon}
+        rows={leaf.rows}
+        skinUrl={leaf.link_url}
         title={title}
-        className={FRAME_SHAPE[embed.shape]}
+        locale={locale}
       />
       <LeafCaption title={labelled ? title : ""} description={description} />
     </figure>
@@ -1173,7 +1170,38 @@ function PlayerLeaf(props: LeafProps): ReactNode {
 }
 
 /**
- * One embedded social post.
+ * A retro media player with a video pane.
+ *
+ * **This kind used to mean an embed and no longer does.** `post` absorbed every
+ * embed the two of them split, and the name was taken back for the thing it
+ * says — see the actors feature note for the conversion that made it
+ * unambiguous rather than inferred.
+ */
+function PlayerLeaf(props: LeafProps): ReactNode {
+  return retroLeaf("player", props);
+}
+
+/**
+ * A retro music player: a playlist and no video pane.
+ *
+ * The pane is the dividing line and it is a LICENSING one — YouTube's terms
+ * forbid hiding the player, so only a chrome with somewhere to show it may
+ * offer a YouTube address at all.
+ */
+function JukeboxLeaf(props: LeafProps): ReactNode {
+  return retroLeaf("jukebox", props);
+}
+
+/**
+ * Any embed at all: a video, a track, a post — whatever the provider table
+ * recognises.
+ *
+ * **This is the merge of two kinds that were one leaf under two names.**
+ * `player` and `post` had byte-identical field sets in `LEAF_FIELDS`, resolved
+ * through the same table and rendered the same frame; nothing about an embed
+ * varies per leaf, because the height, the shape and the aspect all come from
+ * `EMBED_PROVIDERS`. It was renamed from `post` in the same change, because it
+ * holds YouTube, Spotify and Tidal as well as Instagram and Mastodon.
  *
  * **An address that resolves to no provider renders as a {@link SocialLeaf}
  * chip, never as nothing and never as a bare link.** Bluesky is the case this
@@ -1183,23 +1211,34 @@ function PlayerLeaf(props: LeafProps): ReactNode {
  * The chip falls back once more on its own terms, so this too reaches a row and
  * never nothing.
  *
- * **It resolves without `parentHost`, exactly as the flat `posts` layout did.**
- * The only provider that reads it is Twitch, whose player is a `video` shape
- * rather than a post; a Twitch address in a post is better served by the
- * branded chip than by a video frame in a 420px column.
+ * **`parentHost` is passed now, and the previous behaviour was DELIBERATE
+ * rather than a bug.** It used to be withheld, with a reason written down:
+ * Twitch is the only provider that reads it, its player is a `video` shape
+ * rather than a post, and a video did not belong in a post's 420px column — the
+ * `player` leaf framed it instead. There is no post's column any more, and this
+ * kind already frames YouTube, Vimeo, TikTok and Dailymotion, so a chipped
+ * Twitch would be the one arbitrary case rather than the consistent one. The
+ * old reasoning did not become wrong; its premise went away. Without a
+ * `parentHost` Twitch still resolves to null and takes the chip, because a
+ * frame built without one is a player guaranteed to error.
  *
  * @param props - the leaf and how to read it.
- * @returns the post, or the chip it could not become one.
+ * @returns the embed, or the chip it could not become one.
  */
-function PostLeaf(props: LeafProps): ReactNode {
-  const { leaf, locale, labelled } = props;
-  const embed = resolveEmbed(leaf.link_url);
+function EmbedLeaf(props: LeafProps): ReactNode {
+  const { leaf, locale, labelled, parentHost } = props;
+  // **`parentHost` is passed here now, and its absence was a real bug.** The
+  // two embed kinds this one absorbed differed in exactly two ways, and this
+  // was the undocumented half: `player` passed it and `post` did not, so the
+  // same Twitch address was a working player in one kind and a dead chip in the
+  // other. Twitch refuses to load unless `parent=` names the embedding domain.
+  const embed = resolveEmbed(leaf.link_url, { parentHost });
   if (!embed) return SocialLeaf(props);
   const { title, description } = wordsOf(leaf, locale);
   return (
     <figure
       className={`grid gap-2 ${FRAME_BOX[embed.shape]}`}
-      {...tid("block-post")}
+      {...tid("block-embed")}
     >
       <EmbedFrame
         embed={embed}
@@ -1657,6 +1696,10 @@ function TableLeaf(props: LeafProps): ReactNode {
  * payload bypassing the schema and the database alike — the runtime miss and
  * the compile-time gap are different failures and only one of them can be
  * typed away.
+ *
+ * **`player` no longer renders an embed.** `EmbedLeaf` is the only renderer
+ * that resolves a provider now; `PlayerLeaf` and `JukeboxLeaf` draw a retro
+ * chrome of ours over a playlist, and both go through `retroLeaf`.
  */
 export const LEAVES: ReadonlyMap<string, LeafRenderer> = new Map(
   Object.entries({
@@ -1664,7 +1707,8 @@ export const LEAVES: ReadonlyMap<string, LeafRenderer> = new Map(
     link: LinkLeaf,
     picture: PictureLeaf,
     player: PlayerLeaf,
-    post: PostLeaf,
+    jukebox: JukeboxLeaf,
+    embed: EmbedLeaf,
     social: SocialLeaf,
     stat: StatLeaf,
     quote: QuoteLeaf,

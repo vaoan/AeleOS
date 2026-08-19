@@ -4,7 +4,9 @@ import {
   clockDigits,
   marqueeLine,
   nextIndex,
+  playlistFromRows,
   previousIndex,
+  rowsFromPlaylist,
 } from "@/features/actors/domain/playlist";
 
 const straight = { shuffle: false, repeat: false };
@@ -170,5 +172,102 @@ describe("marqueeLine", () => {
 
   it("is empty only when there is no track at all", () => {
     expect(marqueeLine(undefined, 1)).toBe("");
+  });
+});
+
+describe("playlistFromRows", () => {
+  it("reads a row as address, title, artist", () => {
+    expect(
+      playlistFromRows(
+        [
+          [
+            { text_en: "https://a.test/1.mp3" },
+            { text_en: "Howl" },
+            { text_en: "Luna" },
+          ],
+        ],
+        "en",
+      ),
+    ).toEqual([{ url: "https://a.test/1.mp3", title: "Howl", artist: "Luna" }]);
+  });
+
+  it("prefers the reader's language for a title", () => {
+    // A song title is the author's own writing, so an empty Spanish cell is
+    // somebody who has not written it yet — never a fault to report.
+    const rows = [
+      [
+        { text_en: "https://a.test/1.mp3" },
+        { text_en: "Howl", text_es: "Aullido" },
+      ],
+      [{ text_en: "https://a.test/2.mp3" }, { text_en: "Drift" }],
+    ];
+    expect(playlistFromRows(rows, "es").map((one) => one.title)).toEqual([
+      "Aullido",
+      "Drift",
+    ]);
+    expect(playlistFromRows(rows, "en").map((one) => one.title)).toEqual([
+      "Howl",
+      "Drift",
+    ]);
+  });
+
+  it("shows no title to a reader whose language its author did not write", () => {
+    // Deliberately the same rule `contentFor` applies to every other field on a
+    // page: the reader's language when its author wrote one, English
+    // otherwise — and nothing else. A Spanish-only title is therefore
+    // invisible to an English reader, exactly as a Spanish-only description
+    // already is, and `marqueeLine` falls back to the address so the track is
+    // still tellable from its neighbours. Deviating here would give songs a
+    // different fallback rule from the rest of the app.
+    expect(
+      playlistFromRows(
+        [[{ text_en: "https://a.test/1.mp3" }, { text_es: "Aullido" }]],
+        "en",
+      ),
+    ).toEqual([{ url: "https://a.test/1.mp3" }]);
+    expect(
+      playlistFromRows(
+        [[{ text_en: "https://a.test/1.mp3" }, { text_es: "Aullido" }]],
+        "es",
+      ),
+    ).toEqual([{ url: "https://a.test/1.mp3", title: "Aullido" }]);
+  });
+
+  it("drops a row with no address", () => {
+    // A track that cannot play is not a track: it would sit in the list, be
+    // selectable, and do nothing.
+    expect(
+      playlistFromRows(
+        [
+          [{ text_en: "" }, { text_en: "Nameless" }],
+          [{ text_en: "https://a.test/1.mp3" }],
+        ],
+        "en",
+      ),
+    ).toEqual([{ url: "https://a.test/1.mp3" }]);
+  });
+
+  it("keeps a row with an address and nothing else", () => {
+    // `marqueeLine` falls back to the address, so it is still tellable from
+    // its neighbours.
+    expect(
+      playlistFromRows([[{ text_en: "https://a.test/1.mp3" }]], "en"),
+    ).toEqual([{ url: "https://a.test/1.mp3" }]);
+  });
+
+  it("reads nothing at all as an empty playlist", () => {
+    expect(playlistFromRows(undefined, "en")).toEqual([]);
+    expect(playlistFromRows([], "en")).toEqual([]);
+    expect(playlistFromRows([[]], "en")).toEqual([]);
+  });
+
+  it("round-trips through rowsFromPlaylist", () => {
+    // The two halves name the cell positions separately, so this is what stops
+    // the editor and the renderer disagreeing about which cell is which.
+    const tracks = [
+      { url: "https://a.test/1.mp3", title: "Howl", artist: "Luna" },
+      { url: "https://a.test/2.mp3" },
+    ];
+    expect(playlistFromRows(rowsFromPlaylist(tracks), "en")).toEqual(tracks);
   });
 });

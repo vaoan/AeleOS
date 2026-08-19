@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { NextIntlClientProvider } from "next-intl";
+
+import messages from "@/shared/infrastructure/i18n/messages/en.json";
 import {
   DESCRIBED_KINDS,
   LEAF_FIELDS,
@@ -96,8 +99,16 @@ const WRITTEN: Record<keyof LeafFields, Partial<LeafBlock>> = {
 function draw(leaf: LeafBlock): string {
   const render = LEAVES.get(leaf.kind);
   if (!render) throw new Error(`no renderer for ${leaf.kind}`);
+  // **Wrapped in the REAL provider with the REAL catalogue.** The retro player
+  // leaves are the first to reach for `useTranslations`, and rendering them
+  // bare throws — which is honest rather than inconvenient, because every page
+  // in this app renders inside `NextIntlClientProvider`. Stubbing the
+  // translation function would have measured a different program; supplying
+  // what production supplies means a missing catalogue key fails HERE too.
   return renderToStaticMarkup(
-    <>{render({ leaf, locale: "en", labelled: true, parentHost: "" })}</>,
+    <NextIntlClientProvider locale="en" messages={messages}>
+      {render({ leaf, locale: "en", labelled: true, parentHost: "" })}
+    </NextIntlClientProvider>,
   );
 }
 
@@ -175,8 +186,12 @@ describe("embeds", () => {
   // `link` and `social` always draw a button or a chip whatever host was
   // pasted. One hint vague enough to cover both would be true of neither.
   it("is claimed only by kinds that put an address in a frame", () => {
+    // One kind since the merge. `embed` absorbed what `player` used to mean
+    // and was renamed for it — it holds YouTube and Spotify as well as
+    // Instagram, so "post" described a third of what it does — and `player` is
+    // a retro chrome now rather than a frame around somebody else's page.
     const embedding = LEAF_KINDS.filter((kind) => leafFields(kind).embeds);
-    expect(embedding).toEqual(["player", "post"]);
+    expect(embedding).toEqual(["embed"]);
   });
 
   it("is never claimed by a kind that does not read an address at all", () => {
