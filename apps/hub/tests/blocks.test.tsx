@@ -501,6 +501,31 @@ describe("the places a container lays", () => {
     expect(screen.getByTestId("block-grid").className).toContain(expected);
   });
 
+  // A lone block on a part-filled last row is centred across the leftover, and
+  // ONLY where the leftover divides evenly — three places leave two tracks
+  // beside the fourth block, four places leave three, and no track boundary
+  // splits three in half.
+  it.each([
+    [3, "@lg:[&>*:last-child:nth-child(3n+1)]:col-start-2"],
+    [5, "@4xl:[&>*:last-child:nth-child(5n+1)]:col-start-3"],
+  ])(
+    "centres a lone block on the last row of %i places",
+    (spaces, expected) => {
+      renderBlock(container({ mode: "grid", spaces }));
+      expect(screen.getByTestId("block-grid").className).toContain(expected);
+    },
+  );
+
+  it.each([1, 2, 4, 6])(
+    "centres nothing across %i places, where the leftover is odd",
+    (spaces) => {
+      renderBlock(container({ mode: "grid", spaces }));
+      expect(screen.getByTestId("block-grid").className).not.toContain(
+        "col-start",
+      );
+    },
+  );
+
   it.each([
     [2, "@xs:columns-2"],
     [3, "@lg:columns-3"],
@@ -1223,6 +1248,22 @@ describe("a player leaf", () => {
     over: Record<string, unknown> = {},
   ) => leaf({ kind: "player", link_url: url, ...over });
 
+  /**
+   * The box a frame is sized by.
+   *
+   * The `<iframe>` fills it and carries none of the sizing itself, because a
+   * height a provider reports has to override the shape's own class and an
+   * inline style on the frame inside would not reach the class outside it.
+   *
+   * @param frame - the `<iframe>`, found by its accessible name.
+   * @returns the element carrying the shape and the height.
+   */
+  const frameBox = (frame: HTMLElement) => {
+    const box = frame.parentElement;
+    if (!box) throw new Error("the frame is not in a box");
+    return box;
+  };
+
   it("frames the address resolveEmbed built, and never the one pasted", () => {
     renderBlock(playerLeaf("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
     const frame = screen.getByTitle("English title");
@@ -1293,6 +1334,12 @@ describe("a player leaf", () => {
 
   // A named case per shape: the frame's aspect comes from the resolution, never
   // from a two-way test that would send every future shape down one branch.
+  //
+  // **The classes are on the BOX and not on the `<iframe>`.** The box is what
+  // carries a height the provider reports, so the fallback the class expresses
+  // has to sit on the same element the reported number overrides — an
+  // `h-150` on the frame inside would keep applying underneath a measured
+  // 225.
   it.each([
     ["https://youtu.be/dQw4w9WgXcQ", "aspect-video"],
     ["https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", "h-42"],
@@ -1300,7 +1347,81 @@ describe("a player leaf", () => {
     ["https://t.me/channelname/123", "h-150"],
   ])("shapes the frame for %s", (url, expected) => {
     renderBlock(playerLeaf(url));
-    expect(screen.getByTitle("English title").className).toContain(expected);
+    expect(frameBox(screen.getByTitle("English title")).className).toContain(
+      expected,
+    );
+  });
+
+  // **Every number here was watched in a browser inside the provider's own
+  // document**, and each is a case the shape alone could not express: Apple
+  // Music serves an album, a song and a music video from one host, and Spotify
+  // and Tidal both key off the kind their own address carries.
+  it.each([
+    ["https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", "152px"],
+    ["https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT", "352px"],
+    ["https://music.apple.com/us/album/slug/1234567", "450px"],
+    ["https://music.apple.com/us/song/slug/1234567", "175px"],
+    ["https://tidal.com/track/123456", "121px"],
+    ["https://www.tiktok.com/@user/video/1234567890123456789", "756px"],
+  ])("frames %s at its measured height", (url, expected) => {
+    renderBlock(playerLeaf(url));
+    // **The number goes on the FRAME, not on the box.** Every element here is
+    // `border-box` and the box carries the border, so a height put on the box
+    // is the border's to spend first — measured in the real app, that handed
+    // Spotify 150px of viewport for a 152px box and it drew its 80px card.
+    // The box takes `auto` and sizes itself to the frame it holds.
+    const frame = screen.getByTitle("English title");
+    expect(frame.style.height).toBe(expected);
+    expect(frameBox(frame).style.height).toBe("auto");
+  });
+
+  // A provider that paints whatever frame it is given must NOT be pinned to a
+  // number: an inline height would crop a scrolling list nothing was wrong
+  // with. The shape's own class is the whole answer for these.
+  it.each([
+    "https://youtu.be/dQw4w9WgXcQ",
+    "https://soundcloud.com/artist/track",
+    "https://tidal.com/album/123456",
+    "https://www.mixcloud.com/user/show/",
+  ])("leaves %s to fill its frame", (url) => {
+    renderBlock(playerLeaf(url));
+    const frame = screen.getByTitle("English title");
+    expect(frame.style.height).toBe("100%");
+    expect(frameBox(frame).style.height).toBe("");
+  });
+
+  // The one address form whose KIND decides the shape rather than the height:
+  // measured at four widths, an Apple music video is 16∶9 at every one, so any
+  // fixed number would be right at exactly one of them.
+  it("frames an Apple music video as a video, not as a player card", () => {
+    renderBlock(
+      playerLeaf("https://music.apple.com/us/music-video/slug/12345"),
+    );
+    const box = frameBox(screen.getByTitle("English title"));
+    expect(box.className).toContain("aspect-video");
+    expect(box.className).not.toContain("h-42");
+  });
+
+  // A post caps at 420px and a TikTok at 320, in a place that may be far
+  // wider — so the leftover has to be split rather than all pushed to the
+  // right. The cap is on the FIGURE so the caption is as wide as the frame.
+  it.each([
+    ["https://t.me/channelname/123", "max-w-105"],
+    ["https://www.tiktok.com/@user/video/1234567890123456789", "max-w-80"],
+  ])("centres the capped figure for %s", (url, cap) => {
+    renderBlock(playerLeaf(url));
+    const figure = frameBox(screen.getByTitle("English title")).parentElement;
+    expect(figure?.className).toContain(cap);
+    expect(figure?.className).toContain("mx-auto");
+  });
+
+  // A player that takes the whole place must not be centred INTO a narrower
+  // one: `mx-auto` with no cap does nothing, and a cap here would shrink a
+  // video for no reason.
+  it("caps neither a video nor an audio player", () => {
+    renderBlock(playerLeaf("https://youtu.be/dQw4w9WgXcQ"));
+    const figure = frameBox(screen.getByTitle("English title")).parentElement;
+    expect(figure?.className).not.toContain("max-w-");
   });
 
   // An `<iframe>` with an empty `title` is axe's `frame-title`, at WCAG level A.

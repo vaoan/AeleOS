@@ -1126,14 +1126,118 @@ as nothing and never as a bare link. The two kinds share the same chip
 component for exactly this reason: a page that already brands Bluesky as a
 chip on one would be inconsistent showing it unbranded on the other.
 
-`FRAME_SHAPE.post` (`presentation/blocks.tsx`) is a fixed 420×600px
-column, chosen by reasoning about how each provider's own widget — Telegram,
-Instagram, a tweet, a Mastodon status — is designed — narrow, meant for a
-sidebar — **not measured against any of their real rendered content.** That is
-a deliberate, proportionate exception to
-"measure, do not eyeball": the frame scrolls its own content, so a wrong
-guess costs dead space rather than a broken render. Do not read this as
-having been checked.
+### A frame is the height its provider actually paints (2026-08-19)
+
+**`FRAME_SHAPE` used to decide a height and no longer does.** Four shapes meant
+four numbers, each chosen by reasoning about how a provider designs its widget,
+and the note that stood here said so and asked not to be read as measurement.
+It has been measured now, in a real Chromium, **inside each provider's own
+document**, and every one of the four was wrong: a short tweet painted **225px
+of the 600px `post` box**, an Instagram photo left 156, Telegram overflowed by
+181 and TikTok by 187, and an **Apple Music album needed 450px in a 168px
+box**. The whole account, with screenshots, is
+`.superpowers/sdd/embeds-that-fit/measurements.md`; the numbers that shipped are
+in the TSDoc beside each of them.
+
+There are three mechanisms now, and which one a provider gets is not a
+preference:
+
+- **It reports its own height.** X/Twitter, Instagram and Telegram post one
+  unprompted and post a fresh one after every width change; every allowlisted
+  Mastodon instance answers a request but volunteers nothing. `EmbedFrame`
+  (`presentation/embed-frame.tsx`) listens, and `shared/domain/embed-fit.ts`
+  parses — an object for Twitter, a **JSON string** for the other two, parsed
+  defensively and never evaluated.
+- **It was measured, and the number lives in the table.** Spotify (152 or 352,
+  its own snap points), Apple Music (450 album or playlist, 175 song), a Tidal
+  track (121), TikTok (756). `EmbedResolution.height` carries it, so it is
+  server-rendered.
+- **It fills whatever it is given, and must not be pinned.** YouTube, Vimeo,
+  Dailymotion, Twitch, SoundCloud, Deezer, Mixcloud, a Tidal album or playlist.
+  `height: null` says so, and a number there would crop a scrolling list nothing
+  was wrong with.
+
+**The height depends on the KIND, which is why it is threaded rather than
+looked up.** Apple Music serves an album, a song and a music video from one
+host; Spotify a track and a playlist; Tidal a track and an album. Each
+resolver already parsed the kind to decide whether the address was playable at
+all and then discarded it — one number per provider is exactly what put a
+450px player in a 168px box. `resolve` answers an `EmbedResolution` now, and
+the kind is spent in the same expression that accepts it. **Apple's
+`music-video` overrides the SHAPE rather than the height**: measured at 320,
+420, 640 and 900 wide it painted 180, 236, 360 and 506 — 16∶ 9 to the pixel —
+so it is a video, and any fixed number would be right at one width.
+
+**Only the frame is a client component, and the server render is the one that
+works.** `blocks.tsx` stays server-rendered whole — the container-query work
+depends on it — and `EmbedFrame` is the single leaf carrying `"use client"`,
+because a `postMessage` listener needs one. The box is server-rendered at the
+measured constant or the shape's own class, so a reader with no JavaScript, or
+one looking before the message lands, sees a sensible frame; script only ever
+refines it. That is also why the Mastodon measuring state starts OFF and is
+turned on in an effect — rendering it on the server would put the collapsed
+frame in the HTML, which is the one state a page must never fall back to.
+
+**Mastodon has to be asked from a COLLAPSED frame.** It answers
+`max(content, frame height)`, measured across four instances and four heights,
+so asking from the resting 600px box returns 600 and proves nothing. The frame
+inside the box drops to 1px, the ask goes out on `load` to the provider's exact
+origin (never `*`), and the box holds the page still throughout so nothing
+moves. It gives up after its last ask and restores the resting height, which is
+what makes an instance that is down — or one serving a federated post —
+degrade rather than stay one pixel tall.
+
+**The height lands on the FRAME and the box takes `auto`, and getting that
+backwards silently undoes the whole feature.** Everything here is `border-box`
+and the box carries the border, so a height put on the box is the border's to
+spend first and the frame inside gets two pixels less than the number measured
+for it. Measured in the real app: Spotify picks its card from the viewport
+height it is handed and **snaps DOWN** at every boundary, so a 152px box gave
+it 150 and it drew the **80px** card — a feature that read as shipped and was
+worse than what it replaced. Tidal, TikTok and Telegram were each cropped by
+exactly two pixels by the same arithmetic. Sizing the frame and letting the box
+follow holds for any border width a skin declares; adding two pixels back would
+have held only for the width it was measured at.
+
+**A height message is checked on BOTH its origin and its source.** Either alone
+is not a check: origin alone lets one embedded post resize every other frame
+from the same provider, and source alone lets any frame claim anything. The
+claimed number is also bounded before it reaches a style — a frame is a third
+party's script, and an unbounded height is a page a visitor cannot scroll off.
+
+**A height never touches the `src`.** Every address still goes parse → exact
+host match → strict id → rebuild from a fixed template; a reported number
+reaches the box's `height` and nothing else.
+
+**Pinterest cannot be made to fit, and that is measured rather than inferred.**
+It posts nothing, answers nothing, and ignores every size parameter tried — and
+six different pins measured **516, 638, 645, 750, 840 and 962** in the same
+420px-wide frame. No constant is right for a second pin. It keeps the `post`
+box, and whoever revisits this should be weighing "treat it as a link" rather
+than looking for a better number.
+
+**`player.mixcloud.com` does not exist, and had not for as long as the entry
+had.** No A, no AAAA and no CNAME on either public resolver, so every Mixcloud
+frame this app ever rendered landed on a browser error page, at any height. The
+widget is on `player-widget.mixcloud.com` — named directly rather than reached
+through `www.mixcloud.com`'s 301, because `frame-src` is derived from `origin`
+and a redirect's destination is a second origin to have to allow.
+
+**A federated Mastodon post cannot be framed and no parser can tell.** The
+address an instance's own web UI shows for a post it received from elsewhere
+answers its `/embed` with a 404 carrying `X-Frame-Options: DENY` and
+`frame-ancestors 'none'`; a LOCAL post's `/embed` carries neither. The two are
+the same shape. What happens is the frame renders the error page, answers no
+height request, and the give-up leaves it at the resting height — so it
+degrades to a blank frame rather than a collapsed one. Somebody wanting a
+federated post has to paste its address on the originating instance.
+
+**A frame narrower than its place is centred, and a lone block on a part-filled
+last row is too.** `FRAME_BOX` caps the FIGURE rather than the frame, so a
+caption is as wide as the thing it captions, and `mx-auto` splits the leftover
+instead of pushing it all right. `LONE_CENTRE` handles the grid case, and only
+for space counts where the leftover divides evenly — three places and five.
+Both move where a block is DRAWN and neither moves anything stored.
 
 ## Per-profile theming — built
 

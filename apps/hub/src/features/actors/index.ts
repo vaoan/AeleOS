@@ -52,7 +52,10 @@ export {
 } from "@/features/actors/domain/fursona-schema";
 export { isCustomised } from "@/features/actors/domain/actor-theme";
 export { readMyProfileTheme } from "@/features/actors/infrastructure/actor-theme";
-export { isMachineHandle } from "@/features/actors/domain/actor-content";
+export {
+  isMachineHandle,
+  publicName,
+} from "@/features/actors/domain/actor-content";
 export {
   readActorPage,
   type ActorPage,

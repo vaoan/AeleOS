@@ -684,7 +684,16 @@ test.describe("what a leaf puts inside a track", () => {
       const wrapper = (await leaves.nth(index).boundingBox())!;
       const inner = await leaves.nth(index).evaluate((el) => {
         const framed = el.querySelector("iframe, img");
-        const box = framed?.getBoundingClientRect();
+        // **A frame's box, not the frame.** Since embeds began fitting the
+        // height their provider actually paints, the `<iframe>` sits inside a
+        // box that carries the border and the sizing, and the frame fills that
+        // box's CONTENT — two pixels narrower than the track by exactly the
+        // border. What is placed in the track is the box; what fills the box
+        // is the frame. A picture has no such wrapper and is measured as it
+        // always was.
+        const sized =
+          framed instanceof HTMLIFrameElement ? framed.parentElement : framed;
+        const box = sized?.getBoundingClientRect();
         return box ? { x: box.x, width: box.width } : null;
       });
       expect(

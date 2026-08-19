@@ -60,3 +60,50 @@ export function contentFor(
 export function isMachineHandle(handle: string): boolean {
   return /^u-[0-9a-f]{32}$/i.test(handle);
 }
+
+/**
+ * The little an actor must carry to be named on a public page.
+ *
+ * Named rather than written inline at the parameter, because `jsdoc` wants a
+ * `@param` for every destructured member and `tsdoc` refuses a dotted
+ * identifier — two rules that cannot both be satisfied by an object literal.
+ * Two tools fighting is a configuration bug, and the shape wanted a name
+ * anyway.
+ */
+export interface NameableActor {
+  /** What they chose to be called, when they have chosen. */
+  displayName: string | null;
+  /** Their handle, which for a person is the provisioned one. */
+  handle: string;
+  /** The address a stranger typed to arrive, when the caller knows it. */
+  address?: string;
+}
+
+/**
+ * What to title an actor's page with.
+ *
+ * **One function rather than a guard each caller must remember**, and that is
+ * the whole reason it exists. {@link isMachineHandle} was applied to the name
+ * at the top of a public page and NOT to the same page's `<title>`, so a person
+ * who had chosen no display name had their `actor_ref` — the provisioned
+ * handle is that reference with its dashes stripped — in the browser tab, in
+ * history, in bookmarks and in every screenshot, on a page open to strangers.
+ * A second site got it wrong because getting it right was optional.
+ *
+ * The order is the order somebody would want in a tab: what they chose to be
+ * called, else the address a stranger typed to arrive, else the handle — which
+ * is a name only when a person picked it.
+ *
+ * **Not the same as the identifier `PublicProfile` shows beside that name**,
+ * which is deliberately the address-or-handle and never the display name,
+ * because it sits next to the display name already. Reusing this there was
+ * tried and its own suite refused it, which is the suite working.
+ *
+ * @param actor - the actor to name, as read for a public page.
+ * @returns the name to show, never a machine handle.
+ */
+export function publicName(actor: NameableActor): string {
+  if (actor.displayName) return actor.displayName;
+  if (isMachineHandle(actor.handle)) return actor.address ?? "";
+  return actor.handle;
+}

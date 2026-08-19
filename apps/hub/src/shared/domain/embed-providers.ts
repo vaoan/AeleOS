@@ -1,16 +1,108 @@
 /**
- * How tall a player wants to be.
+ * How wide a frame may be, and what it falls back to for a height.
  *
  * The renderer cannot ask the frame, and a cross-origin frame cannot tell it,
  * so the shape travels with the resolution rather than being guessed from the
  * provider at the call site. `portrait` is a phone-shaped frame — TikTok is
  * the only provider that asks for it, since a landscape frame would letterbox
  * a vertical video into a strip. `post` is none of the others: a social post's
- * height varies with how much its author wrote, so its frame is a fixed-height,
- * narrow column that scrolls its own content rather than an aspect ratio tuned
- * for a video or a player's controls.
+ * height varies with how much its author wrote, so its frame is a narrow
+ * column rather than an aspect ratio tuned for a video or a player's controls.
+ *
+ * **A shape is no longer where a height is decided, and that correction is
+ * what `EmbedResolution.height` is for.** Four shapes meant four heights, each
+ * chosen by reasoning about how a provider designs its widget, and every one
+ * of them was measured wrong on 2026-08-19: a short tweet painted 225px in the
+ * 600px `post` box, and an Apple Music album needs 450px in the 168px `audio`
+ * one. The shape now decides only the width cap and the fallback for a
+ * provider that fills whatever it is given; the height comes from the
+ * resolution, or from the provider's own `postMessage`.
  */
 export type EmbedShape = "video" | "audio" | "portrait" | "post";
+
+/**
+ * How tall a frame is before its provider says otherwise, and what shape it
+ * should be sized as.
+ *
+ * **Both fields answer a question the provider's ADDRESS decides**, which is
+ * why they travel with the resolution rather than with the table entry: Apple
+ * Music serves an album, a song and a music video from one host, and those are
+ * 450 tall, 175 tall and a 16∶9 video respectively. A per-provider number
+ * cannot say that, and one that tried is what put a 450px player in a 168px
+ * box.
+ */
+interface FrameFit {
+  /**
+   * The painted height in CSS pixels, or null when the player fills.
+   *
+   * Null means "whatever frame you give it is the frame it paints" — YouTube,
+   * Vimeo, SoundCloud, Deezer, Mixcloud, a Tidal album or playlist — and also
+   * covers the `post` providers, whose real height arrives later by
+   * `postMessage` and whose frame until then is the shape's own fallback.
+   *
+   * Every number here was watched in a browser inside the provider's own
+   * document on 2026-08-19, never looked up.
+   */
+  height: number | null;
+  /**
+   * The shape to frame it as, when the address decides that too.
+   *
+   * Absent means the provider's own `shape`, which is the ordinary case.
+   * Apple Music's `music-video` is the one address form that overrides it:
+   * measured at 320, 420, 640 and 900 wide it painted 180, 236, 360 and 506 —
+   * exactly 16∶9 at every width — so it is a video in an audio provider's
+   * table entry, and a fixed height would be wrong at every width but one.
+   */
+  shape?: EmbedShape;
+}
+
+/**
+ * What a provider's `resolve` answers: the value its template needs, and how
+ * tall the thing that value names paints.
+ *
+ * **The kind is computed once, here, and spent immediately.** Every resolver
+ * that has a kind — Spotify's, Apple Music's, Tidal's — already parsed it to
+ * decide whether the address was one it could play at all, and then threw it
+ * away. Reading it back off the value this returns would be a second parse of
+ * a string we built, which is the shape that drifts; deciding the height in
+ * the same expression that accepts the kind cannot.
+ */
+export interface EmbedResolution extends FrameFit {
+  /**
+   * What `src` interpolates.
+   *
+   * **Interpolated without further checking**, exactly as the string this
+   * replaced was, so it must already match a strict pattern.
+   */
+  value: string;
+}
+
+/**
+ * A resolution for a player that paints whatever frame it is given.
+ *
+ * A helper at the table rather than inside each resolver, so a parser that has
+ * no height to report stays a function returning an id or null — which is what
+ * every one of them was before heights existed, and what keeps the diff
+ * between "this address is playable" and "this is how tall it is" visible.
+ *
+ * @param value - what the resolver answered, or null when it refused.
+ * @returns the resolution, or null when there was none.
+ */
+function fills(value: string | null): EmbedResolution | null {
+  return value === null ? null : { value, height: null };
+}
+
+/**
+ * A resolution for a player whose painted height is the same for every address
+ * this provider serves.
+ *
+ * @param value - what the resolver answered, or null when it refused.
+ * @param height - the measured painted height, in CSS pixels.
+ * @returns the resolution, or null when there was none.
+ */
+function paints(value: string | null, height: number): EmbedResolution | null {
+  return value === null ? null : { value, height };
+}
 
 /**
  * The shape `EMBED_PROVIDERS`' entries are checked against.
@@ -26,7 +118,7 @@ interface EmbedProviderDef {
   hosts: readonly string[];
   origin: string;
   shape: EmbedShape;
-  resolve: (url: URL) => string | null;
+  resolve: (url: URL) => EmbedResolution | null;
   src: (value: string, parentHost: string) => string;
 }
 
@@ -48,14 +140,34 @@ const SPOTIFY_ID = /^[A-Za-z0-9]{16,32}$/;
 /** One path segment of a SoundCloud address. */
 const SOUNDCLOUD_SEGMENT = /^[\w-]{1,64}$/;
 
-/** The Spotify resources that have an embeddable player. */
-const SPOTIFY_KINDS = new Set([
-  "track",
-  "album",
-  "playlist",
-  "artist",
-  "episode",
-  "show",
+/**
+ * The Spotify resources that have an embeddable player, and how tall each one
+ * is worth framing.
+ *
+ * **The allowlist and the height are one table on purpose.** A kind reaches an
+ * address this module assembles, so it has to be checked against a fixed set;
+ * making that set carry the height is what stops a second table keyed by the
+ * same untrusted segment from existing at all.
+ *
+ * **Both numbers are Spotify's own snap points, so both are exact rather than
+ * approximate.** Sweeping a frame's height at 640, 420 and 320 wide, the card
+ * painted 80, 152, 232 or 352 and never anything between — it picks a size
+ * from the frame it is given and leaves the rest transparent, which is what
+ * made 168 leave a 16px seam. At 152 and at 352 the fit is exact.
+ *
+ * Which of the two a kind gets is the only aesthetic choice in this file:
+ * a single thing (a track, one episode) is a compact row at 152, and a
+ * collection (an album, a playlist, an artist, a podcast) is worth the 352 box
+ * because that is where Spotify draws the artwork and a scrolling list of what
+ * is in it.
+ */
+const SPOTIFY_KINDS = new Map<string, number>([
+  ["track", 152],
+  ["episode", 152],
+  ["album", 352],
+  ["playlist", 352],
+  ["artist", 352],
+  ["show", 352],
 ]);
 
 /**
@@ -116,9 +228,9 @@ function vimeoId(url: URL): string | null {
  * Resolves a Spotify address to a kind and an id.
  *
  * @param url - a parsed URL already known to be on Spotify's host.
- * @returns the embed path, or null.
+ * @returns the embed path and its measured height, or null.
  */
-function spotifyPath(url: URL): string | null {
+function spotifyPath(url: URL): EmbedResolution | null {
   const parts = url.pathname.split("/").filter(Boolean);
   // Shared links carry the country as `intl-es` ahead of the kind.
   const rest = parts[0]?.startsWith("intl-") ? parts.slice(1) : parts;
@@ -134,9 +246,11 @@ function spotifyPath(url: URL): string | null {
   // alphabet rejecting `%` that refuses it, not a rule about separators.
   if (!kind || !id) return null;
   // The kind is interpolated into an address this module assembles, so it
-  // must come from the allowlist rather than from the string.
-  if (!SPOTIFY_KINDS.has(kind) || !SPOTIFY_ID.test(id)) return null;
-  return `${kind}/${id}`;
+  // must come from the allowlist rather than from the string — and the
+  // allowlist is what carries the height, so a miss refuses both at once.
+  const height = SPOTIFY_KINDS.get(kind);
+  if (height === undefined || !SPOTIFY_ID.test(id)) return null;
+  return { value: `${kind}/${id}`, height };
 }
 
 /**
@@ -187,6 +301,22 @@ function dailymotionId(url: URL): string | null {
 const TIKTOK_ID = /^\d{15,25}$/;
 
 /**
+ * How tall TikTok's embed paints, measured.
+ *
+ * **756 at 320 wide and 756 at 420 wide**, which is what makes it a constant
+ * rather than a ratio: the card is a fixed video plus a fixed caption block, so
+ * the `aspect-9/16` frame it used to get was 569px at the 320px cap and cut it
+ * off by 187.
+ *
+ * TikTok does post a height — `{"signalSource":"…","height":757}` from
+ * `https://www.tiktok.com` — but **only after the frame is resized**, and never
+ * on load. That is an undocumented trigger nobody promised us, so the constant
+ * is the mechanism here and the message is not read at all; see
+ * `shared/domain/embed-fit.ts` for the providers that are.
+ */
+const TIKTOK_HEIGHT = 756;
+
+/**
  * Resolves a TikTok address to one video id.
  *
  * The only shape with a player is `/@user/video/<id>`; a bare profile has no
@@ -208,8 +338,29 @@ const APPLE_COUNTRY = /^[a-z]{2}$/;
 /** An Apple Music id: digits, or a `pl.`-prefixed playlist token. */
 const APPLE_ID = /^(\d+|pl\.[A-Za-z0-9_-]{4,64})$/;
 
-/** The Apple Music resources with an embeddable player. */
-const APPLE_KINDS = new Set(["album", "playlist", "song", "music-video"]);
+/**
+ * The Apple Music resources with an embeddable player, and how each one paints.
+ *
+ * **This is the table that makes threading the kind worth doing.** Apple
+ * ignores the frame entirely and draws a fixed card, so one number for the
+ * provider is wrong for three of its four kinds: measured on 2026-08-19, an
+ * album and a playlist paint **450**, a song **175**, and the 168px `audio`
+ * box the whole provider used to get amputated the first two by 282px.
+ *
+ * `music-video` is the one that overrides the shape rather than the height. It
+ * painted 180, 236, 360 and 506 at 320, 420, 640 and 900 wide — 16∶9 to the
+ * pixel at every width — so it is framed as a video, where any fixed number
+ * would be right at exactly one width.
+ *
+ * A `Map` rather than an object literal for the reason {@link TIDAL_KINDS}
+ * states at length: `kind` is the untrusted path segment this is indexed by.
+ */
+const APPLE_KINDS = new Map<string, FrameFit>([
+  ["album", { height: 450 }],
+  ["playlist", { height: 450 }],
+  ["song", { height: 175 }],
+  ["music-video", { height: null, shape: "video" }],
+]);
 
 /**
  * Resolves an Apple Music address to a storefront, a kind and an id.
@@ -220,14 +371,15 @@ const APPLE_KINDS = new Set(["album", "playlist", "song", "music-video"]);
  * before it reaches the template.
  *
  * @param url - a parsed URL already known to be on Apple Music's host.
- * @returns the embed path, or null.
+ * @returns the embed path and how it paints, or null.
  */
-function applePath(url: URL): string | null {
+function applePath(url: URL): EmbedResolution | null {
   const [country, kind, , id] = url.pathname.split("/").filter(Boolean);
   if (!country || !kind || !id) return null;
   if (!APPLE_COUNTRY.test(country)) return null;
-  if (!APPLE_KINDS.has(kind) || !APPLE_ID.test(id)) return null;
-  return `${country}/${kind}/${id}`;
+  const fit = APPLE_KINDS.get(kind);
+  if (!fit || !APPLE_ID.test(id)) return null;
+  return { value: `${country}/${kind}/${id}`, ...fit };
 }
 
 /** The Deezer resources with an embeddable widget. */
@@ -283,11 +435,22 @@ const TIDAL_UUID =
  * stores, so `entry.id.test(id)` throws. A `Map` has no prototype chain to
  * fall through: `get("__proto__")` is an ordinary miss, same as any other
  * absent key.
+ *
+ * **The height is per kind for the same reason the id pattern is.** Measured
+ * on 2026-08-19: a track draws a fixed 121px card and leaves everything below
+ * it transparent, while an album and a playlist both fill whatever they are
+ * given — a playlist asked for 168px and for 2400px painted a scrolling list
+ * to the bottom of each. So a track is the only Tidal address with a height of
+ * its own, and giving the other two one would crop a list nothing was wrong
+ * with.
  */
-const TIDAL_KINDS = new Map<string, { path: string; id: RegExp }>([
-  ["track", { path: "tracks", id: /^\d+$/ }],
-  ["album", { path: "albums", id: /^\d+$/ }],
-  ["playlist", { path: "playlists", id: TIDAL_UUID }],
+const TIDAL_KINDS = new Map<
+  string,
+  { path: string; id: RegExp; height: number | null }
+>([
+  ["track", { path: "tracks", id: /^\d+$/, height: 121 }],
+  ["album", { path: "albums", id: /^\d+$/, height: null }],
+  ["playlist", { path: "playlists", id: TIDAL_UUID, height: null }],
 ]);
 
 /**
@@ -304,15 +467,15 @@ const TIDAL_KINDS = new Map<string, { path: string; id: RegExp }>([
  * is never reached for this input.
  *
  * @param url - a parsed URL already known to be on a Tidal host.
- * @returns the embed path, or null.
+ * @returns the embed path and its measured height, or null.
  */
-function tidalPath(url: URL): string | null {
+function tidalPath(url: URL): EmbedResolution | null {
   const parts = url.pathname.split("/").filter(Boolean);
   const rest = parts[0] === "browse" ? parts.slice(1) : parts;
   const [kind, id] = rest;
   const entry = TIDAL_KINDS.get(kind ?? "");
   if (!entry || !id || !entry.id.test(id)) return null;
-  return `${entry.path}/${id}`;
+  return { value: `${entry.path}/${id}`, height: entry.height };
 }
 
 /** One path segment of a Mixcloud address. */
@@ -320,6 +483,18 @@ const MIXCLOUD_SEGMENT = /^[\w-]{1,64}$/;
 
 /**
  * Rebuilds a canonical Mixcloud feed path.
+ *
+ * **The widget it feeds moved host, and this provider rendered nothing at all
+ * until 2026-08-19.** `player.mixcloud.com` has no A, no AAAA and no CNAME on
+ * either `1.1.1.1` or `8.8.8.8` — every frame built on it landed on
+ * `chrome-error://chromewebdata/`, at any height, for as long as the entry has
+ * existed. `www.mixcloud.com/widget/iframe/` 301s to
+ * `player-widget.mixcloud.com`, which serves the real widget with no
+ * `X-Frame-Options` and no `frame-ancestors`; the table names that host
+ * directly rather than relying on the redirect, because `frame-src` is derived
+ * from `origin` and a redirect's destination is a second origin to have to
+ * allow. Confirmed in a browser: the widget loads and reports the show's own
+ * title, and it fills whatever height it is given.
  *
  * A show is `/<user>/<slug>/`, with the trailing slash the widget expects. A
  * bare profile has one segment and no player. Every segment is matched against
@@ -502,7 +677,9 @@ function mastodonPath(url: URL): string | null {
  *   optional leading `browse` segment. `kind` is `track` / `album` (numeric
  *   `id`) or `playlist` (`id` a UUID).
  * - **Mixcloud** — `<user>/<slug>/`, a show's two-segment address; a bare
- *   profile has no player and resolves to null.
+ *   profile has no player and resolves to null. Framed on
+ *   `player-widget.mixcloud.com`; see {@link mixcloudFeed} for why the old
+ *   `player.mixcloud.com` host rendered nothing at all.
  * - **Twitch** — `twitch.tv/<channel>` or `twitch.tv/videos/<id>`, a past
  *   broadcast. Its `src` is the one that reads `parentHost`: Twitch's player
  *   refuses to load without a `parent=` naming the embedding domain, so
@@ -533,6 +710,23 @@ function mastodonPath(url: URL): string | null {
  *   because it runs Lemmy, not Mastodon — confirmed via its own
  *   `/nodeinfo/2.1`, which names `"software":{"name":"lemmy"}`. A
  *   Mastodon-shaped host is not evidence of Mastodon software.
+ *
+ * **A federated post is the one Mastodon address that cannot be framed, and
+ * nothing here can tell.** A post an instance received from elsewhere is shown
+ * by its own web UI at that instance's address, and that address answers its
+ * `/embed` with a 404 carrying `X-Frame-Options: DENY` and
+ * `frame-ancestors 'none'` — measured on `furry.engineer`, which serves a
+ * LOCAL post's `/embed` with neither header. The two addresses are the same
+ * shape, so no parser can separate them; what happens instead is that the
+ * frame renders the instance's error page and never answers the height
+ * request, and `EmbedFrame` gives up after its last ask and leaves the frame
+ * at the shape's own height. Somebody wanting a federated post embedded has to
+ * paste the address on the ORIGINATING instance.
+ *
+ * **`resolve` answers an {@link EmbedResolution} rather than a string**, so an
+ * entry serving several kinds of thing from one host can say how tall each of
+ * them paints. Most entries wrap a parser in {@link fills}, which is this
+ * table saying "whatever frame you give it is the frame it paints".
  */
 export const EMBED_PROVIDERS = [
   {
@@ -540,7 +734,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["youtube.com", "youtu.be"],
     origin: "https://www.youtube-nocookie.com",
     shape: "video",
-    resolve: youtubeId,
+    resolve: (url) => fills(youtubeId(url)),
     src: (id) => `https://www.youtube-nocookie.com/embed/${id}`,
   },
   {
@@ -548,7 +742,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["vimeo.com", "player.vimeo.com"],
     origin: "https://player.vimeo.com",
     shape: "video",
-    resolve: vimeoId,
+    resolve: (url) => fills(vimeoId(url)),
     src: (id) => `https://player.vimeo.com/video/${id}`,
   },
   {
@@ -564,7 +758,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["soundcloud.com"],
     origin: "https://w.soundcloud.com",
     shape: "audio",
-    resolve: soundcloudUrl,
+    resolve: (url) => fills(soundcloudUrl(url)),
     src: (track) =>
       `https://w.soundcloud.com/player/?url=${encodeURIComponent(track)}`,
   },
@@ -573,7 +767,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["dailymotion.com", "dai.ly"],
     origin: "https://geo.dailymotion.com",
     shape: "video",
-    resolve: dailymotionId,
+    resolve: (url) => fills(dailymotionId(url)),
     src: (id) => `https://geo.dailymotion.com/player.html?video=${id}`,
   },
   {
@@ -581,7 +775,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["tiktok.com"],
     origin: "https://www.tiktok.com",
     shape: "portrait",
-    resolve: tiktokId,
+    resolve: (url) => paints(tiktokId(url), TIKTOK_HEIGHT),
     src: (id) => `https://www.tiktok.com/embed/v2/${id}`,
   },
   {
@@ -597,7 +791,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["deezer.com"],
     origin: "https://widget.deezer.com",
     shape: "audio",
-    resolve: deezerPath,
+    resolve: (url) => fills(deezerPath(url)),
     src: (path) => `https://widget.deezer.com/widget/dark/${path}`,
   },
   {
@@ -611,18 +805,18 @@ export const EMBED_PROVIDERS = [
   {
     id: "mixcloud",
     hosts: ["mixcloud.com"],
-    origin: "https://player.mixcloud.com",
+    origin: "https://player-widget.mixcloud.com",
     shape: "audio",
-    resolve: mixcloudFeed,
+    resolve: (url) => fills(mixcloudFeed(url)),
     src: (feed) =>
-      `https://player.mixcloud.com/widget/iframe/?feed=${encodeURIComponent(feed)}`,
+      `https://player-widget.mixcloud.com/widget/iframe?feed=${encodeURIComponent(feed)}`,
   },
   {
     id: "twitch",
     hosts: ["twitch.tv"],
     origin: "https://player.twitch.tv",
     shape: "video",
-    resolve: twitchTarget,
+    resolve: (url) => fills(twitchTarget(url)),
     // `parentHost` is the one value here that never matched a pattern: it is
     // deployment configuration (`NEXT_PUBLIC_HUB_HOST`, validated only as
     // `z.string()`), not something a visitor pastes, and it cannot move the
@@ -639,7 +833,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["t.me"],
     origin: "https://t.me",
     shape: "post",
-    resolve: telegramPath,
+    resolve: (url) => fills(telegramPath(url)),
     src: (value) => `https://t.me/${value}?embed=1`,
   },
   {
@@ -647,7 +841,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["instagram.com"],
     origin: "https://www.instagram.com",
     shape: "post",
-    resolve: instagramCode,
+    resolve: (url) => fills(instagramCode(url)),
     src: (code) => `https://www.instagram.com/p/${code}/embed`,
   },
   {
@@ -655,7 +849,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["x.com", "twitter.com"],
     origin: "https://platform.twitter.com",
     shape: "post",
-    resolve: tweetId,
+    resolve: (url) => fills(tweetId(url)),
     src: (id) => `https://platform.twitter.com/embed/Tweet.html?id=${id}`,
   },
   {
@@ -663,7 +857,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["pinterest.com"],
     origin: "https://assets.pinterest.com",
     shape: "post",
-    resolve: pinterestPinId,
+    resolve: (url) => fills(pinterestPinId(url)),
     src: (id) => `https://assets.pinterest.com/ext/embed.html?id=${id}`,
   },
   // Mastodon is one entry per instance, never a wildcard — see this table's
@@ -674,7 +868,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["mastodon.social"],
     origin: "https://mastodon.social",
     shape: "post",
-    resolve: mastodonPath,
+    resolve: (url) => fills(mastodonPath(url)),
     src: (value) => `https://mastodon.social/@${value}/embed`,
   },
   {
@@ -682,7 +876,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["mstdn.social"],
     origin: "https://mstdn.social",
     shape: "post",
-    resolve: mastodonPath,
+    resolve: (url) => fills(mastodonPath(url)),
     src: (value) => `https://mstdn.social/@${value}/embed`,
   },
   {
@@ -690,7 +884,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["meow.social"],
     origin: "https://meow.social",
     shape: "post",
-    resolve: mastodonPath,
+    resolve: (url) => fills(mastodonPath(url)),
     src: (value) => `https://meow.social/@${value}/embed`,
   },
   {
@@ -698,7 +892,7 @@ export const EMBED_PROVIDERS = [
     hosts: ["furry.engineer"],
     origin: "https://furry.engineer",
     shape: "post",
-    resolve: mastodonPath,
+    resolve: (url) => fills(mastodonPath(url)),
     src: (value) => `https://furry.engineer/@${value}/embed`,
   },
 ] as const satisfies readonly EmbedProviderDef[];
@@ -720,6 +914,13 @@ export type EmbedProviderId = (typeof EMBED_PROVIDERS)[number]["id"];
  * TSDoc for why every provider is handed it though only Twitch reads it, and
  * for why that one value is encoded separately from `resolve`'s output: it is
  * the one value here that never matched a pattern.
+ *
+ * **How tall a frame should be is a property of the provider, not of a shape.**
+ * A provider either says its own height — some post one unprompted, one answers
+ * a request — or it is given a measured constant, chosen against what it was
+ * watched to paint rather than against how its widget appears to be designed.
+ * The shape decides the rest of the box; it stopped deciding the height when
+ * measuring showed the four shapes disagreeing with every provider in them.
  */
 export interface EmbedProvider {
   /** Whose player it is. */
@@ -731,18 +932,25 @@ export interface EmbedProvider {
    * `youtube.com.evil.example` and `evil-youtube.com` fail.
    */
   hosts: readonly string[];
-  /** The origin its player is framed from. Feeds `frame-src`. */
+  /**
+   * The origin its player is framed from.
+   *
+   * Feeds `frame-src`, and is also what a height message is checked against —
+   * see `shared/domain/embed-fit.ts`. One string serving both is deliberate: a
+   * frame this app is not willing to load is a frame it must not take a height
+   * from either.
+   */
   origin: string;
-  /** How tall the frame should be. */
+  /** How wide the frame may be, and its fallback height. */
   shape: EmbedShape;
   /**
-   * Extracts the identifier the template needs, or null.
+   * Extracts the identifier the template needs and how tall it paints, or null.
    *
-   * **The value it returns is interpolated without further checking**, so it
+   * **The `value` it returns is interpolated without further checking**, so it
    * must already match a strict pattern. Returning null is ordinary — it means
    * this address is not one this provider can play.
    */
-  resolve: (url: URL) => string | null;
+  resolve: (url: URL) => EmbedResolution | null;
   /**
    * Builds the player address from a resolved identifier.
    *

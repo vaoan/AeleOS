@@ -275,9 +275,13 @@ describe("resolveEmbed", () => {
   });
 
   describe("Mixcloud", () => {
-    it("accepts a show", () => {
+    // `player.mixcloud.com` — the host this used to name — resolves to no
+    // address at all on either public resolver, so every Mixcloud frame this
+    // app has ever rendered landed on a browser error page. The widget lives
+    // on `player-widget.mixcloud.com`, and the path has no trailing slash.
+    it("accepts a show, on the host that actually serves the widget", () => {
       expect(src("https://www.mixcloud.com/luna/night-tape/")).toBe(
-        "https://player.mixcloud.com/widget/iframe/?feed=%2Fluna%2Fnight-tape%2F",
+        "https://player-widget.mixcloud.com/widget/iframe?feed=%2Fluna%2Fnight-tape%2F",
       );
     });
 
@@ -545,6 +549,75 @@ describe("resolveEmbed", () => {
       expect(
         resolveEmbed("https://soundcloud.com/artist/some-track"),
       ).toMatchObject({ provider: "soundcloud", shape: "audio" });
+    });
+
+    // The origin the frame loaded from is also the only origin a height
+    // message about it may come from, so it travels with the resolution rather
+    // than being looked up again in a browser.
+    it("names the origin the frame will be loaded from", () => {
+      expect(resolveEmbed("https://t.me/channelname/123")?.origin).toBe(
+        "https://t.me",
+      );
+    });
+
+    // MEASURED IN A BROWSER, inside each provider's own document, on
+    // 2026-08-19. A per-shape number could not say any of these: Apple Music
+    // serves all three of its rows from one host, and Spotify and Tidal both
+    // key off the kind their own address carries.
+    it.each([
+      ["https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", 152],
+      ["https://open.spotify.com/episode/4cOdK2wGLETKBW3PvgPWqT", 152],
+      ["https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT", 352],
+      ["https://open.spotify.com/playlist/4cOdK2wGLETKBW3PvgPWqT", 352],
+      ["https://open.spotify.com/artist/4cOdK2wGLETKBW3PvgPWqT", 352],
+      ["https://open.spotify.com/show/4cOdK2wGLETKBW3PvgPWqT", 352],
+      ["https://music.apple.com/us/album/slug/1234567", 450],
+      ["https://music.apple.com/us/playlist/slug/pl.abc123", 450],
+      ["https://music.apple.com/us/song/slug/1234567", 175],
+      ["https://tidal.com/track/123456", 121],
+      ["https://www.tiktok.com/@user/video/1234567890123456789", 756],
+    ])("reports %s as %ipx tall", (raw, height) => {
+      expect(resolveEmbed(raw)?.height).toBe(height);
+    });
+
+    // A player that paints whatever frame it is given must report NO height:
+    // pinning one would crop a scrolling list nothing was wrong with.
+    it.each([
+      "https://youtu.be/dQw4w9WgXcQ",
+      "https://vimeo.com/123456789",
+      "https://soundcloud.com/artist/some-track",
+      "https://www.deezer.com/track/123456",
+      "https://tidal.com/album/123456",
+      "https://tidal.com/playlist/12345678-1234-1234-1234-123456789abc",
+      "https://www.mixcloud.com/luna/night-tape/",
+      "https://dai.ly/x8abcd1",
+      "https://t.me/channelname/123",
+      "https://www.instagram.com/p/Abc12",
+      "https://x.com/user/status/123456",
+      "https://www.pinterest.com/pin/123456789",
+      "https://mastodon.social/@user/123456",
+    ])("leaves %s to fill whatever frame it gets", (raw) => {
+      expect(resolveEmbed(raw)?.height).toBeNull();
+    });
+
+    // The one address form whose kind decides the SHAPE. Measured at 320, 420,
+    // 640 and 900 wide it painted 180, 236, 360 and 506 — 16∶9 to the pixel —
+    // so a fixed height would be right at exactly one width.
+    it("frames an Apple music video as a video, in an audio provider", () => {
+      expect(
+        resolveEmbed("https://music.apple.com/us/music-video/slug/1234567"),
+      ).toMatchObject({ provider: "applemusic", shape: "video", height: null });
+    });
+
+    // Twitch is the one provider that cannot be built without configuration,
+    // and it fills — so its resolution must still report no height rather than
+    // inheriting one from the branch that supplies `parentHost`.
+    it("leaves Twitch to fill, once it has a parent host", () => {
+      expect(
+        resolveEmbed("https://twitch.tv/luna", {
+          parentHost: "me.furrycolombia.com",
+        })?.height,
+      ).toBeNull();
     });
   });
 });

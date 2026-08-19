@@ -13,14 +13,46 @@ import type {
  * `provider` is an {@link EmbedProviderId} — the union that used to be named
  * `EmbedProvider`, before that name was claimed by the table-entry interface
  * in `@/shared/domain/embed-providers`.
+ *
+ * **The kind travels now, and it used to be discarded.** A resolver already
+ * worked out whether an address named an album, a song or a track in order to
+ * build the URL, and then threw that away — so the height came from the shape,
+ * and one number per shape cannot say 450 for an album and 175 for a song.
+ * That is exactly what put a 450px player in a 168px box.
  */
 export interface ResolvedEmbed {
   /** Whose player it is. */
   provider: EmbedProviderId;
   /** The address to frame. Always `https:`, always on the provider's host. */
   src: string;
-  /** How tall the frame should be. */
+  /**
+   * How wide the frame may be, and what height it falls back to.
+   *
+   * Usually the provider's own, and occasionally the ADDRESS's: Apple Music
+   * serves a music video from the same host as an album, and that one is a
+   * 16∶9 video rather than a player card. See `EmbedResolution.shape`.
+   */
   shape: EmbedShape;
+  /**
+   * The origin the frame is loaded from, and the only origin a height message
+   * about it may come from.
+   *
+   * **Carried on the resolution rather than looked up again in the browser.**
+   * The frame is a client component and the table is server data; passing the
+   * one string it needs keeps the whole provider table out of the bundle, and
+   * keeps the origin a frame is checked against the same value `frame-src`
+   * allowed it to load from — one table entry, read once.
+   */
+  origin: string;
+  /**
+   * How tall the provider paints, in CSS pixels, or null when it fills.
+   *
+   * **Server-rendered, so it is what a reader sees before any script runs and
+   * what they keep if none ever does.** A provider that reports its own height
+   * refines this in the browser; a provider that says nothing never does, and
+   * this measured number is the whole answer for it.
+   */
+  height: number | null;
 }
 
 /** What {@link resolveEmbed} needs beyond the address. */
@@ -90,6 +122,13 @@ function parse(raw: string): URL | null {
  * service and this function is the lookup; the guarantees above are properties
  * of every entry rather than of a chain somebody has to read to the end.
  *
+ * **It also answers how tall the player paints, and that answer never touches
+ * the address.** A height is a number read out of a measured table or, later
+ * and only in the browser, out of a message the framed provider sent — it is
+ * applied to the frame's box and to nothing else. No branch anywhere lets a
+ * height reach `src`, which is what keeps the paragraph above true regardless
+ * of what a frame says about itself once it has loaded.
+ *
  * @param raw - the address somebody pasted, which may be anything at all.
  * @param options - {@link ResolveEmbedOptions}. Twitch is the only provider
  * that reads `parentHost`; every other provider ignores it.
@@ -112,12 +151,17 @@ export function resolveEmbed(
   // what routes it to the link fallback.
   if (provider.id === "twitch" && !options?.parentHost) return null;
 
-  const value = provider.resolve(url);
-  return value
+  const resolution = provider.resolve(url);
+  return resolution
     ? {
         provider: provider.id,
-        src: provider.src(value, options?.parentHost ?? ""),
-        shape: provider.shape,
+        src: provider.src(resolution.value, options?.parentHost ?? ""),
+        // The address may override the shape where the provider serves more
+        // than one kind of thing — Apple Music's music videos are the case —
+        // and otherwise the provider's own shape stands.
+        shape: resolution.shape ?? provider.shape,
+        origin: provider.origin,
+        height: resolution.height,
       }
     : null;
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { publicName as realPublicName } from "@/features/actors/domain/actor-content";
 import { render } from "@testing-library/react";
 
 const readPublicPerson = vi.fn();
@@ -17,6 +18,12 @@ const publicProfile = vi.fn();
 vi.mock("@/features/actors", () => ({
   readPublicPerson: (...a: unknown[]) => readPublicPerson(...a),
   readPublicFursona: (...a: unknown[]) => readPublicFursona(...a),
+  // **The REAL one, deliberately.** Naming is the thing under test in the
+  // title cases below, and a stub here would answer whatever the test
+  // wanted while the route did something else — which is how a provisioned
+  // handle reached the tab at all: guarded everywhere except the one place
+  // nobody drove.
+  publicName: realPublicName,
   // This suite is about which branch each route takes and, since round 2,
   // what it hands PublicProfile — not about PublicProfile's own rendering,
   // which has its own suite. Recording is separate from the return value so
@@ -137,6 +144,25 @@ describe("the person route", () => {
       readPublicPerson.mockResolvedValue({ ...actor, displayName: null });
       const meta = await personRoute.generateMetadata({ params: personParams });
       expect(meta.title).toBe("luna");
+    });
+
+    // **The leak this file could not see.** The case above passes whatever the
+    // code does, because its handle is one somebody CHOSE — so it never held
+    // the shape that was wrong. A person who has picked no display name is
+    // provisioned `u-` plus their `actor_ref` with the dashes stripped, and
+    // that went into the tab, history, bookmarks and every screenshot of a page
+    // open to strangers. The page BODY had guarded it since it shipped; the
+    // title did not, because applying the guard was optional.
+    it("never puts a provisioned handle in the title", async () => {
+      const machine = "u-0123456789abcdef0123456789abcdef";
+      readPublicPerson.mockResolvedValue({
+        ...actor,
+        displayName: null,
+        handle: machine,
+      });
+      const meta = await personRoute.generateMetadata({ params: personParams });
+      expect(meta.title).not.toContain("0123456789abcdef");
+      expect(meta.title).toBe("luna-wolf");
     });
 
     // Both addresses resolve forever, so without this a profile accumulates two

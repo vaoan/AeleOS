@@ -117,7 +117,17 @@ jobs:
 
       # Chromium alone: playwright.config.ts declares one project, so
       # installing the other two engines would download ~300MB nothing runs.
-      - run: pnpm --filter hub exec playwright install --with-deps chromium
+      # **No `--with-deps`, deliberately.** That flag runs `apt-get` against
+      # Ubuntu's mirrors, and on 2026-08-19 it hung after fetching
+      # `noble-security InRelease` — nineteen minutes, twice, at the identical
+      # line, until the job was cancelled. No test ran either time, so it reads
+      # as a suite failure and is a package mirror.
+      #
+      # The runner image already carries Chromium's libraries, so the flag was
+      # buying a dependency on somebody else's network and nothing else. If a
+      # library ever is missing the browser fails to launch, which is loud
+      # rather than silent.
+      - run: pnpm --filter hub exec playwright install chromium
 
       # Playwright starts the dev server itself (webServer in the config), so
       # the server reads this environment. There is no .env.local on a runner.
@@ -215,7 +225,7 @@ jobs:
 
       - name: Install Chromium
         if: steps.needed.outputs.run == 'true'
-        run: pnpm --filter hub exec playwright install --with-deps chromium
+        run: pnpm --filter hub exec playwright install chromium
 
       # Every canvas at the top of both dials, and then the personalised page
       # budget on a throttled phone — `playwright.config.ts`'s `canvas` project

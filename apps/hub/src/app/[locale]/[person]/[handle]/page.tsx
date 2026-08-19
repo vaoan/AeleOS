@@ -6,6 +6,7 @@ import { PageShell } from "@/shared/presentation/page-shell";
 import { env } from "@/shared/infrastructure/env";
 import {
   PublicProfile,
+  publicName,
   ThemeScope,
   isCustomised,
   readPublicFursona,
@@ -20,7 +21,11 @@ import {
  * unlisted page is reachable by whoever holds the link and must not arrive in a
  * search result.
  *
- * @returns the page's metadata.
+ * @returns the page's metadata. *
+ * **The title is never the provisioned handle.** A person who chose no display
+ * name carries `u-` plus their `actor_ref`, and this once put that reference in
+ * the tab, in history and in every screenshot of a page open to strangers.
+ * {@link publicName} is what decides, so no caller has to remember the guard.
  */
 export async function generateMetadata({
   params,
@@ -35,7 +40,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: actor.displayName ?? actor.handle,
+    title: publicName(actor),
     alternates: { canonical: `/${locale}/${actor.address}/${actor.handle}` },
     robots: actor.listed ? undefined : { index: false, follow: false },
   };

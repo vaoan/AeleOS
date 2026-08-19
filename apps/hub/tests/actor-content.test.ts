@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   contentFor,
   isMachineHandle,
+  publicName,
 } from "@/features/actors/domain/actor-content";
 
 const item = {
@@ -104,5 +105,35 @@ describe("isMachineHandle", () => {
       "utf8",
     );
     expect(sql).toContain("'^u-[0-9a-f]{32}$'");
+  });
+});
+
+// `publicName`'s job is that a provisioned handle — which is the person's own
+// `actor_ref` with its dashes stripped — never reaches a page a stranger can
+// read. The route that calls it always knows the address somebody typed to
+// arrive, so the case where it does NOT is the one no route exercises and the
+// one where a missing fallback would leak the reference.
+describe("publicName", () => {
+  const person = { displayName: null, handle: "u-".padEnd(34, "a") };
+
+  it("prefers the name they chose", () => {
+    expect(publicName({ ...person, displayName: "Luna", address: "42" })).toBe(
+      "Luna",
+    );
+  });
+
+  it("falls back to the address a stranger typed to arrive", () => {
+    expect(publicName({ ...person, address: "42" })).toBe("42");
+  });
+
+  it("shows a handle a person actually chose", () => {
+    expect(publicName({ displayName: null, handle: "luna" })).toBe("luna");
+  });
+
+  // Nothing rather than the provisioned handle. An empty title is recoverable;
+  // publishing somebody's `actor_ref` in a browser tab, in history and in every
+  // screenshot is not.
+  it("shows nothing at all rather than a provisioned handle", () => {
+    expect(publicName(person)).toBe("");
   });
 });

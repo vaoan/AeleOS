@@ -6,6 +6,7 @@ import { PageShell } from "@/shared/presentation/page-shell";
 import { env } from "@/shared/infrastructure/env";
 import {
   PublicProfile,
+  publicName,
   ThemeScope,
   isCustomised,
   readPublicPerson,
@@ -27,7 +28,11 @@ import {
  * is one, else the number. Both keep resolving, so without this a profile
  * accumulates two indexed URLs for the same page.
  *
- * @returns the page's metadata.
+ * @returns the page's metadata. *
+ * **The title is never the provisioned handle.** A person who chose no display
+ * name carries `u-` plus their `actor_ref`, and this once put that reference in
+ * the tab, in history and in every screenshot of a page open to strangers.
+ * {@link publicName} is what decides, so no caller has to remember the guard.
  */
 export async function generateMetadata({
   params,
@@ -42,7 +47,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: actor.displayName ?? actor.handle,
+    title: publicName(actor),
     alternates: { canonical: `/${locale}/${actor.address}` },
     robots: actor.listed ? undefined : { index: false, follow: false },
   };

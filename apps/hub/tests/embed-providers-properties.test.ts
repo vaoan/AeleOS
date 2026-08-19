@@ -74,7 +74,15 @@ describe("EMBED_PROVIDERS, over any hostile address", () => {
           const call = () => provider.resolve(url);
           expect(call).not.toThrow();
           const result = call();
-          expect(result === null || typeof result === "string").toBe(true);
+          // A resolution or nothing — never a thrown TypeError, and never a
+          // half-built object. `height` is asserted alongside `value` because
+          // it reaches an inline style: a resolver that answered a string for
+          // it would put an arbitrary declaration on somebody's page.
+          if (result === null) return;
+          expect(typeof result.value).toBe("string");
+          expect(
+            result.height === null || typeof result.height === "number",
+          ).toBe(true);
         }),
         { numRuns: 300 },
       );
@@ -177,10 +185,11 @@ describe("EMBED_PROVIDERS, wherever resolve succeeds", () => {
       fc.assert(
         fc.property(path, (pathname) => {
           const url = new URL(`https://${host}${pathname}`);
-          const value = provider.resolve(url);
-          if (value === null) return;
+          const resolution = provider.resolve(url);
+          if (resolution === null) return;
           resolved++;
-          const origin = new URL(provider.src(value, "example.test")).origin;
+          const origin = new URL(provider.src(resolution.value, "example.test"))
+            .origin;
           expect(origin).toBe(provider.origin);
           expect(PLAYER_ORIGINS).toContain(origin);
         }),

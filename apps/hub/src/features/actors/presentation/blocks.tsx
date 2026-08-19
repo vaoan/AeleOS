@@ -14,11 +14,11 @@ import {
   resolveEmbed,
   safeHttpUrl,
   type EmbedShape,
-  type ResolvedEmbed,
 } from "@/features/actors/domain/embeds";
 import { progressValue } from "@/features/actors/domain/progress-value";
 import { resolveSocial } from "@/features/actors/domain/social-links";
 import { blockStyle } from "@/features/actors/presentation/block-style";
+import { EmbedFrame } from "@/features/actors/presentation/embed-frame";
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
 import { tid } from "@/shared/infrastructure/test-id";
 
@@ -176,6 +176,37 @@ const SPACE_CLASS = new Map<number, string>([
  * One column declares nothing, for the reason {@link SPACE_CLASS} gives: it is
  * the base already on the element.
  */
+/**
+ * Where a lone block on a part-filled last row is laid, by the container's own
+ * space count.
+ *
+ * **Only where the leftover divides evenly**, which is why odd counts are the
+ * only entries. Three places holding four things leaves the fourth alone with
+ * two empty tracks beside it, so putting it in the middle gives it one each; a
+ * count of four leaves three, and no track boundary splits three in half — a
+ * block moved one track along there would be off-centre, which is worse than
+ * honestly at the start of the row.
+ *
+ * **It moves where a block is DRAWN and not where it is stored.** The selector
+ * reads `:last-child:nth-child(<n>k+1)`, so it can only ever match the last
+ * element of a container that happens to start a row; nothing about the tree
+ * changes, and dragging the block elsewhere re-asks the question from scratch.
+ *
+ * **A container whose last place is EMPTY is not centred, and that is the
+ * empty-place rule rather than an omission.** An empty place renders an
+ * element that holds its width, so it is the `:last-child`, and the selector
+ * misses. Somebody who left a trailing gap chose that shape.
+ *
+ * Each entry carries the same container-query prefix its track count does,
+ * because below that width the container is a single column and there is no
+ * leftover to divide — a `col-start` applied there would push the block off
+ * the only track there is.
+ */
+const LONE_CENTRE = new Map<number, string>([
+  [3, "@lg:[&>*:last-child:nth-child(3n+1)]:col-start-2"],
+  [5, "@4xl:[&>*:last-child:nth-child(5n+1)]:col-start-3"],
+]);
+
 const MASONRY_CLASS = new Map<number, string>([
   [1, ""],
   [2, "@xs:columns-2"],
@@ -432,6 +463,12 @@ function Stack(props: ModeProps): ReactNode {
  * grid auto-placement doing the work: every in-flow child takes the next cell
  * whether or not it paints anything. See {@link placeIn}.
  *
+ * **A lone block on a part-filled last row is centred across the leftover**,
+ * where the leftover divides evenly — see {@link LONE_CENTRE}. That is a
+ * rendering choice made from where a block already sits and it moves nothing
+ * stored, which is the distinction that keeps it compatible with a place being
+ * positional.
+ *
  * Children stretch to the height of the tallest in their row, which is what
  * makes a row of cards read as a row rather than as a ragged shelf. A dial for
  * the other alignment belongs in the style bag rather than in a second mode —
@@ -443,8 +480,12 @@ function Stack(props: ModeProps): ReactNode {
  */
 function Grid(props: ModeProps): ReactNode {
   const across = SPACE_CLASS.get(props.container.spaces) ?? "";
+  const lone = LONE_CENTRE.get(props.container.spaces) ?? "";
   return (
-    <div className={`grid grid-cols-1 gap-4 ${across}`} {...tid("block-grid")}>
+    <div
+      className={`grid grid-cols-1 gap-4 ${across} ${lone}`}
+      {...tid("block-grid")}
+    >
       {seatsOf(props).map((seat) => placeIn(props, seat))}
     </div>
   );
@@ -831,17 +872,51 @@ function wordsOf(leaf: LeafBlock, locale: string) {
  * indexed by `ResolvedEmbed.shape`, which `resolveEmbed` copies off a module
  * constant in `EMBED_PROVIDERS`. Nothing an author typed can reach it.
  *
- * Ported verbatim from the flat renderer's own `FRAME_SHAPE`, including the
- * reasoning about `post`: a post's height is whatever its author wrote rather
- * than a ratio, so it is a fixed-height narrow column that scrolls its own
- * content — chosen by reasoning about how each provider designs its widget,
- * **not measured against any provider's real rendered content**.
+ * **These heights are a FALLBACK now, not the answer.** Every one of them was
+ * chosen by reasoning about how a provider designs its widget, and measuring
+ * on 2026-08-19 found each one wrong: a short tweet painted 225px of the 600px
+ * `post` box, an Apple Music album needed 450 of the 168px `audio` one, and
+ * TikTok wanted 756 where `aspect-9/16` at the 320px cap gives 569. What a
+ * frame actually gets is `ResolvedEmbed.height` when the provider was measured
+ * and its own reported height when it reports one; these classes are what is
+ * left for a provider that fills whatever it is given — where any height is
+ * correct — and for the moment before a `post` provider has said anything.
+ *
+ * **The width cap moved out**, to {@link FRAME_BOX}, so that a caption sits
+ * under the frame rather than at the far left of a place three times its
+ * width.
  */
 const FRAME_SHAPE: Record<EmbedShape, string> = {
   video: "aspect-video w-full rounded-xl surface border-(--edge)",
-  portrait: "aspect-9/16 w-full max-w-80 rounded-xl surface border-(--edge)",
+  portrait: "aspect-9/16 w-full rounded-xl surface border-(--edge)",
   audio: "h-42 w-full rounded-xl surface border-(--edge)",
-  post: "h-150 w-full max-w-105 rounded-xl surface border-(--edge)",
+  post: "h-150 w-full rounded-xl surface border-(--edge)",
+};
+
+/**
+ * How wide the whole figure may be, and where the leftover goes.
+ *
+ * **`mx-auto` is the fix and the cap is not new.** A post has been capped at
+ * 420px and a TikTok at 320 since the flat renderer, which is right — a tweet
+ * laid across a 900px place is unreadable — but the leftover all went to the
+ * right, so a frame in a one-space section hugged the left edge of a page that
+ * is otherwise centred. Splitting it evenly is a rendering choice and moves
+ * nothing an author stored.
+ *
+ * **It caps the FIGURE rather than the frame**, so the caption is the same
+ * width as the thing it captions. Capping the frame alone left a tweet's title
+ * and description starting hundreds of pixels to its left, which read as two
+ * unrelated blocks.
+ *
+ * A `video` or an `audio` player takes the full place, so neither declares
+ * anything: a video is worth all the room its author gave it, and both fill
+ * whatever height they get.
+ */
+const FRAME_BOX: Record<EmbedShape, string> = {
+  video: "",
+  audio: "",
+  portrait: "mx-auto w-full max-w-80",
+  post: "mx-auto w-full max-w-105",
 };
 
 /**
@@ -1059,51 +1134,6 @@ function PictureLeaf(props: LeafProps): ReactNode {
 }
 
 /**
- * One third-party player or post, framed.
- *
- * **`resolveEmbed` decides the address, never the author.** What it returns is
- * built from a fixed template on an allowlisted host, so the value stored on
- * the block cannot reach the frame — see that function's TSDoc for the whole
- * argument. This component must never grow a branch that puts a stored value
- * into `src`.
- *
- * The frame is sandboxed, lazy, and **asks for no autoplay permission**. A
- * profile that starts making noise at whoever opened it is the thing people
- * remember most fondly and least accurately about the pages this borrows from.
- *
- * Its shape comes from {@link FRAME_SHAPE}, keyed on the resolution's own
- * `shape` — never guessed from the provider here.
- *
- * **A frame with no accessible name falls back to the provider's own id.** An
- * `<iframe>` with an empty `title` is axe's `frame-title`, at WCAG level A, and
- * `title_en` is required by the schema — but this file never trusts a caller's
- * validation over its own rendering, and the provider is a true thing to say
- * about the frame rather than words invented for somebody's page.
- *
- * @returns the frame.
- */
-function EmbedFrame({
-  embed,
-  title,
-}: {
-  embed: ResolvedEmbed;
-  title: string;
-}): ReactNode {
-  return (
-    <iframe
-      src={embed.src}
-      title={title || embed.provider}
-      loading="lazy"
-      referrerPolicy="strict-origin-when-cross-origin"
-      // No `autoplay`. Everything else is what a player legitimately needs.
-      allow="clipboard-write; encrypted-media; picture-in-picture; fullscreen"
-      sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
-      className={FRAME_SHAPE[embed.shape]}
-    />
-  );
-}
-
-/**
  * One embedded player.
  *
  * **An address `resolveEmbed` cannot place renders as a {@link LinkLeaf}, never
@@ -1128,8 +1158,15 @@ function PlayerLeaf(props: LeafProps): ReactNode {
   if (!embed) return LinkLeaf(props);
   const { title, description } = wordsOf(leaf, locale);
   return (
-    <figure className="grid gap-2" {...tid("block-player")}>
-      <EmbedFrame embed={embed} title={title} />
+    <figure
+      className={`grid gap-2 ${FRAME_BOX[embed.shape]}`}
+      {...tid("block-player")}
+    >
+      <EmbedFrame
+        embed={embed}
+        title={title}
+        className={FRAME_SHAPE[embed.shape]}
+      />
       <LeafCaption title={labelled ? title : ""} description={description} />
     </figure>
   );
@@ -1160,8 +1197,15 @@ function PostLeaf(props: LeafProps): ReactNode {
   if (!embed) return SocialLeaf(props);
   const { title, description } = wordsOf(leaf, locale);
   return (
-    <figure className="grid gap-2" {...tid("block-post")}>
-      <EmbedFrame embed={embed} title={title} />
+    <figure
+      className={`grid gap-2 ${FRAME_BOX[embed.shape]}`}
+      {...tid("block-post")}
+    >
+      <EmbedFrame
+        embed={embed}
+        title={title}
+        className={FRAME_SHAPE[embed.shape]}
+      />
       <LeafCaption title={labelled ? title : ""} description={description} />
     </figure>
   );
