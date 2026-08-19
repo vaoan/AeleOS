@@ -31,13 +31,13 @@ import {
 //    element beneath it, so the bill is linear in the editor's DOM. That is the
 //    number that regresses when somebody adds a block kind or a control.
 //
-// **The second of those is stood down until phase 3 and the first is not**, so
-// they are two tests rather than one. The editor holds a flat list of sections
+// **Both run.** The second was stood down for the length of the block model's
+// first two phases, because the editor of the day held a flat list of sections
 // and this fixture is built from mode/kind pairs the flat vocabulary has no
-// name for, so it opens empty and there
-// is no heavy DOM left to invalidate — its own node guard is what noticed. The
-// full reasoning, and what restores it, is written above `test.fixme` below;
-// do not relax a ceiling to make it run.
+// name for — so the route opened empty and there was no heavy DOM left to
+// invalidate. Its own node guard is what noticed, and the editor port restored
+// it. What it measures now, and how the numbers moved, is written above the
+// test itself; do not relax a ceiling to make either of them run.
 //
 // **The dial is measured twice, by two different questions, and only one of
 // them is a stopwatch.** How much one movement COSTS is milliseconds and so is
@@ -79,13 +79,31 @@ test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 /**
  * How much of one `input` event's cost may be restyling the document.
  *
- * **This is the number that regresses when somebody adds a section type or a
+ * **This is the number that regresses when somebody adds a block kind or a
  * control to the editor**, because the bill for rewriting a custom property at
  * `:root` is linear in how many elements sit beneath it. Measured on this page
  * at a 4x throttle and 4 622 nodes: 63.8ms.
  *
  * The ceiling is nearly four times that, which is a smoke alarm for the
  * editor's DOM roughly doubling on a runner twice as slow as this one.
+ *
+ * **The editor's DOM has since grown by two thirds and this figure moved by an
+ * eighth**, which is worth stating rather than leaving somebody to infer that
+ * the growth was free. Re-measured on the same route and the same seed after
+ * the block editor landed, on the same machine at the same throttle: **7 778
+ * nodes, 72.0ms per input event**, against the 4 622 and 63.8ms above. Every
+ * section now renders a live `Block` preview inside its card, so the document
+ * carries the editing controls and the page they describe at once.
+ *
+ * **Do not read that pair as "the preview is nearly free."** The paragraph
+ * below this one says why: the drag saturates the main thread, so the
+ * numerator is bounded by `SAMPLE_MS` and the figure is closer to
+ * `SAMPLE_MS / inputs` than to a per-event cost. A node count that rose 1.7x
+ * against a millisecond figure that rose 1.13x is what that saturation looks
+ * like, not a measurement of what the preview costs. What the pair does
+ * establish is the thing the guard was standing by for: the ported editor
+ * renders a COMPARABLE document rather than a far smaller one, so the ceilings
+ * beneath it are measuring the page they were calibrated against.
  *
  * **Two things it does NOT catch, because a budget nobody knows the limits of
  * gets trusted past them.**
@@ -237,7 +255,8 @@ const MOST_ITEMS = 12;
 
 /**
  * The sections, in render order: an arrangement, a track count where the mode
- * lays tracks, the skin the section wears, and the kind of leaf it holds.
+ * lays places across, the skin the section wears, and the kind of leaf it
+ * holds.
  *
  * **No embedding kind is here, and that is deliberate rather than an
  * oversight.** `player` and `post` put a third party's renderer in an iframe,
@@ -254,25 +273,25 @@ const MOST_ITEMS = 12;
  * silent redefinition of this one.
  */
 const PLAN = [
-  { mode: "grid", columns: 3, skin: "glass", kind: "text" },
-  { mode: "grid", columns: 4, skin: "aero", kind: "text" },
-  { mode: "masonry", columns: 3, skin: "comic", kind: "text" },
-  { mode: "grid", columns: 2, skin: "glass", kind: "stat" },
+  { mode: "grid", spaces: 3, skin: "glass", kind: "text" },
+  { mode: "grid", spaces: 4, skin: "aero", kind: "text" },
+  { mode: "masonry", spaces: 3, skin: "comic", kind: "text" },
+  { mode: "grid", spaces: 2, skin: "glass", kind: "stat" },
   { mode: "accordion", skin: "blueprint", kind: "text" },
-  { mode: "grid", columns: 2, skin: "terminal", kind: "stat" },
-  { mode: "grid", columns: 3, skin: "neon", kind: "text" },
-  { mode: "masonry", columns: 2, skin: "frame", kind: "text" },
-  { mode: "grid", columns: 3, skin: "cutout", kind: "text" },
-  { mode: "grid", columns: 4, skin: "aero", kind: "stat" },
+  { mode: "grid", spaces: 2, skin: "terminal", kind: "stat" },
+  { mode: "grid", spaces: 3, skin: "neon", kind: "text" },
+  { mode: "masonry", spaces: 2, skin: "frame", kind: "text" },
+  { mode: "grid", spaces: 3, skin: "cutout", kind: "text" },
+  { mode: "grid", spaces: 4, skin: "aero", kind: "stat" },
   { mode: "stack", skin: "glass", kind: "link" },
   { mode: "timeline", skin: "sticker", kind: "text" },
   { mode: "stack", skin: "clay", kind: "quote" },
-  { mode: "grid", columns: 2, skin: "candy", kind: "progress" },
-  { mode: "grid", columns: 3, skin: "glass", kind: "social" },
-  { mode: "grid", columns: 3, skin: "glass", kind: "text" },
+  { mode: "grid", spaces: 2, skin: "candy", kind: "progress" },
+  { mode: "grid", spaces: 3, skin: "glass", kind: "social" },
+  { mode: "grid", spaces: 3, skin: "glass", kind: "text" },
   { mode: "carousel", skin: "aero", kind: "text" },
   { mode: "tabs", skin: "retro", kind: "text" },
-  { mode: "masonry", columns: 3, skin: "outline", kind: "text" },
+  { mode: "masonry", spaces: 3, skin: "outline", kind: "text" },
   { mode: "accordion", skin: "inset", kind: "text" },
 ] as const;
 
@@ -316,7 +335,7 @@ function build(items: number) {
   return PLAN.map((plan, index) => ({
     kind: "container",
     mode: plan.mode,
-    ...("columns" in plan ? { columns: plan.columns } : {}),
+    ...("spaces" in plan ? { spaces: plan.spaces } : {}),
     name_en: `Section ${index + 1}`,
     name_es: `Seccion ${index + 1}`,
     style: { skin: plan.skin },
@@ -585,7 +604,7 @@ test.describe("what a heavily personalised page costs on a phone", () => {
   });
 
   // ---------------------------------------------------------------------
-  // STOOD DOWN UNTIL PHASE 3, AND NOT BECAUSE ANYTHING HERE IS WRONG.
+  // STOOD DOWN FOR TWO PHASES, AND RESTORED BY THE ONE ITS OWN NOTE NAMED.
   //
   // This half measures style INVALIDATION: every movement of a theme dial
   // rewrites a custom property at `:root` and restyles every element beneath
@@ -594,48 +613,48 @@ test.describe("what a heavily personalised page costs on a phone", () => {
   // coalescing to one report per frame — and `COMMITS_PER_INPUT_CEILING` is
   // what keeps that fix from being undone.
   //
-  // **It has lost its subject, and its own guard is what noticed.** The
-  // database stores a tree of blocks now, and the editor holds a flat list —
-  // so the editor opens on `sections: []` and renders 309 nodes where the
-  // guard wants more than 2 000. That guard fired exactly as designed: the
-  // thing under measurement was no longer the thing.
+  // **It lost its subject when the model changed, and its own guard is what
+  // noticed.** The database began storing a tree of blocks while the editor
+  // still held a flat list, so this route opened on `sections: []` and
+  // rendered 309 nodes where the guard wants more than 2 000. That guard fired
+  // exactly as designed: the thing under measurement was no longer the thing.
+  // Rather than lower the threshold — a green performance check that tells
+  // nobody anything — the measurement stood down in place, visibly, with the
+  // condition that would restore it written here.
   //
-  // **A shim now converts between the two shapes and this page is still not
-  // one of them, deliberately.** `blocksToSections` recovers a flat layout
-  // from a container's mode and its children's kind, and it recognises only
-  // the sixteen pairs the flat vocabulary has a name for; `PLAN` above is
-  // built from pairs it does not — `grid`/`text`, `masonry`/`text`,
-  // `carousel`/`text`, `stack`/`quote` — because it was written to exercise
-  // the RENDERER rather than to be expressible as flat sections. So the read
-  // answers null, the editor opens empty and refuses to save, and this
-  // measurement still has no subject. Rewriting `PLAN` into flat-shaped pairs
-  // would change the page whose cost the ceilings below were calibrated
-  // against, which is the same "relax it until it passes" move rejected three
-  // paragraphs down.
+  // **The editor port is that condition and this is the reading it owed.** The
+  // editor composes and reads a block tree now, so `seedTheHeaviestPage` above
+  // writes a page this route can open, `PLAN` did not have to be rewritten
+  // into flat-shaped pairs, and the ceilings below are measuring the document
+  // they were calibrated against. The acceptance criterion this note set was
+  // that the ported editor render a COMPARABLE DOM rather than a far smaller
+  // one, and it does: **7 778 nodes against the 4 622 the ceiling was
+  // calibrated at**, because every section now renders a live `Block` preview
+  // inside its card. Style recalculation moved from 63.8ms to **72.0ms per
+  // input event** on the same machine at the same throttle, and the coalescing
+  // ratio is **0.006** — identical to the recorded value for a build with the
+  // fix in place, against 1.000 for one without. See
+  // `STYLE_MS_PER_INPUT_CEILING` for why the millisecond pair must not be read
+  // as "the preview is nearly free".
   //
-  // **Three ways out were considered and two are worse than standing down.**
-  // Lowering the threshold makes the assertion pass for ever while measuring a
-  // page the budget was never written for — a green performance check that
-  // tells nobody anything, which is the defect this branch has already found
-  // several times. Seeding a heavy editor page is not possible either: what
-  // the editor can hold is what the shim can flatten, and a page built only
-  // out of flat-shaped pairs is a different page from the one these ceilings
-  // were calibrated against. So the
-  // measurement stands down in place, visibly, rather than being relaxed into
-  // one that cannot fail.
+  // **Read twice, minutes apart on the same build**, because one reading of a
+  // performance number and a coin toss look identical: 7 778 nodes / 72.0ms
+  // over 30 delivered movements, then 7 777 / 77.5ms over 22. The node count
+  // is stable to one element — the difference is a focus ring's element, not
+  // noise in the measurement — and the millisecond figure moves with how many
+  // movements a run happened to deliver, which is precisely the saturation
+  // caveat `STYLE_MS_PER_INPUT_CEILING` describes. The ratio read 0.006 both
+  // times, which is what a runner-independent budget looks like.
   //
-  // **What restores it — phase 3, the editor port.** When the editor composes
-  // and reads a block tree, `seedTheHeaviestPage` above already writes one this
-  // route can open: change `test.fixme` back to `test` and nothing else here
-  // needs to move. The node guard is the acceptance criterion — the ported
-  // editor has to render a comparable DOM for this page, and if it renders far
-  // fewer nodes for the same document that is itself worth knowing before the
-  // ceilings below are trusted again.
+  // **`PLAN` holds no embedding kind, so this measures no third-party frame.**
+  // The preview makes the editor mount whatever the page holds, which for a
+  // page with `player` or `post` leaves means real provider iframes in the
+  // edit screen. That cost is outside this reading and is not bounded by it.
   //
-  // The scrolling half above is unaffected and still runs: the PUBLIC page
-  // renders the tree, so its subject is intact.
+  // The scrolling half above is unaffected and always ran: the PUBLIC page
+  // renders the tree, so its subject was intact throughout.
   // ---------------------------------------------------------------------
-  test.fixme("dragging a theme dial in its editor", async ({ page }) => {
+  test("dragging a theme dial in its editor", async ({ page }) => {
     test.setTimeout(300_000);
 
     const identity = await createTestIdentity();

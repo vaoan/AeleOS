@@ -7,6 +7,7 @@ import {
 } from "@/features/actors";
 import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
+import { env } from "@/shared/infrastructure/env";
 
 /**
  * The page for editing your own profile.
@@ -23,6 +24,11 @@ import { createServerClient } from "@/shared/infrastructure/supabase-server";
  * and `me` is reserved already, so this costs no new permanently-reserved word.
  * The way in is the pencil on your own row in the list, which is where somebody
  * looks for it.
+ *
+ * **It resolves `parentHost` from `env.hubHost`**, exactly as the fursona
+ * editor's route does and for the same reason: every section previews itself
+ * with the real renderer, and Twitch refuses to load a player unless `parent=`
+ * names the embedding domain.
  *
  * @returns the editor.
  */
@@ -57,6 +63,9 @@ export default async function EditMyProfilePage({
       }}
       initialSections={page.sections}
       initialTheme={page.theme}
+      // Twitch's player needs to know the domain embedding it, and every
+      // section's live preview is the real renderer.
+      parentHost={env.hubHost}
     />
   );
 }

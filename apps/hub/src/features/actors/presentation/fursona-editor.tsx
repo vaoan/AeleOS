@@ -1,7 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useController, useForm, type Control } from "react-hook-form";
+import {
+  useController,
+  useForm,
+  type Control,
+  type FieldValues,
+  type Path,
+} from "react-hook-form";
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
@@ -11,9 +17,9 @@ import {
 } from "@/features/actors/presentation/editor-toolbar";
 import { FormErrorBanner } from "@/features/actors/presentation/form-error-banner";
 import {
-  SectionEditor,
-  type SectionEditorLabels,
-} from "@/features/actors/presentation/section-editor";
+  BlockEditor,
+  type BlockEditorLabels,
+} from "@/features/actors/presentation/block-editor";
 import { useLanguageToggle } from "@/features/actors/application/use-language-toggle";
 import {
   ThemeConfigurator,
@@ -24,14 +30,18 @@ import {
   themeSchema,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
-import type { FursonaSection } from "@/features/actors/domain/section-schema";
+import type { Block } from "@/features/actors/domain/block-schema";
 import {
   VISIBILITIES,
   fursonaSchema,
   type FursonaInput,
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
-import { sectionsSchema } from "@/features/actors/domain/section-schema";
+import { blocksSchema } from "@/features/actors/domain/block-schema";
+import {
+  blockProblems,
+  type BlockProblem,
+} from "@/features/actors/domain/block-problems";
 import { z } from "zod";
 
 /**
@@ -45,13 +55,19 @@ import { z } from "zod";
  * name itself and then say what it governs — this editor has an app language
  * and an authoring language, and the switch moves only the second.
  *
- * Extends the toolbar's and the section editor's, because the editor owns one
+ * Extends the toolbar's and the block editor's, because the editor owns one
  * label bag and hands slices of it down rather than each level resolving its
  * own — a component that resolved its own would need the catalogue in the
  * browser.
+ *
+ * **It carries no `types` record any more.** That was one name per flat
+ * layout, and a section is defined by how many places it has across rather
+ * than by a layout name; what replaced it is `modes` and `leafKinds`, both
+ * built by mapping the vocabulary in `pages/labels.ts` so a name nobody wrote
+ * fails the build rather than rendering its own id at somebody.
  */
 export interface FursonaEditorLabels
-  extends EditorToolbarLabels, SectionEditorLabels {
+  extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
   /** Names the control that switches which language is being written. */
@@ -107,6 +123,11 @@ export interface FursonaEditorLabels
  *
  * **A `null` there is not an absent one**, and the difference is what stops
  * this editor erasing a page it cannot read — see the prop.
+ *
+ * `parentHost` is required rather than optional, unlike everything else here:
+ * every section previews itself with the real renderer, and a preview handed
+ * nothing would degrade a Twitch player to a link without saying so. The
+ * routes resolve it from `env.hubHost`, exactly as both public pages do.
  */
 export interface FursonaEditorProps {
   /** Already-translated strings. */
@@ -117,12 +138,12 @@ export interface FursonaEditorProps {
    * The fursona's existing sections, absent when creating.
    *
    * **`null` is a third state and is not the same as absent.** It means a page
-   * IS stored and `readActorPage` could not read its shape — so the form opens
-   * with nothing, exactly as it would for a new page, and the SAVE is refused
-   * rather than allowed to write that nothing over the page. See
+   * IS stored and `readActorPage` could read it as NEITHER shape — so the form
+   * opens with nothing, exactly as it would for a new page, and the SAVE is
+   * refused rather than allowed to write that nothing over the page. See
    * {@link ActorPage.sections} and `useFursonaEditor`'s `pageIsReadable`.
    */
-  initialSections?: FursonaSection[] | null;
+  initialSections?: Block[] | null;
   /** How the page already looks, absent when creating. */
   initialTheme?: ActorTheme;
   /**
@@ -146,25 +167,42 @@ export interface FursonaEditorProps {
    * disabled input invites somebody to wonder how to unlock it.
    */
   kind?: "fursona" | "person";
+  /**
+   * This deployment's own hostname, threaded to every section's live preview.
+   *
+   * The preview is the REAL renderer, and one leaf kind reads this: Twitch's
+   * player refuses to load unless `parent=` names the embedding domain. An
+   * empty value degrades a Twitch embed to a link in the preview, which is
+   * what a page rendered without it would show as well — so it is resolved by
+   * the route, exactly as both public pages resolve it.
+   */
+  parentHost: string;
 }
 
 /** Where a save or a cancel returns to. */
 const LIST = "/pages";
 
 /**
- * The whole editor's shape: the four fields, plus the page's sections.
+ * The whole editor's shape: the four fields, plus the page's blocks.
  *
- * Composed from the two schemas rather than restated, so neither the field
- * rules nor the section rules exist twice. **`sectionsSchema`'s limits are no
- * longer checked against `0009` by anything** — the guard that did went with
- * the flat validation the block model replaced, and this editor is dead code
- * awaiting the same deletion.
+ * Composed from the schemas rather than restated, so neither the field rules
+ * nor the block rules exist twice. `blocksSchema` is the STRICT side of the
+ * write/read split — an unknown key is a typo somebody just made and is
+ * refused rather than dropped, and an untitled leaf is refused too, because a
+ * block is a heading with something under it. `block-limits-match-migration`
+ * pins its caps to `0009`.
+ *
+ * **Nothing names the form's own value type any more, deliberately.**
+ * `blocksSchema` is a `z.ZodType<Block[], unknown>` — the recursion it is built
+ * from cannot be inferred — so what `useForm` derives from the resolver and
+ * what `z.infer` derives from the schema disagree about `sections`, and a
+ * hand-written alias for either is a second answer to a question the form
+ * already answers. Every component below is generic over `FieldValues` and
+ * names its own field by path, which is what `BlockEditor` needs regardless.
  */
-/** What the editor's form holds. */
-type FursonaFormValues = z.infer<typeof editorSchema>;
 
 const editorSchema = fursonaSchema.extend({
-  sections: sectionsSchema,
+  sections: blocksSchema,
   theme: themeSchema,
 });
 
@@ -185,23 +223,47 @@ const editorSchema = fursonaSchema.extend({
 const personEditorSchema = editorSchema.extend({ handle: z.string() });
 
 /**
+ * Which sentence a refused page gets, of the three the `sections` field owns.
+ *
+ * **A banner must never promise a marking nothing made, and it must not name
+ * the wrong cause either.** A page-level refusal — too many blocks, too many
+ * bytes — carries no index, so there is nothing to mark and the banner says
+ * something else entirely. A refusal that landed on a block IS marked, by
+ * `LeafEditor` or by `BlockCard`, so the banner can say so; but the sentence
+ * that names a missing title is only true when every refusal is a missing
+ * title, which stopped being the common case the moment a container's own
+ * fields could be refused. Naming a cause that is not the cause sends somebody
+ * looking at a field that is fine.
+ *
+ * @param problems - what the save refused, and where.
+ * @returns the catalogue key for the banner.
+ */
+function sectionsCode(problems: readonly BlockProblem[]): string {
+  if (problems.length === 0) return "sectionsTooLarge";
+  return problems.every((problem) => problem.field.startsWith("title_"))
+    ? "sections"
+    : "sectionsMarked";
+}
+
+/**
  * The fursona editor: a full-page form under a sticky toolbar.
  *
  * Replaces `FursonaForm` and the server actions behind it. react-hook-form
- * rather than `useActionState`, because phase 4b's sections need
- * `useFieldArray` — which a server action cannot drive.
+ * rather than `useActionState`, because the page is a live value a server
+ * action cannot drive — first through `useFieldArray`, and now through one
+ * controlled field holding the whole tree.
  *
  * Validation reuses `fursonaSchema` through `zodResolver` rather than
  * restating the rules. `fursona-schema.test.ts` already pins them, and a second
  * copy would drift from the one the database enforces.
  *
  * It now edits the page as well as the fursona: the four fields, a language
- * toggle, and the sections. Its schema is `fursonaSchema` extended with
- * `sectionsSchema`, composed rather than restated so neither set of rules
- * exists twice.
+ * toggle, and the blocks. Its schema is `fursonaSchema` extended with
+ * `blocksSchema`, composed rather than restated so neither set of rules exists
+ * twice.
  *
  * **The language strip sits directly above the sections it governs, below the
- * theme panel.** `lang` reaches only `SectionEditor` — `fursonaSchema` has no
+ * theme panel.** `lang` reaches only `BlockEditor` — `fursonaSchema` has no
  * `_en`/`_es` field at all — so a strip that used to sit above the theme panel
  * announced itself over the top fields it does not touch, separated from the
  * ones it does by however tall that panel happened to be open. Its sticky
@@ -253,9 +315,9 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * passing it unconditionally is correct rather than lazy.
  *
  * **A page it could not read opens empty and refuses to save.** That is not
- * two behaviours: `useFieldArray` needs an array, so the form always opens on
- * one, and the refusal therefore has to live at the save — which is the only
- * place that can still tell "nothing written" from "unreadable". See
+ * two behaviours: `blocksSchema` parses an array and the form has to open on
+ * one, so the refusal has to live at the save — which is the only place that
+ * can still tell "nothing written" from "could not be read". See
  * `initialSections`.
  *
  * **The theme panel sits above the language strip and the sections**, because
@@ -286,13 +348,20 @@ const personEditorSchema = editorSchema.extend({ handle: z.string() });
  * at last; the fields are addressed by test id rather than by label because a
  * label is translated and the suite runs in Spanish.
  *
- * **`setValue` reaches `SectionEditor` too, alongside `control` and
- * `register`.** A drag or an add there has to rewrite a section's
- * `sort_order` to match its position — see `SectionEditor`'s own TSDoc —
- * and that write goes through the form's own setter, not through anything
- * this component does with the value itself.
+ * **`BlockEditor` gets `control` alone**, where the flat editor needed
+ * `register` and `setValue` as well. The whole page is one form field there —
+ * forced, because a place may hold nothing and `useFieldArray` cannot key an
+ * entry that is `null` — so every edit is a pure function over the tree handed
+ * back through one `onChange`. There is no `sort_order` left to renumber
+ * either: the array IS the order, at every depth.
  *
  * Its panels and fields carry `surface`, the class a skin styles — six of them, so a theme reaches the whole editor rather than half of it.
+ *
+ * **A refused page gets one of three sentences, not one of two** — see
+ * {@link sectionsCode}. The middle one exists because a refusal on a
+ * container's own field is marked now, so the banner may say a marking was
+ * made, but naming the missing English title would be naming a cause that is
+ * not the cause.
  *
  * @returns the editor.
  */
@@ -305,11 +374,13 @@ export function FursonaEditor({
   actorRef,
   handleEditable,
   kind = "fursona",
+  parentHost,
 }: FursonaEditorProps) {
   const router = useRouter();
-  // `null` means a page is stored and could not be read. The form still opens
-  // on `[]` below, because `useFieldArray` needs an array — so the refusal has
-  // to live at the SAVE, which is the only place that can tell the two apart.
+  // `null` means a page is stored and this build could read it as neither
+  // shape. The form still opens on `[]` below, because that is what the field
+  // holds — so the refusal has to live at the SAVE, which is the only place
+  // that can tell the two apart.
   const { save, saving, fieldErrors } = useFursonaEditor(
     actorRef,
     kind,
@@ -320,7 +391,6 @@ export function FursonaEditor({
   const {
     control,
     register,
-    setValue,
     handleSubmit,
     formState: { errors },
   } = useForm({
@@ -337,10 +407,23 @@ export function FursonaEditor({
     },
   });
 
+  // **Where each refused block sits, so the editor can mark it.** The banner
+  // used to be the only thing a refused page produced, and it said "fix what
+  // is marked" while nothing was marked — over the commonest path there is,
+  // since a new piece of content starts untitled and the write schema requires
+  // a heading. These are threaded down to the block that is actually wrong.
+  const problems = blockProblems(errors.sections);
+
   // Schema failures carry a zod code; the database's refusals carry ours. The
   // banner reads both the same way, so this only has to flatten them.
+  //
+  // **`sections` is the one that splits three ways**, because the refusals it
+  // covers want different sentences — see {@link sectionsCode}.
   const schemaErrors = Object.fromEntries(
-    Object.entries(errors).map(([field]) => [field, field]),
+    Object.entries(errors).map(([field]) => [
+      field,
+      field === "sections" ? sectionsCode(problems) : field,
+    ]),
   );
 
   return (
@@ -516,12 +599,12 @@ export function FursonaEditor({
         </div>
       </div>
 
-      <SectionEditor
+      <BlockEditor
         control={control}
-        register={register}
-        setValue={setValue}
         lang={lang}
         labels={labels}
+        parentHost={parentHost}
+        problems={problems}
       />
     </form>
   );
@@ -536,16 +619,16 @@ export function FursonaEditor({
  *
  * @returns the panel.
  */
-function ThemeController({
+function ThemeController<T extends FieldValues>({
   control,
   labels,
   profileTheme,
 }: {
-  control: Control<FursonaFormValues>;
+  control: Control<T>;
   labels: ThemeConfiguratorLabels;
   profileTheme?: ActorTheme;
 }) {
-  const field = useController({ control, name: "theme" });
+  const field = useController({ control, name: "theme" as Path<T> });
   return (
     <ThemeConfigurator
       value={field.field.value as ActorTheme}

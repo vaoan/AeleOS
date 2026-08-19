@@ -3,8 +3,6 @@ import { Fragment, type ReactNode } from "react";
 import { contentFor } from "@/features/actors/domain/actor-content";
 import {
   MAX_DEPTH,
-  PAGE_TRACKS,
-  effectiveSpan,
   isContainer,
   type Block as BlockNode,
   type ContainerBlock,
@@ -27,12 +25,19 @@ import { tid } from "@/shared/infrastructure/test-id";
 /**
  * What one block needs to render itself and everything beneath it.
  *
- * **`tracks`, `path` and `labelled` are all about the PARENT**, which is what
- * makes the recursion compose: a span is a count of the containing grid's
- * tracks, a path is the containing block's path with this block's position
- * appended, and whether a block still owes its own name depends on whether the
- * mode above it has already shown it. Only `labelled` is optional, because
- * only it has an answer a caller with nothing to say can be given.
+ * **`path` and `labelled` are both about the PARENT**, which is what makes the
+ * recursion compose: a path is the containing block's path with this block's
+ * position appended, and whether a block still owes its own name depends on
+ * whether the mode above it has already shown it. Only `labelled` is optional,
+ * because only it has an answer a caller with nothing to say can be given.
+ *
+ * **Nothing here says how WIDE this block is, and that absence is the model.**
+ * A `tracks` prop stood beside these, carrying the containing grid's track
+ * count so a stored `span` could be narrowed against it. Both are gone: a
+ * container declares how many places it lays ACROSS and every child takes
+ * exactly one of them, so where a block sits is entirely its parent's business
+ * and its width is not a property of the block at all. What it does ask about
+ * its own width, it asks in CSS — see {@link SPACE_CLASS}.
  *
  * **`parentHost` is the exception and is not about the parent at all** — it is
  * this deployment's own configuration, resolved by the route and threaded
@@ -53,14 +58,6 @@ export interface BlockProps {
    * anything reaches here, so there is no counter to forget to increment.
    */
   depth: number;
-  /**
-   * The track count of whatever contains this block.
-   *
-   * Pass `PAGE_TRACKS` for a block at the top of a page. A stored span wider
-   * than this is narrowed by {@link effectiveSpan} here, at render — never on
-   * the way into storage, where it would destroy what the author typed.
-   */
-  tracks: number;
   /**
    * This block's position in the tree, as digits and hyphens.
    *
@@ -122,62 +119,70 @@ interface ModeProps {
 type ModeRenderer = (props: ModeProps) => ReactNode;
 
 /**
- * The grid a container declares, by its track count.
+ * The grid a container declares, by how many places it lays ACROSS.
  *
- * **A static class per count, not an inline `grid-template-columns`, and the
- * reason is the breakpoint.** Every block is one track below `sm` and takes
- * its declared share above it; an inline style cannot carry a media query, and
- * a span that survives the collapse is the 320px overflow this project has
- * already shipped once — `grid-column: span 3` inside a single-track grid does
- * not clamp, it creates two implicit tracks and pushes the row past the
- * viewport. Tailwind's own `grid-cols-<n>` compiles to
- * `repeat(<n>, minmax(0, 1fr))`, which is the template the design asks for,
- * and a `minmax` whose floor is `0` is the one shape that cannot overflow
- * whatever the container's width turns out to be.
+ * **Every entry is a CONTAINER query, and that is the correction this replaces
+ * a viewport breakpoint with.** The classes were `sm:`-prefixed, which asks how
+ * wide the WINDOW is — and in a tree that answer is wrong in a way that gets
+ * worse the deeper it goes: a three-space section inside one place of another
+ * three-space section is about a ninth of the page, while every `sm:` rule
+ * inside it believes it has the whole screen. Tailwind's `@` variants query the
+ * nearest ancestor declaring `container-type`, which is the enclosing
+ * `<section>` — see {@link Block} — so a container asks how much room IT has.
+ *
+ * **Still a static class per count rather than an inline
+ * `grid-template-columns`.** An inline style cannot carry a query of any kind,
+ * viewport or container, so the collapse to a single track would have nowhere
+ * to live. Tailwind's own `grid-cols-<n>` compiles to
+ * `repeat(<n>, minmax(0, 1fr))`, which is the template the design asks for, and
+ * a `minmax` whose floor is `0` is the one shape that cannot overflow whatever
+ * the container's width turns out to be.
+ *
+ * **The threshold rises with the count**, which a single breakpoint could not
+ * express and is the second thing wrong with asking the viewport: two places
+ * are comfortable in a box where six are unreadable. Each is set so a place
+ * clears roughly 150px before it is laid at all — `@xs` is 20rem, `@lg` 32rem,
+ * `@2xl` 42rem, `@4xl` 56rem and `@5xl` 64rem, against a `gap-4` gutter
+ * between places. One place declares nothing, because `grid-cols-1` is already
+ * the base every container carries.
  *
  * A `Map` rather than a record because the count arrives from `jsonb`. The
- * schema bounds it on both the read and the write path, but indexing a plain
- * object with a stored value is the shape that put a `__proto__` through
- * `TIDAL_KINDS` — and a number key cannot be one of those names, which is
- * exactly the guarantee a `Map` makes and a record does not.
+ * schema bounds it on the WRITE and deliberately not on the read — a count
+ * this build thinks too large is one a newer deployment wrote, and refusing it
+ * would blank the page rather than cost the container its shape — so the
+ * `?? ""` at the call site is a branch a stored value really reaches. Indexing
+ * a plain object with a stored value is besides the shape that put a
+ * `__proto__` through `TIDAL_KINDS`, and a number key cannot be one of those
+ * names, which is exactly the guarantee a `Map` makes and a record does not.
  */
-const TRACK_CLASS = new Map<number, string>([
-  [1, "sm:grid-cols-1"],
-  [2, "sm:grid-cols-2"],
-  [3, "sm:grid-cols-3"],
-  [4, "sm:grid-cols-4"],
-]);
-
-/**
- * The share of its parent's tracks a block takes, by its effective span.
- *
- * A span of one carries no class at all: the grid already gives every item one
- * track, and an emitted `col-span-1` would be a declaration that changes
- * nothing. Every other entry is `sm:`-prefixed for the reason
- * {@link TRACK_CLASS} gives — below the breakpoint there is one track and
- * nothing to span.
- */
-const SPAN_CLASS = new Map<number, string>([
+const SPACE_CLASS = new Map<number, string>([
   [1, ""],
-  [2, "sm:col-span-2"],
-  [3, "sm:col-span-3"],
-  [4, "sm:col-span-4"],
+  [2, "@xs:grid-cols-2"],
+  [3, "@lg:grid-cols-3"],
+  [4, "@2xl:grid-cols-4"],
+  [5, "@4xl:grid-cols-5"],
+  [6, "@5xl:grid-cols-6"],
 ]);
 
 /**
- * The column count `masonry` packs into, by the container's track count.
+ * The column count `masonry` packs into, by the container's own space count.
  *
- * The same declared number as {@link TRACK_CLASS} reads, spent on CSS
- * multi-column rather than on grid tracks — which is what separates this mode
- * from `grid`. A grid's rows take the height of the tallest item in them;
- * multi-column has no rows at all, so a short item is followed by whatever
- * comes next regardless of its neighbour's height.
+ * The same declared number as {@link SPACE_CLASS} reads and at the same
+ * thresholds, spent on CSS multi-column rather than on grid tracks — which is
+ * what separates this mode from `grid`. A grid's rows take the height of the
+ * tallest item in them; multi-column has no rows at all, so a short item is
+ * followed by whatever comes next regardless of its neighbour's height.
+ *
+ * One column declares nothing, for the reason {@link SPACE_CLASS} gives: it is
+ * the base already on the element.
  */
 const MASONRY_CLASS = new Map<number, string>([
-  [1, "sm:columns-1"],
-  [2, "sm:columns-2"],
-  [3, "sm:columns-3"],
-  [4, "sm:columns-4"],
+  [1, ""],
+  [2, "@xs:columns-2"],
+  [3, "@lg:columns-3"],
+  [4, "@2xl:columns-4"],
+  [5, "@4xl:columns-5"],
+  [6, "@5xl:columns-6"],
 ]);
 
 /** A heading level, and how it is set. */
@@ -217,7 +222,7 @@ const DEEPEST_HEADING: Heading = {
  * sits one level above it. Raising the cap therefore leaves a depth with no
  * entry, which a named test asserts against.
  *
- * A `Map` for the same reason as {@link TRACK_CLASS}: the depth is derived
+ * A `Map` for the same reason as {@link SPACE_CLASS}: the depth is derived
  * from stored structure.
  */
 const HEADING = new Map<number, Heading>([
@@ -259,14 +264,18 @@ function labelOf(block: BlockNode, locale: string): string {
  * Naming that position once, here, is what lets every mode key its children
  * and build its identifiers off a value rather than off the loop counter each
  * would otherwise have to reach for.
+ *
+ * **A place may hold nothing, which is why `block` is nullable.** An empty
+ * place is not a shorter list: it keeps its width on the page and draws
+ * nothing, so `[a, null, b]` has to mean that `b` is third. See
+ * {@link placeIn} for what an empty one renders as and {@link filledSeatsOf}
+ * for the two modes that cannot have one.
  */
 interface Seat {
-  /** The child block. */
-  block: BlockNode;
+  /** The child block, or nothing when the place is empty. */
+  block: BlockNode | null;
   /** Its path: the container's own, with this child's position appended. */
   path: string;
-  /** Whether it is the first of its siblings, which `tabs` opens on. */
-  first: boolean;
   /**
    * Its place in the container, counting from one.
    *
@@ -278,50 +287,95 @@ interface Seat {
    * one label this file can supply without inventing words: it needs no
    * catalogue, reads the same in both languages, and is visibly a position
    * rather than something its author wrote.
+   *
+   * **It counts the container's own places, empty ones included**, so a
+   * numeral names where the thing actually sits rather than where it landed
+   * after the empties were dropped.
    */
   ordinal: number;
 }
 
 /**
- * Where each of a container's children sits.
+ * A seat a mode has already established holds something.
+ *
+ * `first` lives here rather than on {@link Seat} because it is a claim about
+ * the FILLED places: `tabs` opens on it, and a container whose first place is
+ * empty must still open on the first tab it actually drew rather than on none
+ * at all.
+ */
+interface FilledSeat extends Seat {
+  /** The child block, which this seat is known to have. */
+  block: BlockNode;
+  /** Whether it is the first place holding anything. */
+  first: boolean;
+}
+
+/**
+ * Where each of a container's places sits, empty ones included.
  *
  * @param props - the mode's own props.
- * @returns one seat per child, in the order the author put them.
+ * @returns one seat per place, in the order the author put them.
  */
 function seatsOf(props: ModeProps): Seat[] {
   return props.container.children.map((block, position) => ({
     block,
     path: `${props.path}-${position}`,
-    first: position === 0,
     ordinal: position + 1,
   }));
 }
 
 /**
- * One child of a container, at one deeper level.
+ * Where each of a container's OCCUPIED places sits.
+ *
+ * **For the two modes whose place is a CONTROL rather than a box**, `tabs` and
+ * `accordion`. An empty place there is a tab that opens onto nothing and a
+ * disclosure with nothing to disclose — a control that does not work, which is
+ * strictly worse than the gap it would fill and is the same refusal
+ * {@link PlainLeaf}, {@link LeafCaption} and {@link Accordion} already make in
+ * three other places. Every mode that lays a BOX keeps the place, because
+ * there the empty box IS the shape its author chose.
+ *
+ * Each seat keeps its true `path` and `ordinal`, so dropping an empty place
+ * renumbers nothing: the third place is still called the third.
+ *
+ * @param props - the mode's own props.
+ * @returns one seat per occupied place, in the author's order.
+ */
+function filledSeatsOf(props: ModeProps): FilledSeat[] {
+  return seatsOf(props)
+    .filter((seat): seat is Seat & { block: BlockNode } => seat.block !== null)
+    .map((seat, position) => ({ ...seat, first: position === 0 }));
+}
+
+/**
+ * One place of a container: what is in it, or the room it keeps for nothing.
+ *
+ * **An empty place renders an element that occupies its position and draws
+ * nothing**, which is the decision the whole model rests on. Collapsing would
+ * make a space count meaningless the moment a section were partly filled — a
+ * three-space section holding two things would read as two columns — and the
+ * shape an author chose would change under them as they worked. It carries no
+ * border, no surface and no padding, so what a visitor sees is room rather
+ * than a broken box.
+ *
+ * A trailing empty place is kept for the same reason and trimmed by nothing:
+ * somebody is usually about to fill it, and trimming would move every entry
+ * after the next thing they add.
  *
  * @param props - the mode's own props, which carry everything a child needs.
- * @param seat - where the child sits.
- * @param tracks - the track count the child's span is measured against — the
- *   container's own for a mode that lays out tracks, and one for a mode that
- *   lays out none, so a span can never reach a grid that has nowhere to put it.
+ * @param seat - where the place sits.
  * @param labelled - false when this mode has already shown the child's name
  *   somewhere of its own; see {@link BlockProps.labelled}.
- * @returns the child, keyed by its path.
+ * @returns the child, or the empty place, keyed by its path.
  */
-function childBlock(
-  props: ModeProps,
-  seat: Seat,
-  tracks: number,
-  labelled = true,
-): ReactNode {
+function placeIn(props: ModeProps, seat: Seat, labelled = true): ReactNode {
+  if (!seat.block) return <div key={seat.path} {...tid("public-space")} />;
   return (
     <Block
       key={seat.path}
       block={seat.block}
       locale={props.locale}
       depth={props.depth + 1}
-      tracks={tracks}
       path={seat.path}
       parentHost={props.parentHost}
       labelled={labelled}
@@ -332,22 +386,27 @@ function childBlock(
 /**
  * What a mode puts on the control it lifts a child's label onto.
  *
+ * It takes a {@link FilledSeat} rather than a {@link Seat}, which is the type
+ * saying that only a place holding something ever gets a control — see
+ * {@link filledSeatsOf}.
+ *
  * @param seat - where the child sits.
  * @param locale - the locale being read.
  * @returns the child's own name, or its position when it has none.
  */
-function liftedLabel(seat: Seat, locale: string): string {
+function liftedLabel(seat: FilledSeat, locale: string): string {
   return labelOf(seat.block, locale) || String(seat.ordinal);
 }
 
 /**
  * The resting arrangement: one block under another, and no grid at all.
  *
- * **A flex column rather than a single-column grid, deliberately.** A grid
- * would give a child's `grid-column` somewhere to land, and a span declared on
- * a block whose parent lays out no tracks would then create implicit columns
- * and push the row past the viewport. Laying out no tracks has to mean laying
- * out none.
+ * **A flex column rather than a single-column grid, deliberately.** It lays
+ * out one place per row whatever the container declared, so a `spaces` of
+ * three means nothing here — arranging nothing is what this mode is.
+ *
+ * An empty place still keeps its row, because the position is the model: see
+ * {@link placeIn}.
  *
  * @param props - the container and what its children need.
  * @returns the stacked children.
@@ -355,13 +414,23 @@ function liftedLabel(seat: Seat, locale: string): string {
 function Stack(props: ModeProps): ReactNode {
   return (
     <div className="flex flex-col gap-4" {...tid("block-stack")}>
-      {seatsOf(props).map((seat) => childBlock(props, seat, 1))}
+      {seatsOf(props).map((seat) => placeIn(props, seat))}
     </div>
   );
 }
 
 /**
- * Uniform tracks, filled across and then down.
+ * The container's own places, laid across and continuing downward in rows.
+ *
+ * **This is where `spaces` means what it says.** The container declares how
+ * many places it lays ACROSS; its children fill them one to a place, row by
+ * row, and the section grows downward as more are added — which is why a
+ * fifty-picture gallery is three places across and seventeen rows deep rather
+ * than a shape nobody can build.
+ *
+ * **An empty place holds its column and the row does not close up**, which is
+ * grid auto-placement doing the work: every in-flow child takes the next cell
+ * whether or not it paints anything. See {@link placeIn}.
  *
  * Children stretch to the height of the tallest in their row, which is what
  * makes a row of cards read as a row rather than as a ragged shelf. A dial for
@@ -373,13 +442,10 @@ function Stack(props: ModeProps): ReactNode {
  * @returns the grid.
  */
 function Grid(props: ModeProps): ReactNode {
-  const tracks = props.container.columns;
+  const across = SPACE_CLASS.get(props.container.spaces) ?? "";
   return (
-    <div
-      className={`grid grid-cols-1 gap-4 ${TRACK_CLASS.get(tracks) ?? ""}`}
-      {...tid("block-grid")}
-    >
-      {seatsOf(props).map((seat) => childBlock(props, seat, tracks))}
+    <div className={`grid grid-cols-1 gap-4 ${across}`} {...tid("block-grid")}>
+      {seatsOf(props).map((seat) => placeIn(props, seat))}
     </div>
   );
 }
@@ -394,22 +460,21 @@ function Grid(props: ModeProps): ReactNode {
  * stacked children is a literal margin rather than the `gap` a grid gets for
  * free.
  *
- * Children are laid out against a single track: multi-column flows content, it
- * does not place items in cells, so there is nothing here for a span to span.
+ * It reads the container's own space count as its COLUMN count — the same
+ * declared number `grid` spends on tracks, spent on a different mechanism.
+ * An empty place still takes its turn in the flow, so the count of things
+ * between two filled ones is what its author left there.
  *
  * @param props - the container and what its children need.
  * @returns the packed children.
  */
 function Masonry(props: ModeProps): ReactNode {
-  const tracks = props.container.columns;
+  const across = MASONRY_CLASS.get(props.container.spaces) ?? "";
   return (
-    <div
-      className={`columns-1 gap-4 ${MASONRY_CLASS.get(tracks) ?? ""}`}
-      {...tid("block-masonry")}
-    >
+    <div className={`columns-1 gap-4 ${across}`} {...tid("block-masonry")}>
       {seatsOf(props).map((seat) => (
         <div key={seat.path} className="mb-4 break-inside-avoid">
-          {childBlock(props, seat, 1)}
+          {placeIn(props, seat)}
         </div>
       ))}
     </div>
@@ -426,6 +491,9 @@ function Masonry(props: ModeProps): ReactNode {
  * `grid`, and it is chosen by naming a different mode rather than by a setting
  * on that one.
  *
+ * An empty place keeps its card-shaped room, so the gap somebody left is one
+ * they can swipe past.
+ *
  * @param props - the container and what its children need.
  * @returns the carousel.
  */
@@ -436,8 +504,15 @@ function Carousel(props: ModeProps): ReactNode {
       {...tid("block-carousel")}
     >
       {seatsOf(props).map((seat) => (
-        <div key={seat.path} className="w-[85%] shrink-0 snap-center sm:w-96">
-          {childBlock(props, seat, 1)}
+        // **`@md:w-96` and not `sm:w-96`, which is the whole of Task 4 in one
+        // class.** A card 384px wide is right in a section that has room for
+        // it and wrong in one that does not, and the WINDOW cannot tell the
+        // difference: at a 1400px viewport the `sm:` form gave a card 384px
+        // inside a place a third of the page wide, so a card was permanently
+        // wider than the box it scrolls in and no card could ever be seen
+        // whole. `@md` is 28rem, measured against the enclosing `<section>`.
+        <div key={seat.path} className="w-[85%] shrink-0 snap-center @md:w-96">
+          {placeIn(props, seat)}
         </div>
       ))}
     </div>
@@ -485,6 +560,11 @@ function Carousel(props: ModeProps): ReactNode {
  * replace it with `min-w-0` alone — the width is also what makes each panel
  * take the whole row under a wrapping flex.
  *
+ * **An EMPTY place gets no tab.** A place here is a control rather than a box,
+ * and a tab labelled by its position that opens onto nothing is a control that
+ * does not work — see {@link filledSeatsOf}. The places that remain keep their
+ * own ordinals, so dropping an empty one renumbers no tab.
+ *
  * **The tab IS the child's name, so the panel does not print it again.** The
  * child renders with `labelled={false}`; without that every tab showed its own
  * words twice, once on the tab and once at the top of its panel. The flat
@@ -500,7 +580,7 @@ function Tabs(props: ModeProps): ReactNode {
   const group = `block-${props.path}-tabs`;
   return (
     <div className="flex flex-wrap" {...tid("block-tabs")}>
-      {seatsOf(props).map((seat) => {
+      {filledSeatsOf(props).map((seat) => {
         const panelId = `block-${seat.path}-panel`;
         return (
           <Fragment key={seat.path}>
@@ -518,7 +598,7 @@ function Tabs(props: ModeProps): ReactNode {
               id={panelId}
               className="order-2 mt-2 hidden w-full [label:has(:checked)+&]:block"
             >
-              {childBlock(props, seat, 1, false)}
+              {placeIn(props, seat, false)}
             </div>
           </Fragment>
         );
@@ -543,10 +623,14 @@ function Tabs(props: ModeProps): ReactNode {
  * again** — the child renders with `labelled={false}`, exactly as `tabs` does
  * and for the same reason. A child with no name is labelled by its position.
  *
- * **A container with no children renders nothing at all.** The wrapper carries
- * the border and the surface, so an empty one is a bordered sliver with
- * nothing in it — the same fault the flat `two-column` layout records for a
- * `dl` whose every row was dropped, in a new place.
+ * **An EMPTY place gets no disclosure**, for the reason {@link filledSeatsOf}
+ * gives: a summary that discloses nothing is a control that does not work.
+ *
+ * **A container with nothing in any of its places renders nothing at all.**
+ * The wrapper carries the border and the surface, so an empty one is a
+ * bordered sliver with nothing in it — the same fault the flat `two-column`
+ * layout records for a `dl` whose every row was dropped, in a new place. A
+ * container holding only empty places is the same case and goes the same way.
  *
  * The plus rotates into a cross on open, which needs no script either.
  *
@@ -554,7 +638,7 @@ function Tabs(props: ModeProps): ReactNode {
  * @returns the disclosures.
  */
 function Accordion(props: ModeProps): ReactNode {
-  const seats = seatsOf(props);
+  const seats = filledSeatsOf(props);
   if (seats.length === 0) return null;
   return (
     <div
@@ -571,7 +655,7 @@ function Accordion(props: ModeProps): ReactNode {
             <Plus className="size-5 shrink-0 text-(--muted) transition-transform group-open:rotate-45" />
           </summary>
           <div className="border-t border-(--edge)/25 bg-(--bar) px-5 py-4">
-            {childBlock(props, seat, 1, false)}
+            {placeIn(props, seat, false)}
           </div>
         </details>
       ))}
@@ -586,6 +670,17 @@ function Accordion(props: ModeProps): ReactNode {
  * row, so nothing decorative lands in the accessibility tree — a screen reader
  * gets an ordinary ordered list.
  *
+ * **An empty place keeps its step and loses its MARKER**, which is the two
+ * halves of the same rule rather than an inconsistency. The step stays because
+ * a sequence with a gap in it is what its author left there, and dropping it
+ * would renumber everything after it. The dot goes because a marker beside
+ * nothing is chrome for content that is not there — the identical argument
+ * that drops an empty place entirely in {@link Tabs} and {@link Accordion},
+ * where the chrome IS the control. `placeIn`'s own doc states the standard an
+ * empty place is held to: no border, no surface, no padding, so what a visitor
+ * sees is room rather than a broken box, and a bullet with nothing next to it
+ * fails it.
+ *
  * @param props - the container and what its children need.
  * @returns the timeline.
  */
@@ -597,11 +692,13 @@ function Timeline(props: ModeProps): ReactNode {
     >
       {seatsOf(props).map((seat) => (
         <li key={seat.path} className="relative grid gap-1">
-          <span
-            aria-hidden
-            className="absolute top-1.5 -left-7.5 size-3 rounded-full border-2 border-(--surface) bg-(--accent)"
-          />
-          {childBlock(props, seat, 1)}
+          {seat.block ? (
+            <span
+              aria-hidden
+              className="absolute top-1.5 -left-7.5 size-3 rounded-full border-2 border-(--surface) bg-(--accent)"
+            />
+          ) : null}
+          {placeIn(props, seat)}
         </li>
       ))}
     </ol>
@@ -644,10 +741,12 @@ export const MODES: ReadonlyMap<string, ModeRenderer> = new Map(
  * What every entry in {@link LEAVES} is handed.
  *
  * **A leaf renderer owns what is INSIDE the leaf and nothing around it.**
- * {@link Block} puts the span and the style bag on the wrapping element, so a
- * per-kind renderer cannot silently drop either — the failure this project
- * keeps producing is a prop somebody had to remember to pass on, and the fix is
- * to leave it nowhere it can be forgotten.
+ * {@link Block} puts the style bag on the wrapping element, so a per-kind
+ * renderer cannot silently drop it — the failure this project keeps producing
+ * is a prop somebody had to remember to pass on, and the fix is to leave it
+ * nowhere it can be forgotten. There was a span beside it once; a container
+ * declares its spaces now and a child takes exactly one, so a leaf has no
+ * width of its own to forget.
  */
 interface LeafProps {
   /** The leaf to render, as parsed. */
@@ -727,7 +826,7 @@ function wordsOf(leaf: LeafBlock, locale: string) {
  * whichever branch it fell into by accident.
  *
  * **A `Record` is safe here where a `Map` is required elsewhere in this file,
- * and the difference is where the key comes from.** `TRACK_CLASS` and
+ * and the difference is where the key comes from.** `SPACE_CLASS` and
  * {@link LEAVES} are indexed by values that arrived from `jsonb`; this is
  * indexed by `ResolvedEmbed.shape`, which `resolveEmbed` copies off a module
  * constant in `EMBED_PROVIDERS`. Nothing an author typed can reach it.
@@ -774,11 +873,14 @@ const FRAME_SHAPE: Record<EmbedShape, string> = {
  * bypassing both the schema and the database — including one chosen to walk a
  * prototype chain.
  *
- * **Four kinds fall back HERE on their own terms**, which is a different
+ * **Several kinds fall back HERE on their own terms**, which is a different
  * thing: {@link StatLeaf} and {@link TableLeaf} when the drop rule leaves no
- * pair to announce, {@link QuoteLeaf} when there are no words to quote, and
+ * pair to announce, {@link QuoteLeaf} when there are no words to quote,
+ * {@link ProgressLeaf} when the value is not one `progressValue` can read, and
  * {@link PictureLeaf} when the address is one `safeHttpUrl` refuses. Each
- * shows its author's words rather than vanishing out of a grid track.
+ * shows its author's words rather than vanishing out of a grid track. The
+ * list is named rather than counted, because a count in a comment goes stale
+ * the moment a kind joins it — this one already had.
  *
  * The title is styled as a heading and is **not** a heading element. A leaf
  * sits at any depth the model admits, including one past the deepest level
@@ -1563,12 +1665,20 @@ function Leaf(props: LeafProps): ReactNode {
  * `0009` refuses the same tree at the database, with a counter of its own.
  * `depth` is carried for heading levels alone.
  *
- * **A span narrows here and nowhere else.** {@link effectiveSpan} measures the
- * author's span against the tracks of whatever contains this block; a stored
- * span wider than its parent is legal and stays stored as typed, so dragging
- * the block somewhere wider restores what was meant. The narrowing is a class
- * rather than an inline property because it must not survive the collapse to a
- * single track — see {@link TRACK_CLASS}.
+ * **Both elements this renders declare a containment context, and that is what
+ * "content adapts to its parent" is made of.** `@container` compiles to
+ * `container-type: inline-size`, so every `@`-prefixed rule beneath asks how
+ * wide ITS OWN box is rather than how wide the window is — a `sm:` rule inside
+ * one place of a three-space section believes it has the whole screen, and is
+ * wrong by a factor that grows with depth. The `<section>` is what a mode's own
+ * track classes query ({@link SPACE_CLASS}); the leaf wrapper is what a kind's
+ * own rules query, so a leaf asks about the box it was actually given.
+ *
+ * **A block carries no width of its own any more.** `span` and the `tracks`
+ * prop that narrowed it are both gone: a container declares how many places it
+ * lays across and each child takes exactly one, so a wide thing is a container
+ * of one place nested where it is wanted — the same recursion doing the work
+ * rather than a second mechanism beside it.
  *
  * **The style bag applies at every level**, through `blockStyle`, so
  * a container two levels down chooses a skin, a background picture and a
@@ -1601,21 +1711,36 @@ function Leaf(props: LeafProps): ReactNode {
  * contribution, so one wide descendant widens it, which widens the track above
  * it, all the way out to the page. `grid-cols-[minmax(0,1fr)]` removes that
  * floor — `Grid` already gets it from `grid-cols-1`, and a grid with no
- * template falls back to `auto`. See {@link TRACK_CLASS} for the same argument
- * made about the breakpoint: a `minmax` whose floor is `0` is the one shape
- * that cannot overflow whatever the container's width turns out to be.
+ * template falls back to `auto`. See {@link SPACE_CLASS} for the same argument
+ * made about the query: a `minmax` whose floor is `0` is the one shape that
+ * cannot overflow whatever the container's width turns out to be.
  *
  * **What `min-w-0` on the leaf covers is narrower than it looks, and the
  * obvious reason for it is wrong.** It is NOT that a flex item is floored at
  * `min-width: auto`: per Flexbox §4.5 an automatic minimum size applies only
  * when that property is on the container's MAIN axis, so in `Stack`'s column
- * it computes to `0` and the items are not floored at all. The one arrangement
- * where the leaf's own `min-w-0` is load-bearing is {@link Timeline}, which
- * lays `auto` grid tracks in its `<ol>` and its `<li>`; removing it there
- * overflows a phone by 447px, which `blocks-render.spec.ts` now has a fixture
- * for. `min-w-0` on the `<section>` is redundant — a container always carries
- * the explicit template — and is kept only so the two elements this function
- * renders say the same thing.
+ * it computes to `0` and the items are not floored at all. What it guards is
+ * {@link Timeline}, the one mode laying `auto` grid tracks — in its `<ol>` and
+ * its `<li>` — where a wide descendant would otherwise grow the track and push
+ * the page out with it.
+ *
+ * **`@container` on the same element does that job too, and neither can be
+ * sabotaged alone.** `container-type: inline-size` applies inline-size
+ * containment, so the leaf's inline size is computed without reference to its
+ * contents — which zeroes exactly the min-content contribution `min-w-0`
+ * zeroes. Measured on this branch by deleting one at a time and running
+ * `blocks-render.spec.ts` in a real Chromium: **either alone leaves all twelve
+ * tests green, and removing BOTH reddens two** — the 320px sweep by 367px of
+ * sideways scroll, and the 1400px narrow space by a table box painting 271px
+ * outside its own place. An earlier version of this paragraph credited
+ * `min-w-0` with a 447px phone overflow on its own; that number belongs to an
+ * arrangement this element no longer has, and a single-guard sabotage cannot
+ * reproduce it. Keep both, and know that a check on either one alone is
+ * measuring the other.
+ *
+ * `min-w-0` on the `<section>` is redundant for a separate and solid reason —
+ * a container always carries the explicit template — and is kept only so the
+ * two elements this function renders say the same thing.
  *
  * **The `public-section` marker is on the `<section>` element and is
  * unconditional at depth 0.** It was on the heading, which renders only for a
@@ -1637,18 +1762,16 @@ export function Block({
   block,
   locale,
   depth,
-  tracks,
   path,
   parentHost,
   labelled = true,
 }: BlockProps): ReactNode {
   const style = blockStyle(block.style);
-  const span = SPAN_CLASS.get(effectiveSpan(block.span, tracks)) ?? "";
 
   if (!isContainer(block)) {
     return (
       <div
-        className={`min-w-0 ${span}`}
+        className="@container min-w-0"
         style={style}
         data-block-kind={block.kind}
         {...tid("public-leaf")}
@@ -1679,7 +1802,7 @@ export function Block({
 
   return (
     <section
-      className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 ${span}`}
+      className="@container grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3"
       style={style}
       {...marker}
     >
@@ -1732,9 +1855,9 @@ export interface PublicBlocksProps {
  * builds its `id`s and radio-group `name`s from — see {@link BlockProps.path}
  * for why nothing an author typed may reach either.
  *
- * `tracks` is {@link PAGE_TRACKS}: the page is the parent of the outermost
- * blocks and stacks them one to a row, so a span stored wider than that is
- * narrowed here at render and left alone in storage.
+ * The page stacks the outermost blocks one to a row and hands them nothing
+ * about width, because there is nothing to hand: a block takes exactly one
+ * place of whatever contains it, and here that is the page.
  *
  * The page's own grid declares `minmax(0, 1fr)` rather than leaving its single
  * track `auto`, for the reason {@link Block} states at length: an `auto` track
@@ -1769,7 +1892,6 @@ export function PublicBlocks({
           block={seat.block}
           locale={locale}
           depth={0}
-          tracks={PAGE_TRACKS}
           path={seat.path}
           parentHost={parentHost}
         />

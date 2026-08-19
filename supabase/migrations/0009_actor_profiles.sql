@@ -21,17 +21,28 @@ create table public.actor_profiles (
   -- because a section still exists — it is a container at depth 0 that carries
   -- a name:
   --
-  --   block:     { kind, span?, style?, … }, discriminated on `kind`
+  --   block:     { kind, style?, … }, discriminated on `kind`
   --   kind:      whatever is_block_kind() accepts — `container`, or one leaf
   --              kind
-  --   container: { kind: "container", mode, columns?, span?, name_en?,
-  --                name_es?, children[], style? }
+  --   container: { kind: "container", mode, spaces?, name_en?, name_es?,
+  --                children[], style? }
+  --   spaces:    how many places the container lays out ACROSS, 1 to
+  --              c_max_spaces. Absent means one. It is a WIDTH and never a
+  --              total: `children` fills the places row by row and the
+  --              section grows downward, so a part-filled last row is the
+  --              ordinary state and the two counts are unrelated. An entry
+  --              may be JSON `null` — an empty place, which keeps its width
+  --              on the page and draws nothing. The entries are POSITIONAL,
+  --              because a merely shorter list cannot say that the middle
+  --              place is empty; nothing may collapse or trim them, a
+  --              trailing `null` included. `columns` and `span` are what
+  --              this replaces and are refused by name.
   --   mode:      whatever is_container_mode() accepts. A mode decides
   --              ARRANGEMENT and nothing else, which is the whole point of
   --              the model: the layouts it replaces welded an arrangement to a
   --              content kind, so "a player beside a paragraph" was not merely
   --              unsupported but unrepresentable.
-  --   leaf:      { kind, span?, title_en, title_es?, description_en?,
+  --   leaf:      { kind, title_en, title_es?, description_en?,
   --                description_es?, icon?, image_url?, link_url?, rows?,
   --                style? }
   --   rows:      the rows of cells a `table` leaf carries — an array of rows,
@@ -45,7 +56,7 @@ create table public.actor_profiles (
   --              renderer falls back for a name it does not know. `card_size`
   --              (s/m/l) is STORED AND READ BY NO RENDERER today — it named a
   --              minimum card width for a grid that chose its own column
-  --              count, and a container declares its tracks explicitly now;
+  --              count, and a container declares its spaces explicitly now;
   --              the `comment on column` below says the same thing and this
   --              line contradicted it for a while.
   --              `border` (solid/dashed/dotted/double/none) sets
@@ -104,7 +115,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'An actor page as a TREE OF BLOCKS, not a flat list of sections. Each element is a block discriminated on kind, which is one of is_block_kind(). A container arranges: {kind: "container", mode, columns?, span?, name_en?, name_es?, children[], style?}, where mode is one of is_container_mode() and decides arrangement only. A leaf holds one piece of content: {kind, span?, title_en, title_es?, description_en?, description_es?, icon?, image_url?, link_url?, rows?, style?}, where rows is the rows of cells a table leaf carries, each cell {text_en?, text_es?}. A section is a container at depth 0 carrying a name; depth is capped and the cap is counted explicitly rather than inferred from shape. columns is a container own track count and span is a block share of the tracks of whatever contains it; a span wider than its parent is stored as typed and narrowed at render, never rewritten here. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) is stored and read by no renderer today; it named a minimum card width for a grid that chose its own column count, and a container declares its tracks explicitly now. border (solid/dashed/dotted/double/none) sets --skin-border-style for the block; none is a choice and absence is inheritance of whatever the page already set. Validated by set_actor_sections, which walks the tree through validate_block.';
+  'An actor page as a TREE OF BLOCKS, not a flat list of sections. Each element is a block discriminated on kind, which is one of is_block_kind(). A container arranges: {kind: "container", mode, spaces?, name_en?, name_es?, children[], style?}, where mode is one of is_container_mode() and decides arrangement only. A leaf holds one piece of content: {kind, title_en, title_es?, description_en?, description_es?, icon?, image_url?, link_url?, rows?, style?}, where rows is the rows of cells a table leaf carries, each cell {text_en?, text_es?}. A section is a container at depth 0 carrying a name; depth is capped and the cap is counted explicitly rather than inferred from shape. spaces is how many places the container lays out ACROSS, absent meaning one. It is a width and never a total: children fill the places row by row and the section grows downward, so a part-filled last row is the ordinary state and the two counts are unrelated. A children entry may be JSON null, an empty place that keeps its width on the page and draws nothing; the entries are positional, because a merely shorter list cannot say that the middle place is empty, and nothing may collapse or trim them, a trailing null included. columns and span are what spaces replaces and are refused by name, so a stale writer hears about it rather than having the page come back a shape nobody chose. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) is stored and read by no renderer today; it named a minimum card width for a grid that chose its own column count, and a container declares its spaces explicitly now. border (solid/dashed/dotted/double/none) sets --skin-border-style for the block; none is a choice and absence is inheritance of whatever the page already set. Validated by set_actor_sections, which walks the tree through validate_block.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -348,13 +359,14 @@ as $$
   select p_mode in (
     -- The resting state. It lays out nothing at all.
     'stack',
-    -- Uniform tracks, at the container's own `columns` count.
+    -- Uniform tracks, one for each of the container's own `spaces`.
     --
     -- A `columns` MODE sat beside this one and was removed before anything
     -- could store one: this comment claimed it filled the tracks downward,
     -- `block-schema.ts` claimed it was identical to `grid`, and the renderer
-    -- shipped a third thing. A track count is already a parameter of `grid`,
-    -- so a second mode for it welds a dial to an arrangement.
+    -- shipped a third thing. How many places a container offers is already a
+    -- parameter of every mode, so a second mode for it welds a dial to an
+    -- arrangement.
     'grid',
     -- Packs by height through CSS multi-column layout, where the uniform
     -- tracks above leave a ragged gap between a long entry and a short one.
@@ -371,10 +383,26 @@ $$;
 
 revoke all on function public.is_container_mode(text) from public, anon;
 
--- A container's own track count, or a block's share of its parent's.
+-- The function this one replaced, removed rather than left behind.
 --
--- One function for both, because a span is a count of its parent's tracks and
--- a vocabulary wider than the widest container could never be satisfied.
+-- **A rename under `create or replace` creates a SECOND function**, and a
+-- fresh database built from these files is therefore correct while a database
+-- that ran the earlier file keeps the old one forever — grantless, unreferenced
+-- and invisible to `pnpm test:db`, which resets to a fresh database where drift
+-- cannot exist. `check:schema-drift` is the only check that can see it, and it
+-- is the reason this line exists rather than a tidy-up.
+--
+-- `if exists` because a fresh database has never had one.
+drop function if exists public.is_track_count(jsonb, int);
+
+-- How many places ACROSS a container lays out.
+--
+-- **It replaces `is_track_count`, which measured `columns` and `span`.** Those
+-- were the flow model: a container declared a track count and its children
+-- streamed into it, so a place with nothing in it did not exist and the shape
+-- an author chose vanished whenever their content did not fill it. A container
+-- declares its width now and its children fill the places row by row, any one
+-- of which may be an explicit nothing.
 --
 -- **Absent is legal and means one.** The client materialises that default on
 -- the way through, so a payload it wrote always carries the key; a payload
@@ -386,7 +414,7 @@ revoke all on function public.is_container_mode(text) from public, anon;
 -- (p_value::text)::numeric between …` may cast a string and raise instead of
 -- answering false. `case` is the only construct here that guarantees the
 -- order.
-create or replace function public.is_track_count(p_value jsonb, p_max int)
+create or replace function public.is_space_count(p_value jsonb, p_max int)
 returns boolean
 language sql
 immutable
@@ -399,7 +427,7 @@ as $$
   end
 $$;
 
-revoke all on function public.is_track_count(jsonb, int) from public, anon;
+revoke all on function public.is_space_count(jsonb, int) from public, anon;
 
 
 -- ---------------------------------------------------------------------------
@@ -457,8 +485,14 @@ declare
   -- stops being answerable at a glance on a phone, and style recalculation
   -- grows with the node count nesting multiplies.
   c_max_depth    constant int := 3;    -- a container at this depth is refused
+  -- Places a container lays out ACROSS, which is the authoring vocabulary
+  -- somebody picks a shape from. It replaces `c_max_tracks`, and it is NOT a
+  -- total: children fill the places row by row and the section grows
+  -- downward, so a fifty-picture gallery is a three-space section with
+  -- seventeen rows. A cap of six with a cap of fifty children is therefore
+  -- two numbers on purpose.
+  c_max_spaces   constant int := 6;
   c_max_children constant int := 50;   -- children one container may hold
-  c_max_tracks   constant int := 4;    -- both `columns` and `span`
   c_max_rows     constant int := 50;   -- rows one `table` leaf may hold
   c_max_cells    constant int := 8;    -- a wider table cannot be read on a phone
   c_max_text     constant int := 2000; -- long enough for a real description
@@ -483,16 +517,15 @@ begin
     raise exception 'block %: unknown kind', p_path using errcode = '22023';
   end if;
 
-  -- **A span is checked against the vocabulary, NEVER against the parent's
-  -- `columns`.** An in-range span wider than the container it currently sits
-  -- in is accepted and stored as typed. Refusing it would make a page
-  -- unsavable because of a value nobody can see; rewriting it would destroy
-  -- what somebody typed, so dragging the block back out could not restore it.
-  -- The renderer narrows instead — see `effectiveSpan` in the hub. Gate the
-  -- field, never the value, exactly as `card_size` is handled.
-  if not public.is_track_count(p_block -> 'span', c_max_tracks) then
-    raise exception 'block %: span must be a whole number from 1 to %',
-      p_path, c_max_tracks using errcode = '22023';
+  -- **`columns` and `span` are refused BY NAME rather than ignored as stray
+  -- keys.** They are the flow model this replaces, and every other unknown key
+  -- here costs only the bytes it occupies — but these two carried meaning that
+  -- is gone. A stale editor writing one would have it silently dropped and the
+  -- page would come back a shape nobody chose, which is the failure this whole
+  -- model exists to end.
+  if p_block ? 'columns' or p_block ? 'span' then
+    raise exception 'block %: columns and span were replaced by spaces', p_path
+      using errcode = '22023';
   end if;
 
   -- Every text field a block can carry, whatever its kind, including the
@@ -641,11 +674,16 @@ begin
       raise exception 'block %: unknown mode', p_path using errcode = '22023';
     end if;
 
-    if not public.is_track_count(p_block -> 'columns', c_max_tracks) then
-      raise exception 'block %: columns must be a whole number from 1 to %',
-        p_path, c_max_tracks using errcode = '22023';
+    if not public.is_space_count(p_block -> 'spaces', c_max_spaces) then
+      raise exception 'block %: spaces must be a whole number from 1 to %',
+        p_path, c_max_spaces using errcode = '22023';
     end if;
 
+    -- **`children` is NOT tied to `spaces`, and a length that is not a
+    -- multiple of it is the ordinary state**, not a fault: the places are a
+    -- WIDTH, children fill them row by row, and the last row is usually part
+    -- filled. An equality rule between the two was written here once and made
+    -- a section of fifty pictures unrepresentable.
     if p_block ? 'children' then
       if jsonb_typeof(p_block -> 'children') is distinct from 'array' then
         raise exception 'block %: children must be an array', p_path
@@ -653,7 +691,9 @@ begin
       end if;
 
       -- Checked BEFORE the loop, so a container claiming a million children
-      -- is refused without any of them being walked.
+      -- is refused without any of them being walked. This is where the bound
+      -- on the recursion actually is: the client's own cap cannot do it,
+      -- because zod parses an array's elements before applying its `.max()`.
       if jsonb_array_length(p_block -> 'children') > c_max_children then
         raise exception 'block %: too many children (limit %)',
           p_path, c_max_children using errcode = '22023';
@@ -662,8 +702,14 @@ begin
       n := 0;
       for v_child in select * from jsonb_array_elements(p_block -> 'children') loop
         n := n + 1;
-        v_count := v_count
-          + public.validate_block(v_child, p_depth + 1, p_path || '.' || n);
+        -- **An empty space is a JSON `null` and is not a block.** A space is
+        -- positional: a merely shorter list cannot say that the middle one
+        -- is empty, and an empty space keeps its width on the page. It adds
+        -- nothing to the count, because there is nothing there to render.
+        if jsonb_typeof(v_child) <> 'null' then
+          v_count := v_count
+            + public.validate_block(v_child, p_depth + 1, p_path || '.' || n);
+        end if;
       end loop;
     end if;
   else

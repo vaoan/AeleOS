@@ -59,7 +59,10 @@
         "visibility": "Choose one of the options.",
         "limitReached": "You already have the maximum number of fursonas.",
         "sectionsRefused": "Your sections were refused. Fix them and save again — nothing else was lost.",
-        "pageUnreadable": "We could not read this page, so nothing was saved — saving now would replace it with nothing. Nothing has been changed."
+        "pageUnreadable": "We could not read this page, so nothing was saved — saving now would replace it with nothing. Nothing has been changed.",
+        "sections": "Your page was not saved. What needs fixing is marked below — every piece of content needs a title in English.",
+        "sectionsMarked": "Your page was not saved. What needs fixing is marked below.",
+        "sectionsTooLarge": "Your page holds more than it can. Take something off it and save again — nothing was lost."
       }
     },
     "pin": "Pin first",
@@ -82,14 +85,10 @@
     "sectionsTitle": "Sections",
     "sectionsEmpty": "No sections yet. Add one to start building the page.",
     "addSection": "Add section",
-    "newSectionType": "New section layout",
     "addSectionFor": "Add a section for…",
-    "sectionsAtLimit": "You have reached the maximum number of sections.",
+    "sectionsAtLimit": "You have reached the maximum this page can hold.",
     "dragSection": "Drag to reorder section",
     "sectionName": "Section name",
-    "sectionType": "Layout",
-    "addItem": "Add item",
-    "removeItem": "Remove item",
     "removeSection": "Remove section",
     "collapseSection": "Collapse section",
     "expandSection": "Expand section",
@@ -103,12 +102,6 @@
     "sectionStyleFitDefault": "Original size",
     "sectionStyleFitCover": "Cover",
     "sectionStyleFitTile": "Tile",
-    "sectionStyleCardSize": "Card size",
-    "sectionStyleCardSizeHint": "The smallest a card may shrink to — smaller fits more per row.",
-    "sectionStyleCardSizeDefault": "Default",
-    "sectionStyleCardSizeS": "Compact",
-    "sectionStyleCardSizeM": "Medium",
-    "sectionStyleCardSizeL": "Spacious",
     "sectionStyleBorder": "Border",
     "sectionStyleBorderHint": "The edge around this section's own cards and panels.",
     "sectionStyleBorderInherit": "Inherit the page",
@@ -117,30 +110,6 @@
     "sectionStyleBorderDashed": "Dashed line",
     "sectionStyleBorderDotted": "Dotted line",
     "sectionStyleBorderDouble": "Double line",
-    "itemTitle": "Title",
-    "itemDescription": "Description",
-    "itemDescriptionHint": "What do you want to say here?",
-    "itemLabel": "Label",
-    "itemValue": "Value",
-    "itemValueHint": "A number, a percentage, or one out of another — 60, 60%, 3/5",
-    "types": {
-      "cards": "Cards",
-      "accordion": "Accordion",
-      "two-column": "Two columns",
-      "gallery": "Gallery",
-      "video": "Video",
-      "music": "Music",
-      "carousel": "Carousel",
-      "links": "Links",
-      "stats": "Stats",
-      "quote": "Quotes",
-      "timeline": "Timeline",
-      "socials": "Socials",
-      "posts": "Posts",
-      "masonry": "Masonry",
-      "progress": "Progress",
-      "tabs": "Tabs"
-    },
     "imageUrl": "Image address",
     "imageUrlHint": "Paste a link to a picture. Nothing is uploaded — it stays wherever you host it.",
     "linkUrl": "Link address",
@@ -267,7 +236,98 @@
     "themeBackgroundUrlHint": "A link to a picture. Nothing is stored, and it sits over your gradient.",
     "themeBackgroundFit": "Fit",
     "themeBackgroundFitCover": "Cover",
-    "themeBackgroundFitTile": "Tile"
+    "themeBackgroundFitTile": "Tile",
+    "newSectionSpaces": "New section shape",
+    "sectionMode": "Arrangement",
+    "sectionSpaces": "Spaces across",
+    "sectionSpacesHint": "How many places sit side by side. Fewer means more rows — nothing you have put here is removed.",
+    "modes": {
+      "stack": "Stacked",
+      "grid": "Grid",
+      "masonry": "Masonry",
+      "carousel": "Carousel",
+      "tabs": "Tabs",
+      "accordion": "Accordion",
+      "timeline": "Timeline"
+    },
+    "addContent": "Add content",
+    "addNested": "Add a section here",
+    "nestingAtLimit": "Sections cannot be nested any deeper than this.",
+    "removePlace": "Remove this place",
+    "addPlace": "Add a place",
+    "previewTitle": "How it will look",
+    "removeBlock": "Remove what is here",
+    "leafKind": "Content",
+    "leafKinds": {
+      "text": "Text",
+      "link": "Link",
+      "picture": "Picture",
+      "player": "Player",
+      "post": "Post",
+      "social": "Social chip",
+      "stat": "Fact",
+      "quote": "Quote",
+      "progress": "Progress",
+      "table": "Table"
+    },
+    "leafFields": {
+      "text": {
+        "title": "Heading",
+        "description": "Body",
+        "hint": "What do you want to say here?"
+      },
+      "link": {
+        "title": "Button text",
+        "description": "Subtitle",
+        "hint": "A line under the button."
+      },
+      "picture": {
+        "title": "Alt text",
+        "description": "Caption",
+        "hint": "Shown under the picture."
+      },
+      "player": {
+        "title": "Frame title",
+        "description": "Caption",
+        "hint": "Shown under the player."
+      },
+      "post": {
+        "title": "Frame title",
+        "description": "Caption",
+        "hint": "Shown under the post."
+      },
+      "social": {
+        "title": "Chip label"
+      },
+      "stat": {
+        "title": "Label",
+        "description": "Value",
+        "hint": "The fact itself."
+      },
+      "quote": {
+        "title": "Who said it",
+        "description": "What was said",
+        "hint": "The words themselves."
+      },
+      "progress": {
+        "title": "Label",
+        "description": "Value",
+        "hint": "A number, a percentage, or one out of another — 60, 60%, 3/5"
+      },
+      "table": {
+        "title": "Caption",
+        "description": "A note under it",
+        "hint": "Shown under the caption."
+      }
+    },
+    "tableRows": "Rows",
+    "addRow": "Add row",
+    "removeRow": "Remove this row",
+    "addCell": "Add cell",
+    "removeCell": "Remove this cell",
+    "cellText": "Cell",
+    "problemTitle": "This needs a title in English before the page can be saved.",
+    "problemGeneric": "Something here was refused. Check this block's fields."
   },
   "picker": {
     "title": "Who do you want to be?",

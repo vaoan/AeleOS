@@ -214,8 +214,9 @@ Key choices and _why_:
   targets a tag it treats as interactive; the handle is a `<button>`; nothing
   set `disableInteractiveElementBlocking` on its `Draggable`. Lifting a
   section did nothing at all, silently, for every input method. It survived
-  because `section-editor.test.tsx`'s only coverage mocks
-  `@hello-pangea/dnd` entirely and counts buttons by `aria-label` — wiring
+  because the flat section editor's only coverage — `section-editor.test.tsx`,
+  deleted along with that editor when the block editor replaced it — mocked
+  `@hello-pangea/dnd` entirely and counted buttons by `aria-label`, wiring
   that passes whether or not a lift ever begins. The guard is now
   `tests/e2e/section-drag-reorder.spec.ts`, which drives a real drag by
   keyboard and is sabotage-verified against the original fault: removing the
@@ -224,10 +225,11 @@ Key choices and _why_:
   dependency away is the one that could not have caught this, and the one
   that used the real thing did on its first run.
 
-  The fix landed first in `section-editor.tsx` alone, and this note recorded
-  `fursona-list.tsx` as still carrying the identical fault rather than leaving
-  the next person to rediscover it. **It was then fixed in `#154`** —
-  `fursona-list.tsx:231` sets the prop today.
+  The fix landed first in the flat editor's own card alone, and this note
+  recorded `fursona-list.tsx` as still carrying the identical fault rather than
+  leaving the next person to rediscover it. **It was then fixed in `#154`**,
+  and `fursona-list.tsx` sets the prop today; so does `block-editor.tsx`, which
+  is where a section is dragged now.
 
   Which makes this note's own history the smaller lesson beside the bug's: it
   went on asserting an open fault for a day after that fault was closed, and
@@ -598,13 +600,24 @@ replace`, so the newest body of a function could sit in a file named after
   every surface in the app now rings on the inside. Spec:
   `2026-08-16-a-border-of-ones-own-design.md`.
 
-- **Blocks and grids (2026-08-18) — the model and the renderer are done; the
-  editor is not.** A page was a flat array of sections whose `type` **welded
-  arrangement to content** — `gallery` was a grid _of pictures_, `links` a list
-  _of links_ — so heterogeneity was not merely unsupported but unrepresentable.
-  A page is a recursive tree of **blocks** now: a **container** arranges its
-  children in a mode, a **leaf** holds one piece of content, and **a section is
-  a container at depth 0 that carries a name.**
+- **Blocks, and then spaces (2026-08-18) — the model, the renderer and the
+  editor are done; dragging is not.** A page was a flat array of sections whose
+  `type` **welded arrangement to content** — `gallery` was a grid _of pictures_,
+  `links` a list _of links_ — so heterogeneity was not merely unsupported but
+  unrepresentable. A page is a recursive tree of **blocks** now: a **container**
+  arranges its children in a mode, a **leaf** holds one piece of content, and
+  **a section is a container at depth 0 that carries a name.**
+
+  **The arrangement was then a FLOW for a week, and that was the second half of
+  the same correction.** A container declared a track count and its children
+  streamed into it declaring spans, which means there is no such thing as an
+  empty place — so the shape somebody chose disappeared the moment their
+  content stopped filling it. A section declares how many places it lays
+  **across** now; children fill them row by row and the section grows downward;
+  and **a place may be empty, keeps its width, and draws nothing.** Collapsing
+  it was refused deliberately, because a space count that means nothing
+  whenever a section is partly filled is a shape that changes under its author
+  as they work.
 
   Read `apps/hub/src/features/actors/CLAUDE.md` before touching any of it — it
   carries the container modes, the leaf kinds, and **the table saying where
@@ -621,28 +634,61 @@ replace`, so the newest body of a function could sit in a file named after
     level too far is otherwise refused for naming a `kind` no leaf has — which
     tells somebody their block kind is invalid and their title is missing,
     neither of which they got wrong.
-  - **Spans are whole grid tracks, never coordinates.** A container declares
-    `columns` and a block declares the `span` it takes of its parent's tracks,
-    both from one small vocabulary, collapsing to a single track below `sm`.
-    Free positioning is refused because it cannot degrade to a narrow viewport,
-    because it makes the editor close to unusable on a phone — which is where
-    most people will build — and because it is how the pages this product is
-    inspired by became unreadable.
-  - **A stored span wider than its parent is kept exactly as typed and narrowed
-    only at render.** A page must never become unsavable; and rewriting the
-    stored value would destroy what was typed, so dragging the block back
-    somewhere wider could not restore it. Gate the field, never the value.
+  - **A space is a WIDTH and never a capacity, which is what makes narrowing
+    safe.** `spaces` says how many places a container lays across; `children`
+    is what is in them; the two are not tied, so narrowing a six-space section
+    to two re-wraps six things into three rows with all six still there and in
+    order. Nothing is displaced, so nothing needs rescuing — and
+    `patchContainer` takes `Partial<Omit<ContainerBlock, "kind" | "children">>`,
+    which makes the clamp somebody would add in good faith **impossible to
+    express through the function the control uses.** A type saying it cannot
+    be written tomorrow is stronger than a test saying it is absent today.
+  - **Content adapts to its parent, not to the window.** Every responsive rule
+    inside a block is a container query, and a viewport breakpoint here is the
+    **wrong tool rather than a weaker one**: a card in one place of a
+    three-space section is about a third of the page wide while every `sm:`
+    rule inside it believes it has the whole screen, and the error worsens with
+    depth. It needed no library and no client boundary either — `@container` is
+    native CSS, so these renderers stay server components.
+  - **Free positioning — coordinates on a canvas — is refused, and the refusal
+    is hard to walk back once shipped.** It cannot degrade to a narrow
+    viewport; it makes the editor close to unusable on a phone, which is where
+    most people will build; and it is how the pages this product is inspired by
+    became unreadable.
   - **`columns` was a mode and was removed before anything could store one**,
     for a reason worth reusing: three consecutive tasks wrote down three
     different meanings for it. See rule 15 below.
+  - **There are THREE stored page shapes, and the third is a migration with a
+    deletion condition.** Flat sections; blocks carrying `spaces`; and, for
+    about a day, blocks carrying `columns`, written by the save boundary `#158`
+    shipped. `withSpacesFromColumns` reads the third on the lenient path only,
+    because stripping the key it does not know turned a three-across gallery
+    into one full-width column and the next save stored that. The feature note
+    carries the rest, including when it may be deleted and why nothing can tell
+    you that.
 
-  **The editor is phase 3 and is still the flat one.** It cannot open a page
-  stored as blocks, and it now refuses to save one rather than replacing it
-  with nothing. Phases 3–5 — the dnd-kit migration, the block palette, the DOM
-  reduction — are unwritten, and the spec records what they inherit and what
-  the dnd-kit spike found, all of which fails silently. Spec:
-  `docs/superpowers/specs/2026-08-17-blocks-and-grids-design.md`, marked
-  complete for phases 1 and 2; plan:
+  **The editor composes blocks now** — `block-editor.tsx`, `block-card.tsx`
+  and `leaf-editor.tsx`, with the flat editor deleted. Somebody chooses a
+  section's shape, fills a place with content or with another section to the
+  cap of three, picks a content kind, edits only the fields that kind draws,
+  removes what is there, and sees the section drawn by the renderer a
+  stranger's page uses rather than by a preview that could drift from it.
+
+  **What is left is DRAGGING, and it is unwritten.** Sections reorder at the
+  top level and nothing else does; moving a block between places is phase 4, on
+  `@dnd-kit`, because `@hello-pangea/dnd` cannot express a nested drag at all
+  by its own README. The feature note carries what the spike found, and the
+  reason to read it there is that every part of it fails silently: a
+  nesting-naive collision decision, four props that must not be dropped and
+  that a mocked test cannot see dropped, and an id generator that hydrates
+  mismatched unless it is handed `useId()`.
+
+  Specs: `docs/superpowers/specs/2026-08-18-sections-of-spaces-design.md`,
+  complete for phases 1–3 and the current word on the model; and
+  `docs/superpowers/specs/2026-08-17-blocks-and-grids-design.md`, which it
+  supersedes on tracks and spans and which still describes them — it carries a
+  note at the top saying so, and is left otherwise as delivered. Plans:
+  `docs/superpowers/plans/2026-08-18-sections-of-spaces.md` and
   `docs/superpowers/plans/2026-08-17-blocks-and-grids-phase-1-model-and-renderer.md`.
 
 ## The toolchain, and the rules it cost
@@ -892,6 +938,74 @@ every Tailwind utility for months without anything noticing.
     for the one case that genuinely needs them. Where a live probe is
     unavoidable, write down where it is before making it, not after.
 
+21. **A dormant guard names the conditions under which it wakes, and somebody
+    has to READ them when that condition arrives.** The dial-latency half of
+    `personalised-page-cost.spec.ts` was stood down with an exact note saying
+    phase 3 would restore it, what else would have to move (nothing), and how
+    to judge the result. Phase 3 was then built and merged and nobody opened
+    the file; three of the note's stated reasons had gone false meanwhile, and
+    it took a review to find it. This is not the "a sentence crediting a guard
+    is not the guard" failure — the note was excellent and everything it said
+    was checkable. What was missing was the step that reads it, so the
+    obligation belongs to the phase rather than to the note: **when a phase
+    closes, grep the suites for its own name.** A skip whose restore condition
+    has arrived is a check that has quietly stopped existing, and it looks
+    exactly like a check that is passing.
+
+22. **One agent per working tree, or a worktree each.** Two were writing to this
+    one at once — the second told to expect files to move under it rather than
+    being made to wait — and a whole-tree `pnpm lint` came back red on four
+    errors belonging to the other, which is precisely the state in which
+    somebody "fixes" work that is not theirs. Nothing was lost only because the
+    file sets happened to be nearly disjoint. The overlap rule that was being
+    used, stage only your own files by name, protects the INDEX and protects
+    nothing whatever about running a gate against a tree somebody else is
+    editing. The cost of the rule is occasional serialisation; the cost of not
+    having it is a red gate nobody owns.
+
+23. **An assertion that cannot fail FIRST is corroborating, not independent, and
+    counting it as proof is how a suite overstates itself.** Where several
+    assertions sit in one path, an earlier sabotage reddens before the later
+    ones are reached — so they never had the chance to be the thing that
+    caught it, and a report saying "these are covered" is describing reach
+    rather than evidence. The task that got this right named four of its own
+    that way rather than adding them to a total, and it is the honest form of
+    the discipline rules 11, 17 and 19 each found the dishonest form of. The
+    test is mechanical: sabotage the code, and see which assertion is the one
+    that goes red.
+
+24. **A brief's premise can be wrong, and an implementation that says so is
+    doing the job rather than refusing it.** Twice in one phase. A plan
+    demanded `children.length === spaces` on a reading of "spaces" as a total,
+    which made a fifty-picture gallery unrepresentable; the implementer hit the
+    consequence and asked about the cause. And the editor brief asked what
+    happens to a displaced occupant when a shape narrows — a question with no
+    answer, because a width is not a capacity and nothing is displaced. Both
+    were mine. The failure mode to guard against is the opposite one, an agent
+    implementing an impossible instruction and writing tests that assert it, so
+    say plainly which part of the instruction does not apply and why, and carry
+    on. And note what the second cost when it was half-fixed: three places in
+    the plan still stated the old rule after the constraint above them had been
+    corrected. **A document that contradicts itself is worse than one that is
+    simply wrong**, because whichever half a reader reaches first is the one
+    they follow.
+
+25. **A premise about the DATA is dated the moment it is written, and `main`
+    moves.** A plan's migration ruling opened "every page in the database is
+    flat-shaped", and every task after it reasoned from that sentence. It had
+    been false for about an hour: a pull request merged that morning shipped a
+    save boundary writing a shape nobody downstream knew about, so the branch
+    read those pages, stripped the key it did not recognise, and answered a
+    default — a three-across gallery as one full-width column, for its owner
+    and for a stranger, with the next save storing the loss. Nothing failed,
+    because a strip is not an error and no test owns the live database. Two
+    habits follow, and the second is the one that was missing. **Date a claim
+    about stored data and name what would falsify it**, rather than stating it
+    as a standing fact. And **re-read what merged to `main` while the branch was
+    open**, specifically for writes: a claim about the schema is checked by
+    `check:schema-drift`, and a claim about what is IN the rows is checked by
+    nobody at all.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected
@@ -948,9 +1062,11 @@ step from a check that does nothing.
 
 `canvas` measures every canvas at the top of both dials and then what a
 personalised page costs on a throttled phone; both faults it guards against
-shipped to `main` under a green tick. Note that its dial-latency half is
-currently `test.fixme` — see the blocks bullet above — so the job is green on a
-narrower subject than its name suggests.
+shipped to `main` under a green tick. Its dial half was stood down while the
+block model's first phases landed, because the fixture is built from mode and
+kind pairs the flat editor of the day had no name for, so the route it measures
+opened empty; the editor port restored it and both halves run. That guard's own
+note is where rule 21 came from.
 
 `schema-drift` runs `pnpm check:schema-drift`, and it exists because of the
 in-place-migration hazard above:

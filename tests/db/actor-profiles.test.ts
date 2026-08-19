@@ -46,14 +46,12 @@ const SECTIONS = [
   {
     kind: "container",
     mode: "stack",
-    columns: 1,
-    span: 1,
+    spaces: 1,
     name_en: "About me",
     name_es: "Sobre mí",
     children: [
       {
         kind: "text",
-        span: 1,
         title_en: "Who I am",
         title_es: "Quién soy",
         description_en: "Some words.",

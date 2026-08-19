@@ -142,6 +142,7 @@
     "prettierrc",
     "proacl",
     "proname",
+    "prosrc",
     "Puck",
     "puck",
     "recalc",
@@ -246,7 +247,8 @@
         "apps/hub/tests/actor-content.test.ts",
         "apps/hub/tests/public-sections.test.tsx",
         "apps/hub/tests/blocks.test.tsx",
-        "apps/hub/tests/e2e/personalised-page-cost.spec.ts"
+        "apps/hub/tests/e2e/personalised-page-cost.spec.ts",
+        "apps/hub/tests/e2e/nested-page-build.spec.ts"
       ],
       "language": "en,en-GB,es"
     }

@@ -1,4 +1,5 @@
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
+import { env } from "@/shared/infrastructure/env";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
@@ -45,6 +46,13 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
  * theme belongs to one actor: the two are unrelated rows, which is exactly why
  * the panel offers to copy one onto the other.
  *
+ * **It resolves `parentHost` from `env.hubHost`**, the same way both public
+ * routes do. Every section in the editor previews itself with the real
+ * renderer, and one leaf kind reads that value: Twitch refuses to load a
+ * player unless `parent=` names the embedding domain. Deployment configuration
+ * is not something a client component can resolve for itself, so the route
+ * does it.
+ *
  * @returns the edit page, or a 404 when no owned, active fursona matches.
  */
 export default async function EditFursonaPage({
@@ -86,6 +94,10 @@ export default async function EditFursonaPage({
       initialSections={page.sections}
       initialTheme={page.theme}
       profileTheme={profileTheme}
+      // Twitch's player needs to know the domain embedding it, and every
+      // section's live preview is the real renderer. Deployment configuration
+      // rather than anything a client component could resolve for itself.
+      parentHost={env.hubHost}
     />
   );
 }

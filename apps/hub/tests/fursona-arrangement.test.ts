@@ -8,7 +8,6 @@ import {
   setFursonaOrder,
   setFursonaSections,
 } from "@/features/actors/infrastructure/fursona-arrangement";
-import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const rpc = vi.fn();
@@ -203,28 +202,38 @@ describe("the write functions", () => {
   // Sends the whole document, because 0009 replaces rather than merges — which
   // is also what makes retrying a failed save safe.
   //
-  // **And it sends BLOCKS, never the flat sections it was handed.**
-  // `set_actor_sections` walks `validate_block` and refuses the flat shape
-  // outright, so every save carrying a section was refused in production until
-  // `sectionsToBlocks` sat here. Asserting the converted payload rather than
-  // the argument is what makes this test able to fail: the version that
-  // asserted `p_sections: sections` passed happily against the code that was
-  // refused by the database on every call.
-  it("writes sections by actor ref, as blocks", async () => {
-    const sections = [
-      { name_en: "About", type: "cards" as const, sort_order: 1, items: [] },
+  // **And it sends what it was handed, unchanged.** This used to convert: the
+  // only editor there was composed flat sections, `set_actor_sections` walks
+  // `validate_block` and refuses that shape outright, so a shim sat here. The
+  // editor composes blocks now, and a conversion left in the middle of this
+  // path would be a second opinion about a tree that is already the one the
+  // database accepts.
+  it("writes the page by actor ref, exactly as it was handed", async () => {
+    const blocks = [
+      {
+        kind: "container" as const,
+        mode: "grid" as const,
+        spaces: 3,
+        name_en: "About",
+        children: [
+          null,
+          { kind: "text" as const, title_en: "Hi", description_en: "" },
+        ],
+      },
     ];
-    await setFursonaSections(client(), "ref-1", sections);
+    await setFursonaSections(client(), "ref-1", blocks);
     expect(rpc).toHaveBeenCalledWith("set_actor_sections", {
       p_actor_ref: "ref-1",
-      p_sections: sectionsToBlocks(sections),
+      p_sections: blocks,
     });
-    const sent = rpc.mock.calls[0]?.[1] as { p_sections: unknown[] };
-    expect(sent.p_sections[0]).toMatchObject({
-      kind: "container",
-      mode: "grid",
-      name_en: "About",
-    });
+    // THE EMPTY PLACE REACHES THE DATABASE. A conversion that tidied the null
+    // away would move the leaf from the second place to the first, and the
+    // structural comparison above would still pass if it were written against
+    // whatever this function produced rather than against what it was given.
+    const sent = rpc.mock.calls[0]?.[1] as {
+      p_sections: { children: unknown[] }[];
+    };
+    expect(sent.p_sections[0]?.children[0]).toBeNull();
   });
 
   it("deletes by actor ref", async () => {

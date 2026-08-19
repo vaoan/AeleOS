@@ -36,15 +36,24 @@ vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
 vi.mock("next-intl/server", () => ({
   getTranslations: () => Promise.resolve((key: string) => key),
 }));
+// The route resolves the deployment's own hostname and hands it to the editor,
+// for the one leaf kind whose live preview reads it. Stubbed rather than
+// configured, because this suite is about which fursona the route resolves.
+vi.mock("@/shared/infrastructure/env", () => ({
+  env: { hubHost: "parent-host-test.example" },
+}));
 // The real templates, not a fixture. `labels.ts` maps over them to build the
 // picker's label records, so a stub list here would let this suite pass with a
 // catalogue that has no entry for a template the app actually ships.
 const { FURSONA_TEMPLATES } =
   await import("@/features/actors/domain/fursona-templates");
-// Likewise real: labels.ts derives one label per layout from this array, so a
-// stub would let the suite pass with a catalogue missing a layout that ships.
-const { SECTION_TYPES } =
-  await import("@/features/actors/domain/section-schema");
+// Likewise real: labels.ts derives one label per arrangement and one per
+// content kind from these, so a stub would let the suite pass with a catalogue
+// missing a name that ships.
+const { CONTAINER_MODES, LEAF_KINDS } =
+  await import("@/features/actors/domain/block-schema");
+const { DESCRIBED_KINDS } =
+  await import("@/features/actors/domain/leaf-fields");
 // Real for the same reason, and it is what derives the canvas and style names:
 // a stub would let the suite pass with a catalogue missing one that ships.
 const { themeConfiguratorLabels } =
@@ -59,7 +68,9 @@ vi.mock("@/features/actors", () => ({
   // fails the page rather than the label code — the mocked-dependency trap
   // again: what stands in for a module has to carry everything the module was
   // being relied on for, and nothing announces a new reliance.
-  SECTION_TYPES,
+  CONTAINER_MODES,
+  LEAF_KINDS,
+  DESCRIBED_KINDS,
   themeConfiguratorLabels,
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that

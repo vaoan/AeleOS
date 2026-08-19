@@ -375,7 +375,7 @@ nothing, and never a bordered box with nothing in it either.
 | mode        | the mechanism it earns its place by                                                                                                               |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `stack`     | the resting state — children down the page, arranging nothing                                                                                     |
-| `grid`      | uniform tracks: `repeat(<columns>, minmax(0, 1fr))`                                                                                               |
+| `grid`      | uniform tracks: `repeat(<spaces>, minmax(0, 1fr))`, filled row by row                                                                             |
 | `masonry`   | CSS multi-column, which has no rows at all, so a short item is followed by whatever comes next instead of waiting for the tallest one beside it   |
 | `carousel`  | scrolls sideways, at every width                                                                                                                  |
 | `tabs`      | one panel at a time — a radio group and `:checked`, so it stays a server component and every panel is reachable by keyboard with nothing hydrated |
@@ -438,9 +438,22 @@ looks like an answer.
 sub-line is the handle `resolveSocial` derived from the address, which is all a
 chip has room for. A control that accepts what somebody types, stores it,
 refuses nothing and renders nothing is the worst kind — there is no way for
-them to learn it did nothing. That rule is why `LINKED`, `ICONED` and
-`PICTURED` exist in `section-item-fields.tsx`, and phase 4's block palette owes
-the same gating per kind.
+them to learn it did nothing.
+
+**`domain/leaf-fields.ts` is where that rule lives now**, one row per kind
+saying whether the renderer reads the address, the icon, the picture, the rows
+and the description; `LeafEditor` offers exactly what it says yes to. It
+replaces the flat editor's `LINKED`/`ICONED`/`PICTURED` sets, and it is
+**pinned to the renderer rather than trusted against it** —
+`leaf-fields.test.tsx` draws each kind in every state its own renderer can
+reach, with a field written and without, and fails when the markup differs for
+a field the table calls unread or fails to differ for one it calls read. That
+guard is not decoration: written from the table alone it disagreed with
+`blocks.tsx` on three cases, all for the same reason. **`player` and `post`
+read the ICON**, because an address neither can frame falls back to a link or
+to a branded chip and both draw one — and a Bluesky `post` is ALWAYS the chip,
+since `embed.bsky.app` hard-refuses the handle a shareable address carries. A
+single-state measurement reports that as a field nobody reads.
 
 ### Depth is capped at three, and the database is what enforces it
 
@@ -482,12 +495,72 @@ that built this: a leaf's deepest seat is three containers down, and a test
 that nests two and calls itself "at the deepest level" is sitting one level
 above the only place the refusal it exists to prove can happen.
 
-### Spans are whole tracks, never coordinates
+### A container is its SPACES, and there are no spans
 
-A container declares `columns`, and a block declares the `span` it takes of its
-PARENT's tracks. Both come from one small vocabulary — `BLOCK_LIMITS.tracks` is
-the ceiling for both, because a span is a count of its parent's tracks and a
-vocabulary wider than the widest container could never be satisfied.
+**`columns` and `span` are gone and nothing replaced them.** A container
+declares `spaces` — how many places it lays ACROSS, from one to six — and every
+child takes exactly one of them, filling row by row so the section grows
+downward. Where a block sits is entirely its parent's business, and its width
+is not a property of the block at all. A wide thing is a container of one space
+nested where it is wanted, which is the same recursion doing the work rather
+than a second mechanism beside it.
+
+If you are reading a document that still describes `BLOCK_LIMITS.tracks`,
+`effectiveSpan`, `TRACK_CLASS` or `SPAN_CLASS`, this note is newer: none of
+them exists.
+
+**A place may be empty, and then it keeps its width and draws nothing.** That
+is the decision the whole model rests on rather than a detail of it, because a
+place is POSITIONAL: `[a, null, b]` has to mean that `b` is third, and a list
+that merely happens to be shorter cannot say so. Collapsing was refused
+deliberately. If an unfilled place closed up, a space count would mean nothing
+the moment a section was partly filled — a three-space section holding two
+things would read as two columns — and the shape somebody chose would change
+under them as they worked, which is exactly the failure a flow of tracks had.
+What a visitor sees is room: no border, no surface, no padding, so it reads as
+space rather than as a broken box. A TRAILING empty place is kept for the same
+reason and trimmed by nothing, since somebody is usually about to fill it and
+trimming would move every entry after the next thing they add.
+
+**`tabs` and `accordion` except themselves, and the exception is that ruling
+rather than a breach of it.** Both drop an empty place, because there a
+place is a CONTROL and not a box: an empty tab opens onto nothing and an empty
+disclosure has nothing to disclose, which is a control that does not work and
+is strictly worse than the gap it would have filled. `filledSeatsOf` is where
+that lives, and every seat it keeps carries its true `path` and `ordinal`, so
+dropping one renumbers nothing and the third place is still called the third.
+Every mode that lays a BOX keeps the place, because there the empty box IS the
+shape its author chose — and `timeline` keeps the step while drawing no marker
+beside it, which is the same rule read from the other end: a bullet with
+nothing next to it is chrome for content that is not there.
+
+**A `spaces` a build does not know renders as one place rather than blanking
+the page.** `SPACE_CLASS.get(n) ?? ""` is that fallback, and the LENIENT read
+admits a count above the vocabulary for the same deploy-skew reason it admits
+an unknown `mode` — see `spaceCount` in `block-schema.ts`. The write still
+refuses one, and so does `validate_block`. The same asymmetry now covers
+`children`'s length: capped on the write, unbounded on the read. **Both were
+strict on both sides and that was a fault**, because a number a newer
+deployment raised is not corruption, and refusing one on the read failed the
+container, then the union, then the array, then the page — `null` to its owner
+and `[]` to a stranger, over a value that was only ever going to cost a
+container its shape.
+
+**There are THREE stored shapes, not two, and the third loses its width
+silently unless something reads it.** Flat sections are one; blocks carrying
+`spaces` are another; and in between, for about a day, `#158` shipped an editor
+that converted at the save boundary and wrote blocks carrying **`columns`** and
+leaves carrying a materialised `span`. Those rows are in the database. The
+lenient object strips a key it does not know, so without a fallback `spaces`
+falls to its default and a three-across gallery reads back as one full-width
+column — for its owner and for a stranger — after which the next save stores
+that loss permanently, with nothing warning anybody, because a strip is not an
+error. `withSpacesFromColumns` in `block-schema.ts` reads `columns` as `spaces`
+where there is no `spaces`, on the LENIENT build only; the strict save refuses
+the key and `validate_block` refuses it by name, so an owner who saves a
+repaired page stores it in the new shape. **It can be deleted once no stored
+page carries `columns`, and no test can tell you that** — it is a fact about
+the live database rather than about the code.
 
 **Free positioning — x, y, width, height on a canvas — is refused, and the
 refusal is hard to walk back once shipped.** It cannot degrade to a narrow
@@ -495,24 +568,6 @@ viewport, and this project has already shipped one overflow at exactly 320px;
 it makes the editor close to unusable on a phone, which is where most people
 will build; and it is how the pages this product is inspired by became
 unreadable.
-
-**A span wider than its parent is legal, is stored exactly as typed, and is
-narrowed only at render**, by `effectiveSpan`. Two rules meet there and both
-matter. A page must never become unsavable — a block dragged into a narrower
-container that made the whole page refuse to save would cost somebody a page
-over a value they cannot see. And rewriting the stored span would have
-satisfied that too, and is the wrong half: it destroys what was typed, so
-dragging the block back out could not restore it, which contradicts this
-feature's own rule that switching something and switching back finds what was
-typed still there. Gate the field, never the value — the shape `card_size`
-already uses.
-
-**The narrowing is a CLASS and not an inline property, and the reason is the
-breakpoint.** Every block is one track below `sm` and takes its declared share
-above it; an inline `grid-template-columns` cannot carry a media query, and a
-span that survives the collapse is the 320px overflow again — `grid-column:
-span 3` inside a single-track grid does not clamp, it creates two implicit
-tracks and pushes the row past the viewport. See `TRACK_CLASS` and `SPAN_CLASS`.
 
 **`minmax(0, 1fr)` is load-bearing wherever a track is laid**, and the
 measurement that established it is worth not having to repeat. At 320px with an
@@ -524,8 +579,29 @@ through a chain of `auto` tracks each floored at its content's min-content
 contribution. Identical to a reader, opposite cause, and therefore a fix in the
 opposite place. Two notes in `blocks.tsx` exist only because none of that is
 visible without a browser — `tabs`' panel survives on `w-full` capping its
-automatic minimum, and `min-w-0` on a leaf is load-bearing for `timeline` and
-for nothing else.
+automatic minimum, and `min-w-0` on a leaf pairs with `@container` on the same
+element, each individually sufficient because inline-size containment zeroes
+the same min-content contribution `min-width: 0` does.
+
+**Every responsive rule inside a block is a CONTAINER query, and that is a
+correction rather than a preference.** A leaf in one place of a three-space
+section is about a third of the page wide, while every `sm:`-prefixed rule
+inside it would believe it had the whole window — and the error compounds with
+depth. **A viewport breakpoint here is the wrong tool and not a weaker one**,
+which is the distinction worth keeping: it answers a question about a box the
+block does not live in, so it is not less accurate about the block's width —
+it is not about the block's width at all, and no threshold can be picked that
+makes it so. The editor's own cards ask the same way, for the same reason: a
+nested card lays its places inside a track of its parent's grid, so a viewport
+query there would be the identical mistake one level down. `blocks.test.tsx`
+asserts that a page of every mode emits no `sm:`/`md:`/`lg:`/`xl:`/`2xl:` class
+at all, built from `LEAF_KINDS` so a breakpoint added to any renderer fails it.
+
+It also cost no dependency and no client boundary. `@container` compiles to
+`container-type: inline-size` and the `@`-prefixed variants are plain CSS, so
+every renderer here stays a **server component** — where the JavaScript
+alternative would have meant a resize observer, a `"use client"` on the whole
+tree, and a first paint measured after hydration rather than before it.
 
 ### Adding a mode or a kind — what is guarded, and what is not
 
@@ -547,14 +623,28 @@ user-controlled text answers `__proto__`, `constructor` and `toString` with
 truthy inherited values. This repo shipped a Critical of exactly that shape
 through `TIDAL_KINDS`, where the inherited value passed a `!entry` guard and
 then threw during a public page render. A `Map` has no inherited entries to
-find. The same argument covers `TRACK_CLASS`, `SPAN_CLASS` and `MASONRY_CLASS`,
-whose keys arrive from `jsonb` too.
+find. The same argument covers `SPACE_CLASS`, `MASONRY_CLASS`, `LEAF_FIELDS`,
+`PLACES_CLASS` in the editor and `SHAPE_OF` in the shim — every lookup whose
+key arrives from `jsonb`. `SHAPE_OF` is the newest, and it was a plain object
+until a review noticed: every caller passed a value `z.enum` had accepted, so
+nothing was reachable — which is a property of three call sites rather than of
+the table, and the guard has to be the structure rather than a discipline the
+fourth caller has not read about.
 
-Two things are **not** guarded and must not be assumed. **Nothing yet names a
-mode or a kind to a person in either catalogue**, because no editor offers
-them: `messages.test.ts` still pins the flat `SECTION_TYPES` against
-`fursonas.types`, and phase 4 owes the equivalent for blocks. And nothing
-checks that a mode is _good_; that part is still on you.
+One thing is **not** guarded and must not be assumed: nothing checks that a
+mode is _good_. That part is still on you.
+
+**Both vocabularies ARE named to a person now, and both are checked.**
+`messages.test.ts` pins `CONTAINER_MODES` against `fursonas.modes` and
+`LEAF_KINDS` against `fursonas.leafKinds`, in each catalogue separately — the
+parity check beside it cannot see a name absent from both. It also pins
+`fursonas.leafFields`, which is one title string per kind and a description and
+a prompt for every kind that draws one: the pair genuinely means something
+different per kind, so a `picture`'s title is its ALT TEXT and a `quote`'s is
+who said it, and `DESCRIBED_KINDS` is what says which kinds owe the other two.
+`pages/labels.ts` builds every one of those records by MAPPING the vocabulary,
+so a kind added without a name fails the build instead of rendering its own id
+at somebody.
 
 **That catalogue guard is newer than the sentence that promised it**, which is
 the part worth remembering rather than the guard. Four documents said a test
@@ -595,77 +685,146 @@ prevent, and the leniency had only ever been extended to unknown keys. The read
 is a floor now: one empty title costs that title, never the page, and every
 renderer already handles it.
 
-### The editor is still the flat one, and a shim converts at the boundary
+### The editor composes blocks, and the shim converts what is already stored
 
-Phase 1 shipped the model and the renderer, proven with fixtures written
-straight to the database. **The editor is phase 3**, so `section-schema.ts`,
-`fursona-templates.ts` and the section editor are the flat model still — dead
-code awaiting its own deletion, and adding a layout to `SECTION_TYPES` changes
-nothing anywhere.
+**The flat editor is gone**, and with it `section-editor.tsx`,
+`section-card.tsx` and `section-item-fields.tsx`. What replaces it is
+`block-editor.tsx` (the page: sections, the template picker, the brand presets,
+the top-level drag), `block-card.tsx` (one container — its name, arrangement,
+shape, style, places, and the live preview) and `leaf-editor.tsx` (one piece of
+content and only the fields its kind draws). `section-schema.ts` and
+`fursona-templates.ts` survive, because the shim and the templates still speak
+that vocabulary.
 
-**Between the two sits `domain/section-block-shim.ts`, and it exists because
-this was shipped without one.** `set_actor_sections` walks `validate_block` and
-refuses the flat shape outright, so from the moment the block model merged
-every save carrying a section was refused in production — the template button
-being the fastest way to reach it, since one click fills a whole page. That
-outcome was known before the merge and ruled acceptable; the ruling drew its
-line at data loss and stopped, and what it missed is that a core surface which
-cannot save is not a degraded state. The shim converts at the write
-(`setFursonaSections`) and back at the read (`readActorPage`), so the flat
-editor and every template keep working unchanged. **What deletes it is phase 3**
-— it goes with `section-schema.ts`, the templates and the section editor, in
-one change.
+**The whole page is ONE form field, held by one `useController`, and that is
+forced rather than preferred.** A place may hold nothing, and `useFieldArray`
+keys every entry by an id it puts ON the entry — so it cannot represent a
+`null`, which is the one thing this model turns on. Every edit is therefore a
+pure function over the tree in `domain/block-edits.ts`, applied through one
+`apply` callback and handed back whole. That is also why the editor's real
+behaviour is measured at all: `src/features/*/presentation/**/*.tsx` is
+coverage-excluded, and those functions are domain code.
 
-Three things about it that a later change must not undo:
+**A block is addressed by its POSITION — a `BlockPath`, indices outermost
+first — rebuilt from where each card is rendering on every render.** Never a
+captured index: the flat editor documented that fault at length, and it is what
+made a delete land on the wrong row.
 
-- **Every flat layout gets a DISTINCT `mode`/`kind` pair**, because the reverse
-  direction recovers the layout from that pair. Two layouts sharing one would
-  silently retype somebody's section on the way back — which they discover a
-  week later, not when they save. `cards` keeps the grid and `links` takes the
-  stack for exactly this reason; they are the flat vocabulary's one genuinely
-  redundant pair.
-- **A tree the shim does not recognise reads as `null`, never as a best
-  effort.** A container inside a container, a leaf spanning two tracks, a leaf
-  wearing its own style, a container holding two kinds — every one of those is
-  a page only a block editor could have built, and flattening it would let the
-  next save write the flattening back over the whole.
-- **A page written before the block model still parses**, on both the editor's
-  read and the public one. Nothing converted them, so until their owners next
-  save they are the flat shape in the column — and for the length of one branch
-  every one of them served a stranger a heading with nothing under it.
+**Changing a shape cannot destroy content, and that is the model rather than a
+rescue.** `spaces` is how many places a container lays ACROSS and `children` is
+the content; children fill the places row by row and the section grows
+downward. So narrowing a six-space section to two re-wraps six things into
+three rows with all six still there, in order. Nothing writes `children` when
+`spaces` changes — `patchContainer` cannot, by its own type — and the control
+carries a sentence saying so, because somebody about to narrow a section has to
+know before they do it. The clamp somebody would write in good faith is
+sabotage-verified against: adding one reddens four cases across the domain
+suite and the card's own.
 
-The part to know before touching any of it: **`ActorPage.sections` is a union**
-— `[]` means nothing is written and an editor may replace it; `null` means a
-page IS stored and this build could not hold its shape, and the save refuses
-outright, before the fields, before the sections and before the theme. The two
-states used to be one, and the consequence was that opening any block-tree page
-and pressing Save erased it: the parse failed, the read answered `[]`, the
-mutation sent an empty tree, `set_actor_sections` accepts an empty tree and
-REPLACES. A page gone, no warning, and the RPC reporting success. **The shim
-does not weaken that and must not be made to**: it either produces the whole
-page or answers null.
+**A refusal is marked on the block that carries it, containers included.**
+`LeafEditor` marks a leaf's title and says so in a sentence beside it;
+`BlockCard` marks its name and, for a field it does not draw at all — an
+arrangement or a width from a newer deployment, a style address past its cap —
+says that something here was refused. It marked nothing for a while, and the
+banner above said "what needs fixing is marked below" over a page with no mark
+on it while naming a missing title, which was not the cause. The banner picks
+between three sentences now (`sectionsCode`): the title one only when every
+refusal IS a title, a neutral one when something is marked, and a different
+one again when a page-level cap refused with no index to mark. Which refusals
+land on a container rather than on a leaf was settled by running zod against
+its own issue paths rather than by reasoning about them — a discriminated
+union names the discriminator, so an unknown leaf `kind` marks the leaf.
 
-The one thing that does not survive the round trip is a section saved with **no
-items at all** — an empty container carries no leaf kind, so `grid` alone
-cannot say which of eight layouts it was, and it reopens as `cards`. Nothing
-written is lost, because there is nothing in it.
+**The editor's own cards carry no viewport breakpoint either, and the guard
+for that is `block-card.test.tsx` rather than `blocks.test.tsx`.** The public
+guard renders `PublicBlocks` only, so five `sm:` classes survived inside the
+very file whose comment explains why a window query is the wrong question below
+depth 0. Two of them decided whether the arrangement and width menus sat inline.
+The editor's guard renders a card holding a nested card and every leaf kind, and
+it is sabotage-verified by planting a breakpoint in each component. One thing it
+cannot ask for: **an element is never its own query container**, so a card's own
+padding and a leaf editor's own padding have no container-query form at all —
+`@container` there establishes the context for DESCENDANTS, and an `@` rule on
+the same element asks whatever encloses it. Those two dials were dropped rather
+than converted into a rule that asks the wrong box quietly.
+
+**The preview is the REAL renderer.** Each section's card draws itself with
+`Block` from `blocks.tsx` — the component both public pages are built from —
+handed the same tree the save will send, parsed by `lenientBlockSchema` because
+the editor's tree is mid-edit. A second implementation would have looked
+identical the day it was written and drifted the first time either changed,
+with no type error and no failing test; it is the same argument that already
+has the live style preview calling `blockStyle` rather than a copy of it.
+
+**Dragging reorders SECTIONS and nothing else, and the rest of it is phase 4.**
+Moving a block between places needs `@dnd-kit`; `@hello-pangea/dnd`, which the
+top-level list still uses, cannot express a nested drag at all — its own README
+rules out dragging from a parent list into a child one, and rules out grid
+layouts separately, and this model is nested grids and nothing else. Until then
+a place is filled and emptied explicitly, which is enough to build a page with:
+dragging is how a page gets rearranged pleasantly, not how one gets built.
+
+What the spike recorded is waiting for whoever does it, and every part of it
+fails SILENTLY. dnd-kit hands you the collision decision, and a nesting-naive
+one resolves `over.id` to a leaf INSIDE the hovered container, so the container
+reorder never fires — it was proved working at two levels and **not** at three,
+which is the level this model allows. The one prop that left this repo's own
+drag handle dead becomes four you must not drop, and **a mocked test hides
+those identically**, because the mock supplies what the real hook would have
+and therefore cannot observe whether the component passed it on — so the
+keyboard end-to-end specs are ported rather than dropped. And dnd-kit's id
+generator is a module-level counter rather than React's `useId`, so two server
+renders in one warm process emit different ids and every request after the
+first hydrates mismatched; `<DndContext id={useId()}>` is the fix, and
+forgetting it is invisible in development.
+
+**`domain/section-block-shim.ts` survives, converting ONE way.** It used to run
+at the write as well, because the only editor there was composed flat sections
+and `set_actor_sections` refuses that shape outright. The editor composes
+blocks now, so the write sends what the form holds and `blocksToSections` — the
+reverse direction, which turned a stored tree back into flat sections for that
+editor to open — is gone with the editor that needed it. Its remaining callers
+are the two read paths and the template picker, and none is going away soon:
+every page written before the block model is still FLAT in the column,
+converted on the read by `readActorPage` and by the public pages' own
+`parseBlocks`; and the shipped templates are still written in the flat
+vocabulary, converted when the picker applies one. **A page stays flat in
+storage until its owner next saves.**
+
+**Every flat layout still gets a DISTINCT `mode`/`kind` pair.** Nothing reads
+one back any more, so this is no longer a round-trip requirement — what it buys
+now is that two flat layouts cannot become the same block, so a converted page
+still looks like the layout its author picked.
+
+The part to know before touching any of it: **`ActorPage.sections` is a
+union** — `[]` means nothing is written and an editor may replace it; `null`
+means a page IS stored and this build could read it as NEITHER shape, and the
+save refuses outright, before the fields, before the page and before the theme.
+The two states used to be one, and the consequence was that opening any
+block-tree page and pressing Save erased it: the parse failed, the read
+answered `[]`, the mutation sent an empty tree, `set_actor_sections` accepts an
+empty tree and REPLACES. A page gone, no warning, and the RPC reporting
+success.
 
 `tests/e2e/editor-saves-page.spec.ts` is what proves all of this in a browser:
 every template, applied through the real picker, saved, **reopened in the
 editor and compared field by field**, saved again, and read as a stranger —
-plus a page built by hand and the person's own editor at `/me/edit`. The
-reopen is the assertion that matters; a one-way test passes on a conversion
-that retypes a section.
+plus a page built by hand, whose empty places have to come back still empty and
+still in their own positions, and the person's own editor at `/me/edit`. The
+reopen is the assertion that matters; a one-way test passes on a save that
+retypes a section.
 
-**`--card-size` currently has no reader** while the flat popup still offers the
-control. It named the minimum width a card in an `auto-fill` grid could shrink
-to, leaving the browser to decide how many fit — and a container declares an
-explicit track count now, so that sentence cannot become true again for `grid`.
+**`--card-size` has no reader and no control any more.** It named the minimum
+width a card in an `auto-fill` grid could shrink to, leaving the browser to
+decide how many fit — and a container declares an explicit space count now, so
+that sentence cannot become true again for `grid`. The style popup's field went
+with the flat editor rather than being carried across: a control that accepts a
+choice, stores it and changes nothing is the worst kind there is. **The KEY
+stays in the schema**, so a value the flat editor stored survives untouched.
 The meaning survives exactly in CSS multi-column's `column-width`, which is
 `masonry`'s to read and the intended home; whoever wires it moves the comment
-in `block-schema.ts` and `0009`'s column comment with it. Until then it is a
-stored value with no reader, which is one step from the "the control did
-nothing" fault this feature keeps producing.
+in `block-schema.ts` and `0009`'s column comment with it, and puts the control
+back.
 
 ### Embedded media is allowlist-and-rebuild, never pass-through
 
@@ -982,7 +1141,7 @@ because neither consequence is visible from the declaration:
   so a card that was itself the clipped surface cut the popup away. On a
   **collapsed** card that removed the panel entirely — including the select
   that would undo the choice. A control able to disable its own undo. The fix
-  is not an exemption for the popup: `section-card.tsx` paints the card's face
+  is not an exemption for the popup: `block-card.tsx` paints the card's face
   on a **layer inside** the root, so the notch is still previewed and any later
   token that clips _or transforms_ inherits the same protection.
   `section-card-face.spec.ts` drives the real popup on a collapsed card in a
@@ -1090,7 +1249,7 @@ section does, because a section is only a container at depth 0. It shipped as a
 per-SECTION bag and became per-block unchanged in meaning, which is the whole
 argument for collapsing the two models into one: had a nested grid been a
 second thing, it would have needed its own skin handling, its own background
-and its own span logic, and the two would have drifted.
+and its own arrangement logic, and the two would have drifted.
 
 ```ts
 style?: {
@@ -1105,13 +1264,12 @@ style?: {
 **Every key is optional, and absent means "inherit whatever encloses this."**
 That is a real answer, not a gap: a block with no `style` at all gets no
 `style` attribute in the markup either, so a page nobody has touched with this
-feature is byte-for-byte what it was before the feature existed. The flat
-editor's `SectionStylePopup`
-enforces this on write — it owns the whole `style` field through one
-`useController` rather than one per key, so clearing a field **deletes the
-key** instead of storing `""`. A per-key `register` cannot do that; it can
-only ever write a value, and an empty string sitting in `style` would be a
-third state the schema does not recognise, between "inherit" and "chosen."
+feature is byte-for-byte what it was before the feature existed.
+`SectionStylePopup` enforces this on write — it hands its caller the WHOLE bag
+rather than one key, so clearing a field **deletes the key** instead of storing
+`""`. A per-key writer cannot do that; it can only ever write a value, and an
+empty string sitting in `style` would be a third state the schema does not
+recognise, between "inherit" and "chosen."
 
 **`background_fit`'s three options are three paints, and for a while two of
 them were one.** The style function emitted `background-repeat` only for `tile`
@@ -1218,13 +1376,15 @@ through, since the face is the element carrying the `backdrop-filter`. Note
 that the layer the skin paints on is the layer nothing else drives: delete its
 `surface` class and every unit test stays green while the preview goes blank.
 
-**`card_size` is in the schema and in this popup, and no page reads it.** Its
-whole meaning was an `auto-fill` grid: the author picked a minimum card width
-and the browser decided how many fit. A container declares an explicit track
-count now, so that sentence cannot become true again for `grid`, and the
-reader was deliberately not invented to keep the dial company. See "The editor
-is still the flat one" above for where the meaning does survive — CSS
-multi-column's `column-width`, which is `masonry`'s to read.
+**`card_size` is in the schema, in no popup, and read by no page.** Its whole
+meaning was an `auto-fill` grid: the author picked a minimum card width and the
+browser decided how many fit. A container declares an explicit space count now,
+so that sentence cannot become true again for `grid`; the control went with the
+flat editor rather than being carried across, because one that accepts a choice
+and changes nothing is the worst kind there is. The KEY stays, so a value the
+flat editor stored survives untouched. See "The editor composes blocks" above
+for where the meaning does survive — CSS multi-column's `column-width`, which
+is `masonry`'s to read.
 
 What the `auto-fill` template cost is kept here because whoever wires
 `column-width` will meet the same shape. It wrapped the minimum in
@@ -1236,17 +1396,17 @@ column still overflows. `l`'s 20rem produced 16px of real horizontal scroll at
 a 320px phone width, measured on the live app. It is the same argument
 `minmax(0, 1fr)` rests on everywhere a block lays a track.
 
-**The control is gated on what renders it; the stored value is not.** The field
-is hidden in the popup where nothing reads it, but `style.card_size` itself is
-untouched by that gating — nothing writes to it except a change on the select —
-so switching away and back finds the choice still there. This is what resolves
-two rules that read as if they conflicted: "a kind that renders no field must
-not offer it", and the schema's deliberate keeping of `icon`, `image_url` and
-`link_url` on every block regardless of kind. `card_size` was the first key in
-the style bag that only ONE arrangement's CSS ever read — every other style key
-is arrangement-agnostic — and this gate-the-field-not-the-value shape is the
-pattern for the next key that is this narrow. A stored span wider than its
-parent is the same pattern again, one level up.
+**Gate the field, never the value**, and `card_size` is the extreme case of
+it: the control is gone entirely and the stored value is untouched. This is
+what resolves two rules that read as if they conflicted — "a kind that renders
+no field must not offer it", and the schema's deliberate keeping of `icon`,
+`image_url` and `link_url` on every block regardless of kind. `LeafEditor`
+applies the same shape per kind through `leaf-fields.ts`: a field a kind does
+not draw is not OFFERED, and nothing clears it, so switching a kind to look at
+it and switching back finds what was typed still there. `card_size` was the
+first key in the style bag that only ONE arrangement's CSS ever read — every
+other style key is arrangement-agnostic — and it is the pattern for the next
+key that is this narrow.
 
 `carousel` keeps scrolling sideways **at every size**, and that remains the
 honest difference between it and `grid`: a grid is a set of cards laid in

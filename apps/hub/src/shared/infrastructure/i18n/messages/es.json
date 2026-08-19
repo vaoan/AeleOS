@@ -59,7 +59,10 @@
         "visibility": "Elige una de las opciones.",
         "limitReached": "Ya tienes el máximo de fursonas.",
         "sectionsRefused": "Tus secciones fueron rechazadas. Corrígelas y guarda otra vez; no se perdió nada más.",
-        "pageUnreadable": "No pudimos leer esta página, así que no se guardó nada: guardar ahora la reemplazaría por nada. No se ha cambiado nada."
+        "pageUnreadable": "No pudimos leer esta página, así que no se guardó nada: guardar ahora la reemplazaría por nada. No se ha cambiado nada.",
+        "sections": "Tu página no se guardó. Lo que hay que corregir está marcado abajo — cada contenido necesita un título en inglés.",
+        "sectionsMarked": "Tu página no se guardó. Lo que hay que corregir está marcado abajo.",
+        "sectionsTooLarge": "Tu página contiene más de lo que puede. Quita algo y guarda de nuevo — no se perdió nada."
       }
     },
     "pin": "Fijar primero",
@@ -82,14 +85,10 @@
     "sectionsTitle": "Secciones",
     "sectionsEmpty": "Aún no hay secciones. Agrega una para armar la página.",
     "addSection": "Agregar sección",
-    "newSectionType": "Diseño de la nueva sección",
     "addSectionFor": "Agrega una sección para…",
-    "sectionsAtLimit": "Alcanzaste el máximo de secciones.",
+    "sectionsAtLimit": "Has alcanzado el máximo que esta página puede contener.",
     "dragSection": "Arrastra para reordenar la sección",
     "sectionName": "Nombre de la sección",
-    "sectionType": "Diseño",
-    "addItem": "Agregar elemento",
-    "removeItem": "Eliminar elemento",
     "removeSection": "Eliminar sección",
     "collapseSection": "Contraer sección",
     "expandSection": "Expandir sección",
@@ -103,12 +102,6 @@
     "sectionStyleFitDefault": "Tamaño original",
     "sectionStyleFitCover": "Cubrir",
     "sectionStyleFitTile": "Mosaico",
-    "sectionStyleCardSize": "Tamaño de tarjeta",
-    "sectionStyleCardSizeHint": "El ancho mínimo de una tarjeta: cuanto más pequeño, más caben por fila.",
-    "sectionStyleCardSizeDefault": "Predeterminado",
-    "sectionStyleCardSizeS": "Compacto",
-    "sectionStyleCardSizeM": "Mediano",
-    "sectionStyleCardSizeL": "Amplio",
     "sectionStyleBorder": "Borde",
     "sectionStyleBorderHint": "El borde alrededor de las tarjetas y paneles propios de esta sección.",
     "sectionStyleBorderInherit": "Heredar de la página",
@@ -117,30 +110,6 @@
     "sectionStyleBorderDashed": "Línea discontinua",
     "sectionStyleBorderDotted": "Línea punteada",
     "sectionStyleBorderDouble": "Línea doble",
-    "itemTitle": "Título",
-    "itemDescription": "Descripción",
-    "itemDescriptionHint": "¿Qué quieres decir aquí?",
-    "itemLabel": "Etiqueta",
-    "itemValue": "Valor",
-    "itemValueHint": "Un número, un porcentaje, o uno de otro — 60, 60 %, 3/5",
-    "types": {
-      "cards": "Tarjetas",
-      "accordion": "Acordeón",
-      "two-column": "Dos columnas",
-      "gallery": "Galería",
-      "video": "Video",
-      "music": "Música",
-      "carousel": "Carrusel",
-      "links": "Enlaces",
-      "stats": "Datos",
-      "quote": "Frases",
-      "timeline": "Historia",
-      "socials": "Redes",
-      "posts": "Publicaciones",
-      "masonry": "Mosaico",
-      "progress": "Progreso",
-      "tabs": "Pestañas"
-    },
     "imageUrl": "Dirección de la imagen",
     "imageUrlHint": "Pega el enlace de una imagen. No se sube nada: se queda donde tú la alojas.",
     "linkUrl": "Dirección del enlace",
@@ -267,7 +236,98 @@
     "themeBackgroundUrlHint": "Un enlace a una imagen. No se guarda nada, y queda sobre tu degradado.",
     "themeBackgroundFit": "Ajuste",
     "themeBackgroundFitCover": "Cubrir",
-    "themeBackgroundFitTile": "Mosaico"
+    "themeBackgroundFitTile": "Mosaico",
+    "newSectionSpaces": "Forma de la nueva sección",
+    "sectionMode": "Disposición",
+    "sectionSpaces": "Espacios a lo ancho",
+    "sectionSpacesHint": "Cuántos lugares van uno al lado del otro. Menos significa más filas — no se quita nada de lo que ya pusiste aquí.",
+    "modes": {
+      "stack": "Apilado",
+      "grid": "Cuadrícula",
+      "masonry": "Mosaico",
+      "carousel": "Carrusel",
+      "tabs": "Pestañas",
+      "accordion": "Acordeón",
+      "timeline": "Cronología"
+    },
+    "addContent": "Añadir contenido",
+    "addNested": "Añadir una sección aquí",
+    "nestingAtLimit": "Las secciones no pueden anidarse más que esto.",
+    "removePlace": "Quitar este lugar",
+    "addPlace": "Añadir un lugar",
+    "previewTitle": "Cómo se verá",
+    "removeBlock": "Quitar lo que hay aquí",
+    "leafKind": "Contenido",
+    "leafKinds": {
+      "text": "Texto",
+      "link": "Enlace",
+      "picture": "Imagen",
+      "player": "Reproductor",
+      "post": "Publicación",
+      "social": "Chip social",
+      "stat": "Dato",
+      "quote": "Cita",
+      "progress": "Progreso",
+      "table": "Tabla"
+    },
+    "leafFields": {
+      "text": {
+        "title": "Encabezado",
+        "description": "Cuerpo",
+        "hint": "¿Qué quieres decir aquí?"
+      },
+      "link": {
+        "title": "Texto del botón",
+        "description": "Subtítulo",
+        "hint": "Una línea debajo del botón."
+      },
+      "picture": {
+        "title": "Texto alternativo",
+        "description": "Leyenda",
+        "hint": "Se muestra debajo de la imagen."
+      },
+      "player": {
+        "title": "Título del marco",
+        "description": "Leyenda",
+        "hint": "Se muestra debajo del reproductor."
+      },
+      "post": {
+        "title": "Título del marco",
+        "description": "Leyenda",
+        "hint": "Se muestra debajo de la publicación."
+      },
+      "social": {
+        "title": "Etiqueta del chip"
+      },
+      "stat": {
+        "title": "Etiqueta",
+        "description": "Valor",
+        "hint": "El dato en sí."
+      },
+      "quote": {
+        "title": "Quién lo dijo",
+        "description": "Lo que dijo",
+        "hint": "Las palabras en sí."
+      },
+      "progress": {
+        "title": "Etiqueta",
+        "description": "Valor",
+        "hint": "Un número, un porcentaje o uno de otro — 60, 60%, 3/5"
+      },
+      "table": {
+        "title": "Leyenda",
+        "description": "Una nota debajo",
+        "hint": "Se muestra debajo de la leyenda."
+      }
+    },
+    "tableRows": "Filas",
+    "addRow": "Añadir fila",
+    "removeRow": "Quitar esta fila",
+    "addCell": "Añadir celda",
+    "removeCell": "Quitar esta celda",
+    "cellText": "Celda",
+    "problemTitle": "Esto necesita un título en inglés para poder guardar la página.",
+    "problemGeneric": "Algo de aquí fue rechazado. Revisa los campos de este bloque."
   },
   "picker": {
     "title": "¿Quién quieres ser?",

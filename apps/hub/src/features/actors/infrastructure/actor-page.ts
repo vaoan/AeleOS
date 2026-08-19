@@ -4,12 +4,12 @@ import {
   parseTheme,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
+import { readSectionsSchema } from "@/features/actors/domain/section-schema";
 import {
-  readSectionsSchema,
-  type FursonaSection,
-} from "@/features/actors/domain/section-schema";
-import { lenientBlocksSchema } from "@/features/actors/domain/block-schema";
-import { blocksToSections } from "@/features/actors/domain/section-block-shim";
+  lenientBlocksSchema,
+  type Block,
+} from "@/features/actors/domain/block-schema";
+import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 
 /**
  * Everything the editor needs to open a page as its owner left it.
@@ -18,6 +18,11 @@ import { blocksToSections } from "@/features/actors/domain/section-block-shim";
  * editor's next act is to REPLACE, so "nothing is written" and "I could not
  * read what is written" have to be different answers or the second becomes the
  * first — see the property.
+ *
+ * It is a tree of BLOCKS, which is what the editor holds and what
+ * `set_actor_sections` accepts. A page stored in the flat shape — every page
+ * written before the block model, none of which any migration converted — is
+ * converted forward on the way through; see {@link readEitherShape}.
  */
 export interface ActorPage {
   /**
@@ -30,7 +35,7 @@ export interface ActorPage {
    * the fault this function's own doc says it exists to prevent, and it
    * returned once already — see {@link readActorPage}.
    */
-  sections: FursonaSection[] | null;
+  sections: Block[] | null;
   /** How they chose it to look. */
   theme: ActorTheme;
 }
@@ -58,10 +63,9 @@ export interface ActorPage {
  * for that window every editor save wrote `[]` over a real page with nothing
  * failing and nothing warning, which is verbatim the paragraph above.
  *
- * **What is stored is a tree of blocks and what the editor holds is a flat
- * list, so this reads both** — see {@link readEitherShape}, which owns that
- * split and the reason a tree it cannot flatten answers `null` rather than
- * something approximate.
+ * **Two shapes are stored and the editor holds one, so this converts** — see
+ * {@link readEitherShape}, which owns that split and the reason a column it
+ * can read as neither answers `null` rather than something approximate.
  *
  * @param client - a Supabase client authenticated as the owner.
  * @param actorRef - whose page.
@@ -97,8 +101,8 @@ export async function readActorPage(
 }
 
 /**
- * A stored page as the flat editor can hold it, whichever of the two shapes it
- * is stored in.
+ * A stored page as a tree of blocks, whichever of the two shapes it is stored
+ * in.
  *
  * **Two shapes, because two shapes exist.** Everything written since
  * `set_actor_sections` began validating blocks is a tree; everything written
@@ -110,11 +114,11 @@ export async function readActorPage(
  * flat section carries no `kind`, so the schemas are disjoint and the order
  * these are tried in decides nothing.
  *
- * **A tree the shim does not recognise is `null`, not a best effort**, which
- * is the property `ActorPage.sections`' own doc rests on: a page a block
- * editor built must not be flattened into what a flat editor can hold and then
- * saved back over itself. Read `blocksToSections` for the exact list of what
- * it refuses.
+ * **The conversion goes ONE way now.** The editor holds blocks, so a stored
+ * tree needs no conversion at all and a stored flat page is converted forward
+ * by `sectionsToBlocks` — the same function the templates go through. The
+ * reverse direction existed only so a flat editor could open a tree, and there
+ * is no flat editor.
  *
  * `readSectionsSchema`, not `sectionsSchema`, for the flat half: an unknown
  * STYLE key must not blank the whole array the way an unknown section key
@@ -122,11 +126,11 @@ export async function readActorPage(
  * disagree on purpose.
  *
  * @param value - whatever the column held.
- * @returns the sections, or null when this build cannot hold what is stored.
+ * @returns the page, or null when this build can read it as neither shape.
  */
-function readEitherShape(value: unknown): FursonaSection[] | null {
+function readEitherShape(value: unknown): Block[] | null {
   const blocks = lenientBlocksSchema.safeParse(value);
-  if (blocks.success) return blocksToSections(blocks.data);
+  if (blocks.success) return blocks.data;
   const flat = readSectionsSchema.safeParse(value);
-  return flat.success ? flat.data : null;
+  return flat.success ? sectionsToBlocks(flat.data) : null;
 }

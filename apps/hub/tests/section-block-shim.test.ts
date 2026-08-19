@@ -1,38 +1,33 @@
 import { describe, expect, it } from "vitest";
-import {
-  blocksToSections,
-  sectionsToBlocks,
-} from "@/features/actors/domain/section-block-shim";
+import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import {
   SECTION_TYPES,
-  sectionsSchema,
   type FursonaSection,
+  type SectionType,
 } from "@/features/actors/domain/section-schema";
 import {
+  BLOCK_LIMITS,
   blocksSchema,
   isContainer,
-  type Block,
   type ContainerBlock,
 } from "@/features/actors/domain/block-schema";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
-
 // WHY THIS SUITE EXISTS, AND WHAT IT IS ALLOWED TO ASSUME.
 //
-// `set_actor_sections` walks `validate_block` and refuses the flat shape
-// outright, while the only editor there is composes that flat shape. Every
-// save carrying a section was refused in production. This shim converts at the
-// write and back at the read, so the two halves meet until the block editor
-// replaces the second one.
+// Every page written before the block model is still FLAT in the column —
+// nothing converted them — and the shipped templates are still written in the
+// flat vocabulary. So this conversion runs whenever anybody opens or reads one
+// of those, and a page stays flat in storage until its owner next saves.
 //
-// The assertion that actually proves it is the ROUND TRIP: flat in, blocks
-// out, flat back, equal. A one-way test would pass on a conversion that
-// silently retyped somebody's section, and that is the exact failure a person
-// meets a week later when they reopen their page.
+// It used to run backwards too, so a flat editor could open a stored tree. The
+// editor composes blocks now, so that direction and its round-trip assertion
+// are gone with the editor that needed them; what is left to prove is that
+// nothing an author wrote is dropped on the way forward, and that the result
+// is a page the database will take.
 //
 // Every payload this file builds is also parsed through `blocksSchema` — the
 // same schema `0009` was copied from — so a conversion that produced something
 // the database would refuse fails here rather than in front of somebody.
-
 /**
  * A well-formed item, with overrides.
  *
@@ -47,7 +42,6 @@ const item = (over: Partial<FursonaSection["items"][number]> = {}) => ({
   sort_order: 1,
   ...over,
 });
-
 /**
  * A well-formed section, with overrides.
  *
@@ -62,7 +56,6 @@ const section = (over: Partial<FursonaSection> = {}): FursonaSection => ({
   items: [item()],
   ...over,
 });
-
 /**
  * The one container a page of one section converts to.
  *
@@ -74,60 +67,48 @@ function firstContainer(sections: FursonaSection[]): ContainerBlock {
   if (!block || !isContainer(block)) throw new Error("not a container");
   return block;
 }
-
-/**
- * A leaf, loose enough to carry what a block editor could write and a flat
- * item cannot.
- *
- * @param over - fields to replace.
- * @returns the leaf.
- */
-const leaf = (over: Record<string, unknown> = {}) =>
-  ({
-    kind: "text",
-    span: 1,
-    title_en: "A leaf",
-    description_en: "",
-    ...over,
-  }) as unknown as Block;
-
-/**
- * A container holding whatever it is given.
- *
- * @param over - fields to replace.
- * @returns the container.
- */
-const container = (over: Record<string, unknown> = {}) =>
-  ({
-    kind: "container",
-    mode: "stack",
-    columns: 1,
-    span: 1,
-    name_en: "About",
-    children: [leaf()],
-    ...over,
-  }) as unknown as Block;
-
 describe("sectionsToBlocks", () => {
   it("makes a section a named container at the top of the page", () => {
     const block = firstContainer([section({ name_es: "Acerca de" })]);
     expect(block.kind).toBe("container");
     expect(block.name_en).toBe("About");
     expect(block.name_es).toBe("Acerca de");
-    expect(block.span).toBe(1);
   });
-
+  // THE WIDTH THE FLAT LAYOUT DREW, not how many items the section holds.
+  // `spaces` is how many places a container lays ACROSS and its children fill
+  // them row by row, so a gallery of many pictures is a few places across with
+  // rows beneath it — the reading that made a full gallery unrepresentable was
+  // the one that treated this number as a total. `SHAPES`' own TSDoc says how
+  // each was chosen.
+  it("gives a section the width its flat layout drew", () => {
+    expect(firstContainer([section({ type: "gallery" })]).spaces).toBe(3);
+    expect(firstContainer([section({ type: "stats" })]).spaces).toBe(4);
+    expect(firstContainer([section({ type: "quote" })]).spaces).toBe(2);
+    expect(firstContainer([section({ type: "links" })]).spaces).toBe(1);
+  });
+  // A section filled to the flat model's own item cap becomes that many
+  // children of a container a few places across, continuing downward in rows —
+  // not a container that many places across, and not a refusal. This is the
+  // case the width-versus-total confusion made unrepresentable.
+  it("puts a full gallery into rows rather than into places across", () => {
+    const items = Array.from({ length: BLOCK_LIMITS.children }, (_, index) =>
+      item({ sort_order: index + 1, title_en: `Picture ${String(index)}` }),
+    );
+    const block = firstContainer([section({ type: "gallery", items })]);
+    expect(block.spaces).toBe(3);
+    expect(block.children).toHaveLength(BLOCK_LIMITS.children);
+    expect(blocksSchema.safeParse([block]).success).toBe(true);
+  });
   it("makes each item a leaf of the kind its layout decided", () => {
     const block = firstContainer([
       section({ type: "gallery", items: [item(), item({ sort_order: 2 })] }),
     ]);
     expect(block.mode).toBe("grid");
     expect(block.children).toHaveLength(2);
-    expect(block.children.every((child) => child.kind === "picture")).toBe(
+    expect(block.children.every((child) => child?.kind === "picture")).toBe(
       true,
     );
   });
-
   // `sort_order` is the flat model's ordering field and the block model has
   // none: the array IS the order. So this is the last point at which the
   // stored value means anything, and a page written before the editor
@@ -149,26 +130,23 @@ describe("sectionsToBlocks", () => {
     expect(first.name_en).toBe("First");
     expect(
       first.children.map((child) =>
-        isContainer(child) ? "?" : child.title_en,
+        !child || isContainer(child) ? "?" : child.title_en,
       ),
     ).toStrictEqual(["a", "b"]);
     if (!second || !isContainer(second)) throw new Error("not a container");
     expect(second.name_en).toBe("Second");
   });
-
   it("leaves the source untouched", () => {
     const page = [section({ sort_order: 2 }), section({ sort_order: 1 })];
     sectionsToBlocks(page);
     expect(page[0]?.sort_order).toBe(2);
   });
-
   // The two style bags are byte-identical — `style-bag-parity.test.ts` is what
   // keeps that true — so a section's own form travels unchanged.
   it("carries a section's style bag onto its container", () => {
     const style = { skin: "comic", border: "dashed" } as const;
     expect(firstContainer([section({ style })]).style).toStrictEqual(style);
   });
-
   it("carries every item field a leaf has a home for", () => {
     const block = firstContainer([
       section({
@@ -191,7 +169,6 @@ describe("sectionsToBlocks", () => {
       description_es: "Unas palabras.",
     });
   });
-
   // The database is the authority and this is what it was copied from. A
   // conversion the write schema refuses is one `set_actor_sections` refuses,
   // which is the banner this whole change exists to stop.
@@ -204,204 +181,139 @@ describe("sectionsToBlocks", () => {
       expect(blocksSchema.safeParse(page).success).toBe(true);
     },
   );
-
   it("writes an empty page for an empty page", () => {
     expect(sectionsToBlocks([])).toStrictEqual([]);
   });
 });
-
-describe("blocksToSections", () => {
-  it("recovers a section from the container it became", () => {
-    expect(blocksToSections(sectionsToBlocks([section()]))).toStrictEqual([
-      section(),
-    ]);
-  });
-
-  // One-based, matching the editor's own `renumber`, and rebuilt from position
-  // because a block carries no order of its own.
-  it("rebuilds sort_order from position", () => {
-    const blocks = sectionsToBlocks([
-      section({ name_en: "One", sort_order: 7 }),
-      section({
-        name_en: "Two",
-        sort_order: 9,
-        items: [item({ sort_order: 4 }), item({ sort_order: 6 })],
-      }),
-    ]);
-    const back = blocksToSections(blocks);
-    expect(back?.map((one) => one.sort_order)).toStrictEqual([1, 2]);
-    expect(back?.[1]?.items.map((one) => one.sort_order)).toStrictEqual([1, 2]);
-  });
-
-  it("reads nothing as nothing", () => {
-    expect(blocksToSections([])).toStrictEqual([]);
-  });
-
-  // EVERY REFUSAL BELOW IS THE SAME RULE: a tree this shim did not write is a
-  // tree only a block editor could have built, and flattening it into what a
-  // flat editor can hold would let the next save write the flattening back
-  // over the whole. `readActorPage` maps this null onto the refusal.
-  it("refuses a leaf at the top of the page", () => {
-    expect(blocksToSections([leaf()])).toBeNull();
-  });
-
-  it("refuses an unnamed container", () => {
-    expect(blocksToSections([container({ name_en: undefined })])).toBeNull();
-    expect(blocksToSections([container({ name_en: "" })])).toBeNull();
-  });
-
-  it("refuses a container inside a container", () => {
-    expect(
-      blocksToSections([container({ children: [container()] })]),
-    ).toBeNull();
-  });
-
-  it("refuses a leaf that spans more than its one track", () => {
-    expect(
-      blocksToSections([container({ children: [leaf({ span: 2 })] })]),
-    ).toBeNull();
-  });
-
-  it("refuses a leaf wearing its own style bag", () => {
-    expect(
-      blocksToSections([
-        container({ children: [leaf({ style: { skin: "comic" } })] }),
-      ]),
-    ).toBeNull();
-  });
-
-  it("refuses a leaf carrying table rows", () => {
-    expect(
-      blocksToSections([
-        container({
-          children: [leaf({ kind: "table", rows: [[{ text_en: "a" }]] })],
-        }),
-      ]),
-    ).toBeNull();
-  });
-
-  // The thing the block model added and the flat model cannot say: a picture
-  // beside a player, in one container.
-  it("refuses a container holding two kinds of leaf", () => {
-    expect(
-      blocksToSections([
-        container({
-          mode: "grid",
-          children: [leaf({ kind: "picture" }), leaf({ kind: "link" })],
-        }),
-      ]),
-    ).toBeNull();
-  });
-
-  it("refuses a mode and kind pair no flat layout claims", () => {
-    expect(
-      blocksToSections([
-        container({ mode: "timeline", children: [leaf({ kind: "quote" })] }),
-      ]),
-    ).toBeNull();
-  });
-
-  // A kind the lenient read admits because a newer deployment wrote it. There
-  // is no flat layout for it and there cannot be.
-  it("refuses a kind this build does not know", () => {
-    expect(
-      blocksToSections([container({ children: [leaf({ kind: "diagram" })] })]),
-    ).toBeNull();
-  });
-
-  it("refuses an empty container in a mode no flat layout claims", () => {
-    expect(
-      blocksToSections([container({ mode: "spiral", children: [] })]),
-    ).toBeNull();
-  });
-
-  // THE ONE THING THAT DOES NOT ROUND-TRIP, ASSERTED RATHER THAN IMPLIED. A
-  // container with no children carries no leaf kind, so `grid` alone cannot
-  // say which of eight layouts it was. Nothing is lost, because there is
-  // nothing in it.
-  it("reopens an empty section as its arrangement's default layout", () => {
-    const back = blocksToSections(
-      sectionsToBlocks([section({ type: "gallery", items: [] })]),
-    );
-    expect(back?.[0]?.type).toBe("cards");
-    expect(back?.[0]?.items).toStrictEqual([]);
-  });
-});
-
-describe("the round trip", () => {
-  // THE ASSERTION THE WHOLE SHIM IS FOR. A one-way conversion can look right
-  // and still retype somebody's section on the way back, which they discover
-  // when they reopen the page rather than when they save it.
-  it.each(SECTION_TYPES)("survives storage: %s", (type) => {
-    const page = [
+describe("what a converted page keeps", () => {
+  // NOTHING AN AUTHOR WROTE IS DROPPED. Field by field rather than by a
+  // structural comparison, because the conversion renames the container's
+  // halves and drops `sort_order` on purpose — an equality assertion would
+  // have to restate the whole output and would then pass on whatever the
+  // conversion happened to produce.
+  it.each(SECTION_TYPES)("carries every word of a section: %s", (type) => {
+    const block = firstContainer([
       section({
         type,
+        style: { skin: "glass" },
         items: [
           item({ sort_order: 1, icon: "paw-print" }),
           item({
             sort_order: 2,
             title_en: "Another",
             link_url: "https://a.test",
+            image_url: "https://a.test/p.png",
           }),
         ],
-        style: { skin: "glass" },
       }),
-    ];
-    expect(blocksToSections(sectionsToBlocks(page))).toStrictEqual(page);
+    ]);
+    expect(block.name_en).toBe("About");
+    expect(block.name_es).toBe("Acerca de");
+    expect(block.style).toStrictEqual({ skin: "glass" });
+    expect(block.children).toHaveLength(2);
+    const [first, second] = block.children;
+    expect(first).toMatchObject({
+      title_en: "A title",
+      title_es: "Un titulo",
+      description_en: "Some words.",
+      description_es: "Unas palabras.",
+      icon: "paw-print",
+    });
+    expect(second).toMatchObject({
+      title_en: "Another",
+      link_url: "https://a.test",
+      image_url: "https://a.test/p.png",
+    });
   });
-
-  it("survives storage without the optional halves", () => {
-    const page = [
-      {
-        name_en: "Bare",
-        type: "stats" as const,
-        sort_order: 1,
-        items: [{ title_en: "One", description_en: "1", sort_order: 1 }],
-      },
-    ];
-    expect(blocksToSections(sectionsToBlocks(page))).toStrictEqual(page);
+  // A page written before the editor renumbered on every drag can carry an
+  // order its array does not have, and this is the last point at which the
+  // stored field means anything: a block has no order of its own, because the
+  // array IS the order at every depth.
+  it("orders by sort_order rather than by array position", () => {
+    const page = sectionsToBlocks([
+      section({
+        name_en: "Second",
+        sort_order: 9,
+        items: [
+          item({ title_en: "b", sort_order: 4 }),
+          item({ title_en: "a", sort_order: 2 }),
+        ],
+      }),
+      section({ name_en: "First", sort_order: 3, items: [] }),
+    ]);
+    expect(page.map((block) => isContainer(block) && block.name_en)).toEqual([
+      "First",
+      "Second",
+    ]);
+    const second = page[1];
+    if (!second || !isContainer(second)) throw new Error("not a container");
+    expect(
+      second.children.map(
+        (child) => child && !isContainer(child) && child.title_en,
+      ),
+    ).toEqual(["a", "b"]);
   });
-
+  // NOTHING WRITTEN HERE IS EVER AN EMPTY PLACE, which is what lets a
+  // converted page open with its shape already filled: a flat section holds
+  // its items in an array with no way to say "nothing sits third", so there is
+  // no gap to carry across.
+  it("writes no empty place", () => {
+    const block = firstContainer([
+      section({ type: "gallery", items: [item(), item({ sort_order: 2 })] }),
+    ]);
+    expect(block.children.some((child) => child === null)).toBe(false);
+  });
   // EVERY TEMPLATE, DRIVEN FROM THE LIST THAT SHIPS THEM, so one added later
   // is covered without anybody remembering to add a case. The template button
-  // is how this bug was found: one click fills a whole page, so it is the
-  // fastest way to reach a save that carries sections.
+  // is the fastest way to fill a whole page, which is what made it the fastest
+  // way to reach a save the database refused.
   it.each(FURSONA_TEMPLATES.map((one) => [one.id, one] as const))(
-    "survives storage: the %s template",
+    "converts the %s template into a page the database will take",
     (_id, template) => {
-      const page = structuredClone(template.sections);
-      const blocks = sectionsToBlocks(page);
+      const blocks = sectionsToBlocks(structuredClone(template.sections));
       expect(blocksSchema.safeParse(blocks).success).toBe(true);
-      const back = blocksToSections(blocks);
-      expect(back).toStrictEqual(page);
-      // And what comes back is still a page the editor would let somebody
-      // save, which is the half a structural comparison does not cover.
-      expect(sectionsSchema.safeParse(back).success).toBe(true);
+      expect(blocks).toHaveLength(template.sections.length);
+    },
+  );
+});
+describe("a layout name this build does not know", () => {
+  // NOT REACHABLE TODAY, AND THAT IS THE POINT. Every caller passes a value
+  // `z.enum(SECTION_TYPES)` has already accepted, so this fallback is guarded
+  // by three call sites rather than by the table. `SHAPES` was a plain object
+  // until a review noticed, and a plain object answers `__proto__` with
+  // `Object.prototype` — truthy, with no `mode` and no `spaces` — so the guard
+  // would have passed and the conversion emitted a container with neither.
+  // That is the exact shape of the Critical this repository already shipped
+  // through `TIDAL_KINDS`.
+  it.each(["__proto__", "constructor", "toString", "diagram"])(
+    "converts %s as a stack of prose rather than as nothing",
+    (type) => {
+      const page = sectionsToBlocks([
+        section({ type: type as SectionType, items: [item()] }),
+      ]);
+      const [block] = page;
+      if (!block || !isContainer(block)) throw new Error("not a container");
+      expect(block.mode).toBe("stack");
+      expect(block.spaces).toBe(1);
+      expect(block.children[0]?.kind).toBe("text");
+      // And it is still a page the database would take, which is the half a
+      // structural check on its own would miss.
+      expect(blocksSchema.safeParse(page).success).toBe(true);
     },
   );
 });
 
 describe("the decomposition table", () => {
-  // WITHOUT THIS THE ROUND TRIP IS A COINCIDENCE. `blocksToSections` recovers
-  // a layout from the mode and kind its container and children carry, so two
-  // layouts sharing one pair would silently retype one of them — and the
-  // per-type round trip above would fail for one of the two, in a way that
-  // reads as a bug in the conversion rather than in the table.
+  // TWO LAYOUTS THAT BECAME THE SAME BLOCK WOULD BE TWO PAGES THAT LOOK
+  // IDENTICAL after conversion, which their authors would read as one of the
+  // two having been retyped. The reverse conversion used to recover the layout
+  // from this pair; nothing does now, and the distinctness is still what keeps
+  // a converted page looking like the layout its author picked.
   it("gives every layout a distinct arrangement and kind", () => {
     const pairs = SECTION_TYPES.map((type) => {
       const block = firstContainer([section({ type })]);
       return `${block.mode}/${block.children[0]?.kind}`;
     });
     expect(new Set(pairs).size).toBe(SECTION_TYPES.length);
-  });
-
-  // A layout added to the table without an entry in the empty-container map
-  // would make a section somebody saved before filling in unreadable, which
-  // refuses every later save on that page.
-  it("names an empty-section layout for every arrangement it uses", () => {
-    for (const type of SECTION_TYPES) {
-      const empty = sectionsToBlocks([section({ type, items: [] })]);
-      expect(blocksToSections(empty)).not.toBeNull();
-    }
   });
 });

@@ -34,10 +34,10 @@ function answer(data: unknown, error: unknown = null): void {
 }
 
 // **A section is a container at depth 0 carrying a name.** Written as the
-// database stores it — with `span`, `columns` and `description_en` absent,
-// which is legal — so that `PARSED` below is what the read schema
-// materialises rather than a copy of the input, and a defaulting that stopped
-// happening would go red here.
+// database stores it — with `spaces` and `description_en` absent, which is
+// legal — so that `PARSED` below is what the read schema materialises rather
+// than a copy of the input, and a defaulting that stopped happening would go
+// red here.
 const STORED = [
   {
     kind: "container",
@@ -54,13 +54,11 @@ const PARSED = [
   {
     kind: "container",
     mode: "stack",
-    columns: 1,
-    span: 1,
+    spaces: 1,
     name_en: "About",
     children: [
       {
         kind: "stat",
-        span: 1,
         title_en: "Species",
         description_en: "A wolf.",
       },
@@ -332,13 +330,11 @@ describe("the page it will accept", () => {
       {
         kind: "container",
         mode: "grid",
-        columns: 4,
-        span: 1,
+        spaces: 4,
         name_en: "About",
         children: [
           {
             kind: "stat",
-            span: 1,
             title_en: "Species",
             description_en: "A wolf.",
           },

@@ -1,0 +1,118 @@
+import {
+  CONTAINER_MODES,
+  LEAF_KINDS,
+} from "@/features/actors/domain/block-schema";
+import { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
+import { SKINS, type SkinId } from "@/shared/domain/skins";
+import type { BlockEditorLabels } from "@/features/actors/presentation/block-editor";
+
+/**
+ * Every string the page editor renders, with each name standing in for its
+ * translation.
+ *
+ * **Shared rather than restated in each suite, and the per-kind records are
+ * DERIVED**, because that is what makes adding a content kind or an
+ * arrangement a change in one place. A fixture written out by hand is a fifth
+ * list to keep in step with the vocabulary, and the one it would quietly fall
+ * behind is the one no assertion reads — which is how a suite ends up green
+ * about a control it is no longer rendering.
+ *
+ * The values are the ids themselves wherever a record is derived, so an
+ * assertion can name what it is looking for without the fixture having to
+ * invent English.
+ *
+ * `problemTitle` and `problemGeneric` are what a refused save marks a block
+ * with; the suites assert against these values rather than against a
+ * substring, so a reworded message is a fixture change rather than a silent
+ * pass.
+ *
+ * @returns the labels, freshly built, so a suite that mutates one is not
+ * mutating another's.
+ */
+export function blockEditorLabels(): BlockEditorLabels {
+  return {
+    sectionsTitle: "Sections",
+    empty: "No sections yet.",
+    addSection: "Add section",
+    newSectionSpaces: "New section shape",
+    addSectionFor: "Add a section for…",
+    atLimit: "At the limit.",
+    dragSection: "Drag to reorder section",
+    sectionName: "Section name",
+    sectionMode: "Arrangement",
+    sectionSpaces: "Spaces across",
+    sectionSpacesHint: "Fewer means more rows. Nothing is removed.",
+    modes: Object.fromEntries(CONTAINER_MODES.map((mode) => [mode, mode])),
+    removeSection: "Remove section",
+    collapse: "Collapse section",
+    expand: "Expand section",
+    addContent: "Add content",
+    addNested: "Add a section here",
+    nestingAtLimit: "Sections cannot be nested any deeper.",
+    removePlace: "Remove this place",
+    addPlace: "Add a place",
+    previewTitle: "How it will look",
+    removeBlock: "Remove what is here",
+    leafKind: "Content",
+    leafKinds: Object.fromEntries(LEAF_KINDS.map((kind) => [kind, kind])),
+    leafTitle: Object.fromEntries(
+      LEAF_KINDS.map((kind) => [kind, `${kind} title`]),
+    ),
+    leafDescription: Object.fromEntries(
+      DESCRIBED_KINDS.map((kind) => [kind, `${kind} description`]),
+    ),
+    leafHint: Object.fromEntries(
+      DESCRIBED_KINDS.map((kind) => [kind, `${kind} hint`]),
+    ),
+    tableRows: "Rows",
+    addRow: "Add row",
+    removeRow: "Remove this row",
+    addCell: "Add cell",
+    removeCell: "Remove this cell",
+    cellText: "Cell",
+    problemTitle: "This needs a title in English.",
+    problemGeneric: "Something here was refused.",
+    linkUrl: "Link address",
+    linkUrlHint: "A video or music link plays here.",
+    linkUrlPlainHint: "This becomes a button or a chip.",
+    imageUrl: "Image address",
+    imageUrlHint: "Paste a link to a picture.",
+    imageMissing: "No image",
+    chooseIcon: "Choose an icon",
+    searchIcons: "Search icons",
+    noIconsFound: "No icons match that.",
+    clearIcon: "Remove the icon",
+    noIcon: "No icon",
+    useTemplate: "Start from a template",
+    templateConfirm: "This replaces the sections you have.",
+    templateConfirmYes: "Replace them",
+    templateConfirmNo: "Keep mine",
+    names: {},
+    descriptions: {},
+    sectionCounts: {},
+    style: {
+      open: "Section style",
+      title: "This section's own style",
+      skin: "Style",
+      skins: Object.fromEntries(SKINS.map((skin) => [skin, skin])) as Record<
+        SkinId,
+        string
+      >,
+      inheritSkin: "Inherit the page",
+      backgroundUrl: "Background picture",
+      backgroundUrlHint: "Paste an address. Nothing is stored.",
+      fit: "Fit",
+      fitDefault: "Original size",
+      fitCover: "Cover",
+      fitTile: "Tile",
+      border: "Border",
+      borderHint: "The edge around this block's own cards and panels.",
+      borderInherit: "Inherit the page",
+      borderNone: "No border",
+      borderSolid: "Solid line",
+      borderDashed: "Dashed line",
+      borderDotted: "Dotted line",
+      borderDouble: "Double line",
+    },
+  };
+}

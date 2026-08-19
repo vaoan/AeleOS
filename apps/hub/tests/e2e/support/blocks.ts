@@ -4,7 +4,7 @@ import { mintSessionToken } from "./clerk-session";
 
 // WHY A SHARED SEEDER EXISTS NOW AND DID NOT BEFORE.
 //
-// Six specs write a page straight into the database as a real
+// Several specs write a page straight into the database as a real
 // Clerk-authenticated caller, bypassing the editor — deliberately, because what
 // each is testing lives entirely on the READ side and driving the form would
 // make them fail for reasons that have nothing to do with what they claim. Each
@@ -29,8 +29,10 @@ export type SeedBlock = Record<string, unknown>;
  * make the suite agree with the schema by construction, which is the one thing
  * an end-to-end fixture must not do.
  *
- * `span`, `columns` and `description_en` are all legally absent — the database
- * defaults them — so nothing here writes a value it does not mean.
+ * `description_en` is legally absent — the database defaults it — so nothing
+ * here writes a value it does not mean. Neither `span` nor `columns` exists
+ * any more, and both are refused BY NAME on the way in: a container declares
+ * how many places it lays across (`spaces`) and each child takes one.
  *
  * @param over - fields to replace.
  * @returns the leaf.
@@ -47,6 +49,10 @@ export const leaf = (over: SeedBlock = {}): SeedBlock => ({
  * A container with a `name_en` at the top of a page is a SECTION — that is the
  * whole of the difference — so a fixture that wants the `public-section`
  * marker simply names its outermost containers.
+ *
+ * `spaces` defaults to one across, which is what an unspecified arrangement
+ * means. An entry of `children` may be `null`, which is a place holding
+ * nothing: it keeps its width on the page and draws nothing.
  *
  * @param over - fields to replace.
  * @returns the container.

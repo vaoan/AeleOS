@@ -15,8 +15,8 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 // scope that sets the token governs every plain `surface` beneath it, with
 // ONE deliberate exception: an element that carries its own Tailwind
 // border-style utility, like the `border-dashed` this app ships on its
-// empty-state placeholders (`fursona-card-list.tsx`, `public-profile.tsx`
-// twice, `section-item-fields.tsx`). Those placeholders mean "nothing here
+// empty-state placeholders — the fursona list's, the public profile's, the
+// leaf editor's missing-picture box, and an empty PLACE in the block editor. Those placeholders mean "nothing here
 // yet", and that meaning must survive whatever border style a section picks
 // — the exception is wanted, not a bug to close.
 //
@@ -40,7 +40,7 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 // **And against the real SCOPE, which is the correction this file needed.**
 // `blockStyle` is the only thing in the app that sets the token, and it sets
 // it INLINE: on a public page's block element (`blocks.tsx`) and on the
-// editor's section-card root (`section-card.tsx`). Nothing sets it at
+// editor's card root (`block-card.tsx`). Nothing sets it at
 // `.actor-skin` — no skin does, which is exactly why `skins.test.ts` has to
 // exempt it from the "every form token reaches a skin" guard. An earlier
 // version of this file injected the token at `.actor-skin` with
@@ -136,13 +136,13 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       await signIn(page, await mintTicket(identity.userId));
       await page.goto("/es/pages/new");
 
-      // `gallery` because it is a PICTURED layout: an item with no picture
-      // renders the `surface border-dashed` placeholder, which is the whole
-      // point of this test. Built through the controls rather than written
-      // as data, so what is measured is the control that shipped.
-      await page.getByTestId("new-section-type").selectOption("gallery");
+      // One place across, left empty: an empty place is the editor's own
+      // `surface border-dashed` placeholder — this app's "nothing here yet" —
+      // which is the whole point of this test, and one place makes it the only
+      // one on the card. Built through the controls rather than written as
+      // data, so what is measured is the control that shipped.
+      await page.getByTestId("new-section-spaces").selectOption("1");
       await page.getByTestId("add-section").click();
-      await page.getByTestId("add-item").click();
 
       const card = page.getByTestId("section-card").first();
       // The face is the layer carrying `surface` — a plain one, naming no
@@ -215,7 +215,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
 
       await page.goto("/es/pages/new");
-      await page.getByTestId("new-section-type").selectOption("cards");
+      await page.getByTestId("new-section-spaces").selectOption("2");
       await page.getByTestId("add-section").click();
       await page.getByTestId("collapse-section").first().click();
 

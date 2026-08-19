@@ -1,11 +1,12 @@
-import {
-  SECTION_TYPES,
-  type SectionType,
-} from "@/features/actors/domain/section-schema";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  BLOCK_LIMITS,
+  BLOCK_STYLE_LIMITS,
+} from "@/features/actors/domain/block-schema";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
+import { blockEditorLabels } from "./support/editor-labels";
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
@@ -50,6 +51,7 @@ const { FursonaEditor } =
   await import("@/features/actors/presentation/fursona-editor");
 
 const labels = {
+  ...blockEditorLabels(),
   title: "New fursona",
   handle: "Handle",
   handleHint: "1-32 characters.",
@@ -62,58 +64,6 @@ const labels = {
   bannerTitle: "Fix these before saving",
   writingIn: "Writing in",
   writingInHint: "Only the page text.",
-  sectionsTitle: "Sections",
-  empty: "No sections yet.",
-  addSection: "Add section",
-  newSectionType: "New section layout",
-  addSectionFor: "Add a section for…",
-  atLimit: "At the limit.",
-  dragSection: "Drag to reorder section",
-  sectionName: "Section name",
-  sectionType: "Layout",
-  addItem: "Add item",
-  removeItem: "Remove item",
-  removeSection: "Remove section",
-  collapse: "Collapse section",
-  expand: "Expand section",
-  style: {
-    open: "Section style",
-    title: "This section's own style",
-    skin: "Style",
-    skins: Object.fromEntries(SKINS.map((skin) => [skin, skin])) as Record<
-      SkinId,
-      string
-    >,
-    inheritSkin: "Inherit the page",
-    backgroundUrl: "Background picture",
-    backgroundUrlHint: "Paste an address. Nothing is stored.",
-    fit: "Fit",
-    fitDefault: "Original size",
-    fitCover: "Cover",
-    fitTile: "Tile",
-    cardSize: "Card size",
-    cardSizeHint: "Smaller fits more per row.",
-    cardSizeDefault: "Default",
-    cardSizeS: "Compact",
-    cardSizeM: "Medium",
-    cardSizeL: "Spacious",
-    border: "Border",
-    borderHint: "The edge around this section's own cards and panels.",
-    borderInherit: "Inherit the page",
-    borderNone: "No border",
-    borderSolid: "Solid line",
-    borderDashed: "Dashed line",
-    borderDotted: "Dotted line",
-    borderDouble: "Double line",
-  },
-  itemTitle: "Title",
-  itemDescription: "Description",
-  itemLabel: "Label",
-  itemValue: "Value",
-  itemValueHint: "A number, a percentage, or one out of another",
-  itemDescriptionHint: "What do you want to say here?",
-  imageUrl: "Image address",
-  imageUrlHint: "Paste a link to a picture.",
   theme: {
     title: "Colours",
     live: "Live",
@@ -198,27 +148,6 @@ const labels = {
       string
     >,
   },
-  linkUrl: "Link address",
-  linkUrlHint: "A video or music link plays here.",
-  linkUrlPlainHint: "This becomes a button or a chip.",
-  imageMissing: "No image",
-  chooseIcon: "Choose an icon",
-  searchIcons: "Search icons",
-  noIconsFound: "No icons match that.",
-  clearIcon: "Remove the icon",
-  noIcon: "No icon",
-  useTemplate: "Start from a template",
-  templateConfirm: "This replaces the sections you have.",
-  templateConfirmYes: "Replace them",
-  templateConfirmNo: "Keep mine",
-  names: {},
-  descriptions: {},
-  sectionCounts: {},
-  // Derived, so a new layout does not need remembering in four fixtures. The
-  // name is the type, which is all any assertion here cares about.
-  types: Object.fromEntries(
-    SECTION_TYPES.map((type) => [type, type]),
-  ) as Record<SectionType, string>,
   visibility: { private: "Private", unlisted: "Unlisted", public: "Public" },
   errors: {
     handle: "Use 1-32 letters, digits, dashes or underscores.",
@@ -227,8 +156,50 @@ const labels = {
     displayName: "Keep this to 64 characters or fewer.",
     avatarUrl: "Enter an http or https image address.",
     visibility: "Choose one of the options.",
+    sections: "What needs fixing is marked below.",
+    sectionsMarked: "Your page was not saved. Something below is marked.",
+    sectionsTooLarge: "Your page holds more than it can.",
   },
 };
+
+/** A section whose own name is past what the write schema accepts. */
+const overlongName = () => [
+  {
+    kind: "container" as const,
+    mode: "grid" as const,
+    spaces: 2,
+    name_en: "x".repeat(BLOCK_LIMITS.text + 1),
+    children: [{ kind: "text" as const, title_en: "A", description_en: "" }],
+  },
+];
+
+/** A section whose style carries an address past its own cap. */
+const overlongBackground = () => [
+  {
+    kind: "container" as const,
+    mode: "grid" as const,
+    spaces: 2,
+    name_en: "About",
+    style: {
+      background_url: `https://example.com/${"x".repeat(BLOCK_STYLE_LIMITS.background_url)}.png`,
+    },
+    children: [{ kind: "text" as const, title_en: "A", description_en: "" }],
+  },
+];
+
+/** A section holding one piece of content nobody has titled yet. */
+const untitled = () => [
+  {
+    kind: "container" as const,
+    mode: "grid" as const,
+    spaces: 2,
+    name_en: "About",
+    children: [
+      { kind: "text" as const, title_en: "", description_en: "" },
+      null,
+    ],
+  },
+];
 
 /**
  * Renders the editor with overrides.
@@ -236,7 +207,9 @@ const labels = {
  * @param props - what to override.
  */
 function renderEditor(props: Record<string, unknown> = {}) {
-  return render(<FursonaEditor labels={labels} handleEditable {...props} />);
+  return render(
+    <FursonaEditor labels={labels} handleEditable parentHost="" {...props} />,
+  );
 }
 
 beforeEach(() => {
@@ -421,6 +394,7 @@ describe("FursonaEditor for a person", () => {
       <FursonaEditor
         labels={labels}
         handleEditable={false}
+        parentHost=""
         kind="person"
         actorRef="actor-1"
         initial={{
@@ -465,5 +439,156 @@ describe("FursonaEditor for a person", () => {
     renderPerson();
     fireEvent.click(screen.getByTestId("editor-save"));
     await waitFor(() => expect(save).toHaveBeenCalled());
+  });
+});
+
+// THE FIRST THING ANYBODY DOES, AND IT USED TO BE BROKEN.
+//
+// A new piece of content starts untitled — deliberately, because a seeded
+// title would put words on somebody's page they did not write — and the write
+// schema requires a heading. So "Add content, then Save" refused every time,
+// and the only thing it produced was a banner saying "fix what is marked" over
+// a page where nothing was marked, on a block that might be three levels down
+// inside a collapsed card.
+//
+// **These drive the REAL resolver**, which is the point of putting them here
+// rather than in `block-problems.test.ts`. That suite proves the walk against
+// a hand-built tree; what it cannot prove is that `zodResolver` builds that
+// shape at all. A shape assumption stated in prose is what this repository
+// keeps paying for.
+describe("a page the write schema refuses", () => {
+  /**
+   * Presses Save and waits for the form to have finished refusing.
+   *
+   * @returns nothing; resolves once the banner is on screen.
+   */
+  const saveAndRefuse = async (): Promise<void> => {
+    fireEvent.click(screen.getByTestId("editor-save"));
+    await screen.findByTestId("editor-error-banner");
+  };
+
+  it("does not save at all", async () => {
+    renderEditor({ initialSections: untitled() });
+    await saveAndRefuse();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  // The assertion the whole thread of `problems` exists for: the refusal
+  // reaches the one field that is wrong, rather than one sentence about a
+  // page.
+  it("marks the piece of content that has no title", async () => {
+    renderEditor({ initialSections: untitled() });
+    await saveAndRefuse();
+
+    expect(screen.getByTestId("leaf-title")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByTestId("leaf-title")).toHaveAccessibleDescription(
+      labels.problemTitle,
+    );
+    expect(screen.getByTestId("leaf-title-problem")).toBeInTheDocument();
+  });
+
+  it("says in the banner that what is wrong is marked", async () => {
+    renderEditor({ initialSections: untitled() });
+    await saveAndRefuse();
+    expect(screen.getByTestId("editor-error-banner")).toHaveTextContent(
+      labels.errors.sections,
+    );
+  });
+
+  // A card holding a refusal shows its places whatever its collapse control
+  // says — otherwise the banner is telling somebody about a marking they
+  // cannot see.
+  it("opens a collapsed section that is hiding the refusal", async () => {
+    renderEditor({ initialSections: untitled() });
+    fireEvent.click(screen.getByTestId("collapse-section"));
+    expect(screen.queryByTestId("leaf-title")).toBeNull();
+
+    await saveAndRefuse();
+
+    expect(screen.getByTestId("leaf-title")).toBeInTheDocument();
+  });
+
+  // The mark clears as they act on it, or it would be a refusal somebody
+  // cannot get rid of without a reload.
+  it("clears the mark once a title is written", async () => {
+    renderEditor({ initialSections: untitled() });
+    await saveAndRefuse();
+
+    fireEvent.change(screen.getByTestId("leaf-title"), {
+      target: { value: "About me" },
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("leaf-title-problem")).toBeNull(),
+    );
+  });
+
+  // A REFUSAL ON THE CONTAINER'S OWN FIELDS, which marked nothing at all until
+  // this and raised a banner blaming a missing title — a field that was fine.
+  // The name is over its cap here, which is the shape an ordinary author
+  // reaches by pasting; an unknown `mode` gets there too, from a rollback.
+  it("marks a section whose own name was refused", async () => {
+    renderEditor({ initialSections: overlongName() });
+    await saveAndRefuse();
+
+    expect(screen.getByTestId("section-name")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByTestId("section-name")).toHaveAccessibleDescription(
+      labels.problemGeneric,
+    );
+    expect(screen.getByTestId("section-name-problem")).toBeInTheDocument();
+  });
+
+  // And the banner stops naming a cause that is not the cause. `sections`
+  // names the missing English title; it is only honest when every refusal is
+  // one.
+  it("names no cause in the banner when the refusal is not a title", async () => {
+    renderEditor({ initialSections: overlongName() });
+    await saveAndRefuse();
+
+    const banner = screen.getByTestId("editor-error-banner");
+    expect(banner).toHaveTextContent(labels.errors.sectionsMarked);
+    expect(banner).not.toHaveTextContent(labels.errors.sections);
+  });
+
+  // A field the card does not draw at all — the style popup's background
+  // address — still has to leave a mark, or the banner promises one nothing
+  // made.
+  it("marks a section whose style was refused, on a field it does not draw", async () => {
+    renderEditor({ initialSections: overlongBackground() });
+    await saveAndRefuse();
+
+    expect(screen.getByTestId("section-problem")).toBeInTheDocument();
+    expect(screen.getByTestId("editor-error-banner")).toHaveTextContent(
+      labels.errors.sectionsMarked,
+    );
+  });
+
+  // The other half of the trio, and the reason there are three messages for
+  // one field: a page-level refusal carries no index, so nothing is marked and
+  // a banner promising a marking would be the same fault again.
+  it("says something different when the refusal marks nothing", async () => {
+    // The BYTE cap rather than the block cap, and only because it is reached
+    // with twenty leaves instead of five hundred — jsdom renders each one and
+    // its live preview. Both refusals are `refine`s on the whole array and
+    // both carry no index, which is the property under test.
+    const long = "x".repeat(2000);
+    const heavy = Array.from({ length: 20 }, () => ({
+      kind: "text" as const,
+      title_en: long,
+      description_en: long,
+    }));
+    renderEditor({ initialSections: heavy });
+    await saveAndRefuse();
+
+    expect(screen.getByTestId("editor-error-banner")).toHaveTextContent(
+      labels.errors.sectionsTooLarge,
+    );
+    expect(screen.queryByTestId("leaf-title-problem")).toBeNull();
   });
 });

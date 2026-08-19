@@ -5,13 +5,13 @@ import {
   CONTAINER_MODES,
   LEAF_KINDS,
   MAX_DEPTH,
-  PAGE_TRACKS,
   lenientBlocksSchema,
   type Block as BlockNode,
   type ContainerBlock,
   type ContainerMode,
   type LeafBlock,
 } from "@/features/actors/domain/block-schema";
+import { leafFields } from "@/features/actors/domain/leaf-fields";
 import { resolveEmbed } from "@/features/actors/domain/embeds";
 import { EMBED_PROVIDERS } from "@/shared/domain/embed-providers";
 import { PLAYER_ORIGINS } from "@/shared/domain/player-origins";
@@ -52,7 +52,6 @@ const { iconNames: REAL_ICON_NAMES } = await vi.importActual<
 const leaf = (over: Record<string, unknown> = {}): LeafBlock =>
   ({
     kind: "text",
-    span: 1,
     title_en: "English title",
     title_es: "Título en español",
     description_en: "English words.",
@@ -70,8 +69,7 @@ const container = (over: Record<string, unknown> = {}): ContainerBlock =>
   ({
     kind: "container",
     mode: "stack",
-    columns: 1,
-    span: 1,
+    spaces: 1,
     children: [leaf()],
     ...over,
   }) as unknown as ContainerBlock;
@@ -88,7 +86,6 @@ function renderBlock(
   over: Partial<{
     locale: string;
     depth: number;
-    tracks: number;
     path: string;
     parentHost: string;
   }> = {},
@@ -96,7 +93,6 @@ function renderBlock(
   const {
     locale = "en",
     depth = 0,
-    tracks = PAGE_TRACKS,
     path = "0",
     parentHost = "me.furrycolombia.com",
   } = over;
@@ -105,7 +101,6 @@ function renderBlock(
       block={block}
       locale={locale}
       depth={depth}
-      tracks={tracks}
       path={path}
       parentHost={parentHost}
     />,
@@ -206,23 +201,23 @@ describe("the modes", () => {
     expect(stack.className).not.toContain("grid");
   });
 
-  it("lays a grid at the container's own track count", () => {
-    renderBlock(container({ mode: "grid", columns: 3 }));
+  it("lays a grid at the container's own space count", () => {
+    renderBlock(container({ mode: "grid", spaces: 3 }));
     expect(screen.getByTestId("block-grid").className).toContain(
-      "sm:grid-cols-3",
+      "@lg:grid-cols-3",
     );
   });
 
-  it("packs masonry into the container's own column count", () => {
-    renderBlock(container({ mode: "masonry", columns: 4 }));
+  it("packs masonry into the container's own space count", () => {
+    renderBlock(container({ mode: "masonry", spaces: 4 }));
     expect(screen.getByTestId("block-masonry").className).toContain(
-      "sm:columns-4",
+      "@2xl:columns-4",
     );
   });
 
   // Without it a browser is free to split one child across a column boundary.
   it("forbids a masonry child being split across a column", () => {
-    renderBlock(container({ mode: "masonry", columns: 2 }));
+    renderBlock(container({ mode: "masonry", spaces: 2 }));
     const child = screen.getByTestId("block-masonry").firstElementChild;
     expect(child?.className).toContain("break-inside-avoid");
   });
@@ -351,22 +346,8 @@ describe("tabs", () => {
   it("gives every panel on the page an id of its own", () => {
     const { container: root } = render(
       <>
-        <Block
-          block={tabbed()}
-          locale="en"
-          depth={0}
-          tracks={PAGE_TRACKS}
-          path="0"
-          parentHost=""
-        />
-        <Block
-          block={tabbed()}
-          locale="en"
-          depth={0}
-          tracks={PAGE_TRACKS}
-          path="1"
-          parentHost=""
-        />
+        <Block block={tabbed()} locale="en" depth={0} path="0" parentHost="" />
+        <Block block={tabbed()} locale="en" depth={0} path="1" parentHost="" />
       </>,
     );
     const ids = [...root.querySelectorAll("[id]")].map((element) => element.id);
@@ -395,22 +376,8 @@ describe("tabs", () => {
   it("keeps two tab groups on one page apart", () => {
     render(
       <>
-        <Block
-          block={tabbed()}
-          locale="en"
-          depth={0}
-          tracks={PAGE_TRACKS}
-          path="0"
-          parentHost=""
-        />
-        <Block
-          block={tabbed()}
-          locale="en"
-          depth={0}
-          tracks={PAGE_TRACKS}
-          path="1"
-          parentHost=""
-        />
+        <Block block={tabbed()} locale="en" depth={0} path="0" parentHost="" />
+        <Block block={tabbed()} locale="en" depth={0} path="1" parentHost="" />
       </>,
     );
     const names = new Set(
@@ -513,151 +480,346 @@ describe("accordion", () => {
   });
 });
 
-describe("span", () => {
+// THE PLACES A CONTAINER LAYS, AND THE ONES NOBODY HAS FILLED.
+//
+// `spaces` is a WIDTH and `children` is the content: a container lays that many
+// places across and its children fill them row by row, so a fifty-picture
+// gallery is three places across and seventeen rows deep. An entry may be
+// `null`, which is a place holding nothing — and the whole model rests on that
+// place keeping its width rather than the row closing up, because a space count
+// means nothing the moment a partly-filled section renders as though it were
+// narrower.
+describe("the places a container lays", () => {
   it.each([
-    [2, "sm:col-span-2"],
-    [3, "sm:col-span-3"],
-    [4, "sm:col-span-4"],
-  ])("gives a block of span %i its share of the tracks", (span, expected) => {
-    renderBlock(
-      container({
-        mode: "grid",
-        columns: 4,
-        children: [leaf({ span })],
-      }),
-    );
-    expect(screen.getByTestId("public-leaf").className).toContain(expected);
+    [2, "@xs:grid-cols-2"],
+    [3, "@lg:grid-cols-3"],
+    [4, "@2xl:grid-cols-4"],
+    [5, "@4xl:grid-cols-5"],
+    [6, "@5xl:grid-cols-6"],
+  ])("lays %i places across in a grid", (spaces, expected) => {
+    renderBlock(container({ mode: "grid", spaces }));
+    expect(screen.getByTestId("block-grid").className).toContain(expected);
   });
 
-  // One track is what the grid already gives; declaring it would be a rule
-  // that changes nothing.
-  it("declares nothing for a block of one track", () => {
-    renderBlock(
-      container({ mode: "grid", columns: 4, children: [leaf({ span: 1 })] }),
-    );
-    expect(screen.getByTestId("public-leaf").className).not.toContain(
-      "col-span",
-    );
+  it.each([
+    [2, "@xs:columns-2"],
+    [3, "@lg:columns-3"],
+    [4, "@2xl:columns-4"],
+    [5, "@4xl:columns-5"],
+    [6, "@5xl:columns-6"],
+  ])("packs %i columns in a masonry", (spaces, expected) => {
+    renderBlock(container({ mode: "masonry", spaces }));
+    expect(screen.getByTestId("block-masonry").className).toContain(expected);
   });
 
-  // A stored span wider than its parent is legal and stays stored as typed —
-  // it is narrowed here, at render, and nowhere else.
-  it("narrows a span wider than its parent, at render", () => {
-    renderBlock(
-      container({ mode: "grid", columns: 2, children: [leaf({ span: 4 })] }),
-    );
-    const rendered = screen.getByTestId("public-leaf").className;
-    expect(rendered).toContain("sm:col-span-2");
-    expect(rendered).not.toContain("sm:col-span-4");
+  // One place is what the element already declares, so a class for it would be
+  // a rule that changes nothing. Both entries exist in the map; both are empty.
+  it.each([
+    ["grid", "block-grid", "grid-cols-1"],
+    ["masonry", "block-masonry", "columns-1"],
+  ])("declares nothing extra for one place in %s", (mode, id, base) => {
+    renderBlock(container({ mode: mode as ContainerMode, spaces: 1 }));
+    const laid = screen.getByTestId(id).className;
+    expect(laid).toContain(base);
+    expect(laid).not.toContain("@");
   });
 
-  // The 320px trap, and the reason a mode that lays out no tracks hands its
-  // children one: `grid-column: span 3` inside a single-track grid does not
-  // clamp — it creates two implicit tracks and pushes the row past the
-  // viewport.
-  it.each(["stack", "masonry", "carousel", "tabs", "accordion", "timeline"])(
-    "declares no span at all inside %s, which lays out no tracks",
-    (mode) => {
+  // A count outside the vocabulary is refused by the WRITE — the strict schema
+  // and `validate_block` — and deliberately admitted by the read, so this
+  // arrives from a newer deployment's page being read by an older build rather
+  // than from anything malformed. One place is the answer that cannot overflow
+  // whatever it is laid in.
+  it.each([
+    ["grid", "block-grid", "grid-cols-1"],
+    ["masonry", "block-masonry", "columns-1"],
+  ])(
+    "lays a single place for a count outside %s's vocabulary",
+    (mode, id, base) => {
       renderBlock(
         container({
           mode: mode as ContainerMode,
-          columns: 4,
-          children: [leaf({ span: 4 })],
+          spaces: BLOCK_LIMITS.spaces + 3,
         }),
       );
-      expect(screen.getByTestId("public-leaf").className).not.toContain(
-        "col-span",
-      );
+      const laid = screen.getByTestId(id).className;
+      expect(laid).toContain(base);
+      expect(laid).not.toContain("@");
     },
   );
 
-  it("narrows a top-level block to the page's own single track", () => {
-    renderBlock(leaf({ span: 4 }), { tracks: PAGE_TRACKS });
-    expect(screen.getByTestId("public-leaf").className).not.toContain(
-      "col-span",
+  // Every count the vocabulary admits has an entry, so a container the schema
+  // accepts can never fall through to the single-place answer by accident.
+  it.each([...Array.from({ length: BLOCK_LIMITS.spaces }, (_, i) => i + 1)])(
+    "has an answer for a container of %i places",
+    (spaces) => {
+      renderBlock(container({ mode: "grid", spaces }));
+      const laid = screen.getByTestId("block-grid").className;
+      expect(laid).toContain("grid-cols-1");
+      // One place is legitimately the base alone; every wider count has to add
+      // a rule of its own, or the vocabulary silently stops at whatever the
+      // map last named.
+      expect(laid.includes("@") || spaces === 1).toBe(true);
+    },
+  );
+});
+
+describe("a place holding nothing", () => {
+  /**
+   * A container whose middle place is empty.
+   *
+   * @param mode - the arrangement to put it in.
+   * @returns the container.
+   */
+  const gapped = (mode: string): ContainerBlock =>
+    container({
+      mode,
+      spaces: 3,
+      children: [
+        leaf({ title_en: "First" }),
+        null,
+        leaf({ title_en: "Third" }),
+      ],
+    });
+
+  // THE ASSERTION THE WHOLE MODEL RESTS ON.
+  //
+  // A place is POSITIONAL. `[a, null, b]` has to mean that `b` is third, and a
+  // renderer that dropped the empty entry would make it second — which is the
+  // collapse the flow model had and the reason this one exists. Counting the
+  // grid's own children is what says the position survived; reading the third
+  // one's words is what says it is the right position.
+  it("keeps the third thing third when the second place is empty", () => {
+    renderBlock(gapped("grid"));
+    const places = [...screen.getByTestId("block-grid").children];
+    expect(places).toHaveLength(3);
+    expect(places[2]?.textContent).toContain("Third");
+  });
+
+  // And it draws nothing: no border, no surface, no words. A place that
+  // painted a box would be a broken card rather than room for the next thing.
+  it("draws nothing at all in the empty place", () => {
+    renderBlock(gapped("grid"));
+    const empty = screen.getByTestId("public-space");
+    expect(empty.className).toBe("");
+    expect(empty.childNodes).toHaveLength(0);
+    expect(empty.textContent).toBe("");
+  });
+
+  // A trailing empty place is kept rather than trimmed: somebody is usually
+  // about to fill it, and trimming would move every entry after the next thing
+  // they add.
+  it("keeps a trailing empty place", () => {
+    renderBlock(
+      container({
+        mode: "grid",
+        spaces: 3,
+        children: [leaf({ title_en: "Only" }), null, null],
+      }),
     );
+    expect(screen.getByTestId("block-grid").children).toHaveLength(3);
+    expect(screen.getAllByTestId("public-space")).toHaveLength(2);
+  });
+
+  // Every mode that lays a BOX keeps the place, because there the empty box is
+  // the shape its author chose. `masonry` and `carousel` wrap each place in an
+  // element of their own, so the count is of the wrapper either way.
+  it.each([
+    ["stack", "block-stack"],
+    ["grid", "block-grid"],
+    ["masonry", "block-masonry"],
+    ["carousel", "block-carousel"],
+    ["timeline", "block-timeline"],
+  ])("keeps the empty place in %s", (mode, id) => {
+    renderBlock(gapped(mode));
+    expect(screen.getByTestId(id).children).toHaveLength(3);
+    expect(screen.getByTestId("public-space")).toBeInTheDocument();
+  });
+
+  // And the two whose place is a CONTROL rather than a box drop it: a tab that
+  // opens onto nothing and a disclosure with nothing to disclose are controls
+  // that do not work, which is worse than the gap they would fill.
+  it("gives an empty place no tab", () => {
+    renderBlock(gapped("tabs"));
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    expect(screen.queryByTestId("public-space")).not.toBeInTheDocument();
+  });
+
+  it("gives an empty place no disclosure", () => {
+    renderBlock(gapped("accordion"));
+    expect(
+      screen.getByTestId("block-accordion").querySelectorAll("details"),
+    ).toHaveLength(2);
+    expect(screen.queryByTestId("public-space")).not.toBeInTheDocument();
+  });
+
+  // Dropping an empty place must not renumber the ones that remain. A child
+  // with no name of its own is labelled by its POSITION in the container, so a
+  // tab lifted off the third place says "3" whether or not the second is empty.
+  it("names a lifted tab by its true position, not by what survived", () => {
+    renderBlock(
+      container({
+        mode: "tabs",
+        spaces: 3,
+        children: [
+          container({ children: [leaf()] }),
+          null,
+          container({ children: [leaf()] }),
+        ],
+      }),
+    );
+    const labels = screen
+      .getAllByRole("radio")
+      .map((radio) => radio.parentElement?.textContent);
+    expect(labels).toEqual(["1", "3"]);
+  });
+
+  // `tabs` opens on the first place holding something. A container whose first
+  // place is empty would otherwise open on nothing at all, leaving every panel
+  // hidden — a section that renders as a row of tabs and no content.
+  it("opens tabs on the first place that holds something", () => {
+    renderBlock(
+      container({
+        mode: "tabs",
+        spaces: 2,
+        children: [null, leaf({ title_en: "Second" })],
+      }),
+    );
+    const radios = screen.getAllByRole("radio") as HTMLInputElement[];
+    expect(radios).toHaveLength(1);
+    expect(radios[0]?.defaultChecked).toBe(true);
+  });
+
+  // A container whose every place is empty renders no accordion at all. The
+  // wrapper carries the border and the surface, so an unguarded one is a
+  // bordered sliver with nothing in it.
+  it("renders no accordion for a container of nothing but empty places", () => {
+    renderBlock(
+      container({ mode: "accordion", spaces: 2, children: [null, null] }),
+    );
+    expect(screen.queryByTestId("block-accordion")).not.toBeInTheDocument();
   });
 });
 
-describe("the responsive collapse", () => {
-  it.each([...Array.from({ length: BLOCK_LIMITS.tracks }, (_, i) => i + 1)])(
-    "has a grid class for a container of %i tracks",
-    (columns) => {
-      renderBlock(container({ mode: "grid", columns }));
-      expect(screen.getByTestId("block-grid").className).toContain(
-        `sm:grid-cols-${columns}`,
-      );
-    },
-  );
+// CONTENT ADAPTS TO ITS PARENT, NOT TO THE WINDOW.
+//
+// Every responsive rule in this renderer used to be a viewport breakpoint,
+// which in a tree is wrong in a way that worsens with depth: a card in one
+// place of a three-space section is about a third of the page wide, while every
+// `sm:` rule inside it believes it has the whole screen. The fix is CSS
+// container queries — no library, which matters because these are server
+// components — and it works only if every container declares a containment
+// context for the rules beneath it to query.
+describe("the containment context", () => {
+  it("declares one on the section, which is what a mode's places query", () => {
+    const { container: root } = renderBlock(container({ name_en: "A name" }));
+    expect(root.querySelector("section")?.className).toContain("@container");
+  });
 
-  it.each([...Array.from({ length: BLOCK_LIMITS.tracks }, (_, i) => i + 1)])(
-    "has a masonry class for a container of %i columns",
-    (columns) => {
-      renderBlock(container({ mode: "masonry", columns }));
-      expect(screen.getByTestId("block-masonry").className).toContain(
-        `sm:columns-${columns}`,
-      );
-    },
-  );
+  it("declares one on a leaf's own wrapper, so a leaf asks about its own box", () => {
+    renderBlock(leaf());
+    expect(screen.getByTestId("public-leaf").className).toContain("@container");
+  });
 
-  it.each([
-    ...Array.from({ length: BLOCK_LIMITS.tracks - 1 }, (_, i) => i + 2),
-  ])("has a span class for a block of %i tracks", (span) => {
-    renderBlock(
+  it("declares one on every container of a nested tree", () => {
+    const { container: root } = renderBlock(
       container({
+        name_en: "Outer",
         mode: "grid",
-        columns: BLOCK_LIMITS.tracks,
-        children: [leaf({ span })],
+        spaces: 2,
+        children: [
+          container({ mode: "grid", spaces: 2, children: [leaf()] }),
+          leaf(),
+        ],
       }),
     );
-    expect(screen.getByTestId("public-leaf").className).toContain(
-      `sm:col-span-${span}`,
-    );
+    const sections = [...root.querySelectorAll("section")];
+    expect(sections).toHaveLength(2);
+    for (const section of sections) {
+      expect(section.className).toContain("@container");
+    }
   });
 
-  // Every track class and every span class is `sm:`-prefixed, and the grid
-  // itself is one track below that. A minimum that does not shrink is how this
-  // project shipped 16px of real horizontal scroll at exactly 320px.
-  it("is one track below the breakpoint, whatever the container declared", () => {
-    renderBlock(
+  // THE GUARD AGAINST GOING BACK.
+  //
+  // A viewport breakpoint here is a fault visible only in a browser at a wide
+  // window with a narrow space — exactly the case no existing 320px guard can
+  // reach, because those resize the WINDOW and the window is not what is
+  // narrow. A structural assertion over the rendered class lists catches the
+  // next `sm:` before it needs a browser at all: a container query is
+  // `@`-prefixed and a viewport one is not.
+  //
+  // **Every mode AND every leaf kind, both driven from the vocabulary.** It
+  // used to build its children from three kinds, so a `sm:` added to any of
+  // the other seven renderers would have passed — closed by grep at review
+  // time, which is a person remembering rather than a guard. The children are
+  // built through `leafFields`, so a kind added later arrives here carrying
+  // whatever its own renderer reads, without anybody adding a case.
+  it("emits no viewport breakpoint anywhere on a page of every mode and kind", () => {
+    const page = CONTAINER_MODES.map((mode) =>
       container({
-        mode: "grid",
-        columns: 4,
-        children: [leaf({ span: 4 })],
+        name_en: `A ${mode}`,
+        mode,
+        spaces: BLOCK_LIMITS.spaces,
+        children: [
+          null,
+          ...LEAF_KINDS.map((kind) => {
+            const fields = leafFields(kind);
+            return leaf({
+              kind,
+              title_en: `One ${kind}`,
+              // Reads as prose to every kind but `progress`, which needs a
+              // number to draw its bar at all — and a bar is markup no other
+              // branch emits.
+              description_en: "60%",
+              ...(fields.link
+                ? { link_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }
+                : {}),
+              ...(fields.icon ? { icon: "paw-print" } : {}),
+              ...(fields.picture
+                ? { image_url: "https://example.com/a.png" }
+                : {}),
+              ...(fields.rows
+                ? { rows: [[{ text_en: "Height" }, { text_en: "180cm" }]] }
+                : {}),
+            });
+          }),
+        ],
       }),
     );
-    const classes = (element: Element) => element.className.split(/\s+/);
-    const grid = classes(screen.getByTestId("block-grid"));
-    // The only unprefixed track rule is the single-column one, so nothing the
-    // container declared can reach a viewport below the breakpoint.
-    expect(grid.filter((name) => name.includes("grid-cols-"))).toEqual([
-      "grid-cols-1",
-      "sm:grid-cols-4",
-    ]);
-    const leafClasses = classes(screen.getByTestId("public-leaf"));
-    expect(
-      leafClasses.filter(
-        (name) => name.includes("col-span-") && !name.startsWith("sm:"),
-      ),
-    ).toEqual([]);
-    expect(leafClasses).toContain("sm:col-span-4");
+    const { container: root } = render(
+      <PublicBlocks
+        blocks={page}
+        locale="en"
+        parentHost="me.furrycolombia.com"
+      />,
+    );
+    // Read through `getAttribute` rather than `className`: an SVG element's
+    // `className` is an `SVGAnimatedString`, which has no `split` — and a
+    // lucide glyph is on this page, so the obvious form throws rather than
+    // measuring anything.
+    const classesOf = (root_: Element) =>
+      [...root_.querySelectorAll("[class]")].flatMap((element) =>
+        (element.getAttribute("class") ?? "").split(/\s+/),
+      );
+    const viewport = /^(?:sm|md|lg|xl|2xl):/;
+    const offenders = classesOf(root).filter((name) => viewport.test(name));
+    expect([...new Set(offenders)]).toEqual([]);
+    // The anti-vacuity half: the page really did render container queries, so
+    // "no viewport prefixes" is not passing on a page that emitted no
+    // responsive rule at all.
+    const queries = classesOf(root).filter(
+      (name) => name.startsWith("@") && name.includes(":"),
+    );
+    expect(queries.length).toBeGreaterThan(0);
   });
 
-  // A count outside the vocabulary is refused by both the schema and the
-  // database, so this only ever arrives from a payload that bypassed both —
-  // and one track is the answer that cannot overflow anything.
-  it("lays a single track for a count outside the vocabulary", () => {
-    renderBlock(container({ mode: "grid", columns: 9 }));
-    const grid = screen.getByTestId("block-grid");
-    expect(grid.className).toContain("grid-cols-1");
-    expect(grid.className).not.toContain("sm:grid-cols");
-  });
-
-  it("packs a single column for a masonry count outside the vocabulary", () => {
-    renderBlock(container({ mode: "masonry", columns: 9 }));
-    const packed = screen.getByTestId("block-masonry");
-    expect(packed.className).toContain("columns-1");
-    expect(packed.className).not.toContain("sm:columns");
+  // The one card width that was a viewport rule and is now a container one.
+  // 384px is right in a section with room for it and wrong in one without, and
+  // the window cannot tell the difference.
+  it("sizes a carousel card against its section rather than the screen", () => {
+    renderBlock(container({ mode: "carousel" }));
+    const card = screen.getByTestId("block-carousel").firstElementChild;
+    expect(card?.className).toContain("@md:w-96");
   });
 });
 
@@ -773,17 +935,18 @@ describe("a leaf", () => {
   });
 
   // The seam: a per-kind renderer replaces what is INSIDE this element and can
-  // never drop the span or the style bag, because neither is its to carry.
-  it("keeps the span and the style bag outside the leaf's own content", () => {
+  // never drop the containment context or the style bag, because neither is
+  // its to carry.
+  it("keeps the containment context and the style bag outside the leaf's own content", () => {
     renderBlock(
       container({
         mode: "grid",
-        columns: 4,
-        children: [leaf({ span: 2, style: { skin: "paper" } })],
+        spaces: 4,
+        children: [leaf({ style: { skin: "paper" } })],
       }),
     );
     const wrapper = screen.getByTestId("public-leaf");
-    expect(wrapper.className).toContain("sm:col-span-2");
+    expect(wrapper.className).toContain("@container");
     expect(customProperties(wrapper)["--skin-round"]).toBe("0.4");
   });
 
@@ -2017,15 +2180,15 @@ describe("the recursion", () => {
     renderBlock(
       container({
         mode: "grid",
-        columns: 2,
+        spaces: 2,
         children: [
           container({
             mode: "stack",
-            columns: 2,
+            spaces: 2,
             children: [
               container({
                 mode: "masonry",
-                columns: 2,
+                spaces: 2,
                 children: titles.map((title) => leaf({ title_en: title })),
               }),
             ],
@@ -2195,17 +2358,23 @@ describe("PublicBlocks", () => {
     expect(headings).toEqual(["Zeta", "Alpha"]);
   });
 
-  // Every outermost block is measured against `PAGE_TRACKS`, which is one —
-  // so a span stored wider than the page can honour narrows here and is left
-  // alone in storage. Without this a top-level `span: 3` would emit
-  // `sm:col-span-3` into a container that lays no tracks, which is the
-  // implicit-column overflow `TRACK_CLASS` exists to prevent.
-  it("narrows a top-level block's span to the page's own single track", () => {
+  // The page hands its outermost blocks nothing about width, because there is
+  // nothing to hand: a block takes exactly one place of whatever contains it,
+  // and here that is the page. What it DOES get is a containment context of
+  // its own, which is what every responsive rule beneath it queries — a
+  // top-level section that declared none would send its whole subtree back to
+  // asking the window.
+  it("gives each outermost block a containment context of its own", () => {
     const { container: root } = renderPage([
-      container({ name_en: "Wide", span: BLOCK_LIMITS.tracks }),
+      container({ name_en: "One" }),
+      container({ name_en: "Two" }),
     ]);
-    const section = root.querySelector("section");
-    expect(section?.className).not.toContain("col-span");
+    const sections = [...root.querySelectorAll("section")];
+    expect(sections).toHaveLength(2);
+    for (const section of sections) {
+      expect(section.className).toContain("@container");
+      expect(section.className).not.toContain("col-span");
+    }
   });
 
   // The path is what every id and every radio-group name in the tree is built

@@ -2,25 +2,20 @@
 
 import { Paintbrush } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import {
-  useController,
-  type Control,
-  type FieldValues,
-  type Path,
-} from "react-hook-form";
 import { tid } from "@/shared/infrastructure/test-id";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
-import type { FursonaSection } from "@/features/actors/domain/section-schema";
+import type { BlockStyle } from "@/features/actors/domain/block-schema";
 
 /**
- * A section's own look — `sectionStyleSchema`'s shape (see
- * `domain/section-schema.ts`), with the optional wrapper stripped off.
+ * One block's own look — `blockStyleShape`'s bag (see
+ * `domain/block-schema.ts`), which every block may carry whether it is a
+ * section or a container three levels down.
  *
- * Every key stays optional here too: **absence still means "inherit the
- * page"**, which is the whole contract this popup exists to respect rather
- * than quietly replace with an empty string.
+ * Every key is optional: **absence means "inherit whatever encloses this"**,
+ * which is the whole contract this popup exists to respect rather than quietly
+ * replace with an empty string.
  */
-export type SectionStyle = NonNullable<FursonaSection["style"]>;
+export type SectionStyle = BlockStyle;
 
 /**
  * Translated strings {@link SectionStylePopup} renders.
@@ -49,17 +44,17 @@ export type SectionStyle = NonNullable<FursonaSection["style"]>;
  * emits both `background-repeat` and `background-size` for every fit, which
  * is what makes the three options three paints.
  *
- * `cardSizeDefault` names the option that clears `style.card_size`, and it
- * carries the same "not inherit" caveat as `fitDefault`: the page has no
- * card size of its own either, only `Cards`' own literal fallback. It is
- * kept distinct from `cardSizeM` even though both resolve to the identical
- * `--card-size` today — `CARD_SIZE_MIN`'s own `m` entry — because choosing
- * `m` pins that width regardless of what the fallback becomes later, where
- * clearing the key means "whatever `Cards` falls back to," which only
- * happens to be `m` right now.
+ * **There is no card-size string here any more, and the control went with
+ * it.** `style.card_size` named the minimum width a card in an `auto-fill`
+ * grid could shrink to, leaving the browser to decide how many fit — and a
+ * container declares an explicit space count now, so nothing on any page reads
+ * the token. A control that accepts a choice, stores it and changes nothing is
+ * the worst kind, so the field is gone while the KEY stays in the schema: a
+ * value the flat editor stored survives untouched, ready for the
+ * `column-width` reader `masonry` is the intended home for.
  *
  * `borderInherit` names the option that clears `style.border`, and here the
- * "not inherit" caveat that applies to `fitDefault` and `cardSizeDefault`
+ * "not inherit" caveat that applies to `fitDefault`
  * does NOT apply: a border genuinely has a page (or enclosing section) to
  * inherit from, the same way `inheritSkin` does. `borderNone` is a separate,
  * explicit choice — "no edge here regardless of what surrounds it" — and
@@ -89,35 +84,12 @@ export interface SectionStylePopupLabels {
   fitCover: string;
   /** The fit select's option for `"tile"`. */
   fitTile: string;
-  /** Field label for the card-size select. */
-  cardSize: string;
-  /**
-   * What the card-size field sets, beneath the select. The enum's own
-   * values read `s`/`m`/`l` on the wire and must never appear on screen —
-   * see {@link cardSizeS}'s own doc — so this is where the actual mechanism
-   * (a MINIMUM width; the browser decides how many cards fit at it) is said
-   * once, rather than folded into every option label, each of which would
-   * otherwise have to repeat it.
-   */
-  cardSizeHint: string;
-  /** The card-size select's option that clears `style.card_size`. */
-  cardSizeDefault: string;
-  /**
-   * The card-size select's option for `"s"` — never the letter itself.
-   * `s`/`m`/`l` are this schema's own wire values, not words a person reads;
-   * the label says what choosing it changes (more, narrower cards per row).
-   */
-  cardSizeS: string;
-  /** The card-size select's option for `"m"`. */
-  cardSizeM: string;
-  /** The card-size select's option for `"l"`. */
-  cardSizeL: string;
   /** Field label for the border select. */
   border: string;
   /**
-   * What the border field sets, beneath the select: this section's own
-   * cards and panels, not the popup's own frame. Said once here rather than
-   * on every option, the same shape {@link cardSizeHint} uses.
+   * What the border field sets, beneath the select: this block's own cards
+   * and panels, not the popup's own frame. Said once here rather than on every
+   * option, which would otherwise each have to restate it.
    */
   borderHint: string;
   /** The border select's option that clears `style.border`. */
@@ -141,23 +113,22 @@ export interface SectionStylePopupLabels {
 /**
  * What {@link SectionStylePopup} needs.
  *
- * `type` is new: it is what lets the popup gate its card-size field on
- * `"cards"` — see that field's own doc, and the component's own TSDoc for
- * why skin and background need no equivalent gate.
+ * **Controlled by value rather than bound to a form path**, which is what lets
+ * one popup serve every block in a recursive tree: the editor holds the whole
+ * page in a single field and addresses a block by its position, so there is no
+ * per-block form path for a `useController` to name.
  */
-export interface SectionStylePopupProps<T extends FieldValues> {
-  /** The form's control, for this section's own `style` field. */
-  control: Control<T>;
-  /** Where this section lives, as in `sections.0` — `.style` is appended. */
-  path: string;
+export interface SectionStylePopupProps {
+  /** The block's own style bag, absent when it has none. */
+  value: SectionStyle | undefined;
   /**
-   * This section's own layout, watched by the caller — `SectionCard`
-   * already does, for `SectionItemFields`' identical need. Decides only
-   * whether the card-size FIELD is offered; the stored `style.card_size`
-   * itself is untouched whatever this is, so switching away and back finds
-   * the choice still there.
+   * Called with the whole bag, or `undefined` once nothing is left in it.
+   *
+   * The WHOLE bag rather than one key, because clearing a field has to REMOVE
+   * that key — an empty string sitting in `style` would be a third state
+   * between "inherit" and "chosen", which the schema does not recognise.
    */
-  type: string;
+  onChange: (style: SectionStyle | undefined) => void;
   /** Already-translated strings. */
   labels: SectionStylePopupLabels;
 }
@@ -166,47 +137,25 @@ export interface SectionStylePopupProps<T extends FieldValues> {
  * A paintbrush button and the popup it opens: one section's own skin,
  * background picture, card size and border, apart from its layout.
  *
- * **The card-size field is gated on `type === "cards"`, unlike skin,
- * background and border.** Those three are genuinely layout-agnostic —
- * `nestedSkinVars` sets tokens every layout's `rounded-xl surface` elements
- * read, a background paints the wrapper visible under any of them, and
- * `--skin-border-style` is read by that same `surface` utility on every
- * layout's own surfaces — but `card_size` is the first key in this bag that
- * only ONE layout's CSS ever reads (`Cards`, via `--card-size`). Offering it
- * on every OTHER layout would be exactly the fault `section-item-fields.tsx`'s
- * own TSDoc names: "a field a layout never renders … accepts what somebody
- * types, refuses nothing, and shows nothing, with no way for them to learn
- * that it did nothing." `blockStyle`'s own note that every other layout
- * "ignores" `--card-size` is a statement about the DATA plumbing — it is
- * harmless to leave the key set — not a claim that the editor should offer
- * the choice regardless of layout; those are different questions.
+ * **Every field it offers is one every block renders**, which is why nothing
+ * here is gated. Skin, background and border are arrangement-agnostic:
+ * `nestedSkinVars` sets tokens every `rounded-xl surface` element reads, a
+ * background paints the wrapper visible under any mode, and
+ * `--skin-border-style` is read by that same `surface` utility everywhere. The
+ * card-size field was the one exception and is gone rather than gated — no
+ * page reads `--card-size` at all now, so there was no arrangement left for
+ * which the control did anything.
  *
- * **The border field is offered unconditionally, and that is deliberate
- * rather than an oversight this consistency later "fixes."** Every layout
- * renders at least one `surface` element, so there is no layout for which
- * this control would do nothing — the one condition that gates `card_size`
- * simply never arises here.
+ * **It hands back the whole bag rather than one key**, because clearing a
+ * field has to REMOVE that key from the object — see `setField` below. A
+ * per-key writer can only ever write a value, including `""`, which is exactly
+ * the third state the "absent means inherit" contract forbids.
  *
- * **Gating hides the FIELD, never the stored value** — the same shape
- * `LINKED`/`ICONED`/`PICTURED` already use for item fields. Switching a
- * section's layout away from `cards` and back finds `style.card_size`
- * exactly as it was: nothing here ever writes to it except a change on the
- * select itself, so hiding the control changes what is offered, not what is
- * held.
- *
- * **It owns the whole `style` field through one `useController`**, rather
- * than one per key, because clearing a field has to REMOVE that key from the
- * object — see `setField` below — and a per-key `register` has no way to do
- * that: it can only ever write a value, including `""`, which is exactly the
- * third state `sectionStyleSchema`'s "absent means inherit" contract
- * forbids.
- *
- * **Bound by `path`, never by a captured index.** `SectionCard`'s own TSDoc
- * documents the fault this avoids: an index captured in a handler goes stale
- * the moment a section above it is removed, and a delete or a write then
- * lands on the wrong row. `path` is threaded through as the string it always
- * is — `sections.2`, say — so `${path}.style` always names THIS section's own
- * field, however the array around it has changed since the last render.
+ * **It is controlled by value, and the block it belongs to is addressed by
+ * its caller.** The editor holds the whole page in one field and names a block
+ * by its position, so a stale captured index is the fault to avoid — and the
+ * caller avoids it by rebuilding the path from where it is rendering on every
+ * render, never by capturing one in a handler.
  *
  * **The fit select appears only once there is a picture to fit.** An address
  * of `""` gives `background_fit` nothing to describe, so offering the field
@@ -229,19 +178,17 @@ export interface SectionStylePopupProps<T extends FieldValues> {
  *
  * @returns the button and, while open, the popup.
  */
-export function SectionStylePopup<T extends FieldValues>({
-  control,
-  path,
-  type,
+export function SectionStylePopup({
+  value,
+  onChange,
   labels,
-}: SectionStylePopupProps<T>) {
+}: SectionStylePopupProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const skinFieldRef = useRef<HTMLSelectElement>(null);
-  const field = useController({ control, name: `${path}.style` as Path<T> });
-  const style = (field.field.value ?? {}) as SectionStyle;
+  const style = value ?? {};
 
   // Escape and an outside click both close the popup; opening moves focus to
   // the first field, and closing — by either of those, or by the trigger
@@ -300,7 +247,7 @@ export function SectionStylePopup<T extends FieldValues>({
     const next: SectionStyle = { ...style };
     if (value === "") delete next[key];
     else next[key] = value;
-    field.field.onChange(Object.keys(next).length > 0 ? next : undefined);
+    onChange(Object.keys(next).length > 0 ? next : undefined);
   };
 
   return (
@@ -398,38 +345,6 @@ export function SectionStylePopup<T extends FieldValues>({
                 <option value="cover">{labels.fitCover}</option>
                 <option value="tile">{labels.fitTile}</option>
               </select>
-            </div>
-          ) : null}
-
-          {type === "cards" ? (
-            <div className="grid gap-1.5">
-              <label
-                htmlFor={`${id}-card-size`}
-                className="text-xs font-medium"
-              >
-                {labels.cardSize}
-              </label>
-              <select
-                id={`${id}-card-size`}
-                value={style.card_size ?? ""}
-                onChange={(event) =>
-                  setField(
-                    "card_size",
-                    event.target.value as SectionStyle["card_size"] | "",
-                  )
-                }
-                aria-describedby={`${id}-card-size-hint`}
-                {...tid("section-style-card-size")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                <option value="">{labels.cardSizeDefault}</option>
-                <option value="s">{labels.cardSizeS}</option>
-                <option value="m">{labels.cardSizeM}</option>
-                <option value="l">{labels.cardSizeL}</option>
-              </select>
-              <p id={`${id}-card-size-hint`} className="text-xs text-(--muted)">
-                {labels.cardSizeHint}
-              </p>
             </div>
           ) : null}
 

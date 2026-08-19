@@ -24,8 +24,9 @@ import { z } from "zod";
  * tracks exactly as `grid` does, `0009` said `grid` fills them across and
  * `columns` down, and the renderer shipped the same grid aligned to the start
  * of each row. A name each author filled in from context is not a mechanism, and
- * the track count is already a PARAMETER of `grid`, so a second mode for it
- * would be the welded cross-product this model exists to undo. Prose columns,
+ * how many places a container offers is already a PARAMETER of every one of
+ * these — see {@link ContainerBlock.spaces} — so a second mode for it would be
+ * the welded cross-product this model exists to undo. Prose columns,
  * if they are ever wanted, are `align: "stretch" | "start"` in
  * {@link blockStyleShape} — a dial that composes with every mode rather than
  * being available on one.
@@ -195,6 +196,11 @@ export const TOO_DEEP_MESSAGE = "too deep";
  * pattern that quietly matches nothing makes every comparison after it pass
  * forever, which is the one way a drift guard fails silently.
  *
+ * **It compares the two SETS of names, not only the values**, which is what
+ * makes renaming or removing a cap a change to both sides: `tracks` became
+ * `spaces` here and `c_max_tracks` became `c_max_spaces` there, and doing
+ * either half alone fails the build.
+ *
  * The byte cap is written `65_536` so it reads as the power of two it is rather
  * than as a number somebody picked. The migration states the same value in SQL,
  * where separators are not available, and the guard compares them as numbers —
@@ -218,15 +224,30 @@ export const BLOCK_LIMITS = {
    * lifting for anything carrying real writing.
    */
   blocks: 500,
-  /** Children one container may hold directly. */
-  children: 50,
   /**
-   * Grid tracks a container may declare, and the widest span a block may take.
+   * Places ACROSS a container may declare — the authoring vocabulary somebody
+   * picks a shape from.
    *
-   * One number for both, because a span is a count of its parent's tracks and a
-   * vocabulary wider than the widest container could never be satisfied.
+   * **It is how many across, never how many in total.** A three-space section
+   * is three across and grows DOWNWARD into more rows as things are added,
+   * which is the half of "it keeps extending down and so on" that a total
+   * would throw away: a fifty-picture gallery is a three-space section with
+   * seventeen rows, not a section nobody can build.
+   *
+   * So {@link BLOCK_LIMITS.children} caps the content separately and the two
+   * are not one number. They were briefly written as one, on the reading that
+   * a container holds exactly one thing per space — which is true of a ROW and
+   * false of a section.
    */
-  tracks: 4,
+  spaces: 6,
+  /**
+   * Children one container may hold, counted across every one of its rows.
+   *
+   * Unrelated to {@link BLOCK_LIMITS.spaces}, which is a width. This is what
+   * bounds the array, and it is the cap the flat model's item list already
+   * had — so every page that exists converts.
+   */
+  children: 50,
   /** Rows one `table` leaf may hold. */
   rows: 50,
   /**
@@ -245,30 +266,20 @@ export const BLOCK_LIMITS = {
    * sides can agree on by accident and disagree on in production. Postgres
    * measures `octet_length`, which is UTF-8 bytes; `String.length` counts UTF-16
    * code units, and the two agree only for ASCII. On a single legal leaf
-   * carrying accented text in both of its long fields the difference is 4,110
-   * against 8,110 — a factor of two, in the direction where this schema promises
+   * carrying accented text in both of its long fields the difference is 4,049
+   * against 8,049 — a factor of two, in the direction where this schema promises
    * a save the database then refuses, after the whole page has been written.
    *
-   * Those are the figures for the leaf **as this schema parses it**, which is
-   * what the cap measures, and they are ~50 larger than the same leaf as
-   * written: the parse materialises `span` and `description_en`. Both pairs
-   * were measured and both are true of different things, so the one quoted
-   * here is the one on the side of the parse the cap actually applies to.
-   * Spanish is this app's fallback language, so accented text is the ordinary
-   * case rather than the edge one.
+   * Those figures are the same whether the leaf is measured as written or **as
+   * this schema parses it**, which is what the cap measures. They were not
+   * always: the parse used to materialise a `span` on every leaf and the two
+   * sides differed by about fifty bytes. Nothing on a fully written leaf is
+   * materialised now, so there is one number rather than a pair to quote the
+   * wrong half of. Spanish is this app's fallback language, so accented text is
+   * the ordinary case rather than the edge one.
    */
   bytes: 65_536,
 } as const;
-
-/**
- * The tracks a page lays its outermost blocks across.
- *
- * A block's span is a count of its PARENT's tracks, and the page is the parent
- * of the outermost blocks — which stack down it, one to a row. Pass this to
- * {@link effectiveSpan} when rendering the top level; nothing narrows a span on
- * the way into storage.
- */
-export const PAGE_TRACKS = 1;
 
 /** Which side of the write/read split a schema is being built for. */
 type Strictness = "strict" | "lenient";
@@ -287,8 +298,35 @@ const text = z.string().max(BLOCK_LIMITS.text);
  */
 const optionalText = text.optional();
 
-/** A count of grid tracks — a container's own, or a block's share of them. */
-const trackCount = z.number().int().min(1).max(BLOCK_LIMITS.tracks);
+/**
+ * How many places across a container lays out.
+ *
+ * **The upper bound is on the WRITE only, and the asymmetry is the same
+ * deploy-skew argument `mode` and `kind` already rest on.** A `spaces` this
+ * build thinks is too large is one a newer deployment wrote after the cap was
+ * raised — the ledger plans for exactly that — and refusing it here fails the
+ * container, then the union, then the array, then the whole page: `null` to
+ * its owner, whose editor opens empty and whose every save is then refused,
+ * and `[]` to every stranger. That is precisely the blast radius
+ * {@link specialise} and {@link unknownKindSchema} exist to prevent, and
+ * `spaces` was the one number that had not been given the same treatment.
+ *
+ * The renderer already answers a count it does not know with a single place
+ * (`SPACE_CLASS.get(n) ?? ""`), which was a branch nothing on the read path
+ * could reach until this.
+ *
+ * **The lower bound stays on both sides**, because no deployment can have
+ * written a zero or a fraction: both schemas and `is_space_count` in `0009`
+ * refuse one, so a value below the floor is corruption rather than skew and
+ * failing loudly is the honest answer.
+ *
+ * @param strictness - which side of the write/read split to build.
+ * @returns the space count schema.
+ */
+function spaceCount(strictness: Strictness) {
+  const count = z.number().int().min(1);
+  return strictness === "strict" ? count.max(BLOCK_LIMITS.spaces) : count;
+}
 
 /** Measures a serialised page the way Postgres's `octet_length` does. */
 const utf8 = new TextEncoder();
@@ -376,6 +414,27 @@ const tableCellShape = {
 };
 
 /**
+ * The same array, capped on the write path and unbounded on the read one.
+ *
+ * See {@link spaceCount} for the argument, which is the same one every time:
+ * a bound this build would refuse is a bound a newer deployment may have
+ * raised, and refusing on the READ costs the whole page rather than the one
+ * thing that is out of range.
+ *
+ * @param schema - the array to specialise.
+ * @param strictness - which side of the split to build.
+ * @param max - the cap the write path applies.
+ * @returns the same array with the matching bound.
+ */
+function specialiseArray<Item extends z.ZodType>(
+  schema: z.ZodArray<Item>,
+  strictness: Strictness,
+  max: number,
+) {
+  return strictness === "strict" ? schema.max(max) : schema;
+}
+
+/**
  * The same object, refusing an unknown key on the write path and stripping one
  * on the read path.
  *
@@ -434,6 +493,11 @@ type BlockTableCell = z.infer<z.ZodObject<typeof tableCellShape>>;
  * `resolveSocial` and `safeHttpUrl`, which build an address rather than
  * trusting one.
  *
+ * **A leaf carries no arrangement of its own.** It had a `span` — its share of
+ * its parent's tracks — and a container declares its spaces now, one thing to
+ * each, so where a leaf sits is entirely its parent's business and its width
+ * is not a property of the leaf at all.
+ *
  * **`kind` is wider than {@link LeafKind}, and only a lenient READ can produce
  * the extra** — see the field's own note. The consequence for callers is that
  * `kind` is no longer a literal type, so TypeScript will not narrow this union
@@ -454,7 +518,6 @@ export type LeafBlock = {
    * for.
    */
   kind: LeafKind | (string & {});
-  span: number;
   style?: BlockStyle;
   title_en: string;
   title_es?: string;
@@ -475,8 +538,15 @@ export type LeafBlock = {
  * is a group with no heading, which is the ordinary case for one nested inside
  * another.
  *
- * `columns` is the container's own track count and `span` is its share of the
- * tracks of whatever contains IT.
+ * **A container is its SPACES**, and `columns`/`span` are what that replaced.
+ * A track count with children flowing into it could not say that the middle
+ * place was empty, so the shape an author chose disappeared the moment their
+ * content did not fill it.
+ *
+ * **`spaces` is a width and `children` is the content**, and the two are not
+ * tied together. Children fill the places row by row and the section grows
+ * downward, which is what makes a section of fifty pictures three across and
+ * seventeen rows deep rather than a shape nobody can build.
  *
  * `kind` stays a literal here where {@link LeafBlock.kind} does not, which is
  * what keeps {@link isContainer} a one-sided test: there is exactly one
@@ -492,12 +562,31 @@ export type ContainerBlock = {
    * this build does not know, and `MODES.get(mode) ?? Stack` answers it.
    */
   mode: ContainerMode | (string & {});
-  columns: number;
-  span: number;
+  /**
+   * How many places ACROSS it lays out. Rows continue downward beneath them.
+   *
+   * A width, not a total: `children` may be longer than this and usually is,
+   * and the last row may be part-filled, which is the ordinary state rather
+   * than a fault.
+   */
+  spaces: number;
   style?: BlockStyle;
   name_en?: string;
   name_es?: string;
-  children: Block[];
+  /**
+   * What is in each place, in order, filling row by row.
+   *
+   * **`null` is an empty place and is not the same as a shorter list.** A
+   * place is POSITIONAL: an empty one keeps its width on the page and is where
+   * the editor offers to put the next thing, so `[a, null, b]` has to mean
+   * that `b` is third — which a shorter array cannot say. Nothing may collapse
+   * or strip these; the position is the whole model.
+   *
+   * A trailing `null` is legal and means nothing in particular, so it is kept
+   * rather than trimmed: somebody is usually about to fill it, and trimming
+   * would move every entry that came after the next one they add.
+   */
+  children: (Block | null)[];
 };
 
 /** One block of a page: either an arrangement or a piece of content. */
@@ -522,30 +611,6 @@ export function isContainer(block: Block): block is ContainerBlock {
 }
 
 /**
- * How wide a block actually renders inside a container.
- *
- * **A span is narrowed here, at render, and never on the way into storage.**
- * The ruling is that a page must never become unsavable — a block dragged into
- * a narrower container would otherwise be refused, and somebody would lose a
- * whole page to a value they cannot see. Rewriting the stored span would have
- * satisfied that too, and it is the wrong half: it destroys what was typed, so
- * dragging the block back out could not restore it. That contradicts this
- * model's own rule that switching something and switching back finds what was
- * typed still there, and it matches how `card_size` is handled — gate the
- * field, never the value.
- *
- * Pass {@link PAGE_TRACKS} for a block at the top of a page, which has no
- * parent container.
- *
- * @param span - the span the author chose, as parsed.
- * @param tracks - the track count of whatever contains the block.
- * @returns the span to lay out with, never wider than the container.
- */
-export function effectiveSpan(span: number, tracks: number): number {
-  return Math.min(span, tracks);
-}
-
-/**
  * The rows of a `table` leaf.
  *
  * @param strictness - which side of the write/read split to build.
@@ -560,7 +625,7 @@ function tableRowsSchema(strictness: Strictness) {
  * Everything a leaf carries apart from its `kind`.
  *
  * Factored out so {@link unknownKindSchema} can build the same leaf around a
- * kind this build does not recognise, rather than restating twelve fields that
+ * kind this build does not recognise, rather than restating every field that
  * would then be free to drift.
  *
  * @param strictness - which side of the write/read split to build.
@@ -568,7 +633,6 @@ function tableRowsSchema(strictness: Strictness) {
  */
 function leafShape(strictness: Strictness) {
   return {
-    span: trackCount.default(1),
     style: specialise(z.object(blockStyleShape), strictness).optional(),
     // **A title is required on the WRITE and merely expected on the READ,
     // and that split is a fix rather than an inconsistency.** A leaf is a
@@ -615,6 +679,22 @@ function leafSchema(strictness: Strictness) {
 /**
  * One container, holding blocks one level deeper than itself.
  *
+ * **`children` is NOT tied to `spaces`, and that is deliberate.** `spaces` is
+ * how many places the container lays out ACROSS; children fill them row by
+ * row, so a length that is not a multiple of the width is a part-filled last
+ * row and is the ordinary state. An equality rule between the two was written
+ * here once and made a fifty-picture gallery unrepresentable.
+ *
+ * **What IS load-bearing is the position.** An entry may be `null` — an empty
+ * place that keeps its width and draws nothing — so nothing here may collapse,
+ * trim or reorder the array. `[a, null, b]` means `b` is third.
+ *
+ * A note on where the cap actually bites: zod runs an array's element parses
+ * before its own `.max()`, so this cap does not bound the work of a hostile
+ * payload, only its acceptance. `validate_block` in `0009` checks the length
+ * BEFORE walking, and the database is the authority on every write — see
+ * {@link BLOCK_LIMITS}.
+ *
  * @param depth - how far this container sits from the top of the page.
  * @param strictness - which side of the write/read split to build.
  * @returns the container schema.
@@ -631,15 +711,23 @@ function containerSchema(depth: number, strictness: Strictness) {
       // outside `is_container_mode()`, so only deploy skew produces one.
       mode:
         strictness === "strict" ? z.enum(CONTAINER_MODES) : z.string().max(32),
-      columns: trackCount.default(1),
-      span: trackCount.default(1),
+      spaces: spaceCount(strictness).default(1),
       style: specialise(z.object(blockStyleShape), strictness).optional(),
       name_en: optionalText,
       name_es: optionalText,
-      children: z
-        .array(blockSchemaAt(depth + 1, strictness))
-        .max(BLOCK_LIMITS.children)
-        .default([]),
+      // **Capped on the WRITE only**, for the reason {@link spaceCount} states
+      // at length: a length this build thinks is too long is one a newer
+      // deployment wrote, and refusing it on the read blanks the whole page
+      // rather than costing anything. Nothing is lost by admitting it — the
+      // cap never bounded the WORK of a hostile payload in any case, since zod
+      // parses an array's elements before its own `.max()`, and
+      // `validate_block` checks the length before walking. The database is the
+      // authority on the write and this is a courtesy in front of it.
+      children: specialiseArray(
+        z.array(blockSchemaAt(depth + 1, strictness).nullable()),
+        strictness,
+        BLOCK_LIMITS.children,
+      ).default([]),
     }),
     strictness,
   );
@@ -682,8 +770,8 @@ function tooDeepSchema() {
  * than quietly becoming something else. The only thing this admits is a name
  * nothing in this build has an opinion about.
  *
- * What it produces is a leaf: the block's own words, its span and its style,
- * with `children` and anything else stripped. `LEAVES.get(kind) ?? PlainLeaf`
+ * What it produces is a leaf: the block's own words and its style, with
+ * `children` and anything else stripped. `LEAVES.get(kind) ?? PlainLeaf`
  * renders it as a plain card, so somebody's writing is on the page rather than
  * missing from it — and a subtree the depth counter never walked cannot arrive
  * with it.
@@ -700,6 +788,54 @@ function unknownKindSchema() {
         error: "a kind this build already knows",
       }),
   });
+}
+
+/**
+ * What a container written by the build BEFORE this one calls its shape.
+ *
+ * **`#158` shipped a save boundary that writes `columns`, and this build reads
+ * `spaces`.** For about a day the editor converted flat sections into blocks at
+ * the moment of saving, through a shim whose table emitted `columns: 3` for a
+ * card grid and `columns: 4` for a row of stats. Those pages are in the
+ * database. Without this, the lenient object strips the key it does not know,
+ * `spaces` falls to its `.default(1)`, and a three-across gallery reads back as
+ * one full-width column — for its owner and for a stranger — after which the
+ * next save writes that loss down permanently. Nothing warns, because a strip
+ * is not an error.
+ *
+ * **It is a fallback rather than a rename**, so a container carrying both keeps
+ * the `spaces` it was written with; `columns` is only ever consulted when there
+ * is no answer. And a `columns` this build cannot read as a count — a string, a
+ * fraction, a zero — is left alone rather than forced through, so the default
+ * still applies and the page still renders. That is the same argument
+ * {@link spaceCount} makes about the upper bound: a value out of range must
+ * cost the container its shape, never the page its existence.
+ *
+ * **Only the LENIENT build applies it**, which is what makes this a migration
+ * with an end rather than a second vocabulary. The strict save refuses an
+ * unknown key and `validate_block` refuses `columns` by name, so the first time
+ * an owner saves a converted page it is stored in the new shape and this stops
+ * being consulted for it. **It can be deleted once no stored page carries
+ * `columns`** — which `check:schema-drift` cannot tell you and no test can,
+ * since it is a fact about the live database rather than about the code.
+ *
+ * A leaf's `span` from the same build is deliberately NOT carried anywhere: a
+ * width is not a property of a block any more, and there is nothing for it to
+ * become.
+ *
+ * @param value - whatever is being parsed as a block.
+ * @returns the same value, with `spaces` filled in from `columns` where it was
+ *   the only answer available.
+ */
+function withSpacesFromColumns(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) return value;
+  const block: Record<string, unknown> = { ...value };
+  if (block.kind !== CONTAINER_KIND || block.spaces !== undefined) return value;
+  // The same rule the vocabulary itself reads by, rather than a second opinion
+  // about what a count is.
+  if (!spaceCount("lenient").safeParse(block.columns).success) return value;
+  block.spaces = block.columns;
+  return block;
 }
 
 /**
@@ -737,9 +873,18 @@ function blockSchemaAt(
   // The strict build has no fallback: an unknown kind is a typo the editor must
   // report, and a save is the one moment somebody can still fix it. Only the
   // READ tolerates one — see {@link unknownKindSchema}.
+  // **The `columns` fallback wraps the whole lenient union, not the container
+  // option.** A discriminated union reads its discriminator off the option
+  // schemas, so a preprocess inside one is a shape it has to reason about;
+  // outside, the raw value is repaired before any option sees it, and because
+  // a container's children are parsed by this same factory one level down,
+  // every nested container gets the same repair without a second call site.
   return strictness === "strict"
     ? known
-    : (z.union([known, unknownKindSchema()]) as z.ZodType<Block, unknown>);
+    : (z.preprocess(
+        withSpacesFromColumns,
+        z.union([known, unknownKindSchema()]),
+      ) as z.ZodType<Block, unknown>);
 }
 
 /**
@@ -751,10 +896,9 @@ function blockSchemaAt(
  * {@link lenientBlockSchema} instead when parsing what is already stored; the
  * two differ on purpose, see {@link specialise}.
  *
- * What it does not do matters once the editor exists. Nothing narrows its span,
- * because there is no parent here to narrow it against — see
- * {@link effectiveSpan}. And **it measures depth from whatever it is handed**:
- * validating a subtree with it permits {@link MAX_DEPTH} further
+ * What it does not do matters once the editor exists: **it measures depth from
+ * whatever it is handed.** Validating a subtree with it permits
+ * {@link MAX_DEPTH} further
  * levels beneath that subtree, so an editor checking a dragged branch in
  * isolation can accept a tree the save then refuses. Nothing over-deep can
  * persist, because a page saves through {@link blocksSchema}, which re-parses
@@ -768,15 +912,27 @@ export const lenientBlockSchema = blockSchemaAt(0, "lenient");
 /**
  * How many blocks a page holds, counting every depth.
  *
- * @param blocks - the parsed blocks to count.
- * @returns the total, containers included.
+ * **An empty space is not a block.** The budget bounds what has to be
+ * rendered, and a space with nothing in it renders nothing — so a page of
+ * wide-open sections must not be refused for blocks it does not hold.
+ *
+ * **Exported so the editor can withdraw its own add controls at the cap**,
+ * counting the same way {@link blocksSchema} does rather than approximating
+ * it with the length of the outermost array. A control that silently does
+ * nothing at a limit is the fault this project keeps catching, and a control
+ * withdrawn at the wrong number is the same fault with an alibi.
+ *
+ * @param blocks - the parsed blocks to count, empty spaces included.
+ * @returns the total, containers included and empty spaces not.
  */
-function countBlocks(blocks: readonly Block[]): number {
-  return blocks.reduce(
-    (total, block) =>
-      total + 1 + (isContainer(block) ? countBlocks(block.children) : 0),
-    0,
-  );
+export function countBlocks(blocks: readonly (Block | null)[]): number {
+  return blocks
+    .filter((block) => block !== null)
+    .reduce(
+      (total, block) =>
+        total + 1 + (isContainer(block) ? countBlocks(block.children) : 0),
+      0,
+    );
 }
 
 /**
@@ -793,13 +949,24 @@ function countBlocks(blocks: readonly Block[]): number {
  * @param block - the block shape to validate: {@link blockSchema} for
  *   {@link blocksSchema}, {@link lenientBlockSchema} for
  *   {@link lenientBlocksSchema}.
+ * @param strictness - which side of the write/read split to build. Both caps
+ *   below are applied on the write only; see {@link spaceCount} for why a cap
+ *   on the read blanks a page rather than bounding it.
  * @returns the page schema.
  */
 function pageSchema(
   block: z.ZodType<Block, unknown>,
+  strictness: Strictness,
 ): z.ZodType<Block[], unknown> {
-  return z
-    .array(block)
+  const page = z.array(block);
+  // **Both caps are on the WRITE only** — see {@link spaceCount} for the
+  // argument in full. A page this build thinks holds too much is one a newer
+  // deployment saved after a cap was raised, and a `refine` on the whole array
+  // fails the whole array: the owner's editor opens empty and refuses to save,
+  // a stranger sees nothing at all. `set_actor_sections` is what bounds what
+  // can be stored, and it is the only writer of the column.
+  if (strictness === "lenient") return page;
+  return page
     .refine((blocks) => countBlocks(blocks) <= BLOCK_LIMITS.blocks, {
       error: "too many blocks",
     })
@@ -817,19 +984,32 @@ function pageSchema(
  *
  * **The byte cap is measured on the PARSED value, so the parse result is what
  * must be persisted.** Defaults are materialised on the way through —
- * `span`, `columns`, `children`, `description_en`, `text_en` — which on a
- * minimal container holding one text leaf grows 80 bytes into 130. Storing the
+ * `spaces`, `children`, `description_en`, `text_en` — which on a
+ * minimal container holding one text leaf grows 81 bytes into 112. Storing the
  * raw payload instead would let a page saved just under the cap read back over
- * it, and {@link lenientBlocksSchema} would then refuse the whole thing: a
- * blank page, which is the exact outcome the leniency exists to prevent.
+ * it. That used to be a blank page — the exact outcome the leniency exists to
+ * prevent — and is now merely untidy, because {@link lenientBlocksSchema}
+ * applies no byte cap at all. Both halves are kept: measuring the parsed value
+ * is what makes the write honest, and the read no longer depends on it.
  */
-export const blocksSchema = pageSchema(blockSchema);
+export const blocksSchema = pageSchema(blockSchema, "strict");
 
 /**
  * Everything a page is made of, as it is READ back from storage.
  *
- * Lenient on an unknown key where {@link blocksSchema} is strict, which is a
- * deliberate ruling rather than an oversight — see {@link specialise} for the
- * deploy-skew argument it rests on.
+ * Lenient where {@link blocksSchema} is strict — on an unknown key, an
+ * unknown `mode` or `kind`, an out-of-vocabulary `spaces`, a longer
+ * `children`, and both page-level caps. Every one of those is a deliberate
+ * ruling rather than an oversight: see {@link specialise} for the deploy-skew
+ * argument and {@link spaceCount} for why the numbers needed it as much as the
+ * names did.
+ *
+ * **What it is NOT lenient about is DEPTH**, and that exception is the one
+ * worth stating. Every other cap here bounds what somebody may store; the
+ * depth cap bounds a RECURSION over user-controlled `jsonb`, which is a stack
+ * whose depth somebody else would otherwise choose. `validate_block` enforces
+ * it with an explicit counter for that reason, and admitting an arbitrary
+ * depth on the read would give away the one guarantee the duplication exists
+ * to buy.
  */
-export const lenientBlocksSchema = pageSchema(lenientBlockSchema);
+export const lenientBlocksSchema = pageSchema(lenientBlockSchema, "lenient");

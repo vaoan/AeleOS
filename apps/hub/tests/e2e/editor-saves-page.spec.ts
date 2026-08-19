@@ -7,7 +7,10 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import { handleFor, saveAndLeave, startFursona } from "./support/editor";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
+import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
+import { isContainer } from "@/features/actors/domain/block-schema";
 
 // THE COVERAGE THAT WAS OWED, AND WHY IT IS OWED IN A BROWSER.
 //
@@ -25,9 +28,15 @@ import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 //
 // So this suite drives the real thing: the real picker, the real Save, the
 // real public page, and — the assertion most likely to be skipped and the only
-// one that actually proves the conversion — the editor REOPENED on what it
-// just wrote. A one-way test passes happily on a shim that retypes somebody's
+// one that actually proves the round trip — the editor REOPENED on what it
+// just wrote. A one-way test passes happily on a save that retypes somebody's
 // section on the way back, which they find out a week later.
+//
+// **The editor composes BLOCKS now**, so what a template arrives as is the
+// conversion `sectionsToBlocks` produces — the same one that opens every page
+// written before the block model. The expectations below are built from that
+// function rather than restated, so a change to the decomposition table is a
+// change in one place.
 //
 // Every template is covered by looping over the list that ships them, so a
 // template added later is covered without anybody remembering to add a case.
@@ -55,67 +64,15 @@ test.afterAll(async () => {
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
-/**
- * A handle nothing else in the suite can collide with.
- *
- * @param prefix - names the test that made it, so a leftover row is traceable.
- * @returns the handle.
- */
-const handleFor = (prefix: string) =>
-  `${prefix}${Date.now().toString().slice(-9)}`;
-
-/**
- * Presses Save and waits for the editor to leave.
- *
- * **The banner is asserted before the navigation is waited for**, and the
- * order is the whole value of this helper. A refused save simply stays on the
- * page, so `waitForURL` alone reports a timeout naming nothing —
- * which is precisely how a suite can be red for a week without anybody
- * learning what refused it. Reading the banner first turns the same failure
- * into the message the person actually saw.
- *
- * @param page - the browser page, sitting on an editor.
- */
-async function saveAndLeave(page: Page): Promise<void> {
-  await page.getByTestId("editor-save").click();
-  const banner = page.getByTestId("editor-error-banner");
-  await expect
-    .poll(
-      async () =>
-        (await banner.count()) > 0 ||
-        /\/pages$/.test(new URL(page.url()).pathname),
-      { timeout: 60_000 },
-    )
-    .toBe(true);
-  await expect(banner).toHaveCount(0);
-  await page.waitForURL(/\/pages$/, { timeout: 60_000 });
-}
-
-/**
- * Fills the four fields a new public fursona needs.
- *
- * @param page - the browser page.
- * @param handle - the fursona's handle.
- * @param displayName - what to show.
- */
-async function startFursona(
-  page: Page,
-  handle: string,
-  displayName: string,
-): Promise<void> {
-  await page.goto("/es/pages/new");
-  await page.getByTestId("editor-handle").fill(handle);
-  await page.getByTestId("editor-display-name").fill(displayName);
-  await page.getByTestId("editor-visibility").selectOption("public");
-}
-
 /** One section as the editor is holding it. */
 interface EditorSection {
   /** The name in the authoring language, which starts as English. */
   name: string;
-  /** The layout its select is showing. */
-  type: string;
-  /** Every item's title, in order. */
+  /** The arrangement its select is showing. */
+  mode: string;
+  /** How many places across its shape control is showing. */
+  spaces: string;
+  /** Every piece of content's title, in the order the places are laid. */
   titles: string[];
 }
 
@@ -124,9 +81,8 @@ interface EditorSection {
  *
  * **Reads the CONTROLS rather than the props**, because what is being proved
  * is that a page survived a round trip through storage: written as a tree of
- * blocks, read back, and flattened into the shape this editor can hold. A
- * component test with the sections handed to it as a prop asserts nothing
- * about any of that.
+ * blocks and read back. A component test with the page handed to it as a prop
+ * asserts nothing about any of that.
  *
  * The authoring language starts as English, so `name` and `titles` are the
  * `*_en` halves — see `useLanguageToggle`.
@@ -139,16 +95,15 @@ async function readEditor(page: Page): Promise<EditorSection[]> {
   const sections: EditorSection[] = [];
   for (let index = 0; index < (await cards.count()); index += 1) {
     const card = cards.nth(index);
-    const titles = card.getByTestId("item-title");
+    const titles = card.getByTestId("leaf-title");
     const values: string[] = [];
     for (let item = 0; item < (await titles.count()); item += 1) {
       values.push(await titles.nth(item).inputValue());
     }
     sections.push({
       name: await card.getByTestId("section-name").inputValue(),
-      // The layout select is the only one in a section's header, and the style
-      // popup that holds the others is closed.
-      type: await card.locator("select").first().inputValue(),
+      mode: await card.getByTestId("section-mode").inputValue(),
+      spaces: await card.getByTestId("section-spaces").inputValue(),
       titles: values,
     });
   }
@@ -158,21 +113,27 @@ async function readEditor(page: Page): Promise<EditorSection[]> {
 /**
  * The same page, as the template that produced it describes itself.
  *
+ * Built by running the template through `sectionsToBlocks` rather than by
+ * restating the decomposition table, so what this expects and what the editor
+ * is handed cannot disagree about anything except the round trip itself.
+ *
  * @param sections - a template's own sections.
  * @returns what {@link readEditor} must find.
  */
 const expectedFrom = (
   sections: (typeof FURSONA_TEMPLATES)[number]["sections"],
 ): EditorSection[] =>
-  [...sections]
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((one) => ({
-      name: one.name_en,
-      type: one.type,
-      titles: [...one.items]
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((item) => item.title_en),
-    }));
+  sectionsToBlocks(sections).map((block) => {
+    if (!isContainer(block)) throw new Error("a template made a leaf");
+    return {
+      name: block.name_en ?? "",
+      mode: block.mode,
+      spaces: String(block.spaces),
+      titles: block.children.map((child) =>
+        child && !isContainer(child) ? child.title_en : "",
+      ),
+    };
+  });
 
 // EVERY TEMPLATE, DRIVEN FROM THE LIST THAT SHIPS THEM. A template added later
 // is covered the moment it is added, which is the property a hand-listed set
@@ -241,24 +202,57 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   const handle = handleFor("hand");
   await startFursona(page, handle, "By Hand");
 
-  // A layout that is NOT the one the add control starts on, so the type
-  // travelling through storage is something this test chose rather than
-  // whatever happened to be the default.
-  await page.getByTestId("new-section-type").selectOption("timeline");
+  // A shape and an arrangement that are NOT the ones the add control starts
+  // on, so what travels through storage is something this test chose rather
+  // than whatever happened to be the default.
+  await page.getByTestId("new-section-spaces").selectOption("3");
   await page.getByTestId("add-section").click();
   const card = page.getByTestId("section-card").first();
   await card.getByTestId("section-name").fill("A history");
-  await card.getByTestId("add-item").click();
-  await card.getByTestId("item-title").first().fill("The first day");
-  await card.getByTestId("item-description").first().fill("It began.");
+  await card.getByTestId("section-mode").selectOption("timeline");
+  // **The FIRST and the THIRD place of three, leaving the MIDDLE empty**, and
+  // the position of the gap is the whole point rather than the count of gaps.
+  // A trailing empty survives anything that merely appends; a middle one is
+  // the case a tidy would close, moving everything after it up a place — and
+  // it is the one shape a flat item list could not express at all. Every other
+  // proof of it is either seeded straight into the database or asserted in
+  // jsdom; this is the round trip through the real controls and real storage.
+  await card.getByTestId("add-content").nth(0).click();
+  await card.getByTestId("leaf-title").first().fill("The first day");
+  await card.getByTestId("leaf-description").first().fill("It began.");
+  // `nth(1)` of what is left: the first place now holds a leaf, so the two
+  // remaining invitations are the second and the third.
+  await card.getByTestId("add-content").nth(1).click();
+  await card.getByTestId("leaf-title").last().fill("Much later");
+  await card.getByTestId("leaf-description").last().fill("It went on.");
 
   await saveAndLeave(page);
 
   await page.goto(`/es/pages/${handle}/edit`);
   await expect(page.getByTestId("section-card").first()).toBeVisible();
   expect(await readEditor(page)).toEqual([
-    { name: "A history", type: "timeline", titles: ["The first day"] },
+    {
+      name: "A history",
+      mode: "timeline",
+      spaces: "3",
+      titles: ["The first day", "Much later"],
+    },
   ]);
+  // THE GAP CAME BACK IN ITS OWN POSITION. Read as the ORDER of the places
+  // rather than as a count of empty ones: a conversion that closed the gap and
+  // appended an empty place at the end would satisfy every count assertion
+  // above and fail this one, which is exactly the shift a "tidy the nulls
+  // away" change produces.
+  expect(
+    await page
+      .getByTestId("section-card")
+      .first()
+      .getByTestId("places")
+      .locator("> *")
+      .evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("data-testid")),
+      ),
+  ).toEqual(["leaf-editor", "empty-place", "leaf-editor"]);
 
   const stranger = await browser.newContext();
   try {
@@ -266,7 +260,12 @@ test("sections built by hand save, reopen and reach a stranger", async ({
     const response = await anonymous.goto(`/es/${address}/${handle}`);
     expect(response?.status()).toBe(200);
     await expect(anonymous.getByTestId("public-section")).toHaveCount(1);
-    await expect(anonymous.getByTestId("public-leaf")).toHaveCount(1);
+    await expect(anonymous.getByTestId("public-leaf")).toHaveCount(2);
+    // The gap a stranger sees. Its GEOMETRY — that the place is a full track
+    // wide and that what follows sits past it — is `blocks-render.spec.ts`'s,
+    // against a seeded page; what this adds is that a page somebody BUILT
+    // arrives there with the same shape.
+    await expect(anonymous.getByTestId("public-space")).toHaveCount(1);
   } finally {
     await stranger.close();
   }

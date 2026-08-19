@@ -99,7 +99,7 @@ describe("what anon may execute", () => {
   // without a revoke, and Postgres grants execute to `public` by default — so a
   // new function is exposed unless somebody remembers, and nothing complained.
   // 0009 has grown more of them since — `is_block_kind`, `is_container_mode`,
-  // `is_track_count`, `validate_block` — and each had to remember separately.
+  // `is_space_count`, `validate_block` — and each had to remember separately.
   //
   // The list is exact rather than a subset check. A subset check passes when a
   // function is ADDED, which is the direction the mistake actually goes.

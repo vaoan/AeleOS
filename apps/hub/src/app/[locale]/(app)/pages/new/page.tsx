@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { FursonaEditor, readMyProfileTheme } from "@/features/actors";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
+import { env } from "@/shared/infrastructure/env";
 import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
 
 /**
@@ -15,6 +16,10 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
  * than each page keeping its own near-identical copy. The two differ only in
  * the toolbar's title and in whether the handle can be typed.
  *
+ * **It resolves `parentHost` from `env.hubHost`**, exactly as both edit routes
+ * do: every section previews itself with the real renderer, and Twitch refuses
+ * to load a player unless `parent=` names the embedding domain.
+ *
  * @returns the create page.
  */
 export default async function NewFursonaPage() {
@@ -28,6 +33,9 @@ export default async function NewFursonaPage() {
       labels={await fursonaEditorLabels(t("editorTitleNew"))}
       handleEditable
       profileTheme={profileTheme}
+      // Twitch's player needs to know the domain embedding it, and every
+      // section's live preview is the real renderer.
+      parentHost={env.hubHost}
     />
   );
 }

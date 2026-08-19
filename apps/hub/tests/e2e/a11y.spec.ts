@@ -164,6 +164,25 @@ test.describe("the signed-in pages are accessible", () => {
     await page.getByTestId("section-style-open").click();
     await expect(page.getByTestId("section-style-panel")).toBeVisible();
     await isAccessible(page, "the editor with a section's style popup open");
+
+    // **A PLACE WITH SOMETHING IN IT, which axe had never seen.** Adding a
+    // section shows the card and its style popup; it shows none of
+    // `LeafEditor`, which is the densest control surface in the editor — a
+    // kind menu, a bilingual title and description, an address, an icon
+    // picker, a picture field — nor a nested card. `table` is chosen because
+    // it is the widest: it adds the row-and-cell grid, where every input in a
+    // row would otherwise carry one shared accessible name.
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("section-style-panel")).toBeHidden();
+    await page.getByTestId("add-content").first().click();
+    await page.getByTestId("leaf-kind").first().selectOption("table");
+    await page.getByTestId("add-row").click();
+    await expect(page.getByTestId("table-cell").first()).toBeVisible();
+    // And a section inside a place, which is the other component no
+    // accessibility check had ever reached.
+    await page.getByTestId("add-nested").first().click();
+    await expect(page.getByTestId("nested-card")).toBeVisible();
+    await isAccessible(page, "the editor with content and a nested section");
   });
 });
 
@@ -209,7 +228,7 @@ const EVERY_KIND = [
   container({
     name_en: "Grid",
     mode: "grid",
-    columns: 2,
+    spaces: 2,
     children: [
       leaf({ kind: "stat", title_en: "Species", description_en: "Arctic fox" }),
       leaf({

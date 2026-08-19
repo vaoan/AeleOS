@@ -3,7 +3,11 @@ import { CANVASES } from "@/features/actors/domain/actor-theme";
 import en from "@/shared/infrastructure/i18n/messages/en.json";
 import es from "@/shared/infrastructure/i18n/messages/es.json";
 import { routing } from "@/shared/infrastructure/i18n/routing";
-import { SECTION_TYPES } from "@/features/actors/domain/section-schema";
+import {
+  CONTAINER_MODES,
+  LEAF_KINDS,
+} from "@/features/actors/domain/block-schema";
+import { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
 import { SKINS } from "@/shared/domain/skins";
 
 /**
@@ -126,7 +130,6 @@ describe("message catalogues", () => {
       "profile.empty",
       // `nav.pages` is translated now ("Pages" / "Páginas"), so the loanword
       // that used to coincide here has gone with the rename.
-      "fursonas.types.video",
       // Latin, and the same word in both languages. The canvases beside it are
       // translated, which is the evidence this one was considered.
       "fursonas.canvases.aurora",
@@ -160,7 +163,8 @@ describe("message catalogues", () => {
  */
 const NAMED_LISTS = [
   ["fursonas.skins", SKINS],
-  ["fursonas.types", SECTION_TYPES],
+  ["fursonas.modes", CONTAINER_MODES],
+  ["fursonas.leafKinds", LEAF_KINDS],
   ["fursonas.canvases", CANVASES],
 ] as const;
 
@@ -191,6 +195,92 @@ describe.each(NAMED_LISTS)("%s", (path, ids) => {
     "names nothing in %s that is not on the list",
     (locale) => {
       const listed = new Set<string>(ids);
+      expect(
+        Object.keys(branchIn(locale)).filter((key) => !listed.has(key)),
+      ).toEqual([]);
+    },
+  );
+});
+
+// THE PER-KIND FIELD NAMES, WHICH ARE THREE LISTS RATHER THAN ONE AND ARE THE
+// ONES MOST LIKELY TO FALL BEHIND.
+//
+// Every content kind names its own title field, because the pair genuinely
+// means something different per kind — a `picture`'s title is its ALT TEXT and
+// a `quote`'s is who said it. Only the kinds that DRAW a description name one:
+// a `social` chip's sub-line is the handle its address resolved to, so there is
+// no description field to name and a string for one would be an entry nothing
+// reads.
+//
+// `pages/labels.ts` resolves these with `t()` over an interpolated key, which
+// is untyped — there is no `IntlMessages` augmentation here — so a missing name
+// is not a compile error, and it survives the parity check above because a name
+// absent from BOTH catalogues leaves them equal. What reaches the page then is
+// the raw key.
+describe("fursonas.leafFields", () => {
+  const branchIn = (locale: "en" | "es"): Record<string, unknown> =>
+    valueAt(locale === "en" ? en : es, "fursonas.leafFields") as Record<
+      string,
+      unknown
+    >;
+
+  // Without this the assertions below both hold for an empty list, which is
+  // the shape a renamed constant would leave behind.
+  it("is a list with something on it", () => {
+    expect(LEAF_KINDS.length).toBeGreaterThan(0);
+    expect(DESCRIBED_KINDS.length).toBeGreaterThan(0);
+    expect(Object.keys(branchIn("en")).length).toBeGreaterThan(0);
+  });
+
+  it.each(["en", "es"] as const)("names every kind's title in %s", (locale) => {
+    const branch = branchIn(locale);
+    expect(
+      LEAF_KINDS.filter(
+        (kind) =>
+          !Object.hasOwn(branch, kind) ||
+          typeof (branch[kind] as Record<string, unknown>).title !== "string",
+      ),
+    ).toEqual([]);
+  });
+
+  it.each(["en", "es"] as const)(
+    "names a description and a hint for every kind that draws one in %s",
+    (locale) => {
+      const branch = branchIn(locale);
+      expect(
+        DESCRIBED_KINDS.filter((kind) => {
+          const entry = branch[kind] as Record<string, unknown>;
+          return (
+            typeof entry.description !== "string" ||
+            typeof entry.hint !== "string"
+          );
+        }),
+      ).toEqual([]);
+    },
+  );
+
+  // A description string for a kind that renders none is an entry nothing
+  // reads, which is how a catalogue starts describing a control the app does
+  // not have.
+  it.each(["en", "es"] as const)(
+    "names no description for a kind that draws none in %s",
+    (locale) => {
+      const branch = branchIn(locale);
+      const withoutOne = LEAF_KINDS.filter(
+        (kind) => !(DESCRIBED_KINDS as readonly string[]).includes(kind),
+      );
+      expect(
+        withoutOne.filter((kind) =>
+          Object.hasOwn(branch[kind] as Record<string, unknown>, "description"),
+        ),
+      ).toEqual([]);
+    },
+  );
+
+  it.each(["en", "es"] as const)(
+    "names nothing in %s that is not a content kind",
+    (locale) => {
+      const listed = new Set<string>(LEAF_KINDS);
       expect(
         Object.keys(branchIn(locale)).filter((key) => !listed.has(key)),
       ).toEqual([]);

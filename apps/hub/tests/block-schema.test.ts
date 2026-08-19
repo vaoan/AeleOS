@@ -7,11 +7,9 @@ import {
   CONTAINER_MODES,
   LEAF_KINDS,
   MAX_DEPTH,
-  PAGE_TRACKS,
   TOO_DEEP_MESSAGE,
   blockSchema,
   blocksSchema,
-  effectiveSpan,
   lenientBlockSchema,
   lenientBlocksSchema,
   type Block,
@@ -36,6 +34,11 @@ const leaf = (over: Record<string, unknown> = {}) => ({
 
 /**
  * A well-formed container, with overrides.
+ *
+ * It declares no `spaces`, so the default applies and a case that is about the
+ * width says so by passing one. **The children it holds are deliberately not
+ * tied to that width** — `spaces` is how many across and the array fills row
+ * by row, so a case may hand it any number.
  *
  * @param over - fields to replace.
  * @returns the container.
@@ -69,12 +72,12 @@ const leaves = (count: number) =>
   Array.from({ length: count }, () => ({ kind: "text", title_en: "t" }));
 
 /**
- * Every span the vocabulary offers.
+ * A run of empty spaces.
  *
- * @returns the track counts, from one upwards.
+ * @param count - how many.
+ * @returns that many empty entries.
  */
-const everyTrackCount = () =>
-  Array.from({ length: BLOCK_LIMITS.tracks }, (_, n) => n + 1);
+const empties = (count: number) => Array.from({ length: count }, () => null);
 
 /**
  * A chain of containers with exactly one leaf at the given depth.
@@ -242,6 +245,62 @@ describe("containers and leaves", () => {
   it("reads a container with no children key as holding nothing", () => {
     const parsed = blockSchema.parse(without(container(), "children"));
     expect(asContainer(parsed).children).toEqual([]);
+  });
+
+  it("accepts a container whose every place is empty", () => {
+    expect(accepts(container({ spaces: 3, children: empties(3) }))).toBe(true);
+  });
+
+  // **THE ASSERTION THE WHOLE MODEL TURNS ON.** A place is positional, so an
+  // empty one is an entry rather than a shorter list: `[a, null, b]` means `b`
+  // is THIRD. Nothing may collapse, trim or reorder it — and a later "tidying"
+  // of the nulls would pass every other case in this file.
+  it("keeps a block in its own position past an empty place", () => {
+    const marked = leaf({ title_en: "third" });
+    const parsed = blockSchema.parse(
+      container({ spaces: 3, children: [leaf(), null, marked] }),
+    );
+    const children = asContainer(parsed).children;
+    expect(children).toHaveLength(3);
+    expect(children[1]).toBeNull();
+    expect(asLeaf(children[2] ?? undefined).title_en).toBe("third");
+  });
+
+  it("keeps every position through a whole page, not only one block", () => {
+    const parsed = lenientBlocksSchema.parse([
+      container({ spaces: 2, children: [null, leaf({ title_en: "second" })] }),
+    ]);
+    const children = asContainer(parsed[0]).children;
+    expect(children[0]).toBeNull();
+    expect(asLeaf(children[1] ?? undefined).title_en).toBe("second");
+  });
+
+  // Legal and meaningless, and kept rather than trimmed: somebody is usually
+  // about to fill it, and trimming would move whatever they put after it.
+  it("keeps a trailing empty place rather than trimming it", () => {
+    const parsed = blockSchema.parse(
+      container({ spaces: 2, children: [leaf(), null, null] }),
+    );
+    expect(asContainer(parsed).children).toHaveLength(3);
+  });
+
+  // **A width is not a total.** More children than places is more ROWS, which
+  // is what "it keeps extending down" asked for — and what an equality rule
+  // between the two would have made unrepresentable.
+  it("accepts more children than the container has places across", () => {
+    expect(accepts(container({ spaces: 3, children: leaves(17) }))).toBe(true);
+  });
+
+  it("accepts a part-filled last row", () => {
+    expect(accepts(container({ spaces: 3, children: leaves(5) }))).toBe(true);
+  });
+
+  it("accepts fewer children than the container has places across", () => {
+    expect(accepts(container({ spaces: 4, children: [leaf()] }))).toBe(true);
+  });
+
+  it("refuses a child that is neither a block nor an empty place", () => {
+    expect(accepts(container({ children: ["nope"] }))).toBe(false);
   });
 
   it("refuses children on a leaf", () => {
@@ -647,122 +706,143 @@ describe("a block's own form", () => {
   });
 });
 
-describe("tracks and span", () => {
-  it("reads a container with no column count as a single track", () => {
-    const parsed = blockSchema.parse(without(container(), "columns"));
-    expect(asContainer(parsed).columns).toBe(1);
+describe("spaces", () => {
+  it("reads a container with no space count as one place across", () => {
+    const parsed = blockSchema.parse(without(container(), "spaces"));
+    expect(asContainer(parsed).spaces).toBe(1);
   });
 
-  it("reads a block with no span as one track wide", () => {
-    expect(blockSchema.parse(leaf()).span).toBe(1);
+  it.each([1, 2, 3, 4, 5, 6])(
+    "accepts a section %i places across",
+    (spaces) => {
+      expect(accepts(container({ spaces }))).toBe(true);
+    },
+  );
+
+  it("accepts the widest shape the vocabulary offers", () => {
+    expect(accepts(container({ spaces: BLOCK_LIMITS.spaces }))).toBe(true);
   });
 
-  it.each(everyTrackCount())("accepts a span of %i", (span) => {
-    expect(
-      accepts(
-        container({ columns: BLOCK_LIMITS.tracks, children: [leaf({ span })] }),
-      ),
-    ).toBe(true);
+  it("refuses one place more", () => {
+    expect(accepts(container({ spaces: BLOCK_LIMITS.spaces + 1 }))).toBe(false);
   });
 
-  it.each(everyTrackCount())("accepts a column count of %i", (columns) => {
-    expect(accepts(container({ columns }))).toBe(true);
+  it("refuses a section no places across at all", () => {
+    expect(accepts(container({ spaces: 0 }))).toBe(false);
   });
 
-  it("refuses a span of nothing", () => {
-    expect(accepts(leaf({ span: 0 }))).toBe(false);
+  it("refuses a negative space count", () => {
+    expect(accepts(container({ spaces: -1 }))).toBe(false);
   });
 
-  it("refuses a negative span", () => {
-    expect(accepts(leaf({ span: -1 }))).toBe(false);
+  it("refuses a space count that is not a whole number", () => {
+    expect(accepts(container({ spaces: 2.5 }))).toBe(false);
   });
 
-  it("refuses a span that is not a whole number", () => {
-    expect(accepts(leaf({ span: 1.5 }))).toBe(false);
+  it("refuses a space count written as a string", () => {
+    expect(accepts(container({ spaces: "2" }))).toBe(false);
   });
 
-  it("refuses a span wider than the vocabulary", () => {
-    expect(accepts(leaf({ span: BLOCK_LIMITS.tracks + 1 }))).toBe(false);
+  it("refuses a space count that is null, where an absent one is fine", () => {
+    expect(accepts(container({ spaces: null }))).toBe(false);
   });
 
-  it("refuses a column count of nothing", () => {
-    expect(accepts(container({ columns: 0 }))).toBe(false);
+  // **`columns` and `span` are gone, and a container declares its width
+  // instead.** A track count with children flowing into it cannot say that
+  // the middle place is empty; nothing should keep the vocabulary alive.
+  it.each(["columns", "span"])(
+    "refuses the old %s key on a container",
+    (key) => {
+      expect(accepts(container({ [key]: 2 }))).toBe(false);
+    },
+  );
+
+  it("refuses the old span key on a leaf", () => {
+    expect(accepts(leaf({ span: 2 }))).toBe(false);
   });
 
-  it("refuses a column count that is not a whole number", () => {
-    expect(accepts(container({ columns: 2.5 }))).toBe(false);
+  it.each(["columns", "span"])("strips the old %s key when reading", (key) => {
+    const parsed = lenientBlockSchema.parse(leaf({ [key]: 2 }));
+    expect(parsed).not.toHaveProperty(key);
   });
 
-  it("refuses more columns than the vocabulary has", () => {
-    expect(accepts(container({ columns: BLOCK_LIMITS.tracks + 1 }))).toBe(
-      false,
-    );
-  });
-
-  // A block moved into a narrower container must not make the page unsavable:
-  // refusing would mean somebody loses a whole page to a value they cannot
-  // see. Narrowing the STORED value would satisfy that too, and it is the
-  // wrong half — dragging the block back out could not restore what was
-  // typed. The schema stores what was typed; `effectiveSpan` narrows it at
-  // render, the same way `card_size` gates the field and never the value.
-  it("accepts a span wider than its parent rather than refusing it", () => {
-    expect(
-      accepts(container({ columns: 2, children: [leaf({ span: 4 })] })),
-    ).toBe(true);
-  });
-
-  it("stores a span wider than its parent exactly as it was typed", () => {
-    const parsed = blockSchema.parse(
-      container({ columns: 2, children: [leaf({ span: 4 })] }),
-    );
-    expect(asContainer(parsed).children[0]?.span).toBe(4);
-  });
-
-  it("stores a nested container's own too-wide span unchanged", () => {
-    const parsed = blockSchema.parse(
-      container({
-        columns: 3,
-        children: [container({ columns: 4, span: 4, children: [leaf()] })],
-      }),
-    );
-    expect(asContainer(parsed).children[0]?.span).toBe(4);
-  });
-
-  // The page itself is the outermost container and it has one track: blocks at
-  // the top stack down the page. That is a render-time fact and not a reason
-  // to flatten what somebody typed, which could not be recovered by changing
-  // PAGE_TRACKS later.
-  it("stores a top-level span wider than the page unchanged", () => {
-    expect(blocksSchema.parse([leaf({ span: 4 })])[0]?.span).toBe(4);
-  });
-
-  it("lays out a page one track wide", () => {
-    expect(PAGE_TRACKS).toBe(1);
+  it("strips the old span key from a container when reading", () => {
+    const parsed = lenientBlockSchema.parse(container({ span: 2 }));
+    expect(parsed).not.toHaveProperty("span");
   });
 });
 
-describe("effectiveSpan", () => {
-  it("narrows a span wider than its container", () => {
-    expect(effectiveSpan(4, 2)).toBe(2);
+// WHAT THE BUILD BEFORE THIS ONE WROTE.
+//
+// `#158` converted at the save boundary for about a day, storing containers
+// that carry `columns` and leaves that carry a materialised `span`. Those rows
+// exist. Read without this, the unknown key is stripped and `spaces` falls to
+// its default, so a three-across gallery comes back as one full-width column
+// and the next save stores that loss — silently, since a strip is not an
+// error. See `withSpacesFromColumns`.
+describe("a page written before spaces existed", () => {
+  /**
+   * What the lenient read makes of a container.
+   *
+   * @param over - fields to replace.
+   * @returns the parsed container.
+   */
+  const read = (over: Record<string, unknown>) =>
+    lenientBlockSchema.parse(container(over)) as ContainerBlock;
+
+  it("reads a container's columns as its space count", () => {
+    expect(read({ columns: 3 }).spaces).toBe(3);
   });
 
-  it("leaves a span that already fits alone", () => {
-    expect(effectiveSpan(3, 4)).toBe(3);
+  it("reads a nested container's columns too", () => {
+    const parsed = read({
+      columns: 2,
+      children: [container({ columns: 4 })],
+    });
+    const [child] = parsed.children;
+    expect(child && isContainer(child) ? child.spaces : null).toBe(4);
   });
 
-  it("leaves a span that exactly fills its container alone", () => {
-    expect(effectiveSpan(2, 2)).toBe(2);
+  it("keeps the width a container was written with over its columns", () => {
+    expect(read({ spaces: 2, columns: 5 }).spaces).toBe(2);
   });
 
-  it("narrows every span to one track at the top of a page", () => {
-    const spans = everyTrackCount().map((span) =>
-      effectiveSpan(span, PAGE_TRACKS),
-    );
-    expect(spans).toEqual(everyTrackCount().map(() => 1));
+  it("does not carry columns through to the parsed block", () => {
+    expect(read({ columns: 3 })).not.toHaveProperty("columns");
+  });
+
+  // A `columns` this build cannot read as a count costs the container its
+  // shape and never the page its existence — the same asymmetry `spaceCount`
+  // states about the upper bound.
+  it.each([
+    ["zero", 0],
+    ["a fraction", 2.5],
+    ["a string", "3"],
+    ["nothing at all", null],
+  ])("falls back to one place for %s", (_name, columns) => {
+    expect(read({ columns }).spaces).toBe(1);
+  });
+
+  // The repair runs before the union, so it meets every value the array does.
+  it.each([
+    ["a string", "nope"],
+    ["nothing", null],
+  ])("leaves %s alone rather than throwing", (_name, value) => {
+    expect(lenientBlockSchema.safeParse(value).success).toBe(false);
+  });
+
+  // The write is what ends the migration: an owner who saves a repaired page
+  // stores it in the new shape, and `validate_block` refuses `columns` by name
+  // besides.
+  it("still refuses columns on the way back in", () => {
+    expect(accepts(container({ columns: 3, spaces: 3 }))).toBe(false);
   });
 });
 
 describe("the limits", () => {
+  // **A separate number from `spaces`, which is a width.** This bounds the
+  // content across every row, and it is the cap the flat model's item list
+  // already had — so every page that exists converts.
   it("accepts the most children a container may hold", () => {
     expect(
       accepts(container({ children: leaves(BLOCK_LIMITS.children) })),
@@ -845,6 +925,25 @@ describe("the limits", () => {
     );
     expect(overBudget.length).toBeLessThan(BLOCK_LIMITS.blocks);
     expect(refusalOf(overBudget)).toContain("too many blocks");
+  });
+
+  // **An empty place is not a block.** The budget bounds what has to be
+  // rendered and a place with nothing in it renders nothing — so a page of
+  // wide-open sections must not be refused for blocks it does not hold. The
+  // fixture is sized so that counting the empty entries would put it over:
+  // ten sections of fifty empty places are ten blocks by the right measure and
+  // five hundred and ten by the wrong one.
+  it("does not count an empty place against the block budget", () => {
+    const roomy = Array.from({ length: 10 }, () =>
+      container({
+        spaces: BLOCK_LIMITS.spaces,
+        children: empties(BLOCK_LIMITS.children),
+      }),
+    );
+    expect(roomy.length * (BLOCK_LIMITS.children + 1)).toBeGreaterThan(
+      BLOCK_LIMITS.blocks,
+    );
+    expect(refusalOf(roomy)).toEqual([]);
   });
 
   // The backstop. Every field here is legal on its own, the block budget is

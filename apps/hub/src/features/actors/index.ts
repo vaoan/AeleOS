@@ -73,9 +73,12 @@ export {
   type ThemeScopeProps,
 } from "@/features/actors/presentation/theme-scope";
 export {
-  SECTION_TYPES,
-  type SectionType,
-} from "@/features/actors/domain/section-schema";
+  CONTAINER_MODES,
+  LEAF_KINDS,
+  type ContainerMode,
+  type LeafKind,
+} from "@/features/actors/domain/block-schema";
+export { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
 export {
   ActorTile,
   type ActorTileProps,

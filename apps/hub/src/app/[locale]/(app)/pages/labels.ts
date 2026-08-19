@@ -1,10 +1,11 @@
 import { getTranslations } from "next-intl/server";
 import {
+  CONTAINER_MODES,
+  DESCRIBED_KINDS,
   FURSONA_TEMPLATES,
-  SECTION_TYPES,
+  LEAF_KINDS,
   themeConfiguratorLabels,
   type FursonaEditorLabels,
-  type SectionType,
 } from "@/features/actors";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 
@@ -39,21 +40,43 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * failure means falling back to nothing — so adding a code to an action means
  * adding it here and to both catalogues.
  *
- * `pageUnreadable` is the newest, and it is not a refusal of anything the
- * person typed: it says a page is stored that this build cannot read, so the
- * save was a no-op. It has to be a message rather than silence, because the
- * alternative — saving what the editor believes, which is nothing — deletes
- * the page.
+ * `pageUnreadable` is not a refusal of anything the person typed: it says a
+ * page is stored that this build cannot read, so the save was a no-op. It has
+ * to be a message rather than silence, because the alternative — saving what
+ * the editor believes, which is nothing — deletes the page.
  *
- * `itemDescriptionHint` is the description field's placeholder, and it is where
- * a template's guidance moved to. It is the app's own words, so it is a
- * catalogue entry like the rest; what somebody types into that field is theirs
- * and is not.
+ * **`sections`, `sectionsMarked` and `sectionsTooLarge` are three messages for
+ * one field**, and each split is the difference between a sentence somebody
+ * can act on and one they cannot. A refusal that landed on a BLOCK is marked
+ * in the editor — `aria-invalid` and a line under the field — so those two
+ * messages may say "what needs fixing is marked below" and be telling the
+ * truth. They differ on the CAUSE: `sections` also names the missing English
+ * title, which is only honest when every refusal is one, and `sectionsMarked`
+ * names none, because a container's own `mode`, `spaces`, name or style
+ * address can be refused too and pointing somebody at a title that is fine is
+ * its own fault. A page-level refusal carries no index, so nothing is marked
+ * and a message promising a marking would be the fault this trio exists to
+ * end. `sectionsCode` in `FursonaEditor` picks between them.
  *
- * `itemLabel`, `itemValue` and `itemValueHint` are catalogue entries too,
- * resolved the same way as `itemTitle`/`itemDescription`/
- * `itemDescriptionHint` — `SectionItemFields` is what decides per layout
- * which set is actually shown, through `FIELD_NAMES`.
+ * `problemTitle` and `problemGeneric` are the marks themselves. The first is
+ * the only refusal anybody meets in ordinary use — a new piece of content
+ * starts untitled and the write schema requires a heading — and it names
+ * ENGLISH, because that is the half the schema requires whichever half is on
+ * screen.
+ *
+ * `leafHint` is the description field's placeholder, one per content kind,
+ * and it is where a template's guidance moved to. It is the app's own words,
+ * so it is a catalogue entry like the rest; what somebody types into that
+ * field is theirs and is not.
+ *
+ * **`leafTitle`, `leafDescription` and `leafHint` are one entry per content
+ * kind, built by mapping the vocabulary.** A `picture`'s title is its ALT
+ * TEXT, a `link`'s is the words on the button, a `quote`'s is who said it —
+ * the pair genuinely means something different per kind, and a field whose
+ * meaning changes silently between kinds is worse than a differently named
+ * one. `leafDescription` and `leafHint` cover `DESCRIBED_KINDS` only: a
+ * `social` chip renders no description, so there is no string to write for a
+ * field that is never offered.
  *
  * The theme panel's own strings are resolved by `themeConfiguratorLabels`,
  * shared with `/me` — the panel appears in both places, and those live in
@@ -65,10 +88,11 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * than inventing a second set of names for the same styles. A skin is a skin
  * whether it is chosen for the whole page or for one section of it.
  *
- * `style.cardSize*` names a MINIMUM card width, never the schema's own
- * `s`/`m`/`l` wire values — those are stored, not shown. `cardSizeHint` says
- * the mechanism once (smaller fits more per row) so the option labels do
- * not each have to restate it.
+ * **The card-size strings are gone with the control.** Nothing on any page
+ * reads `--card-size` since a container began declaring an explicit space
+ * count, and a control that accepts a choice and changes nothing is the worst
+ * kind there is. The schema keeps the key, so a value the flat editor stored
+ * survives untouched.
  *
  * `style.border*` names what the edge looks like — a solid, dashed, dotted or
  * double line — never the schema's own wire values. `borderInherit` is the
@@ -107,11 +131,14 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * bag would have one silently win — a collision this shape of object makes easy
  * to create and impossible to see.
  *
- * `types` is DERIVED from `SECTION_TYPES` rather than listed. Written out by
- * hand it was a set of entries that had to be remembered whenever a layout was
- * added, and the reward for forgetting was a picker offering a blank option.
- * `messages.test.ts` already fails the build when a key is in one catalogue and
- * not the other, so deriving it moves the whole question to one place.
+ * `modes`, `leafKinds` and the three per-kind field records are DERIVED from
+ * `CONTAINER_MODES`, `LEAF_KINDS` and `DESCRIBED_KINDS` rather than listed.
+ * Written out by hand they would be entries somebody has to remember whenever
+ * the vocabulary grows, and the reward for forgetting is a picker offering a
+ * blank option — which is not hypothetical: a layout added to neither
+ * catalogue once rendered `fursonas.types.progress` at somebody, at a width
+ * that overflowed a 320px phone. `messages.test.ts` pins each list against
+ * both catalogues, so deriving them moves the whole question to one place.
  *
  * `writingIn` and `writingInHint` are two strings for one control because the
  * switch names itself and then says what it governs. The hint is not decoration:
@@ -120,10 +147,11 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  *
  * `linkUrlHint` and `linkUrlPlainHint` are two strings for one field, for the
  * same reason `writingIn`/`writingInHint` are two for one control: what a
- * pasted address becomes genuinely differs by layout, so a single hint vague
- * enough to be true for `video`/`music`/`posts` (which embed) and for
- * `links`/`socials` (which never do) would be true of neither. See
- * `SectionItemFieldsLabels` for which layout gets which.
+ * pasted address becomes genuinely differs by kind, so a single hint vague
+ * enough to be true for `player` and `post` (which frame what they recognise)
+ * and for `link` and `social` (which never do) would be true of neither.
+ * `LeafFields.embeds` in `domain/leaf-fields.ts` is what decides which is
+ * shown.
  *
  * `addSectionFor` names the brand preset control's own group, not any brand —
  * a brand's name is never translated, so `section-presets.ts` supplies those
@@ -149,17 +177,51 @@ export async function fursonaEditorLabels(
     sectionsTitle: t("sectionsTitle"),
     empty: t("sectionsEmpty"),
     addSection: t("addSection"),
-    newSectionType: t("newSectionType"),
+    newSectionSpaces: t("newSectionSpaces"),
     addSectionFor: t("addSectionFor"),
     atLimit: t("sectionsAtLimit"),
     dragSection: t("dragSection"),
     sectionName: t("sectionName"),
-    sectionType: t("sectionType"),
-    addItem: t("addItem"),
-    removeItem: t("removeItem"),
+    sectionMode: t("sectionMode"),
+    sectionSpaces: t("sectionSpaces"),
+    sectionSpacesHint: t("sectionSpacesHint"),
+    modes: Object.fromEntries(
+      CONTAINER_MODES.map((mode) => [mode, t(`modes.${mode}`)]),
+    ),
+    addContent: t("addContent"),
+    addNested: t("addNested"),
+    nestingAtLimit: t("nestingAtLimit"),
+    removePlace: t("removePlace"),
+    addPlace: t("addPlace"),
+    previewTitle: t("previewTitle"),
+    removeBlock: t("removeBlock"),
     removeSection: t("removeSection"),
     collapse: t("collapseSection"),
     expand: t("expandSection"),
+    leafKind: t("leafKind"),
+    leafKinds: Object.fromEntries(
+      LEAF_KINDS.map((kind) => [kind, t(`leafKinds.${kind}`)]),
+    ),
+    leafTitle: Object.fromEntries(
+      LEAF_KINDS.map((kind) => [kind, t(`leafFields.${kind}.title`)]),
+    ),
+    leafDescription: Object.fromEntries(
+      DESCRIBED_KINDS.map((kind) => [
+        kind,
+        t(`leafFields.${kind}.description`),
+      ]),
+    ),
+    leafHint: Object.fromEntries(
+      DESCRIBED_KINDS.map((kind) => [kind, t(`leafFields.${kind}.hint`)]),
+    ),
+    tableRows: t("tableRows"),
+    addRow: t("addRow"),
+    removeRow: t("removeRow"),
+    addCell: t("addCell"),
+    removeCell: t("removeCell"),
+    cellText: t("cellText"),
+    problemTitle: t("problemTitle"),
+    problemGeneric: t("problemGeneric"),
     // Nested, like `theme` below — the popup has a `title` of its own, and a
     // flat bag would have it silently collide with this level's.
     style: {
@@ -176,12 +238,6 @@ export async function fursonaEditorLabels(
       fitDefault: t("sectionStyleFitDefault"),
       fitCover: t("sectionStyleFitCover"),
       fitTile: t("sectionStyleFitTile"),
-      cardSize: t("sectionStyleCardSize"),
-      cardSizeHint: t("sectionStyleCardSizeHint"),
-      cardSizeDefault: t("sectionStyleCardSizeDefault"),
-      cardSizeS: t("sectionStyleCardSizeS"),
-      cardSizeM: t("sectionStyleCardSizeM"),
-      cardSizeL: t("sectionStyleCardSizeL"),
       border: t("sectionStyleBorder"),
       borderHint: t("sectionStyleBorderHint"),
       borderInherit: t("sectionStyleBorderInherit"),
@@ -191,12 +247,6 @@ export async function fursonaEditorLabels(
       borderDotted: t("sectionStyleBorderDotted"),
       borderDouble: t("sectionStyleBorderDouble"),
     },
-    itemTitle: t("itemTitle"),
-    itemDescription: t("itemDescription"),
-    itemDescriptionHint: t("itemDescriptionHint"),
-    itemLabel: t("itemLabel"),
-    itemValue: t("itemValue"),
-    itemValueHint: t("itemValueHint"),
     imageUrl: t("imageUrl"),
     imageUrlHint: t("imageUrlHint"),
     // Nested rather than spread into the same bag as everything else. Both
@@ -237,14 +287,6 @@ export async function fursonaEditorLabels(
         t("templateSections", { count: template.sections.length }),
       ]),
     ),
-    // Derived rather than listed. Written out by hand this was four entries
-    // that had to be remembered whenever a layout was added, and the reward for
-    // forgetting was a picker offering a blank option. `messages.test.ts`
-    // already fails the build when a key is in one catalogue and not the other,
-    // so deriving it moves the whole question to one place.
-    types: Object.fromEntries(
-      SECTION_TYPES.map((type) => [type, t(`types.${type}`)]),
-    ) as Record<SectionType, string>,
     handle: t("form.handle"),
     handleHint: t("form.handleHint"),
     displayName: t("form.displayName"),
@@ -264,6 +306,9 @@ export async function fursonaEditorLabels(
       avatarUrl: t("form.errors.avatarUrl"),
       visibility: t("form.errors.visibility"),
       sectionsRefused: t("form.errors.sectionsRefused"),
+      sections: t("form.errors.sections"),
+      sectionsMarked: t("form.errors.sectionsMarked"),
+      sectionsTooLarge: t("form.errors.sectionsTooLarge"),
       pageUnreadable: t("form.errors.pageUnreadable"),
     },
   };

@@ -7,6 +7,7 @@ import {
 } from "./support/clerk-session";
 import { container, leaf, seedPage, type SeedBlock } from "./support/blocks";
 import { apart, sampleColours, type Probe } from "./support/pixels";
+import { placesOf, tracksOf } from "./support/grid";
 import { PLAYER_ORIGINS } from "../../src/shared/domain/player-origins";
 
 // WHY THIS FILE EXISTS.
@@ -21,11 +22,16 @@ import { PLAYER_ORIGINS } from "../../src/shared/domain/player-origins";
 // outside the cascade for months.
 //
 // **The most important test here is not the overflow one.** It is `resolves the
-// tracks it declares`, immediately below, and the reason is that without it the
-// overflow assertions are unfalsifiable: a page whose `sm:grid-cols-4` never
+// places it declares`, immediately below, and the reason is that without it the
+// overflow assertions are unfalsifiable: a page whose `@2xl:grid-cols-4` never
 // generated at all has one column everywhere and never overflows anything. A
 // green check that cannot fail is the defect this branch has already produced
 // eight times, and here it would hide the entire grid mechanism.
+//
+// **And the responsive rules are CONTAINER queries now, not viewport ones**, so
+// a whole class of assertion this file could not make became possible: a wide
+// window with a narrow space. See the last describe in the file, which is the
+// case every 320px guard in this repository is structurally unable to reach.
 //
 // Every page here is seeded straight into the database as a real
 // Clerk-authenticated caller — see `support/blocks.ts`. There is no editor that
@@ -57,8 +63,8 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
-/** The track counts the model admits — `BLOCK_LIMITS.tracks` is 4. */
-const TRACKS = [1, 2, 3, 4] as const;
+/** The space counts the model admits — `BLOCK_LIMITS.spaces` is 6. */
+const SPACES = [1, 2, 3, 4, 5, 6] as const;
 
 /** Tailwind's `gap-4`, in pixels: the gutter every mode lays. */
 const GAP = 16;
@@ -66,28 +72,17 @@ const GAP = 16;
 /** The narrowest phone this project supports. */
 const PHONE = { width: 320, height: 900 };
 
-/** A laptop, where every declared track has room to resolve. */
+/** A laptop, where every declared place has room to resolve. */
 const LAPTOP = { width: 1280, height: 900 };
 
 /**
- * How many tracks a real layout engine resolved a grid into.
+ * A wide desktop window, for the case a narrow space lives inside one.
  *
- * The computed value of `grid-template-columns` is a space-separated list of
- * RESOLVED track sizes rather than the authored template, so its length is the
- * column count the engine actually chose at this element's current width. This
- * is the measurement jsdom cannot take: it runs no layout, so it has no
- * computed style to read at all.
- *
- * @param grid - the grid container.
- * @returns each track's resolved width, in pixels.
+ * The page's own column is `max-w-7xl` with `sm:px-6`, so its content is
+ * 1232px at any viewport at least this wide — which is what makes "the window
+ * is wide and the space is not" a fixture rather than a hope.
  */
-const tracksOf = (grid: Locator): Promise<number[]> =>
-  grid.evaluate((el) =>
-    getComputedStyle(el)
-      .gridTemplateColumns.split(" ")
-      .filter(Boolean)
-      .map((track) => Number.parseFloat(track)),
-  );
+const DESKTOP = { width: 1400, height: 900 };
 
 /**
  * Whether the document scrolls sideways, and whether anything is hiding that
@@ -141,33 +136,33 @@ async function fits(page: Page, where: string): Promise<void> {
 test.describe("the grid a container declares", () => {
   // THE ASSERTION EVERY OTHER ONE IN THIS FILE RESTS ON.
   //
-  // `TRACK_CLASS` maps a stored track count to a static `sm:grid-cols-<n>`
+  // `SPACE_CLASS` maps a stored space count to a static `@<size>:grid-cols-<n>`
   // rather than to an inline `grid-template-columns`, for one reason: an inline
-  // style cannot carry a media query, and a span that survived the collapse to
-  // one column would create implicit tracks and push the row past the viewport.
-  // That whole design is a bet on Tailwind having GENERATED those four classes
-  // out of a `Map` in the source — which its scanner sees only as literal
-  // strings — and on the breakpoint being where this file assumes it is.
+  // style cannot carry a query of any kind, so the collapse to a single column
+  // in a box too narrow for the count would have nowhere to live. That whole
+  // design is a bet on Tailwind having GENERATED those classes out of a `Map`
+  // in the source — which its scanner sees only as literal strings — and on the
+  // thresholds being where this file assumes they are.
   //
-  // Nothing before this checked either. A build in which no `sm:grid-cols-*`
+  // Nothing before this checked either. A build in which no `@*:grid-cols-*`
   // existed would render every page as one column, look entirely plausible, and
   // pass every overflow assertion in this repository.
-  test("resolves the tracks it declares above sm, and exactly one below", async ({
+  test("resolves the places it declares when it has room, and one when it has not", async ({
     page,
   }) => {
     const { address, handle } = await seedPage({
       userId: identity!.userId,
-      handlePrefix: "tracks",
-      displayName: "Tracks",
-      blocks: TRACKS.map((columns) =>
+      handlePrefix: "spaces",
+      displayName: "Spaces",
+      blocks: SPACES.map((spaces) =>
         container({
-          name_en: `Grid of ${columns}`,
+          name_en: `Grid of ${spaces}`,
           mode: "grid",
-          columns,
-          // Four leaves per grid, so no track can be left empty for want of
-          // something to put in it — an item count below the track count would
-          // make this measure the fixture rather than the layout.
-          children: TRACKS.map((n) => leaf({ title_en: `Leaf ${n}` })),
+          spaces,
+          // As many leaves as the widest count, so no place can be left empty
+          // for want of something to put in it — an item count below the space
+          // count would make this measure the fixture rather than the layout.
+          children: SPACES.map((n) => leaf({ title_en: `Leaf ${n}` })),
         }),
       ),
     });
@@ -177,14 +172,14 @@ test.describe("the grid a container declares", () => {
     expect(response?.status()).toBe(200);
 
     const grids = page.getByTestId("block-grid");
-    await expect(grids).toHaveCount(TRACKS.length);
+    await expect(grids).toHaveCount(SPACES.length);
 
-    for (const [index, columns] of TRACKS.entries()) {
+    for (const [index, spaces] of SPACES.entries()) {
       const resolved = await tracksOf(grids.nth(index));
       expect(
         resolved.length,
-        `a container declaring ${columns} tracks resolved ${resolved.length}`,
-      ).toBe(columns);
+        `a container declaring ${spaces} places resolved ${resolved.length}`,
+      ).toBe(spaces);
       // Equal shares, which is what `repeat(<n>, minmax(0, 1fr))` promises and
       // an `auto-fill` template does not. Without it a "4" that resolved into
       // four wildly unequal tracks would pass the count above.
@@ -193,36 +188,49 @@ test.describe("the grid a container declares", () => {
       }
     }
 
-    // And the collapse. Every one of the four is a single track on a phone,
-    // which is the half that makes a span safe to declare at all.
+    // And the collapse. Every one of them is a single column on a phone, where
+    // the section's own box is 288px and no threshold in the vocabulary is met.
     await page.setViewportSize(PHONE);
-    for (const index of TRACKS.keys()) {
+    for (const index of SPACES.keys()) {
       expect(await tracksOf(grids.nth(index))).toHaveLength(1);
     }
   });
 
-  // A span is a class rather than an inline property for the same reason the
-  // track count is, so the same bet is being made twice — and `sm:col-span-*`
-  // is generated from a second `Map` the scanner reads as strings. This is the
-  // measurement that says the share is real: a block declaring two tracks of
-  // four is two tracks and a gutter wide, not "wider than its neighbour".
-  test("gives a spanning block exactly the share of the tracks it asked for", async ({
+  // THE DECISION THE WHOLE MODEL RESTS ON, MEASURED IN A BROWSER.
+  //
+  // An empty place occupies its position and draws nothing: it keeps its
+  // width, and the row does not close up. Collapsing would make a space count
+  // meaningless the moment a section were partly filled — a three-place
+  // section holding two things would read as two columns — and the shape its
+  // author chose would change under them as they worked.
+  //
+  // The unit suite can only count DOM children; this is where "keeps its
+  // width" becomes a number. Grid auto-placement is what does the work, and
+  // an empty div is exactly the kind of element a renderer, a linter or a
+  // future `.filter(Boolean)` deletes without anybody noticing, because
+  // nothing about the page LOOKS different until a filled place moves into
+  // its column.
+  test("keeps an empty place at the width of a filled one, in its own column", async ({
     page,
   }) => {
     const { address, handle } = await seedPage({
       userId: identity!.userId,
-      handlePrefix: "spans",
-      displayName: "Spans",
+      handlePrefix: "empty",
+      displayName: "Empty",
       blocks: [
         container({
-          name_en: "Spans",
+          name_en: "A place left open",
           mode: "grid",
-          columns: 4,
+          spaces: 3,
+          // First, EMPTY, third — and a fourth on the next row, so the row
+          // beneath is measured too. A trailing empty follows it, which is the
+          // one an over-eager tidy would trim first.
           children: [
-            leaf({ title_en: "One" }),
-            leaf({ title_en: "Two", span: 2 }),
-            leaf({ title_en: "Three", span: 3 }),
-            leaf({ title_en: "Four", span: 4 }),
+            leaf({ title_en: "First" }),
+            null,
+            leaf({ title_en: "Third" }),
+            leaf({ title_en: "Fourth" }),
+            null,
           ],
         }),
       ],
@@ -232,43 +240,57 @@ test.describe("the grid a container declares", () => {
     expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
 
     const grid = page.getByTestId("block-grid");
-    const track = (await tracksOf(grid))[0]!;
-    const leaves = page.getByTestId("public-leaf");
-    await expect(leaves).toHaveCount(4);
+    const tracks = await tracksOf(grid);
+    expect(tracks).toHaveLength(3);
 
-    for (const [index, span] of [1, 2, 3, 4].entries()) {
-      const box = (await leaves.nth(index).boundingBox())!;
-      const expected = span * track + (span - 1) * GAP;
+    // Every place, as the engine laid it — see `placesOf` for why this is
+    // read through `evaluate` rather than through `boundingBox`.
+    const places = await placesOf(grid);
+
+    // Five places for five entries, and none of them trimmed.
+    expect(places).toHaveLength(5);
+
+    // THE POSITION. "Third" is in the third column — which is what an empty
+    // place keeping its width means, stated as a coordinate rather than as a
+    // DOM index. If the empty place collapsed, "Third" would sit where the
+    // empty one is now.
+    expect(
+      Math.abs(places[2]!.x - places[1]!.x - tracks[0]! - GAP),
+    ).toBeLessThan(2);
+    expect(places[2]!.text).toContain("Third");
+
+    // THE WIDTH. The empty place is a track wide, exactly like its neighbours.
+    for (const [index, place] of places.entries()) {
       expect(
-        Math.abs(box.width - expected),
-        `a span of ${span} measured ${box.width}px against ${expected}px`,
+        Math.abs(place.width - tracks[0]!),
+        `place ${index + 1} measured ${place.width}px against a track of ${tracks[0]}px`,
       ).toBeLessThan(2);
     }
 
-    // Below the breakpoint every one of them is one track wide, which is the
-    // clamp that stops a stored span creating implicit columns on a phone.
-    await page.setViewportSize(PHONE);
-    const narrow = await tracksOf(grid);
-    expect(narrow).toHaveLength(1);
-    for (const index of [0, 1, 2, 3]) {
-      const box = (await leaves.nth(index).boundingBox())!;
-      expect(Math.abs(box.width - narrow[0]!)).toBeLessThan(2);
-    }
+    // And it really is empty: room, not a broken box.
+    expect(places[1]!.text).toBe("");
+    expect(places[4]!.text).toBe("");
+    await expect(page.getByTestId("public-space")).toHaveCount(2);
+
+    // The second row starts under the first, so "Fourth" is back in column one
+    // rather than continuing along a row that never ended.
+    expect(Math.abs(places[3]!.x - places[0]!.x)).toBeLessThan(2);
   });
 });
 
 /**
- * A page holding every mode, at every track count, with children that span.
+ * A page holding every mode, at every space count, with an empty place in each.
  *
  * One page rather than one per combination: the overflow question is about the
  * DOCUMENT, so putting every shape on it at once asks the strongest version of
  * it — anything that pushes the page wide does so whatever else is there.
  *
- * Spans of two, three and four are on every mode, including the ones that lay
- * out no tracks at all. That is not a mistake in the fixture: a mode which lays
- * none passes `1` to its children, so a stored span of four must render as one
- * track there, and a mode that forgot to would create implicit columns. The
- * fixture is the shape that catches it.
+ * **Every container carries an empty place**, including the modes that lay out
+ * no places across at all. That is not a mistake in the fixture: an empty place
+ * is an element with no content and no size of its own, and the question of
+ * whether one can push a phone sideways has a different answer per mode. It is
+ * also the shape that catches a mode dropping an empty place by accident, since
+ * the section count and the disclosure count below are both exact.
  */
 const EVERY_SHAPE: SeedBlock[] = [
   "stack",
@@ -279,20 +301,19 @@ const EVERY_SHAPE: SeedBlock[] = [
   "accordion",
   "timeline",
 ].flatMap((mode) =>
-  TRACKS.map((columns) =>
+  SPACES.map((spaces) =>
     container({
-      name_en: `${mode} of ${columns}`,
+      name_en: `${mode} of ${spaces}`,
       mode,
-      columns,
+      spaces,
       children: [
-        leaf({ title_en: "One", span: 2 }),
+        leaf({ title_en: "One" }),
         leaf({
           title_en: "Two",
-          span: 3,
           description_en:
             "A description long enough to wrap onto several lines on a phone, which is what a real page carries.",
         }),
-        leaf({ title_en: "Three", span: 4 }),
+        null,
         leaf({ title_en: "Four" }),
       ],
     }),
@@ -317,30 +338,37 @@ const wideTable = (title: string): SeedBlock =>
   });
 
 // **And that leaf goes on the same page twice, in the two arrangements where
-// it can actually do damage.** A track count alone cannot overflow anything —
+// it can actually do damage.** A space count alone cannot overflow anything —
 // every track a container lays is `minmax(0, 1fr)`, whose floor is zero — so a
 // page built only of the shapes above has no fault for the assertion below to
-// catch. That was measured rather than assumed: stripping the `sm:` prefix off
-// every track and span class, so a four-track grid survives the collapse to a
-// phone, reddens the two tests that name the breakpoint and leaves the overflow
-// one green.
+// catch. That was measured rather than assumed: making a six-place grid survive
+// the collapse to a phone reddens the tests that name the threshold and leaves
+// the overflow one green.
 //
 // **The two guards `Block` carries do different work, and each needs its own
 // mode here.** Measured at 320px across every mode, with one removed at a time:
 //
 //  * `grid-cols-[minmax(0,1fr)]` on the `<section>` covers `stack`, `masonry`
 //    and `tabs`. Remove it and the `stack` entry below overflows by 416px.
-//  * `min-w-0` on the LEAF covers `timeline`, and only `timeline` — it is the
+//  * The LEAF's own guard covers `timeline`, and only `timeline` — it is the
 //    one mode that lays `auto` grid tracks (`<ol class="grid gap-6">` and
 //    `<li class="relative grid gap-1">`), which have no zero floor of their
-//    own. Remove it and the `timeline` entry below overflows by 447px.
+//    own.
 //
-// **The timeline entry exists because that second sabotage used to pass.** The
-// fixture was a `stack` alone, and the report claimed removing `min-w-0`
-// reddened this test; it did not — the whole suite stayed green, because
-// nothing anywhere put a wide leaf in a timeline. `min-w-0` on the `<section>`
-// is genuinely redundant, since a container always carries the explicit
-// template; the leaf's is not.
+// **That second guard is TWO classes and neither can be sabotaged alone.** The
+// leaf carries `min-w-0` and `@container`, and `container-type: inline-size`
+// applies inline-size containment — so it zeroes the same min-content
+// contribution `min-w-0` zeroes. Re-measured on this branch by deleting one at
+// a time: either alone leaves every test in this file green, and removing BOTH
+// reddens two of them — the 320px sweep by 367px of sideways scroll, and the
+// narrow-space case at the bottom by a table box painting 271px outside its
+// place. So a report that removed one and watched the suite stay green has
+// measured the other, not the absence of a fault.
+//
+// **The timeline entry exists because that sabotage used to pass for a
+// different reason.** The fixture was a `stack` alone, and nothing anywhere
+// put a wide leaf in a timeline. `min-w-0` on the `<section>` is genuinely
+// redundant, since a container always carries the explicit template.
 //
 // **And the reason a `grid` is exempt is not the one first written down here.**
 // It is NOT that a flex column floors its items at `min-width: auto`: per
@@ -369,12 +397,21 @@ EVERY_SHAPE.push(
 // because the wrapper carries the border and the surface — so an unguarded
 // empty one is a bordered sliver with nothing in it, the `dl` with no rows in
 // a new place. The unit suite pins the guard; this is the page it appears on.
+// A container of nothing but EMPTY places goes the same way, and is on the
+// page beside it, because a place that draws nothing is exactly the thing an
+// unguarded wrapper would count as content.
 EVERY_SHAPE.push(
   container({ name_en: "Nothing here yet", mode: "accordion", children: [] }),
+  container({
+    name_en: "Places left open",
+    mode: "accordion",
+    spaces: 2,
+    children: [null, null],
+  }),
 );
 
 test.describe("a page of blocks on the narrowest phone", () => {
-  test("never scrolls sideways, in any mode, at any track count, with any span", async ({
+  test("never scrolls sideways, in any mode, at any space count, with an empty place", async ({
     page,
   }) => {
     const { address, handle } = await seedPage({
@@ -390,12 +427,22 @@ test.describe("a page of blocks on the narrowest phone", () => {
       EVERY_SHAPE.length,
     );
 
-    // The empty `accordion` section is on this page and renders its heading
-    // and nothing else — four disclosure wrappers, one per accordion section
-    // that has children, and none for the one that has none. A bordered sliver
-    // would show up here as a fifth.
+    // Two accordion sections on this page render their heading and nothing
+    // else: the one with no children at all, and the one whose every place is
+    // empty. So the count is one disclosure wrapper per accordion section that
+    // holds something — a bordered sliver from either would show up here as an
+    // extra.
     await expect(page.getByTestId("block-accordion")).toHaveCount(
-      TRACKS.length,
+      SPACES.length,
+    );
+
+    // And every mode that lays a BOX kept its empty place. One per container
+    // in `EVERY_SHAPE` except the two label-lifting modes, which drop it, and
+    // except the two accordions appended after it — one of which contributes
+    // its two empty places to nothing at all.
+    const boxed = ["stack", "grid", "masonry", "carousel", "timeline"].length;
+    await expect(page.getByTestId("public-space")).toHaveCount(
+      boxed * SPACES.length,
     );
 
     await fits(page, "every mode at 320px");
@@ -421,7 +468,7 @@ test.describe("a page of blocks on the narrowest phone", () => {
         container({
           name_en: "Packed",
           mode: "masonry",
-          columns: 3,
+          spaces: 3,
           // Deliberately ragged: multi-column balances its columns, so equal
           // children give the engine no reason to break one and the assertion
           // nothing to fail against.
@@ -474,7 +521,7 @@ test.describe("a page of blocks on the narrowest phone", () => {
         container({
           name_en: "Outer",
           mode: "grid",
-          columns: 2,
+          spaces: 2,
           children: [
             container({
               mode: "carousel",
@@ -489,7 +536,7 @@ test.describe("a page of blocks on the narrowest phone", () => {
               children: [
                 container({
                   mode: "grid",
-                  columns: 2,
+                  spaces: 2,
                   children: [
                     leaf({ title_en: "Deep one" }),
                     leaf({ title_en: "Deep two" }),
@@ -558,10 +605,10 @@ test.describe("a page of blocks on the narrowest phone", () => {
 
 test.describe("what a leaf puts inside a track", () => {
   // `FRAME_SHAPE`'s four classes and `picture`'s `w-full` were all written for
-  // a full-width section. In a `sm:col-span-*` track the containing block is a
-  // fraction of that, and `max-w-80`/`max-w-105` are absolute — so the question
-  // "does the frame stay inside its track" has a different answer per shape and
-  // per span, and only a browser has it.
+  // a full-width section. In one place of a four-place section the containing
+  // block is a quarter of that, and `max-w-80`/`max-w-105` are absolute — so
+  // the question "does the frame stay inside its place" has a different answer
+  // per shape, and only a browser has it.
   test("keeps every frame and picture inside the track it was placed in", async ({
     page,
   }) => {
@@ -573,7 +620,7 @@ test.describe("what a leaf puts inside a track", () => {
         container({
           name_en: "Media",
           mode: "grid",
-          columns: 4,
+          spaces: 4,
           children: [
             // video: aspect-video w-full
             leaf({
@@ -585,7 +632,6 @@ test.describe("what a leaf puts inside a track", () => {
             leaf({
               kind: "player",
               title_en: "A song",
-              span: 2,
               link_url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
             }),
             // post: h-150 w-full max-w-105
@@ -594,11 +640,10 @@ test.describe("what a leaf puts inside a track", () => {
               title_en: "A post",
               link_url: "https://t.me/telegram/83",
             }),
-            // The pasted picture, at a span wider than one.
+            // The pasted picture, in a place of its own like everything else.
             leaf({
               kind: "picture",
               title_en: "A drawing",
-              span: 3,
               image_url: "https://example.com/drawing.png",
             }),
           ],
@@ -1031,5 +1076,223 @@ test.describe("the policy the route serves", () => {
     // The frame really is on the page, so this is the policy a real embed is
     // served under rather than one measured on an empty route.
     await expect(page.locator("iframe")).toHaveCount(1);
+  });
+});
+
+// A WIDE WINDOW WITH A NARROW SPACE.
+//
+// **This is the case every 320px guard in this repository is structurally
+// unable to reach**, and saying why is the whole point of the file. Those
+// guards resize the WINDOW — and the window is not what is narrow here. A leaf
+// in one place of a three-place section is about a third of the page wide at
+// any viewport at all, and every viewport-prefixed rule inside it believes it
+// has the whole screen. The deeper the tree, the worse the lie.
+//
+// So this seeds a page whose narrow spaces sit inside a 1400px window and asks
+// three things a `sm:`-prefixed renderer answers wrongly:
+//
+//  1. A container INSIDE a narrow space collapses to one column, because its
+//     own box is 400px and no threshold in the vocabulary is met. Under
+//     `sm:grid-cols-4` it lays four tracks of about 88px instead, at a window
+//     eight hundred pixels wider than that breakpoint.
+//  2. A carousel card is no wider than the space it scrolls in. Under
+//     `sm:w-96` it is a fixed 384px inside a place of about 192px, so no card
+//     can ever be seen whole — which is a real defect that produces no page
+//     overflow at all, because the carousel scrolls its own row. It is
+//     invisible to `fits` and to every existing assertion here.
+//  3. Nothing painted inside a narrow space paints past it — the eight-cell
+//     table, the embedded frame and the pasted picture the brief names,
+//     measured against the box they were actually given rather than against
+//     the document. That one is a standing claim rather than a falsifiable
+//     one under a restored breakpoint: what breaks it is removing a
+//     containment guard, not restoring a viewport rule.
+//
+// The `timeline` in the first narrow space is deliberate and is what makes (3)
+// have a fault behind it. It is the one mode that lays `auto` grid tracks,
+// which have no zero floor of their own, so a wide descendant there grows the
+// track and sticks out of the place it was put in — visibly, and into the
+// document's own scrollWidth.
+test.describe("a narrow space inside a wide window", () => {
+  /** The eight-cell table, the frame and the picture, in one narrow place. */
+  const CROWDED: SeedBlock[] = [
+    container({
+      name_en: "A third of the page",
+      mode: "grid",
+      spaces: 3,
+      children: [
+        container({
+          mode: "timeline",
+          children: [
+            wideTable("Eight columns in a third of the page"),
+            leaf({
+              kind: "player",
+              title_en: "A video",
+              link_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            }),
+            leaf({
+              kind: "picture",
+              title_en: "A drawing",
+              image_url: "https://example.com/drawing.png",
+            }),
+          ],
+        }),
+        // A container that declares four places INSIDE one place of three.
+        // This is the assertion a viewport breakpoint fails.
+        container({
+          mode: "grid",
+          spaces: 4,
+          children: [
+            leaf({ title_en: "Deep one" }),
+            leaf({ title_en: "Deep two" }),
+            leaf({ title_en: "Deep three" }),
+            leaf({ title_en: "Deep four" }),
+          ],
+        }),
+        leaf({ title_en: "Beside it" }),
+      ],
+    }),
+    // Six places, so one of them is about 192px — narrow enough that a card of
+    // a fixed 384px cannot hide inside it. At three places it would fit, and
+    // the assertion would pass on the very sabotage it exists to catch.
+    container({
+      name_en: "A sixth of the page",
+      mode: "grid",
+      spaces: 6,
+      children: [
+        container({
+          mode: "carousel",
+          children: [
+            leaf({ title_en: "Swipe one" }),
+            leaf({ title_en: "Swipe two" }),
+            leaf({ title_en: "Swipe three" }),
+          ],
+        }),
+        leaf({ title_en: "Two" }),
+        leaf({ title_en: "Three" }),
+        leaf({ title_en: "Four" }),
+        leaf({ title_en: "Five" }),
+        leaf({ title_en: "Six" }),
+      ],
+    }),
+  ];
+
+  test("collapses and contains what is inside a narrow space, at 1400px", async ({
+    page,
+  }) => {
+    const { address, handle } = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "narrow",
+      displayName: "Narrow",
+      blocks: CROWDED,
+    });
+
+    await page.setViewportSize(DESKTOP);
+    expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
+
+    const sections = page.getByTestId("public-section");
+    await expect(sections).toHaveCount(CROWDED.length);
+
+    // THE ANTI-VACUITY CONTROL, and this file's own lesson applied to itself:
+    // the window really is wide and the space really is not. Without it every
+    // assertion below passes on a page that simply never laid its places, and
+    // "no overflow in a narrow space" would be a claim about nothing.
+    const outer = sections.nth(0).getByTestId("block-grid").first();
+    const across = await tracksOf(outer);
+    expect(across, "the outer section did not lay three places").toHaveLength(
+      3,
+    );
+    const page_ = await outer.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    expect(across[0]!).toBeLessThan(page_ / 2);
+    expect(page_).toBeGreaterThan(1000);
+
+    // Each place of the outer section, as the engine laid it.
+    const places = await outer.evaluate((el) =>
+      [...el.children].map((child) => {
+        const box = child.getBoundingClientRect();
+        return { left: box.x, right: box.right };
+      }),
+    );
+
+    // (1) THE COLLAPSE. The nested container declares four places and has a
+    // 400px box, so it lays one. `sm:grid-cols-4` would lay four.
+    const nested = sections.nth(0).getByTestId("block-grid").nth(1);
+    expect(
+      await tracksOf(nested),
+      "a container inside a narrow space laid more than one place",
+    ).toHaveLength(1);
+
+    // (3) CONTAINMENT. Every frame, picture and scroll box in the first narrow
+    // place stays inside that place — measured against the PLACE, never
+    // against the document, which is the distinction the 320px guards cannot
+    // make.
+    //
+    // **A TABLE IS MEASURED BY ITS SCROLL BOX, NEVER BY THE TABLE.** The
+    // `<table>` is DESIGNED to be wider than the box around it — that is the
+    // whole of what `overflow-x-auto` buys — so its own rect extends past the
+    // place by exactly however much there is left to scroll, and asserting on
+    // it would fail a correct render for doing its job. What must stay inside
+    // the place is the BOX, and the fault that catches is the one this
+    // repository already met at 320px: the box growing to fit the table, so
+    // there was nothing left to scroll and the class was decoration.
+    const painted = await page.evaluate(`(() => {
+      const grid = document.querySelectorAll('[data-testid="block-grid"]')[0];
+      const place = grid.children[0];
+      const inside = place.querySelectorAll('iframe, img, [data-testid="block-table"]');
+      return [...inside].map((element) => {
+        const measured = element.tagName === "TABLE" ? element.parentElement : element;
+        const box = measured.getBoundingClientRect();
+        return {
+          what: element.tagName.toLowerCase() + (element.getAttribute("data-testid") ?? ""),
+          right: box.right,
+          width: box.width,
+          scrolls: measured.scrollWidth > measured.clientWidth,
+        };
+      });
+    })()`);
+    const bounded = painted as {
+      what: string;
+      right: number;
+      width: number;
+      scrolls: boolean;
+    }[];
+    // A frame, a picture and a table: nothing rendered as a fallback instead.
+    expect(bounded.length).toBeGreaterThanOrEqual(3);
+    for (const item of bounded) {
+      expect(
+        item.right,
+        `${item.what} paints ${item.right - places[0]!.right}px past its own place`,
+      ).toBeLessThanOrEqual(places[0]!.right + 1);
+    }
+    // ANTI-VACUITY, and the reason the line above is worth having: the box is
+    // only proof of containment if what it holds is too wide to fit. A table
+    // that happened to fit its narrow place would satisfy the assertion while
+    // pinning nothing at all.
+    expect(
+      bounded.find((one) => one.what.includes("block-table"))?.scrolls,
+      "the eight-cell table fitted its narrow place, so containment proved nothing",
+    ).toBe(true);
+
+    // (2) THE FIXED CARD. A carousel card is no wider than the place it
+    // scrolls in — the fault that produces no page overflow whatever, because
+    // the row scrolls itself.
+    const swipe = sections.nth(1);
+    const sixth = await swipe
+      .getByTestId("block-grid")
+      .first()
+      .evaluate((el) => el.children[0]!.getBoundingClientRect().width);
+    const card = await swipe
+      .getByTestId("block-carousel")
+      .evaluate((el) => el.children[0]!.getBoundingClientRect().width);
+    expect(
+      card,
+      `a carousel card measured ${card}px inside a place of ${sixth}px`,
+    ).toBeLessThanOrEqual(sixth + 1);
+
+    // And the document itself, which is the claim the existing guards make at
+    // a width where it is easy. Here it is made where a wide leaf has a narrow
+    // box and the window has room to hide the difference.
+    await fits(page, "a narrow space at 1400px");
   });
 });

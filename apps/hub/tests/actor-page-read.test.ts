@@ -24,13 +24,31 @@ describe("readActorPage", () => {
   // empty.
   // The FLAT shape, which is what every page written before the block model
   // still holds — nothing converted them. It must open, or its owner cannot
-  // reach their own page at all.
-  it("returns what the owner already wrote", async () => {
+  // reach their own page at all; and it opens CONVERTED, because the editor
+  // holds blocks and a flat section is not one.
+  it("returns what the owner already wrote, as the blocks the editor holds", async () => {
     const sections = [
-      { name_en: "About", type: "cards", sort_order: 1, items: [] },
+      {
+        name_en: "About",
+        type: "cards",
+        sort_order: 1,
+        items: [
+          { title_en: "Species", description_en: "A wolf.", sort_order: 1 },
+        ],
+      },
     ];
     const page = await readActorPage(client({ sections, theme: {} }), "ref");
-    expect(page.sections).toEqual(sections);
+    expect(page.sections).toEqual([
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "About",
+        children: [
+          { kind: "link", title_en: "Species", description_en: "A wolf." },
+        ],
+      },
+    ]);
   });
 
   it("returns the stored theme", async () => {
@@ -66,68 +84,53 @@ describe("readActorPage", () => {
     expect(page.sections).toBeNull();
   });
 
-  // WHAT IS STORED IS A TREE AND WHAT THE EDITOR HOLDS IS A FLAT LIST, so this
-  // reads both. Every save writes a tree, so this is the ordinary case rather
-  // than the exception — and the fixture is a real container rather than
-  // nonsense, so a read that quietly stopped converting would go red here
-  // instead of leaving the editor unable to open anything it had just written.
-  it("reads a page stored as blocks back as the sections the editor holds", async () => {
-    const page = await readActorPage(
-      client({
-        sections: [
+  // THE ORDINARY CASE: a page written by this editor is already a tree, so
+  // nothing converts it and every position survives untouched — including the
+  // empty place, which is the one thing no conversion could carry.
+  it("reads a page stored as blocks back exactly as it was stored", async () => {
+    const sections = [
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "About",
+        children: [
+          { kind: "stat", title_en: "Species", description_en: "A wolf." },
+          null,
+          { kind: "text", title_en: "More", description_en: "Words." },
+        ],
+      },
+    ];
+    const page = await readActorPage(client({ sections, theme: {} }), "ref");
+    expect(page.sections).toEqual(sections);
+  });
+
+  // A NESTED TREE OPENS. It used to answer null here, because the only editor
+  // there was composed a flat list and flattening a tree it half-understood
+  // would have written the half back over the whole. The editor holds the tree
+  // now, so refusing one would refuse the pages this phase exists to let
+  // people build.
+  it("opens a container nested inside a container", async () => {
+    const sections = [
+      {
+        kind: "container",
+        mode: "stack",
+        spaces: 1,
+        name_en: "About",
+        children: [
           {
             kind: "container",
             mode: "grid",
-            columns: 4,
-            name_en: "About",
+            spaces: 2,
             children: [
-              { kind: "stat", title_en: "Species", description_en: "A wolf." },
+              { kind: "text", title_en: "Species", description_en: "" },
             ],
           },
-        ],
-        theme: {},
-      }),
-      "ref",
-    );
-    expect(page.sections).toEqual([
-      {
-        name_en: "About",
-        type: "stats",
-        sort_order: 1,
-        items: [
-          { title_en: "Species", description_en: "A wolf.", sort_order: 1 },
         ],
       },
-    ]);
-  });
-
-  // **A tree only a block editor could have built is `null`, not a best
-  // effort**, and that is the property the erasure Critical rests on: this
-  // caller's next act is to REPLACE, so flattening a tree it half-understood
-  // would write the half back over the whole. A container inside a container
-  // is the one thing a flat list has no way to hold at all.
-  it("answers null for a tree the flat editor cannot hold", async () => {
-    const page = await readActorPage(
-      client({
-        sections: [
-          {
-            kind: "container",
-            mode: "stack",
-            name_en: "About",
-            children: [
-              {
-                kind: "container",
-                mode: "grid",
-                children: [{ kind: "text", title_en: "Species" }],
-              },
-            ],
-          },
-        ],
-        theme: {},
-      }),
-      "ref",
-    );
-    expect(page.sections).toBeNull();
+    ];
+    const page = await readActorPage(client({ sections, theme: {} }), "ref");
+    expect(page.sections).toEqual(sections);
   });
 
   // The other half of the same distinction, and the control that stops the two
@@ -159,7 +162,14 @@ describe("readActorPage", () => {
     ];
     const page = await readActorPage(client({ sections, theme: {} }), "ref");
     expect(page.sections).toEqual([
-      { ...sections[0], style: { skin: "glass" } },
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "About",
+        children: [],
+        style: { skin: "glass" },
+      },
     ]);
   });
 });

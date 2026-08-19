@@ -142,7 +142,7 @@ const READABLE: {
   min: number;
 }[] = [
   {
-    what: "the section-name and layout labels",
+    what: "the section-name, arrangement and shape labels",
     area: "section-header",
     ink: "section-header",
     // Along the row's top edge, above the icon buttons — they are
@@ -158,9 +158,9 @@ const READABLE: {
     min: 3,
   },
   {
-    what: "an item's field labels",
-    area: "section-item",
-    ink: "section-item",
+    what: "a leaf's field labels",
+    area: "leaf-editor",
+    ink: "leaf-editor",
     // Inside the box's own `p-2.5`, at half height, so it is clear of both
     // the rounded corners and every field inside.
     at: (box) => ({
@@ -170,9 +170,9 @@ const READABLE: {
     min: 4.5,
   },
   {
-    what: "an item's title field",
-    area: "item-title",
-    ink: "item-title",
+    what: "a leaf's title field",
+    area: "leaf-title",
+    ink: "leaf-title",
     // The empty right-hand end of a full-width input. Eight pixels in, which
     // is clear of the inset focus ring's 3–6px band as well as of the text.
     at: (box) => ({
@@ -182,9 +182,9 @@ const READABLE: {
     min: 4.5,
   },
   {
-    what: "an item's description field",
-    area: "item-description",
-    ink: "item-description",
+    what: "a leaf's description field",
+    area: "leaf-description",
+    ink: "leaf-description",
     at: (box) => ({
       x: Math.round(box.x + box.width) - 8,
       y: Math.round(box.y + box.height / 2),
@@ -192,9 +192,9 @@ const READABLE: {
     min: 4.5,
   },
   {
-    what: "the add-item button",
-    area: "add-item",
-    ink: "add-item",
+    what: "the add-place button",
+    area: "add-place",
+    ink: "add-place",
     // Inside its `px-3`, left of the plus icon. Its text is `--muted`, the
     // dimmest the design puts anywhere, so it is the first thing to fail.
     at: (box) => ({
@@ -240,7 +240,7 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   // Built by hand rather than from a template: a template inserts sections as
   // data without touching a single control, which would prove nothing about
   // the control under test.
-  await page.getByTestId("new-section-type").selectOption("cards");
+  await page.getByTestId("new-section-spaces").selectOption("2");
   await page.getByTestId("add-section").click();
 
   // **Collapsed, which is the total case.** Only the card's BODY is gated on
@@ -359,7 +359,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.goto("/es/pages/new");
   await page.getByTestId("editor-handle").fill("facecheck");
   await page.getByTestId("editor-display-name").fill("Face check");
-  await page.getByTestId("new-section-type").selectOption("cards");
+  await page.getByTestId("new-section-spaces").selectOption("2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("collapse-section").first().click();
 
@@ -455,15 +455,15 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
   await page.getByTestId("editor-handle").fill("readable");
   await page.getByTestId("editor-display-name").fill("Readable");
 
-  // Composed by hand, item and all: a template inserts its sections as data
+  // Composed by hand, content and all: a template inserts its sections as data
   // without touching one of these controls, so a template-built page would
   // measure the same pixels while proving nothing about the editor.
-  await page.getByTestId("new-section-type").selectOption("cards");
+  await page.getByTestId("new-section-spaces").selectOption("1");
   await page.getByTestId("add-section").click();
-  await page.getByTestId("add-item").first().click();
+  await page.getByTestId("add-content").first().click();
   await page.getByTestId("section-name").first().fill("Section");
-  await page.getByTestId("item-title").first().fill("Item");
-  await page.getByTestId("item-description").first().fill("A description");
+  await page.getByTestId("leaf-title").first().fill("Item");
+  await page.getByTestId("leaf-description").first().fill("A description");
 
   await page.getByTestId("section-style-open").click();
   await page.getByTestId("section-style-background-url").fill(HOSTILE.url);
@@ -567,7 +567,7 @@ test("the three background fits are three different paints", async ({
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
-  await page.getByTestId("new-section-type").selectOption("cards");
+  await page.getByTestId("new-section-spaces").selectOption("2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("collapse-section").first().click();
 

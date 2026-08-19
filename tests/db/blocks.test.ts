@@ -102,7 +102,6 @@ async function seedPerson(): Promise<Person> {
  */
 const leaf = (over: Record<string, unknown> = {}) => ({
   kind: "text",
-  span: 1,
   title_en: "A title",
   title_es: "Un título",
   description_en: "Some words.",
@@ -113,19 +112,30 @@ const leaf = (over: Record<string, unknown> = {}) => ({
 /**
  * One well-formed container, holding a single leaf.
  *
+ * It declares one place across, and the children it holds are deliberately
+ * NOT tied to that: `spaces` is a width and children fill the places row by
+ * row, so a case may hand it any number.
+ *
  * @param over - fields to replace.
  * @returns the container.
  */
 const container = (over: Record<string, unknown> = {}) => ({
   kind: "container",
   mode: "stack",
-  columns: 1,
-  span: 1,
+  spaces: 1,
   name_en: "About",
   name_es: "Acerca de",
   children: [leaf()],
   ...over,
 });
+
+/**
+ * A run of empty spaces.
+ *
+ * @param count - how many.
+ * @returns that many empty entries.
+ */
+const empties = (count: number) => Array.from({ length: count }, () => null);
 
 /**
  * The smallest block the database will take, for the counting and sizing cases
@@ -540,21 +550,79 @@ describe("the shape it refuses", () => {
     ).toBeNull();
   });
 
+  it("accepts a container whose every place is empty", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 3, children: empties(3) }),
+      ]),
+    ).toBeNull();
+  });
+
+  // **THE CASE THE WHOLE MODEL TURNS ON.** A place is positional: a shorter
+  // list can say how many things there are and cannot say WHICH place is
+  // empty, so an entry is a block or an explicit nothing — and the round trip
+  // has to bring it back in the same position. A later "tidying" of the nulls
+  // would pass every other case in this file.
+  it("stores an empty place between two filled ones, in place", async () => {
+    const page = [
+      container({
+        spaces: 3,
+        children: [leaf(), null, leaf({ title_en: "third" })],
+      }),
+    ];
+    expect(await write(alice.sub, alice.sonaRef, page)).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual(page);
+  });
+
+  // Legal and meaningless, and kept rather than trimmed: somebody is usually
+  // about to fill it, and trimming would move whatever they put after it.
+  it("stores a trailing empty place rather than trimming it", async () => {
+    const page = [container({ spaces: 2, children: [leaf(), null, null] })];
+    expect(await write(alice.sub, alice.sonaRef, page)).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual(page);
+  });
+
+  // **A width is not a total.** More children than places across is more
+  // ROWS, which is what "it keeps extending down" asked for — and what an
+  // equality rule between the two would have made unrepresentable.
+  it("accepts more children than the container has places across", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 3, children: many(17, () => tiny()) }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts a part-filled last row", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 3, children: many(5, () => tiny()) }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts fewer children than the container has places across", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 4, children: [leaf()] }),
+      ]),
+    ).toBeNull();
+  });
+
   it("refuses children that are not an array", async () => {
     expect(
       await write(alice.sub, alice.sonaRef, [container({ children: "nope" })]),
     ).toMatch(/children must be an array/i);
   });
 
-  // **The one unknown-key rule the database keeps**, and it is not tidiness: a
-  // `children` array on a leaf is a subtree the depth counter never descends
-  // into and no cap above ever sees.
-  it("refuses children on a leaf", async () => {
-    const message = await write(alice.sub, alice.sonaRef, [
-      leaf({ children: [leaf()] }),
-    ]);
-    expect(message).toMatch(/block 1:/i);
-    expect(message).toMatch(/a leaf holds no children/i);
+  // An empty place is not a block, so nothing about it is walked and nothing
+  // about it may be refused for the shape a block would have to have.
+  it("walks past an empty place rather than refusing it as a block", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 2, children: [null, leaf()] }),
+      ]),
+    ).toBeNull();
   });
 
   // The path is what makes a tree's errors legible at all — an ordinal cannot
@@ -629,75 +697,84 @@ describe("the depth cap", () => {
   });
 });
 
-describe("span and columns", () => {
-  it.each([1, 2, 3, 4])("accepts a span of %s", async (span) => {
-    expect(await write(alice.sub, alice.sonaRef, [leaf({ span })])).toBeNull();
-  });
-
-  it.each([1, 2, 3, 4])(
-    "accepts a container of %s columns",
-    async (columns) => {
+describe("spaces", () => {
+  it.each([1, 2, 3, 4, 5, 6])(
+    "accepts a section %s places across",
+    async (spaces) => {
       expect(
-        await write(alice.sub, alice.sonaRef, [container({ columns })]),
+        await write(alice.sub, alice.sonaRef, [container({ spaces })]),
       ).toBeNull();
     },
   );
 
-  it("accepts a block with no span at all", async () => {
+  it("accepts a container with no space count at all", async () => {
     expect(
-      await write(alice.sub, alice.sonaRef, [without(leaf(), "span")]),
+      await write(alice.sub, alice.sonaRef, [without(container(), "spaces")]),
     ).toBeNull();
   });
 
-  it("accepts a container with no columns at all", async () => {
+  // Written as a literal rather than read out of the migration: an
+  // expectation derived from the constant under test moves with a sabotage
+  // and proves nothing.
+  it("accepts the widest shape allowed", async () => {
     expect(
-      await write(alice.sub, alice.sonaRef, [without(container(), "columns")]),
+      await write(alice.sub, alice.sonaRef, [container({ spaces: 6 })]),
     ).toBeNull();
   });
 
-  // **The ruling this case exists for.** A span wider than the container it
-  // currently sits in is accepted AND STORED AS TYPED. Refusing it would make
-  // a page unsavable over a value nobody can see; rewriting it would destroy
-  // what somebody typed, so dragging the block back out could not restore it.
-  // The renderer narrows instead.
-  it("accepts a span wider than its parent's columns, and stores it", async () => {
-    const wide = [container({ columns: 1, children: [leaf({ span: 4 })] })];
-    expect(await write(alice.sub, alice.sonaRef, wide)).toBeNull();
-    expect(await read(alice.sonaRef)).toEqual(wide);
-  });
-
-  it.each([0, 5, 1.5, -1])("refuses a span of %s", async (span) => {
-    expect(await write(alice.sub, alice.sonaRef, [leaf({ span })])).toMatch(
-      /span must be a whole number/i,
-    );
-  });
-
-  it.each([0, 5, 1.5, -1])("refuses %s columns", async (columns) => {
+  it("refuses one place more", async () => {
     expect(
-      await write(alice.sub, alice.sonaRef, [container({ columns })]),
-    ).toMatch(/columns must be a whole number/i);
+      await write(alice.sub, alice.sonaRef, [container({ spaces: 7 })]),
+    ).toMatch(/spaces must be a whole number from 1 to 6/i);
   });
 
-  it("refuses a span written as a string", async () => {
+  it.each([0, 1.5, -1])("refuses %s places across", async (spaces) => {
     expect(
-      await write(alice.sub, alice.sonaRef, [leaf({ span: "2" })]),
-    ).toMatch(/span must be a whole number/i);
+      await write(alice.sub, alice.sonaRef, [container({ spaces })]),
+    ).toMatch(/spaces must be a whole number/i);
   });
 
-  it("refuses a span that is a boolean", async () => {
+  it("refuses a space count written as a string", async () => {
     expect(
-      await write(alice.sub, alice.sonaRef, [leaf({ span: true })]),
-    ).toMatch(/span must be a whole number/i);
+      await write(alice.sub, alice.sonaRef, [container({ spaces: "2" })]),
+    ).toMatch(/spaces must be a whole number/i);
+  });
+
+  it("refuses a space count that is a boolean", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [container({ spaces: true })]),
+    ).toMatch(/spaces must be a whole number/i);
   });
 
   // The one that matters most: JSON null reaches the check as a value rather
   // than as an absent key, and an absent key is legal — so the two must not
   // collapse into one answer. It is also the shape that makes a chain of
   // `and`s unsafe in SQL, which is why the check is a `case`.
-  it("refuses a span that is null, where an absent one is fine", async () => {
+  it("refuses a space count that is null, where an absent one is fine", async () => {
     expect(
-      await write(alice.sub, alice.sonaRef, [leaf({ span: null })]),
-    ).toMatch(/span must be a whole number/i);
+      await write(alice.sub, alice.sonaRef, [container({ spaces: null })]),
+    ).toMatch(/spaces must be a whole number/i);
+  });
+
+  // **`columns` and `span` are refused BY NAME rather than ignored.** Every
+  // other stray key here costs only the bytes it occupies; these two carried
+  // meaning that is gone, so a stale writer must hear about it rather than
+  // have the page come back a shape nobody chose.
+  it.each(["columns", "span"])(
+    "refuses the old %s key on a container",
+    async (key) => {
+      const message = await write(alice.sub, alice.sonaRef, [
+        container({ [key]: 2 }),
+      ]);
+      expect(message).toMatch(/block 1:/i);
+      expect(message).toMatch(/columns and span were replaced by spaces/i);
+    },
+  );
+
+  it("refuses the old span key on a leaf", async () => {
+    expect(await write(alice.sub, alice.sonaRef, [leaf({ span: 2 })])).toMatch(
+      /columns and span were replaced by spaces/i,
+    );
   });
 });
 
@@ -923,6 +1000,10 @@ describe("a table's rows", () => {
 // on every write with no natural ceiling. Each number below is a product knob
 // rather than a safety law — nothing else depends on it.
 describe("the limits", () => {
+  // **A separate number from `spaces`, which is a width.** This bounds the
+  // content across every row of a container, and it is where the bound on
+  // the recursion actually is — the client's own cap cannot do it, because
+  // zod parses an array's elements before applying its `.max()`.
   const CHILDREN_MAX = 50;
   const TEXT_MAX = 2000;
 
@@ -974,6 +1055,7 @@ describe("the limits", () => {
     const page = many(10, () => ({
       kind: "container",
       mode: "stack",
+      spaces: 3,
       children: many(49, () => tiny()),
     }));
     expect(await write(alice.sub, alice.sonaRef, page)).toBeNull();
@@ -983,11 +1065,27 @@ describe("the limits", () => {
     const page = many(11, () => ({
       kind: "container",
       mode: "stack",
+      spaces: 3,
       children: many(45, () => tiny()),
     }));
     expect(await write(alice.sub, alice.sonaRef, page)).toMatch(
       /too many blocks/i,
     );
+  });
+
+  // **An empty place is not a block.** The budget bounds what has to be
+  // rendered and a place with nothing in it renders nothing, so a page of
+  // wide-open sections must not be refused for blocks it does not hold. Ten
+  // sections of fifty empty places are ten blocks by the right measure and
+  // five hundred and ten by the wrong one.
+  it("does not count an empty place against the block budget", async () => {
+    const page = many(10, () => ({
+      kind: "container",
+      mode: "stack",
+      spaces: 3,
+      children: empties(50),
+    }));
+    expect(await write(alice.sub, alice.sonaRef, page)).toBeNull();
   });
 });
 

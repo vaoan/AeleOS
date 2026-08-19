@@ -32,9 +32,9 @@ export interface FursonaTemplate {
  * character is: one species, a hybrid, or something of your own" — and the
  * result was a page created from a template and published unedited reading its
  * own instructions out to strangers, in its owner's voice. The prompt now lives
- * where a prompt belongs: `itemDescriptionHint` is the editor's placeholder, so
- * it helps while somebody writes, and is never stored, never published, and
- * never has to be deleted.
+ * where a prompt belongs: the editor's description field carries a placeholder
+ * per content kind, so it helps while somebody writes, and is never stored,
+ * never published, and never has to be deleted.
  *
  * That was blocked by `sectionItemSchema` requiring a non-empty description,
  * which it no longer does — `0009` always accepted an empty one, so nothing in

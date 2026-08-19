@@ -6,6 +6,26 @@ Phasing.
 **Follows:** `2026-08-15-section-personality-design.md`,
 `2026-08-16-a-border-of-ones-own-design.md`, delivered in `#150`–`#155`.
 
+> **Superseded in part, 2026-08-18, by
+> `2026-08-18-sections-of-spaces-design.md`.** Read this as the record of what
+> was believed when it shipped, not as the model in the code. What changed is
+> the arrangement and only the arrangement: a container no longer declares a
+> **track count** and its children no longer declare a **span** of those
+> tracks. It declares how many places it lays ACROSS, children fill them row by
+> row, and a place may be empty and keeps its width. So `BLOCK_LIMITS.tracks`,
+> `effectiveSpan`, `TRACK_CLASS` and `SPAN_CLASS` — all named below, chiefly
+> under "Span, and why not free positioning" — do not exist. The same spec
+> also replaced every viewport breakpoint in the renderer with a container
+> query, and delivered the editor this one left for its phase 3 — so a
+> paragraph here standing a performance guard down until that phase has been
+> acted on. What still holds: the container/leaf split, the section as a
+> container at depth 0, the depth cap and where it is enforced, the embed
+> refusals, and the dnd-kit findings, which are still what phase 4 inherits.
+> **It is left otherwise untouched on purpose** — rewriting a delivered
+> document to match later reality would make "complete" mean nothing, which is
+> the same argument that made the successor a new spec rather than a reopening
+> of this one.
+
 ## Why this exists
 
 The request: _"we have created sections with layout and everything but its very

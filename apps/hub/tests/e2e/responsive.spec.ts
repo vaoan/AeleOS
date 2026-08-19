@@ -221,7 +221,7 @@ test.describe("every phone screen, signed in", () => {
       // anchored off a section card's own right edge — so the `fits` call
       // above, taken before opening it, proves the PAGE'S OWN layout fits; it
       // says nothing about the popup itself once open. Every field in this
-      // panel (skin, background, fit, card size, border) has carried that gap
+      // panel (skin, background, fit, border) has carried that gap
       // since the popup shipped; checking it here closes it for all of them,
       // not only the border select this task added.
       await page.getByTestId("section-style-open").first().click();
@@ -254,10 +254,11 @@ test.describe("every phone screen, signed in", () => {
 // profile. This does, on every portrait size.
 //
 // **It seeds the page rather than building it in the editor**, which it used to
-// do. The editor composes a flat list of sections and `set_actor_sections` now
-// walks a tree of blocks, so its save is refused until the editor is ported
-// (phase 3) — and seeding is the better fixture anyway, because it can declare
-// a four-track grid, which no template does.
+// do. That began as a workaround — the editor of the day composed a flat list
+// of sections and `set_actor_sections` refused it — and it is kept on its own
+// merits now that the editor composes blocks: a seed can declare a six-place
+// section, which no template does, and it reaches every size without driving
+// the editor six times.
 //
 // It builds ONE page and reads it at every portrait size, rather than one per
 // size. Each run leaves a soft-deleted actor row behind — deletion is soft so a
@@ -266,16 +267,19 @@ test.describe("every phone screen, signed in", () => {
 test.describe("a published page on a phone", () => {
   test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
-  test("stacks its tracks instead of scrolling them sideways", async ({
+  test("stacks its places instead of scrolling them sideways", async ({
     page,
   }) => {
-    // The widest grid the model admits, holding blocks that span it. Below
-    // `sm` every one of those collapses to a single track, and the whole point
-    // of putting the track count in a `sm:`-prefixed class rather than an
-    // inline `grid-template-columns` is that a media query can do that and an
-    // inline style cannot. A span that survived the collapse creates implicit
-    // columns and pushes the row past the viewport, which is precisely what
-    // this measures.
+    // The widest section the model admits, with a place left empty in the
+    // middle of it. Below the section's own narrow threshold every one of
+    // those places collapses to a single column, and the whole point of
+    // putting the count in a `@`-prefixed class rather than an inline
+    // `grid-template-columns` is that a query can do that and an inline style
+    // cannot. The empty place is here because it is the one thing on this page
+    // that holds room without holding content — a phone is where a section
+    // that failed to collapse would push the row past the viewport, and an
+    // empty place must collapse with the rest rather than keeping a column of
+    // its own.
     const { address, handle } = await seedPage({
       userId: identity!.userId,
       handlePrefix: "cards",
@@ -284,11 +288,11 @@ test.describe("a published page on a phone", () => {
         container({
           name_en: "Wide",
           mode: "grid",
-          columns: 4,
+          spaces: 6,
           children: [
-            leaf({ title_en: "One", span: 4 }),
-            leaf({ title_en: "Two", span: 3 }),
-            leaf({ title_en: "Three", span: 2 }),
+            leaf({ title_en: "One" }),
+            leaf({ title_en: "Two" }),
+            null,
             leaf({ title_en: "Four" }),
           ],
         }),

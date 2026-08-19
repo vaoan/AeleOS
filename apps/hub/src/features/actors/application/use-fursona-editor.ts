@@ -16,15 +16,15 @@ import {
 } from "@/features/actors/infrastructure/fursona-arrangement";
 import { FURSONAS_QUERY_KEY } from "@/features/actors/application/use-fursonas";
 import type { FursonaInput } from "@/features/actors/domain/fursona-schema";
-import type { FursonaSection } from "@/features/actors/domain/section-schema";
+import type { Block } from "@/features/actors/domain/block-schema";
 import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 import { setActorTheme } from "@/features/actors/infrastructure/actor-theme";
 import { updateMyProfile } from "@/features/actors/infrastructure/my-profile";
 
-/** Everything one save writes: the fields, the page's sections, its theme. */
+/** Everything one save writes: the fields, the page's blocks, its theme. */
 export type FursonaDraft = FursonaInput & {
-  /** The page's sections. */
-  sections: FursonaSection[];
+  /** The page, as a tree of blocks. */
+  sections: Block[];
   /** How the page looks. */
   theme: ActorTheme;
 };

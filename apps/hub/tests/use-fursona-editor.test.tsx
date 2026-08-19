@@ -60,14 +60,15 @@ const fields = {
 
 const sections = [
   {
+    kind: "container" as const,
+    mode: "grid" as const,
+    spaces: 2,
     name_en: "About",
-    type: "cards" as const,
-    sort_order: 1,
-    items: [],
+    children: [],
   },
 ];
 
-/** One save's worth: the four fields and the page's sections. */
+/** One save's worth: the four fields and the page's blocks. */
 const values = { ...fields, sections, theme: DEFAULT_THEME };
 
 beforeEach(() => {

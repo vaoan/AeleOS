@@ -35,13 +35,11 @@ const BLOCKS = [
   {
     kind: "container",
     mode: "stack",
-    columns: 1,
-    span: 1,
+    spaces: 1,
     name_en: "About",
     children: [
       {
         kind: "stat",
-        span: 1,
         title_en: "Species",
         description_en: "A wolf.",
       },

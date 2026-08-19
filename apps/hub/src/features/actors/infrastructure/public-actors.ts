@@ -127,9 +127,9 @@ const anonClient = () =>
  * pages written before `set_actor_sections` began validating blocks — the
  * blocks-and-grids design says as much — so every one of them fell straight
  * through to the `[]` above and served a stranger a heading with nothing under
- * it. `sectionsToBlocks` is the same conversion the editor's own save goes
- * through, so a page reads the same before and after its owner next saves it,
- * and it is deleted with the rest of the shim when the block editor lands.
+ * it. `sectionsToBlocks` is the same conversion `readActorPage` runs when the
+ * editor opens one, so a page reads the same to a stranger and to its owner,
+ * and the same before and after its owner next saves it.
  *
  * @param value - whatever the database returned.
  * @returns the blocks, or `[]` when they do not parse as either shape.

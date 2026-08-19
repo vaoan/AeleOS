@@ -10,11 +10,9 @@ import {
 
 // THE ONE INTERACTION NOBODY WOULD NOTICE FROM A SCREENSHOT.
 //
-// section-editor.test.tsx's "offers a drag handle for each section" counts
-// buttons by aria-label through a fully mocked `@hello-pangea/dnd` — it would
-// pass even if `dragHandleProps` reached the wrong element or nothing at all.
-// Task 4 moved that prop from `SectionEditor` wrapping each row in a handle of
-// its own to `SectionCard` rendering the handle in its own header row, which
+// Every unit test of the editor mocks `@hello-pangea/dnd` away entirely, so
+// each of them would pass if `dragHandleProps` reached the wrong element or
+// nothing at all. The block editor rebuilt the card the handle lives on, which
 // is exactly the edit most likely to break the threading silently: the grip
 // still renders, still looks right, and simply does nothing.
 //
@@ -29,15 +27,20 @@ import {
 // purpose: the handle is a `<button>`, and `@hello-pangea/dnd` refuses to
 // start a drag — by mouse OR keyboard — whose source event targets a tag it
 // treats as interactive, unless the `Draggable` opts out with
-// `disableInteractiveElementBlocking`. Nothing in `section-editor.tsx` did, so
-// lifting a section did nothing at all: no error, no announcement, silently
-// inert — for every input method, not only this one. See the prop on
-// `<Draggable>` there for the fix.
+// `disableInteractiveElementBlocking`. Nothing in the flat editor of the day
+// did, so lifting a section did nothing at all: no error, no announcement,
+// silently inert — for every input method, not only this one. That editor is
+// deleted; the prop travelled to `block-editor.tsx`, which is where a section
+// is dragged now, and this spec is what would notice if it did not.
 //
-// No save happens here. `SectionEditor` reorders through `useFieldArray`
-// entirely on the client, so the assertion — read the order back from the
-// section-name inputs' own DOM values — needs nothing written to the
-// database.
+// No save happens here. `BlockEditor` reorders the tree it is holding entirely
+// on the client, so the assertion — read the order back from the section-name
+// inputs' own DOM values — needs nothing written to the database.
+//
+// **The shape is what each section is built with now**, because a section is
+// defined by how many places it has across rather than by a layout name. Two
+// different widths, so a passing drag cannot be a coincidence of two
+// identically-built cards.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -60,11 +63,11 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
 
   // Two sections, built by hand — a template inserts sections as data without
   // touching the drag handle at all, which would prove nothing here.
-  await page.getByTestId("new-section-type").selectOption("cards");
+  await page.getByTestId("new-section-spaces").selectOption("2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("First");
 
-  await page.getByTestId("new-section-type").selectOption("gallery");
+  await page.getByTestId("new-section-spaces").selectOption("3");
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Second");
 
@@ -114,7 +117,5 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
 // **A block has no `sort_order`.** The array IS the order, at every depth;
 // `PublicBlocks` sorts nothing and has nothing to sort by, which is asserted
 // directly in `blocks.test.tsx`. There is no field left for a save to send
-// stale, so the test's subject no longer exists — and it could not be kept in
-// any case, because the editor still writes the flat shape the database now
-// refuses. When the editor is ported (phase 3) the round trip is worth a spec
-// again, for whatever the new save actually risks.
+// stale, so the test's subject no longer exists. What the save now risks is
+// covered by `editor-saves-page.spec.ts`, which reopens what it wrote.
