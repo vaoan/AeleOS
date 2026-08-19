@@ -9,3 +9,6 @@ pnpm-lock.yaml
 apps/hub/.next
 apps/hub/playwright-report
 apps/hub/test-results
+
+apps/hub/coverage
+packages/identity/coverage

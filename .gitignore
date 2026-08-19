@@ -69,3 +69,8 @@ tsconfig.tsbuildinfo
 
 # Superpowers brainstorming companion scratch (mockups, session state)
 .superpowers/
+
+# Coverage output. Written by `pnpm test:coverage`, which CI runs — and it is
+# neither committed nor formatted, so it belongs in both ignore files or the
+# format gate fails on a directory the test gate just created.
+coverage/
