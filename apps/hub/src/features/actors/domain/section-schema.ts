@@ -176,6 +176,12 @@ const sectionStyleShape = {
   // it — `none` is a member of the enum for exactly that reason, rather than
   // the empty string standing in for it.
   border: z.enum(["solid", "dashed", "dotted", "double", "none"]).optional(),
+  // **Nothing writes this in the flat shape and nothing reads it here.** It is
+  // present because `style-bag-parity.test.ts` holds the two bags identical,
+  // and the guard is worth more than the one unused key: a bag that may differ
+  // is a bag somebody will let differ by accident. The block model is where it
+  // means something — see `blockStyleShape`.
+  bleed: z.boolean().optional(),
 };
 
 /**

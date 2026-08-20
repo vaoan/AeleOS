@@ -1,9 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { PageContext } from "@/features/actors/presentation/blocks";
 import {
   useController,
   useForm,
+  useWatch,
   type Control,
   type FieldValues,
   type Path,
@@ -38,6 +40,7 @@ import {
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
 import { blocksSchema } from "@/features/actors/domain/block-schema";
+import { withRequiredBlocks } from "@/features/actors/domain/required-blocks";
 import {
   blockProblems,
   type BlockProblem,
@@ -124,10 +127,11 @@ export interface FursonaEditorLabels
  * **A `null` there is not an absent one**, and the difference is what stops
  * this editor erasing a page it cannot read — see the prop.
  *
- * `parentHost` is required rather than optional, unlike everything else here:
- * every section previews itself with the real renderer, and a preview handed
- * nothing would degrade a Twitch player to a link without saying so. The
- * routes resolve it from `env.hubHost`, exactly as both public pages do.
+ * `page` is required rather than optional, unlike everything else here: every
+ * section previews itself with the real renderer, and a preview handed nothing
+ * would degrade a Twitch player to a link without saying so. It is the same
+ * `PageContext` the public pages thread — one object rather than one prop per
+ * page-level value — and the routes build it from `env.hubHost`.
  */
 export interface FursonaEditorProps {
   /** Already-translated strings. */
@@ -176,7 +180,7 @@ export interface FursonaEditorProps {
    * what a page rendered without it would show as well — so it is resolved by
    * the route, exactly as both public pages resolve it.
    */
-  parentHost: string;
+  page: PageContext;
 }
 
 /** Where a save or a cancel returns to. */
@@ -363,6 +367,23 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * made, but naming the missing English title would be naming a cause that is
  * not the cause.
  *
+ * `page` is threaded to {@link BlockEditor} and read nowhere here — see
+ * {@link FursonaEditorProps}.
+ *
+ * **The block editor previews from the LIVE form, not from the saved page.**
+ * Identity leaves render out of the page context, so handing down the one the
+ * route resolved would show somebody the portrait and handle they had before
+ * they started editing — a preview quietly disagreeing with the form directly
+ * above it. Three fields are overlaid from `useWatch`; the rest of the context
+ * is the route's, because an address is assigned rather than typed and a
+ * fursona's owner is not something its editor can change.
+ *
+ * **A page being CREATED opens with its required blocks**, the same
+ * `withRequiredBlocks` output `readActorPage` answers for an actor with
+ * nothing stored. The create page has no actor to read, so it fell through to
+ * an empty tree — which `set_actor_sections` refuses, making a fursona built
+ * by hand impossible to save at all.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -374,7 +395,7 @@ export function FursonaEditor({
   actorRef,
   handleEditable,
   kind = "fursona",
-  parentHost,
+  page,
 }: FursonaEditorProps) {
   const router = useRouter();
   // `null` means a page is stored and this build could read it as neither
@@ -402,7 +423,16 @@ export function FursonaEditor({
       displayName: initial?.displayName ?? "",
       avatarUrl: initial?.avatarUrl ?? "",
       visibility: initial?.visibility ?? "private",
-      sections: initialSections ?? [],
+      // **A page being CREATED starts with its required blocks, not empty.**
+      // `readActorPage` already answers `withRequiredBlocks([], kind)` for an
+      // actor with nothing stored; the create page has no actor to read yet,
+      // so it reached this default instead — and an empty tree is one
+      // `set_actor_sections` and the save boundary both refuse, for missing
+      // `avatar`, `handle` and `owner`. The effect was that a fursona built by
+      // hand could not be saved AT ALL: the banner said the sections were
+      // refused, over a page whose author had done nothing wrong. Applying a
+      // template happened to work, because the template path runs the shim.
+      sections: initialSections ?? withRequiredBlocks([], kind),
       theme: initialTheme ?? DEFAULT_THEME,
     },
   });
@@ -413,6 +443,26 @@ export function FursonaEditor({
   // since a new piece of content starts untitled and the write schema requires
   // a heading. These are threaded down to the block that is actually wrong.
   const problems = blockProblems(errors.sections);
+
+  // **What the identity leaves preview from, taken from the form rather than
+  // from the route.** Every section previews with the real renderer, so an
+  // `avatar` or `name` block draws from the page context — and the context the
+  // route built holds what was SAVED. Watching the three fields keeps the
+  // preview honest while somebody is still typing them.
+  //
+  // The rest of the context is the route's and is not watchable here: an
+  // address is assigned rather than typed, and a fursona's owner is not
+  // something its editor can change.
+  const [liveHandle, liveName, liveAvatar] = useWatch({
+    control,
+    name: ["handle", "displayName", "avatarUrl"],
+  });
+  const livePage: PageContext = {
+    ...page,
+    handle: liveHandle || page.handle,
+    displayName: liveName || null,
+    avatarUrl: liveAvatar || null,
+  };
 
   // Schema failures carry a zod code; the database's refusals carry ours. The
   // banner reads both the same way, so this only has to flatten them.
@@ -603,7 +653,12 @@ export function FursonaEditor({
         control={control}
         lang={lang}
         labels={labels}
-        parentHost={parentHost}
+        // **The LIVE form values, not the saved ones.** An identity leaf
+        // renders from the page context, and every section previews with the
+        // real renderer — so handing the context the route built would show
+        // somebody the portrait they had before they started editing, and the
+        // preview would quietly disagree with the form six inches above it.
+        page={livePage}
         problems={problems}
       />
     </form>

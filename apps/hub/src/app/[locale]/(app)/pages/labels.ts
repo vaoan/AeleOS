@@ -180,6 +180,17 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * @param title - what the toolbar says is being edited. The two pages differ
  * only in this and in whether the handle can be typed, which is why they share
  * one function rather than each carrying a near-identical copy.
+ *
+ * **The remove control withdraws when a block holds the last copy of a kind
+ * the page must carry.** `lockedKinds` is computed once over the whole tree
+ * and threaded down, so every bin in the editor locks at the same moment —
+ * the same reasoning `atBlockLimit` already follows.
+ *
+ *
+ * **A section may also reach both edges of the window** — the `bleed` key,
+ * offered at depth 0 only, because a nested block has a section between it and
+ * the page and cannot escape it.
+ *
  * @returns the translated labels.
  */
 export async function fursonaEditorLabels(
@@ -238,6 +249,7 @@ export async function fursonaEditorLabels(
     previewTitle: t("previewTitle"),
     removeBlock: t("removeBlock"),
     removeSection: t("removeSection"),
+    removeLocked: t("removeLocked"),
     collapse: t("collapseSection"),
     expand: t("expandSection"),
     leafKind: t("leafKind"),
@@ -270,6 +282,7 @@ export async function fursonaEditorLabels(
       open: t("sectionStyleOpen"),
       title: t("sectionStyleTitle"),
       skin: t("sectionStyleSkin"),
+      bleed: t("sectionStyleBleed"),
       skins: Object.fromEntries(
         SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
       ) as Record<SkinId, string>,

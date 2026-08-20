@@ -8,6 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { removalLocked } from "@/features/actors/domain/required-blocks";
 import { useId, useState, type ReactNode } from "react";
 import {
   BLOCK_LIMITS,
@@ -41,6 +42,7 @@ import type { AuthoringLanguage } from "@/features/actors/application/use-langua
 import { blockStyle } from "@/features/actors/presentation/block-style";
 import { BlockSlot } from "@/features/actors/presentation/block-slot";
 import { Block as BlockView } from "@/features/actors/presentation/blocks";
+import type { PageContext } from "@/features/actors/presentation/blocks";
 import {
   LeafEditor,
   type LeafEditorLabels,
@@ -53,24 +55,11 @@ import {
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
- * Translated strings {@link BlockCard} renders.
+ * Already-translated strings a card renders.
  *
- * `style` carries the paintbrush popup's own strings, nested rather than
- * spread flat in — the popup has a `title` of its own, and a flat bag would
- * have it silently collide with this level's.
- *
- * `dragBlock` replaced `dragSection`, which moved up to `BlockEditorLabels`.
- * The card no longer draws a section's own grip — the editor's slot does —
- * and the two grips genuinely say different things to somebody who cannot see
- * them: one moves a whole section among the sections, the other moves one
- * piece of a page between places.
- *
- * `sectionShape`, `shapes`, `sectionShapeCustom`, `sectionWeight` and
- * `sectionWeightsHint` are new — the shape control's own strings. All five are
- * plain data rather than a closure over `t()`, `sectionWeight` included: a
- * function cannot cross the server/client boundary these labels are built on
- * one side of and consumed on the other, and this bag learned that the hard
- * way — see `sectionWeight`'s own TSDoc.
+ * `removeLocked` is the newest and explains a WITHDRAWN control rather than
+ * naming an action — a disabled bin with no reason is one somebody presses
+ * twice and then gives up on.
  */
 export interface BlockCardLabels extends LeafEditorLabels {
   /** Field label for a section's name. */
@@ -122,6 +111,14 @@ export interface BlockCardLabels extends LeafEditorLabels {
   sectionWeightsHint: string;
   /** Removes this whole section. */
   removeSection: string;
+  /**
+   * Why the remove control is withdrawn.
+   *
+   * Shown as the button's title when this block holds the last copy of a kind
+   * the page must carry. A disabled control with no explanation is a control
+   * somebody presses twice and then gives up on.
+   */
+  removeLocked: string;
   /** Collapses the section's places. */
   collapse: string;
   /** Expands them again. */
@@ -161,7 +158,16 @@ export interface BlockCardLabels extends LeafEditorLabels {
  * `dragHandle` is the newest, and it is required rather than optional now:
  * every container has a grip, a nested one included, because `@dnd-kit`
  * expresses a drag between a parent and a child where the library it replaced
- * could not.
+ * could not. *
+ * **It takes a `PageContext` and reads nothing from it**, threading it whole
+ * to the renderer so a preview is drawn exactly as a stranger's page is. See
+ * `PageContext` in `presentation/blocks.tsx` for why page-level values travel
+ * by hand rather than through a React context.
+ *
+ * **Two of these are facts about the WHOLE page, threaded down rather than
+ * recomputed per card**: `atBlockLimit` and `locked`. One walk in
+ * `BlockEditor` answers both, which is what makes every control in the editor
+ * change state at the same moment rather than card by card.
  */
 export interface BlockCardProps {
   /** The container being edited, as the form is holding it. */
@@ -175,7 +181,7 @@ export interface BlockCardProps {
   /** Already-translated strings. */
   labels: BlockCardLabels;
   /** This deployment's own hostname, threaded to the preview for Twitch. */
-  parentHost: string;
+  page: PageContext;
   /**
    * Whether the page is already holding as many blocks as it may.
    *
@@ -185,6 +191,14 @@ export interface BlockCardProps {
    * both enforce.
    */
   atBlockLimit: boolean;
+  /**
+   * The required kinds this page holds exactly one of.
+   *
+   * Removing the last copy would leave a page that cannot be saved, so the
+   * control is withdrawn rather than letting somebody find out at the save.
+   * Computed once over the whole tree — see `lockedKinds`.
+   */
+  locked: ReadonlySet<string>;
   /**
    * What the save schema refused, and where.
    *
@@ -299,6 +313,52 @@ function sameWeights(
 ): boolean {
   if (!a || !b) return a === b;
   return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+/** What {@link RemoveSectionButton} needs. */
+interface RemoveSectionButtonProps {
+  /** Whether removing this block would leave the page incomplete. */
+  locked: boolean;
+  /** Which test id to expose; a section and a nested container differ. */
+  testId: string;
+  /** Already-translated strings. */
+  labels: BlockCardLabels;
+  /** What to do when it is pressed. */
+  onRemove: () => void;
+}
+
+/**
+ * The bin that removes a section, or clears a nested container's place.
+ *
+ * **Withdrawn when this subtree holds the last copy of a required kind.** A
+ * container takes everything beneath it when it goes, so the case that matters
+ * is not a portrait somebody is looking at — it is the SECTION their portrait
+ * happens to sit in, which says nothing about identity on its face.
+ *
+ * Disabled rather than refused on click: a control that accepts a press and
+ * does nothing is the failure this repository keeps catching. The title is
+ * what says why, so the withdrawal is explained rather than merely enforced.
+ *
+ * Its own component because {@link BlockCard} is at the cognitive-complexity
+ * ceiling, and a button with a reason to be disabled is a self-contained thing.
+ *
+ * @param props - see {@link RemoveSectionButtonProps}.
+ * @returns the button.
+ */
+function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
+  return (
+    <button
+      type="button"
+      aria-label={props.labels.removeSection}
+      {...tid(props.testId)}
+      disabled={props.locked}
+      title={props.locked ? props.labels.removeLocked : undefined}
+      onClick={props.onRemove}
+      className="rounded-lg p-1.5 text-(--muted) disabled:opacity-40"
+    >
+      <Trash2 className="size-4" />
+    </button>
+  );
 }
 
 /**
@@ -430,6 +490,19 @@ function sameWeights(
  * painted on white. `dropdown-legibility.test.ts` guards every select in the
  * app.
  *
+ * `page` is threaded to the renderer untouched — this component reads no field
+ * of it. See {@link BlockCardProps}.
+ *
+ *
+ * **The remove control withdraws when a block holds the last copy of a kind
+ * the page must carry.** `lockedKinds` is computed once over the whole tree
+ * and threaded down, so every bin in the editor locks at the same moment —
+ * the same reasoning `atBlockLimit` already follows.
+ *
+ *
+ * **The style popup is told whether this block is a SECTION.** Only a section
+ * may reach the window's edges, so only a section is offered that control.
+ *
  * @returns the container's card.
  */
 export function BlockCard({
@@ -438,8 +511,9 @@ export function BlockCard({
   apply,
   lang,
   labels,
-  parentHost,
+  page,
   atBlockLimit,
+  locked,
   problems,
   dragHandle,
 }: BlockCardProps) {
@@ -528,6 +602,9 @@ export function BlockCard({
   // withdrawn at a number that is not its own is the same fault as one that
   // silently does nothing, wearing an alibi.
   const canAddPlace = block.children.length < BLOCK_LIMITS.children;
+
+  // Asked once and read twice — the disabled state and the reason it gives.
+  const cannotRemove = removalLocked(block, locked);
 
   return (
     // **The root's own padding is not responsive, and cannot be.** An element
@@ -745,21 +822,21 @@ export function BlockCard({
             apply((blocks) => patchContainer(blocks, path, { style }))
           }
           labels={labels.style}
+          // Only a SECTION may reach the window's edges — a nested block has
+          // one between it and the page.
+          atTop={depth === 0}
         />
 
-        <button
-          type="button"
-          aria-label={labels.removeSection}
-          {...tid(ids.remove)}
-          onClick={() =>
+        <RemoveSectionButton
+          locked={cannotRemove}
+          testId={ids.remove}
+          labels={labels}
+          onRemove={() =>
             apply((blocks) =>
               depth === 0 ? removeAt(blocks, path) : clearAt(blocks, path),
             )
           }
-          className="rounded-lg p-1.5 text-(--muted)"
-        >
-          <Trash2 className="size-4" />
-        </button>
+        />
       </div>
 
       {/* A refusal on a field this card does not draw — an arrangement or a
@@ -855,8 +932,9 @@ export function BlockCard({
                 apply={apply}
                 lang={lang}
                 labels={labels}
-                parentHost={parentHost}
+                page={page}
                 atBlockLimit={atBlockLimit}
+                locked={locked}
                 problems={problems}
               />
             ))}
@@ -885,7 +963,7 @@ export function BlockCard({
             block={block}
             previewPath={`preview-${path[0]}`}
             lang={lang}
-            parentHost={parentHost}
+            page={page}
           />
         </div>
       ) : null}
@@ -906,9 +984,11 @@ interface PlaceProps {
   /** Already-translated strings. */
   labels: BlockCardLabels;
   /** Threaded to the preview. */
-  parentHost: string;
+  page: PageContext;
   /** Whether the page is already holding as many blocks as it may. */
   atBlockLimit: boolean;
+  /** The required kinds whose last copy must survive — see `lockedKinds`. */
+  locked: ReadonlySet<string>;
   /** What the save schema refused, and where. */
   problems: readonly BlockProblem[];
 }
@@ -924,8 +1004,9 @@ function Place({
   apply,
   lang,
   labels,
-  parentHost,
+  page,
   atBlockLimit,
+  locked,
   problems,
 }: PlaceProps): ReactNode {
   return (
@@ -937,8 +1018,9 @@ function Place({
           apply={apply}
           lang={lang}
           labels={labels}
-          parentHost={parentHost}
+          page={page}
           atBlockLimit={atBlockLimit}
+          locked={locked}
           problems={problems}
           dragHandle={handle}
         />
@@ -962,8 +1044,9 @@ function PlaceContent({
   apply,
   lang,
   labels,
-  parentHost,
+  page,
   atBlockLimit,
+  locked,
   problems,
   dragHandle,
 }: PlaceProps & { dragHandle: ReactNode }): ReactNode {
@@ -975,8 +1058,9 @@ function PlaceContent({
         apply={apply}
         lang={lang}
         labels={labels}
-        parentHost={parentHost}
+        page={page}
         atBlockLimit={atBlockLimit}
+        locked={locked}
         problems={problems}
         dragHandle={dragHandle}
       />
@@ -1090,12 +1174,12 @@ function Preview({
   block,
   previewPath,
   lang,
-  parentHost,
+  page,
 }: {
   block: ContainerBlock;
   previewPath: string;
   lang: AuthoringLanguage;
-  parentHost: string;
+  page: PageContext;
 }): ReactNode {
   const parsed = lenientBlockSchema.safeParse(block);
   if (!parsed.success) return null;
@@ -1105,7 +1189,7 @@ function Preview({
       locale={lang}
       depth={0}
       path={previewPath}
-      parentHost={parentHost}
+      page={page}
     />
   );
 }

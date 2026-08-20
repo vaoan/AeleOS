@@ -51,6 +51,9 @@ import { readActorPage } from "@/features/actors/infrastructure/actor-page";
  * @param theme - what to store.
  * @throws when the caller does not own an active actor by that reference, or
  * when a colour is not `#rrggbb`.
+ *
+ * The measure is omitted when null, like every other "the design's own" field:
+ * a stored null and an absent key mean the same thing to `parseTheme`.
  */
 export async function setActorTheme(
   client: SupabaseClient,
@@ -70,6 +73,10 @@ export async function setActorTheme(
   if (theme.canvasColours) stored.canvasColours = theme.canvasColours;
   if (theme.cursor) stored.cursor = theme.cursor;
   if (theme.backgroundUrl) stored.backgroundUrl = theme.backgroundUrl;
+  // Omitted when null, like every other "the design's own" field here — a
+  // stored null and an absent key mean the same thing to `parseTheme`, and
+  // writing one would be storing a choice nobody made.
+  if (theme.measure) stored.measure = theme.measure;
 
   const { error } = await client.rpc("set_actor_theme", {
     p_actor_ref: actorRef,
@@ -98,6 +105,10 @@ export async function setActorTheme(
  *
  * Each await is named before it is used. `(await x).y` reads as one operation and is two, and this one is two awaits deep.
  *
+ * It reads the THEME only, but goes through `readActorPage`, which now takes
+ * an actor kind because that read applies the identity-block shim. The kind is
+ * `person` here and the blocks are discarded.
+ *
  * @param client - a Supabase client authenticated as the person.
  * @returns their profile's theme, or the default when there is none.
  * @throws when either read fails, which is not the same as "not themed yet".
@@ -108,6 +119,8 @@ export async function readMyProfileTheme(
   const mine = await listMyActors(client);
   const person = mine.find((actor) => actor.kind === "person");
   if (!person) return DEFAULT_THEME;
-  const page = await readActorPage(client, person.actorRef);
+  // It reads the THEME only; the kind still decides which identity blocks
+  // the page comes back with, and "person" is what this row is.
+  const page = await readActorPage(client, person.actorRef, "person");
   return page.theme;
 }

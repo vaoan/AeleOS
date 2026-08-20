@@ -8,40 +8,24 @@ import {
   type Theme,
 } from "@/shared/application/theme";
 import {
-  PAGE_THEME_ATTRIBUTE,
   PAGE_THEME_CHANGE_EVENT,
+  setPageTheme,
 } from "@/shared/application/page-theme";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * What the control needs from its caller.
  *
- * Three labels, not two, because the control has three things to say: switch to
- * dark, switch to light, and "these colours are somebody's own". The third is
- * not a direction, which is why it needed a name of its own rather than one of
- * the other two doing double duty.
+ * **Two labels, and it used to be three.** The third said "these colours are
+ * somebody's own" and went with the question mark: a themed page now has a
+ * palette toggle of its own beside this one, so this control is only ever
+ * naming a direction again.
  */
 export interface ThemeToggleProps {
   /** Accessible name when the control will switch to dark. */
   toDarkLabel: string;
   /** Accessible name when the control will switch to light. */
   toLightLabel: string;
-  /**
-   * Accessible name while the page is wearing its author's theme.
-   *
-   * Neither light nor dark is in force then, so the sun and the moon would both
-   * be describing a state the page is not in.
-   */
-  authorLabel: string;
-  /**
-   * Whether the page is wearing somebody's own theme.
-   *
-   * Handed down rather than sniffed: a theme arrives as a `<style>` the page
-   * emits, and the attribute this used to read is set on EVERY page — so
-   * reading it alone put a question mark on the signed-in pages, where light
-   * and dark are exactly what is in force.
-   */
-  themed?: boolean;
 }
 
 /**
@@ -54,10 +38,12 @@ function subscribe(onChange: () => void): () => void {
   const observer = new MutationObserver(onChange);
   observer.observe(document.documentElement, {
     attributes: true,
-    // Both attributes: the reader's light/dark choice, and whether the page is
-    // wearing its author's theme at all. The icon depends on the second as much
-    // as on the first.
-    attributeFilter: ["data-theme", PAGE_THEME_ATTRIBUTE],
+    // **Only `data-theme` now.** The icon named the author's theme while the
+    // question mark existed; it names a direction again, and a direction
+    // depends on nothing else. The `PAGE_THEME_CHANGE_EVENT` listener below
+    // stays, because taking an author's theme off changes which default is in
+    // force and the sun or moon must follow.
+    attributeFilter: ["data-theme"],
   });
   globalThis.addEventListener(THEME_CHANGE_EVENT, onChange);
   globalThis.addEventListener(PAGE_THEME_CHANGE_EVENT, onChange);
@@ -77,26 +63,6 @@ function subscribe(onChange: () => void): () => void {
  */
 function getSnapshot(): Theme {
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-}
-
-/**
- * Whether the page is wearing its author's theme rather than a default.
- *
- * **This is what the sun and the moon cannot say.** On a themed page neither
- * light nor dark is in force — the colours are the author's — so an icon
- * promising to "switch to dark" is describing a state the page is not in and a
- * destination it will not reach until the visitor leaves the theme first.
- *
- * Read from the attribute rather than from a store, because the pre-paint
- * script sets it before any bundle loads and matching on its ABSENCE is how a
- * visitor with no JavaScript still gets the author's theme.
- *
- * @returns true while the author's theme is in force.
- */
-function wearingAuthorTheme(): boolean {
-  return (
-    document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE) !== "default"
-  );
 }
 
 /**
@@ -157,32 +123,6 @@ function MoonIcon() {
 }
 
 /**
- * A question mark, shown while the page is wearing its author's theme.
- *
- * @returns the icon.
- */
-function UnknownIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.2 9a3 3 0 0 1 5.8 1c0 2-3 2.4-3 4.2" />
-      <path d="M12 18h.01" />
-    </svg>
-  );
-}
-
-/**
  * What the button says and shows when it is offering one of the two defaults.
  *
  * The pair is returned together because they are one decision: a moon that
@@ -221,43 +161,34 @@ function nextTheme(
  *
  * Its icon and its accessible name are decided together in `nextTheme`, so a moon labelled "switch to light" is a state this shape cannot express.
  *
+ *
+ * **It clears an author's theme as well as setting the default**, which is
+ * what the page theme switch's own light and dark options used to do. Without
+ * it, pressing this on a themed page would change nothing a visitor can see.
+ *
  * @returns the theme control.
  */
-export function ThemeToggle({
-  toDarkLabel,
-  toLightLabel,
-  authorLabel,
-  themed = false,
-}: ThemeToggleProps) {
+export function ThemeToggle({ toDarkLabel, toLightLabel }: ThemeToggleProps) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const next = otherTheme(theme);
-  // **A question mark while the page is the author's**, because neither the
-  // sun nor the moon is true then: the colours belong to whoever built the
-  // page, and pressing takes the reader to a default they cannot currently
-  // see. Subscribed above, so it changes the instant the visitor switches.
-  const stillTheirs = useSyncExternalStore(
-    subscribe,
-    wearingAuthorTheme,
-    // Rendered on the server as the author's, matching the pre-paint script,
-    // which sets the attribute to "author" for every page.
-    () => true,
-  );
-  // **Both halves.** The page has to HAVE a theme, and the visitor has to not
-  // have taken it off. Either alone is wrong: the attribute is set on every
-  // page, so it alone put a question mark on the signed-in ones.
-  const authored = themed && stillTheirs;
-
-  // The label and the glyph are one decision made twice, and they were two
-  // nested ternaries that had to agree. Deciding once means they cannot drift
-  // into a moon that says "switch to light".
-  const { Icon, label } = authored
-    ? { Icon: UnknownIcon, label: authorLabel }
-    : nextTheme(next, toDarkLabel, toLightLabel);
+  const { Icon, label } = nextTheme(next, toDarkLabel, toLightLabel);
 
   return (
     <button
       type="button"
-      onClick={() => setTheme(next)}
+      // **It takes an author's theme off as well as setting the default.**
+      // Otherwise, pressing this on a themed page would change nothing a
+      // visitor can see — the accepts-a-press-and-does-nothing failure this
+      // repository keeps catching. The behaviour is not new: it is what the
+      // page theme switch's own light and dark options did before those two
+      // questions were split across two controls.
+      //
+      // `setPageTheme` is a no-op on a page with no theme of its own, so this
+      // costs the signed-in pages nothing.
+      onClick={() => {
+        setPageTheme("default");
+        setTheme(next);
+      }}
       aria-label={label}
       {...tid("theme-toggle")}
       className="grid size-[30px] place-items-center rounded-full text-(--ink-2) transition-colors hover:bg-(--edge)/20 hover:text-(--ink) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"

@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  PAGE_MEASURES,
+  type PageMeasure,
+} from "@/features/actors/domain/actor-theme";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { CANVASES, DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import {
@@ -69,6 +73,11 @@ const LABELS: ThemeConfiguratorLabels = {
     CANVASES.map((canvas) => [canvas, `canvas:${canvas}`]),
   ) as ThemeConfiguratorLabels["canvases"],
   skin: "Style",
+  measure: "measure",
+  measures: Object.fromEntries(PAGE_MEASURES.map((m) => [m, m])) as Record<
+    PageMeasure,
+    string
+  >,
   skins: Object.fromEntries(
     SKINS.map((skin) => [skin, `skin:${skin}`]),
   ) as ThemeConfiguratorLabels["skins"],

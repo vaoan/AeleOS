@@ -5,7 +5,14 @@ import {
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
-import { container, leaf, seedPage, type SeedBlock } from "./support/blocks";
+import {
+  container,
+  leaf,
+  seedPage,
+  SEEDED_IDENTITY_LEAVES,
+  SEEDED_IDENTITY_SECTIONS,
+  type SeedBlock,
+} from "./support/blocks";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 import { placesOf, tracksOf } from "./support/grid";
 import { PLAYER_ORIGINS } from "../../src/shared/domain/player-origins";
@@ -428,7 +435,7 @@ test.describe("a page of blocks on the narrowest phone", () => {
     await page.setViewportSize(PHONE);
     expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
     await expect(page.getByTestId("public-section")).toHaveCount(
-      EVERY_SHAPE.length,
+      EVERY_SHAPE.length + SEEDED_IDENTITY_SECTIONS,
     );
 
     // Two accordion sections on this page render their heading and nothing
@@ -675,7 +682,7 @@ test.describe("what a leaf puts inside a track", () => {
     // The other two carry a `max-w-*` and are genuinely allowed to be
     // narrower, so they get the upper bound only.
     const leaves = page.getByTestId("public-leaf");
-    await expect(leaves).toHaveCount(4);
+    await expect(leaves).toHaveCount(4 + SEEDED_IDENTITY_LEAVES);
 
     /**
      * A leaf's own track, and whatever the kind painted inside it.
@@ -1203,7 +1210,9 @@ test.describe("a narrow space inside a wide window", () => {
     expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
 
     const sections = page.getByTestId("public-section");
-    await expect(sections).toHaveCount(CROWDED.length);
+    await expect(sections).toHaveCount(
+      CROWDED.length + SEEDED_IDENTITY_SECTIONS,
+    );
 
     // THE ANTI-VACUITY CONTROL, and this file's own lesson applied to itself:
     // the window really is wide and the space really is not. Without it every

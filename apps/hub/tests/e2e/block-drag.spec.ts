@@ -7,7 +7,12 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { container, leaf, seedPage } from "./support/blocks";
+import {
+  container,
+  identityArrangement,
+  leaf,
+  seedPage,
+} from "./support/blocks";
 import { liftByKeyboard } from "./support/drag";
 import { saveAndLeave } from "./support/editor";
 
@@ -79,8 +84,15 @@ test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
  * anybody owns — it exists so that every place has a rectangle the pointer can
  * reach without moving the document under the rectangles dnd-kit measured when
  * the drag began.
+ *
+ * **It went from 2600 to 3600 when pages gained their required identity
+ * blocks**, because `seedPage` appends a section to every fixture and the
+ * page grew past the old height. The failure that reported it did not mention
+ * scrolling at all: the SECOND lift of a two-drag test announced nothing, which
+ * reads exactly like a dead grip. A grip below the fold is one the pointer
+ * never presses. Whoever adds to a fixture here checks this number again.
  */
-const TALL = { width: 1400, height: 2600 };
+const TALL = { width: 1400, height: 3600 };
 
 /** How far a pointer travels before `PointerSensor` calls a press a drag. */
 const LIFT_DISTANCE = 20;
@@ -151,7 +163,15 @@ const fixture = () => [
   }),
 ];
 
-/** What the main fixture reads as before anything is dragged. */
+/**
+ * What the main fixture reads as before anything is dragged.
+ *
+ * The trailing identity section is `seedPage`'s, not this file's: a page
+ * naming no `avatar`, `handle` or `owner` is one the database refuses. It is
+ * spelled out because these assertions are deliberately whole-page — a drag
+ * that disturbed something it should not have is only visible against the
+ * whole — and it sits LAST, so every path this file drags by is unchanged.
+ */
 const AS_SEEDED = [
   "0=section-card:Uno",
   "0.0=leaf-editor:Alfa",
@@ -165,6 +185,7 @@ const AS_SEEDED = [
   "1.0.0=leaf-editor:Gamma",
   "1.0.1=empty-place:",
   "1.1=empty-place:",
+  ...identityArrangement(2),
 ];
 
 /**
@@ -197,6 +218,7 @@ const TRIO_SEEDED = [
   "1.0=leaf-editor:b",
   "2=section-card:C",
   "2.0=leaf-editor:c",
+  ...identityArrangement(3),
 ];
 
 let identity: TestIdentity | undefined;
@@ -521,6 +543,7 @@ for (const gesture of GESTURES) {
         ...AS_SEEDED.slice(2, 10),
         "1.0.1=leaf-editor:Alfa",
         "1.1=empty-place:",
+        ...identityArrangement(2),
       ]);
 
     await gesture.drag(page, "1.0.1", "0.0");
@@ -548,6 +571,9 @@ for (const gesture of GESTURES) {
         "1.0=leaf-editor:c",
         "2=section-card:A",
         "2.0=leaf-editor:a",
+        // Untouched: the shift moves A past B and C, and the identity section
+        // it stops short of stays exactly where `seedPage` put it.
+        ...identityArrangement(3),
       ]);
   });
 
@@ -640,12 +666,30 @@ test("a keyboard drag is never offered a place inside the section it is carrying
   await liftByKeyboard(page, page.getByTestId("drag-1"));
   await expect(live).not.toBeEmpty();
 
-  // Forward from the last section: there is nothing after it, and there must be
-  // nothing INSIDE it either.
+  // Forward one, onto the identity section every page carries — which is what
+  // lies after `Dos` now, where once there was nothing at all. **Waited for
+  // rather than fired and forgotten**: without it the loop below took its first
+  // reading before this step had landed and recorded the arrival here as though
+  // it were the first step BACK, which reads as the walk offering a place it
+  // never offered.
   await page.keyboard.press("ArrowDown");
+  await expect
+    .poll(said, { message: "stepping forward off Dos" })
+    .toMatch(announcing("2"));
 
+  // And from there, back up through every place OUTSIDE the carried section —
+  // never through `Dos`'s own, which is the omission this test exists for.
   const walked: string[] = [];
-  for (const place of ["0.3.1", "0.3.0", "0.3", "0.2", "0.1", "0.0", "0"]) {
+  for (const place of [
+    "1",
+    "0.3.1",
+    "0.3.0",
+    "0.3",
+    "0.2",
+    "0.1",
+    "0.0",
+    "0",
+  ]) {
     const was = await said();
     await page.keyboard.press("ArrowUp");
     await expect
@@ -653,7 +697,21 @@ test("a keyboard drag is never offered a place inside the section it is carrying
       .not.toBe(was);
     walked.push((await said()).replace(/^[^\d]+/, "").replace(/\.$/, ""));
   }
-  expect(walked).toEqual(["1.4.2", "1.4.1", "1.4", "1.3", "1.2", "1.1", "1"]);
+  // **`Dos`'s own place is the first step back and belongs here.** A source
+  // place is a legal target — dropping a block where it already is changes
+  // nothing — so the walk offers it. What must never appear is anything BENEATH
+  // it: `2.1` and `2.2` are `Dentro` and the empty place beside it, and neither
+  // is in this list.
+  expect(walked).toEqual([
+    "2",
+    "1.4.2",
+    "1.4.1",
+    "1.4",
+    "1.3",
+    "1.2",
+    "1.1",
+    "1",
+  ]);
 
   await page.keyboard.press("Escape");
 });
@@ -819,6 +877,7 @@ test("a keyboard walk steps over the places a collapsed card is not showing", as
       "1=section-card:Dos",
       "1.0=leaf-editor:Alfa",
       "1.1=empty-place:",
+      ...identityArrangement(2),
     ]);
 });
 
@@ -867,6 +926,10 @@ test("an arrangement made by dragging survives a save and a reload", async ({
     "1.0.0=leaf-editor:Gamma",
     "1.0.1=leaf-editor:Alfa",
     "1.1=leaf-editor:Beta",
+    // Untouched by either drag, and asserted rather than excluded: a save that
+    // dropped the identity section would still be a page, and this is the one
+    // case here that reads it back out of the database.
+    ...identityArrangement(2),
   ];
   await expect.poll(() => arrangement(page)).toEqual(dragged);
 

@@ -73,6 +73,11 @@ import {
 // account; the short version is that two of the three options painted the
 // same picture and the third read the SKIN's texture tile.
 
+// **A test's own card is the LAST one.** Every page opens carrying the identity
+// section the database requires, and `add-section` appends — so `.first()` here
+// would reach for the identity section's controls instead, and a page-wide
+// `section-style-open` matches two buttons rather than one.
+
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
 /** Tall enough that a popup panel is never merely scrolled out of sight. */
@@ -153,7 +158,11 @@ const READABLE: {
   {
     what: "the drag grip's icon",
     area: "section-header",
-    ink: "drag-0",
+    // **`drag-1`, because a grip's test id is its PATH.** The card this test
+    // styles is the second section: every page opens carrying the identity
+    // section the database requires, and `add-section` appends. `drag-0` is
+    // that identity section's grip, which nothing here styled.
+    ink: "drag-1",
     at: (box) => ({ x: Math.round(box.x) + 20, y: Math.round(box.y) + 4 }),
     min: 3,
   },
@@ -248,12 +257,12 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   // card is roughly one control row tall, so a panel anchored under that row
   // sits almost entirely outside the card's border box — everything a clip on
   // the card would take.
-  await page.getByTestId("collapse-section").first().click();
+  await page.getByTestId("collapse-section").last().click();
 
   const panel = page.getByTestId("section-style-panel");
-  const card = page.getByTestId("section-card").first();
+  const card = page.getByTestId("section-card").last();
 
-  await page.getByTestId("section-style-open").click();
+  await page.getByTestId("section-style-open").last().click();
   await expect(panel).toBeVisible();
   await page.getByTestId("section-style-skin").selectOption("cutout");
 
@@ -263,6 +272,11 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
     .poll(() => card.evaluate((el) => el.style.getPropertyValue("--skin-clip")))
     .toContain("polygon(");
 
+  // The identity section sits above this card now, so the panel can open below
+  // the fold — where `elementFromPoint` answers null for coordinates that are
+  // not in the viewport at all, and the hit test would report a clipped panel
+  // that is merely off screen.
+  await panel.scrollIntoViewIfNeeded();
   const box = (await panel.boundingBox())!;
   const centre = {
     x: Math.round(box.x + box.width / 2),
@@ -299,10 +313,33 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
       y: Math.round(box.y + box.height) - 4,
     },
   ];
+  // **Both photographs anchored to the CARD, not to a scroll offset.**
+  // `sampleColours` screenshots the viewport, and the panel is in flow — so
+  // closing it makes the page shorter, the maximum scroll smaller, and a
+  // restored `scrollY` silently clamps to somewhere else. Measured: the open
+  // reading sat at 1052 and the closed one clamped to 1028, 24px apart, which
+  // is two readings of two different places wearing the same coordinates.
+  // The card exists in both states, so each probe is kept as an offset from
+  // its top-left corner and rebuilt after the close.
+  const anchor = (await card.boundingBox())!;
+  const offsets = probes.map((probe) => ({
+    name: probe.name,
+    dx: probe.x - anchor.x,
+    dy: probe.y - anchor.y,
+  }));
   const open = await sampleColours(page, probes);
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
-  const closed = await sampleColours(page, probes);
+  await card.scrollIntoViewIfNeeded();
+  const settled = (await card.boundingBox())!;
+  const closed = await sampleColours(
+    page,
+    offsets.map((offset) => ({
+      name: offset.name,
+      x: Math.round(settled.x + offset.dx),
+      y: Math.round(settled.y + offset.dy),
+    })),
+  );
   for (const probe of probes) {
     expect(
       apart(open[probe.name]!, closed[probe.name]!),
@@ -317,7 +354,7 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   // applies. Measured against the same points with the focus moved on, rather
   // than against a neighbour, so nothing depends on what the input is painted
   // over.
-  await page.getByTestId("section-style-open").click();
+  await page.getByTestId("section-style-open").last().click();
   await expect(panel).toBeVisible();
   const input = page.getByTestId("section-style-background-url");
   await page.keyboard.press("Tab");
@@ -361,10 +398,10 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.getByTestId("editor-display-name").fill("Face check");
   await page.getByTestId("new-section-spaces").selectOption("2");
   await page.getByTestId("add-section").click();
-  await page.getByTestId("collapse-section").first().click();
+  await page.getByTestId("collapse-section").last().click();
 
-  const card = page.getByTestId("section-card").first();
-  const face = page.getByTestId("section-card-face").first();
+  const card = page.getByTestId("section-card").last();
+  const face = page.getByTestId("section-card-face").last();
 
   // **The skin's form, on the layer that paints it.** Delete `surface` from
   // that layer and the border is Preflight's `0`, which no other test in the
@@ -372,7 +409,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   // right colour, and the preview somebody is looking at while they choose
   // would simply stop answering. Pinned against `cutout`'s own `--skin-border`
   // in `skins.ts`, the same discipline the public renderer's tests use.
-  await page.getByTestId("section-style-open").click();
+  await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-skin").selectOption("cutout");
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).borderTopWidth))
@@ -402,7 +439,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   // design's own radius first: `cutout` squares the card off, and the corner
   // bleed this guards against is only visible where the face is rounded and
   // the root is not.
-  await page.getByTestId("section-style-open").click();
+  await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-skin").selectOption("");
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
@@ -461,17 +498,17 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
   await page.getByTestId("new-section-spaces").selectOption("1");
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").first().click();
-  await page.getByTestId("section-name").first().fill("Section");
+  await page.getByTestId("section-name").last().fill("Section");
   await page.getByTestId("leaf-title").first().fill("Item");
   await page.getByTestId("leaf-description").first().fill("A description");
 
-  await page.getByTestId("section-style-open").click();
+  await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill(HOSTILE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("section-style-panel")).toBeHidden();
 
-  const card = page.getByTestId("section-card").first();
+  const card = page.getByTestId("section-card").last();
   // Focus is parked on the paintbrush the popup returned it to. Moved onto the
   // page's own heading so no field under a probe is wearing its focus ring,
   // and no caret is blinking in one while the screenshot is taken.
@@ -490,14 +527,22 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
    * @returns nothing; asserts.
    */
   const measure = async (scheme: string): Promise<void> => {
+    // `sampleColours` photographs the VIEWPORT, so every probe below is only
+    // the card's own pixels while the card is on screen — and the identity
+    // section above it can push it off. Scrolled first, then measured.
+    await card.scrollIntoViewIfNeeded();
     const boxes = await Promise.all(
       READABLE.map(async (spot) =>
-        spot.at((await page.getByTestId(spot.area).first().boundingBox())!),
+        // **Scoped to the styled card.** A page-wide `.first()` reached the
+        // identity section's header instead — a card this test never styled,
+        // and one the scroll above can push off screen, which is a probe
+        // reading whatever happens to be at those coordinates.
+        spot.at((await card.getByTestId(spot.area).first().boundingBox())!),
       ),
     );
     const inks = await Promise.all(
       READABLE.map(async (spot) =>
-        textColour(page.getByTestId(spot.ink).first()),
+        textColour(card.getByTestId(spot.ink).first()),
       ),
     );
     const cardBox = (await card.boundingBox())!;
@@ -569,12 +614,12 @@ test("the three background fits are three different paints", async ({
   await page.goto("/es/pages/new");
   await page.getByTestId("new-section-spaces").selectOption("2");
   await page.getByTestId("add-section").click();
-  await page.getByTestId("collapse-section").first().click();
+  await page.getByTestId("collapse-section").last().click();
 
-  const card = page.getByTestId("section-card").first();
-  const face = page.getByTestId("section-card-face").first();
+  const card = page.getByTestId("section-card").last();
+  const face = page.getByTestId("section-card-face").last();
 
-  await page.getByTestId("section-style-open").click();
+  await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).backgroundImage))
@@ -605,7 +650,7 @@ test("the three background fits are three different paints", async ({
       { name: "origin", x: Math.round(box.x) + 5, y: Math.round(box.y) + 5 },
       { name: "away", x: Math.round(box.x) + 40, y: Math.round(box.y) + 6 },
     ]);
-    await page.getByTestId("section-style-open").click();
+    await page.getByTestId("section-style-open").last().click();
     return { origin: sampled.origin!, away: sampled.away! };
   };
 

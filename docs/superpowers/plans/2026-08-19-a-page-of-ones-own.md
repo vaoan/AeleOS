@@ -1,5 +1,69 @@
 # A Page of One's Own — Implementation Plan
 
+> **Status: EXECUTED, 2026-08-19. Read this banner before the plan.** Six of
+> its instructions were wrong, and the body below is left as written so the
+> corrections are visible rather than quietly absorbed.
+>
+> 1. **Task 3 said the identity kinds draw no fields.** They cannot: `title_en`
+>    is required and non-empty at the strict write and in `validate_block`. Each
+>    uses that title for something real instead.
+> 2. **Tasks 3 and 4 cannot be separated.** `satisfies Record<LeafKind,
+LeafRenderer>` refuses to compile a kind with no renderer, which is the
+>    guard that stops one being forgotten. They merged.
+> 3. **Task 1 understated its own reach.** `parentHost` also threads through the
+>    EDITOR — `block-card`, `block-editor`, `fursona-editor` and three signed-in
+>    routes — because the editor previews with the real renderer.
+> 4. **Task 6's shim must not run on a `null` page.** `readActorPage` answers
+>    null for a shape it could not read, and the editor must not replace what it
+>    could not read.
+> 5. **Task 6 missed the template path.** Applying a template REPLACES the page
+>    and templates name no identity block, so the shim runs there too.
+> 6. **Task 9's `MEASURE_CLASS` cannot be interpolated and cannot hold the
+>    default inline.** `better-tailwindcss` reads string literals in a
+>    `className` expression as class names.
+>
+> Two things the plan got right and are worth reusing: asserting the measure
+> stops as verbatim class strings (a viewport test cannot tell `wider` from
+> `widest`), and asserting that the save boundary does NOT call the RPC (an
+> error alone is indistinguishable from the database's own refusal).
+>
+> Everything the plan asked to be sabotage-verified was, and one sabotage found
+> a real bug rather than confirming a guard: branch coverage on
+> `withRequiredBlocks` showed a page missing only its handle was being handed
+> the whole composed section, a second portrait included.
+>
+> **THREE FAULTS SURVIVED ALL OF THAT AND WERE FOUND AFTERWARDS, on
+> 2026-08-20, the first time the browser suite was run with `.secrets`
+> sourced.** Without a Clerk key `global-setup.ts` stands down every suite that
+> needs an identity, so `pnpm test:e2e` had been reporting `48 passed` out of
+> 136 cases and reading as green — see rule 31 in the root `CLAUDE.md`. All
+> three were in what this plan delivered:
+>
+> 7. **Task 9 moved the measure onto each section and never moved the SHELL.**
+>    Both public routes still asked for `width="wide"`, so every page was laid
+>    inside a centred, padded `max-w-7xl` column — a second gutter, `widest`
+>    and `full` capped at 80rem, and a bled section reaching neither edge.
+>    `COLUMN.full` was written, documented three times over and never called.
+>    Guard: `tests/e2e/page-measure-and-bleed.spec.ts`.
+> 8. **The measure was never added to `set_actor_theme`'s key allowlist**,
+>    which ends in `unknown theme key` — so choosing a width made the entire
+>    theme save throw. Guard: `tests/db/actor-theme.test.ts`.
+> 9. **`fursonas.fursonas` was in neither catalogue.** Guard:
+>    `apps/hub/tests/message-keys-exist.test.ts`.
+> 10. **A fursona built by hand could not be saved at all.** Task 6 seeded the
+>     required blocks on every READ path and the create page reads nothing —
+>     `FursonaEditor` defaulted its sections to `[]`, which the database
+>     refuses. Only the template path worked. Guard: a case in
+>     `fursona-editor.test.tsx` asserting what the editor SENDS, which is the
+>     only level a unit suite can reach, since the refusal happens in Postgres
+>     and `save` is mocked there.
+>
+> The lesson the three share is one the plan could not have carried, because it
+> is about verification rather than about the work: **each was unreachable from
+> any check that did not compose the real route with a real database in a real
+> browser.** The unit suites were at 100% throughout and were right about every
+> class string they asserted.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Unweld the three pieces of furniture the app still renders on a public page — the identity header, the fursona list and the page measure — so a person arranges their whole page out of blocks, chooses how wide it is, lets a section run to both edges, and finds the theme switch in the bar rather than in their own content.

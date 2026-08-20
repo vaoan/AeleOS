@@ -200,6 +200,44 @@ async function write(
   actorRef: string,
   blocks: unknown,
 ): Promise<string | null> {
+  // **The identity blocks are appended for every case that is not about
+  // them.** A valid fursona page must carry `avatar`, `handle` and `owner`,
+  // and threading those through fifty fixtures would bury what each one is
+  // actually testing. Cases about the required rule itself call
+  // `writeExactly` and bypass this.
+  const withIdentity = Array.isArray(blocks)
+    ? [...blocks, ...IDENTITY_BLOCKS]
+    : blocks;
+  return writeExactly(sub, actorRef, withIdentity);
+}
+
+/** The three leaves a fursona's page must carry, as their own sections. */
+const IDENTITY_BLOCKS = ["avatar", "handle", "owner"].map((kind) => ({
+  kind,
+  title_en: kind,
+  description_en: "",
+}));
+
+/** What a PERSON's page must carry instead: `fursonas` where `owner` was. */
+const PERSON_IDENTITY_BLOCKS = ["avatar", "handle", "fursonas"].map((kind) => ({
+  kind,
+  title_en: kind,
+  description_en: "",
+}));
+
+/**
+ * Writes exactly what it is given, adding nothing.
+ *
+ * @param sub - the caller's identity subject.
+ * @param actorRef - the actor to write to.
+ * @param blocks - the value to write, verbatim.
+ * @returns the error message, or null when it succeeded.
+ */
+async function writeExactly(
+  sub: string,
+  actorRef: string,
+  blocks: unknown,
+): Promise<string | null> {
   const c = await clientAs(sub);
   const { error } = await c.rpc("set_actor_sections", {
     p_actor_ref: actorRef,
@@ -215,6 +253,22 @@ async function write(
  * @returns whatever is stored.
  */
 async function read(actorRef: string): Promise<unknown> {
+  const sections = await readExactly(actorRef);
+  // The mirror of `write`: it appends the identity blocks a valid page must
+  // carry, so the assertions get back what the case actually wrote. Cases
+  // about those blocks use `readExactly`.
+  return Array.isArray(sections)
+    ? sections.slice(0, sections.length - IDENTITY_BLOCKS.length)
+    : sections;
+}
+
+/**
+ * Reads back the page stored for an actor, verbatim.
+ *
+ * @param actorRef - the actor to read.
+ * @returns whatever is stored, identity blocks included.
+ */
+async function readExactly(actorRef: string): Promise<unknown> {
   const { data, error } = await admin()
     .from("actor_profiles")
     .select("sections")
@@ -346,7 +400,15 @@ describe("set_actor_sections", () => {
     // The control: a write that succeeds carries no code at all, so the cases
     // above are reading a refusal rather than a constant.
     it("answers nothing at all for a write that lands", async () => {
-      expect(await codeOf(alice.sub, alice.sonaRef, [container()])).toBeNull();
+      // `codeOf` calls the RPC directly, so the page it sends has to be a
+      // valid one on its own — the identity blocks `write` appends are not
+      // added here.
+      expect(
+        await codeOf(alice.sub, alice.sonaRef, [
+          container(),
+          ...IDENTITY_BLOCKS,
+        ]),
+      ).toBeNull();
     });
   });
 
@@ -423,8 +485,28 @@ describe("set_actor_sections", () => {
 });
 
 describe("the vocabulary it accepts", () => {
-  it.each(DECLARED_LEAF_KINDS)("accepts the %s leaf", async (kind) => {
-    expect(await write(alice.sub, alice.sonaRef, [leaf({ kind })])).toBeNull();
+  // **`fursonas` is excluded here and gets its own case below**, because a
+  // page's required and refused kinds depend on the actor's kind: `fursonas`
+  // has nothing to render on a fursona's page and is refused there, exactly as
+  // `owner` is refused on a person's. Writing every kind to the fursona would
+  // have reported that rule as "the vocabulary rejects fursonas", which is not
+  // what it says.
+  it.each(DECLARED_LEAF_KINDS.filter((k) => k !== "fursonas"))(
+    "accepts the %s leaf",
+    async (kind) => {
+      expect(
+        await write(alice.sub, alice.sonaRef, [leaf({ kind })]),
+      ).toBeNull();
+    },
+  );
+
+  it("accepts the fursonas leaf on a person's page, where it belongs", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.personRef, [
+        leaf({ kind: "fursonas" }),
+        ...PERSON_IDENTITY_BLOCKS,
+      ]),
+    ).toBeNull();
   });
 
   it.each(DECLARED_MODES)("accepts a container in %s mode", async (mode) => {
@@ -1145,13 +1227,24 @@ describe("the limits", () => {
   // one, which is why both fixtures here are trees rather than flat lists —
   // a top-level count would accept them both.
   it("accepts the most blocks allowed, counting every depth", async () => {
-    const page = many(10, () => ({
+    // **The identity blocks come OUT of the budget, never on top of it.** This
+    // case is about the cap being exactly 500, so the page must total exactly
+    // 500 with the three the page is required to carry among them: ten
+    // containers of forty-nine children is 10 + 490, and three of those
+    // children ARE the identity leaves.
+    //
+    // Putting them at depth 1 rather than at the top is deliberate — it means
+    // this case also fails if `block_kinds_present` stops recursing.
+    const page = many(10, (i: number) => ({
       kind: "container",
       mode: "stack",
       spaces: 3,
-      children: many(49, () => tiny()),
+      children:
+        i === 0
+          ? [...many(46, () => tiny()), ...IDENTITY_BLOCKS]
+          : many(49, () => tiny()),
     }));
-    expect(await write(alice.sub, alice.sonaRef, page)).toBeNull();
+    expect(await writeExactly(alice.sub, alice.sonaRef, page)).toBeNull();
   });
 
   it("refuses a tree over the block cap", async () => {
@@ -1234,5 +1327,167 @@ describe("the byte cap", () => {
         many(9, () => fat("á")),
       ),
     ).toMatch(/too large/i);
+  });
+});
+
+// **The rule that a page must name its actor, enforced where it cannot be
+// bypassed.** `sections` is user-controlled `jsonb` and `set_actor_sections`
+// is its only writer, so this is the layer the guarantee actually rests on —
+// the save boundary and the editor refuse the same trees earlier, for a better
+// message, and neither of them is a guarantee.
+describe("the blocks a page must carry", () => {
+  const identity = (kind: string) => leaf({ kind, title_en: kind });
+
+  it("refuses a fursona page with no portrait", async () => {
+    const message = await writeExactly(alice.sub, alice.sonaRef, [
+      identity("handle"),
+      identity("owner"),
+    ]);
+    expect(message).toMatch(/missing required blocks/);
+    expect(message).toContain("avatar");
+  });
+
+  // Every missing kind, not just the first: somebody who removed two blocks
+  // should be told about two.
+  it("names every missing kind", async () => {
+    const message = await writeExactly(alice.sub, alice.sonaRef, [
+      identity("avatar"),
+    ]);
+    expect(message).toContain("handle");
+    expect(message).toContain("owner");
+  });
+
+  it("accepts a page carrying all three", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, IDENTITY_BLOCKS),
+    ).toBeNull();
+  });
+
+  // **Found at any depth.** A rule that only looked at the top level would
+  // refuse this, and a page whose author nested their portrait inside a
+  // section is the ordinary case rather than an exotic one.
+  it("finds a required block nested two levels down", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, [
+        {
+          kind: "container",
+          mode: "stack",
+          spaces: 1,
+          children: [
+            {
+              kind: "container",
+              mode: "stack",
+              spaces: 1,
+              children: IDENTITY_BLOCKS,
+            },
+          ],
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  // **This case asserts the hole is OPEN, and it is not a mistake.**
+  //
+  // `accordion` renders each child as a `<details>` with no `open` attribute,
+  // so a required block inside one satisfies every layer of this rule and
+  // shows a visitor nothing. That was weighed against putting the ownership
+  // fact in the page chrome — outside the skin's scope, derived from the row,
+  // un-styleable — and declined: the ruling is that every part of the page
+  // belongs to its owner.
+  //
+  // Written down as a PASSING test so that nobody reads the enforcement above
+  // and concludes it guarantees visibility. If that ruling is ever reversed,
+  // this test is what has to change, deliberately.
+  it("accepts a required block hidden inside a collapsed accordion", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, [
+        {
+          kind: "container",
+          mode: "accordion",
+          spaces: 1,
+          children: IDENTITY_BLOCKS,
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  // The rule is kind-dependent and both halves are asserted, because a single
+  // case cannot tell "fursonas is required" from "fursonas is required on a
+  // person's page".
+  it("refuses an owner block on a person's page", async () => {
+    const message = await writeExactly(alice.sub, alice.personRef, [
+      ...PERSON_IDENTITY_BLOCKS,
+      identity("owner"),
+    ]);
+    expect(message).toMatch(/cannot carry/);
+    expect(message).toContain("owner");
+  });
+
+  it("refuses a fursonas block on a fursona's page", async () => {
+    const message = await writeExactly(alice.sub, alice.sonaRef, [
+      ...IDENTITY_BLOCKS,
+      identity("fursonas"),
+    ]);
+    expect(message).toMatch(/cannot carry/);
+    expect(message).toContain("fursonas");
+  });
+
+  it("requires fursonas rather than owner on a person's page", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.personRef, PERSON_IDENTITY_BLOCKS),
+    ).toBeNull();
+    const message = await writeExactly(alice.sub, alice.personRef, [
+      identity("avatar"),
+      identity("handle"),
+    ]);
+    expect(message).toContain("fursonas");
+  });
+});
+
+// **`bleed` is a BOOLEAN, and the string is the case that matters.** The
+// validator walks the style bag with `jsonb_each_text`, which renders `true`
+// as the string 'true' — exactly what a form control hands back when somebody
+// forgets to convert it. A check written against that text would accept both
+// and disagree with the client schema while appearing to agree.
+describe("the bleed style key", () => {
+  const styled = (bleed: unknown) => [
+    { ...container(), style: { bleed } },
+    ...IDENTITY_BLOCKS,
+  ];
+
+  it("accepts true and false", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, styled(true)),
+    ).toBeNull();
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, styled(false)),
+    ).toBeNull();
+  });
+
+  it("refuses the STRING true", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, styled("true")),
+    ).toMatch(/bleed must be true or false/);
+  });
+
+  it("refuses a number", async () => {
+    expect(await writeExactly(alice.sub, alice.sonaRef, styled(1))).toMatch(
+      /bleed must be true or false/,
+    );
+  });
+
+  // Stored at any depth even though only depth 0 reads it: refusing it deeper
+  // would make moving a section INTO another one fail on a style it carried
+  // legitimately a moment earlier.
+  it("stores it on a nested container too", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, [
+        {
+          ...container(),
+          children: [{ ...container(), style: { bleed: true } }],
+        },
+        ...IDENTITY_BLOCKS,
+      ]),
+    ).toBeNull();
   });
 });

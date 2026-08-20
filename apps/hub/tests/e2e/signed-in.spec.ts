@@ -120,17 +120,20 @@ test.describe("signed in", () => {
       expect(response?.status()).toBe(200);
       await expect(anonymous.getByTestId("public-actor-name")).toBeVisible();
 
-      // **A page with nothing on it says so**, and this fursona is the one
-      // place in this suite where that state is guaranteed: it was created
-      // through the editor with no sections and it owns no list. Without the
-      // message it was a screen of gradient — nothing a visitor could tell
-      // from a page that failed to load.
+      // **A page with nothing WRITTEN on it still names its actor**, and this
+      // fursona is the one place in this suite where that state is guaranteed:
+      // it was created through the editor with no sections of its own.
       //
-      // It was first asserted on the published PROFILE below, which is wrong
-      // and CI caught it: this suite is serial and shares one identity, so by
-      // the time that profile is published its owner already has the public
-      // fursona created here, and the page is not empty at all.
-      await expect(anonymous.getByTestId("public-empty")).toBeVisible();
+      // This used to assert an empty-state message. That message is gone,
+      // because the state it described cannot occur any more: the identity
+      // blocks are supplied by `withRequiredBlocks` when a stored page names
+      // none, so the screen of gradient a visitor could not tell from a
+      // failed load is now a portrait, a handle and a link to the owner.
+      // Asserting the owner link is what makes this case about the empty
+      // page rather than about any page — it is a block this fursona never
+      // wrote and could only have got from the shim.
+      await expect(anonymous.getByTestId("block-owner")).toBeVisible();
+      await expect(anonymous.getByTestId("public-empty")).toHaveCount(0);
     } finally {
       await stranger.close();
     }

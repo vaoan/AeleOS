@@ -1,5 +1,68 @@
 # A page of one's own: the identity header becomes blocks
 
+> **Status: DELIVERED, 2026-08-19.** All seven phases shipped on the
+> `page-of-ones-own-impl` branch. This banner carries what the implementation
+> settled; the body below is left as written, so where the two disagree the
+> banner is right.
+>
+> - **A leaf CANNOT have no fields.** The spec said `avatar`, `handle` and
+>   `name` would draw none. `title_en` is required and non-empty at the strict
+>   write AND in `validate_block`, so a fieldless leaf is unrepresentable. Each
+>   uses the field the model insists on instead: `avatar`'s title is the
+>   portrait's ALT TEXT, `handle` and `name` label their value the way `stat`
+>   does, `owner` and `fursonas` name their heading.
+> - **The vocabulary and the renderers cannot land separately.** The phasing
+>   split them; `satisfies Record<LeafKind, LeafRenderer>` on `LEAVES` refuses
+>   to compile the moment a kind exists without one. That guard is why a kind
+>   cannot be added and forgotten, so the phases merged.
+> - **`PageContext` had to reach the EDITOR too**, not only the two public
+>   routes: every section previews with the real renderer. `FursonaEditor`
+>   overlays the handle, display name and avatar from the LIVE form, because a
+>   context resolved on the server holds what was saved.
+> - **`validate_block` did not need its signature changed** — the body already
+>   says so, and the implementation confirms it. `block_kinds_present` is a
+>   second walk.
+> - **The editor's read must NOT be shimmed when `sections` is null.** Null
+>   means the stored shape did not parse; supplying a header there would turn
+>   "unreadable" into "here is a page" that the next save writes over somebody's
+>   content.
+> - **Applying a TEMPLATE replaces the page**, and templates name no identity
+>   block — so the shim runs on that path too. Without it, choosing a template
+>   silently stripped somebody's portrait.
+> - **A page missing only SOME required blocks gets only what it lacks**, never
+>   the composed section. Branch coverage found that: handing back the whole
+>   header would stand a second portrait beside the one its owner kept.
+> - **`public-actor-name` moved to `handle`, not `name`.** It is the end-to-end
+>   suite's proxy for "this page loaded and names its actor", so it belongs on
+>   the kind that is required rather than the one that is optional.
+> - **The empty state was deleted rather than redefined**, which the body
+>   leaves open. Its condition cannot be true once every page is guaranteed a
+>   portrait and a handle.
+> - **`bleed`'s SQL check reads the JSON TYPE, not the text.** `jsonb_each_text`
+>   renders `true` as the string `'true'`, which is exactly what the client
+>   schema refuses.
+>
+> The measured facts worth keeping: the six measure stops are asserted as class
+> strings because a viewport test cannot tell `wider` from `widest`; the page's
+> own gutter is marked `data-page-gutter` so the no-viewport-breakpoint guard
+> can exclude one element rather than being relaxed; and cspell runs in CI but
+> not in the pre-commit hook.
+>
+> **DELIVERY LIST 5 WAS WRONG ABOUT ITSELF ON TWO COUNTS, corrected
+> 2026-08-20.** It records "the `set_actor_theme` write" and "the full-width
+> `PageShell` variant" as delivered. The variant was WRITTEN and never called —
+> both public routes still asked for `width="wide"`, so the whole inversion this
+> spec argues for at "The mechanism inverts who owns the measure" was defeated
+> by the column it was meant to replace: a second gutter, `widest` and `full`
+> capped at the old 80rem, and a bled section reaching neither edge. And the
+> `set_actor_theme` write was never made at all, so `measure` hit that
+> function's closing `unknown theme key` and choosing a width threw away the
+> whole theme save. Both are fixed and both now have guards
+> (`tests/e2e/page-measure-and-bleed.spec.ts`, `tests/db/actor-theme.test.ts`).
+> Read that list as a plan rather than as a record: what makes this worth
+> writing down is that everything ELSE on it was true, which is what made the
+> two false entries survive a reading.
+
 A public page is not a page its owner built. It is a **header the app built**,
 followed by a page its owner built, followed by a **list the app built**. The
 middle part is a recursive tree of blocks somebody arranges freely; the two ends

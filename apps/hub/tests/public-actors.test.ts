@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Block } from "@/features/actors/domain/block-schema";
 
 type ClientOptions = {
   getToken: () => Promise<string | null>;
@@ -87,6 +88,13 @@ const fursonaRow = {
   display_name: "Luna",
   avatar_url: null,
   owner_address: "42",
+  // **Deliberately unlike the fursona's own two fields.** A mapping that read
+  // `display_name` where it meant `owner_display_name` would pass against a
+  // fixture where the two agree, and the fursona's avatar is null here while
+  // the owner's is a real address — so each column can only be satisfied by
+  // the column it names.
+  owner_display_name: "Heiner",
+  owner_avatar_url: "https://example.test/owner.png",
   listed: false,
   sections: STORED,
 };
@@ -95,6 +103,33 @@ beforeEach(() => {
   rpc.mockReset();
   createIdentityClient.mockClear();
 });
+
+/**
+ * The blocks a read returns, with the ones the shim supplied taken off.
+ *
+ * **`withRequiredBlocks` runs on every public read**, so `blocks` is never
+ * just what was stored — a page naming no identity block gets a header, which
+ * is the whole reason no page needed migrating. These assertions are about
+ * what the PARSE did with the stored value, so they compare the stored part
+ * and check completeness separately. `toEqual` on the whole array would be
+ * asserting the shim's exact output, which is a fixture of the shim rather
+ * than a claim about parsing.
+ *
+ * @param blocks - what the read returned.
+ * @returns the blocks that did not come from the shim.
+ */
+function stored(blocks: Block[] | undefined): Block[] {
+  const seeded = new Set(["avatar", "handle", "name", "owner", "fursonas"]);
+  // `children.length > 0` is load-bearing: `[].every()` is TRUE, so without it
+  // an EMPTY container counts as shim-supplied and gets filtered away. The
+  // nested-to-the-cap case is built from empty containers and caught this.
+  const fromShim = (b: Block): boolean =>
+    "children" in b
+      ? b.children.length > 0 &&
+        b.children.every((c) => c !== null && fromShim(c))
+      : seeded.has(b.kind);
+  return (blocks ?? []).filter((b) => !fromShim(b));
+}
 
 describe("readPublicPerson", () => {
   it("asks the database by address", async () => {
@@ -112,7 +147,12 @@ describe("readPublicPerson", () => {
       address: "luna",
       listed: true,
     });
-    expect(person?.blocks).toEqual(PARSED);
+    expect(stored(person?.blocks)).toEqual(PARSED);
+  });
+
+  it("names no owner — a person has none", async () => {
+    answer(personRow);
+    expect((await readPublicPerson("luna"))?.owner).toBeUndefined();
   });
 
   it("carries the owner's public fursonas", async () => {
@@ -195,6 +235,32 @@ describe("readPublicFursona", () => {
     expect((await readPublicFursona("42", "luna"))?.fursonas).toBeUndefined();
   });
 
+  it("carries the owner, address and identity alike", async () => {
+    answer(fursonaRow);
+    expect((await readPublicFursona("42", "luna"))?.owner).toEqual({
+      address: "42",
+      displayName: "Heiner",
+      avatarUrl: "https://example.test/owner.png",
+    });
+  });
+
+  // **The withholding is SQL's, and this is what reaching the client looks
+  // like.** `public_fursona` returns null for both when the owner's own
+  // profile is private — `tests/db/public-reads.test.ts` is what proves the
+  // gate — and the address survives, because it is already in this page's URL.
+  it("keeps the owner's address when their name and picture are withheld", async () => {
+    answer({
+      ...fursonaRow,
+      owner_display_name: null,
+      owner_avatar_url: null,
+    });
+    expect((await readPublicFursona("42", "luna"))?.owner).toEqual({
+      address: "42",
+      displayName: null,
+      avatarUrl: null,
+    });
+  });
+
   it("returns undefined when there is nothing to show", async () => {
     answer(null);
     expect(await readPublicFursona("42", "nobody")).toBeUndefined();
@@ -211,7 +277,9 @@ describe("readPublicFursona", () => {
 describe("the page it will accept", () => {
   it("renders a page the schema accepts", async () => {
     answer(fursonaRow);
-    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual(PARSED);
+    expect(stored((await readPublicFursona("42", "luna"))?.blocks)).toEqual(
+      PARSED,
+    );
   });
 
   // A page stored before a schema change must still render its header and its
@@ -219,12 +287,12 @@ describe("the page it will accept", () => {
   // is worse than a heading with nothing under it.
   it("treats a page the schema rejects as none", async () => {
     answer({ ...fursonaRow, sections: [{ nonsense: true }] });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
+    expect(stored((await readPublicFursona("42", "luna"))?.blocks)).toEqual([]);
   });
 
   it("treats a non-array as none", async () => {
     answer({ ...fursonaRow, sections: "not an array" });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
+    expect(stored((await readPublicFursona("42", "luna"))?.blocks)).toEqual([]);
   });
 
   /**
@@ -247,7 +315,7 @@ describe("the page it will accept", () => {
   // directions.
   it("treats a tree nested past the cap as none", async () => {
     answer({ ...fursonaRow, sections: [nest([nest([nest([nest([])])])])] });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
+    expect(stored((await readPublicFursona("42", "luna"))?.blocks)).toEqual([]);
   });
 
   // **One leaf's empty title must cost that title and nothing else.** It used
@@ -274,7 +342,9 @@ describe("the page it will accept", () => {
         ]),
       ],
     });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toHaveLength(1);
+    expect(
+      stored((await readPublicFursona("42", "luna"))?.blocks),
+    ).toHaveLength(1);
   });
 
   // The control that stops the case above being vacuous. Three containers is
@@ -282,7 +352,9 @@ describe("the page it will accept", () => {
   // parse that refused every tree at all would pass the refusal case happily.
   it("keeps a tree nested exactly to the cap", async () => {
     answer({ ...fursonaRow, sections: [nest([nest([nest([])])])] });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toHaveLength(1);
+    expect(
+      stored((await readPublicFursona("42", "luna"))?.blocks),
+    ).toHaveLength(1);
   });
 
   // An unrecognised STYLE key must cost only that key, never the whole page —
@@ -297,7 +369,7 @@ describe("the page it will accept", () => {
         { ...STORED[0], style: { skin: "glass", corner_radius: "8px" } },
       ],
     });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([
+    expect(stored((await readPublicFursona("42", "luna"))?.blocks)).toEqual([
       { ...PARSED[0], style: { skin: "glass" } },
     ]);
   });
@@ -326,7 +398,7 @@ describe("the page it will accept", () => {
         },
       ],
     });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([
+    expect(stored((await readPublicFursona("42", "luna"))?.blocks)).toEqual([
       {
         kind: "container",
         mode: "grid",
@@ -348,7 +420,7 @@ describe("the page it will accept", () => {
   // whatever a lenient reading of it would produce.
   it("treats a page that is neither shape as none", async () => {
     answer({ ...fursonaRow, sections: [{ name_en: "About", type: "spiral" }] });
-    expect((await readPublicFursona("42", "luna"))?.blocks).toEqual([]);
+    expect(stored((await readPublicFursona("42", "luna"))?.blocks)).toEqual([]);
   });
 });
 

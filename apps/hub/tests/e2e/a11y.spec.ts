@@ -8,7 +8,12 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { container, leaf, seedPage } from "./support/blocks";
+import {
+  container,
+  leaf,
+  seedPage,
+  SEEDED_IDENTITY_SECTIONS,
+} from "./support/blocks";
 
 // WHAT THIS MEASURES, AND THE ONE THING IT DELIBERATELY DOES NOT.
 //
@@ -161,7 +166,12 @@ test.describe("the signed-in pages are accessible", () => {
     // any e2e suite before this finding: a popup axe never sees is a popup it
     // cannot fail on, which is not the same as one that passes.
     await page.getByTestId("add-section").click();
-    await page.getByTestId("section-style-open").click();
+    // **Scoped to the card this test adds, which is the LAST one.** Every page
+    // opens carrying the identity section the database requires, so a
+    // page-wide locator for a card's own control now matches two and resolves
+    // to neither.
+    const card = page.getByTestId("section-card").last();
+    await card.getByTestId("section-style-open").click();
     await expect(page.getByTestId("section-style-panel")).toBeVisible();
     await isAccessible(page, "the editor with a section's style popup open");
 
@@ -174,14 +184,14 @@ test.describe("the signed-in pages are accessible", () => {
     // row would otherwise carry one shared accessible name.
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("section-style-panel")).toBeHidden();
-    await page.getByTestId("add-content").first().click();
-    await page.getByTestId("leaf-kind").first().selectOption("table");
-    await page.getByTestId("add-row").click();
-    await expect(page.getByTestId("table-cell").first()).toBeVisible();
+    await card.getByTestId("add-content").first().click();
+    await card.getByTestId("leaf-kind").first().selectOption("table");
+    await card.getByTestId("add-row").click();
+    await expect(card.getByTestId("table-cell").first()).toBeVisible();
     // And a section inside a place, which is the other component no
     // accessibility check had ever reached.
-    await page.getByTestId("add-nested").first().click();
-    await expect(page.getByTestId("nested-card")).toBeVisible();
+    await card.getByTestId("add-nested").first().click();
+    await expect(card.getByTestId("nested-card")).toBeVisible();
     await isAccessible(page, "the editor with content and a nested section");
   });
 });
@@ -333,7 +343,7 @@ test.describe("a page of blocks wearing its author's colours", () => {
     expect(response?.status()).toBe(200);
     await expect(page.getByTestId("public-actor-name")).toBeVisible();
     await expect(page.getByTestId("public-section")).toHaveCount(
-      EVERY_KIND.length,
+      EVERY_KIND.length + SEEDED_IDENTITY_SECTIONS,
     );
 
     // **`color-contrast` stays ON here, and that is a measured decision.**

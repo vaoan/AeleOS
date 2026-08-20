@@ -287,7 +287,12 @@
       "progress": "Progress",
       "table": "Table",
       "jukebox": "Music player",
-      "embed": "Embed"
+      "embed": "Embed",
+      "avatar": "Portrait",
+      "handle": "Handle",
+      "name": "Display name",
+      "owner": "Owner",
+      "fursonas": "Fursona list"
     },
     "leafFields": {
       "text": {
@@ -342,6 +347,21 @@
         "title": "Frame title",
         "description": "Caption",
         "hint": "Shown under the embed."
+      },
+      "avatar": {
+        "title": "Alt text"
+      },
+      "handle": {
+        "title": "Label"
+      },
+      "name": {
+        "title": "Label"
+      },
+      "owner": {
+        "title": "Heading"
+      },
+      "fursonas": {
+        "title": "Heading"
       }
     },
     "tableRows": "Rows",
@@ -363,7 +383,18 @@
     "playerSeek": "Seek",
     "playerPlaylist": "Playlist",
     "playerUnplayable": "That link would not play.",
-    "playerEmpty": "No songs yet"
+    "playerEmpty": "No songs yet",
+    "removeLocked": "Your page must keep this — it is the only one left.",
+    "measure": "Page width",
+    "measures": {
+      "narrow": "Narrow",
+      "medium": "Medium",
+      "wide": "Wide",
+      "wider": "Wider",
+      "widest": "Widest",
+      "full": "Full width"
+    },
+    "sectionStyleBleed": "Reach both edges of the window"
   },
   "picker": {
     "title": "Who do you want to be?",
@@ -392,7 +423,7 @@
   "controls": {
     "toDark": "Switch to dark mode",
     "toLight": "Switch to light mode",
-    "authorTheme": "Their own theme — switch to a default",
+    "authorTheme": "Their theme",
     "language": "Change language",
     "loading": "Loading"
   },
@@ -403,11 +434,6 @@
   },
   "publicProfile": {
     "notFoundTitle": "Not found",
-    "fursonas": "Fursonas",
-    "empty": "There is nothing on this page yet.",
-    "pageThemeTitle": "How this page looks",
-    "pageThemeAuthor": "Their theme",
-    "pageThemeLight": "Light",
-    "pageThemeDark": "Dark"
+    "fursonas": "Fursonas"
   }
 }

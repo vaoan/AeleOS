@@ -111,6 +111,14 @@ export type ContainerMode = (typeof CONTAINER_MODES)[number];
  * now means a retro media player of ours, and `jukebox` one without a video
  * pane. A document describing `player` as a frame around somebody else's page
  * predates that.
+ *
+ * **Five kinds added 2026-08-19 are a new CATEGORY, not five more entries.**
+ * `avatar`, `handle`, `name`, `owner` and `fursonas` draw the ACTOR's own
+ * content, resolved by the renderer from `PageContext`, where every kind above
+ * draws what its author typed into the block. They still carry a title,
+ * because every leaf must — `title_en` is required and non-empty at the write
+ * and again in `validate_block` — and each uses it rather than leaving it
+ * dead: see `LEAF_FIELDS`.
  */
 export const LEAF_KINDS = [
   "text",
@@ -132,6 +140,22 @@ export const LEAF_KINDS = [
   "quote",
   "progress",
   "table",
+  // **The identity leaves, whose content comes from the ACTOR ROW rather than
+  // from fields somebody typed.** They are the first kinds here for which
+  // `LEAF_FIELDS` names no content field at all: a renderer resolves them from
+  // `PageContext`. `owner` and `fursonas` are the two exceptions and read their
+  // `title` — the heading over somebody's characters is that person's own
+  // words, not a catalogue string, and so is never reported as a missing
+  // translation.
+  //
+  // Which of them a page must CARRY is not this list's business and depends on
+  // the actor's kind: `owner` is required on a fursona's page and refused on a
+  // person's, `fursonas` the reverse. See `domain/required-blocks.ts`.
+  "avatar",
+  "handle",
+  "name",
+  "owner",
+  "fursonas",
 ] as const;
 
 /** One kind of content a leaf may hold. */
@@ -477,6 +501,14 @@ const blockStyleShape = {
   // the border off here, regardless of what surrounds it. Storing `""` for
   // either would be a third state this bag refuses everywhere else in it.
   border: z.enum(BLOCK_STYLE_LIMITS.border).optional(),
+  // **A depth-0 key, and meaningless anywhere else.** A section reaches both
+  // edges of the window; a block nested inside one has a section between it
+  // and the page and cannot escape that. Absent means the page's own measure,
+  // which is what every section had before this existed.
+  //
+  // `name_en` and `name_es` are already section-only in exactly this way, so
+  // this is the bag's existing shape rather than a new kind of key.
+  bleed: z.boolean().optional(),
 };
 
 /** One cell of a `table` leaf, in both languages. */

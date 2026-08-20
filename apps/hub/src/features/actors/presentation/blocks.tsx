@@ -24,6 +24,105 @@ import { PublicSectionIcon } from "@/features/actors/presentation/public-section
 import { RetroPlayer } from "@/features/actors/presentation/retro-player";
 import type { ChromeKind } from "@/features/actors/domain/chromes";
 import { tid } from "@/shared/infrastructure/test-id";
+import {
+  AvatarLeaf,
+  FursonasLeaf,
+  HandleLeaf,
+  NameLeaf,
+  OwnerLeaf,
+} from "@/features/actors/presentation/identity-leaves";
+import type {
+  PublicActor,
+  PublicFursonaSummary,
+} from "@/features/actors/infrastructure/public-actors";
+import type { PageMeasure } from "@/features/actors/domain/actor-theme";
+
+/**
+ * What a block may need that is not in the block.
+ *
+ * **Threaded by hand rather than provided by React context, and that is
+ * mechanism rather than preference.** This file is a server component
+ * throughout — every container mode is CSS precisely so it stays one — and
+ * context needs a client boundary. So page-level values travel down the
+ * recursion, which is what `parentHost` already did alone before anything
+ * joined it.
+ *
+ * **One object rather than one prop per value.** Every level of the recursion
+ * passes this through untouched, so the cost of a new page-level value is one
+ * field here instead of one prop on {@link BlockProps}, on `ModeProps`, on
+ * `LeafProps` and at every pass-through site in between — eighteen of them
+ * when this was written.
+ *
+ * It carries no block data and never should: anything a single block knows
+ * belongs on the block. The test is whether every block on the page would
+ * answer it identically.
+ *
+ * **Most of it exists for the identity leaves**, which draw the actor rather
+ * than what an author typed — see `presentation/identity-leaves.tsx`. Those
+ * fields pass that test exactly: an actor's handle, address, name and portrait
+ * are the same for every block on their page.
+ *
+ * `owner` and `fursonas` are mutually exclusive and both optional, because a
+ * page is one kind or the other. Absent means "not a question this page
+ * kind asks"; the leaf that would read it renders nothing, which is only
+ * reachable through a write that refuses that kind anyway.
+ *
+ * It carries the page's MEASURE too, which only {@link PublicBlocks} reads.
+ */
+export interface PageContext {
+  /**
+   * This deployment's own hostname, for Twitch's `parent=`.
+   *
+   * Resolved by the route, never here: a presentation component is not the
+   * thing that knows its own deployment configuration. Empty degrades Twitch
+   * to a link rather than failing — see `domain/embeds.ts`.
+   */
+  parentHost: string;
+  /** Which kind of page this is. */
+  actorKind: "person" | "fursona";
+  /**
+   * The actor's raw handle.
+   *
+   * **Raw, and the `handle` leaf is what decides whether it may show.** A
+   * person is minted as `u-<actor_ref with the hyphens out>`, which on a
+   * person is the `owner_ref` of every fursona they own — the exact column
+   * `/api/actors/mine` strips by name. `isMachineHandle` catches it and the
+   * address stands in.
+   */
+  handle: string;
+  /** The address this page was reached at. */
+  address: string;
+  /** The display name, when they set one. */
+  displayName: string | null;
+  /** Their picture, when they set one. */
+  avatarUrl: string | null;
+  /**
+   * Who owns this page's fursona. A fursona's page only.
+   *
+   * `displayName` and `avatarUrl` are null unless that person's OWN profile is
+   * readable — gated in `public_fursona`, never re-decided here. See
+   * {@link PublicActor.owner}.
+   */
+  owner?: NonNullable<PublicActor["owner"]>;
+  /** The owner's public fursonas. A person's page only. */
+  fursonas?: PublicFursonaSummary[];
+  /**
+   * How wide the content column is, or null for the design's own.
+   *
+   * Read only by {@link PublicBlocks}, which applies it to each top-level
+   * section — see `MEASURE_CLASS` for why the page itself is not held to it.
+   */
+  measure: PageMeasure | null;
+  /**
+   * The heading a `fursonas` leaf falls back to when its author wrote none.
+   *
+   * Resolved by the route, because this file is a server component and cannot
+   * read a locale. The block's own title wins: that heading is the author's
+   * own words, and a missing `title_es` is somebody who has not written the
+   * Spanish yet rather than a fault.
+   */
+  fursonasFallbackTitle: string;
+}
 
 /**
  * What one block needs to render itself and everything beneath it.
@@ -42,10 +141,10 @@ import { tid } from "@/shared/infrastructure/test-id";
  * and its width is not a property of the block at all. What it does ask about
  * its own width, it asks in CSS — see {@link SPACE_CLASS}.
  *
- * **`parentHost` is the exception and is not about the parent at all** — it is
- * this deployment's own configuration, resolved by the route and threaded
- * unchanged the whole way down to the one leaf kind that reads it. It shares
- * the recursion rather than the meaning.
+ * **`page` is the exception and is about no parent at all** — see
+ * {@link PageContext}. It is the deployment's and the actor's own data,
+ * resolved by the route and threaded unchanged the whole way down to the
+ * leaves that read it. It shares the recursion rather than the meaning.
  */
 export interface BlockProps {
   /** The block to render, as parsed. */
@@ -80,12 +179,12 @@ export interface BlockProps {
    * **A `player` leaf reads it**, through `resolveEmbed`; every other kind and
    * every mode threads it onward untouched. Twitch's player refuses to load
    * unless `parent=` names the embedding domain, so an empty value degrades
-   * Twitch to a link rather than framing a player guaranteed to error.
+   * Everything page-level a block or a leaf beneath it may read.
    *
-   * Resolved by the route, never read here: a presentation component is not the
-   * thing that knows its own deployment configuration.
+   * Resolved by the route, never here — see {@link PageContext} for why it is
+   * one object threaded by hand rather than a prop each or a React context.
    */
-  parentHost: string;
+  page: PageContext;
   /**
    * Whether this block still has to show its own name.
    *
@@ -114,8 +213,8 @@ interface ModeProps {
   depth: number;
   /** The container's own path; its children append their index to it. */
   path: string;
-  /** Threaded to the children — see {@link BlockProps.parentHost}. */
-  parentHost: string;
+  /** Threaded to the children — see {@link BlockProps.page}. */
+  page: PageContext;
 }
 
 /** One arrangement, as a component over {@link ModeProps}. */
@@ -450,7 +549,7 @@ function placeIn(props: ModeProps, seat: Seat, labelled = true): ReactNode {
       locale={props.locale}
       depth={props.depth + 1}
       path={seat.path}
-      parentHost={props.parentHost}
+      page={props.page}
       labelled={labelled}
     />
   );
@@ -857,7 +956,7 @@ interface LeafProps {
    */
   labelled: boolean;
   /** This deployment's own hostname, for Twitch's `parent=`. */
-  parentHost: string;
+  page: PageContext;
 }
 
 /** One content kind, as a component over {@link LeafProps}. */
@@ -1277,13 +1376,13 @@ function JukeboxLeaf(props: LeafProps): ReactNode {
  * @returns the embed, or the chip it could not become one.
  */
 function EmbedLeaf(props: LeafProps): ReactNode {
-  const { leaf, locale, labelled, parentHost } = props;
+  const { leaf, locale, labelled, page } = props;
   // **`parentHost` is passed here now, and its absence was a real bug.** The
   // two embed kinds this one absorbed differed in exactly two ways, and this
   // was the undocumented half: `player` passed it and `post` did not, so the
   // same Twitch address was a working player in one kind and a dead chip in the
   // other. Twitch refuses to load unless `parent=` names the embedding domain.
-  const embed = resolveEmbed(leaf.link_url, { parentHost });
+  const embed = resolveEmbed(leaf.link_url, { parentHost: page.parentHost });
   if (!embed) return SocialLeaf(props);
   const { title, description } = wordsOf(leaf, locale);
   return (
@@ -1751,6 +1850,13 @@ function TableLeaf(props: LeafProps): ReactNode {
  * **`player` no longer renders an embed.** `EmbedLeaf` is the only renderer
  * that resolves a provider now; `PlayerLeaf` and `JukeboxLeaf` draw a retro
  * chrome of ours over a playlist, and both go through `retroLeaf`.
+ *
+ * **The five identity leaves live in their own module**,
+ * `presentation/identity-leaves.tsx`, and are registered here like any other
+ * kind. They are separated because they render the ACTOR — resolved from
+ * {@link PageContext} — rather than what an author typed into the block, which
+ * makes them a different thing to read; and because this file is long enough
+ * already.
  */
 export const LEAVES: ReadonlyMap<string, LeafRenderer> = new Map(
   Object.entries({
@@ -1765,6 +1871,14 @@ export const LEAVES: ReadonlyMap<string, LeafRenderer> = new Map(
     quote: QuoteLeaf,
     progress: ProgressLeaf,
     table: TableLeaf,
+    // The identity leaves live in their own module: this file is already ~2000
+    // lines, and their content comes from `PageContext` rather than from the
+    // leaf, which makes them a different kind of thing to read.
+    avatar: AvatarLeaf,
+    handle: HandleLeaf,
+    name: NameLeaf,
+    owner: OwnerLeaf,
+    fursonas: FursonasLeaf,
   } satisfies Record<LeafKind, LeafRenderer>),
 );
 
@@ -1895,6 +2009,9 @@ function Leaf(props: LeafProps): ReactNode {
  * comparison — a leaf's `kind` is no longer a literal type, so a comparison
  * would not narrow it.
  *
+ * `page` is handed to every child unchanged and read only by the leaves that
+ * need it — see {@link PageContext}.
+ *
  * @returns the block and everything beneath it.
  */
 export function Block({
@@ -1902,7 +2019,7 @@ export function Block({
   locale,
   depth,
   path,
-  parentHost,
+  page,
   labelled = true,
 }: BlockProps): ReactNode {
   const style = blockStyle(block.style);
@@ -1915,12 +2032,7 @@ export function Block({
         data-block-kind={block.kind}
         {...tid("public-leaf")}
       >
-        <Leaf
-          leaf={block}
-          locale={locale}
-          labelled={labelled}
-          parentHost={parentHost}
-        />
+        <Leaf leaf={block} locale={locale} labelled={labelled} page={page} />
       </div>
     );
   }
@@ -1951,13 +2063,19 @@ export function Block({
         locale,
         depth,
         path,
-        parentHost,
+        page,
       })}
     </section>
   );
 }
 
-/** What {@link PublicBlocks} needs. */
+/**
+ * What {@link PublicBlocks} needs.
+ *
+ * `page` is the page-level data every block shares — see {@link PageContext}.
+ * It is threaded rather than provided by a React context because this whole
+ * file is a server component.
+ */
 export interface PublicBlocksProps {
   /** The page, as parsed — the outermost blocks, in the author's order. */
   blocks: BlockNode[];
@@ -1972,7 +2090,7 @@ export interface PublicBlocksProps {
    * means Twitch resolves to nothing and renders as a link; see
    * `domain/embeds.ts`.
    */
-  parentHost: string;
+  page: PageContext;
 }
 
 /**
@@ -2008,14 +2126,108 @@ export interface PublicBlocksProps {
  * empty state is the route's to show, in the visitor's own language, and a
  * bordered nothing above it would be a second answer to one question.
  *
+ * `page` goes to every top-level block unchanged; this function reads no field
+ * of it.
+ *
+ * @returns the page, or nothing when there is nothing on it.
+ */
+/**
+ * What each measure lays a top-level section out in.
+ *
+ * **Whole class strings, never interpolated.** Tailwind reads source text, so
+ * `max-w-${size}` compiles to nothing at all — the fault that would show as a
+ * page silently ignoring its own setting.
+ *
+ * The padding rides these rather than the shell, because a full-width page has
+ * no column to put it on and a bleeding section must not have it at all.
+ */
+const DEFAULT_PAGE_MEASURE: PageMeasure = "wider";
+
+/**
+ * What a section that opts out of the measure is laid out in.
+ *
+ * **No maximum, no centring and no padding**, so it reaches both edges. There
+ * is no `w-screen` and no negative margin here, and that is the whole reason
+ * the measure moved per-section: `100vw` counts the scrollbar that a centred
+ * column does not, so the breakout version gains a horizontal scrollbar the
+ * moment a page is tall enough to need a vertical one.
+ *
+ * It keeps `data-page-gutter` even though it has no gutter — the attribute
+ * marks "this is the page's own box", which is what the container-query guard
+ * excludes, and a bled section is still that box.
+ */
+const BLEED_CLASS = "w-full";
+
+/**
+ * Whether a top-level block runs to both edges of the window.
+ *
+ * **Read at depth 0 and nowhere else.** A block nested inside a section has a
+ * section between it and the page and cannot escape it, so honouring the key
+ * deeper down would be a control that appears to do something and does not.
+ * The editor does not offer it there for the same reason.
+ *
+ * `false` and absent are the same answer, which is why the editor stores
+ * absence rather than `false`: a bag's missing key already means "inherit the
+ * page" everywhere else in it.
+ *
+ * @param block - the top-level block.
+ * @returns true when it opts out of the measure its page chose.
+ */
+function bleeds(block: BlockNode): boolean {
+  return isContainer(block) && block.style?.bleed === true;
+}
+
+/**
+ * What each measure lays a top-level section out in.
+ */
+const MEASURE_CLASS: Record<PageMeasure, string> = {
+  narrow: "mx-auto w-full max-w-[620px] px-4 sm:px-6",
+  medium: "mx-auto w-full max-w-3xl px-4 sm:px-6",
+  wide: "mx-auto w-full max-w-5xl px-4 sm:px-6",
+  wider: "mx-auto w-full max-w-7xl px-4 sm:px-6",
+  widest: "mx-auto w-full max-w-[96rem] px-4 sm:px-6",
+  full: "w-full px-4 sm:px-6",
+};
+
+/**
+ * Everything on one public page.
+ *
+ * A **server component**, like the whole of this file.
+ *
+ * The page stacks the outermost blocks one to a row. Each sits inside the
+ * author's chosen measure — see {@link MEASURE_CLASS} — because the route asks
+ * the shell for a full-width `main` and lets each section centre itself. That
+ * inversion is what lets one section reach both edges without `w-screen`.
+ *
+ * Its grid declares `minmax(0, 1fr)` rather than leaving its single track
+ * `auto`: an `auto` track is floored at its content's min-content width, so one
+ * wide descendant would grow the whole page sideways instead of scrolling
+ * inside its own box. Measured, not reasoned.
+ *
+ * **A page with no blocks renders nothing at all**, not an empty grid. That
+ * state is unreachable in production now — `withRequiredBlocks` guarantees a
+ * portrait and a handle — but the guard stays, because this component is
+ * handed a tree rather than fetching one and a caller may pass an empty array.
+ *
+ * `page` goes to every top-level block unchanged; only its `measure` is read
+ * here.
+ *
+ *
+ * **A section carrying `style.bleed` opts out of the measure entirely** and
+ * reaches both edges — see {@link BLEED_CLASS}. Read at depth 0 only.
+ *
  * @returns the page, or nothing when there is nothing on it.
  */
 export function PublicBlocks({
   blocks,
   locale,
-  parentHost,
+  page,
 }: PublicBlocksProps): ReactNode {
   if (blocks.length === 0) return null;
+  // Resolved once, and OUTSIDE the class attribute: `better-tailwindcss` reads
+  // string literals in a `className` expression as class names, so the default
+  // stop written inline was reported as an unknown class called `wider`.
+  const measureClass = MEASURE_CLASS[page.measure ?? DEFAULT_PAGE_MEASURE];
   // Position named once, exactly as `seatsOf` does it and for the same reason:
   // a block has no identity but where it sits, and `react/no-array-index-key`
   // reads the map callback's index parameter.
@@ -2026,14 +2238,31 @@ export function PublicBlocks({
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-10">
       {seats.map((seat) => (
-        <Block
+        // **The measure is applied PER SECTION, not to the page.** The route
+        // asks the shell for a full-width `main`, so each top-level block
+        // centres itself in the author's chosen measure — which is what lets
+        // one of them opt out and reach both edges without `w-screen`, whose
+        // `100vw` counts the scrollbar that a centred column does not.
+        <div
           key={seat.path}
-          block={seat.block}
-          locale={locale}
-          depth={0}
-          path={seat.path}
-          parentHost={parentHost}
-        />
+          // **The page's own gutter, and the one element here sized by the
+          // WINDOW.** Everything below it is a block and adapts to its parent
+          // through a container query; this is the outermost box, has no
+          // container above it, and carries exactly the `px-4 sm:px-6` the
+          // shell applied before the measure moved per-section. The marker is
+          // what lets the no-viewport-breakpoint guard say so precisely
+          // instead of being relaxed.
+          data-page-gutter=""
+          className={bleeds(seat.block) ? BLEED_CLASS : measureClass}
+        >
+          <Block
+            block={seat.block}
+            locale={locale}
+            depth={0}
+            path={seat.path}
+            page={page}
+          />
+        </div>
       ))}
     </div>
   );

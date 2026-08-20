@@ -78,6 +78,36 @@ export const CANVASES = [
   "none",
 ] as const;
 
+/**
+ * How wide a public page's content column is.
+ *
+ * **An enum rather than a free number**, and the reason is mechanical rather
+ * than aesthetic. `weights` had to become a custom property because they are
+ * author data out of `jsonb` and no build step can generate a class for an
+ * arbitrary number; a fixed list has no such problem, so these are six real
+ * Tailwind classes with no `var()` plumbing and no fallback chain. It also
+ * keeps the property that three people asked what a stop means give the same
+ * answer.
+ *
+ * `narrow` is the app's own reading measure, `wider` is what every public page
+ * had before this existed, and `full` sets no maximum at all.
+ *
+ * **`full` and readable are in tension and nothing corrects it.** A paragraph
+ * at `full` on a wide display is a very long line. That is the author's choice
+ * to make, and the same freedom that governs colour governs this.
+ */
+export const PAGE_MEASURES = [
+  "narrow",
+  "medium",
+  "wide",
+  "wider",
+  "widest",
+  "full",
+] as const;
+
+/** One of the page measures. */
+export type PageMeasure = (typeof PAGE_MEASURES)[number];
+
 /** One of the canvases. */
 export type CanvasId = (typeof CANVASES)[number];
 
@@ -142,6 +172,9 @@ export type CanvasId = (typeof CANVASES)[number];
  * safely quoted paints nothing at either level rather than being escaped at one
  * and built at the other. That is stated here because the two live in different
  * layers and the shared guard is the only thing keeping them in step.
+ *
+ * A theme also carries a **measure**: how wide the content column is, from the
+ * app's own reading width out to no maximum at all. Null is the design's own.
  */
 export interface ActorTheme {
   /**
@@ -188,6 +221,13 @@ export interface ActorTheme {
    * different sky, not a fuller one.
    */
   scale: number;
+  /**
+   * How wide the content column is, or null for the design's own.
+   *
+   * Null means the design's own — `wider`, the 80rem every public page had
+   * before this existed — consistent with every other nullable field here.
+   */
+  measure: PageMeasure | null;
   /**
    * Which style the page's surfaces are built in.
    *
@@ -315,6 +355,9 @@ export function cursorUrl(raw: string | undefined): string | null {
  * Not a copy of the shipped colours — the absence of them. A copy would have to
  * pick one accent for two modes that deliberately use different hues, and would
  * restyle every unthemed page the day it landed.
+ *
+ * Its `measure` is null — the design's own — so a page that never chose one is
+ * laid out exactly as every public page was before the field existed.
  */
 export const DEFAULT_THEME: ActorTheme = {
   background: null,
@@ -324,6 +367,7 @@ export const DEFAULT_THEME: ActorTheme = {
   cursor: null,
   backgroundUrl: null,
   backgroundFit: "cover",
+  measure: null,
   skin: DEFAULT_SKIN,
   density: CANVAS_RANGE.default,
   speed: CANVAS_RANGE.default,
@@ -422,6 +466,11 @@ function colour(value: unknown): string | null {
  * `__proto__` — and each would then be treated as the name of a canvas.
  *
  * @param value - the stored theme, or anything at all.
+ *
+ * A `measure` outside the vocabulary falls back to null, the same way an
+ * unknown canvas or skin does: a page written by a newer deployment must still
+ * render.
+ *
  * @returns a theme every field of which is usable.
  */
 export function parseTheme(value: unknown): ActorTheme {
@@ -432,6 +481,7 @@ export function parseTheme(value: unknown): ActorTheme {
   const canvas = stored.canvas;
   const skin = stored.skin;
   const backgroundFit = stored.backgroundFit;
+  const measure = stored.measure;
   return {
     background: parseGradient(stored.background),
     accent: colour(stored.accent),
@@ -445,6 +495,11 @@ export function parseTheme(value: unknown): ActorTheme {
       backgroundFit === "cover" || backgroundFit === "tile"
         ? backgroundFit
         : DEFAULT_THEME.backgroundFit,
+    measure:
+      typeof measure === "string" &&
+      (PAGE_MEASURES as readonly string[]).includes(measure)
+        ? (measure as PageMeasure)
+        : null,
     canvas:
       typeof canvas === "string" &&
       (CANVASES as readonly string[]).includes(canvas)
@@ -483,6 +538,12 @@ export function parseTheme(value: unknown): ActorTheme {
  * and extent, which the emitter branches on: a value outside those lists would
  * be accepted, stored, and rendered as whichever branch it fell through to. The three dials are loose numbers here and
  * clamped where they are read, since a slider cannot produce anything else.
+ *
+ * The measure is pinned to its vocabulary like the canvas and the skin, so the
+ * form cannot submit a width the renderer has no class for.
+ *
+ * The measure is pinned to its vocabulary like the canvas and the skin, so the
+ * form cannot submit a width the renderer has no class for.
  */
 export const themeSchema = z.object({
   canvasColours: z.array(z.string()).nullable(),
@@ -508,6 +569,7 @@ export const themeSchema = z.object({
   cursor: z.string().nullable(),
   backgroundUrl: z.string().nullable(),
   backgroundFit: z.enum(["cover", "tile"]),
+  measure: z.enum(PAGE_MEASURES).nullable(),
   skin: z.enum(SKINS),
   density: z.number(),
   speed: z.number(),

@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  PAGE_MEASURES,
+  type PageMeasure,
+} from "@/features/actors/domain/actor-theme";
+import { pageContext } from "./helpers/page-context";
+import type { PageContext } from "@/features/actors/presentation/blocks";
 import { NextIntlClientProvider } from "next-intl";
 
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
@@ -91,6 +97,7 @@ function renderBlock(
     depth: number;
     path: string;
     parentHost: string;
+    page: PageContext;
   }> = {},
 ) {
   const {
@@ -98,6 +105,7 @@ function renderBlock(
     depth = 0,
     path = "0",
     parentHost = "me.furrycolombia.com",
+    page = pageContext({ parentHost }),
   } = over;
   // **The real provider with the real catalogue.** The retro player leaves are
   // the first here to reach for `useTranslations`, and rendering them bare
@@ -112,7 +120,7 @@ function renderBlock(
         locale={locale}
         depth={depth}
         path={path}
-        parentHost={parentHost}
+        page={page}
       />
     </NextIntlClientProvider>,
   );
@@ -357,8 +365,20 @@ describe("tabs", () => {
   it("gives every panel on the page an id of its own", () => {
     const { container: root } = render(
       <>
-        <Block block={tabbed()} locale="en" depth={0} path="0" parentHost="" />
-        <Block block={tabbed()} locale="en" depth={0} path="1" parentHost="" />
+        <Block
+          block={tabbed()}
+          locale="en"
+          depth={0}
+          path="0"
+          page={pageContext({ parentHost: "" })}
+        />
+        <Block
+          block={tabbed()}
+          locale="en"
+          depth={0}
+          path="1"
+          page={pageContext({ parentHost: "" })}
+        />
       </>,
     );
     const ids = [...root.querySelectorAll("[id]")].map((element) => element.id);
@@ -387,8 +407,20 @@ describe("tabs", () => {
   it("keeps two tab groups on one page apart", () => {
     render(
       <>
-        <Block block={tabbed()} locale="en" depth={0} path="0" parentHost="" />
-        <Block block={tabbed()} locale="en" depth={0} path="1" parentHost="" />
+        <Block
+          block={tabbed()}
+          locale="en"
+          depth={0}
+          path="0"
+          page={pageContext({ parentHost: "" })}
+        />
+        <Block
+          block={tabbed()}
+          locale="en"
+          depth={0}
+          path="1"
+          page={pageContext({ parentHost: "" })}
+        />
       </>,
     );
     const names = new Set(
@@ -842,7 +874,7 @@ describe("the containment context", () => {
         <PublicBlocks
           blocks={page}
           locale="en"
-          parentHost="me.furrycolombia.com"
+          page={pageContext({ parentHost: "me.furrycolombia.com" })}
         />
       </NextIntlClientProvider>,
     );
@@ -850,9 +882,16 @@ describe("the containment context", () => {
     // `className` is an `SVGAnimatedString`, which has no `split` — and a
     // lucide glyph is on this page, so the obvious form throws rather than
     // measuring anything.
+    //
+    // **`[data-page-gutter]` is excluded, and only that element.** It is the
+    // page's own gutter — the outermost box, with no container above it — and
+    // it carries the same window-sized padding the shell applied before the
+    // measure became per-section. The rule this guard enforces is about
+    // BLOCKS adapting to their parent; the page adapting to the window is the
+    // thing they adapt inside of. Its descendants are still scanned.
     const classesOf = (root_: Element) =>
-      [...root_.querySelectorAll("[class]")].flatMap((element) =>
-        (element.getAttribute("class") ?? "").split(/\s+/),
+      [...root_.querySelectorAll("[class]:not([data-page-gutter])")].flatMap(
+        (element) => (element.getAttribute("class") ?? "").split(/\s+/),
       );
     const viewport = /^(?:sm|md|lg|xl|2xl):/;
     const offenders = classesOf(root).filter((name) => viewport.test(name));
@@ -1069,10 +1108,30 @@ describe("LEAVES", () => {
 
   // Whatever a kind renders, it renders SOMETHING: a block its author placed in
   // a grid that vanished would leave a hole nothing explains.
+  //
+  // **The context has to let every kind draw**, which no context a real page
+  // builds ever does: `owner` belongs to a fursona's page and `fursonas` to a
+  // person's, and production never carries both. Handing this one both is what
+  // makes the claim "every kind renders something" testable at all — the
+  // alternative is running it twice and exempting a kind from each pass, which
+  // is the same coverage with a hole in the middle where somebody later adds a
+  // kind and forgets one side.
+  const everyKind = pageContext({
+    fursonas: [{ handle: "luna", displayName: "Luna", avatarUrl: null }],
+  });
+
   it.each(LEAF_KINDS)("renders something for a %s leaf", (kind) => {
-    const { container: root } = renderBlock(leaf({ kind }));
+    const { container: root } = renderBlock(leaf({ kind }), {
+      page: everyKind,
+    });
     expect(screen.getByTestId("public-leaf")).not.toBeEmptyDOMElement();
-    expect(root.textContent).not.toBe("");
+    // **Markup, not text.** `avatar` is the first kind that renders neither a
+    // heading nor prose — a portrait is unmistakably something on the page and
+    // has no `textContent` at all, so the older assertion measured "is this
+    // kind textual" while claiming to measure "does this kind render". The
+    // element check above is the claim; this keeps the stricter half for every
+    // kind that does have words.
+    expect(root.innerHTML).not.toBe("");
   });
 });
 
@@ -2497,7 +2556,7 @@ describe("PublicBlocks", () => {
       <PublicBlocks
         blocks={blocks}
         locale="en"
-        parentHost="me.furrycolombia.com"
+        page={pageContext({ parentHost: "me.furrycolombia.com" })}
       />,
     );
 
@@ -2585,7 +2644,7 @@ describe("PublicBlocks", () => {
           }),
         ]}
         locale="en"
-        parentHost="hub.example"
+        page={pageContext({ parentHost: "hub.example" })}
       />,
     );
     expect(screen.getByTitle("English title").getAttribute("src")).toContain(
@@ -2722,7 +2781,7 @@ describe("a page stored by a newer deployment", () => {
           },
         ])}
         locale="en"
-        parentHost="me.furrycolombia.com"
+        page={pageContext({ parentHost: "me.furrycolombia.com" })}
       />,
     );
     expect(screen.getByText("From the future")).toBeInTheDocument();
@@ -2749,10 +2808,134 @@ describe("a page stored by a newer deployment", () => {
           },
         ])}
         locale="en"
-        parentHost="me.furrycolombia.com"
+        page={pageContext({ parentHost: "me.furrycolombia.com" })}
       />,
     );
     expect(screen.getByTestId("block-stack")).toBeInTheDocument();
     expect(screen.getByText("Still here")).toBeInTheDocument();
+  });
+});
+
+// **The measure is asserted as a CLASS STRING, verbatim.** A browser test at a
+// chosen viewport cannot tell `wider` from `widest` unless the window happens
+// to sit between them, which is rule 29's measured lesson from the
+// weighted-places branch: a sabotage that swaps two stops would leave such a
+// test green. Comparing the emitted class is what pins which stop is which.
+describe("the page measure", () => {
+  const gutterOf = (measure: PageMeasure | null) => {
+    const { container: root } = render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <PublicBlocks
+          blocks={[container({ name_en: "A section" })]}
+          locale="en"
+          page={pageContext({ measure })}
+        />
+      </NextIntlClientProvider>,
+    );
+    return root.querySelector("[data-page-gutter]")?.getAttribute("class");
+  };
+
+  it.each([
+    ["narrow", "max-w-[620px]"],
+    ["medium", "max-w-3xl"],
+    ["wide", "max-w-5xl"],
+    ["wider", "max-w-7xl"],
+    ["widest", "max-w-[96rem]"],
+  ] as const)("lays %s out at %s", (measure, expected) => {
+    expect(gutterOf(measure)?.split(/\s+/)).toContain(expected);
+  });
+
+  // `full` is the one stop that is an ABSENCE rather than a value, so it is
+  // asserted as one: no maximum at all, and no centring to do.
+  it("gives full no maximum and nothing to centre in", () => {
+    const classes = gutterOf("full")?.split(/\s+/) ?? [];
+    expect(classes.some((name) => name.startsWith("max-w-"))).toBe(false);
+    expect(classes).not.toContain("mx-auto");
+  });
+
+  // **Null is the design's own, and it must emit exactly what a page emitted
+  // before the measure existed.** Without this, adding the field could have
+  // silently re-laid every page that never chose one.
+  //
+  // It pins the AGREEMENT and not the value, and cannot do better: both sides
+  // read the same entry, so swapping `wider` with `widest` leaves it green —
+  // measured, not assumed. The verbatim class cases above are what pin which
+  // stop is which, and they redden on exactly that swap.
+  it("treats null as the measure every page already had", () => {
+    expect(gutterOf(null)).toBe(gutterOf("wider"));
+  });
+
+  // The page's own gutter, which is the one box here sized by the window.
+  it("keeps the window-sized gutter at every measure", () => {
+    for (const measure of PAGE_MEASURES) {
+      expect(gutterOf(measure)?.split(/\s+/)).toEqual(
+        expect.arrayContaining(["px-4", "sm:px-6"]),
+      );
+    }
+  });
+});
+
+// **Bleed is asserted against a page whose measure is NOT already full.** On a
+// full-width page a bled section and an ordinary one are laid out identically,
+// so the fixture could not tell them apart and the case would pass whatever
+// the renderer did. `wider` is the default and the discriminating choice.
+describe("a section that reaches both edges", () => {
+  const gutters = (bleed: boolean | undefined) => {
+    const { container: root } = render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <PublicBlocks
+          blocks={[
+            { ...container({ name_en: "Ordinary" }) },
+            {
+              ...container({ name_en: "Bled" }),
+              ...(bleed === undefined ? {} : { style: { bleed } }),
+            },
+          ]}
+          locale="en"
+          page={pageContext({ measure: "wider" })}
+        />
+      </NextIntlClientProvider>,
+    );
+    return [...root.querySelectorAll("[data-page-gutter]")].map((element) =>
+      (element.getAttribute("class") ?? "").split(/\s+/),
+    );
+  };
+
+  it("drops the measure, the centring and the padding", () => {
+    const [ordinary, bled] = gutters(true);
+    expect(ordinary).toContain("max-w-7xl");
+    expect(bled?.some((name) => name.startsWith("max-w-"))).toBe(false);
+    expect(bled).not.toContain("mx-auto");
+    expect(bled).not.toContain("px-4");
+  });
+
+  // `false` and absent mean the same thing on the page, which is what makes
+  // storing `false` pointless — see the popup, which stores absence instead.
+  it("leaves a section alone when bleed is false or absent", () => {
+    expect(gutters(false)[1]).toContain("max-w-7xl");
+    expect(gutters(undefined)[1]).toContain("max-w-7xl");
+  });
+
+  // **Depth 0 only.** A nested container carrying the key must change nothing:
+  // it has a section between it and the page and cannot escape it.
+  it("ignores the key on a nested container", () => {
+    const { container: root } = render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <PublicBlocks
+          blocks={[
+            {
+              ...container({ name_en: "Outer" }),
+              children: [
+                { ...container({ name_en: "Inner" }), style: { bleed: true } },
+              ],
+            },
+          ]}
+          locale="en"
+          page={pageContext({ measure: "wider" })}
+        />
+      </NextIntlClientProvider>,
+    );
+    const gutter = root.querySelector("[data-page-gutter]");
+    expect(gutter?.getAttribute("class")?.split(/\s+/)).toContain("max-w-7xl");
   });
 });

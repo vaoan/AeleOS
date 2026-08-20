@@ -31,6 +31,11 @@ import {
 // `border-style-cascade.spec.ts`, both of which seed a block tree directly and
 // are unaffected.
 
+// **A test's own card is the LAST one.** Every page opens carrying the identity
+// section the database requires, and `add-section` appends — so `.first()` here
+// would reach for the identity section's controls instead, and a page-wide
+// `section-style-open` matches two buttons rather than one.
+
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
 let identity: TestIdentity | undefined;
@@ -57,13 +62,13 @@ test("a skin chosen in the popup paints the card behind it at once", async ({
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Styled");
 
-  const card = page.getByTestId("section-card").first();
+  const card = page.getByTestId("section-card").last();
   // Nothing chosen yet: the card carries no inline style at all, which is what
   // makes every assertion below a CHANGE rather than a state that was already
   // there.
   expect(await card.evaluate((el) => el.hasAttribute("style"))).toBe(false);
 
-  await page.getByTestId("section-style-open").click();
+  await page.getByTestId("section-style-open").last().click();
   await expect(page.getByTestId("section-style-panel")).toBeVisible();
 
   // A skin distinctive enough that no other could produce these values by
@@ -83,7 +88,7 @@ test("a skin chosen in the popup paints the card behind it at once", async ({
   // a painted property behind a rounded face would show four bright corner
   // wedges, which is why `SectionCard` splits what inherits from what paints.
   // Reading them off the face is what makes that split a measurement.
-  const face = page.getByTestId("section-card-face").first();
+  const face = page.getByTestId("section-card-face").last();
   await page
     .getByTestId("section-style-background-url")
     .fill("https://example.com/section-style-popup.png");

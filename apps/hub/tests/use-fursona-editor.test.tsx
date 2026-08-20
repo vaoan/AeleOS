@@ -116,7 +116,12 @@ describe("useFursonaEditor", () => {
   it("creates the fursona first, then writes its sections against the new ref", async () => {
     const { result } = renderHook(() => useFursonaEditor(), { wrapper });
     await result.current.save(values);
-    expect(setFursonaSections).toHaveBeenCalledWith({}, "new-ref", sections);
+    expect(setFursonaSections).toHaveBeenCalledWith(
+      {},
+      "new-ref",
+      sections,
+      "fursona",
+    );
     expect(createFursona.mock.invocationCallOrder[0]!).toBeLessThan(
       setFursonaSections.mock.invocationCallOrder[0]!,
     );
@@ -125,7 +130,12 @@ describe("useFursonaEditor", () => {
   it("writes sections against the existing ref when editing", async () => {
     const { result } = renderHook(() => useFursonaEditor("ref-1"), { wrapper });
     await result.current.save(values);
-    expect(setFursonaSections).toHaveBeenCalledWith({}, "ref-1", sections);
+    expect(setFursonaSections).toHaveBeenCalledWith(
+      {},
+      "ref-1",
+      sections,
+      "fursona",
+    );
   });
 
   // The partial failure the plan calls out: the fursona exists and its content
@@ -278,7 +288,12 @@ describe("useFursonaEditor", () => {
       await act(async () => {
         await result.current.save(values);
       });
-      expect(setFursonaSections).toHaveBeenCalledWith({}, "ref-1", sections);
+      expect(setFursonaSections).toHaveBeenCalledWith(
+        {},
+        "ref-1",
+        sections,
+        "fursona",
+      );
       expect(setActorTheme).toHaveBeenCalled();
     });
   });
@@ -357,7 +372,12 @@ describe("useFursonaEditor, for a person", () => {
     await act(async () => {
       await result.current.save(values);
     });
-    expect(setFursonaSections).toHaveBeenCalledWith({}, "me-1", sections);
+    expect(setFursonaSections).toHaveBeenCalledWith(
+      {},
+      "me-1",
+      sections,
+      "person",
+    );
     expect(setActorTheme).toHaveBeenCalledWith({}, "me-1", DEFAULT_THEME);
   });
 });

@@ -111,19 +111,79 @@ async function readEditor(page: Page): Promise<EditorSection[]> {
 }
 
 /**
+ * The identity section every page opens with, as {@link readEditor} reads it.
+ *
+ * **A template names no identity block, so the shim supplies one and puts it
+ * FIRST** — the composed `defaultIdentitySection`, a two-place grid holding the
+ * portrait beside a stack of the name, the handle and the owner. `readEditor`
+ * collects every `leaf-title` inside a section card, nested ones included, so
+ * the stack's three arrive flattened after the portrait.
+ *
+ * Written out rather than derived from `defaultIdentitySection`. Deriving it
+ * would need this file to reproduce that flattening, and an expectation built
+ * by the same walk it is checking agrees with itself whatever either does.
+ */
+const IDENTITY_SECTION: EditorSection = {
+  name: "",
+  mode: "grid",
+  spaces: "2",
+  titles: ["Portrait", "Name", "Handle", "Owner"],
+};
+
+/**
+ * The same, for a PERSON — which is two sections rather than one.
+ *
+ * `defaultIdentitySection` puts `owner` in the stack for a fursona and nothing
+ * in its place for a person, because a person has no owner to name. Their third
+ * required kind is `fursonas`, which is not part of the composed header at all,
+ * so `withRequiredBlocks` appends it in a section of its own. The result is a
+ * three-title grid followed by a one-title stack, and getting this wrong looks
+ * exactly like the fursona case being right.
+ */
+const PERSON_HEADER: EditorSection = {
+  name: "",
+  mode: "grid",
+  spaces: "2",
+  titles: ["Portrait", "Name", "Handle"],
+};
+
+/**
+ * And the one that lands at the END rather than beside the header.
+ *
+ * `withRequiredBlocks` returns the header, then the page, then whatever is
+ * still missing — so a kind that is not part of the composed header, and
+ * `fursonas` is the only one, is appended after everything the author has.
+ * Expecting it second is the mistake this constant exists to stop being made
+ * twice.
+ */
+const PERSON_FURSONAS: EditorSection = {
+  name: "",
+  mode: "stack",
+  spaces: "1",
+  titles: ["Fursonas"],
+};
+
+/**
  * The same page, as the template that produced it describes itself.
  *
  * Built by running the template through `sectionsToBlocks` rather than by
  * restating the decomposition table, so what this expects and what the editor
- * is handed cannot disagree about anything except the round trip itself.
+ * is handed cannot disagree about anything except the round trip itself — plus
+ * {@link IDENTITY_SECTION}, which is not the template's and is what the editor
+ * adds to make the page one the database will accept.
  *
  * @param sections - a template's own sections.
+ * @param identity - what the shim put BEFORE them, which differs by actor
+ *   kind. A person's page passes an empty list and places its own two around
+ *   the result, because one of theirs is appended rather than prepended.
  * @returns what {@link readEditor} must find.
  */
 const expectedFrom = (
   sections: (typeof FURSONA_TEMPLATES)[number]["sections"],
-): EditorSection[] =>
-  sectionsToBlocks(sections).map((block) => {
+  identity: EditorSection[] = [IDENTITY_SECTION],
+): EditorSection[] => [
+  ...identity,
+  ...sectionsToBlocks(sections).map((block) => {
     if (!isContainer(block)) throw new Error("a template made a leaf");
     return {
       name: block.name_en ?? "",
@@ -133,7 +193,8 @@ const expectedFrom = (
         child && !isContainer(child) ? child.title_en : "",
       ),
     };
-  });
+  }),
+];
 
 // EVERY TEMPLATE, DRIVEN FROM THE LIST THAT SHIPS THEM. A template added later
 // is covered the moment it is added, which is the property a hand-listed set
@@ -178,8 +239,10 @@ for (const template of FURSONA_TEMPLATES) {
       const anonymous = await stranger.newPage();
       const response = await anonymous.goto(`/es/${address}/${handle}`);
       expect(response?.status()).toBe(200);
+      // The template's own sections, plus the identity one the editor added
+      // and the save then stored — see {@link IDENTITY_SECTION}.
       await expect(anonymous.getByTestId("public-section")).toHaveCount(
-        template.sections.length,
+        template.sections.length + 1,
       );
       // The page is not merely present but populated: a section that lost its
       // items would still be a section.
@@ -207,7 +270,10 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // than whatever happened to be the default.
   await page.getByTestId("new-section-spaces").selectOption("3");
   await page.getByTestId("add-section").click();
-  const card = page.getByTestId("section-card").first();
+  // **The LAST card.** A page opens carrying the identity section the database
+  // requires and `add-section` appends, so the one this test builds is at the
+  // end. Taking the first would have filled the identity section's fields in.
+  const card = page.getByTestId("section-card").last();
   await card.getByTestId("section-name").fill("A history");
   await card.getByTestId("section-mode").selectOption("timeline");
   // **The FIRST and the THIRD place of three, leaving the MIDDLE empty**, and
@@ -231,6 +297,7 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   await page.goto(`/es/pages/${handle}/edit`);
   await expect(page.getByTestId("section-card").first()).toBeVisible();
   expect(await readEditor(page)).toEqual([
+    IDENTITY_SECTION,
     {
       name: "A history",
       mode: "timeline",
@@ -252,7 +319,7 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   expect(
     await page
       .getByTestId("section-card")
-      .first()
+      .last()
       .getByTestId("places")
       .locator("> * > *")
       .evaluateAll((nodes) =>
@@ -265,8 +332,9 @@ test("sections built by hand save, reopen and reach a stranger", async ({
     const anonymous = await stranger.newPage();
     const response = await anonymous.goto(`/es/${address}/${handle}`);
     expect(response?.status()).toBe(200);
-    await expect(anonymous.getByTestId("public-section")).toHaveCount(1);
-    await expect(anonymous.getByTestId("public-leaf")).toHaveCount(2);
+    // Plus the identity section, whose four leaves join the count.
+    await expect(anonymous.getByTestId("public-section")).toHaveCount(2);
+    await expect(anonymous.getByTestId("public-leaf")).toHaveCount(2 + 4);
     // The gap a stranger sees. Its GEOMETRY — that the place is a full track
     // wide and that what follows sits past it — is `blocks-render.spec.ts`'s,
     // against a seeded page; what this adds is that a page somebody BUILT
@@ -297,9 +365,11 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   await page.getByTestId("editor-display-name").fill("A Real Person");
   await page.getByTestId("editor-visibility").selectOption("public");
 
-  // The identity is created for this file, so a person's own page has nothing
-  // on it yet and the picker applies on the first click — there is nothing to
-  // confirm.
+  // The picker applies on the FIRST click, with nothing to confirm — and the
+  // reason changed even though the behaviour did not. This page is not empty
+  // any more: like every page it opens carrying its required blocks. What makes
+  // the confirmation stay out of the way is `holdsNothingAuthored`, which asks
+  // whether anything here is the AUTHOR's rather than whether anything is here.
   const [template] = FURSONA_TEMPLATES;
   await page.getByTestId("template-picker").click();
   await page.getByTestId(`template-${template!.id}`).click();
@@ -308,7 +378,11 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
 
   await page.goto("/es/me/edit");
   await expect(page.getByTestId("section-card").first()).toBeVisible();
-  expect(await readEditor(page)).toEqual(expectedFrom(template!.sections));
+  expect(await readEditor(page)).toEqual([
+    PERSON_HEADER,
+    ...expectedFrom(template!.sections, []),
+    PERSON_FURSONAS,
+  ]);
 
   const stranger = await browser.newContext();
   try {
@@ -316,7 +390,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
     const response = await anonymous.goto(`/es/${address}`);
     expect(response?.status()).toBe(200);
     await expect(anonymous.getByTestId("public-section")).toHaveCount(
-      template!.sections.length,
+      template!.sections.length + 2,
     );
   } finally {
     await stranger.close();

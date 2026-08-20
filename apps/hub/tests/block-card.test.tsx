@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { lockedKinds } from "@/features/actors/domain/required-blocks";
+import { pageContext } from "./helpers/page-context";
 import { NextIntlClientProvider } from "next-intl";
 
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
@@ -73,8 +75,12 @@ function harness(
         apply={apply}
         lang="en"
         labels={labels}
-        parentHost=""
+        page={pageContext({ parentHost: "" })}
         atBlockLimit={atBlockLimit}
+        // **Computed from the page, exactly as `BlockEditor` does it.** A
+        // harness passing an empty set would let a case assert the control is
+        // enabled without that meaning anything about the rule.
+        locked={lockedKinds(held.page, "fursona")}
         problems={problems}
         dragHandle={null}
       />
@@ -128,8 +134,9 @@ function renderCard(
       apply={(edit) => onChange(edit([block]))}
       lang="en"
       labels={labels}
-      parentHost=""
+      page={pageContext({ parentHost: "" })}
       atBlockLimit={false}
+      locked={new Set<string>()}
       problems={[]}
       dragHandle={null}
     />,
@@ -497,6 +504,48 @@ describe("BlockCard", () => {
       fireEvent.click(screen.getByTestId("remove-section"));
       expect(page()).toEqual([]);
     });
+
+    // **A section holding the last copy of a required kind cannot be
+    // removed**, and the case that matters is not a portrait somebody is
+    // looking at — it is the SECTION their portrait happens to sit in, which
+    // says nothing about identity on its face.
+    //
+    // The control is disabled rather than refusing the click, because a
+    // control that accepts a press and does nothing is the failure this
+    // repository keeps catching. The title is what says why.
+    it("withdraws the bin when the section holds a locked kind", () => {
+      const page = harness([
+        {
+          ...newContainer("grid", 2),
+          children: [
+            { kind: "avatar", title_en: "Portrait", description_en: "" },
+            null,
+          ],
+        } as unknown as ContainerBlock,
+      ]);
+      const bin = screen.getByTestId("remove-section");
+      expect(bin).toBeDisabled();
+      expect(bin).toHaveAttribute("title", "remove-locked");
+      fireEvent.click(bin);
+      expect(page()).toHaveLength(1);
+    });
+
+    // **A second copy frees the first.** The rule is at-least-one, so a page
+    // holding two portraits may lose either — and without this case the one
+    // above passes for a control disabled whenever the kind appears at all,
+    // which is a different and much more annoying rule.
+    it("allows the bin when a second copy of the kind exists", () => {
+      harness([
+        {
+          ...newContainer("grid", 2),
+          children: [
+            { kind: "avatar", title_en: "Portrait", description_en: "" },
+            { kind: "avatar", title_en: "Again", description_en: "" },
+          ],
+        } as unknown as ContainerBlock,
+      ]);
+      expect(screen.getByTestId("remove-section")).not.toBeDisabled();
+    });
   });
 
   describe("the shape control", () => {
@@ -705,8 +754,9 @@ describe("BlockCard", () => {
           apply={() => undefined}
           lang="en"
           labels={labels}
-          parentHost="me.furrycolombia.com"
+          page={pageContext({ parentHost: "me.furrycolombia.com" })}
           atBlockLimit={false}
+          locked={new Set<string>()}
           dragHandle={null}
           problems={[]}
         />

@@ -24,10 +24,24 @@ import type { Locator, Page } from "@playwright/test";
  * in three lost its first arrow and the walk then sat on its source place until
  * the poll timed out.
  *
- * It works by ORDERING and not by luck. The sensor's timer was queued before
- * this one and timers of equal delay fire in the order they were queued, so by
- * the time this resolves the listener is attached. A fixed wait would only have
- * made the window less likely.
+ * It works by ORDERING and not by luck — but **the ordering it needs is a
+ * FRAME, and a bare macrotask was not enough.** This yielded a single
+ * `setTimeout` until 2026-08-20, on the reasoning that the sensor's timer was
+ * queued first and equal-delay timers fire in queue order. That reasoning has
+ * a hole: it assumes the sensor has already ATTACHED when the yield is queued,
+ * and attach happens in a React commit that the scheduler is free to defer.
+ * On a heavier editor page it does defer, and then our timer is queued first
+ * and fires first — so the window is still open and the first arrow is still
+ * lost. Measured rather than argued: on a four-section page the first arrow
+ * was lost on every run with one macrotask AND with two, and on none with the
+ * yield below.
+ *
+ * `requestAnimationFrame` is what closes it, because React commits BEFORE
+ * paint — so by the time the frame callback runs, the commit that attaches the
+ * sensor has happened and its `setTimeout` is queued. The `setTimeout` nested
+ * inside the frame is queued after that one and therefore fires after it. A
+ * plain wait of 50ms also worked; this is the same guarantee without a number
+ * to be wrong about on a slower machine.
  *
  * It asserts nothing about the lift itself: what "lifted" looks like differs
  * per spec — an empty live region for a first drag, a CHANGED one for a second
@@ -41,5 +55,7 @@ import type { Locator, Page } from "@playwright/test";
 export async function liftByKeyboard(page: Page, grip: Locator): Promise<void> {
   await grip.focus();
   await page.keyboard.press("Space");
-  await page.evaluate(() => new Promise((done) => setTimeout(done)));
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => setTimeout(done))),
+  );
 }

@@ -33,6 +33,7 @@ describe("setActorTheme", () => {
       cursor: null,
       backgroundUrl: null,
       backgroundFit: "tile",
+      measure: null,
       skin: "glass",
       density: 1,
       speed: 1,
@@ -229,5 +230,31 @@ describe("readMyProfileTheme", () => {
       rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "no" } }),
     } as unknown as SupabaseClient;
     await expect(readMyProfileTheme(client)).rejects.toThrow(/no/);
+  });
+});
+
+describe("the page measure, stored", () => {
+  it("sends a measure somebody chose", async () => {
+    const { client: c, rpc } = client();
+    await setActorTheme(c, "ref-1", { ...DEFAULT_THEME, measure: "full" });
+    expect(rpc).toHaveBeenCalledWith(
+      "set_actor_theme",
+      expect.objectContaining({
+        p_theme: expect.objectContaining({ measure: "full" }),
+      }),
+    );
+  });
+
+  // **Omitted rather than stored as null**, like every other "the design's
+  // own" field here. A stored null and an absent key mean the same thing to
+  // `parseTheme`, and writing one would record a choice nobody made.
+  it("omits a measure nobody chose", async () => {
+    const { client: c, rpc } = client();
+    await setActorTheme(c, "ref-1", { ...DEFAULT_THEME, measure: null });
+    const [, args] = rpc.mock.calls[0] as unknown as [
+      string,
+      { p_theme: object },
+    ];
+    expect(args.p_theme).not.toHaveProperty("measure");
   });
 });

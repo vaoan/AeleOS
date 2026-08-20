@@ -33,6 +33,17 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * way, by the suite that drives a real keyboard drag into a place one level
  * too deep.
  *
+ *
+ * **The remove control withdraws when a block holds the last copy of a kind
+ * the page must carry.** `lockedKinds` is computed once over the whole tree
+ * and threaded down, so every bin in the editor locks at the same moment —
+ * the same reasoning `atBlockLimit` already follows.
+ *
+ *
+ * **A section may also reach both edges of the window** — the `bleed` key,
+ * offered at depth 0 only, because a nested block has a section between it and
+ * the page and cannot escape it.
+ *
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
  */
@@ -71,6 +82,7 @@ export function blockEditorLabels(): BlockEditorLabels {
     sectionWeightsHint: "These set how wide each place is.",
     modes: Object.fromEntries(CONTAINER_MODES.map((mode) => [mode, mode])),
     removeSection: "Remove section",
+    removeLocked: "remove-locked",
     collapse: "Collapse section",
     expand: "Expand section",
     addContent: "Add content",
@@ -121,6 +133,7 @@ export function blockEditorLabels(): BlockEditorLabels {
       open: "Section style",
       title: "This section's own style",
       skin: "Style",
+      bleed: "Reach both edges",
       skins: Object.fromEntries(SKINS.map((skin) => [skin, skin])) as Record<
         SkinId,
         string

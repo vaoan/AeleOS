@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { pageContext } from "./helpers/page-context";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { SKINS } from "@/shared/domain/skins";
 import {
@@ -55,8 +56,9 @@ function harness(page: Block[], path: BlockPath = [0]) {
         apply={apply}
         lang="en"
         labels={labels}
-        parentHost=""
+        page={pageContext({ parentHost: "" })}
         atBlockLimit={false}
+        locked={new Set<string>()}
         problems={[]}
         dragHandle={null}
       />
@@ -111,8 +113,9 @@ function threeHarness() {
             apply={apply}
             lang="en"
             labels={labels}
-            parentHost=""
+            page={pageContext({ parentHost: "" })}
             atBlockLimit={false}
+            locked={new Set<string>()}
             problems={[]}
             dragHandle={null}
           />

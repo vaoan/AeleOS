@@ -32,6 +32,11 @@ const EXPECTED_KEYS = [
   "background_fit",
   "card_size",
   "border",
+  // Meaningful in the BLOCK model only, at depth 0 — a section reaching both
+  // edges of the window. It is in the flat bag because these two are held
+  // identical and the guard is worth more than one unused key: a bag that may
+  // differ is a bag somebody lets differ by accident.
+  "bleed",
 ];
 
 /** A 500-character address, the longest `background_url` either bag allows. */
@@ -62,6 +67,10 @@ const CASES = new Map<string, { accepted: unknown[]; refused: unknown[] }>([
       refused: ["groove", ""],
     },
   ],
+  // A boolean and nothing else. The strings are the interesting refusals:
+  // `"true"` is what a form control hands back if somebody forgets to convert
+  // it, and it must not be taken for the boolean.
+  ["bleed", { accepted: [true, false], refused: ["true", 1, null] }],
 ]);
 
 /**

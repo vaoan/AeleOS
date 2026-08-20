@@ -125,7 +125,12 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   await page.getByTestId("new-section-spaces").selectOption(String(ACROSS));
   await page.getByTestId("add-section").click();
 
-  const card = page.getByTestId("section-card").first();
+  // **The LAST card, not the first.** Every page now opens carrying the
+  // identity section the database requires, and `add-section` appends — so the
+  // section this test is building is the one at the end. Taking the first
+  // silently measured the identity section instead, which has two places where
+  // this one has three.
+  const card = page.getByTestId("section-card").last();
   await card.getByTestId("section-name").fill("Un mundo");
   await card.getByTestId("section-mode").selectOption("grid");
 
@@ -146,7 +151,9 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   // this phase — and then something inside THAT, so the tree is genuinely two
   // levels rather than one level with a container sitting empty in it.
   await eachPlace(places).nth(1).getByTestId("add-nested").click();
-  const nested = page.getByTestId("nested-card");
+  // Scoped to this card: the identity section holds a nested stack of its own,
+  // so a page-wide `nested-card` locator matches two.
+  const nested = card.getByTestId("nested-card");
   await expect(nested).toHaveCount(1);
   await nested.getByTestId("nested-name").fill("Dentro");
   // An arrangement of its own, and deliberately not the one it was placed
@@ -176,7 +183,7 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   await page.goto(`/es/pages/${handle}/edit`);
   await expect(page.getByTestId("section-card").first()).toBeVisible();
 
-  const reopened = page.getByTestId("section-card").first();
+  const reopened = page.getByTestId("section-card").last();
   await expect(reopened.getByTestId("section-name")).toHaveValue("Un mundo");
   await expect(reopened.getByTestId("section-mode")).toHaveValue("grid");
   await expect(reopened.getByTestId("section-spaces")).toHaveValue(
@@ -198,7 +205,7 @@ test("a section inside a section is built by hand, saved, reopened and read by a
     "data-testid",
     "nested-card",
   );
-  const reNested = page.getByTestId("nested-card");
+  const reNested = reopened.getByTestId("nested-card");
   await expect(reNested.getByTestId("nested-name")).toHaveValue("Dentro");
   await expect(reNested.getByTestId("nested-mode")).toHaveValue("timeline");
   await expect(reNested.getByTestId("nested-spaces")).toHaveValue("2");
@@ -231,14 +238,23 @@ test("a section inside a section is built by hand, saved, reopened and read by a
 
     // One section, because only the outermost container is one; three pieces
     // of content, two of them inside the nested section.
-    await expect(anonymous.getByTestId("public-section")).toHaveCount(1);
-    await expect(anonymous.getByTestId("public-leaf")).toHaveCount(3);
+    // Plus the identity section the editor opened with and the save stored,
+    // whose four leaves — portrait, name, handle, owner — join the count.
+    await expect(anonymous.getByTestId("public-section")).toHaveCount(2);
+    await expect(anonymous.getByTestId("public-leaf")).toHaveCount(3 + 4);
 
     // THE NESTING, AS A STRANGER SEES IT. The nested container kept its own
     // arrangement — a `timeline` where its parent is a `grid` — and it is
     // INSIDE the parent's grid rather than beside it, which is the assertion a
     // flattened page would still pass on counts alone.
-    const grid = anonymous.getByTestId("block-grid");
+    // Scoped to the section this test built, which is the last one: the
+    // identity section above it is a `grid` too, so a page-wide locator
+    // matches both and every measurement below would be taken on whichever
+    // came first.
+    const grid = anonymous
+      .getByTestId("public-section")
+      .last()
+      .getByTestId("block-grid");
     await expect(grid).toHaveCount(1);
     await expect(grid.getByTestId("block-timeline")).toHaveCount(1);
     await expect(

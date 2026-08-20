@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 
 const readActorPage = vi.fn<(...a: unknown[]) => unknown>();
 const readMyProfileTheme = vi.fn<(...a: unknown[]) => unknown>();
+const readMyAddress = vi.fn<(...a: unknown[]) => unknown>();
 const listMyActors = vi.fn<(...a: unknown[]) => unknown>();
 const notFound = vi.fn<(...a: unknown[]) => never>(() => {
   // Real next/navigation signals a 404 by throwing too — modelling that here
@@ -72,6 +73,7 @@ vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
   readActorPage: (...a: unknown[]) => readActorPage(...a),
   readMyProfileTheme: (...a: unknown[]) => readMyProfileTheme(...a),
+  readMyAddress: (...a: unknown[]) => readMyAddress(...a),
   FURSONA_TEMPLATES,
   // The page builds its labels from this, so a mocked barrel that omits it
   // fails the page rather than the label code — the mocked-dependency trap
@@ -140,6 +142,9 @@ beforeEach(() => {
   // for most of this suite. The tests that care override it.
   readActorPage.mockResolvedValue({ sections: [], theme: {} });
   readMyProfileTheme.mockResolvedValue({});
+  // The address a preview's `owner` block links to. A real one, so a test
+  // asserting on the link sees what a visitor would.
+  readMyAddress.mockResolvedValue("42");
   notFound.mockImplementation(() => {
     throw new Error("NEXT_NOT_FOUND");
   });

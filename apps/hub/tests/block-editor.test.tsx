@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import type React from "react";
+import { missingRequiredKinds } from "@/features/actors/domain/required-blocks";
+import { pageContext } from "./helpers/page-context";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import {
@@ -35,6 +38,26 @@ import { blockEditorLabels } from "./support/editor-labels";
 // the lift has to be flushed before the arrow keys are sent; `drag` below is
 // where that lives.
 
+// **The owner block's link is locale-aware**, and the shim now puts one on
+// every fursona page the editor holds — so this suite renders a `Link` where
+// it never did before. Mocked rather than wrapped in a provider, matching how
+// every other component suite here handles it: the locale is not what these
+// cases are about.
+vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: React.ReactNode;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 vi.mock("lucide-react/dynamic", () => ({
   DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
   iconNames: ["paw-print"],
@@ -67,7 +90,7 @@ function harness(sections: Block[] = []) {
         control={form.control}
         lang="en"
         labels={labels}
-        parentHost=""
+        page={pageContext({ parentHost: "" })}
         problems={[]}
       />
     );
@@ -213,14 +236,23 @@ describe("BlockEditor", () => {
   // anything to lose. Templates are still written in the flat vocabulary, so
   // what arrives is the conversion — the same one that opens every page
   // already stored.
-  it("applies a template as blocks, replacing the page", () => {
+  // **Replacing, plus the identity blocks the page must keep.** A template
+  // ships structure and names no identity block; applying one replaces the
+  // page, so without the shim on that path choosing a template would strip
+  // somebody's portrait and handle and leave a tree the write refuses.
+  //
+  // The count is the template's sections PLUS what the shim supplies, and the
+  // completeness check is what actually pins the behaviour — a length
+  // assertion alone would pass on a shim that added the wrong blocks.
+  it("applies a template as blocks, keeping the page complete", () => {
     const page = harness();
     fireEvent.click(screen.getByTestId("template-picker"));
     const [template] = FURSONA_TEMPLATES;
     fireEvent.click(screen.getByTestId(`template-${template!.id}`));
 
-    expect(page()).toHaveLength(template!.sections.length);
+    expect(page().length).toBeGreaterThanOrEqual(template!.sections.length);
     expect(page().every((block) => isContainer(block))).toBe(true);
+    expect(missingRequiredKinds(page(), "fursona")).toEqual([]);
   });
 
   // A PRESET APPENDS AND NEVER ASKS FIRST, because appending is not

@@ -287,7 +287,12 @@
       "progress": "Progreso",
       "table": "Tabla",
       "jukebox": "Reproductor de música",
-      "embed": "Contenido incrustado"
+      "embed": "Contenido incrustado",
+      "avatar": "Retrato",
+      "handle": "Usuario",
+      "name": "Nombre visible",
+      "owner": "Dueño",
+      "fursonas": "Lista de fursonas"
     },
     "leafFields": {
       "text": {
@@ -342,6 +347,21 @@
         "title": "Título del marco",
         "description": "Leyenda",
         "hint": "Se muestra debajo del contenido incrustado."
+      },
+      "avatar": {
+        "title": "Texto alternativo"
+      },
+      "handle": {
+        "title": "Etiqueta"
+      },
+      "name": {
+        "title": "Etiqueta"
+      },
+      "owner": {
+        "title": "Título"
+      },
+      "fursonas": {
+        "title": "Título"
       }
     },
     "tableRows": "Filas",
@@ -363,7 +383,18 @@
     "playerSeek": "Buscar",
     "playerPlaylist": "Lista de reproducción",
     "playerUnplayable": "Ese enlace no se pudo reproducir.",
-    "playerEmpty": "Aún no hay canciones"
+    "playerEmpty": "Aún no hay canciones",
+    "removeLocked": "Tu página debe conservar esto: es el único que queda.",
+    "measure": "Ancho de la página",
+    "measures": {
+      "narrow": "Estrecho",
+      "medium": "Medio",
+      "wide": "Ancho",
+      "wider": "Más ancho",
+      "widest": "Muy ancho",
+      "full": "Todo el ancho"
+    },
+    "sectionStyleBleed": "Llegar a ambos bordes de la ventana"
   },
   "picker": {
     "title": "¿Quién quieres ser?",
@@ -392,7 +423,7 @@
   "controls": {
     "toDark": "Cambiar a modo oscuro",
     "toLight": "Cambiar a modo claro",
-    "authorTheme": "Su propio tema: cambia a uno normal",
+    "authorTheme": "Su tema",
     "language": "Cambiar idioma",
     "loading": "Cargando"
   },
@@ -403,11 +434,6 @@
   },
   "publicProfile": {
     "notFoundTitle": "No encontrado",
-    "fursonas": "Fursonas",
-    "empty": "Todavía no hay nada en esta página.",
-    "pageThemeTitle": "Cómo se ve esta página",
-    "pageThemeAuthor": "Su tema",
-    "pageThemeLight": "Claro",
-    "pageThemeDark": "Oscuro"
+    "fursonas": "Fursonas"
   }
 }

@@ -99,3 +99,10 @@ export {
   type SectionShape,
 } from "@/features/actors/presentation/section-shapes";
 export { SPACE_CHOICES } from "@/features/actors/domain/block-edits";
+export {
+  REQUIRED_KINDS,
+  defaultIdentitySection,
+  missingRequiredKinds,
+  withRequiredBlocks,
+  type ActorKind,
+} from "@/features/actors/domain/required-blocks";

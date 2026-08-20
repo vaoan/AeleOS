@@ -87,7 +87,10 @@ create table public.actor_profiles (
   -- Spanish yet, which is an ordinary state and never an error.
   sections   jsonb not null default '[]'::jsonb,
   -- How the owner chose their page to look: {background?, accent?,
-  -- canvasColours?, cursor?, canvas?, backgroundUrl?, backgroundFit?}. `accent`
+  -- canvasColours?, cursor?, canvas?, backgroundUrl?, backgroundFit?,
+  -- measure?}. `measure` is how wide the page lays its own sections — one of
+  -- six named stops, checked against that closed list on the write, and absent
+  -- meaning the design's own. `accent`
   -- is an `#rrggbb` string; `background` is a gradient — {angle, stops:
   -- [{color, at}]} — and `canvasColours` is one colour per part the chosen
   -- canvas paints with. Both are lists because a fursona can carry more
@@ -120,7 +123,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'An actor page as a TREE OF BLOCKS, not a flat list of sections. Each element is a block discriminated on kind, which is one of is_block_kind(). A container arranges: {kind: "container", mode, spaces?, weights?, name_en?, name_es?, children[], style?}, where mode is one of is_container_mode() and decides arrangement only. A leaf holds one piece of content: {kind, title_en, title_es?, description_en?, description_es?, icon?, image_url?, link_url?, rows?, style?}, where rows is the rows of cells a table leaf carries, each cell {text_en?, text_es?}. A section is a container at depth 0 carrying a name; depth is capped and the cap is counted explicitly rather than inferred from shape. spaces is how many places the container lays out ACROSS, absent meaning one. It is a width and never a total: children fill the places row by row and the section grows downward, so a part-filled last row is the ordinary state and the two counts are unrelated. weights is one whole share per place, 1 to 6, deciding how wide each place is relative to its siblings; absent means uniform, a list whose length is not spaces is refused on the write and ignored on the read, and it is stored for every mode though only grid lays tracks to spend it on. A children entry may be JSON null, an empty place that keeps its width on the page and draws nothing; the entries are positional, because a merely shorter list cannot say that the middle place is empty, and nothing may collapse or trim them, a trailing null included. columns and span are what spaces replaces and are refused by name, so a stale writer hears about it rather than having the page come back a shape nobody chose. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) is stored and read by no renderer today; it named a minimum card width for a grid that chose its own column count, and a container declares its spaces explicitly now. border (solid/dashed/dotted/double/none) sets --skin-border-style for the block; none is a choice and absence is inheritance of whatever the page already set. Validated by set_actor_sections, which walks the tree through validate_block.';
+  'An actor page as a TREE OF BLOCKS, not a flat list of sections. Each element is a block discriminated on kind, which is one of is_block_kind(). A container arranges: {kind: "container", mode, spaces?, weights?, name_en?, name_es?, children[], style?}, where mode is one of is_container_mode() and decides arrangement only. A leaf holds one piece of content: {kind, title_en, title_es?, description_en?, description_es?, icon?, image_url?, link_url?, rows?, style?}, where rows is the rows of cells a table leaf carries, each cell {text_en?, text_es?}. A section is a container at depth 0 carrying a name; depth is capped and the cap is counted explicitly rather than inferred from shape. spaces is how many places the container lays out ACROSS, absent meaning one. It is a width and never a total: children fill the places row by row and the section grows downward, so a part-filled last row is the ordinary state and the two counts are unrelated. weights is one whole share per place, 1 to 6, deciding how wide each place is relative to its siblings; absent means uniform, a list whose length is not spaces is refused on the write and ignored on the read, and it is stored for every mode though only grid lays tracks to spend it on. A children entry may be JSON null, an empty place that keeps its width on the page and draws nothing; the entries are positional, because a merely shorter list cannot say that the middle place is empty, and nothing may collapse or trim them, a trailing null included. columns and span are what spaces replaces and are refused by name, so a stale writer hears about it rather than having the page come back a shape nobody chose. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) is stored and read by no renderer today; it named a minimum card width for a grid that chose its own column count, and a container declares its spaces explicitly now. border (solid/dashed/dotted/double/none) sets --skin-border-style for the block; none is a choice and absence is inheritance of whatever the page already set. bleed is a boolean read at depth 0 only: true takes the section out of the measure its page chose so it reaches both edges of the window, absent means it sits inside that measure. It is stored at any depth, because a key that means nothing where it sits costs nothing and refusing it would make moving a section into another one fail on a style it carried legitimately a moment before. Validated by set_actor_sections, which walks the tree through validate_block.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -351,7 +354,18 @@ as $$
     -- The only kind that reads `rows`. Every other kind ignores it and stores
     -- it regardless, so switching a block kind to look at it and switching
     -- back finds what was typed still there.
-    'table'
+    'table',
+    -- The identity leaves. Their content is the ACTOR's — resolved by the
+    -- renderer from the row, not typed into the block — so there is nothing
+    -- kind-specific for `validate_block` to check: the generic field rules
+    -- cover the title that `owner` and `fursonas` read, and the other three
+    -- read no field at all.
+    --
+    -- This says which names EXIST. Which of them a page must carry is
+    -- `set_actor_sections`' business and depends on `actors.kind`, because
+    -- `owner` has nothing to render on a person's page and `fursonas` nothing
+    -- on a fursona's.
+    'avatar', 'handle', 'name', 'owner', 'fursonas'
   )
 $$;
 
@@ -708,6 +722,23 @@ begin
         if v_value not in ('solid', 'dashed', 'dotted', 'double', 'none') then
           raise exception 'block %: unknown border style', p_path using errcode = '22023';
         end if;
+      elsif v_key = 'bleed' then
+        -- **Checked as a JSON BOOLEAN, never as the text this loop yields.**
+        -- `jsonb_each_text` renders true as the string 'true', which is
+        -- precisely the value the client schema refuses — it is what a form
+        -- control hands back when somebody forgets to convert it. Comparing
+        -- `v_value` would accept the string and the boolean alike, so the two
+        -- validators would disagree while appearing to say the same thing.
+        --
+        -- Meaningful at depth 0 only; a nested block cannot escape the section
+        -- around it. Not enforced here, because a key that means nothing where
+        -- it sits costs a page nothing, and refusing it would make moving a
+        -- section INTO another one fail on a style it had every right to carry
+        -- a moment earlier.
+        if jsonb_typeof(p_block -> 'style' -> 'bleed') <> 'boolean' then
+          raise exception 'block %: bleed must be true or false', p_path
+            using errcode = '22023';
+        end if;
       else
         raise exception 'block %: unknown style key %', p_path, v_key using errcode = '22023';
       end if;
@@ -830,6 +861,68 @@ revoke all on function public.validate_block(jsonb, int, text) from public, anon
 
 
 -- ---------------------------------------------------------------------------
+-- Every block kind present anywhere in a page, at any depth.
+--
+-- **A separate walk rather than a tally threaded through `validate_block`.**
+-- That function is what every block passes through, it is immutable, it is
+-- revoked from `public` and `anon`, and
+-- `apps/hub/tests/block-limits-match-migration.test.ts` reads its constants out
+-- of this file. Changing its signature to carry a two-line feature spreads the
+-- feature across all of that. A second walk over a tree already capped at 500
+-- blocks costs nothing worth saving.
+--
+-- **It descends only through `children`.** `jsonb_path_query(p_blocks,
+-- '$.**.kind')` is the one-liner and it is WRONG: it would find a `kind` key
+-- anywhere in the payload, so a crafted object under a key nothing validates
+-- could satisfy a requirement without ever being a block. Descending through
+-- `children` from the top-level array guarantees every node counted is a node
+-- `validate_block` also checked.
+--
+-- Unbounded recursion is safe here only because `set_actor_sections` calls this
+-- AFTER `validate_block`, which refuses a tree deeper than its own cap with an
+-- explicit counter. Do not call this on unvalidated input.
+create or replace function public.block_kinds_present(p_blocks jsonb)
+returns text[]
+language plpgsql
+immutable
+as $$
+declare
+  v_kinds text[] := '{}';
+  v_block jsonb;
+  v_kind  text;
+begin
+  if jsonb_typeof(p_blocks) is distinct from 'array' then
+    return v_kinds;
+  end if;
+
+  for v_block in select * from jsonb_array_elements(p_blocks) loop
+    -- An empty place is JSON null and is not a block. Anything else that is
+    -- not an object is not one either; `validate_block` has already refused
+    -- it, and skipping keeps this function honest if it is ever called alone.
+    if jsonb_typeof(v_block) is distinct from 'object' then
+      continue;
+    end if;
+
+    v_kind := v_block ->> 'kind';
+    if v_kind is not null then
+      v_kinds := v_kinds || v_kind;
+    end if;
+
+    if jsonb_typeof(v_block -> 'children') = 'array' then
+      v_kinds := v_kinds || public.block_kinds_present(v_block -> 'children');
+    end if;
+  end loop;
+
+  return v_kinds;
+end;
+$$;
+
+-- Called only by `set_actor_sections`, which is `security definer`. No client
+-- role has any reason to reach it.
+revoke all on function public.block_kinds_present(jsonb) from public, anon;
+
+
+-- ---------------------------------------------------------------------------
 -- The validated content write.
 --
 -- Validation lives here rather than in a check constraint for two reasons. The
@@ -865,6 +958,16 @@ declare
   v_block jsonb;
   v_count int := 0;
   i       int := 0;
+
+  -- **Which kinds a page must carry depends on the ACTOR's kind**, because
+  -- `owner` has nothing to render on a person's page and `fursonas` nothing on
+  -- a fursona's. `actors.kind` is immutable, so this is a stable fact about the
+  -- row rather than anything a caller can influence.
+  v_actor_kind text;
+  v_required   text[];
+  v_refused    text;
+  v_present    text[];
+  v_missing    text[];
 begin
   -- The GENERALISED test: a person's own page, or a fursona they own.
   if not public.owns_active_actor(p_actor_ref) then
@@ -904,6 +1007,47 @@ begin
   -- ten at the top and five hundred and ten on the page.
   if v_count > c_max_blocks then
     raise exception 'too many blocks (limit %)', c_max_blocks
+      using errcode = '22023';
+  end if;
+
+  select kind into v_actor_kind
+    from public.actors
+   where actor_ref = p_actor_ref;
+
+  if v_actor_kind = 'person' then
+    v_required := array['avatar', 'handle', 'fursonas'];
+    v_refused  := 'owner';
+  else
+    v_required := array['avatar', 'handle', 'owner'];
+    v_refused  := 'fursonas';
+  end if;
+
+  v_present := public.block_kinds_present(p_sections);
+
+  -- **At least one of each, at any depth, in any container.** The guarantee is
+  -- that the block EXISTS IN THE TREE, not that a visitor sees it: `accordion`
+  -- renders its children collapsed and `tabs` shows one at a time, so a
+  -- required block inside either satisfies this while showing a stranger
+  -- nothing. That hole is known and accepted — see `REQUIRED_KINDS` in
+  -- `domain/required-blocks.ts` and the spec, and do not read this rule as
+  -- stronger than it is.
+  --
+  -- Every missing kind is named rather than the first, because somebody who
+  -- removed two blocks should be told about two.
+  v_missing := array(
+    select k from unnest(v_required) as k where not (k = any(v_present))
+  );
+  if array_length(v_missing, 1) is not null then
+    raise exception 'page is missing required blocks: %',
+      array_to_string(v_missing, ', ')
+      using errcode = '22023';
+  end if;
+
+  -- The opposite half of the same rule. A block with nothing to render is the
+  -- control-that-does-nothing failure, and refusing it at the write is what
+  -- keeps the editor from having to explain an empty one.
+  if v_refused = any(v_present) then
+    raise exception 'a % page cannot carry a % block', v_actor_kind, v_refused
       using errcode = '22023';
   end if;
 
@@ -1053,6 +1197,16 @@ begin
       -- at the write.
       if v_value not in ('cover', 'tile') then
         raise exception 'backgroundFit: unknown fit' using errcode = '22023';
+      end if;
+    elsif v_key = 'measure' then
+      -- How wide the page lays its own sections. Checked against this closed
+      -- list for `backgroundFit`'s reason rather than `skin`'s: a measure is
+      -- not an open set of renderer names that grows without a migration here,
+      -- it is six named stops that each have to exist as a real class, so
+      -- there is nothing lost by refusing a seventh at the write. Keep it in
+      -- step with `PAGE_MEASURES` in `domain/actor-theme.ts`.
+      if v_value not in ('narrow', 'medium', 'wide', 'wider', 'widest', 'full') then
+        raise exception 'measure: unknown measure' using errcode = '22023';
       end if;
     else
       raise exception 'unknown theme key %', v_key using errcode = '22023';

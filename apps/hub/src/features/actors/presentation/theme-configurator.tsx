@@ -1,6 +1,18 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import {
+  PAGE_MEASURES,
+  type PageMeasure,
+} from "@/features/actors/domain/actor-theme";
+
+/**
+ * What the control shows for a page that has chosen no measure.
+ *
+ * Null means the design's own, and the design's own IS `wider` — so the
+ * control opens on it rather than on a blank option nobody picked.
+ */
+const DEFAULT_MEASURE: PageMeasure = "wider";
 import { ClipboardCopy, Palette, RotateCcw } from "lucide-react";
 import {
   CANVASES,
@@ -79,6 +91,9 @@ import { tid } from "@/shared/infrastructure/test-id";
  * `usingDefault` marks a colour nobody has chosen. A colour input always
  * carries a value, so without saying so the design's own colour reads as a
  * choice somebody made.
+ *
+ * The measure's strings are a field name and one label per width, mapped from
+ * the vocabulary so a stop added without a label fails `messages.test.ts`.
  */
 export interface ThemeConfiguratorLabels {
   /** Names the whole panel. */
@@ -105,6 +120,10 @@ export interface ThemeConfiguratorLabels {
   scale: string;
   /** Field label for the style selector. */
   skin: string;
+  /** Names the page-width control. */
+  measure: string;
+  /** One label per width. */
+  measures: Record<PageMeasure, string>;
   /** One label per skin. */
   skins: Record<SkinId, string>;
   /** One label per canvas. */
@@ -273,6 +292,11 @@ export interface ThemeConfiguratorProps {
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--menu`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
  * Its image probe listens with `addEventListener` rather than assigning `onerror`, so a second listener could be added without silently replacing the first.
+ *
+ *
+ * **The page-width control sits beside the skin**, because both are form
+ * rather than colour, and after it because a skin changes every surface while
+ * this changes one number.
  *
  * @returns the panel.
  */
@@ -662,6 +686,34 @@ export function ThemeConfigurator({
               {SKINS.map((skin) => (
                 <option key={skin} value={skin}>
                   {labels.skins[skin]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* **How wide the page is**, which is the one control here that is
+              about the page's shape rather than its surfaces. Beside the skin
+              because both are form; after it because a skin changes every
+              surface and this changes one number. */}
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-measure`} className="text-xs font-medium">
+              {labels.measure}
+            </label>
+            <select
+              id={`${id}-measure`}
+              value={value.measure ?? DEFAULT_MEASURE}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  measure: event.target.value as PageMeasure,
+                })
+              }
+              {...tid("theme-measure")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              {PAGE_MEASURES.map((measure) => (
+                <option key={measure} value={measure}>
+                  {labels.measures[measure]}
                 </option>
               ))}
             </select>

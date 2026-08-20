@@ -1,4 +1,8 @@
 import { CANVASES, type CanvasId } from "@/features/actors/domain/actor-theme";
+import {
+  PAGE_MEASURES,
+  type PageMeasure,
+} from "@/features/actors/domain/actor-theme";
 import type { ThemeConfiguratorLabels } from "@/features/actors/presentation/theme-configurator";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 
@@ -50,6 +54,10 @@ export type Translate = (key: string) => string;
  * instead of a name resolving to a raw message id on somebody's screen.
  *
  * @param t - a translator bound to the `fursonas` namespace.
+ *
+ * The measure labels are mapped from `PAGE_MEASURES` rather than listed, so a
+ * stop added without a label is a failing test rather than a raw key.
+ *
  * @returns the labels, ready for the panel.
  */
 export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
@@ -103,6 +111,13 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
     skins: Object.fromEntries(
       SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
     ) as Record<SkinId, string>,
+    measure: t("measure"),
+    // Mapped from the vocabulary rather than listed by hand, so a stop added
+    // without a label is a failing `messages.test.ts` rather than a raw key on
+    // somebody's screen.
+    measures: Object.fromEntries(
+      PAGE_MEASURES.map((measure) => [measure, t(`measures.${measure}`)]),
+    ) as Record<PageMeasure, string>,
     adjusted: t("themeAdjusted"),
     reset: t("themeReset"),
     copyFromProfile: t("themeCopyFromProfile"),

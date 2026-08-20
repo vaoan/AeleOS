@@ -60,6 +60,8 @@ export type SectionStyle = BlockStyle;
  * explicit choice — "no edge here regardless of what surrounds it" — and
  * collapsing it into `borderInherit` would make that choice unreachable, the
  * same trap `inheritSkin`'s own doc names for `skins.default`.
+ *
+ * `bleed` names the full-width checkbox, which appears on a section only.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -84,6 +86,13 @@ export interface SectionStylePopupLabels {
   fitCover: string;
   /** The fit select's option for `"tile"`. */
   fitTile: string;
+  /**
+   * Label for the full-width checkbox, shown on a section only.
+   *
+   * A section may reach both edges of the window; a nested block cannot, so
+   * the control is not offered there at all.
+   */
+  bleed: string;
   /** Field label for the border select. */
   border: string;
   /**
@@ -117,6 +126,9 @@ export interface SectionStylePopupLabels {
  * one popup serve every block in a recursive tree: the editor holds the whole
  * page in a single field and addresses a block by its position, so there is no
  * per-block form path for a `useController` to name.
+ *
+ * `atTop` is what decides whether the full-width control is offered: this
+ * component sees a style bag and never knows where its block sits.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -131,6 +143,14 @@ export interface SectionStylePopupProps {
   onChange: (style: SectionStyle | undefined) => void;
   /** Already-translated strings. */
   labels: SectionStylePopupLabels;
+  /**
+   * Whether this block is a SECTION — a container at depth 0.
+   *
+   * Only a section may reach both edges of the window, so only a section is
+   * offered the control. Passed in rather than derived here: this component
+   * sees a style bag and never knows where its block sits.
+   */
+  atTop: boolean;
 }
 
 /**
@@ -176,12 +196,18 @@ export interface SectionStylePopupProps {
  * panel for exactly that reason — a control axe never sees is a control it
  * cannot fail on, which is not the same as one that passes.
  *
+ *
+ * **The full-width checkbox is shown on a SECTION only**, and stores absence
+ * rather than `false` — a key this bag does not carry already means "inherit
+ * the page" everywhere else in it.
+ *
  * @returns the button and, while open, the popup.
  */
 export function SectionStylePopup({
   value,
   onChange,
   labels,
+  atTop,
 }: SectionStylePopupProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -346,6 +372,31 @@ export function SectionStylePopup({
                 <option value="tile">{labels.fitTile}</option>
               </select>
             </div>
+          ) : null}
+
+          {/* **Depth 0 only.** A section reaches both edges of the window; a
+              block nested inside one has a section between it and the page and
+              cannot escape it. Offering the control where it does nothing is
+              the failure this repository keeps catching, so the caller says
+              whether this block is a section and the control appears only
+              there. */}
+          {atTop ? (
+            <label className="flex items-center gap-2 text-xs font-medium">
+              <input
+                type="checkbox"
+                checked={style.bleed === true}
+                onChange={(event) =>
+                  // Absent rather than `false`, which is what `setField`'s
+                  // empty string already means here: the bag's rule everywhere
+                  // is that a key it does not carry means "inherit the page",
+                  // and storing `false` would be a second way to say it.
+                  setField("bleed", event.target.checked ? true : "")
+                }
+                {...tid("section-style-bleed")}
+                className="size-4 rounded-sm surface border-(--edge)/60"
+              />
+              {labels.bleed}
+            </label>
           ) : null}
 
           <div className="grid gap-1.5">

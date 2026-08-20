@@ -82,3 +82,42 @@ describe("PageShell width", () => {
     expect(main.className).not.toContain("justify-center");
   });
 });
+
+// **The way out of an author's theme lives in the BAR now.** It rode the
+// public profile's header until that header became blocks — that was the one
+// row the app owned inside somebody's content, and a control belonging to the
+// app is exactly what should not sit among an author's blocks.
+describe("the page theme switch", () => {
+  it("renders among the page settings when there is a theme to leave", async () => {
+    render(
+      await PageShell({
+        children: <p>hi</p>,
+        pageThemeSwitch: <button type="button">leave</button>,
+      }),
+    );
+    expect(screen.getByTestId("public-theme-switch")).toBeInTheDocument();
+  });
+
+  // **Absent, not an empty box.** A page nobody themed offers no way out of a
+  // theme it does not have, and a wrapper rendered anyway would put a gap in
+  // the control row of every signed-in page in the app.
+  it("leaves nothing behind on a page with no theme of its own", async () => {
+    render(await PageShell({ children: <p>hi</p> }));
+    expect(screen.queryByTestId("public-theme-switch")).not.toBeInTheDocument();
+  });
+
+  // It sits INSIDE the bar rather than in the content column, which is what
+  // keeps it out of `SKIN_SCOPE` — an author's skin must not restyle the
+  // control that escapes their theme.
+  it("sits in the bar, outside the skin's scope", async () => {
+    const { container } = render(
+      await PageShell({
+        children: <p>hi</p>,
+        pageThemeSwitch: <button type="button">leave</button>,
+      }),
+    );
+    const control = screen.getByTestId("public-theme-switch");
+    expect(container.querySelector("header")).toContainElement(control);
+    expect(container.querySelector("main")).not.toContainElement(control);
+  });
+});

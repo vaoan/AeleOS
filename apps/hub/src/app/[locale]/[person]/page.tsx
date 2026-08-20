@@ -66,6 +66,12 @@ export async function generateMetadata({
  *
  * It no longer calls `setRequestLocale`: next-intl reads the segment from `next/root-params` now. It still takes `params` for the address itself.
  *
+ *
+ * **The shell is no longer told the page is themed.** Passing the palette
+ * switch at all is that statement now — the light/dark toggle stopped needing
+ * to know when its question mark went, so the boolean beside the slot was
+ * saying the same thing twice.
+ *
  * @returns the profile, or a 404.
  * The page is wrapped in `ThemeScope`, so a stranger sees it as its owner built
  * it. That sets only the accent and the cloud tints — light and dark stay under
@@ -91,11 +97,33 @@ export async function generateMetadata({
  * the way out of exactly the pages hardest to read. That control existing is what lets an author's colours be as
  * unreadable as they like without it being anybody else's problem.
  *
- * **This route resolves `parentHost` from `env.hubHost`**, the same way it
+ * **This route builds the `PageContext`**, resolving `parentHost` from
+ * `env.hubHost`, the same way it
  * resolves `locale` and the empty-state words: `PublicProfile` and
  * `PublicBlocks` are presentation components rendered on two different
  * routes, and neither is where deployment configuration belongs. Twitch's
  * player is the one thing that reads it — see `domain/embeds.ts`.
+ *
+ * **The theme switch is in the BAR now**, not on the page. It rode the
+ * profile's header until that header became blocks; a control belonging to
+ * the app is exactly what should not sit among an author's content. The
+ * empty-state message is gone with it — every page renders a portrait and a
+ * handle, so the state it described cannot occur.
+ *
+ * **The shell is asked for a FULL-WIDTH main.** The measure is applied to
+ * each top-level section instead, which is what lets one of them reach both
+ * edges without `w-screen`. See `PublicBlocks`.
+ *
+ * This sentence was here before the code was: the route asked for `"wide"`
+ * and `COLUMN.full` had no caller at all, so every page was laid inside a
+ * centred `max-w-7xl` column — a second gutter inside the page's own, the two
+ * widest measures capped at 80rem, and a bleeding section reaching neither
+ * edge. `page-measure-and-bleed.spec.ts` is what makes the claim checkable
+ * rather than merely written down.
+ *
+ * **The same object carries what the identity leaves render from**: the
+ * handle, the address, the display name, the portrait and the fursona list.
+ * A person's page carries `fursonas` and no `owner`.
  *
  */
 export default async function PublicPersonPage({
@@ -108,38 +136,47 @@ export default async function PublicPersonPage({
   if (!actor) notFound();
 
   const t = await getTranslations("publicProfile");
+  // The control lives in the BAR now, so its label lives with the bar\'s.
+  const tControls = await getTranslations("controls");
 
   return (
-    // The toggle needs to know: on a themed page neither light nor dark is in
-    // force, so its sun or moon would name a state the page is not in.
-    <PageShell themed={isCustomised(actor.theme)} width="wide">
+    <PageShell
+      // **Full, because the measure is the SECTION's to apply.** A column here
+      // would cap the two widest stops at its own `max-w-7xl`, add a second
+      // gutter inside the page's own, and leave a bleeding section unable to
+      // reach either edge.
+      width="full"
+      // In the bar with the other page settings. It rode the profile's
+      // header until that header became blocks.
+      pageThemeSwitch={
+        isCustomised(actor.theme) ? (
+          <PageThemeSwitch
+            labels={{
+              author: tControls("authorTheme"),
+            }}
+          />
+        ) : null
+      }
+    >
       <ThemeScope theme={actor.theme}>
         <PublicProfile
           actor={actor}
           locale={locale}
-          fursonasTitle={t("fursonas")}
-          emptyMessage={t("empty")}
-          // Twitch's player needs to know the domain embedding it, which is
-          // deployment configuration rather than anything the component could
-          // resolve for itself. Empty degrades Twitch to a link.
-          parentHost={env.hubHost}
-          // Rendered on the header's own row rather than above the page.
-          // Alone at the top it read as a heading's worth of furniture nobody
-          // had written a heading for, and it pushed the portrait down by its
-          // own height. Only where there is a theme to leave: a control
-          // offering to remove colours a page never had does nothing.
-          themeSwitch={
-            isCustomised(actor.theme) ? (
-              <PageThemeSwitch
-                labels={{
-                  title: t("pageThemeTitle"),
-                  author: t("pageThemeAuthor"),
-                  light: t("pageThemeLight"),
-                  dark: t("pageThemeDark"),
-                }}
-              />
-            ) : null
-          }
+          // Everything page-level the identity leaves render from, plus the
+          // deployment's own hostname for Twitch's `parent=`. A person's page
+          // carries `fursonas` and no `owner`; a fursona's is the reverse.
+          page={{
+            parentHost: env.hubHost,
+            actorKind: "person",
+            handle: actor.handle,
+            address: actor.address,
+            displayName: actor.displayName,
+            avatarUrl: actor.avatarUrl,
+            fursonas: actor.fursonas,
+            // The block's own title wins; this is what one with none shows.
+            measure: actor.theme.measure,
+            fursonasFallbackTitle: t("fursonas"),
+          }}
         />
       </ThemeScope>
     </PageShell>

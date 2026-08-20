@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
-import { PAGE_THEME_ATTRIBUTE } from "@/shared/application/page-theme";
+import {
+  PAGE_THEME_ATTRIBUTE,
+  PAGE_THEME_CHANGE_EVENT,
+} from "@/shared/application/page-theme";
 
-const labels = {
-  title: "How this page looks",
-  author: "Their theme",
-  light: "Light",
-  dark: "Dark",
-};
+const labels = { author: "Their theme" };
 
 afterEach(() => {
   document.documentElement.removeAttribute(PAGE_THEME_ATTRIBUTE);
@@ -16,57 +14,62 @@ afterEach(() => {
   localStorage.clear();
 });
 
+/**
+ * **This suite shrank when the control did, and the cases moved rather than
+ * went.** It was a group of three — the author's theme, light and dark —
+ * which made sense while it sat inside the page and was the only way to reach
+ * any of them. It lives in the bar now, beside the light/dark toggle, and two
+ * controls both offering light and dark is one too many.
+ *
+ * So this asks one question and the toggle beside it asks the other. The two
+ * cases about choosing a default moved to `theme-toggle.test.tsx`, where the
+ * control that now does it lives — including the one that matters, that
+ * pressing it takes the author's theme off rather than only naming a default.
+ */
 describe("PageThemeSwitch", () => {
-  it("offers all three", () => {
+  it("offers one control, not a group", () => {
     render(<PageThemeSwitch labels={labels} />);
-    expect(screen.getAllByRole("button")).toHaveLength(3);
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
-  // What a visitor arrives to, and what the pre-paint script defaults to.
-  it("starts on the author's theme", () => {
+  // **Pressed by default**, matching the pre-paint script, which leaves the
+  // attribute absent for a page whose author's theme is in force. Rendering
+  // it un-pressed on the server would flip on hydration.
+  it("starts pressed, wearing the author's theme", () => {
     render(<PageThemeSwitch labels={labels} />);
-    expect(screen.getByTitle("Their theme")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "true");
   });
 
-  // Choosing a default does two things at once: takes the author's theme off,
-  // and names which default replaces it. Doing only the first would leave the
-  // page on whichever scheme the visitor last happened to be in.
-  it.each([
-    ["Light", "light"],
-    ["Dark", "dark"],
-  ])(
-    "switching to %s leaves the theme and picks that default",
-    (name, theme) => {
-      render(<PageThemeSwitch labels={labels} />);
-      fireEvent.click(screen.getByTitle(name));
-      expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
-        "default",
-      );
-      expect(document.documentElement.dataset.theme).toBe(theme);
-    },
-  );
-
-  it("switching back puts the author's theme on again", () => {
+  it("takes the theme off when pressed", () => {
     render(<PageThemeSwitch labels={labels} />);
-    fireEvent.click(screen.getByTitle("Dark"));
-    fireEvent.click(screen.getByTitle("Their theme"));
+    fireEvent.click(screen.getByRole("button"));
     expect(document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE)).toBe(
-      "author",
+      "default",
     );
+    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "false");
   });
 
-  // It reads the document rather than holding its own state, so a change made
-  // anywhere — the app's own toggle, another tab — is reflected here.
+  // **It is a toggle, so it has to come back.** A one-way control would leave
+  // a visitor who pressed it by accident with no way to see the page as its
+  // owner built it — and the escape hatch existing in both directions is what
+  // lets an author's colours be as unreadable as they like.
+  it("puts it back on when pressed again", () => {
+    render(<PageThemeSwitch labels={labels} />);
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByRole("button"));
+    expect(
+      document.documentElement.getAttribute(PAGE_THEME_ATTRIBUTE),
+    ).not.toBe("default");
+    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  // The light/dark toggle beside it writes the same attribute, so this must
+  // follow a change it did not make — otherwise the two controls in one bar
+  // would disagree about what the page is wearing.
   it("follows a change it did not make", () => {
     render(<PageThemeSwitch labels={labels} />);
-    fireEvent.click(screen.getByTitle("Light"));
-    expect(screen.getByTitle("Light")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTitle("Their theme")).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    document.documentElement.setAttribute(PAGE_THEME_ATTRIBUTE, "default");
+    fireEvent(window, new Event(PAGE_THEME_CHANGE_EVENT));
+    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "false");
   });
 });

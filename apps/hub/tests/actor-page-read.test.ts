@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { missingRequiredKinds } from "@/features/actors/domain/required-blocks";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readActorPage } from "@/features/actors/infrastructure/actor-page";
 import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
@@ -16,6 +17,16 @@ function client(row: unknown) {
   } as unknown as SupabaseClient;
 }
 
+// **Every read here now carries the identity blocks the shim supplies.**
+// `withRequiredBlocks` runs on the editor's read so the editor holds real
+// blocks the moment it opens a page, which is what makes the first save write
+// them explicitly and satisfies the database rule without a migration.
+//
+// So "reads back exactly as stored" stopped being true, deliberately. These
+// assertions state the two things that ARE true: what somebody wrote is
+// present and unchanged, and the page comes back complete. `toEqual` on the
+// whole array would be asserting the shim's exact output, which is a fixture
+// of the shim rather than a claim about this function.
 describe("readActorPage", () => {
   // The regression this exists for. The edit page passed no sections, the
   // editor defaulted them to `[]`, and `set_actor_sections` REPLACES — so
@@ -37,24 +48,32 @@ describe("readActorPage", () => {
         ],
       },
     ];
-    const page = await readActorPage(client({ sections, theme: {} }), "ref");
-    expect(page.sections).toEqual([
-      {
-        kind: "container",
-        mode: "grid",
-        spaces: 3,
-        name_en: "About",
-        children: [
-          { kind: "link", title_en: "Species", description_en: "A wolf." },
-        ],
-      },
-    ]);
+    const page = await readActorPage(
+      client({ sections, theme: {} }),
+      "ref",
+      "fursona",
+    );
+    expect(page.sections).toEqual(
+      expect.arrayContaining([
+        {
+          kind: "container",
+          mode: "grid",
+          spaces: 3,
+          name_en: "About",
+          children: [
+            { kind: "link", title_en: "Species", description_en: "A wolf." },
+          ],
+        },
+      ]),
+    );
+    expect(missingRequiredKinds(page.sections ?? [], "fursona")).toEqual([]);
   });
 
   it("returns the stored theme", async () => {
     const page = await readActorPage(
       client({ sections: [], theme: { accent: "#00ff88" } }),
       "ref",
+      "fursona",
     );
     expect(page.theme.accent).toBe("#00ff88");
   });
@@ -62,9 +81,12 @@ describe("readActorPage", () => {
   // A fursona that has never been edited has no profile row at all, which is
   // an ordinary state rather than a fault — the editor opens empty, and saving
   // creates the row.
-  it("is empty when there is no profile row", async () => {
-    const page = await readActorPage(client(null), "ref");
-    expect(page).toEqual({ sections: [], theme: DEFAULT_THEME });
+  it("is a complete, empty page when there is no profile row", async () => {
+    const page = await readActorPage(client(null), "ref", "fursona");
+    expect(page.theme).toEqual(DEFAULT_THEME);
+    // The same answer a row holding `[]` gives. Those are one state — nobody
+    // has written anything — and telling them apart serves nobody.
+    expect(missingRequiredKinds(page.sections ?? [], "fursona")).toEqual([]);
   });
 
   // Stored sections that no longer parse must not take the editor down — an
@@ -80,6 +102,7 @@ describe("readActorPage", () => {
     const page = await readActorPage(
       client({ sections: { not: "an array" }, theme: {} }),
       "ref",
+      "fursona",
     );
     expect(page.sections).toBeNull();
   });
@@ -101,8 +124,13 @@ describe("readActorPage", () => {
         ],
       },
     ];
-    const page = await readActorPage(client({ sections, theme: {} }), "ref");
-    expect(page.sections).toEqual(sections);
+    const page = await readActorPage(
+      client({ sections, theme: {} }),
+      "ref",
+      "fursona",
+    );
+    expect(page.sections).toEqual(expect.arrayContaining(sections));
+    expect(missingRequiredKinds(page.sections ?? [], "fursona")).toEqual([]);
   });
 
   // A NESTED TREE OPENS. It used to answer null here, because the only editor
@@ -129,19 +157,30 @@ describe("readActorPage", () => {
         ],
       },
     ];
-    const page = await readActorPage(client({ sections, theme: {} }), "ref");
-    expect(page.sections).toEqual(sections);
+    const page = await readActorPage(
+      client({ sections, theme: {} }),
+      "ref",
+      "fursona",
+    );
+    expect(page.sections).toEqual(expect.arrayContaining(sections));
+    expect(missingRequiredKinds(page.sections ?? [], "fursona")).toEqual([]);
   });
 
   // The other half of the same distinction, and the control that stops the two
   // above passing on a function that answers null for everything: a row whose
   // sections really are empty is `[]`, which an editor MAY replace.
-  it("answers an empty array for a row whose page is genuinely empty", async () => {
+  // **A genuinely empty page is not empty any more, and that is the shim.**
+  // What matters here is still the distinction this function exists for: an
+  // empty page is not `null`, so the editor may replace it. `null` means the
+  // stored shape did not parse and must never be overwritten.
+  it("answers a complete page for a row whose page is genuinely empty", async () => {
     const page = await readActorPage(
       client({ sections: [], theme: {} }),
       "ref",
+      "fursona",
     );
-    expect(page.sections).toEqual([]);
+    expect(page.sections).not.toBeNull();
+    expect(missingRequiredKinds(page.sections ?? [], "fursona")).toEqual([]);
   });
 
   // Finding 4 of the final review: an unrecognised STYLE key must cost only
@@ -160,17 +199,23 @@ describe("readActorPage", () => {
         style: { skin: "glass", corner_radius: "8px" },
       },
     ];
-    const page = await readActorPage(client({ sections, theme: {} }), "ref");
-    expect(page.sections).toEqual([
-      {
-        kind: "container",
-        mode: "grid",
-        spaces: 3,
-        name_en: "About",
-        children: [],
-        style: { skin: "glass" },
-      },
-    ]);
+    const page = await readActorPage(
+      client({ sections, theme: {} }),
+      "ref",
+      "fursona",
+    );
+    expect(page.sections).toEqual(
+      expect.arrayContaining([
+        {
+          kind: "container",
+          mode: "grid",
+          spaces: 3,
+          name_en: "About",
+          children: [],
+          style: { skin: "glass" },
+        },
+      ]),
+    );
   });
 });
 
@@ -190,5 +235,7 @@ it("throws when the read itself fails", async () => {
       }),
     }),
   } as unknown as SupabaseClient;
-  await expect(readActorPage(failing, "ref")).rejects.toThrow(/boom/);
+  await expect(readActorPage(failing, "ref", "fursona")).rejects.toThrow(
+    /boom/,
+  );
 });

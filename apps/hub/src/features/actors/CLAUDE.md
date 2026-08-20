@@ -414,6 +414,11 @@ dial, which belongs in the style bag where it composes with every mode.
 | `quote`    | a quotation          | **who said it** | **what was said** | —                          |
 | `progress` | one measured thing   | **the label**   | **the value**     | —                          |
 | `table`    | rows of paired cells | the caption     | a note under it   | `rows`                     |
+| `avatar`   | the actor's portrait | **alt text**    | —                 | the ACTOR                  |
+| `handle`   | what names the actor | a label above   | —                 | the ACTOR                  |
+| `name`     | the display name     | a label above   | —                 | the ACTOR                  |
+| `owner`    | a link to the owner  | the heading     | —                 | the ACTOR                  |
+| `fursonas` | the fursona list     | the heading     | —                 | the ACTOR                  |
 
 **`stat`, `quote` and `progress` invert the pair**, and that is the one thing
 here somebody will get wrong — it has been got wrong once already. Everywhere
@@ -423,6 +428,128 @@ the block, so switching a kind to look at it and switching back finds what was
 typed still there.
 
 `progress` is the kind that additionally tries to READ its value.
+
+#### The identity leaves (2026-08-19) — content that is not typed
+
+**The last five are a new CATEGORY, not five more entries.** Every kind above
+draws what its author typed into the block; these draw the ACTOR, resolved by
+the renderer out of `PageContext`. They live in
+`presentation/identity-leaves.tsx` rather than `blocks.tsx`, because they are a
+different thing to read and that file is long enough.
+
+They exist because the page's furniture used to be welded. `public-profile.tsx`
+rendered a portrait, a display name, a handle and a fursona list as chrome
+above and below the blocks, and none of it could be moved, resized, styled,
+repeated or placed anywhere else. It was the same mistake `gallery` and `links`
+were — arrangement married to content — one level up.
+
+Four things about them that are easy to get wrong:
+
+- **They still carry a title, and it is not an oversight.** `title_en` is
+  required and non-empty at the strict write AND in `validate_block`, so a
+  fieldless leaf is unrepresentable. Each uses the field the model insists on
+  rather than carrying a dead one: `avatar`'s is the portrait's ALT TEXT, which
+  is the only place a screen reader learns whose picture it is; `handle` and
+  `name` label their value the way `stat` labels its number; `owner` and
+  `fursonas` name the heading over what follows, in the author's own words.
+  Those two titles are **a person's writing, not next-intl** — a missing
+  `title_es` is somebody who has not written the Spanish yet.
+- **`handle` shows a person's ADDRESS, never their handle.** A person is minted
+  as `u-<actor_ref with the hyphens out>`, which on a person is the `owner_ref`
+  of every fursona they own — the exact column `/api/actors/mine` strips by
+  name. It also carries the `public-actor-name` test id, which the end-to-end
+  suite reads as "this page loaded and names its actor": that id belongs on
+  this kind rather than on `name`, because `handle` is required on every page
+  and a display name is optional.
+- **`name` may render nothing, and that is the one kind allowed to.**
+  `display_name` is nullable. It is safe because `handle` is required, so
+  something always names an actor and the display name is decoration on top of
+  a guarantee.
+- **`owner` shows the address always and the owner's name and picture only
+  sometimes**, and decides neither. A fursona's page is governed by the
+  fursona's visibility rather than its owner's, so a public character routinely
+  belongs to somebody whose own profile 404s — `public_fursona` withholds their
+  name and portrait in that case. The address is safe unconditionally: it is
+  already the first segment of the page's own URL.
+
+`fursonas` keeps its heading when the list is empty. `FursonaCardList` answers
+null for an empty list, which was right while it was chrome the page appended
+and wrong for a block somebody deliberately placed: the grid track it sat in
+would be a hole nothing on the page explains. `stat` and `table` already settle
+this the same way.
+
+#### At least one of each — and what that does NOT guarantee
+
+A page must carry `avatar`, `handle`, and `fursonas` on a person or `owner` on
+a fursona. **At least one, never exactly one**: any number of copies, at any
+depth, in any container. `owner` is refused on a person's page and `fursonas`
+on a fursona's, because neither has anything to render there.
+
+Enforced in three places, and the duplication is deliberate:
+`set_actor_sections` is what makes it a guarantee, the save boundary makes the
+refusal legible without a round trip, and the editor withdraws the remove
+control on the last copy. All three ask `missingRequiredKinds`, so they cannot
+disagree about what a complete page is. The database side walks the tree with
+`block_kinds_present`, which descends through `children` ONLY — a `$.**.kind`
+jsonpath would find a `kind` key anywhere in the payload, so a crafted object
+under an unvalidated key could satisfy the rule without ever being a block.
+
+**The guarantee is that the block EXISTS IN THE TREE, not that a visitor sees
+it, and that hole is accepted rather than overlooked.** `accordion` renders its
+children collapsed and `tabs` shows one at a time, so a required block inside
+either satisfies every layer while showing a stranger nothing; colour can hide
+one just as completely, and deliberately, since an author's colours are
+rendered exactly as picked. `tests/db/blocks.test.ts` asserts that hole is open
+as a PASSING case, so nobody reads the enforcement and concludes it covers
+visibility.
+
+That was weighed against putting the ownership FACT in the page chrome —
+outside `SKIN_SCOPE`, derived from the row, un-styleable — and declined: the
+ruling is that every part of the page belongs to its owner. If accountability
+ever has to be genuinely enforced, the chrome route is the design to revive,
+and it composes with this rather than replacing it.
+
+**Absence means the default POSITION, not deletion.** `withRequiredBlocks` runs
+on every read path, so a page naming none of these — which is every page stored
+before they existed — reads back with the header it always had. That is why no
+page needed migrating. It applies to a PARSED page only: `readActorPage`
+answers `null` for a shape it could not read, and supplying a header there
+would turn "unreadable" into "here is a page" that the next save writes over
+somebody's content.
+
+A page missing only SOME of them gets exactly the leaves it lacks, never the
+composed section — handing back the whole header would stand a second portrait
+beside the one its owner kept.
+
+It may be deleted once every stored page carries them explicitly, and **nothing
+can tell you when that is** — the same condition `withSpacesFromColumns`
+carries.
+
+**A page being CREATED gets them too, and forgetting that made the product
+unusable for a day.** "Every read path" was the rule, and the create page reads
+nothing — there is no actor yet — so `FursonaEditor` defaulted its sections to
+`[]`, which `set_actor_sections` refuses for naming none of the three. A
+fursona built by hand could not be saved AT ALL: the banner said the sections
+were refused, over a page whose author had done nothing wrong. Only the
+template path worked, because applying one runs the shim over the result. The
+default is `withRequiredBlocks([], kind)` now, so the rule is "every page holds
+them from the moment it opens" rather than "every read applies them".
+
+**That made every page non-empty, which broke a control that had been asking
+the wrong question all along.** The template picker confirms before replacing,
+and its gate was `blocks.length > 0` — true of a page nobody had touched, so a
+brand-new fursona warned its owner about losing work they had not done. It asks
+`holdsNothingAuthored` now: a page is the author's when it is neither empty nor
+byte-for-byte what `withRequiredBlocks` seeds. It errs towards ASKING, which is
+the safe direction — the costly mistake is replacing somebody's page without
+one.
+
+**A person's scaffold is two sections, not one**, and this is the part that
+looks like a bug when a test is written against a fursona's. The composed
+header carries `owner` for a fursona and nothing in its place for a person;
+their third required kind, `fursonas`, is not part of that header at all, so it
+is APPENDED in a section of its own — after everything the author has, not
+beside the header.
 `progressValue` (`domain/progress-value.ts`) accepts a fraction (`3/5`), a
 percentage (`60%`) or a bare number (`60`), decimals allowed wherever a whole
 number is, clamped to 0–100 because nothing stops somebody writing `150`.
@@ -2171,6 +2298,79 @@ own palette. A new canvas that hard-codes colours is wrong. They must also
 respect `prefers-reduced-motion` and stay off wherever the star toggle says off
 — that toggle is the visitor's control over their own machine and the author's
 choice may not overrule it.
+
+### How wide a page is, and a section that ignores it (2026-08-19)
+
+A theme carries a **measure**: six named stops from the app's own reading width
+out to `full`, which sets no maximum at all. Null is the design's own — the
+80rem every public page had before this existed — so an untouched page is
+unchanged.
+
+**An enum rather than a number, and the reason is mechanical.** `weights` had
+to become a custom property because they are author data out of `jsonb` and no
+build step can generate a class for an arbitrary number. A fixed list has no
+such problem: six named stops are six real Tailwind classes, with no `var()`
+plumbing and no fallback chain.
+
+**The measure is applied per SECTION, not to the page**, and that inversion is
+the whole mechanism. The public route asks `PageShell` for a full-width `main`
+— a third width, not a wider column — and each top-level block centres itself
+in the chosen measure. A section carrying `style.bleed` simply does not, and so
+reaches both edges.
+
+**There is no `w-screen` here and there must not be.** `100vw` counts the
+scrollbar that a centred column does not, so the breakout version gains a
+horizontal scrollbar the moment a page is tall enough to need a vertical one.
+Moving the measure per-section is what makes the honest version possible.
+
+`bleed` is read at depth 0 only — a nested block has a section between it and
+the page and cannot escape it — and the editor offers the control only there.
+It is STORED at any depth, because refusing it deeper would make moving a
+section into another one fail on a style it carried legitimately a moment
+earlier.
+
+**Its SQL check reads the JSON TYPE, not the text.** `validate_block` walks the
+style bag with `jsonb_each_text`, which renders `true` as the string `'true'` —
+exactly the value the client schema refuses, and exactly what a form control
+hands back when somebody forgets to convert it. A check against `v_value` would
+accept both and silently disagree with the client while appearing to agree.
+
+`false` and absent are the same answer on the page, so the editor stores
+absence: a key this bag does not carry already means "inherit the page"
+everywhere else in it.
+
+**One thing a browser test cannot pin.** At a chosen viewport, `wider` and
+`widest` are indistinguishable unless the window happens to sit between them —
+so the stops are asserted as class strings, verbatim. The null-equals-default
+case pins the AGREEMENT and not the value, and cannot do better, because both
+sides read the same entry; that is written into the test.
+
+The page's own gutter carries `px-4 sm:px-6` and is marked `data-page-gutter`.
+It is the one box in the block tree sized by the WINDOW — it is outermost and
+has no container above it — and the no-viewport-breakpoint guard excludes that
+one element while still scanning its descendants.
+
+### The theme switch is in the bar (2026-08-19)
+
+Two controls, each asking one question: a palette toggle for "am I wearing this
+author's colours", and the sun/moon for "and which default otherwise". A
+visitor holds both answers at once, which is why `data-page-theme` was never
+folded into `data-theme`.
+
+It rode the public profile's header until that header became blocks. That was
+the one row the app owned inside somebody's content, and there is no such row
+any more — a control belonging to the app is exactly what should not sit among
+an author's blocks.
+
+**The question mark is gone.** The light/dark toggle showed one on a themed
+page because neither light nor dark was in force; it now clears
+`data-page-theme` as well as setting `data-theme`, so the press always changes
+something a visitor can see and the icon is naming a direction again. That is
+not new behaviour — it is what the old three-option group's light and dark
+options did, moved with the question.
+
+`PageShell` lost its `themed` prop with it. Passing `pageThemeSwitch` at all is
+now the statement that there is a theme to leave.
 
 ## Things not to do
 

@@ -93,6 +93,23 @@ const RETRO: LeafFields = {
 };
 
 /** Nothing optional, and a description — what a plain card shows. */
+/**
+ * What an identity leaf draws: its title, and nothing else.
+ *
+ * A title rather than nothing at all because every leaf must have one — see
+ * the entries that use this. The description is off because these leaves have
+ * no prose of their own; what they show is the actor's, resolved by the
+ * renderer.
+ */
+const IDENTITY: LeafFields = {
+  description: false,
+  link: false,
+  embeds: false,
+  icon: false,
+  picture: false,
+  rows: false,
+};
+
 const PLAIN: LeafFields = {
   description: true,
   link: false,
@@ -128,6 +145,14 @@ const PLAIN: LeafFields = {
  * `embed` is what `post` was renamed to, and it carries what `player` used to;
  * `player` and `jukebox` are the retro players and share {@link RETRO}.
  */
+/**
+ * What each kind's editor draws, by kind.
+ *
+ * **The identity kinds map to a title and nothing else**, which is the one
+ * entry shape that needed explaining: their content is the actor's, so there
+ * is nothing to type, but a leaf with no title is unrepresentable. Each puts
+ * that title to a real use — see `IDENTITY`.
+ */
 export const LEAF_FIELDS: ReadonlyMap<string, LeafFields> = new Map(
   Object.entries({
     text: PLAIN,
@@ -141,6 +166,23 @@ export const LEAF_FIELDS: ReadonlyMap<string, LeafFields> = new Map(
     quote: PLAIN,
     progress: PLAIN,
     table: { ...PLAIN, rows: true },
+    // **The identity leaves draw a TITLE and nothing else**, and the title is
+    // not an oversight in a list of "no fields at all" — `title_en` is
+    // required and non-empty for every leaf, at the strict write and again in
+    // `validate_block`. So each of these uses the one field the model insists
+    // on rather than carrying a dead one: `avatar`'s is the portrait's alt
+    // text, which is the only place a screen reader learns whose picture it
+    // is; `handle` and `name` label the value the way `stat` labels its
+    // number; `owner` and `fursonas` name the heading over what follows, in
+    // that person's own words instead of a catalogue string.
+    //
+    // Everything else is off because there is nothing to type: the content
+    // comes from the actor row through `PageContext`, not from the block.
+    avatar: IDENTITY,
+    handle: IDENTITY,
+    name: IDENTITY,
+    owner: IDENTITY,
+    fursonas: IDENTITY,
   } satisfies Record<LeafKind, LeafFields>),
 );
 

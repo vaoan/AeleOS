@@ -43,6 +43,20 @@ beforeEach(() => {
   remove.mockResolvedValue({ error: null });
 });
 
+/**
+ * A fursona page carrying the three blocks it must.
+ *
+ * **The RPC-mapping cases below need a COMPLETE page**, because
+ * `setFursonaSections` now refuses an incomplete one locally and never calls
+ * the RPC — so an empty page would have them asserting the local refusal while
+ * claiming to assert how a database error is mapped.
+ */
+const COMPLETE = ["avatar", "handle", "owner"].map((kind) => ({
+  kind,
+  title_en: kind,
+  description_en: "",
+})) as unknown as Parameters<typeof setFursonaSections>[2];
+
 describe("readArrangement", () => {
   it("maps the row shape to the domain shape", async () => {
     select.mockResolvedValueOnce({
@@ -101,9 +115,37 @@ describe("a refusal the caller can act on", () => {
       data: null,
       error: { code: "22023", message: "block 1: unknown kind" },
     });
-    await expect(setFursonaSections(client(), "ref-1", [])).rejects.toThrow(
-      PageRefusedError,
-    );
+    await expect(
+      setFursonaSections(client(), "ref-1", COMPLETE, "fursona"),
+    ).rejects.toThrow(PageRefusedError);
+  });
+
+  // **The RPC must NOT be called**, and asserting that is the whole case.
+  // A test checking only that an error was thrown would pass whether the
+  // refusal came from here or from the database — the two are indistinguishable
+  // from the caller, which is exactly what makes the local check worth having
+  // and exactly what makes a naive assertion vacuous.
+  it("refuses a page missing a required block without a round trip", async () => {
+    await expect(
+      setFursonaSections(client(), "ref-1", [], "fursona"),
+    ).rejects.toThrow(PageRefusedError);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("names every missing kind in the refusal", async () => {
+    await expect(
+      setFursonaSections(client(), "ref-1", [], "fursona"),
+    ).rejects.toThrow(/avatar, handle, owner/);
+  });
+
+  // **The kind decides what is required**, and this pair is what shows the
+  // parameter is read rather than defaulted: the same page is complete for a
+  // fursona and incomplete for a person, and vice versa.
+  it("judges the same page differently by actor kind", async () => {
+    await expect(
+      setFursonaSections(client(), "ref-1", COMPLETE, "person"),
+    ).rejects.toThrow(/fursonas/);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   // The other side, and it is what stops the case above passing for the wrong
@@ -114,7 +156,7 @@ describe("a refusal the caller can act on", () => {
       data: null,
       error: { code: "P0001", message: "fursona not found" },
     });
-    const raised = setFursonaSections(client(), "ref-1", []);
+    const raised = setFursonaSections(client(), "ref-1", COMPLETE, "fursona");
     await expect(raised).rejects.toThrow("fursona not found");
     await expect(raised).rejects.not.toBeInstanceOf(PageRefusedError);
   });
@@ -221,10 +263,15 @@ describe("the write functions", () => {
         ],
       },
     ];
-    await setFursonaSections(client(), "ref-1", blocks);
+    await setFursonaSections(
+      client(),
+      "ref-1",
+      [...blocks, ...COMPLETE],
+      "fursona",
+    );
     expect(rpc).toHaveBeenCalledWith("set_actor_sections", {
       p_actor_ref: "ref-1",
-      p_sections: blocks,
+      p_sections: [...blocks, ...COMPLETE],
     });
     // THE EMPTY PLACE REACHES THE DATABASE. A conversion that tidied the null
     // away would move the leaf from the second place to the first, and the
@@ -264,7 +311,10 @@ describe("the write functions", () => {
     ["setFursonaOrder", () => setFursonaOrder(client(), "r", 1)],
     ["setFursonaFeatured", () => setFursonaFeatured(client(), "r", true)],
     ["deleteFursona", () => deleteFursona(client(), "r")],
-    ["setFursonaSections", () => setFursonaSections(client(), "r", [])],
+    [
+      "setFursonaSections",
+      () => setFursonaSections(client(), "r", COMPLETE, "fursona"),
+    ],
   ])("%s throws when the database refuses", async (_name, call) => {
     rpc.mockResolvedValueOnce({
       data: null,

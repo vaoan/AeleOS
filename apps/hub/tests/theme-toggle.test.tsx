@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeToggle } from "@/shared/presentation/theme-toggle";
 
 const LABELS = {
@@ -75,38 +75,38 @@ describe("ThemeToggle", () => {
   });
 });
 
+// **The question mark is gone, and these cases went with it — replaced, not
+// dropped.** The toggle used to show one on a themed page, because neither the
+// sun nor the moon was true there. A themed page now has a palette toggle of
+// its own beside this control, so this one only ever names a direction again
+// and the three cases that asserted the question mark have nothing to assert.
+//
+// What replaced them is the case below: pressing this takes an author's theme
+// OFF as well as setting the default. That is what stops the press being one
+// that changes nothing a visitor can see, which is why the question mark
+// existed in the first place.
 describe("ThemeToggle on a page wearing its author's theme", () => {
-  // **Neither the sun nor the moon is true there.** The colours belong to
-  // whoever built the page, so a control promising to "switch to dark" is
-  // describing a state the page is not in — and a destination it will not
-  // reach until the visitor leaves the theme first.
-  it("says whose theme it is instead of naming a direction", () => {
+  it("names a direction, never the author", () => {
     document.documentElement.setAttribute("data-page-theme", "author");
     document.documentElement.setAttribute("data-theme", "light");
-    render(<ThemeToggle {...LABELS} themed />);
-    expect(
-      screen.getByRole("button", { name: "Their own theme" }),
-    ).toBeInTheDocument();
-  });
-
-  // Matching the ABSENCE of the attribute as well as "author" is what gives a
-  // visitor with no JavaScript the author's theme — the same rule `themeCss`
-  // follows, and the icon has to agree with it.
-  it("says the same when the attribute was never set", () => {
-    document.documentElement.removeAttribute("data-page-theme");
-    render(<ThemeToggle {...LABELS} themed />);
-    expect(
-      screen.getByRole("button", { name: "Their own theme" }),
-    ).toBeInTheDocument();
-  });
-
-  it("goes back to naming a direction once the visitor leaves the theme", () => {
-    document.documentElement.setAttribute("data-page-theme", "default");
-    document.documentElement.setAttribute("data-theme", "light");
-    render(<ThemeToggle {...LABELS} themed />);
+    render(<ThemeToggle {...LABELS} />);
     expect(
       screen.getByRole("button", { name: "Switch to dark mode" }),
     ).toBeInTheDocument();
+  });
+
+  // **Both attributes, and the page-theme one is what matters here.** Setting
+  // only `data-theme` would leave the author's colours in force, so the press
+  // would change the stored default and nothing a visitor can see.
+  it("takes the author's theme off when pressed", () => {
+    document.documentElement.setAttribute("data-page-theme", "author");
+    document.documentElement.setAttribute("data-theme", "light");
+    render(<ThemeToggle {...LABELS} />);
+    fireEvent.click(screen.getByRole("button"));
+    expect(document.documentElement.getAttribute("data-page-theme")).toBe(
+      "default",
+    );
+    expect(document.documentElement.dataset.theme).toBe("dark");
   });
 });
 

@@ -133,6 +133,22 @@ returns table (
   display_name  text,
   avatar_url    text,
   owner_address text,
+  -- **The owner's name and picture, gated on the OWNER's own visibility.**
+  --
+  -- A fursona's page is governed by the fursona's visibility rather than its
+  -- owner's — see the note above, which is deliberate — so a public character
+  -- routinely belongs to a person whose own profile 404s. The ADDRESS above is
+  -- safe to return unconditionally because it is already the first segment of
+  -- this page's URL; their name and portrait are not, and returning them would
+  -- disclose something about somebody who chose privacy.
+  --
+  -- The gate is HERE rather than in a renderer. A component deciding it would
+  -- be a second copy of a privacy rule, free to drift from the one enforced in
+  -- SQL — the same argument `0012` already makes about the public-only fursona
+  -- list. Null means "not yours to see", and the page falls back to the
+  -- address alone, which still links and still works.
+  owner_display_name text,
+  owner_avatar_url   text,
   listed        boolean,
   sections      jsonb,
   -- The owner's theme travels with the page, because a stranger has to see the
@@ -157,6 +173,13 @@ as $$
        order by (pa2.kind = 'vanity') desc, pa2.created_at
        limit 1
     ) as owner_address,
+    -- `unlisted` counts as readable: it means reachable-by-link, not hidden,
+    -- and that person's profile page serves anybody who has the address. Only
+    -- `private` withholds.
+    case when o.visibility <> 'private' then o.display_name end
+      as owner_display_name,
+    case when o.visibility <> 'private' then o.avatar_url end
+      as owner_avatar_url,
     (s.visibility = 'public') as listed,
     coalesce(pr.sections, '[]'::jsonb) as sections,
     coalesce(pr.theme, '{}'::jsonb) as theme

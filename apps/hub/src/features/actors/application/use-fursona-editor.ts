@@ -109,6 +109,11 @@ export interface FursonaEditorState {
  * refuses every save on this actor rather than replacing the page with nothing.
  * Absent means yes, which is the ordinary case and the only possible answer on
  * the create page.
+ * **The actor kind reaches the save**, because which blocks a page must
+ * carry depends on it — `setFursonaSections` refuses an incomplete page before
+ * the round trip, and inferring the kind from the tree would read a page
+ * missing its `owner` as a person's and accept it.
+ *
  * @returns the save function, whether one is in flight, and any field errors.
  */
 export function useFursonaEditor(
@@ -135,7 +140,7 @@ export function useFursonaEditor(
           : (actorRef ?? (await createFursona(client, fields)));
       if (kind === "person") await updateMyProfile(client, fields);
       else if (actorRef) await updateFursona(client, actorRef, fields);
-      await setFursonaSections(client, ref, sections);
+      await setFursonaSections(client, ref, sections, kind);
       await setActorTheme(client, ref, theme);
     },
     // The list must forget what it knew, or somebody returns to a page that

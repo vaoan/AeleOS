@@ -66,6 +66,11 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 //     pixel. That is the whole of the third test, and the reason
 //     `--skin-border-min` exists.
 
+// **A test's own card is the LAST one.** Every page opens carrying the identity
+// section the database requires, and `add-section` appends — so `.first()` here
+// would reach for the identity section's controls instead, and a page-wide
+// `section-style-open` matches two buttons rather than one.
+
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
 /**
@@ -144,11 +149,11 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       await page.getByTestId("new-section-spaces").selectOption("1");
       await page.getByTestId("add-section").click();
 
-      const card = page.getByTestId("section-card").first();
+      const card = page.getByTestId("section-card").last();
       // The face is the layer carrying `surface` — a plain one, naming no
       // border-style utility — and it is the element the editor's preview
       // actually paints the section's form on.
-      const face = page.getByTestId("section-card-face").first();
+      const face = page.getByTestId("section-card-face").last();
       const placeholder = card.locator(".border-dashed");
       await expect(placeholder).toHaveCount(1);
 
@@ -160,7 +165,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       expect(await borderStyleOf(face)).toBe("solid");
       expect(await borderStyleOf(placeholder)).toBe("dashed");
 
-      await page.getByTestId("section-style-open").click();
+      await page.getByTestId("section-style-open").last().click();
       await page.getByTestId("section-style-border").selectOption("dotted");
       // The choice really did land on the scope, rather than on nothing:
       // `sectionStyle` routes custom properties to the card's ROOT, which is
@@ -217,10 +222,10 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       await page.goto("/es/pages/new");
       await page.getByTestId("new-section-spaces").selectOption("2");
       await page.getByTestId("add-section").click();
-      await page.getByTestId("collapse-section").first().click();
+      await page.getByTestId("collapse-section").last().click();
 
-      const card = page.getByTestId("section-card").first();
-      const face = page.getByTestId("section-card-face").first();
+      const card = page.getByTestId("section-card").last();
+      const face = page.getByTestId("section-card-face").last();
 
       /**
        * The pixel run inward from the face's left edge, at mid-height.
@@ -232,6 +237,10 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
        * only detecting a change.
        */
       const run = async (): Promise<number[][]> => {
+        // The identity section sits above this card, so the probe reads a
+        // screenshot whose coordinates only line up once the card is on
+        // screen. Scrolling first is what keeps the pixels the card's own.
+        await face.scrollIntoViewIfNeeded();
         const box = (await face.boundingBox())!;
         const y = Math.round(box.y + box.height / 2);
         const probes: Probe[] = [0, 1, 2, 3].map((inset) => ({
@@ -256,7 +265,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
        * @returns nothing; waits.
        */
       const choose = async (border: string): Promise<void> => {
-        await page.getByTestId("section-style-open").click();
+        await page.getByTestId("section-style-open").last().click();
         await page.getByTestId("section-style-border").selectOption(border);
         await expect
           .poll(() =>

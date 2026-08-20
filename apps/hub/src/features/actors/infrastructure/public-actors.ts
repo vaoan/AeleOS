@@ -5,6 +5,10 @@ import {
 import { createIdentityClient } from "@aeleos/identity";
 import { env } from "@/shared/infrastructure/env";
 import {
+  withRequiredBlocks,
+  type ActorKind,
+} from "@/features/actors/domain/required-blocks";
+import {
   lenientBlocksSchema,
   type Block,
 } from "@/features/actors/domain/block-schema";
@@ -35,6 +39,12 @@ export interface PublicFursonaSummary {
  * so a page nobody has themed is exactly what it was before theming existed.
  * `parseTheme` cannot fail, which means a stored theme that is nonsense costs
  * the page its colours and never the page itself.
+ *
+ * **Two fields are page-kind-specific and mutually exclusive.** `fursonas` is
+ * present on a person's page and `owner` on a fursona's; neither has anything
+ * to say on the other. Both are optional rather than nullable for that reason
+ * — absent means "not a question this page asks", where null would mean "asked
+ * and empty".
  */
 export interface PublicActor {
   /** The actor's own handle. */
@@ -77,6 +87,30 @@ export interface PublicActor {
    * `public_person` in `0012`, which is where that rule is enforced.
    */
   fursonas?: PublicFursonaSummary[];
+  /**
+   * Who owns this fursona, on a fursona's page only.
+   *
+   * Absent on a person's own page, where there is no owner to name.
+   *
+   * **`displayName` and `avatarUrl` are null unless the OWNER's own profile is
+   * readable, and the gate is in `public_fursona` rather than here.** A
+   * fursona's page is governed by the fursona's visibility rather than its
+   * owner's, so a public character routinely belongs to somebody whose profile
+   * 404s; showing that person's name and portrait to a stranger would disclose
+   * what they chose to keep private. Re-deriving the rule in TypeScript would
+   * be a second copy of it, free to drift from the one `0012` enforces.
+   *
+   * `address` is always present and is not a disclosure: it is already the
+   * first segment of this page's own URL.
+   */
+  owner?: {
+    /** The owner's canonical address. Always present. */
+    address: string;
+    /** Their display name, or null when their profile is private. */
+    displayName: string | null;
+    /** Their picture, or null when their profile is private. */
+    avatarUrl: string | null;
+  };
 }
 
 /**
@@ -131,14 +165,23 @@ const anonClient = () =>
  * editor opens one, so a page reads the same to a stranger and to its owner,
  * and the same before and after its owner next saves it.
  *
- * @param value - whatever the database returned.
- * @returns the blocks, or `[]` when they do not parse as either shape.
+ * @param value - the stored `sections` column.
+ * @param kind - which kind of actor's page it is, deciding which identity
+ *   blocks the shim supplies when the stored page names none.
  */
-function parseBlocks(value: unknown): Block[] {
+function parseBlocks(value: unknown, kind: ActorKind): Block[] {
   const result = lenientBlocksSchema.safeParse(value);
-  if (result.success) return result.data;
-  const flat = readSectionsSchema.safeParse(value);
-  return flat.success ? sectionsToBlocks(flat.data) : [];
+  const parsed = result.success
+    ? result.data
+    : (() => {
+        const flat = readSectionsSchema.safeParse(value);
+        return flat.success ? sectionsToBlocks(flat.data) : [];
+      })();
+  // **The shim runs even on the empty fallback**, and that is the point: a page
+  // whose stored shape this build cannot read at all still shows a stranger
+  // whose page it is. Absence of an identity block means the default position,
+  // never deletion — see `withRequiredBlocks`.
+  return withRequiredBlocks(parsed, kind);
 }
 
 /**
@@ -146,13 +189,21 @@ function parseBlocks(value: unknown): Block[] {
  *
  * @param row - the row as PostgREST returned it.
  * @param address - the canonical address to report.
+ * @param kind - which kind of actor's page it is, deciding which identity
+ *   blocks the shim supplies when the stored page names none.
+ * @param owner - who owns this fursona, on a fursona's page only. Omitted on a
+ *   person's page, where there is nobody to name. Its name and picture are
+ *   already gated by `public_fursona`; nothing here re-decides that.
  * @returns the actor.
  */
 function toPublicActor(
   row: Record<string, unknown>,
   address: string,
+  kind: ActorKind,
+  owner?: PublicActor["owner"],
 ): PublicActor {
   return {
+    ...(owner ? { owner } : {}),
     handle: row.handle as string,
     displayName: (row.display_name as string | null) ?? null,
     avatarUrl: (row.avatar_url as string | null) ?? null,
@@ -160,7 +211,7 @@ function toPublicActor(
     listed: Boolean(row.listed),
     // The column is still called `sections`; what it holds is a tree of
     // blocks, and a section is a container at depth 0 that carries a name.
-    blocks: parseBlocks(row.sections),
+    blocks: parseBlocks(row.sections, kind),
     // parseTheme falls back per field rather than throwing, so a stored theme
     // that is nonsense costs the page its colours and never the page itself.
     theme: parseTheme(row.theme),
@@ -173,6 +224,11 @@ function toPublicActor(
  * The number and the vanity both resolve, and the returned `address` is the
  * canonical one, so a page can point `rel="canonical"` at it without a second
  * query.
+ *
+ *
+ * **The read applies `withRequiredBlocks`**, so a page naming no identity
+ * block comes back with the header it always had. Absence means the default
+ * position rather than deletion, which is why no stored page needed migrating.
  *
  * @param address - the first URL segment, as somebody typed it.
  * @returns the profile, or `undefined` when there is nothing to show — which
@@ -193,7 +249,7 @@ export async function readPublicPerson(
 
   const row = data as Record<string, unknown>;
   return {
-    ...toPublicActor(row, row.address as string),
+    ...toPublicActor(row, row.address as string, "person"),
     fursonas: ((row.fursonas as Record<string, unknown>[] | null) ?? []).map(
       (entry) => ({
         handle: entry.handle as string,
@@ -209,6 +265,16 @@ export async function readPublicPerson(
  *
  * The handle resolves **within that person only**, because handles are unique
  * per owner — two people's `luna` are two different characters.
+ *
+ * **It reports the OWNER as well**, which a person's page has no equivalent of.
+ * The address is always there; the owner's name and picture are null unless
+ * that person's own profile is readable, and that decision is `public_fursona`'s
+ * rather than this function's — see {@link PublicActor.owner}.
+ *
+ *
+ * **The read applies `withRequiredBlocks`**, so a page naming no identity
+ * block comes back with the header it always had. Absence means the default
+ * position rather than deletion, which is why no stored page needed migrating.
  *
  * @param address - the owner's address, as somebody typed it.
  * @param handle - the fursona's handle, as somebody typed it.
@@ -228,5 +294,11 @@ export async function readPublicFursona(
   if (!data) return undefined;
 
   const row = data as Record<string, unknown>;
-  return toPublicActor(row, row.owner_address as string);
+  return toPublicActor(row, row.owner_address as string, "fursona", {
+    address: row.owner_address as string,
+    // Null when the owner's own profile is private. The gate is SQL's — see
+    // `public_fursona` in `0012` and the `owner` field's own doc.
+    displayName: (row.owner_display_name as string | null) ?? null,
+    avatarUrl: (row.owner_avatar_url as string | null) ?? null,
+  });
 }

@@ -815,6 +815,99 @@ replace`, so the newest body of a function could sit in a file named after
   each was measured wrong rather than argued wrong. Rule 29 above is what the
   branch cost.
 
+- **A page of one's own (2026-08-19) — done.** The last three pieces of
+  furniture the app rendered on somebody's public page are gone: the identity
+  header, the fursona list and the page's width. A public page is now entirely
+  its owner's tree, and **nothing the app owns renders inside `SKIN_SCOPE`
+  there any more.**
+
+  Five leaf kinds — `avatar`, `handle`, `name`, `owner`, `fursonas` — draw the
+  ACTOR rather than what somebody typed, which is a new CATEGORY in the model
+  rather than five more entries. Read
+  `apps/hub/src/features/actors/CLAUDE.md` before touching any of it. The
+  parts worth knowing first:
+
+  - **A fursona's page shows its owner, and that is new content.**
+    `public_fursona` resolved `owner_address` for the canonical URL and never
+    rendered it, so a stranger arriving from a shared link had no way back.
+    The owner's NAME and PORTRAIT are gated on that person's own profile being
+    readable — a fursona's page is governed by the fursona's visibility, so a
+    public character routinely belongs to somebody whose profile 404s. The
+    gate is in `0012`, never in a renderer.
+  - **A page must carry at least one of each required kind**, enforced in the
+    database, at the save boundary and in the editor. **The guarantee is that
+    the block EXISTS, not that a visitor sees it** — a required block inside a
+    collapsed `accordion` satisfies every layer and shows nothing, and
+    `tests/db/blocks.test.ts` asserts that hole is open as a passing case so
+    nobody reads the enforcement and concludes otherwise. Putting the
+    ownership fact in un-styleable chrome was weighed and declined: every part
+    of the page belongs to its owner.
+  - **Absence means the default POSITION, not deletion**, which is why no
+    stored page needed migrating and why the rule cannot be defeated by
+    stripping the blocks: `withRequiredBlocks` puts them back on every read.
+  - **A page chooses its own width**, six named stops from the reading measure
+    out to `full`, and **a section may ignore it and reach both edges**. The
+    measure is applied per SECTION rather than to the page, which is the whole
+    mechanism: `w-screen` is refused because `100vw` counts the scrollbar a
+    centred column does not.
+  - **The theme switch is in the bar** and the light/dark toggle's question
+    mark is gone — it clears the author's theme as well as setting a default,
+    so the press always changes something a visitor can see.
+
+  **Three faults shipped with it and were found only when the branch's own
+  browser suite was run with credentials, which is the part worth carrying.**
+  The plan closed, every local gate was green, and `e2e` — a REQUIRED check —
+  had never actually run the half of itself that needs Clerk, because
+  `global-setup.ts` skips those suites without a key and the branch was
+  verified on a machine that had not exported one. All three were in the
+  headline features:
+
+  - **Both public routes asked the shell for `width="wide"`**, so the
+    per-section measure was laid inside a centred, padded `max-w-7xl` column:
+    a doubled gutter, the two widest stops capped at 80rem, and a `bleed`
+    section unable to reach either edge. `COLUMN.full` existed, was documented
+    for exactly this, and had no caller. See rule 30.
+  - **`set_actor_theme` had never heard of `measure`**, whose allowlist ends in
+    `unknown theme key` — so picking a width made the whole theme save throw.
+    Fixed in `0009`, hand-applied to live, and pinned by `tests/db/actor-theme.test.ts`.
+  - **`fursonas.fursonas` was in neither catalogue**, so three editor routes
+    drew their own key path where a heading belonged. They read
+    `publicProfile.fursonas` now — the same string the public page uses, so the
+    preview cannot disagree with the page — and
+    `apps/hub/tests/message-keys-exist.test.ts` reads the SOURCE for every
+    literal key asked of a literal namespace, which is the first guard here
+    that can catch a hand-written key rather than a generated one.
+
+  - **A fursona built by hand could not be saved AT ALL.** `readActorPage`
+    answers `withRequiredBlocks([], kind)` for an actor with nothing stored,
+    but the CREATE page has no actor to read yet and `FursonaEditor` defaulted
+    to `[]` — a tree `set_actor_sections` refuses for naming no `avatar`,
+    `handle` or `owner`. So Save produced "your sections were refused" on a
+    page whose author had done nothing wrong, and only the template path
+    worked, because applying one runs the shim. The default is the shim's
+    output now. Seeding it made every page non-empty, which broke the template
+    picker's confirmation the other way — that gate asked "are there any
+    sections" and now asks `holdsNothingAuthored`, which is the question it
+    always meant.
+
+  A fifth thing was owed rather than broken: **every page fixture must now
+  carry the required blocks**, so `seedPage` appends an identity section to
+  every tree it writes and the specs that count sections say
+  `+ SEEDED_IDENTITY_SECTIONS` rather than a bare number. Two spec-level traps
+  came with it and are worth knowing before writing another editor test: the
+  card a test builds is the LAST one, because the identity section opens first
+  and `add-section` appends; and a page-wide locator for `nested-card` or
+  `block-grid` now matches the identity section too, so those have to be
+  scoped to the section under test.
+
+  Spec: `docs/superpowers/specs/2026-08-19-a-page-of-ones-own-design.md`,
+  complete. Plan: `docs/superpowers/plans/2026-08-19-a-page-of-ones-own.md`,
+  whose corrections banner is the one to read first — six of its instructions
+  were wrong, and the two worth carrying are that a leaf CANNOT have no fields
+  (`title_en` is required everywhere) and that the vocabulary and the
+  renderers cannot land separately, because `satisfies Record<LeafKind, …>`
+  refuses to compile.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
@@ -1153,9 +1246,28 @@ every Tailwind utility for months without anything noticing.
     Two things generalise past this library. **Waiting for a visible effect
     proves the effect and never the wiring behind it** — and where a dependency
     defers its own listeners, the wait has to be ORDERED against that deferral
-    rather than made longer: yielding one macrotask inside the page closes this
-    window by construction, because the sensor's timer was queued first and
-    timers of equal delay fire in the order they were queued. And **a
+    rather than made longer.
+
+    **The ordering this rule originally prescribed was wrong, and measuring it
+    is what showed that.** It said one macrotask closes the window "by
+    construction, because the sensor's timer was queued first and timers of
+    equal delay fire in the order they were queued". That argument assumes the
+    sensor has already ATTACHED when the yield is queued — and attach happens
+    in a React commit the scheduler may defer. On a page with one more section
+    it does defer, and then our timer is queued first, fires first, and the
+    first arrow is lost on EVERY run rather than one in three. Measured
+    2026-08-20: one macrotask lost it every time, two lost it every time, a
+    `requestAnimationFrame` with a `setTimeout` nested inside it lost it never.
+    React commits before paint, so the frame callback runs after the commit
+    that attached the sensor, and a timer queued from inside that frame is
+    queued after the sensor's own. `support/drag.ts` does that now.
+
+    The general form is the part to carry: **an ordering argument has a
+    premise about WHEN the other side registered, and that premise is the thing
+    to check.** A guard whose correctness rests on queue order is only as true
+    as its assumption about what has already run — and the failure mode is not
+    a flake that gets rarer on a faster machine, it is a deterministic loss on
+    a heavier page. And **a
     "did it happen" check built on a signal that is already dirty is vacuous**:
     the second drag in a test begins with the first drag's own DROP
     announcement still on screen, so `expect(liveRegion).not.toBeEmpty()`
@@ -1217,6 +1329,38 @@ every Tailwind utility for months without anything noticing.
     editor that adds its own endings all reopen it, and the way to check is to
     count the bytes rather than to trust a setting.
 
+    **And it was reopened, on 2026-08-19, by exactly that third route.** An
+    agent editing SQL with Python's `pathlib.Path.write_text` re-wrote whole
+    files as CRLF: that call applies the platform's newline translation on
+    WRITE, so reading a pure-LF file and writing it back unchanged converts
+    every line on Windows. Passing `newline="
+"` is what stops it, measured
+    rather than assumed. Nothing else said so — `git status` showed only the
+    lines actually edited, because `.gitattributes` normalises on the way into
+    the index, and the committed blobs were clean throughout.
+
+    What it broke is the one thing that reads the WORKING TREE rather than the
+    index: `supabase db reset` built the local and shadow databases from the
+    CRLF file, so their `prosrc` carried a carriage return and the live
+    project's did not. `check:schema-drift` then reported drift in
+    **`public_person`, a function the branch never touched** — which reads as
+    the live project having been tampered with, and sends you looking in the
+    wrong place entirely. The branch's own function was the one that did NOT
+    drift, because the apply script normalised before sending.
+
+    Three things to take from it. **A drift report naming a function you did
+    not touch is a line-endings report until proven otherwise** — check that
+    before anything else, and check it by comparing the live body against the
+    LOCAL database rather than against the file, since the local one is what
+    was built from the tree. **A `git stash` round-trip silently launders the
+    file back to LF**, which is a trap of its own: the evidence disappears the
+    moment you try the obvious isolation step, and the next run comes back
+    green for a reason unrelated to what you changed. And **count the bytes of
+    any file a script has written before committing it** — the same session
+    later committed a `CLAUDE.md` with every newline STRIPPED, 90KB on one
+    line, and neither the pre-commit hook nor any check noticed. Prose has no
+    compiler; only counting catches this.
+
     **The diagnostic lesson is the part that never expires.** A script written
     to answer "does live match the file" compared `prosrc` against the file and
     reported `same` for all six functions it checked — because it normalised
@@ -1271,6 +1415,67 @@ every Tailwind utility for months without anything noticing.
     than quietly counted, and the guard that actually pins the threshold was
     found a level down, in unit assertions that compare the class string
     verbatim.
+
+30. **A comment describing what ANOTHER file does is a claim nothing checks,
+    and it shipped two broken headline features on one branch.**
+    `blocks.tsx` says three separate times that "the route asks the shell for a
+    full-width `main`"; `page-shell.tsx` documents `COLUMN.full` as existing
+    for exactly that; the prop's type admits it — and **no route ever passed
+    it.** Both public pages asked for `"wide"`, so every page was laid inside a
+    centred, padded `max-w-7xl` column, and three things were wrong at once: a
+    second gutter inside the page's own (16px each side, which moved the
+    container-query width at which a three-place section stops collapsing and
+    reddened `weighted-places.spec.ts` on a viewport its own header had
+    MEASURED), the two widest of the six measures silently capped at 80rem so
+    two stops a person can pick did nothing, and a `bleed` section — this
+    branch's own headline — unable to reach either edge.
+
+    **Every unit test stayed green through all of it**, because they render
+    `PublicBlocks` and assert `MEASURE_CLASS` as class STRINGS. The class was
+    always right; the box it was laid in was not. This is rule 18 with the
+    tense removed — `check:docs` compares a symbol against its own code, and
+    none of those comments was about its own symbol — and it is the repository's
+    own "a mocked dependency hides its own setup requirements", the suites that
+    mocked the shell away being the ones that could not have caught it. The
+    giveaway is a comment whose subject is a different file, and the check is
+    one grep: **does the caller it describes exist?** `COLUMN.full` had no
+    caller and no test mentioned it either, which is the same fact twice.
+
+    **The same branch shipped the same shape one layer down.** `PAGE_MEASURES`
+    gained six stops in TypeScript while `set_actor_theme`'s key allowlist
+    never heard of `measure` — and that allowlist ends in
+    `raise exception 'unknown theme key %'`, so picking a width did not merely
+    fail to persist: it made the WHOLE theme save throw, every colour beside it
+    included. `block-limits-match-migration.test.ts` exists to stop exactly
+    this for `mode` and `kind`, and a seventh closed vocabulary was added
+    beside it without being pinned to the SQL. **A vocabulary written down in
+    two languages needs the test that says so in the same change**, and the
+    cheap version is a regex over the migration — not because a regex is
+    elegant but because nothing else in the build can see across the two.
+
+    What found both was one browser test that seeded a REAL page through the
+    product's own RPC and then measured boxes. Neither fault was reachable from
+    any suite that mocked the shell or compared a class name, and the second
+    was not reachable from any suite at all that did not write to a database.
+
+31. **A SKIPPED test reports green, and a suite that skips most of itself when
+    a secret is absent is the easiest way in this repository to believe work is
+    verified when it is not.** `pnpm test:e2e` on a shell that has not sourced
+    `.secrets` runs 48 of 136 cases and prints `48 passed` — no failures, no
+    summary line anybody reads as a warning, and every suite that needs a
+    Clerk identity quietly stood down by `global-setup.ts`. That skip is
+    correct and must stay: a fork has no secrets and demanding them would turn
+    a clean run into a hard failure. What is not correct is reading the result
+    as a pass. Three shipped faults on one branch were invisible to every
+    local run for exactly this reason, and CI would have caught all three —
+    `e2e` is a required check and it HAS the secrets — so the cost was paid at
+    the point where it is most expensive to diagnose rather than avoided.
+
+    The habit: **before believing a browser run, check how many cases it
+    skipped.** `set -a; . ./.secrets; set +a` in the same invocation is what
+    makes the suite whole, and the number to compare against is the case count,
+    not the word "passed". The same shape is worth suspecting anywhere a
+    `test.skip` is conditioned on the environment rather than on the code.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

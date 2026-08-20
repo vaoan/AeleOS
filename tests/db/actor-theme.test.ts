@@ -188,6 +188,38 @@ describe("set_actor_theme", () => {
       ).toMatch(/too long/i);
     });
 
+    // THE MEASURE WAS A KEY THIS FUNCTION HAD NEVER HEARD OF.
+    //
+    // `toStoredTheme` writes `measure` the moment somebody picks a width, and
+    // the allowlist above ended in `raise exception 'unknown theme key %'` —
+    // so choosing a width did not merely fail to persist, it made the WHOLE
+    // theme save throw, taking every colour beside it. Every unit test stayed
+    // green: they assert what `toStoredTheme` produces, and nothing on that
+    // side can see which keys the database admits.
+    //
+    // Both halves are asserted because only the pair discriminates. A branch
+    // that accepted `measure` and checked nothing would pass the first case
+    // alone, and one that still refused every measure would pass the second
+    // alone — the `else` it used to fall through to raises a message matching
+    // neither pattern.
+    // Restated here rather than imported from the hub: this suite is what a
+    // consuming app runs against its OWN database, so it imports nothing from
+    // the app — and a list read out of the code it is checking would agree
+    // with it by construction and could never report that the two had parted.
+    it.each(["narrow", "medium", "wide", "wider", "widest", "full"])(
+      "accepts the %s measure",
+      async (measure) => {
+        expect(await write(alice.sub, alice.sonaRef, { measure })).toBeNull();
+        expect(await stored(alice.sonaRef)).toEqual({ measure });
+      },
+    );
+
+    it("refuses a measure that is not one of the stops", async () => {
+      expect(
+        await write(alice.sub, alice.sonaRef, { measure: "enormous" }),
+      ).toMatch(/unknown measure/i);
+    });
+
     it("refuses more canvas colours than any canvas could use", async () => {
       expect(
         await write(alice.sub, alice.sonaRef, {

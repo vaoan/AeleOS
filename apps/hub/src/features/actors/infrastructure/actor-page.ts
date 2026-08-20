@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  withRequiredBlocks,
+  type ActorKind,
+} from "@/features/actors/domain/required-blocks";
+import {
   DEFAULT_THEME,
   parseTheme,
   type ActorTheme,
@@ -69,6 +73,9 @@ export interface ActorPage {
  *
  * @param client - a Supabase client authenticated as the owner.
  * @param actorRef - whose page.
+ * @param kind - which kind of actor it is, deciding which identity blocks the
+ *   shim supplies when the stored page names none. Applied to a PARSED page
+ *   only — see the body.
  * @returns the theme, always; and the sections, which are `[]` when nothing has
  * been written, the stored page when it parses, and **`null` when a page is
  * stored and could not be read**.
@@ -79,6 +86,7 @@ export interface ActorPage {
 export async function readActorPage(
   client: SupabaseClient,
   actorRef: string,
+  kind: ActorKind,
 ): Promise<ActorPage> {
   const { data, error } = await client
     .from("actor_profiles")
@@ -87,15 +95,29 @@ export async function readActorPage(
     .maybeSingle();
 
   if (error) throw new Error(`Could not read the page: ${error.message}`);
-  if (!data) return { sections: [], theme: DEFAULT_THEME };
+  // **Shimmed like any other empty page.** A fursona with no profile row and
+  // one with a row holding `[]` are the same state — nobody has written
+  // anything — and returning a bare `[]` here while the other got a header
+  // would make which of the two you were in visible, for no reason anybody
+  // could act on.
+  if (!data) {
+    return { sections: withRequiredBlocks([], kind), theme: DEFAULT_THEME };
+  }
 
   // **Sections that no longer parse come back as `null`, never as `[]`.** A
   // throw here would make the fursona permanently uneditable, which is worse
   // than an editor that opens without them; but `[]` says "nothing is written"
   // to a caller whose next act is to REPLACE, and that is data loss rather than
   // a degraded read. The distinction is the whole reason this returns a union.
+  // **The shim runs on a PARSED page only, never on `null`.** `null` means the
+  // stored shape did not parse, and the editor's whole contract is that it
+  // must not replace what it could not read. Supplying a header there would
+  // turn "unreadable" into "here is a page", and the next save would write
+  // that over somebody's content — which is the data loss this union exists to
+  // prevent, rebuilt by a convenience.
+  const sections = readEitherShape((data as { sections: unknown }).sections);
   return {
-    sections: readEitherShape((data as { sections: unknown }).sections),
+    sections: sections === null ? null : withRequiredBlocks(sections, kind),
     theme: parseTheme((data as { theme: unknown }).theme),
   };
 }

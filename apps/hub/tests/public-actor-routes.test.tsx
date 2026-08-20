@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import { publicName as realPublicName } from "@/features/actors/domain/actor-content";
 import { render } from "@testing-library/react";
 
@@ -76,6 +77,10 @@ const actor = {
   address: "luna-wolf",
   listed: true,
   sections: [],
+  // **A real theme, not an empty object.** The route reads its `measure` to
+  // build the page context, and a fixture without one made every case here
+  // fail on a missing property rather than on anything the case was about.
+  theme: DEFAULT_THEME,
 };
 
 beforeEach(() => {
@@ -119,7 +124,11 @@ describe("the person route", () => {
     // could not have caught a dropped prop either.
     render(await personRoute.default({ params: personParams }));
     expect(publicProfile).toHaveBeenCalledWith(
-      expect.objectContaining({ parentHost: "parent-host-test.example" }),
+      expect.objectContaining({
+        page: expect.objectContaining({
+          parentHost: "parent-host-test.example",
+        }),
+      }),
     );
   });
 
@@ -220,7 +229,11 @@ describe("the fursona route", () => {
     readPublicFursona.mockResolvedValue(actor);
     render(await fursonaRoute.default({ params: fursonaParams }));
     expect(publicProfile).toHaveBeenCalledWith(
-      expect.objectContaining({ parentHost: "parent-host-test.example" }),
+      expect.objectContaining({
+        page: expect.objectContaining({
+          parentHost: "parent-host-test.example",
+        }),
+      }),
     );
   });
 

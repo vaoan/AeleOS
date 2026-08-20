@@ -87,7 +87,11 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
         inputs.map((input) => (input as HTMLInputElement).value),
       );
 
-  await expect.poll(names).toEqual(["First", "Second"]);
+  // **The empty name is the identity section's**, which every page opens
+  // carrying because the database requires its blocks. It is first, so the two
+  // sections this test builds are the second and third — and the grip lifted
+  // below is `drag-1` rather than `drag-0` for the same reason.
+  await expect.poll(names).toEqual(["", "First", "Second"]);
 
   // Lift the first section's grip, move it down one, drop it. dnd-kit
   // announces each step to an `aria-live` region it manages itself; waiting on
@@ -100,7 +104,7 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   // listener arrives a macrotask after the drag starts, and the arrow pressed
   // inside that window is lost silently. `support/drag.ts` carries the whole
   // account.
-  await liftByKeyboard(page, page.getByTestId("drag-0"));
+  await liftByKeyboard(page, page.getByTestId("drag-1"));
   await expect(announcement).not.toBeEmpty();
 
   await page.keyboard.press("ArrowDown");
@@ -112,7 +116,7 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   // key fires.
   await expect
     .poll(() => announcement.textContent())
-    .toMatch(/Movido sobre 2\.$/);
+    .toMatch(/Movido sobre 3\.$/);
 
   await page.keyboard.press("Space");
 
@@ -125,7 +129,7 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   // three-section case that DOES discriminate lives there, on a page seeded for
   // it. What this file proves is the chain — a real grip, a real sensor, a real
   // browser, an order that changed — and that is worth having on its own.
-  await expect.poll(names).toEqual(["Second", "First"]);
+  await expect.poll(names).toEqual(["", "Second", "First"]);
 });
 
 // WHAT THE OLD LIBRARY COULD NOT DO AT ALL, PROVED IN A BROWSER.
@@ -146,43 +150,54 @@ test("a piece of content dragged by keyboard moves into another section's place"
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-section").click();
 
-  // One piece of content, in the first place of the first section. Its title
-  // is what the assertion follows across the page.
-  await page.getByTestId("add-content").first().click();
-  await page.getByTestId("leaf-title").first().fill("Travelled");
+  // **Scoped to the first section this test built, which is the SECOND card.**
+  // Every page opens carrying the identity section the database requires, so
+  // the two sections here are at index 1 and 2 — and a page-wide `.first()`
+  // for a title would have typed into the identity section's portrait.
+  const built = page.getByTestId("section-card").nth(1);
+  await built.getByTestId("add-content").first().click();
+  await built.getByTestId("leaf-title").first().fill("Travelled");
 
+  // **Followed by its own words rather than by counting leaf editors.** The
+  // identity section holds four of those, so a positional list would be mostly
+  // blocks this test never placed; what it is actually about is where ONE
+  // piece of content ended up.
   const placesHolding = () =>
     page
-      .getByTestId("leaf-editor")
+      .getByTestId("leaf-title")
       .evaluateAll((nodes) =>
-        nodes.map((node) =>
-          node.closest("[data-testid^='place-']")?.getAttribute("data-testid"),
-        ),
+        nodes
+          .filter((node) => (node as HTMLInputElement).value === "Travelled")
+          .map((node) =>
+            node
+              .closest("[data-testid^='place-']")
+              ?.getAttribute("data-testid"),
+          ),
       );
 
-  await expect.poll(placesHolding).toEqual(["place-0.0"]);
+  await expect.poll(placesHolding).toEqual(["place-1.0"]);
 
   const announcement = page.locator('[id^="DndLiveRegion-"]');
 
-  // The places, in drawing order, are 0.0 0.1 1.0 1.1 — the sections
-  // themselves are not offered, because a nested block dropped onto one would
-  // exchange with the whole section rather than land in it.
-  await liftByKeyboard(page, page.getByTestId("drag-0.0"));
+  // The places this walk is offered, in drawing order, are 1.0 1.1 2.0 2.1 —
+  // the sections themselves are not, because a nested block dropped onto one
+  // would exchange with the whole section rather than land in it.
+  await liftByKeyboard(page, page.getByTestId("drag-1.0"));
   await expect(announcement).not.toBeEmpty();
 
   // Anchored on the end of the sentence: `1.2.` is a prefix of `1.2.3.`, and
   // an unanchored match would report arrival two levels above the place asked
   // for.
   await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s1\.2\.$/);
+  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.2\.$/);
   await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.1\.$/);
+  await expect.poll(() => announcement.textContent()).toMatch(/\s3\.1\.$/);
 
   await page.keyboard.press("Space");
 
   // It left its old place EMPTY rather than closing it up — a place is
   // positional, and the width its author gave it is the model.
-  await expect.poll(placesHolding).toEqual(["place-1.0"]);
+  await expect.poll(placesHolding).toEqual(["place-2.0"]);
   await expect(page.getByTestId("empty-place")).toHaveCount(3);
 });
 

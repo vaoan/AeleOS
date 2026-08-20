@@ -61,6 +61,7 @@ describe("parseTheme", () => {
       cursor: null,
       backgroundUrl: null,
       backgroundFit: "cover",
+      measure: null,
       skin: "retro",
       density: 1,
       speed: 1,
@@ -869,5 +870,23 @@ describe("the canvas dials", () => {
     expect(isCustomised({ ...DEFAULT_THEME, density: 2 })).toBe(true);
     expect(isCustomised({ ...DEFAULT_THEME, speed: 2 })).toBe(true);
     expect(isCustomised({ ...DEFAULT_THEME, scale: 2 })).toBe(true);
+  });
+});
+
+describe("the page measure", () => {
+  it("reads a stored measure back", () => {
+    expect(parseTheme({ measure: "full" }).measure).toBe("full");
+  });
+
+  // **A stop this build does not know falls back to the design's own**, the
+  // same way an unknown canvas or skin does — a page written by a newer
+  // deployment must still render, and null is a real answer rather than a gap.
+  it("falls back to the design's own for a stop it does not know", () => {
+    expect(parseTheme({ measure: "enormous" }).measure).toBeNull();
+    expect(parseTheme({ measure: 7 }).measure).toBeNull();
+  });
+
+  it("is null when nobody chose one", () => {
+    expect(parseTheme({}).measure).toBeNull();
   });
 });

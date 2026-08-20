@@ -1,25 +1,27 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Moon, Palette, Sun } from "lucide-react";
+import { Palette } from "lucide-react";
 import {
   PAGE_THEME_ATTRIBUTE,
   PAGE_THEME_CHANGE_EVENT,
   setPageTheme,
 } from "@/shared/application/page-theme";
-import { setTheme, THEME_CHANGE_EVENT } from "@/shared/application/theme";
+import { THEME_CHANGE_EVENT } from "@/shared/application/theme";
 import { tid } from "@/shared/infrastructure/test-id";
 
-/** Translated strings {@link PageThemeSwitch} renders. */
+/** Translated strings {@link PageThemeSwitch} renders. *
+ * One label, because there is one button. The light and dark labels went with
+ * the options that became the toggle beside it.
+ */
 export interface PageThemeSwitchLabels {
-  /** Names the group of three. */
-  title: string;
-  /** Wear the colours this page's owner chose. */
+  /**
+   * Names the control: wear the colours this page's owner chose.
+   *
+   * One label, because there is one button. The light and dark labels went
+   * with the options that became the toggle beside it.
+   */
   author: string;
-  /** The app's own light theme. */
-  light: string;
-  /** The app's own dark theme. */
-  dark: string;
 }
 
 /** What {@link PageThemeSwitch} needs. */
@@ -87,15 +89,23 @@ function subscribe(onChange: () => void): () => void {
  * control that lets an author's colours be as unreadable as they like without
  * that being anybody else's problem.
  *
- * Three options rather than a toggle, because there genuinely are three: the
- * author's, and each of the app's own. A two-state control would have to guess
- * which default somebody wanted, and would lose that guess every time they
- * switched back.
+ * **A toggle rather than three options, because the third question moved.**
+ * This was a group of three — the author's theme, light, and dark — which made
+ * sense while it sat inside the page and was the only way to reach any of
+ * them. It lives in the BAR now, beside the light/dark toggle, and two
+ * controls both offering light and dark is one control too many.
  *
- * Choosing a default does two things at once — takes the author's theme off and
- * names which default replaces it — which is why the app's light/dark
- * preference is written as well. A visitor who picks light here has picked
- * light everywhere, which is what they meant.
+ * So this one answers only "am I wearing this author's colours", and the
+ * toggle beside it answers "and which default otherwise". Those are genuinely
+ * two questions — a visitor holds both answers at once, which is why
+ * `data-page-theme` was never folded into `data-theme` — and each control now
+ * asks exactly one of them.
+ *
+ * **Pressing the light/dark toggle takes this off.** That behaviour used to
+ * live here, in the two options that wrote both attributes; it moved with the
+ * question. Without it, pressing sun-or-moon while an author's theme is on
+ * would change nothing a visitor can see, which is the accepts-a-press-and-
+ * does-nothing failure this repository keeps catching.
  *
  * **It renders only where there is a theme to leave.** The caller decides; a
  * control offering to remove colours a page never had is a control that does
@@ -114,59 +124,23 @@ export function PageThemeSwitch({ labels }: PageThemeSwitchProps) {
     getSnapshot,
     getServerSnapshot,
   );
-
-  const options = [
-    {
-      value: "author",
-      label: labels.author,
-      icon: Palette,
-      choose: () => setPageTheme("author"),
-    },
-    {
-      value: "light",
-      label: labels.light,
-      icon: Sun,
-      choose: () => {
-        setPageTheme("default");
-        setTheme("light");
-      },
-    },
-    {
-      value: "dark",
-      label: labels.dark,
-      icon: Moon,
-      choose: () => {
-        setPageTheme("default");
-        setTheme("dark");
-      },
-    },
-  ] as const;
+  const wearing = showing === "author";
 
   return (
-    <div
-      role="group"
-      aria-label={labels.title}
+    <button
+      type="button"
+      onClick={() => setPageTheme(wearing ? "default" : "author")}
+      aria-pressed={wearing}
+      aria-label={labels.author}
+      title={labels.author}
       {...tid("page-theme-switch")}
-      className="flex rounded-lg surface border-(--edge) bg-(--bar) p-0.5"
+      className={
+        wearing
+          ? "rounded-lg surface border-(--edge) bg-(--accent) p-1.5 text-(--on-accent)"
+          : "rounded-lg surface border-(--edge)/0 p-1.5 text-(--muted)"
+      }
     >
-      {options.map(({ value, label, icon: Icon, choose }) => (
-        <button
-          key={value}
-          type="button"
-          onClick={choose}
-          aria-pressed={showing === value}
-          title={label}
-          {...tid(`page-theme-${value}`)}
-          className={
-            showing === value
-              ? "flex items-center gap-1.5 rounded-md bg-(--accent) px-2.5 py-1 text-xs font-medium text-(--on-accent)"
-              : "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-(--muted)"
-          }
-        >
-          <Icon className="size-3.5" aria-hidden />
-          <span className="sr-only sm:not-sr-only">{label}</span>
-        </button>
-      ))}
-    </div>
+      <Palette className="size-4" aria-hidden />
+    </button>
   );
 }

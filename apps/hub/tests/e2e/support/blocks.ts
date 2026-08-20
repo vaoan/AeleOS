@@ -64,6 +64,75 @@ export const container = (over: SeedBlock = {}): SeedBlock => ({
   ...over,
 });
 
+/**
+ * The identity section every seeded fursona page carries.
+ *
+ * **A page must name at least one `avatar`, `handle` and `owner`**, refused by
+ * `set_actor_sections` and not merely by the editor — so a fixture without
+ * them is not a page the product can store, and `seedPage` appends this to
+ * every tree it writes. Written out literally rather than built from
+ * `REQUIRED_KINDS`: a fixture that derived the list would agree with the
+ * schema by construction and could never report that the requirement had
+ * changed, which is the same reason {@link leaf} is untyped.
+ *
+ * **Appended rather than prepended, and that is index stability rather than
+ * taste.** `withRequiredBlocks` puts its own composed section FIRST, which is
+ * what a page stored before these kinds existed reads back as; doing that here
+ * would renumber every place in every fixture, so `place-0.1` in a spec would
+ * name a block that spec never wrote. Appending leaves every existing path and
+ * every `nth(i)` exactly where its spec put it, and costs one trailing section
+ * that assertions counting sections have to know about.
+ *
+ * @returns the section, as the database stores it.
+ */
+export const identity = (): SeedBlock =>
+  container({
+    name_en: "Identity",
+    name_es: "Identidad",
+    mode: "stack",
+    children: [
+      leaf({ kind: "avatar", title_en: "Portrait", title_es: "Retrato" }),
+      leaf({ kind: "handle", title_en: "Handle", title_es: "Alias" }),
+      leaf({ kind: "owner", title_en: "Owner", title_es: "Dueño" }),
+    ],
+  });
+
+/**
+ * How many top-level sections {@link seedPage} adds beyond what it was given.
+ *
+ * Written as a name rather than folded into each spec's arithmetic so that a
+ * count reads as "my sections, and the identity one" instead of as a magic
+ * `+ 1` nobody can place a year from now.
+ */
+export const SEEDED_IDENTITY_SECTIONS = 1;
+
+/**
+ * How many `public-leaf` blocks that section puts on the page.
+ *
+ * The three the database requires — `avatar`, `handle` and `owner` — so a spec
+ * counting every leaf on a page counts these too. Same reasoning as
+ * {@link SEEDED_IDENTITY_SECTIONS}: a named total beats an unexplained one.
+ */
+export const SEEDED_IDENTITY_LEAVES = 3;
+
+/**
+ * How {@link identity} reads in the editor's own arrangement dump.
+ *
+ * `block-drag.spec.ts` asserts the WHOLE page as an exact array — which is the
+ * point of it, since a drag that moved something it should not have is only
+ * visible against the whole — so the trailing section has to be spelled out
+ * there rather than counted.
+ *
+ * @param at - the top-level index the identity section sits at.
+ * @returns its entries, in the form `arrangement` builds.
+ */
+export const identityArrangement = (at: number): string[] => [
+  `${at}=section-card:Identity`,
+  `${at}.0=leaf-editor:Portrait`,
+  `${at}.1=leaf-editor:Handle`,
+  `${at}.2=leaf-editor:Owner`,
+];
+
 /** What {@link seedPage} needs. */
 export interface SeedOptions {
   /** The Clerk user to write as. */
@@ -99,6 +168,11 @@ export interface SeededPage {
  * page and an assertion about the RENDER then fails somewhere far from the
  * cause.
  *
+ * **{@link identity} is appended to every tree**, because a page naming no
+ * `avatar`, `handle` or `owner` is one the database refuses. A caller passes
+ * only the blocks its own subject is about; the trailing section is what makes
+ * the write legal, and anything counting top-level sections has to count it.
+ *
  * @param options - who to write as, and what to write.
  * @returns the address and handle the page is served at.
  */
@@ -130,7 +204,7 @@ export async function seedPage(options: SeedOptions): Promise<SeededPage> {
 
   const { error: blocksError } = await supabase.rpc("set_actor_sections", {
     p_actor_ref: actorRef,
-    p_sections: options.blocks,
+    p_sections: [...options.blocks, identity()],
   });
   expect(blocksError).toBeNull();
 

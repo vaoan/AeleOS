@@ -272,6 +272,43 @@ describe("public_fursona", () => {
     ).toBe(vanity);
   });
 
+  // **The owner's NAME and PORTRAIT are gated on the owner's own visibility,
+  // and the address is not.** A fursona's page is governed by the fursona's
+  // visibility rather than its owner's — deliberately, see this migration's
+  // own note — so a public character routinely belongs to a person whose
+  // profile 404s. Their address is already the first segment of this page's
+  // URL and discloses nothing new; their name and picture would.
+  //
+  // Only the PRIVATE case can fail if the gate is simply absent. The two
+  // readable cases pass either way and are here to pin that the gate does not
+  // over-reach, not to prove it exists.
+  describe("the owner's identity", () => {
+    it("shows a public owner's name and picture", async () => {
+      const { rows } = await readFursona(owner.number, sona.handle);
+      expect(rows[0].owner_display_name).toBe("A person");
+      expect(rows[0].owner_avatar_url).toBe("https://example.test/p.png");
+    });
+
+    it("shows an unlisted owner's name and picture", async () => {
+      const quiet = await seedPerson({ visibility: "unlisted" });
+      const theirs = await seedFursona(quiet.personRef);
+      const { rows } = await readFursona(quiet.number, theirs.handle);
+      expect(rows[0].owner_display_name).toBe("A person");
+      expect(rows[0].owner_avatar_url).toBe("https://example.test/p.png");
+    });
+
+    // The discriminating case.
+    it("withholds a private owner's name and picture, keeping the address", async () => {
+      const hidden = await seedPerson({ visibility: "private" });
+      const theirs = await seedFursona(hidden.personRef);
+      const { rows } = await readFursona(hidden.number, theirs.handle);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].owner_display_name).toBeNull();
+      expect(rows[0].owner_avatar_url).toBeNull();
+      expect(rows[0].owner_address).toBe(hidden.number);
+    });
+  });
+
   // Handles are unique PER OWNER, so the same handle under two addresses is two
   // different characters. Resolving one from the other would be the bug that
   // makes per-owner handles unsafe.
@@ -379,7 +416,12 @@ describe("public_fursona", () => {
     });
   });
 
-  it("returns exactly the seven columns", async () => {
+  // **An exact list, not a subset.** The point is that a column added upstream
+  // cannot reach an anonymous caller unnoticed — the same rule
+  // `/api/actors/mine` follows by picking its fields out by name. Adding one
+  // here is meant to be a deliberate edit to this list, which is why the two
+  // owner columns below arrived with a red run.
+  it("returns exactly the nine columns", async () => {
     const { rows } = await readFursona(owner.number, sona.handle);
     expect(Object.keys(rows[0]).sort()).toEqual([
       "avatar_url",
@@ -387,6 +429,8 @@ describe("public_fursona", () => {
       "handle",
       "listed",
       "owner_address",
+      "owner_avatar_url",
+      "owner_display_name",
       "sections",
       "theme",
     ]);

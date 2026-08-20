@@ -4,7 +4,12 @@ import {
   deleteTestIdentity,
   hasClerk,
 } from "./support/clerk-session";
-import { container, leaf, seedPage } from "./support/blocks";
+import {
+  container,
+  leaf,
+  seedPage,
+  SEEDED_IDENTITY_SECTIONS,
+} from "./support/blocks";
 
 // WHY THIS FILE EXISTS.
 //
@@ -84,7 +89,9 @@ test.describe("tabs, switched in a real browser", () => {
       await page.setViewportSize({ width: 1280, height: 800 });
       const response = await page.goto(`/es/${address}/${handle}`);
       expect(response?.status()).toBe(200);
-      await expect(page.getByTestId("public-section")).toHaveCount(1);
+      await expect(page.getByTestId("public-section")).toHaveCount(
+        1 + SEEDED_IDENTITY_SECTIONS,
+      );
 
       const tabs = page.getByTestId("block-tabs");
       const labels = tabs.locator("> label");

@@ -28,25 +28,33 @@ import { tid } from "@/shared/infrastructure/test-id";
 /**
  * What {@link PageShell} needs.
  *
- * `themed` is the one thing the shell cannot work out for itself: a theme
- * arrives as a `<style>` a page emits, so only the caller knows whether the
- * page it is rendering has one.
+ * `pageThemeSwitch` is the one thing the shell cannot work out for itself: a
+ * theme arrives as a `<style>` a page emits, so only the caller knows whether
+ * the page it is rendering has one to leave. Passing it IS that statement —
+ * there was a separate `themed` boolean saying the same thing, and it went
+ * when the light/dark toggle stopped needing to know.
+ *
+ * `width` gained a third value, `"full"`, which is not a wider column but no
+ * column at all — see the prop.
  */
 export interface PageShellProps {
   /** The page's content, laid out in the shared column. */
   children: ReactNode;
   /**
-   * Whether this page is wearing somebody's own theme.
+   * The control that leaves a page's own theme, rendered among the page
+   * settings in the bar.
    *
-   * **Only the caller can know.** A theme arrives as a `<style>` a page emits,
-   * so the shell cannot see one — and the light/dark toggle has to, because on
-   * a themed page neither light nor dark is in force and its sun or moon would
-   * be describing a state the page is not in.
+   * **A slot, and in the BAR rather than in the page.** It rode the public
+   * profile's header until the header became blocks — that was the one row the
+   * app owned inside somebody's content, and there is no such row any more. A
+   * control belonging to the app is exactly what should not sit among an
+   * author's blocks, and the bar is where the other page settings already are.
    *
-   * Absent everywhere else on purpose: the signed-in pages wear the design's
-   * own colours, where the toggle means exactly what it says.
+   * A slot rather than something the shell builds, for the reason `themed`
+   * exists: only the caller knows whether there is a theme to leave, and only
+   * the route can resolve its labels.
    */
-  themed?: boolean;
+  pageThemeSwitch?: ReactNode;
 
   /**
    * Optional header content pinned to the right — the user button when signed
@@ -80,7 +88,19 @@ export interface PageShellProps {
    * centring: centring is right for a short card and wrong for a long list,
    * which would otherwise start below the fold on a tall window.
    */
-  width?: "column" | "wide";
+  /**
+   * `"full"` hands the page its own width entirely.
+   *
+   * **Not a wider column — no column at all.** `main` gets no maximum, no
+   * centring and no horizontal padding, because the public page applies the
+   * measure to each top-level section itself. That inversion is what lets a
+   * section bleed to both edges without `w-screen`, whose `100vw` includes the
+   * scrollbar the centred column does not.
+   *
+   * The `"column"` and `"wide"` branches are untouched; the signed-in pages
+   * depend on them.
+   */
+  width?: "column" | "wide" | "full";
 }
 
 /**
@@ -95,25 +115,120 @@ export interface PageShellProps {
  * markup here and there should never be any: if a change needs different
  * elements per theme, the tokens are wrong rather than the layout.
  *
- * **`themed` is passed down to the light/dark toggle.** The shell cannot see a
- * theme — one arrives as a `<style>` a page emits — and on a themed page
- * neither light nor dark is in force, so the toggle shows a question mark
- * rather than a sun or a moon naming a state the page is not in.
+ * **The shell no longer needs to be TOLD a page is themed.** It took a `themed`
+ * prop while the light/dark toggle showed a question mark on such a page; that
+ * question mark is gone, and whether there is a theme to leave is now said by
+ * passing `pageThemeSwitch` at all. One fact, said once.
  *
  * The header bar spans the window; only the page below it is held to a column.
  * Constraining the bar's contents to that column too left the wordmark floating
  * mid-screen on a wide display, which read as a mistake rather than a choice.
  *
  * That column is 620px by default and `max-w-7xl` when `width` is `"wide"` —
- * see the prop for why going wide also drops the vertical centring.
+ * see the prop for why going wide also drops the vertical centring. `"full"`
+ * is a third thing rather than a wider column: `main` holds nothing back at
+ * all, and the public page applies the author's chosen measure to each of its
+ * own sections. That inversion is what lets a section reach both edges without
+ * `w-screen`, whose `100vw` counts a scrollbar the centred column does not.
  *
  * The star sits beside the wordmark rather than with the page settings on the
  * right: it is the star that lights the dust, and putting it out is what turns
  * the nebula off. Filed away with language and theme it becomes one setting
  * among three and the relationship disappears.
  *
- * The right-hand group holds the page settings — language and theme — with the
- * account menu after them when signed in.
+ * The right-hand group holds the page settings — the way out of an author's
+ * theme, then language and theme — with the account menu after them when
+ * signed in. The theme switch is FIRST of the three because it decides whether
+ * the light/dark choice beside it is in force at all.
+ *
+ * The wordmark is a link, and `nav` sits directly after it: both are wayfinding
+ * and they read as one group on the left, opposite the settings on the right.
+ * Where the wordmark points is the caller's business — see `homeHref`.
+ *
+ * **The content column carries `SKIN_SCOPE`, and that is where a skin stops.**
+ * A page's owner restyles their own content; the bar keeps the app's shape,
+ * because the language and theme toggles live there and a control that changes
+ * form on somebody else's page is harder to recognise as one. The COLOURS are
+ * not scoped this way and cannot be — they have to reach the canvas and the
+ * field, both mounted outside this element.
+ *
+ * It is set here rather than by each page, so a new page cannot forget it and
+ * silently give somebody a style that does nothing.
+ *
+ * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
+ * suite selects by. The wordmark itself is a literal rather than a catalogue
+ * entry because a proper noun reads the same in every language.
+ *
+ * **The header is a fixed `--bar-h` tall and carries `short:static`.** Both are
+ * mechanism rather than styling: anything else that sticks — the editor's
+ * toolbar — parks at that height, and the class is what lets a screen too short
+ * for two bars take the stickiness away and zero the offset together. The
+ * padding and gaps are narrower below `sm` because at the wide ones this row
+ * came to 324px on a 320px screen, which is every page scrolling sideways.
+ *
+ * The column centres itself vertically when the page is shorter than the
+ * window, and scrolls from the top when it is longer. Sign-in used to cling to
+ * the header with a third of the window empty beneath it; this fixes that for
+ * every page at once rather than making sign-in a special case.
+ */
+/**
+ * What each width lays the content column out in.
+ *
+ * `full` keeps the VERTICAL padding and drops everything horizontal: the
+ * public page applies the measure to each of its own sections, so `main` must
+ * hold nothing back sideways — no maximum, no centring and no gutter, or a
+ * bleeding section cannot reach the edge and the two widest measures are
+ * silently capped at this column's own `max-w-7xl`.
+ *
+ * **The vertical half stays here rather than moving with it.** Dropping it too
+ * would butt the first section against the header bar, and it cannot move to
+ * the page's own grid instead: `sm:py-10` is a VIEWPORT breakpoint, which is
+ * exactly what `blocks.test.tsx` forbids everywhere below `main` — the shell
+ * is the outermost box and the one place a window query is the right question.
+ */
+const COLUMN: Record<"column" | "wide" | "full", string> = {
+  column: "mx-auto max-w-[620px] justify-center px-4 py-6 sm:px-6 sm:py-10",
+  wide: "mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10",
+  full: "py-6 sm:py-10",
+};
+
+/**
+ * The one composition every page uses: header bar, then a 620px column.
+ *
+ * Sign-in is not an exception. It gets the same header, the same column and
+ * the same cards, because a page that invents its own layout is how a design
+ * stops being one design — and because the sign-in page is the first thing a
+ * new person sees, so it has to look like the product rather than a detour.
+ *
+ * Dark and light differ only by the token block. There is no theme-conditional
+ * markup here and there should never be any: if a change needs different
+ * elements per theme, the tokens are wrong rather than the layout.
+ *
+ * **The shell no longer needs to be TOLD a page is themed.** It took a `themed`
+ * prop while the light/dark toggle showed a question mark on such a page; that
+ * question mark is gone, and whether there is a theme to leave is now said by
+ * passing `pageThemeSwitch` at all. One fact, said once.
+ *
+ * The header bar spans the window; only the page below it is held to a column.
+ * Constraining the bar's contents to that column too left the wordmark floating
+ * mid-screen on a wide display, which read as a mistake rather than a choice.
+ *
+ * That column is 620px by default and `max-w-7xl` when `width` is `"wide"` —
+ * see the prop for why going wide also drops the vertical centring. `"full"`
+ * is a third thing rather than a wider column: `main` holds nothing back at
+ * all, and the public page applies the author's chosen measure to each of its
+ * own sections. That inversion is what lets a section reach both edges without
+ * `w-screen`, whose `100vw` counts a scrollbar the centred column does not.
+ *
+ * The star sits beside the wordmark rather than with the page settings on the
+ * right: it is the star that lights the dust, and putting it out is what turns
+ * the nebula off. Filed away with language and theme it becomes one setting
+ * among three and the relationship disappears.
+ *
+ * The right-hand group holds the page settings — the way out of an author's
+ * theme, then language and theme — with the account menu after them when
+ * signed in. The theme switch is FIRST of the three because it decides whether
+ * the light/dark choice beside it is in force at all.
  *
  * The wordmark is a link, and `nav` sits directly after it: both are wayfinding
  * and they read as one group on the left, opposite the settings on the right.
@@ -151,7 +266,7 @@ export async function PageShell({
   nav,
   homeHref = "/",
   width = "column",
-  themed,
+  pageThemeSwitch,
 }: PageShellProps) {
   // The shell resolves its own chrome labels rather than taking them as props.
   // Threading one per control through every page means every new control edits
@@ -203,12 +318,15 @@ export async function PageShell({
           {/* Controls live together on the right. Beside the wordmark the star
               read as a bullet point rather than something pressable. */}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {/* Before language and theme, because it decides whether the
+                light/dark choice beside it is even in force. */}
+            {pageThemeSwitch ? (
+              <div {...tid("public-theme-switch")}>{pageThemeSwitch}</div>
+            ) : null}
             <LanguageToggle label={t("language")} />
             <ThemeToggle
               toDarkLabel={t("toDark")}
               toLightLabel={t("toLight")}
-              authorLabel={t("authorTheme")}
-              themed={themed}
             />
             {trailing ? <div className="ml-1">{trailing}</div> : null}
           </div>
@@ -236,8 +354,11 @@ export async function PageShell({
           // inside an item box, and at `px-6` throughout the chrome alone was
           // 88px of a 360px screen — which is what pushed the form off the
           // right-hand edge there. `responsive.spec.ts` measures it.
-          "mx-auto flex w-full min-w-0 flex-1 flex-col px-4 py-6 sm:px-6 sm:py-10",
-          width === "wide" ? "max-w-7xl" : "max-w-[620px] justify-center",
+          "flex w-full min-w-0 flex-1 flex-col",
+          // The padding and the centring belong to the COLUMN, not to `main`:
+          // a full-width page has neither, and puts them on each section that
+          // is not bleeding instead.
+          COLUMN[width],
         )}
         {...tid("page-content")}
       >

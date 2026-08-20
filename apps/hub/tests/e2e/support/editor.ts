@@ -46,6 +46,11 @@ export async function startFursona(
  * learning what refused it. Reading the banner first turns the same failure
  * into the message the person actually saw.
  *
+ * **It reads the banner's WORDS, and for a while it only counted them.**
+ * `toHaveCount(0)` reports "expected 0, received 1" about a refusal whose
+ * entire value is the sentence it is showing, which left this helper one step
+ * short of the diagnosis the paragraph above promises.
+ *
  * @param page - the browser page, sitting on an editor.
  */
 export async function saveAndLeave(page: Page): Promise<void> {
@@ -59,6 +64,14 @@ export async function saveAndLeave(page: Page): Promise<void> {
       { timeout: 60_000 },
     )
     .toBe(true);
-  await expect(banner).toHaveCount(0);
+  // **The banner's WORDS, not its count.** `toHaveCount(0)` reports
+  // "expected 0, received 1" about a refusal whose whole value is the sentence
+  // it is showing — which left this helper one step short of the diagnosis its
+  // own note above promises. Reading the text first is what makes a refused
+  // save name itself.
+  const said = (await banner.count())
+    ? (await banner.first().innerText()).trim()
+    : "";
+  expect(said, "the editor refused the save").toBe("");
   await page.waitForURL(/\/pages$/, { timeout: 60_000 });
 }

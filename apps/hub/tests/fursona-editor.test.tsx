@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  PAGE_MEASURES,
+  type PageMeasure,
+} from "@/features/actors/domain/actor-theme";
+import { pageContext } from "./helpers/page-context";
 import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
@@ -6,6 +11,7 @@ import {
   BLOCK_STYLE_LIMITS,
 } from "@/features/actors/domain/block-schema";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
+import { isContainer, type Block } from "@/features/actors/domain/block-schema";
 import { blockEditorLabels } from "./support/editor-labels";
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
@@ -143,6 +149,11 @@ const labels = {
     // is, rather than restating the catalogue. Restating it made adding a skin
     // a type error in a suite that tests none of these names — the catalogues
     // themselves are `messages.test.ts`'s job.
+    measure: "measure",
+    measures: Object.fromEntries(PAGE_MEASURES.map((m) => [m, m])) as Record<
+      PageMeasure,
+      string
+    >,
     skins: Object.fromEntries(SKINS.map((skin) => [skin, skin])) as Record<
       SkinId,
       string
@@ -208,7 +219,12 @@ const untitled = () => [
  */
 function renderEditor(props: Record<string, unknown> = {}) {
   return render(
-    <FursonaEditor labels={labels} handleEditable parentHost="" {...props} />,
+    <FursonaEditor
+      labels={labels}
+      handleEditable
+      page={pageContext({ parentHost: "" })}
+      {...props}
+    />,
   );
 }
 
@@ -272,7 +288,12 @@ describe("FursonaEditor", () => {
       },
     });
     expect(screen.queryByLabelText("Handle")).toBeNull();
-    expect(screen.getByText(/sparky/)).toBeInTheDocument();
+    // **All, not one.** The handle is shown twice now and both are right: once
+    // as the field somebody may not edit, and once by the `handle` identity
+    // leaf, which the preview renders because a page carries its required
+    // blocks from the moment it opens. The claim here is that the handle is
+    // READABLE and not editable, which the line above already pins.
+    expect(screen.getAllByText(/sparky/).length).toBeGreaterThan(0);
   });
 
   it("passes the actor ref through, so the hook knows to update", () => {
@@ -292,6 +313,45 @@ describe("FursonaEditor", () => {
         expect.objectContaining({ handle: "blaze" }),
       );
     });
+  });
+
+  // A NEW PAGE COULD NOT BE SAVED AT ALL.
+  //
+  // The create page passes no `initialSections`, and the default was `[]` — a
+  // tree `set_actor_sections` refuses outright for naming no `avatar`, `handle`
+  // or `owner`. So building a fursona by hand ended at a banner saying the
+  // sections were refused, over a page whose author had done nothing wrong;
+  // only the template path worked, because applying one runs the shim.
+  //
+  // **No unit test could have caught it and this one only just can**, which is
+  // the part worth keeping. The refusal happens in the DATABASE, and `save` is
+  // mocked here — so "does it save" is not the question this file can ask. What
+  // it can ask is what the editor SENDS, which is where the fault actually was.
+  it("starts a new page with the blocks the database requires", async () => {
+    renderEditor();
+    fireEvent.change(screen.getByLabelText("Handle"), {
+      target: { value: "blaze" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+
+    const kinds = new Set<string>();
+    const walk = (blocks: readonly (Block | null)[]): void => {
+      for (const block of blocks) {
+        if (block === null) continue;
+        if (isContainer(block)) walk(block.children);
+        else kinds.add(block.kind);
+      }
+    };
+    walk((save.mock.calls[0]![0] as { sections: Block[] }).sections);
+
+    // Every kind a fursona's page must carry. Asserted as the whole set rather
+    // than one of them, because the composed section supplies all three and a
+    // default that supplied only some would be refused just as completely.
+    for (const required of ["avatar", "handle", "owner"]) {
+      expect([...kinds]).toContain(required);
+    }
   });
 
   it("goes back to the list once a save succeeds", async () => {
@@ -394,7 +454,7 @@ describe("FursonaEditor for a person", () => {
       <FursonaEditor
         labels={labels}
         handleEditable={false}
-        parentHost=""
+        page={pageContext({ parentHost: "" })}
         kind="person"
         actorRef="actor-1"
         initial={{
@@ -413,6 +473,7 @@ describe("FursonaEditor for a person", () => {
           cursor: null,
           backgroundUrl: null,
           backgroundFit: "cover",
+          measure: null,
           skin: "default",
           density: 1,
           speed: 1,

@@ -4,7 +4,12 @@ import {
   deleteTestIdentity,
   hasClerk,
 } from "./support/clerk-session";
-import { container, leaf, seedPage } from "./support/blocks";
+import {
+  container,
+  leaf,
+  seedPage,
+  SEEDED_IDENTITY_SECTIONS,
+} from "./support/blocks";
 
 // WHY THIS FILE EXISTS, AND WHY IT DOES NOT USE THE EDITOR.
 //
@@ -75,7 +80,9 @@ test.describe("a nested skin, resolved rather than merely emitted", () => {
 
       const response = await page.goto(`/es/${address}/${handle}`);
       expect(response?.status()).toBe(200);
-      await expect(page.getByTestId("public-section")).toHaveCount(2);
+      await expect(page.getByTestId("public-section")).toHaveCount(
+        2 + SEEDED_IDENTITY_SECTIONS,
+      );
 
       // Each section holds one leaf, and a leaf's own card is the first
       // element inside its `public-leaf` wrapper — the wrapper carries the

@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  missingRequiredKinds,
+  type ActorKind,
+} from "@/features/actors/domain/required-blocks";
 import type { Actor } from "@/features/actors/infrastructure/fursonas";
 import type { Block } from "@/features/actors/domain/block-schema";
 
@@ -212,18 +216,37 @@ export async function deleteFursona(
  * stood between them converts a stored FLAT page forward on the read instead,
  * which is the only direction left with a caller.
  *
+ * **The required blocks are checked HERE as well as in the database**, and the
+ * duplication is the point: `set_actor_sections` is what makes the rule a
+ * guarantee, and this is what makes the refusal legible without a round trip.
+ * Both ask {@link missingRequiredKinds}, so the two cannot disagree about what
+ * a complete page is.
+ *
  * @param client - a Supabase client authenticated as the person.
  * @param actorRef - the fursona whose sections these are.
  * @param blocks - the whole page, as the editor composed it.
- * @throws PageRefusedError when the shape, the depth or the limits are
- * refused.
+ * @param kind - which kind of actor's page it is, deciding which blocks it
+ *   must carry. Threaded from the caller rather than inferred from the tree:
+ *   guessing it from the blocks would read a page missing its `owner` as a
+ *   person's page and accept it.
+ * @throws PageRefusedError when the page is missing a required block, or when
+ * the shape, the depth or the limits are refused.
  * @throws when the caller does not own an active fursona with that ref.
  */
 export async function setFursonaSections(
   client: SupabaseClient,
   actorRef: string,
   blocks: readonly Block[],
+  kind: ActorKind,
 ): Promise<void> {
+  const missing = missingRequiredKinds(blocks, kind);
+  if (missing.length > 0) {
+    // The same SQLSTATE-shaped failure the database would raise, so the editor
+    // has one refusal to render rather than two.
+    throw new PageRefusedError(
+      `page is missing required blocks: ${missing.join(", ")}`,
+    );
+  }
   await call(client, "set_actor_sections", {
     p_actor_ref: actorRef,
     p_sections: blocks,

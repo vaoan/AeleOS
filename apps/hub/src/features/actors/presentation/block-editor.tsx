@@ -11,6 +11,7 @@ import {
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
+import type { PageContext } from "@/features/actors/presentation/blocks";
 import { Plus, Sparkles } from "lucide-react";
 import {
   useCallback,
@@ -53,6 +54,11 @@ import {
 } from "@/features/actors/domain/block-moves";
 import type { BlockProblem } from "@/features/actors/domain/block-problems";
 import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
+import {
+  holdsNothingAuthored,
+  lockedKinds,
+  withRequiredBlocks,
+} from "@/features/actors/domain/required-blocks";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
 import {
   BlockCard,
@@ -135,7 +141,11 @@ export interface BlockEditorLabels
  * `problems` is threaded from the form rather than recomputed here, so one
  * walk of react-hook-form's error tree answers it for every card — and so the
  * banner and the marks beneath it can never disagree about which blocks are
- * wrong.
+ * wrong. *
+ * **It takes a `PageContext` and reads nothing from it**, threading it whole
+ * to the renderer so a preview is drawn exactly as a stranger's page is. See
+ * `PageContext` in `presentation/blocks.tsx` for why page-level values travel
+ * by hand rather than through a React context.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -145,7 +155,7 @@ export interface BlockEditorProps<T extends FieldValues> {
   /** Already-translated strings. */
   labels: BlockEditorLabels;
   /** This deployment's own hostname, threaded to every preview for Twitch. */
-  parentHost: string;
+  page: PageContext;
   /**
    * What the save schema refused, and where.
    *
@@ -257,13 +267,33 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * is drawn from the control's own background, and a transparent one is painted
  * on white. `dropdown-legibility.test.ts` guards every select in the app.
  *
+ * **Applying a template runs the identity shim over the result.** A template
+ * replaces the page and names no identity block, so without that, choosing one
+ * would strip somebody's portrait and leave a tree the write refuses.
+ *
+ * `page` is threaded down to every card, and its `actorKind` is what that shim
+ * reads. See
+ * {@link BlockEditorProps}.
+ *
+ *
+ * **The remove control withdraws when a block holds the last copy of a kind
+ * the page must carry.** `lockedKinds` is computed once over the whole tree
+ * and threaded down, so every bin in the editor locks at the same moment —
+ * the same reasoning `atBlockLimit` already follows.
+ *
+ * **The template picker's confirmation asks whether anything here is the
+ * AUTHOR's**, not whether there are any sections. Every page now opens
+ * carrying its required blocks, so the plain count is true of a page nobody
+ * has touched — and the warning would then be about work they had not done.
+ * See `holdsNothingAuthored`.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
   control,
   lang,
   labels,
-  parentHost,
+  page,
   problems,
 }: BlockEditorProps<T>) {
   const id = useId();
@@ -474,6 +504,10 @@ export function BlockEditor<T extends FieldValues>({
   };
 
   const atBlockLimit = countBlocks(blocks) >= BLOCK_LIMITS.blocks;
+  // **One walk answers it for every card**, exactly as `atBlockLimit` does, so
+  // every remove control in the editor locks at the same moment. A required
+  // kind the page holds twice is not locked — the rule is at-least-one.
+  const locked = lockedKinds(blocks, page.actorKind);
   // Position named once, exactly as `PublicBlocks` does it and for the same
   // reason: a block has no identity but where it sits, and
   // `react/no-array-index-key` reads the map callback's index parameter.
@@ -493,9 +527,25 @@ export function BlockEditor<T extends FieldValues>({
           merging one onto what somebody already wrote produces a page nobody
           asked for. The picker owns the confirmation that makes that safe. */}
       <TemplatePicker
-        hasSections={blocks.length > 0}
+        // **Has the AUTHOR written anything**, not "are there any sections".
+        // Every page now opens carrying its required blocks, so the plain
+        // count is true of a page nobody has touched — and the confirmation
+        // this drives would then warn somebody about losing work they had not
+        // done. See `holdsNothingAuthored`.
+        hasSections={!holdsNothingAuthored(blocks, page.actorKind)}
         labels={labels}
-        onApply={(sections) => apply(() => sectionsToBlocks(sections))}
+        // **The shim runs on the converted template.** A template ships
+        // structure in the flat vocabulary and names no identity block, and
+        // applying one REPLACES the page — so without this, choosing a
+        // template would silently strip somebody's portrait and handle and
+        // leave a page the write then refuses. The templates themselves are
+        // deliberately left alone: they are what the app suggests somebody
+        // write, and the identity blocks are not that.
+        onApply={(sections) =>
+          apply(() =>
+            withRequiredBlocks(sectionsToBlocks(sections), page.actorKind),
+          )
+        }
       />
 
       {/* A refused drop, in words. `moveBlock` names three of them, and a
@@ -539,8 +589,9 @@ export function BlockEditor<T extends FieldValues>({
                     apply={apply}
                     lang={lang}
                     labels={labels}
-                    parentHost={parentHost}
+                    page={page}
                     atBlockLimit={atBlockLimit}
+                    locked={locked}
                     problems={problems}
                     dragHandle={handle}
                   />

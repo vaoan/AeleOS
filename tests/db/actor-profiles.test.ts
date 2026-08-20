@@ -62,20 +62,43 @@ const SECTIONS = [
 ];
 
 /**
+ * The identity leaves a page of each actor kind must carry.
+ *
+ * **This file is about WHO may write a page, not what one contains**, so the
+ * required blocks are appended rather than written into `SECTIONS`: a fixture
+ * carrying them inline would make every case here look like it was about them.
+ * `tests/db/blocks.test.ts` is where the rule itself is pinned.
+ */
+const IDENTITY: Record<"person" | "fursona", unknown[]> = {
+  person: ["avatar", "handle", "fursonas"],
+  fursona: ["avatar", "handle", "owner"],
+} as unknown as Record<"person" | "fursona", unknown[]>;
+
+/**
  * Writes sections as somebody.
  *
  * @param sub - whose token to use.
  * @param actorRef - whose page to write.
+ * @param kind - which kind of actor's page it is, deciding which identity
+ *   blocks the page must carry to be accepted at all.
  * @returns the error, or null.
  */
 async function setSections(
   sub: string,
   actorRef: string,
+  kind: "person" | "fursona",
 ): Promise<{ message: string } | null> {
   const c = await clientAs(sub);
   const { error } = await c.rpc("set_actor_sections", {
     p_actor_ref: actorRef,
-    p_sections: SECTIONS,
+    p_sections: [
+      ...SECTIONS,
+      ...(IDENTITY[kind] as string[]).map((k) => ({
+        kind: k,
+        title_en: k,
+        description_en: "",
+      })),
+    ],
   });
   return error;
 }
@@ -87,12 +110,12 @@ describe("actor_profiles", () => {
   describe("a person's own page", () => {
     it("lets a person write their own sections", async () => {
       const { sub, personRef } = await seed();
-      expect(await setSections(sub, personRef)).toBeNull();
+      expect(await setSections(sub, personRef, "person")).toBeNull();
     });
 
     it("reads them back", async () => {
       const { sub, personRef } = await seed();
-      await setSections(sub, personRef);
+      await setSections(sub, personRef, "person");
 
       const c = await clientAs(sub);
       const { data, error } = await c
@@ -102,14 +125,21 @@ describe("actor_profiles", () => {
         .single();
 
       expect(error).toBeNull();
-      expect((data as { sections: unknown }).sections).toEqual(SECTIONS);
+      // What this case is about is that the row round-trips for its owner.
+      // The identity blocks the write appends are the page's, not this
+      // fixture's, so it asserts the fixture survived rather than pinning the
+      // whole array — which would be asserting the required-block rule here
+      // instead of in the suite that owns it.
+      expect((data as { sections: unknown }).sections).toEqual(
+        expect.arrayContaining(SECTIONS),
+      );
     });
 
     it("refuses somebody else's person page", async () => {
       const mallory = await seed();
       const alice = await seed();
       expect(
-        (await setSections(mallory.sub, alice.personRef))?.message,
+        (await setSections(mallory.sub, alice.personRef, "person"))?.message,
       ).toMatch(/not found/i);
     });
   });
@@ -117,15 +147,15 @@ describe("actor_profiles", () => {
   describe("a fursona's page, unchanged", () => {
     it("lets an owner write their fursona's sections", async () => {
       const { sub, sonaRef } = await seed();
-      expect(await setSections(sub, sonaRef)).toBeNull();
+      expect(await setSections(sub, sonaRef, "fursona")).toBeNull();
     });
 
     it("refuses somebody else's fursona", async () => {
       const mallory = await seed();
       const alice = await seed();
-      expect((await setSections(mallory.sub, alice.sonaRef))?.message).toMatch(
-        /not found/i,
-      );
+      expect(
+        (await setSections(mallory.sub, alice.sonaRef, "fursona"))?.message,
+      ).toMatch(/not found/i);
     });
   });
 
@@ -175,7 +205,7 @@ describe("actor_profiles", () => {
       .eq("actor_ref", personRef);
     expect(error).toBeNull();
 
-    expect((await setSections(sub, personRef))?.message).toMatch(
+    expect((await setSections(sub, personRef, "person"))?.message).toMatch(
       /not found|suspended/i,
     );
   });

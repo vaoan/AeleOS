@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { pageContext } from "./helpers/page-context";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NextIntlClientProvider } from "next-intl";
 
@@ -107,7 +108,7 @@ function draw(leaf: LeafBlock): string {
   // what production supplies means a missing catalogue key fails HERE too.
   return renderToStaticMarkup(
     <NextIntlClientProvider locale="en" messages={messages}>
-      {render({ leaf, locale: "en", labelled: true, parentHost: "" })}
+      {render({ leaf, locale: "en", labelled: true, page: pageContext() })}
     </NextIntlClientProvider>,
   );
 }
@@ -119,9 +120,21 @@ describe("LEAF_FIELDS", () => {
     expect([...LEAF_FIELDS.keys()].sort()).toEqual([...LEAF_KINDS].sort());
   });
 
+  // The exclusions are named rather than filtered by the same predicate
+  // `DESCRIBED_KINDS` is built from, which would be tautological. `social` is
+  // a chip with a label and nowhere to put prose; the five identity kinds show
+  // the ACTOR's content and have no prose of their own to write.
   it("names the kinds that draw a description, in vocabulary order", () => {
+    const withoutDescription = new Set([
+      "social",
+      "avatar",
+      "handle",
+      "name",
+      "owner",
+      "fursonas",
+    ]);
     expect(DESCRIBED_KINDS).toEqual(
-      LEAF_KINDS.filter((kind) => kind !== "social"),
+      LEAF_KINDS.filter((kind) => !withoutDescription.has(kind)),
     );
   });
 
