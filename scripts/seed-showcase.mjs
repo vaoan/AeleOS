@@ -1,8 +1,13 @@
 /**
  * Rebuilds the showcase page at `/en/1` — one block of every kind, one section
- * of every arrangement, every style key, a theme with a gradient, a canvas and
- * a page picture, both retro players across every chrome, and nesting to the
- * depth cap.
+ * of every arrangement, every style key, a theme with a gradient, a canvas, a
+ * page picture and a measure, both retro players across every chrome, a banner
+ * that bleeds past the measure, and nesting to the depth cap.
+ *
+ * **It names its own identity blocks**, which is a requirement rather than a
+ * flourish: a page that names none of `avatar`, `handle` and `fursonas` has the
+ * composed header PREPENDED on every read, so the first section written here
+ * would not be the first section a visitor sees.
  *
  * **It is a verification as much as a demo.** Everything the model can express
  * is expressed here, so a change that breaks one of them shows up on a page
@@ -70,6 +75,12 @@ const PICTURES = [
   "https://cdn.pixabay.com/photo/2017/02/20/18/03/cat-2083492_640.jpg",
   "https://picsum.photos/seed/aeleos-four/640/420",
 ];
+
+/**
+ * Wide, because a bled section is as wide as the WINDOW rather than a column,
+ * and a 1920px file was already upscaling on a desktop screen at `full`.
+ */
+const BANNER = "https://picsum.photos/seed/aeleos-banner/2560/560";
 
 /** A soft, low-contrast picture, so text over it stays readable. */
 const WASH = "https://picsum.photos/seed/aeleos-wash/900/600?blur=8";
@@ -140,6 +151,51 @@ const borderCard = (border) =>
   );
 
 const sections = [
+  // **Unnamed, and that is what makes it a banner rather than a figure.** A
+  // container prints its name as a heading, so a name here would put a line of
+  // display type above the picture; a `description_en` would print a caption
+  // under it. It carries neither, so the section IS the picture.
+  //
+  // The style bag is three deliberate keys. `bleed` drops the centring, the
+  // measure class and the edge padding — at depth 0 only — so this reaches both
+  // edges. The other two undo what `PictureLeaf` hard-codes: every picture
+  // carries `rounded-xl surface`, so under the page's `glass` skin a bled
+  // banner still had a 2× radius and a visible edge, which reads as a card that
+  // overflowed rather than as a banner. `blueprint` is the skin whose
+  // `--skin-round` is `0` with no shadow, and `border: "none"` is a CHOICE —
+  // leaving the key out would inherit the page's edge instead. Blueprint's
+  // ruled grid is a `--skin-gloss` background-image and the picture is opaque,
+  // so none of it shows.
+  group(
+    "stack",
+    [leaf("picture", "A banner running to both edges", { image_url: BANNER })],
+    { style: { bleed: true, skin: "blueprint", border: "none" } },
+  ),
+
+  // **The identity blocks are written out rather than left to be seeded**, and
+  // that is the other half of putting the banner at the top. A person's page
+  // must name `avatar`, `handle` and `fursonas`; when it names none of them
+  // `withRequiredBlocks` PREPENDS the composed header on every read, which put
+  // the app's portrait row above the banner on a page that had asked for a
+  // banner first. Naming them here means that function returns the array
+  // untouched and the order below is the order a stranger sees.
+  section(
+    "Who this is",
+    "grid",
+    [
+      leaf("avatar", "Portrait"),
+      group("stack", [
+        leaf("name", "Name"),
+        leaf("handle", "Handle"),
+        leaf("text", "The banner above", {
+          description_en:
+            "`bleed`, at depth 0 only: no centring, no measure class and no edge padding. Every other section keeps the page's own gutter. There is no `w-screen` — `100vw` counts a scrollbar that a centred column does not — and the page's measure is `full`, the one stop that sets no maximum at all.",
+        }),
+      ]),
+    ],
+    { spaces: 2, weights: [1, 3] },
+  ),
+
   section("Words", "stack", [
     leaf("text", "A paragraph", {
       description_en:
@@ -504,6 +560,13 @@ const sections = [
     ],
     { spaces: 2, weights: [1, 3] },
   ),
+
+  // The third kind a person's page must name. Placed last, and UNNAMED, for
+  // the same two reasons: that is exactly what `withRequiredBlocks` would
+  // append, so the page reads as it did while the tree now says so itself —
+  // and a `fursonas` leaf prints its own title as the heading, so a section
+  // name here put "Fursonas" on the page twice.
+  group("stack", [leaf("fursonas", "Fursonas")]),
 ];
 
 /**
@@ -539,6 +602,10 @@ const theme = {
   backgroundUrl: WASH,
   backgroundFit: "cover",
   cursor: null,
+  // The widest stop, which sets no maximum at all. Null would read as `wider`
+  // — the 80rem every public page had before the measure existed — so a page
+  // left alone could not tell you whether the stop was doing anything.
+  measure: "full",
 };
 
 const blocks = JSON.stringify(sections);
