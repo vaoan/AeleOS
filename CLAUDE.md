@@ -315,7 +315,11 @@ Key choices and _why_:
   believed, because a false one protects nothing and costs the work anyway.
 
 - **Git:** work on branches, open PRs; do **not** commit unless the user
-  explicitly asks. Never commit secrets.
+  explicitly asks. Never commit secrets. Every `git` and `gh` call in this
+  repository uses the PAT in `.secrets` (`GH_TOKEN`) and takes commit
+  identity from `gh api user` — never from `git config --global` and never
+  from a hardcoded name or email. The procedure is
+  [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md).
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**
   Never bare `git checkout -b <name>`, which silently branches from whatever is
   currently checked out — and after a session's work that is usually the last
