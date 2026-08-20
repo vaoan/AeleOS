@@ -315,7 +315,11 @@ Key choices and _why_:
   believed, because a false one protects nothing and costs the work anyway.
 
 - **Git:** work on branches, open PRs; do **not** commit unless the user
-  explicitly asks. Never commit secrets.
+  explicitly asks. Never commit secrets. Every `git` and `gh` call in this
+  repository uses the PAT in `.secrets` (`GH_TOKEN`) and takes commit
+  identity from `gh api user` — never from `git config --global` and never
+  from a hardcoded name or email. The procedure is
+  [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md).
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**
   Never bare `git checkout -b <name>`, which silently branches from whatever is
   currently checked out — and after a session's work that is usually the last
@@ -1503,35 +1507,30 @@ dark would reach 4.81, and none of the fifteen hand-picked backgrounds in
 `palette-properties.test.ts`, and it is not a property to weaken until it
 passes.
 
-**CI gates on `main`:** four jobs are **required**, and a pull request cannot
-merge until all four report green — `conformance` (schema suite), `hub` (hub and
+**CI gates on `main`:** six jobs are **required**, and a pull request cannot
+merge until all six report green — `conformance` (schema suite), `hub` (hub and
 `@aeleos/identity` unit tests, both at 100% coverage, plus the production build),
-`idp-cloud` (real Clerk ⇄ Supabase trust) and `e2e` (the Playwright suite against
-a real Chromium — the only browser-level proof the signed-out app handoff works).
-Branch protection is `strict`, so a branch must also be up to date with `main`
-before it merges, and **admins are not exempt**: there is no one who can push
-past a red check.
-
-Two consequences worth knowing before you plan work around them. `e2e` and
-`idp-cloud` both carry an `if:` guard that skips them on **fork** pull requests,
-because secrets are withheld there — on a fork they cannot report green at all,
-so that route needs the owner. And `e2e` was made required after the fact, which
-is why nothing in `.github/workflows/` says so: the required-check list lives in
-repository settings, not in the workflow file, and the two can disagree without
-anything failing. Read it from the API rather than inferring it from the YAML:
+`idp-cloud` (real Clerk ⇄ Supabase trust), `e2e` (the Playwright suite against
+a real Chromium — the only browser-level proof the signed-out app handoff works),
+`schema-drift` (live database vs `supabase/migrations/`) and `canvas` (dial and
+throttled-page cost). Branch protection is `strict`, so a branch must also be
+up to date with `main` before it merges, and **admins are not exempt**: there is
+no one who can push past a red check. Merges are **squash only** (merge commits
+and rebases are off), history on `main` is linear, force-pushes and deleting
+`main` are off, and unresolved review threads block merge. The required-check
+list still lives in repository settings, not in the workflow file — read it
+from the API rather than inferring it from the YAML:
 
 ```bash
 gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
 ```
 
-**Two jobs are 🧑 NOT YET REQUIRED, and both need Heiner** — `schema-drift` and
-`canvas`. Adding either is branch-protection settings rather than YAML, the
-same gap this file already records for `e2e`, so nothing in
-`.github/workflows/` can be edited to fix it and nothing there will tell you it
-is missing. Until then a merge can ignore a red run of either, which is one
-step from a check that does nothing.
+Fork pull requests are the other catch. `e2e`, `idp-cloud`, `schema-drift` and
+`canvas` all skip on forks because secrets are withheld there — on a fork they
+cannot report green at all, so that route needs the owner.
 
-`canvas` measures every canvas at the top of both dials and then what a
+`canvas` and `schema-drift` are on that required list (2026-08-20). `canvas`
+measures every canvas at the top of both dials and then what a
 personalised page costs on a throttled phone; both faults it guards against
 shipped to `main` under a green tick. Its dial half was stood down while the
 block model's first phases landed, because the fixture is built from mode and
