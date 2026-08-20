@@ -189,16 +189,10 @@ jobs:
   # The two triggers and why it fails open are in
   # `scripts/canvas-suite-needed.mjs`.
   #
-  # 🧑 **This check is still not REQUIRED, and only a maintainer can change
-  # that.** The required list lives in repository settings rather than in this
-  # file, so nothing here can say so and nothing here will fail if it is wrong:
+  # The required list lives in repository settings rather than in this file.
+  # Confirm `canvas` is still on it; do not infer from this comment:
   #
   #     gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
-  #     → ["conformance","hub","idp-cloud","e2e"]
-  #
-  # Until `canvas` joins that list it can go red without stopping a merge, which
-  # is one step from a check that does nothing — and the two faults this job
-  # now guards against both shipped to `main` under a green tick.
   canvas:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -273,14 +267,10 @@ jobs:
   # and secrets are withheld from fork pull requests, so without the guard it
   # would be a check that can never report green there.
   #
-  # 🧑 **Making this a REQUIRED check is repository settings, not this file.**
-  # The required-check list lives in branch protection and the two can disagree
-  # without anything failing — `e2e` was made required after the fact and
-  # nothing in this directory says so. Until a maintainer adds `schema-drift`,
-  # a merge can ignore it. Read the current list, never infer it from here:
+  # Required (repository settings, not this file). Confirm with:
   #   gh api repos/vaoan/AeleOS/branches/main/protection/required_status_checks --jq '.contexts'
   #
-  # ⚠️ **Settle this before requiring it: the check does not serialise, and
+  # ⚠️ **The check does not serialise, and
   # the remedy for its main finding does.** It compares LIVE against THE
   # BRANCH's migrations, and the only way a branch that edits a migration in
   # place goes green is a hand-push to live — which makes live the newer side
@@ -288,18 +278,12 @@ jobs:
   # red for the whole window until A merges, and nothing B's author can do
   # fixes B. If A is then abandoned, live is stranded ahead of `main` with no
   # rollback and no record of what was pushed. Required, that is a merge queue
-  # of one enforced by nothing, and an undocumented deadlock is how a check
-  # gets disabled in anger. Three ways out, and one of them has to be chosen
-  # rather than discovered:
-  #   1. Diff live against `origin/main`'s migrations instead of the branch's,
-  #      keeping the branch's own diff as information. "Drift" then means
-  #      "`main` and live disagree" — the actual invariant, and one no open
-  #      pull request can move. Preferred.
-  #   2. Keep it as it is and write the serialisation rule down: hand-push is
-  #      the LAST step before a merge, one pull request at a time, and an
-  #      abandoned push is reversed by hand. `check-schema-drift.mjs` already
-  #      prints this beside the remedy it applies to.
-  #   3. Leave it non-required, which is what this file honestly says today.
+  # of one enforced by nothing unless the serialisation rule is followed:
+  # hand-push is the LAST step before a merge, one pull request at a time, and
+  # an abandoned push is reversed by hand. `check-schema-drift.mjs` already
+  # prints this beside the remedy it applies to. Diffing live against
+  # `origin/main`'s migrations instead of the branch's would remove the
+  # deadlock; that is not what this job does today.
   schema-drift:
     runs-on: ubuntu-latest
     # Every pass builds its own shadow database and pulls its own engine image.
