@@ -4,6 +4,8 @@ import {
   DESCRIBED_KINDS,
   FURSONA_TEMPLATES,
   LEAF_KINDS,
+  SECTION_SHAPES,
+  SPACE_CHOICES,
   themeConfiguratorLabels,
   type FursonaEditorLabels,
 } from "@/features/actors";
@@ -140,6 +142,16 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * that overflowed a 320px phone. `messages.test.ts` pins each list against
  * both catalogues, so deriving them moves the whole question to one place.
  *
+ * `shapes` is the same idea applied to `SECTION_SHAPES` — one name per entry,
+ * keyed by its `id`, so a shape added to the list cannot render a raw key at
+ * somebody either. `sectionWeight` is keyed by place number (1 through
+ * `SPACE_CHOICES`'s widest entry) rather than by a fixed vocabulary — a
+ * FUNCTION was tried first and broken: this runs on the server and the result
+ * crosses into `FursonaEditor`, a client component, as a prop, and React
+ * cannot serialise a function across that boundary. It failed the whole
+ * editor page at runtime rather than one control, which is why every label
+ * here is data, never a closure.
+ *
  * `writingIn` and `writingInHint` are two strings for one control because the
  * switch names itself and then says what it governs. The hint is not decoration:
  * the editor has an app language and an authoring language, and somebody with no
@@ -206,6 +218,15 @@ export async function fursonaEditorLabels(
     sectionMode: t("sectionMode"),
     sectionSpaces: t("sectionSpaces"),
     sectionSpacesHint: t("sectionSpacesHint"),
+    sectionShape: t("sectionShape"),
+    shapes: Object.fromEntries(
+      SECTION_SHAPES.map((shape) => [shape.id, t(`sectionShape${shape.id}`)]),
+    ),
+    sectionShapeCustom: t("sectionShapeCustom"),
+    sectionWeight: Object.fromEntries(
+      SPACE_CHOICES.map((place) => [place, t("sectionWeight", { place })]),
+    ),
+    sectionWeightsHint: t("sectionWeightsHint"),
     modes: Object.fromEntries(
       CONTAINER_MODES.map((mode) => [mode, t(`modes.${mode}`)]),
     ),

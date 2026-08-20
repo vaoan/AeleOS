@@ -23,7 +23,7 @@ import { PLAYER_ORIGINS } from "../../src/shared/domain/player-origins";
 //
 // **The most important test here is not the overflow one.** It is `resolves the
 // places it declares`, immediately below, and the reason is that without it the
-// overflow assertions are unfalsifiable: a page whose `@2xl:grid-cols-4` never
+// overflow assertions are unfalsifiable: a page whose four-place class never
 // generated at all has one column everywhere and never overflows anything. A
 // green check that cannot fail is the defect this branch has already produced
 // eight times, and here it would hide the entire grid mechanism.
@@ -136,15 +136,19 @@ async function fits(page: Page, where: string): Promise<void> {
 test.describe("the grid a container declares", () => {
   // THE ASSERTION EVERY OTHER ONE IN THIS FILE RESTS ON.
   //
-  // `SPACE_CLASS` maps a stored space count to a static `@<size>:grid-cols-<n>`
+  // `SPACE_CLASS` maps a stored space count to a static
+  // `@<size>:[grid-template-columns:var(--block-tracks,repeat(<n>,minmax(0,1fr)))]`
   // rather than to an inline `grid-template-columns`, for one reason: an inline
   // style cannot carry a query of any kind, so the collapse to a single column
-  // in a box too narrow for the count would have nowhere to live. That whole
-  // design is a bet on Tailwind having GENERATED those classes out of a `Map`
-  // in the source — which its scanner sees only as literal strings — and on the
-  // thresholds being where this file assumes they are.
+  // in a box too narrow for the count would have nowhere to live. The `var()`
+  // is where a container's own `weights` arrive, and the fallback is the
+  // uniform list — so an unweighted page reaches the same tracks it always did
+  // without a branch. That whole design is a bet on Tailwind having GENERATED
+  // those classes out of a `Map` in the source — which its scanner sees only as
+  // literal strings — and on the thresholds being where this file assumes they
+  // are.
   //
-  // Nothing before this checked either. A build in which no `@*:grid-cols-*`
+  // Nothing before this checked either. A build in which none of those classes
   // existed would render every page as one column, look entirely plausible, and
   // pass every overflow assertion in this repository.
   test("resolves the places it declares when it has room, and one when it has not", async ({

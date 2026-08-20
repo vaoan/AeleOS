@@ -584,9 +584,32 @@ above the only place the refusal it exists to prove can happen.
 declares `spaces` — how many places it lays ACROSS, from one to six — and every
 child takes exactly one of them, filling row by row so the section grows
 downward. Where a block sits is entirely its parent's business, and its width
-is not a property of the block at all. A wide thing is a container of one space
-nested where it is wanted, which is the same recursion doing the work rather
-than a second mechanism beside it.
+is not a property of the block at all.
+
+**A wide thing is a place with a bigger SHARE, and this paragraph used to say
+something else that was never true.** It said a wide thing was "a container of
+one space nested where it is wanted, which is the same recursion doing the work
+rather than a second mechanism beside it" — which reads like a mechanism and is
+not one. A nested container still occupies exactly ONE place of its parent, so
+inside a three-space section it is a third of the width whatever it declares
+about itself: **nesting can make something narrower and can never make anything
+wider.** Narrow sides with a wide middle was therefore not merely unbuilt, it
+was unrepresentable. `weights` on the parent is what says it now — see below —
+and nesting keeps the job it can actually do, which is making a place a COLUMN
+rather than making it wide.
+
+**Weights are not `span` under a new name, and the refusal above stands
+unchanged.** The number is on the PARENT, and that is the whole difference. A
+drop is an exchange of two places, so a `span` on the child asks what it means
+to exchange a two-wide place with a one-wide one — a question with no answer,
+which is why `span` went. Weights leave `moveBlock` untouched: the places keep
+their widths and the contents trade seats. **Flexbox is the instructive
+contrast**, because it is the model that puts the number on the child
+(`flex-grow`) and `fr` IS `flex-grow` — literally the same algorithm sharing
+out the same leftover space, differing only in who owns the number. It cannot be
+adopted here for a second reason as well: a place holding nothing is not a
+flex item, so flexbox cannot express an empty place at all, and the positional
+empty place is what this whole model rests on.
 
 If you are reading a document that still describes `BLOCK_LIMITS.tracks`,
 `effectiveSpan`, `TRACK_CLASS` or `SPAN_CLASS`, this note is newer: none of
@@ -685,6 +708,137 @@ It also cost no dependency and no client boundary. `@container` compiles to
 every renderer here stays a **server component** — where the JavaScript
 alternative would have meant a resize observer, a `"use client"` on the whole
 tree, and a first paint measured after hydration rather than before it.
+
+### A place can be a column — `addToPlace`
+
+**A place holds one child, so a column is a `stack`, and there is no second
+mechanism for it.** `addToPlace` (`domain/block-edits.ts`) is what the
+shape control and the editor's own drag-and-drop both write through, and its
+rule is a small case split rather than a tree the editor assembles by hand:
+
+- An **empty place** takes the block directly — no wrapping at all.
+- A place already holding **one block** gets wrapped: `addToPlace` builds a
+  new `stack` container of one space, puts what was there and the new block
+  in it as `[here, block]`, and writes the stack in the place's stead.
+- A place already holding a **`stack`** gets an append — the new block joins
+  the existing column's `children` rather than starting a second one.
+
+That is what makes "sides and a middle" a shape somebody picks from a preset
+rather than a tree they build by hand: the preset seeds each empty place with
+a `stack`, and every block dropped into that place afterwards lands in the
+column already there.
+
+**The editor never removes a stack it made.** A column emptied back down to
+nothing is not unwrapped back to a bare place — it is left as a `stack` with
+no children, which renders exactly as an empty place already does (see
+`clearAt`'s note above). Deleting the column itself, if that is what somebody
+wants, is the same operation as deleting any other block.
+
+**The wrap is refused where `mayNest` says a container may not sit, and the
+page comes back as the very same array.** A place at the depth cap
+(`MAX_DEPTH`) may hold content and nothing else — wrapping it in a `stack`
+would build a tree `validate_block` refuses on save, so `addToPlace` checks
+`mayNest(path)` before building one and returns the identical array, by
+identity, when it is refused. That is what lets a caller compare by identity
+and skip a write rather than diffing a tree to discover nothing happened — the
+same convention `moveBlock`'s no-op return uses.
+
+A column spends one of the three nesting levels, like any other container: a
+`stack` seeded into a place at depth 1 leaves only leaves for depth 2, which is
+the ordinary cost of the mechanism the SPACES section above describes — a wide
+thing is a place with a bigger share, and a "sides and a middle" shape is a
+place turned into a column, never a block made wider than the place it sits
+in.
+
+### A place may be wider than its neighbours — `weights`
+
+A container may carry `weights`: **one whole share per place, 1 to 6**, so
+`spaces: 3` with `weights: [1, 3, 1]` lays a narrow place, one three times as
+wide, and a narrow place. The bound is `BLOCK_LIMITS.weight`, and `0009` is the
+authority in two steps, each refusing **by name** as the depth cap does, so
+somebody whose shares are wrong is told that rather than that their `mode` is
+invalid: `is_weight_list` checks the SHAPE — absent, or one share per place —
+and, once that has passed, `validate_block` checks inline what each share is
+WORTH, a whole number from 1 to `c_max_weight`. The two are split because they
+are not the same mistake: a wrong count and an out-of-range share each name a
+different field, and one message for both would occasionally name the field
+somebody got right.
+
+**Absent means uniform, and it reaches uniform through a CSS fallback rather
+than through a branch — one that has to be re-armed explicitly, because CSS
+custom properties INHERIT.** `SPACE_CLASS` is no longer `@lg:grid-cols-3` but
+`@lg:[grid-template-columns:var(--block-tracks,repeat(3,minmax(0,1fr)))]`, and
+`Grid` sets `--block-tracks` on every grid, weighted or not — `"initial"` when
+there is no ratio to state. That is a fix rather than a redundancy: `var()`
+uses its fallback only when the property is UNSET on the element asking, and
+an inherited value counts as set, so a plain conditional (`tracks ? {…} :
+undefined`) once let an unweighted grid nested inside a weighted one resolve
+the ANCESTOR's track list — a two-place grid dropped into the middle place of
+a 1:3:1 section laid three tracks at that ratio instead of two equal ones,
+which is the ordinary shape the preset seeding produces, not an exotic one.
+`"initial"` resets the property at that element, which re-arms every `var()`
+fallback beneath it. The class keeps the CONTAINER QUERY, because an inline
+style cannot carry a query
+of any kind and the collapse to one column would have nowhere to live; the
+property carries the TRACKS, because weights are author data out of `jsonb` and
+no build step can ever see them, so no class can be generated for them. The
+consequence worth protecting: **an unweighted page emits the declaration it
+always did**, `repeat(n, minmax(0, 1fr))`, byte for byte. `trackListFor`
+answers `undefined` for no weights, for a length that is not `spaces`, AND for
+shares that are all equal — that last on purpose, since uniform weights and no
+weights are the same page and answering differently would let a test pin an
+accident.
+
+**A mismatched length is refused on the write and ignored on the read**, the
+asymmetry this model uses everywhere: a strict save stores nothing it cannot
+mean, and a lenient read treats a weights array a newer deployment wrote
+against a larger `spaces` as a shape it does not know rather than as
+corruption. It costs a container its proportions and never blanks a page.
+
+**Only `grid` spends weights, and the database stores them for every mode
+deliberately.** `masonry` is CSS multi-column, whose columns are uniform by
+construction, and `stack`, `carousel`, `tabs`, `accordion` and `timeline` lay
+nothing across at all — so the editor offers the control for `grid` alone,
+because a control that stores what somebody types and renders nothing gives
+them no way to learn it did nothing. Refusing to STORE it would be a different
+and worse thing: somebody who sets a shape, flips to `carousel` to look and
+flips back must find their proportions still there, which is the same reasoning
+that keeps a leaf's fields when its kind changes.
+
+**`LONE_CENTRE` does not apply to a weighted grid.** Centring a lone block on a
+part-filled last row gives it one empty track each side — and "one each" cannot
+be given out of tracks that are not the same width. A weighted grid leaves the
+lone block where it is.
+
+**Each weighted track is floored at `TRACK_FLOOR` (`8rem`,
+`domain/block-tracks.ts`), and the floor is what makes growth
+self-correcting.** The container-query thresholds were tuned for tracks that
+are all the same size, so at the width where three places are first laid at all
+a 1:6:1 split would give its sides about 3.75rem — a sliver a bounded weight
+alone does not prevent. With the floor the sides take `8rem` and the middle
+takes the remainder; as the container grows the shares overtake the floor and
+the author's ratio asserts itself. So a weighted section is near-uniform when
+there is little room, is the shape its author chose when there is room for it,
+and is one column when there is not much room at all.
+
+`8rem` was arithmetic — the largest value fitting inside every threshold with
+its gutters — and it is a measurement now: `weighted-places.spec.ts` watched
+all five in a browser and nothing overflowed, so the value did not move. What
+DID move is the widths the browser needs to reach each threshold. The queried
+box is the section, and the page's own padding sits outside it, so the viewport
+widths that first lay 2/3/4/5/6 places are **352 / 544 / 720 / 944 / 1072px**
+against the arithmetic's 320/512/672/896/1024 — each 32–48px larger. Anything
+choosing a viewport width to prove a grid behaviour uses the measured numbers,
+or it measures a collapsed grid and passes while proving nothing.
+
+**Below its threshold a weighted grid is one column and the places stack in
+STORED order**, exactly as an unweighted one does. Reordering on narrow screens
+is refused: `order` and explicit placement both change what is SEEN without
+changing what is READ, so focus order, screen-reader order and copy order would
+all disagree with the page — and `a11y.spec.ts` would not necessarily catch it,
+since nothing in the `wcag2a`/`wcag21aa` sets it runs measures that mismatch.
+An author who wants the middle first on a phone puts it first; `[3, 1, 1]` is a
+wide-left page that is honest at every width.
 
 ### Adding a mode or a kind — what is guarded, and what is not
 
@@ -1319,7 +1473,9 @@ federated post has to paste its address on the originating instance.
 last row is too.** `FRAME_BOX` caps the FIGURE rather than the frame, so a
 caption is as wide as the thing it captions, and `mx-auto` splits the leftover
 instead of pushing it all right. `LONE_CENTRE` handles the grid case, and only
-for space counts where the leftover divides evenly — three places and five.
+for space counts where the leftover divides evenly — three places and five —
+and never for a weighted grid, where the tracks either side are not the same
+width and "one each" means nothing.
 Both move where a block is DRAWN and neither moves anything stored.
 
 ## Per-profile theming — built

@@ -94,3 +94,8 @@ export {
   FursonaEditor,
   type FursonaEditorLabels,
 } from "@/features/actors/presentation/fursona-editor";
+export {
+  SECTION_SHAPES,
+  type SectionShape,
+} from "@/features/actors/presentation/section-shapes";
+export { SPACE_CHOICES } from "@/features/actors/domain/block-edits";

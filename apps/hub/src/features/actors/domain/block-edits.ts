@@ -180,6 +180,61 @@ export function setAt(
 }
 
 /**
+ * The page with a block put in a place, making that place a column if it has
+ * to.
+ *
+ * **A place holds one child, so a column is a `stack` and there is no second
+ * mechanism.** An empty place takes the block directly; a place already
+ * holding one gets a `stack` wrapping both; a place already holding a `stack`
+ * gets an append. That is what makes "sides and a middle" a shape somebody
+ * chooses rather than a tree they assemble.
+ *
+ * **The wrap is refused where a container may not sit**, and the page comes
+ * back unchanged — the same array, so a caller comparing by identity sees a
+ * no-op. A place at the depth cap may hold content and nothing else, and
+ * wrapping there would build a tree the database refuses on save; refusing now
+ * is the difference between a control that does nothing visible and a page
+ * that cannot be stored.
+ *
+ * **The editor never removes a stack it made.** An emptied column renders as
+ * an empty place, which is what an empty place already does, and it is deleted
+ * the way any block is.
+ *
+ * @param blocks - the whole page.
+ * @param path - the place.
+ * @param block - what to put there.
+ * @returns the new page, or the one given where the wrap is refused.
+ */
+export function addToPlace(
+  blocks: readonly Block[],
+  path: BlockPath,
+  block: Block,
+): Block[] {
+  // **The flag exists because the refusal needs both halves of one look.**
+  // Whether to wrap depends on what is AT the path, and `updateAt` is the
+  // module's only traversal — adding a reader beside it would be a second
+  // place to get the walk right. So the updater records the refusal and the
+  // caller returns the array it was given, unchanged by identity.
+  let refused = false;
+  const next = updateAt(blocks, path, (here) => {
+    if (!here) return block;
+    if (isContainer(here) && here.mode === "stack") {
+      return { ...here, children: [...here.children, block] };
+    }
+    if (!mayNest(path)) {
+      refused = true;
+      return here;
+    }
+    return {
+      ...newContainer("stack", 1),
+      name_en: undefined,
+      children: [here, block],
+    };
+  });
+  return refused ? (blocks as Block[]) : next;
+}
+
+/**
  * The page with a place emptied — what was in it gone, the place still there.
  *
  * **This is the one operation the whole model turns on.** Removing what is in
@@ -337,6 +392,42 @@ export function patchContainer(
   return updateAt(blocks, path, (block) =>
     block && isContainer(block) ? { ...block, ...patch } : block,
   );
+}
+
+/**
+ * The page with a container's width written, and its weights trimmed or padded to
+ * match.
+ *
+ * **This exists because the two are one fact.** A weight list whose length is
+ * not the container's `spaces` is ignored by every reader and refused by the
+ * write, so changing the count and leaving the list stale would silently drop
+ * an author's proportions at the moment they touched the control — and it
+ * would do it without an error, because ignoring is not failing.
+ *
+ * **It cannot lose content, and that is `patchContainer` doing the work rather
+ * than a rescue here.** `children` is not among the fields either function
+ * writes, so narrowing re-wraps the same children into more rows.
+ *
+ * A container with no weights stays without any: uniform is a real answer and
+ * not a gap to fill in.
+ *
+ * @param blocks - the whole page.
+ * @param path - the container.
+ * @param spaces - how many places across it should now lay.
+ * @returns the new page.
+ */
+export function setSpaces(
+  blocks: readonly Block[],
+  path: BlockPath,
+  spaces: number,
+): Block[] {
+  return updateAt(blocks, path, (block) => {
+    if (!block || !isContainer(block)) return block;
+    const weights = block.weights
+      ? Array.from({ length: spaces }, (_, at) => block.weights?.[at] ?? 1)
+      : undefined;
+    return { ...block, spaces, weights };
+  });
 }
 
 /**

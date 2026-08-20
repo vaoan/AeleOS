@@ -1,5 +1,5 @@
 import { Plus, Quote as QuoteMark } from "lucide-react";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { contentFor } from "@/features/actors/domain/actor-content";
 import {
   MAX_DEPTH,
@@ -10,6 +10,7 @@ import {
   type LeafBlock,
   type LeafKind,
 } from "@/features/actors/domain/block-schema";
+import { trackListFor } from "@/features/actors/domain/block-tracks";
 import {
   resolveEmbed,
   safeHttpUrl,
@@ -156,14 +157,51 @@ type ModeRenderer = (props: ModeProps) => ReactNode;
  * a plain object with a stored value is besides the shape that put a
  * `__proto__` through `TIDAL_KINDS`, and a number key cannot be one of those
  * names, which is exactly the guarantee a `Map` makes and a record does not.
+ *
+ * **The class owns the QUERY and the property owns the TRACKS**, and the split
+ * is forced rather than chosen. Weights are author data, so no build step can
+ * ever see them and no class can be generated for them; an inline
+ * `grid-template-columns` would carry no query and so would apply at 320px,
+ * flattening the collapse. So the inline style sets `--block-tracks` — a
+ * static value needing no query — and the fallback here is the uniform list,
+ * which means an unweighted container emits the same declaration it always
+ * did and reaches it without a branch.
+ *
+ * **`--block-tracks` is set on every grid, weighted or not, and that is a fix
+ * rather than a redundancy.** Custom properties INHERIT, and `var()` uses its
+ * fallback only when the property is unset on the element asking — an
+ * inherited value counts as set. So an unweighted grid nested anywhere beneath
+ * a weighted one used to resolve the ANCESTOR's track list instead of its own
+ * fallback: a two-place grid dropped into the middle place of a 1:3:1 section
+ * laid three tracks at that ratio, not two equal ones, because nothing reset
+ * the property between them. {@link Grid} now writes `"initial"` when there is
+ * no ratio to state — a value `minmax()`/`repeat()` never parse as, so it
+ * cannot itself become a stray real track list — which resets the property at
+ * that element and re-arms every `var()` fallback beneath it, all the way down
+ * to the next weighted grid, if any.
  */
 const SPACE_CLASS = new Map<number, string>([
   [1, ""],
-  [2, "@xs:grid-cols-2"],
-  [3, "@lg:grid-cols-3"],
-  [4, "@2xl:grid-cols-4"],
-  [5, "@4xl:grid-cols-5"],
-  [6, "@5xl:grid-cols-6"],
+  [
+    2,
+    "@xs:[grid-template-columns:var(--block-tracks,repeat(2,minmax(0,1fr)))]",
+  ],
+  [
+    3,
+    "@lg:[grid-template-columns:var(--block-tracks,repeat(3,minmax(0,1fr)))]",
+  ],
+  [
+    4,
+    "@2xl:[grid-template-columns:var(--block-tracks,repeat(4,minmax(0,1fr)))]",
+  ],
+  [
+    5,
+    "@4xl:[grid-template-columns:var(--block-tracks,repeat(5,minmax(0,1fr)))]",
+  ],
+  [
+    6,
+    "@5xl:[grid-template-columns:var(--block-tracks,repeat(6,minmax(0,1fr)))]",
+  ],
 ]);
 
 /**
@@ -203,6 +241,8 @@ const SPACE_CLASS = new Map<number, string>([
  * because below that width the container is a single column and there is no
  * leftover to divide — a `col-start` applied there would push the block off
  * the only track there is.
+ *
+ * **A weighted grid is never centred** — see {@link Grid}.
  */
 const LONE_CENTRE = new Map<number, string>([
   [3, "@lg:[&>*:last-child:nth-child(3n+1)]:col-start-2"],
@@ -466,10 +506,13 @@ function Stack(props: ModeProps): ReactNode {
  * whether or not it paints anything. See {@link placeIn}.
  *
  * **A lone block on a part-filled last row is centred across the leftover**,
- * where the leftover divides evenly — see {@link LONE_CENTRE}. That is a
- * rendering choice made from where a block already sits and it moves nothing
- * stored, which is the distinction that keeps it compatible with a place being
- * positional.
+ * where the leftover divides evenly — see {@link LONE_CENTRE} — and **never
+ * when the grid is weighted**: centring gives a lone block one leftover track
+ * each side, and tracks that are not the same width have no "one each" to
+ * give it, so a weighted grid leaves the lone block where it is instead. That
+ * is a rendering choice made from where a block already sits and it moves
+ * nothing stored, which is the distinction that keeps it compatible with a
+ * place being positional.
  *
  * Children stretch to the height of the tallest in their row, which is what
  * makes a row of cards read as a row rather than as a ragged shelf. A dial for
@@ -482,10 +525,18 @@ function Stack(props: ModeProps): ReactNode {
  */
 function Grid(props: ModeProps): ReactNode {
   const across = SPACE_CLASS.get(props.container.spaces) ?? "";
-  const lone = LONE_CENTRE.get(props.container.spaces) ?? "";
+  const tracks = trackListFor(props.container);
+  // **Not centred when weighted.** Centring gives a lone block one leftover
+  // track each side, which is not something unequal tracks can be divided into.
+  const lone = tracks ? "" : (LONE_CENTRE.get(props.container.spaces) ?? "");
   return (
     <div
       className={`grid grid-cols-1 gap-4 ${across} ${lone}`}
+      // Set unconditionally — see the note on `--block-tracks` above. `"initial"`
+      // resets the property at THIS element even when there is no ratio to
+      // state, so a nested unweighted grid's own `var()` fallback re-arms
+      // instead of inheriting an ancestor's tracks.
+      style={{ "--block-tracks": tracks ?? "initial" } as CSSProperties}
       {...tid("block-grid")}
     >
       {seatsOf(props).map((seat) => placeIn(props, seat))}

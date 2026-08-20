@@ -783,6 +783,38 @@ replace`, so the newest body of a function could sit in a file named after
   `docs/superpowers/plans/2026-08-18-sections-of-spaces.md` and
   `docs/superpowers/plans/2026-08-17-blocks-and-grids-phase-1-model-and-renderer.md`.
 
+- **Weighted places (2026-08-19) — done.** A section's places need not all be
+  the same width: a container may declare `weights`, one whole share per place,
+  so `[1, 3, 1]` is a narrow side, a wide middle and a narrow side. **The
+  number is on the PARENT and that is the whole structural decision** — a drop
+  is an exchange of two places, and an exchange between a two-wide place and a
+  one-wide one has no meaning, which is why `span` was removed and why this is
+  not `span` returning under a new name. `moveBlock` is untouched.
+
+  It also closes a sentence in the feature note that was **false when
+  written**: that a wide thing was a nested container of one space. Nesting can
+  make something narrower and can never make anything wider, so the page this
+  feature exists for was not unbuilt, it was unrepresentable.
+
+  Two mechanisms are worth knowing before touching it, and the feature note
+  carries the rest. **The class keeps the container query and the property
+  carries the tracks** — weights are author data out of `jsonb`, so no build
+  step can generate a class for them, while an inline `grid-template-columns`
+  would carry no query and flatten the collapse every narrow screen depends on;
+  the uniform list is the `var()` FALLBACK, so an unweighted page emits what it
+  always did with no branch anywhere. And **every weighted track is floored at
+  `8rem`**, which is what makes a lopsided ratio even out when there is little
+  room and assert itself as the container grows. Only `grid` spends weights;
+  the database stores them for every mode on purpose, so flipping to `carousel`
+  to look and flipping back does not lose somebody's shape.
+
+  Spec: `docs/superpowers/specs/2026-08-19-weighted-places-design.md`, complete,
+  and where the measured threshold widths live. Plan:
+  `docs/superpowers/plans/2026-08-19-weighted-places.md`, whose own corrections
+  banner is the one to read first — three of its instructions were wrong and
+  each was measured wrong rather than argued wrong. Rule 29 above is what the
+  branch cost.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
@@ -852,7 +884,16 @@ every Tailwind utility for months without anything noticing.
     infrastructure noise rather than as a defect, and `test:coverage` is
     configured for `text-summary`, which reports the percentage and **never
     names the line**. So the diagnostic is worth remembering on its own —
-    `--coverage.reporter=text` names it. The rule generalises past coverage,
+    `--coverage.reporter=text` names it. **It finds the uncovered line and
+    cannot confirm a clean file**, which is the half of the advice that was
+    missing: measured 2026-08-19, `text` omits a fully-covered file from its
+    table ENTIRELY — `block-tracks.ts` sat at 9/9 statements, 6/6 branches and
+    3/3 functions in `coverage-final.json` and appeared nowhere in the printed
+    table, and `--coverage.skipFull=false` did not bring it back. So absence
+    from that table means "clean" or "not instrumented" and the reporter will
+    not say which. Read `coverage-final.json` when the question is whether a
+    file is covered, and use `text` when the question is which line is not.
+    The rule generalises past coverage,
     because the shape recurs wherever a property test sits beside named cases:
     a property test states a claim about ALL inputs; it does not stand in for
     a case about ONE. If a branch is only entered when a generator happens to
@@ -1149,38 +1190,87 @@ every Tailwind utility for months without anything noticing.
     about a different mechanism: there, the assertion never got the chance to
     fail; here, it got the chance and the fixture wasted it.
 
-28. **A migration applied from a Windows checkout writes CRLF into every
-    function body, and only CI can see it.** `supabase db reset --linked` sends
-    the files as they sit on disk. With `core.autocrlf=true` — the Windows
-    default, and what this machine has — the working tree is CRLF while the
-    repository stores LF, so `prosrc` on the live project ends up carrying a
-    `\r` on every line that the checked-out file does not have. `migra`
-    compares function SOURCE, so all ten multi-line functions in `0009` were
-    reported as drift at once, including four nobody had touched.
+28. **Anything that ships file CONTENT to a server, rather than committing it,
+    is exposed to the checkout's line endings — and in this repo
+    `.gitattributes` closed that door, which is why this rule no longer tells
+    you to convert anything.** The fault it was written for: `supabase db reset
+--linked`, `db push` and any hand-applied `create or replace` send the
+    files as they sit on disk, so a CRLF working tree puts a `\r` on every line
+    of `prosrc` that the checked-out file does not have. `migra` compares
+    function SOURCE, so all ten multi-line functions in `0009` were reported as
+    drift at once, including four nobody had touched. **And every local check
+    agreed it was fine** — `check:schema-drift` builds its shadow from the same
+    files, so both sides matched and it printed "the live database matches",
+    while CI checked out LF and was the only place the two sides differed.
 
-    **What makes it a trap rather than an inconvenience is that every local
-    check agrees it is fine.** `pnpm check:schema-drift` builds its shadow from
-    the same CRLF files, so both sides match and it prints "the live database
-    matches". CI checks out LF, so its shadow is LF, and it is the only place
-    the two sides differ. A local green here is therefore not evidence about
-    CI — the two are not running the same comparison.
+    **The mechanism is gone and the instruction with it. Measured on
+    2026-08-19:** `core.autocrlf` is still `true`, but `.gitattributes` —
+    `bf8cd29`, 2026-07-29, long since on `main` — sets `* text=auto eol=lf` and
+    `*.sql text eol=lf`, and **gitattributes beats `core.autocrlf`**.
+    `0009_actor_profiles.sql` holds 0 CRLF pairs and 1056 bare LF on disk. So
+    the conversion this rule used to mandate is a no-op, and its corollary —
+    that a local drift green "is not evidence about CI" — is no longer true for
+    line endings. This paragraph replaces the old instruction rather than
+    softening it, because whoever fixes a thing deletes the note saying it is
+    broken. What is still owed is the general form above: a NEW file type, a
+    checkout on a machine without these attributes, or a paste through an
+    editor that adds its own endings all reopen it, and the way to check is to
+    count the bytes rather than to trust a setting.
 
-    It also survived a hand-written diagnostic, which is the part worth
-    carrying. A script written to answer "does live match the file" compared
-    `prosrc` against the file and reported `same` for all six functions it
-    checked — because it normalised line endings before comparing, having been
-    written by somebody who assumed whitespace was noise. **A comparison that
-    normalises cannot see the fault it is looking for**, and this one normalised
-    away exactly the byte in question. Rule 23's cousin: the assertion ran, it
-    just could not fail.
+    **The diagnostic lesson is the part that never expires.** A script written
+    to answer "does live match the file" compared `prosrc` against the file and
+    reported `same` for all six functions it checked — because it normalised
+    line endings first, having been written by somebody who assumed whitespace
+    was noise. **A comparison that normalises cannot see the fault it is
+    looking for**, and this one normalised away exactly the byte in question.
+    Rule 23's cousin: the assertion ran, it just could not fail.
 
-    The fix is to send LF: convert `supabase/migrations/*.sql` in the working
-    tree before applying anything to a live project — `git diff` stays empty,
-    because the repository already holds LF — and re-apply. The general form:
-    **anything that ships file CONTENT to a server, rather than committing it,
-    is exposed to the checkout's line endings.** `db reset --linked`,
-    `db push`, and any hand-applied `create or replace` pasted from an editor
-    all qualify.
+29. **A SABOTAGE is a fixture too, and a green restore afterwards is
+    indistinguishable from a real verification.** Rule 27 is about a fixture
+    that cannot tell a right answer from a wrong one; this is the same failure
+    landing on the step that was supposed to prove the fixture works. "Break it
+    and watch it go red" is vacuous when the break you chose lands where the
+    watched case cannot see it — and the trap is that the sequence looks
+    identical to a successful one: you break, you run, you restore, everything
+    is green, and you have learned nothing. The weighted-places branch hit this
+    class **seven times in eight tasks**, three of them on sabotage steps
+    rather than on test fixtures, which is what makes it a rule rather than an
+    anecdote. All measured:
+
+    - `<>` changed to `<` on a length check did not redden anything, because
+      both agree on "too short" and diverge only on "too long", and every
+      fixture was short.
+    - Removing a class's `@lg:` prefix did not redden the "collapses to one
+      track" case — and the prediction had been that the rule would then apply
+      at EVERY width. It applies at no width: the unprefixed arbitrary-value
+      class loses the cascade to `grid-cols-1`, so the grid collapsed
+      everywhere and the collapse case passed trivially while three other cases
+      reddened.
+    - Lowering that threshold instead (`@lg:` → `@xs:`) did not redden it
+      either. `@xs` is 20rem of CONTAINER, and the phone fixture's container is
+      about 288px once page padding is priced in, so even the too-eager
+      threshold leaves 320px collapsed.
+    - A brief's order check selected `h3` elements where `PlainLeaf` renders a
+      `<span>`. It would have compared `[]` to `[]` and passed forever.
+    - A pad fixture `[1, 3, 1]` widened to five gives `[1, 3, 1, 1, 1]` whether
+      the code pads with the constant `1` or with the LAST SHARE — because the
+      last share is itself `1`. Rewritten to `[1, 3, 2]`, the pad-with-last-
+      share sabotage reddens exactly.
+    - Two more were caught before they were written, by choosing weights that
+      are not a palindrome (`[1, 3, 1]` reversed is itself, so a renderer that
+      reverses the array passes every test built on it) and by making a
+      truncation (`[2, 5, 4]` → `[2, 5]`) that no preset lookup could have
+      produced.
+
+    The diagnostic is the same one and it costs nothing: **name the wrong
+    behaviour you are excluding, and ask whether this fixture — or this
+    sabotage — could tell it from the right one.** Where the answer is no and
+    nothing at that level can discriminate, say so rather than writing
+    something that looks like it does. That was the right answer twice here:
+    the collapse case's own sabotage was reported as not discriminating rather
+    than quietly counted, and the guard that actually pins the threshold was
+    found a level down, in unit assertions that compare the class string
+    verbatim.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

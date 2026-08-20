@@ -19,6 +19,7 @@ import {
   type ContainerMode,
 } from "@/features/actors/domain/block-schema";
 import {
+  addToPlace,
   appendPlace,
   clearAt,
   mayNest,
@@ -27,6 +28,7 @@ import {
   patchContainer,
   removeAt,
   setAt,
+  setSpaces,
   SPACE_CHOICES,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
@@ -43,6 +45,7 @@ import {
   LeafEditor,
   type LeafEditorLabels,
 } from "@/features/actors/presentation/leaf-editor";
+import { SECTION_SHAPES } from "@/features/actors/presentation/section-shapes";
 import {
   SectionStylePopup,
   type SectionStylePopupLabels,
@@ -61,6 +64,13 @@ import { tid } from "@/shared/infrastructure/test-id";
  * and the two grips genuinely say different things to somebody who cannot see
  * them: one moves a whole section among the sections, the other moves one
  * piece of a page between places.
+ *
+ * `sectionShape`, `shapes`, `sectionShapeCustom`, `sectionWeight` and
+ * `sectionWeightsHint` are new — the shape control's own strings. All five are
+ * plain data rather than a closure over `t()`, `sectionWeight` included: a
+ * function cannot cross the server/client boundary these labels are built on
+ * one side of and consumed on the other, and this bag learned that the hard
+ * way — see `sectionWeight`'s own TSDoc.
  */
 export interface BlockCardLabels extends LeafEditorLabels {
   /** Field label for a section's name. */
@@ -79,6 +89,37 @@ export interface BlockCardLabels extends LeafEditorLabels {
    * for why that is true rather than merely promised.
    */
   sectionSpacesHint: string;
+  /**
+   * Field label for the shape control, offered only for a `grid` container —
+   * see {@link BlockCard} for why the other arrangements do not get one.
+   */
+  sectionShape: string;
+  /** One name per {@link SECTION_SHAPES} entry, keyed by its `id`. */
+  shapes: Record<string, string>;
+  /**
+   * The option shown, and picked, when the current `spaces`/`weights` pair
+   * matches no listed {@link SECTION_SHAPES} entry. Never itself choosable —
+   * it names the state rather than offering it, exactly as an arrangement
+   * this build does not know does for `sectionMode`.
+   */
+  sectionShapeCustom: string;
+  /**
+   * One place's own dial label, keyed by its one-based position.
+   *
+   * A precomputed record, like `modes` and `leafKinds`, rather than a
+   * function — **labels cross a server/client boundary**: `fursonaEditorLabels`
+   * runs on the server and hands its result to `FursonaEditor`, a client
+   * component, as props. React can serialise a plain object across that
+   * boundary but not a function, so a function here breaks the WHOLE editor
+   * page at runtime — "Functions cannot be passed directly to Client
+   * Components" — rather than merely mis-rendering one control. Keyed 1
+   * through {@link SPACE_CHOICES}'s widest entry, which covers every place a
+   * container may ever lay.
+   */
+  sectionWeight: Record<number, string>;
+  /** Says what the per-place shares do, and that they even out when there is
+   * little room. */
+  sectionWeightsHint: string;
   /** Removes this whole section. */
   removeSection: string;
   /** Collapses the section's places. */
@@ -185,6 +226,7 @@ function idsFor(depth: number) {
         name: "section-name",
         mode: "section-mode",
         spaces: "section-spaces",
+        shape: "section-shape",
         collapse: "collapse-section",
         remove: "remove-section",
       }
@@ -195,6 +237,7 @@ function idsFor(depth: number) {
         name: "nested-name",
         mode: "nested-mode",
         spaces: "nested-spaces",
+        shape: "nested-shape",
         collapse: "collapse-nested",
         remove: "remove-block",
       };
@@ -238,6 +281,27 @@ const PLACES_CLASS = new Map<number, string>([
 ]);
 
 /**
+ * Whether two weight lists are the same list, absence included.
+ *
+ * Absence is its own value here and not merely "no answer": two containers
+ * with no weights at all are the same shape, so this is `true` for
+ * `undefined`/`undefined`, never for `undefined` beside an actual list — an
+ * even container and a `[1, 1, 1]` one are two different rows even though
+ * they render alike, exactly as {@link SECTION_SHAPES}'s own TSDoc explains.
+ *
+ * @param a - one list, or absent.
+ * @param b - the other, or absent.
+ * @returns whether they carry the same shares in the same order.
+ */
+function sameWeights(
+  a: number[] | undefined,
+  b: number[] | undefined,
+): boolean {
+  if (!a || !b) return a === b;
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+/**
  * One container: its name, its arrangement, its shape, and what is in each of
  * its places.
  *
@@ -253,9 +317,47 @@ const PLACES_CLASS = new Map<number, string>([
  * children fill them row by row and the section grows downward. So a six-space
  * section holding six things, narrowed to two, re-wraps into three rows with
  * all six still there and still in order. Nothing here writes `children` when
- * `spaces` changes — see `patchContainer`, which cannot — and the hint under
+ * `spaces` changes — see `setSpaces`, which cannot — and the hint under
  * the control says so, because somebody about to narrow a section has to know
- * before they do it rather than afterwards.
+ * before they do it rather than afterwards. **The spaces select routes
+ * through `setSpaces` rather than `patchContainer`**, because the two are one
+ * fact: a `weights` list whose length no longer matches `spaces` is ignored by
+ * every reader, so writing the count alone would silently drop an author's
+ * proportions the moment they touched the control.
+ *
+ * **The shape control offers only what a `grid` container can honour.**
+ * `weights` lay grid TRACKS, so a `masonry` container — uniform by CSS
+ * multi-column construction — and `stack`/`carousel`/`tabs`/`accordion`/
+ * `timeline` — which lay no tracks across at all — get no shape select and no
+ * per-place dials. This repo's own rule: a control that accepts what somebody
+ * types, stores it, refuses nothing and renders nothing is the worst kind,
+ * because there is no way for them to learn it did nothing. The database
+ * keeps whatever weights a container already carries regardless of `mode`,
+ * deliberately — switching to `carousel` to look and back to `grid` finds the
+ * shares exactly as they were, so the gate is on the CONTROL, never on the
+ * stored value.
+ *
+ * **Each per-place dial clamps its own value in `onChange`, to between 1 and
+ * `BLOCK_LIMITS.weight`.** An emptied input is `Number("") === 0` and the
+ * `max` attribute alone does not stop somebody typing past it, and either one
+ * reaches `blocksSchema` as a share `sections[0].weights[N]` refuses — a path
+ * ending in an array index that `blockProblems` cannot mark, so an unclamped
+ * dial could save a payload that surfaces only as the page-level "holds more
+ * than it can" banner with nothing pointing at the control responsible. The
+ * clamp keeps that payload from ever leaving the control rather than leaving
+ * it reachable and unmarked.
+ *
+ * **Picking a shape seeds a `stack` into every place that is currently
+ * empty, and touches no place that already holds something.** A place holds
+ * exactly one child, so a wide middle is unusable until its own place can
+ * grow past one thing — the seeded `stack` is that growth, and once it is
+ * there the ordinary `add-place` control on its own nested card widens it.
+ * `addToPlace` (`block-edits.ts`) is what does the "empty takes it directly"
+ * half; nothing here wraps or discards a place that was already filled,
+ * because a shape is an ARRANGEMENT change and must never be a content one.
+ * **The editor never removes a stack it made** — an emptied column renders as
+ * an empty place, which is what an empty place already does, and it is
+ * deleted the way any block is, by `clearAt`/`removeAt` like any other.
  *
  * **An empty place is drawn, and drawn as an invitation.** It keeps its width,
  * carries a dashed edge — this app's own "nothing here yet" — and offers the
@@ -386,6 +488,30 @@ export function BlockCard({
     Object.keys(painted).length > 0
       ? (painted as React.CSSProperties)
       : undefined;
+
+  // The shape whose `spaces`/`weights` pair matches this container exactly,
+  // so the select can show what is actually stored rather than guessing —
+  // and `undefined` when nothing matches, which is what makes the trailing
+  // "Custom" option honest rather than a default nobody chose.
+  const matchingShape = SECTION_SHAPES.find(
+    (shape) =>
+      shape.spaces === block.spaces &&
+      sameWeights(shape.weights, block.weights),
+  );
+  // What every dial actually shows: the container's own weights where it has
+  // some, and an even share of `1` per place otherwise — "even" is a real
+  // answer here, not a gap, and typing into one dial has to start from
+  // something.
+  const weights =
+    block.weights ?? Array.from({ length: block.spaces }, () => 1);
+  // Position named once, exactly as `places` does it just below, and for the
+  // same reason: `react/no-array-index-key` reads the map callback's own
+  // index parameter, not a value derived from it further down.
+  const weightFields = weights.map((weight, at) => ({
+    weight,
+    at,
+    key: `weight-${at}`,
+  }));
 
   const across = PLACES_CLASS.get(block.spaces) ?? "";
   // Position named once, exactly as `seatsOf` does it in the renderer and for
@@ -543,9 +669,7 @@ export function BlockCard({
             aria-describedby={`${id}-spaces-hint`}
             onChange={(event) =>
               apply((blocks) =>
-                patchContainer(blocks, path, {
-                  spaces: Number(event.target.value),
-                }),
+                setSpaces(blocks, path, Number(event.target.value)),
               )
             }
             className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
@@ -557,6 +681,63 @@ export function BlockCard({
             ))}
           </select>
         </div>
+
+        {block.mode === "grid" ? (
+          <div className="order-last grid w-full min-w-0 gap-1.5 @xl:order-0 @xl:w-auto">
+            <label htmlFor={`${id}-shape`} className="text-xs font-medium">
+              {labels.sectionShape}
+            </label>
+            <select
+              id={`${id}-shape`}
+              {...tid(ids.shape)}
+              value={matchingShape?.id ?? "Custom"}
+              onChange={(event) => {
+                const shape = SECTION_SHAPES.find(
+                  (candidate) => candidate.id === event.target.value,
+                );
+                if (!shape) return;
+                apply((blocks) => {
+                  let shaped = patchContainer(blocks, path, {
+                    spaces: shape.spaces,
+                    weights: shape.weights,
+                  });
+                  // **A shape change must never wrap or discard content
+                  // already there.** So this seeds a column into every place
+                  // that is currently EMPTY — a wide middle is unusable until
+                  // its place can grow — and leaves every filled place
+                  // untouched. `block.children` is read from the render that
+                  // is current when the shape was picked, not from `shaped`,
+                  // because `patchContainer` never touches `children`.
+                  for (const [position, child] of block.children.entries()) {
+                    if (!child) {
+                      shaped = addToPlace(
+                        shaped,
+                        [...path, position],
+                        newContainer("stack", 1),
+                      );
+                    }
+                  }
+                  return shaped;
+                });
+              }}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              {SECTION_SHAPES.map((shape) => (
+                <option key={shape.id} value={shape.id}>
+                  {labels.shapes[shape.id]}
+                </option>
+              ))}
+              {/* Never itself a choice — picking it would write nothing, and
+                  a control that accepts a choice and changes nothing is the
+                  worst kind there is. It names the current state instead,
+                  the same role the unknown-arrangement option above plays
+                  for `sectionMode`. */}
+              <option value="Custom" disabled>
+                {labels.sectionShapeCustom}
+              </option>
+            </select>
+          </div>
+        ) : null}
 
         <SectionStylePopup
           value={block.style}
@@ -603,6 +784,62 @@ export function BlockCard({
       >
         {labels.sectionSpacesHint}
       </p>
+
+      {/* Weights lay grid TRACKS, so this is offered only where the shape
+          select above it is — see that control's own comment. The database
+          stores weights for every mode regardless, so switching away and
+          back finds them intact; this is only where they are EDITABLE. */}
+      {block.mode === "grid" ? (
+        <div className="relative grid gap-1.5">
+          <div className="flex flex-wrap gap-2">
+            {weightFields.map((field) => (
+              <label
+                key={field.key}
+                className="grid min-w-0 gap-1 text-xs font-medium"
+              >
+                {labels.sectionWeight[field.at + 1]}
+                <input
+                  type="number"
+                  min={1}
+                  max={BLOCK_LIMITS.weight}
+                  aria-describedby={`${id}-weights-hint`}
+                  {...tid(`section-weight-${field.at}`)}
+                  value={field.weight}
+                  onChange={(event) => {
+                    // Clamped here rather than left to `blocksSchema`: an
+                    // emptied input is `Number("") === 0` and `max` does not
+                    // block typing past it, and a share `blocksSchema` refuses
+                    // lands at `sections[0].weights[N]` — a path
+                    // `blockProblems` cannot mark on the array-index branch
+                    // (see its own TSDoc), which used to surface as the
+                    // page-level "holds more than it can" banner with nothing
+                    // pointing at the dial responsible. Clamping makes that
+                    // payload unreachable from this control.
+                    const value = Math.min(
+                      Math.max(1, Number(event.target.value) || 1),
+                      BLOCK_LIMITS.weight,
+                    );
+                    const next = weights.map((prior, index) =>
+                      index === field.at ? value : prior,
+                    );
+                    apply((blocks) =>
+                      patchContainer(blocks, path, { weights: next }),
+                    );
+                  }}
+                  className="w-16 rounded-lg surface border-(--edge)/60 bg-(--surface) px-2 py-1 text-sm"
+                />
+              </label>
+            ))}
+          </div>
+          <p
+            id={`${id}-weights-hint`}
+            className="text-xs text-(--muted)"
+            {...tid("section-weights-hint")}
+          >
+            {labels.sectionWeightsHint}
+          </p>
+        </div>
+      ) : null}
 
       {collapsed ? null : (
         <div className="relative grid gap-3">

@@ -8,6 +8,7 @@ import {
   LEAF_KINDS,
   MAX_DEPTH,
   TOO_DEEP_MESSAGE,
+  WEIGHTS_LENGTH_MESSAGE,
   blockSchema,
   blocksSchema,
   lenientBlockSchema,
@@ -996,5 +997,63 @@ describe("the limits", () => {
   it("reads a stored page leniently, stripping what it does not know", () => {
     const parsed = lenientBlocksSchema.parse([leaf({ headline: "x" })]);
     expect(parsed[0]).not.toHaveProperty("headline");
+  });
+});
+
+describe("weights", () => {
+  const page = (weights: unknown) => [
+    {
+      kind: "container",
+      mode: "grid",
+      spaces: 3,
+      name_en: "S",
+      weights,
+      children: [null, null, null],
+    },
+  ];
+
+  it("keeps a weight list whose length matches spaces", () => {
+    const parsed = blocksSchema.parse(page([1, 3, 1]));
+    expect((parsed[0] as ContainerBlock).weights).toEqual([1, 3, 1]);
+  });
+
+  it("keeps the order it was given", () => {
+    const parsed = blocksSchema.parse(page([3, 1, 2]));
+    expect((parsed[0] as ContainerBlock).weights).toEqual([3, 1, 2]);
+  });
+
+  it("refuses a weight list whose length is not spaces, by name", () => {
+    const result = blocksSchema.safeParse(page([1, 3]));
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain(
+      WEIGHTS_LENGTH_MESSAGE,
+    );
+  });
+
+  it("refuses a weight above the bound on the write", () => {
+    expect(blocksSchema.safeParse(page([1, 7, 1])).success).toBe(false);
+  });
+
+  it("refuses a zero and a fraction on the write", () => {
+    expect(blocksSchema.safeParse(page([1, 0, 1])).success).toBe(false);
+    expect(blocksSchema.safeParse(page([1, 1.5, 1])).success).toBe(false);
+  });
+
+  it("reads a page with no weights at all", () => {
+    const parsed = lenientBlocksSchema.parse(page(undefined));
+    expect((parsed[0] as ContainerBlock).weights).toBeUndefined();
+  });
+
+  it("drops garbage weights on the read rather than failing the page", () => {
+    for (const junk of ["wide", 3, { a: 1 }, ["a"], [null]]) {
+      const parsed = lenientBlocksSchema.parse(page(junk));
+      expect(parsed).toHaveLength(1);
+      expect((parsed[0] as ContainerBlock).weights).toBeUndefined();
+    }
+  });
+
+  it("admits a mismatched length on the read rather than failing the page", () => {
+    const parsed = lenientBlocksSchema.parse(page([1, 3]));
+    expect(parsed).toHaveLength(1);
   });
 });

@@ -10,6 +10,7 @@ import {
   MAX_DEPTH,
   type Block,
   type ContainerBlock,
+  type ContainerMode,
 } from "@/features/actors/domain/block-schema";
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import type { BlockProblem } from "@/features/actors/domain/block-problems";
@@ -92,6 +93,48 @@ const section = (page: Block[]): ContainerBlock => {
 
 /** A leaf carrying a title, so an assertion can name it. */
 const titled = (title: string) => ({ ...newLeaf("text"), title_en: title });
+
+/**
+ * A container for the shape control's own tests, which read what `onChange`
+ * is handed rather than a re-rendered page — so they need one block to start
+ * from, not a whole page.
+ *
+ * @param overrides - fields to override on top of a `grid`/3 default.
+ * @returns the container.
+ */
+function container(overrides: Partial<ContainerBlock> = {}): ContainerBlock {
+  return { ...newContainer("grid", 3), ...overrides };
+}
+
+/**
+ * Renders one card in isolation. `apply` hands `onChange` the whole next
+ * page — the array `BlockEditor`'s own `apply` would have produced — so a
+ * test can read exactly what an edit wrote without re-rendering a harness.
+ *
+ * @param block - the container to edit.
+ * @param onChange - called with the next page after every edit; defaults to
+ *   doing nothing, for the tests that only need the first render.
+ * @returns what `render` returns, so a test may `unmount` before rendering
+ *   the next case.
+ */
+function renderCard(
+  block: ContainerBlock,
+  onChange: (blocks: Block[]) => void = () => undefined,
+) {
+  return render(
+    <BlockCard
+      block={block}
+      path={[0]}
+      apply={(edit) => onChange(edit([block]))}
+      lang="en"
+      labels={labels}
+      parentHost=""
+      atBlockLimit={false}
+      problems={[]}
+      dragHandle={null}
+    />,
+  );
+}
 
 describe("BlockCard", () => {
   describe("the shape", () => {
@@ -453,6 +496,169 @@ describe("BlockCard", () => {
       const page = harness([newContainer("grid", 2)]);
       fireEvent.click(screen.getByTestId("remove-section"));
       expect(page()).toEqual([]);
+    });
+  });
+
+  describe("the shape control", () => {
+    // Weights lay grid TRACKS: `masonry` is CSS multi-column, uniform by
+    // construction, and `stack`/`carousel`/`tabs`/`accordion`/`timeline` lay
+    // no tracks across at all. A control that accepted a shape here and
+    // rendered nothing with it would be the fault this repo already paid
+    // for once — see `social`'s missing description field.
+    const NON_GRID_MODES = [
+      "stack",
+      "carousel",
+      "tabs",
+      "accordion",
+      "timeline",
+      "masonry",
+    ] as const satisfies readonly ContainerMode[];
+
+    it("offers the shape control for a grid", () => {
+      renderCard(container({ mode: "grid", spaces: 3 }));
+      expect(screen.getByTestId("section-shape")).toBeInTheDocument();
+    });
+
+    it("does not offer it for a mode that lays no tracks", () => {
+      for (const mode of NON_GRID_MODES) {
+        const { unmount } = renderCard(container({ mode, spaces: 3 }));
+        expect(screen.queryByTestId("section-shape")).toBeNull();
+        unmount();
+      }
+    });
+
+    it("writes spaces and weights together when a shape is picked", () => {
+      const onChange = vi.fn();
+      renderCard(container({ mode: "grid", spaces: 3 }), onChange);
+      fireEvent.change(screen.getByTestId("section-shape"), {
+        target: { value: "WideMiddle" },
+      });
+      const next = onChange.mock.calls.at(-1)?.[0][0];
+      expect(next.spaces).toBe(3);
+      expect(next.weights).toEqual([1, 3, 1]);
+    });
+
+    // A PLACE HOLDS ONE CHILD, so a "wide middle" is unusable until its middle
+    // place can grow — which is what makes picking a shape build a column
+    // rather than leaving somebody to assemble one by hand. A place already
+    // holding something must not be touched: the shape control changes the
+    // ARRANGEMENT, never the content.
+    it("seeds empty places with a column and leaves filled ones alone", () => {
+      const onChange = vi.fn();
+      renderCard(
+        container({
+          mode: "grid",
+          spaces: 2,
+          children: [titled("a"), null],
+        }),
+        onChange,
+      );
+      fireEvent.change(screen.getByTestId("section-shape"), {
+        target: { value: "SidebarLeft" },
+      });
+      const next = onChange.mock.calls.at(-1)?.[0][0];
+      expect(next.children[0]).toEqual(titled("a"));
+      expect(next.children[1].mode).toBe("stack");
+    });
+
+    // Nothing pins this one functionally today — `patchContainer` with
+    // `weights: undefined` is dropped by `JSON.stringify` on save — but
+    // nothing asserted it either, and a section stuck weighted with no way
+    // back to even is exactly the kind of silent regression this repo keeps
+    // paying for.
+    it("clears the weights when Even is picked after a weighted shape", () => {
+      const onChange = vi.fn();
+      renderCard(
+        container({ mode: "grid", spaces: 3, weights: [1, 3, 1] }),
+        onChange,
+      );
+      fireEvent.change(screen.getByTestId("section-shape"), {
+        target: { value: "Even" },
+      });
+      const next = onChange.mock.calls.at(-1)?.[0][0];
+      expect(next.weights).toBeUndefined();
+    });
+
+    it("shows one dial per place, seeded from the shape", () => {
+      renderCard(container({ mode: "grid", spaces: 3, weights: [1, 3, 1] }));
+      const dials = screen.getAllByTestId(/^section-weight-/);
+      expect(dials.map((d) => (d as HTMLInputElement).value)).toEqual([
+        "1",
+        "3",
+        "1",
+      ]);
+    });
+
+    // The three shares DIFFER, so an implementation that wrote every dial's
+    // value to the whole array — `[v, v, v]` — would pass a fixture whose
+    // shares all happened to be alike and fail this one, exactly as it does
+    // here: the untouched places must still read 3 and 1.
+    it("writes one place's share without touching the others", () => {
+      const onChange = vi.fn();
+      renderCard(
+        container({ mode: "grid", spaces: 3, weights: [1, 3, 1] }),
+        onChange,
+      );
+      fireEvent.change(screen.getByTestId("section-weight-0"), {
+        target: { value: "2" },
+      });
+      expect(onChange.mock.calls.at(-1)?.[0][0].weights).toEqual([2, 3, 1]);
+    });
+
+    // The truncated prefix, `[2, 5]`, matches no `SECTION_SHAPES` entry for
+    // two places — `SidebarLeft` is `[1, 3]` and `SidebarRight` is `[3, 1]` —
+    // so this cannot pass by way of a shape lookup standing in for a real
+    // re-length. It has to be an actual truncation of what was there.
+    it("re-lengths the weights when the width changes", () => {
+      const onChange = vi.fn();
+      renderCard(
+        container({ mode: "grid", spaces: 3, weights: [2, 5, 4] }),
+        onChange,
+      );
+      fireEvent.change(screen.getByTestId("section-spaces"), {
+        target: { value: "2" },
+      });
+      expect(onChange.mock.calls.at(-1)?.[0][0].weights).toEqual([2, 5]);
+    });
+
+    it("explains what the shares do", () => {
+      renderCard(container({ mode: "grid", spaces: 3 }));
+      expect(screen.getByTestId("section-weights-hint")).toBeInTheDocument();
+    });
+
+    // FINDING 2 (final whole-branch review, 2026-08-19): `Number("")` is `0`
+    // and `max` does not block typing past it, so an unclamped dial could
+    // write a share `blocksSchema` refuses at `sections[0].weights[N]` — an
+    // array-index path `blockProblems` cannot mark, which used to surface as
+    // the page-level "holds more than it can" banner with nothing pointing
+    // at the dial that caused it. Clamping in `onChange` makes that payload
+    // unreachable from the control rather than reachable and then unmarked.
+    it("clamps a cleared dial to 1 rather than writing 0", () => {
+      const onChange = vi.fn();
+      renderCard(
+        container({ mode: "grid", spaces: 3, weights: [1, 3, 1] }),
+        onChange,
+      );
+      fireEvent.change(screen.getByTestId("section-weight-0"), {
+        target: { value: "" },
+      });
+      expect(onChange.mock.calls.at(-1)?.[0][0].weights).toEqual([1, 3, 1]);
+    });
+
+    it("clamps a dial typed past the bound to BLOCK_LIMITS.weight", () => {
+      const onChange = vi.fn();
+      renderCard(
+        container({ mode: "grid", spaces: 3, weights: [1, 3, 1] }),
+        onChange,
+      );
+      fireEvent.change(screen.getByTestId("section-weight-1"), {
+        target: { value: "12" },
+      });
+      expect(onChange.mock.calls.at(-1)?.[0][0].weights).toEqual([
+        1,
+        BLOCK_LIMITS.weight,
+        1,
+      ]);
     });
   });
 

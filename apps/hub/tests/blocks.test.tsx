@@ -215,7 +215,7 @@ describe("the modes", () => {
   it("lays a grid at the container's own space count", () => {
     renderBlock(container({ mode: "grid", spaces: 3 }));
     expect(screen.getByTestId("block-grid").className).toContain(
-      "@lg:grid-cols-3",
+      "@lg:[grid-template-columns:var(--block-tracks,repeat(3,minmax(0,1fr)))]",
     );
   });
 
@@ -502,11 +502,26 @@ describe("accordion", () => {
 // narrower.
 describe("the places a container lays", () => {
   it.each([
-    [2, "@xs:grid-cols-2"],
-    [3, "@lg:grid-cols-3"],
-    [4, "@2xl:grid-cols-4"],
-    [5, "@4xl:grid-cols-5"],
-    [6, "@5xl:grid-cols-6"],
+    [
+      2,
+      "@xs:[grid-template-columns:var(--block-tracks,repeat(2,minmax(0,1fr)))]",
+    ],
+    [
+      3,
+      "@lg:[grid-template-columns:var(--block-tracks,repeat(3,minmax(0,1fr)))]",
+    ],
+    [
+      4,
+      "@2xl:[grid-template-columns:var(--block-tracks,repeat(4,minmax(0,1fr)))]",
+    ],
+    [
+      5,
+      "@4xl:[grid-template-columns:var(--block-tracks,repeat(5,minmax(0,1fr)))]",
+    ],
+    [
+      6,
+      "@5xl:[grid-template-columns:var(--block-tracks,repeat(6,minmax(0,1fr)))]",
+    ],
   ])("lays %i places across in a grid", (spaces, expected) => {
     renderBlock(container({ mode: "grid", spaces }));
     expect(screen.getByTestId("block-grid").className).toContain(expected);
@@ -2576,6 +2591,98 @@ describe("PublicBlocks", () => {
     expect(screen.getByTitle("English title").getAttribute("src")).toContain(
       "parent=hub.example",
     );
+  });
+
+  it("emits the track list as a custom property on a weighted grid", () => {
+    const { container } = renderPage([
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "S",
+        weights: [1, 3, 1],
+        children: [null, null, null],
+      },
+    ]);
+    const grid = container.querySelector("[data-testid='block-grid']");
+    expect(grid?.getAttribute("style")).toContain(
+      "--block-tracks: minmax(min(8rem,100%),1fr) minmax(min(8rem,100%),3fr) minmax(min(8rem,100%),1fr)",
+    );
+  });
+
+  it("resets the custom property to initial when there are no weights", () => {
+    // Not "emits no custom property at all" any more — see blocks.tsx's note
+    // on `--block-tracks`. Custom properties inherit, so leaving the property
+    // unset here would let a nested unweighted grid resolve an ENCLOSING
+    // weighted grid's track list instead of its own uniform fallback. Setting
+    // it to `"initial"` resets it at this element, which is what makes the
+    // fallback in `SPACE_CLASS`'s `var()` apply again beneath it.
+    const { container } = renderPage([
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "S",
+        children: [null, null, null],
+      },
+    ]);
+    const grid = container.querySelector("[data-testid='block-grid']");
+    expect(grid?.getAttribute("style")).toContain("--block-tracks: initial");
+  });
+
+  it("keeps the uniform fallback in the class, so an unweighted grid is unchanged", () => {
+    const { container } = renderPage([
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "S",
+        children: [null, null, null],
+      },
+    ]);
+    const grid = container.querySelector("[data-testid='block-grid']");
+    expect(grid?.className).toContain(
+      "@lg:[grid-template-columns:var(--block-tracks,repeat(3,minmax(0,1fr)))]",
+    );
+  });
+
+  it("does not centre a lone last block in a weighted grid", () => {
+    const { container } = renderPage([
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "S",
+        weights: [1, 3, 1],
+        children: [
+          leaf({ title_en: "a" }),
+          leaf({ title_en: "b" }),
+          leaf({ title_en: "c" }),
+          leaf({ title_en: "d" }),
+        ],
+      },
+    ]);
+    const grid = container.querySelector("[data-testid='block-grid']");
+    expect(grid?.className).not.toContain("col-start-2");
+  });
+
+  it("still centres a lone last block in an unweighted grid", () => {
+    const { container } = renderPage([
+      {
+        kind: "container",
+        mode: "grid",
+        spaces: 3,
+        name_en: "S",
+        children: [
+          leaf({ title_en: "a" }),
+          leaf({ title_en: "b" }),
+          leaf({ title_en: "c" }),
+          leaf({ title_en: "d" }),
+        ],
+      },
+    ]);
+    const grid = container.querySelector("[data-testid='block-grid']");
+    expect(grid?.className).toContain("col-start-2");
   });
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addTableCell,
   addTableRow,
+  addToPlace,
   appendPlace,
   clearAt,
   mayNest,
@@ -15,8 +16,10 @@ import {
   removeTableRow,
   setAt,
   setLeafKind,
+  setSpaces,
   setTableCell,
   SPACE_CHOICES,
+  type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import {
   BLOCK_LIMITS,
@@ -360,6 +363,138 @@ describe("patchContainer", () => {
   it("changes nothing when the path names a leaf", () => {
     const page = gapped();
     expect(patchContainer(page, [0, 0], { spaces: 4 })).toEqual(page);
+  });
+});
+
+describe("setSpaces", () => {
+  const page = (spaces: number, weights?: number[]) =>
+    [
+      {
+        ...newContainer("grid", spaces),
+        weights,
+        children: [leaf("a"), leaf("b"), leaf("c")],
+      },
+    ] as Block[];
+
+  it("keeps every child when the width narrows", () => {
+    const next = setSpaces(page(3, [1, 3, 2]), [0], 2)[0] as ContainerBlock;
+    expect(next.children).toHaveLength(3);
+  });
+
+  it("truncates the weights to the new width", () => {
+    const next = setSpaces(page(3, [1, 3, 2]), [0], 2)[0] as ContainerBlock;
+    expect(next.weights).toEqual([1, 3]);
+  });
+
+  // The last share is deliberately not 1: padding with the LAST share
+  // ([1, 3, 2] -> [1, 3, 2, 2, 2]) would give a different answer than padding
+  // with an even share ([1, 3, 2, 1, 1]) here, where a trailing 1 would not
+  // have told the two apart.
+  it("pads the weights with an even share when the width grows", () => {
+    const next = setSpaces(page(3, [1, 3, 2]), [0], 5)[0] as ContainerBlock;
+    expect(next.weights).toEqual([1, 3, 2, 1, 1]);
+  });
+
+  it("leaves a container with no weights without any", () => {
+    const next = setSpaces(page(3), [0], 2)[0] as ContainerBlock;
+    expect(next.weights).toBeUndefined();
+  });
+
+  it("changes nothing when the path names a leaf", () => {
+    const before = gapped();
+    expect(setSpaces(before, [0, 0], 2)).toEqual(before);
+  });
+
+  it("changes nothing when the place is empty", () => {
+    const before = gapped();
+    expect(setSpaces(before, [0, 1], 2)).toEqual(before);
+  });
+});
+
+describe("addToPlace", () => {
+  /**
+   * A section holding a container holding a container — three levels of
+   * container, which is every level `mayNest` allows — with a leaf at the
+   * bottom, one level past where a container may sit.
+   *
+   * **The arithmetic is the thing to get wrong, not the cap.** A leaf's
+   * deepest seat is three containers down, so a helper that nests only two
+   * and calls itself "at the cap" would sit one level above the only place
+   * the refusal this describes can happen. `deepestPath` is asserted against
+   * `mayNest` directly, in the tests below, so a helper that drifts fails as
+   * a wrong fixture rather than as a passing test of nothing.
+   */
+  const section3Levels = (): ContainerBlock => ({
+    ...newContainer("stack", 1),
+    children: [
+      {
+        ...newContainer("stack", 1),
+        children: [
+          {
+            ...newContainer("stack", 1),
+            children: [leaf("deep")],
+          },
+        ],
+      },
+    ],
+  });
+
+  /** The one place three containers down — a leaf's seat, not a container's. */
+  const deepestPath = (): BlockPath => [0, 0, 0, 0];
+
+  it("fills an empty place directly, adding no container nobody asked for", () => {
+    const page = [
+      {
+        ...newContainer("grid", 2),
+        name_en: "S",
+        children: [null, null],
+      },
+    ] as Block[];
+    const next = addToPlace(page, [0, 0], leaf("a"))[0] as ContainerBlock;
+    expect(next.children[0]).toEqual(leaf("a"));
+  });
+
+  it("wraps what is already there in a stack and appends", () => {
+    const page = [
+      {
+        ...newContainer("grid", 2),
+        name_en: "S",
+        children: [leaf("a"), null],
+      },
+    ] as Block[];
+    const place = (addToPlace(page, [0, 0], leaf("b"))[0] as ContainerBlock)
+      .children[0] as ContainerBlock;
+    expect(place.kind).toBe("container");
+    expect(place.mode).toBe("stack");
+    expect(place.children).toEqual([leaf("a"), leaf("b")]);
+  });
+
+  it("appends to a stack that is already there rather than nesting another", () => {
+    const stack: ContainerBlock = {
+      ...newContainer("stack", 1),
+      children: [leaf("a")],
+    };
+    const page = [
+      {
+        ...newContainer("grid", 2),
+        name_en: "S",
+        children: [stack, null],
+      },
+    ] as Block[];
+    const place = (addToPlace(page, [0, 0], leaf("b"))[0] as ContainerBlock)
+      .children[0] as ContainerBlock;
+    expect(place.children).toEqual([leaf("a"), leaf("b")]);
+    expect(place.children.some((child) => child && isContainer(child))).toBe(
+      false,
+    );
+  });
+
+  it("refuses to wrap where a container may not sit, rather than building a tree too deep", () => {
+    // A place at the depth cap may hold content and nothing else — see the
+    // helper's own comment for why the arithmetic, not the cap, is the trap.
+    expect(mayNest(deepestPath())).toBe(false);
+    const deep = [section3Levels()];
+    expect(addToPlace(deep, deepestPath(), leaf("b"))).toBe(deep);
   });
 });
 

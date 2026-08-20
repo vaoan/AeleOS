@@ -230,6 +230,12 @@ export const TOO_DEEP_MESSAGE = "too deep";
  * What holds the units in step is each side naming its measure where it takes
  * it — `TextEncoder` here, `octet_length` there — so a reader comparing them
  * has something to compare.
+ *
+ * **Adding a member is the same obligation as renaming one, not a lesser
+ * case.** A cap declared here with no `c_max_` counterpart yet in `0009` is
+ * refused by the guard by name, which is deliberate: it is what keeps a
+ * client-only cap from ever being mistaken for one the database also
+ * enforces.
  */
 export const BLOCK_LIMITS = {
   /**
@@ -257,6 +263,16 @@ export const BLOCK_LIMITS = {
    * false of a section.
    */
   spaces: 6,
+  /**
+   * The largest share one place may take of its container's width.
+   *
+   * **The same ceiling as {@link BLOCK_LIMITS.spaces} and not by coincidence**
+   * — both are "how lopsided may one container be", counted from opposite
+   * ends. It bounds the worst ratio anybody can build at 1:6, which is what
+   * keeps a slider from producing a sliver on a stranger's screen; the track
+   * floor in `block-tracks.ts` then makes even that ratio readable.
+   */
+  weight: 6,
   /**
    * Children one container may hold, counted across every one of its rows.
    *
@@ -344,6 +360,47 @@ function spaceCount(strictness: Strictness) {
   const count = z.number().int().min(1);
   return strictness === "strict" ? count.max(BLOCK_LIMITS.spaces) : count;
 }
+
+/**
+ * What a container's weight list accepts, by which side of the split is being
+ * built.
+ *
+ * **The lenient side never fails.** A weight list is the one key here that a
+ * hand-written or skewed payload can make any shape at all, and a container
+ * that refuses to parse costs the whole page — `null` to its owner and `[]` to
+ * a stranger — over a value that was only ever going to cost a container its
+ * proportions. So the lenient build `.catch`es everything to `undefined`,
+ * which every reader already treats as "lay uniform tracks".
+ *
+ * The strict build bounds each share and the list's length; the cross-field
+ * check that the length is the container's own `spaces` cannot live here,
+ * because a field schema cannot see its siblings — see {@link containerSchema}.
+ *
+ * @param strictness - which side of the write/read split to build.
+ * @returns the weight list schema.
+ */
+function weightList(strictness: Strictness) {
+  const weight = z.number().int().min(1);
+  if (strictness !== "strict") {
+    // eslint-disable-next-line unicorn/no-useless-undefined -- zod's `.catch()` has no zero-argument form; the default IS `undefined`, not incidental to it.
+    return z.array(weight).optional().catch(undefined);
+  }
+  return z
+    .array(weight.max(BLOCK_LIMITS.weight))
+    .max(BLOCK_LIMITS.spaces)
+    .optional();
+}
+
+/**
+ * What a container whose weight list is not as long as its places is refused
+ * with.
+ *
+ * **It names the key**, for the reason the depth cap does: a mismatch reported
+ * as anything else tells somebody a field they got right is wrong. The same
+ * string is what `0009` raises, so the app and the database say one thing
+ * about one payload.
+ */
+export const WEIGHTS_LENGTH_MESSAGE = "weights must have one share per space";
 
 /** Measures a serialised page the way Postgres's `octet_length` does. */
 const utf8 = new TextEncoder();
@@ -568,6 +625,12 @@ export type LeafBlock = {
  * `kind` stays a literal here where {@link LeafBlock.kind} does not, which is
  * what keeps {@link isContainer} a one-sided test: there is exactly one
  * container kind and any name this build does not know is a leaf's problem.
+ *
+ * **A place may also carry a WEIGHT**, deciding how much of the container's
+ * width it takes relative to its siblings — see {@link ContainerBlock.weights}.
+ * That is a dimension `spaces` and `children` do not touch: how many places
+ * and what fills them stay exactly as wide apart from this as they were
+ * before it existed.
  */
 export type ContainerBlock = {
   kind: typeof CONTAINER_KIND;
@@ -587,6 +650,24 @@ export type ContainerBlock = {
    * than a fault.
    */
   spaces: number;
+  /**
+   * One share per place, deciding how wide each is relative to its siblings.
+   *
+   * **Absent means uniform**, which is what every page stored before this
+   * existed means, and the renderer reaches that case through a CSS fallback
+   * rather than a branch — so an unweighted page emits exactly the CSS it
+   * always did.
+   *
+   * A width is the PARENT's business: a block dragged from a wide place into
+   * a narrow one becomes narrow, because the width was never the block's. That
+   * is what keeps a drop an exchange of two places, which a per-child span
+   * could not.
+   *
+   * **A list whose length is not {@link ContainerBlock.spaces} is ignored, not
+   * honoured in part.** The strict write refuses one by name; the lenient read
+   * admits it and `trackListFor` resolves it to uniform.
+   */
+  weights?: number[];
   style?: BlockStyle;
   name_en?: string;
   name_es?: string;
@@ -729,6 +810,7 @@ function containerSchema(depth: number, strictness: Strictness) {
       mode:
         strictness === "strict" ? z.enum(CONTAINER_MODES) : z.string().max(32),
       spaces: spaceCount(strictness).default(1),
+      weights: weightList(strictness),
       style: specialise(z.object(blockStyleShape), strictness).optional(),
       name_en: optionalText,
       name_es: optionalText,
@@ -747,7 +829,19 @@ function containerSchema(depth: number, strictness: Strictness) {
       ).default([]),
     }),
     strictness,
-  );
+  ).superRefine((value, ctx) => {
+    // **Strict only.** The lenient read admits a mismatch and every reader
+    // resolves it to uniform tracks — see `trackListFor` — because refusing
+    // here would fail the container, then the union, then the page.
+    if (strictness !== "strict") return;
+    if (value.weights && value.weights.length !== value.spaces) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["weights"],
+        message: WEIGHTS_LENGTH_MESSAGE,
+      });
+    }
+  });
 }
 
 /**

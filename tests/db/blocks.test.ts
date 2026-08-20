@@ -778,6 +778,99 @@ describe("spaces", () => {
   });
 });
 
+describe("weights", () => {
+  it("stores a weight list whose length is the container's spaces", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 3, weights: [1, 3, 1], children: empties(3) }),
+      ]),
+    ).toBeNull();
+  });
+
+  // **Both directions, deliberately.** A weight list SHORTER than `spaces`
+  // and one LONGER than it are not the same fixture: `<> p_length` refuses
+  // both, but a sabotage that weakens the comparison to `< p_length` still
+  // refuses a list that is too short while silently admitting one that is too
+  // long. A single shorter-only case cannot tell the two apart — see rule 27
+  // in the root CLAUDE.md — so this covers both sides of the count.
+  it.each([
+    { spaces: 3, weights: [1, 3] }, // shorter than spaces
+    { spaces: 2, weights: [1, 3, 1] }, // longer than spaces
+  ])(
+    "refuses a weight list of the wrong length, by name ($spaces spaces, $weights.length shares)",
+    async ({ spaces, weights }) => {
+      expect(
+        await write(alice.sub, alice.sonaRef, [
+          container({ spaces, weights, children: empties(spaces) }),
+        ]),
+      ).toMatch(/weights must have one share per space/);
+    },
+  );
+
+  // FINDING 4 (final whole-branch review, 2026-08-19): these two used to
+  // match the generic /weights/, which the LENGTH message above also
+  // satisfies — so a regression collapsing both messages into one would not
+  // have reddened either case. Tightened to the message naming the real
+  // cause, which is not "the wrong number of shares".
+  it("refuses a share above the cap, naming the real cause", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 2, weights: [1, 7], children: empties(2) }),
+      ]),
+    ).toMatch(/a share must be a whole number from 1 to 6/);
+  });
+
+  it.each([
+    [1, 0],
+    [1, 1.5],
+  ])(
+    "refuses a share that is zero or fractional, naming the real cause (%j)",
+    async (...bad) => {
+      expect(
+        await write(alice.sub, alice.sonaRef, [
+          container({ spaces: 2, weights: bad, children: empties(2) }),
+        ]),
+      ).toMatch(/a share must be a whole number from 1 to 6/);
+    },
+  );
+
+  it("stores weights on a mode that lays no tracks", async () => {
+    // Dormant rather than refused: switching mode to look at a section and
+    // switching back must not lose the shape.
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({
+          mode: "carousel",
+          spaces: 2,
+          weights: [1, 3],
+          children: empties(2),
+        }),
+      ]),
+    ).toBeNull();
+  });
+
+  // **`jsonb_array_elements` sits behind a `case`, and this is why.** It is a
+  // set-returning function: fed something that is not an array it does not
+  // answer false, it RAISES — the same evaluation-order hazard
+  // `is_space_count`'s own comment documents. A stray string or number here
+  // must come back as an ordinary refusal, not an unhandled database error.
+  it("refuses a weight list written as a string, rather than raising", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 2, weights: "wide", children: empties(2) }),
+      ]),
+    ).toMatch(/weights/);
+  });
+
+  it("refuses a weight list written as a bare number, rather than raising", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        container({ spaces: 2, weights: 3, children: empties(2) }),
+      ]),
+    ).toMatch(/weights/);
+  });
+});
+
 // The database side of the style bag. It is validated identically at every
 // depth, because a nested container styles itself the way a section does — a
 // section IS a container.

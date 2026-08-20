@@ -2,7 +2,9 @@ import {
   CONTAINER_MODES,
   LEAF_KINDS,
 } from "@/features/actors/domain/block-schema";
+import { SPACE_CHOICES } from "@/features/actors/domain/block-edits";
 import { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
+import { SECTION_SHAPES } from "@/features/actors/presentation/section-shapes";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import type { BlockEditorLabels } from "@/features/actors/presentation/block-editor";
 
@@ -19,7 +21,10 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  *
  * The values are the ids themselves wherever a record is derived, so an
  * assertion can name what it is looking for without the fixture having to
- * invent English.
+ * invent English. `shapes` and `sectionWeight` follow the same rule, DERIVED
+ * from `SECTION_SHAPES` and `SPACE_CHOICES` respectively — the shape
+ * control's own vocabulary, so a shape or a place count added later cannot
+ * quietly fall behind the fixture the way the comment above warns about.
  *
  * `problemTitle` and `problemGeneric` are what a refused save marks a block
  * with; the suites assert against these values rather than against a
@@ -55,6 +60,15 @@ export function blockEditorLabels(): BlockEditorLabels {
     sectionMode: "Arrangement",
     sectionSpaces: "Spaces across",
     sectionSpacesHint: "Fewer means more rows. Nothing is removed.",
+    sectionShape: "Shape",
+    shapes: Object.fromEntries(
+      SECTION_SHAPES.map((shape) => [shape.id, shape.id]),
+    ),
+    sectionShapeCustom: "Custom",
+    sectionWeight: Object.fromEntries(
+      SPACE_CHOICES.map((place) => [place, `Width of place ${place}`]),
+    ),
+    sectionWeightsHint: "These set how wide each place is.",
     modes: Object.fromEntries(CONTAINER_MODES.map((mode) => [mode, mode])),
     removeSection: "Remove section",
     collapse: "Collapse section",

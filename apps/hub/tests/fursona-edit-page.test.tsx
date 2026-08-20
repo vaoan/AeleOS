@@ -58,6 +58,15 @@ const { DESCRIBED_KINDS } =
 // a stub would let the suite pass with a catalogue missing one that ships.
 const { themeConfiguratorLabels } =
   await import("@/features/actors/presentation/theme-labels");
+// Real for the same reason again: `labels.ts` maps over this to build the
+// shape control's per-entry names, so a stub would let the suite pass with a
+// catalogue missing a shape that ships.
+const { SECTION_SHAPES } =
+  await import("@/features/actors/presentation/section-shapes");
+// Real once more: `labels.ts` maps over this to build one dial label per
+// place, so a stub would let the suite pass with a catalogue missing an
+// entry for a place a container can actually lay.
+const { SPACE_CHOICES } = await import("@/features/actors/domain/block-edits");
 
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
@@ -71,6 +80,8 @@ vi.mock("@/features/actors", () => ({
   CONTAINER_MODES,
   LEAF_KINDS,
   DESCRIBED_KINDS,
+  SECTION_SHAPES,
+  SPACE_CHOICES,
   themeConfiguratorLabels,
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that
