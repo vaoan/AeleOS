@@ -1017,10 +1017,10 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - [ ] **Step 1: Write the failing tests**
 
 The style key parses and round-trips; a bled section's rendered width equals the
-viewport width and an unbled sibling's does not.
+viewport width and a sibling that does not bleed is held to the measure.
 
-Excludes: a fixture whose page measure is already `full`, where bled and unbled
-are the same width and the assertion cannot fail. Set the page to `wider` and
+Excludes: a fixture whose page measure is already `full`, where a bled section
+and an ordinary one are the same width and the assertion cannot fail. Set the page to `wider` and
 put both kinds of section on it.
 
 - [ ] **Step 2: Run to verify they fail**

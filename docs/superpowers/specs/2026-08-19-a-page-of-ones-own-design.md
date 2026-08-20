@@ -88,7 +88,7 @@ they-are-separate feature and none survives the weld.
 ### Why `name` is the optional one
 
 `display_name` is nullable. A person who has set none has nothing for a `name`
-block to render, so requiring it would make their page unsaveable until they
+block to render, so requiring it would make their page impossible to save until they
 filled in a field the schema permits them to leave empty.
 
 A `name` block whose actor has no display name **renders nothing**, and the

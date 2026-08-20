@@ -33,6 +33,10 @@
     "Segoe",
     "Tahoma",
     "sprited",
+    // The verb for what the block model did to `gallery` and `links`, and what
+    // the identity header gets next. "welded" and "unwelded" are already this
+    // repo's idiom and both are real words; only the bare verb is coined.
+    "unweld",
     "chrome",
     "chromes",
     "Sonique",
