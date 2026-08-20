@@ -431,6 +431,79 @@ const sections = [
     ],
     { spaces: 2, style: { skin: "comic" } },
   ),
+  // ---- Weighted places -----------------------------------------------------
+  // A place's width is its PARENT's business, so these sections carry
+  // `weights` and their children carry nothing about how wide they are.
+  section(
+    "Sides and a middle",
+    "grid",
+    [
+      group("stack", [
+        leaf("link", "Reference sheet", {
+          link_url: "https://example.com/ref",
+        }),
+        leaf("link", "Commissions", { link_url: "https://example.com/comms" }),
+        leaf("stat", "Species", { description_en: "Spectacled bear" }),
+      ]),
+      group("stack", [
+        leaf("picture", "A wide middle", { image_url: PICTURES[0] }),
+        leaf("text", "1 : 3 : 1", {
+          description_en:
+            "The middle place takes three shares and each side takes one. Every place holds a `stack`, so each column grows downward on its own and nothing is aligned to anything beside it.",
+        }),
+      ]),
+      group("stack", [
+        leaf("social", "Bluesky", {
+          link_url: "https://bsky.app/profile/example.com",
+        }),
+        leaf("social", "Telegram", { link_url: "https://t.me/example" }),
+      ]),
+    ],
+    { spaces: 3, weights: [1, 3, 1] },
+  ),
+  section(
+    "A share is not a promise",
+    "grid",
+    [
+      leaf("text", "1", { description_en: "One share." }),
+      leaf("text", "6", {
+        description_en:
+          "Six shares. Narrow the window: the sides stop shrinking at their 8rem floor and this stops being six times anything. Widen it and the ratio comes back. That is the floor doing its job — a share nobody can read is not a shape.",
+      }),
+      leaf("text", "1", { description_en: "One share." }),
+    ],
+    { spaces: 3, weights: [1, 6, 1] },
+  ),
+  section(
+    "Wide left, and an empty place that keeps its width",
+    "grid",
+    [
+      leaf("picture", "Three shares", { image_url: PICTURES[1] }),
+      leaf("text", "One share", {
+        description_en: "3 : 1 : 2 — and the third place is empty.",
+      }),
+      null,
+    ],
+    { spaces: 3, weights: [3, 1, 2] },
+  ),
+  section(
+    "A nested grid keeps its own widths",
+    "grid",
+    [
+      leaf("text", "Outer: one share", {
+        description_en: "The outer section is 1 : 3.",
+      }),
+      group(
+        "grid",
+        [
+          leaf("text", "Inner", { description_en: "Equal." }),
+          leaf("text", "Inner", { description_en: "Equal." }),
+        ],
+        { spaces: 2, name_en: "Inner, unweighted" },
+      ),
+    ],
+    { spaces: 2, weights: [1, 3] },
+  ),
 ];
 
 /**

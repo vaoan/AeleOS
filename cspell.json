@@ -269,6 +269,8 @@
     "unlayered",
     "unlinted",
     "trunc",
+    "Medellín",
+    "Tomás",
     "Voronoi",
     "moiré"
   ],
@@ -305,7 +307,8 @@
         "apps/hub/tests/e2e/fursona-drag-reorder.spec.ts",
         "apps/hub/tests/e2e/block-drag.spec.ts",
         "apps/hub/tests/e2e/support/blocks.ts",
-        "docs/superpowers/plans/2026-08-19-weighted-places.md"
+        "docs/superpowers/plans/2026-08-19-weighted-places.md",
+        "scripts/seed-persona.mjs"
       ],
       "language": "en,en-GB,es"
     }
