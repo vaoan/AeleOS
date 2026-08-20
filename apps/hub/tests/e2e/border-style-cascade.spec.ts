@@ -143,18 +143,26 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
 
       // One place across, left empty: an empty place is the editor's own
       // `surface border-dashed` placeholder — this app's "nothing here yet" —
-      // which is the whole point of this test, and one place makes it the only
-      // one on the card. Built through the controls rather than written as
-      // data, so what is measured is the control that shipped.
+      // which is the whole point of this test. Built through the controls
+      // rather than written as data, so what is measured is the control that
+      // shipped.
+      //
+      // **Counted as `empty-place`, never as `.border-dashed`.** The identity
+      // section's empty avatar is also dashed, and a two-space add has two
+      // empty places. A class locator on the last card cannot tell those
+      // apart from the one placeholder this case is about — CI went red at
+      // count 2 for that reason, not because the cascade had changed.
       await page.getByTestId("new-section-spaces").selectOption("1");
+      await expect(page.getByTestId("new-section-spaces")).toHaveValue("1");
       await page.getByTestId("add-section").click();
+      await expect(page.getByTestId("section-card")).toHaveCount(2);
 
       const card = page.getByTestId("section-card").last();
       // The face is the layer carrying `surface` — a plain one, naming no
       // border-style utility — and it is the element the editor's preview
       // actually paints the section's form on.
       const face = page.getByTestId("section-card-face").last();
-      const placeholder = card.locator(".border-dashed");
+      const placeholder = card.getByTestId("empty-place");
       await expect(placeholder).toHaveCount(1);
 
       // Before anything is chosen: the face falls through to the design's
