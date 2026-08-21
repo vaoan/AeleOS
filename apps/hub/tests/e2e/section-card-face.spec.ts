@@ -14,6 +14,7 @@ import {
   textColour,
   type Probe,
 } from "./support/pixels";
+import { chooseNewSectionSpaces } from "./support/editor";
 
 // WHY THIS FILE EXISTS.
 //
@@ -249,7 +250,7 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   // Built by hand rather than from a template: a template inserts sections as
   // data without touching a single control, which would prove nothing about
   // the control under test.
-  await page.getByTestId("new-section-spaces").selectOption("2");
+  await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
 
   // **Collapsed, which is the total case.** Only the card's BODY is gated on
@@ -396,7 +397,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.goto("/es/pages/new");
   await page.getByTestId("editor-handle").fill("facecheck");
   await page.getByTestId("editor-display-name").fill("Face check");
-  await page.getByTestId("new-section-spaces").selectOption("2");
+  await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("collapse-section").last().click();
 
@@ -495,7 +496,7 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
   // Composed by hand, content and all: a template inserts its sections as data
   // without touching one of these controls, so a template-built page would
   // measure the same pixels while proving nothing about the editor.
-  await page.getByTestId("new-section-spaces").selectOption("1");
+  await chooseNewSectionSpaces(page, "1");
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").first().click();
   await page.getByTestId("section-name").last().fill("Section");
@@ -612,7 +613,7 @@ test("the three background fits are three different paints", async ({
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
-  await page.getByTestId("new-section-spaces").selectOption("2");
+  await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("collapse-section").last().click();
 
