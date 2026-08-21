@@ -1517,7 +1517,10 @@ throttled-page cost). Branch protection is `strict`, so a branch must also be
 up to date with `main` before it merges, and **admins are not exempt**: there is
 no one who can push past a red check. Merges are **squash only** (merge commits
 and rebases are off), history on `main` is linear, force-pushes and deleting
-`main` are off, and unresolved review threads block merge. The required-check
+`main` are off, and unresolved review threads block merge. Same-repo PRs turn
+**squash auto-merge on when they open** (`.github/workflows/auto-merge.yml`),
+using `GH_TOKEN` so the merge is the PAT's user and still fires `deploy`.
+Drafts wait until they are marked ready; fork PRs are left alone. The required-check
 list still lives in repository settings, not in the workflow file — read it
 from the API rather than inferring it from the YAML:
 
