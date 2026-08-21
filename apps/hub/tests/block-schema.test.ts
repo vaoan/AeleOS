@@ -684,6 +684,22 @@ describe("a block's own form", () => {
     expect(accepts(leaf({ style: { border: "groove" } }))).toBe(false);
   });
 
+  // Absent and `true` are one answer — the page's ordinary chrome — and
+  // `false` is the only stored opt-out.
+  it.each([true, false])(
+    "accepts a section whose margins are %s",
+    (margins) => {
+      expect(accepts(container({ style: { margins } }))).toBe(true);
+    },
+  );
+
+  // The string is the case that matters, and it is `"false"` rather than
+  // `"true"`: it is what a form control hands back unconverted, and taking it
+  // for the boolean would strip the chrome from a page nobody chose that for.
+  it("refuses the STRING false for margins", () => {
+    expect(accepts(container({ style: { margins: "false" } }))).toBe(false);
+  });
+
   it("accepts a skin name at the longest length allowed", () => {
     expect(accepts(leaf({ style: { skin: "x".repeat(32) } }))).toBe(true);
   });

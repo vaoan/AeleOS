@@ -62,6 +62,8 @@ export type SectionStyle = BlockStyle;
  * same trap `inheritSkin`'s own doc names for `skins.default`.
  *
  * `bleed` names the full-width checkbox, which appears on a section only.
+ * `margins` names the chrome checkbox beside it: default checked, storing
+ * nothing, with `false` the only persisted opt-out.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -93,6 +95,8 @@ export interface SectionStylePopupLabels {
    * the control is not offered there at all.
    */
   bleed: string;
+  /** Toggles the page chrome around a top-level section. */
+  margins: string;
   /** Field label for the border select. */
   border: string;
   /**
@@ -127,8 +131,9 @@ export interface SectionStylePopupLabels {
  * page in a single field and addresses a block by its position, so there is no
  * per-block form path for a `useController` to name.
  *
- * `atTop` is what decides whether the full-width control is offered: this
- * component sees a style bag and never knows where its block sits.
+ * `atTop` is what decides whether the full-width and margins controls are
+ * offered: this component sees a style bag and never knows where its block
+ * sits.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -146,9 +151,9 @@ export interface SectionStylePopupProps {
   /**
    * Whether this block is a SECTION — a container at depth 0.
    *
-   * Only a section may reach both edges of the window, so only a section is
-   * offered the control. Passed in rather than derived here: this component
-   * sees a style bag and never knows where its block sits.
+   * Only a section may reach both edges of the window or drop page chrome, so
+   * only a section is offered those controls. Passed in rather than derived
+   * here: this component sees a style bag and never knows where its block sits.
    */
   atTop: boolean;
 }
@@ -197,9 +202,9 @@ export interface SectionStylePopupProps {
  * cannot fail on, which is not the same as one that passes.
  *
  *
- * **The full-width checkbox is shown on a SECTION only**, and stores absence
- * rather than `false` — a key this bag does not carry already means "inherit
- * the page" everywhere else in it.
+ * **The full-width and margins checkboxes are shown on a SECTION only.** Bleed
+ * stores absence rather than `false`; margins stores `false` when unchecked
+ * and omits the key when checked, because absence already means today's chrome.
  *
  * @returns the button and, while open, the popup.
  */
@@ -381,22 +386,36 @@ export function SectionStylePopup({
               whether this block is a section and the control appears only
               there. */}
           {atTop ? (
-            <label className="flex items-center gap-2 text-xs font-medium">
-              <input
-                type="checkbox"
-                checked={style.bleed === true}
-                onChange={(event) =>
-                  // Absent rather than `false`, which is what `setField`'s
-                  // empty string already means here: the bag's rule everywhere
-                  // is that a key it does not carry means "inherit the page",
-                  // and storing `false` would be a second way to say it.
-                  setField("bleed", event.target.checked ? true : "")
-                }
-                {...tid("section-style-bleed")}
-                className="size-4 rounded-sm surface border-(--edge)/60"
-              />
-              {labels.bleed}
-            </label>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-xs font-medium">
+                <input
+                  type="checkbox"
+                  checked={style.bleed === true}
+                  onChange={(event) =>
+                    // Absent rather than `false`, which is what `setField`'s
+                    // empty string already means here: the bag's rule everywhere
+                    // is that a key it does not carry means "inherit the page",
+                    // and storing `false` would be a second way to say it.
+                    setField("bleed", event.target.checked ? true : "")
+                  }
+                  {...tid("section-style-bleed")}
+                  className="size-4 rounded-sm surface border-(--edge)/60"
+                />
+                {labels.bleed}
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium">
+                <input
+                  type="checkbox"
+                  checked={style.margins !== false}
+                  onChange={(event) =>
+                    setField("margins", event.target.checked ? "" : false)
+                  }
+                  {...tid("section-style-margins")}
+                  className="size-4 rounded-sm surface border-(--edge)/60"
+                />
+                {labels.margins}
+              </label>
+            </div>
           ) : null}
 
           <div className="grid gap-1.5">

@@ -1491,3 +1491,48 @@ describe("the bleed style key", () => {
     ).toBeNull();
   });
 });
+
+// **`margins` is a BOOLEAN, and the string is the case that matters** — the
+// same reason `bleed`'s is, one polarity over: absent means the page's ordinary
+// chrome, so a `'false'` mistaken for the boolean would strip the chrome from a
+// page whose author never asked for that, and it is exactly what a checkbox
+// hands back unconverted.
+describe("the margins style key", () => {
+  const styled = (margins: unknown) => [
+    { ...container(), style: { margins } },
+    ...IDENTITY_BLOCKS,
+  ];
+
+  it("accepts true and false", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, styled(true)),
+    ).toBeNull();
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, styled(false)),
+    ).toBeNull();
+  });
+
+  it("refuses a string and a number", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, styled("false")),
+    ).toMatch(/margins must be true or false/);
+    expect(await writeExactly(alice.sub, alice.sonaRef, styled(0))).toMatch(
+      /margins must be true or false/,
+    );
+  });
+
+  // Stored at any depth even though only depth 0 reads it: refusing it deeper
+  // would make moving a section INTO another one fail on a style it carried
+  // legitimately a moment earlier.
+  it("stores it on a nested container too", async () => {
+    expect(
+      await writeExactly(alice.sub, alice.sonaRef, [
+        {
+          ...container(),
+          children: [{ ...container(), style: { margins: false } }],
+        },
+        ...IDENTITY_BLOCKS,
+      ]),
+    ).toBeNull();
+  });
+});

@@ -8,6 +8,7 @@ import {
   mintTicket,
   signIn,
 } from "./support/clerk-session";
+import { identity } from "./support/blocks";
 
 // WHAT THIS GUARDS, AND WHY IT IS NOT THE CANVAS SUITE.
 //
@@ -369,16 +370,16 @@ function build(items: number) {
  */
 function sections() {
   for (let items = MOST_ITEMS; items > 1; items -= 1) {
-    const built = build(items);
+    const built = [...build(items), identity()];
     const bytes = Buffer.byteLength(JSON.stringify(built));
     if (bytes < DOCUMENT_BUDGET) {
       console.log(
-        `seeding ${PLAN.length} sections of ${items} leaves — ${bytes} bytes`,
+        `seeding ${PLAN.length} heavy sections of ${items} leaves plus identity — ${bytes} bytes`,
       );
       return built;
     }
   }
-  return build(1);
+  return [...build(1), identity()];
 }
 
 declare global {

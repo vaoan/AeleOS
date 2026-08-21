@@ -1910,13 +1910,17 @@ style?: {
   background_fit?: "cover" | "tile";
   card_size?: "s" | "m" | "l";
   border?: "solid" | "dashed" | "dotted" | "double" | "none";
+  bleed?: boolean;
+  margins?: boolean;
 }
 ```
 
-**Every key is optional, and absent means "inherit whatever encloses this."**
-That is a real answer, not a gap: a block with no `style` at all gets no
-`style` attribute in the markup either, so a page nobody has touched with this
-feature is byte-for-byte what it was before the feature existed.
+**Every key is optional, and absent means the existing/default answer rather
+than an empty value.** For visual form that is "inherit whatever encloses
+this"; for `bleed` it keeps the page measure; for `margins` it keeps ordinary
+page chrome. That is a real answer, not a gap: a block with no `style` at all
+gets no `style` attribute in the markup either, so a page nobody has touched
+with this feature is byte-for-byte what it was before the feature existed.
 `SectionStylePopup` enforces this on write — it hands its caller the WHOLE bag
 rather than one key, so clearing a field **deletes the key** instead of storing
 `""`. A per-key writer cannot do that; it can only ever write a value, and an
@@ -2299,7 +2303,7 @@ respect `prefers-reduced-motion` and stay off wherever the star toggle says off
 — that toggle is the visitor's control over their own machine and the author's
 choice may not overrule it.
 
-### How wide a page is, and a section that ignores it (2026-08-19)
+### How wide a page is, and a section that ignores its chrome (2026-08-21)
 
 A theme carries a **measure**: six named stops from the app's own reading width
 out to `full`, which sets no maximum at all. Null is the design's own — the
@@ -2315,17 +2319,25 @@ plumbing and no fallback chain.
 **The measure is applied per SECTION, not to the page**, and that inversion is
 the whole mechanism. The public route asks `PageShell` for a full-width `main`
 — a third width, not a wider column — and each top-level block centres itself
-in the chosen measure. A section carrying `style.bleed` simply does not, and so
-reaches both edges.
+in the chosen measure. `PageShell`'s full mode carries no vertical padding
+either: every piece of public-page spacing belongs to the depth-0 section it
+surrounds.
+
+A section carrying `style.bleed` opts out of WIDTH only and reaches both edges.
+`style.margins: false` is the independent opt-out from page chrome: no side
+gutter, no gap to its neighbour, and no space beneath the bar or above the
+floor when it is first or last. Absent or `true` preserves that chrome, and the
+editor omits the key when the checkbox is on so every existing page keeps its
+old answer without acquiring a choice nobody made.
 
 **There is no `w-screen` here and there must not be.** `100vw` counts the
 scrollbar that a centred column does not, so the breakout version gains a
 horizontal scrollbar the moment a page is tall enough to need a vertical one.
 Moving the measure per-section is what makes the honest version possible.
 
-`bleed` is read at depth 0 only — a nested block has a section between it and
-the page and cannot escape it — and the editor offers the control only there.
-It is STORED at any depth, because refusing it deeper would make moving a
+`bleed` and `margins` are read at depth 0 only — a nested block has a section
+between it and the page — and the editor offers both controls only there. They
+are STORED at any depth, because refusing either deeper would make moving a
 section into another one fail on a style it carried legitimately a moment
 earlier.
 
@@ -2335,9 +2347,9 @@ exactly the value the client schema refuses, and exactly what a form control
 hands back when somebody forgets to convert it. A check against `v_value` would
 accept both and silently disagree with the client while appearing to agree.
 
-`false` and absent are the same answer on the page, so the editor stores
-absence: a key this bag does not carry already means "inherit the page"
-everywhere else in it.
+For `bleed`, `false` and absent are the same answer, so the editor stores
+absence. For `margins`, absence and `true` are the same answer, so it stores
+only the explicit `false` opt-out.
 
 **One thing a browser test cannot pin.** At a chosen viewport, `wider` and
 `widest` are indistinguishable unless the window happens to sit between them —
@@ -2345,10 +2357,20 @@ so the stops are asserted as class strings, verbatim. The null-equals-default
 case pins the AGREEMENT and not the value, and cannot do better, because both
 sides read the same entry; that is written into the test.
 
-The page's own gutter carries `px-4 sm:px-6` and is marked `data-page-gutter`.
-It is the one box in the block tree sized by the WINDOW — it is outermost and
-has no container above it — and the no-viewport-breakpoint guard excludes that
-one element while still scanning its descendants.
+Each `data-page-gutter` owns its page chrome. An ordinary first section carries
+`pt-6 sm:pt-10`, each ordinary non-first section carries `mt-10`, and an
+ordinary last section carries `pb-6 sm:pb-10`; one ordinary section therefore
+owns both edges. Measured sections also carry `px-4 sm:px-6`, while bled
+sections remain `w-full`. With margins off, none of that section's horizontal
+or vertical chrome is emitted. The parent has no `gap-10`, because a gap owned
+by neither neighbour is one neither can opt out of.
+
+That makes a banner an ordinary first section with `bleed: true` and
+`margins: false`, and a footer the same combination on the genuinely last
+section. The marker remains the one box in the block tree sized by the WINDOW
+— it is outermost and has no container above it — and the
+no-viewport-breakpoint guard excludes that one element while still scanning
+its descendants.
 
 ### The theme switch is in the bar (2026-08-19)
 

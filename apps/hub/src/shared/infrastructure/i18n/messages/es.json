@@ -394,7 +394,8 @@
       "widest": "Muy ancho",
       "full": "Todo el ancho"
     },
-    "sectionStyleBleed": "Llegar a ambos bordes de la ventana"
+    "sectionStyleBleed": "Llegar a ambos bordes de la ventana",
+    "sectionStyleMargins": "Márgenes"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

@@ -133,7 +133,14 @@ export const identityArrangement = (at: number): string[] => [
   `${at}.2=leaf-editor:Owner`,
 ];
 
-/** What {@link seedPage} needs. */
+/**
+ * What {@link seedPage} needs.
+ *
+ * `appendIdentity` defaults on so a fixture that only names its subject still
+ * writes a legal page. Turn it off when the last section of that fixture must
+ * genuinely be last — a footer followed by the identity section is not a
+ * footer.
+ */
 export interface SeedOptions {
   /** The Clerk user to write as. */
   userId: string;
@@ -143,6 +150,14 @@ export interface SeedOptions {
   displayName: string;
   /** The page itself, as a tree of blocks. */
   blocks: SeedBlock[];
+  /**
+   * Whether to append the shared identity section.
+   *
+   * Defaults to true. Set false only when the fixture already carries every
+   * required identity leaf and its subject depends on the final section
+   * genuinely being last.
+   */
+  appendIdentity?: boolean;
   /** The owner's theme, when the spec needs one. */
   theme?: Record<string, unknown>;
 }
@@ -168,10 +183,13 @@ export interface SeededPage {
  * page and an assertion about the RENDER then fails somewhere far from the
  * cause.
  *
- * **{@link identity} is appended to every tree**, because a page naming no
+ * **{@link identity} is appended by default**, because a page naming no
  * `avatar`, `handle` or `owner` is one the database refuses. A caller passes
  * only the blocks its own subject is about; the trailing section is what makes
  * the write legal, and anything counting top-level sections has to count it.
+ * Pass `appendIdentity: false` when the fixture already carries those kinds
+ * and its last section is the subject — a footer with identity after it is
+ * not last.
  *
  * @param options - who to write as, and what to write.
  * @returns the address and handle the page is served at.
@@ -204,7 +222,10 @@ export async function seedPage(options: SeedOptions): Promise<SeededPage> {
 
   const { error: blocksError } = await supabase.rpc("set_actor_sections", {
     p_actor_ref: actorRef,
-    p_sections: [...options.blocks, identity()],
+    p_sections:
+      options.appendIdentity === false
+        ? options.blocks
+        : [...options.blocks, identity()],
   });
   expect(blocksError).toBeNull();
 

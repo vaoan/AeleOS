@@ -509,6 +509,22 @@ const blockStyleShape = {
   // `name_en` and `name_es` are already section-only in exactly this way, so
   // this is the bag's existing shape rather than a new kind of key.
   bleed: z.boolean().optional(),
+  // **Meaningful at depth 0 only, and its polarity is the opposite of
+  // `bleed`'s.** Absent — or `true` — keeps the page's ordinary chrome around
+  // the section: the side gutter, the gap to its neighbour, and the space
+  // under the bar or above the floor when it is first or last. `false` is the
+  // explicit choice to remove all of it, which is what makes a first section a
+  // banner and a last one a footer.
+  //
+  // Absence is therefore the STATE EVERY EXISTING PAGE IS IN, so the writer
+  // never sends `true`: storing it on every page would look like a choice
+  // nobody made. `true` is accepted anyway because it says the same thing, and
+  // refusing it would make the two spellings of one answer disagree.
+  //
+  // Independent of `bleed`, which decides WIDTH. Stored at any depth for the
+  // same reason `bleed` is — moving a section into another one must not fail
+  // on a style it carried legitimately a moment earlier.
+  margins: z.boolean().optional(),
 };
 
 /** One cell of a `table` leaf, in both languages. */
