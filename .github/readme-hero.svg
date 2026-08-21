@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 380" width="1280" height="380" role="img" aria-label="AeleOS: the identity hub and actor registry for Furry Colombia">
+  <title>AeleOS</title>
+  <defs>
+    <radialGradient id="field" cx="50%" cy="26%" r="115%">
+      <stop offset="32%" stop-color="#171226" />
+      <stop offset="68%" stop-color="#3a1a37" />
+      <stop offset="100%" stop-color="#6b2745" />
+    </radialGradient>
+    <radialGradient id="dustPink" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#d660b0" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#d660b0" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="dustViolet" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#845cd6" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#845cd6" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f5c14e" stop-opacity="0.85" />
+      <stop offset="45%" stop-color="#f5c14e" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#f5c14e" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="380" fill="url(#field)" />
+
+  <ellipse cx="330" cy="120" rx="440" ry="260" fill="url(#dustViolet)" />
+  <ellipse cx="960" cy="290" rx="480" ry="250" fill="url(#dustPink)" />
+  <ellipse cx="700" cy="60" rx="360" ry="180" fill="url(#dustPink)" opacity="0.55" />
+
+  <g fill="#f7eef3">
+    <circle cx="150" cy="86" r="1.6" opacity="0.7" />
+    <circle cx="268" cy="300" r="1.2" opacity="0.5" />
+    <circle cx="472" cy="58" r="1.4" opacity="0.6" />
+    <circle cx="596" cy="330" r="1.1" opacity="0.45" />
+    <circle cx="838" cy="96" r="1.5" opacity="0.65" />
+    <circle cx="1024" cy="60" r="1.2" opacity="0.5" />
+    <circle cx="1142" cy="248" r="1.6" opacity="0.6" />
+    <circle cx="1210" cy="132" r="1.1" opacity="0.45" />
+  </g>
+
+  <circle cx="188" cy="152" r="78" fill="url(#starGlow)" />
+  <circle cx="188" cy="152" r="13" fill="#f5c14e" />
+
+  <text x="266" y="176" fill="#f7eef3" font-family="'Space Grotesk', 'DM Sans', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-1.5">AeleOS</text>
+  <text x="270" y="228" fill="#ef6d97" font-family="'DM Sans', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="27" font-weight="600">Identity is the operating system.</text>
+  <text x="270" y="268" fill="#e3cdd9" font-family="'DM Sans', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21">The identity hub and actor registry for Furry Colombia.</text>
+</svg>
