@@ -1,0 +1,33 @@
+# GitHub has no repository setting that turns auto-merge on for every new PR.
+# Squash is already the only allowed merge method; this job requests squash
+# auto-merge as soon as a same-repo PR is opened (or leaves draft).
+#
+# A PAT (`GH_TOKEN`) is the actor, not `GITHUB_TOKEN`. Auto-merge is performed
+# by whoever enabled it; a merge by github-actions[bot] would not fire
+# `deploy` (push to main). Fork PRs are excluded: they do not receive secrets,
+# and auto-merging an untrusted branch is not what "by default" is for.
+
+name: auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  enable:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Enable squash auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::GH_TOKEN repository secret is missing"
+            exit 1
+          fi
+          gh pr merge "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --squash --auto
