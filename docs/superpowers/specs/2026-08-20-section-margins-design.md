@@ -50,7 +50,7 @@ choice nobody made.
 | bleed | margins | what the section's page box is                         |
 | ----- | ------- | ------------------------------------------------------ |
 | no    | on      | measured, gutter, gap, bar/floor chrome if first/last  |
-| yes   | on      | full width, still guttered and gapped                  |
+| yes   | on      | full width, vertical gap and bar/floor chrome          |
 | no    | off     | measured, flush to neighbours and to bar/floor if ends |
 | yes   | off     | full width, flush — banner if first, footer if last    |
 
@@ -69,7 +69,9 @@ opt out without a parent gap that cannot be attributed to either neighbour:
 - First, margins on: `pt-6 sm:pt-10` (what `main` used to add above).
 - Every section except the first, margins on: `mt-10` (what `gap-10` was).
 - Last, margins on: `pb-6 sm:pb-10` (what `main` used to add below).
-- Horizontal: `MEASURE_CLASS` / `BLEED_CLASS` as today.
+- Horizontal: `MEASURE_CLASS` / `BLEED_CLASS` as today. Bleed already removes
+  the side gutter so the painted section itself reaches the edge; margins do
+  not put that gutter back.
 - Margins off: none of those classes on that section.
 
 Whole class strings, never interpolated. A unit test asserts them verbatim,
