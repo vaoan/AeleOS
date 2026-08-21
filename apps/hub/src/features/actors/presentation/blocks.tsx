@@ -2189,6 +2189,56 @@ const MEASURE_CLASS: Record<PageMeasure, string> = {
   full: "w-full px-4 sm:px-6",
 };
 
+/** The same measures without the ordinary page-side gutter. */
+const MEASURE_WITHOUT_GUTTER_CLASS: Record<PageMeasure, string> = {
+  narrow: "mx-auto w-full max-w-[620px]",
+  medium: "mx-auto w-full max-w-3xl",
+  wide: "mx-auto w-full max-w-5xl",
+  wider: "mx-auto w-full max-w-7xl",
+  widest: "mx-auto w-full max-w-[96rem]",
+  full: "w-full",
+};
+
+const FIRST_MARGIN = "pt-6 sm:pt-10";
+const BETWEEN_MARGIN = "mt-10";
+const LAST_MARGIN = "pb-6 sm:pb-10";
+
+/**
+ * Composes the page box a depth-0 block owns.
+ *
+ * Width and page chrome are independent: bleed chooses the width, while
+ * margins chooses the horizontal gutter and first/between/last spacing.
+ *
+ * @param block - the top-level block.
+ * @param position - its zero-based page position.
+ * @param count - the number of top-level blocks.
+ * @param measure - the page measure chosen by the author.
+ * @returns whole Tailwind class strings for that page box.
+ */
+function pageBoxClass(
+  block: BlockNode,
+  position: number,
+  count: number,
+  measure: PageMeasure,
+): string {
+  const hasMargins = !isContainer(block) || block.style?.margins !== false;
+  let width = BLEED_CLASS;
+  if (!bleeds(block)) {
+    width = hasMargins
+      ? MEASURE_CLASS[measure]
+      : MEASURE_WITHOUT_GUTTER_CLASS[measure];
+  }
+  if (!hasMargins) return width;
+  return [
+    width,
+    position === 0 ? FIRST_MARGIN : "",
+    position > 0 ? BETWEEN_MARGIN : "",
+    position === count - 1 ? LAST_MARGIN : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 /**
  * Everything on one public page.
  *
@@ -2215,6 +2265,11 @@ const MEASURE_CLASS: Record<PageMeasure, string> = {
  *
  * **A section carrying `style.bleed` opts out of the measure entirely** and
  * reaches both edges — see {@link BLEED_CLASS}. Read at depth 0 only.
+ * `style.margins === false` independently opts that same section out of page
+ * chrome: no side gutter, no neighbour gap, and no bar/floor padding when it
+ * is first or last. Absent or `true` keeps today's spacing. The parent stack
+ * owns no `gap-10`, because a gap neither neighbour can drop is one neither
+ * can opt out of.
  *
  * @returns the page, or nothing when there is nothing on it.
  */
@@ -2227,7 +2282,7 @@ export function PublicBlocks({
   // Resolved once, and OUTSIDE the class attribute: `better-tailwindcss` reads
   // string literals in a `className` expression as class names, so the default
   // stop written inline was reported as an unknown class called `wider`.
-  const measureClass = MEASURE_CLASS[page.measure ?? DEFAULT_PAGE_MEASURE];
+  const measure = page.measure ?? DEFAULT_PAGE_MEASURE;
   // Position named once, exactly as `seatsOf` does it and for the same reason:
   // a block has no identity but where it sits, and `react/no-array-index-key`
   // reads the map callback's index parameter.
@@ -2236,8 +2291,8 @@ export function PublicBlocks({
     path: String(position),
   }));
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-10">
-      {seats.map((seat) => (
+    <div className="grid grid-cols-[minmax(0,1fr)]">
+      {seats.map((seat, position) => (
         // **The measure is applied PER SECTION, not to the page.** The route
         // asks the shell for a full-width `main`, so each top-level block
         // centres itself in the author's chosen measure — which is what lets
@@ -2247,13 +2302,14 @@ export function PublicBlocks({
           key={seat.path}
           // **The page's own gutter, and the one element here sized by the
           // WINDOW.** Everything below it is a block and adapts to its parent
-          // through a container query; this is the outermost box, has no
-          // container above it, and carries exactly the `px-4 sm:px-6` the
-          // shell applied before the measure moved per-section. The marker is
-          // what lets the no-viewport-breakpoint guard say so precisely
-          // instead of being relaxed.
+          // through a container query; this is the outermost box and has no
+          // container above it. An ordinary measured section carries the
+          // horizontal gutter plus its positional page chrome here; bleed
+          // removes the width constraint, and `margins: false` removes all
+          // chrome. The marker lets the no-viewport-breakpoint guard say so
+          // precisely instead of being relaxed.
           data-page-gutter=""
-          className={bleeds(seat.block) ? BLEED_CLASS : measureClass}
+          className={pageBoxClass(seat.block, position, seats.length, measure)}
         >
           <Block
             block={seat.block}

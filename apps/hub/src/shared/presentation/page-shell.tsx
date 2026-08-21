@@ -127,9 +127,12 @@ export interface PageShellProps {
  * That column is 620px by default and `max-w-7xl` when `width` is `"wide"` —
  * see the prop for why going wide also drops the vertical centring. `"full"`
  * is a third thing rather than a wider column: `main` holds nothing back at
- * all, and the public page applies the author's chosen measure to each of its
- * own sections. That inversion is what lets a section reach both edges without
- * `w-screen`, whose `100vw` counts a scrollbar the centred column does not.
+ * all — no maximum, centring, gutter or vertical padding — and the public page
+ * applies the author's chosen measure and first/between/last chrome to each of
+ * its own sections. That inversion is what lets a section reach both edges
+ * without `w-screen`, whose `100vw` counts a scrollbar the centred column does
+ * not, and what lets a first or last section drop its page chrome without a
+ * page-level exception.
  *
  * The star sits beside the wordmark rather than with the page settings on the
  * right: it is the star that lights the dust, and putting it out is what turns
@@ -174,22 +177,16 @@ export interface PageShellProps {
 /**
  * What each width lays the content column out in.
  *
- * `full` keeps the VERTICAL padding and drops everything horizontal: the
- * public page applies the measure to each of its own sections, so `main` must
- * hold nothing back sideways — no maximum, no centring and no gutter, or a
- * bleeding section cannot reach the edge and the two widest measures are
- * silently capped at this column's own `max-w-7xl`.
- *
- * **The vertical half stays here rather than moving with it.** Dropping it too
- * would butt the first section against the header bar, and it cannot move to
- * the page's own grid instead: `sm:py-10` is a VIEWPORT breakpoint, which is
- * exactly what `blocks.test.tsx` forbids everywhere below `main` — the shell
- * is the outermost box and the one place a window query is the right question.
+ * `full` drops both horizontal and vertical chrome. Public pages apply their
+ * measure and first/between/last spacing to each depth-0 section, so `main`
+ * must hold nothing back: no maximum, centring, gutter or page-edge padding.
+ * That ownership is what lets one section become a flush banner or footer
+ * without making either a page-level exception.
  */
 const COLUMN: Record<"column" | "wide" | "full", string> = {
   column: "mx-auto max-w-[620px] justify-center px-4 py-6 sm:px-6 sm:py-10",
   wide: "mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10",
-  full: "py-6 sm:py-10",
+  full: "",
 };
 
 /**
@@ -216,9 +213,12 @@ const COLUMN: Record<"column" | "wide" | "full", string> = {
  * That column is 620px by default and `max-w-7xl` when `width` is `"wide"` —
  * see the prop for why going wide also drops the vertical centring. `"full"`
  * is a third thing rather than a wider column: `main` holds nothing back at
- * all, and the public page applies the author's chosen measure to each of its
- * own sections. That inversion is what lets a section reach both edges without
- * `w-screen`, whose `100vw` counts a scrollbar the centred column does not.
+ * all — no maximum, centring, gutter or vertical padding — and the public page
+ * applies the author's chosen measure and first/between/last chrome to each of
+ * its own sections. That inversion is what lets a section reach both edges
+ * without `w-screen`, whose `100vw` counts a scrollbar the centred column does
+ * not, and what lets a first or last section drop its page chrome without a
+ * page-level exception.
  *
  * The star sits beside the wordmark rather than with the page settings on the
  * right: it is the star that lights the dust, and putting it out is what turns
@@ -355,9 +355,9 @@ export async function PageShell({
           // 88px of a 360px screen — which is what pushed the form off the
           // right-hand edge there. `responsive.spec.ts` measures it.
           "flex w-full min-w-0 flex-1 flex-col",
-          // The padding and the centring belong to the COLUMN, not to `main`:
-          // a full-width page has neither, and puts them on each section that
-          // is not bleeding instead.
+          // The padding and the centring belong to the COLUMN, not to `main`.
+          // A full-width public page has neither: each depth-0 section owns
+          // its measure and first/between/last chrome independently.
           COLUMN[width],
         )}
         {...tid("page-content")}

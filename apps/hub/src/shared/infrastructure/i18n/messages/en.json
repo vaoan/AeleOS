@@ -394,7 +394,8 @@
       "widest": "Widest",
       "full": "Full width"
     },
-    "sectionStyleBleed": "Reach both edges of the window"
+    "sectionStyleBleed": "Reach both edges of the window",
+    "sectionStyleMargins": "Margins"
   },
   "picker": {
     "title": "Who do you want to be?",

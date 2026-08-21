@@ -850,10 +850,13 @@ replace`, so the newest body of a function could sit in a file named after
     stored page needed migrating and why the rule cannot be defeated by
     stripping the blocks: `withRequiredBlocks` puts them back on every read.
   - **A page chooses its own width**, six named stops from the reading measure
-    out to `full`, and **a section may ignore it and reach both edges**. The
-    measure is applied per SECTION rather than to the page, which is the whole
-    mechanism: `w-screen` is refused because `100vw` counts the scrollbar a
-    centred column does not.
+    out to `full`, and **a section may independently opt out of width and page
+    chrome**. `bleed` reaches both edges; `margins: false` removes that
+    depth-0 section's side gutter and first/between/last spacing. The full
+    `PageShell` owns none of that spacing and the parent owns no gap, so a first
+    bled section without margins is an ordinary banner and a genuinely last
+    one is an ordinary footer. The measure remains per SECTION; `w-screen` is
+    refused because `100vw` counts the scrollbar a centred column does not.
   - **The theme switch is in the bar** and the light/dark toggle's question
     mark is gone — it clears the author's theme as well as setting a default,
     so the press always changes something a visitor can see.

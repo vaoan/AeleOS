@@ -182,6 +182,13 @@ const sectionStyleShape = {
   // is a bag somebody will let differ by accident. The block model is where it
   // means something — see `blockStyleShape`.
   bleed: z.boolean().optional(),
+  // **Nothing writes this in the flat shape and nothing reads it here either**,
+  // for the same reason `bleed` above is present: the two bags are held
+  // identical by `style-bag-parity.test.ts`, and a bag that may differ is a bag
+  // somebody lets differ by accident. `blockStyleShape` is where it means
+  // something — absent or `true` keeps a section's page chrome, `false` removes
+  // it.
+  margins: z.boolean().optional(),
 };
 
 /**
