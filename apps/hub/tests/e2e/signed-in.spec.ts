@@ -56,6 +56,51 @@ test.describe("signed in", () => {
     await expect(page.getByTestId("sign-out")).toBeVisible();
   });
 
+  // THE ONE THING ABOUT THIS PAGE NO UNIT TEST CAN SEE.
+  //
+  // `/me` sits inside the signed-in layout, which asks the shell for
+  // `width="wide"` — a `max-w-7xl` column with the vertical centring
+  // deliberately dropped, because the page list and the editor below it are
+  // long. This page is one short card, so it centres itself, and the assertion
+  // has to be a measured box: the class strings were right on the page that
+  // rendered top-left, exactly as `CLAUDE.md` records for `COLUMN.full`.
+  //
+  // The wrong behaviours being excluded are named so the fixture can be checked
+  // against them: top-aligned in a tall column, and stretched across the wide
+  // one. Both are what this page did before. The viewport is tall and wide on
+  // purpose — the slack assertions are what make the two distinguishable at
+  // all, since on a short window a centred card and a top-aligned one land in
+  // the same place.
+  test("their identity card sits in the middle of the window", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await signIn(page, await mintTicket(identity!.userId));
+    await page.goto("/es/me");
+
+    const card = page.getByTestId("card");
+    await expect(card).toHaveCount(1);
+
+    const column = (await page.getByTestId("page-content").boundingBox())!;
+    const box = (await card.boundingBox())!;
+
+    // Without this slack the test passes whatever the page does.
+    expect(column.height - box.height).toBeGreaterThan(200);
+    expect(column.width - box.width).toBeGreaterThan(200);
+
+    const off = (a: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }) => ({
+      x: a.x + a.width / 2,
+      y: a.y + a.height / 2,
+    });
+    expect(Math.abs(off(box).y - off(column).y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(off(box).x - off(column).x)).toBeLessThanOrEqual(2);
+  });
+
   test("their fursona list is reachable and empty to begin with", async ({
     page,
   }) => {
