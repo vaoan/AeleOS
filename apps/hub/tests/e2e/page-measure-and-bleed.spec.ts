@@ -116,3 +116,71 @@ test("a widest page outgrows the old column, and a bleeding section reaches both
   // measure entirely would pass both assertions above and be a different bug.
   expect(bled.width).toBeGreaterThan(measured.width);
 });
+
+test("a flush banner and footer meet the page edges while the middle keeps its chrome", async ({
+  page,
+}) => {
+  const { address, handle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "margins",
+    displayName: "Framed middle",
+    appendIdentity: false,
+    blocks: [
+      container({
+        name_en: "Banner",
+        style: { bleed: true, margins: false },
+        children: [leaf({ title_en: "Top" })],
+      }),
+      container({
+        name_en: "Middle",
+        children: [leaf({ title_en: "Body" })],
+      }),
+      container({
+        name_en: "Footer",
+        style: { bleed: true, margins: false },
+        children: [
+          leaf({ title_en: "Bottom" }),
+          leaf({ kind: "avatar", title_en: "Portrait" }),
+          leaf({ kind: "handle", title_en: "Handle" }),
+          leaf({ kind: "owner", title_en: "Owner" }),
+        ],
+      }),
+    ],
+  });
+
+  // Short enough that the content, not the shell's minimum height, determines
+  // `main`'s bottom edge. Otherwise a correct footer is followed by empty
+  // viewport space and cannot prove that the section itself removed the floor.
+  await page.setViewportSize({ width: VIEWPORT.width, height: 600 });
+  expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
+
+  const sections = page.getByTestId("public-section");
+  await expect(sections).toHaveCount(3);
+
+  const main = (await page.getByTestId("page-content").boundingBox())!;
+  const gutters = page.locator("[data-page-gutter]");
+  await expect(gutters).toHaveCount(3);
+  const banner = (await gutters.nth(0).boundingBox())!;
+  const middle = (await gutters.nth(1).boundingBox())!;
+  const footer = (await gutters.nth(2).boundingBox())!;
+  const [bannerPaddingTop, footerPaddingBottom] = await gutters.evaluateAll(
+    (elements) => [
+      getComputedStyle(elements[0]!).paddingTop,
+      getComputedStyle(elements[2]!).paddingBottom,
+    ],
+  );
+  const available = await page.evaluate(
+    () => document.documentElement.clientWidth,
+  );
+
+  expect(bannerPaddingTop).toBe("0px");
+  expect(footerPaddingBottom).toBe("0px");
+  expect(banner.y).toBeCloseTo(main.y, 0);
+  expect(banner.x).toBeCloseTo(0, 0);
+  expect(banner.width).toBeCloseTo(available, 0);
+  expect(middle.y - (banner.y + banner.height)).toBeGreaterThan(20);
+  expect(footer.y).toBeCloseTo(middle.y + middle.height, 0);
+  expect(footer.y + footer.height).toBeCloseTo(main.y + main.height, 0);
+  expect(footer.x).toBeCloseTo(0, 0);
+  expect(footer.width).toBeCloseTo(available, 0);
+});

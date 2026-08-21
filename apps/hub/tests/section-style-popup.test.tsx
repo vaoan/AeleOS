@@ -180,6 +180,35 @@ describe("SectionStylePopup", () => {
     expect(screen.queryByLabelText("Card size")).toBeNull();
   });
 
+  it("offers margins only on a top-level section", () => {
+    const { view } = harness(onePage());
+    openPopup();
+    expect(screen.getByLabelText("Margins")).toBeChecked();
+    expect(screen.getByTestId("section-style-margins")).toBeInTheDocument();
+    view.unmount();
+
+    harness(
+      [
+        {
+          ...newContainer("grid", 1),
+          children: [{ ...newContainer("grid", 1) }],
+        },
+      ],
+      [0, 0],
+    );
+    openPopup();
+    expect(screen.queryByTestId("section-style-margins")).toBeNull();
+  });
+
+  it("stores false when margins are removed and absence when restored", () => {
+    const { held } = harness(onePage());
+    openPopup();
+    fireEvent.click(screen.getByLabelText("Margins"));
+    expect(styleOf(held.page)).toEqual({ margins: false });
+    fireEvent.click(screen.getByLabelText("Margins"));
+    expect(styleOf(held.page)).toBeUndefined();
+  });
+
   it("offers every border option, in order, behind an inherit option", () => {
     harness(onePage());
     openPopup();

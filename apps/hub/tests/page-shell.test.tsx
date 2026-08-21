@@ -32,7 +32,9 @@ const { PageShell } = await import("@/shared/presentation/page-shell");
  * @param width - the width mode, omitted to exercise the default.
  * @returns the rendered main element.
  */
-async function renderShell(width?: "column" | "wide"): Promise<HTMLElement> {
+async function renderShell(
+  width?: "column" | "wide" | "full",
+): Promise<HTMLElement> {
   render(await PageShell({ children: <p>hi</p>, width }));
   return screen.getByTestId("page-content");
 }
@@ -80,6 +82,12 @@ describe("PageShell width", () => {
   it("starts a wide page at the top rather than centring it", async () => {
     const main = await renderShell("wide");
     expect(main.className).not.toContain("justify-center");
+  });
+
+  it("leaves vertical page chrome to sections when full", async () => {
+    const classes = (await renderShell("full")).className.split(/\s+/);
+    expect(classes).not.toContain("py-6");
+    expect(classes).not.toContain("sm:py-10");
   });
 });
 

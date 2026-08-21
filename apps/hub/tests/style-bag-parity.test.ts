@@ -37,6 +37,10 @@ const EXPECTED_KEYS = [
   // identical and the guard is worth more than one unused key: a bag that may
   // differ is a bag somebody lets differ by accident.
   "bleed",
+  // Meaningful in the BLOCK model only, at depth 0 — a section keeping or
+  // dropping the page chrome around it. Here for the same reason `bleed` is:
+  // the two bags are held identical.
+  "margins",
 ];
 
 /** A 500-character address, the longest `background_url` either bag allows. */
@@ -71,6 +75,10 @@ const CASES = new Map<string, { accepted: unknown[]; refused: unknown[] }>([
   // `"true"` is what a form control hands back if somebody forgets to convert
   // it, and it must not be taken for the boolean.
   ["bleed", { accepted: [true, false], refused: ["true", 1, null] }],
+  // `"false"` is the refusal that matters here: absent means margins are ON,
+  // so a string mistaken for the boolean would read as the opt-out nobody
+  // chose rather than as no answer at all.
+  ["margins", { accepted: [true, false], refused: ["false", 0, null] }],
 ]);
 
 /**

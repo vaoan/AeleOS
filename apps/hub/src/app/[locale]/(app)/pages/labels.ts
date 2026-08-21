@@ -189,7 +189,8 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  *
  * **A section may also reach both edges of the window** — the `bleed` key,
  * offered at depth 0 only, because a nested block has a section between it and
- * the page and cannot escape it.
+ * the page and cannot escape it. `margins` is the independent chrome toggle
+ * beside it: checked omits the key, unchecked stores `false`.
  *
  * @returns the translated labels.
  */
@@ -283,6 +284,7 @@ export async function fursonaEditorLabels(
       title: t("sectionStyleTitle"),
       skin: t("sectionStyleSkin"),
       bleed: t("sectionStyleBleed"),
+      margins: t("sectionStyleMargins"),
       skins: Object.fromEntries(
         SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
       ) as Record<SkinId, string>,

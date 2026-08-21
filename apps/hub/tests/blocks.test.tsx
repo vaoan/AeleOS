@@ -885,8 +885,8 @@ describe("the containment context", () => {
     //
     // **`[data-page-gutter]` is excluded, and only that element.** It is the
     // page's own gutter — the outermost box, with no container above it — and
-    // it carries the same window-sized padding the shell applied before the
-    // measure became per-section. The rule this guard enforces is about
+    // it may carry window-sized horizontal and first/last chrome according to
+    // that section's style and position. The rule this guard enforces is about
     // BLOCKS adapting to their parent; the page adapting to the window is the
     // thing they adapt inside of. Its descendants are still scanned.
     const classesOf = (root_: Element) =>
@@ -2872,6 +2872,130 @@ describe("the page measure", () => {
         expect.arrayContaining(["px-4", "sm:px-6"]),
       );
     }
+  });
+});
+
+describe("page chrome belongs to each top-level section", () => {
+  const renderGutters = (overrides: Array<Record<string, unknown>>) => {
+    const { container: root } = render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <PublicBlocks
+          blocks={overrides.map((over, position) =>
+            container({ name_en: `Section ${position}`, ...over }),
+          )}
+          locale="en"
+          page={pageContext({ measure: "wider" })}
+        />
+      </NextIntlClientProvider>,
+    );
+    return {
+      parent: root.firstElementChild,
+      gutters: [...root.querySelectorAll("[data-page-gutter]")].map((element) =>
+        (element.getAttribute("class") ?? "").split(/\s+/),
+      ),
+    };
+  };
+
+  it("puts top, between, and bottom chrome on the sections that own it", () => {
+    const { gutters } = renderGutters([{}, {}, {}]);
+    const [first, middle, last] = gutters;
+    expect(first).toEqual([
+      "mx-auto",
+      "w-full",
+      "max-w-7xl",
+      "px-4",
+      "sm:px-6",
+      "pt-6",
+      "sm:pt-10",
+    ]);
+    expect(middle).toEqual([
+      "mx-auto",
+      "w-full",
+      "max-w-7xl",
+      "px-4",
+      "sm:px-6",
+      "mt-10",
+    ]);
+    expect(last).toEqual([
+      "mx-auto",
+      "w-full",
+      "max-w-7xl",
+      "px-4",
+      "sm:px-6",
+      "mt-10",
+      "pb-6",
+      "sm:pb-10",
+    ]);
+  });
+
+  it("gives one ordinary section both page edges", () => {
+    const { gutters } = renderGutters([{}]);
+    expect(gutters[0]).toEqual([
+      "mx-auto",
+      "w-full",
+      "max-w-7xl",
+      "px-4",
+      "sm:px-6",
+      "pt-6",
+      "sm:pt-10",
+      "pb-6",
+      "sm:pb-10",
+    ]);
+  });
+
+  it("removes all page chrome only from a section with margins false", () => {
+    const { gutters } = renderGutters([{ style: { margins: false } }, {}]);
+    const [flush, ordinary] = gutters;
+    expect(flush).toEqual(["mx-auto", "w-full", "max-w-7xl"]);
+    expect(ordinary).toEqual([
+      "mx-auto",
+      "w-full",
+      "max-w-7xl",
+      "px-4",
+      "sm:px-6",
+      "mt-10",
+      "pb-6",
+      "sm:pb-10",
+    ]);
+  });
+
+  it("keeps bleed independent from margins", () => {
+    const { gutters } = renderGutters([
+      { style: { bleed: true } },
+      { style: { bleed: true, margins: false } },
+    ]);
+    const [bled, banner] = gutters;
+    expect(bled).toEqual(["w-full", "pt-6", "sm:pt-10"]);
+    expect(banner).toEqual(["w-full"]);
+  });
+
+  it("ignores margins on a nested container", () => {
+    const { gutters } = renderGutters([
+      {
+        children: [
+          container({
+            name_en: "Nested",
+            style: { margins: false },
+          }),
+        ],
+      },
+    ]);
+    expect(gutters[0]).toEqual([
+      "mx-auto",
+      "w-full",
+      "max-w-7xl",
+      "px-4",
+      "sm:px-6",
+      "pt-6",
+      "sm:pt-10",
+      "pb-6",
+      "sm:pb-10",
+    ]);
+  });
+
+  it("leaves no parent gap that a section cannot opt out of", () => {
+    const { parent } = renderGutters([{}, {}]);
+    expect(parent?.className.split(/\s+/)).not.toContain("gap-10");
   });
 });
 

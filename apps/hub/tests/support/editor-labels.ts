@@ -42,7 +42,8 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  *
  * **A section may also reach both edges of the window** — the `bleed` key,
  * offered at depth 0 only, because a nested block has a section between it and
- * the page and cannot escape it.
+ * the page and cannot escape it. `margins` is the independent chrome toggle
+ * beside it.
  *
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
@@ -134,6 +135,7 @@ export function blockEditorLabels(): BlockEditorLabels {
       title: "This section's own style",
       skin: "Style",
       bleed: "Reach both edges",
+      margins: "Margins",
       skins: Object.fromEntries(SKINS.map((skin) => [skin, skin])) as Record<
         SkinId,
         string
