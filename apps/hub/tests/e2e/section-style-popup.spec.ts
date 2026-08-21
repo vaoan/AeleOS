@@ -7,6 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import { chooseNewSectionSpaces } from "./support/editor";
 
 // WHAT THIS FILE PROVES, AND THE HALF IT LOST.
 //
@@ -58,7 +59,7 @@ test("a skin chosen in the popup paints the card behind it at once", async ({
 
   // One section, built by hand — a template inserts sections as data without
   // touching a single control, which would prove nothing here.
-  await page.getByTestId("new-section-spaces").selectOption("2");
+  await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Styled");
 

@@ -7,7 +7,12 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { handleFor, saveAndLeave, startFursona } from "./support/editor";
+import {
+  chooseNewSectionSpaces,
+  handleFor,
+  saveAndLeave,
+  startFursona,
+} from "./support/editor";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import { isContainer } from "@/features/actors/domain/block-schema";
@@ -268,7 +273,7 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // A shape and an arrangement that are NOT the ones the add control starts
   // on, so what travels through storage is something this test chose rather
   // than whatever happened to be the default.
-  await page.getByTestId("new-section-spaces").selectOption("3");
+  await chooseNewSectionSpaces(page, "3");
   await page.getByTestId("add-section").click();
   // **The LAST card.** A page opens carrying the identity section the database
   // requires and `add-section` appends, so the one this test builds is at the

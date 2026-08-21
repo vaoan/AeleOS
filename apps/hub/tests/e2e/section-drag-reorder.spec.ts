@@ -8,6 +8,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { liftByKeyboard } from "./support/drag";
+import { chooseNewSectionSpaces } from "./support/editor";
 
 // THE ONE INTERACTION NOBODY WOULD NOTICE FROM A SCREENSHOT.
 //
@@ -72,11 +73,11 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
 
   // Two sections, built by hand — a template inserts sections as data without
   // touching a grip at all, which would prove nothing here.
-  await page.getByTestId("new-section-spaces").selectOption("2");
+  await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("First");
 
-  await page.getByTestId("new-section-spaces").selectOption("3");
+  await chooseNewSectionSpaces(page, "3");
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Second");
 
@@ -146,7 +147,7 @@ test("a piece of content dragged by keyboard moves into another section's place"
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
 
-  await page.getByTestId("new-section-spaces").selectOption("2");
+  await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-section").click();
 

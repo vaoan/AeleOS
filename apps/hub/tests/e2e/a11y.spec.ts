@@ -139,18 +139,30 @@ test.describe("the signed-in pages are accessible", () => {
   test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
   test("the list and the editor", async ({ page }) => {
+    // Several full-page axe scans, including the editor with two overlays.
+    // The default 30s is enough on a warm machine and not on CI, where this
+    // case timed out inside `analyze()` after `/es/me` and `/es/pages` had
+    // already been walked — reported flaky, then green on retry.
+    test.setTimeout(120_000);
     await signIn(page, await mintTicket(identity!.userId));
 
-    for (const path of ["/es/me", "/es/pages"]) {
-      await page.goto(path);
-      await expect(page.getByTestId("wordmark")).toBeVisible();
-      await isAccessible(page, path);
-    }
+    // The wordmark is in the SHELL, so it is visible before the page's own
+    // content has painted. Axe on a still-streaming tree is both slow and a
+    // different page from the one a visitor sees. Wait for something only
+    // the route renders.
+    await page.goto("/es/me");
+    await expect(page.getByTestId("sign-out")).toBeVisible();
+    await isAccessible(page, "/es/me");
+
+    await page.goto("/es/pages");
+    await expect(page.getByTestId("fursonas-title")).toBeVisible();
+    await isAccessible(page, "/es/pages");
 
     // The editor with its theme panel open: the densest screen in the app, and
     // the one where a control without a name is most likely to appear, since
     // half of it is colour swatches and sliders.
     await page.goto("/es/pages/new");
+    await expect(page.getByTestId("add-section")).toBeVisible();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
     await isAccessible(page, "the editor with the theme panel open");

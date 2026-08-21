@@ -7,6 +7,7 @@ import {
   signIn,
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
+import { chooseNewSectionSpaces } from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 
 // WHY THIS FILE EXISTS, AND WHY A MODEL IN skins.test.ts WAS NOT ENOUGH.
@@ -152,8 +153,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       // empty places. A class locator on the last card cannot tell those
       // apart from the one placeholder this case is about — CI went red at
       // count 2 for that reason, not because the cascade had changed.
-      await page.getByTestId("new-section-spaces").selectOption("1");
-      await expect(page.getByTestId("new-section-spaces")).toHaveValue("1");
+      await chooseNewSectionSpaces(page, "1");
       await page.getByTestId("add-section").click();
       await expect(page.getByTestId("section-card")).toHaveCount(2);
 
@@ -228,7 +228,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
 
       await page.goto("/es/pages/new");
-      await page.getByTestId("new-section-spaces").selectOption("2");
+      await chooseNewSectionSpaces(page, "2");
       await page.getByTestId("add-section").click();
       await page.getByTestId("collapse-section").last().click();
 

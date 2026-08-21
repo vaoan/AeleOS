@@ -37,6 +37,35 @@ export async function startFursona(
 }
 
 /**
+ * Sets how many places a newly added section will lay across, and waits
+ * until that choice is the select's value.
+ *
+ * **Retries the assignment, because a single `selectOption` can land on a
+ * mount React then throws away.** `BlockEditor` keeps this count in
+ * `useState`. CI's e2e job runs `next dev`, which Strict-Mode remounts the
+ * editor once; a change that fires on the first mount is reset to the default
+ * of two by the second. `border-style-cascade.spec.ts` then waited five
+ * seconds for `"1"` on a control that would never move. Polling until the
+ * value sticks is what makes the surviving mount the one that is set.
+ *
+ * @param page - the editor page.
+ * @param spaces - the option value, as the select stores it.
+ */
+export async function chooseNewSectionSpaces(
+  page: Page,
+  spaces: string,
+): Promise<void> {
+  const select = page.getByTestId("new-section-spaces");
+  await expect(select).toBeVisible();
+  await expect
+    .poll(async () => {
+      await select.selectOption(spaces);
+      return select.inputValue();
+    })
+    .toBe(spaces);
+}
+
+/**
  * Presses Save and waits for the editor to leave.
  *
  * **The banner is asserted before the navigation is waited for**, and the

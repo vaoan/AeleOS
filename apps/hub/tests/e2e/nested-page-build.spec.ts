@@ -7,7 +7,12 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { handleFor, saveAndLeave, startFursona } from "./support/editor";
+import {
+  chooseNewSectionSpaces,
+  handleFor,
+  saveAndLeave,
+  startFursona,
+} from "./support/editor";
 import { placesOf, tracksOf } from "./support/grid";
 
 // THE TEST THIS WHOLE PHASE EXISTS FOR.
@@ -122,7 +127,7 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   // THE SHAPE, CHOSEN BEFORE THERE IS ANYTHING TO PUT IN IT. Three across
   // rather than the two the control starts on, so what travels through storage
   // is a number this test picked.
-  await page.getByTestId("new-section-spaces").selectOption(String(ACROSS));
+  await chooseNewSectionSpaces(page, String(ACROSS));
   await page.getByTestId("add-section").click();
 
   // **The LAST card, not the first.** Every page now opens carrying the
