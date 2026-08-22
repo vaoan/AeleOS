@@ -71,9 +71,11 @@ export interface FursonaEditorState {
  *
  * The theme is written here rather than the moment a colour changes, and the
  * distinction is worth keeping straight: what has to be instant is SEEING the
- * change, which the configurator does locally with the same `themeCss` the
- * public page uses. Persisting on every frame of a dragged colour slider would
- * be a write per frame, which is a different thing entirely and one a free-tier
+ * change. The configurator updates the form value; its parent
+ * `PreviewThemeHost` applies `previewThemeCss`, which shares declaration
+ * sources with the public page's `themeCss` without styling the editor
+ * document. Persisting on every frame of a dragged colour slider would be a
+ * write per frame, which is a different thing entirely and one a free-tier
  * database would not thank us for.
  *
  * That admits a partial failure — fields written, sections refused — and it is

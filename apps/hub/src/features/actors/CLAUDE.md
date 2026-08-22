@@ -1692,8 +1692,10 @@ decisions, so they are not quietly undone:
   rather than trusting its caller — which means a dragged handle can change
   index, and a control tracking its selection by index would silently start
   editing the neighbour.
-- **Changes are live and use the SAME `themeCss` the public page uses**, so the
-  preview cannot drift from the result. Persistence rides the ordinary save:
+- **Changes are live through `previewThemeCss` on `PreviewThemeHost`.** It
+  shares `themeVars`, `skinVars` and `bodyBackgroundVars` with the public
+  page's `themeCss`, so values cannot drift while the editor-only selector
+  keeps them out of the builder chrome. Persistence rides the ordinary save:
   what must be instant is seeing a colour, not storing it.
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once

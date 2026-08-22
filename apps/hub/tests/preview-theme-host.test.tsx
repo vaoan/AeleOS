@@ -38,4 +38,26 @@ describe("PreviewThemeHost", () => {
       previewThemeCss(theme),
     );
   });
+
+  it("emits no stylesheet for the default theme", () => {
+    const { container } = render(
+      <PreviewThemeHost theme={DEFAULT_THEME}>
+        <div />
+      </PreviewThemeHost>,
+    );
+
+    expect(container.querySelector("style")).toBeNull();
+  });
+
+  it("preserves a supplied class name on the preview boundary", () => {
+    render(
+      <PreviewThemeHost theme={DEFAULT_THEME} className="custom-preview-class">
+        <div />
+      </PreviewThemeHost>,
+    );
+
+    expect(screen.getByTestId("preview-theme-host")).toHaveClass(
+      "custom-preview-class",
+    );
+  });
 });
