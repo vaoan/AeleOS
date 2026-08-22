@@ -309,6 +309,7 @@
         "apps/hub/tests/e2e/support/blocks.ts",
         "docs/superpowers/plans/2026-08-19-weighted-places.md",
         "docs/superpowers/plans/2026-08-20-section-margins.md",
+        "docs/superpowers/plans/2026-08-21-builder-workbench.md",
         "scripts/seed-persona.mjs"
       ],
       "language": "en,en-GB,es"
