@@ -24,7 +24,6 @@ import {
   withChosenColour,
   THEME_SEEDS,
   accentPreview,
-  themeCss,
   type ActorTheme,
   type CanvasId,
 } from "@/features/actors/domain/actor-theme";
@@ -198,9 +197,9 @@ export interface ThemeConfiguratorProps {
  * colour is a decision about how it sits next to everything else, so a panel
  * that needed saving before it could be judged would be unusable: somebody
  * would save, look, dislike it, and go round again for every adjustment. The
- * values are custom properties already, so a live preview is `themeCss` on a
- * scoped element — the SAME function the public page uses, which is what stops
- * the preview and the real thing drifting apart.
+ * form value drives the parent `PreviewThemeHost`, whose declarations share
+ * their sources with the public page. This panel never styles the document;
+ * doing so would restyle the builder chrome alongside the preview.
  *
  * **A cursor picture is measured, not merely accepted.** Browsers ignore one
  * larger than 128×128 in silence, so an unmeasured field would let somebody
@@ -228,14 +227,12 @@ export interface ThemeConfiguratorProps {
  *
  * **A dial reports at most once per animation frame**, through
  * `FrameCoalescedRange`, and that is a measured fix rather than a precaution.
- * Each report rewrites a custom property at `:root`, which restyles every
- * element beneath it — 15.6ms per update on this editor's DOM on a desktop and
- * 178.5ms on a mid-range phone, whether the properties arrive as this `<style>`
- * element or inline, which was measured rather than assumed. A blocked main
- * thread then delivers input in bursts and every event in the burst was being
- * paid in full. **The colour input above is the same shape and is not coalesced
- * yet** — it was never measured, and a change nobody has measured is not one
- * this file should claim.
+ * Each report rewrites custom properties on the parent preview boundary,
+ * restyling every preview element beneath it. A blocked main thread then
+ * delivers input in bursts and every event in the burst was being paid in
+ * full. **The colour input above is the same shape and is not coalesced yet** —
+ * it was never measured, and a change nobody has measured is not one this file
+ * should claim.
  *
  * **One dial per row.** Three abreast left each about a third of the panel,
  * where the label, the multiplier and the track all competed and the track —
@@ -424,10 +421,6 @@ export function ThemeConfigurator({
 
       {open ? (
         <div className="grid gap-4">
-          {/* The preview is scoped by the same function the public page uses,
-              so what somebody judges here is what a stranger will get. */}
-          <style>{themeCss(value)}</style>
-
           {/* As many colours as somebody wants, which is the point: a fursona
               can carry more than any fixed set of pickers would allow. */}
           <GradientPicker
@@ -556,12 +549,11 @@ export function ThemeConfigurator({
                     {/* Continuous, like the colour inputs: the canvas redraws
                         on the next frame, so the drag itself IS the preview.
                         **At most one report per frame**, because each one
-                        rewrites a custom property at `:root` and restyles every
-                        element beneath it — 178ms on this editor's DOM on a
-                        throttled phone, paid once per input event, of which a
-                        blocked main thread delivers several per frame. See
-                        `FrameCoalescedRange` for why the element is
-                        uncontrolled rather than merely deferred. */}
+                        rewrites the preview boundary's custom properties and
+                        restyles everything beneath it, paid once per input
+                        event, of which a blocked main thread delivers several
+                        per frame. See `FrameCoalescedRange` for why the element
+                        is uncontrolled rather than merely deferred. */}
                     <FrameCoalescedRange
                       id={`${id}-${key}`}
                       min={CANVAS_RANGE.min}

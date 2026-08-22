@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import {
   PAGE_MEASURES,
   type PageMeasure,
@@ -113,6 +114,28 @@ function openPanel(theme = DEFAULT_THEME) {
 }
 
 describe("ThemeConfigurator", () => {
+  it("never applies live preview styles to the document", () => {
+    function StatefulConfigurator() {
+      const [theme, setTheme] = useState(DEFAULT_THEME);
+      return (
+        <ThemeConfigurator value={theme} onChange={setTheme} labels={LABELS} />
+      );
+    }
+
+    const { container } = render(<StatefulConfigurator />);
+    fireEvent.click(screen.getByTestId("theme-open"));
+    fireEvent.change(screen.getByTestId("theme-background-url"), {
+      target: { value: "https://example.test/wallpaper.png" },
+    });
+
+    const styles = Array.from(container.querySelectorAll("style"));
+    expect(
+      styles.some((style) =>
+        style.textContent?.includes(":root:not([data-page-theme"),
+      ),
+    ).toBe(false);
+  });
+
   describe("the animation's own box", () => {
     it("names itself and says what it is", () => {
       openPanel();
