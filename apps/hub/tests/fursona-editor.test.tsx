@@ -5,14 +5,23 @@ import {
 } from "@/features/actors/domain/actor-theme";
 import { pageContext } from "./helpers/page-context";
 import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   BLOCK_LIMITS,
   BLOCK_STYLE_LIMITS,
 } from "@/features/actors/domain/block-schema";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { isContainer, type Block } from "@/features/actors/domain/block-schema";
-import { blockEditorLabels } from "./support/editor-labels";
+import {
+  blockEditorLabels,
+  completePagePreviewLabels,
+} from "./support/editor-labels";
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
@@ -70,6 +79,7 @@ const labels = {
   bannerTitle: "Fix these before saving",
   writingIn: "Writing in",
   writingInHint: "Only the page text.",
+  completePreview: completePagePreviewLabels(),
   theme: {
     title: "Colours",
     live: "Live",
@@ -426,11 +436,14 @@ describe("FursonaEditor", () => {
   // `lang` reaches only the sections, so the strip belongs directly above
   // them, below the theme panel — not above the top fields it does not touch.
   // Sabotage-verified: reverting the render order makes both of these fail.
-  it("puts the theme panel above the language strip, and the strip above the sections", () => {
+  it("puts the theme panel, language strip, sections, and complete preview in order", () => {
     renderEditor();
     const theme = screen.getByTestId("theme-open");
     const writingIn = screen.getByTestId("writing-in-en");
     const sections = screen.getByTestId("add-section");
+    const completePreview = screen.getByRole("button", {
+      name: labels.completePreview.expand,
+    });
 
     expect(
       theme.compareDocumentPosition(writingIn) &
@@ -440,6 +453,51 @@ describe("FursonaEditor", () => {
       writingIn.compareDocumentPosition(sections) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(
+      sections.compareDocumentPosition(completePreview) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("previews unsaved identity and measure through the real page renderer", () => {
+    renderEditor({
+      initial: {
+        handle: "saved-handle",
+        displayName: "Saved name",
+        avatarUrl: "",
+        visibility: "private",
+      },
+    });
+
+    fireEvent.change(screen.getByLabelText("Handle"), {
+      target: { value: "live-handle" },
+    });
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "Live name" },
+    });
+    fireEvent.change(screen.getByLabelText("Avatar"), {
+      target: { value: "https://example.com/live.png" },
+    });
+    fireEvent.click(screen.getByTestId("theme-open"));
+    fireEvent.change(screen.getByTestId("theme-measure"), {
+      target: { value: "narrow" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: labels.completePreview.expand }),
+    );
+
+    const preview = within(screen.getByTestId("complete-page-preview-content"));
+    expect(preview.getByTestId("public-actor-name")).toHaveTextContent(
+      "live-handle",
+    );
+    expect(preview.getByText("Live name")).toBeInTheDocument();
+    expect(preview.getByTestId("block-avatar")).toHaveAttribute(
+      "src",
+      "https://example.com/live.png",
+    );
+    expect(
+      preview.getAllByTestId("public-section")[0]?.parentElement,
+    ).toHaveClass("max-w-[620px]");
   });
 });
 

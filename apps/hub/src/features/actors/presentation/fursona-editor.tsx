@@ -28,6 +28,10 @@ import {
   type ThemeConfiguratorLabels,
 } from "@/features/actors/presentation/theme-configurator";
 import {
+  CompletePagePreview,
+  type CompletePagePreviewLabels,
+} from "@/features/actors/presentation/complete-page-preview";
+import {
   DEFAULT_THEME,
   themeSchema,
   type ActorTheme,
@@ -58,6 +62,10 @@ import { z } from "zod";
  * name itself and then say what it governs — this editor has an app language
  * and an authoring language, and the switch moves only the second.
  *
+ * `completePreview` is nested because its disclosure has a title and two state
+ * labels of its own. Keeping that bag intact lets the read-only page preview
+ * own its wording without colliding with the editor toolbar's title.
+ *
  * Extends the toolbar's and the block editor's, because the editor owns one
  * label bag and hands slices of it down rather than each level resolving its
  * own — a component that resolved its own would need the catalogue in the
@@ -73,6 +81,8 @@ export interface FursonaEditorLabels
   extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
+  /** The collapsed, read-only whole-page preview's strings. */
+  completePreview: CompletePagePreviewLabels;
   /** Names the control that switches which language is being written. */
   writingIn: string;
   /** Says which fields the language switch governs. */
@@ -367,7 +377,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * made, but naming the missing English title would be naming a cause that is
  * not the cause.
  *
- * `page` is threaded to {@link BlockEditor} and read nowhere here — see
+ * `page` is overlaid with the live identity and measure, then threaded to both
+ * the section trays and the complete page preview — see
  * {@link FursonaEditorProps}.
  *
  * **The block editor previews from the LIVE form, not from the saved page.**
@@ -382,6 +393,11 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * watched separately and handed to each preview tray, where
  * `PreviewThemeHost` contains it; the editor controls therefore keep the
  * AeleOS workbench palette and shape while the public renderer updates live.
+ *
+ * **The complete preview follows the workbench and stays outside its drag
+ * context.** It is a collapsed, read-only rendering of the whole live tree,
+ * using the same `PublicBlocks` component a stranger sees. Keeping it after
+ * `BlockEditor` means its geometry is never measured as a droppable.
  *
  * **A page being CREATED opens with its required blocks**, the same
  * `withRequiredBlocks` output `readActorPage` answers for an actor with
@@ -458,16 +474,16 @@ export function FursonaEditor({
   // The rest of the context is the route's and is not watchable here: an
   // address is assigned rather than typed, and a fursona's owner is not
   // something its editor can change.
-  const [liveHandle, liveName, liveAvatar] = useWatch({
+  const [liveHandle, liveName, liveAvatar, liveSections, liveTheme] = useWatch({
     control,
-    name: ["handle", "displayName", "avatarUrl"],
+    name: ["handle", "displayName", "avatarUrl", "sections", "theme"],
   });
-  const liveTheme = useWatch({ control, name: "theme" }) as ActorTheme;
   const livePage: PageContext = {
     ...page,
     handle: liveHandle || page.handle,
     displayName: liveName || null,
     avatarUrl: liveAvatar || null,
+    measure: (liveTheme as ActorTheme).measure ?? null,
   };
 
   // Schema failures carry a zod code; the database's refusals carry ours. The
@@ -668,8 +684,15 @@ export function FursonaEditor({
         // The preview contains the unsaved theme for the same reason it takes
         // live actor facts: authoring chrome must stay stable while the real
         // renderer shows exactly what the form currently holds.
-        theme={liveTheme}
+        theme={liveTheme as ActorTheme}
         problems={problems}
+      />
+      <CompletePagePreview
+        blocks={liveSections as Block[]}
+        theme={liveTheme as ActorTheme}
+        lang={lang}
+        page={livePage}
+        labels={labels.completePreview}
       />
     </form>
   );
