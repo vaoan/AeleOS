@@ -335,10 +335,10 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `initialSections`.
  *
  * **The theme panel sits above the language strip and the sections**, because
- * it governs how all of them look, and it is collapsed until somebody opens
- * it — theming is a thing people do once and then leave alone, so an open
- * colour panel would push everything below it down the page for everybody who
- * never touches it. Its changes are previewed locally and written with the
+ * it governs how the page previews look, and it is collapsed until somebody
+ * opens it — theming is a thing people do once and then leave alone, so an
+ * open colour panel would push everything below it down the page for everybody
+ * who never touches it. Its changes are previewed locally and written with the
  * rest of the form: what has to be instant is SEEING a colour, not storing it.
  *
  * **The language switch shows both languages rather than the current one.** It
@@ -369,7 +369,9 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * back through one `onChange`. There is no `sort_order` left to renumber
  * either: the array IS the order, at every depth.
  *
- * Its panels and fields carry `surface`, the class a skin styles — six of them, so a theme reaches the whole editor rather than half of it.
+ * **Workbench surfaces use stable AeleOS tokens.** Their `surface` classes
+ * style editor panels and fields without admitting author palette, skin or
+ * section-style tokens; those are confined to `PreviewThemeHost` boundaries.
  *
  * **A refused page gets one of three sentences, not one of two** — see
  * {@link sectionsCode}. The middle one exists because a refusal on a
