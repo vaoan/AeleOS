@@ -378,6 +378,11 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * is the route's, because an address is assigned rather than typed and a
  * fursona's owner is not something its editor can change.
  *
+ * **The live theme follows the same boundary.** The form's unsaved theme is
+ * watched separately and handed to each preview tray, where
+ * `PreviewThemeHost` contains it; the editor controls therefore keep the
+ * AeleOS workbench palette and shape while the public renderer updates live.
+ *
  * **A page being CREATED opens with its required blocks**, the same
  * `withRequiredBlocks` output `readActorPage` answers for an actor with
  * nothing stored. The create page has no actor to read, so it fell through to
@@ -457,6 +462,7 @@ export function FursonaEditor({
     control,
     name: ["handle", "displayName", "avatarUrl"],
   });
+  const liveTheme = useWatch({ control, name: "theme" }) as ActorTheme;
   const livePage: PageContext = {
     ...page,
     handle: liveHandle || page.handle,
@@ -659,6 +665,10 @@ export function FursonaEditor({
         // somebody the portrait they had before they started editing, and the
         // preview would quietly disagree with the form six inches above it.
         page={livePage}
+        // The preview contains the unsaved theme for the same reason it takes
+        // live actor facts: authoring chrome must stay stable while the real
+        // renderer shows exactly what the form currently holds.
+        theme={liveTheme}
         problems={problems}
       />
     </form>

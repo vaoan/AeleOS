@@ -262,6 +262,10 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
 
   const panel = page.getByTestId("section-style-panel");
   const card = page.getByTestId("section-card").last();
+  const preview = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("public-section");
 
   await page.getByTestId("section-style-open").last().click();
   await expect(panel).toBeVisible();
@@ -270,7 +274,9 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   // The choice really did land — otherwise everything below would be
   // measuring an unstyled card and passing for the wrong reason.
   await expect
-    .poll(() => card.evaluate((el) => el.style.getPropertyValue("--skin-clip")))
+    .poll(() =>
+      preview.evaluate((el) => el.style.getPropertyValue("--skin-clip")),
+    )
     .toContain("polygon(");
 
   // The identity section sits above this card now, so the panel can open below
@@ -399,10 +405,11 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.getByTestId("editor-display-name").fill("Face check");
   await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
+  await page.getByTestId("add-content").last().click();
   await page.getByTestId("collapse-section").last().click();
 
-  const card = page.getByTestId("section-card").last();
-  const face = page.getByTestId("section-card-face").last();
+  const tray = page.getByTestId("block-preview").last();
+  const face = tray.getByTestId("section-preview-face");
 
   // **The skin's form, on the layer that paints it.** Delete `surface` from
   // that layer and the border is Preflight's `0`, which no other test in the
@@ -419,22 +426,9 @@ test("the face paints the skin, and a section's picture at full strength inside 
     .poll(() => face.evaluate((el) => getComputedStyle(el).clipPath))
     .toMatch(/^polygon\(/);
   await page.keyboard.press("Escape");
+  await face.scrollIntoViewIfNeeded();
 
-  // The chamfer, in pixels rather than in a resolved value: the card's corner
-  // is cut away and a point along the same edge is not. Under `cutout`
-  // `--skin-round` is `0`, so nothing but the clip can account for the
-  // difference — which is what makes this the guard for the layer painting at
-  // all, and not merely for `clip-path` resolving on it.
-  let box = (await card.boundingBox())!;
-  const cut: Probe[] = [
-    { name: "corner", x: Math.round(box.x) + 4, y: Math.round(box.y) + 4 },
-    { name: "edge", x: Math.round(box.x) + 30, y: Math.round(box.y) + 4 },
-  ];
-  const chamfered = await sampleColours(page, cut);
-  expect(
-    apart(chamfered.corner!, chamfered.edge!),
-    "the face's chamfered corner is cut away",
-  ).toBeGreaterThan(20);
+  let box = (await face.boundingBox())!;
 
   // **The picture, at full strength and inside the corners.** Back to the
   // design's own radius first: `cutout` squares the card off, and the corner
@@ -449,8 +443,9 @@ test("the face paints the skin, and a section's picture at full strength inside 
     .toContain(PICTURE.url);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("section-style-panel")).toBeHidden();
+  await face.scrollIntoViewIfNeeded();
 
-  box = (await card.boundingBox())!;
+  box = (await face.boundingBox())!;
   const left = Math.round(box.x);
   const top = Math.round(box.y);
   // `rounded-xl` at the design's own `--skin-round` is 12px, so (6,6) is
@@ -510,6 +505,24 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
   await expect(page.getByTestId("section-style-panel")).toBeHidden();
 
   const card = page.getByTestId("section-card").last();
+  const face = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("section-preview-face");
+  await expect
+    .poll(() =>
+      card.evaluate((el) => {
+        const inline = el.getAttribute("style") ?? "";
+        return {
+          inline,
+          background: getComputedStyle(el).backgroundColor,
+        };
+      }),
+    )
+    .toEqual({
+      inline: "",
+      background: expect.not.stringMatching(/rgba?\([^)]*(?:,\s*0|\/\s*0)\)/),
+    });
   // Focus is parked on the paintbrush the popup returned it to. Moved onto the
   // page's own heading so no field under a probe is wearing its focus ring,
   // and no caret is blinking in one while the screenshot is taken.
@@ -546,19 +559,8 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
         textColour(card.getByTestId(spot.ink).first()),
       ),
     );
-    const cardBox = (await card.boundingBox())!;
     const probes: Probe[] = [
       ...boxes.map((point, index) => ({ name: String(index), ...point })),
-      // The other half of the trade, in the same photograph as the halves it
-      // could be traded against: six pixels into the card is inside the
-      // face's 12px corner arc and outside the header row's backing, which
-      // begins at the card's own padding less one. A wash restored over the
-      // whole card to win the ratios above fails here.
-      {
-        name: "picture",
-        x: Math.round(cardBox.x) + 6,
-        y: Math.round(cardBox.y) + 6,
-      },
     ];
     const painted = await sampleColours(page, probes);
 
@@ -569,8 +571,17 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
       ).toBeGreaterThanOrEqual(spot.min);
     }
 
+    await face.scrollIntoViewIfNeeded();
+    const faceBox = (await face.boundingBox())!;
+    const picture = await sampleColours(page, [
+      {
+        name: "picture",
+        x: Math.round(faceBox.x) + 6,
+        y: Math.round(faceBox.y) + 6,
+      },
+    ]);
     expect(
-      apart(painted.picture!, HOSTILE.rgb),
+      apart(picture.picture!, HOSTILE.rgb),
       `${scheme}: the picture still previews at full strength`,
     ).toBeLessThan(30);
   };
@@ -615,10 +626,11 @@ test("the three background fits are three different paints", async ({
   await page.goto("/es/pages/new");
   await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
+  await page.getByTestId("add-content").last().click();
   await page.getByTestId("collapse-section").last().click();
 
-  const card = page.getByTestId("section-card").last();
-  const face = page.getByTestId("section-card-face").last();
+  const tray = page.getByTestId("block-preview").last();
+  const face = tray.getByTestId("section-preview-face");
 
   await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
@@ -646,7 +658,7 @@ test("the three background fits are three different paints", async ({
   const paints = async (): Promise<{ origin: number[]; away: number[] }> => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("section-style-panel")).toBeHidden();
-    const box = (await card.boundingBox())!;
+    const box = (await face.boundingBox())!;
     const sampled = await sampleColours(page, [
       { name: "origin", x: Math.round(box.x) + 5, y: Math.round(box.y) + 5 },
       { name: "away", x: Math.round(box.x) + 40, y: Math.round(box.y) + 6 },

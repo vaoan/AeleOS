@@ -161,7 +161,9 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       // The face is the layer carrying `surface` — a plain one, naming no
       // border-style utility — and it is the element the editor's preview
       // actually paints the section's form on.
-      const face = page.getByTestId("section-card-face").last();
+      const tray = page.getByTestId("block-preview").last();
+      const preview = tray.getByTestId("public-section");
+      const face = tray.getByTestId("section-preview-face");
       const placeholder = card.getByTestId("empty-place");
       await expect(placeholder).toHaveCount(1);
 
@@ -176,11 +178,11 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       await page.getByTestId("section-style-open").last().click();
       await page.getByTestId("section-style-border").selectOption("dotted");
       // The choice really did land on the scope, rather than on nothing:
-      // `sectionStyle` routes custom properties to the card's ROOT, which is
-      // the ancestor both elements below inherit from.
+      // `sectionStyle` routes custom properties to the preview scope, leaving
+      // the controls stable while the real rendered section inherits them.
       await expect
         .poll(() =>
-          card.evaluate((el) =>
+          preview.evaluate((el) =>
             el.style.getPropertyValue("--skin-border-style"),
           ),
         )
@@ -232,8 +234,14 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       await page.getByTestId("add-section").click();
       await page.getByTestId("collapse-section").last().click();
 
-      const card = page.getByTestId("section-card").last();
-      const face = page.getByTestId("section-card-face").last();
+      const card = page
+        .getByTestId("block-preview")
+        .last()
+        .getByTestId("preview-theme-host");
+      const face = page
+        .getByTestId("block-preview")
+        .last()
+        .getByTestId("section-preview-face");
 
       /**
        * The pixel run inward from the face's left edge, at mid-height.

@@ -14,7 +14,6 @@ import {
   BLOCK_LIMITS,
   CONTAINER_MODES,
   isContainer,
-  lenientBlockSchema,
   type Block,
   type ContainerBlock,
   type ContainerMode,
@@ -39,10 +38,7 @@ import {
   type BlockProblem,
 } from "@/features/actors/domain/block-problems";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
-import { blockStyle } from "@/features/actors/presentation/block-style";
 import { BlockSlot } from "@/features/actors/presentation/block-slot";
-import { Block as BlockView } from "@/features/actors/presentation/blocks";
-import type { PageContext } from "@/features/actors/presentation/blocks";
 import {
   LeafEditor,
   type LeafEditorLabels,
@@ -159,11 +155,6 @@ export interface BlockCardLabels extends LeafEditorLabels {
  * every container has a grip, a nested one included, because `@dnd-kit`
  * expresses a drag between a parent and a child where the library it replaced
  * could not. *
- * **It takes a `PageContext` and reads nothing from it**, threading it whole
- * to the renderer so a preview is drawn exactly as a stranger's page is. See
- * `PageContext` in `presentation/blocks.tsx` for why page-level values travel
- * by hand rather than through a React context.
- *
  * **Two of these are facts about the WHOLE page, threaded down rather than
  * recomputed per card**: `atBlockLimit` and `locked`. One walk in
  * `BlockEditor` answers both, which is what makes every control in the editor
@@ -180,8 +171,6 @@ export interface BlockCardProps {
   lang: AuthoringLanguage;
   /** Already-translated strings. */
   labels: BlockCardLabels;
-  /** This deployment's own hostname, threaded to the preview for Twitch. */
-  page: PageContext;
   /**
    * Whether the page is already holding as many blocks as it may.
    *
@@ -235,7 +224,6 @@ function idsFor(depth: number) {
   return depth === 0
     ? {
         card: "section-card",
-        face: "section-card-face",
         header: "section-header",
         name: "section-name",
         mode: "section-mode",
@@ -246,7 +234,6 @@ function idsFor(depth: number) {
       }
     : {
         card: "nested-card",
-        face: "nested-card-face",
         header: "nested-header",
         name: "nested-name",
         mode: "nested-mode",
@@ -431,27 +418,6 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * "we could not load your identity" — `mayNest` is the courtesy in front of
  * `validate_block`, which stays the authority.
  *
- * **The preview is the REAL renderer, not a drawing of it.** `Block` from
- * `blocks.tsx` is what a stranger's page is built from, handed the same tree
- * the save will send, parsed by the same lenient schema the read uses. A
- * second implementation would have looked identical the day it was written and
- * drifted the first time either changed, with no type error and no failing
- * test — which is exactly the argument that already has the live style preview
- * calling `blockStyle` rather than a copy of it.
- *
- * **The skin's custom properties land on the root and the painted face is a
- * LAYER inside it.** `cutout` sets `clip-path`, which clips its element's whole
- * subtree — positioned descendants at any `z-index` included — and the style
- * popup renders inside this card, so a surface on the root cut the popup away
- * the moment somebody chose that skin. A layer is a leaf with nothing to clip,
- * and it holds for whatever token does this next rather than for that one skin.
- *
- * **The rows above that face paint their own `bg-(--surface)`**, which is what
- * keeps the editor readable over a background picture: the face shows the
- * picture at full strength deliberately, and over a mid-grey `--ink` measures
- * 3.87:1 against the 4.5:1 text needs. The public page stays readable for the
- * same reason — its cards paint a surface and the picture reads between them.
- *
  * Collapsing hides the places and keeps the header, so a page with several
  * long sections stays navigable. It is local state rather than form state: it
  * is about looking, not about content, and it must not make the form dirty.
@@ -490,10 +456,6 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * painted on white. `dropdown-legibility.test.ts` guards every select in the
  * app.
  *
- * `page` is threaded to the renderer untouched — this component reads no field
- * of it. See {@link BlockCardProps}.
- *
- *
  * **The remove control withdraws when a block holds the last copy of a kind
  * the page must carry.** `lockedKinds` is computed once over the whole tree
  * and threaded down, so every bin in the editor locks at the same moment —
@@ -511,7 +473,6 @@ export function BlockCard({
   apply,
   lang,
   labels,
-  page,
   atBlockLimit,
   locked,
   problems,
@@ -539,29 +500,6 @@ export function BlockCard({
   const wrong = new Set(problemFields(problems, path));
   const nameWrong = wrong.has("name_en") || wrong.has("name_es");
   const otherWrong = [...wrong].some((field) => !field.startsWith("name_"));
-
-  // **What INHERITS goes on the root; what is PAINTED goes on the face.**
-  // Split by what a property DOES rather than by naming keys: a custom
-  // property is inherited by definition and a painted one is not, so anything
-  // `blockStyle` grows later lands on the right element without this having to
-  // be told about it. See the face's own comment for what each half is for.
-  const chosen = blockStyle(block.style);
-  const inherited: Record<string, unknown> = {};
-  const painted: Record<string, unknown> = {};
-  for (const [name, value] of Object.entries(chosen ?? {})) {
-    if (name.startsWith("--")) inherited[name] = value;
-    else painted[name] = value;
-  }
-  // `undefined` rather than an empty object on both, so a block nobody has
-  // styled still renders with no `style` attribute at all.
-  const rootStyle =
-    Object.keys(inherited).length > 0
-      ? (inherited as React.CSSProperties)
-      : undefined;
-  const faceStyle =
-    Object.keys(painted).length > 0
-      ? (painted as React.CSSProperties)
-      : undefined;
 
   // The shape whose `spaces`/`weights` pair matches this container exactly,
   // so the select can show what is actually stored rather than guessing —
@@ -618,18 +556,8 @@ export function BlockCard({
     // correctly.
     <div
       {...tid(ids.card)}
-      style={rootStyle}
-      className="@container relative grid gap-3 p-3"
+      className="@container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-3"
     >
-      {/* The card's own painted face, as a layer rather than as this element —
-          `clip-path` clips a whole subtree, and the style popup is one. */}
-      <div
-        aria-hidden
-        {...tid(ids.face)}
-        style={faceStyle}
-        className="pointer-events-none absolute inset-0 rounded-xl surface border-(--edge) bg-(--surface)"
-      />
-
       {/* Wraps, and the selects are what wrap. A `select` is as wide as its
           longest option whatever surrounds it, so on a 320px screen the header
           would otherwise force the page wider than the phone. The menus take a
@@ -932,7 +860,6 @@ export function BlockCard({
                 apply={apply}
                 lang={lang}
                 labels={labels}
-                page={page}
                 atBlockLimit={atBlockLimit}
                 locked={locked}
                 problems={problems}
@@ -953,20 +880,6 @@ export function BlockCard({
           ) : null}
         </div>
       )}
-
-      {depth === 0 ? (
-        <div className="relative grid gap-1.5" {...tid("block-preview")}>
-          <span className="text-xs font-medium text-(--muted)">
-            {labels.previewTitle}
-          </span>
-          <Preview
-            block={block}
-            previewPath={`preview-${path[0]}`}
-            lang={lang}
-            page={page}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -983,8 +896,6 @@ interface PlaceProps {
   lang: AuthoringLanguage;
   /** Already-translated strings. */
   labels: BlockCardLabels;
-  /** Threaded to the preview. */
-  page: PageContext;
   /** Whether the page is already holding as many blocks as it may. */
   atBlockLimit: boolean;
   /** The required kinds whose last copy must survive — see `lockedKinds`. */
@@ -1004,7 +915,6 @@ function Place({
   apply,
   lang,
   labels,
-  page,
   atBlockLimit,
   locked,
   problems,
@@ -1018,7 +928,6 @@ function Place({
           apply={apply}
           lang={lang}
           labels={labels}
-          page={page}
           atBlockLimit={atBlockLimit}
           locked={locked}
           problems={problems}
@@ -1044,7 +953,6 @@ function PlaceContent({
   apply,
   lang,
   labels,
-  page,
   atBlockLimit,
   locked,
   problems,
@@ -1058,7 +966,6 @@ function PlaceContent({
         apply={apply}
         lang={lang}
         labels={labels}
-        page={page}
         atBlockLimit={atBlockLimit}
         locked={locked}
         problems={problems}
@@ -1125,71 +1032,5 @@ function PlaceContent({
         <X className="size-4" />
       </button>
     </div>
-  );
-}
-
-/**
- * One section as a stranger will see it, drawn by the renderer that will draw
- * it.
- *
- * **Nothing here is a second implementation of anything.** The tree is parsed
- * by `lenientBlockSchema` — the schema the READ path uses, so the preview
- * tolerates exactly what a stored page tolerates — and handed to `Block`,
- * which is what both public pages are built from. A preview that could drift
- * from the page is worse than none.
- *
- * It is parsed rather than passed straight through because the editor's tree
- * is mid-edit: an untitled leaf and an unwritten Spanish half are ordinary
- * states here, and the lenient schema is the one that accepts them. A tree it
- * cannot read at all draws nothing rather than throwing, which keeps a
- * malformed block from taking the whole editor down with it.
- *
- * `locale` is the AUTHORING language, not the app's: the preview has to show
- * the half somebody is writing, or switching to Spanish would show them the
- * English they are not editing.
- *
- * `previewPath` carries the SECTION's own position, because `path` is what
- * every `id` and every radio group inside the tree is built from — two
- * previews sharing one would give a `tabs` section in each the same group
- * name, so choosing a tab in one would switch the other.
- *
- * **It mounts third-party frames while somebody is EDITING, and that is a
- * decision rather than an oversight.** A page with a `player` or a `post` on
- * it loads YouTube, Instagram, Telegram or Mixcloud here, where the editor
- * previously made no third-party request at all; so an author's own address
- * and the fact that they are editing this page reach those providers, not only
- * their visitors'. It is kept, because the alternative is a preview that draws
- * embeds differently from the page — a second implementation, which is the one
- * thing this component exists to refuse — and because an embed is precisely
- * what somebody needs to SEE working before they publish it. Nothing is
- * widened by it: the same allowlist parses the address, the same rebuilt
- * `src` is what loads, and no provider reaches the editor that could not
- * already reach the page. The cost is unmeasured as well as accepted — the
- * dial budget's fixture deliberately holds no embedding kind, so what a frame
- * costs the editor is outside every number this repository has taken.
- *
- * @returns the rendered section, or nothing when it cannot be read.
- */
-function Preview({
-  block,
-  previewPath,
-  lang,
-  page,
-}: {
-  block: ContainerBlock;
-  previewPath: string;
-  lang: AuthoringLanguage;
-  page: PageContext;
-}): ReactNode {
-  const parsed = lenientBlockSchema.safeParse(block);
-  if (!parsed.success) return null;
-  return (
-    <BlockView
-      block={parsed.data}
-      locale={lang}
-      depth={0}
-      path={previewPath}
-      page={page}
-    />
   );
 }

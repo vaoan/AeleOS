@@ -64,6 +64,8 @@ test("a skin chosen in the popup paints the card behind it at once", async ({
   await page.getByTestId("section-name").last().fill("Styled");
 
   const card = page.getByTestId("section-card").last();
+  const tray = page.getByTestId("block-preview").last();
+  const preview = tray.getByTestId("public-section");
   // Nothing chosen yet: the card carries no inline style at all, which is what
   // makes every assertion below a CHANGE rather than a state that was already
   // there.
@@ -78,18 +80,18 @@ test("a skin chosen in the popup paints the card behind it at once", async ({
   await page.getByTestId("section-style-skin").selectOption("neobrutalism");
   await expect
     .poll(() =>
-      card.evaluate((el) => el.style.getPropertyValue("--skin-round")),
+      preview.evaluate((el) => el.style.getPropertyValue("--skin-round")),
     )
     .toBe("0");
   expect(
-    await card.evaluate((el) => el.style.getPropertyValue("--skin-border")),
+    await preview.evaluate((el) => el.style.getPropertyValue("--skin-border")),
   ).toBe("3px");
 
   // The background picture and its fit land on the FACE rather than the root —
   // a painted property behind a rounded face would show four bright corner
   // wedges, which is why `SectionCard` splits what inherits from what paints.
   // Reading them off the face is what makes that split a measurement.
-  const face = page.getByTestId("section-card-face").last();
+  const face = tray.getByTestId("section-preview-face");
   await page
     .getByTestId("section-style-background-url")
     .fill("https://example.com/section-style-popup.png");

@@ -1112,13 +1112,15 @@ padding and a leaf editor's own padding have no container-query form at all —
 the same element asks whatever encloses it. Those two dials were dropped rather
 than converted into a rule that asks the wrong box quietly.
 
-**The preview is the REAL renderer.** Each section's card draws itself with
-`Block` from `blocks.tsx` — the component both public pages are built from —
-handed the same tree the save will send, parsed by `lenientBlockSchema` because
-the editor's tree is mid-edit. A second implementation would have looked
-identical the day it was written and drifted the first time either changed,
-with no type error and no failing test; it is the same argument that already
-has the live style preview calling `blockStyle` rather than a copy of it.
+**The preview is the REAL renderer, and it is not inside the control card.**
+`SectionPreviewTray` draws each top-level container with `Block` from
+`blocks.tsx` — the component both public pages are built from — handed the same
+tree the save will send, parsed by `lenientBlockSchema` because the editor's
+tree is mid-edit. The tray is a sibling of the top-level `BlockSlot`, never its
+descendant, so changing its height cannot change the droppable geometry and an
+author's skin cannot restyle the workbench controls. A second renderer would
+have looked identical the day it was written and drifted the first time either
+changed.
 
 ### Dragging (2026-08-18) — anything, anywhere a place will hold it
 
@@ -1794,10 +1796,10 @@ because neither consequence is visible from the declaration:
   included.** The editor's section card holds the style popup as a descendant,
   so a card that was itself the clipped surface cut the popup away. On a
   **collapsed** card that removed the panel entirely — including the select
-  that would undo the choice. A control able to disable its own undo. The fix
-  is not an exemption for the popup: `block-card.tsx` paints the card's face
-  on a **layer inside** the root, so the notch is still previewed and any later
-  token that clips _or transforms_ inherits the same protection.
+  that would undo the choice. A control able to disable its own undo.
+  `BlockCard` is now an opaque, unstyled workbench surface; the notch lives on
+  `SectionPreviewTray`'s face outside that card and outside its droppable, so
+  no author style can clip or transform a control.
   `section-card-face.spec.ts` drives the real popup on a collapsed card in a
   real browser, hit-tests the panel's centre with `elementFromPoint`, and
   compares its pixels against the same coordinates with the panel closed —
@@ -2013,14 +2015,14 @@ renders a surface, so gating it would hide a control that does something — the
 opposite of the fault the `card_size` gate exists to prevent, and the reason
 the difference is stated rather than left to read as an inconsistency.
 
-#### The section card's face is not the card
+#### The section preview's face is not the control card
 
-In the editor, `blockStyle`'s output is split across two elements by what
-each property **does**, not by naming keys: a custom property is inherited by
-definition and goes on the **root**, where the popup and the item fields read
-it; a painted property goes on the **face**, the `absolute inset-0` layer that
-carries `surface`. The public page needs no such split because its `<section>`
-is bare.
+In the editor, `BlockCard` receives none of `blockStyle`'s output. The split
+lives wholly in `SectionPreviewTray`, outside the top-level droppable: a custom
+property is inherited by definition and goes on the preview wrapper, where the
+real renderer reads it; a painted property goes on the **face**, the
+`absolute inset-0` layer that carries `surface`. The public page needs no such
+split because its `<section>` is bare.
 
 Get the split backwards and it fails quietly in both directions. A picture
 painted on the root shows as a square rect behind a rounded — or chamfered —

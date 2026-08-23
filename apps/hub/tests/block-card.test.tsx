@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { lockedKinds } from "@/features/actors/domain/required-blocks";
-import { pageContext } from "./helpers/page-context";
 import { NextIntlClientProvider } from "next-intl";
 
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
@@ -22,8 +21,8 @@ import { blockEditorLabels } from "./support/editor-labels";
 // catches a gap. What this file is for is the four things somebody has to be
 // able to do — choose a shape, put something in a place, nest, and take what
 // is in a place away without taking the place away — plus the two claims the
-// card makes that nothing else can check: that narrowing destroys nothing, and
-// that the preview is the real renderer rather than a drawing of it.
+// card makes that nothing else can check: narrowing destroys nothing, and
+// author styles never leak into the controls.
 
 vi.mock("lucide-react/dynamic", () => ({
   DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
@@ -75,7 +74,6 @@ function harness(
         apply={apply}
         lang="en"
         labels={labels}
-        page={pageContext({ parentHost: "" })}
         atBlockLimit={atBlockLimit}
         // **Computed from the page, exactly as `BlockEditor` does it.** A
         // harness passing an empty set would let a case assert the control is
@@ -134,7 +132,6 @@ function renderCard(
       apply={(edit) => onChange(edit([block]))}
       lang="en"
       labels={labels}
-      page={pageContext({ parentHost: "" })}
       atBlockLimit={false}
       locked={new Set<string>()}
       problems={[]}
@@ -382,63 +379,30 @@ describe("BlockCard", () => {
     });
   });
 
-  describe("the preview", () => {
-    // THE REAL RENDERER, NOT A DRAWING OF IT. `Block` from `blocks.tsx` is
-    // what both public pages are built from, handed the same tree the save
-    // will send. A second implementation would have looked identical the day
-    // it was written and drifted the first time either changed, with no type
-    // error and no failing test.
-    it("draws the section with the renderer a stranger's page uses", () => {
+  describe("the section's own fields", () => {
+    it("keeps author skin and paint off the controls", () => {
       harness([
-        {
-          ...newContainer("grid", 2),
-          name_en: "About",
-          children: [titled("Species")],
-        },
-      ]);
-      const preview = screen.getByTestId("block-preview");
-      expect(within(preview).getByTestId("public-section")).toBeInTheDocument();
-      expect(within(preview).getByTestId("block-grid")).toBeInTheDocument();
-      expect(within(preview).getByText("Species")).toBeInTheDocument();
-    });
-
-    // AN EMPTY PLACE KEEPS ITS WIDTH ON THE PAGE, and the preview is where an
-    // author sees that before anybody else does.
-    it("draws an empty place as room rather than as nothing", () => {
-      harness([
-        { ...newContainer("grid", 3), children: [titled("a"), null, null] },
-      ]);
-      expect(
-        within(screen.getByTestId("block-preview")).getAllByTestId(
-          "public-space",
-        ),
-      ).toHaveLength(2);
-    });
-
-    it("follows the authoring language rather than the app's", () => {
-      const page = harness([
         {
           ...newContainer("grid", 1),
-          children: [{ ...titled("English"), title_es: "Español" }],
+          style: {
+            skin: "comic",
+            background_url: "https://example.test/section.png",
+            background_fit: "cover",
+          },
         },
       ]);
-      expect(
-        within(screen.getByTestId("block-preview")).getByText("English"),
-      ).toBeInTheDocument();
-      expect(page()).toHaveLength(1);
+
+      const card = screen.getByTestId("section-card");
+      const name = screen.getByTestId("section-name");
+      expect(card.getAttribute("style") ?? "").not.toMatch(
+        /--skin-|background-image|clip-path/i,
+      );
+      expect(name.getAttribute("style") ?? "").not.toMatch(
+        /--skin-|background-image|clip-path/i,
+      );
+      expect(screen.queryByTestId("section-card-face")).toBeNull();
     });
 
-    // Only a section is previewed. A nested container previewed separately
-    // would draw the same subtree twice on one screen.
-    it("is drawn for a section and not for a container inside one", () => {
-      harness([
-        { ...newContainer("grid", 1), children: [newContainer("stack", 1)] },
-      ]);
-      expect(screen.getAllByTestId("block-preview")).toHaveLength(1);
-    });
-  });
-
-  describe("the section's own fields", () => {
     it("writes the name in the language being written", () => {
       const page = harness([newContainer("grid", 2)]);
       fireEvent.change(screen.getByTestId("section-name"), {
@@ -754,7 +718,6 @@ describe("BlockCard", () => {
           apply={() => undefined}
           lang="en"
           labels={labels}
-          page={pageContext({ parentHost: "me.furrycolombia.com" })}
           atBlockLimit={false}
           locked={new Set<string>()}
           dragHandle={null}
