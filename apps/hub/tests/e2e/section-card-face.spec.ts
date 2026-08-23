@@ -226,6 +226,109 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
+test("author colours and skin change both real previews without restyling the workbench", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.setViewportSize(VIEWPORT);
+  await page.goto("/es/pages/new");
+  await page.getByTestId("editor-handle").fill("themeboundary");
+  await page.getByTestId("editor-display-name").fill("Theme boundary");
+  await chooseNewSectionSpaces(page, "1");
+  await page.getByTestId("add-section").click();
+  await page.getByTestId("section-name").last().fill("Boundary");
+  await page.getByTestId("add-content").last().click();
+  await page.getByTestId("leaf-title").last().fill("Previewed");
+
+  const complete = page.locator("form > section").last();
+  await expect(complete.locator("h2")).toBeVisible();
+  await complete.locator(":scope > div").first().locator("button").click();
+  await expect(page.getByTestId("complete-page-preview-content")).toBeVisible();
+
+  const toolbar = page.getByTestId("editor-save");
+  const identityInput = page.getByTestId("editor-display-name");
+  const sectionInput = page.getByTestId("section-name").last();
+  const sectionPreview = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("preview-theme-host");
+  const completePreview = page
+    .getByTestId("complete-page-preview-content")
+    .locator("..");
+
+  /**
+   * Reads the properties a document-level author theme changes first.
+   *
+   * The custom properties establish which token scope the element inherited;
+   * the computed paint establishes that the token was actually consumed.
+   * Reading both prevents a literal-colour control and an inherited-but-unused
+   * token from each producing a flattering half-answer.
+   *
+   * @param testId - the element whose workbench paint is under guard.
+   * @returns the resolved design tokens and paint.
+   */
+  const workbenchStyle = (testId: typeof toolbar) =>
+    testId.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        accent: style.getPropertyValue("--accent"),
+        field: style.getPropertyValue("--field"),
+        round: style.getPropertyValue("--skin-round"),
+        background: style.backgroundColor,
+        color: style.color,
+        radius: style.borderTopLeftRadius,
+        font: style.fontFamily,
+      };
+    });
+
+  /**
+   * Reads the author tokens a preview host is expected to consume.
+   *
+   * @param host - a section or complete-page preview boundary.
+   * @returns the resolved author palette and skin tokens.
+   */
+  const previewStyle = (host: typeof sectionPreview) =>
+    host.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        accent: style.getPropertyValue("--accent"),
+        field: style.getPropertyValue("--field"),
+        round: style.getPropertyValue("--skin-round"),
+      };
+    });
+
+  const controlsBefore = await Promise.all([
+    workbenchStyle(toolbar),
+    workbenchStyle(identityInput),
+    workbenchStyle(sectionInput),
+  ]);
+  const sectionBefore = await previewStyle(sectionPreview);
+  const completeBefore = await previewStyle(completePreview);
+
+  await page.getByTestId("theme-open").click();
+  await page.getByTestId("gradient-colour").fill("#101a2e");
+  await page.getByTestId("theme-accent").fill("#00ff88");
+  await page.getByTestId("theme-skin").selectOption("neobrutalism");
+
+  await expect
+    .poll(() =>
+      Promise.all([
+        previewStyle(sectionPreview),
+        previewStyle(completePreview),
+      ]),
+    )
+    .not.toEqual([sectionBefore, completeBefore]);
+  expect(await previewStyle(sectionPreview)).not.toEqual(sectionBefore);
+  expect(await previewStyle(completePreview)).not.toEqual(completeBefore);
+
+  // These are deliberately last: restoring ThemeConfigurator's document-level
+  // `themeCss` makes the toolbar assertion fail first, before either input is
+  // consulted, while both preview-change assertions above still pass.
+  expect(await workbenchStyle(toolbar)).toEqual(controlsBefore[0]);
+  expect(await workbenchStyle(identityInput)).toEqual(controlsBefore[1]);
+  expect(await workbenchStyle(sectionInput)).toEqual(controlsBefore[2]);
+});
+
 test("cutout does not cut away the popup that sets it, and a focus ring survives it", async ({
   page,
 }) => {

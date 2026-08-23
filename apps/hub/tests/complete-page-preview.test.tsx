@@ -73,6 +73,7 @@ describe("CompletePagePreview", () => {
     expect(toggle).toHaveAccessibleName(labels.expand);
   });
 
+  // cspell:ignore Sección Título Palabras -- authored Spanish fixture text
   it("renders the supplied custom theme and Spanish authoring language", () => {
     const customTheme = {
       ...DEFAULT_THEME,

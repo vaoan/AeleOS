@@ -1112,15 +1112,24 @@ padding and a leaf editor's own padding have no container-query form at all —
 the same element asks whatever encloses it. Those two dials were dropped rather
 than converted into a rule that asks the wrong box quietly.
 
-**The preview is the REAL renderer, and it is not inside the control card.**
-`SectionPreviewTray` draws each top-level container with `Block` from
-`blocks.tsx` — the component both public pages are built from — handed the same
-tree the save will send, parsed by `lenientBlockSchema` because the editor's
-tree is mid-edit. The tray is a sibling of the top-level `BlockSlot`, never its
-descendant, so changing its height cannot change the droppable geometry and an
-author's skin cannot restyle the workbench controls. A second renderer would
-have looked identical the day it was written and drifted the first time either
-changed.
+**Controls are AeleOS; previews are the author's page.** The toolbar, identity
+fields, section names and every nested editor consume the app's design tokens
+and never inherit an author's palette, skin or section style. `PreviewThemeHost`
+is the only editor boundary that receives page-level author tokens.
+
+**Both previews use the REAL renderers.** `SectionPreviewTray` draws each
+top-level container with `Block` from `blocks.tsx` — the component both public
+pages are built from — handed the same tree the save will send, parsed by
+`lenientBlockSchema` because the editor's tree is mid-edit. The complete-page
+preview draws the live form tree through `PublicBlocks`, including unsaved actor
+facts, authoring language and theme. A second renderer would have looked
+identical the day it was written and drifted the first time either changed.
+
+**Neither preview participates in dragging.** A section tray is a sibling of
+the top-level `BlockSlot`, never its descendant, so changing its height cannot
+change droppable geometry. The complete-page preview follows `BlockEditor`,
+outside its `DndContext`, and is collapsed by default so the builder remains
+the primary surface.
 
 ### Dragging (2026-08-18) — anything, anywhere a place will hold it
 

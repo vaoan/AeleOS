@@ -1,7 +1,7 @@
 # A builder that stays itself while the page changes
 
 - **Date:** 2026-08-21
-- **Status:** Approved for implementation planning
+- **Status:** Delivered 2026-08-23
 - **Scope:** The signed-in fursona and person editors. No public-page renderer
   change except what is required to share the same `themeCss` declarations
   under a preview host.
@@ -287,3 +287,32 @@ theme panel restyles `:root` while editing.
 
 It does not delete `ThemeScope` on public routes, the face-layer split as
 a mechanism, or the per-section preview itself — it relocates them.
+
+## Delivered corrections and measurements
+
+The implementation kept the architecture above, with these measured
+clarifications:
+
+- `SectionPreviewTray` is a sibling of its top-level `BlockSlot`, not merely a
+  child excluded by collision code. The complete preview follows `BlockEditor`,
+  outside `DndContext`, and stays unmounted until its disclosure opens.
+- The permanent browser guard records computed token and paint values for Save,
+  the display-name input and a section-name input, then changes a non-default
+  gradient, accent and skin. Both the section `Block` preview and the complete
+  `PublicBlocks` preview change while all three controls stay byte-for-byte
+  stable. Restoring document-level `themeCss` makes the toolbar comparison fail
+  first.
+- The drag guard first lights a legal editor place, then moves the pointer over
+  a real section preview. No `data-over` marker or refusal is allowed there.
+  Giving a preview that marker reddens the marker assertion.
+- The accessibility fixture opens the complete preview under the existing WCAG
+  A/AA scan and compares real headings in document order. `best-practice`
+  remains off.
+- Performance was measured on the same credentialed heavy-page fixture twice
+  good and once with document-level `themeCss` restored. Good runs reported
+  10,946 nodes, 15.2ms then 11.8ms style recalculation per delivered input,
+  0.006 theme commits per movement in both runs, and 19.4% then 22.3% scroll
+  busy. The sabotage reported 10,947 nodes, 47.0ms per input, 0.006 commits per
+  movement and 21.9% scroll busy. The good spread (3.4ms) is separated from the
+  sabotage by 31.8ms at its nearest edge, but every existing ceiling still
+  holds with ample headroom; no threshold changed.

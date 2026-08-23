@@ -61,7 +61,10 @@ export interface EditorToolbarProps {
  * Exposes the `editor-save` and `editor-cancel` test ids, so the signed-in end-to-end suite can
  * submit the form without depending on the button's translated label.
  *
- * Every colour it paints comes from a token — `--accent`, `--bar`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
+ * Every colour it paints comes from an AeleOS token — `--accent`, `--bar`,
+ * `--edge`, `--muted` — and never from a literal. Author themes are scoped to
+ * preview hosts, so those tokens stay the workbench's even while the page
+ * underneath is being restyled.
  *
  * @returns the toolbar.
  */

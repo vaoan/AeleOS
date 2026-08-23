@@ -237,7 +237,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       const card = page
         .getByTestId("block-preview")
         .last()
-        .getByTestId("preview-theme-host");
+        .getByTestId("public-section");
       const face = page
         .getByTestId("block-preview")
         .last()

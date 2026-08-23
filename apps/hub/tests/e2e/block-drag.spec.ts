@@ -765,6 +765,38 @@ test("a piece of content hovering a section's own chrome is offered nothing, by 
   expect(await arrangement(page)).toEqual(AS_SEEDED);
 });
 
+// A PREVIEW IS THE PUBLIC RENDERER, NOT ANOTHER EDITOR PLANE.
+//
+// The tray deliberately sits beside the top-level `BlockSlot`. If it moves
+// back inside that droppable, its public section looks read-only but the
+// enclosing editor place still covers its rectangle: hovering the preview
+// lights the whole section as a target. The fixture first lights a legal place,
+// so the negative below is a transition the browser observed rather than a
+// drag that never started.
+test("a piece of content hovering a section preview is offered no editor target, by mouse", async ({
+  page,
+}) => {
+  await openEditor(page);
+  await expect(page.getByTestId("leaf-title").first()).toHaveValue("Alfa");
+
+  await liftByPointer(page, "0.0");
+  await moveOver(page, "1.0");
+  await expect(page.getByTestId("place-1.0")).toHaveAttribute("data-over", "");
+
+  const preview = page.getByTestId("block-preview").nth(1);
+  const box = (await preview.getByTestId("public-section").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
+    steps: 12,
+  });
+
+  await expect(page.locator("[data-over]")).toHaveCount(0);
+  await expect(preview.locator("[data-over]")).toHaveCount(0);
+  expect(await refusal(page)).toBe("");
+
+  await page.mouse.up();
+  await expect(page.getByTestId("leaf-title").first()).toHaveValue("Alfa");
+});
+
 // A DRAG ABANDONED, AND THE ONLY THING IN A BROWSER THAT ASKS `onDragCancel`.
 //
 // Escape ends a drag through `onDragCancel`, which nothing anywhere asserted:

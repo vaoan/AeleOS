@@ -124,6 +124,13 @@ async function storedOrder(wanted: string[]): Promise<string[]> {
 test("a fursona dragged by keyboard lands in its new position and survives a reload", async ({
   page,
 }) => {
+  // Three real editor creates, the drag, two independent reads and cleanup no
+  // longer fit inside Playwright's 30s whole-test default once each editor
+  // mounts its real section previews. Measured isolated at 31.1s: the outer
+  // budget expired while the third save's own 30s navigation wait was still
+  // healthy. This changes no action or assertion; it lets their own waits own
+  // their failures.
+  test.setTimeout(120_000);
   await signIn(page, await mintTicket(identity!.userId));
 
   // `/me` first: it is what provisions the person actor, and without one
