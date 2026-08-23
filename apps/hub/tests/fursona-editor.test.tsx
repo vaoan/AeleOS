@@ -499,6 +499,37 @@ describe("FursonaEditor", () => {
       preview.getAllByTestId("public-section")[0]?.parentElement,
     ).toHaveClass("max-w-[620px]");
   });
+
+  it("previews unsaved page content from the live block tree", () => {
+    renderEditor({
+      initialSections: [
+        {
+          kind: "container",
+          mode: "stack",
+          spaces: 1,
+          name_en: "Draft section",
+          children: [
+            {
+              kind: "text",
+              title_en: "Draft title",
+              description_en: "Saved page words",
+            },
+          ],
+        },
+      ],
+    });
+
+    fireEvent.change(screen.getByTestId("leaf-description"), {
+      target: { value: "Unsaved page words" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: labels.completePreview.expand }),
+    );
+
+    const preview = within(screen.getByTestId("complete-page-preview-content"));
+    expect(preview.getByText("Unsaved page words")).toBeInTheDocument();
+    expect(preview.queryByText("Saved page words")).toBeNull();
+  });
 });
 
 describe("FursonaEditor for a person", () => {
