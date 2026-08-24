@@ -89,11 +89,12 @@ const BORDER_MIN_WIDTH = new Map<string, string>([
  * describing it after that stopped being true.
  *
  * **It lives in its own module so that one function serves the public page and
- * the editor's live preview.** `SectionCard` applies it to the card being
- * edited on every keystroke, before anything is saved; a second body would have
- * looked identical the day it was written and drifted the first time either
- * changed, with no type error and no failing test, because each file's tests
- * exercise only its own copy.
+ * the editor's live preview.** `SectionPreviewTray` calls it on every
+ * keystroke, before anything is saved, and `splitStyle` separates inherited
+ * custom properties from paint placed on the preview face. A second style body
+ * would have looked identical the day it was written and drifted the first
+ * time either changed, with no type error and no failing test, because each
+ * file's tests exercise only its own copy.
  *
  * **This returns `undefined`, never `{}`, for a block carrying no `style`** —
  * but that is this function's own contract ("is there anything to override"

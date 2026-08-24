@@ -92,8 +92,9 @@ test("a skin chosen in the popup paints the section preview at once", async ({
 
   // The background picture and its fit land on the FACE rather than the root —
   // a painted property behind a rounded face would show four bright corner
-  // wedges, which is why `SectionCard` splits what inherits from what paints.
-  // Reading them off the face is what makes that split a measurement.
+  // wedges, which is why `SectionPreviewTray` uses `splitStyle` to separate
+  // what inherits from what paints. Reading them off the face is what makes
+  // that split a measurement.
   await page
     .getByTestId("section-style-background-url")
     .fill("https://example.com/section-style-popup.png");

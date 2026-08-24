@@ -494,6 +494,14 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).clipPath))
     .toMatch(/^polygon\(/);
+  // A corner-vs-edge screenshot cannot independently prove this FACE's clip
+  // any more. The face is an absolute backing beneath the real `Block`, which
+  // carries the same section style, and the rounded preview host clips both;
+  // viewport pixels therefore read the renderer/host above the face. Measured
+  // at the face's own corner and top edge, colour distance was 5 both with the
+  // polygon intact and with `face.style.clipPath = "none"` sabotaged. Keeping
+  // that probe would be false evidence, so the face's computed clip is the
+  // direct assertion and the first test checks the rendered boundary.
   await page.keyboard.press("Escape");
   await face.scrollIntoViewIfNeeded();
 

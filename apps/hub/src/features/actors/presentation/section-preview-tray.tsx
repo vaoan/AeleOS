@@ -60,6 +60,8 @@ function splitStyle(style: CSSProperties | undefined): {
  * The author theme and section style are contained here so neither can restyle
  * the workbench controls. A malformed in-progress block draws no tray content
  * rather than taking down the editor.
+ * Horizontal excess scrolls inside the tray instead of being clipped, so a
+ * narrow workbench never conceals part of the real renderer it is previewing.
  *
  * This mounts the real renderer's third-party frames while their author edits.
  * That discloses the author's request to the same allowlisted providers a
@@ -90,14 +92,18 @@ export function SectionPreviewTray({
   return (
     <div
       role="region"
-      aria-label={sectionName ? `${title}: ${sectionName}` : title}
+      aria-label={
+        sectionName
+          ? `${title} ${position + 1}: ${sectionName}`
+          : `${title} ${position + 1}`
+      }
       {...tid("block-preview")}
       className="grid gap-1.5"
     >
       <span className="text-xs font-medium text-(--muted)">{title}</span>
       <PreviewThemeHost
         theme={theme}
-        className="relative overflow-hidden rounded-xl"
+        className="relative overflow-x-auto rounded-xl"
       >
         <div style={inherited} className="relative p-3">
           <div

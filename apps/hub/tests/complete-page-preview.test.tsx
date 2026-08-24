@@ -104,6 +104,34 @@ describe("CompletePagePreview", () => {
     expect(screen.queryByText("Malformed")).toBeNull();
   });
 
+  it("does not inspect draft blocks until the disclosure opens", () => {
+    let reads = 0;
+    const observed = {
+      get kind() {
+        reads += 1;
+        return "container";
+      },
+      mode: "stack",
+      spaces: 1,
+      children: [],
+    } as unknown as Block;
+
+    render(
+      <CompletePagePreview
+        blocks={[observed]}
+        theme={DEFAULT_THEME}
+        lang="en"
+        page={pageContext()}
+        labels={labels}
+      />,
+    );
+
+    expect(reads).toBe(0);
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    expect(reads).toBeGreaterThan(0);
+    expect(screen.getByTestId("public-section")).toBeInTheDocument();
+  });
+
   // cspell:ignore Sección Título Palabras -- authored Spanish fixture text
   it("renders the supplied custom theme and Spanish authoring language", () => {
     const customTheme = {

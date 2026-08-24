@@ -17,6 +17,9 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 //
 // This is checked against the real compiled CSS in Chromium because jsdom
 // cannot resolve custom-property inheritance or paint a double border.
+// A hand-written jsdom substitution would test the model encoded in the
+// substitute, not the browser cascade, so it could agree with itself while the
+// compiled utility or inherited token was wrong in production.
 //
 // **And against the real SCOPE, which is the correction this file needed.**
 // `blockStyle` is the only thing in the app that sets the token, and it sets

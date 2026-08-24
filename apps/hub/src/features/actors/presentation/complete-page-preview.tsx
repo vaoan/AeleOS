@@ -42,9 +42,11 @@ export interface CompletePagePreviewProps {
  * Shows the complete live page after the workbench.
  *
  * It starts collapsed so the builder remains the primary surface, mounts the
- * real public renderer only while open, and offers no editing or drag controls.
- * Its caller keeps it outside the drag context, so preview geometry cannot
- * become a drop target or alter collision measurement.
+ * real public renderer only while open, and only then lenient-parses each draft
+ * block, so a closed disclosure does no recursive work on a keystroke. It
+ * offers no editing or drag controls. Its caller keeps it outside the drag
+ * context, so preview geometry cannot become a drop target or alter collision
+ * measurement.
  *
  * This is a bounded, inline workbench view rather than a public-route viewport:
  * container queries answer to the editor column, and a bled section cannot
@@ -62,10 +64,23 @@ export function CompletePagePreview({
 }: CompletePagePreviewProps): ReactNode {
   const [open, setOpen] = useState(false);
   const contentId = useId();
-  const renderableBlocks = blocks.flatMap((block) => {
-    const parsed = lenientBlockSchema.safeParse(block);
-    return parsed.success ? [parsed.data] : [];
-  });
+  let content: ReactNode = null;
+  if (open) {
+    const renderableBlocks = blocks.flatMap((block) => {
+      const parsed = lenientBlockSchema.safeParse(block);
+      return parsed.success ? [parsed.data] : [];
+    });
+    content = (
+      <PreviewThemeHost
+        theme={theme}
+        className="max-w-full min-w-0 overflow-x-auto rounded-xl surface border-(--edge)"
+      >
+        <div id={contentId} {...tid("complete-page-preview-content")}>
+          <PublicBlocks blocks={renderableBlocks} locale={lang} page={page} />
+        </div>
+      </PreviewThemeHost>
+    );
+  }
 
   return (
     <section
@@ -86,16 +101,7 @@ export function CompletePagePreview({
         </button>
       </div>
 
-      {open ? (
-        <PreviewThemeHost
-          theme={theme}
-          className="max-w-full min-w-0 overflow-x-auto rounded-xl surface border-(--edge)"
-        >
-          <div id={contentId} {...tid("complete-page-preview-content")}>
-            <PublicBlocks blocks={renderableBlocks} locale={lang} page={page} />
-          </div>
-        </PreviewThemeHost>
-      ) : null}
+      {content}
     </section>
   );
 }

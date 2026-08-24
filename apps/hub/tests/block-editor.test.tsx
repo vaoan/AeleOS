@@ -220,7 +220,12 @@ describe("BlockEditor", () => {
     );
     expect(within(tray).getByTestId("public-section")).toBeInTheDocument();
     expect(within(tray).getByText("Real renderer")).toBeInTheDocument();
-    expect(tray).toHaveAccessibleName(`${labels.previewTitle}: Styled`);
+    expect(tray).toHaveAccessibleName(`${labels.previewTitle} 1: Styled`);
+    expect(tray.parentElement).toHaveClass("gap-2");
+    expect(tray.parentElement?.parentElement).toHaveClass("gap-6");
+    expect(within(tray).getByTestId("preview-theme-host")).toHaveClass(
+      "overflow-x-auto",
+    );
   });
 
   it("says so when there is nothing on the page", () => {

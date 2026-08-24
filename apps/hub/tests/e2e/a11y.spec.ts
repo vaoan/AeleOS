@@ -177,8 +177,10 @@ test.describe("the signed-in pages are accessible", () => {
       .locator(":scope > div")
       .first()
       .locator("h2");
-    // The collapsed disclosure is a state of its own: in particular its toggle
-    // must not point aria-controls at content that is not mounted.
+    // The collapsed disclosure is a state of its own, so the broad rendered
+    // scan stays. It does NOT guard the dangling `aria-controls` detail:
+    // deliberately pointing the toggle at the unmounted content left this axe
+    // scan green. `complete-page-preview.test.tsx` owns that exact omission.
     await isAccessible(page, "the editor with the complete preview collapsed");
     await page.getByTestId("complete-page-preview-toggle").click();
     const previewContent = page.getByTestId("complete-page-preview-content");

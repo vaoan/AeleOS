@@ -115,7 +115,7 @@ const STYLE_MS_PER_INPUT_CEILING = 250;
  * movement of a finger.
  *
  * Both terms are counted in the same run on the same runner — commits from the
- * a preview-theme `<style>` element changing, movements from the `input` events
+ * preview-theme `<style>` element changing, movements from the `input` events
  * the renderer actually delivered — so runner speed divides out. Measured
  * against a production build at CPU throttles of 1x, 4x and 6x:
  *
@@ -241,8 +241,10 @@ const MOST_ITEMS = 12;
  * oversight.** `embed` puts a third party's renderer in an iframe,
  * which is a network dependency and a second renderer process — neither of
  * which this file is measuring, and both of which would make it fail for
- * reasons that have nothing to do with this repository. `picture` is out for
- * the same reason.
+ * reasons that have nothing to do with this repository. The privacy decision
+ * still mounts those real frames in editor trays, but their frame cost is
+ * unmeasured and excluded from this dial fixture. `picture` is out for the same
+ * reason.
  *
  * **Every section is a flat container holding leaves, and none nests.** That
  * keeps the page the same SHAPE the budget below was calibrated against, so a

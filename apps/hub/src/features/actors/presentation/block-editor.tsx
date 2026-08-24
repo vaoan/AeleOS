@@ -282,7 +282,9 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * `page` supplies the actor facts the identity shim and each real-renderer
  * preview need. `theme` travels only to the sibling preview trays, so neither
  * the author's palette nor a section's style can restyle the droppable control
- * cards. See {@link BlockEditorProps}.
+ * cards. Each card stays visually paired with its tray by a tighter inner gap
+ * than the gap separating successive section pairs. See
+ * {@link BlockEditorProps}.
  *
  * **The remove control withdraws when a block holds the last copy of a kind
  * the page must carry.** `lockedKinds` is computed once over the whole tree
@@ -582,9 +584,9 @@ export function BlockEditor<T extends FieldValues>({
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        <div className="grid gap-3">
+        <div className="grid gap-6">
           {seats.map((seat) => (
-            <div key={seat.key} className="grid gap-3">
+            <div key={seat.key} className="grid gap-2">
               <BlockSlot
                 path={[seat.position]}
                 filled
