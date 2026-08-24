@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Card } from "@/shared/presentation/page-shell";
+import { Card, WidePageColumn } from "@/shared/presentation/page-shell";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
@@ -28,6 +28,9 @@ import { tid } from "@/shared/infrastructure/test-id";
  * would win on specificity and leave this one control ringed outside its edge
  * while every other surface in the app is ringed inside.
  *
+ * It owns the same {@link WidePageColumn} as the routes it replaces, so a
+ * render failure does not also move the recovery surface.
+ *
  * @returns the failure panel.
  */
 export default function AppError({
@@ -40,30 +43,32 @@ export default function AppError({
   const t = useTranslations("error");
 
   return (
-    <Card>
-      <section role="alert" className="flex flex-col items-start gap-4">
-        <h1 className="font-display text-2xl font-bold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-(--ink-2)">{t("body")}</p>
-        <button
-          type="button"
-          onClick={reset}
-          className="rounded-lg surface border-(--edge) px-4 py-2 text-sm transition-colors hover:bg-(--edge)/15 focus-visible:outline-2 focus-visible:outline-(--accent)"
-        >
-          {t("retry")}
-        </button>
-        {error.digest ? (
-          <p
-            className="font-mono text-xs text-(--muted)"
-            {...tid("error-digest")}
+    <WidePageColumn>
+      <Card>
+        <section role="alert" className="flex flex-col items-start gap-4">
+          <h1 className="font-display text-2xl font-bold tracking-tight">
+            {t("title")}
+          </h1>
+          <p className="text-sm text-(--ink-2)">{t("body")}</p>
+          <button
+            type="button"
+            onClick={reset}
+            className="rounded-lg surface border-(--edge) px-4 py-2 text-sm transition-colors hover:bg-(--edge)/15 focus-visible:outline-2 focus-visible:outline-(--accent)"
           >
-            {/* The separator is part of the message, not the markup: where the
+            {t("retry")}
+          </button>
+          {error.digest ? (
+            <p
+              className="font-mono text-xs text-(--muted)"
+              {...tid("error-digest")}
+            >
+              {/* The separator is part of the message, not the markup: where the
                 colon goes is a property of the language. */}
-            {t("reference", { digest: error.digest })}
-          </p>
-        ) : null}
-      </section>
-    </Card>
+              {t("reference", { digest: error.digest })}
+            </p>
+          ) : null}
+        </section>
+      </Card>
+    </WidePageColumn>
   );
 }

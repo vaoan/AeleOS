@@ -2,6 +2,7 @@ import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { getTranslations } from "next-intl/server";
 import { tid } from "@/shared/infrastructure/test-id";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
+import { WidePageColumn } from "@/shared/presentation/page-shell";
 import {
   FursonaList,
   ensurePersonActor,
@@ -73,6 +74,9 @@ import {
  *
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted`, `--on-accent` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * The route owns a {@link WidePageColumn}, preserving the exact box the
+ * signed-in shell supplied before it became full-width for page previews.
+ *
  * @returns the fursona list page.
  */
 export default async function FursonasPage() {
@@ -89,7 +93,7 @@ export default async function FursonasPage() {
   const suspended = actors[0]?.status === "suspended";
 
   return (
-    <>
+    <WidePageColumn>
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-(--edge)/40 pb-6">
         <div>
           <h1
@@ -148,6 +152,6 @@ export default async function FursonasPage() {
           }}
         />
       )}
-    </>
+    </WidePageColumn>
   );
 }

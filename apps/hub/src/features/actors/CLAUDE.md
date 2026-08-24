@@ -1143,11 +1143,16 @@ controller owns the second sections subscription. `FursonaEditor` watches only
 identity and theme values, so changing one description does not rerender the
 toolbar, identity fields and theme controls merely to feed the full preview.
 
-**The complete preview is honest about being bounded.** It is an inline view
-inside the editor column, not the public route's viewport: container queries
-answer to that column and a bled section cannot reach the browser edge.
-Horizontal excess is scrollable, never hidden or clipped to fake a fit, and the
-narrow-viewport browser suite opens the preview at every phone stop.
+**The complete preview owns the same width as a public page.** The signed-in
+shell hands `main` the full window, and every ordinary signed-in route recreates
+the former `max-w-7xl` box with `WidePageColumn`. The editor stops that column
+before the complete preview, so each depth-zero section applies its real
+measure, a bled section reaches both browser edges, and container queries answer
+to the page rather than to workbench chrome. The disclosure control keeps the
+old column geometry, while the themed preview host itself has no card surface,
+rounding or border. Horizontal excess is scrollable, never hidden or clipped to
+fake a fit, and the narrow-viewport browser suite opens the preview at every
+phone stop.
 
 **Real previews mount real third-party frames while editing.** An author's own
 request and the fact that they are editing therefore reach the same allowlisted

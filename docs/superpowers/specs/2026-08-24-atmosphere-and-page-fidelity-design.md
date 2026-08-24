@@ -1,6 +1,6 @@
 # Atmosphere and page fidelity — design
 
-**Status: approved, not yet implemented.**
+**Status: implemented 2026-08-24.**
 
 This corrects two things `#8` got wrong, and one it broke silently. `#8` made the
 builder's controls stable and confined the author's theme to preview hosts. The

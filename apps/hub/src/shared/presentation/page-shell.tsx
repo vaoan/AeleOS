@@ -189,6 +189,47 @@ const COLUMN: Record<"column" | "wide" | "full", string> = {
   full: "",
 };
 
+/** What {@link WidePageColumn} needs to recreate the signed-in page box. */
+export interface WidePageColumnProps {
+  /** The signed-in route content that keeps the old wide measure. */
+  children: ReactNode;
+  /** Deliberate utility overrides for a split editor layout. */
+  className?: string;
+}
+
+/**
+ * Gives one signed-in surface the wide column the app shell used to own.
+ *
+ * The signed-in shell is full-width so a page editor can render its complete
+ * preview with the same geometry as a public route. Ordinary pages wrap their
+ * whole result in this component; the editor wraps only its controls and lets
+ * the preview remain a sibling. The default classes are byte-for-byte the old
+ * wide shell column, including its flex sizing, so moving the ownership does
+ * not move the page.
+ *
+ * `className` may replace individual Tailwind utilities through {@link cn};
+ * the editor uses that seam to hand its bottom padding to the full-width
+ * preview that follows while retaining every other part of the old column.
+ *
+ * @param props - the page content and any deliberate utility overrides.
+ * @returns the content inside the signed-in wide column.
+ */
+export function WidePageColumn(props: WidePageColumnProps): ReactNode {
+  const { children, className } = props;
+  return (
+    <div
+      {...tid("wide-page-column")}
+      className={cn(
+        "flex w-full min-w-0 flex-1 flex-col",
+        COLUMN.wide,
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 /**
  * The one composition every page uses: header bar, then a 620px column.
  *

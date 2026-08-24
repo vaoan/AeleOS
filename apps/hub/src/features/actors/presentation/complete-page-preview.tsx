@@ -13,6 +13,7 @@ import {
 } from "@/features/actors/presentation/blocks";
 import { PreviewThemeHost } from "@/features/actors/presentation/preview-theme-host";
 import { tid } from "@/shared/infrastructure/test-id";
+import { WidePageColumn } from "@/shared/presentation/page-shell";
 
 /** Translated strings the complete page preview renders. */
 export interface CompletePagePreviewLabels {
@@ -48,10 +49,13 @@ export interface CompletePagePreviewProps {
  * context, so preview geometry cannot become a drop target or alter collision
  * measurement.
  *
- * This is a bounded, inline workbench view rather than a public-route viewport:
- * container queries answer to the editor column, and a bled section cannot
- * escape that column. Any horizontal excess stays reachable by scrolling; it
- * is never clipped to make the workbench look as though it fits.
+ * Its disclosure control keeps the editor's former wide-column geometry, but
+ * the preview host itself is a full-width sibling of that column. Depth-zero
+ * sections therefore apply the same measure and bleed as the public route, and
+ * container queries answer to the page rather than the workbench. The host has
+ * no card chrome of its own; it sits directly on the author's field through
+ * {@link PreviewThemeHost}. Any horizontal excess stays reachable by
+ * scrolling and is never clipped to make the workbench look as though it fits.
  *
  * @returns a read-only disclosure containing the current public page.
  */
@@ -73,7 +77,7 @@ export function CompletePagePreview({
     content = (
       <PreviewThemeHost
         theme={theme}
-        className="max-w-full min-w-0 overflow-x-auto rounded-xl surface border-(--edge)"
+        className="w-full min-w-0 overflow-x-auto"
       >
         <div id={contentId} {...tid("complete-page-preview-content")}>
           <PublicBlocks blocks={renderableBlocks} locale={lang} page={page} />
@@ -85,21 +89,23 @@ export function CompletePagePreview({
   return (
     <section
       {...tid("complete-page-preview")}
-      className="mt-8 grid min-w-0 gap-3"
+      className="mt-8 grid min-w-0 gap-3 pb-6 sm:pb-10"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold">{labels.title}</h2>
-        <button
-          type="button"
-          aria-controls={open ? contentId : undefined}
-          aria-expanded={open}
-          {...tid("complete-page-preview-toggle")}
-          onClick={() => setOpen((current) => !current)}
-          className="rounded-lg surface border-(--edge) px-3 py-2 text-sm font-medium"
-        >
-          {open ? labels.collapse : labels.expand}
-        </button>
-      </div>
+      <WidePageColumn className="flex-none py-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-bold">{labels.title}</h2>
+          <button
+            type="button"
+            aria-controls={open ? contentId : undefined}
+            aria-expanded={open}
+            {...tid("complete-page-preview-toggle")}
+            onClick={() => setOpen((current) => !current)}
+            className="rounded-lg surface border-(--edge) px-3 py-2 text-sm font-medium"
+          >
+            {open ? labels.collapse : labels.expand}
+          </button>
+        </div>
+      </WidePageColumn>
 
       {content}
     </section>
