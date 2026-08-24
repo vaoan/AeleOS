@@ -22,10 +22,12 @@ import { tracksOf } from "./support/grid";
 // measures have six distinct expected widths at 1600px, so a cap cannot hide
 // behind two adjacent values. Its first section bleeds while the second does
 // not, so losing the measure entirely cannot flatter the edge assertion. The
-// second section has three places and is measured again at 560px: the public
-// page's measured threshold is 544px, while the old shell's second gutter
-// leaves this preview below it. Thus a page-width query produces three tracks
-// and an editor-column query produces one.
+// second section has a three-place grid nested in the middle track of a
+// weighted `[2,3,2]` outer grid. At a genuine 1600px desktop the public-width
+// page gives that middle track more than the nested grid's 512px `@lg`
+// threshold, while the old max-w-7xl shell leaves it below the threshold. Thus
+// a page-width query produces three tracks and an editor-column query produces
+// one at the desktop size this regression is about.
 
 test.describe.configure({ mode: "serial" });
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
@@ -91,9 +93,19 @@ async function openFixture(page: Page) {
         name_en: "Measured grid",
         mode: "grid",
         spaces: 3,
+        weights: [2, 3, 2],
         children: [
           leaf({ title_en: "Left" }),
-          leaf({ title_en: "Middle" }),
+          container({
+            name_en: "Nested three places",
+            mode: "grid",
+            spaces: 3,
+            children: [
+              leaf({ title_en: "Nested left" }),
+              leaf({ title_en: "Nested middle" }),
+              leaf({ title_en: "Nested right" }),
+            ],
+          }),
           leaf({ title_en: "Right" }),
         ],
       }),
@@ -179,15 +191,32 @@ test("keeps horizontal excess reachable rather than clipping the preview", async
 test("a three-place preview queries the page width, not the editor column", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 560, height: 900 });
+  // A genuine desktop, and the same width the measure/bleed cases use. A
+  // top-level three-place section would be non-discriminating here because
+  // both the fixed 1600px page and the broken 1232px host clear `@lg`. The
+  // weighted middle track is about 651px fixed and 494px broken, putting the
+  // two implementations on opposite sides of the nested section's 512px
+  // query threshold.
+  await page.setViewportSize({ width: 1600, height: 900 });
   const { measuredSection } = await openFixture(page);
   await page.getByTestId("theme-measure").selectOption("full");
 
-  const tracks = await tracksOf(measuredSection.getByTestId("block-grid"));
+  const nestedSection = measuredSection.locator("section").first();
+  const nestedBox = await boxOf(nestedSection);
+  const tracks = await tracksOf(nestedSection.getByTestId("block-grid"));
+  expect
+    .soft(
+      nestedBox.width,
+      `nested section is ${nestedBox.width}px wide at the desktop viewport`,
+    )
+    .toBeGreaterThan(512);
   expect(tracks).toHaveLength(3);
 });
 
-const RESPONSIVE_VIEWPORTS = [
+const COLUMN_VIEWPORTS = [
+  // Wider than max-w-7xl, so a wrong desktop cap produces a different box
+  // rather than passing behind the viewport edge.
+  { width: 1600, height: 900 },
   { width: 320, height: 568 },
   { width: 360, height: 740 },
   { width: 390, height: 844 },
@@ -199,9 +228,10 @@ const RESPONSIVE_VIEWPORTS = [
 test("every signed-in route retains the old wide-column geometry", async ({
   page,
 }) => {
-  // Thirty-six real navigations through server components and Clerk. The
-  // responsive matrix is the subject, so keep it whole and bound the measured
-  // local/CI spread rather than dropping routes to meet the default timeout.
+  // Forty-two real navigations through server components and Clerk. The
+  // responsive plus capped-desktop matrix is the subject, so keep it whole and
+  // bound the measured local/CI spread rather than dropping routes to meet the
+  // default timeout.
   test.setTimeout(120_000);
   await signIn(page, await mintTicket(identity!.userId));
   const routes = [
@@ -213,7 +243,7 @@ test("every signed-in route retains the old wide-column geometry", async ({
     ["/es/picker", 1],
   ] as const;
 
-  for (const viewport of RESPONSIVE_VIEWPORTS) {
+  for (const viewport of COLUMN_VIEWPORTS) {
     await page.setViewportSize(viewport);
     for (const [route, columnCount] of routes) {
       await page.goto(route);
@@ -235,9 +265,11 @@ test("every signed-in route retains the old wide-column geometry", async ({
         };
       });
 
-      expect(columnBox.x, route).toBeCloseTo(mainBox.x, 0);
+      const expectedWidth = Math.min(viewport.width, 1280);
+      const expectedX = mainBox.x + (mainBox.width - expectedWidth) / 2;
+      expect.soft(columnBox.x, route).toBeCloseTo(expectedX, 0);
       expect(columnBox.y, route).toBeCloseTo(mainBox.y, 0);
-      expect(columnBox.width, route).toBeCloseTo(mainBox.width, 0);
+      expect.soft(columnBox.width, route).toBeCloseTo(expectedWidth, 0);
       const pad = viewport.width >= 640 ? "24px" : "16px";
       const vertical = viewport.width >= 640 ? "40px" : "24px";
       expect(styles).toEqual({
