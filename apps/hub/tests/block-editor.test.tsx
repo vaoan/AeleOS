@@ -11,6 +11,7 @@ import {
   type Block,
   type ContainerBlock,
 } from "@/features/actors/domain/block-schema";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { SECTION_PRESETS } from "@/features/actors/presentation/section-presets";
@@ -91,6 +92,7 @@ function harness(sections: Block[] = []) {
         lang="en"
         labels={labels}
         page={pageContext({ parentHost: "" })}
+        theme={DEFAULT_THEME}
         problems={[]}
       />
     );
@@ -197,6 +199,35 @@ const firstContainer = (page: Block[]): ContainerBlock => {
 };
 
 describe("BlockEditor", () => {
+  it("keeps a themed live preview outside the section's droppable controls", () => {
+    harness([
+      {
+        ...newContainer("grid", 1),
+        name_en: "Styled",
+        style: { skin: "comic" },
+        children: [titled("Real renderer")],
+      },
+    ]);
+
+    const card = screen.getByTestId("section-card");
+    const tray = screen.getByTestId("block-preview");
+    const slot = screen.getByTestId("place-0");
+
+    expect(slot).toContainElement(card);
+    expect(slot).not.toContainElement(tray);
+    expect(within(tray).getByTestId("preview-theme-host")).toHaveAttribute(
+      "data-preview-theme",
+    );
+    expect(within(tray).getByTestId("public-section")).toBeInTheDocument();
+    expect(within(tray).getByText("Real renderer")).toBeInTheDocument();
+    expect(tray).toHaveAccessibleName(`${labels.previewTitle} 1: Styled`);
+    expect(tray.parentElement).toHaveClass("gap-2");
+    expect(tray.parentElement?.parentElement).toHaveClass("gap-6");
+    expect(within(tray).getByTestId("preview-theme-host")).toHaveClass(
+      "overflow-x-auto",
+    );
+  });
+
   it("says so when there is nothing on the page", () => {
     harness();
     expect(screen.getByText(labels.empty)).toBeInTheDocument();

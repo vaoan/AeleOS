@@ -33,6 +33,7 @@ import {
   isContainer,
   type Block,
 } from "@/features/actors/domain/block-schema";
+import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 import {
   newContainer,
   setAt,
@@ -74,6 +75,7 @@ import {
   SECTION_PRESETS,
   presetBlock,
 } from "@/features/actors/presentation/section-presets";
+import { SectionPreviewTray } from "@/features/actors/presentation/section-preview-tray";
 import {
   TemplatePicker,
   type TemplatePickerLabels,
@@ -108,6 +110,9 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  *
  * `drag` is nested for the same reason `style` and `theme` are: it has words
  * of its own that would collide flat.
+ *
+ * `previewTitle` lives here rather than in `BlockCardLabels` because this level
+ * renders each top-level card and its sibling real-renderer tray together.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -117,6 +122,8 @@ export interface BlockEditorLabels
   empty: string;
   /** Adds a section. */
   addSection: string;
+  /** Labels each top-level section's real-renderer preview. */
+  previewTitle: string;
   /** Field label for the new section's shape. */
   newSectionSpaces: string;
   /** Explains why the add controls are gone. */
@@ -142,10 +149,9 @@ export interface BlockEditorLabels
  * walk of react-hook-form's error tree answers it for every card — and so the
  * banner and the marks beneath it can never disagree about which blocks are
  * wrong. *
- * **It takes a `PageContext` and reads nothing from it**, threading it whole
- * to the renderer so a preview is drawn exactly as a stranger's page is. See
- * `PageContext` in `presentation/blocks.tsx` for why page-level values travel
- * by hand rather than through a React context.
+ * **It takes a `PageContext` and an `ActorTheme` and reads neither**, threading
+ * both to the preview tray so the real renderer sees the live actor and theme
+ * without either one restyling the workbench controls.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -156,6 +162,8 @@ export interface BlockEditorProps<T extends FieldValues> {
   labels: BlockEditorLabels;
   /** This deployment's own hostname, threaded to every preview for Twitch. */
   page: PageContext;
+  /** The unsaved page theme contained inside every live preview. */
+  theme: ActorTheme;
   /**
    * What the save schema refused, and where.
    *
@@ -271,10 +279,12 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * replaces the page and names no identity block, so without that, choosing one
  * would strip somebody's portrait and leave a tree the write refuses.
  *
- * `page` is threaded down to every card, and its `actorKind` is what that shim
- * reads. See
+ * `page` supplies the actor facts the identity shim and each real-renderer
+ * preview need. `theme` travels only to the sibling preview trays, so neither
+ * the author's palette nor a section's style can restyle the droppable control
+ * cards. Each card stays visually paired with its tray by a tighter inner gap
+ * than the gap separating successive section pairs. See
  * {@link BlockEditorProps}.
- *
  *
  * **The remove control withdraws when a block holds the last copy of a kind
  * the page must carry.** `lockedKinds` is computed once over the whole tree
@@ -294,6 +304,7 @@ export function BlockEditor<T extends FieldValues>({
   lang,
   labels,
   page,
+  theme,
   problems,
 }: BlockEditorProps<T>) {
   const id = useId();
@@ -573,47 +584,57 @@ export function BlockEditor<T extends FieldValues>({
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        <div className="grid gap-3">
+        <div className="grid gap-6">
           {seats.map((seat) => (
-            <BlockSlot
-              key={seat.key}
-              path={[seat.position]}
-              filled
-              label={labels.dragSection}
-            >
-              {(handle) =>
-                isContainer(seat.block) ? (
-                  <BlockCard
-                    block={seat.block}
-                    path={[seat.position]}
-                    apply={apply}
-                    lang={lang}
-                    labels={labels}
-                    page={page}
-                    atBlockLimit={atBlockLimit}
-                    locked={locked}
-                    problems={problems}
-                    dragHandle={handle}
-                  />
-                ) : (
-                  // **A page may hold a leaf at the top level**, and one this
-                  // editor could not show would be content nobody can read or
-                  // remove while every save kept writing it back. Nothing here
-                  // builds one — the add control makes sections — but the
-                  // schema admits one, and a drag can now make one: a section
-                  // dropped into a place puts whatever was there at the top.
-                  <LeafEditor
-                    leaf={seat.block}
-                    path={[seat.position]}
-                    apply={apply}
-                    lang={lang}
-                    labels={labels}
-                    problems={problems}
-                    dragHandle={handle}
-                  />
-                )
-              }
-            </BlockSlot>
+            <div key={seat.key} className="grid gap-2">
+              <BlockSlot
+                path={[seat.position]}
+                filled
+                label={labels.dragSection}
+              >
+                {(handle) =>
+                  isContainer(seat.block) ? (
+                    <BlockCard
+                      block={seat.block}
+                      path={[seat.position]}
+                      apply={apply}
+                      lang={lang}
+                      labels={labels}
+                      atBlockLimit={atBlockLimit}
+                      locked={locked}
+                      problems={problems}
+                      dragHandle={handle}
+                    />
+                  ) : (
+                    // **A page may hold a leaf at the top level**, and one this
+                    // editor could not show would be content nobody can read or
+                    // remove while every save kept writing it back. Nothing here
+                    // builds one — the add control makes sections — but the
+                    // schema admits one, and a drag can now make one: a section
+                    // dropped into a place puts whatever was there at the top.
+                    <LeafEditor
+                      leaf={seat.block}
+                      path={[seat.position]}
+                      apply={apply}
+                      lang={lang}
+                      labels={labels}
+                      problems={problems}
+                      dragHandle={handle}
+                    />
+                  )
+                }
+              </BlockSlot>
+              {isContainer(seat.block) ? (
+                <SectionPreviewTray
+                  block={seat.block}
+                  position={seat.position}
+                  lang={lang}
+                  page={page}
+                  theme={theme}
+                  title={labels.previewTitle}
+                />
+              ) : null}
+            </div>
           ))}
         </div>
       </DndContext>

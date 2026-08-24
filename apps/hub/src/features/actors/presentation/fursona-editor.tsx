@@ -22,11 +22,18 @@ import {
   BlockEditor,
   type BlockEditorLabels,
 } from "@/features/actors/presentation/block-editor";
-import { useLanguageToggle } from "@/features/actors/application/use-language-toggle";
+import {
+  useLanguageToggle,
+  type AuthoringLanguage,
+} from "@/features/actors/application/use-language-toggle";
 import {
   ThemeConfigurator,
   type ThemeConfiguratorLabels,
 } from "@/features/actors/presentation/theme-configurator";
+import {
+  CompletePagePreview,
+  type CompletePagePreviewLabels,
+} from "@/features/actors/presentation/complete-page-preview";
 import {
   DEFAULT_THEME,
   themeSchema,
@@ -58,6 +65,10 @@ import { z } from "zod";
  * name itself and then say what it governs — this editor has an app language
  * and an authoring language, and the switch moves only the second.
  *
+ * `completePreview` is nested because its disclosure has a title and two state
+ * labels of its own. Keeping that bag intact lets the read-only page preview
+ * own its wording without colliding with the editor toolbar's title.
+ *
  * Extends the toolbar's and the block editor's, because the editor owns one
  * label bag and hands slices of it down rather than each level resolving its
  * own — a component that resolved its own would need the catalogue in the
@@ -73,6 +84,8 @@ export interface FursonaEditorLabels
   extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
+  /** The collapsed, read-only whole-page preview's strings. */
+  completePreview: CompletePagePreviewLabels;
   /** Names the control that switches which language is being written. */
   writingIn: string;
   /** Says which fields the language switch governs. */
@@ -325,10 +338,10 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `initialSections`.
  *
  * **The theme panel sits above the language strip and the sections**, because
- * it governs how all of them look, and it is collapsed until somebody opens
- * it — theming is a thing people do once and then leave alone, so an open
- * colour panel would push everything below it down the page for everybody who
- * never touches it. Its changes are previewed locally and written with the
+ * it governs how the page previews look, and it is collapsed until somebody
+ * opens it — theming is a thing people do once and then leave alone, so an
+ * open colour panel would push everything below it down the page for everybody
+ * who never touches it. Its changes are previewed locally and written with the
  * rest of the form: what has to be instant is SEEING a colour, not storing it.
  *
  * **The language switch shows both languages rather than the current one.** It
@@ -359,7 +372,9 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * back through one `onChange`. There is no `sort_order` left to renumber
  * either: the array IS the order, at every depth.
  *
- * Its panels and fields carry `surface`, the class a skin styles — six of them, so a theme reaches the whole editor rather than half of it.
+ * **Workbench surfaces use stable AeleOS tokens.** Their `surface` classes
+ * style editor panels and fields without admitting author palette, skin or
+ * section-style tokens; those are confined to `PreviewThemeHost` boundaries.
  *
  * **A refused page gets one of three sentences, not one of two** — see
  * {@link sectionsCode}. The middle one exists because a refusal on a
@@ -367,7 +382,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * made, but naming the missing English title would be naming a cause that is
  * not the cause.
  *
- * `page` is threaded to {@link BlockEditor} and read nowhere here — see
+ * `page` is overlaid with the live identity and measure, then threaded to both
+ * the section trays and the complete page preview — see
  * {@link FursonaEditorProps}.
  *
  * **The block editor previews from the LIVE form, not from the saved page.**
@@ -377,6 +393,19 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * above it. Three fields are overlaid from `useWatch`; the rest of the context
  * is the route's, because an address is assigned rather than typed and a
  * fursona's owner is not something its editor can change.
+ *
+ * **The live theme follows the same boundary.** The form's unsaved theme is
+ * watched separately and handed to each preview tray, where
+ * `PreviewThemeHost` contains it; the editor controls therefore keep the
+ * AeleOS workbench palette and shape while the public renderer updates live.
+ *
+ * **The complete preview follows the workbench and stays outside its drag
+ * context.** It is a collapsed, read-only rendering of the whole live tree,
+ * using the same `PublicBlocks` component a stranger sees. Keeping it after
+ * `BlockEditor` means its geometry is never measured as a droppable.
+ * Its sections subscription lives in a small controller at that boundary,
+ * rather than in this editor, so a leaf edit does not rerender the toolbar,
+ * identity fields and theme controls merely to update the complete preview.
  *
  * **A page being CREATED opens with its required blocks**, the same
  * `withRequiredBlocks` output `readActorPage` answers for an actor with
@@ -453,15 +482,16 @@ export function FursonaEditor({
   // The rest of the context is the route's and is not watchable here: an
   // address is assigned rather than typed, and a fursona's owner is not
   // something its editor can change.
-  const [liveHandle, liveName, liveAvatar] = useWatch({
+  const [liveHandle, liveName, liveAvatar, liveTheme] = useWatch({
     control,
-    name: ["handle", "displayName", "avatarUrl"],
+    name: ["handle", "displayName", "avatarUrl", "theme"],
   });
   const livePage: PageContext = {
     ...page,
     handle: liveHandle || page.handle,
     displayName: liveName || null,
     avatarUrl: liveAvatar || null,
+    measure: (liveTheme as ActorTheme).measure ?? null,
   };
 
   // Schema failures carry a zod code; the database's refusals carry ours. The
@@ -659,9 +689,54 @@ export function FursonaEditor({
         // somebody the portrait they had before they started editing, and the
         // preview would quietly disagree with the form six inches above it.
         page={livePage}
+        // The preview contains the unsaved theme for the same reason it takes
+        // live actor facts: authoring chrome must stay stable while the real
+        // renderer shows exactly what the form currently holds.
+        theme={liveTheme as ActorTheme}
         problems={problems}
       />
+      <CompletePreviewController
+        control={control}
+        theme={liveTheme as ActorTheme}
+        lang={lang}
+        page={livePage}
+        labels={labels.completePreview}
+      />
     </form>
+  );
+}
+
+/**
+ * Subscribes the optional full-page preview to the live block tree.
+ *
+ * Kept below the editor boundary so a leaf edit rerenders the block workbench
+ * and this small read-only disclosure, not the toolbar, identity fields and
+ * theme controls above them.
+ *
+ * @returns the complete preview bound to the form's sections field.
+ */
+function CompletePreviewController<T extends FieldValues>({
+  control,
+  theme,
+  lang,
+  page,
+  labels,
+}: {
+  control: Control<T>;
+  theme: ActorTheme;
+  lang: AuthoringLanguage;
+  page: PageContext;
+  labels: CompletePagePreviewLabels;
+}) {
+  const blocks = useWatch({ control, name: "sections" as Path<T> });
+  return (
+    <CompletePagePreview
+      blocks={(blocks ?? []) as Block[]}
+      theme={theme}
+      lang={lang}
+      page={page}
+      labels={labels}
+    />
   );
 }
 

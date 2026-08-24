@@ -1,7 +1,7 @@
 # A builder that stays itself while the page changes
 
 - **Date:** 2026-08-21
-- **Status:** Approved for implementation planning
+- **Status:** Delivered 2026-08-23
 - **Scope:** The signed-in fursona and person editors. No public-page renderer
   change except what is required to share the same `themeCss` declarations
   under a preview host.
@@ -127,6 +127,16 @@ The host is a measured page box, not a phone iframe and not a new tab. It
 expands inline. It is labelled as the complete page so it cannot be mistaken
 for another section card.
 
+It is bounded by the editor column, so it cannot reproduce public-route
+viewport width or let a bled section reach the browser edge. That fidelity
+limit is explicit: horizontal excess remains reachable with scrolling and is
+never hidden to make the workbench look as though it fits. Container-query
+behaviour remains real for the width the inline host actually has.
+
+The complete preview lenient-parses each top-level draft block before handing
+the readable members to `PublicBlocks`. One malformed mid-edit section
+therefore disappears without taking down its valid neighbours or the editor.
+
 It is not a second editor. Nothing inside it is draggable or editable.
 
 ## Theme isolation
@@ -161,11 +171,23 @@ The preview host:
   restyle the workbench
 - paints `--field` as its own background, so a page background picture and
   gradient show in the tray without writing to `body`
+- emits its author declarations unlayered, so they beat layered app defaults
+  inside the host; selector containment is what protects the workbench
+
+Every host intentionally shares one selector because an editor has one live
+page theme. Different themes rendered side by side are not supported; that
+future feature would require a unique selector per host.
 
 `ThemeConfigurator` stops injecting a document-level `<style>` for live
 preview. Dials still coalesce; they update the form value; the preview
 hosts re-emit scoped CSS from that value. The rest of the signed-in page
 keeps design tokens whether the panel is open or not.
+
+`FursonaEditor` watches identity and theme only. `BlockEditor` already owns the
+sections controller required by the editing controls, and a small complete-
+preview controller owns the second sections subscription. A leaf edit therefore
+does not rerender the toolbar, identity fields and theme panel merely to update
+the complete preview.
 
 A page that has a saved theme still does not theme the editor chrome when
 the editor first loads. Only the trays wear it. Save remains the write;
@@ -228,9 +250,21 @@ The complete-page preview is a full-width tray in the same column as the
 form. It is not a second column. Phone layout stays one column: controls,
 then that section's preview, then the next card, then the page preview.
 
-`responsive.spec.ts` must still fail an `overflow-x: hidden` cheat. Preview
-hosts may clip their own painted overflow (a bleed section inside a tray)
-without clipping the workbench.
+`responsive.spec.ts` must still fail an `overflow-x: hidden` cheat. A section
+tray may clip its own painted corners, but the complete preview keeps horizontal
+excess scrollable and the browser guard opens it at every narrow viewport.
+
+## Embed privacy and duplicate mounts
+
+The section tray's real `Block` mounts allowlisted third-party frames while the
+author edits. Their request and the fact that this is an editing session
+therefore reach the provider before publication. This is explicit and accepted:
+an embed is exactly what the author needs to see working, and a placeholder
+would be a second renderer with different privacy and playback behaviour.
+
+Opening the complete preview mounts a second copy of any embed already present
+in its section tray. The duplicate is temporary and user-initiated, and is
+accepted for the same fidelity reason; closing the disclosure unmounts it.
 
 ## Copy and catalogues
 
@@ -287,3 +321,38 @@ theme panel restyles `:root` while editing.
 
 It does not delete `ThemeScope` on public routes, the face-layer split as
 a mechanism, or the per-section preview itself — it relocates them.
+
+## Delivered corrections and measurements
+
+The implementation kept the architecture above, with these measured
+clarifications:
+
+- `SectionPreviewTray` is a sibling of its top-level `BlockSlot`, not merely a
+  child excluded by collision code. The complete preview follows `BlockEditor`,
+  outside `DndContext`, and stays unmounted until its disclosure opens.
+- A small complete-preview controller, rather than a top-level sections watch,
+  subscribes the full preview to leaf edits. The permanent unit guard counts
+  toolbar renders and fails if a leaf edit invalidates the whole editor.
+- The complete preview is bounded by the editor column and uses reachable
+  horizontal scrolling rather than clipping. Narrow browser coverage opens it
+  at every phone viewport.
+- The permanent browser guard records computed token and paint values for Save,
+  the display-name input and a section-name input, then changes a non-default
+  gradient, accent and skin. Both the section `Block` preview and the complete
+  `PublicBlocks` preview change while all three controls stay byte-for-byte
+  stable. Restoring document-level `themeCss` makes the toolbar comparison fail
+  first.
+- The drag guard first lights a legal editor place, then moves the pointer over
+  a real section preview. No `data-over` marker or refusal is allowed there.
+  Giving a preview that marker reddens the marker assertion.
+- The accessibility fixture opens the complete preview under the existing WCAG
+  A/AA scan and compares real headings in document order. `best-practice`
+  remains off.
+- Performance was measured on the same credentialed heavy-page fixture twice
+  good and once with document-level `themeCss` restored. Good runs reported
+  10,946 nodes, 15.2ms then 11.8ms style recalculation per delivered input,
+  0.006 theme commits per movement in both runs, and 19.4% then 22.3% scroll
+  busy. The sabotage reported 10,947 nodes, 47.0ms per input, 0.006 commits per
+  movement and 21.9% scroll busy. The good spread (3.4ms) is separated from the
+  sabotage by 31.8ms at its nearest edge, but every existing ceiling still
+  holds with ample headroom; no threshold changed.

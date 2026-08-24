@@ -157,6 +157,11 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * the editor has an app language and an authoring language, and somebody with no
  * reason to suspect a second axis reads the switch as the app's own.
  *
+ * `completePreview` resolves the whole-page disclosure's title and both state
+ * labels together. The client component changes the button's accessible name
+ * as it opens and closes, so both labels are required even though only one is
+ * visible at a time.
+ *
  * `linkUrlHint` and `linkUrlPlainHint` are two strings for one field, for the
  * same reason `writingIn`/`writingInHint` are two for one control: what a
  * pasted address becomes genuinely differs by kind, so a single hint vague
@@ -206,6 +211,11 @@ export async function fursonaEditorLabels(
     bannerTitle: t("bannerTitle"),
     writingIn: t("writingIn"),
     writingInHint: t("writingInHint"),
+    completePreview: {
+      title: t("completePreviewTitle"),
+      expand: t("completePreviewExpand"),
+      collapse: t("completePreviewCollapse"),
+    },
     sectionsTitle: t("sectionsTitle"),
     empty: t("sectionsEmpty"),
     addSection: t("addSection"),

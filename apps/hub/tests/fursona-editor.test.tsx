@@ -4,19 +4,29 @@ import {
   type PageMeasure,
 } from "@/features/actors/domain/actor-theme";
 import { pageContext } from "./helpers/page-context";
-import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ComponentProps, ReactNode } from "react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   BLOCK_LIMITS,
   BLOCK_STYLE_LIMITS,
 } from "@/features/actors/domain/block-schema";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { isContainer, type Block } from "@/features/actors/domain/block-schema";
-import { blockEditorLabels } from "./support/editor-labels";
+import {
+  blockEditorLabels,
+  completePagePreviewLabels,
+} from "./support/editor-labels";
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
 let saving = false;
+let toolbarRenders = 0;
 // The editor reaches for the browser Supabase client, which is Clerk-backed.
 // These suites are about the fields, not about a session.
 vi.mock("@/shared/infrastructure/supabase-browser", () => ({
@@ -29,6 +39,23 @@ vi.mock("@/features/actors/application/use-fursona-editor", () => ({
     return { save, saving, fieldErrors };
   },
 }));
+
+vi.mock(
+  "@/features/actors/presentation/editor-toolbar",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/features/actors/presentation/editor-toolbar")
+      >();
+    return {
+      ...actual,
+      EditorToolbar: (props: ComponentProps<typeof actual.EditorToolbar>) => {
+        toolbarRenders += 1;
+        return <actual.EditorToolbar {...props} />;
+      },
+    };
+  },
+);
 
 let lastActorRef: unknown;
 
@@ -70,6 +97,7 @@ const labels = {
   bannerTitle: "Fix these before saving",
   writingIn: "Writing in",
   writingInHint: "Only the page text.",
+  completePreview: completePagePreviewLabels(),
   theme: {
     title: "Colours",
     live: "Live",
@@ -237,6 +265,7 @@ beforeEach(() => {
   fieldErrors = {};
   saving = false;
   lastActorRef = undefined;
+  toolbarRenders = 0;
 });
 
 describe("FursonaEditor", () => {
@@ -426,11 +455,14 @@ describe("FursonaEditor", () => {
   // `lang` reaches only the sections, so the strip belongs directly above
   // them, below the theme panel — not above the top fields it does not touch.
   // Sabotage-verified: reverting the render order makes both of these fail.
-  it("puts the theme panel above the language strip, and the strip above the sections", () => {
+  it("puts the theme panel, language strip, sections, and complete preview in order", () => {
     renderEditor();
     const theme = screen.getByTestId("theme-open");
     const writingIn = screen.getByTestId("writing-in-en");
     const sections = screen.getByTestId("add-section");
+    const completePreview = screen.getByRole("button", {
+      name: labels.completePreview.expand,
+    });
 
     expect(
       theme.compareDocumentPosition(writingIn) &
@@ -440,6 +472,115 @@ describe("FursonaEditor", () => {
       writingIn.compareDocumentPosition(sections) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(
+      sections.compareDocumentPosition(completePreview) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("previews unsaved identity and measure through the real page renderer", () => {
+    renderEditor({
+      initial: {
+        handle: "saved-handle",
+        displayName: "Saved name",
+        avatarUrl: "",
+        visibility: "private",
+      },
+    });
+
+    fireEvent.change(screen.getByLabelText("Handle"), {
+      target: { value: "live-handle" },
+    });
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "Live name" },
+    });
+    fireEvent.change(screen.getByLabelText("Avatar"), {
+      target: { value: "https://example.com/live.png" },
+    });
+    fireEvent.click(screen.getByTestId("theme-open"));
+    fireEvent.change(screen.getByTestId("theme-measure"), {
+      target: { value: "narrow" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: labels.completePreview.expand }),
+    );
+
+    const preview = within(screen.getByTestId("complete-page-preview-content"));
+    expect(preview.getByTestId("public-actor-name")).toHaveTextContent(
+      "live-handle",
+    );
+    expect(preview.getByText("Live name")).toBeInTheDocument();
+    expect(preview.getByTestId("block-avatar")).toHaveAttribute(
+      "src",
+      "https://example.com/live.png",
+    );
+    expect(
+      preview.getAllByTestId("public-section")[0]?.parentElement,
+    ).toHaveClass("max-w-[620px]");
+  });
+
+  it("previews unsaved page content from the live block tree", () => {
+    renderEditor({
+      initialSections: [
+        {
+          kind: "container",
+          mode: "stack",
+          spaces: 1,
+          name_en: "Draft section",
+          children: [
+            {
+              kind: "text",
+              title_en: "Draft title",
+              description_en: "Saved page words",
+            },
+          ],
+        },
+      ],
+    });
+
+    fireEvent.change(screen.getByTestId("leaf-description"), {
+      target: { value: "Unsaved page words" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: labels.completePreview.expand }),
+    );
+
+    const preview = within(screen.getByTestId("complete-page-preview-content"));
+    expect(preview.getByText("Unsaved page words")).toBeInTheDocument();
+    expect(preview.queryByText("Saved page words")).toBeNull();
+  });
+
+  it("updates a leaf preview without rerendering the whole editor", () => {
+    renderEditor({
+      initialSections: [
+        {
+          kind: "container",
+          mode: "stack",
+          spaces: 1,
+          name_en: "Draft section",
+          children: [
+            {
+              kind: "text",
+              title_en: "Draft title",
+              description_en: "Saved words",
+            },
+          ],
+        },
+      ],
+    });
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    const before = toolbarRenders;
+
+    fireEvent.change(screen.getByTestId("leaf-description"), {
+      target: { value: "Live words" },
+    });
+
+    expect(
+      within(screen.getByTestId("complete-page-preview-content")).getByText(
+        "Live words",
+      ),
+    ).toBeInTheDocument();
+    expect(toolbarRenders).toBe(before);
   });
 });
 

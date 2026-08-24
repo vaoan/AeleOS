@@ -139,10 +139,12 @@ test.describe("the signed-in pages are accessible", () => {
   test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
   test("the list and the editor", async ({ page }) => {
-    // Several full-page axe scans, including the editor with two overlays.
-    // The default 30s is enough on a warm machine and not on CI, where this
-    // case timed out inside `analyze()` after `/es/me` and `/es/pages` had
-    // already been walked — reported flaky, then green on retry.
+    // Several full-page axe scans, including both complete-preview states and
+    // the editor with two overlays. Measured after this review at 14.2s on the
+    // local credentialed runner. The default 30s has nevertheless timed out on
+    // CI inside `analyze()` after `/es/me` and `/es/pages` were already walked
+    // — reported flaky, then green on retry — so the case-level 120s bound is
+    // retained for the measured runner spread, not as a performance claim.
     test.setTimeout(120_000);
     await signIn(page, await mintTicket(identity!.userId));
 
@@ -165,7 +167,40 @@ test.describe("the signed-in pages are accessible", () => {
     await expect(page.getByTestId("add-section")).toBeVisible();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
+    // A blank draft's required identity section has no heading of its own.
+    // Name a real section so the ordering assertion below compares two actual
+    // headings rather than passing over an empty preview.
+    await page.getByTestId("add-section").click();
+    await page.getByTestId("section-name").last().fill("Preview heading");
+    const completePreview = page.getByTestId("complete-page-preview");
+    const workbenchHeading = completePreview
+      .locator(":scope > div")
+      .first()
+      .locator("h2");
+    // The collapsed disclosure is a state of its own, so the broad rendered
+    // scan stays. It does NOT guard the dangling `aria-controls` detail:
+    // deliberately pointing the toggle at the unmounted content left this axe
+    // scan green. `complete-page-preview.test.tsx` owns that exact omission.
+    await isAccessible(page, "the editor with the complete preview collapsed");
+    await page.getByTestId("complete-page-preview-toggle").click();
+    const previewContent = page.getByTestId("complete-page-preview-content");
+    await expect(previewContent).toBeVisible();
     await isAccessible(page, "the editor with the theme panel open");
+    const previewHeading = previewContent
+      .locator("h1, h2, h3, h4, h5, h6")
+      .first();
+    await expect(previewHeading).toBeVisible();
+    expect(
+      await workbenchHeading.evaluate(
+        (heading, preview) =>
+          Boolean(
+            heading.compareDocumentPosition(preview) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+          ),
+        await previewHeading.elementHandle(),
+      ),
+      "the workbench heading comes before the preview's own content heading",
+    ).toBe(true);
 
     // Close the theme panel before opening a section's own style popup, so
     // axe reads one open overlay at a time rather than two stacked ones.
@@ -177,7 +212,6 @@ test.describe("the signed-in pages are accessible", () => {
     // management rather than merely a name on every control. Never opened by
     // any e2e suite before this finding: a popup axe never sees is a popup it
     // cannot fail on, which is not the same as one that passes.
-    await page.getByTestId("add-section").click();
     // **Scoped to the card this test adds, which is the LAST one.** Every page
     // opens carrying the identity section the database requires, so a
     // page-wide locator for a card's own control now matches two and resolves

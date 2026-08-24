@@ -779,11 +779,12 @@ function declarations(properties: Record<string, string>): string {
  *
  * **Reuses `backgroundImageValue`, the same function `blockStyle` calls for
  * a section's own background picture, rather than a second escaping path.**
- * `themeCss` interpolates its result into a raw `<style>` block, where CSSOM
- * offers no protection at all — that sink is exactly why `backgroundImageValue`
- * refuses a `"` or a `\` outright rather than trusting `safeHttpUrl`'s own
- * normalisation, which leaves both untouched in a URL's host or query. An
- * address it refuses paints nothing here, precisely as it does for a section.
+ * Both {@link themeCss} and {@link previewThemeCss} interpolate its result into
+ * raw `<style>` blocks, where CSSOM offers no protection at all — those sinks
+ * are exactly why `backgroundImageValue` refuses a `"` or a `\` outright
+ * rather than trusting `safeHttpUrl`'s own normalisation, which leaves both
+ * untouched in a URL's host or query. An address it refuses paints nothing
+ * through either emitter, precisely as it does for a section.
  *
  * `tile` and `cover` are the only two fits `ActorTheme` can hold, so the
  * `else` branch below is `cover` for anything else that reaches this
@@ -820,9 +821,9 @@ export function bodyBackgroundVars(theme: ActorTheme): Record<string, string> {
  * same for everybody** — text, borders and accent all solved against that
  * background by `derivePalette`, none of them against the reader's scheme.
  *
- * **One function serves the live preview and the public page**, which is what
- * keeps the editor honest: what somebody sees while choosing is produced by the
- * code that will render the page for a stranger.
+ * **One declaration source serves the live preview and the public page**, which
+ * is what keeps the editor honest: both selectors receive the same values even
+ * though the editor must stop them at its preview boundary.
  *
  * A cursor travels as a real `cursor` declaration rather than a custom
  * property, with the hotspot pinned to the corner and the mandatory fallback
@@ -935,6 +936,36 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
  */
 export function accentPreview(accentHex: string, background: Gradient): string {
   return derivePalette(background, accentHex)["--accent"] ?? accentHex;
+}
+
+/**
+ * A theme as CSS for an editor preview boundary.
+ *
+ * **Editor-only, and never a replacement for {@link themeCss}.** Public pages
+ * need document selectors so their field, canvas and background can receive
+ * the theme; the builder instead needs every declaration stopped at its own
+ * preview host so none of them restyles the surrounding controls.
+ *
+ * Every value interpolated here was already generated or refused by
+ * {@link themeVars}, `skinVars` or {@link bodyBackgroundVars}, so a stored
+ * value can never close this rule and write CSS of its own.
+ *
+ * Every host intentionally shares this selector because one editor has one
+ * live page theme. Rendering two different draft themes side by side is not a
+ * supported state; that future feature would require a per-host selector
+ * rather than silently changing this invariant.
+ *
+ * @param theme - the chosen theme.
+ * @returns one preview-scoped rule, or empty when the theme overrides nothing.
+ */
+export function previewThemeCss(theme: ActorTheme): string {
+  const selector = "[data-preview-theme]";
+  const values = declarations({
+    ...themeVars(theme),
+    ...skinVars(theme.skin),
+    ...bodyBackgroundVars(theme),
+  });
+  return values ? `${selector}{${values}}` : "";
 }
 
 /**

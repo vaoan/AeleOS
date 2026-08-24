@@ -7,6 +7,7 @@ import { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
 import { SECTION_SHAPES } from "@/features/actors/presentation/section-shapes";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import type { BlockEditorLabels } from "@/features/actors/presentation/block-editor";
+import type { CompletePagePreviewLabels } from "@/features/actors/presentation/complete-page-preview";
 
 /**
  * Every string the page editor renders, with each name standing in for its
@@ -156,5 +157,18 @@ export function blockEditorLabels(): BlockEditorLabels {
       borderDotted: "Dotted line",
       borderDouble: "Double line",
     },
+  };
+}
+
+/**
+ * The complete-page disclosure strings used by editor test fixtures.
+ *
+ * @returns labels that make the disclosure's state explicit in assertions.
+ */
+export function completePagePreviewLabels(): CompletePagePreviewLabels {
+  return {
+    title: "Complete page preview",
+    expand: "Show complete page",
+    collapse: "Hide complete page",
   };
 }

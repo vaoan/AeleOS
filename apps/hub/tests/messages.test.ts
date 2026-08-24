@@ -77,6 +77,14 @@ describe("message catalogues", () => {
     expect(esKeys.filter((k) => valueAt(es, k) === "")).toEqual([]);
   });
 
+  it("names every state of the complete page preview in both languages", () => {
+    for (const locale of [en, es]) {
+      expect(locale.fursonas.completePreviewTitle).toBeTruthy();
+      expect(locale.fursonas.completePreviewExpand).toBeTruthy();
+      expect(locale.fursonas.completePreviewCollapse).toBeTruthy();
+    }
+  });
+
   // An untranslated string is easy to miss in review and reads as a bug to the
   // person seeing it. The exceptions are listed rather than tolerated by a
   // rule, so adding one is a deliberate edit somebody has to justify:

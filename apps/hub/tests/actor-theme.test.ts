@@ -9,6 +9,7 @@ import {
   isCustomised,
   isThemed,
   parseTheme,
+  previewThemeCss,
   themeCss,
   themeVars,
   withCanvasColour,
@@ -272,6 +273,12 @@ describe("themeCss", () => {
     },
   };
 
+  it("preserves the public stylesheet contract", () => {
+    expect(themeCss(THEMED)).toMatchInlineSnapshot(
+      `":root:not([data-page-theme="default"]){--surface-solid:oklch(0.1784 0.0384 282.93);--menu:oklch(0.1784 0.0384 282.93);--bar-solid:oklch(0.1784 0.0384 282.93 / 0.55);--ink:oklch(0.9700 0.0384 282.93);--ink-2:oklch(0.8014 0.0341 282.93);--muted:oklch(0.6328 0.0341 282.93);--edge:oklch(0.5297 0.0355 282.93);--accent:oklch(0.4596 0.1492 25.26);--on-accent:oklch(0.9700 0.0384 282.93);--nebula-blend:screen;--field:linear-gradient(#1a1a2e, #1a1a2e)}"`,
+    );
+  });
+
   // One rule, no media queries. Both are consequences of a theme being one
   // palette: there is only one rendering, so there is nothing to pick between.
   it("emits a single rule with no scheme to pick between", () => {
@@ -330,6 +337,44 @@ describe("themeCss", () => {
       expect(css).not.toContain("</style>");
     },
   );
+});
+
+describe("previewThemeCss", () => {
+  it("scopes palette, skin, and background to preview hosts", () => {
+    const css = previewThemeCss({
+      ...DEFAULT_THEME,
+      background: {
+        ...DEFAULT_GRADIENT,
+        stops: [{ color: "#24152f", at: 0 }],
+      },
+      accent: "#f04f91",
+      skin: "comic",
+      backgroundUrl: "https://example.test/background.png",
+    });
+
+    expect(css).toContain("[data-preview-theme]");
+    expect(css).toContain("--accent:");
+    expect(css).toContain("--skin-");
+    expect(css).toContain("background-image:");
+    expect(css).not.toContain(":root");
+    expect(css).not.toContain(" body");
+  });
+
+  it("emits no preview rule when the theme overrides nothing", () => {
+    expect(previewThemeCss(DEFAULT_THEME)).toBe("");
+  });
+
+  it.each([
+    'https://ex"ample.test/a.png',
+    "https://example.test/?x\\",
+    "javascript:alert(1)",
+  ])("keeps the refused picture %s out of both stylesheet sinks", (url) => {
+    const theme = { ...DEFAULT_THEME, backgroundUrl: url };
+    for (const emit of [themeCss, previewThemeCss]) {
+      expect(emit(theme)).not.toContain("background-image");
+      expect(emit(theme)).not.toContain(url);
+    }
+  });
 });
 
 describe("bodyBackgroundVars", () => {

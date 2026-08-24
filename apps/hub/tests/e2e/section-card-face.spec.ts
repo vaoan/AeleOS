@@ -18,29 +18,13 @@ import { chooseNewSectionSpaces } from "./support/editor";
 
 // WHY THIS FILE EXISTS.
 //
-// `cutout` is the first skin to set `clip-path`, and `clip-path` clips an
-// element's whole SUBTREE — positioned descendants included, at any `z-index`,
-// because the clip also makes its element a stacking context. `SectionStyle
-// Popup`'s panel is a descendant of the card it styles. So while the card
-// itself carried `surface`, choosing `cutout` in that popup cut the popup
-// away: worst on a COLLAPSED card, which is about one control row tall, where
-// what got cut included the skin select that would put the choice back. A
-// control that can disable its own undo.
-//
-// **Nothing on the branch could have caught it.** jsdom implements no
-// `clip-path`, so `section-style-popup.test.tsx` is blind to it by
-// construction, and `skin-mechanisms.spec.ts` only ever visits the public
-// page, where no overlay exists. That is the drag-handle bug's exact shape —
-// the one suite covering the control mocked away the thing that broke it — and
-// it is why this file drives the real popup in a real browser rather than
-// asserting anything about what the code emits.
-//
-// The second half is the same fact applied to `outline`, which the first pass
-// reasoned about for `box-shadow` and not for it. A focus ring is painted just
-// OUTSIDE the border box and `polygon()` resolves against that box, so under
-// `cutout` a keyboard visitor lost the indicator on every surface at once
-// (WCAG 2.4.7). `@utility surface` draws its ring inside now, and this
-// measures that a ring appears at all.
+// `cutout` is the first skin to set `clip-path`. Controls and previews are now
+// siblings, so the old fault — a clipped card cutting away its own popup — is
+// structurally impossible. The first case is repurposed as a browser-level
+// boundary check: the real preview receives the clip while the AeleOS card,
+// popup and focus treatment remain unclipped. Its hit and pixel assertions are
+// corroboration of that split, not evidence that controls survive inside a
+// clipped ancestor.
 //
 // **The second test is about what the face PAINTS**, and it exists because the
 // refactor that fixed the clip moved the paint without measuring it. Delete
@@ -53,21 +37,10 @@ import { chooseNewSectionSpaces } from "./support/editor";
 // 90%-alpha face is a preview showing a tenth of what it previews, and a
 // picture on the ROOT bleeds past the face's corners.
 //
-// **The third test is the other half of that same fix, and it exists because
-// the second one shipped without it.** A face showing the picture at full
-// strength is a face the editor's own controls sit straight on top of, and
-// every one of them was `background-color: rgba(0, 0, 0, 0)` — so the change
-// that made the preview honest made the labels and inputs above it
-// unreadable, and nothing in the repository could tell: this file measured
-// the picture's strength and its corners, and a completely illegible editor
-// passed every assertion in it. The answer is not to dim the face again —
-// that is the trade the second test refuses — it is what the PUBLIC page
-// already does with the same picture, which is to float its content on cards
-// painting `bg-(--surface)`. Both halves are therefore asserted in ONE test,
-// against one deliberately hostile picture: the controls clear 4.5:1 and the
-// picture is still unmodified where nothing covers it. Split across two and
-// either could be restored at the other's expense, which is exactly how this
-// got here.
+// **The third test measures the same boundary under hostile paint.** AeleOS
+// controls in the card clear their contrast targets while the sibling tray
+// keeps the picture at full strength. It does not claim the controls read over
+// that picture: the workbench split means they never overlap it.
 //
 // **The fourth test is about the fit control**, and it belongs here because
 // this is the file that photographs this element. Its own comment carries the
@@ -226,7 +199,110 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
-test("cutout does not cut away the popup that sets it, and a focus ring survives it", async ({
+test("author colours and skin change both real previews without restyling the workbench", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.setViewportSize(VIEWPORT);
+  await page.goto("/es/pages/new");
+  await page.getByTestId("editor-handle").fill("themeboundary");
+  await page.getByTestId("editor-display-name").fill("Theme boundary");
+  await chooseNewSectionSpaces(page, "1");
+  await page.getByTestId("add-section").click();
+  await page.getByTestId("section-name").last().fill("Boundary");
+  await page.getByTestId("add-content").last().click();
+  await page.getByTestId("leaf-title").last().fill("Previewed");
+
+  const complete = page.getByTestId("complete-page-preview");
+  await expect(complete.locator("h2")).toBeVisible();
+  await page.getByTestId("complete-page-preview-toggle").click();
+  await expect(page.getByTestId("complete-page-preview-content")).toBeVisible();
+
+  const toolbar = page.getByTestId("editor-save");
+  const identityInput = page.getByTestId("editor-display-name");
+  const sectionInput = page.getByTestId("section-name").last();
+  const sectionPreview = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("preview-theme-host");
+  const completePreview = page
+    .getByTestId("complete-page-preview-content")
+    .locator("..");
+
+  /**
+   * Reads the properties a document-level author theme changes first.
+   *
+   * The custom properties establish which token scope the element inherited;
+   * the computed paint establishes that the token was actually consumed.
+   * Reading both prevents a literal-colour control and an inherited-but-unused
+   * token from each producing a flattering half-answer.
+   *
+   * @param testId - the element whose workbench paint is under guard.
+   * @returns the resolved design tokens and paint.
+   */
+  const workbenchStyle = (testId: typeof toolbar) =>
+    testId.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        accent: style.getPropertyValue("--accent"),
+        field: style.getPropertyValue("--field"),
+        round: style.getPropertyValue("--skin-round"),
+        background: style.backgroundColor,
+        color: style.color,
+        radius: style.borderTopLeftRadius,
+        font: style.fontFamily,
+      };
+    });
+
+  /**
+   * Reads the author tokens a preview host is expected to consume.
+   *
+   * @param host - a section or complete-page preview boundary.
+   * @returns the resolved author palette and skin tokens.
+   */
+  const previewStyle = (host: typeof sectionPreview) =>
+    host.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        accent: style.getPropertyValue("--accent"),
+        field: style.getPropertyValue("--field"),
+        round: style.getPropertyValue("--skin-round"),
+      };
+    });
+
+  const controlsBefore = await Promise.all([
+    workbenchStyle(toolbar),
+    workbenchStyle(identityInput),
+    workbenchStyle(sectionInput),
+  ]);
+  const sectionBefore = await previewStyle(sectionPreview);
+  const completeBefore = await previewStyle(completePreview);
+
+  await page.getByTestId("theme-open").click();
+  await page.getByTestId("gradient-colour").fill("#101a2e");
+  await page.getByTestId("theme-accent").fill("#00ff88");
+  await page.getByTestId("theme-skin").selectOption("neobrutalism");
+
+  await expect
+    .poll(() =>
+      Promise.all([
+        previewStyle(sectionPreview),
+        previewStyle(completePreview),
+      ]),
+    )
+    .not.toEqual([sectionBefore, completeBefore]);
+  expect(await previewStyle(sectionPreview)).not.toEqual(sectionBefore);
+  expect(await previewStyle(completePreview)).not.toEqual(completeBefore);
+
+  // These are deliberately last: restoring ThemeConfigurator's document-level
+  // `themeCss` makes the toolbar assertion fail first, before either input is
+  // consulted, while both preview-change assertions above still pass.
+  expect(await workbenchStyle(toolbar)).toEqual(controlsBefore[0]);
+  expect(await workbenchStyle(identityInput)).toEqual(controlsBefore[1]);
+  expect(await workbenchStyle(sectionInput)).toEqual(controlsBefore[2]);
+});
+
+test("cutout clips the real preview while AeleOS controls remain outside that scope", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
@@ -253,15 +329,16 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
 
-  // **Collapsed, which is the total case.** Only the card's BODY is gated on
-  // collapse; the header row and its paintbrush render regardless. A collapsed
-  // card is roughly one control row tall, so a panel anchored under that row
-  // sits almost entirely outside the card's border box — everything a clip on
-  // the card would take.
+  // Collapsed keeps the control card compact while its sibling preview stays
+  // visible, making the two scopes unambiguous in the same viewport.
   await page.getByTestId("collapse-section").last().click();
 
   const panel = page.getByTestId("section-style-panel");
   const card = page.getByTestId("section-card").last();
+  const preview = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("public-section");
 
   await page.getByTestId("section-style-open").last().click();
   await expect(panel).toBeVisible();
@@ -270,13 +347,17 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   // The choice really did land — otherwise everything below would be
   // measuring an unstyled card and passing for the wrong reason.
   await expect
-    .poll(() => card.evaluate((el) => el.style.getPropertyValue("--skin-clip")))
+    .poll(() =>
+      preview.evaluate((el) => el.style.getPropertyValue("--skin-clip")),
+    )
     .toContain("polygon(");
+  expect(await card.evaluate((el) => getComputedStyle(el).clipPath)).toBe(
+    "none",
+  );
 
-  // The identity section sits above this card now, so the panel can open below
-  // the fold — where `elementFromPoint` answers null for coordinates that are
-  // not in the viewport at all, and the hit test would report a clipped panel
-  // that is merely off screen.
+  // The identity section can put the panel below the fold, where
+  // `elementFromPoint` answers null. Bring it on screen before using it as
+  // corroboration that the outside-scope controls remain operational.
   await panel.scrollIntoViewIfNeeded();
   const box = (await panel.boundingBox())!;
   const centre = {
@@ -284,10 +365,8 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
     y: Math.round(box.y + box.height / 2),
   };
 
-  // **Hit testing, which `toBeVisible()` does not do.** Playwright's
-  // visibility is bounding box and `display`; a clipped element passes it
-  // while being neither painted nor clickable. `clip-path` does reach hit
-  // testing, so this is the cheap half of the proof.
+  // Hit testing, which `toBeVisible()` does not do. This is corroboration for
+  // the negative control after the direct `clip-path: none` assertion above.
   //
   // Asked as "is the panel what is here" rather than "which test id is
   // nearest": the second answer changes the day a field is added to the popup
@@ -302,10 +381,8 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   );
   expect(hit, "the panel is what is at its own centre").toBe(true);
 
-  // The other half, and the one a stacking-context bug could still fail: is it
-  // PAINTED there? Sampled with the panel open and again with it closed, at
-  // points inside its lower half — the part a clipped card removes first. A
-  // panel that never painted leaves both readings identical.
+  // The popup also paints where it hit-tests. Sampled open and closed so a
+  // transparent or obscured panel cannot pass only by owning the hit target.
   const probes: Probe[] = [
     { name: "middle", ...centre },
     {
@@ -348,13 +425,11 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
     ).toBeGreaterThan(20);
   }
 
-  // **A focus ring on a clipped surface.** The background-address input is a
-  // `surface` inside the same `cutout` scope, so it carries the chamfer
-  // itself; reached by Tab from the skin select, which the popup focuses on
-  // open, so the focus is keyboard-derived and `:focus-visible` genuinely
-  // applies. Measured against the same points with the focus moved on, rather
-  // than against a neighbour, so nothing depends on what the input is painted
-  // over.
+  // The popup remains ordinary AeleOS chrome outside the cutout scope. Reached
+  // by Tab from the skin select so `:focus-visible` genuinely applies, this
+  // confirms the negative-control half of the boundary still paints its ring.
+  // It is corroboration: the computed `clip-path: none` assertion above is the
+  // direct proof that the control card never entered the preview scope.
   await page.getByTestId("section-style-open").last().click();
   await expect(panel).toBeVisible();
   const input = page.getByTestId("section-style-background-url");
@@ -379,7 +454,7 @@ test("cutout does not cut away the popup that sets it, and a focus ring survives
   );
   expect(
     moved,
-    "a focus ring is painted inside a clipped surface",
+    "an AeleOS focus ring remains painted outside the clipped preview",
   ).toBeGreaterThan(20);
 });
 
@@ -399,10 +474,11 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.getByTestId("editor-display-name").fill("Face check");
   await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
+  await page.getByTestId("add-content").last().click();
   await page.getByTestId("collapse-section").last().click();
 
-  const card = page.getByTestId("section-card").last();
-  const face = page.getByTestId("section-card-face").last();
+  const tray = page.getByTestId("block-preview").last();
+  const face = tray.getByTestId("section-preview-face");
 
   // **The skin's form, on the layer that paints it.** Delete `surface` from
   // that layer and the border is Preflight's `0`, which no other test in the
@@ -418,23 +494,18 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).clipPath))
     .toMatch(/^polygon\(/);
+  // A corner-vs-edge screenshot cannot independently prove this FACE's clip
+  // any more. The face is an absolute backing beneath the real `Block`, which
+  // carries the same section style, and the rounded preview host clips both;
+  // viewport pixels therefore read the renderer/host above the face. Measured
+  // at the face's own corner and top edge, colour distance was 5 both with the
+  // polygon intact and with `face.style.clipPath = "none"` sabotaged. Keeping
+  // that probe would be false evidence, so the face's computed clip is the
+  // direct assertion and the first test checks the rendered boundary.
   await page.keyboard.press("Escape");
+  await face.scrollIntoViewIfNeeded();
 
-  // The chamfer, in pixels rather than in a resolved value: the card's corner
-  // is cut away and a point along the same edge is not. Under `cutout`
-  // `--skin-round` is `0`, so nothing but the clip can account for the
-  // difference — which is what makes this the guard for the layer painting at
-  // all, and not merely for `clip-path` resolving on it.
-  let box = (await card.boundingBox())!;
-  const cut: Probe[] = [
-    { name: "corner", x: Math.round(box.x) + 4, y: Math.round(box.y) + 4 },
-    { name: "edge", x: Math.round(box.x) + 30, y: Math.round(box.y) + 4 },
-  ];
-  const chamfered = await sampleColours(page, cut);
-  expect(
-    apart(chamfered.corner!, chamfered.edge!),
-    "the face's chamfered corner is cut away",
-  ).toBeGreaterThan(20);
+  let box = (await face.boundingBox())!;
 
   // **The picture, at full strength and inside the corners.** Back to the
   // design's own radius first: `cutout` squares the card off, and the corner
@@ -449,8 +520,9 @@ test("the face paints the skin, and a section's picture at full strength inside 
     .toContain(PICTURE.url);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("section-style-panel")).toBeHidden();
+  await face.scrollIntoViewIfNeeded();
 
-  box = (await card.boundingBox())!;
+  box = (await face.boundingBox())!;
   const left = Math.round(box.x);
   const top = Math.round(box.y);
   // `rounded-xl` at the design's own `--skin-round` is 12px, so (6,6) is
@@ -478,7 +550,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   ).toBeGreaterThan(60);
 });
 
-test("the editor's controls stay readable over a hostile picture, and the picture stays at full strength", async ({
+test("AeleOS controls stay readable beside a hostile full-strength tray picture", async ({
   page,
 }) => {
   await page.route(`**${new URL(HOSTILE.url).pathname}`, (route) =>
@@ -510,6 +582,24 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
   await expect(page.getByTestId("section-style-panel")).toBeHidden();
 
   const card = page.getByTestId("section-card").last();
+  const face = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("section-preview-face");
+  await expect
+    .poll(() =>
+      card.evaluate((el) => {
+        const inline = el.getAttribute("style") ?? "";
+        return {
+          inline,
+          background: getComputedStyle(el).backgroundColor,
+        };
+      }),
+    )
+    .toEqual({
+      inline: "",
+      background: expect.not.stringMatching(/rgba?\([^)]*(?:,\s*0|\/\s*0)\)/),
+    });
   // Focus is parked on the paintbrush the popup returned it to. Moved onto the
   // page's own heading so no field under a probe is wearing its focus ring,
   // and no caret is blinking in one while the screenshot is taken.
@@ -546,19 +636,8 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
         textColour(card.getByTestId(spot.ink).first()),
       ),
     );
-    const cardBox = (await card.boundingBox())!;
     const probes: Probe[] = [
       ...boxes.map((point, index) => ({ name: String(index), ...point })),
-      // The other half of the trade, in the same photograph as the halves it
-      // could be traded against: six pixels into the card is inside the
-      // face's 12px corner arc and outside the header row's backing, which
-      // begins at the card's own padding less one. A wash restored over the
-      // whole card to win the ratios above fails here.
-      {
-        name: "picture",
-        x: Math.round(cardBox.x) + 6,
-        y: Math.round(cardBox.y) + 6,
-      },
     ];
     const painted = await sampleColours(page, probes);
 
@@ -569,8 +648,17 @@ test("the editor's controls stay readable over a hostile picture, and the pictur
       ).toBeGreaterThanOrEqual(spot.min);
     }
 
+    await face.scrollIntoViewIfNeeded();
+    const faceBox = (await face.boundingBox())!;
+    const picture = await sampleColours(page, [
+      {
+        name: "picture",
+        x: Math.round(faceBox.x) + 6,
+        y: Math.round(faceBox.y) + 6,
+      },
+    ]);
     expect(
-      apart(painted.picture!, HOSTILE.rgb),
+      apart(picture.picture!, HOSTILE.rgb),
       `${scheme}: the picture still previews at full strength`,
     ).toBeLessThan(30);
   };
@@ -615,10 +703,11 @@ test("the three background fits are three different paints", async ({
   await page.goto("/es/pages/new");
   await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
+  await page.getByTestId("add-content").last().click();
   await page.getByTestId("collapse-section").last().click();
 
-  const card = page.getByTestId("section-card").last();
-  const face = page.getByTestId("section-card-face").last();
+  const tray = page.getByTestId("block-preview").last();
+  const face = tray.getByTestId("section-preview-face");
 
   await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
@@ -646,7 +735,7 @@ test("the three background fits are three different paints", async ({
   const paints = async (): Promise<{ origin: number[]; away: number[] }> => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("section-style-panel")).toBeHidden();
-    const box = (await card.boundingBox())!;
+    const box = (await face.boundingBox())!;
     const sampled = await sampleColours(page, [
       { name: "origin", x: Math.round(box.x) + 5, y: Math.round(box.y) + 5 },
       { name: "away", x: Math.round(box.x) + 40, y: Math.round(box.y) + 6 },

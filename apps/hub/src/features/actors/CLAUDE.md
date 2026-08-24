@@ -1055,8 +1055,10 @@ renderer already handles it.
 `section-card.tsx` and `section-item-fields.tsx`. What replaces it is
 `block-editor.tsx` (the page: sections, the template picker, the brand presets,
 the top-level drag), `block-card.tsx` (one container — its name, arrangement,
-shape, style, places, and the live preview) and `leaf-editor.tsx` (one piece of
-content and only the fields its kind draws). `section-schema.ts` and
+shape, style and places) and `leaf-editor.tsx` (one piece of content and only
+the fields its kind draws). `SectionPreviewTray`, a sibling owned by the block
+editor rather than the card, holds each top-level live preview.
+`section-schema.ts` and
 `fursona-templates.ts` survive, because the shim and the templates still speak
 that vocabulary.
 
@@ -1112,13 +1114,48 @@ padding and a leaf editor's own padding have no container-query form at all —
 the same element asks whatever encloses it. Those two dials were dropped rather
 than converted into a rule that asks the wrong box quietly.
 
-**The preview is the REAL renderer.** Each section's card draws itself with
-`Block` from `blocks.tsx` — the component both public pages are built from —
-handed the same tree the save will send, parsed by `lenientBlockSchema` because
-the editor's tree is mid-edit. A second implementation would have looked
-identical the day it was written and drifted the first time either changed,
-with no type error and no failing test; it is the same argument that already
-has the live style preview calling `blockStyle` rather than a copy of it.
+**Controls are AeleOS; previews are the author's page.** The toolbar, identity
+fields, section names and every nested editor consume the app's design tokens
+and never inherit an author's palette, skin or section style. `PreviewThemeHost`
+is the only editor boundary that receives page-level author tokens.
+
+**Both previews use the REAL renderers.** `SectionPreviewTray` draws each
+top-level container with `Block` from `blocks.tsx` — the component both public
+pages are built from — handed the same tree the save will send, parsed by
+`lenientBlockSchema` because the editor's tree is mid-edit. The complete-page
+preview draws the readable members of the live form tree through `PublicBlocks`,
+including unsaved actor facts, authoring language and theme. It lenient-parses
+each top-level block first, so one malformed in-progress section disappears
+from the preview rather than taking down the editor or hiding its valid
+neighbours. A second renderer would have looked identical the day it was
+written and drifted the first time either changed.
+
+**A leaf edit does not rerender the whole editor.** `BlockEditor` owns the
+sections controller needed by its controls, while a small complete-preview
+controller owns the second sections subscription. `FursonaEditor` watches only
+identity and theme values, so changing one description does not rerender the
+toolbar, identity fields and theme controls merely to feed the full preview.
+
+**The complete preview is honest about being bounded.** It is an inline view
+inside the editor column, not the public route's viewport: container queries
+answer to that column and a bled section cannot reach the browser edge.
+Horizontal excess is scrollable, never hidden or clipped to fake a fit, and the
+narrow-viewport browser suite opens the preview at every phone stop.
+
+**Real previews mount real third-party frames while editing.** An author's own
+request and the fact that they are editing therefore reach the same allowlisted
+providers their visitors would reach. That privacy cost is accepted because an
+embed is precisely what must be seen working before publication, and no
+different source or provider is admitted. Opening the complete preview mounts a
+second copy of any embed already visible in its section tray; this double mount
+is temporary, explicit, and accepted in exchange for keeping both previews on
+the public renderer. Closing the disclosure unmounts the second copy.
+
+**Neither preview participates in dragging.** A section tray is a sibling of
+the top-level `BlockSlot`, never its descendant, so changing its height cannot
+change droppable geometry. The complete-page preview follows `BlockEditor`,
+outside its `DndContext`, and is collapsed by default so the builder remains
+the primary surface.
 
 ### Dragging (2026-08-18) — anything, anywhere a place will hold it
 
@@ -1692,9 +1729,16 @@ decisions, so they are not quietly undone:
   rather than trusting its caller — which means a dragged handle can change
   index, and a control tracking its selection by index would silently start
   editing the neighbour.
-- **Changes are live and use the SAME `themeCss` the public page uses**, so the
-  preview cannot drift from the result. Persistence rides the ordinary save:
-  what must be instant is seeing a colour, not storing it.
+- **Changes are live through `previewThemeCss` on `PreviewThemeHost`.** It
+  shares `themeVars`, `skinVars` and `bodyBackgroundVars` with the public
+  page's `themeCss`, so values cannot drift while the editor-only selector
+  keeps them out of the builder chrome. Its CSS is deliberately UNLAYERED so
+  author values beat layered app defaults inside the host; selector containment
+  is what protects the workbench. Every preview host intentionally shares one
+  selector because one editor has one live theme. Side-by-side different draft
+  themes are unsupported and would require unique host selectors. Persistence
+  rides the ordinary save: what must be instant is seeing a colour, not storing
+  it.
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once
   depended on which mode they happened to be editing in.
@@ -1792,10 +1836,10 @@ because neither consequence is visible from the declaration:
   included.** The editor's section card holds the style popup as a descendant,
   so a card that was itself the clipped surface cut the popup away. On a
   **collapsed** card that removed the panel entirely — including the select
-  that would undo the choice. A control able to disable its own undo. The fix
-  is not an exemption for the popup: `block-card.tsx` paints the card's face
-  on a **layer inside** the root, so the notch is still previewed and any later
-  token that clips _or transforms_ inherits the same protection.
+  that would undo the choice. A control able to disable its own undo.
+  `BlockCard` is now an opaque, unstyled workbench surface; the notch lives on
+  `SectionPreviewTray`'s face outside that card and outside its droppable, so
+  no author style can clip or transform a control.
   `section-card-face.spec.ts` drives the real popup on a collapsed card in a
   real browser, hit-tests the panel's centre with `elementFromPoint`, and
   compares its pixels against the same coordinates with the panel closed —
@@ -2011,14 +2055,14 @@ renders a surface, so gating it would hide a control that does something — the
 opposite of the fault the `card_size` gate exists to prevent, and the reason
 the difference is stated rather than left to read as an inconsistency.
 
-#### The section card's face is not the card
+#### The section preview's face is not the control card
 
-In the editor, `blockStyle`'s output is split across two elements by what
-each property **does**, not by naming keys: a custom property is inherited by
-definition and goes on the **root**, where the popup and the item fields read
-it; a painted property goes on the **face**, the `absolute inset-0` layer that
-carries `surface`. The public page needs no such split because its `<section>`
-is bare.
+In the editor, `BlockCard` receives none of `blockStyle`'s output. The split
+lives wholly in `SectionPreviewTray`, outside the top-level droppable: a custom
+property is inherited by definition and goes on the preview wrapper, where the
+real renderer reads it; a painted property goes on the **face**, the
+`absolute inset-0` layer that carries `surface`. The public page needs no such
+split because its `<section>` is bare.
 
 Get the split backwards and it fails quietly in both directions. A picture
 painted on the root shows as a square rect behind a rounded — or chamfered —

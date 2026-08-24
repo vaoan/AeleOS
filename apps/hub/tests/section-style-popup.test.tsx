@@ -7,6 +7,7 @@ import {
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import type { Block } from "@/features/actors/domain/block-schema";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import { blockEditorLabels } from "./support/editor-labels";
 
 vi.mock("lucide-react/dynamic", () => ({
@@ -15,6 +16,8 @@ vi.mock("lucide-react/dynamic", () => ({
 }));
 
 const { BlockCard } = await import("@/features/actors/presentation/block-card");
+const { SectionPreviewTray } =
+  await import("@/features/actors/presentation/section-preview-tray");
 
 const labels = blockEditorLabels();
 
@@ -50,18 +53,29 @@ function harness(page: Block[], path: BlockPath = [0]) {
     );
     if (!block || !("children" in block)) throw new Error("not a container");
     return (
-      <BlockCard
-        block={block}
-        path={path}
-        apply={apply}
-        lang="en"
-        labels={labels}
-        page={pageContext({ parentHost: "" })}
-        atBlockLimit={false}
-        locked={new Set<string>()}
-        problems={[]}
-        dragHandle={null}
-      />
+      <>
+        <BlockCard
+          block={block}
+          path={path}
+          apply={apply}
+          lang="en"
+          labels={labels}
+          atBlockLimit={false}
+          locked={new Set<string>()}
+          problems={[]}
+          dragHandle={null}
+        />
+        {path.length === 1 ? (
+          <SectionPreviewTray
+            block={block}
+            position={path[0]!}
+            lang="en"
+            page={pageContext({ parentHost: "" })}
+            theme={DEFAULT_THEME}
+            title={labels.previewTitle}
+          />
+        ) : null}
+      </>
     );
   };
   const view = render(card());
@@ -113,7 +127,6 @@ function threeHarness() {
             apply={apply}
             lang="en"
             labels={labels}
-            page={pageContext({ parentHost: "" })}
             atBlockLimit={false}
             locked={new Set<string>()}
             problems={[]}
@@ -395,7 +408,9 @@ describe("SectionStylePopup", () => {
 
     // Values pinned against `skins.ts`'s own table for `neobrutalism` — the
     // same ones `block-style.test.ts` asserts for the public renderer.
-    const styled = screen.getByTestId("section-card");
+    const styled = within(screen.getByTestId("block-preview")).getByTestId(
+      "public-section",
+    );
     expect(styled.style.getPropertyValue("--skin-round")).toBe("0");
     expect(styled.style.getPropertyValue("--skin-border")).toBe("3px");
     expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
@@ -414,9 +429,9 @@ describe("SectionStylePopup", () => {
     fireEvent.change(screen.getByLabelText("Background picture"), {
       target: { value: "https://example.test/bg.png" },
     });
-    expect(screen.getByTestId("section-card-face").style.backgroundImage).toBe(
-      'url("https://example.test/bg.png")',
-    );
+    expect(
+      screen.getByTestId("section-preview-face").style.backgroundImage,
+    ).toBe('url("https://example.test/bg.png")');
     // The root keeps only what inherits, so the picture is not on it twice.
     expect(screen.getByTestId("section-card").style.backgroundImage).toBe("");
   });
@@ -429,7 +444,7 @@ describe("SectionStylePopup", () => {
     });
     expect(
       screen
-        .getByTestId("section-card")
+        .getByTestId("public-section")
         .style.getPropertyValue("--skin-border-style"),
     ).toBe("dashed");
   });
@@ -444,7 +459,7 @@ describe("SectionStylePopup", () => {
     });
     expect(
       screen
-        .getByTestId("section-card")
+        .getByTestId("public-section")
         .style.getPropertyValue("--skin-border-style"),
     ).toBe("none");
   });
