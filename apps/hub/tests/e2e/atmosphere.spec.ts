@@ -136,6 +136,76 @@ async function settledCanvasBitmap(page: Page): Promise<string> {
   return canvasBitmap(page);
 }
 
+interface TemporalCanvasDelta {
+  /** Mean sampled RGB-channel change per elapsed millisecond. */
+  rate: number;
+  /** Browser-reported time between the sampled frames. */
+  elapsed: number;
+  /** Mean sampled RGB-channel change before time normalisation. */
+  difference: number;
+}
+
+/**
+ * Measures how quickly an animated canvas's pixels change over real frames.
+ *
+ * Both captures run inside `requestAnimationFrame` callbacks registered after
+ * the canvas loop, so each reads the frame that loop just painted. The metric
+ * samples the moving lower half of the `grid` canvas and divides mean RGB
+ * change by the browser's own elapsed timestamp; a slower machine therefore
+ * gets a longer interval rather than an artificially larger animation rate.
+ *
+ * @param page - the live editor page with motion allowed.
+ * @param frames - browser frames separating the two samples.
+ * @returns temporal pixel difference and its measured interval.
+ */
+async function temporalCanvasDelta(
+  page: Page,
+  frames: number,
+): Promise<TemporalCanvasDelta> {
+  return page
+    .locator("canvas[aria-hidden=true]")
+    .evaluate(async (node, frameCount) => {
+      const canvas = node as HTMLCanvasElement;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) throw new Error("root canvas has no 2D context");
+
+      const capture = () =>
+        new Promise<{ at: number; pixels: Uint8ClampedArray }>((resolve) => {
+          requestAnimationFrame((at) => {
+            resolve({
+              at,
+              pixels: context.getImageData(0, 0, canvas.width, canvas.height)
+                .data,
+            });
+          });
+        });
+
+      const first = await capture();
+      let last = first;
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        last = await capture();
+      }
+
+      let total = 0;
+      let channels = 0;
+      const firstRow = Math.floor(canvas.height * 0.45);
+      for (let y = firstRow; y < canvas.height; y += 4) {
+        for (let x = 0; x < canvas.width; x += 4) {
+          const offset = (y * canvas.width + x) * 4;
+          for (let channel = 0; channel < 3; channel += 1) {
+            total += Math.abs(
+              last.pixels[offset + channel]! - first.pixels[offset + channel]!,
+            );
+            channels += 1;
+          }
+        }
+      }
+      const elapsed = last.at - first.at;
+      const difference = total / channels;
+      return { rate: difference / elapsed, elapsed, difference };
+    }, frames);
+}
+
 let identity: TestIdentity | undefined;
 
 test.beforeAll(async () => {
@@ -226,13 +296,10 @@ test("the open panel owns document atmosphere without restyling editor chrome", 
     })
     .not.toBe(canvasBefore);
 
-  // Speed is the one control this reduced-motion fixture CANNOT prove in
-  // pixels. `frameSignature` deliberately excludes it because every still
-  // renderer draws at time zero, and an attempted synthetic animation clock
-  // remained green when the renderer's speed read was sabotaged: lifecycle
-  // redraws changed the bitmap independently. Claiming that as proof would be
-  // rule 27's indistinguishable fixture. The strongest discriminating guard is
-  // therefore the exact root property NebulaCanvas reads on every live frame.
+  // This reduced-motion path CANNOT prove speed in pixels: every still renderer
+  // draws at time zero and `frameSignature` deliberately excludes that dial.
+  // Pin its root wiring here; the separate animated test below supplies the
+  // rendered temporal proof.
   await page.getByTestId("theme-speed").fill("0.5");
   await expect
     .poll(() => atmosphereStyle(page), {
@@ -352,4 +419,36 @@ test("the open panel owns document atmosphere without restyling editor chrome", 
     apart(closedPaint.outside!, PICTURE.rgb),
     "closing the panel removes the author's picture",
   ).toBeGreaterThan(30);
+});
+
+test("the speed dial changes the animated canvas rate", async ({ page }) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 900, height: 900 });
+  await page.goto("/es/pages/new");
+  await page.getByTestId("theme-open").click();
+  await page.getByTestId("theme-canvas").selectOption("grid");
+  await expect
+    .poll(() => atmosphereStyle(page))
+    .toMatchObject({ canvas: "grid" });
+
+  await page.getByTestId("theme-speed").fill("0.25");
+  await expect
+    .poll(() => atmosphereStyle(page))
+    .toMatchObject({ speed: "0.25" });
+  await settledCanvasBitmap(page);
+  const slow = await temporalCanvasDelta(page, 10);
+
+  await page.getByTestId("theme-speed").fill("5");
+  await expect.poll(() => atmosphereStyle(page)).toMatchObject({ speed: "5" });
+  await settledCanvasBitmap(page);
+  const fast = await temporalCanvasDelta(page, 10);
+
+  expect(
+    fast.rate,
+    `5× speed changes pixels faster than 0.25×: ${JSON.stringify({
+      slow,
+      fast,
+    })}`,
+  ).toBeGreaterThan(slow.rate * 2);
 });
