@@ -110,6 +110,9 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  *
  * `drag` is nested for the same reason `style` and `theme` are: it has words
  * of its own that would collide flat.
+ *
+ * `previewTitle` lives here rather than in `BlockCardLabels` because this level
+ * renders each top-level card and its sibling real-renderer tray together.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -119,6 +122,8 @@ export interface BlockEditorLabels
   empty: string;
   /** Adds a section. */
   addSection: string;
+  /** Labels each top-level section's real-renderer preview. */
+  previewTitle: string;
   /** Field label for the new section's shape. */
   newSectionSpaces: string;
   /** Explains why the add controls are gone. */

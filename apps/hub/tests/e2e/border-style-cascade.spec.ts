@@ -13,35 +13,15 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 // WHY THIS FILE EXISTS, AND WHY A MODEL IN skins.test.ts WAS NOT ENOUGH.
 //
 // `@utility surface` reads `border-style` from `--skin-border-style`, so a
-// scope that sets the token governs every plain `surface` beneath it, with
-// ONE deliberate exception: an element that carries its own Tailwind
-// border-style utility, like the `border-dashed` this app ships on its
-// empty-state placeholders — the fursona list's, the public profile's, the
-// leaf editor's missing-picture box, and an empty PLACE in the block editor. Those placeholders mean "nothing here
-// yet", and that meaning must survive whatever border style a section picks
-// — the exception is wanted, not a bug to close.
+// scope that sets the token governs every plain `surface` beneath it.
 //
-// The first version of this claim was proved with `resolveBorderStyle`, a
-// hand-written model of var()-substitution in `skins.test.ts`. It was wrong
-// in a way jsdom could not catch and the model could not catch either:
-// `.border-dashed` declares `border-style: dashed` LITERALLY, and Tailwind
-// v4 sorts `@utility` rules in its utilities layer by how many properties
-// each declares — `surface` declares far more than `.border-dashed` does,
-// so the shorter rule wins the `border-style` property outright, before
-// `--skin-border-style` is ever substituted. A model of variable
-// substitution has no way to represent "a second declaration won the
-// cascade before substitution ran", so every test built on it passed under
-// the very behaviour that made the TSDoc's original claim false.
-//
-// This is that proof instead, against the REAL, compiled app CSS in a real
-// Chromium — the utility sort order is a build-time fact about THIS
-// stylesheet, and a hand-rolled minimal page could pass or fail by accident
-// depending on what rules happen to exist in it.
+// This is checked against the real compiled CSS in Chromium because jsdom
+// cannot resolve custom-property inheritance or paint a double border.
 //
 // **And against the real SCOPE, which is the correction this file needed.**
 // `blockStyle` is the only thing in the app that sets the token, and it sets
 // it INLINE: on a public page's block element (`blocks.tsx`) and on the
-// editor's card root (`block-card.tsx`). Nothing sets it at
+// editor preview's real `Block`. Nothing sets it at
 // `.actor-skin` — no skin does, which is exactly why `skins.test.ts` has to
 // exempt it from the "every form token reaches a skin" guard. An earlier
 // version of this file injected the token at `.actor-skin` with
@@ -56,11 +36,12 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 //     Clerk-authenticated caller — the read path a stranger gets. A styled
 //     block and an unstyled one on the same page, so "the token reached it"
 //     is distinguished from "everything is dotted anyway".
-//  2. The EDITOR, driving the popup's own border select. This is the only
-//     place in the app where a `surface border-dashed` element sits BENEATH
-//     a scope that sets the token — the public page's dashed placeholders
-//     are all siblings of the sections, never inside one — so it is the only
-//     place the exception can be watched on a path production actually uses.
+//  2. The EDITOR, driving the popup's own border select. Its dashed empty
+//     place remains dashed because controls and preview are now SIBLINGS:
+//     the assertion proves preview isolation, not Tailwind utility ordering.
+//     The public-page fixture above is where token inheritance is measured,
+//     and it deliberately uses a plain surface because no current public path
+//     puts a border-style utility beneath the section scope.
 //  3. The PIXELS. Both of the above read `border-style`, which resolves to
 //     `double` whether or not anything double is painted — and at the app's
 //     own 1px edge nothing is, because two lines and a gap do not fit in one
@@ -134,7 +115,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     }
   });
 
-  test("the editor's own border control reaches the card's face and leaves an empty-state placeholder dashed", async ({
+  test("the editor's border choice stays in the preview and cannot restyle an empty workbench place", async ({
     page,
   }) => {
     const identity = await createTestIdentity();
@@ -188,12 +169,11 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
         )
         .toBe("dotted");
 
-      // Half 1: a plain `surface` beneath the scope takes the section's
-      // choice.
+      // Half 1: the preview face takes the section's choice.
       expect(await borderStyleOf(face)).toBe("dotted");
-      // Half 2: `surface border-dashed` keeps `dashed` — Tailwind's own
-      // shorter utility wins `border-style` outright, so the empty-state
-      // placeholder's meaning survives whatever the section chose.
+      // Half 2: the empty place stays dashed because it is in the AeleOS
+      // control card, outside the sibling preview scope. This fixture cannot
+      // discriminate Tailwind utility ordering and makes no claim about it.
       expect(await borderStyleOf(placeholder)).toBe("dashed");
     } finally {
       await deleteTestIdentity(identity.userId);

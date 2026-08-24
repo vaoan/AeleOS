@@ -139,10 +139,12 @@ test.describe("the signed-in pages are accessible", () => {
   test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
   test("the list and the editor", async ({ page }) => {
-    // Several full-page axe scans, including the editor with two overlays.
-    // The default 30s is enough on a warm machine and not on CI, where this
-    // case timed out inside `analyze()` after `/es/me` and `/es/pages` had
-    // already been walked — reported flaky, then green on retry.
+    // Several full-page axe scans, including both complete-preview states and
+    // the editor with two overlays. Measured after this review at 14.2s on the
+    // local credentialed runner. The default 30s has nevertheless timed out on
+    // CI inside `analyze()` after `/es/me` and `/es/pages` were already walked
+    // — reported flaky, then green on retry — so the case-level 120s bound is
+    // retained for the measured runner spread, not as a performance claim.
     test.setTimeout(120_000);
     await signIn(page, await mintTicket(identity!.userId));
 
@@ -170,16 +172,15 @@ test.describe("the signed-in pages are accessible", () => {
     // headings rather than passing over an empty preview.
     await page.getByTestId("add-section").click();
     await page.getByTestId("section-name").last().fill("Preview heading");
-    const completePreview = page.locator("form > section").last();
+    const completePreview = page.getByTestId("complete-page-preview");
     const workbenchHeading = completePreview
       .locator(":scope > div")
       .first()
       .locator("h2");
-    await completePreview
-      .locator(":scope > div")
-      .first()
-      .locator("button")
-      .click();
+    // The collapsed disclosure is a state of its own: in particular its toggle
+    // must not point aria-controls at content that is not mounted.
+    await isAccessible(page, "the editor with the complete preview collapsed");
+    await page.getByTestId("complete-page-preview-toggle").click();
     const previewContent = page.getByTestId("complete-page-preview-content");
     await expect(previewContent).toBeVisible();
     await isAccessible(page, "the editor with the theme panel open");

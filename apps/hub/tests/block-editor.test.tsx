@@ -220,6 +220,7 @@ describe("BlockEditor", () => {
     );
     expect(within(tray).getByTestId("public-section")).toBeInTheDocument();
     expect(within(tray).getByText("Real renderer")).toBeInTheDocument();
+    expect(tray).toHaveAccessibleName(`${labels.previewTitle}: Styled`);
   });
 
   it("says so when there is nothing on the page", () => {
@@ -381,7 +382,7 @@ describe("BlockEditor", () => {
     expect(screen.getByText(labels.atLimit)).toBeInTheDocument();
     expect(screen.queryByTestId("add-section")).toBeNull();
     expect(screen.queryByTestId("section-presets")).toBeNull();
-  }, 20_000);
+  });
 
   // The cap counts what `blocksSchema` counts, empty places excluded — a page
   // of wide-open sections must not be refused for blocks it does not hold.

@@ -25,12 +25,11 @@ import { identity } from "./support/blocks";
 // expensive skins — and measures it at 390x844, `deviceScaleFactor: 3`, with
 // the CPU throttled. Two things, because they are two different costs:
 //
-//  * **scrolling the public page**, which is what a skin, an arrangement and a
+//  * **scrolling the public page**, which is what a skin, a container mode and a
 //    background picture decide; and
-//  * **moving a theme dial in the editor**, which is style INVALIDATION —
-//    every movement rewrites a custom property at `:root` and restyles every
-//    element beneath it, so the bill is linear in the editor's DOM. That is the
-//    number that regresses when somebody adds a block kind or a control.
+//  * **moving a theme dial in the editor**, which is style INVALIDATION inside
+//    the real preview hosts. The workbench no longer receives author CSS, but
+//    every mounted section preview still updates from the same form movement.
 //
 // **Both run.** The second was stood down for the length of the block model's
 // first two phases, because the editor of the day held a flat list of sections
@@ -80,39 +79,18 @@ test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 /**
  * How much of one `input` event's cost may be restyling the document.
  *
- * **This is the number that regresses when somebody adds a block kind or a
- * control to the editor**, because the bill for rewriting a custom property at
- * `:root` is linear in how many elements sit beneath it. Measured on this page
- * at a 4x throttle and 4 622 nodes: 63.8ms.
- *
- * The ceiling is nearly four times that, which is a smoke alarm for the
- * editor's DOM roughly doubling on a runner twice as slow as this one.
- *
- * **The editor's DOM has since grown by two thirds and this figure moved by an
- * eighth**, which is worth stating rather than leaving somebody to infer that
- * the growth was free. Re-measured on the same route and the same seed after
- * the block editor landed, on the same machine at the same throttle: **7 778
- * nodes, 72.0ms per input event**, against the 4 622 and 63.8ms above. Every
- * section now renders a live `Block` preview inside its card, so the document
- * carries the editing controls and the page they describe at once.
- *
- * **Do not read that pair as "the preview is nearly free."** The paragraph
- * below this one says why: the drag saturates the main thread, so the
- * numerator is bounded by `SAMPLE_MS` and the figure is closer to
- * `SAMPLE_MS / inputs` than to a per-event cost. A node count that rose 1.7x
- * against a millisecond figure that rose 1.13x is what that saturation looks
- * like, not a measurement of what the preview costs. What the pair does
- * establish is the thing the guard was standing by for: the ported editor
- * renders a COMPARABLE document rather than a far smaller one, so the ceilings
- * beneath it are measuring the page they were calibrated against.
+ * The current workbench holds 10,946 nodes on this fixture. After author CSS
+ * was contained to preview hosts, two good runs measured 15.2ms and 11.8ms of
+ * style recalculation per delivered input; restoring document-level theme CSS
+ * measured 47.0ms. The 3.4ms good spread is separated from the sabotage by
+ * 31.8ms at its nearest edge, but the existing ceiling already had ample
+ * headroom, so no threshold moved.
  *
  * **Two things it does NOT catch, because a budget nobody knows the limits of
  * gets trusted past them.**
  *
- * It does not catch the dials' frame coalescing being removed — measured at
- * 124.3ms against the coalesced 80.0ms on the same machine at the same throttle,
- * both comfortably inside the ceiling. `COMMITS_PER_INPUT_CEILING` is what fails
- * on that.
+ * It does not catch the dials' frame coalescing being removed;
+ * `COMMITS_PER_INPUT_CEILING` is what fails on that.
  *
  * And it is partly an artefact of the sample window rather than a pure cost.
  * The drag saturates the main thread, so the numerator is bounded by
@@ -133,11 +111,11 @@ const STYLE_MS_PER_INPUT_CEILING = 250;
  * not do this job.** A dial records every movement and commits the newest one on
  * the next animation frame, so the number of full-document restyles is bounded
  * by FRAMES rather than by input events. Remove that and it is bounded by input
- * events instead, which is the whole fault: one restyle of a 4 600-node document
- * per movement of a finger.
+ * events instead, which is the whole fault: one preview-theme commit per
+ * movement of a finger.
  *
  * Both terms are counted in the same run on the same runner — commits from the
- * theme `<style>` element actually changing, movements from the `input` events
+ * a preview-theme `<style>` element changing, movements from the `input` events
  * the renderer actually delivered — so runner speed divides out. Measured
  * against a production build at CPU throttles of 1x, 4x and 6x:
  *
@@ -209,11 +187,11 @@ const LEAST_BURST_INPUTS = 100;
 /**
  * The most of the main thread scrolling the public page may take.
  *
- * Measured here at 13.3% with the canvas off, on the largest page the database
- * will accept, at a 4x throttle. This is six times that: an order-of-magnitude
- * alarm for a skin, a layout or a background that starts costing real money to
- * scroll past, on the understanding that a shared runner is slower than this
- * machine by an amount nobody can predict.
+ * The two current good runs measured 19.4% and 22.3% with the canvas off, on
+ * the largest page the database accepts at a 4x throttle; the document-theme
+ * sabotage measured 21.9%. These overlap, so this remains only a broad smoke
+ * alarm for a skin, mode or background that starts costing real work to scroll
+ * past. No claim is made that theme isolation improves this number.
  */
 const SCROLL_BUSY_CEILING_PCT = 80;
 
@@ -255,12 +233,12 @@ const DOCUMENT_BUDGET = 56_000;
 const MOST_ITEMS = 12;
 
 /**
- * The sections, in render order: an arrangement, a track count where the mode
+ * The sections, in render order: a container mode, a track count where the mode
  * lays places across, the skin the section wears, and the kind of leaf it
  * holds.
  *
  * **No embedding kind is here, and that is deliberate rather than an
- * oversight.** `player` and `post` put a third party's renderer in an iframe,
+ * oversight.** `embed` puts a third party's renderer in an iframe,
  * which is a network dependency and a second renderer process — neither of
  * which this file is measuring, and both of which would make it fail for
  * reasons that have nothing to do with this repository. `picture` is out for
@@ -608,8 +586,7 @@ test.describe("what a heavily personalised page costs on a phone", () => {
   // STOOD DOWN FOR TWO PHASES, AND RESTORED BY THE ONE ITS OWN NOTE NAMED.
   //
   // This half measures style INVALIDATION: every movement of a theme dial
-  // rewrites a custom property at `:root` and restyles every element beneath
-  // it, so the bill is linear in the editor's DOM. It caught a real
+  // rewrites the mounted preview styles. It caught a real
   // regression — a dial that stuck at 3.8 fps on a throttled phone, fixed by
   // coalescing to one report per frame — and `COMMITS_PER_INPUT_CEILING` is
   // what keeps that fix from being undone.
@@ -629,27 +606,20 @@ test.describe("what a heavily personalised page costs on a phone", () => {
   // into flat-shaped pairs, and the ceilings below are measuring the document
   // they were calibrated against. The acceptance criterion this note set was
   // that the ported editor render a COMPARABLE DOM rather than a far smaller
-  // one, and it does: **7 778 nodes against the 4 622 the ceiling was
-  // calibrated at**, because every section now renders a live `Block` preview
-  // inside its card. Style recalculation moved from 63.8ms to **72.0ms per
-  // input event** on the same machine at the same throttle, and the coalescing
-  // ratio is **0.006** — identical to the recorded value for a build with the
-  // fix in place, against 1.000 for one without. See
-  // `STYLE_MS_PER_INPUT_CEILING` for why the millisecond pair must not be read
-  // as "the preview is nearly free".
+  // one. The current workbench measured **10,946 nodes**, 15.2ms then 11.8ms
+  // of style recalculation per input, and a **0.006** coalescing ratio. With
+  // document-level theme CSS restored it measured 10,947 nodes, 47.0ms and the
+  // same 0.006 ratio. Isolation changes the style scope; coalescing changes the
+  // commit count, so these are deliberately separate guards.
   //
-  // **Read twice, minutes apart on the same build**, because one reading of a
-  // performance number and a coin toss look identical: 7 778 nodes / 72.0ms
-  // over 30 delivered movements, then 7 777 / 77.5ms over 22. The node count
-  // is stable to one element — the difference is a focus ring's element, not
-  // noise in the measurement — and the millisecond figure moves with how many
-  // movements a run happened to deliver, which is precisely the saturation
-  // caveat `STYLE_MS_PER_INPUT_CEILING` describes. The ratio read 0.006 both
-  // times, which is what a runner-independent budget looks like.
+  // **Read twice on the good build and once sabotaged**, because one reading
+  // cannot distinguish a signal from run spread. The good 3.4ms spread and
+  // nearest 31.8ms gap justify recording the isolation effect; the overlapping
+  // scroll readings above justify no such claim.
   //
   // **`PLAN` holds no embedding kind, so this measures no third-party frame.**
   // The preview makes the editor mount whatever the page holds, which for a
-  // page with `player` or `post` leaves means real provider iframes in the
+  // page with `embed` leaves means real provider iframes in the
   // edit screen. That cost is outside this reading and is not bounded by it.
   //
   // The scrolling half above is unaffected and always ran: the PUBLIC page
@@ -689,8 +659,8 @@ test.describe("what a heavily personalised page costs on a phone", () => {
       // Both counters live in the page. Movements are counted where they are
       // DELIVERED rather than where they are dispatched, because a throttled
       // main thread coalesces pointer moves before anything here sees them; and
-      // commits are counted at the theme's own `<style>` element, which is the
-      // document actually being restyled rather than a proxy for it.
+      // commits are counted at a preview theme's own `<style>` element, the
+      // direct output of the form movement rather than a proxy for it.
       const watching = await page.evaluate(() => {
         globalThis.__inputs = 0;
         globalThis.__commits = 0;

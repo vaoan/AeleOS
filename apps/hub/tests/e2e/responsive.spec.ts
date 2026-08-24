@@ -217,6 +217,24 @@ test.describe("every phone screen, signed in", () => {
 
       await fits(page, `the editor at ${viewport.name}`);
 
+      // The complete page is a bounded inline workbench view, not a fake
+      // public viewport. Open it at every narrow size and require any excess
+      // to remain reachable (`auto`), never clipped to make the page-level
+      // overflow measurement flatter.
+      await page.getByTestId("complete-page-preview-toggle").click();
+      const complete = page
+        .getByTestId("complete-page-preview-content")
+        .locator("..");
+      await expect(complete).toBeVisible();
+      expect(
+        await complete.evaluate((el) => getComputedStyle(el).overflowX),
+      ).toBe("auto");
+      await fits(
+        page,
+        `the editor at ${viewport.name} with the complete preview open`,
+      );
+      await page.getByTestId("complete-page-preview-toggle").click();
+
       // The style popup is a real overlay — `position: absolute`, `w-72`,
       // anchored off a section card's own right edge — so the `fits` call
       // above, taken before opening it, proves the PAGE'S OWN layout fits; it

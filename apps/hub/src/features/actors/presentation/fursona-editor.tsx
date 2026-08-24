@@ -22,7 +22,10 @@ import {
   BlockEditor,
   type BlockEditorLabels,
 } from "@/features/actors/presentation/block-editor";
-import { useLanguageToggle } from "@/features/actors/application/use-language-toggle";
+import {
+  useLanguageToggle,
+  type AuthoringLanguage,
+} from "@/features/actors/application/use-language-toggle";
 import {
   ThemeConfigurator,
   type ThemeConfiguratorLabels,
@@ -400,6 +403,9 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * context.** It is a collapsed, read-only rendering of the whole live tree,
  * using the same `PublicBlocks` component a stranger sees. Keeping it after
  * `BlockEditor` means its geometry is never measured as a droppable.
+ * Its sections subscription lives in a small controller at that boundary,
+ * rather than in this editor, so a leaf edit does not rerender the toolbar,
+ * identity fields and theme controls merely to update the complete preview.
  *
  * **A page being CREATED opens with its required blocks**, the same
  * `withRequiredBlocks` output `readActorPage` answers for an actor with
@@ -476,9 +482,9 @@ export function FursonaEditor({
   // The rest of the context is the route's and is not watchable here: an
   // address is assigned rather than typed, and a fursona's owner is not
   // something its editor can change.
-  const [liveHandle, liveName, liveAvatar, liveSections, liveTheme] = useWatch({
+  const [liveHandle, liveName, liveAvatar, liveTheme] = useWatch({
     control,
-    name: ["handle", "displayName", "avatarUrl", "sections", "theme"],
+    name: ["handle", "displayName", "avatarUrl", "theme"],
   });
   const livePage: PageContext = {
     ...page,
@@ -689,14 +695,48 @@ export function FursonaEditor({
         theme={liveTheme as ActorTheme}
         problems={problems}
       />
-      <CompletePagePreview
-        blocks={liveSections as Block[]}
+      <CompletePreviewController
+        control={control}
         theme={liveTheme as ActorTheme}
         lang={lang}
         page={livePage}
         labels={labels.completePreview}
       />
     </form>
+  );
+}
+
+/**
+ * Subscribes the optional full-page preview to the live block tree.
+ *
+ * Kept below the editor boundary so a leaf edit rerenders the block workbench
+ * and this small read-only disclosure, not the toolbar, identity fields and
+ * theme controls above them.
+ *
+ * @returns the complete preview bound to the form's sections field.
+ */
+function CompletePreviewController<T extends FieldValues>({
+  control,
+  theme,
+  lang,
+  page,
+  labels,
+}: {
+  control: Control<T>;
+  theme: ActorTheme;
+  lang: AuthoringLanguage;
+  page: PageContext;
+  labels: CompletePagePreviewLabels;
+}) {
+  const blocks = useWatch({ control, name: "sections" as Path<T> });
+  return (
+    <CompletePagePreview
+      blocks={(blocks ?? []) as Block[]}
+      theme={theme}
+      lang={lang}
+      page={page}
+      labels={labels}
+    />
   );
 }
 

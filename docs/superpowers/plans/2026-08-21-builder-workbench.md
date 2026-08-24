@@ -16,6 +16,13 @@ control card and add a collapsed complete-page preview after `BlockEditor`.
 **Tech Stack:** Next.js 16, React 19, TypeScript, react-hook-form, Tailwind CSS
 4, next-intl, Vitest/Testing Library, Playwright, dnd-kit.
 
+> **Final-review correction (2026-08-23):** The top-level `sections` watch in
+> Task 3 was an implementation sketch, not a required architecture. The
+> delivered editor uses a small complete-preview controller so leaf edits do
+> not rerender the toolbar and identity/theme controls. The complete preview
+> lenient-parses draft blocks and keeps bounded overflow scrollable rather than
+> hidden. `final-fix-report.md` records the verification.
+
 ## Global Constraints
 
 - Controls are AeleOS; previews are the author's page.
@@ -555,19 +562,20 @@ TSDoc must state default collapse, real renderer, and read-only behavior.
 
 - [ ] **Step 4: Wire labels and live form values**
 
-In `FursonaEditor`, watch:
+In `FursonaEditor`, watch identity and theme only:
 
 ```ts
-const [liveHandle, liveName, liveAvatar, liveSections, liveTheme] = useWatch({
+const [liveHandle, liveName, liveAvatar, liveTheme] = useWatch({
   control,
-  name: ["handle", "displayName", "avatarUrl", "sections", "theme"],
+  name: ["handle", "displayName", "avatarUrl", "theme"],
 });
 ```
 
 Set `livePage.measure = liveTheme.measure ?? null`. Pass `liveTheme` to
-`BlockEditor`. Render `CompletePagePreview` immediately after `BlockEditor`,
-outside its `DndContext`, with `liveSections`, `liveTheme`, `lang`, and
-`livePage`.
+`BlockEditor`. Render a small complete-preview controller immediately after
+`BlockEditor`, outside its `DndContext`; that controller alone watches
+`sections` and hands them with `liveTheme`, `lang`, and `livePage` to
+`CompletePagePreview`.
 
 Resolve the three new labels in `pages/labels.ts` and add matching fixture
 values in `tests/support/editor-labels.ts`.

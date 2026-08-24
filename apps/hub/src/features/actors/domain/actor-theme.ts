@@ -779,11 +779,12 @@ function declarations(properties: Record<string, string>): string {
  *
  * **Reuses `backgroundImageValue`, the same function `blockStyle` calls for
  * a section's own background picture, rather than a second escaping path.**
- * `themeCss` interpolates its result into a raw `<style>` block, where CSSOM
- * offers no protection at all — that sink is exactly why `backgroundImageValue`
- * refuses a `"` or a `\` outright rather than trusting `safeHttpUrl`'s own
- * normalisation, which leaves both untouched in a URL's host or query. An
- * address it refuses paints nothing here, precisely as it does for a section.
+ * Both {@link themeCss} and {@link previewThemeCss} interpolate its result into
+ * raw `<style>` blocks, where CSSOM offers no protection at all — those sinks
+ * are exactly why `backgroundImageValue` refuses a `"` or a `\` outright
+ * rather than trusting `safeHttpUrl`'s own normalisation, which leaves both
+ * untouched in a URL's host or query. An address it refuses paints nothing
+ * through either emitter, precisely as it does for a section.
  *
  * `tile` and `cover` are the only two fits `ActorTheme` can hold, so the
  * `else` branch below is `cover` for anything else that reaches this
@@ -948,6 +949,11 @@ export function accentPreview(accentHex: string, background: Gradient): string {
  * Every value interpolated here was already generated or refused by
  * {@link themeVars}, `skinVars` or {@link bodyBackgroundVars}, so a stored
  * value can never close this rule and write CSS of its own.
+ *
+ * Every host intentionally shares this selector because one editor has one
+ * live page theme. Rendering two different draft themes side by side is not a
+ * supported state; that future feature would require a per-host selector
+ * rather than silently changing this invariant.
  *
  * @param theme - the chosen theme.
  * @returns one preview-scoped rule, or empty when the theme overrides nothing.

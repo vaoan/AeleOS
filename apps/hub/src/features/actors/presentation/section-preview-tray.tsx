@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 import {
   lenientBlockSchema,
-  type Block as PageBlock,
+  type ContainerBlock,
 } from "@/features/actors/domain/block-schema";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
 import { blockStyle } from "@/features/actors/presentation/block-style";
@@ -15,7 +15,7 @@ import { tid } from "@/shared/infrastructure/test-id";
 /** What {@link SectionPreviewTray} needs to render one live section. */
 interface SectionPreviewTrayProps {
   /** The in-progress section tree. */
-  block: PageBlock;
+  block: ContainerBlock;
   /** Its top-level position, which keeps renderer ids distinct. */
   position: number;
   /** The authored language the preview should show. */
@@ -61,6 +61,14 @@ function splitStyle(style: CSSProperties | undefined): {
  * the workbench controls. A malformed in-progress block draws no tray content
  * rather than taking down the editor.
  *
+ * This mounts the real renderer's third-party frames while their author edits.
+ * That discloses the author's request to the same allowlisted providers a
+ * published page uses, and is accepted because an embed is exactly the content
+ * an author must verify before publishing. Opening the complete-page preview
+ * mounts a second copy until it closes; the duplication is explicit and
+ * temporary, and avoids a substitute renderer with different privacy or
+ * playback behaviour.
+ *
  * @returns the themed live preview, or nothing when the block cannot be read.
  */
 export function SectionPreviewTray({
@@ -74,9 +82,18 @@ export function SectionPreviewTray({
   const parsed = lenientBlockSchema.safeParse(block);
   if (!parsed.success) return null;
   const { inherited, painted } = splitStyle(blockStyle(block.style));
+  const sectionName =
+    lang === "es"
+      ? block.name_es || block.name_en
+      : block.name_en || block.name_es;
 
   return (
-    <div {...tid("block-preview")} className="grid gap-1.5">
+    <div
+      role="region"
+      aria-label={sectionName ? `${title}: ${sectionName}` : title}
+      {...tid("block-preview")}
+      className="grid gap-1.5"
+    >
       <span className="text-xs font-medium text-(--muted)">{title}</span>
       <PreviewThemeHost
         theme={theme}

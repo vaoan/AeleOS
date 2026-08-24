@@ -50,7 +50,7 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
-test("a skin chosen in the popup paints the card behind it at once", async ({
+test("a skin chosen in the popup paints the section preview at once", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
@@ -63,13 +63,16 @@ test("a skin chosen in the popup paints the card behind it at once", async ({
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Styled");
 
-  const card = page.getByTestId("section-card").last();
   const tray = page.getByTestId("block-preview").last();
   const preview = tray.getByTestId("public-section");
-  // Nothing chosen yet: the card carries no inline style at all, which is what
-  // makes every assertion below a CHANGE rather than a state that was already
-  // there.
-  expect(await card.evaluate((el) => el.hasAttribute("style"))).toBe(false);
+  const face = tray.getByTestId("section-preview-face");
+  // Nothing chosen yet on the two elements later assertions read. This makes
+  // the skin and picture checks below changes rather than states these preview
+  // layers already carried for another reason.
+  expect(
+    await preview.evaluate((el) => el.style.getPropertyValue("--skin-round")),
+  ).toBe("");
+  expect(await face.evaluate((el) => el.hasAttribute("style"))).toBe(false);
 
   await page.getByTestId("section-style-open").last().click();
   await expect(page.getByTestId("section-style-panel")).toBeVisible();
@@ -91,7 +94,6 @@ test("a skin chosen in the popup paints the card behind it at once", async ({
   // a painted property behind a rounded face would show four bright corner
   // wedges, which is why `SectionCard` splits what inherits from what paints.
   // Reading them off the face is what makes that split a measurement.
-  const face = tray.getByTestId("section-preview-face");
   await page
     .getByTestId("section-style-background-url")
     .fill("https://example.com/section-style-popup.png");

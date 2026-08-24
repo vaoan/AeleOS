@@ -56,6 +56,9 @@ import { tid } from "@/shared/infrastructure/test-id";
  * `removeLocked` is the newest and explains a WITHDRAWN control rather than
  * naming an action — a disabled bin with no reason is one somebody presses
  * twice and then gives up on.
+ *
+ * This bag deliberately has no preview heading: a card renders controls only.
+ * `BlockEditorLabels` owns the title for the sibling `SectionPreviewTray`.
  */
 export interface BlockCardLabels extends LeafEditorLabels {
   /** Field label for a section's name. */
@@ -138,8 +141,6 @@ export interface BlockCardLabels extends LeafEditorLabels {
   removePlace: string;
   /** Adds one more empty place. */
   addPlace: string;
-  /** Heading above the live preview. */
-  previewTitle: string;
   /** The paintbrush popup's own strings, nested to avoid a `title` collision. */
   style: SectionStylePopupLabels;
 }

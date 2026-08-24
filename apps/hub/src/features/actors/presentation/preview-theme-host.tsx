@@ -25,6 +25,10 @@ export interface PreviewThemeHostProps {
  * `ThemeScope`: public pages theme the document, while editor chrome must stay
  * outside every declaration this host applies.
  *
+ * Its stylesheet stays unlayered so these live author declarations beat the
+ * app's layered token defaults inside the dedicated host. Selector containment,
+ * rather than a weaker cascade layer, keeps them away from workbench chrome.
+ *
  * @returns the preview content inside its scoped theme boundary.
  */
 export function PreviewThemeHost({

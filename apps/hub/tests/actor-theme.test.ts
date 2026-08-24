@@ -363,6 +363,18 @@ describe("previewThemeCss", () => {
   it("emits no preview rule when the theme overrides nothing", () => {
     expect(previewThemeCss(DEFAULT_THEME)).toBe("");
   });
+
+  it.each([
+    'https://ex"ample.test/a.png',
+    "https://example.test/?x\\",
+    "javascript:alert(1)",
+  ])("keeps the refused picture %s out of both stylesheet sinks", (url) => {
+    const theme = { ...DEFAULT_THEME, backgroundUrl: url };
+    for (const emit of [themeCss, previewThemeCss]) {
+      expect(emit(theme)).not.toContain("background-image");
+      expect(emit(theme)).not.toContain(url);
+    }
+  });
 });
 
 describe("bodyBackgroundVars", () => {

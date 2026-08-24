@@ -4,7 +4,7 @@ import {
   type PageMeasure,
 } from "@/features/actors/domain/actor-theme";
 import { pageContext } from "./helpers/page-context";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import {
   fireEvent,
   render,
@@ -26,6 +26,7 @@ import {
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
 let saving = false;
+let toolbarRenders = 0;
 // The editor reaches for the browser Supabase client, which is Clerk-backed.
 // These suites are about the fields, not about a session.
 vi.mock("@/shared/infrastructure/supabase-browser", () => ({
@@ -38,6 +39,23 @@ vi.mock("@/features/actors/application/use-fursona-editor", () => ({
     return { save, saving, fieldErrors };
   },
 }));
+
+vi.mock(
+  "@/features/actors/presentation/editor-toolbar",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/features/actors/presentation/editor-toolbar")
+      >();
+    return {
+      ...actual,
+      EditorToolbar: (props: ComponentProps<typeof actual.EditorToolbar>) => {
+        toolbarRenders += 1;
+        return <actual.EditorToolbar {...props} />;
+      },
+    };
+  },
+);
 
 let lastActorRef: unknown;
 
@@ -247,6 +265,7 @@ beforeEach(() => {
   fieldErrors = {};
   saving = false;
   lastActorRef = undefined;
+  toolbarRenders = 0;
 });
 
 describe("FursonaEditor", () => {
@@ -529,6 +548,39 @@ describe("FursonaEditor", () => {
     const preview = within(screen.getByTestId("complete-page-preview-content"));
     expect(preview.getByText("Unsaved page words")).toBeInTheDocument();
     expect(preview.queryByText("Saved page words")).toBeNull();
+  });
+
+  it("updates a leaf preview without rerendering the whole editor", () => {
+    renderEditor({
+      initialSections: [
+        {
+          kind: "container",
+          mode: "stack",
+          spaces: 1,
+          name_en: "Draft section",
+          children: [
+            {
+              kind: "text",
+              title_en: "Draft title",
+              description_en: "Saved words",
+            },
+          ],
+        },
+      ],
+    });
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    const before = toolbarRenders;
+
+    fireEvent.change(screen.getByTestId("leaf-description"), {
+      target: { value: "Live words" },
+    });
+
+    expect(
+      within(screen.getByTestId("complete-page-preview-content")).getByText(
+        "Live words",
+      ),
+    ).toBeInTheDocument();
+    expect(toolbarRenders).toBe(before);
   });
 });
 

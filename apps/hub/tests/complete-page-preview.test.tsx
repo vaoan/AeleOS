@@ -52,8 +52,12 @@ describe("CompletePagePreview", () => {
 
     expect(screen.queryByTestId("complete-page-preview-content")).toBeNull();
 
-    const toggle = screen.getByRole("button", { name: labels.expand });
+    const region = screen.getByTestId("complete-page-preview");
+    const toggle = screen.getByTestId("complete-page-preview-toggle");
+    expect(region).toContainElement(toggle);
+    expect(toggle).toHaveAccessibleName(labels.expand);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).not.toHaveAttribute("aria-controls");
     fireEvent.click(toggle);
 
     expect(screen.getAllByTestId("public-section")).toHaveLength(blocks.length);
@@ -64,13 +68,40 @@ describe("CompletePagePreview", () => {
         .closest("[data-preview-theme]"),
     ).not.toBeNull();
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-controls");
     expect(toggle).toHaveAccessibleName(labels.collapse);
 
     fireEvent.click(toggle);
 
     expect(screen.queryByTestId("complete-page-preview-content")).toBeNull();
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).not.toHaveAttribute("aria-controls");
     expect(toggle).toHaveAccessibleName(labels.expand);
+  });
+
+  it("keeps valid draft sections when a malformed in-progress block cannot render", () => {
+    const malformed = {
+      kind: "container",
+      mode: "grid",
+      spaces: "not-a-number",
+      name_en: "Malformed",
+      children: [],
+    } as unknown as Block;
+    render(
+      <CompletePagePreview
+        blocks={[blocks[0]!, malformed, blocks[1]!]}
+        theme={DEFAULT_THEME}
+        lang="en"
+        page={pageContext()}
+        labels={labels}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    expect(screen.getAllByTestId("public-section")).toHaveLength(2);
+    expect(screen.getByText("Live words")).toBeInTheDocument();
+    expect(screen.queryByText("Malformed")).toBeNull();
   });
 
   // cspell:ignore Sección Título Palabras -- authored Spanish fixture text
