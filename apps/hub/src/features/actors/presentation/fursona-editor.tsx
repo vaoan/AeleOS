@@ -375,6 +375,12 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * **Workbench surfaces use stable AeleOS tokens.** Their `surface` classes
  * style editor panels and fields without admitting author palette, skin or
  * section-style tokens; those are confined to `PreviewThemeHost` boundaries.
+ * Workbench groups that hold bare text paint an opaque AeleOS solid beneath
+ * themselves. Those backings are load-bearing while the theme panel puts an
+ * author's atmosphere on the document: a translucent card or bare label can
+ * never end up reading directly over a hostile near-white or near-black field,
+ * while the atmosphere remains visible in the spaces between groups and inside
+ * preview hosts.
  *
  * **A refused page gets one of three sentences, not one of two** — see
  * {@link sectionsCode}. The middle one exists because a refusal on a
@@ -508,6 +514,7 @@ export function FursonaEditor({
 
   return (
     <form
+      {...tid("editor-content")}
       onSubmit={handleSubmit(async (values) => {
         // The RETURN VALUE decides, never `fieldErrors`. That variable is
         // captured from the render that built this handler, so it is still
@@ -533,7 +540,10 @@ export function FursonaEditor({
           accessible name, so the handle's hint became part of the name and it
           announced as "Handle 1-32 characters." The hint is attached with
           aria-describedby instead, which is what it is for. */}
-      <div className="grid gap-6">
+      <div
+        {...tid("editor-identity-fields")}
+        className="grid gap-6 bg-(--surface-solid)"
+      >
         {/* **A person has no handle field at all.** Theirs is the provisioned
             `u-<actor_ref>`, which nobody picks and which appears in no
             address — so there is nothing to edit and nothing worth showing.
@@ -635,7 +645,7 @@ export function FursonaEditor({
           does not touch. Its `sticky` offset is what makes this position
           correct rather than merely tidier — it comes into force exactly
           when the sections it governs are on screen. */}
-      <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar)/95 p-3 backdrop-blur-sm short:static">
+      <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar-solid) p-3 backdrop-blur-sm short:static">
         <div className="grid gap-0.5">
           <span className="font-display text-sm font-bold">
             {labels.writingIn}

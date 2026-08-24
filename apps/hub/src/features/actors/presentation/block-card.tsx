@@ -457,6 +457,11 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * painted on white. `dropdown-legibility.test.ts` guards every select in the
  * app.
  *
+ * **The card itself paints opaque `--surface-solid`.** While the page
+ * atmosphere is live in the editor, a translucent workbench card would put its
+ * section heading over an arbitrary author field. Child surfaces may remain
+ * translucent because this stable backing, not the document, is beneath them.
+ *
  * **The remove control withdraws when a block holds the last copy of a kind
  * the page must carry.** `lockedKinds` is computed once over the whole tree
  * and threaded down, so every bin in the editor locks at the same moment —
@@ -557,7 +562,7 @@ export function BlockCard({
     // correctly.
     <div
       {...tid(ids.card)}
-      className="@container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-3"
+      className="@container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3"
     >
       {/* Wraps, and the selects are what wrap. A `select` is as wide as its
           longest option whatever surrounds it, so on a 320px screen the header

@@ -1117,7 +1117,14 @@ than converted into a rule that asks the wrong box quietly.
 **Controls are AeleOS; previews are the author's page.** The toolbar, identity
 fields, section names and every nested editor consume the app's design tokens
 and never inherit an author's palette, skin or section style. `PreviewThemeHost`
-is the only editor boundary that receives page-level author tokens.
+is the only editor boundary that receives the COMPLETE page-level theme.
+While the theme panel is open, `atmosphereCss` separately puts only `--field`,
+the canvas properties and the body's background-picture layers on the document,
+because the root canvas and page background cannot be judged inside a box.
+Control tokens, skins and the cursor never enter that stylesheet. Workbench
+groups carrying bare labels and section headings paint opaque
+`--surface-solid` beneath their translucent children, so none can read directly
+over a hostile author field while the atmosphere remains visible between them.
 
 **Both previews use the REAL renderers.** `SectionPreviewTray` draws each
 top-level container with `Block` from `blocks.tsx` — the component both public
@@ -1739,6 +1746,14 @@ decisions, so they are not quietly undone:
   themes are unsupported and would require unique host selectors. Persistence
   rides the ordinary save: what must be instant is seeing a colour, not storing
   it.
+- **The page-scale atmosphere is live on the document only while the theme
+  panel is open.** `atmosphereCss` filters `themeVars` down to `--field`,
+  `--canvas`, every canvas colour and dial, and `--nebula-blend`, then emits the
+  same `bodyBackgroundVars` picture rule `themeCss` uses. It never derives or
+  escapes a value twice. Closing the panel unmounts that rule and restores the
+  app's exact atmosphere; palette controls, skin variables and `cursor` remain
+  preview-only throughout. Opaque AeleOS backings on the workbench groups that
+  carry bare text are the legibility boundary over that author field.
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once
   depended on which mode they happened to be editing in.

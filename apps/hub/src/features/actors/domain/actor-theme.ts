@@ -821,9 +821,9 @@ export function bodyBackgroundVars(theme: ActorTheme): Record<string, string> {
  * same for everybody** — text, borders and accent all solved against that
  * background by `derivePalette`, none of them against the reader's scheme.
  *
- * **One declaration source serves the live preview and the public page**, which
- * is what keeps the editor honest: both selectors receive the same values even
- * though the editor must stop them at its preview boundary.
+ * **One declaration source serves every emitter**, which is what keeps the
+ * editor honest: preview hosts receive this complete set, while the live
+ * document atmosphere filters it down to the field and canvas properties.
  *
  * A cursor travels as a real `cursor` declaration rather than a custom
  * property, with the hotspot pinned to the corner and the mandatory fallback
@@ -839,9 +839,9 @@ export function bodyBackgroundVars(theme: ActorTheme): Record<string, string> {
  * its own default.
  *
  * **The skin is NOT here.** `themeCss` emits it separately, scoped to the
- * person's own content — see `SKIN_SCOPE`. Everything this returns belongs at
- * the document root, because it has to reach the canvas and the field, which
- * are mounted outside any element a page can wrap.
+ * person's own content — see `SKIN_SCOPE`. The public page may put this whole
+ * return at the document root; the editor's atmosphere emitter must not,
+ * because its palette entries would restyle AeleOS controls.
  *
  * A skin and a palette write disjoint properties, and `skins.test.ts` keeps
  * them so. That mattered more when the two shared a rule and matters still: a
@@ -915,6 +915,49 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
     // oversight: a control should still say it is one.
     ...(theme.cursor ? { cursor: `url("${theme.cursor}") 0 0, auto` } : {}),
   };
+}
+
+/**
+ * The live editor atmosphere as document-level CSS.
+ *
+ * This is deliberately narrower than {@link themeCss}: only the field, canvas
+ * choice and colours, canvas dials, and blend mode may reach the editor
+ * document. Palette controls, skin declarations and the cursor remain confined
+ * to preview hosts, so changing an author's theme cannot restyle AeleOS
+ * buttons, inputs, menus or cards.
+ *
+ * The values are filtered from {@link themeVars}, not derived again. A future
+ * change to gradient generation, canvas channels or dial formatting therefore
+ * reaches public pages, preview hosts and this live atmosphere through the
+ * same source.
+ *
+ * The picture declarations likewise come from {@link bodyBackgroundVars} and
+ * stay on `body`. Moving them into `:root` would paint the image behind body's
+ * own opaque `--field` background, making a valid declaration invisible.
+ * Stored addresses are consequently accepted or refused by
+ * `backgroundImageValue` before this function interpolates them.
+ *
+ * The selectors carry no persistent gate: {@link ThemeConfigurator} mounts
+ * this stylesheet only while its panel is open, and unmounting it restores the
+ * app's inherited field, canvas and body background exactly.
+ *
+ * @param theme - the live theme draft.
+ * @returns document CSS containing only atmosphere declarations, or empty when
+ *   the draft overrides none.
+ */
+export function atmosphereCss(theme: ActorTheme): string {
+  const atmosphere = Object.fromEntries(
+    Object.entries(themeVars(theme)).filter(
+      ([name]) =>
+        name === "--field" ||
+        name === "--canvas" ||
+        name.startsWith("--canvas-") ||
+        name === "--nebula-blend",
+    ),
+  );
+  const root = declarations(atmosphere);
+  const body = declarations(bodyBackgroundVars(theme));
+  return [root ? `:root{${root}}` : "", body ? `body{${body}}` : ""].join("");
 }
 
 /**

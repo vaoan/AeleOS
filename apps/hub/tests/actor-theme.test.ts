@@ -5,6 +5,7 @@ import {
   DEFAULT_THEME,
   THEME_SEEDS,
   accentPreview,
+  atmosphereCss,
   bodyBackgroundVars,
   isCustomised,
   isThemed,
@@ -337,6 +338,69 @@ describe("themeCss", () => {
       expect(css).not.toContain("</style>");
     },
   );
+});
+
+describe("atmosphereCss", () => {
+  const THEMED = {
+    ...DEFAULT_THEME,
+    background: flat("#101a2e"),
+    accent: "#00ff88",
+    canvas: "aurora" as const,
+    canvasColours: ["#112233", "#445566"],
+    density: 2.5,
+    speed: 0.5,
+    scale: 1.75,
+    skin: "comic" as const,
+    cursor: "https://example.test/paw.png",
+    backgroundUrl: "https://example.test/wallpaper.png",
+    backgroundFit: "tile" as const,
+  };
+
+  it("emits the complete atmosphere at the document selectors", () => {
+    const css = atmosphereCss(THEMED);
+
+    expect(css).toContain(":root{");
+    expect(css).toContain("--field:");
+    expect(css).toContain("--canvas:aurora");
+    expect(css).toContain("--canvas-1:17 34 51");
+    expect(css).toContain("--canvas-2:68 85 102");
+    expect(css).toContain("--canvas-density:2.5");
+    expect(css).toContain("--canvas-speed:0.5");
+    expect(css).toContain("--canvas-scale:1.75");
+    expect(css).toContain("--nebula-blend:");
+    expect(css).toContain(
+      'body{background-image:url("https://example.test/wallpaper.png"), var(--field)',
+    );
+  });
+
+  // **The discriminating negative case.** Emitting all of `themeVars` would
+  // still pass every positive assertion above, so this names every control
+  // family represented by the fixture: palette, skin and cursor. The wrong
+  // implementation this excludes is the document-level `themeCss` injection
+  // removed by #8.
+  it("emits no control token from the same fully customised theme", () => {
+    const css = atmosphereCss(THEMED);
+
+    for (const control of [
+      "--surface-solid",
+      "--bar-solid",
+      "--menu",
+      "--ink",
+      "--ink-2",
+      "--muted",
+      "--edge",
+      "--accent",
+      "--on-accent",
+      "--skin-",
+      "cursor:",
+    ]) {
+      expect(css).not.toContain(control);
+    }
+  });
+
+  it("emits nothing when the theme overrides no atmosphere", () => {
+    expect(atmosphereCss(DEFAULT_THEME)).toBe("");
+  });
 });
 
 describe("previewThemeCss", () => {
