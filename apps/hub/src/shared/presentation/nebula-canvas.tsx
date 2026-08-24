@@ -2111,6 +2111,9 @@ function readRgb(
  * remade — which is why an author dragging a backdrop colour watched nothing
  * happen. The animated path compares each frame; the still path is told by a
  * mutation observer, because nothing redraws there unless something says so.
+ * That observer watches both child replacement and `characterData`: React may
+ * update a mounted `<style>` through either form, and ignoring the latter left
+ * later picker and dial changes present at `:root` but absent from the bitmap.
  *
  * **`none` is honoured by name.** It used to be expressed as an opacity of
  * zero, which silently did nothing: a non-positive opacity is rejected below as
@@ -2585,8 +2588,10 @@ export function NebulaCanvas() {
      *
      * **This guard is the difference between a smooth drag and a rough one.**
      * The observer below watches the whole document, because the `<style>` an
-     * actor's theme arrives in is rendered inside the page — and React replaces
-     * that element on every frame of a gradient drag. Wired straight to
+     * actor's theme arrives in is rendered inside the page — and React may
+     * either replace its child text node or update that node's `characterData`
+     * on every frame of a gradient drag. Watching only `childList` made the
+     * first form live and silently dropped the second. Wired straight to
      * `onResize`, as it first was, every one of those frames recomputed three
      * layers of fractal noise, which is by far the most expensive thing this
      * component does. The theming editor was unusable and the cost was nowhere
@@ -2623,6 +2628,7 @@ export function NebulaCanvas() {
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],
+      characterData: true,
       childList: true,
       subtree: true,
     });

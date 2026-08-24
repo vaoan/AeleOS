@@ -341,6 +341,8 @@ describe("themeCss", () => {
 });
 
 describe("atmosphereCss", () => {
+  const propertyNames = (rule: string) =>
+    Array.from(rule.matchAll(/(?:^|;)([-\w]+):/g), (match) => match[1]);
   const THEMED = {
     ...DEFAULT_THEME,
     background: flat("#101a2e"),
@@ -358,8 +360,25 @@ describe("atmosphereCss", () => {
 
   it("emits the complete atmosphere at the document selectors", () => {
     const css = atmosphereCss(THEMED);
+    const root = css.match(/^:root\{([^}]*)\}/)?.[1] ?? "";
+    const body = css.match(/body\{([^}]*)\}$/)?.[1] ?? "";
 
     expect(css).toContain(":root{");
+    expect(new Set(propertyNames(root))).toEqual(
+      new Set([
+        "--field",
+        "--canvas",
+        "--canvas-1",
+        "--canvas-2",
+        "--canvas-density",
+        "--canvas-speed",
+        "--canvas-scale",
+        "--nebula-blend",
+      ]),
+    );
+    expect(new Set(propertyNames(body))).toEqual(
+      new Set(["background-image", "background-repeat", "background-size"]),
+    );
     expect(css).toContain("--field:");
     expect(css).toContain("--canvas:aurora");
     expect(css).toContain("--canvas-1:17 34 51");

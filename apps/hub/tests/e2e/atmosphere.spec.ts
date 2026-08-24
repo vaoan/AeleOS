@@ -115,6 +115,27 @@ async function canvasBitmap(page: Page): Promise<string> {
   return canvas.evaluate((node) => (node as HTMLCanvasElement).toDataURL());
 }
 
+/**
+ * Reads a bitmap after pending style mutations and canvas redraws have run.
+ *
+ * A comparison whose baseline is captured while the preceding control's
+ * MutationObserver is still queued lets that preceding redraw carry the next
+ * assertion. Two browser frames put the baseline after React's style commit,
+ * the observer microtask and the redraw it requests.
+ *
+ * @param page - the live editor page.
+ * @returns the settled canvas bitmap as a data URL.
+ */
+async function settledCanvasBitmap(page: Page): Promise<string> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  return canvasBitmap(page);
+}
+
 let identity: TestIdentity | undefined;
 
 test.beforeAll(async () => {
@@ -147,27 +168,78 @@ test("the open panel owns document atmosphere without restyling editor chrome", 
     controlStyle(card),
   ]);
   const atmosphereBefore = await atmosphereStyle(page);
-  const canvasBefore = await canvasBitmap(page);
+  let canvasBefore = await canvasBitmap(page);
 
   await page.getByTestId("theme-open").click();
   await page.getByTestId("gradient-stop-0").click();
   await page.getByTestId("gradient-colour").fill("#050505");
   await page.getByTestId("gradient-stop-1").click();
   await page.getByTestId("gradient-colour").fill("#050505");
+  await expect
+    .poll(() => atmosphereStyle(page))
+    .toMatchObject({ field: expect.stringContaining("#050505") });
+  // The gradient edit makes the whole theme explicit, including seeded canvas
+  // colours. Establish the bitmap AFTER that redraw so it cannot carry the
+  // picker assertion that follows.
+  canvasBefore = await settledCanvasBitmap(page);
+
   await page.getByTestId("theme-canvas").selectOption("stars");
+  await expect
+    .poll(() => atmosphereStyle(page))
+    .toMatchObject({ canvas: "stars" });
+  await expect
+    .poll(() => canvasBitmap(page), {
+      message: "the canvas picker redraws the root canvas",
+    })
+    .not.toBe(canvasBefore);
+  canvasBefore = await settledCanvasBitmap(page);
+
   await page.getByTestId("theme-canvas-colour-0").fill("#00ff88");
+  await expect
+    .poll(() => atmosphereStyle(page))
+    .toMatchObject({ canvasOne: "0 255 136" });
+  await expect
+    .poll(() => canvasBitmap(page), {
+      message: "the canvas colour picker redraws the root canvas",
+    })
+    .not.toBe(canvasBefore);
+  canvasBefore = await settledCanvasBitmap(page);
+
   await page.getByTestId("theme-density").fill("2.5");
   await expect
     .poll(() => atmosphereStyle(page))
     .toMatchObject({ density: "2.5" });
-  await page.getByTestId("theme-speed").fill("0.5");
   await expect
-    .poll(() => atmosphereStyle(page))
-    .toMatchObject({ speed: "0.5" });
+    .poll(() => canvasBitmap(page), {
+      message: "the density dial redraws the root canvas",
+    })
+    .not.toBe(canvasBefore);
+  canvasBefore = await settledCanvasBitmap(page);
+
   await page.getByTestId("theme-scale").fill("1.75");
   await expect
     .poll(() => atmosphereStyle(page))
     .toMatchObject({ scale: "1.75" });
+  await expect
+    .poll(() => canvasBitmap(page), {
+      message: "the scale dial redraws the root canvas",
+    })
+    .not.toBe(canvasBefore);
+
+  // Speed is the one control this reduced-motion fixture CANNOT prove in
+  // pixels. `frameSignature` deliberately excludes it because every still
+  // renderer draws at time zero, and an attempted synthetic animation clock
+  // remained green when the renderer's speed read was sabotaged: lifecycle
+  // redraws changed the bitmap independently. Claiming that as proof would be
+  // rule 27's indistinguishable fixture. The strongest discriminating guard is
+  // therefore the exact root property NebulaCanvas reads on every live frame.
+  await page.getByTestId("theme-speed").fill("0.5");
+  await expect
+    .poll(() => atmosphereStyle(page), {
+      message: "the speed dial reaches the document root",
+    })
+    .toMatchObject({ speed: "0.5" });
+
   await page.getByTestId("theme-background-url").fill(PICTURE.url);
   await page.getByTestId("theme-background-fit").selectOption("tile");
 
@@ -186,7 +258,6 @@ test("the open panel owns document atmosphere without restyling editor chrome", 
   const atmosphereOpen = await atmosphereStyle(page);
   expect(atmosphereOpen.field).not.toBe(atmosphereBefore.field);
   expect(atmosphereOpen.blend).not.toBe("");
-  await expect.poll(() => canvasBitmap(page)).not.toBe(canvasBefore);
 
   const contentBox = await page.getByTestId("editor-content").boundingBox();
   expect(contentBox).not.toBeNull();

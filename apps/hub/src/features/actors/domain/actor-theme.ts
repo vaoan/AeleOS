@@ -917,6 +917,19 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
   };
 }
 
+const ATMOSPHERE_PROPERTIES = new Set([
+  "--field",
+  "--canvas",
+  ...Array.from(
+    { length: MAX_CANVAS_COLOURS },
+    (_, index) => `--canvas-${index + 1}`,
+  ),
+  "--canvas-density",
+  "--canvas-speed",
+  "--canvas-scale",
+  "--nebula-blend",
+]);
+
 /**
  * The live editor atmosphere as document-level CSS.
  *
@@ -926,10 +939,12 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
  * to preview hosts, so changing an author's theme cannot restyle AeleOS
  * buttons, inputs, menus or cards.
  *
- * The values are filtered from {@link themeVars}, not derived again. A future
- * change to gradient generation, canvas channels or dial formatting therefore
- * reaches public pages, preview hosts and this live atmosphere through the
- * same source.
+ * The values are filtered from {@link themeVars}, not derived again. The
+ * allowlist is closed: it names the field, canvas choice, three dials, blend
+ * mode and every numbered colour slot up to `MAX_CANVAS_COLOURS`. A future
+ * `--canvas-*` control therefore stays preview-only until this document-level
+ * contract deliberately admits it, while changes to the values of the known
+ * declarations still share one source with public pages and preview hosts.
  *
  * The picture declarations likewise come from {@link bodyBackgroundVars} and
  * stay on `body`. Moving them into `:root` would paint the image behind body's
@@ -947,12 +962,8 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
  */
 export function atmosphereCss(theme: ActorTheme): string {
   const atmosphere = Object.fromEntries(
-    Object.entries(themeVars(theme)).filter(
-      ([name]) =>
-        name === "--field" ||
-        name === "--canvas" ||
-        name.startsWith("--canvas-") ||
-        name === "--nebula-blend",
+    Object.entries(themeVars(theme)).filter(([name]) =>
+      ATMOSPHERE_PROPERTIES.has(name),
     ),
   );
   const root = declarations(atmosphere);
