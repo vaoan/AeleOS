@@ -7,6 +7,15 @@
   under a preview host.
 - **Audience:** People composing a page in `apps/hub`.
 
+> **Superseded in two boundaries on 2026-08-24.** The body below records the
+> design delivered by PR `#8`; it is not the current word on the complete
+> preview or document atmosphere. The complete preview is now page-faithful and
+> full-width rather than bounded by the editor column. While the theme panel is
+> open, the closed atmosphere set reaches the document so the root canvas and
+> page background respond live; control tokens remain isolated to preview
+> hosts. See
+> `2026-08-24-atmosphere-and-page-fidelity-design.md`.
+
 ## Context
 
 The studio is powerful: nested containers, weighted places, skins, borders,
@@ -333,9 +342,10 @@ clarifications:
 - A small complete-preview controller, rather than a top-level sections watch,
   subscribes the full preview to leaf edits. The permanent unit guard counts
   toolbar renders and fails if a leaf edit invalidates the whole editor.
-- The complete preview is bounded by the editor column and uses reachable
-  horizontal scrolling rather than clipping. Narrow browser coverage opens it
-  at every phone viewport.
+- The complete preview originally shipped bounded by the editor column with
+  reachable horizontal scrolling rather than clipping. The 2026-08-24
+  atmosphere-and-fidelity work replaced that boundary with a page-width host;
+  narrow browser coverage still opens it at every phone viewport.
 - The permanent browser guard records computed token and paint values for Save,
   the display-name input and a section-name input, then changes a non-default
   gradient, accent and skin. Both the section `Block` preview and the complete

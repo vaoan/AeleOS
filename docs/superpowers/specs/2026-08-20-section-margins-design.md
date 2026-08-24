@@ -102,8 +102,10 @@ checked when `style.margins` is not `false`. Unchecking writes `false`.
 Checking again omits the key.
 
 The live preview is `PublicBlocks`. Turning margins off is visible there
-against the editor canvas. It will not sit flush against the _app_ bar — that
-bar is the signed-in shell, which keeps its padding.
+against the editor canvas. Since the 2026-08-24 page-fidelity work, the complete
+preview is a full-width sibling of the editor column, so a first section without
+margins sits flush beneath the app bar just as it does on the public route. The
+per-section tray remains bounded by its workbench card.
 
 Catalogues in both languages. Test id `section-style-margins`.
 

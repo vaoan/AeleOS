@@ -1,6 +1,6 @@
 # Atmosphere and page fidelity — design
 
-**Status: implemented 2026-08-24.**
+**Status: COMPLETE — implemented and verified 2026-08-24.**
 
 This corrects two things `#8` got wrong, and one it broke silently. `#8` made the
 builder's controls stable and confined the author's theme to preview hosts. The
@@ -8,46 +8,46 @@ separation was right. What it over-corrected is that it isolated **everything**
 about a theme, when only the tokens that restyle **controls** ever needed
 isolating.
 
-## What is wrong today
+## What this branch corrected
 
-**1. The complete-page preview is a card in the editor column, not a page.**
-`CompletePagePreview` renders `PublicBlocks` inside a
-`rounded-xl surface border-(--edge) overflow-x-auto` host, which sits inside the
+**1. The complete-page preview was a card in the editor column, not a page.**
+Before this branch, `CompletePagePreview` rendered `PublicBlocks` inside a
+`rounded-xl surface border-(--edge) overflow-x-auto` host, which sat inside the
 signed-in shell's `COLUMN.wide` (`max-w-7xl` plus a gutter). The public route
 does the opposite: `PageShell width="full"`, so `main` holds nothing back and
 each depth-0 section applies its own measure. Four consequences, all visible:
 
-- `wider`, `widest` and `full` are capped by the editor column, so three of the
-  six measures a person can pick render identically.
-- The column's gutter sits inside each section's own, so every section is
+- `wider`, `widest` and `full` were capped by the editor column, so three of the
+  six measures a person could pick rendered identically.
+- The column's gutter sat inside each section's own, so every section was
   inset twice.
-- A `bleed` section cannot reach either edge, which is the whole point of
+- A `bleed` section could not reach either edge, which is the whole point of
   `bleed`.
-- **Every container query inside a block answers to the editor column**, so
-  sections collapse into their phone layouts on a desktop. This is the one that
-  makes it look wrong rather than merely narrow.
+- **Every container query inside a block answered to the editor column**, so
+  sections collapsed into their phone layouts on a desktop. This was the one
+  that made it look wrong rather than merely narrow.
 
-The component's own TSDoc calls this "a bounded, inline workbench view rather
-than a public-route viewport". That was a deliberate trade-off and it was the
-wrong call.
+The component's old TSDoc called this "a bounded, inline workbench view rather
+than a public-route viewport". That deliberate trade-off was the wrong call;
+the stale description was deleted with the boundary.
 
-**2. The page background no longer responds while somebody edits it.**
+**2. The page background had stopped responding while somebody edited it.**
 `ThemeConfigurator` used to render `<style>{themeCss(value)}</style>` while its
 panel was open, which wrote `--field` at `:root` and the background picture on
 `body` — so the whole editor wore the author's background live. `#8` deleted
 that injection because it also restyled the chrome, and `previewThemeCss` only
-paints inside `[data-preview-theme]`. An author's background now survives only
-as a fill inside preview boxes and never as a background.
+painted inside `[data-preview-theme]`. The author's background therefore
+survived only as a fill inside preview boxes and never as a page background.
 
-**3. The moving-backdrop controls became dead, and nobody noticed.**
+**3. The moving-backdrop controls had become dead, and nobody noticed.**
 `NebulaCanvas` is mounted in the root layout and reads `--canvas`,
 `--canvas-density`, `--canvas-speed` and `--canvas-scale` from
 `document.documentElement` (`nebula-canvas.tsx`, the `getComputedStyle` calls at
-2262, 2288 and 2610). Nothing writes those at the root in the editor any more,
-and no preview host mounts a canvas — so the canvas picker, its colour pickers
-and all three dials now change nothing an author can see. `#8` shipped this and
-every check stayed green, because the dial guard counts **theme commits per
-delivered movement** rather than anything rendered.
+2262, 2288 and 2610). After `#8`, nothing wrote those at the root in the editor
+and no preview host mounted a canvas — so the canvas picker, its colour pickers
+and all three dials changed nothing an author could see. Every check stayed
+green, because the dial guard counts **theme commits per delivered movement**
+rather than anything rendered.
 
 ## The distinction this rests on
 
@@ -113,6 +113,29 @@ should make that harder.
 - Drag geometry: previews stay outside every droppable, and the complete
   preview stays outside `DndContext`.
 - The save boundary, the schema, and every stored shape.
+
+## What shipped
+
+- `atmosphereCss` applies the closed atmosphere set to the editor document only
+  while the theme panel is open. The root canvas, field and body picture respond
+  live; closing the panel restores the app atmosphere through the cascade.
+- The workbench still consumes AeleOS control tokens. Palette, skin, cursor and
+  other control declarations remain inside `PreviewThemeHost`; opaque AeleOS
+  backings protect bare labels and headings from hostile author fields.
+- The signed-in layout asks `PageShell` for a full-width `main`. Each ordinary
+  signed-in route now owns the former `max-w-7xl` geometry through
+  `WidePageColumn`, while an editor ends that column before its complete
+  preview.
+- The complete preview keeps its disclosure control in the old column, then
+  renders `PublicBlocks` at page width with no card surface, border or rounding.
+  Depth-zero measures, bleed and container queries therefore use the same
+  geometry as the public page. Section trays deliberately remain bounded,
+  rounded workbench previews.
+
+The result is page-faithful, not pixel-exact. The complete preview shares the
+editor document, scrollbar and viewport-unit context. A dedicated preview route
+inside an `iframe` remains deferred; it is the mechanism to use only if that
+residual difference proves important.
 
 ## Verification
 

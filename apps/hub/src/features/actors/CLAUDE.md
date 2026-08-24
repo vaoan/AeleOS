@@ -1137,6 +1137,13 @@ from the preview rather than taking down the editor or hiding its valid
 neighbours. A second renderer would have looked identical the day it was
 written and drifted the first time either changed.
 
+**The two previews deliberately answer different layout questions.** A section
+tray is still a bounded workbench aid: it keeps its label, rounded card face,
+padding and horizontal scrolling so one section remains readable beside its
+controls. The complete preview is the page-level check: it is full-bleed, has
+no card surface, border or rounding, and lets every depth-zero section own the
+same width and page chrome it owns on the public route.
+
 **A leaf edit does not rerender the whole editor.** `BlockEditor` owns the
 sections controller needed by its controls, while a small complete-preview
 controller owns the second sections subscription. `FursonaEditor` watches only
@@ -1153,6 +1160,12 @@ old column geometry, while the themed preview host itself has no card surface,
 rounding or border. Horizontal excess is scrollable, never hidden or clipped to
 fake a fit, and the narrow-viewport browser suite opens the preview at every
 phone stop.
+
+That is **page-faithful, not pixel-exact**. The preview shares the editor's
+document, scrollbar and viewport-unit context rather than rendering the real
+route in its own browsing context. A dedicated preview route in an `iframe` is
+deferred; it is the next mechanism only if this remaining difference matters,
+not a second renderer to add inside the editor.
 
 **Real previews mount real third-party frames while editing.** An author's own
 request and the fact that they are editing therefore reach the same allowlisted

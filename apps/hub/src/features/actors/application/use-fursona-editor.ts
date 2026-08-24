@@ -73,10 +73,12 @@ export interface FursonaEditorState {
  * distinction is worth keeping straight: what has to be instant is SEEING the
  * change. The configurator updates the form value; its parent
  * `PreviewThemeHost` applies `previewThemeCss`, which shares declaration
- * sources with the public page's `themeCss` without styling the editor
- * document. Persisting on every frame of a dragged colour slider would be a
- * write per frame, which is a different thing entirely and one a free-tier
- * database would not thank us for.
+ * sources with the public page's `themeCss` while containing every control
+ * token. While the panel is open, `atmosphereCss` separately applies only the
+ * field, body picture and canvas declarations to the editor document; closing
+ * it removes that rule. Persisting on every frame of a dragged colour slider
+ * would be a write per frame, which is a different thing entirely and one a
+ * free-tier database would not thank us for.
  *
  * That admits a partial failure — fields written, sections refused — and it is
  * reported rather than undone. On create the fursona already exists, and

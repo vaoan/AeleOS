@@ -35,10 +35,12 @@ import { tid } from "@/shared/infrastructure/test-id";
  * when the light/dark toggle stopped needing to know.
  *
  * `width` gained a third value, `"full"`, which is not a wider column but no
- * column at all — see the prop.
+ * column at all — see the prop. The signed-in layout uses that value and gives
+ * each ordinary route a {@link WidePageColumn}, while editors leave their
+ * complete preview outside it.
  */
 export interface PageShellProps {
-  /** The page's content, laid out in the shared column. */
+  /** The page content, laid out according to the selected width ownership. */
   children: ReactNode;
   /**
    * The control that leaves a page's own theme, rendered among the page
@@ -97,14 +99,16 @@ export interface PageShellProps {
    * section bleed to both edges without `w-screen`, whose `100vw` includes the
    * scrollbar the centred column does not.
    *
-   * The `"column"` and `"wide"` branches are untouched; the signed-in pages
-   * depend on them.
+   * The `"column"` and `"wide"` branches remain available to direct callers.
+   * Signed-in routes instead ask for `"full"` at the layout and recreate the
+   * old wide box around each ordinary page with {@link WidePageColumn}; that
+   * ownership split lets an editor leave its complete preview outside the box.
    */
   width?: "column" | "wide" | "full";
 }
 
 /**
- * The one composition every page uses: header bar, then a 620px column.
+ * The one composition every page uses: header bar, then width-owned content.
  *
  * Sign-in is not an exception. It gets the same header, the same column and
  * the same cards, because a page that invents its own layout is how a design
@@ -120,19 +124,22 @@ export interface PageShellProps {
  * question mark is gone, and whether there is a theme to leave is now said by
  * passing `pageThemeSwitch` at all. One fact, said once.
  *
- * The header bar spans the window; only the page below it is held to a column.
- * Constraining the bar's contents to that column too left the wordmark floating
- * mid-screen on a wide display, which read as a mistake rather than a choice.
+ * The header bar spans the window. The content below may use the default
+ * reading column, the wide column, or a full-width `main` whose route owns its
+ * inner columns. Constraining the bar's contents to the default column left the
+ * wordmark floating mid-screen on a wide display, which read as a mistake
+ * rather than a choice.
  *
  * That column is 620px by default and `max-w-7xl` when `width` is `"wide"` —
  * see the prop for why going wide also drops the vertical centring. `"full"`
  * is a third thing rather than a wider column: `main` holds nothing back at
- * all — no maximum, centring, gutter or vertical padding — and the public page
- * applies the author's chosen measure and first/between/last chrome to each of
- * its own sections. That inversion is what lets a section reach both edges
- * without `w-screen`, whose `100vw` counts a scrollbar the centred column does
- * not, and what lets a first or last section drop its page chrome without a
- * page-level exception.
+ * all — no maximum, centring, gutter or vertical padding. Public pages apply
+ * the author's chosen measure and first/between/last chrome to each section;
+ * the signed-in layout gives ordinary routes a {@link WidePageColumn} and
+ * leaves the editor's complete preview outside it. That inversion lets a
+ * section reach both edges without `w-screen`, whose `100vw` counts a
+ * scrollbar the centred column does not, and lets a first or last section drop
+ * its page chrome without a page-level exception.
  *
  * The star sits beside the wordmark rather than with the page settings on the
  * right: it is the star that lights the dust, and putting it out is what turns
@@ -231,7 +238,7 @@ export function WidePageColumn(props: WidePageColumnProps): ReactNode {
 }
 
 /**
- * The one composition every page uses: header bar, then a 620px column.
+ * The one composition every page uses: header bar, then width-owned content.
  *
  * Sign-in is not an exception. It gets the same header, the same column and
  * the same cards, because a page that invents its own layout is how a design
@@ -247,19 +254,22 @@ export function WidePageColumn(props: WidePageColumnProps): ReactNode {
  * question mark is gone, and whether there is a theme to leave is now said by
  * passing `pageThemeSwitch` at all. One fact, said once.
  *
- * The header bar spans the window; only the page below it is held to a column.
- * Constraining the bar's contents to that column too left the wordmark floating
- * mid-screen on a wide display, which read as a mistake rather than a choice.
+ * The header bar spans the window. The content below may use the default
+ * reading column, the wide column, or a full-width `main` whose route owns its
+ * inner columns. Constraining the bar's contents to the default column left the
+ * wordmark floating mid-screen on a wide display, which read as a mistake
+ * rather than a choice.
  *
  * That column is 620px by default and `max-w-7xl` when `width` is `"wide"` —
  * see the prop for why going wide also drops the vertical centring. `"full"`
  * is a third thing rather than a wider column: `main` holds nothing back at
- * all — no maximum, centring, gutter or vertical padding — and the public page
- * applies the author's chosen measure and first/between/last chrome to each of
- * its own sections. That inversion is what lets a section reach both edges
- * without `w-screen`, whose `100vw` counts a scrollbar the centred column does
- * not, and what lets a first or last section drop its page chrome without a
- * page-level exception.
+ * all — no maximum, centring, gutter or vertical padding. Public pages apply
+ * the author's chosen measure and first/between/last chrome to each section;
+ * the signed-in layout gives ordinary routes a {@link WidePageColumn} and
+ * leaves the editor's complete preview outside it. That inversion lets a
+ * section reach both edges without `w-screen`, whose `100vw` counts a
+ * scrollbar the centred column does not, and lets a first or last section drop
+ * its page chrome without a page-level exception.
  *
  * The star sits beside the wordmark rather than with the page settings on the
  * right: it is the star that lights the dust, and putting it out is what turns
@@ -320,7 +330,8 @@ export async function PageShell({
       {/* The bar spans the window and so do its contents. Pinning them to the
           620px content column instead left the wordmark stranded at x=434 on a
           1440px screen — text dropped in the middle of an empty bar rather
-          than a navigation bar. The column still governs the page below. */}
+          than a navigation bar. Width ownership for the page below is selected
+          independently. */}
       {/* `short:static` and the fixed height are one mechanism: anything else that
           sticks — the editor's toolbar — parks at `--bar-top`, which is this
           height, and the class is what lets a short landscape screen take the
@@ -398,7 +409,9 @@ export async function PageShell({
           "flex w-full min-w-0 flex-1 flex-col",
           // The padding and the centring belong to the COLUMN, not to `main`.
           // A full-width public page has neither: each depth-0 section owns
-          // its measure and first/between/last chrome independently.
+          // its measure and first/between/last chrome independently. The
+          // signed-in layout also uses full here, then restores the old wide
+          // box at each route so a complete preview can remain outside it.
           COLUMN[width],
         )}
         {...tid("page-content")}

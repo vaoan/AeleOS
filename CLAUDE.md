@@ -915,6 +915,32 @@ replace`, so the newest body of a function could sit in a file named after
   renderers cannot land separately, because `satisfies Record<LeafKind, …>`
   refuses to compile.
 
+- **The builder keeps its controls and borrows the page's atmosphere
+  (2026-08-24) — done.** PR `#8` was right to keep the toolbar, fields, cards,
+  menus, palette, skins and cursor on stable AeleOS **control tokens**, and
+  wrong to treat the atmosphere as another control. While the theme panel is
+  open, `atmosphereCss` now puts only `--field`, the body background-picture
+  layers, `--canvas`, the numbered canvas colours, the three canvas dials and
+  `--nebula-blend` on the editor document. Closing the panel removes that rule
+  and restores the app atmosphere. No control token reaches the document;
+  opaque AeleOS backings keep bare workbench text readable over a hostile
+  author field.
+
+  The complete preview is page-faithful rather than a card in the workbench
+  column. The signed-in shell now gives `main` the full width, exactly as the
+  public routes do, and **each ordinary signed-in page owns its former
+  `max-w-7xl` column through `WidePageColumn`**. Editors end that column before
+  the complete preview, whose host has no surface, border or rounding: depth-0
+  sections apply their real measure and bleed, and their container queries
+  answer to the page. The disclosure control keeps the old column geometry;
+  per-section trays remain bounded workbench previews with card chrome.
+
+  Page-faithful is not pixel-exact. The complete preview still shares the
+  editor document, scrollbar and viewport-unit context; a dedicated preview
+  route in an iframe is deferred unless that remaining difference proves worth
+  its cost. Spec:
+  `docs/superpowers/specs/2026-08-24-atmosphere-and-page-fidelity-design.md`.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
