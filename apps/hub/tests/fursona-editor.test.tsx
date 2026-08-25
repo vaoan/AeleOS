@@ -478,6 +478,27 @@ describe("FursonaEditor", () => {
     ).toBeTruthy();
   });
 
+  // The identity fields carried their opaque backing with none of the chrome
+  // around it, so on a themed page they read as a bare rectangle floating on
+  // the author's field while every sibling group was a rounded, bordered card.
+  // Asserted against the theme panel rather than against a copied class list:
+  // the claim is that these two match, and a literal list would keep passing
+  // after the shared pattern moved out from under it.
+  it("gives the identity fields the same card as every other workbench group", () => {
+    renderEditor();
+    const identity = screen.getByTestId("editor-identity-fields");
+    const panel = screen.getByTestId("theme-open").closest("section");
+
+    expect(panel).not.toBeNull();
+    for (const shape of ["rounded-xl", "surface", "border-(--edge)", "p-3"]) {
+      expect(panel!.className).toContain(shape);
+      expect(identity.className).toContain(shape);
+    }
+    // The backing itself is load-bearing rather than decorative: it is what
+    // the contrast guard measures a bare label against over a hostile field.
+    expect(identity.className).toContain("bg-(--surface-solid)");
+  });
+
   it("previews unsaved identity and measure through the real page renderer", () => {
     renderEditor({
       initial: {
