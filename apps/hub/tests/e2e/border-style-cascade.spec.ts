@@ -227,13 +227,21 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
         .getByTestId("section-preview-face");
 
       /**
-       * The pixel run inward from the face's left edge, at mid-height.
+       * The pixel run inward from the face's right edge, at mid-height.
        *
        * Mid-height because `rounded-xl` curves both corners and a probe inside
        * that arc would be answering a question about the radius. Four pixels
        * because a 3px `double` is line, gap, line, and the fourth is the
        * surface beyond it — so the run distinguishes both shapes rather than
        * only detecting a change.
+       *
+       * **The right edge is deliberate.** This spec runs against `next dev`,
+       * whose fixed development portal paints at the lower-left of the
+       * viewport. A legitimate editor-layout change moved this short collapsed
+       * face beneath that overlay: the left-edge probes then sampled the portal
+       * byte-for-byte for both choices even though the face itself resolved to
+       * 1px solid and 3px double. The opposite vertical edge measures the same
+       * border and remains outside that development-only paint.
        */
       const run = async (): Promise<number[][]> => {
         // The identity section sits above this card, so the probe reads a
@@ -244,7 +252,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
         const y = Math.round(box.y + box.height / 2);
         const probes: Probe[] = [0, 1, 2, 3].map((inset) => ({
           name: `x${inset}`,
-          x: Math.round(box.x) + inset,
+          x: Math.round(box.x + box.width - 1) - inset,
           y,
         }));
         const sampled = await sampleColours(page, probes);
