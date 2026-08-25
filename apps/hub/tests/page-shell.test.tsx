@@ -21,7 +21,8 @@ vi.mock("@/shared/presentation/theme-toggle", () => ({
   ThemeToggle: () => null,
 }));
 
-const { PageShell } = await import("@/shared/presentation/page-shell");
+const { PageShell, WidePageColumn } =
+  await import("@/shared/presentation/page-shell");
 
 /**
  * Renders the shell and returns its main element.
@@ -88,6 +89,37 @@ describe("PageShell width", () => {
     const classes = (await renderShell("full")).className.split(/\s+/);
     expect(classes).not.toContain("py-6");
     expect(classes).not.toContain("sm:py-10");
+  });
+});
+
+describe("WidePageColumn", () => {
+  it("recreates the old signed-in wide column around route-owned content", () => {
+    render(
+      <WidePageColumn>
+        <p>route</p>
+      </WidePageColumn>,
+    );
+    const column = screen.getByTestId("wide-page-column");
+    expect(column).toHaveClass(
+      "mx-auto",
+      "max-w-7xl",
+      "px-4",
+      "py-6",
+      "sm:px-6",
+      "sm:py-10",
+      "flex-1",
+    );
+  });
+
+  it("lets an editor transfer only the padding its full-width sibling owns", () => {
+    render(
+      <WidePageColumn className="py-0 pt-6 sm:py-0 sm:pt-10">
+        <p>controls</p>
+      </WidePageColumn>,
+    );
+    const column = screen.getByTestId("wide-page-column");
+    expect(column).toHaveClass("py-0", "pt-6", "sm:py-0", "sm:pt-10");
+    expect(column).not.toHaveClass("py-6", "sm:py-10");
   });
 });
 

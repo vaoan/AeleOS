@@ -28,16 +28,15 @@ import { UserMenu } from "@/features/session";
  * watching where the fallback sent the request — and nobody may land on a
  * Clerk-branded address.
  *
- * **It asks for the wide shell**, and the narrow one was close to a bug rather
- * than a preference. Every signed-in page took the `column` default: a 620px
- * measure with `justify-center`. That is what `PageShell` itself calls right
- * for a short card and wrong for a long list — and the fursona list, the
- * editor and its section stack are all long lists. On any ordinary screen they
- * used about a third of it and started below the fold.
+ * **It asks for the full shell, and each route owns its former wide column.**
+ * This is the same inversion as the public routes: `main` holds nothing back,
+ * so the complete editor preview can let every section apply its own measure
+ * and bleed. Ordinary signed-in pages wrap their content in `WidePageColumn`,
+ * whose box is the old `max-w-7xl` shell column byte for byte.
  *
- * A page that wants a narrow measure can still have one: `Card` and the
- * editor's own column constrain themselves inside this. The shell's job is to
- * stop wasting the window, not to decide how wide a paragraph should be.
+ * The editors split that ownership deliberately: controls keep the wide
+ * column, while the complete preview is its full-width sibling. No breakout
+ * uses `w-screen`; the shell inversion makes one unnecessary.
  *
  * It uses the same `PageShell` as the public pages — which now carries the
  * language and theme controls itself — and adds the user button,
@@ -80,7 +79,7 @@ export default async function AppLayout({
 
   return (
     <PageShell
-      width="wide"
+      width="full"
       trailing={<UserMenu />}
       homeHref="/me"
       nav={

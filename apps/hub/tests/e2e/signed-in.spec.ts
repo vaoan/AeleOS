@@ -58,12 +58,12 @@ test.describe("signed in", () => {
 
   // THE ONE THING ABOUT THIS PAGE NO UNIT TEST CAN SEE.
   //
-  // `/me` sits inside the signed-in layout, which asks the shell for
-  // `width="wide"` — a `max-w-7xl` column with the vertical centring
-  // deliberately dropped, because the page list and the editor below it are
-  // long. This page is one short card, so it centres itself, and the assertion
-  // has to be a measured box: the class strings were right on the page that
-  // rendered top-left, exactly as `CLAUDE.md` records for `COLUMN.full`.
+  // The signed-in layout asks the shell for `width="full"` now, and `/me` owns
+  // the former `max-w-7xl` box through `WidePageColumn`. That route-owned box
+  // deliberately drops vertical centring because page lists and editors are
+  // long. This page is one short card, so it centres the card inside its own
+  // box, and the assertion has to be a measured box: class strings cannot
+  // prove where nested flex owners put it.
   //
   // The wrong behaviours being excluded are named so the fixture can be checked
   // against them: top-aligned in a tall column, and stretched across the wide

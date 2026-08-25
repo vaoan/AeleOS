@@ -1,6 +1,6 @@
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { getTranslations } from "next-intl/server";
-import { Card } from "@/shared/presentation/page-shell";
+import { Card, WidePageColumn } from "@/shared/presentation/page-shell";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { ActorTile, ensurePersonActor, listMyActors } from "@/features/actors";
 import { PickerGrid, declineUrl, isAllowedReturnTo } from "@/features/picker";
@@ -72,6 +72,9 @@ const MAX_APP_NAME = 64;
  *
  * Every colour it paints comes from a token — `--accent`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
+ * Both outcomes own a {@link WidePageColumn}, preserving the box the signed-in
+ * shell supplied before it became full-width for complete page previews.
+ *
  * @returns the picker, or the refusal when there is nowhere safe to return to.
  */
 export default async function PickerPage({
@@ -88,12 +91,13 @@ export default async function PickerPage({
   const returnTo = typeof rawReturnTo === "string" ? rawReturnTo : "";
   if (!isAllowedReturnTo(returnTo, env.allowedReturnOrigins)) {
     return (
-      <Card>
-        <h1 className="font-display text-2xl font-bold tracking-tight">
-          {t("refused")}
-        </h1>
-        <p className="mt-2 text-sm text-(--muted)">{t("refusedHint")}</p>
-        {/*
+      <WidePageColumn>
+        <Card>
+          <h1 className="font-display text-2xl font-bold tracking-tight">
+            {t("refused")}
+          </h1>
+          <p className="mt-2 text-sm text-(--muted)">{t("refusedHint")}</p>
+          {/*
           The one page that cannot offer `return_to` — that is what it is
           refusing — so the way out has to lead somewhere of ours. Without it
           the person is stranded on a dead end reached by a redirect, where
@@ -104,14 +108,15 @@ export default async function PickerPage({
           hub, and a bare href would drop the `/es` prefix and switch somebody's
           language on the way to being helped.
         */}
-        <Link
-          href="/me"
-          className={`mt-6 ${EXIT_LINK}`}
-          {...tid("picker-exit")}
-        >
-          {t("refusedExit")}
-        </Link>
-      </Card>
+          <Link
+            href="/me"
+            className={`mt-6 ${EXIT_LINK}`}
+            {...tid("picker-exit")}
+          >
+            {t("refusedExit")}
+          </Link>
+        </Card>
+      </WidePageColumn>
     );
   }
 
@@ -127,37 +132,38 @@ export default async function PickerPage({
   const tActors = await getTranslations("fursonas");
 
   return (
-    <Card>
-      <h1 className="font-display text-2xl font-bold tracking-tight">
-        {t("title")}
-      </h1>
-      <p className="mt-1 text-sm text-(--muted)">
-        {appName ? t("subtitleFor", { app: appName }) : t("subtitleGeneric")}
-      </p>
+    <WidePageColumn>
+      <Card>
+        <h1 className="font-display text-2xl font-bold tracking-tight">
+          {t("title")}
+        </h1>
+        <p className="mt-1 text-sm text-(--muted)">
+          {appName ? t("subtitleFor", { app: appName }) : t("subtitleGeneric")}
+        </p>
 
-      {choosable.length === 0 ? (
-        <p className="mt-8 text-sm text-(--muted)">{tActors("suspended")}</p>
-      ) : (
-        <PickerGrid action={chooseActorAction} returnTo={returnTo}>
-          {choosable.map((actor) => (
-            <ActorTile
-              key={actor.actorRef}
-              actor={actor}
-              youLabel={tActors("you")}
-              visibilityLabel={tActors(`visibility.${actor.visibility}`)}
-              // The label names the actor so a screen reader reading the
-              // buttons alone can still tell them apart.
-              choose={{
-                label: t("choose", {
-                  name: actor.displayName ?? actor.handle,
-                }),
-              }}
-            />
-          ))}
-        </PickerGrid>
-      )}
+        {choosable.length === 0 ? (
+          <p className="mt-8 text-sm text-(--muted)">{tActors("suspended")}</p>
+        ) : (
+          <PickerGrid action={chooseActorAction} returnTo={returnTo}>
+            {choosable.map((actor) => (
+              <ActorTile
+                key={actor.actorRef}
+                actor={actor}
+                youLabel={tActors("you")}
+                visibilityLabel={tActors(`visibility.${actor.visibility}`)}
+                // The label names the actor so a screen reader reading the
+                // buttons alone can still tell them apart.
+                choose={{
+                  label: t("choose", {
+                    name: actor.displayName ?? actor.handle,
+                  }),
+                }}
+              />
+            ))}
+          </PickerGrid>
+        )}
 
-      {/*
+        {/*
         Declining, as a link rather than a button: it is a plain GET navigation
         to a destination already proven allowed, so there is nothing to submit
         and nothing to re-validate. It sits OUTSIDE the branch above on purpose
@@ -169,13 +175,14 @@ export default async function PickerPage({
         through: a caller may have planted one, and delivering it here would
         report a choice from somebody who explicitly declined to make one.
       */}
-      <a
-        href={declineUrl(returnTo)}
-        className={`mt-8 ${EXIT_LINK}`}
-        {...tid("picker-cancel")}
-      >
-        {t("cancel")}
-      </a>
-    </Card>
+        <a
+          href={declineUrl(returnTo)}
+          className={`mt-8 ${EXIT_LINK}`}
+          {...tid("picker-cancel")}
+        >
+          {t("cancel")}
+        </a>
+      </Card>
+    </WidePageColumn>
   );
 }

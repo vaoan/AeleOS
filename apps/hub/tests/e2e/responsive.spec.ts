@@ -217,9 +217,9 @@ test.describe("every phone screen, signed in", () => {
 
       await fits(page, `the editor at ${viewport.name}`);
 
-      // Each real section renderer is bounded by its own tray. Like the
-      // complete preview below, horizontal excess must stay reachable there
-      // rather than disappear behind rounded clipping.
+      // Each real section renderer is bounded by its own tray. Horizontal
+      // excess must stay reachable there rather than disappear behind rounded
+      // clipping.
       const trayHosts = page
         .getByTestId("block-preview")
         .getByTestId("preview-theme-host");
@@ -230,10 +230,10 @@ test.describe("every phone screen, signed in", () => {
         ),
       ).toEqual(Array.from({ length: await trayHosts.count() }, () => "auto"));
 
-      // The complete page is a bounded inline workbench view, not a fake
-      // public viewport. Open it at every narrow size and require any excess
-      // to remain reachable (`auto`), never clipped to make the page-level
-      // overflow measurement flatter.
+      // The complete page now owns the same width as the public route. Open it
+      // at every narrow size and require any excess to remain reachable
+      // (`auto`), never clipped to make the page-level overflow measurement
+      // flatter.
       await page.getByTestId("complete-page-preview-toggle").click();
       const complete = page
         .getByTestId("complete-page-preview-content")

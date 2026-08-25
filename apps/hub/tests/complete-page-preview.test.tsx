@@ -67,6 +67,16 @@ describe("CompletePagePreview", () => {
         .getByTestId("complete-page-preview-content")
         .closest("[data-preview-theme]"),
     ).not.toBeNull();
+    const host = screen
+      .getByTestId("complete-page-preview-content")
+      .closest("[data-preview-theme]");
+    expect(host).toHaveClass("w-full", "min-w-0", "overflow-x-auto");
+    expect(host).not.toHaveClass(
+      "max-w-full",
+      "rounded-xl",
+      "surface",
+      "border-(--edge)",
+    );
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(toggle).toHaveAttribute("aria-controls");
     expect(toggle).toHaveAccessibleName(labels.collapse);

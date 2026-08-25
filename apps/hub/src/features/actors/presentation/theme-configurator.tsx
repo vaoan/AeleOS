@@ -24,6 +24,7 @@ import {
   withChosenColour,
   THEME_SEEDS,
   accentPreview,
+  atmosphereCss,
   type ActorTheme,
   type CanvasId,
 } from "@/features/actors/domain/actor-theme";
@@ -198,8 +199,11 @@ export interface ThemeConfiguratorProps {
  * that needed saving before it could be judged would be unusable: somebody
  * would save, look, dislike it, and go round again for every adjustment. The
  * form value drives the parent `PreviewThemeHost`, whose declarations share
- * their sources with the public page. This panel never styles the document;
- * doing so would restyle the builder chrome alongside the preview.
+ * their sources with the public page. While this panel is open it also mounts
+ * the document's ATMOSPHERE only — field, canvas and background picture — so
+ * those page-scale choices can be judged where they actually render. Closing
+ * the panel unmounts that stylesheet and restores the AeleOS atmosphere.
+ * Control tokens never enter it, so the builder chrome remains stable.
  *
  * **A cursor picture is measured, not merely accepted.** Browsers ignore one
  * larger than 128×128 in silence, so an unmeasured field would let somebody
@@ -321,6 +325,7 @@ export function ThemeConfigurator({
   // there is a theme to leave.
   const copyable = copyFrom && isCustomised(copyFrom) ? copyFrom : null;
   const slots = slotsFor(value.canvas);
+  const atmosphere = open ? atmosphereCss(value) : "";
 
   // **Measured, because a browser refuses an oversized cursor in silence.** Past
   // 128×128 the declaration is ignored with no error anywhere, so somebody
@@ -404,7 +409,8 @@ export function ThemeConfigurator({
   );
 
   return (
-    <section className="grid gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-3 sm:p-4">
+    <section className="grid gap-3 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4">
+      {atmosphere ? <style>{atmosphere}</style> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -471,7 +477,10 @@ export function ThemeConfigurator({
                 id={`${id}-canvas`}
                 value={value.canvas}
                 onChange={(event) =>
-                  onChange({ ...value, canvas: event.target.value as CanvasId })
+                  onChange({
+                    ...value,
+                    canvas: event.target.value as CanvasId,
+                  })
                 }
                 {...tid("theme-canvas")}
                 className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"

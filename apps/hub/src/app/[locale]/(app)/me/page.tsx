@@ -1,6 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { getTranslations } from "next-intl/server";
-import { Card } from "@/shared/presentation/page-shell";
+import { Card, WidePageColumn } from "@/shared/presentation/page-shell";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { SignOutControl } from "@/features/session";
 import {
@@ -56,13 +56,12 @@ import { tid } from "@/shared/infrastructure/test-id";
  *
  * Every colour it paints comes from a token — `--accent`, `--edge`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
  *
- * **It centres its own card, because the shell cannot.** The signed-in layout
- * asks for `width="wide"`, which drops `PageShell`'s vertical centring on
- * purpose — right for the page list and the editor, both long. This page is a
- * single short card, so it takes the centring back for itself: a flex box
- * filling the column, centred on both axes, holding the card at the reading
- * measure. Doing it here rather than in the layout keeps the long lists
- * starting at the top where they belong.
+ * **It owns the old wide shell column and centres its own card inside it.**
+ * The signed-in layout is full-width now so an editor preview can be a page;
+ * `WidePageColumn` recreates the former box exactly for this ordinary route.
+ * This page is a single short card, so it takes the centring back for itself:
+ * a flex box filling the column, centred on both axes, holding the card at the
+ * reading measure.
  *
  * @returns the identity page.
  */
@@ -85,68 +84,73 @@ export default async function MePage({
     // card and centring means nothing. `max-w-[620px]` is the reading measure
     // the shell's own `column` width uses — the wide layout would otherwise
     // stretch this card to `max-w-7xl`.
-    <div className="flex flex-1 items-center justify-center">
-      <div className="w-full max-w-[620px]">
-        <Card>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
-            {actor?.displayName ?? user?.firstName ?? t("fallbackTitle")}
-          </h1>
-          <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
-            <dt className="text-(--muted)">{t("handle")}</dt>
-            {/* A person's handle is ALWAYS the provisioned `u-<actor_ref>`:
+    <WidePageColumn>
+      <div className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-[620px]">
+          <Card>
+            <h1 className="font-display text-2xl font-bold tracking-tight">
+              {actor?.displayName ?? user?.firstName ?? t("fallbackTitle")}
+            </h1>
+            <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
+              <dt className="text-(--muted)">{t("handle")}</dt>
+              {/* A person's handle is ALWAYS the provisioned `u-<actor_ref>`:
                 nobody chooses one, because a person's handle appears in no
                 address. Shown here it was machine text labelled "username",
                 sitting directly above the same value labelled "platform id" —
                 two renderings of one thing, one of them under a name that
                 invited somebody to think they had picked it. */}
-            <dd>
-              {actor && !isMachineHandle(actor.handle)
-                ? actor.handle
-                : t("empty")}
-            </dd>
-            <dt className="text-(--muted)">{t("address")}</dt>
-            <dd {...tid("my-address")}>
-              {address ? (
-                <Link
-                  href={`/${address}`}
-                  {...tid("my-profile-link")}
-                  className="font-mono underline underline-offset-4"
-                >
-                  {address}
-                </Link>
-              ) : (
-                t("addressEmpty")
-              )}
-            </dd>
-            <dt className="text-(--muted)">{t("platformId")}</dt>
-            {/* Monospace on purpose: this string gets read aloud, pasted into
+              <dd>
+                {actor && !isMachineHandle(actor.handle)
+                  ? actor.handle
+                  : t("empty")}
+              </dd>
+              <dt className="text-(--muted)">{t("address")}</dt>
+              <dd {...tid("my-address")}>
+                {address ? (
+                  <Link
+                    href={`/${address}`}
+                    {...tid("my-profile-link")}
+                    className="font-mono underline underline-offset-4"
+                  >
+                    {address}
+                  </Link>
+                ) : (
+                  t("addressEmpty")
+                )}
+              </dd>
+              <dt className="text-(--muted)">{t("platformId")}</dt>
+              {/* Monospace on purpose: this string gets read aloud, pasted into
                 tickets and compared across apps. */}
-            <dd
-              className="font-mono text-xs break-all"
-              {...tid("my-platform-id")}
-            >
-              {actorRef}
-            </dd>
-          </dl>
+              <dd
+                className="font-mono text-xs break-all"
+                {...tid("my-platform-id")}
+              >
+                {actorRef}
+              </dd>
+            </dl>
 
-          <p className="mt-6 text-sm text-(--muted)">{t("addressHint")}</p>
-          <p className="mt-2 text-sm text-(--muted)">{t("platformIdHint")}</p>
-          <div className="mt-8 border-t border-(--edge)/40 pt-6">
-            <Link
-              href="/pages"
-              className="block text-sm font-medium text-(--accent)"
-            >
-              {t("pagesLink")}
-            </Link>
-            {/* The locale is resolved here, on the server, because the button
+            <p className="mt-6 text-sm text-(--muted)">{t("addressHint")}</p>
+            <p className="mt-2 text-sm text-(--muted)">{t("platformIdHint")}</p>
+            <div className="mt-8 border-t border-(--edge)/40 pt-6">
+              <Link
+                href="/pages"
+                className="block text-sm font-medium text-(--accent)"
+              >
+                {t("pagesLink")}
+              </Link>
+              {/* The locale is resolved here, on the server, because the button
                 cannot know which language the request was for. Sign-out stays
                 last: it is the exit, everything else on the page is a way in. */}
-            <div className="mt-4">
-              <SignOutControl label={t("signOut")} redirectUrl={`/${locale}`} />
+              <div className="mt-4">
+                <SignOutControl
+                  label={t("signOut")}
+                  redirectUrl={`/${locale}`}
+                />
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
-    </div>
+    </WidePageColumn>
   );
 }

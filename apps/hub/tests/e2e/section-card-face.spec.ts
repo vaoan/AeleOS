@@ -230,7 +230,7 @@ test("author colours and skin change both real previews without restyling the wo
     .locator("..");
 
   /**
-   * Reads the properties a document-level author theme changes first.
+   * Reads control properties the live atmosphere must leave unchanged.
    *
    * The custom properties establish which token scope the element inherited;
    * the computed paint establishes that the token was actually consumed.
@@ -245,7 +245,6 @@ test("author colours and skin change both real previews without restyling the wo
       const style = getComputedStyle(element);
       return {
         accent: style.getPropertyValue("--accent"),
-        field: style.getPropertyValue("--field"),
         round: style.getPropertyValue("--skin-round"),
         background: style.backgroundColor,
         color: style.color,
@@ -294,9 +293,9 @@ test("author colours and skin change both real previews without restyling the wo
   expect(await previewStyle(sectionPreview)).not.toEqual(sectionBefore);
   expect(await previewStyle(completePreview)).not.toEqual(completeBefore);
 
-  // These are deliberately last: restoring ThemeConfigurator's document-level
-  // `themeCss` makes the toolbar assertion fail first, before either input is
-  // consulted, while both preview-change assertions above still pass.
+  // These are deliberately last: widening the atmosphere stylesheet back to
+  // the complete `themeCss` control set makes the toolbar assertion fail first,
+  // before either input is consulted, while both preview assertions still pass.
   expect(await workbenchStyle(toolbar)).toEqual(controlsBefore[0]);
   expect(await workbenchStyle(identityInput)).toEqual(controlsBefore[1]);
   expect(await workbenchStyle(sectionInput)).toEqual(controlsBefore[2]);

@@ -114,7 +114,7 @@ function openPanel(theme = DEFAULT_THEME) {
 }
 
 describe("ThemeConfigurator", () => {
-  it("never applies live preview styles to the document", () => {
+  it("applies only the live atmosphere while open and removes it on close", () => {
     function StatefulConfigurator() {
       const [theme, setTheme] = useState(DEFAULT_THEME);
       return (
@@ -123,17 +123,25 @@ describe("ThemeConfigurator", () => {
     }
 
     const { container } = render(<StatefulConfigurator />);
+    expect(container.querySelector("style")).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByTestId("theme-open"));
+    fireEvent.change(screen.getByTestId("gradient-colour"), {
+      target: { value: "#101a2e" },
+    });
     fireEvent.change(screen.getByTestId("theme-background-url"), {
       target: { value: "https://example.test/wallpaper.png" },
     });
 
-    const styles = Array.from(container.querySelectorAll("style"));
-    expect(
-      styles.some((style) =>
-        style.textContent?.includes(":root:not([data-page-theme"),
-      ),
-    ).toBe(false);
+    const css = container.querySelector("style")?.textContent ?? "";
+    expect(css).toContain(":root{");
+    expect(css).toContain("--field:");
+    expect(css).toContain("body{background-image:");
+    expect(css).not.toContain("--ink:");
+    expect(css).not.toContain("--accent:");
+
+    fireEvent.click(screen.getByTestId("theme-open"));
+    expect(container.querySelector("style")).not.toBeInTheDocument();
   });
 
   describe("the animation's own box", () => {

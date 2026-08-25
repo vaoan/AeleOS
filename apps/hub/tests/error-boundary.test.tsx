@@ -70,6 +70,18 @@ describe("the signed-in error boundary", () => {
     ).toBeNull();
   });
 
+  // **The shell stopped supplying the column, so this has to.** `main` is
+  // full-width now, for the editor's sake, which means a boundary that forgot
+  // its own column would render this panel edge to edge — on the one screen a
+  // person is least equipped to interpret. Nothing else can catch that: the
+  // browser route matrix cannot make a signed-in page throw.
+  it("keeps its panel in the signed-in wide column", () => {
+    renderWith(en, "en");
+    const column = screen.getByTestId("wide-page-column");
+    expect(column).toBeInTheDocument();
+    expect(column).toContainElement(screen.getByRole("alert"));
+  });
+
   // next-intl renders the key itself when a message is missing, so this is
   // what catches a catalogue that lost a key the boundary depends on.
   it("renders no raw message keys in either language", () => {

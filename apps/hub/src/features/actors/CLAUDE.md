@@ -1117,7 +1117,14 @@ than converted into a rule that asks the wrong box quietly.
 **Controls are AeleOS; previews are the author's page.** The toolbar, identity
 fields, section names and every nested editor consume the app's design tokens
 and never inherit an author's palette, skin or section style. `PreviewThemeHost`
-is the only editor boundary that receives page-level author tokens.
+is the only editor boundary that receives the COMPLETE page-level theme.
+While the theme panel is open, `atmosphereCss` separately puts only `--field`,
+the canvas properties and the body's background-picture layers on the document,
+because the root canvas and page background cannot be judged inside a box.
+Control tokens, skins and the cursor never enter that stylesheet. Workbench
+groups carrying bare labels and section headings paint opaque
+`--surface-solid` beneath their translucent children, so none can read directly
+over a hostile author field while the atmosphere remains visible between them.
 
 **Both previews use the REAL renderers.** `SectionPreviewTray` draws each
 top-level container with `Block` from `blocks.tsx` — the component both public
@@ -1130,17 +1137,35 @@ from the preview rather than taking down the editor or hiding its valid
 neighbours. A second renderer would have looked identical the day it was
 written and drifted the first time either changed.
 
+**The two previews deliberately answer different layout questions.** A section
+tray is still a bounded workbench aid: it keeps its label, rounded card face,
+padding and horizontal scrolling so one section remains readable beside its
+controls. The complete preview is the page-level check: it is full-bleed, has
+no card surface, border or rounding, and lets every depth-zero section own the
+same width and page chrome it owns on the public route.
+
 **A leaf edit does not rerender the whole editor.** `BlockEditor` owns the
 sections controller needed by its controls, while a small complete-preview
 controller owns the second sections subscription. `FursonaEditor` watches only
 identity and theme values, so changing one description does not rerender the
 toolbar, identity fields and theme controls merely to feed the full preview.
 
-**The complete preview is honest about being bounded.** It is an inline view
-inside the editor column, not the public route's viewport: container queries
-answer to that column and a bled section cannot reach the browser edge.
-Horizontal excess is scrollable, never hidden or clipped to fake a fit, and the
-narrow-viewport browser suite opens the preview at every phone stop.
+**The complete preview owns the same width as a public page.** The signed-in
+shell hands `main` the full window, and every ordinary signed-in route recreates
+the former `max-w-7xl` box with `WidePageColumn`. The editor stops that column
+before the complete preview, so each depth-zero section applies its real
+measure, a bled section reaches both browser edges, and container queries answer
+to the page rather than to workbench chrome. The disclosure control keeps the
+old column geometry, while the themed preview host itself has no card surface,
+rounding or border. Horizontal excess is scrollable, never hidden or clipped to
+fake a fit, and the narrow-viewport browser suite opens the preview at every
+phone stop.
+
+That is **page-faithful, not pixel-exact**. The preview shares the editor's
+document, scrollbar and viewport-unit context rather than rendering the real
+route in its own browsing context. A dedicated preview route in an `iframe` is
+deferred; it is the next mechanism only if this remaining difference matters,
+not a second renderer to add inside the editor.
 
 **Real previews mount real third-party frames while editing.** An author's own
 request and the fact that they are editing therefore reach the same allowlisted
@@ -1739,6 +1764,14 @@ decisions, so they are not quietly undone:
   themes are unsupported and would require unique host selectors. Persistence
   rides the ordinary save: what must be instant is seeing a colour, not storing
   it.
+- **The page-scale atmosphere is live on the document only while the theme
+  panel is open.** `atmosphereCss` filters `themeVars` down to `--field`,
+  `--canvas`, every canvas colour and dial, and `--nebula-blend`, then emits the
+  same `bodyBackgroundVars` picture rule `themeCss` uses. It never derives or
+  escapes a value twice. Closing the panel unmounts that rule and restores the
+  app's exact atmosphere; palette controls, skin variables and `cursor` remain
+  preview-only throughout. Opaque AeleOS backings on the workbench groups that
+  carry bare text are the legibility boundary over that author field.
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once
   depended on which mode they happened to be editing in.
