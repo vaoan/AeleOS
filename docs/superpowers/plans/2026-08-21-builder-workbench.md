@@ -16,12 +16,22 @@ control card and add a collapsed complete-page preview after `BlockEditor`.
 **Tech Stack:** Next.js 16, React 19, TypeScript, react-hook-form, Tailwind CSS
 4, next-intl, Vitest/Testing Library, Playwright, dnd-kit.
 
-> **Final-review correction (2026-08-23):** The top-level `sections` watch in
-> Task 3 was an implementation sketch, not a required architecture. The
-> delivered editor uses a small complete-preview controller so leaf edits do
-> not rerender the toolbar and identity/theme controls. The complete preview
-> lenient-parses draft blocks and keeps bounded overflow scrollable rather than
-> hidden. `final-fix-report.md` records the verification.
+> **Superseded in two boundaries on 2026-08-24.** The task body below records
+> the workbench delivered by PR `#8`; it is not the current instruction for the
+> complete preview or document atmosphere. The complete preview is now
+> page-faithful and full-bleed rather than bounded by the editor column. While
+> the theme panel is open, `atmosphereCss` puts only `--field`, the body
+> background-picture layers, `--canvas`, the numbered canvas colours, the three
+> canvas dials and `--nebula-blend` on the document. Closing it restores the app
+> atmosphere; palette, skin, cursor and every other control token remain
+> preview-only. See
+> `docs/superpowers/specs/2026-08-24-atmosphere-and-page-fidelity-design.md`.
+>
+> The 2026-08-23 final review also replaced Task 3's top-level `sections` watch
+> with a small complete-preview controller, so leaf edits do not rerender the
+> toolbar and identity/theme controls. The preview still lenient-parses draft
+> blocks and keeps horizontal overflow reachable rather than hidden.
+> `final-fix-report.md` records that verification.
 
 ## Global Constraints
 
@@ -238,8 +248,10 @@ export function PreviewThemeHost({
 ```
 
 Remove `themeCss` from `theme-configurator.tsx`'s imports and delete its live
-`<style>`. Update TSDoc: the form value drives parent preview hosts; this panel
-never styles the document.
+`<style>`. For PR `#8`, update TSDoc to say the form value drives parent preview
+hosts and no control token reaches the document. The superseding 2026-08-24
+work restores a document stylesheet for the atmosphere allowlist only, as the
+banner above records.
 
 - [ ] **Step 8: Run focused tests, then sabotage the guard**
 

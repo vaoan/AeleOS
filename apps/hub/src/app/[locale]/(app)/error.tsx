@@ -28,9 +28,6 @@ import { tid } from "@/shared/infrastructure/test-id";
  * would win on specificity and leave this one control ringed outside its edge
  * while every other surface in the app is ringed inside.
  *
- * It owns the same {@link WidePageColumn} as the routes it replaces, so a
- * render failure does not also move the recovery surface.
- *
  * @returns the failure panel.
  */
 export default function AppError({
