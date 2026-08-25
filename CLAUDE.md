@@ -1543,6 +1543,50 @@ every Tailwind utility for months without anything noticing.
     not the word "passed". The same shape is worth suspecting anywhere a
     `test.skip` is conditioned on the environment rather than on the code.
 
+32. **A test's cost is a property of the SUITE it lives in, and a flake there
+    is fixed by moving it, never by widening its budget.** `source-bytes.test.ts`
+    reads every text file in the repository — a gate on the repository, not a
+    unit test of the hub — and it sat in `apps/hub/tests/`, where 128 jsdom
+    worker files compete for one disk. It timed out once at 8618ms against
+    vitest's 5000ms default, on the first run after a `git reset --hard` and a
+    `pnpm install`: the one moment none of those files is in the OS cache, and
+    the condition **every CI run starts in**. Measured afterwards it reads 67ms
+    alone, 149ms with the Vite cache deleted, and 265ms under three sustained
+    disk-load generators — so once a machine has run it the failure cannot be
+    reproduced on demand, and that single observation is the whole of the
+    evidence. Say so rather than implying a before-and-after nobody took.
+
+    The tempting fix is a bigger timeout and it is wrong twice over: the number
+    was never the fault, and a budget widened until a flake stops showing is
+    rule 14's ceiling that lies about which runs are real. It lives in
+    `tests/tools/` now — node environment, six files, no jsdom — which
+    `check:tools` runs inside the required `conformance` job, so nothing about
+    the gating changed.
+
+    **The other half was a hand-maintained skip list, and that one was a
+    correctness bug rather than a speed one.** The crawl carried eight directory
+    names to skip, which is `.gitignore` restated by hand and free to drift from
+    it. Measured, it read **204 files git does not list** — the local Claude
+    settings and every `.superpowers/sdd/` brief and report — none of which
+    exists on a runner and none of which can reach `main`. So the
+    guard's file set was **machine-dependent** and a third of what it read was
+    nobody's source. `git ls-files --cached --others --exclude-standard` is the
+    set that can be committed, on every machine, with nothing to maintain.
+    `--others` is what keeps a file written a moment ago and not yet staged
+    inside the guard, which is exactly when a mangled escape is still catchable;
+    `--cached` is why the list needs an existence filter, because a deletion
+    that is not yet staged is a path git still reports with no bytes behind it.
+
+    It narrows the guard — an ignored file is no longer read — so that hole is a
+    **passing case** in the suite rather than a sentence, and the probe is
+    written by the test: a checkout with no ignored text file in it would pass
+    either way, which is rule 27 exactly. And the fix sprang the very trap the
+    file exists for, which is worth knowing about the trap's reach: an escape in
+    the new test collapsed into a literal newline on the way to disk, and what
+    caught it was the parser, not the guard — a control character inside a
+    string literal is a syntax error, whereas the NUL that started all this sat
+    in a JSX attribute where nothing objects.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected
