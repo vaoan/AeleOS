@@ -28,6 +28,13 @@ import { tid } from "@/shared/infrastructure/test-id";
  * would win on specificity and leave this one control ringed outside its edge
  * while every other surface in the app is ringed inside.
  *
+ * **It wraps itself in `WidePageColumn`, because the signed-in shell no longer
+ * does.** `main` is full-width so a page editor can render its complete preview
+ * with a public route's geometry, which means every signed-in surface owns its
+ * own column — and a boundary that forgot to would render this panel edge to
+ * edge on the one screen somebody is least able to interpret. The wrapper is
+ * asserted in `error-boundary.test.tsx` rather than only stated here.
+ *
  * @returns the failure panel.
  */
 export default function AppError({
