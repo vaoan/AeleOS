@@ -1558,10 +1558,26 @@ every Tailwind utility for months without anything noticing.
 
     The tempting fix is a bigger timeout and it is wrong twice over: the number
     was never the fault, and a budget widened until a flake stops showing is
-    rule 14's ceiling that lies about which runs are real. It lives in
-    `tests/tools/` now — node environment, six files, no jsdom — which
-    `check:tools` runs inside the required `conformance` job, so nothing about
-    the gating changed.
+    rule 14's ceiling that lies about which runs are real. It moved to
+    `tests/tools/` first — node environment, no jsdom — and then out of the test
+    runner entirely: it is `scripts/check-source-bytes.mjs` now, a plain gate in
+    `check:tools` beside `check-contrast`, `check-doc-freshness` and
+    `check-schema-drift`, with `tests/tools/source-bytes.test.ts` covering its
+    exported functions against fixtures. `check:tools` runs inside the required
+    `conformance` job throughout, so nothing about the gating ever changed.
+
+    **A warm-up phase was considered for this and refused, and the reason
+    generalises past caches.** Reading the files once so the timed body hits a
+    warm cache does not remove the cost, it moves it outside the assertion — and
+    "the warm pass leaves the real pass fast enough" is a claim about wall-clock
+    that only a cold run can settle. That is the same unmeasured claim in a
+    different place, for twice the IO. The distinction worth keeping: **a
+    failure mode eliminated by construction needs no observation, and a
+    performance claim always does.** Bulk IO in a plain script is the first;
+    bulk IO in a warmed test is the second wearing the first's clothes. Reach
+    for the runner when you are testing logic and for a script when you are
+    gating the repository — the three siblings above were already that shape and
+    this was the odd one out.
 
     **The other half was a hand-maintained skip list, and that one was a
     correctness bug rather than a speed one.** The crawl carried eight directory
@@ -1578,14 +1594,29 @@ every Tailwind utility for months without anything noticing.
     that is not yet staged is a path git still reports with no bytes behind it.
 
     It narrows the guard — an ignored file is no longer read — so that hole is a
-    **passing case** in the suite rather than a sentence, and the probe is
-    written by the test: a checkout with no ignored text file in it would pass
-    either way, which is rule 27 exactly. And the fix sprang the very trap the
-    file exists for, which is worth knowing about the trap's reach: an escape in
-    the new test collapsed into a literal newline on the way to disk, and what
-    caught it was the parser, not the guard — a control character inside a
-    string literal is a syntax error, whereas the NUL that started all this sat
-    in a JSX attribute where nothing objects.
+    **passing case** rather than a sentence, and the fixture is BUILT: the suite
+    inits a throwaway repository holding one file of every kind the filter
+    decides about. A checkout with no ignored text file in it would pass against
+    a crawl and against git alike, which is rule 27 exactly.
+
+    **That fixture then found a bug the real-tree assertion could not, and the
+    shape is worth carrying.** `textFiles` returns repository-relative paths and
+    its existence filter called `existsSync(path)` — resolved against the
+    PROCESS, not the repository it was asked about. Invisible while the two
+    agree, which they always did when the only caller was the repo's own root,
+    and it drops every path the moment they do not. The instructive part is what
+    that did to the cases beside it: with the list filtered to empty, the three
+    negative assertions — ignores an ignored file, ignores a non-text extension,
+    ignores a staged-then-deleted path — all went GREEN, vacuously. **A negative
+    assertion passes for free when enumeration returns nothing**, so a suite of
+    them needs a positive case proving the enumeration works at all, or it is
+    rule 23 with better manners: the assertions ran and could not have failed.
+
+    And the fix sprang the very trap the file exists for, which is worth knowing
+    about the trap's reach: an escape in the new test collapsed into a literal
+    newline on the way to disk, and what caught it was the parser, not the guard
+    — a control character inside a string literal is a syntax error, whereas the
+    NUL that started all this sat in a JSX attribute where nothing objects.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
