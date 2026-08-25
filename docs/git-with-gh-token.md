@@ -1,7 +1,8 @@
 # How to use `GH_TOKEN` for git in this repository
 
 This is the procedure for every `git` and `gh` operation in AeleOS: push,
-fetch, pull, PR, review, merge, and GitHub API. It is for anyone (human or
+fetch, pull, PR, review, merge, GitHub API, **and posting picture proof on a
+PR** (upload the images, then `gh pr comment`). It is for anyone (human or
 agent) acting on `vaoan/AeleOS`. Do not copy a name, email, login, or token
 from memory, from `git config --global`, or from a previous session.
 
@@ -103,14 +104,20 @@ git -c credential.helper= -c credential.helper="!gh auth git-credential" push -u
 After the steps above, use ordinary commands. They authenticate as `gh api user`’s
 `login`.
 
-| Task                  | Command                                   |
-| --------------------- | ----------------------------------------- |
-| Status / diff / log   | `git status`, `git diff`, `git log`       |
-| Branch from `main`    | `git checkout -b <name> origin/main`      |
-| Commit                | `git commit` (local `user.*` already set) |
-| Push                  | `git push -u origin HEAD`                 |
-| Open a PR             | `gh pr create`                            |
-| Checks, review, merge | `gh pr checks`, `gh api`, `gh pr merge`   |
+| Task                  | Command                                    |
+| --------------------- | ------------------------------------------ |
+| Status / diff / log   | `git status`, `git diff`, `git log`        |
+| Branch from `main`    | `git checkout -b <name> origin/main`       |
+| Commit                | `git commit` (local `user.*` already set)  |
+| Push                  | `git push -u origin HEAD`                  |
+| Open a PR             | `gh pr create`                             |
+| Picture proof         | upload with this PAT, then `gh pr comment` |
+| Checks, review, merge | `gh pr checks`, `gh api`, `gh pr merge`    |
+
+Picture proof on an open PR is the same actor as the push. Load `GH_TOKEN`,
+confirm `gh api user`, then upload and comment. A screenshot posted through
+the website, a stored osxkeychain login, or `gh auth login` as another
+account is a different person on the thread and does not count.
 
 Still follow `CLAUDE.md`: branch from `origin/main` by name, do not commit
 unless asked, do not commit secrets, do not skip hooks.
@@ -146,4 +153,5 @@ not something to work around with another login.
 
 - `.secrets.example` — why the variable is `GH_TOKEN`
 - `scripts/sync-secrets.mjs` — how `.secrets` is rebuilt from repository secrets
-- `CLAUDE.md` — branch-from-`origin/main` and “do not commit unless asked”
+- `CLAUDE.md` — branch-from-`origin/main`, “do not commit unless asked”, and
+  picture proof on open PRs (same PAT)

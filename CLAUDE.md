@@ -320,6 +320,39 @@ Key choices and _why_:
   identity from `gh api user` — never from `git config --global` and never
   from a hardcoded name or email. The procedure is
   [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md).
+- **Picture proof on the PR is part of the work, not a follow-up.** Opening a
+  pull request, and every later commit that lands on a branch that already has
+  one open, ends with photographs posted **as a comment on that PR** — so a
+  human scrolling the thread and a bot reviewing the same thread can both see
+  that the change is what the tests claimed. A green check is not the picture;
+  a sentence in the PR body is not the picture; a screenshot that never left
+  the working tree is not the picture.
+
+  Photograph the thing that actually changed, the way a person would look at
+  it: the editor, the public page, the signed-in chrome, before-and-after
+  where the bug was visual. Caption each image with the claim it is supposed
+  to prove. If the change has no user-facing surface, photograph the
+  verification that would otherwise live only in a log (the passing run, the
+  drift check, the schema probe) rather than skipping.
+
+  **Post it on the PR. Do not commit it.** Temporary Playwright specs,
+  `shot-*.png`, and crop files stay out of git; delete them after the comment
+  is up. Uploading the images and posting the comment are `git`/`gh` actions
+  like any other: they use the PAT in `.secrets` (`GH_TOKEN`) and the
+  procedure in [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md) —
+  never `git config --global`, never a stored osxkeychain login, never
+  `gh auth login` as somebody else, never a drag-drop in the browser as a
+  different account. Confirm `gh api user` first, then `gh pr comment` with
+  markdown that embeds the uploaded files. A picture that landed as a
+  different GitHub user is not posted.
+
+  **Photograph the branch, never `main` by accident.** `PLAYWRIGHT_BASE_URL`
+  still pointing at production from an earlier live check is how a comment
+  can prove the old site and look like proof of this one. Unset it, or point
+  it at a preview of _this_ branch, before taking the pictures. A picture of
+  the deployed site is only proof after that commit is what production is
+  serving.
+
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**
   Never bare `git checkout -b <name>`, which silently branches from whatever is
   currently checked out — and after a session's work that is usually the last

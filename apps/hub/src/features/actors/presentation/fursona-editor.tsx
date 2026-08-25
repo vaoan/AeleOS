@@ -383,6 +383,13 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * while the atmosphere remains visible in the spaces between groups and inside
  * preview hosts.
  *
+ * **Every one of those groups is a card, and the identity fields were the
+ * exception.** They carried the backing with none of the chrome, so against an
+ * author's field they read as a bare rectangle among rounded, bordered
+ * siblings — the theme panel, the language toggle and each section below.
+ * Adding the shape is presentation only: the opaque token is the same one the
+ * contrast guard measures, so the legibility guarantee is untouched.
+ *
  * **A refused page gets one of three sentences, not one of two** — see
  * {@link sectionsCode}. The middle one exists because a refusal on a
  * container's own field is marked now, so the banner may say a marking was
@@ -545,9 +552,16 @@ export function FursonaEditor({
           accessible name, so the handle's hint became part of the name and it
           announced as "Handle 1-32 characters." The hint is attached with
           aria-describedby instead, which is what it is for. */}
+        {/* **The same container every other workbench group gets.** This one
+          held the opaque backing without the chrome around it, so on a themed
+          page it read as a bare rectangle floating on the author's field while
+          the theme panel, the language toggle and every section below it were
+          rounded, bordered cards. The backing is unchanged — it is what keeps
+          these labels off a hostile field — and only the card's own shape has
+          been added to it. */}
         <div
           {...tid("editor-identity-fields")}
-          className="grid gap-6 bg-(--surface-solid)"
+          className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
         >
           {/* **A person has no handle field at all.** Theirs is the provisioned
             `u-<actor_ref>`, which nobody picks and which appears in no
