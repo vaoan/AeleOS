@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import { describe, expect, it } from "vitest";
+import { skinVars } from "@/shared/domain/skins";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import {
   DEFAULT_THEME,
@@ -457,6 +460,52 @@ describe("previewThemeCss", () => {
       expect(emit(theme)).not.toContain("background-image");
       expect(emit(theme)).not.toContain(url);
     }
+  });
+
+  // **The drift this catches is a THIRD composed property.** `globals.css`
+  // writes `--surface: var(--surface-solid)` at `:root`, where the `var()` is
+  // substituted once and inherited already-resolved — so a preview host that
+  // overrides `--surface-solid` and nothing else leaves every panel painting
+  // the app's colour, which is precisely the fault that shipped. The emitter
+  // restates the composition, and a fourth one added to the stylesheet would
+  // otherwise be missed silently, in a preview nobody screenshots on the day
+  // it lands.
+  //
+  // It reads the stylesheet rather than a copied list for the same reason
+  // `skins.test.ts` does: two lists is one that goes stale. Only compositions
+  // over a property a THEME can write are owed — `--bar-top: var(--bar-h)` in
+  // the same file composes furniture heights nothing here overrides.
+  it("restates every :root composition a theme can reach", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src", "app", "globals.css"),
+      "utf8",
+    );
+    const themed = {
+      ...DEFAULT_THEME,
+      background: flat("#24152f"),
+      accent: "#f04f91",
+      skin: "comic" as const,
+    };
+    const reachable = new Set([
+      ...Object.keys(themeVars(themed)),
+      ...Object.keys(skinVars(themed.skin)),
+    ]);
+
+    const composed = new Set<string>();
+    for (const block of css.matchAll(/:root\s*\{([^}]*)\}/g)) {
+      for (const line of block[1]!.matchAll(
+        /(--[\w-]+)\s*:\s*var\((--[\w-]+)\)\s*;/g,
+      )) {
+        if (reachable.has(line[2]!)) composed.add(line[1]!);
+      }
+    }
+
+    // Without this the loop above could match nothing and the expectations
+    // below would pass over an empty set — an assertion that cannot fail.
+    expect([...composed]).toEqual(["--surface", "--bar"]);
+
+    const preview = previewThemeCss(themed);
+    for (const name of composed) expect(preview).toContain(`${name}:`);
   });
 });
 

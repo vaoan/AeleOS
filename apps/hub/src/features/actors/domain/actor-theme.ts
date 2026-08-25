@@ -12,6 +12,7 @@ import { CANVAS_RANGE, dial } from "@/shared/domain/canvas-motion";
 import {
   DEFAULT_SKIN,
   SKINS,
+  SKIN_DEFAULTS,
   SKIN_SCOPE,
   skinVars,
   type SkinId,
@@ -993,6 +994,22 @@ export function accentPreview(accentHex: string, background: Gradient): string {
 }
 
 /**
+ * The properties `globals.css` composes at `:root` out of other properties.
+ *
+ * A preview host is a descendant rather than the root, so it has to restate
+ * these for them to re-resolve against the author's raw colours; see
+ * {@link previewThemeCss} for the mechanism and the fault it caused. Taken from
+ * `SKIN_DEFAULTS` because that table is already parsed against `globals.css` by
+ * `skins.test.ts` — a fourth composed property added to the stylesheet is
+ * caught there and by `previewThemeCss`'s own drift test, not by a reader
+ * remembering this list exists.
+ */
+const ROOT_COMPOSED: Record<string, string> = {
+  "--surface": SKIN_DEFAULTS["--surface"]!,
+  "--bar": SKIN_DEFAULTS["--bar"]!,
+};
+
+/**
  * A theme as CSS for an editor preview boundary.
  *
  * **Editor-only, and never a replacement for {@link themeCss}.** Public pages
@@ -1009,17 +1026,36 @@ export function accentPreview(accentHex: string, background: Gradient): string {
  * supported state; that future feature would require a per-host selector
  * rather than silently changing this invariant.
  *
+ * **It re-declares what `globals.css` COMPOSES at `:root`, and without that a
+ * preview cannot show an author's colours at all.** A custom property whose
+ * value contains `var()` is substituted where it is declared, and descendants
+ * inherit the already-substituted result — so `--surface: var(--surface-solid)`
+ * at `:root` is frozen to the APP's raw colour, and a host that overrides only
+ * `--surface-solid` changes nothing about `--surface`. Measured rather than
+ * reasoned: every panel in the complete preview painted the app's near-white
+ * while the same section on the public page painted the author's, because
+ * `themeCss` writes to `:root` itself and re-resolves the composition there.
+ * The values come from `SKIN_DEFAULTS`, which `skins.test.ts` already pins
+ * against the stylesheet, rather than from a third copy of them here, and they
+ * sit BENEATH the skin so a skin that composes its own alpha still wins.
+ *
+ * A theme overriding nothing still emits nothing: the composition is added
+ * only once there is something authored to compose, so an unthemed preview
+ * keeps inheriting the app exactly as it did.
+ *
  * @param theme - the chosen theme.
  * @returns one preview-scoped rule, or empty when the theme overrides nothing.
  */
 export function previewThemeCss(theme: ActorTheme): string {
   const selector = "[data-preview-theme]";
-  const values = declarations({
+  const authored = {
     ...themeVars(theme),
     ...skinVars(theme.skin),
     ...bodyBackgroundVars(theme),
-  });
-  return values ? `${selector}{${values}}` : "";
+  };
+  if (Object.keys(authored).length === 0) return "";
+  const values = declarations({ ...ROOT_COMPOSED, ...authored });
+  return `${selector}{${values}}`;
 }
 
 /**
