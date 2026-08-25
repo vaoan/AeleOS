@@ -29,6 +29,24 @@ export interface PreviewThemeHostProps {
  * app's layered token defaults inside the dedicated host. Selector containment,
  * rather than a weaker cascade layer, keeps them away from workbench chrome.
  *
+ * **It consumes `--field` and `--ink` itself because `body` does**, and a token
+ * this host overrides cannot reach a declaration already resolved on an
+ * ancestor. `globals.css` paints the field and sets the page's text colour on
+ * `body`; both are computed there against the APP's tokens, so without these
+ * two utilities a preview showed author-coloured surfaces carrying app-coloured
+ * writing. `previewThemeCss` covers the same hazard for the properties
+ * `globals.css` composes at `:root`.
+ *
+ * **The field is deliberately NOT `background-attachment: fixed` here, even
+ * though `body`'s is**, and that was measured rather than assumed. Copying the
+ * attachment anchors the author's gradient to the WINDOW, so the slice showing
+ * behind a section becomes a function of where that section happens to sit on
+ * screen — which differs between a published page and a section part-way down
+ * an editor. Measured against the public page, `fixed` put the sections 29
+ * channels out where painting on this box leaves them within 7. The window's
+ * backdrop is the one thing an inline preview cannot hold identical; an iframe
+ * is the mechanism if it ever must be.
+ *
  * @returns the preview content inside its scoped theme boundary.
  */
 export function PreviewThemeHost({
@@ -43,7 +61,7 @@ export function PreviewThemeHost({
       <div
         data-preview-theme=""
         {...tid("preview-theme-host")}
-        className={`${SKIN_SCOPE} [background:var(--field)] ${className}`}
+        className={`${SKIN_SCOPE} text-(--ink) [background:var(--field)] ${className}`}
       >
         {children}
       </div>
