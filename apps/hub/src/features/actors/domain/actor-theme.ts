@@ -1015,17 +1015,6 @@ const ROOT_COMPOSED: Record<string, string> = {
 };
 
 /**
- * The attribute a preview host marks itself with when the DOCUMENT is wearing
- * the atmosphere instead of the host.
- *
- * Named here rather than in the component because {@link previewThemeCss} is
- * what selects on it: a string spelled once in a stylesheet and once in a JSX
- * attribute is two strings, and the failure is a rule that silently matches
- * nothing. `PreviewThemeHost` is its only writer.
- */
-export const PREVIEW_ATMOSPHERE = "data-preview-atmosphere";
-
-/**
  * A theme as CSS for an editor preview boundary.
  *
  * **Editor-only, and never a replacement for {@link themeCss}.** Public pages
@@ -1059,46 +1048,25 @@ export const PREVIEW_ATMOSPHERE = "data-preview-atmosphere";
  * only once there is something authored to compose, so an unthemed preview
  * keeps inheriting the app exactly as it did.
  *
- * **Two rules rather than one, split along declare-versus-paint.** Everything
- * a descendant reads — the palette, the skin, the composed root properties —
- * is harmless on any host and goes to every one of them. The background
- * PICTURE actually paints, and a host wearing the document's atmosphere
- * (`PREVIEW_ATMOSPHERE`) must paint nothing at all, so those layers are
- * withheld from it. See the comment on the second rule for why the exclusion
- * is a `:not()` rather than an ordering.
+ * **One rule again.** It split in two for a day so that a host wearing the
+ * document's atmosphere could be withheld the background-picture layers; that
+ * host is gone with the inline complete preview, which is a real document at
+ * `/{locale}/me/preview` now. Every remaining host is a bounded tray that
+ * paints its own field.
  *
  * @param theme - the chosen theme.
- * @returns the preview-scoped rules, or empty when the theme overrides
- *   nothing.
+ * @returns one preview-scoped rule, or empty when the theme overrides nothing.
  */
 export function previewThemeCss(theme: ActorTheme): string {
   const selector = "[data-preview-theme]";
-  const tokens = { ...themeVars(theme), ...skinVars(theme.skin) };
-  const picture = bodyBackgroundVars(theme);
-  if (Object.keys(tokens).length + Object.keys(picture).length === 0) return "";
-  const values = declarations({ ...ROOT_COMPOSED, ...tokens });
-  const layers = declarations(picture);
-  return [
-    // Unconditional: past the guard above there is something authored, and
-    // `ROOT_COMPOSED` is a non-empty constant, so this rule always has
-    // declarations. A ternary here reads as defensive and is a branch nothing
-    // can reach.
-    `${selector}{${values}}`,
-    // **The picture PAINTS, where everything above only declares**, which is
-    // why it is the one half a host may decline. A host wearing the document's
-    // atmosphere shows `body`'s own layers through itself — the author's
-    // picture among them, sized against the window exactly as a stranger's
-    // page sizes it — so painting a second copy here would put the same
-    // picture on a box the height of the whole page, over the top of the one
-    // that is already correct.
-    //
-    // `:not()` rather than source order: both rules would otherwise sit at one
-    // attribute of specificity, and which won would depend on which `<style>`
-    // React happened to mount last.
-    layers
-      ? `${selector}:not([${PREVIEW_ATMOSPHERE}="document"]){${layers}}`
-      : "",
-  ].join("");
+  const authored = {
+    ...themeVars(theme),
+    ...skinVars(theme.skin),
+    ...bodyBackgroundVars(theme),
+  };
+  if (Object.keys(authored).length === 0) return "";
+  const values = declarations({ ...ROOT_COMPOSED, ...authored });
+  return `${selector}{${values}}`;
 }
 
 /**
