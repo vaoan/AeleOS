@@ -227,6 +227,27 @@ describe("CompletePagePreview", () => {
     expect(reads).toBeGreaterThan(0);
   });
 
+  // **Hidden from the eye on a narrow screen, never from a screen reader.**
+  // The control row wraps to three lines on a 320px phone and takes 170px of a
+  // 568px screen — measured on the deployed site — and the hint is the line
+  // worth reclaiming, because the SELECTED DEVICE BUTTON already says which
+  // viewport this is. What it must not become is `hidden`: the spec's reason
+  // for the label is that a narrowed page must never be mistaken for the
+  // author's own measure, and dropping it out of the accessibility tree would
+  // take that guarantee away from exactly the people who cannot see the
+  // pressed button either.
+  it("keeps the size announced when it stops being visible", () => {
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    const hint = screen.getByTestId("preview-size-hint");
+    expect(hint).toHaveClass("sr-only");
+    expect(hint).toHaveClass("sm:not-sr-only");
+    expect(hint).not.toHaveClass("hidden");
+    // Still readable by name, which is what "announced" means here.
+    expect(hint).toHaveTextContent("Shown at 768 by 1024");
+  });
+
   it("names the size it is showing", () => {
     mount();
     fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
