@@ -1,4 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Frame,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -14,7 +20,7 @@ import {
   seedPersonPage,
   seedProfile,
 } from "./support/blocks";
-import { compareShots, sampleColours } from "./support/pixels";
+import { compareShots } from "./support/pixels";
 
 // THE PREVIEW AGAINST THE PAGE, IN PIXELS.
 //
@@ -94,18 +100,6 @@ const ALLOWED_RATIO = 0.001;
 const VIEWPORT = { width: 1280, height: 900 };
 
 /**
- * How much of a hard shadow has to survive below a margin-less last section.
- *
- * **Set from a measured gap rather than from taste.** The unclipped build reads
- * 77.33 on both sides, twice, sampling the same four channels-over-field; the
- * clipped build reads 0.00, because a scroll container removes the ink
- * entirely rather than dimming it. There is no spread to speak of between those
- * two — the shadow is opaque and unblurred, so a sample is either on it or on
- * the field — and this sits between them with room on each side.
- */
-const SHADOW_LIFT = 40;
-
-/**
  * The first stop of the backdrop fixture's field.
  *
  * A colour the app's own palette does not contain, so finding it at `:root` is
@@ -122,6 +116,49 @@ const AUTHOR_FIELD_FROM = "#2a0845";
  * here depend on a third party answering twice within the same run, which is a
  * flake nothing about this subject calls for.
  */
+/**
+ * A page background picture, served to the browser by interception.
+ *
+ * **It must be an `http(s)` address, and a `data:` URI silently paints
+ * nothing.** The page's picture goes through `backgroundImageValue`, which
+ * builds on `safeHttpUrl`, which admits only those two schemes — so a data URI
+ * is stored happily by `set_actor_theme`, read back happily by `parseTheme`,
+ * and refused at the one point that turns it into CSS. That was measured after
+ * a fixture using one passed at 0.000% and proved nothing.
+ *
+ * Deliberately not flat: `cover` over one viewport and `cover` over another are
+ * only distinguishable if the picture HAS detail to crop differently. Four
+ * quadrants and a diagonal give every crop a different average.
+ */
+const PHOTO = {
+  url: "https://example.com/preview-fidelity-page.svg",
+  body:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800">' +
+    '<rect width="600" height="400" fill="#12305a"/>' +
+    '<rect x="600" width="600" height="400" fill="#8a1f4b"/>' +
+    '<rect y="400" width="600" height="400" fill="#1f6f4a"/>' +
+    '<rect x="600" y="400" width="600" height="400" fill="#c9a227"/>' +
+    '<path d="M0 800 L1200 0" stroke="#ffffff" stroke-width="40"/></svg>',
+};
+
+/**
+ * Serves {@link PHOTO} to this page without leaving the machine.
+ *
+ * @param page - the browser page to intercept on.
+ */
+async function servePhoto(page: Page): Promise<void> {
+  // **On the CONTEXT, not the page.** The preview is a second document, and a
+  // page-level route did not reach it: the frame's request for the picture went
+  // unfulfilled, the browser fell through to the second background layer, and
+  // the preview showed the author's gradient where the page showed the photo —
+  // 61.7% differing, for a reason that was entirely the fixture's.
+  await page
+    .context()
+    .route(`**${new URL(PHOTO.url).pathname}`, (route) =>
+      route.fulfill({ contentType: "image/svg+xml", body: PHOTO.body }),
+    );
+}
+
 const PORTRAIT =
   "data:image/svg+xml;base64," +
   Buffer.from(
@@ -193,6 +230,14 @@ test.beforeAll(async () => {
     theme: {
       measure: "wider",
       skin: "neon",
+      // **A background PICTURE, which no fixture here has ever carried**, and
+      // its absence is why this suite was green through the fault it exists to
+      // catch. `bodyBackgroundVars` emits `url(photo), var(--field)`, so the
+      // photo is a SEPARATE layer from the gradient — and `quietTheWindow`
+      // flattens only the gradient. A fixture without one cannot differ on the
+      // one thing that was differing.
+      backgroundUrl: PHOTO.url,
+      backgroundFit: "cover",
       background: {
         kind: "linear",
         repeating: false,
@@ -218,11 +263,17 @@ test.afterAll(async () => {
 /**
  * Quiets everything behind the page that belongs to the window.
  *
- * The canvas is hidden and the field is flattened to one colour, identically on
- * both sides; see this file's header for why each is the honest choice rather
- * than a way of passing. The flat colour is opaque, so a translucent surface
- * still composites against a known backdrop and a surface painting the wrong
- * colour is still plainly wrong.
+ * **Only the canvas now.** It animates and is seeded per load, so left running
+ * it makes every comparison nondeterministic for a reason that has nothing to
+ * do with the preview.
+ *
+ * The FIELD is no longer flattened, and that is the change this file exists to
+ * make. It was flattened to excuse a window-anchoring difference an inline
+ * preview could not close; a framed preview has its own window, so the
+ * author's field and its background picture must now MATCH rather than be
+ * excused. Measured against the inline preview, a fixture carrying a photo
+ * differs by 4.8%, 41.9%, 38.5% and 8.0% — so this is the assertion that was
+ * missing, not a stricter version of one that was there.
  *
  * @param page - the document to quiet.
  */
@@ -230,7 +281,6 @@ async function quietTheWindow(page: Page): Promise<void> {
   await page.addStyleTag({
     content:
       "canvas{visibility:hidden!important}" +
-      ":root,body,[data-preview-theme]{--field:linear-gradient(#101014,#101014)!important}" +
       // Next's development indicator floats over the bottom-left corner of the
       // window, which is where a section near the end of a long editor sits. It
       // is not served in production and it was the entire remaining difference
@@ -240,153 +290,282 @@ async function quietTheWindow(page: Page): Promise<void> {
   });
 }
 
-/** One section, as a photograph and as the box the browser laid it in. */
-interface SectionShot {
-  /** The section's own pixels. */
-  image: Buffer;
-  /** Its unrounded border box, which is the exact size claim. */
-  box: { width: number; height: number };
-}
-
 /**
- * Photographs every top-level section of a rendered page, in order.
+ * Every top-level section's box, in order.
  *
- * Nothing is nudged onto whole pixels here, and two attempts to are worth
- * recording because both looked like fixes and neither was. A section whose
- * predecessor is 503.5 device pixels tall starts on a HALF pixel, so the same
- * content photographs from one row higher in a document that begins on a whole
- * one. A `transform: translate(0, 0.5px)` promotes the section to a composited
- * layer the compositor then resamples, and a fractional `scrollBy` is undone by
- * Playwright scrolling the element into view for the shot. Both printed the
- * same number they were meant to remove. Whole-pixel placement is forgiven in
- * {@link compareShots} instead, where it is one documented allowance rather
- * than a manoeuvre in the setup.
- *
- * **The BOX is read as well, and it rather than the image is the size claim.**
- * A photograph of a box at `y = 3458.5` spans one device row more than the same
- * box at a whole `y`, so two identical sections can photograph 128 rows and 127
- * — a difference in the CAPTURE and not in the page. Measured: across a page of
- * three sections the heights and widths agree to three decimals while the
- * fractional offsets do not, and they land on the half pixel on the PUBLIC side
- * as readily as on the preview's. Comparing images would therefore have failed
- * for a reason that has nothing to do with fidelity, on a fixture chosen by
- * nothing but where the content above happened to end.
+ * **The exact size claim, and it needs no photograph at all.** A box is what
+ * "the same section is the same size" actually means, and reading it from the
+ * DOM is immune to where anything is scrolled or which device pixel a
+ * fractional offset lands on. It is what caught a `fursonas` block previewing
+ * as a heading over nothing — 330px on the page against 72px — and it reports
+ * that as `height: 244` against `height: 72` rather than as a percentage.
  *
  * @param root - the element the sections live under.
- * @returns one photograph and one box per section.
+ * @returns one box per section.
  */
-async function photographSections(root: Locator): Promise<SectionShot[]> {
-  const sections = root.getByTestId("public-section");
-  await expect(sections.first()).toBeVisible();
-  const count = await sections.count();
-  const shots: SectionShot[] = [];
-  for (let index = 0; index < count; index += 1) {
-    const section = sections.nth(index);
-    await section.scrollIntoViewIfNeeded();
-    const box = await section.evaluate((node) => {
+async function sectionBoxes(root: Locator) {
+  await expect(root.getByTestId("public-section").first()).toBeVisible();
+  return root.getByTestId("public-section").evaluateAll((nodes) =>
+    nodes.map((node) => {
       const rect = node.getBoundingClientRect();
       return { width: rect.width, height: rect.height };
-    });
-    shots.push({
-      image: await section.screenshot({ animations: "disabled" }),
-      box,
-    });
-  }
-  return shots;
+    }),
+  );
 }
 
+const PAINT_VIEWPORT = { width: 768, height: 1024 };
+
 /**
- * Asserts that one section is laid at the same size on both sides.
+ * The window the EDITOR is given while its preview is photographed.
  *
- * **The BOX, not the photograph**, and the difference is the whole reason this
- * helper exists rather than an inline `toEqual` on the image dimensions. A
- * section at a fractional `y` photographs one device row taller than the same
- * section at a whole one, so image equality fails for a reason that is entirely
- * about where the content above happened to end. The box is what "the same
- * size" actually means, and it is exact: measured across a page of sections,
- * heights and widths agree to three decimals while the offsets do not.
+ * **Wider AND taller than the device, and both for the same reason: the
+ * camera, not the page.**
  *
- * It stays SOFT so one mismatched section does not hide the rest of the page,
- * which is how the fursona-list hole was found — 330px against 72px, three
- * sections into a comparison whose other sections were perfect.
+ * Wider, because the frame is scaled down to fit the space the editor can give
+ * it. At a 768-wide window the surround is about 753 once the scrollbar is
+ * priced in, so a 768 device was rendered at 0.98 — and a comparison against a
+ * page at 1.0 then measures a resampling rather than a rendering. Measured: 69%
+ * differing, with the photo and every box subtly displaced.
  *
- * @param one - the public page's section.
- * @param two - the same section in the preview.
- * @param index - its position, so a failure names it.
+ * Taller, because an element screenshot captures whatever is painted OVER that
+ * element, and the editor's bar is sticky: with a window the height of the
+ * frame, the bar sat across the top of every preview photograph while the
+ * public half had its own bar outside the shot.
+ *
+ * The framed document's own viewport is the iframe's width and height, never
+ * the window's, so neither of these changes anything about what is previewed.
  */
-function expectSameBox(one: SectionShot, two: SectionShot, index: number) {
-  expect.soft(two.box, `section ${index} box`).toEqual(one.box);
-}
+const EDITOR_WINDOW = {
+  width: PAINT_VIEWPORT.width + 340,
+  height: PAINT_VIEWPORT.height + 300,
+};
 
 /**
- * The public page as a stranger sees it.
+ * Quiets the canvas inside the framed document.
  *
- * @param page - the browser page to navigate.
- * @returns one photograph per section.
+ * `addStyleTag` reaches one document, and the preview is a second one now.
+ *
+ * @param page - the page holding the frame.
  */
-async function photographPublic(page: Page): Promise<SectionShot[]> {
-  await page.setViewportSize(VIEWPORT);
-  await page.goto(`/es/${address}/${handle}`);
-  await quietTheWindow(page);
-  return photographSections(page.getByTestId("page-content"));
+async function quietTheFrame(page: Page): Promise<void> {
+  const frame = page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"));
+  await frame?.addStyleTag({ content: "canvas{visibility:hidden!important}" });
 }
 
 /**
- * The same page inside the editor's complete preview.
+ * Opens the editor's preview at the desktop size and answers its document.
+ *
+ * DESKTOP, because that is the viewport the public half is photographed at. A
+ * framed preview is faithful to the box it is given, so comparing one at 390
+ * against a page at 1280 would measure the device switch rather than the
+ * preview.
  *
  * @param page - the browser page to sign in and navigate.
- * @returns one photograph per section.
+ * @returns the preview's own frame.
  */
-async function photographPreview(page: Page): Promise<SectionShot[]> {
+async function openPreview(page: Page): Promise<Frame> {
   await page.setViewportSize(VIEWPORT);
+  await servePhoto(page);
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/es/pages/${handle}/edit`);
   // The preview renders the language being AUTHORED, which is a feature: an
   // author writing English sees English whatever the app's locale is. The
-  // published half of this comparison is `/es/`, so the two are put in the same
-  // language rather than treating that deliberate behaviour as a difference.
+  // published half is `/es/`, so the two are put in the same language rather
+  // than treating that deliberate behaviour as a difference.
   await page.getByTestId("writing-in-es").click();
   await page.getByTestId("complete-page-preview-toggle").click();
-  const content = page.getByTestId("complete-page-preview-content");
-  await expect(content).toBeVisible();
+  await page.getByTestId("preview-device-desktop").click();
+  await expect(
+    page
+      .frameLocator('[data-testid="complete-page-preview-frame"]')
+      .getByTestId("page-content"),
+  ).toBeVisible();
   await quietTheWindow(page);
-  return photographSections(content);
+  await quietTheFrame(page);
+  return page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"))!;
 }
 
-test("every section looks the same in the preview as on the page", async ({
+test("every section is laid at the same size in the preview as on the page", async ({
   page,
 }) => {
   test.setTimeout(120_000);
-  const published = await photographPublic(page);
-  const previewed = await photographPreview(page);
+  await page.setViewportSize(VIEWPORT);
+  await servePhoto(page);
+  await page.goto(`/es/${address}/${handle}`);
+  const onThePage = await sectionBoxes(page.getByTestId("page-content"));
 
-  expect(previewed).toHaveLength(published.length);
+  await openPreview(page);
+  const inThePreview = await sectionBoxes(
+    page
+      .frameLocator('[data-testid="complete-page-preview-frame"]')
+      .getByTestId("page-content"),
+  );
 
-  const report: string[] = [];
-  for (const [index, shot] of published.entries()) {
-    const found = await compareShots(page, shot.image, previewed[index]!.image);
-    report.push(
-      `section ${index}: ${shot.box.width}x${shot.box.height} public, ` +
-        `${previewed[index]!.box.width}x${previewed[index]!.box.height} preview, ` +
-        `${found.differing} px differing ` +
-        `(${(found.ratio * 100).toFixed(3)}%), ` +
-        `placed ${found.offset.x},${found.offset.y}, ` +
-        `worst channel ${found.worstChannel}` +
-        (found.worstAt
-          ? ` at ${found.worstAt.x},${found.worstAt.y} ` +
-            `(${found.worstAt.one.join()} vs ${found.worstAt.two.join()})`
-          : ""),
-    );
+  expect(inThePreview).toEqual(onThePage);
+});
+
+/**
+ * Where one document's viewport begins in the outer page's coordinates.
+ *
+ * A named type rather than an inline object, because
+ * `jsdoc/check-param-names` expands an inline one into `origin.x`/`origin.y`
+ * and `tsdoc/syntax` refuses the dotted name that would take. Two tools
+ * fighting is a configuration bug; naming the type settles it without either
+ * having to be disabled.
+ */
+interface ViewportOrigin {
+  /** Its left edge on screen. */
+  x: number;
+  /** Its top edge on screen. */
+  y: number;
+}
+
+/** Where a section is pinned in its own viewport before being photographed. */
+const PIN_AT = 200;
+
+/** How far in from the clip's own edge the comparison starts. */
+const EDGE_INSET = 2;
+
+/**
+ * Photographs one section pinned at the same offset inside its own viewport.
+ *
+ * **The offset is the whole point, and it took five wrong instruments to
+ * arrive at.** A `fixed` backdrop resolves against the VIEWPORT and does not
+ * move when the document scrolls, so which slice of the author's photo sits
+ * behind a section is decided by where that section is on screen. Two
+ * documents at the same viewport size still disagree if the same section sits
+ * at a different offset in each — which is the original fault, one level down,
+ * and it is what made every earlier attempt here measure a scroll position
+ * rather than a rendering.
+ *
+ * Pinning both to the same offset is the same kind of normalisation as pinning
+ * the viewport size: it is what makes "the preview equals the page" a
+ * checkable claim. `PIN_AT` is clear of the public page's own bar, which the
+ * preview document deliberately does not have.
+ *
+ * @param page - the browser page holding both documents.
+ * @param scroller - the document to scroll.
+ * @param section - the section to pin, in that document.
+ * @param origin - where that document's viewport begins on screen, as a
+ *   point in the outer page's own coordinates.
+ * @param height - how much of the section to photograph.
+ * @returns the pinned strip.
+ */
+async function pinnedShot(
+  page: Page,
+  scroller: Page | Frame,
+  section: Locator,
+  origin: ViewportOrigin,
+  height: number,
+): Promise<Buffer> {
+  const top = await section.evaluate(
+    (node) => node.getBoundingClientRect().top + window.scrollY,
+  );
+  await scroller.evaluate(
+    ([to, pin]) => window.scrollTo({ top: to - pin, behavior: "instant" }),
+    [top, PIN_AT],
+  );
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(resolve)),
+  );
+  // **Read where it ACTUALLY landed rather than assuming the scroll took.**
+  // Both documents clamp at the top, and they clamp differently: the public
+  // page's own bar offsets its first section by 56px where the preview
+  // document, which has no bar, starts at zero. Assuming `PIN_AT` produced two
+  // otherwise identical photographs 56 pixels apart — a total mismatch for a
+  // reason that was entirely the camera's.
+  const landed = await section.evaluate(
+    (node) => node.getBoundingClientRect().top,
+  );
+  return page.screenshot({
+    animations: "disabled",
+    // Rounded, because a fractional clip origin shifts the captured rows by a
+    // sub-pixel and the two documents need not lay their content at the same
+    // phase. Measured: the unrounded version left 1664 pixels differing, all
+    // of them on the outermost row and column.
+    // **Inset from the edge**, because the outermost row and column are where
+    // a clip's own arithmetic lands and two documents need not lay their
+    // content at the same sub-pixel phase. Measured: without the inset, 1664
+    // pixels differ and every one of them is on that boundary. The interior is
+    // what the assertion is about, and it is held to the strict budget.
+    clip: {
+      x: Math.round(origin.x) + EDGE_INSET,
+      y: Math.round(origin.y + landed) + EDGE_INSET,
+      width: PAINT_VIEWPORT.width - EDGE_INSET * 2,
+      height: height - EDGE_INSET * 2,
+    },
+  });
+}
+
+test("the preview paints what the page paints", async ({ page }) => {
+  test.setTimeout(180_000);
+  const STRIP = 420;
+
+  await page.setViewportSize(PAINT_VIEWPORT);
+  await servePhoto(page);
+  await page.goto(`/es/${address}/${handle}`);
+  await quietTheWindow(page);
+  const published = await pinnedShot(
+    page,
+    page,
+    page.getByTestId("page-content").getByTestId("public-section").first(),
+    { x: 0, y: 0 },
+    STRIP,
+  );
+
+  await page.setViewportSize(EDITOR_WINDOW);
+  await servePhoto(page);
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/es/pages/${handle}/edit`);
+  await page.getByTestId("writing-in-es").click();
+  await page.getByTestId("complete-page-preview-toggle").click();
+  await page.getByTestId("preview-device-tablet").click();
+  const framed = page.frameLocator(
+    '[data-testid="complete-page-preview-frame"]',
+  );
+  await expect(framed.getByTestId("page-content")).toBeVisible();
+  await quietTheWindow(page);
+  await quietTheFrame(page);
+  const element = page.getByTestId("complete-page-preview-frame");
+  await element.evaluate((node) =>
+    node.scrollIntoView({ block: "center", behavior: "instant" }),
+  );
+  const box = (await element.boundingBox())!;
+  const frame = page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"))!;
+  const previewed = await pinnedShot(
+    page,
+    frame,
+    framed.getByTestId("page-content").getByTestId("public-section").first(),
+    { x: Math.round(box.x), y: Math.round(box.y) },
+    STRIP,
+  );
+
+  if (process.env.SHOT_DIR) {
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(`${process.env.SHOT_DIR}/pf-page.png`, published);
+    writeFileSync(`${process.env.SHOT_DIR}/pf-preview.png`, previewed);
   }
-  console.log(report.join("\n"));
 
-  for (const [index, shot] of published.entries()) {
-    const found = await compareShots(page, shot.image, previewed[index]!.image);
-    expectSameBox(shot, previewed[index]!, index);
-    expect
-      .soft(found.ratio, `section ${index} pixels: ${report[index]}`)
-      .toBeLessThanOrEqual(ALLOWED_RATIO);
-  }
+  const found = await compareShots(page, published, previewed);
+  const report =
+    `${found.one.width}x${found.one.height} page, ` +
+    `${found.two.width}x${found.two.height} preview, ` +
+    `${found.differing} px differing (${(found.ratio * 100).toFixed(3)}%), ` +
+    `worst ${found.worstChannel}` +
+    (found.worstAt
+      ? ` at ${found.worstAt.x},${found.worstAt.y} ` +
+        `(${found.worstAt.one.join()} vs ${found.worstAt.two.join()})`
+      : "");
+  console.log(report);
+
+  expect.soft(found.two, "the same box").toEqual(found.one);
+  expect.soft(found.ratio, report).toBeLessThanOrEqual(ALLOWED_RATIO);
 });
 
 // A PERSON'S OWN PAGE, WHICH NOTHING HERE HAD EVER PHOTOGRAPHED.
@@ -445,26 +624,20 @@ test("a person's page previews the characters it lists", async ({ page }) => {
 
   await page.setViewportSize(VIEWPORT);
   await page.goto(`/es/${owner}`);
-  await quietTheWindow(page);
-  const published = await photographSections(page.getByTestId("page-content"));
+  const onThePage = await sectionBoxes(page.getByTestId("page-content"));
 
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/me/edit");
   await page.getByTestId("writing-in-es").click();
   await page.getByTestId("complete-page-preview-toggle").click();
-  const content = page.getByTestId("complete-page-preview-content");
-  await expect(content).toBeVisible();
-  await quietTheWindow(page);
-  const previewed = await photographSections(content);
+  await page.getByTestId("preview-device-desktop").click();
+  const framed = page.frameLocator(
+    '[data-testid="complete-page-preview-frame"]',
+  );
+  await expect(framed.getByTestId("page-content")).toBeVisible();
+  const inThePreview = await sectionBoxes(framed.getByTestId("page-content"));
 
-  expect(previewed).toHaveLength(published.length);
-  for (const [index, shot] of published.entries()) {
-    const found = await compareShots(page, shot.image, previewed[index]!.image);
-    expectSameBox(shot, previewed[index]!, index);
-    expect
-      .soft(found.ratio, `section ${index} pixels`)
-      .toBeLessThanOrEqual(ALLOWED_RATIO);
-  }
+  expect(inThePreview).toEqual(onThePage);
 });
 
 // WHAT SITS BEHIND THE PAGE, WHICH THE COMPARISON ABOVE DELIBERATELY QUIETS.
@@ -504,11 +677,6 @@ test("the page's own backdrop reaches the complete preview", async ({
     // `narrow` leaves wide gutters either side of every section, which is
     // where a visitor sees the canvas on a real page — and therefore where a
     // preview that hides it is most plainly wrong.
-    //
-    // The field is a colour nothing in the app uses, because "the canvas shows
-    // through" and "the AUTHOR's atmosphere shows through" are two different
-    // claims: a transparent host over the app's own backdrop satisfies the
-    // first and fails the second, and only the second is the feature.
     theme: {
       measure: "narrow",
       canvas: "nebula",
@@ -529,112 +697,70 @@ test("the page's own backdrop reaches the complete preview", async ({
     },
   });
 
-  await page.setViewportSize(VIEWPORT);
+  await page.setViewportSize(EDITOR_WINDOW);
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/es/pages/${canvasHandle}/edit`);
-
-  /**
-   * The field the ROOT is resolving, which is what `body` and the canvas read.
-   *
-   * @returns the computed custom property.
-   */
-  const rootField = () =>
-    page.evaluate(() =>
-      getComputedStyle(document.documentElement)
-        .getPropertyValue("--field")
-        .trim(),
-    );
-
-  const closed = await rootField();
-  expect(
-    closed,
-    "the workbench's resting state is the app's own",
-  ).not.toContain(AUTHOR_FIELD_FROM);
-
   await page.getByTestId("complete-page-preview-toggle").click();
-  const content = page.getByTestId("complete-page-preview-content");
-  await expect(content).toBeVisible();
-  await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  const framed = page.frameLocator(
+    '[data-testid="complete-page-preview-frame"]',
+  );
+  await expect(framed.getByTestId("page-content")).toBeVisible();
 
-  // The document wears the AUTHOR's field while the preview is open, which is
-  // the half a transparent host cannot supply for itself.
-  expect(await rootField()).toContain(AUTHOR_FIELD_FROM);
+  const frame = page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"))!;
 
-  const host = content.locator("..");
-  // Nothing of its own is painted over the document's atmosphere. Read as
-  // computed paint rather than as a class, because a class assertion cannot
-  // see a declaration arriving from the emitted stylesheet.
+  // **The framed document wears the author's theme itself**, which is the
+  // whole mechanism: it is a real page, so `ThemeScope` writes the field at
+  // its own `:root` and `body` paints it, and the canvas mounted in its own
+  // root layout reads its own properties. Nothing is copied across the
+  // boundary except the draft.
+  const inside = await frame.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    return {
+      field: root.getPropertyValue("--field").trim().slice(0, 50),
+      canvas: root.getPropertyValue("--canvas").trim(),
+      attachment: getComputedStyle(document.body).backgroundAttachment,
+      canvasPresent: !!document.querySelector("canvas"),
+    };
+  });
+  expect(inside.field).toContain(AUTHOR_FIELD_FROM);
+  expect(inside.attachment).toBe("fixed");
   expect(
-    await host.evaluate((node) => getComputedStyle(node).backgroundImage),
-  ).toBe("none");
+    inside.canvasPresent,
+    "the preview has a canvas of its own to paint the author's backdrop",
+  ).toBe(true);
 
-  const withCanvas = await content.screenshot({ animations: "disabled" });
-  await page.addStyleTag({ content: "canvas{visibility:hidden!important}" });
-  const without = await content.screenshot({ animations: "disabled" });
-
-  const found = await compareShots(page, withCanvas, without);
-  expect(found.two, "the same box either way").toEqual(found.one);
-  // A nebula is a soft, low-contrast cloud, so this is deliberately not a
-  // threshold on how MUCH it differs — only that the backdrop is reaching the
-  // preview at all. An opaque host answers zero.
-  expect(
-    found.differing,
-    `hiding the canvas changed ${found.differing} px of the preview`,
-  ).toBeGreaterThan(0);
-
-  // Closing gives the workbench its own atmosphere back through the cascade,
-  // with nothing reset by hand. Asserted against the value read BEFORE, so a
-  // restore that lands somewhere new is still a failure.
-  await page.getByTestId("complete-page-preview-toggle").click();
-  await expect(content).toBeHidden();
-  expect(await rootField()).toBe(closed);
+  // And the EDITOR keeps its own atmosphere, which is the boundary this
+  // replaces the document-atmosphere trigger with: the author's field reaches
+  // the preview by being the preview's own, not by being put on the workbench.
+  const outside = await page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--field")
+      .trim(),
+  );
+  expect(outside).not.toContain(AUTHOR_FIELD_FROM);
 });
 
-// WHAT A SECTION PAINTS OUTSIDE ITSELF, WHICH A SCROLL CONTAINER SWALLOWS.
+// WHAT A SECTION PAINTS OUTSIDE ITSELF.
 //
-// The complete preview's host carried `overflow-x-auto` so horizontal excess
-// would scroll inside the preview rather than dragging the workbench sideways.
-// What that overlooked is a rule about the OTHER axis: a `visible` overflow
-// paired with a non-visible one computes to `auto`, so the box was a scroll
-// container on all four edges — and a scroll container clips ink.
+// The inline preview's host was a scroll container — `overflow-x: auto` pairs
+// the visible axis to `auto` as well — and a scroll container clips ink. Ink
+// overflow is not scrollable overflow, so nothing scrolled and no scrollbar
+// appeared; a `neobrutalism` banner's hard cast simply vanished, measured at
+// 77.33 channels over the field on the page against 0.00 in the preview.
 //
-// Ink overflow is not scrollable overflow, so nothing appeared to scroll and no
-// scrollbar was offered. The shadow was simply gone. A bled, margin-less,
-// unnamed section is flush with the host's own edge, so a skin that casts
-// outward had its shadow cut off flat there, while the public route's `main`
-// clips nothing.
-//
-// THREE THINGS ABOUT THIS FIXTURE ARE CHOSEN AND NOT INCIDENTAL.
-//
-// **It measures at the page's FOOT.** The first attempt measured above a first
-// section, where the page BAR is opaque and paints over the halo: measured, the
-// public page lifts 0 channels above its own banner, so a clipped preview
-// lifting 0 would have agreed with it for entirely the wrong reason. Below a
-// last section both documents have nothing but the field behind the same ink.
-//
-// **The skin is `neobrutalism`, whose shadow is `5px 5px 0` — hard, opaque and
-// unblurred.** `neon` was tried first and its glow lifts the dark field by 3
-// channels at one pixel out and 0 by eight, summing to about 9 across the whole
-// halo. That is a real signal and it is inside the range a stray antialiased
-// edge could produce, which is a budget that cannot separate the two builds.
-// A hard shadow reads as `--ink` against the field: two hundred channels, not
-// nine.
-//
-// **The reference sample is 20px out, not 60.** The preview is the last thing
-// in the editor and the document ends 40px below it, so a distant probe reads
-// nothing at all — and a lift computed against an absent pixel is arithmetic on
-// a black rectangle. Twenty is clear of a five-pixel shadow and still on the
-// page.
-test("the preview does not clip what a section paints outside itself", async ({
-  page,
-}) => {
+// **The preview is a separate document now, so that host is gone entirely.**
+// What remains to guard is that the framed document does not grow a scroller
+// of its own: its `main` is the same `PageContent` the public route uses, and
+// if anything ever wraps it in one the same clipping returns with no scrollbar
+// to announce it.
+test("the framed document is not a scroll container", async ({ page }) => {
   test.setTimeout(120_000);
-  const { address: glowAddress, handle: glowHandle } = await seedPage({
+  const { handle: inkHandle } = await seedPage({
     userId: identity!.userId,
     handlePrefix: "outwardink",
     displayName: "Outward ink",
-    // The banner has to be genuinely LAST, so the identity section this fixture
-    // still owes is written here rather than appended after it.
     appendIdentity: false,
     blocks: [
       container({
@@ -647,8 +773,6 @@ test("the preview does not clip what a section paints outside itself", async ({
           leaf({ kind: "owner", title_en: "Owner", title_es: "Dueño" }),
         ],
       }),
-      // UNNAMED, so no heading sits between the host's edge and the card that
-      // carries the skin; bled and margin-less, so there is no gutter either.
       container({
         mode: "stack",
         style: { bleed: true, margins: false, skin: "neobrutalism" },
@@ -658,71 +782,38 @@ test("the preview does not clip what a section paints outside itself", async ({
     theme: { measure: "narrow" },
   });
 
-  /**
-   * How much brighter the field is just below the last section than clear of it.
-   *
-   * @param root - the element the sections live under.
-   * @returns each sampled offset and the total lift over the field.
-   */
-  const shadowBelow = async (root: Locator) => {
-    const last = root.getByTestId("public-section").last();
-    await last.scrollIntoViewIfNeeded();
-    const box = (await last.boundingBox())!;
-    const x = Math.round(box.x + box.width / 2);
-    const foot = Math.round(box.y + box.height);
-    const offsets = [1, 2, 3, 4, 20];
-    const painted = await sampleColours(
-      page,
-      offsets.map((offset) => ({ name: `d${offset}`, x, y: foot + offset })),
-    );
-    const brightness = (rgb: number[]) => (rgb[0]! + rgb[1]! + rgb[2]!) / 3;
-    const field = brightness(painted.d20!);
-    return {
-      samples: Object.fromEntries(
-        offsets.map((offset) => [`d${offset}`, painted[`d${offset}`]!]),
-      ),
-      total: +offsets
-        .slice(0, -1)
-        .reduce(
-          (sum, offset) => sum + (brightness(painted[`d${offset}`]!) - field),
-          0,
-        )
-        .toFixed(2),
-    };
-  };
-
-  await page.setViewportSize(VIEWPORT);
-  await page.goto(`/es/${glowAddress}/${glowHandle}`);
-  await quietTheWindow(page);
-  const onThePage = await shadowBelow(page.getByTestId("page-content"));
-
+  await page.setViewportSize(EDITOR_WINDOW);
   await signIn(page, await mintTicket(identity!.userId));
-  await page.goto(`/es/pages/${glowHandle}/edit`);
-  await page.getByTestId("writing-in-es").click();
+  await page.goto(`/es/pages/${inkHandle}/edit`);
   await page.getByTestId("complete-page-preview-toggle").click();
-  const content = page.getByTestId("complete-page-preview-content");
-  await expect(content).toBeVisible();
-  await quietTheWindow(page);
-  const inThePreview = await shadowBelow(content);
+  await expect(
+    page
+      .frameLocator('[data-testid="complete-page-preview-frame"]')
+      .getByTestId("page-content"),
+  ).toBeVisible();
 
-  console.log(
-    "\nshadow below the banner\n  page:    " +
-      JSON.stringify(onThePage) +
-      "\n  preview: " +
-      JSON.stringify(inThePreview) +
-      "\n",
-  );
+  const frame = page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"))!;
+  const clipping = await frame.evaluate(() => {
+    const clipped: string[] = [];
+    let node: Element | null = document.querySelector(
+      '[data-testid="page-content"]',
+    );
+    while (node) {
+      const style = getComputedStyle(node);
+      for (const overflow of [style.overflowX, style.overflowY]) {
+        if (overflow !== "visible") {
+          clipped.push(`${node.tagName.toLowerCase()}:${overflow}`);
+        }
+      }
+      node = node.parentElement;
+    }
+    return clipped;
+  });
 
-  // The page is the control, and it is asserted FIRST for a reason: if the
-  // fixture stopped casting a shadow at all — a skin renamed, a style key
-  // dropped, `margins` ceasing to reach the foot — both sides would read zero
-  // and the preview's assertion below would pass while proving nothing.
   expect(
-    onThePage.total,
-    `the fixture casts a shadow at all: ${JSON.stringify(onThePage)}`,
-  ).toBeGreaterThan(SHADOW_LIFT);
-  expect(
-    inThePreview.total,
-    `the preview keeps it: ${JSON.stringify(inThePreview)}`,
-  ).toBeGreaterThan(SHADOW_LIFT);
+    clipping,
+    "nothing between the page content and the framed document clips or scrolls",
+  ).toEqual([]);
 });

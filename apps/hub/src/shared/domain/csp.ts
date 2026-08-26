@@ -92,8 +92,23 @@ const CLERK_TELEMETRY = "https://clerk-telemetry.com";
  *  * **`base-uri 'self'`** stops an injected `<base>` from silently repointing
  *    every relative URL on the page, which is a redirect of the whole app.
  *  * **`form-action 'self'`** stops a form being made to post somewhere else.
- *  * **`frame-ancestors 'none'`** is clickjacking protection: nobody may put
- *    this app in a frame. It replaces `X-Frame-Options` and is stricter.
+ *  * **`frame-ancestors 'self'`** is clickjacking protection: no OTHER origin
+ *    may put this app in a frame. It replaces `X-Frame-Options` and is
+ *    stricter than that header's `SAMEORIGIN`.
+ *
+ *    **It was `'none'` until 2026-08-26, and the widening is exactly one
+ *    origin: ours.** The complete-page preview frames `/{locale}/me/preview`
+ *    to give a draft its own viewport, and `'none'` refused that outright —
+ *    measured in a browser rather than reasoned about, which is the only
+ *    reason it was found before shipping: the frame rendered blank and the
+ *    violation appeared in the console, where nothing asserts.
+ *
+ *    What `'none'` bought over `'self'` was preventing our own pages from
+ *    framing each other, which is now something this app deliberately does.
+ *    Clickjacking is a CROSS-origin attack — an attacker's page framing ours
+ *    to trick somebody into clicking — and `'self'` prevents every one of
+ *    those. An attacker who can already serve a page on this origin has won
+ *    without needing a frame.
  *
  * **`connect-src` allows any https host, and that is the ONE deliberate
  * widening.** A Winamp skin is a `.wsz` fetched from wherever its owner keeps
@@ -124,7 +139,7 @@ export function contentSecurityPolicy(hosts: CspHosts): string {
     "default-src": ["'self'"],
     "base-uri": ["'self'"],
     "object-src": ["'none'"],
-    "frame-ancestors": ["'none'"],
+    "frame-ancestors": ["'self'"],
     "form-action": ["'self'"],
     // See the note above: this is not the protective part of this policy.
     "script-src": ["'self'", "'unsafe-inline'", ...clerk],
