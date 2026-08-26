@@ -164,7 +164,13 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * as it opens and closes, so both labels are required even though only one is
  * visible at a time.
  *
- * It also resolves one name per PREVIEW DEVICE and the size hint, because the
+ * It also resolves one name per PREVIEW DEVICE, and the size hint PER DEVICE
+ * too: that message carries ICU `{width}`/`{height}`, and next-intl throws
+ * `FORMATTING_ERROR` at render for a `t()` that does not supply them — which a
+ * unit test passing a literal label cannot see. Resolving it here, where the
+ * numbers are known, lets next-intl do the formatting.
+ *
+ * The device names exist because the
  * preview is shown at a named viewport rather than at whatever width the
  * editor happens to have. That record is built by MAPPING `PREVIEW_DEVICES`
  * rather than by listing three names, so a size added without a catalogue
@@ -224,7 +230,20 @@ export async function fursonaEditorLabels(
       title: t("completePreviewTitle"),
       expand: t("completePreviewExpand"),
       collapse: t("completePreviewCollapse"),
-      sizeHint: t("completePreviewSizeHint"),
+      // **Resolved PER DEVICE, so next-intl does the formatting.** The
+      // message carries `{width}`/`{height}` ICU placeholders, and a `t()`
+      // that does not supply them throws `FORMATTING_ERROR` at render — which
+      // a unit test passing a literal label cannot see, and which only showed
+      // up when the real editor was driven.
+      sizeHint: Object.fromEntries(
+        PREVIEW_DEVICES.map((device) => [
+          device.id,
+          t("completePreviewSizeHint", {
+            width: device.width,
+            height: device.height,
+          }),
+        ]),
+      ) as Record<PreviewDeviceId, string>,
       // Built by MAPPING the vocabulary rather than listing three names, so a
       // device added to `PREVIEW_DEVICES` without a catalogue entry fails the
       // build instead of rendering its own id at somebody.

@@ -33,8 +33,11 @@ import { WidePageColumn } from "@/shared/presentation/page-shell";
 /**
  * Translated strings the complete page preview renders.
  *
- * It carries a name per DEVICE and a size hint now, because the preview is
- * shown at a named viewport rather than at whatever width the editor has.
+ * It carries a name per DEVICE and a size hint per device, because the preview
+ * is shown at a named viewport rather than at whatever width the editor has.
+ * The hint is a RECORD rather than one string with placeholders: the catalogue
+ * message is ICU, and next-intl refuses to render one whose values are
+ * missing.
  * `pages/labels.ts` builds the device record by mapping `PREVIEW_DEVICES`, so
  * a size added without a catalogue entry fails the build rather than rendering
  * its own id at somebody.
@@ -48,8 +51,14 @@ export interface CompletePagePreviewLabels {
   collapse: string;
   /** One name per entry in `PREVIEW_DEVICES`. */
   devices: Record<PreviewDeviceId, string>;
-  /** Says which viewport is being shown. Carries `{width}` and `{height}`. */
-  sizeHint: string;
+  /**
+   * Says which viewport is being shown, one per device.
+   *
+   * Resolved per device rather than as one string with placeholders, because
+   * the catalogue message carries ICU `{width}`/`{height}` and next-intl
+   * throws at render when a `t()` does not supply them.
+   */
+  sizeHint: Record<PreviewDeviceId, string>;
 }
 
 /**
@@ -99,6 +108,11 @@ export interface CompletePagePreviewProps {
  * The frame is NOT remounted when the size changes: re-creating it would drop
  * the draft and restart the handshake, so an author flipping between sizes
  * would watch their page blank and rebuild each time.
+ *
+ * **It is centred in a wrapper the size it actually appears.** A transform does
+ * not change layout, so a scaled frame still reserves its unscaled width — and
+ * a 390-wide phone left hard against the edge of a 1160-wide surround is the
+ * opposite of the edges disappearing.
  *
  * **What it costs, measured rather than waved away.** Opening it boots a route
  * in a second document: 798 ms to first paint unthrottled and 7569 ms at a 6x
@@ -227,9 +241,7 @@ export function CompletePagePreview({
                   {...tid("preview-size-hint")}
                   className="text-xs text-(--muted)"
                 >
-                  {labels.sizeHint
-                    .replace("{width}", String(chosen.width))
-                    .replace("{height}", String(chosen.height))}
+                  {labels.sizeHint[device]}
                 </span>
                 <div className="flex items-center gap-1">
                   {PREVIEW_DEVICES.map((entry) => (
@@ -276,22 +288,36 @@ export function CompletePagePreview({
           ref={surroundRef}
           id={contentId}
           {...tid("preview-surround")}
-          className="w-full min-w-0 overflow-hidden [background:var(--field)]"
+          className="flex w-full min-w-0 justify-center overflow-hidden [background:var(--field)]"
           style={{ height: chosen.height * scale }}
         >
-          <iframe
-            ref={frameRef}
-            src={`/${lang}/me/preview`}
-            title={labels.title}
-            width={chosen.width}
-            height={chosen.height}
-            {...tid("complete-page-preview-frame")}
-            className="block border-0"
+          {/* **The scaled box, so the frame CENTRES at any scale.** A
+              transform does not change layout, so an iframe scaled from its
+              top-left corner still reserves its unscaled width — which left a
+              390-wide phone hard against the left edge of a 1160-wide
+              surround, the opposite of edges disappearing. This wrapper is the
+              size the frame actually appears, and it is what gets centred. */}
+          <div
+            className="relative shrink-0"
             style={{
-              transform: `scale(${scale})`,
-              transformOrigin: "top left",
+              width: chosen.width * scale,
+              height: chosen.height * scale,
             }}
-          />
+          >
+            <iframe
+              ref={frameRef}
+              src={`/${lang}/me/preview`}
+              title={labels.title}
+              width={chosen.width}
+              height={chosen.height}
+              {...tid("complete-page-preview-frame")}
+              className="absolute top-0 left-0 block border-0"
+              style={{
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+              }}
+            />
+          </div>
         </div>
       ) : null}
     </section>

@@ -163,10 +163,11 @@ export function blockEditorLabels(): BlockEditorLabels {
 /**
  * The complete-page disclosure strings used by editor test fixtures.
  *
- * It carries the device names and the size hint as well, since the preview is
- * shown at a named viewport. The hint keeps its `{width}`/`{height}`
- * placeholders verbatim so a case asserting on it reads the substitution
- * rather than a pre-baked string.
+ * It carries the device names and one size hint PER DEVICE, since the preview
+ * is shown at a named viewport and the real catalogue message is ICU — a
+ * single string with `{width}`/`{height}` left in it would be a fixture shaped
+ * unlike anything the app ever passes, which is how the render-time
+ * `FORMATTING_ERROR` stayed invisible to every unit test.
  *
  * @returns labels that make the disclosure's state explicit in assertions.
  */
@@ -176,6 +177,10 @@ export function completePagePreviewLabels(): CompletePagePreviewLabels {
     expand: "Show complete page",
     collapse: "Hide complete page",
     devices: { phone: "Phone", tablet: "Tablet", desktop: "Desktop" },
-    sizeHint: "Shown at {width} by {height}",
+    sizeHint: {
+      phone: "Shown at 390 by 844",
+      tablet: "Shown at 768 by 1024",
+      desktop: "Shown at 1280 by 900",
+    },
   };
 }

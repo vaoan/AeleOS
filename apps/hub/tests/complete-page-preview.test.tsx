@@ -34,7 +34,11 @@ const labels = {
   expand: "Show complete page",
   collapse: "Hide complete page",
   devices: { phone: "Phone", tablet: "Tablet", desktop: "Desktop" },
-  sizeHint: "Shown at {width} by {height}",
+  sizeHint: {
+    phone: "Shown at 390 by 844",
+    tablet: "Shown at 768 by 1024",
+    desktop: "Shown at 1280 by 900",
+  },
 };
 
 /**

@@ -66,9 +66,19 @@ test.afterAll(async () => {
  * @returns its viewport-relative rectangle.
  */
 async function boxOf(locator: Locator) {
-  const box = await locator.boundingBox();
+  // **Read inside the framed document, not through Playwright's own
+  // `boundingBox`.** That answers coordinates in the OUTER page, so a preview
+  // centred in its surround reports its left edge at the frame's offset — 160
+  // rather than 0 — and "reaches both page edges" fails for a reason that has
+  // nothing to do with bleed. What this test is about is the box within the
+  // page's own viewport, which is what `getBoundingClientRect` gives when it
+  // is evaluated in the document that owns the element.
+  const box = await locator.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
   expect(box).not.toBeNull();
-  return box!;
+  return box;
 }
 
 /**
