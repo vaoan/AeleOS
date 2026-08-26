@@ -70,7 +70,7 @@ function splitStyle(style: CSSProperties | undefined): {
  * falls behind the host's field.
  *
  * Both of those are one mistake apart, in opposite directions, and each was
- * measured rather than argued. Leave the content unpositioned and the face
+ * measured rather than argued. Leave the content `static` and the face
  * veils it, because a positioned descendant paints after in-flow content.
  * Push the face back with a negative z-index instead and it escapes to the
  * nearest stacking context — which `relative` does not create — landing behind
