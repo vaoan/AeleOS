@@ -113,7 +113,11 @@ describe("contentSecurityPolicy", () => {
   describe("the directives that actually protect something", () => {
     it.each([
       ["object-src", "'none'"],
-      ["frame-ancestors", "'none'"],
+      // **`'self'`, not `'none'`, and the difference is one origin: ours.**
+      // The complete-page preview frames `/{locale}/me/preview` so a draft
+      // gets its own viewport, and `'none'` refused that outright. Every
+      // CROSS-origin frame — which is what clickjacking is — is still blocked.
+      ["frame-ancestors", "'self'"],
       ["base-uri", "'self'"],
       ["form-action", "'self'"],
     ])("sets %s to %s", (name, value) => {
@@ -199,7 +203,7 @@ describe("securityHeaders", () => {
       NEXT_PUBLIC_SUPABASE_URL: undefined,
     });
     const csp = headers.find((h) => h.key === "Content-Security-Policy")!.value;
-    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("frame-ancestors 'self'");
     expect(csp).toContain("https://www.youtube-nocookie.com");
   });
 

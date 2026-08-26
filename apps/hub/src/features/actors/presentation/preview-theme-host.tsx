@@ -2,36 +2,13 @@
 
 import type { ReactNode } from "react";
 import {
-  PREVIEW_ATMOSPHERE,
   previewThemeCss,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
 import { SKIN_SCOPE } from "@/shared/domain/skins";
-import { cn } from "@/shared/infrastructure/cn";
 import { tid } from "@/shared/infrastructure/test-id";
 
-/**
- * Where the atmosphere behind one preview comes from.
- *
- * `own` paints the author's field on the host itself, which is what a bounded
- * workbench tray needs: it is a card among controls and there is no page-scale
- * backdrop for it to sit on.
- *
- * `document` paints nothing and lets `body` and the root canvas show through.
- * Only a caller that has ALSO put the author's atmosphere on the document may
- * ask for it — otherwise the host shows the app's field behind somebody's
- * page, which is the opposite of what this exists for.
- */
-export type PreviewAtmosphere = "own" | "document";
-
-/**
- * What {@link PreviewThemeHost} needs to contain an editor preview.
- *
- * A theme and its content, plus where the backdrop behind them comes from.
- * That last is the caller's to decide because only the caller knows whether
- * anything has put the author's atmosphere on the document — see
- * {@link PreviewAtmosphere}.
- */
+/** What {@link PreviewThemeHost} needs to contain an editor preview. */
 export interface PreviewThemeHostProps {
   /** The unsaved theme the editor is showing. */
   theme: ActorTheme;
@@ -39,13 +16,6 @@ export interface PreviewThemeHostProps {
   children: ReactNode;
   /** Presentation classes the preview surface adds to its boundary. */
   className?: string;
-  /**
-   * Where the backdrop comes from. Defaults to `own`.
-   *
-   * See {@link PreviewAtmosphere} for the obligation `document` puts on the
-   * caller.
-   */
-  atmosphere?: PreviewAtmosphere;
 }
 
 /**
@@ -67,31 +37,24 @@ export interface PreviewThemeHostProps {
  * writing. `previewThemeCss` covers the same hazard for the properties
  * `globals.css` composes at `:root`.
  *
- * **`--ink` is applied in BOTH modes and `--field` in only one**, which is the
- * asymmetry to keep straight. `--ink` is a control token and never reaches the
- * document at all, so a preview that did not restate it would carry the app's
- * writing colour whatever is behind it. `--field` is atmosphere, and a host
- * wearing the document's atmosphere has `body` painting it already.
+ * **THIS IS A TRAY'S HOST ONLY.** It briefly had a second mode that painted
+ * nothing, so the complete preview could show the document's own canvas and
+ * window-anchored field through itself. That mode is gone with the inline
+ * complete preview: the preview is a real document at
+ * `/{locale}/me/preview` now, with a real `body` and its own canvas, and an
+ * option with no caller is what `COLUMN.full` already cost this app twice.
  *
- * **A host that paints its own field cannot show the canvas, and that is the
- * whole reason `atmosphere` exists.** `NebulaCanvas` is `fixed inset-0 -z-10`
- * in the root layout, so on a public page it paints between `body`'s field and
- * the content and its clouds show through every gutter. An opaque background on
- * an in-flow element covers a negative layer completely — measured, not
- * reasoned: a page with a nebula photographed mottled at its public address and
- * perfectly smooth in the complete preview. Declining to paint is what lets the
- * real canvas and the real window-anchored field through, which is also the
- * only mechanism here that closes the `background-attachment` gap below.
+ * **The field is deliberately NOT `background-attachment: fixed`, even though
+ * `body`'s is**, and that was measured rather than assumed. Copying the
+ * attachment anchors the author's gradient to the WINDOW, so the slice showing
+ * behind a section becomes a function of where that section happens to sit on
+ * screen. Measured against the public page, `fixed` put the sections 29
+ * channels out where painting on this box leaves them within 7.
  *
- * **The field is deliberately NOT `background-attachment: fixed` in `own`
- * mode, even though `body`'s is**, and that was measured rather than assumed.
- * Copying the attachment anchors the author's gradient to the WINDOW, so the
- * slice showing behind a section becomes a function of where that section
- * happens to sit on screen — which differs between a published page and a
- * section part-way down an editor. Measured against the public page, `fixed`
- * put the sections 29 channels out where painting on this box leaves them
- * within 7. That trade-off still binds every tray; `document` mode escapes it
- * entirely by not painting.
+ * That trade-off still binds every tray and cannot be escaped here, which is
+ * the honest limit of a bounded preview: a tray is a card among controls, and
+ * there is no page-scale backdrop for it to sit on. The complete preview
+ * escapes it by being a page.
  *
  * @returns the preview content inside its scoped theme boundary.
  */
@@ -99,24 +62,15 @@ export function PreviewThemeHost({
   theme,
   children,
   className = "",
-  atmosphere = "own",
 }: PreviewThemeHostProps): ReactNode {
   const css = previewThemeCss(theme);
-  // Held outside the `className` expression: `better-tailwindcss` reads string
-  // literals there as class names, and a conditional one written inline is
-  // reported as an unknown class. Same reason `PublicBlocks` resolves its
-  // measure first.
-  const ownField = atmosphere === "own" ? "[background:var(--field)]" : null;
   return (
     <>
       {css ? <style>{css}</style> : null}
       <div
         data-preview-theme=""
-        {...(atmosphere === "document"
-          ? { [PREVIEW_ATMOSPHERE]: "document" }
-          : {})}
         {...tid("preview-theme-host")}
-        className={cn(SKIN_SCOPE, "text-(--ink)", ownField, className)}
+        className={`${SKIN_SCOPE} text-(--ink) [background:var(--field)] ${className}`}
       >
         {children}
       </div>

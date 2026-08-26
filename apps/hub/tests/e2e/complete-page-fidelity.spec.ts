@@ -66,9 +66,19 @@ test.afterAll(async () => {
  * @returns its viewport-relative rectangle.
  */
 async function boxOf(locator: Locator) {
-  const box = await locator.boundingBox();
+  // **Read inside the framed document, not through Playwright's own
+  // `boundingBox`.** That answers coordinates in the OUTER page, so a preview
+  // centred in its surround reports its left edge at the frame's offset — 160
+  // rather than 0 — and "reaches both page edges" fails for a reason that has
+  // nothing to do with bleed. What this test is about is the box within the
+  // page's own viewport, which is what `getBoundingClientRect` gives when it
+  // is evaluated in the document that owns the element.
+  const box = await locator.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
   expect(box).not.toBeNull();
-  return box!;
+  return box;
 }
 
 /**
@@ -117,7 +127,15 @@ async function openFixture(page: Page) {
   await page.goto(`/es/pages/${handle}/edit`);
   await page.getByTestId("theme-open").click();
   await page.getByTestId("complete-page-preview-toggle").click();
-  const content = page.getByTestId("complete-page-preview-content");
+  // **DESKTOP, and the measures are read inside the FRAME.** The preview is
+  // its own document now, so a depth-0 section applies its measure against the
+  // frame's viewport rather than the editor's — which is the whole reason the
+  // route exists, and it means every box below is read through the frame.
+  await page.getByTestId("preview-device-desktop").click();
+  const framed = page.frameLocator(
+    '[data-testid="complete-page-preview-frame"]',
+  );
+  const content = framed.getByTestId("page-content");
   await expect(content).toBeVisible();
   const sections = content.getByTestId("public-section");
   const pageBoxes = content.locator("[data-page-gutter]");
@@ -133,9 +151,10 @@ async function openFixture(page: Page) {
 test("tracks all six page measures", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   const { measured } = await openFixture(page);
-  const available = await page.evaluate(
-    () => document.documentElement.clientWidth,
-  );
+  const available = await page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"))!
+    .evaluate(() => document.documentElement.clientWidth);
 
   const widths: number[] = [];
   const expectedWidths: number[] = [];
@@ -147,17 +166,30 @@ test("tracks all six page measures", async ({ page }) => {
     expectedWidths.push(expected);
   }
   expect(widths).toEqual(expectedWidths);
-  for (let index = 1; index < widths.length; index += 1) {
-    expect(widths[index]!).toBeGreaterThan(widths[index - 1]!);
+  // **Strictly increasing only while the cap is below the frame's own width.**
+  // The preview is a real viewport now — the desktop device's 1280 — so
+  // `widest` (1536) and `full` (no maximum) both clamp to 1280 and are equal
+  // BY CONSTRUCTION rather than because a measure was lost. Asserting a strict
+  // increase across those two would be asserting something the viewport makes
+  // impossible; what is still worth pinning is that every stop below the frame
+  // width is distinct, and that the two above it are exactly the frame width.
+  const distinct = widths.filter((width) => width < available);
+  for (let index = 1; index < distinct.length; index += 1) {
+    expect(distinct[index]!).toBeGreaterThan(distinct[index - 1]!);
   }
+  expect(
+    widths.filter((width) => width === available).length,
+    "the stops at or past the frame's width all clamp to it",
+  ).toBe(widths.length - distinct.length);
 });
 
 test("lets a bled section reach both page edges", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   const { bled } = await openFixture(page);
-  const available = await page.evaluate(
-    () => document.documentElement.clientWidth,
-  );
+  const available = await page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"))!
+    .evaluate(() => document.documentElement.clientWidth);
   const edge = await boxOf(bled);
   expect(edge.x).toBeCloseTo(0, 0);
   expect(edge.width).toBeCloseTo(available, 0);

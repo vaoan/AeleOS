@@ -398,7 +398,13 @@
       "full": "Full width"
     },
     "sectionStyleBleed": "Reach both edges of the window",
-    "sectionStyleMargins": "Margins"
+    "sectionStyleMargins": "Margins",
+    "completePreviewSizeHint": "Shown at {width} by {height}",
+    "completePreviewDevices": {
+      "phone": "Phone",
+      "tablet": "Tablet",
+      "desktop": "Desktop"
+    }
   },
   "picker": {
     "title": "Who do you want to be?",

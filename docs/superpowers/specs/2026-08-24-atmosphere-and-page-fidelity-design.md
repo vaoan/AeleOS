@@ -207,6 +207,14 @@ is still the mechanism for what is left**: the shared scrollbar, viewport units
 and the real `body` element. The backdrop and the box kind are no longer part
 of that residue.
 
+> **Superseded 2026-08-26.** The iframe this file deferred is built — see
+> `2026-08-26-preview-route-design.md`. The complete preview is a document of
+> its own at `/{locale}/me/preview`, rendered at a named device size, so the
+> residue above is gone rather than reduced: it has its own viewport, its own
+> scrollbar and its own `body`. What this file still owns is the section TRAY,
+> which remains a bounded workbench preview and still carries the
+> `background-attachment` trade-off measured here at 29 channels against 7.
+
 ## Verification
 
 - The canvas picker, its colours and all three dials visibly change the editor's

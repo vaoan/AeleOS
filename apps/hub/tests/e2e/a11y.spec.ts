@@ -183,24 +183,28 @@ test.describe("the signed-in pages are accessible", () => {
     // scan green. `complete-page-preview.test.tsx` owns that exact omission.
     await isAccessible(page, "the editor with the complete preview collapsed");
     await page.getByTestId("complete-page-preview-toggle").click();
-    const previewContent = page.getByTestId("complete-page-preview-content");
-    await expect(previewContent).toBeVisible();
+    const framed = page.frameLocator(
+      '[data-testid="complete-page-preview-frame"]',
+    );
+    await expect(framed.getByTestId("page-content")).toBeVisible();
     await isAccessible(page, "the editor with the theme panel open");
-    const previewHeading = previewContent
-      .locator("h1, h2, h3, h4, h5, h6")
-      .first();
-    await expect(previewHeading).toBeVisible();
+
+    // **The preview is its own DOCUMENT, so heading order across it is no
+    // longer a thing that exists.** This used to assert that the workbench's
+    // own heading came before the preview's first content heading, which was a
+    // real claim while both lived in one outline and is meaningless between
+    // two. What replaces it is the claim that still means something: the
+    // workbench keeps a heading of its own, and the framed page is scanned as
+    // the separate document it is.
+    await expect(workbenchHeading).toBeVisible();
+    const previewScan = await new AxeBuilder({ page })
+      .include('[data-testid="complete-page-preview-frame"]')
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
     expect(
-      await workbenchHeading.evaluate(
-        (heading, preview) =>
-          Boolean(
-            heading.compareDocumentPosition(preview) &
-            Node.DOCUMENT_POSITION_FOLLOWING,
-          ),
-        await previewHeading.elementHandle(),
-      ),
-      "the workbench heading comes before the preview's own content heading",
-    ).toBe(true);
+      previewScan.violations,
+      "the framed preview document is accessible in its own right",
+    ).toEqual([]);
 
     // Close the theme panel before opening a section's own style popup, so
     // axe reads one open overlay at a time rather than two stacked ones.

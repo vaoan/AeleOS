@@ -398,7 +398,13 @@
       "full": "Todo el ancho"
     },
     "sectionStyleBleed": "Llegar a ambos bordes de la ventana",
-    "sectionStyleMargins": "Márgenes"
+    "sectionStyleMargins": "Márgenes",
+    "completePreviewSizeHint": "Se muestra a {width} por {height}",
+    "completePreviewDevices": {
+      "phone": "Teléfono",
+      "tablet": "Tableta",
+      "desktop": "Escritorio"
+    }
   },
   "picker": {
     "title": "¿Quién quieres ser?",

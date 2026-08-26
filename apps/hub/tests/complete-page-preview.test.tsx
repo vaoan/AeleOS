@@ -1,12 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import {
-  atmosphereCss,
-  DEFAULT_THEME,
-  previewThemeCss,
-} from "@/features/actors/domain/actor-theme";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import type { Block } from "@/features/actors/domain/block-schema";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
+import {
+  PREVIEW_DRAFT,
+  PREVIEW_READY,
+} from "@/features/actors/presentation/preview-message";
 import { pageContext } from "./helpers/page-context";
 import { CompletePagePreview } from "@/features/actors/presentation/complete-page-preview";
 
@@ -17,11 +17,7 @@ const blocks: Block[] = [
     spaces: 1,
     name_en: "First section",
     children: [
-      {
-        kind: "text",
-        title_en: "Live title",
-        description_en: "Live words",
-      },
+      { kind: "text", title_en: "Live title", description_en: "Live words" },
     ],
   },
   {
@@ -37,117 +33,162 @@ const labels = {
   title: "Complete page preview",
   expand: "Show complete page",
   collapse: "Hide complete page",
+  devices: { phone: "Phone", tablet: "Tablet", desktop: "Desktop" },
+  sizeHint: {
+    phone: "Shown at 390 by 844",
+    tablet: "Shown at 768 by 1024",
+    desktop: "Shown at 1280 by 900",
+  },
 };
 
+/**
+ * Renders the disclosure with everything defaulted.
+ *
+ * @param over - props this case means to change.
+ * @returns whatever `render` returned.
+ */
+function mount(over: Partial<Parameters<typeof CompletePagePreview>[0]> = {}) {
+  return render(
+    <CompletePagePreview
+      blocks={blocks}
+      theme={DEFAULT_THEME}
+      lang="es"
+      page={pageContext()}
+      labels={labels}
+      {...over}
+    />,
+  );
+}
+
+/** The frame, once the disclosure is open. */
+const frame = () =>
+  screen.getByTestId("complete-page-preview-frame") as HTMLIFrameElement;
+
+/**
+ * Answers the parent's handshake as the framed document would.
+ *
+ * The component sends nothing until this arrives, which is the whole ordering
+ * guarantee — so a case that wants a draft posted must call this first.
+ */
+async function announceReady() {
+  act(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { kind: PREVIEW_READY },
+        origin: window.location.origin,
+        source: frame().contentWindow,
+      }),
+    );
+  });
+  // The draft is coalesced to one post per animation frame, so nothing has
+  // crossed yet when the handshake returns. Waiting for a real frame is the
+  // honest flush: faking the timer would test a different scheduler.
+  await act(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
+}
+
+afterEach(() => vi.restoreAllMocks());
+
 describe("CompletePagePreview", () => {
-  it("starts collapsed, renders the real full page when opened, and unmounts it when closed", () => {
-    render(
-      <CompletePagePreview
-        blocks={blocks}
-        theme={DEFAULT_THEME}
-        lang="en"
-        page={pageContext()}
-        labels={labels}
-      />,
-    );
+  it("starts collapsed and mounts the preview route when opened", () => {
+    mount();
+    expect(screen.queryByTestId("complete-page-preview-frame")).toBeNull();
 
-    expect(screen.queryByTestId("complete-page-preview-content")).toBeNull();
-
-    const region = screen.getByTestId("complete-page-preview");
     const toggle = screen.getByTestId("complete-page-preview-toggle");
-    expect(region).toContainElement(toggle);
     expect(toggle).toHaveAccessibleName(labels.expand);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(toggle).not.toHaveAttribute("aria-controls");
     fireEvent.click(toggle);
 
-    expect(screen.getAllByTestId("public-section")).toHaveLength(blocks.length);
-    expect(screen.getByText("Live words")).toBeInTheDocument();
-    expect(
-      screen
-        .getByTestId("complete-page-preview-content")
-        .closest("[data-preview-theme]"),
-    ).not.toBeNull();
-    const host = screen
-      .getByTestId("complete-page-preview-content")
-      .closest("[data-preview-theme]");
-    expect(host).toHaveClass("w-full", "min-w-0");
-    expect(host).not.toHaveClass(
-      "max-w-full",
-      "rounded-xl",
-      "surface",
-      "border-(--edge)",
-      // **Not a scroll container**, because `overflow-x: auto` computes the
-      // visible axis to `auto` as well and the box then clips outward ink on
-      // all four edges — where the public route's `main` clips none. The
-      // browser guards measure the computed value; this only keeps the class
-      // from coming back.
-      "overflow-x-auto",
-    );
+    expect(frame()).toHaveAttribute("src", "/es/me/preview");
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(toggle).toHaveAttribute("aria-controls");
     expect(toggle).toHaveAccessibleName(labels.collapse);
+  });
 
+  it("unmounts the frame when closed", () => {
+    mount();
+    const toggle = screen.getByTestId("complete-page-preview-toggle");
+    fireEvent.click(toggle);
     fireEvent.click(toggle);
 
-    expect(screen.queryByTestId("complete-page-preview-content")).toBeNull();
+    expect(screen.queryByTestId("complete-page-preview-frame")).toBeNull();
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(toggle).not.toHaveAttribute("aria-controls");
-    expect(toggle).toHaveAccessibleName(labels.expand);
   });
 
-  // THE REGRESSION TEST for a page's own backdrop, and the fault it guards
-  // was found by photographing one seeded page twice: at its public address
-  // the nebula's clouds show through every gutter, and in the complete
-  // preview the same page was a perfectly smooth wash. The host painted an
-  // opaque `--field` on an in-flow element, and the canvas is `-z-10`.
-  //
-  // The two halves are one mechanism and neither works alone: the document
-  // has to WEAR the atmosphere, and the host has to decline to paint over it.
-  it("puts the atmosphere on the document while open and takes it back when closed", () => {
-    const themed = {
-      ...DEFAULT_THEME,
-      background: {
-        ...DEFAULT_GRADIENT,
-        stops: [{ color: "#24152f", at: 0 }],
-      },
-      canvas: "nebula" as const,
-    };
-    const { container } = render(
-      <CompletePagePreview
-        blocks={blocks}
-        theme={themed}
-        lang="en"
-        page={pageContext()}
-        labels={labels}
-      />,
+  // The default is the size nearest the author's own window. jsdom reports
+  // exactly 1024, which is EQUIDISTANT from the tablet's 768 and the desktop's
+  // 1280 — so this case lands on `nearestDevice`'s documented tie-break, which
+  // takes the narrower. That was found by running it rather than by reasoning:
+  // the expectation here first said 1280.
+  it("opens at the device nearest the author's own window", () => {
+    expect(globalThis.innerWidth).toBe(1024);
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    expect(frame()).toHaveAttribute("width", "768");
+    expect(frame()).toHaveAttribute("height", "1024");
+  });
+
+  it("takes the device somebody picks, at that exact viewport", () => {
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    fireEvent.click(screen.getByTestId("preview-device-phone"));
+
+    expect(frame()).toHaveAttribute("width", "390");
+    expect(frame()).toHaveAttribute("height", "844");
+  });
+
+  // **The frame is not remounted when the size changes.** Re-creating it would
+  // drop the draft and restart the handshake, so an author flipping between
+  // sizes would watch their page blank and rebuild each time.
+  it("keeps the same frame across a size change", () => {
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    const before = frame();
+
+    fireEvent.click(screen.getByTestId("preview-device-phone"));
+
+    expect(frame()).toBe(before);
+  });
+
+  it("sends nothing until the document announces itself", async () => {
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    const post = vi.spyOn(frame().contentWindow!, "postMessage");
+
+    expect(post).not.toHaveBeenCalled();
+
+    await announceReady();
+
+    expect(post).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: PREVIEW_DRAFT, locale: "es" }),
+      window.location.origin,
     );
-    const sheets = () =>
-      [...container.querySelectorAll("style")].map((s) => s.textContent);
-
-    // Closed, the workbench's resting state is the app's own atmosphere.
-    expect(sheets()).not.toContain(atmosphereCss(themed));
-
-    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
-
-    const atmosphere = atmosphereCss(themed);
-    expect(atmosphere).not.toBe("");
-    expect(sheets()).toContain(atmosphere);
-    // It reaches the DOCUMENT — that is the whole point, and a rule scoped to
-    // the host instead would be the fault this replaced.
-    expect(atmosphere).toContain(":root{");
-    expect(
-      screen
-        .getByTestId("complete-page-preview-content")
-        .closest("[data-preview-theme]"),
-    ).toHaveAttribute("data-preview-atmosphere", "document");
-
-    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
-
-    expect(sheets()).not.toContain(atmosphere);
   });
 
-  it("keeps valid draft sections when a malformed in-progress block cannot render", () => {
+  it("sends the live theme and the live actor facts", async () => {
+    const theme = {
+      ...DEFAULT_THEME,
+      background: { ...DEFAULT_GRADIENT, stops: [{ color: "#24152f", at: 0 }] },
+    };
+    mount({ theme });
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    const post = vi.spyOn(frame().contentWindow!, "postMessage");
+
+    await announceReady();
+
+    expect(post).toHaveBeenCalledWith(
+      expect.objectContaining({ theme, page: pageContext() }),
+      window.location.origin,
+    );
+  });
+
+  // A block the form is mid-edit on cannot be rendered, and the SENDER is
+  // where that is settled: what crosses the boundary must already be
+  // renderable, so the receiver needs no second schema free to drift.
+  it("drops a malformed draft block rather than sending it", async () => {
     const malformed = {
       kind: "container",
       mode: "grid",
@@ -155,24 +196,18 @@ describe("CompletePagePreview", () => {
       name_en: "Malformed",
       children: [],
     } as unknown as Block;
-    render(
-      <CompletePagePreview
-        blocks={[blocks[0]!, malformed, blocks[1]!]}
-        theme={DEFAULT_THEME}
-        lang="en"
-        page={pageContext()}
-        labels={labels}
-      />,
-    );
-
+    mount({ blocks: [blocks[0]!, malformed, blocks[1]!] });
     fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    const post = vi.spyOn(frame().contentWindow!, "postMessage");
 
-    expect(screen.getAllByTestId("public-section")).toHaveLength(2);
-    expect(screen.getByText("Live words")).toBeInTheDocument();
-    expect(screen.queryByText("Malformed")).toBeNull();
+    await announceReady();
+
+    const sent = post.mock.calls[0]![0] as { blocks: Block[] };
+    expect(sent.blocks).toHaveLength(2);
+    expect(JSON.stringify(sent.blocks)).not.toContain("Malformed");
   });
 
-  it("does not inspect draft blocks until the disclosure opens", () => {
+  it("does not inspect draft blocks until the disclosure opens", async () => {
     let reads = 0;
     const observed = {
       get kind() {
@@ -184,74 +219,33 @@ describe("CompletePagePreview", () => {
       children: [],
     } as unknown as Block;
 
-    render(
-      <CompletePagePreview
-        blocks={[observed]}
-        theme={DEFAULT_THEME}
-        lang="en"
-        page={pageContext()}
-        labels={labels}
-      />,
-    );
+    mount({ blocks: [observed] });
 
     expect(reads).toBe(0);
     fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    await announceReady();
     expect(reads).toBeGreaterThan(0);
-    expect(screen.getByTestId("public-section")).toBeInTheDocument();
   });
 
-  // cspell:ignore Sección Título Palabras -- authored Spanish fixture text
-  it("renders the supplied custom theme and Spanish authoring language", () => {
-    const customTheme = {
-      ...DEFAULT_THEME,
-      background: {
-        ...DEFAULT_GRADIENT,
-        stops: [{ color: "#24152f", at: 0 }],
-      },
-      accent: "#f04f91",
-      skin: "comic" as const,
-    };
-    const spanishBlocks: Block[] = [
-      {
-        kind: "container",
-        mode: "stack",
-        spaces: 1,
-        name_en: "",
-        name_es: "Sección solo en español",
-        children: [
-          {
-            kind: "text",
-            title_en: "",
-            title_es: "Título solo en español",
-            description_en: "",
-            description_es: "Palabras solo en español",
-          },
-        ],
-      },
-    ];
-    const { container } = render(
-      <CompletePagePreview
-        blocks={spanishBlocks}
-        theme={customTheme}
-        lang="es"
-        page={pageContext()}
-        labels={labels}
-      />,
-    );
+  it("names the size it is showing", () => {
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+    fireEvent.click(screen.getByTestId("preview-device-tablet"));
 
-    fireEvent.click(screen.getByRole("button", { name: labels.expand }));
-
-    // Two stylesheets now, and which is which matters: the atmosphere is
-    // document-scoped and the theme is host-scoped. Read by content rather
-    // than by position, so reordering them is not a failure and swapping their
-    // scopes is.
-    const sheets = [...container.querySelectorAll("style")].map(
-      (style) => style.textContent,
+    expect(screen.getByTestId("preview-size-hint")).toHaveTextContent(
+      "Shown at 768 by 1024",
     );
-    expect(sheets).toContain(previewThemeCss(customTheme));
-    expect(sheets).toContain(atmosphereCss(customTheme));
-    expect(screen.getByText("Sección solo en español")).toBeInTheDocument();
-    expect(screen.getByText("Título solo en español")).toBeInTheDocument();
-    expect(screen.getByText("Palabras solo en español")).toBeInTheDocument();
+  });
+
+  // The surround wears the author's own field so the frame's edges disappear.
+  // It carries no border, rounding or shadow: the preview is the page, not a
+  // window bolted into the workbench.
+  it("sits on the author's field with no chrome of its own", () => {
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    const surround = screen.getByTestId("preview-surround");
+    expect(surround).toHaveClass("[background:var(--field)]");
+    expect(frame()).not.toHaveClass("rounded-xl", "surface", "border-(--edge)");
   });
 });

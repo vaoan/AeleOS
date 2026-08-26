@@ -82,6 +82,11 @@ export {
   type LeafKind,
 } from "@/features/actors/domain/block-schema";
 export { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
+export { PreviewDocument } from "@/features/actors/presentation/preview-document";
+export {
+  PREVIEW_DEVICES,
+  type PreviewDeviceId,
+} from "@/features/actors/domain/preview-devices";
 export {
   ActorTile,
   type ActorTileProps,
