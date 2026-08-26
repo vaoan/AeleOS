@@ -250,6 +250,47 @@ test.describe("every phone screen, signed in", () => {
         (device) => device.id === nearestDevice(viewport.width),
       )!;
       await expect(frame).toHaveAttribute("width", String(expected.width));
+
+      // **The size hint gives up its LINE below `sm`, and never its voice.**
+      // The control row wrapped to three lines on a 320px phone — hint, then
+      // the three device buttons, then the toggle — taking 170px of a 568px
+      // screen, measured on the deployed site. The hint is the line worth
+      // reclaiming, because the SELECTED DEVICE BUTTON already names the
+      // viewport and the numbers are the detail.
+      //
+      // Two assertions rather than one, because `toBeVisible` cannot draw the
+      // distinction that matters: `sr-only` leaves a 1px box Playwright calls
+      // VISIBLE, so it would neither confirm the row was reclaimed nor catch
+      // `display: none` — and `none` is the wrong answer here, taking the
+      // label from a screen reader at exactly the size where the pressed
+      // button cannot be seen either. So: does it take horizontal room, and
+      // is it still in the accessibility tree.
+      //
+      // The threshold is read from Tailwind's own token rather than written
+      // down twice, and both arms are exercised by the list above — 320, 360,
+      // 390 and 568 reclaim the line; 667 and 844 do not.
+      const smBreakpoint = await page.evaluate(
+        `parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-sm")) * 16`,
+      );
+      expect(
+        smBreakpoint,
+        "Tailwind still publishes --breakpoint-sm; a NaN here would make the " +
+          "expectation below agree with any behaviour at all",
+      ).toBeGreaterThan(0);
+
+      const hint = page.getByTestId("preview-size-hint");
+      const room = await hint.evaluate((node) => ({
+        width: node.getBoundingClientRect().width,
+        display: globalThis.getComputedStyle(node).display,
+      }));
+      expect(
+        room.width > 1,
+        `the size hint takes a line at ${viewport.name}`,
+      ).toBe(viewport.width >= Number(smBreakpoint));
+      expect(
+        room.display,
+        `the size hint is still announced at ${viewport.name}`,
+      ).not.toBe("none");
       await fits(
         page,
         `the editor at ${viewport.name} with the complete preview open`,

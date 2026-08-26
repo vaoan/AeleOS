@@ -100,6 +100,15 @@ export interface CompletePagePreviewProps {
  * real one, so it is always at SOME size; filling the editor's width would
  * invent a viewport height no visitor has.
  *
+ * **Below `sm` the label naming that size is announced but not shown, and the
+ * distinction is the point.** The control row wrapped to three lines on a 320px
+ * phone and took 170px of a 568px screen, where the pressed device button
+ * already names the viewport. So the label is `sr-only` rather than `hidden`:
+ * `display: none` would take the "this is not your own measure" guarantee from
+ * exactly the people who cannot see that pressed button either. A caller may
+ * assume the label is always in the accessibility tree while the disclosure is
+ * open, and never that it occupies the row.
+ *
  * **The draft crosses by `postMessage`, and nothing is sent before the document
  * announces itself.** Posting on the frame's `load` would rest on a premise
  * about what has already run — see `PreviewDocument`, which owns the other half
@@ -239,7 +248,21 @@ export function CompletePagePreview({
               <>
                 <span
                   {...tid("preview-size-hint")}
-                  className="text-xs text-(--muted)"
+                  // **Visually hidden on a narrow screen, never removed.** The
+                  // control row wraps to three lines on a 320px phone and takes
+                  // 170px of a 568px screen; this is the line worth reclaiming,
+                  // because the SELECTED DEVICE BUTTON already says which
+                  // viewport is being shown and the numbers are the detail.
+                  //
+                  // `sr-only` rather than `hidden`, deliberately: the reason
+                  // this label exists is that a narrowed page must never be
+                  // mistaken for the author's own measure, and dropping it out
+                  // of the accessibility tree would take that guarantee from
+                  // exactly the people who cannot see the pressed button
+                  // either. A viewport breakpoint is the right question here,
+                  // unlike inside a block — this row sits in the page's own
+                  // column, which IS sized by the window.
+                  className="sr-only text-xs text-(--muted) sm:not-sr-only"
                 >
                   {labels.sizeHint[device]}
                 </span>
