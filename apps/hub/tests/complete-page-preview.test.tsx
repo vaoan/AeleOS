@@ -258,15 +258,44 @@ describe("CompletePagePreview", () => {
     );
   });
 
-  // The surround wears the author's own field so the frame's edges disappear.
-  // It carries no border, rounding or shadow: the preview is the page, not a
-  // window bolted into the workbench.
-  it("sits on the author's field with no chrome of its own", () => {
+  // **The surround paints NOTHING, and this case is the reversal of one that
+  // pinned the opposite by name.** It wore `[background:var(--field)]` so the
+  // frame's edges would disappear into it, and did the opposite: the frame's
+  // own copy of that field is anchored to the FRAME's viewport while the
+  // surround's was stretched across the surround's box, so the two never lined
+  // up with each other — and neither lined up with the editor's own atmosphere
+  // behind them, which is the seam somebody saw. Transparent, the letterbox
+  // beside a phone-shaped frame is simply the editor.
+  //
+  // The old assertion was not wrong about the code; it was asserting the
+  // mechanism, and the mechanism was the fault. Same shape as the two suites
+  // that pinned `overflow-x: auto` by name in `CLAUDE.md`.
+  it("paints nothing of its own beside the frame", () => {
     mount();
     fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
 
     const surround = screen.getByTestId("preview-surround");
-    expect(surround).toHaveClass("[background:var(--field)]");
+    // Named literally rather than by a regex: the word boundary this used
+    // to need arrived as a literal 0x08 through a heredoc, which is the
+    // escape-collapse trap in rule 28 and is invisible in a file listing.
+    expect(surround.className).not.toContain("[background:var(--field)]");
+    expect(surround.className).not.toContain("bg-");
     expect(frame()).not.toHaveClass("rounded-xl", "surface", "border-(--edge)");
+  });
+
+  // **The frame pins, and the spacer is the distance it pins for.** Together
+  // they are what replaces the frame's own scrollbar with the page's: without
+  // the pin the preview scrolls away while being scrubbed, and without the
+  // spacer there is no scroll to scrub it with.
+  it("pins the frame clear of the editor's bars", () => {
+    mount();
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    const surround = screen.getByTestId("preview-surround");
+    expect(surround).toHaveClass("sticky");
+    // Not `top-0`: the header, the toolbar and the section strip are all still
+    // held above when somebody has scrolled far enough to reach the preview.
+    expect(surround).toHaveClass("top-(--bar-top-3)");
+    expect(screen.getByTestId("preview-scroller")).toContainElement(surround);
   });
 });

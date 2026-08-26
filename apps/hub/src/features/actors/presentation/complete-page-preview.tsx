@@ -31,6 +31,15 @@ import { tid } from "@/shared/infrastructure/test-id";
 import { WidePageColumn } from "@/shared/presentation/page-shell";
 
 /**
+ * The breathing room left under a pinned frame, in CSS pixels.
+ *
+ * Small on purpose: every pixel spent here shrinks the preview, because the
+ * frame is scaled to fit what is left. It exists so a pinned preview does not
+ * sit flush against the bottom of the window, which reads as cut off.
+ */
+const PIN_GAP = 16;
+
+/**
  * Translated strings the complete page preview renders.
  *
  * It carries a name per DEVICE and a size hint per device, because the preview
@@ -118,6 +127,25 @@ export interface CompletePagePreviewProps {
  * the draft and restart the handshake, so an author flipping between sizes
  * would watch their page blank and rebuild each time.
  *
+ * **It PINS, and the page's scroll scrubs it — one scrollbar, not two.** The
+ * frame is a real device window, so a page taller than the device genuinely
+ * overflows it, and that used to mean a second scroll region nested inside the
+ * editor's. Growing the frame to its content's height would remove it and give
+ * back everything this route was built for, because a 390×4000 window is not
+ * one any visitor has. So the frame is held in place inside a spacer as tall
+ * as the scaled distance its content can travel, and progress through the
+ * spacer is written to the framed document as scroll. A caller may assume the
+ * whole page is reachable: the spacer carries slack for the window below the
+ * pinned frame, without which the last stretch cannot be scrolled to.
+ *
+ * A wheel over the frame is handed back to this page by `PreviewDocument`, so
+ * the gesture and the driver never disagree.
+ *
+ * **The frame is scaled to fit the screen's HEIGHT as well as its width**, and
+ * only because it pins: a sticky box taller than the window pins with its
+ * lower half unreachable. That costs magnification a box scrolling inside
+ * itself did not pay.
+ *
  * **It is centred in a wrapper the size it actually appears.** A transform does
  * not change layout, so a scaled frame still reserves its unscaled width — and
  * a 390-wide phone left hard against the edge of a 1160-wide surround is the
@@ -147,13 +175,47 @@ export function CompletePagePreview({
   const [device, setDevice] = useState<PreviewDeviceId>("desktop");
   const [ready, setReady] = useState(false);
   const [available, setAvailable] = useState(0);
+  const [headroom, setHeadroom] = useState(0);
+  const [innerMax, setInnerMax] = useState(0);
   const contentId = useId();
   const frameRef = useRef<HTMLIFrameElement>(null);
   const surroundRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   const chosen =
     PREVIEW_DEVICES.find((entry) => entry.id === device) ?? PREVIEW_DEVICES[0]!;
-  const scale = previewScale(chosen.width, available);
+  const scale = previewScale(chosen.width, available, chosen.height, headroom);
+
+  /** The frame's height once scaled, which is the height it actually occupies. */
+  const shown = chosen.height * scale;
+
+  /**
+   * How far the page must scroll to scrub the framed document end to end.
+   *
+   * Zero until measured, and zero for a page that fits its device — both mean
+   * "there is nothing to scrub", and the spacer below then collapses to the
+   * frame's own height.
+   */
+  const travel = innerMax * scale;
+
+  /**
+   * The extra spacer height that makes the END of the preview reachable.
+   *
+   * **Without it the last stretch of somebody's page cannot be looked at**,
+   * and the arithmetic is not obvious enough to leave implicit. A pinned frame
+   * finishes scrubbing when the spacer's bottom rises to meet the frame's
+   * bottom — but the page stops scrolling when the DOCUMENT's bottom meets the
+   * window's, and the frame's bottom sits `viewport - pin - shown` above that.
+   * When the preview is the last thing on the page, as it is, those two
+   * differ by exactly that much and the scrub is cut short.
+   *
+   * Measured before it was fixed: asked for 8632px of scroll, the page landed
+   * at its own maximum of 7532, and 62% of the preview was all anybody could
+   * reach. The driver clamps progress at one, so this is slack rather than
+   * distance — it holds the frame pinned on the last screenful instead of
+   * stretching the mapping.
+   */
+  const slack = Math.max(0, headroom + PIN_GAP - shown);
 
   /**
    * Opens or closes the disclosure.
@@ -173,14 +235,35 @@ export function CompletePagePreview({
     setOpen((current) => !current);
   };
 
+  // **The room down the screen is measured from where the frame PINS**, not
+  // from the window's top, because everything above that offset is bar. The
+  // offset is read back off the element rather than restated here: it is
+  // `--bar-top-3` in `globals.css`, composed from the three bars it has to
+  // clear, and a copy of that arithmetic in TypeScript is a second source of
+  // truth that would drift the first time a bar changed height.
   useLayoutEffect(() => {
     const surround = surroundRef.current;
     if (!surround) return;
-    const measure = () => setAvailable(surround.clientWidth);
+    const measure = () => {
+      setAvailable(surround.clientWidth);
+      const pinned = Number.parseFloat(getComputedStyle(surround).top);
+      setHeadroom(
+        Math.max(
+          0,
+          globalThis.innerHeight -
+            (Number.isFinite(pinned) ? pinned : 0) -
+            PIN_GAP,
+        ),
+      );
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(surround);
-    return () => observer.disconnect();
+    globalThis.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      globalThis.removeEventListener("resize", measure);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -234,6 +317,82 @@ export function CompletePagePreview({
     const frame = requestAnimationFrame(send);
     return () => cancelAnimationFrame(frame);
   }, [open, ready, send]);
+
+  /**
+   * Watches how tall the framed page is, and takes its scroll away from it.
+   *
+   * The framed document refuses its own scroll — see `PreviewDocument`, which
+   * owns that half — so what is measured here is only how far this component
+   * has to drive it.
+   */
+  useEffect(() => {
+    if (!open || !ready) return;
+    const root = frameRef.current?.contentDocument?.documentElement;
+    if (!root) return;
+    const measure = () =>
+      setInnerMax(Math.max(0, root.scrollHeight - chosen.height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    if (root.ownerDocument.body) observer.observe(root.ownerDocument.body);
+    return () => observer.disconnect();
+  }, [open, ready, chosen, blocks, theme]);
+
+  /**
+   * Scrubs the framed page as the editor scrolls past its pinned frame.
+   *
+   * **This is what buys one scrollbar without giving back the device
+   * viewport.** The frame stays a real 390- or 768- or 1280-wide window, which
+   * is the whole reason the preview is a separate document: a page's
+   * background is `background-attachment: fixed`, so which slice sits behind a
+   * section is decided by where that section is IN A WINDOW. Growing the frame
+   * to its content's height would remove the inner scrollbar too, and would
+   * re-open exactly that fault — a 390×4000 window is not one any visitor has.
+   *
+   * So the window stays, and the page's own scroll drives it: the spacer is as
+   * tall as the frame plus the scaled distance the content can travel, the
+   * frame pins for exactly that distance, and progress through the spacer maps
+   * to progress through the document. One scaled page pixel of scrolling moves
+   * the preview one apparent pixel, so it reads as one surface moving rather
+   * than as a scrubber.
+   *
+   * Coalesced to one write per frame for the same reason the draft post is,
+   * and it reads the pinned offset off the element for the same reason the
+   * measurement above does.
+   */
+  useEffect(() => {
+    if (!open) return;
+    let queued = false;
+    const drive = () => {
+      queued = false;
+      const scroller = scrollerRef.current;
+      const surround = surroundRef.current;
+      const window_ = frameRef.current?.contentWindow;
+      if (!scroller || !surround || !window_) return;
+      // `travel`, not the spacer's height: the spacer also carries `slack`,
+      // and dividing by that would stretch the mapping so the preview never
+      // quite reached its end.
+      if (travel <= 0 || innerMax <= 0) return;
+      const pinned = Number.parseFloat(getComputedStyle(surround).top);
+      const passed =
+        (Number.isFinite(pinned) ? pinned : 0) -
+        scroller.getBoundingClientRect().top;
+      const progress = Math.min(1, Math.max(0, passed / travel));
+      window_.scrollTo(0, progress * innerMax);
+    };
+    const onScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(drive);
+    };
+    globalThis.addEventListener("scroll", onScroll, { passive: true });
+    globalThis.addEventListener("resize", onScroll, { passive: true });
+    drive();
+    return () => {
+      globalThis.removeEventListener("scroll", onScroll);
+      globalThis.removeEventListener("resize", onScroll);
+    };
+  }, [open, innerMax, travel]);
 
   return (
     <section
@@ -302,44 +461,62 @@ export function CompletePagePreview({
       </WidePageColumn>
 
       {open ? (
-        // The surround wears the author's own field, so the frame's edges
-        // disappear and it reads as one surface rather than a window bolted
-        // into the workbench. Its height is the scaled frame's, because a
-        // transform does not affect layout and the box would otherwise reserve
-        // the unscaled height.
+        // **The spacer is the scroll distance, and the frame pins inside it.**
+        // Its height is the frame's plus however far the framed page can
+        // travel, so scrolling the editor through it scrubs the preview from
+        // top to bottom and then releases — one scrollbar, the page's own.
         <div
-          ref={surroundRef}
-          id={contentId}
-          {...tid("preview-surround")}
-          className="flex w-full min-w-0 justify-center overflow-hidden [background:var(--field)]"
-          style={{ height: chosen.height * scale }}
+          ref={scrollerRef}
+          {...tid("preview-scroller")}
+          style={{ height: shown + travel + slack }}
         >
-          {/* **The scaled box, so the frame CENTRES at any scale.** A
+          {/* **The surround paints NOTHING, and that is the correction.** It
+              wore the author's own `--field` so the frame's edges would
+              disappear into it — and achieved the opposite, because the
+              frame's copy of that field is anchored to the FRAME's viewport
+              while the surround's was stretched across the surround's box, so
+              the two never lined up with each other, and neither lined up with
+              the editor page's own atmosphere behind them. Transparent, the
+              letterbox beside a phone-shaped frame is simply the editor,
+              which is what it is.
+
+              Its height is the scaled frame's, because a transform does not
+              affect layout and the box would otherwise reserve the unscaled
+              height. */}
+          <div
+            ref={surroundRef}
+            id={contentId}
+            {...tid("preview-surround")}
+            className="sticky top-(--bar-top-3) flex w-full min-w-0 justify-center overflow-hidden"
+            style={{ height: shown }}
+          >
+            {/* **The scaled box, so the frame CENTRES at any scale.** A
               transform does not change layout, so an iframe scaled from its
               top-left corner still reserves its unscaled width — which left a
               390-wide phone hard against the left edge of a 1160-wide
               surround, the opposite of edges disappearing. This wrapper is the
               size the frame actually appears, and it is what gets centred. */}
-          <div
-            className="relative shrink-0"
-            style={{
-              width: chosen.width * scale,
-              height: chosen.height * scale,
-            }}
-          >
-            <iframe
-              ref={frameRef}
-              src={`/${lang}/me/preview`}
-              title={labels.title}
-              width={chosen.width}
-              height={chosen.height}
-              {...tid("complete-page-preview-frame")}
-              className="absolute top-0 left-0 block border-0"
+            <div
+              className="relative shrink-0"
               style={{
-                transform: `scale(${scale})`,
-                transformOrigin: "top left",
+                width: chosen.width * scale,
+                height: chosen.height * scale,
               }}
-            />
+            >
+              <iframe
+                ref={frameRef}
+                src={`/${lang}/me/preview`}
+                title={labels.title}
+                width={chosen.width}
+                height={chosen.height}
+                {...tid("complete-page-preview-frame")}
+                className="absolute top-0 left-0 block border-0"
+                style={{
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top left",
+                }}
+              />
+            </div>
           </div>
         </div>
       ) : null}
