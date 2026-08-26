@@ -174,10 +174,13 @@ export interface SeededPage {
  * Writes one public fursona page straight into the database.
  *
  * **As a real Clerk-authenticated caller through the product's own RPCs**, not
- * with a service key: `set_actor_sections` is `security definer` and walks the
- * tree through `validate_block`, so a fixture this accepts is one the editor
- * could have written and a fixture it refuses fails the test loudly rather
- * than rendering half a page.
+ * with a service key — see {@link callerFor}: `set_actor_sections` is
+ * `security definer` and walks the tree through `validate_block`, so a fixture
+ * this accepts is one the editor could have written and a fixture it refuses
+ * fails the test loudly rather than rendering half a page.
+ *
+ * It writes a FURSONA. {@link seedPersonPage} writes the person's own page,
+ * which carries different required kinds.
  *
  * Every RPC result is asserted, because a silent failure here produces an empty
  * page and an assertion about the RENDER then fails somewhere far from the
@@ -195,15 +198,7 @@ export interface SeededPage {
  * @returns the address and handle the page is served at.
  */
 export async function seedPage(options: SeedOptions): Promise<SeededPage> {
-  const jwt = await mintSessionToken(options.userId);
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-    {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
-    },
-  );
+  const supabase = await callerFor(options.userId);
 
   const { error: provisionError } = await supabase.rpc("ensure_person_actor");
   expect(provisionError).toBeNull();
@@ -242,4 +237,127 @@ export async function seedPage(options: SeedOptions): Promise<SeededPage> {
   expect(addressError).toBeNull();
 
   return { address: address as string, handle };
+}
+
+/**
+ * A client speaking as one Clerk user, through the product's own RPCs.
+ *
+ * Factored out of {@link seedPage} once a second seeder needed it. Not
+ * exported: a spec that wants to write should say what it is writing, so the
+ * rules each RPC enforces stay in the seeders rather than in the specs.
+ *
+ * @param userId - the Clerk user to speak as.
+ * @returns the client.
+ */
+async function callerFor(userId: string) {
+  const jwt = await mintSessionToken(userId);
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+    {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+    },
+  );
+}
+
+/** How a seeded person presents themselves. */
+export interface ProfileOptions {
+  /** The Clerk user whose person row this is. */
+  userId: string;
+  /** The name shown wherever this person is named. */
+  displayName: string;
+  /** Their portrait. A `data:` address keeps the fixture off the network. */
+  avatarUrl: string;
+  /**
+   * Whether a stranger may read their profile.
+   *
+   * **Defaults to `public`, against a database default of `private`.** A
+   * caller reaching for this seeder is nearly always about to assert something
+   * about what a visitor sees, and `0001` mints a person unreadable — so the
+   * useful default and the stored one differ on purpose.
+   */
+  visibility?: "private" | "unlisted" | "public";
+}
+
+/**
+ * Gives a seeded person a name, a portrait and a visibility.
+ *
+ * **Fixtures that skip this cannot tell an owner card from an anonymous one.**
+ * `ensure_person_actor` mints a person with no display name, no avatar and
+ * `private`, so a fursona page's `owner` block renders the address alone — and
+ * an editor preview that WRONGLY hardcoded the name away photographed
+ * identically to the page. That is exactly the fixture trap rule 27 in the root
+ * `CLAUDE.md` describes, and it hid a shipped fault for as long as it stood.
+ *
+ * @param options - who to write as, and how they present.
+ * @returns their canonical address.
+ */
+export async function seedProfile(options: ProfileOptions): Promise<string> {
+  const supabase = await callerFor(options.userId);
+  const { error: provisionError } = await supabase.rpc("ensure_person_actor");
+  expect(provisionError).toBeNull();
+  const { error } = await supabase.rpc("update_my_profile", {
+    p_display_name: options.displayName,
+    p_avatar_url: options.avatarUrl,
+    p_visibility: options.visibility ?? "public",
+  });
+  expect(error).toBeNull();
+  const { data: address, error: addressError } =
+    await supabase.rpc("my_address");
+  expect(addressError).toBeNull();
+  return address as string;
+}
+
+/** What {@link seedPersonPage} needs. */
+export interface PersonPageOptions {
+  /** The Clerk user whose person row this is. */
+  userId: string;
+  /** The whole page, as a tree of blocks. */
+  blocks: SeedBlock[];
+  /** Their theme, when the spec needs one. */
+  theme?: Record<string, unknown>;
+}
+
+/**
+ * Writes the PERSON's own public page.
+ *
+ * Separate from {@link seedPage} because the two write different actors and
+ * carry different required kinds: a person's page must name `fursonas` and may
+ * not name `owner`, which is the reverse of a fursona's. Nothing is appended
+ * here — a person's identity section has to name its own required kinds, so a
+ * caller states the whole page.
+ *
+ * @param options - who to write as, and what to write.
+ * @returns their canonical address, which is the page's first URL segment.
+ */
+export async function seedPersonPage(
+  options: PersonPageOptions,
+): Promise<string> {
+  const supabase = await callerFor(options.userId);
+  const { data: actors, error: actorsError } = await supabase.rpc("my_actors");
+  expect(actorsError).toBeNull();
+  const person = (actors as { kind: string; actor_ref: string }[]).find(
+    (entry) => entry.kind === "person",
+  );
+  expect(person, "the caller has a person actor").toBeTruthy();
+
+  const { error: blocksError } = await supabase.rpc("set_actor_sections", {
+    p_actor_ref: person!.actor_ref,
+    p_sections: options.blocks,
+  });
+  expect(blocksError).toBeNull();
+
+  if (options.theme) {
+    const { error: themeError } = await supabase.rpc("set_actor_theme", {
+      p_actor_ref: person!.actor_ref,
+      p_theme: options.theme,
+    });
+    expect(themeError).toBeNull();
+  }
+
+  const { data: address, error: addressError } =
+    await supabase.rpc("my_address");
+  expect(addressError).toBeNull();
+  return address as string;
 }

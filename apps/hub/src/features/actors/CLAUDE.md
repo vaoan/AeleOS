@@ -472,6 +472,29 @@ Four things about them that are easy to get wrong:
   name and portrait in that case. The address is safe unconditionally: it is
   already the first segment of the page's own URL.
 
+**An EDITOR resolves all of this the same way a visitor does, and for a while
+two of them did not.** The identity leaves render from `PageContext`, which
+each editor route builds by hand — and two of those routes filled a field with
+a constant rather than a read. `/pages/[handle]/edit` hardcoded the owner's
+name and portrait to `null`, so every fursona's required `owner` block
+previewed as the anonymous card even for an author whose profile is public:
+304px on the page against 280px in the preview, with the name missing.
+`/me/edit` hardcoded `fursonas: []`, so the required `fursonas` block previewed
+as a heading over nothing while the page carried a grid of cards — 330px
+against 72px. And `/pages/new` passed no `owner` key at all, which is not an
+empty card but NO card: `OwnerLeaf` returns null without one, so a required
+block rendered nothing on the one screen where somebody is choosing where to
+put it.
+
+All three ask `readPublicPerson` now — the same `public_person` a stranger
+reads, so the visibility gate is asked rather than re-derived, and a private
+profile answers nothing and keeps the anonymous card, which is what a visitor
+genuinely gets there. The consequence to know: **a person whose own profile is
+still `private` — the minted default — previews an empty fursona list**,
+because there is no public page for them yet. That is honest and it is not
+obviously the kindest answer; the alternative is filtering `listMyActors` by
+visibility, which is `0012`'s rule copied into a route, free to drift.
+
 `fursonas` keeps its heading when the list is empty. `FursonaCardList` answers
 null for an empty list, which was right while it was chrome the page appended
 and wrong for a block somebody deliberately placed: the grid track it sat in
@@ -1118,10 +1141,13 @@ than converted into a rule that asks the wrong box quietly.
 fields, section names and every nested editor consume the app's design tokens
 and never inherit an author's palette, skin or section style. `PreviewThemeHost`
 is the only editor boundary that receives the COMPLETE page-level theme.
-While the theme panel is open, `atmosphereCss` separately puts only `--field`,
-the canvas properties and the body's background-picture layers on the document,
-because the root canvas and page background cannot be judged inside a box.
-Control tokens, skins and the cursor never enter that stylesheet. Workbench
+While a PAGE-SCALE surface is open — the theme panel, or the complete-page
+preview — `atmosphereCss` separately puts only `--field`, the canvas properties
+and the body's background-picture layers on the document, because the root
+canvas and page background cannot be judged inside a box. Either surface mounts
+it and both may be open at once; the rules are byte-identical, so neither can
+win a different value from the other. Control tokens, skins and the cursor
+never enter that stylesheet. Workbench
 groups carrying bare labels and section headings paint opaque
 `--surface-solid` beneath their translucent children, so none can read directly
 over a hostile author field while the atmosphere remains visible between them.
@@ -1144,6 +1170,21 @@ controls. The complete preview is the page-level check: it is full-bleed, has
 no card surface, border or rounding, and lets every depth-zero section own the
 same width and page chrome it owns on the public route.
 
+**They also sit on different backdrops, through `PreviewThemeHost`'s
+`atmosphere` prop, and the asymmetry is the point.** A tray paints the author's
+field on itself (`own`), because it is a card among controls with no page-scale
+backdrop to sit on — and there it keeps the `background-attachment` trade-off
+recorded in that component's TSDoc. The complete preview asks for `document`:
+it paints nothing, and `body` and the root canvas show through it exactly as
+they do on a public page. `previewThemeCss` withholds the background-PICTURE
+layers from a host in that mode, since `body` is already painting them against
+the window; everything else it emits declares rather than paints and is
+harmless on either.
+
+**`--ink` is restated on BOTH, and that asymmetry is the one to keep straight.**
+It is a control token, so it never reaches the document at all — a preview that
+did not restate it would carry the app's writing colour over the author's page.
+
 **A leaf edit does not rerender the whole editor.** `BlockEditor` owns the
 sections controller needed by its controls, while a small complete-preview
 controller owns the second sections subscription. `FursonaEditor` watches only
@@ -1161,11 +1202,63 @@ rounding or border. Horizontal excess is scrollable, never hidden or clipped to
 fake a fit, and the narrow-viewport browser suite opens the preview at every
 phone stop.
 
+**The host is not a SCROLL CONTAINER, and it was one until 2026-08-25.** It
+carried `overflow-x-auto` so that excess would scroll inside the preview
+instead of dragging the workbench sideways — and `overflow-x: auto` paired with
+`overflow-y: visible` computes the visible axis to `auto` as well, so the box
+was a scroll container on all four edges. **A scroll container clips ink**, and
+ink overflow is not scrollable overflow, so nothing scrolled and no scrollbar
+appeared: a shadow was simply gone. A bled, margin-less, unnamed section is
+flush with the host's own edge, and a `neobrutalism` banner's hard `5px 5px 0`
+cast measured 77.33 channels over the field below it on the page and **0.00**
+in the preview — every sample the bare field. Excess is still reachable and
+still never clipped, because the DOCUMENT scrolls, which is exactly what a
+stranger gets on an over-wide page; `main` is not a scroll container either,
+and that is the point. The guard is a shadow measurement rather than a
+computed-overflow assertion, for the reason rule 30 in the root `CLAUDE.md`
+gives: the two suites that pinned `overflow-x: auto` were pinning the
+mechanism, and the mechanism was the fault.
+
 That is **page-faithful, not pixel-exact**. The preview shares the editor's
 document, scrollbar and viewport-unit context rather than rendering the real
 route in its own browsing context. A dedicated preview route in an `iframe` is
 deferred; it is the next mechanism only if this remaining difference matters,
 not a second renderer to add inside the editor.
+
+**The BACKDROP is no longer part of that residue**, and this paragraph used to
+imply it was. The canvas and the window-anchored field are the document's now
+rather than the host's — see the atmosphere bullet under "Per-profile theming"
+for what the opaque host cost and how it was measured. What is left is the
+scrollbar, viewport units and the real `body` element.
+
+**A section sits at a fractional device row in the preview and a whole one on
+the page, and that is a CAPTURE difference rather than a rendering one.**
+Measured across a page of sections: heights and widths agree to three decimals
+while the fractional parts of `y` do not, and they land on the half pixel on
+the public side as readily as in the preview — it is decided by nothing but
+where the content above happened to end. Chromium snaps the layer, so the
+content compares at zero differing pixels either way. What it does change is
+the photograph: a box at `y = 3458.5` spans one device row more than the same
+box at a whole `y`, so two identical sections photograph 128 rows and 127. The
+size claim is therefore read from `getBoundingClientRect`, where it is exact,
+and never from the image. Before that it was image equality, which had a
+phantom row of pure white in it — `locator.screenshot()` filling a row that is
+not page content — worth about 0.86% on a guard whose budget is 0.1%. Do not
+"fix" the offset itself: a `transform: translate(0, 0.5px)` promotes the
+section to a composited layer that is then resampled, and a fractional
+`scrollBy` is undone by Playwright scrolling the element into view.
+
+**Every fidelity claim here is measured by photographing ONE seeded page
+twice**, at its public address and inside the preview, in
+`tests/e2e/preview-fidelity.spec.ts`. Two properties of that suite are worth
+knowing before adding to it. Its fixture gives the seeded person a display
+name, a portrait and a public profile ON PURPOSE — `ensure_person_actor` mints
+none of those, and without them an `owner` block renders the address alone on
+both sides, so the fixture could not tell a correct preview from one that
+hardcoded the owner's name away, which is what shipped. And its per-section
+comparison quiets the canvas and flattens the field identically on both sides,
+which is right for comparing sections and is exactly why the missing backdrop
+needed a case that does not.
 
 **Real previews mount real third-party frames while editing.** An author's own
 request and the fact that they are editing therefore reach the same allowlisted
@@ -1764,14 +1857,26 @@ decisions, so they are not quietly undone:
   themes are unsupported and would require unique host selectors. Persistence
   rides the ordinary save: what must be instant is seeing a colour, not storing
   it.
-- **The page-scale atmosphere is live on the document only while the theme
-  panel is open.** `atmosphereCss` filters `themeVars` down to `--field`,
+- **The page-scale atmosphere is live on the document while a page-scale
+  surface is open — the theme panel, or the complete-page preview.**
+  `atmosphereCss` filters `themeVars` down to `--field`,
   `--canvas`, every canvas colour and dial, and `--nebula-blend`, then emits the
   same `bodyBackgroundVars` picture rule `themeCss` uses. It never derives or
-  escapes a value twice. Closing the panel unmounts that rule and restores the
-  app's exact atmosphere; palette controls, skin variables and `cursor` remain
-  preview-only throughout. Opaque AeleOS backings on the workbench groups that
+  escapes a value twice. Closing the last one unmounts that rule and restores
+  the app's exact atmosphere; palette controls, skin variables and `cursor`
+  remain preview-only throughout.
+
+  **The preview was NOT a trigger until 2026-08-25, and what that cost is the
+  reason to keep it one.** The complete preview painted its own opaque
+  `--field`, and the canvas is `fixed inset-0 -z-10` in the root layout — so
+  an in-flow background covered it outright and the preview showed no backdrop
+  at all. Measured by photographing one seeded page twice: mottled with cloud
+  at its public address, a perfectly smooth wash in the preview. The same
+  opacity re-anchored the field, since `body` is `background-attachment: fixed`
+  and the host's copy spanned the whole document rather than the window —
+  1280×1696 against a 1280×900 viewport on an eight-section page. Opaque AeleOS backings on the workbench groups that
   carry bare text are the legibility boundary over that author field.
+
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once
   depended on which mode they happened to be editing in.

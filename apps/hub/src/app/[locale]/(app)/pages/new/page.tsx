@@ -1,5 +1,10 @@
 import { getTranslations } from "next-intl/server";
-import { FursonaEditor, readMyProfileTheme } from "@/features/actors";
+import {
+  FursonaEditor,
+  readMyAddress,
+  readMyProfileTheme,
+  readPublicPerson,
+} from "@/features/actors";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
 import { env } from "@/shared/infrastructure/env";
 import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
@@ -26,6 +31,13 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
  * are overridden inside the editor from the live form — see `FursonaEditor` —
  * because a context resolved on the server holds what was SAVED.
  *
+ * **It carries an `owner` even though nothing has been created yet**, because
+ * whoever is signed in will own whatever this form makes — read through
+ * `readPublicPerson`, exactly as the edit route does it. Omitting the key did
+ * not preview an empty owner card: `OwnerLeaf` returns null without one, so a
+ * block every fursona page must carry rendered NOTHING on the one screen where
+ * somebody is deciding where to put it.
+ *
  *
  * The context also carries the page's MEASURE, which the block renderer
  * reads to lay each top-level section out in the author's chosen width.
@@ -50,6 +62,16 @@ export default async function NewFursonaPage() {
   // exactly where somebody most wants it: the alternative is rebuilding a
   // gradient they placed stop by stop on another page, from memory.
   const profileTheme = await readMyProfileTheme(await createServerClient());
+  // **The owner is known before the fursona is.** Whoever is signed in will own
+  // whatever this form creates, and `owner` is a block every fursona page must
+  // carry — so leaving it out did not preview an empty owner card, it made a
+  // REQUIRED block render nothing at all, on the one screen where somebody is
+  // deciding where to put it. The address is the same read, and it is what the
+  // card links to.
+  const ownerAddress = (await readMyAddress(await createServerClient())) ?? "";
+  const ownerProfile = ownerAddress
+    ? await readPublicPerson(ownerAddress)
+    : undefined;
   return (
     <FursonaEditor
       labels={await fursonaEditorLabels(t("editorTitleNew"))}
@@ -59,17 +81,22 @@ export default async function NewFursonaPage() {
       // section's live preview is the real renderer — which now includes the
       // identity leaves.
       //
-      // Almost everything here is empty and that is correct: nothing has been
-      // created yet, so there is no handle, no address and no owner. The
-      // editor overrides the typed fields from the live form, so the preview
-      // fills in as somebody writes.
+      // The fursona's own fields are empty and that is correct: nothing has
+      // been created yet, and the editor overrides them from the live form as
+      // somebody writes. The OWNER is not in that category — it is whoever is
+      // signed in, and it is known now.
       page={{
         parentHost: env.hubHost,
         actorKind: "fursona",
         handle: "",
-        address: "",
+        address: ownerAddress,
         displayName: null,
         avatarUrl: null,
+        owner: {
+          address: ownerAddress,
+          displayName: ownerProfile?.displayName ?? null,
+          avatarUrl: ownerProfile?.avatarUrl ?? null,
+        },
         measure: null,
         fursonasFallbackTitle: tPublic("fursonas"),
       }}

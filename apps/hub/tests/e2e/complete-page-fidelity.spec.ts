@@ -169,17 +169,34 @@ test("keeps horizontal excess reachable rather than clipping the preview", async
   await page.setViewportSize({ width: 320, height: 568 });
   const { content } = await openFixture(page);
   const host = content.locator("..");
-  expect(await host.evaluate((node) => getComputedStyle(node).overflowX)).toBe(
-    "auto",
-  );
+
+  // **The subject is the INTENT, not the mechanism, and this case used to
+  // assert the mechanism.** It required `overflow-x: auto` on the host, which
+  // did keep excess reachable — and also made the box a scroll container on
+  // BOTH axes, because a `visible` axis paired with a non-visible one computes
+  // to `auto`. That clipped every skin's outward ink at the preview's edges,
+  // where the public route's `main` clips none. Excess is now reachable because
+  // the DOCUMENT scrolls, which is what a stranger gets on an over-wide page.
+  expect(
+    await host.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { x: style.overflowX, y: style.overflowY };
+    }),
+    "the preview host is the same kind of box as the public route's main",
+  ).toEqual({ x: "visible", y: "visible" });
+
+  // Nothing from the content up to the document may clip, on either axis — a
+  // hidden ancestor would make the workbench look as though the page fits.
   expect(
     await host.evaluate((node) => {
       const clipped: string[] = [];
       let current: Element | null = node;
       while (current) {
-        const overflow = getComputedStyle(current).overflowX;
-        if (overflow === "hidden" || overflow === "clip") {
-          clipped.push(current.tagName.toLowerCase());
+        const style = getComputedStyle(current);
+        for (const overflow of [style.overflowX, style.overflowY]) {
+          if (overflow === "hidden" || overflow === "clip") {
+            clipped.push(current.tagName.toLowerCase());
+          }
         }
         current = current.parentElement;
       }

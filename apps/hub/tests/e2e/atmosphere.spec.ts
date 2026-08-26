@@ -8,6 +8,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { apart, contrast, sampleColours, textColour } from "./support/pixels";
+import { seedPage } from "./support/blocks";
 
 // WHY THIS FILE EXISTS.
 //
@@ -451,4 +452,156 @@ test("the speed dial changes the animated canvas rate", async ({ page }) => {
       fast,
     })}`,
   ).toBeGreaterThan(slow.rate * 2);
+});
+
+// THE OTHER TRIGGER, AND THE STATE THE CASE ABOVE NEVER ENTERS.
+//
+// Atmosphere used to be live while the theme panel was open and only then. The
+// complete-page preview is a page-scale surface too — it is where a page is
+// judged whole — and it painted its own opaque field instead, which covered the
+// root canvas outright and re-anchored the author's gradient to a box the
+// height of the document. It mounts the same stylesheet now and paints nothing.
+//
+// That puts an author's field behind the workbench in a state nothing had
+// measured. The mechanism is identical to the panel's, which is an argument
+// rather than a measurement — so this measures it: the same bare label, the
+// same 4.5:1, in both schemes, with the panel shut throughout.
+test("the complete preview owns document atmosphere without restyling editor chrome", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+
+  /**
+   * Opens an editor over a page whose field is hostile to the given scheme.
+   *
+   * Seeded rather than dialled in, because the panel is what this case must
+   * keep shut — reaching for the gradient picker would open the very trigger
+   * the assertions are meant to exclude.
+   *
+   * @param field - the author's flat field colour.
+   * @returns the editor's handle.
+   */
+  const openEditorWithField = async (field: string) => {
+    const { handle } = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "previewatmos",
+      displayName: "Preview atmosphere",
+      blocks: [],
+      theme: {
+        canvas: "stars",
+        background: {
+          kind: "linear",
+          repeating: false,
+          every: 0,
+          angle: 135,
+          shape: "ellipse",
+          extent: "farthest-corner",
+          x: 50,
+          y: 50,
+          stops: [
+            { color: field, at: 0 },
+            { color: field, at: 100 },
+          ],
+        },
+      },
+    });
+    await page.goto(`/es/pages/${handle}/edit`);
+    return handle;
+  };
+
+  /**
+   * Measures the bare identity label over the column's own backing.
+   *
+   * The same probe the panel case uses, at the far right of the label row and
+   * away from its glyphs, so it reads the backing rather than a glyph edge.
+   *
+   * @param name - what to call the sample in a failure.
+   * @returns the measured WCAG contrast ratio.
+   */
+  const labelContrast = async (name: string): Promise<number> => {
+    const content = page.getByTestId("editor-identity-fields");
+    const label = content.locator('label[for="displayName"]');
+    await label.scrollIntoViewIfNeeded();
+    const [labelBox, contentBox] = await Promise.all([
+      label.boundingBox(),
+      content.boundingBox(),
+    ]);
+    const painted = await sampleColours(page, [
+      {
+        name,
+        x: Math.round(contentBox!.x + contentBox!.width) - 12,
+        y: Math.round(labelBox!.y + labelBox!.height / 2),
+      },
+    ]);
+    return contrast(painted[name]!, await textColour(label));
+  };
+
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize(VIEWPORT);
+  await openEditorWithField("#fafafa");
+
+  // The theme panel stays shut for the whole case, so nothing here can be
+  // passing on the old trigger.
+  await expect(page.getByTestId("theme-open")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+
+  const toolbar = page.getByTestId("editor-save");
+  const input = page.getByTestId("editor-display-name");
+  const card = page.getByTestId("section-card").first();
+  const controlsBefore = await Promise.all([
+    controlStyle(toolbar),
+    controlStyle(input),
+    controlStyle(card),
+  ]);
+  const atmosphereBefore = await atmosphereStyle(page);
+  expect(
+    atmosphereBefore.field,
+    "the workbench rests on the app's own field",
+  ).not.toContain("#fafafa");
+
+  await page.getByTestId("complete-page-preview-toggle").click();
+  await expect(page.getByTestId("complete-page-preview-content")).toBeVisible();
+
+  await expect
+    .poll(() => atmosphereStyle(page))
+    .toMatchObject({
+      field: expect.stringContaining("#fafafa"),
+      canvas: "stars",
+    });
+  // Not one control token moves, which is the boundary #8 drew and this
+  // widening must not cross. Read as tokens AND painted values, for the reason
+  // `controlStyle` gives.
+  expect(await controlStyle(toolbar)).toEqual(controlsBefore[0]);
+  expect(await controlStyle(input)).toEqual(controlsBefore[1]);
+  expect(await controlStyle(card)).toEqual(controlsBefore[2]);
+
+  // Dark chrome over a near-white author field, then the mirror image.
+  await page.getByTestId("theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  expect(
+    await labelContrast("dark"),
+    "dark chrome over a near-white field",
+  ).toBeGreaterThanOrEqual(4.5);
+
+  await openEditorWithField("#050505");
+  await page.getByTestId("complete-page-preview-toggle").click();
+  await expect(page.getByTestId("complete-page-preview-content")).toBeVisible();
+  await page.getByTestId("theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect
+    .poll(() => atmosphereStyle(page))
+    .toMatchObject({ field: expect.stringContaining("#050505") });
+  expect(
+    await labelContrast("light"),
+    "light chrome over a near-black field",
+  ).toBeGreaterThanOrEqual(4.5);
+
+  // Closing puts the app's atmosphere back through the cascade, with nothing
+  // reset by hand.
+  await page.getByTestId("complete-page-preview-toggle").click();
+  await expect(page.getByTestId("complete-page-preview-content")).toBeHidden();
+  await expect.poll(() => atmosphereStyle(page)).toEqual(atmosphereBefore);
 });

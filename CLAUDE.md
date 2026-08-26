@@ -951,10 +951,10 @@ replace`, so the newest body of a function could sit in a file named after
 - **The builder keeps its controls and borrows the page's atmosphere
   (2026-08-24) — done.** PR `#8` was right to keep the toolbar, fields, cards,
   menus, palette, skins and cursor on stable AeleOS **control tokens**, and
-  wrong to treat the atmosphere as another control. While the theme panel is
-  open, `atmosphereCss` now puts only `--field`, the body background-picture
+  wrong to treat the atmosphere as another control. While a page-scale surface
+  is open, `atmosphereCss` now puts only `--field`, the body background-picture
   layers, `--canvas`, the numbered canvas colours, the three canvas dials and
-  `--nebula-blend` on the editor document. Closing the panel removes that rule
+  `--nebula-blend` on the editor document. Closing it removes that rule
   and restores the app atmosphere. No control token reaches the document;
   opaque AeleOS backings keep bare workbench text readable over a hostile
   author field.
@@ -973,6 +973,64 @@ replace`, so the newest body of a function could sit in a file named after
   route in an iframe is deferred unless that remaining difference proves worth
   its cost. Spec:
   `docs/superpowers/specs/2026-08-24-atmosphere-and-page-fidelity-design.md`.
+
+- **The preview shows what is BEHIND the page, and the right owner on it
+  (2026-08-25).** Photographing one seeded page twice — at its public address
+  and inside the complete preview — found four things no check could see, and
+  the two categories are worth separating because only one is about layout.
+
+  **The backdrop.** The preview host painted an opaque `--field` on an in-flow
+  element while `NebulaCanvas` is `fixed inset-0 -z-10`, so the canvas was
+  covered outright: a page with a nebula photographed mottled at its address
+  and a perfectly smooth wash in the preview. The same opacity re-anchored the
+  field, since `body` is `background-attachment: fixed` and the host's copy
+  spanned the document rather than the window — 1280×1696 against 1280×900 on
+  an eight-section page. The complete preview now mounts `atmosphereCss` while
+  it is open, exactly as the theme panel does, and its host declines to paint;
+  `body` and the real canvas show through. The set reaching the document is
+  unchanged, so no control token moves.
+
+  **The identity data, which is not a rendering fault at all.** Three editor
+  routes built `PageContext` with a constant where a read belonged: the fursona
+  editor hardcoded the owner's name and portrait to `null` (304px on the page,
+  280px in the preview), `/me/edit` hardcoded `fursonas: []` (330px against
+  72px), and `/pages/new` passed no `owner` key — which renders NO card rather
+  than an empty one. All three ask `readPublicPerson` now, so the visibility
+  gate is asked rather than copied.
+
+  **The preview was also a SCROLL CONTAINER, and that clipped ink.** Its host
+  carried `overflow-x-auto` so excess would scroll inside the preview rather
+  than dragging the workbench — and a `visible` axis paired with a non-visible
+  one computes to `auto`, so the box clipped on all four edges. Ink overflow is
+  not scrollable overflow, so nothing scrolled and no scrollbar appeared: a
+  margin-less banner's hard shadow measured 77.33 channels over the field below
+  it on the page and **0.00** in the preview. Removed; the document scrolls,
+  exactly as it does for a stranger on an over-wide page, and the full
+  responsive matrix still fits at every phone stop. **Two suites had pinned
+  `overflow-x: auto` by name** — they were asserting the mechanism, and the
+  mechanism was the fault, which is rule 30's shape one level down.
+
+  **And a section sits at a fractional device row in the preview, which turned
+  out to be about the CAMERA rather than the page.** Heights and widths agree
+  to three decimals; only the fractional part of `y` differs, and it lands on
+  the half pixel on the public side as readily as in the preview. Chromium
+  snaps the layer, so nothing renders differently — but a box at `y = .5`
+  photographs one device row taller, and `locator.screenshot()` fills that row
+  with pure white. On a guard whose budget is 0.1% that is a 0.86% false
+  positive, arriving or not depending on where the content above happened to
+  end. The size claim reads `getBoundingClientRect` now, where it is exact and
+  where a real hole reports `height: 244` against `height: 72` instead of a
+  rounded image dimension.
+
+  **What let all four ship is rule 27 in its purest form.** The pixel guard
+  seeded an identity with no display name, no portrait and no fursonas, so the
+  right answer and the wrong one photographed identically; and it quiets the
+  canvas on both sides, correctly, which is precisely why an absent backdrop
+  was invisible to it. The fixture now names and pictures its person, a
+  person's page is photographed as well as a fursona's, and the backdrop has a
+  case that does not quiet it — one which asks whether `:root` is resolving the
+  AUTHOR's field, because a transparent host over the app's own backdrop passes
+  every weaker version of that question.
 
 ## The toolchain, and the rules it cost
 

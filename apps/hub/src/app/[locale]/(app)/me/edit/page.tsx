@@ -5,6 +5,7 @@ import {
   getPersonActor,
   readActorPage,
   readMyAddress,
+  readPublicPerson,
 } from "@/features/actors";
 import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
 import { createServerClient } from "@/shared/infrastructure/supabase-server";
@@ -42,10 +43,18 @@ import { env } from "@/shared/infrastructure/env";
  * are overridden inside the editor from the live form — see `FursonaEditor` —
  * because a context resolved on the server holds what was SAVED.
  *
- * **The context it builds now feeds the identity leaves too**, so a preview
- * shows a real portrait and a real handle. The three fields somebody can type
- * are overridden inside the editor from the live form — see `FursonaEditor` —
- * because a context resolved on the server holds what was SAVED.
+ * **It reads its own public profile for the `fursonas` list**, through
+ * `readPublicPerson` — the same `public_person` a stranger reads, so the
+ * public-only rule `0012` enforces is asked rather than copied here. The list
+ * used to be hardcoded empty, which made the REQUIRED `fursonas` block preview
+ * as a heading over nothing while the page carried a grid of cards: 330px
+ * against 72px, measured by photographing the two.
+ *
+ * The consequence to know is that a person whose profile is still `private` —
+ * the minted default — previews an empty list, because there is no public page
+ * for them yet. That is honest and it is not obviously the kindest answer; the
+ * alternative is filtering `listMyActors` by visibility, which is that same
+ * rule copied into a route and free to drift from it.
  *
  *
  * The context also carries the page's MEASURE, which the block renderer
@@ -81,6 +90,14 @@ export default async function EditMyProfilePage({
   // disagrees with the page. `fursonas.fursonas` never existed in either
   // catalogue and rendered its own key path at somebody.
   const tPublic = await getTranslations("publicProfile");
+  const address = (await readMyAddress(client)) ?? "";
+  // **The characters a stranger would see listed here, asked of the thing that
+  // decides which those are.** `public_person` returns the PUBLIC fursonas
+  // only; filtering `listMyActors` by visibility here would be a second copy
+  // of `0012`'s rule, free to drift from it. A private profile has no public
+  // page and answers nothing, so its preview keeps the empty list it has
+  // always shown.
+  const publicProfile = address ? await readPublicPerson(address) : undefined;
 
   return (
     <FursonaEditor
@@ -104,17 +121,19 @@ export default async function EditMyProfilePage({
       // from the live form, so a preview never shows the portrait they had
       // before they started. What is here is what the form cannot change.
       //
-      // `fursonas` is empty rather than absent: absent means "not this page
-      // kind" and would make the block vanish, where empty draws its heading.
-      // The real list is a public read this route does not make.
+      // `fursonas` is a list rather than absent: absent means "not this page
+      // kind" and would make the block vanish, where an empty list draws its
+      // heading. It used to be hardcoded empty, which made the required
+      // `fursonas` block a heading over nothing in every preview while the
+      // page itself carried a grid of cards.
       page={{
         parentHost: env.hubHost,
         actorKind: "person",
         handle: person?.handle ?? "",
-        address: (await readMyAddress(await createServerClient())) ?? "",
+        address,
         displayName: person?.displayName ?? null,
         avatarUrl: person?.avatarUrl ?? null,
-        fursonas: [],
+        fursonas: publicProfile?.fursonas ?? [],
         measure: page.theme.measure,
         fursonasFallbackTitle: tPublic("fursonas"),
       }}
