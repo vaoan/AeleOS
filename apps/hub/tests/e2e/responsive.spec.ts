@@ -1,3 +1,7 @@
+import {
+  PREVIEW_DEVICES,
+  nearestDevice,
+} from "@/features/actors/domain/preview-devices";
 import { expect, test, type Page } from "@playwright/test";
 import {
   createTestIdentity,
@@ -230,27 +234,22 @@ test.describe("every phone screen, signed in", () => {
         ),
       ).toEqual(Array.from({ length: await trayHosts.count() }, () => "auto"));
 
-      // The complete page owns the same width as the public route. Open it at
-      // every narrow size and require that it CLIPS nothing — a hidden box
-      // here would make the page-level overflow measurement below flatter than
-      // the page really is.
-      //
-      // It used to be required to be `auto`, which kept excess reachable and
-      // also made the host a scroll container on both axes, clipping every
-      // skin's outward ink at the preview's edges. The public route's `main`
-      // is `visible`; excess is reachable because the document scrolls, and
-      // `fits` below is what proves there is none to reach.
+      // The complete page is its own DOCUMENT now, at a named device size, so
+      // there is no host of ours to ask about overflow — the frame's own
+      // viewport is the width its content answers to. What matters at a phone
+      // stop is that opening it does not push the EDITOR sideways, which the
+      // `fits` call below measures.
       await page.getByTestId("complete-page-preview-toggle").click();
-      const complete = page
-        .getByTestId("complete-page-preview-content")
-        .locator("..");
-      await expect(complete).toBeVisible();
-      expect(
-        await complete.evaluate((el) => {
-          const style = getComputedStyle(el);
-          return [style.overflowX, style.overflowY];
-        }),
-      ).toEqual(["visible", "visible"]);
+      const frame = page.getByTestId("complete-page-preview-frame");
+      await expect(frame).toBeVisible();
+      // The device defaults to the size nearest THIS window, which is not
+      // always the phone: a landscape 667 is nearer the tablet's 768 than the
+      // phone's 390. Derived rather than hardcoded, so the expectation cannot
+      // disagree with `nearestDevice` about its own tie-breaks.
+      const expected = PREVIEW_DEVICES.find(
+        (device) => device.id === nearestDevice(viewport.width),
+      )!;
+      await expect(frame).toHaveAttribute("width", String(expected.width));
       await fits(
         page,
         `the editor at ${viewport.name} with the complete preview open`,

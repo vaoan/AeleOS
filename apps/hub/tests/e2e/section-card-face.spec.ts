@@ -216,7 +216,10 @@ test("author colours and skin change both real previews without restyling the wo
   const complete = page.getByTestId("complete-page-preview");
   await expect(complete.locator("h2")).toBeVisible();
   await page.getByTestId("complete-page-preview-toggle").click();
-  await expect(page.getByTestId("complete-page-preview-content")).toBeVisible();
+  const framed = page.frameLocator(
+    '[data-testid="complete-page-preview-frame"]',
+  );
+  await expect(framed.getByTestId("page-content")).toBeVisible();
 
   const toolbar = page.getByTestId("editor-save");
   const identityInput = page.getByTestId("editor-display-name");
@@ -225,9 +228,12 @@ test("author colours and skin change both real previews without restyling the wo
     .getByTestId("block-preview")
     .last()
     .getByTestId("preview-theme-host");
-  const completePreview = page
-    .getByTestId("complete-page-preview-content")
-    .locator("..");
+  // **The complete preview is its own DOCUMENT now**, so what this reads is
+  // the framed page's own content element rather than a host of ours. The
+  // claim is unchanged and is arguably stronger: the author's theme has to
+  // reach a separate document, and the workbench assertions below still prove
+  // it did not reach the editor.
+  const completePreview = framed.getByTestId("page-content");
 
   /**
    * Reads control properties the live atmosphere must leave unchanged.
