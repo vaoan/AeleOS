@@ -1032,6 +1032,37 @@ replace`, so the newest body of a function could sit in a file named after
   AUTHOR's field, because a transparent host over the app's own backdrop passes
   every weaker version of that question.
 
+- **The complete preview is a ROUTE in an iframe now (2026-08-26).** The
+  mechanism `2026-08-24-atmosphere-and-page-fidelity` deferred, built because
+  the residue turned out to be the whole of what an author sees. Measured on a
+  real production page: up to 72.6% of a section's pixels somewhere else while
+  every section box matched to the sub-pixel — and the controlling measurement
+  is that scrolling ONE document by 120px moved the same section's backdrop by
+  71.2%. The author's background picture is `background-attachment: fixed`, so
+  which slice shows behind a section is decided by where it sits on screen, and
+  nothing inline can change that.
+
+  `/{locale}/me/preview` is a blank document that holds nothing until the
+  editor posts it a draft, at a NAMED device size — because a framed preview is
+  exactly as faithful as its viewport matches a real one, so filling the
+  editor's width would invent a viewport no visitor has. It replaces the inline
+  preview outright, and the document-atmosphere mode from the day before is
+  deleted rather than left uncalled.
+
+  **Three things this cost that generalise.** `frame-ancestors` was `'none'`
+  and refused the embed — found by driving it, because the frame rendered blank
+  and the violation went to a console where nothing asserts. A static segment
+  directly under `[locale]` would have permanently reserved `preview` against
+  the person-address namespace, so the route lives under the already-reserved
+  `me`. And the fidelity suite took SEVEN wrong instruments before it measured
+  anything real, every one a fact about the camera rather than the page — the
+  list is in that suite's own header, and the last of them left two identical
+  photographs 56 pixels apart and 69.2% differing, because two documents clamp
+  scroll at the top differently.
+
+  Spec: `docs/superpowers/specs/2026-08-26-preview-route-design.md`, complete.
+  Plan: `docs/superpowers/plans/2026-08-26-preview-route.md`.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:

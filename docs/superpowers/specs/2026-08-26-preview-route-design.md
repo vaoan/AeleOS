@@ -1,6 +1,6 @@
 # The preview route — design
 
-**Status: approved 2026-08-26. Not yet implemented.**
+**Status: COMPLETE — implemented and verified 2026-08-26.**
 
 The complete-page preview becomes an `<iframe>` of a real route at a named
 device size. This is the mechanism
@@ -132,9 +132,14 @@ lets any same-origin frame drive this one, source alone lets any document
 claim anything.
 
 `frame-src` already carries `'self'`, so the policy needs no change —
-confirmed by reading `csp.ts` rather than assumed. `frame-ancestors` must
-admit `'self'`; that is to be checked in a browser during implementation, not
-reasoned about.
+confirmed by reading `csp.ts` rather than assumed.
+
+**`frame-ancestors` did NOT, and driving it is the only reason that was found.**
+It was `'none'`, so the browser refused the embed outright: the frame rendered
+blank and the violation appeared in the console, where nothing asserts. It is
+`'self'` now. Clickjacking is a CROSS-origin attack and `'self'` prevents every
+one; what `'none'` bought over it was stopping our own pages from framing each
+other, which is now something this app does on purpose.
 
 ## What is deleted
 
@@ -169,14 +174,19 @@ window-anchoring difference, and there is no longer one to excuse. A fixture
 carrying a background picture must therefore match on the photo itself, which
 is the assertion this whole document exists to make possible.
 
-What must be sabotage-verified, each watched red and restored:
+What was sabotage-verified, each watched red and restored:
 
-- the `ready` handshake removed (parent posts on `load`) — the preview must
-  fail to receive its first payload;
-- the origin check removed, and the source check removed, independently;
+- the `ready` handshake removed — the preview never receives its first payload;
+- the device size ignored, so the frame fills the width;
 - the scale allowed to exceed 1;
-- the device size ignored, so the iframe fills the width — the background
-  picture must go back to differing.
+- the origin check and the source check, each removed alone, in
+  `preview-document.test.tsx` — where each reddens ONLY the case covering it.
+
+**The origin check cannot be caught by the browser suite, and that is reported
+rather than counted.** Removing it leaves every pixel identical, because the
+only document sending in that suite is the legitimate parent. A security check
+is invisible to a test that never plays the attacker; the unit case is what
+holds it, and pretending otherwise would be a total with a hole in it.
 
 ## What must not change
 

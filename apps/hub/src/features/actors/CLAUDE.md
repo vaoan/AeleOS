@@ -1219,17 +1219,24 @@ computed-overflow assertion, for the reason rule 30 in the root `CLAUDE.md`
 gives: the two suites that pinned `overflow-x: auto` were pinning the
 mechanism, and the mechanism was the fault.
 
-That is **page-faithful, not pixel-exact**. The preview shares the editor's
-document, scrollbar and viewport-unit context rather than rendering the real
-route in its own browsing context. A dedicated preview route in an `iframe` is
-deferred; it is the next mechanism only if this remaining difference matters,
-not a second renderer to add inside the editor.
+That is no longer "page-faithful, not pixel-exact" — the preview IS the page,
+in a document of its own, with its own viewport, its own scrollbar and its own
+`body`. The residue this paragraph used to describe belongs to the section
+TRAYS alone now.
 
-**The BACKDROP is no longer part of that residue**, and this paragraph used to
-imply it was. The canvas and the window-anchored field are the document's now
-rather than the host's — see the atmosphere bullet under "Per-profile theming"
-for what the opaque host cost and how it was measured. What is left is the
-scrollbar, viewport units and the real `body` element.
+**The fidelity suite compares two documents, and the seven wrong instruments it
+took to get there are recorded in its own header.** Every one was a fact about
+the CAMERA rather than the page: a `data:` background is refused by
+`safeHttpUrl` and paints nothing; `page.route` does not reach a framed
+document, but the context's route does; a page screenshot on the preview side
+captures the editor; the editor's sticky bar paints OVER an element screenshot
+of the frame; a 768-wide editor window scales a 768 device to 0.98; the public
+page has a bar and the preview deliberately has none, so a whole-viewport
+comparison can never match; and both documents clamp scroll at the top
+DIFFERENTLY, which left two otherwise identical photographs 56 pixels apart and
+69.2% differing. Reading where the section actually LANDED rather than assuming
+the scroll took brought that to 0.516%, and insetting two pixels from the
+clip's own boundary to 0.029%.
 
 **A section sits at a fractional device row in the preview and a whole one on
 the page, and that is a CAPTURE difference rather than a rendering one.**
