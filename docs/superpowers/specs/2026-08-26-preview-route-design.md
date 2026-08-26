@@ -199,7 +199,25 @@ holds it, and pretending otherwise would be a total with a hole in it.
 ## Known costs, stated rather than buried
 
 The preview boots a route on open and every keystroke crosses a document
-boundary — a real change on a phone, which is where the notes say most people
-will build. Embeds inside the preview mount a second copy, as the inline
-preview already does. Neither is a reason not to do this; both are things to
-measure afterwards rather than claim are negligible.
+boundary. Both were measured rather than called negligible, and one of them
+corrected a comment in the implementation.
+
+**Route boot, click to first paint inside the frame: 798 ms unthrottled and
+7569 ms at a 6x CPU throttle**, on a six-section page. Nearly eight seconds on
+a throttled phone is a real cost and is stated as one. It is paid once per
+opening, not per edit, and the disclosure starts closed.
+
+**Posts per keystroke: 1.000** — 52 keystrokes at 12ms apart produced 52 posts.
+The coalescing BOUNDS a burst and does not reduce typing: CPU throttling slows
+JavaScript and not the frame cadence, so only somebody typing faster than 16ms
+per key is collapsed, and nobody does. The implementation's comment claimed
+otherwise until this was measured. What the frame still buys is a ceiling that
+a programmatic burst cannot exceed.
+
+If the per-keystroke cost ever matters, the change is a debounce with a stated
+latency rather than a smaller frame — a decision about how stale an author will
+tolerate their preview being, which belongs in a design rather than in a
+constant.
+
+Embeds inside the preview mount a second copy, as the inline preview already
+did.

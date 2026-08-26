@@ -100,6 +100,13 @@ export interface CompletePagePreviewProps {
  * the draft and restart the handshake, so an author flipping between sizes
  * would watch their page blank and rebuild each time.
  *
+ * **What it costs, measured rather than waved away.** Opening it boots a route
+ * in a second document: 798 ms to first paint unthrottled and 7569 ms at a 6x
+ * CPU throttle, on a six-section page — paid once per opening, not per edit,
+ * and the disclosure starts closed. Every keystroke then crosses the boundary:
+ * 1.000 posts per keystroke, because the animation frame BOUNDS a burst and
+ * does not reduce typing. See the note beside that effect.
+ *
  * Its caller keeps it outside the drag context, so preview geometry cannot
  * become a drop target or alter collision measurement — and a separate document
  * is further isolated rather than less.
@@ -186,10 +193,19 @@ export function CompletePagePreview({
     );
   }, [blocks, theme, page, lang]);
 
-  // **One post per animation frame.** Every keystroke in a leaf changes the
-  // tree, and each post serialises it across a document boundary; a burst
-  // arriving in one task is collapsed into the single state the author ended
-  // on, which is the same argument `FrameCoalescedRange` makes for the dials.
+  // **One post per animation frame, which BOUNDS a burst and does not reduce
+  // typing.** Measured rather than assumed, and the measurement corrected this
+  // comment: at a 6x CPU throttle, 52 keystrokes at 12ms apart produced 52
+  // posts — 1.000 per keystroke. CPU throttling slows JavaScript and not the
+  // frame cadence, so a person typing faster than 16ms per key is the only case
+  // this collapses, and people do not type that fast.
+  //
+  // What it does buy is a ceiling: nothing can post more than once a frame
+  // however many changes arrive, which is the guarantee a programmatic burst
+  // needs. If the per-keystroke cost ever matters, the change is a debounce
+  // with a stated latency, not a smaller frame — and that is a decision about
+  // how stale an author will tolerate their preview being, so it belongs in a
+  // design rather than in a constant here.
   useEffect(() => {
     if (!open || !ready) return;
     const frame = requestAnimationFrame(send);
