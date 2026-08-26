@@ -1,8 +1,8 @@
 import { getTranslations } from "next-intl/server";
-import { SKIN_SCOPE } from "@/shared/domain/skins";
 import type { ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { cn } from "@/shared/infrastructure/cn";
+import { COLUMN, PageContent } from "@/shared/presentation/page-content";
 import { LanguageToggle } from "@/shared/presentation/language-toggle";
 import { NebulaToggle } from "@/shared/presentation/nebula-toggle";
 import { ThemeToggle } from "@/shared/presentation/theme-toggle";
@@ -162,8 +162,15 @@ export interface PageShellProps {
  * not scoped this way and cannot be — they have to reach the canvas and the
  * field, both mounted outside this element.
  *
- * It is set here rather than by each page, so a new page cannot forget it and
- * silently give somebody a style that does nothing.
+ * **That column is `PageContent` now, and this component is the BAR plus one.**
+ * The two were split because a document can need a page's content column
+ * without the app's bar, and exactly one does: the preview route, which is
+ * meant to be somebody's page rather than to sit inside the app. Nothing about
+ * the column moved — `page-shell.test.tsx` asserts it from the element side and
+ * passed the extraction unchanged, which is what makes that claim checkable.
+ *
+ * The scope is still set in one place rather than by each page, so a new page
+ * cannot forget it and silently give somebody a style that does nothing.
  *
  * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
  * suite selects by. The wordmark itself is a literal rather than a catalogue
@@ -181,20 +188,6 @@ export interface PageShellProps {
  * the header with a third of the window empty beneath it; this fixes that for
  * every page at once rather than making sign-in a special case.
  */
-/**
- * What each width lays the content column out in.
- *
- * `full` drops both horizontal and vertical chrome. Public pages apply their
- * measure and first/between/last spacing to each depth-0 section, so `main`
- * must hold nothing back: no maximum, centring, gutter or page-edge padding.
- * That ownership is what lets one section become a flush banner or footer
- * without making either a page-level exception.
- */
-const COLUMN: Record<"column" | "wide" | "full", string> = {
-  column: "mx-auto max-w-[620px] justify-center px-4 py-6 sm:px-6 sm:py-10",
-  wide: "mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10",
-  full: "",
-};
 
 /** What {@link WidePageColumn} needs to recreate the signed-in page box. */
 export interface WidePageColumnProps {
@@ -292,8 +285,15 @@ export function WidePageColumn(props: WidePageColumnProps): ReactNode {
  * not scoped this way and cannot be — they have to reach the canvas and the
  * field, both mounted outside this element.
  *
- * It is set here rather than by each page, so a new page cannot forget it and
- * silently give somebody a style that does nothing.
+ * **That column is `PageContent` now, and this component is the BAR plus one.**
+ * The two were split because a document can need a page's content column
+ * without the app's bar, and exactly one does: the preview route, which is
+ * meant to be somebody's page rather than to sit inside the app. Nothing about
+ * the column moved — `page-shell.test.tsx` asserts it from the element side and
+ * passed the extraction unchanged, which is what makes that claim checkable.
+ *
+ * The scope is still set in one place rather than by each page, so a new page
+ * cannot forget it and silently give somebody a style that does nothing.
  *
  * Exposes the `wordmark` and `page-content` test ids, which the end-to-end
  * suite selects by. The wordmark itself is a literal rather than a catalogue
@@ -384,40 +384,7 @@ export async function PageShell({
           </div>
         </div>
       </header>
-      {/* `justify-center` with `flex-1` centres a short page and leaves a long
-          one scrolling from the top — so sign-in sits in the middle of the
-          field instead of clinging to the header with a third of the window
-          empty beneath it, without turning into a different layout. */}
-      <main
-        // **`SKIN_SCOPE` is where a skin stops.** A page's owner restyles
-        // their own content; the bar above keeps the app's shape, because the
-        // language and theme toggles live there and a control that changes
-        // form on somebody else's page is harder to recognise as one. The
-        // colours are not scoped this way and cannot be — they have to reach
-        // the canvas and the field, which are mounted outside this element.
-        //
-        // Set here rather than on each page: a per-page class is one somebody
-        // forgets on the next page, and the failure is a page whose owner
-        // picked a style that silently did nothing.
-        className={cn(
-          SKIN_SCOPE,
-          // **The padding is narrower on a phone, and that is load-bearing
-          // rather than cosmetic.** The editor nests a card inside this column
-          // inside an item box, and at `px-6` throughout the chrome alone was
-          // 88px of a 360px screen — which is what pushed the form off the
-          // right-hand edge there. `responsive.spec.ts` measures it.
-          "flex w-full min-w-0 flex-1 flex-col",
-          // The padding and the centring belong to the COLUMN, not to `main`.
-          // A full-width public page has neither: each depth-0 section owns
-          // its measure and first/between/last chrome independently. The
-          // signed-in layout also uses full here, then restores the old wide
-          // box at each route so a complete preview can remain outside it.
-          COLUMN[width],
-        )}
-        {...tid("page-content")}
-      >
-        {children}
-      </main>
+      <PageContent width={width}>{children}</PageContent>
     </div>
   );
 }
