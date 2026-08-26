@@ -163,6 +163,11 @@ export function blockEditorLabels(): BlockEditorLabels {
 /**
  * The complete-page disclosure strings used by editor test fixtures.
  *
+ * It carries the device names and the size hint as well, since the preview is
+ * shown at a named viewport. The hint keeps its `{width}`/`{height}`
+ * placeholders verbatim so a case asserting on it reads the substitution
+ * rather than a pre-baked string.
+ *
  * @returns labels that make the disclosure's state explicit in assertions.
  */
 export function completePagePreviewLabels(): CompletePagePreviewLabels {
@@ -170,5 +175,7 @@ export function completePagePreviewLabels(): CompletePagePreviewLabels {
     title: "Complete page preview",
     expand: "Show complete page",
     collapse: "Hide complete page",
+    devices: { phone: "Phone", tablet: "Tablet", desktop: "Desktop" },
+    sizeHint: "Shown at {width} by {height}",
   };
 }

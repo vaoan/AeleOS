@@ -62,6 +62,10 @@ const { themeConfiguratorLabels } =
 const { SECTION_SHAPES } =
   await import("@/features/actors/presentation/section-shapes");
 const { SPACE_CHOICES } = await import("@/features/actors/domain/block-edits");
+// Same reason again: `labels.ts` maps over this to name each preview device,
+// so a barrel mock omitting it fails the page rather than the label code.
+const { PREVIEW_DEVICES } =
+  await import("@/features/actors/domain/preview-devices");
 
 vi.mock("@/features/actors", () => ({
   ensurePersonActor: (...a: unknown[]) => ensurePersonActor(...a),
@@ -76,6 +80,7 @@ vi.mock("@/features/actors", () => ({
   DESCRIBED_KINDS,
   SECTION_SHAPES,
   SPACE_CHOICES,
+  PREVIEW_DEVICES,
   themeConfiguratorLabels,
   // A stub with a stable identity, so a case can find which element the route
   // returned without mounting anything.

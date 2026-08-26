@@ -1,3 +1,4 @@
+import { PREVIEW_READY } from "@/features/actors/presentation/preview-message";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PAGE_MEASURES,
@@ -6,11 +7,11 @@ import {
 import { pageContext } from "./helpers/page-context";
 import type { ComponentProps, ReactNode } from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import {
   BLOCK_LIMITS,
@@ -22,6 +23,48 @@ import {
   blockEditorLabels,
   completePagePreviewLabels,
 } from "./support/editor-labels";
+
+/**
+ * The draft the editor posts to its preview document.
+ *
+ * **The preview is its own document now, so what an editor test can observe is
+ * the DRAFT that crosses to it** rather than an element the editor renders.
+ * The far side is proved by `preview-fidelity.spec.ts`, in a browser, against
+ * the real page.
+ *
+ * The component sends nothing until the framed document announces itself, so
+ * this answers that handshake and then waits one animation frame, which is the
+ * coalescing window every post goes through.
+ *
+ * @param trigger - the control that opens the disclosure, when it is not open.
+ * @returns the posted draft.
+ */
+async function draftPostedBy(
+  trigger?: HTMLElement,
+): Promise<{ blocks: unknown[]; page: Record<string, unknown> }> {
+  if (trigger) fireEvent.click(trigger);
+  const frame = screen.getByTestId(
+    "complete-page-preview-frame",
+  ) as HTMLIFrameElement;
+  const post = vi.spyOn(frame.contentWindow!, "postMessage");
+  act(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { kind: PREVIEW_READY },
+        origin: window.location.origin,
+        source: frame.contentWindow,
+      }),
+    );
+  });
+  await act(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
+  return post.mock.calls.at(-1)![0] as {
+    blocks: unknown[];
+    page: Record<string, unknown>;
+  };
+}
 
 const save = vi.fn<(...a: unknown[]) => Promise<boolean>>();
 let fieldErrors: Record<string, string> = {};
@@ -499,7 +542,7 @@ describe("FursonaEditor", () => {
     expect(identity.className).toContain("bg-(--surface-solid)");
   });
 
-  it("previews unsaved identity and measure through the real page renderer", () => {
+  it("previews unsaved identity and measure through the real page renderer", async () => {
     renderEditor({
       initial: {
         handle: "saved-handle",
@@ -522,25 +565,23 @@ describe("FursonaEditor", () => {
     fireEvent.change(screen.getByTestId("theme-measure"), {
       target: { value: "narrow" },
     });
-    fireEvent.click(
+    // **The observation point is the SEND, because the preview is its own
+    // document now.** The claim is unchanged — an author sees what the form
+    // holds, not what was saved — but the renderer lives across a boundary
+    // jsdom does not run, so what is checkable here is the draft that crosses
+    // it. `preview-fidelity.spec.ts` is what proves the far side renders it.
+    const sent = await draftPostedBy(
       screen.getByRole("button", { name: labels.completePreview.expand }),
     );
-
-    const preview = within(screen.getByTestId("complete-page-preview-content"));
-    expect(preview.getByTestId("public-actor-name")).toHaveTextContent(
-      "live-handle",
-    );
-    expect(preview.getByText("Live name")).toBeInTheDocument();
-    expect(preview.getByTestId("block-avatar")).toHaveAttribute(
-      "src",
-      "https://example.com/live.png",
-    );
-    expect(
-      preview.getAllByTestId("public-section")[0]?.parentElement,
-    ).toHaveClass("max-w-[620px]");
+    expect(sent.page).toMatchObject({
+      handle: "live-handle",
+      displayName: "Live name",
+      avatarUrl: "https://example.com/live.png",
+      measure: "narrow",
+    });
   });
 
-  it("previews unsaved page content from the live block tree", () => {
+  it("previews unsaved page content from the live block tree", async () => {
     renderEditor({
       initialSections: [
         {
@@ -562,16 +603,15 @@ describe("FursonaEditor", () => {
     fireEvent.change(screen.getByTestId("leaf-description"), {
       target: { value: "Unsaved page words" },
     });
-    fireEvent.click(
+    const sent = await draftPostedBy(
       screen.getByRole("button", { name: labels.completePreview.expand }),
     );
-
-    const preview = within(screen.getByTestId("complete-page-preview-content"));
-    expect(preview.getByText("Unsaved page words")).toBeInTheDocument();
-    expect(preview.queryByText("Saved page words")).toBeNull();
+    const written = JSON.stringify(sent.blocks);
+    expect(written).toContain("Unsaved page words");
+    expect(written).not.toContain("Saved page words");
   });
 
-  it("updates a leaf preview without rerendering the whole editor", () => {
+  it("updates a leaf preview without rerendering the whole editor", async () => {
     renderEditor({
       initialSections: [
         {
@@ -596,11 +636,11 @@ describe("FursonaEditor", () => {
       target: { value: "Live words" },
     });
 
-    expect(
-      within(screen.getByTestId("complete-page-preview-content")).getByText(
-        "Live words",
-      ),
-    ).toBeInTheDocument();
+    // The subject is the RENDER ISOLATION below; this only establishes that
+    // the edit landed, which is now observable at the boundary the preview
+    // crosses rather than in an element the editor renders.
+    const sent = await draftPostedBy();
+    expect(JSON.stringify(sent.blocks)).toContain("Live words");
     expect(toolbarRenders).toBe(before);
   });
 });
