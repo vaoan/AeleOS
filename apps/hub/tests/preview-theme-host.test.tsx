@@ -49,6 +49,60 @@ describe("PreviewThemeHost", () => {
     expect(container.querySelector("style")).toBeNull();
   });
 
+  // WHY THESE TWO EXIST. A host that paints its own opaque field cannot show
+  // the canvas: `NebulaCanvas` is `fixed inset-0 -z-10`, so an in-flow
+  // background covers it outright, and the author's field is
+  // `background-attachment: fixed` on `body` where a copy painted here is
+  // anchored to a box the height of the whole page. Both were measured — a
+  // page with a nebula photographed mottled at its public address and
+  // perfectly smooth in the complete preview.
+  it("declines to paint anything when the document wears the atmosphere", () => {
+    const theme = {
+      ...DEFAULT_THEME,
+      background: {
+        ...DEFAULT_GRADIENT,
+        stops: [{ color: "#24152f", at: 0 }],
+      },
+      backgroundUrl: "https://example.test/background.png",
+    };
+    const { container } = render(
+      <PreviewThemeHost theme={theme} atmosphere="document">
+        <div />
+      </PreviewThemeHost>,
+    );
+
+    const host = screen.getByTestId("preview-theme-host");
+    expect(host).toHaveAttribute("data-preview-atmosphere", "document");
+    // The field: a class, so its absence is what stops the paint.
+    expect(host).not.toHaveClass("[background:var(--field)]");
+    // The picture: a declaration, so it is the SELECTOR that has to exclude
+    // this host. Asserted against the emitted stylesheet rather than against a
+    // computed style, because jsdom resolves neither.
+    const css = container.querySelector("style")!.textContent!;
+    expect(css).toContain(
+      '[data-preview-theme]:not([data-preview-atmosphere="document"]){',
+    );
+    expect(css).toMatch(
+      /:not\(\[data-preview-atmosphere="document"]\)\{[^}]*background-image/,
+    );
+    // And the author's writing colour still applies: `--ink` is a control
+    // token, never reaches the document, and would otherwise fall back to the
+    // app's.
+    expect(host).toHaveClass("text-(--ink)");
+  });
+
+  it("paints its own field by default, so a bounded tray still has a backdrop", () => {
+    render(
+      <PreviewThemeHost theme={DEFAULT_THEME}>
+        <div />
+      </PreviewThemeHost>,
+    );
+
+    const host = screen.getByTestId("preview-theme-host");
+    expect(host).toHaveClass("[background:var(--field)]");
+    expect(host).not.toHaveAttribute("data-preview-atmosphere");
+  });
+
   it("preserves a supplied class name on the preview boundary", () => {
     render(
       <PreviewThemeHost theme={DEFAULT_THEME} className="custom-preview-class">

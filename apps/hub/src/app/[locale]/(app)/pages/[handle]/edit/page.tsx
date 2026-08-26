@@ -8,6 +8,7 @@ import {
   readActorPage,
   readMyAddress,
   readMyProfileTheme,
+  readPublicPerson,
 } from "@/features/actors";
 import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
 
@@ -64,6 +65,14 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
  * are overridden inside the editor from the live form — see `FursonaEditor` —
  * because a context resolved on the server holds what was SAVED.
  *
+ * **It reads the OWNER's own public profile**, through `readPublicPerson`, so
+ * the `owner` block previews the card a visitor gets. That name and portrait
+ * show only when the owner's profile is readable, and `public_person` is where
+ * that is decided — asking it is the gate rather than a second copy of the
+ * gate, and a private profile answers nothing and keeps the anonymous card.
+ * Both were hardcoded to null before, which left every fursona's REQUIRED
+ * `owner` block 24 pixels short of the page with the name missing from it.
+ *
  *
  * The context also carries the page's MEASURE, which the block renderer
  * reads to lay each top-level section out in the author's chosen width.
@@ -115,6 +124,15 @@ export default async function EditFursonaPage({
   // preview shows a link to nowhere, which is what a person with no address
   // yet genuinely has.
   const ownerAddress = (await readMyAddress(await createServerClient())) ?? "";
+  // **What a STRANGER can see of the owner, read the way a stranger reads
+  // it.** The owner's name and portrait are shown on a fursona's page only
+  // when that person's own profile is readable, and `public_person` is where
+  // that is decided — so asking it is the gate rather than a second copy of
+  // the gate. A private profile answers nothing and the preview keeps the
+  // anonymous card, which is what a visitor genuinely gets.
+  const ownerProfile = ownerAddress
+    ? await readPublicPerson(ownerAddress)
+    : undefined;
 
   return (
     <FursonaEditor
@@ -136,9 +154,11 @@ export default async function EditFursonaPage({
       //
       // The typed fields are overridden inside the editor from the live form.
       // `owner` is not among them: a fursona's owner is not something its
-      // editor can change. Its name and picture are null here because this
-      // route reads the OWNER's row for nothing else, and the preview shows
-      // what a visitor sees when that person's profile is private.
+      // editor can change. Its name and picture come from the owner's own
+      // PUBLIC row, so an author whose profile is public previews the card a
+      // visitor gets rather than the anonymous one. This used to hardcode
+      // both to null, which made every fursona's required `owner` block
+      // 24 pixels short of the page and missing the name on it.
       page={{
         parentHost: env.hubHost,
         actorKind: "fursona",
@@ -146,7 +166,11 @@ export default async function EditFursonaPage({
         address: ownerAddress,
         displayName: actor.displayName ?? null,
         avatarUrl: actor.avatarUrl ?? null,
-        owner: { address: ownerAddress, displayName: null, avatarUrl: null },
+        owner: {
+          address: ownerAddress,
+          displayName: ownerProfile?.displayName ?? null,
+          avatarUrl: ownerProfile?.avatarUrl ?? null,
+        },
         measure: page.theme.measure,
         fursonasFallbackTitle: tPublic("fursonas"),
       }}

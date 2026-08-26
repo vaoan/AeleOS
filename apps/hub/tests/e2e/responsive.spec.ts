@@ -230,18 +230,27 @@ test.describe("every phone screen, signed in", () => {
         ),
       ).toEqual(Array.from({ length: await trayHosts.count() }, () => "auto"));
 
-      // The complete page now owns the same width as the public route. Open it
-      // at every narrow size and require any excess to remain reachable
-      // (`auto`), never clipped to make the page-level overflow measurement
-      // flatter.
+      // The complete page owns the same width as the public route. Open it at
+      // every narrow size and require that it CLIPS nothing — a hidden box
+      // here would make the page-level overflow measurement below flatter than
+      // the page really is.
+      //
+      // It used to be required to be `auto`, which kept excess reachable and
+      // also made the host a scroll container on both axes, clipping every
+      // skin's outward ink at the preview's edges. The public route's `main`
+      // is `visible`; excess is reachable because the document scrolls, and
+      // `fits` below is what proves there is none to reach.
       await page.getByTestId("complete-page-preview-toggle").click();
       const complete = page
         .getByTestId("complete-page-preview-content")
         .locator("..");
       await expect(complete).toBeVisible();
       expect(
-        await complete.evaluate((el) => getComputedStyle(el).overflowX),
-      ).toBe("auto");
+        await complete.evaluate((el) => {
+          const style = getComputedStyle(el);
+          return [style.overflowX, style.overflowY];
+        }),
+      ).toEqual(["visible", "visible"]);
       await fits(
         page,
         `the editor at ${viewport.name} with the complete preview open`,

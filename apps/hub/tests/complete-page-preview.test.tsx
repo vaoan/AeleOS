@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
+  atmosphereCss,
   DEFAULT_THEME,
   previewThemeCss,
 } from "@/features/actors/domain/actor-theme";
@@ -70,12 +71,18 @@ describe("CompletePagePreview", () => {
     const host = screen
       .getByTestId("complete-page-preview-content")
       .closest("[data-preview-theme]");
-    expect(host).toHaveClass("w-full", "min-w-0", "overflow-x-auto");
+    expect(host).toHaveClass("w-full", "min-w-0");
     expect(host).not.toHaveClass(
       "max-w-full",
       "rounded-xl",
       "surface",
       "border-(--edge)",
+      // **Not a scroll container**, because `overflow-x: auto` computes the
+      // visible axis to `auto` as well and the box then clips outward ink on
+      // all four edges — where the public route's `main` clips none. The
+      // browser guards measure the computed value; this only keeps the class
+      // from coming back.
+      "overflow-x-auto",
     );
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(toggle).toHaveAttribute("aria-controls");
@@ -87,6 +94,57 @@ describe("CompletePagePreview", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(toggle).not.toHaveAttribute("aria-controls");
     expect(toggle).toHaveAccessibleName(labels.expand);
+  });
+
+  // THE REGRESSION TEST for a page's own backdrop, and the fault it guards
+  // was found by photographing one seeded page twice: at its public address
+  // the nebula's clouds show through every gutter, and in the complete
+  // preview the same page was a perfectly smooth wash. The host painted an
+  // opaque `--field` on an in-flow element, and the canvas is `-z-10`.
+  //
+  // The two halves are one mechanism and neither works alone: the document
+  // has to WEAR the atmosphere, and the host has to decline to paint over it.
+  it("puts the atmosphere on the document while open and takes it back when closed", () => {
+    const themed = {
+      ...DEFAULT_THEME,
+      background: {
+        ...DEFAULT_GRADIENT,
+        stops: [{ color: "#24152f", at: 0 }],
+      },
+      canvas: "nebula" as const,
+    };
+    const { container } = render(
+      <CompletePagePreview
+        blocks={blocks}
+        theme={themed}
+        lang="en"
+        page={pageContext()}
+        labels={labels}
+      />,
+    );
+    const sheets = () =>
+      [...container.querySelectorAll("style")].map((s) => s.textContent);
+
+    // Closed, the workbench's resting state is the app's own atmosphere.
+    expect(sheets()).not.toContain(atmosphereCss(themed));
+
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    const atmosphere = atmosphereCss(themed);
+    expect(atmosphere).not.toBe("");
+    expect(sheets()).toContain(atmosphere);
+    // It reaches the DOCUMENT — that is the whole point, and a rule scoped to
+    // the host instead would be the fault this replaced.
+    expect(atmosphere).toContain(":root{");
+    expect(
+      screen
+        .getByTestId("complete-page-preview-content")
+        .closest("[data-preview-theme]"),
+    ).toHaveAttribute("data-preview-atmosphere", "document");
+
+    fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
+
+    expect(sheets()).not.toContain(atmosphere);
   });
 
   it("keeps valid draft sections when a malformed in-progress block cannot render", () => {
@@ -183,9 +241,15 @@ describe("CompletePagePreview", () => {
 
     fireEvent.click(screen.getByRole("button", { name: labels.expand }));
 
-    expect(container.querySelector("style")?.textContent).toBe(
-      previewThemeCss(customTheme),
+    // Two stylesheets now, and which is which matters: the atmosphere is
+    // document-scoped and the theme is host-scoped. Read by content rather
+    // than by position, so reordering them is not a failure and swapping their
+    // scopes is.
+    const sheets = [...container.querySelectorAll("style")].map(
+      (style) => style.textContent,
     );
+    expect(sheets).toContain(previewThemeCss(customTheme));
+    expect(sheets).toContain(atmosphereCss(customTheme));
     expect(screen.getByText("Sección solo en español")).toBeInTheDocument();
     expect(screen.getByText("Título solo en español")).toBeInTheDocument();
     expect(screen.getByText("Palabras solo en español")).toBeInTheDocument();

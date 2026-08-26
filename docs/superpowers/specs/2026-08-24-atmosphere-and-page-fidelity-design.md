@@ -68,6 +68,16 @@ trigger `#8` removed and the one an author already learned. Closing the panel
 returns the editor to the app's own field, so the builder's resting state is
 unchanged.
 
+> **Corrected 2026-08-25 — "and only then" was too narrow, and the complete
+> preview paid for it.** The trigger is now EITHER page-scale surface being
+> open: the theme panel, or the complete-page preview. The reason is the same
+> one this section gives — atmosphere is what a page sits on and cannot be
+> judged inside a box — and the complete preview is the other place a page is
+> judged whole. With both closed the builder's resting state is still
+> untouched, and the set that reaches the document is unchanged, so the
+> boundary this branch drew is not weakened. See "Four things this got wrong"
+> at the foot of this file.
+
 **The atmosphere set is exactly the left column of the table above.** No
 control token reaches the document, so no button, input, card, popup or toolbar
 changes when a dial moves. `previewThemeCss` keeps emitting the full set,
@@ -116,9 +126,10 @@ should make that harder.
 
 ## What shipped
 
-- `atmosphereCss` applies the closed atmosphere set to the editor document only
-  while the theme panel is open. The root canvas, field and body picture respond
-  live; closing the panel restores the app atmosphere through the cascade.
+- `atmosphereCss` applies the closed atmosphere set to the editor document
+  while a page-scale surface is open — the theme panel, and since 2026-08-25
+  the complete preview too. The root canvas, field and body picture respond
+  live; closing the last one restores the app atmosphere through the cascade.
 - The workbench still consumes AeleOS control tokens. Palette, skin, cursor and
   other control declarations remain inside `PreviewThemeHost`; opaque AeleOS
   backings protect bare labels and headings from hostile author fields.
@@ -136,6 +147,65 @@ The result is page-faithful, not pixel-exact. The complete preview shares the
 editor document, scrollbar and viewport-unit context. A dedicated preview route
 inside an `iframe` remains deferred; it is the mechanism to use only if that
 residual difference proves important.
+
+## Four things this got wrong, found 2026-08-25 by photographing a page twice
+
+Both were invisible to every check this branch shipped, and both were found the
+same way: seed one page, photograph it at its public address and again inside
+the complete preview, and compare the images.
+
+**1. The preview never showed the page's own backdrop.** `PreviewThemeHost`
+painted `background: var(--field)` on an in-flow element, and `NebulaCanvas` is
+`fixed inset-0 -z-10` in the root layout — so the host's background covered the
+canvas outright. A page with a nebula photographed mottled at its address and
+perfectly smooth in the preview. The same opacity re-anchored the author's
+field: `body` is `background-attachment: fixed`, so the gradient a visitor sees
+spans one viewport, while the host's copy spanned the whole document — measured
+at 1280×1696 against a 1280×900 window on an eight-section page.
+
+The fix is the trigger widening above plus a host that declines to paint:
+`PreviewThemeHost` takes an `atmosphere` prop, `document` mode drops the field
+class and marks itself so `previewThemeCss` withholds the background-picture
+layers as well. What shows through is then `body` and the real canvas — the
+public composition rather than an approximation of it, and it closes the
+`background-attachment` residue this file recorded as unclosable inline.
+
+**2. Neither preview's guard could have caught it, and one still cannot.** The
+per-section pixel comparison quiets the canvas and flattens the field on both
+sides, correctly — the canvas animates and is seeded per load. That quieting is
+exactly why the missing backdrop was invisible, so it needed a case of its own,
+which asks whether hiding the canvas changes what the preview paints and
+whether `:root` is resolving the AUTHOR's field. A transparent host over the
+app's own backdrop satisfies the first and fails the second; only the second is
+the feature.
+
+**3. The preview host was a scroll container, and `main` is not.** It carried
+`overflow-x-auto` so horizontal excess would scroll inside the preview rather
+than dragging the workbench sideways. A `visible` overflow paired with a
+non-visible one computes to `auto`, so the box was a scroll container on both
+axes — and a scroll container clips ink. Because ink overflow is not scrollable
+overflow, nothing scrolled and no scrollbar was offered; the shadow was simply
+absent. A bled, margin-less, unnamed section is flush with the host's own edge,
+and a `neobrutalism` banner's hard cast measured 77.33 channels over the field
+below it on the page against 0.00 in the preview.
+
+Removed. Excess is still reachable and still never clipped — the document
+scrolls, which is what a stranger gets. Two suites had required `overflow-x:
+auto` by name; both were pinning the mechanism, and the mechanism was the
+fault.
+
+**4. A fractional device row is the CAMERA, not the page.** Heights and widths
+agree to three decimals between the two; only the fractional part of `y`
+differs, and it falls on the half pixel publicly as readily as in the preview.
+Chromium snaps the layer, so the content compares at zero differing pixels —
+but the photograph of a box at `y = .5` spans one device row more, and
+`locator.screenshot()` fills that row with pure white. The size claim is read
+from `getBoundingClientRect` now rather than from the image.
+
+**The residual difference is smaller than this file claimed, and the `iframe`
+is still the mechanism for what is left**: the shared scrollbar, viewport units
+and the real `body` element. The backdrop and the box kind are no longer part
+of that residue.
 
 ## Verification
 

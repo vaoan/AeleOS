@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 const readActorPage = vi.fn<(...a: unknown[]) => unknown>();
 const readMyProfileTheme = vi.fn<(...a: unknown[]) => unknown>();
 const readMyAddress = vi.fn<(...a: unknown[]) => unknown>();
+const readPublicPerson = vi.fn<(...a: unknown[]) => unknown>();
 const listMyActors = vi.fn<(...a: unknown[]) => unknown>();
 const notFound = vi.fn<(...a: unknown[]) => never>(() => {
   // Real next/navigation signals a 404 by throwing too — modelling that here
@@ -74,6 +75,7 @@ vi.mock("@/features/actors", () => ({
   readActorPage: (...a: unknown[]) => readActorPage(...a),
   readMyProfileTheme: (...a: unknown[]) => readMyProfileTheme(...a),
   readMyAddress: (...a: unknown[]) => readMyAddress(...a),
+  readPublicPerson: (...a: unknown[]) => readPublicPerson(...a),
   FURSONA_TEMPLATES,
   // The page builds its labels from this, so a mocked barrel that omits it
   // fails the page rather than the label code — the mocked-dependency trap
@@ -145,6 +147,10 @@ beforeEach(() => {
   // The address a preview's `owner` block links to. A real one, so a test
   // asserting on the link sees what a visitor would.
   readMyAddress.mockResolvedValue("42");
+  // A profile nobody can read, which is the DEFAULT a person is minted with
+  // (`visibility text not null default 'private'`, `0001`) and therefore the
+  // ordinary state for most of this suite. The owner cases override it.
+  readPublicPerson.mockResolvedValue(undefined);
   notFound.mockImplementation(() => {
     throw new Error("NEXT_NOT_FOUND");
   });
@@ -205,6 +211,73 @@ describe("EditFursonaPage", () => {
         avatarUrl: "",
         visibility: "private",
       },
+    });
+  });
+
+  // THE REGRESSION TEST for the owner card, and the fault it guards was
+  // measured in a browser rather than reasoned: the route hardcoded
+  // `displayName: null, avatarUrl: null`, so a fursona's REQUIRED `owner`
+  // block previewed 24 pixels shorter than the page and without the name on
+  // it, for every author whose profile is public. Every existing check was
+  // green, and the pixel guard could not see it because its seeded identity
+  // has no display name and no portrait — so the right answer and the wrong
+  // one photographed identically.
+  it("previews the owner card a visitor gets when the profile is public", async () => {
+    listMyActors.mockResolvedValueOnce([actor()]);
+    readPublicPerson.mockResolvedValueOnce({
+      displayName: "Aeleos",
+      avatarUrl: "https://example.test/owner.png",
+    });
+
+    const page = (await EditFursonaPage({
+      params: Promise.resolve({ handle: "sparky" }),
+    })) as ReactElement;
+
+    // Asked about the OWNER's address, which is what decides whether their
+    // name may show — not about the fursona being edited.
+    expect(readPublicPerson).toHaveBeenCalledWith("42");
+    expect(formElement(page).props).toMatchObject({
+      page: {
+        owner: {
+          address: "42",
+          displayName: "Aeleos",
+          avatarUrl: "https://example.test/owner.png",
+        },
+      },
+    });
+  });
+
+  // The other side of the same gate. `public_person` answers nothing for a
+  // profile a stranger may not read, and the preview must then show the
+  // anonymous card — which is what that visitor actually gets. The ADDRESS
+  // survives, because the card still links somewhere.
+  it("keeps the owner anonymous when their profile is not public", async () => {
+    listMyActors.mockResolvedValueOnce([actor()]);
+    readPublicPerson.mockResolvedValueOnce(undefined);
+
+    const page = (await EditFursonaPage({
+      params: Promise.resolve({ handle: "sparky" }),
+    })) as ReactElement;
+
+    expect(formElement(page).props).toMatchObject({
+      page: { owner: { address: "42", displayName: null, avatarUrl: null } },
+    });
+  });
+
+  // A person with no address cannot be asked about, and asking anyway would
+  // send `public_person` an empty string — a lookup that can only miss, on
+  // every render of every editor belonging to somebody not yet addressed.
+  it("does not ask about an owner who has no address", async () => {
+    listMyActors.mockResolvedValueOnce([actor()]);
+    readMyAddress.mockResolvedValue(null);
+
+    const page = (await EditFursonaPage({
+      params: Promise.resolve({ handle: "sparky" }),
+    })) as ReactElement;
+
+    expect(readPublicPerson).not.toHaveBeenCalled();
+    expect(formElement(page).props).toMatchObject({
+      page: { owner: { address: "", displayName: null, avatarUrl: null } },
     });
   });
 
