@@ -60,6 +60,22 @@ function splitStyle(style: CSSProperties | undefined): {
  * The author theme and section style are contained here so neither can restyle
  * the workbench controls. A malformed in-progress block draws no tray content
  * rather than taking down the editor.
+ *
+ * **The tray is three layers and their ORDER is load-bearing.** The host
+ * carries the author's field; the face carries the AeleOS card and the
+ * author's own painted style, on a layer of its own so `cutout`'s `clip-path`
+ * cannot reach the workbench; and the section's content sits above both. A
+ * caller may assume all three are visible at once — the face's 90%-alpha
+ * surface never covers the writing, and the author's background picture never
+ * falls behind the host's field.
+ *
+ * Both of those are one mistake apart, in opposite directions, and each was
+ * measured rather than argued. Leave the content unpositioned and the face
+ * veils it, because a positioned descendant paints after in-flow content.
+ * Push the face back with a negative z-index instead and it escapes to the
+ * nearest stacking context — which `relative` does not create — landing behind
+ * the field, where three existing cases in `section-card-face.spec.ts` catch
+ * it.
  * Horizontal excess scrolls inside the tray instead of being clipped, so a
  * narrow workbench never conceals part of the real renderer it is previewing.
  *
@@ -112,13 +128,32 @@ export function SectionPreviewTray({
             style={painted}
             className="pointer-events-none absolute inset-0 rounded-xl surface border-(--edge) bg-(--surface)"
           />
-          <Block
-            block={parsed.data}
-            locale={lang}
-            depth={0}
-            path={`preview-${position}`}
-            page={page}
-          />
+          {/*
+           * **The content gets a layer of its own, ABOVE the face.** The face
+           * is `absolute` and the section it previews is `static`, and a
+           * positioned descendant paints AFTER in-flow content — so without
+           * this wrapper the face's `--surface`, at 90% alpha, veils the very
+           * thing the tray exists to show. It did, from `6636b4c` until this
+           * was measured: 79.56% of a tray's pixels changed when the face was
+           * hidden, and a section heading painted `[238, 228, 224]` where the
+           * public page paints `[57, 30, 23]`.
+           *
+           * `relative` rather than a z-index on either element, deliberately.
+           * Both are then positioned with `z-index: auto` and DOM order alone
+           * decides, which keeps the face on the separate layer `cutout`'s
+           * `clip-path` needs. A negative z-index on the face would escape to
+           * the nearest stacking context instead — `.relative` creates none —
+           * and fall behind the host's field.
+           */}
+          <div className="relative">
+            <Block
+              block={parsed.data}
+              locale={lang}
+              depth={0}
+              path={`preview-${position}`}
+              page={page}
+            />
+          </div>
         </div>
       </PreviewThemeHost>
     </div>
