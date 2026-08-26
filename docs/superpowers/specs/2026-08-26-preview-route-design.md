@@ -77,7 +77,12 @@ whose handle is `preview`.
 no auth read, no actor read, no visibility decision. Three consequences, and
 the second is the reason:
 
-- Nothing to leak. A stranger opening the URL gets an empty page.
+- Nothing to leak. **Measured rather than reasoned:** a stranger opening the
+  URL is redirected to sign-in before the document is ever built, because
+  `proxy.ts` protects everything `isPublicRoute` does not name and this route
+  is not named. That is stronger than the "empty page" this section first
+  claimed, and the claim was corrected only because the route was driven — it
+  had been written from the shape of the code.
 - **No second place decides what may be shown.** `PublicProfile`'s own note
   forbids re-deriving visibility in a component; a route that server-rendered
   the saved page would be exactly that.
