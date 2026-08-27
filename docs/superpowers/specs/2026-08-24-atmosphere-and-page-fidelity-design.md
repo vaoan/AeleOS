@@ -1,5 +1,20 @@
 # Atmosphere and page fidelity — design
 
+> **SUPERSEDED, 2026-08-27**, by
+> `2026-08-27-the-editor-wears-the-page-design.md`.
+>
+> This put a chosen FEW properties on the editor document while a page-scale
+> surface was open. The editor now puts the WHOLE theme on its document, always,
+> through the same `ThemeScope` a public route uses — so `atmosphereCss`, the
+> mechanism this spec designed, is deleted rather than extended.
+>
+> What remains true: the diagnosis. Controls belong on stable AeleOS tokens and
+> the page belongs to its author; this got the boundary right and the scope of
+> what crosses it wrong.
+>
+> The body below is left as delivered. Read the superseding spec first; this is
+> history, and a banner is only a banner while somebody updates it.
+
 **Status: COMPLETE — implemented and verified 2026-08-24.**
 
 This corrects two things `#8` got wrong, and one it broke silently. `#8` made the
