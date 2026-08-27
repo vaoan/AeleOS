@@ -358,11 +358,29 @@ A page is a **tree of blocks** now, and the two axes are separate.
   lets a kind's module import it with no cycle.
 - `presentation/blocks.tsx` — what ARRANGES blocks: the container modes, the
   page shell, and the `LEAVES` / `MODES` registries.
-- `presentation/content-leaves.tsx` — the eleven kinds an author types, pastes
-  or links.
+- `presentation/text-leaves.tsx` — the kinds made of an author's own WORDS:
+  `text`, `quote`, `stat`, `progress`, `table`. None of them reaches a network.
+- `presentation/media-leaves.tsx` — the kinds that show something hosted
+  ELSEWHERE: `picture`, `embed`, `player`, `jukebox`. The provider allowlist and
+  the frame tables are consumed here and nowhere else among the leaves.
+- `presentation/link-leaves.tsx` — the two that POINT somewhere without showing
+  it: `link` and `social`. They always draw a control, whatever host was pasted.
 - `presentation/identity-leaves.tsx` — the five that draw the ACTOR.
 
-It was one 2,333-line file until the kinds moved out; `blocks.tsx` is 1,363 now.
+It was one 2,333-line file until the kinds moved out; `blocks.tsx` is 1,367 now
+and the largest leaf module is 449 lines.
+
+**The grouping is by what a kind REACHES, not by what it looks like**, and that
+is the line worth keeping: a change to the embed allowlist cannot reach
+`text-leaves.tsx`, and nothing in `link-leaves.tsx` resolves a provider. Card
+shape would have grouped `stat` with `link` and taught you nothing.
+
+**Splitting them made two fallbacks visible that were three calls inside one
+file.** `PictureLeaf` degrades to `PlainLeaf` when an address will not pass
+`safeHttpUrl`, and `EmbedLeaf` degrades to `SocialLeaf` when no provider claims
+it — so `media` imports `text` and `link`, and neither imports back. A DAG, and
+`madge` says so.
+
 Nothing about the enforcement changed: `satisfies Record<LeafKind, LeafRenderer>`
 still sits on the registry, so a kind with no renderer is a build failure.
 
@@ -2877,7 +2895,9 @@ case structurally cannot see the effect — root rule 30.
 Four changes, each measured before it was made. Nothing about the model, the
 vocabulary or the enforcement moved; this was all about where code lives.
 
-**The renderer split four ways.** See the list at the top of the blocks section.
+**The renderer split, and then split again.** It went four ways on 2026-08-27
+and the content module went three ways the same day — see the list at the top of
+the blocks section for what each holds.
 The seam that made it possible is `block-contract.ts`: while the contract lived
 in `blocks.tsx`, any leaf module that spoke it would have depended on the file
 that registers it, which is why `identity-leaves.tsx` had restated the

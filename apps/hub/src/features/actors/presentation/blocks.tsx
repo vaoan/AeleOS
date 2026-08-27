@@ -23,18 +23,22 @@ import {
 
 import type { PageMeasure } from "@/features/actors/domain/actor-theme";
 import {
-  EmbedLeaf,
-  JukeboxLeaf,
-  LinkLeaf,
-  PictureLeaf,
   PlainLeaf,
-  PlayerLeaf,
   ProgressLeaf,
   QuoteLeaf,
-  SocialLeaf,
   StatLeaf,
   TableLeaf,
-} from "@/features/actors/presentation/content-leaves";
+} from "@/features/actors/presentation/text-leaves";
+import {
+  EmbedLeaf,
+  JukeboxLeaf,
+  PictureLeaf,
+  PlayerLeaf,
+} from "@/features/actors/presentation/media-leaves";
+import {
+  LinkLeaf,
+  SocialLeaf,
+} from "@/features/actors/presentation/link-leaves";
 import type {
   LeafProps,
   LeafRenderer,
