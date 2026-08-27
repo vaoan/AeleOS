@@ -1768,6 +1768,23 @@ every Tailwind utility for months without anything noticing.
     exist, with 59 of them able to see something, because a comparison where
     both sides return nothing is rule 27 wearing a security hat.
 
+    **The one thing this rule does NOT forbid is naming a cost you have
+    measured (2026-08-27).** A DEFAULT is not a budget anybody chose.
+    `block-editor.test.tsx`'s cap case renders `BLOCK_LIMITS.blocks` — 500 —
+    real leaf editors into jsdom, and sat against vitest's generic 5000ms:
+    measured at 843/858ms with the card eyebrow rendering nothing and
+    1048/1056ms with it, while CI ran the same case at 5314ms and timed out.
+    At about 5x this machine the case was already inside 15% of the ceiling
+    **before** the eyebrow existed, with no headroom for a loaded runner.
+
+    So the forbidden move is raising a number until a red run goes green
+    without knowing why. Naming an explicit ceiling, on a case that asserts no
+    duration, with the readings and the mechanism written beside it, is the
+    opposite act — and the giveaway is that it comes with numbers. A micro-fix
+    was tried first and refused for the right reason: replacing the leaf's icon
+    with a CSS box read 896–1043ms against 1048/1056, distributions that
+    overlap, so rule 14 says there is no claim there to make.
+
 34. **A SABOTAGE that restores with `git` restores to the last COMMIT, which is
     not where you were.** "Break it, run it, put it back" is the discipline this
     file is built on, and the putting-back has a trap: a `git checkout -- <file>`
