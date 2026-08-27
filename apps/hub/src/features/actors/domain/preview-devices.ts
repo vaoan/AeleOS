@@ -70,37 +70,22 @@ export function nearestDevice(windowWidth: number): PreviewDeviceId {
  * change the box the page believes it is in — what shrinks is only the pixels
  * being looked at.
  *
- * **HEIGHT is a constraint too, and only because the frame is pinned.** A
- * sticky box taller than the window pins with its lower half off-screen and
- * cannot be scrolled to, because the thing that would scroll it is the very
- * scroll that holds it in place — so the part of a page an author most wants
- * to check would be permanently unreachable. The height constraint is what
- * keeps the whole device visible while the page scroll scrubs through its
- * content. It costs magnification: a 1280×900 desktop box in a 900-tall window
- * is bounded by height rather than width, where a box that scrolled inside
- * itself was not.
+ * **Width alone, and the height constraint that briefly lived here is gone
+ * with the mechanism that needed it.** While the frame was pinned, a device
+ * taller than the window pinned with its lower half unreachable, so the room
+ * down the screen bound the scale as well. The frame is as tall as its content
+ * now and scrolls away with the page like anything else, so there is no height
+ * to fit inside and no reason to shrink for one.
  *
- * Either dimension may be given as zero, which means "not measured yet" and is
- * treated as no constraint rather than as no room — a scale of zero would make
- * the preview vanish for a frame. Passing neither height reproduces the
- * width-only behaviour exactly, which is what the callers that do not pin use.
+ * An `available` of zero means the container has not been measured yet, and is
+ * treated as no constraint rather than as no room: a scale of zero would make
+ * the preview vanish for a frame.
  *
  * @param deviceWidth - the chosen viewport's width.
  * @param available - the room the editor can give it across.
- * @param deviceHeight - the chosen viewport's height, or zero to ignore it.
- * @param availableHeight - the room down the screen, or zero to ignore it.
  * @returns a scale factor in `(0, 1]`.
  */
-export function previewScale(
-  deviceWidth: number,
-  available: number,
-  deviceHeight = 0,
-  availableHeight = 0,
-): number {
-  const byWidth = available > 0 ? available / deviceWidth : 1;
-  const byHeight =
-    availableHeight > 0 && deviceHeight > 0
-      ? availableHeight / deviceHeight
-      : 1;
-  return Math.min(1, byWidth, byHeight);
+export function previewScale(deviceWidth: number, available: number): number {
+  if (available <= 0) return 1;
+  return Math.min(1, available / deviceWidth);
 }

@@ -43,48 +43,16 @@ import { PageContent } from "@/shared/presentation/page-content";
  * exist yet.
  *
  * @returns the draft page, or nothing until one arrives.
- *
- * **A wheel over it scrolls the PAGE that frames it.** The editor pins this
- * document's frame and scrubs it as the page scrolls past, so a gesture landing
- * here instead would be two scrollers disagreeing about one position. The
- * document keeps its own scrolling — taking it away with `overflow: hidden`
- * clips ink overflow, which is a fault this app has already shipped once — so
- * the gesture is forwarded rather than the scrolling removed. Opened directly,
- * with no parent, it does nothing.
+
+ * **It keeps its own scrolling and needs no gesture forwarding.** The frame is
+ * given the height of this document's content, so there is nothing here to
+ * scroll and a wheel over it chains to the page that frames it on its own. An
+ * earlier arrangement pinned the frame at a device height and drove this
+ * document's scroll from the parent; forwarding the wheel existed to stop the
+ * two disagreeing, and went with it.
  */
 export function PreviewDocument(): ReactNode {
   const [draft, setDraft] = useState<PreviewDraft | null>(null);
-
-  /**
-   * Hands a scroll gesture over the preview to the page that frames it.
-   *
-   * **The document keeps its own scrolling, and that is the point.** Making it
-   * `overflow: hidden` was tried and is wrong twice over: it clips ink
-   * overflow — a bled banner's own shadow, measured at 77 channels on the page
-   * and 0 in the preview when this document was last a clipping box — and it
-   * makes the document element a non-`visible` box, which is the fault
-   * `preview-fidelity`'s scroll-container case exists to catch. So the way to
-   * stop two scrollers disagreeing is not to remove one, but to give the
-   * gesture to the one that should have it.
-   *
-   * The editor scrubs this document from a spacer as the page scrolls past.
-   * Forwarding the wheel means a gesture anywhere over the frame moves that
-   * page, which moves this document — one scrollbar in the hand, and the
-   * preview never fights it.
-   *
-   * `passive: false` because the point is to `preventDefault`, and a listener
-   * registered without it is one the browser is free to ignore.
-   */
-  useEffect(() => {
-    const onWheel = (event: WheelEvent) => {
-      // Unframed — the route opened directly — there is nobody to hand it to.
-      if (globalThis.parent === globalThis.self) return;
-      event.preventDefault();
-      globalThis.parent.scrollBy(0, event.deltaY);
-    };
-    globalThis.addEventListener("wheel", onWheel, { passive: false });
-    return () => globalThis.removeEventListener("wheel", onWheel);
-  }, []);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {

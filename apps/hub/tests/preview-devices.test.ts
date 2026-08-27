@@ -50,29 +50,4 @@ describe("previewScale", () => {
   it("treats an unmeasured container as unconstrained", () => {
     expect(previewScale(1280, 0)).toBe(1);
   });
-
-  // **Height binds only because the frame is PINNED.** A sticky box taller
-  // than the window pins with its lower half off-screen and cannot be
-  // scrolled to, because the scroll that would reveal it is the one holding
-  // it in place.
-  it("shrinks a device taller than the room down the screen", () => {
-    // Width alone would allow 1.0 here, so this case can only pass if the
-    // height is actually consulted — the two constraints disagree on purpose.
-    expect(previewScale(390, 1280, 844, 422)).toBe(0.5);
-  });
-
-  it("takes whichever constraint binds harder", () => {
-    // Width binds: 0.25 across against 0.5 down.
-    expect(previewScale(1280, 320, 900, 450)).toBe(0.25);
-    // Height binds: 0.5 across against 0.25 down.
-    expect(previewScale(1280, 640, 900, 225)).toBe(0.25);
-  });
-
-  // Both halves of the "not measured yet" rule, and they are separate
-  // branches: a caller that never pins passes no height at all.
-  it("ignores a height it has not been given", () => {
-    expect(previewScale(1280, 640)).toBe(0.5);
-    expect(previewScale(1280, 640, 900, 0)).toBe(0.5);
-    expect(previewScale(1280, 640, 0, 450)).toBe(0.5);
-  });
 });

@@ -21,6 +21,7 @@ import {
   seedProfile,
 } from "./support/blocks";
 import { compareShots } from "./support/pixels";
+import { PREVIEW_DEVICES } from "@/features/actors/domain/preview-devices";
 
 // THE PREVIEW AGAINST THE PAGE, IN PIXELS.
 //
@@ -818,32 +819,33 @@ test("the framed document is not a scroll container", async ({ page }) => {
   ).toEqual([]);
 });
 
-// **ONE SCROLLBAR, WITHOUT GIVING BACK THE DEVICE VIEWPORT.**
+// **THE FRAME IS AS TALL AS THE PAGE IT FRAMES.**
 //
-// The preview had its own scroll, nested inside the editor's, which is what a
-// real device window costs. The tempting cure is to grow the frame to its
-// content's height — and that re-opens the fault this whole file exists for,
-// because a page's backdrop is `background-attachment: fixed` and a 390x4000
-// window is not one any visitor has.
+// It was pinned for a while, at a device height, with the editor's scroll
+// driving the framed document's own. That bought one scrollbar and read wrong:
+// the frame held still while its content slid underneath, so a page whose
+// backdrop is `background-attachment: fixed` kept that backdrop pinned while
+// everything above it moved — scrolling with the page and not scrolling with
+// it at once.
 //
-// So the window stays and the page's scroll drives it: the frame pins clear of
-// the editor's three bars, the spacer around it is as tall as the scaled
-// distance the content can travel, and progress through the spacer is progress
-// through the document.
+// Given its content's height, the frame never scrolls inside itself and simply
+// scrolls away with the editor. The cost is real and is the reason the pin
+// existed: the framed viewport is now the whole document, so a viewport-
+// anchored backdrop covers the page once instead of once per screenful. That
+// is a different picture from what a scrolling visitor sees, and it is the
+// trade this shape accepts.
 //
-// Rule 27 — the three ways this can be wrong, and what tells each apart:
-// remove the driver and the framed document never moves; remove the pin and
-// the frame scrolls away instead of holding its place; leave the framed
-// document scrollable and a wheel over it fights the driver. Each has its own
-// assertion below rather than one that would pass on two of the three.
-test("the editor's scroll drives the pinned preview", async ({ page }) => {
+// Rule 27 — what each assertion excludes: a frame shorter than its content
+// scrolls inside itself again; a frame that does not grow when the page does
+// is measured once and never updated; and a device wider than the editor must
+// not push the editor sideways, which is the case `responsive.spec.ts` could
+// not reach because it only ever opens the size NEAREST the window.
+test("the frame is as tall as the page it frames", async ({ page }) => {
   test.setTimeout(120_000);
   const { handle: tallHandle } = await seedPage({
     userId: identity!.userId,
-    handlePrefix: "drivenscroll",
-    displayName: "Driven scroll",
-    // Tall enough that the framed page genuinely overflows its device: with
-    // nothing to scrub, every assertion here would pass on a broken driver.
+    handlePrefix: "fullheight",
+    displayName: "Full height",
     blocks: Array.from({ length: 8 }, (_, at) =>
       container({
         name_en: `Section ${at + 1}`,
@@ -853,7 +855,7 @@ test("the editor's scroll drives the pinned preview", async ({ page }) => {
           leaf({
             title_en: `Heading ${at + 1}`,
             title_es: `Encabezado ${at + 1}`,
-            description_en: "A sentence with enough words to take a line.",
+            description_en: "A sentence with enough words to take up a line.",
             description_es: "Una frase con palabras suficientes.",
           }),
         ],
@@ -875,102 +877,105 @@ test("the editor's scroll drives the pinned preview", async ({ page }) => {
     .frames()
     .find((candidate) => candidate.url().includes("/me/preview"))!;
 
-  // 1. A wheel over the frame scrolls the PAGE, not the framed document.
-  //
-  // **The framed document keeps its own scrolling, deliberately.** Taking it
-  // away with `overflow: hidden` was tried and clips ink overflow — the fault
-  // the scroll-container case below this one exists to catch. So the gesture
-  // is forwarded instead, and what is asserted is where it LANDS.
-  const overflows = await frame.evaluate(
-    () =>
-      document.documentElement.scrollHeight >
-      document.documentElement.clientHeight,
+  // 1. The framed document has nothing left to scroll: its viewport is itself.
+  await expect
+    .poll(async () =>
+      frame.evaluate(
+        () =>
+          document.documentElement.scrollHeight -
+          document.documentElement.clientHeight,
+      ),
+    )
+    .toBeLessThanOrEqual(1);
+
+  // And it is genuinely taller than the device, so the case is not passing
+  // because there was nothing to scroll in the first place.
+  const framedHeight = await frame.evaluate(
+    () => document.documentElement.clientHeight,
   );
-  expect(overflows, "the framed page is taller than its device").toBe(true);
+  expect(framedHeight).toBeGreaterThan(900);
 
-  // **The reading is taken AFTER the hover, and that is not fussiness.**
-  // Playwright scrolls an element into view to hover it, so a reading taken
-  // before moved on its own — and the assertion then passed with the
-  // forwarding deleted, which is the whole failure this repository calls
-  // rule 27. Verified by deleting it again afterwards.
-  await page
-    .getByTestId("complete-page-preview-frame")
-    .hover({ position: { x: 40, y: 40 } });
-  const before = await page.evaluate(() => globalThis.scrollY);
-  await page.mouse.wheel(0, 240);
+  // 2. It grows when the page does. Adding a section must lengthen the frame,
+  //    which a height measured once and cached would not do.
+  await page.getByTestId("add-section").click();
   await expect
-    .poll(() => page.evaluate(() => globalThis.scrollY))
-    .toBeGreaterThan(before);
+    .poll(async () =>
+      frame.evaluate(() => document.documentElement.clientHeight),
+    )
+    .toBeGreaterThan(framedHeight);
 
-  // 2. Scrolling the editor moves the framed document.
+  // 3. And it scrolls away with the editor rather than holding its place.
   //
-  // **The zero point is where the frame BEGINS to pin, not where the spacer
-  // starts.** They differ by the pin offset — measured 184px here — and
-  // starting from the spacer's own top puts the page 184px into the scrub
-  // already, which reads as "the driver is broken" when it is working
-  // perfectly.
-  const spacerTop = await page
-    .getByTestId("preview-scroller")
-    .evaluate((node) => node.getBoundingClientRect().top + globalThis.scrollY);
-  // Guarded exactly as the component guards it. An unpinned element computes
-  // `top: auto`, and an unguarded `parseFloat` would make `start` — and every
-  // number derived from it — `NaN`, which swamps the assertions below with a
-  // failure about arithmetic instead of about the frame having scrolled away.
-  const pinnedAt = await page
-    .getByTestId("preview-surround")
-    .evaluate((node) => Number.parseFloat(getComputedStyle(node).top) || 0);
-  const start = spacerTop - pinnedAt;
-
-  await page.evaluate((y) => globalThis.scrollTo(0, y), start);
-  await expect.poll(() => frame.evaluate(() => globalThis.scrollY)).toBe(0);
-
-  await page.evaluate((y) => globalThis.scrollTo(0, y + 400), start);
-  await expect
-    .poll(() => frame.evaluate(() => globalThis.scrollY))
-    .toBeGreaterThan(0);
-
-  // 3. And the frame HELD ITS PLACE while that happened.
-  //
-  // Asserted as "it did not move between two scroll positions" rather than as
-  // "its top equals the offset the stylesheet declares". The second reads
-  // better and is a worse test: on an unpinned element `top` computes to
-  // `auto`, so it fails by `NaN` rather than by the box having moved — and it
-  // would pass for anything that happened to sit at the right offset once.
-  const topAt = () =>
+  // **This one is corroborating, not evidence, and the sabotage said so.**
+  // Putting `sticky top-0` back on the surround leaves this GREEN, because a
+  // sticky box only sticks while its containing block is still passing — and
+  // the spacer that used to give it that room is gone. Pinning is now
+  // impossible by construction rather than merely absent, which is a stronger
+  // guarantee than this assertion, and the unit suite pins the construction
+  // (`does not pin the frame or reserve scroll distance for it`).
+  const topOf = () =>
     page
       .getByTestId("preview-surround")
       .evaluate((node) => node.getBoundingClientRect().top);
-  const held = await topAt();
-  await page.evaluate((y) => globalThis.scrollTo(0, y + 700), start);
-  expect(Math.abs((await topAt()) - held), "the frame stayed put").toBeLessThan(
-    2,
-  );
-  // And it is held at the offset meant for it, clear of the three bars — a
-  // frame pinned at `top: 0` would sit under the header.
-  expect(held).toBeGreaterThan(0);
-  expect(Math.abs(held - pinnedAt)).toBeLessThan(2);
+  const before = await topOf();
+  await page.evaluate(() => globalThis.scrollBy(0, 400));
+  expect(before - (await topOf())).toBeGreaterThan(300);
+});
 
-  // 4. Scrolling to the very end of the spacer reaches the end of the page,
-  //    so nothing is unreachable — the failure a pin without a driver causes.
-  const spacerHeight = await page
-    .getByTestId("preview-scroller")
-    .evaluate((node) => node.getBoundingClientRect().height);
-  await page.evaluate((y) => globalThis.scrollTo(0, y), start + spacerHeight);
-  const inner = () =>
-    frame.evaluate(() => ({
-      at: globalThis.scrollY,
-      max:
-        document.documentElement.scrollHeight -
-        document.documentElement.clientHeight,
-    }));
-  const { max } = await inner();
-  expect(
-    max,
-    "the framed page really does have somewhere to scroll",
-  ).toBeGreaterThan(0);
-  // Polled: the driver runs on an animation frame, so its last write lands
-  // after the scroll call returns.
-  await expect
-    .poll(async () => (await inner()).at)
-    .toBeGreaterThanOrEqual(max - 2);
+// **A DEVICE WIDER THAN THE EDITOR MUST NOT PUSH THE EDITOR SIDEWAYS.**
+//
+// The frame's LAYOUT box is the device's full width whatever the scale, because
+// a transform does not change layout — so previewing a 1280 desktop inside a
+// 320 editor puts a 1280-wide element on the page and relies on its ancestors
+// to contain it. `responsive.spec.ts` opens the preview at the size NEAREST the
+// window and so never previews a desktop on a phone, which is exactly the
+// combination that can overflow.
+test("no device overflows any editor width", async ({ page }) => {
+  test.setTimeout(120_000);
+  const { handle: matrixHandle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "matrix",
+    displayName: "Matrix",
+    blocks: [
+      container({
+        name_en: "A section",
+        name_es: "Una sección",
+        mode: "stack",
+        children: [leaf({ title_en: "Heading", title_es: "Encabezado" })],
+      }),
+    ],
+  });
+
+  await signIn(page, await mintTicket(identity!.userId));
+
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/es/pages/${matrixHandle}/edit`);
+    await page.getByTestId("complete-page-preview-toggle").click();
+    await expect(page.getByTestId("complete-page-preview-frame")).toBeVisible();
+
+    for (const device of PREVIEW_DEVICES) {
+      await page.getByTestId(`preview-device-${device.id}`).click();
+      await expect(
+        page.getByTestId("complete-page-preview-frame"),
+      ).toHaveAttribute("width", String(device.width));
+
+      // **What this cannot tell you, said out loud.** Removing the wrapper's
+      // own `overflow-hidden` leaves every case here green: headless Chromium
+      // contains the over-wide iframe through the surround alone. So this pins
+      // the OUTCOME — no sideways scroll at any pairing — and is not evidence
+      // about which ancestor is doing the containing. The wrapper clips as
+      // well because a real touch browser was reported to scroll sideways
+      // here, and that report is not reproducible in this browser at all.
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      );
+      expect(
+        overflow,
+        `an editor ${width} wide previewing the ${device.id} does not scroll sideways`,
+      ).toBeLessThanOrEqual(0);
+    }
+  }
 });
