@@ -1230,6 +1230,42 @@ property BY NAME, which is root rule 30's shape one level down — the suite was
 asserting the fault. The document scrolls instead, exactly as it does for a
 stranger on an over-wide page.
 
+**Hiding the controls leaves the page, and that is what replaced the framed
+preview.** The toolbar carries a control that sets `data-controls="hidden"` on
+the element wrapping the whole editor; two rules in `globals.css` do the rest.
+
+The first removes every `CHROME_SCOPE` island. Hiding by CLASS rather than by a
+list of components is the point: a control added tomorrow is hidden without
+anybody remembering to add it anywhere.
+
+The second flattens the editor's own stacking, and it is not tidiness.
+`PublicBlocks` renders its sections in a grid with NO gap and lets
+`pageBoxClass` own every margin between them; the editor interleaves a control
+card with each preview and needs `gap-6` and `gap-2` to keep each pair legible.
+Left in place with the cards hidden, those gaps push every section further down
+the document than a visitor sees it — and because the author's field is fixed to
+the WINDOW, a section at the wrong offset shows the wrong slice of their own
+backdrop. Three elements carry `data-editor-stack` for that rule to reach.
+
+**The control that brings the workbench back is rendered OUTSIDE the armed
+element**, so it needs no exception in the rule and cannot be part of what the
+fidelity comparison photographs. Putting it inside would let the rule hide the
+only control that could undo it, stranding somebody on a page with no way back.
+`fursona-editor.test.tsx` asserts both halves of that containment, and the
+sabotage that moves it inside reddens.
+
+**Its button is `type="button"`, and that is not a formality** — every button
+inside a `<form>` submits by default, so an unspecified type would save the page
+on the way to looking at it. The guard is asserted on the form's own `submit`
+EVENT rather than on the save mock: the first version checked the mock straight
+after the click and passed with the type removed, because react-hook-form
+validates asynchronously and the assertion ran before anything could have called
+it. Rule 29 — a sabotage that leaves the suite green has proved nothing.
+
+**Nothing persists the choice.** It is a way of looking rather than a
+preference; a remembered value would open the editor with no controls at all for
+whoever did it once.
+
 **THE FRAMED PREVIEW IS GONE (2026-08-27), AND SO IS EVERYTHING WRITTEN ABOUT
 IT.** `/{locale}/me/preview`, `PreviewDocument`, the `postMessage` handshake and
 draft contract, `CompletePagePreview`, the device table and the backdrop banding

@@ -192,6 +192,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * the page and cannot escape it. `margins` is the independent chrome toggle
  * beside it: checked omits the key, unchecked stores `false`.
  *
+ * `hideControls` and `showControls` are separate strings because the control
+ * that steps the workbench aside and the one that brings it back are rendered
+ * in different places and never both exist at once.
+ *
  * @returns the translated labels.
  */
 export async function fursonaEditorLabels(
@@ -203,6 +207,8 @@ export async function fursonaEditorLabels(
     save: t("save"),
     saving: t("saving"),
     cancel: t("cancel"),
+    hideControls: t("hideControls"),
+    showControls: t("showControls"),
     bannerTitle: t("bannerTitle"),
     writingIn: t("writingIn"),
     writingInHint: t("writingInHint"),

@@ -704,3 +704,34 @@ body {
     transform-origin: right;
   }
 }
+
+/*
+ * **Hiding the controls leaves the page, and it has to leave EXACTLY the page.**
+ *
+ * The editor themes its own document with the draft, so the only things
+ * standing between an author and their published page are the control islands
+ * and the boxes that space them out. One rule removes every island — including
+ * any added later, which is the point of hiding by CLASS rather than by a list
+ * somebody has to maintain — and a second flattens the editor's own stacking.
+ *
+ * That second rule is not tidiness. `PublicBlocks` renders its sections in a
+ * grid with NO gap and lets `pageBoxClass` own every margin between them; the
+ * editor interleaves a control card with each preview and needs gaps to keep
+ * the pair legible. Left in place with the cards hidden, those gaps would push
+ * every section further down the page than a visitor sees it — and because the
+ * author's field is fixed to the window, a section at the wrong offset shows
+ * the wrong slice of their own backdrop. `editor-is-the-page.spec.ts` is what
+ * measures that.
+ *
+ * The control that brings the workbench back is rendered OUTSIDE the element
+ * carrying this attribute, so it needs no exception here and cannot be part of
+ * what the fidelity comparison photographs.
+ */
+[data-controls="hidden"] .aeleos-chrome {
+  display: none;
+}
+
+[data-controls="hidden"] [data-editor-stack] {
+  gap: 0;
+  margin: 0;
+}

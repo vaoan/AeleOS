@@ -106,6 +106,8 @@ const labels = {
   save: "Save",
   saving: "Saving…",
   cancel: "Cancel",
+  hideControls: "Hide controls",
+  showControls: "Show controls",
   bannerTitle: "Fix these before saving",
   writingIn: "Writing in",
   writingInHint: "Only the page text.",
@@ -519,6 +521,68 @@ describe("FursonaEditor", () => {
     for (const tray of screen.queryAllByTestId("block-preview")) {
       expect(tray.closest(`.${CHROME_SCOPE}`)).toBeNull();
     }
+  });
+
+  // **HIDING THE CONTROLS LEAVES THE PAGE.** The mechanism is one CSS rule over
+  // `CHROME_SCOPE`, so what is asserted here is the attribute that arms it and
+  // the two structural facts the rule depends on: every control is inside the
+  // armed element, and the control that brings them back is not.
+  //
+  // What the rule DOES is a question for a browser — jsdom applies no
+  // stylesheet — and `editor-is-the-page.spec.ts` is where it is photographed
+  // against the live page at seven widths.
+  it("arms the hide-controls rule and keeps its own way back out of it", () => {
+    const { container } = renderEditor();
+    const armed = () =>
+      container.querySelector("[data-controls]")!.getAttribute("data-controls");
+
+    expect(armed()).toBe("shown");
+    expect(screen.queryByTestId("show-controls")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("hide-controls"));
+    expect(armed()).toBe("hidden");
+
+    // Every island is INSIDE the armed element, or the rule cannot reach it.
+    const region = container.querySelector("[data-controls]")!;
+    for (const island of container.querySelectorAll(`.${CHROME_SCOPE}`)) {
+      if (
+        island.hasAttribute("data-testid") &&
+        island.getAttribute("data-testid") === "show-controls"
+      )
+        continue;
+      expect(region.contains(island)).toBe(true);
+    }
+
+    // And the way back is OUTSIDE it, so the rule cannot hide the only control
+    // that could undo it — which would strand somebody on a page with no
+    // workbench and no way to reach one.
+    const restore = screen.getByTestId("show-controls");
+    expect(region.contains(restore)).toBe(false);
+
+    fireEvent.click(restore);
+    expect(armed()).toBe("shown");
+    expect(screen.queryByTestId("show-controls")).toBeNull();
+  });
+
+  // **Not a submit.** Every button inside a `<form>` submits by default, so an
+  // unspecified `type` would save the page on the way to looking at it.
+  //
+  // **Asserted on the form's own submit EVENT, not on the save mock.** The
+  // first version of this checked `save` straight after the click and passed
+  // with `type="button"` removed — react-hook-form validates asynchronously, so
+  // the assertion ran before anything could have called it and could not have
+  // failed either way. Rule 29: a sabotage that leaves the suite green has
+  // proved nothing. jsdom dispatches `submit` synchronously when a submitting
+  // button is clicked, which is the signal that actually discriminates.
+  it("does not save the page on the way to looking at it", () => {
+    renderEditor();
+    const submitted = vi.fn();
+    screen.getByTestId("editor-content").addEventListener("submit", submitted);
+
+    fireEvent.click(screen.getByTestId("hide-controls"));
+
+    expect(submitted).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("puts the theme panel, language strip and sections in order", () => {

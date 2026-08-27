@@ -395,7 +395,9 @@
       "full": "Todo el ancho"
     },
     "sectionStyleBleed": "Llegar a ambos bordes de la ventana",
-    "sectionStyleMargins": "Márgenes"
+    "sectionStyleMargins": "Márgenes",
+    "hideControls": "Ocultar controles",
+    "showControls": "Mostrar controles"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

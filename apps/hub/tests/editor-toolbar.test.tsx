@@ -20,7 +20,13 @@ vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
 const { EditorToolbar } =
   await import("@/features/actors/presentation/editor-toolbar");
 
-const labels = { save: "Save", saving: "Saving…", cancel: "Cancel" };
+const labels = {
+  save: "Save",
+  saving: "Saving…",
+  cancel: "Cancel",
+  hideControls: "Hide controls",
+  showControls: "Show controls",
+};
 
 /**
  * Renders the toolbar with overrides.
@@ -35,6 +41,7 @@ function renderToolbar(props: Record<string, unknown> = {}): void {
       labels={labels}
       saving={false}
       cancelHref="/pages"
+      onHideControls={() => {}}
       {...props}
     />,
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { EyeOff } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { PageContext } from "@/features/actors/presentation/blocks";
 import {
@@ -417,6 +419,14 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * an empty tree — which `set_actor_sections` refuses, making a fursona built
  * by hand impossible to save at all.
  *
+ * **The workbench can step aside.** One attribute on the element wrapping the
+ * editor arms two rules in `globals.css`: one removes every `CHROME_SCOPE`
+ * island, the other flattens this editor's own stacking so the sections close
+ * up to the spacing `pageBoxClass` gives them on a public page. Nothing
+ * persists the choice — it is a way of looking, not a preference. The control
+ * that brings the workbench back is rendered OUTSIDE the armed element, or the
+ * rule would hide the only way out of the state it created.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -441,6 +451,11 @@ export function FursonaEditor({
     initialSections !== null,
   );
   const { lang, select } = useLanguageToggle();
+  // **A way of LOOKING, not a preference, so nothing persists it.** Somebody
+  // steps the workbench out of the way to see their page and steps it back; a
+  // remembered value would open the editor with no controls at all for whoever
+  // did that once.
+  const [controlsHidden, setControlsHidden] = useState(false);
 
   const {
     control,
@@ -533,197 +548,222 @@ export function FursonaEditor({
           for why that needs no cascade fight, and `section-card-face.spec.ts`
           for the guard. */}
       <ThemeScope theme={liveTheme as ActorTheme}>
-        <WidePageColumn
-          className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
-        >
-          <EditorToolbar
-            title={labels.title}
-            labels={labels}
-            saving={saving}
-            cancelHref={LIST}
-          />
+        {/* **Everything the hide-controls rule reaches.** One CSS rule removes
+            every `CHROME_SCOPE` island beneath this attribute, which is why
+            hiding is by CLASS rather than by a list of components somebody has
+            to keep in step — a control added tomorrow is hidden without anybody
+            remembering. A second rule flattens the editor's own stacking, so
+            the sections close up to exactly the spacing `pageBoxClass` gives
+            them on a public page. */}
+        <div data-controls={controlsHidden ? "hidden" : "shown"}>
+          <WidePageColumn
+            className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
+          >
+            <EditorToolbar
+              title={labels.title}
+              labels={labels}
+              saving={saving}
+              cancelHref={LIST}
+              onHideControls={() => setControlsHidden(true)}
+            />
 
-          <FormErrorBanner
-            errors={{ ...schemaErrors, ...fieldErrors }}
-            labels={{ title: labels.bannerTitle, errors: labels.errors }}
-          />
+            <FormErrorBanner
+              errors={{ ...schemaErrors, ...fieldErrors }}
+              labels={{ title: labels.bannerTitle, errors: labels.errors }}
+            />
 
-          {/* Explicit htmlFor/id rather than wrapping each input in its label.
+            {/* Explicit htmlFor/id rather than wrapping each input in its label.
           A wrapping label takes its whole text content as the field's
           accessible name, so the handle's hint became part of the name and it
           announced as "Handle 1-32 characters." The hint is attached with
           aria-describedby instead, which is what it is for. */}
-          {/* **The same container every other workbench group gets.** This one
+            {/* **The same container every other workbench group gets.** This one
           held the opaque backing without the chrome around it, so on a themed
           page it read as a bare rectangle floating on the author's field while
           the theme panel, the language toggle and every section below it were
           rounded, bordered cards. The backing is unchanged — it is what keeps
           these labels off a hostile field — and only the card's own shape has
           been added to it. */}
-          <div
-            {...tid("editor-identity-fields")}
-            className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
-          >
-            {/* **A person has no handle field at all.** Theirs is the provisioned
+            <div
+              {...tid("editor-identity-fields")}
+              className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
+            >
+              {/* **A person has no handle field at all.** Theirs is the provisioned
             `u-<actor_ref>`, which nobody picks and which appears in no
             address — so there is nothing to edit and nothing worth showing.
             Everything else on this form is identical for both. */}
-            {kind === "person" ? null : (
-              <div className="grid gap-1.5">
-                <label htmlFor="handle" className="text-sm font-medium">
-                  {labels.handle}
-                </label>
-                {handleEditable ? (
-                  <>
-                    <input
-                      id="handle"
-                      {...tid("editor-handle")}
-                      {...register("handle")}
-                      maxLength={32}
-                      aria-invalid={Boolean(errors.handle)}
-                      aria-describedby="handle-hint"
-                      className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                    />
-                    <span id="handle-hint" className="text-xs text-(--muted)">
-                      {labels.handleHint}
+              {kind === "person" ? null : (
+                <div className="grid gap-1.5">
+                  <label htmlFor="handle" className="text-sm font-medium">
+                    {labels.handle}
+                  </label>
+                  {handleEditable ? (
+                    <>
+                      <input
+                        id="handle"
+                        {...tid("editor-handle")}
+                        {...register("handle")}
+                        maxLength={32}
+                        aria-invalid={Boolean(errors.handle)}
+                        aria-describedby="handle-hint"
+                        className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                      />
+                      <span id="handle-hint" className="text-xs text-(--muted)">
+                        {labels.handleHint}
+                      </span>
+                    </>
+                  ) : (
+                    // Read-only text rather than a disabled input: update_fursona takes
+                    // no handle at all, so an editable one would submit a value the
+                    // database ignores.
+                    <span className="px-3 py-2 font-mono text-sm text-(--muted)">
+                      @{initial?.handle}
                     </span>
-                  </>
-                ) : (
-                  // Read-only text rather than a disabled input: update_fursona takes
-                  // no handle at all, so an editable one would submit a value the
-                  // database ignores.
-                  <span className="px-3 py-2 font-mono text-sm text-(--muted)">
-                    @{initial?.handle}
-                  </span>
-                )}
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-1.5">
+                <label htmlFor="displayName" className="text-sm font-medium">
+                  {labels.displayName}
+                </label>
+                <input
+                  id="displayName"
+                  {...tid("editor-display-name")}
+                  {...register("displayName")}
+                  maxLength={64}
+                  aria-invalid={Boolean(errors.displayName)}
+                  className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                />
               </div>
-            )}
 
-            <div className="grid gap-1.5">
-              <label htmlFor="displayName" className="text-sm font-medium">
-                {labels.displayName}
-              </label>
-              <input
-                id="displayName"
-                {...tid("editor-display-name")}
-                {...register("displayName")}
-                maxLength={64}
-                aria-invalid={Boolean(errors.displayName)}
-                className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-              />
+              <div className="grid gap-1.5">
+                <label htmlFor="avatarUrl" className="text-sm font-medium">
+                  {labels.avatarUrl}
+                </label>
+                <input
+                  id="avatarUrl"
+                  {...register("avatarUrl")}
+                  type="url"
+                  aria-invalid={Boolean(errors.avatarUrl)}
+                  className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <label htmlFor="visibility" className="text-sm font-medium">
+                  {labels.visibilityLabel}
+                </label>
+                <select
+                  id="visibility"
+                  {...tid("editor-visibility")}
+                  {...register("visibility")}
+                  aria-invalid={Boolean(errors.visibility)}
+                  className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
+                >
+                  {VISIBILITIES.map((value) => (
+                    <option key={value} value={value}>
+                      {labels.visibility[value]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="grid gap-1.5">
-              <label htmlFor="avatarUrl" className="text-sm font-medium">
-                {labels.avatarUrl}
-              </label>
-              <input
-                id="avatarUrl"
-                {...register("avatarUrl")}
-                type="url"
-                aria-invalid={Boolean(errors.avatarUrl)}
-                className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <label htmlFor="visibility" className="text-sm font-medium">
-                {labels.visibilityLabel}
-              </label>
-              <select
-                id="visibility"
-                {...tid("editor-visibility")}
-                {...register("visibility")}
-                aria-invalid={Boolean(errors.visibility)}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
-              >
-                {VISIBILITIES.map((value) => (
-                  <option key={value} value={value}>
-                    {labels.visibility[value]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Above the language strip and the sections, because it governs how
+            {/* Above the language strip and the sections, because it governs how
           all of them look. The panel is collapsed until somebody opens it —
           theming is a thing people do once and then leave alone, and an open
           colour panel would push everything below it down the page for
           everybody who never touches it. */}
-          <div className="mt-8">
-            <ThemeController
-              control={control}
-              labels={labels.theme}
-              profileTheme={profileTheme}
-            />
-          </div>
+            <div className="mt-8">
+              <ThemeController
+                control={control}
+                labels={labels.theme}
+                profileTheme={profileTheme}
+              />
+            </div>
 
-          {/* Directly above the sections it governs, and nothing else: `lang`
+            {/* Directly above the sections it governs, and nothing else: `lang`
           reaches only `SectionEditor`, so a strip sitting between the top
           fields and the theme panel used to announce itself over content it
           does not touch. Its `sticky` offset is what makes this position
           correct rather than merely tidier — it comes into force exactly
           when the sections it governs are on screen. */}
-          <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar-solid) p-3 backdrop-blur-sm short:static">
-            <div className="grid gap-0.5">
-              <span className="font-display text-sm font-bold">
-                {labels.writingIn}
-              </span>
-              <span className="text-xs text-(--muted)">
-                {labels.writingInHint}
-              </span>
-            </div>
+            <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar-solid) p-3 backdrop-blur-sm short:static">
+              <div className="grid gap-0.5">
+                <span className="font-display text-sm font-bold">
+                  {labels.writingIn}
+                </span>
+                <span className="text-xs text-(--muted)">
+                  {labels.writingInHint}
+                </span>
+              </div>
 
-            {/*
+              {/*
           Both languages are on screen and each names itself, so nothing has to
           be inferred from a single label. The endonyms are deliberately not
           translated: a language is called the same thing whatever interface
           you are reading, and "Spanish"/"Español" changing under somebody is
           how a language picker becomes unreadable to the person who needs it.
         */}
-            <div
-              role="group"
-              aria-label={labels.writingIn}
-              className="flex rounded-lg surface border-(--edge) p-0.5"
-            >
-              {(
-                [
-                  ["en", "English"],
-                  ["es", "Español"],
-                ] as const
-              ).map(([value, name]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => select(value)}
-                  aria-pressed={lang === value}
-                  {...tid(`writing-in-${value}`)}
-                  className={
-                    lang === value
-                      ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
-                      : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
-                  }
-                >
-                  {name}
-                </button>
-              ))}
+              <div
+                role="group"
+                aria-label={labels.writingIn}
+                className="flex rounded-lg surface border-(--edge) p-0.5"
+              >
+                {(
+                  [
+                    ["en", "English"],
+                    ["es", "Español"],
+                  ] as const
+                ).map(([value, name]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => select(value)}
+                    aria-pressed={lang === value}
+                    {...tid(`writing-in-${value}`)}
+                    className={
+                      lang === value
+                        ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
+                        : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
+                    }
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        </WidePageColumn>
+          </WidePageColumn>
 
-        <BlockEditor
-          control={control}
-          lang={lang}
-          labels={labels}
-          // **The LIVE form values, not the saved ones.** An identity leaf
-          // renders from the page context, and every section previews with the
-          // real renderer — so handing the context the route built would show
-          // somebody the portrait they had before they started editing, and the
-          // preview would quietly disagree with the form six inches above it.
-          page={livePage}
-          problems={problems}
-        />
+          <BlockEditor
+            control={control}
+            lang={lang}
+            labels={labels}
+            // **The LIVE form values, not the saved ones.** An identity leaf
+            // renders from the page context, and every section previews with the
+            // real renderer — so handing the context the route built would show
+            // somebody the portrait they had before they started editing, and the
+            // preview would quietly disagree with the form six inches above it.
+            page={livePage}
+            problems={problems}
+          />
+        </div>
+
+        {/* **OUTSIDE the element the rule reaches**, so it needs no exception and
+          cannot be part of what the fidelity comparison photographs. It is the
+          only thing on screen that is not the page. */}
+        {controlsHidden ? (
+          <button
+            type="button"
+            onClick={() => setControlsHidden(false)}
+            {...tid("show-controls")}
+            className={`${CHROME_SCOPE} fixed right-4 bottom-4 z-50 flex items-center gap-1.5 rounded-full bg-(--menu) px-4 py-2.5 text-sm font-medium shadow-lg`}
+          >
+            <EyeOff className="size-4" />
+            {labels.showControls}
+          </button>
+        ) : null}
       </ThemeScope>
     </form>
   );

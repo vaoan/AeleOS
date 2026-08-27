@@ -299,6 +299,13 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * has touched — and the warning would then be about work they had not done.
  * See `holdsNothingAuthored`.
  *
+ * **Three elements carry `data-editor-stack`**, which is what lets hiding the
+ * controls close the sections up to exactly the spacing a public page gives
+ * them. This editor needs gaps to keep each control card legible beside its
+ * preview; `PublicBlocks` has none, because `pageBoxClass` owns every margin
+ * between sections. Left in place with the cards hidden, those gaps would put
+ * every section further down the document than a visitor sees it.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -536,7 +543,7 @@ export function BlockEditor<T extends FieldValues>({
     // do inside a `max-w-7xl` box — that is the same inversion the public
     // routes already make, where the route asks the shell for a full-width
     // `main` and each section centres itself.
-    <section className="mt-8 grid gap-4">
+    <section data-editor-stack className="mt-8 grid gap-4">
       <WidePageColumn className={`${CHROME_SCOPE} py-0`}>
         {/* **A workbench group PAINTS, because what is behind it is somebody
             else's page.** These used to be bare text and a ghost button on the
@@ -601,9 +608,9 @@ export function BlockEditor<T extends FieldValues>({
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        <div className="grid gap-6">
+        <div data-editor-stack className="grid gap-6">
           {seats.map((seat) => (
-            <div key={seat.key} className="grid gap-2">
+            <div key={seat.key} data-editor-stack className="grid gap-2">
               <WidePageColumn className={`${CHROME_SCOPE} py-0`}>
                 <BlockSlot
                   path={[seat.position]}
