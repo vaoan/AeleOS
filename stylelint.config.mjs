@@ -86,6 +86,29 @@ export default {
     // for every property, not just this one.
     "property-no-vendor-prefix": null,
 
+    // **Off, because the chrome island makes it fire on rules that cannot
+    // conflict.** `globals.css` declares the app's tokens for `:root` and for
+    // `.aeleos-chrome` together, so a control keeps AeleOS's palette on a
+    // document wearing an author's page. Three rules then match a chrome
+    // island: the palette, the dark override
+    // (`[data-theme="dark"] .aeleos-chrome`), and the mode-independent form
+    // tokens a skin overrides — and the last is a bare class appearing after
+    // the descendant selector, which is what this rule reports.
+    //
+    // It is a false positive, and the reason is that the rule compares
+    // SELECTORS and cannot see property sets. The dark rule declares colour;
+    // the form rule declares corner radius, border style and shadow. They
+    // overlap in nothing, and where they ever did, specificity decides
+    // regardless of source order — so there is no surprise override for the
+    // ordering to prevent.
+    //
+    // The remedy it wants is moving the form block above the dark one, and
+    // that block's own comment explains why it sits outside both mode blocks.
+    // Reordering sixty lines of stylesheet to satisfy a check about a conflict
+    // that does not exist is the tail wagging the dog. Same judgement, and the
+    // same file, as `no-duplicate-selectors` above.
+    "no-descending-specificity": null,
+
     // A prefixed property and its standard form are the same declaration said
     // twice on purpose: Safari has never shipped `backdrop-filter` unprefixed,
     // and dropping either line changes what one browser renders.

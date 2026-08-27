@@ -253,16 +253,34 @@ otherwise.
 Run: `pnpm --filter hub test chrome-tokens && pnpm check:style`
 Expected: PASS.
 
-- [ ] **Step 6: Sabotage-verify in a browser, because a string test cannot see a cascade**
+- [ ] **Step 6: The browser proof is owed, and it belongs to Task 3**
 
-A string assertion proves the selector was written, never that it wins. Add
-`apps/hub/tests/e2e/chrome-tokens.spec.ts`: seed a page whose theme sets a
-hostile field and ink, open the editor, and read the computed `color` of a
-control through `textColour` from `support/pixels.ts`. Assert it equals the
-app's ink and not the author's.
+A string assertion proves the selector was written, never that it wins, so a
+browser case reading a computed colour under a hostile author theme is owed.
 
-Then remove `.aeleos-chrome` from that control and watch the case go red.
-Restore. Record the measured channel values in the spec's own note.
+**It cannot be written here, and writing it here would be worse than not
+writing it.** The editor does not theme its document until Task 3, so a control
+is already safe from an author's palette for a reason that has nothing to do
+with this class — the case would pass on the day it was written and could not
+fail if `.aeleos-chrome` were deleted outright. That is rule 23 exactly: the
+assertion runs and never had the chance to catch anything.
+
+The proof is Task 3 Step 6, where the document is themed and the guard is the
+only thing standing between an author's colours and the workbench.
+
+- [ ] **Step 6a: Verify each block's own sabotage instead**
+
+What CAN be proved here is that each assertion sees its own block. Strip the
+chrome class from the palette block, from the form block, and from the dark
+block in turn, and delete a composed declaration; confirm each reddens a case,
+and that no case is satisfied by a different block carrying the same selector
+list.
+
+Two drafts of this test failed that check while staying green, and both are
+recorded in the suite's own header — the first matched the selector list
+anywhere in the file, the second used `lastIndexOf` and found an earlier block.
+Asking which selector encloses a given declaration is the form that cannot be
+satisfied by the wrong rule.
 
 - [ ] **Step 7: Update the actors feature note**
 

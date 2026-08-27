@@ -12,8 +12,27 @@
  * contrast figures be reasoned about rather than guessed. `pnpm check:contrast`
  * measures the pairs that matter; when a token here moves, move it there too or
  * the check is measuring the old design.
+ *
+ * **The palette is declared for the ROOT and for a chrome island, in one rule,
+ * and that is load-bearing rather than tidy.** The editor themes its own
+ * document with the page its author is building, exactly as a public route
+ * does — so a control sitting on that document would inherit their colours. An
+ * island wearing `.aeleos-chrome` re-declares these ON ITSELF, and a
+ * declaration on an element always beats one inherited from an ancestor: the
+ * cascade only ever compares declarations on the same element, so there is no
+ * specificity or source-order fight to lose here. See `CHROME_SCOPE` in
+ * `shared/domain/chrome.ts`.
+ *
+ * **The composed pair below must stay inside this block.** `--surface` and
+ * `--bar` are composed from the raw values above them, and a descendant
+ * inherits the already-resolved result — so an island restating only the raws
+ * would go on wearing the author's surface. Declaring the composition here
+ * makes it re-resolve against whichever raws win on the island itself. That is
+ * the same hazard `ROOT_COMPOSED` in `features/actors/domain/actor-theme.ts`
+ * exists for, met from the other side.
  */
-:root {
+:root,
+.aeleos-chrome {
   /*
    * **What the browser paints its OWN surfaces with**, which is everything we
    * do not draw: the inside of a `select`'s dropdown, scrollbars, spellcheck
@@ -113,7 +132,15 @@
   --nebula-opacity: 0.45;
 }
 
-[data-theme="dark"] {
+/*
+ * **The dark half, for the root and for a chrome island inside a dark
+ * document.** The island is a descendant rather than the root, so it cannot be
+ * reached by the bare attribute selector — a control in the editor would then
+ * take its raw colours from the light block and its `color-scheme` from
+ * nowhere. The descendant form is what carries the mode across the boundary.
+ */
+[data-theme="dark"],
+[data-theme="dark"] .aeleos-chrome {
   /* The other half. Set on the same attribute the tokens are, so the browser's
    * surfaces and ours can never disagree about which scheme is in force. */
   color-scheme: dark;
@@ -163,8 +190,15 @@
  * They are at `:root` and outside both mode blocks on purpose: a corner radius
  * is not lighter in the light theme. What varies with the mode is colour, and
  * colour is the other file's job.
+ *
+ * **A chrome island restates them for the same reason it restates the
+ * colours.** A skin writes its form tokens at `SKIN_SCOPE`, which in the editor
+ * encloses the controls — so without this an author choosing `comic` would give
+ * every button in the workbench a heavy edge and a hard shadow. Naming the
+ * chrome class here puts the design's own form back on the island.
  */
-:root {
+:root,
+.aeleos-chrome {
   /*
    * A MULTIPLIER on Tailwind's radius scale, not a length. `rounded-lg` and
    * `rounded-xl` sit in a deliberate relationship to each other, and a skin
