@@ -24,6 +24,7 @@ const draft = {
   theme: DEFAULT_THEME,
   page: pageContext(),
   locale: "en",
+  deviceHeight: 844,
 };
 
 /**
@@ -103,6 +104,48 @@ describe("PreviewDocument", () => {
     render(<PreviewDocument />);
 
     post(draft, { source: null });
+
+    expect(screen.queryByTestId("public-section")).toBeNull();
+  });
+
+  // **The backdrop is banded, one band per screenful of the chosen device.**
+  // A viewport-anchored background covers a visitor's window and re-anchors as
+  // they scroll; the frame is as tall as the whole page, so one copy would
+  // stretch over everything. Bands show, statically, what a visitor sees
+  // screenful by screenful.
+  it("repeats the backdrop once per screenful", () => {
+    render(<PreviewDocument />);
+    post(draft);
+
+    const bands = screen.getAllByTestId("preview-backdrop-band");
+    expect(bands.length).toBeGreaterThan(0);
+    // Each band is exactly one screenful tall and stacked by that height.
+    expect(bands[0]).toHaveStyle({ height: "844px", top: "0px" });
+    // `fixed` is the one thing not carried over — it is what banding undoes.
+    expect(bands[0]).toHaveStyle({ backgroundAttachment: "scroll" });
+  });
+
+  // Without this the body's single stretched copy shows through every gap the
+  // bands leave, and the last band is a partial screenful whenever the page is
+  // not an exact multiple of the device.
+  it("stops the body painting its own stretched copy", () => {
+    const { container } = render(<PreviewDocument />);
+    post(draft);
+
+    // `!important` is load-bearing: `themeCss` emits the body backdrop behind
+    // a `:root:not([data-page-theme="default"])` gate, which outranks a bare
+    // `body` selector, so a plain rule loses in silence.
+    expect(container.innerHTML).toContain(
+      "body{background-image:none!important}",
+    );
+  });
+
+  // A draft with no device height cannot be banded, and is refused at the
+  // shape check rather than rendered with a zero-height backdrop.
+  it("ignores a draft that names no device height", () => {
+    render(<PreviewDocument />);
+
+    post({ ...draft, deviceHeight: undefined });
 
     expect(screen.queryByTestId("public-section")).toBeNull();
   });
