@@ -979,3 +979,108 @@ test("no device overflows any editor width", async ({ page }) => {
     }
   }
 });
+
+// **THE BANDED BACKDROP, AGAINST WHAT A VISITOR'S SCREENFUL SHOWS.**
+//
+// The frame is as tall as the page it frames, so its viewport is the whole
+// document and a `background-attachment: fixed` backdrop would cover the page
+// ONCE — a 1200x800 photograph spread over a 390x4000 window, which is a page
+// nobody has. The preview draws it once per device-height band instead, so a
+// static view shows what a visitor sees screenful by screenful.
+//
+// Rule 27 — what a weaker fixture would not catch: a page with no background
+// PICTURE bands a soft gradient, and a stretched gradient and a repeated one
+// look nearly alike, so this seeds a picture with four hard-edged quadrants
+// whose boundaries move a long way when the scale is wrong.
+test("the backdrop repeats once per screenful, not once per page", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await servePhoto(page);
+  const { handle: bandHandle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "banded",
+    displayName: "Banded",
+    theme: { backgroundUrl: PHOTO.url, backgroundFit: "cover" },
+    blocks: Array.from({ length: 9 }, (_, at) =>
+      container({
+        name_en: `Section ${at + 1}`,
+        name_es: `Sección ${at + 1}`,
+        mode: "stack",
+        children: [
+          leaf({
+            title_en: `Heading ${at + 1}`,
+            title_es: `Encabezado ${at + 1}`,
+          }),
+        ],
+      }),
+    ),
+  });
+
+  await page.setViewportSize(EDITOR_WINDOW);
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/es/pages/${bandHandle}/edit`);
+  await page.getByTestId("complete-page-preview-toggle").click();
+  await expect(
+    page
+      .frameLocator('[data-testid="complete-page-preview-frame"]')
+      .getByTestId("page-content"),
+  ).toBeVisible();
+
+  const frame = page
+    .frames()
+    .find((candidate) => candidate.url().includes("/me/preview"))!;
+
+  // The page is genuinely taller than one screenful, so there is more than one
+  // band — a single-band page would pass this whatever the mechanism did.
+  const bands = await frame.getByTestId("preview-backdrop-band").count();
+  expect(bands, "the page spans more than one screenful").toBeGreaterThan(1);
+
+  // Every band is exactly one device screenful tall, and they tile without gap
+  // or overlap — the two ways a repeat can be subtly wrong.
+  const tops = await frame
+    .getByTestId("preview-backdrop-band")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const box = node.getBoundingClientRect();
+        return {
+          top: Math.round(box.top + globalThis.scrollY),
+          height: Math.round(box.height),
+        };
+      }),
+    );
+  const device = PREVIEW_DEVICES.find((d) => d.id === "desktop")!;
+  for (const [at, band] of tops.entries()) {
+    expect(band.height, `band ${at} is one screenful tall`).toBe(device.height);
+    expect(band.top, `band ${at} starts where band ${at - 1} ended`).toBe(
+      at * device.height,
+    );
+  }
+
+  // And the paint itself is the author's, not the app's: the photograph
+  // reaches the band rather than only the body it replaced.
+  const painted = await frame
+    .getByTestId("preview-backdrop-band")
+    .first()
+    .evaluate((node) => globalThis.getComputedStyle(node).backgroundImage);
+  expect(painted).toContain(PHOTO.url);
+  // `fixed` is what banding undoes; carrying it over would stretch each band's
+  // own copy across the whole document again and defeat the entire mechanism.
+  const attachment = await frame
+    .getByTestId("preview-backdrop-band")
+    .first()
+    .evaluate((node) => globalThis.getComputedStyle(node).backgroundAttachment);
+  // Per LAYER, and there are two — the picture over the field — so this is
+  // `scroll, scroll` rather than `scroll`. The claim is that no layer is
+  // fixed, which is what a per-layer check says and an equality check got
+  // wrong on its first run.
+  expect(attachment).not.toContain("fixed");
+  expect(new Set(attachment.split(", "))).toEqual(new Set(["scroll"]));
+
+  // The body no longer paints, or its one stretched copy would show through
+  // the gap the final partial band leaves.
+  const bodyImage = await frame.evaluate(
+    () => globalThis.getComputedStyle(document.body).backgroundImage,
+  );
+  expect(bodyImage).toBe("none");
+});

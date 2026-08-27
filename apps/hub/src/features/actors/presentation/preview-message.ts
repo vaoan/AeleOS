@@ -22,9 +22,10 @@ export const PREVIEW_DRAFT = "aeleos:preview-draft";
 /**
  * One draft, as it crosses the document boundary.
  *
- * Exactly what the inline preview took as props: the blocks to render, the
- * unsaved theme, the page-level actor facts the identity leaves draw from, and
- * the language being authored.
+ * What the inline preview took as props — the blocks to render, the unsaved
+ * theme, the page-level actor facts the identity leaves draw from, and the
+ * language being authored — plus the one thing a framed document cannot work
+ * out for itself: how tall a screenful of the chosen device is.
  */
 export interface PreviewDraft {
   /** Discriminates this from the handshake and from anything else posted. */
@@ -37,6 +38,16 @@ export interface PreviewDraft {
   page: PageContext;
   /** The authoring language, which is what the preview renders in. */
   locale: string;
+  /**
+   * How tall one screenful of the chosen device is, in its own pixels.
+   *
+   * **The frame is as tall as the whole page, so this is the only way the
+   * preview can know where a visitor's screen would end.** It is what the
+   * backdrop is banded by: a viewport-anchored background covers a visitor's
+   * window and re-anchors as they scroll, and a document-tall frame would
+   * otherwise stretch one copy over everything. See `PreviewDocument`.
+   */
+  deviceHeight: number;
 }
 
 /**
@@ -58,6 +69,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * other library's postMessage traffic, a stale shape from a deployment mid-roll
  * — is ignored rather than rendered. Nothing here is evaluated.
  *
+ * Every field is required, `deviceHeight` included: a draft without it would
+ * otherwise render with a zero-height backdrop rather than none at all, which
+ * is a broken page rather than a missing one.
+ *
  * **It does NOT re-validate the block tree**, and that is the point. The sender
  * lenient-parses before posting, so a second schema here would be free to drift
  * from `block-schema` — which is the fault `blocksToSections` and every other
@@ -74,6 +89,7 @@ export function readPreviewDraft(data: unknown): PreviewDraft | null {
   if (!isRecord(data.theme)) return null;
   if (!isRecord(data.page)) return null;
   if (typeof data.locale !== "string") return null;
+  if (typeof data.deviceHeight !== "number") return null;
   return data as unknown as PreviewDraft;
 }
 

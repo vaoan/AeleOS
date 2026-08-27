@@ -130,12 +130,11 @@ export interface CompletePagePreviewProps {
  * given its content's height and re-measured as the page grows, and it scrolls
  * away with the editor like any other block of content.
  *
- * **What that costs, stated rather than hidden.** The framed viewport is the
- * whole document now, so a viewport-anchored backdrop covers the page once
- * instead of once per screenful — a different picture from the one a scrolling
- * visitor sees, and the thing the pin was buying. Rendering it as a
- * device-height band repeated down the page would be closer; it is not invented
- * here on nobody's request.
+ * **The draft carries the chosen device's HEIGHT, and that is not decoration.**
+ * The framed viewport is the whole document, so a viewport-anchored backdrop
+ * would cover the page once instead of once per screenful. Nothing inside the
+ * frame can work out where a visitor's screen would end, so this sends it, and
+ * `PreviewDocument` repeats the backdrop by it.
  *
  * **Both boxes CLIP rather than hide.** `overflow: hidden` is still a scroll
  * container — it withholds the scrollbar and keeps the scrollable overflow, so
@@ -257,10 +256,17 @@ export function CompletePagePreview({
       return parsed.success ? [parsed.data] : [];
     });
     target.postMessage(
-      { kind: PREVIEW_DRAFT, blocks: renderable, theme, page, locale: lang },
+      {
+        kind: PREVIEW_DRAFT,
+        blocks: renderable,
+        theme,
+        page,
+        locale: lang,
+        deviceHeight: chosen.height,
+      },
       globalThis.location.origin,
     );
-  }, [blocks, theme, page, lang]);
+  }, [blocks, theme, page, lang, chosen.height]);
 
   // **One post per animation frame, which BOUNDS a burst and does not reduce
   // typing.** Measured rather than assumed, and the measurement corrected this

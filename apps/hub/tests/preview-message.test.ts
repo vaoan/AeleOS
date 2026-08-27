@@ -14,6 +14,7 @@ const draft = {
   theme: DEFAULT_THEME,
   page: pageContext(),
   locale: "es",
+  deviceHeight: 900,
 };
 
 describe("readPreviewDraft", () => {
@@ -34,6 +35,10 @@ describe("readPreviewDraft", () => {
     ["a theme that is not an object", { ...draft, theme: "dark" }],
     ["no page", { ...draft, page: undefined }],
     ["a locale that is not a string", { ...draft, locale: 3 }],
+    // Banding the backdrop needs one screenful's height; without it the
+    // preview would draw a zero-height backdrop rather than none.
+    ["no device height", { ...draft, deviceHeight: undefined }],
+    ["a device height that is not a number", { ...draft, deviceHeight: "844" }],
   ])("refuses %s", (_name, value) => {
     expect(readPreviewDraft(value)).toBeNull();
   });
