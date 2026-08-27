@@ -844,7 +844,7 @@ describe("a page the write schema refuses", () => {
       "true",
     );
     expect(screen.getByTestId("leaf-title")).toHaveAccessibleDescription(
-      labels.problemTitle,
+      labels.leaf.problemTitle,
     );
     expect(screen.getByTestId("leaf-title-problem")).toBeInTheDocument();
   });
@@ -898,7 +898,7 @@ describe("a page the write schema refuses", () => {
       "true",
     );
     expect(screen.getByTestId("section-name")).toHaveAccessibleDescription(
-      labels.problemGeneric,
+      labels.leaf.problemGeneric,
     );
     expect(screen.getByTestId("section-name-problem")).toBeInTheDocument();
   });

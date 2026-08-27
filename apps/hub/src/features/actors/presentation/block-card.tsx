@@ -57,6 +57,10 @@ import {
 /**
  * Already-translated strings a card renders.
  *
+ * **What it renders ITSELF, plus one bag it forwards.** It no longer extends
+ * `LeafEditorLabels`; `leaf` holds those, so this interface names only the
+ * card's own vocabulary.
+ *
  * `removeLocked` is the newest and explains a WITHDRAWN control rather than
  * naming an action — a disabled bin with no reason is one somebody presses
  * twice and then gives up on.
@@ -69,7 +73,20 @@ import {
  * This bag deliberately has no preview heading: a card renders controls only.
  * `BlockEditorLabels` owns the title for the sibling `SectionPreviewTray`.
  */
-export interface BlockCardLabels extends LeafEditorLabels {
+export interface BlockCardLabels {
+  /**
+   * What a leaf editor needs, forwarded to every leaf this card renders.
+   *
+   * **Held rather than inherited (2026-08-27).** This interface used to
+   * `extends LeafEditorLabels`, which made a card's bag structurally a leaf's
+   * bag — 21 strings a card cannot render, indistinguishable from the 22 it
+   * can. Measured before the change: of 23 `labels.*` references in this file
+   * exactly ONE reached a leaf string, and the other twenty were the card's
+   * own; the rest of the relationship was pure forwarding wearing inheritance.
+   * Naming the forward makes the card's own vocabulary the thing you see, and
+   * a leaf string added tomorrow no longer widens this interface.
+   */
+  leaf: LeafEditorLabels;
   /**
    * The word naming this card a section, shown in its eyebrow.
    *
@@ -496,6 +513,11 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * min-content width — 4px per nesting level — which is a card, not a decoration,
  * and it pushed the editor sideways on a narrow screen.
  *
+ * **Its label bag HOLDS a leaf's rather than inheriting it (2026-08-27).**
+ * `labels.leaf` is what every leaf this card renders is handed; everything
+ * else on the bag is a string this card draws itself. See
+ * {@link BlockCardLabels.leaf}.
+ *
  * @returns the container's card.
  */
 export function BlockCard({
@@ -655,7 +677,7 @@ export function BlockCard({
               {...tid("section-name-problem")}
               className="text-xs text-(--accent)"
             >
-              {labels.problemGeneric}
+              {labels.leaf.problemGeneric}
             </p>
           ) : null}
         </div>
@@ -812,7 +834,7 @@ export function BlockCard({
           {...tid("section-problem")}
           className="relative text-xs text-(--accent)"
         >
-          {labels.problemGeneric}
+          {labels.leaf.problemGeneric}
         </p>
       ) : null}
 
@@ -1016,7 +1038,7 @@ function PlaceContent({
         path={path}
         apply={apply}
         lang={lang}
-        labels={labels}
+        labels={labels.leaf}
         problems={problems}
         dragHandle={dragHandle}
       />

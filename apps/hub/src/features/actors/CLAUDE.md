@@ -350,10 +350,24 @@ A page is a **tree of blocks** now, and the two axes are separate.
   rendering, since inventing a heading would put words on somebody's page that
   they did not write.
 
-`domain/block-schema.ts` is the vocabulary and `presentation/blocks.tsx` is the
-renderer. This note says what the model IS; their TSDoc says what each piece
-does and does not do, and between them they are longer than this section, for a
-reason.
+`domain/block-schema.ts` is the vocabulary. The renderer is **four files now
+(2026-08-27)**, and the split is worth knowing before you go looking:
+
+- `presentation/block-contract.ts` — `PageContext`, `LeafProps`, `LeafRenderer`
+  and the surfaces every kind shares. **Nothing here renders**, which is what
+  lets a kind's module import it with no cycle.
+- `presentation/blocks.tsx` — what ARRANGES blocks: the container modes, the
+  page shell, and the `LEAVES` / `MODES` registries.
+- `presentation/content-leaves.tsx` — the eleven kinds an author types, pastes
+  or links.
+- `presentation/identity-leaves.tsx` — the five that draw the ACTOR.
+
+It was one 2,333-line file until the kinds moved out; `blocks.tsx` is 1,363 now.
+Nothing about the enforcement changed: `satisfies Record<LeafKind, LeafRenderer>`
+still sits on the registry, so a kind with no renderer is a build failure.
+
+This note says what the model IS; their TSDoc says what each piece does and does
+not do, and between them they are longer than this section, for a reason.
 
 ### Nothing was thrown away — every old type is somewhere in here
 
@@ -471,8 +485,14 @@ typed still there.
 **The last five are a new CATEGORY, not five more entries.** Every kind above
 draws what its author typed into the block; these draw the ACTOR, resolved by
 the renderer out of `PageContext`. They live in
-`presentation/identity-leaves.tsx` rather than `blocks.tsx`, because they are a
-different thing to read and that file is long enough.
+`presentation/identity-leaves.tsx` rather than beside the content kinds, because
+they are a different thing to read.
+
+**They stopped restating the props contract on 2026-08-27.** This module used
+to declare its own `IdentityLeafProps` / `IdentityLeafRenderer`, with a comment
+saying why: importing the real ones would have made it depend on the file that
+registers it. A restated interface is a second copy free to drift, so the
+contract moved to `block-contract.ts` instead and both leaf modules import it.
 
 They exist because the page's furniture used to be welded. `public-profile.tsx`
 rendered a portrait, a display name, a handle and a fursona list as chrome
@@ -2564,7 +2584,7 @@ distinct from a section's own — a link like every other picture here, nothing
 stored. It renders as a **second `background-image` layer on `body`**, above
 `var(--field)`, the gradient `globals.css` already paints there — never at
 `:root`. That is not a stylistic choice; it is the one fact `bodyBackgroundVars`
-(`domain/actor-theme.ts`) exists to get right. `body` is a descendant of
+(`presentation/theme-css.ts`) exists to get right. `body` is a descendant of
 `:root` with its own OPAQUE background, and a browser always paints a
 descendant's background over its ancestor's, regardless of property order or
 specificity. An earlier version wrote the picture into the `:root` rule,
@@ -2851,6 +2871,42 @@ something, reading `--canvas`, which `themeVars` emits only for a canvas other
 than the design's: the empty string is a value the author's theme cannot
 produce. jsdom resolves no custom property through a stylesheet, so the unit
 case structurally cannot see the effect — root rule 30.
+
+### The architecture pass (2026-08-27) — what moved and what deliberately did not
+
+Four changes, each measured before it was made. Nothing about the model, the
+vocabulary or the enforcement moved; this was all about where code lives.
+
+**The renderer split four ways.** See the list at the top of the blocks section.
+The seam that made it possible is `block-contract.ts`: while the contract lived
+in `blocks.tsx`, any leaf module that spoke it would have depended on the file
+that registers it, which is why `identity-leaves.tsx` had restated the
+interface rather than import it.
+
+**CSS emission left `domain/`.** `themeCss`, `themeVars`, `bodyBackgroundVars`
+and `accentPreview` are `presentation/theme-css.ts` now; `domain/actor-theme.ts`
+kept the vocabulary and went from 1,026 lines to 699. The split cost nothing
+because it was already true — every consumer was a presentation module — and
+what changed is that the boundary graph now ENFORCES it.
+
+**A card's labels hold a leaf's rather than inheriting them.** Measured first:
+of 23 `labels.*` references in `block-card.tsx`, exactly ONE reached a leaf
+string. The other twenty-two were the card's own, and the relationship was
+forwarding wearing inheritance. `labels.leaf` names the forward.
+
+**The flat-section shim got a deletion condition, and the answer was a
+surprise.** `pnpm check:page-shapes` counts what is STORED: 8,403 pages, **0
+flat and 0 carrying `columns`**. But the shim is NOT dead code — templates are
+authored in the flat vocabulary and every applied template runs through
+`sectionsToBlocks`. Read that module's own header before removing anything: the
+conversion is permanent and only the read fallback is retired-able, and it is
+kept anyway because a census is a fact about one day.
+
+**What was left alone, on purpose.** No application layer was added to "balance"
+the layer sizes: the logic is pure functions in `domain/`, which is why
+`leaf-editor.tsx` holds zero `useState` and `block-card.tsx` two. And the
+`satisfies Record` tables were not replaced with a runtime registry — a registry
+can silently miss a kind where the compiler cannot.
 
 ## Things not to do
 

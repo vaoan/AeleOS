@@ -19,9 +19,9 @@
  * values at `:root`, and a descendant inherits the already-resolved result — so
  * an island restating only the raw colours would keep the author's surface. The
  * rule in `globals.css` names this class alongside `:root` on the block that
- * declares both, which is what makes them re-resolve. See `ROOT_COMPOSED` in
- * `features/actors/domain/actor-theme.ts` for the same hazard met from the
- * other side.
+ * declares both, which is what makes them re-resolve. See `nestedSkinVars` in
+ * `shared/domain/skins.ts` for the same hazard met from the other side: a token
+ * set carrying only its overrides is correct at exactly one scope.
  *
  * **Never put it on `<html>`.** The tokens are declared for `:root` and for
  * this class in one rule, so an element that is both matches the same selector

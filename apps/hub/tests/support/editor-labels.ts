@@ -49,6 +49,10 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * own key names, like the other scalars here, because the assertions that read
  * them are looking for a word a person sees.
  *
+ * **The leaf's strings are nested under `leaf`**, mirroring the real builder:
+ * a card holds a `LeafEditorLabels` rather than extending one, so a suite
+ * asserting a leaf string reads `labels.leaf.…` exactly as the component does.
+ *
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
  */
@@ -97,38 +101,6 @@ export function blockEditorLabels(): BlockEditorLabels {
     removePlace: "Remove this place",
     addPlace: "Add a place",
     previewTitle: "How it will look",
-    removeBlock: "Remove what is here",
-    contentEyebrow: "Content",
-    leafKind: "Type",
-    leafKinds: Object.fromEntries(LEAF_KINDS.map((kind) => [kind, kind])),
-    leafTitle: Object.fromEntries(
-      LEAF_KINDS.map((kind) => [kind, `${kind} title`]),
-    ),
-    leafDescription: Object.fromEntries(
-      DESCRIBED_KINDS.map((kind) => [kind, `${kind} description`]),
-    ),
-    leafHint: Object.fromEntries(
-      DESCRIBED_KINDS.map((kind) => [kind, `${kind} hint`]),
-    ),
-    tableRows: "Rows",
-    addRow: "Add row",
-    removeRow: "Remove this row",
-    addCell: "Add cell",
-    removeCell: "Remove this cell",
-    cellText: "Cell",
-    problemTitle: "This needs a title in English.",
-    problemGeneric: "Something here was refused.",
-    linkUrl: "Link address",
-    linkUrlHint: "A video or music link plays here.",
-    linkUrlPlainHint: "This becomes a button or a chip.",
-    imageUrl: "Image address",
-    imageUrlHint: "Paste a link to a picture.",
-    imageMissing: "No image",
-    chooseIcon: "Choose an icon",
-    searchIcons: "Search icons",
-    noIconsFound: "No icons match that.",
-    clearIcon: "Remove the icon",
-    noIcon: "No icon",
     useTemplate: "Start from a template",
     templateConfirm: "This replaces the sections you have.",
     templateConfirmYes: "Replace them",
@@ -161,6 +133,40 @@ export function blockEditorLabels(): BlockEditorLabels {
       borderDashed: "Dashed line",
       borderDotted: "Dotted line",
       borderDouble: "Double line",
+    },
+    leaf: {
+      removeBlock: "Remove what is here",
+      contentEyebrow: "Content",
+      leafKind: "Type",
+      leafKinds: Object.fromEntries(LEAF_KINDS.map((kind) => [kind, kind])),
+      leafTitle: Object.fromEntries(
+        LEAF_KINDS.map((kind) => [kind, `${kind} title`]),
+      ),
+      leafDescription: Object.fromEntries(
+        DESCRIBED_KINDS.map((kind) => [kind, `${kind} description`]),
+      ),
+      leafHint: Object.fromEntries(
+        DESCRIBED_KINDS.map((kind) => [kind, `${kind} hint`]),
+      ),
+      tableRows: "Rows",
+      addRow: "Add row",
+      removeRow: "Remove this row",
+      addCell: "Add cell",
+      removeCell: "Remove this cell",
+      cellText: "Cell",
+      problemTitle: "This needs a title in English.",
+      problemGeneric: "Something here was refused.",
+      linkUrl: "Link address",
+      linkUrlHint: "A video or music link plays here.",
+      linkUrlPlainHint: "This becomes a button or a chip.",
+      imageUrl: "Image address",
+      imageUrlHint: "Paste a link to a picture.",
+      imageMissing: "No image",
+      chooseIcon: "Choose an icon",
+      searchIcons: "Search icons",
+      noIconsFound: "No icons match that.",
+      clearIcon: "Remove the icon",
+      noIcon: "No icon",
     },
   };
 }

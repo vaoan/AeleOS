@@ -10,6 +10,33 @@ import type {
   SectionType,
 } from "@/features/actors/domain/section-schema";
 
+/*
+ * THIS MODULE IS TWO THINGS, AND ONLY ONE OF THEM IS LEGACY (2026-08-27).
+ *
+ * It reads as a migration shim and was written as one, which made it look like
+ * ~590 lines of code waiting for a deletion date. Measured against the live
+ * database with `pnpm check:page-shapes`: of **8,403 stored pages, 0 are flat
+ * and 0 carry `columns`** — 8,048 are block trees and 355 are empty. So the
+ * READ fallback in `readActorPage` and `publicFursona` converts nothing today.
+ *
+ * **The conversion itself is not legacy at all.** `fursona-templates.ts` is
+ * written in the flat vocabulary and `block-editor.tsx` runs every applied
+ * template through `sectionsToBlocks`. That is a live authoring path with no
+ * end date, and it is why `section-schema.ts` stays too: it types the
+ * templates, not just the old rows.
+ *
+ * So the split to keep in mind before deleting anything here:
+ *
+ * - `sectionsToBlocks` and `section-schema.ts` — PERMANENT, because templates
+ *   are authored in this vocabulary. Retiring them means rewriting every
+ *   template as a block tree, which is a product decision and not a cleanup.
+ * - The flat branch of `readEitherShape` — serves 0 rows. It is kept anyway:
+ *   a census is a fact about one day, and the cost of being wrong is a page
+ *   that will not open, against a saving of about twenty lines.
+ *
+ * Re-run the census before believing any of the numbers above.
+ */
+
 /**
  * One item of a flat section, named so the conversion below can say what it
  * takes without restating the shape.

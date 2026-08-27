@@ -4,16 +4,18 @@ import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import {
   DEFAULT_THEME,
   THEME_SEEDS,
-  accentPreview,
-  bodyBackgroundVars,
   isCustomised,
   isThemed,
   parseTheme,
-  themeCss,
-  themeVars,
   withCanvasColour,
   withChosenColour,
 } from "@/features/actors/domain/actor-theme";
+import {
+  accentPreview,
+  bodyBackgroundVars,
+  themeCss,
+  themeVars,
+} from "@/features/actors/presentation/theme-css";
 
 /**
  * A gradient of one colour, which is what a flat background is now.

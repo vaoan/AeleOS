@@ -28,8 +28,9 @@
  * inherits the already-resolved result — so an island restating only the raws
  * would go on wearing the author's surface. Declaring the composition here
  * makes it re-resolve against whichever raws win on the island itself. That is
- * the same hazard `ROOT_COMPOSED` in `features/actors/domain/actor-theme.ts`
- * exists for, met from the other side.
+ * the same hazard `nestedSkinVars` in `shared/domain/skins.ts` exists for, met
+ * from the other side: a token set carrying only its overrides is correct at
+ * exactly one scope, and falls through to the enclosing one everywhere else.
  */
 :root,
 .aeleos-chrome {

@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
-import {
-  themeCss,
-  type ActorTheme,
-} from "@/features/actors/domain/actor-theme";
+import type { ActorTheme } from "@/features/actors/domain/actor-theme";
+import { themeCss } from "@/features/actors/presentation/theme-css";
 
 /** What {@link ThemeScope} needs. */
 export interface ThemeScopeProps {
