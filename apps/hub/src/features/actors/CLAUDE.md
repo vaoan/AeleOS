@@ -2928,6 +2928,24 @@ the layer sizes: the logic is pure functions in `domain/`, which is why
 `satisfies Record` tables were not replaced with a runtime registry — a registry
 can silently miss a kind where the compiler cannot.
 
+### `list` — the divided list (2026-08-27)
+
+A container mode: a stack with a hairline between its children and **no gap at
+all**. It is the shape every modern feed has and the one `stack` cannot make —
+a gap between rows says "separate things", a rule says "one sequence", and the
+three microblog pastiches had to borrow `timeline`'s dot-and-rail until this
+existed.
+
+**It is an ARRANGEMENT and decides nothing about its children.** A divided list
+of cards is a legitimate thing to want; a feed is this mode PLUS
+`chrome: "bare"` on the same block. Welding the two would repeat exactly the
+mistake `gallery` and `links` were — an arrangement that also fixes what its
+content looks like.
+
+Its test compares against `stack` rather than asserting in isolation: both
+render a column, so "the children are there" passes for either and proves
+nothing about which ran. What separates them is the rule and the absent gap.
+
 ### Closing the pastiche gaps (2026-08-27) — five new OPTIONS
 
 Every one of these is a choice an author may make and absence means exactly

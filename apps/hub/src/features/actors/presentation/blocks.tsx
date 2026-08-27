@@ -523,6 +523,40 @@ function Stack(props: ModeProps): ReactNode {
 }
 
 /**
+ * A stack with a hairline between its children and no gap at all.
+ *
+ * **The shape every modern feed has, and the one `stack` cannot make.** A gap
+ * between cards is not a divided list: the rule between two rows is what says
+ * "these are one sequence", where a gap says "these are separate things". The
+ * pastiche findings recorded three microblog pages that could not be reached
+ * without it, all of which had to borrow `timeline`'s dot-and-rail instead.
+ *
+ * **It is an ARRANGEMENT and says nothing about whether its children are
+ * cards.** A divided list of cards is a legitimate thing to want — a settings
+ * list, a table of contents — and a feed is this mode plus `chrome: "bare"` on
+ * the same block. Welding the two would repeat the mistake `gallery` and
+ * `links` were: an arrangement that also decides what its content looks like.
+ *
+ * `divide-y` puts the rule on every child but the first, so the list has no
+ * leading or trailing edge of its own and sits flush inside whatever encloses
+ * it. An empty place still keeps its row and still draws its rule, because the
+ * position is the model — see {@link placeIn}.
+ *
+ * @param props - the container and what its children need.
+ * @returns the divided children.
+ */
+function List(props: ModeProps): ReactNode {
+  return (
+    <div
+      className="flex flex-col divide-y divide-(--edge)/40"
+      {...tid("block-list")}
+    >
+      {seatsOf(props).map((seat) => placeIn(props, seat))}
+    </div>
+  );
+}
+
+/**
  * The container's own places, laid across and continuing downward in rows.
  *
  * **This is where `spaces` means what it says.** The container declares how
@@ -844,6 +878,9 @@ function Timeline(props: ModeProps): ReactNode {
  * `Object.entries` reads only its own keys. The exported `Map` is what
  * anything looks a mode up in.
  *
+ * A `list` entry joined it: a stack with a hairline between its children and
+ * no gap, which `stack` cannot be asked for. See `CONTAINER_MODES`.
+ *
  * **A `columns` entry sat here and is gone**, along with the mode itself —
  * it laid the same tracks as `grid` and differed only in how a row's children
  * were aligned, which is a dial rather than an arrangement. See
@@ -852,6 +889,7 @@ function Timeline(props: ModeProps): ReactNode {
 export const MODES: ReadonlyMap<string, ModeRenderer> = new Map(
   Object.entries({
     stack: Stack,
+    list: List,
     grid: Grid,
     masonry: Masonry,
     carousel: Carousel,

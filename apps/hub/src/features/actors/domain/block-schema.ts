@@ -36,9 +36,17 @@ import { z } from "zod";
  * array says. `block-limits-match-migration.test.ts` reads that list out of
  * `0009` and fails the build when the two disagree, so neither side can be
  * extended alone.
+ *
+ * **`list` is the newest and is not `stack` with a rule bolted on.** A gap
+ * between rows says "separate things" and a rule says "one sequence"; the two
+ * are different arrangements, which is why this is a mode rather than a dial.
+ * It decides nothing about whether its children are cards — a feed is `list`
+ * plus `chrome: "bare"`, and welding them would repeat the `gallery`/`links`
+ * mistake of an arrangement that also fixes its content's form.
  */
 export const CONTAINER_MODES = [
   "stack",
+  "list",
   "grid",
   "masonry",
   "carousel",
