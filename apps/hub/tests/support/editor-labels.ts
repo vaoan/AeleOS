@@ -55,6 +55,9 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  *
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
+ *
+ * It carries the style popup's new `chrome`, `heading` and `text_align`
+ * strings, and the theme panel's `font` and `spacing`.
  */
 export function blockEditorLabels(): BlockEditorLabels {
   return {
@@ -132,6 +135,19 @@ export function blockEditorLabels(): BlockEditorLabels {
       borderSolid: "Solid line",
       borderDashed: "Dashed line",
       borderDotted: "Dotted line",
+      chrome: "Card",
+      chromeInherit: "Inherit the page",
+      chromeCard: "Keep the card",
+      chromeBare: "No card",
+      chromeHint: "Takes away the fill, the edge and the padding.",
+      heading: "Name",
+      headingPlain: "Above the content",
+      headingBar: "As a bar on top of it",
+      textAlign: "Text",
+      textAlignInherit: "Inherit the page",
+      textAlignStart: "Left",
+      textAlignCenter: "Centred",
+      textAlignEnd: "Right",
       borderDouble: "Double line",
     },
     leaf: {

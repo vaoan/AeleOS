@@ -133,6 +133,11 @@ describe("message catalogues", () => {
       // Latin, and the same word in both languages. The canvases beside it are
       // translated, which is the evidence this one was considered.
       "fursonas.canvases.aurora",
+      // A typographic term Spanish uses unchanged. The textbook translation
+      // is not what a Spanish-speaking designer picks from a menu, and the
+      // five faces beside it ARE translated — which is the evidence this one
+      // was considered rather than skipped.
+      "fursonas.fonts.serif",
       // The same word in Spanish, and the style names beside it are translated
       // — including the ones that could have been left as loanwords.
       "fursonas.skins.terminal",

@@ -2,8 +2,12 @@
 
 import { useEffect, useId, useState } from "react";
 import {
+  PAGE_FONTS,
   PAGE_MEASURES,
+  PAGE_SPACINGS,
+  type PageFont,
   type PageMeasure,
+  type PageSpacing,
 } from "@/features/actors/domain/actor-theme";
 
 /**
@@ -93,6 +97,9 @@ import { tid } from "@/shared/infrastructure/test-id";
  *
  * The measure's strings are a field name and one label per width, mapped from
  * the vocabulary so a stop added without a label fails `messages.test.ts`.
+ *
+ * It offers a typeface and a spacing, both page-level and both optional: the
+ * first option clears the key rather than naming a face.
  */
 export interface ThemeConfiguratorLabels {
   /** Names the whole panel. */
@@ -121,6 +128,18 @@ export interface ThemeConfiguratorLabels {
   skin: string;
   /** Names the page-width control. */
   measure: string;
+  /** Field label for the typeface select. */
+  font: string;
+  /** The typeface option meaning "the design's own face". */
+  fontDefault: string;
+  /** One name per typeface. */
+  fonts: Record<PageFont, string>;
+  /** Field label for the spacing select. */
+  spacing: string;
+  /** The spacing option meaning "the design's own spacing". */
+  spacingDefault: string;
+  /** One name per spacing. */
+  spacings: Record<PageSpacing, string>;
   /** One label per width. */
   measures: Record<PageMeasure, string>;
   /** One label per skin. */
@@ -301,6 +320,9 @@ export interface ThemeConfiguratorProps {
  * this changes one number.
  *
  * @returns the panel.
+ *
+ * It offers a typeface and a spacing, both page-level and both optional: the
+ * first option clears the key rather than naming a face.
  */
 export function ThemeConfigurator({
   value,
@@ -714,6 +736,63 @@ export function ThemeConfigurator({
               {PAGE_MEASURES.map((measure) => (
                 <option key={measure} value={measure}>
                   {labels.measures[measure]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* **Both are OPTIONS and the empty value is the way back.** A page
+              that has chosen neither carries `null` for both and renders
+              exactly as it did before either key existed, which is why the
+              first option clears rather than naming a face. */}
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-font`} className="text-[0.75em] font-medium">
+              {labels.font}
+            </label>
+            <select
+              id={`${id}-font`}
+              value={value.font ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  font: (event.target.value || null) as PageFont | null,
+                })
+              }
+              {...tid("theme-font")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-[0.875em]"
+            >
+              <option value="">{labels.fontDefault}</option>
+              {PAGE_FONTS.map((font) => (
+                <option key={font} value={font}>
+                  {labels.fonts[font]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <label
+              htmlFor={`${id}-spacing`}
+              className="text-[0.75em] font-medium"
+            >
+              {labels.spacing}
+            </label>
+            <select
+              id={`${id}-spacing`}
+              value={value.spacing ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  spacing: (event.target.value || null) as PageSpacing | null,
+                })
+              }
+              {...tid("theme-spacing")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-[0.875em]"
+            >
+              <option value="">{labels.spacingDefault}</option>
+              {PAGE_SPACINGS.map((spacing) => (
+                <option key={spacing} value={spacing}>
+                  {labels.spacings[spacing]}
                 </option>
               ))}
             </select>

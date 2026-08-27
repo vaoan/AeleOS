@@ -82,6 +82,16 @@
    * `--surface` cannot serve here because it carries an alpha, and a
    * translucent menu is the same bug with an extra step.
    */
+
+  /*
+   * **What a leaf card pads itself by, so `chrome: "bare"` can take it away.**
+   * A literal `p-4` cannot be overridden by a token, and a rule targeting the
+   * card's class from outside a cascade layer is what root rule 3 forbids — so
+   * the padding is a custom property the card reads and a block's style bag can
+   * set. Declared here rather than only on a scope because an unset value makes
+   * `p-(--block-pad)` invalid, which is zero padding on every page at once.
+   */
+  --block-pad: 1rem;
   --menu: oklch(99% 0.01 40deg);
   --surface: var(--surface-solid);
   --bar: var(--bar-solid);

@@ -3063,3 +3063,51 @@ describe("a section that reaches both edges", () => {
     expect(gutter?.getAttribute("class")?.split(/\s+/)).toContain("max-w-7xl");
   });
 });
+
+describe("a section's name as a bar", () => {
+  const named = (style?: ContainerBlock["style"]): ContainerBlock => ({
+    kind: "container",
+    mode: "stack",
+    spaces: 1,
+    name_en: "Contacting Aeleos",
+    children: [{ kind: "text", title_en: "Send Message", description_en: "" }],
+    ...(style ? { style } : {}),
+  });
+
+  // The default, asserted first so the case below is a CHANGE from something
+  // rather than a claim about nothing.
+  it("floats above the content when the key is absent", () => {
+    const { container } = renderBlock(named());
+    expect(container.querySelector('[data-testid="heading-bar"]')).toBeNull();
+    expect(container.querySelector("section")?.className).toContain("gap-3");
+  });
+
+  // **The gap is asserted as well as the fill, because a bar that kept the
+  // section's `gap-3` is a floating label with a background** — which is not
+  // what MySpace or hi5 did, and is the shape this key exists to avoid. A test
+  // reading only the heading would pass on exactly that.
+  it("welds the name to the content it names", () => {
+    const { container } = renderBlock(named({ heading: "bar" }));
+    const bar = container.querySelector('[data-testid="heading-bar"]');
+    expect(bar).not.toBeNull();
+    expect(bar?.className).toContain("bg-(--accent)");
+    expect(container.querySelector("section")?.className).toContain("gap-0");
+    expect(container.querySelector("section")?.className).not.toContain(
+      "gap-3",
+    );
+  });
+
+  // A container with no name has nothing to put in a bar, and asking for one
+  // must not collapse the gap under content that has no heading above it.
+  it("is inert on a container with no name", () => {
+    const { container } = renderBlock({
+      kind: "container",
+      mode: "stack",
+      spaces: 1,
+      children: [{ kind: "text", title_en: "Loose", description_en: "" }],
+      style: { heading: "bar" },
+    });
+    expect(container.querySelector('[data-testid="heading-bar"]')).toBeNull();
+    expect(container.querySelector("section")?.className).toContain("gap-3");
+  });
+});

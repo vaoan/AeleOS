@@ -229,3 +229,53 @@ describe("blockStyle", () => {
     expect(emitted).not.toHaveProperty("backgroundImage");
   });
 });
+
+describe("chrome", () => {
+  // **Absent is INHERITANCE and the two named values are CHOICES**, the same
+  // three states `border` has. A block inside a `bare` section needs `card` to
+  // get its own back, which is why this is not a boolean.
+  it("emits nothing when the key is absent", () => {
+    expect(blockStyle({ border: "solid" })).not.toHaveProperty("--block-pad");
+  });
+
+  // Each of the four is asserted rather than the object as a whole, because a
+  // partial `bare` — the fill gone and the padding kept — is exactly the
+  // half-done card this key exists to avoid, and an all-or-nothing comparison
+  // would pass on three of the four.
+  it("takes the fill, the edge, the shadow and the padding together", () => {
+    const bare = blockStyle({ chrome: "bare" }) as Record<string, string>;
+    expect(bare["--surface"]).toBe("transparent");
+    expect(bare["--skin-border"]).toBe("0px");
+    expect(bare["--skin-border-min"]).toBe("0px");
+    expect(bare["--skin-shadow"]).toBe("none");
+    expect(bare["--block-pad"]).toBe("0px");
+  });
+
+  it("puts the padding back for a block that asks for its card", () => {
+    const card = blockStyle({ chrome: "card" }) as Record<string, string>;
+    expect(card["--block-pad"]).toBe("1rem");
+    expect(card).not.toHaveProperty("--surface");
+  });
+
+  // The discriminating pair: `border: "none"` was what an author had before
+  // this key, and it is NOT the same state. If it were, the key would be
+  // redundant and this whole change unjustified.
+  it('is not what `border: "none"` already did', () => {
+    const border = blockStyle({ border: "none" }) as Record<string, string>;
+    expect(border["--skin-border-style"]).toBe("none");
+    expect(border).not.toHaveProperty("--surface");
+    expect(border).not.toHaveProperty("--block-pad");
+  });
+});
+
+describe("text_align", () => {
+  it("sets the edge the text is laid against", () => {
+    expect(blockStyle({ text_align: "center" })).toMatchObject({
+      textAlign: "center",
+    });
+  });
+
+  it("emits nothing when the key is absent", () => {
+    expect(blockStyle({ skin: "glass" })).not.toHaveProperty("textAlign");
+  });
+});

@@ -305,7 +305,7 @@ interface Heading {
  */
 const DEEPEST_HEADING: Heading = {
   tag: "h4",
-  className: "font-display text-base font-bold tracking-tight",
+  className: "font-display text-[1em] font-bold tracking-tight",
 };
 
 /**
@@ -332,7 +332,10 @@ const HEADING = new Map<number, Heading>([
   ],
   [
     1,
-    { tag: "h3", className: "font-display text-lg font-bold tracking-tight" },
+    {
+      tag: "h3",
+      className: "font-display text-[1.125em] font-bold tracking-tight",
+    },
   ],
   [MAX_DEPTH - 1, DEEPEST_HEADING],
 ]);
@@ -705,7 +708,7 @@ function Tabs(props: ModeProps): ReactNode {
         const panelId = `block-${seat.path}-panel`;
         return (
           <Fragment key={seat.path}>
-            <label className="order-1 cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm font-medium text-(--muted) has-checked:border-(--accent) has-checked:text-(--ink) has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--accent)">
+            <label className="order-1 cursor-pointer border-b-2 border-transparent px-4 py-2 text-[0.875em] font-medium text-(--muted) has-checked:border-(--accent) has-checked:text-(--ink) has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-(--accent)">
               <input
                 type="radio"
                 name={group}
@@ -1047,6 +1050,9 @@ function Leaf(props: LeafProps): ReactNode {
  * need it — see {@link PageContext}.
  *
  * @returns the block and everything beneath it.
+ *
+ * Heading sizes are `em`-relative so a page's `spacing` reaches them, and a
+ * named container may draw its name as a BAR — see `heading` in the style bag.
  */
 export function Block({
   block,
@@ -1085,13 +1091,33 @@ export function Block({
   // ambiguous the first time somebody nested one.
   const marker = depth === 0 ? tid("public-section") : {};
 
+  // **A bar is the mid-2000s idiom and it changes the SPACING, not just the
+  // heading.** Measured against real captures of MySpace and hi5: a box is a
+  // solid coloured strip with its content squared off directly beneath, no gap
+  // and no rounding between the two. So the gap collapses and the heading
+  // takes the accent — a heading that merely gained a background while the
+  // section kept its `gap-3` would be a floating label with a fill, which is
+  // not what either site did. See the pastiche findings.
+  const barred = block.style?.heading === "bar" && Boolean(name);
+  const headingClass = barred
+    ? `${heading.className} bg-(--accent) px-3 py-2 text-(--on-accent)`
+    : heading.className;
+  // Spread rather than a ternary inside the JSX, which `sonarjs` reads as a
+  // nested conditional — and it is right that a marker is not a thing to work
+  // out at the point of use.
+  const headingMarker = barred ? tid("heading-bar") : {};
+
   return (
     <section
-      className="@container grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3"
+      className={`@container grid min-w-0 grid-cols-[minmax(0,1fr)] ${barred ? "gap-0" : "gap-3"}`}
       style={style}
       {...marker}
     >
-      {name ? <Tag className={heading.className}>{name}</Tag> : null}
+      {name ? (
+        <Tag className={headingClass} {...headingMarker}>
+          {name}
+        </Tag>
+      ) : null}
       {mode({
         container: block,
         locale,

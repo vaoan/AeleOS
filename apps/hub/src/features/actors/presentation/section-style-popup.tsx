@@ -64,6 +64,9 @@ export type SectionStyle = BlockStyle;
  * `bleed` names the full-width checkbox, which appears on a section only.
  * `margins` names the chrome checkbox beside it: default checked, storing
  * nothing, with `false` the only persisted opt-out.
+ *
+ * It offers `chrome`, `heading` and `text_align` beside the border, each with
+ * an empty option that CLEARS the key rather than naming a value.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -97,6 +100,32 @@ export interface SectionStylePopupLabels {
   bleed: string;
   /** Toggles the page chrome around a top-level section. */
   margins: string;
+  /** Field label for the card select. */
+  chrome: string;
+  /** The card select's option that clears `style.chrome`. */
+  chromeInherit: string;
+  /** The card select's option for a block that keeps its card. */
+  chromeCard: string;
+  /** The card select's option for a block drawn straight on the page. */
+  chromeBare: string;
+  /** Says what taking the card away removes. */
+  chromeHint: string;
+  /** Field label for the name-style select, offered for a named block only. */
+  heading: string;
+  /** The name-style option that clears `style.heading`. */
+  headingPlain: string;
+  /** The name-style option that welds the name to its content as a bar. */
+  headingBar: string;
+  /** Field label for the text-alignment select. */
+  textAlign: string;
+  /** The alignment option that clears `style.text_align`. */
+  textAlignInherit: string;
+  /** Text set against the reading edge. */
+  textAlignStart: string;
+  /** Text centred. */
+  textAlignCenter: string;
+  /** Text set against the far edge. */
+  textAlignEnd: string;
   /** Field label for the border select. */
   border: string;
   /**
@@ -134,6 +163,9 @@ export interface SectionStylePopupLabels {
  * `atTop` is what decides whether the full-width and margins controls are
  * offered: this component sees a style bag and never knows where its block
  * sits.
+ *
+ * It offers `chrome`, `heading` and `text_align` beside the border, each with
+ * an empty option that CLEARS the key rather than naming a value.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -148,6 +180,16 @@ export interface SectionStylePopupProps {
   onChange: (style: SectionStyle | undefined) => void;
   /** Already-translated strings. */
   labels: SectionStylePopupLabels;
+  /**
+   * Whether this block carries a name.
+   *
+   * The name-style control is offered only where there is a name to draw: a
+   * bar with nothing in it accepts a choice and changes nothing, which is the
+   * shape this repo keeps trimming. It is a prop rather than `atTop` because a
+   * NESTED container may be named too, and the idiom applies to it just as
+   * well.
+   */
+  named: boolean;
   /**
    * Whether this block is a SECTION — a container at depth 0.
    *
@@ -207,12 +249,16 @@ export interface SectionStylePopupProps {
  * and omits the key when checked, because absence already means today's chrome.
  *
  * @returns the button and, while open, the popup.
+ *
+ * It offers `chrome`, `heading` and `text_align` beside the border, each with
+ * an empty option that CLEARS the key rather than naming a value.
  */
 export function SectionStylePopup({
   value,
   onChange,
   labels,
   atTop,
+  named,
 }: SectionStylePopupProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -417,6 +463,85 @@ export function SectionStylePopup({
               </label>
             </div>
           ) : null}
+
+          {/* **Three states, like the border below it.** The empty option
+              clears the key, which is inheritance; `card` and `bare` are both
+              explicit, because a block inside a bare section has to be able to
+              ask for its card back. */}
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-chrome`} className="text-xs font-medium">
+              {labels.chrome}
+            </label>
+            <select
+              id={`${id}-chrome`}
+              value={style.chrome ?? ""}
+              onChange={(event) =>
+                setField(
+                  "chrome",
+                  event.target.value as SectionStyle["chrome"] | "",
+                )
+              }
+              aria-describedby={`${id}-chrome-hint`}
+              {...tid("section-style-chrome")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              <option value="">{labels.chromeInherit}</option>
+              <option value="card">{labels.chromeCard}</option>
+              <option value="bare">{labels.chromeBare}</option>
+            </select>
+            <p id={`${id}-chrome-hint`} className="text-xs text-(--muted)">
+              {labels.chromeHint}
+            </p>
+          </div>
+
+          {/* **Offered only where there is a name to draw.** A bar with
+              nothing in it is the control-that-does-nothing this repo keeps
+              trimming, and the renderer already treats it as inert. */}
+          {named ? (
+            <div className="grid gap-1.5">
+              <label htmlFor={`${id}-heading`} className="text-xs font-medium">
+                {labels.heading}
+              </label>
+              <select
+                id={`${id}-heading`}
+                value={style.heading ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "heading",
+                    event.target.value as SectionStyle["heading"] | "",
+                  )
+                }
+                {...tid("section-style-heading")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.headingPlain}</option>
+                <option value="bar">{labels.headingBar}</option>
+              </select>
+            </div>
+          ) : null}
+
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-align`} className="text-xs font-medium">
+              {labels.textAlign}
+            </label>
+            <select
+              id={`${id}-align`}
+              value={style.text_align ?? ""}
+              onChange={(event) =>
+                setField(
+                  "text_align",
+                  event.target.value as SectionStyle["text_align"] | "",
+                )
+              }
+              {...tid("section-style-align")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              <option value="">{labels.textAlignInherit}</option>
+              <option value="start">{labels.textAlignStart}</option>
+              <option value="center">{labels.textAlignCenter}</option>
+              <option value="end">{labels.textAlignEnd}</option>
+            </select>
+          </div>
 
           <div className="grid gap-1.5">
             <label htmlFor={`${id}-border`} className="text-xs font-medium">

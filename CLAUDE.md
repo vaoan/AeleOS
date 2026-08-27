@@ -321,10 +321,27 @@ Key choices and _why_:
     still holds counts, and the failure message prints the three questions the
     actors note already asks rather than only naming a file.
 
+  The eight pastiche pages are rebuilt against real archived captures now, and
+  the two things that found were both about USING an option rather than
+  reasoning about one: an author cannot turn the moving backdrop off, and a
+  page-level typeface did not reach headings until it set the font TOKENS as
+  well as the property. Both are in the findings.
+
   It runs as a step in `conformance` beside `check:docs`, taking the base ref
   the same way, and in pre-commit as `--staged`. Both modes only see what is
   committed or staged — an edit sitting unstaged in the working tree is invisible
   to it, exactly as it is to its sibling.
+
+- **What the block model CANNOT be pushed toward is written down, and it was
+  found by trying.** `scripts/seed-pastiches.mjs` builds eight pages aiming at
+  eight eras of somebody else's social network — the arrangement and palette,
+  never a logo — because a pastiche fails visibly and in a way you can name,
+  where "the editor feels limited" is not actionable. Findings:
+  `docs/superpowers/specs/2026-08-27-pastiche-findings.md`. The headline is that
+  **a leaf is always a card**: `border_style: "none"` removes the border style
+  and cannot make a leaf render as bare content, which blocks every modern feed
+  aesthetic at once. Read it before designing a style key, and note the two
+  things in it that LOOKED like faults and are not.
 
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
@@ -1647,6 +1664,21 @@ every Tailwind utility for months without anything noticing.
     two languages needs the test that says so in the same change**, and the
     cheap version is a regex over the migration — not because a regex is
     elegant but because nothing else in the build can see across the two.
+
+    **The theme half of this is closed now (2026-08-27).** `PAGE_MEASURES`,
+    `PAGE_FONTS` and `PAGE_SPACINGS` are compared against `set_actor_theme`'s
+    own allowlist in `block-limits-match-migration.test.ts`, so the exact
+    failure above — a seventh closed vocabulary added beside the pinned ones
+    without being pinned itself — now reddens. Sabotaging the allowlist to
+    forget one face reddens exactly that row. The block-level vocabularies were
+    already pinned; the page-level ones were the gap this rule named and nobody
+    had filled.
+
+    A trap came with writing it, and it is the one this file already warns
+    about two paragraphs down: the pattern was written as a plain template
+    literal, so `[\s\S]` collapsed to `[sS]`, matched nothing, and would have
+    passed forever. It was caught only because the file's convention is to
+    assert the regex matched BEFORE comparing anything. Use `String.raw`.
 
     What found both was one browser test that seeded a REAL page through the
     product's own RPC and then measured boxes. Neither fault was reachable from

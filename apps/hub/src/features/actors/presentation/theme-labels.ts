@@ -1,7 +1,11 @@
 import { CANVASES, type CanvasId } from "@/features/actors/domain/actor-theme";
 import {
+  PAGE_FONTS,
   PAGE_MEASURES,
+  PAGE_SPACINGS,
+  type PageFont,
   type PageMeasure,
+  type PageSpacing,
 } from "@/features/actors/domain/actor-theme";
 import type { ThemeConfiguratorLabels } from "@/features/actors/presentation/theme-configurator";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
@@ -59,6 +63,9 @@ export type Translate = (key: string) => string;
  * stop added without a label is a failing test rather than a raw key.
  *
  * @returns the labels, ready for the panel.
+ *
+ * The faces and the spacings are mapped from their vocabularies, so one added
+ * without a label fails `messages.test.ts` rather than showing a raw key.
  */
 export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
   return {
@@ -118,6 +125,18 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
     measures: Object.fromEntries(
       PAGE_MEASURES.map((measure) => [measure, t(`measures.${measure}`)]),
     ) as Record<PageMeasure, string>,
+    font: t("font"),
+    fontDefault: t("fontDefault"),
+    // Mapped from the vocabulary for `measures`' reason: a face added without
+    // a label is a failing `messages.test.ts` rather than a raw key on screen.
+    fonts: Object.fromEntries(
+      PAGE_FONTS.map((font) => [font, t(`fonts.${font}`)]),
+    ) as Record<PageFont, string>,
+    spacing: t("spacing"),
+    spacingDefault: t("spacingDefault"),
+    spacings: Object.fromEntries(
+      PAGE_SPACINGS.map((spacing) => [spacing, t(`spacings.${spacing}`)]),
+    ) as Record<PageSpacing, string>,
     adjusted: t("themeAdjusted"),
     reset: t("themeReset"),
     copyFromProfile: t("themeCopyFromProfile"),

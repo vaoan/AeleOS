@@ -2928,6 +2928,64 @@ the layer sizes: the logic is pure functions in `domain/`, which is why
 `satisfies Record` tables were not replaced with a runtime registry — a registry
 can silently miss a kind where the compiler cannot.
 
+### Closing the pastiche gaps (2026-08-27) — five new OPTIONS
+
+Every one of these is a choice an author may make and absence means exactly
+what the page did before it existed. None of them changes a stored page.
+
+**Three on a block's style bag.**
+
+- **`chrome`** (`card` / `bare`). `bare` drops the fill, the edge, the shadow
+  and the padding TOGETHER, which is what `border: "none"` could never do —
+  that removes the border style and leaves a card. It is emitted as tokens
+  (`--surface`, `--skin-border`, `--skin-border-min`, `--skin-shadow`,
+  `--block-pad`), never as a rule on the card's class, because styling a
+  generated class from outside a cascade layer is root rule 3.
+- **`heading`** (`plain` / `bar`). A named container's name as a solid strip
+  with its content squared off beneath — the dominant idiom of the mid-2000s
+  social web, measured off real captures of MySpace and hi5. **It collapses the
+  section's gap as well as filling the heading**: a bar that kept `gap-3` is a
+  floating label with a background, which is not what either site did.
+- **`text_align`** (`start` / `center` / `end`).
+
+**Two on the page's theme.**
+
+- **`font`** — six faces, every one a stack the reader already has, so choosing
+  one ships no file and adds no request. `casual` (Comic Sans) and `poster`
+  (Impact) are the two that actually sign the era.
+- **`spacing`** (`compact` / `roomy`) — card padding and text size together,
+  because changing one alone makes a page look squeezed rather than dense.
+  **Not to be confused with `density`, which is the CANVAS dial** and was
+  already taken; that near-collision is why this key is called `spacing`.
+
+**A face sets the TOKENS as well as the property, and nearly did not.**
+Eighteen elements across the leaf modules carry `font-display` or `font-sans`,
+which are explicit `font-family: var(--font-…)` declarations — and a
+declaration on the element beats a family INHERITED from an ancestor. Setting
+`font-family` alone changed body text and left every heading and display name
+in the app's own face, which was found on a rebuilt page rather than reasoned
+about. The general form is worth more than the fix: **an inherited property
+cannot override an explicit one, so a page-level choice has to set whatever
+tokens the elements actually read.**
+
+**Both land in `SKIN_SCOPE`, never `:root`**, and a named test asserts WHICH
+rule they land in. A `font-family` at `:root` would reset the app's bar, the
+account menu and the language toggle to whatever a page chose; a test merely
+asserting "the CSS contains Verdana" would pass on exactly that bug.
+
+**`--block-pad` is why a leaf card's padding is a token now.** A literal `p-4`
+cannot be overridden by a style bag, and the 26 `text-*` utilities in the leaf
+modules became `em`-relative so `spacing` reaches type at all. That conversion
+is behaviour-preserving and was MEASURED rather than assumed: the computed
+`font-size` of every text element on a real page reads identically against
+production, element for element.
+
+**The theme vocabulary is pinned to the SQL now, and was not before.**
+`PAGE_MEASURES`, `PAGE_FONTS` and `PAGE_SPACINGS` are compared against
+`set_actor_theme`'s allowlist, whose final branch is
+`raise exception 'unknown theme key %'` — the branch that made picking a width
+throw the WHOLE theme save when `measure` shipped unpinned. Root rule 30.
+
 ## Things not to do
 
 - **Never put the owner's handle or `actor_ref` in a URL.** The number exists

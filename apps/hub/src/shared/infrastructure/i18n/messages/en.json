@@ -113,6 +113,19 @@
     "sectionStyleFitDefault": "Original size",
     "sectionStyleFitCover": "Cover",
     "sectionStyleFitTile": "Tile",
+    "styleChrome": "Card",
+    "styleChromeInherit": "Inherit the page",
+    "styleChromeCard": "Keep the card",
+    "styleChromeBare": "No card",
+    "styleChromeHint": "Takes away the fill, the edge and the padding, so the content sits on the page itself.",
+    "styleHeading": "Name",
+    "styleHeadingPlain": "Above the content",
+    "styleHeadingBar": "As a bar on top of it",
+    "styleTextAlign": "Text",
+    "styleTextAlignInherit": "Inherit the page",
+    "styleTextAlignStart": "Left",
+    "styleTextAlignCenter": "Centred",
+    "styleTextAlignEnd": "Right",
     "sectionStyleBorder": "Border",
     "sectionStyleBorderHint": "The edge around this section's own cards and panels.",
     "sectionStyleBorderInherit": "Inherit the page",
@@ -400,7 +413,23 @@
     "sectionStyleBleed": "Reach both edges of the window",
     "sectionStyleMargins": "Margins",
     "hideControls": "Hide controls",
-    "showControls": "Show controls"
+    "showControls": "Show controls",
+    "font": "Typeface",
+    "fontDefault": "The design's own",
+    "fonts": {
+      "system": "System",
+      "classic": "Classic web",
+      "serif": "Serif",
+      "mono": "Monospace",
+      "casual": "Casual",
+      "poster": "Poster"
+    },
+    "spacing": "Spacing",
+    "spacingDefault": "The design's own",
+    "spacings": {
+      "compact": "Compact",
+      "roomy": "Roomy"
+    }
   },
   "picker": {
     "title": "Who do you want to be?",

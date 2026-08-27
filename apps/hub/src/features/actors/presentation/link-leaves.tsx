@@ -58,6 +58,9 @@ import { tid } from "@/shared/infrastructure/test-id";
  * element beats that utility on both sort order and specificity.
  *
  * @returns the link, or the card it could not become one.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced.
  */
 export function LinkLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
   const { title, description } = wordsOf(leaf, locale);
@@ -69,10 +72,10 @@ export function LinkLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
       </span>
       <span className="grid gap-0.5">
         {labelled && title ? (
-          <span className="font-display text-sm font-bold">{title}</span>
+          <span className="font-display text-[0.875em] font-bold">{title}</span>
         ) : null}
         {description ? (
-          <span className="text-xs text-(--muted)">{description}</span>
+          <span className="text-[0.75em] text-(--muted)">{description}</span>
         ) : null}
       </span>
     </>
@@ -120,6 +123,9 @@ export function LinkLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
  * somebody types and shows nothing" fault `LINKED`/`ICONED` exist to prevent.
  *
  * @returns the chip.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced.
  */
 export function SocialLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
   const { title } = wordsOf(leaf, locale);
@@ -138,10 +144,10 @@ export function SocialLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
       </span>
       <span className="grid gap-0.5">
         {label ? (
-          <span className="font-display text-sm font-bold">{label}</span>
+          <span className="font-display text-[0.875em] font-bold">{label}</span>
         ) : null}
         {social?.handle ? (
-          <span className="text-xs text-(--muted)">{social.handle}</span>
+          <span className="text-[0.75em] text-(--muted)">{social.handle}</span>
         ) : null}
       </span>
     </>
