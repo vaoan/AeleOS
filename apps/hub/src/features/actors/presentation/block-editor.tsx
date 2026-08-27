@@ -306,6 +306,12 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * between sections. Left in place with the cards hidden, those gaps would put
  * every section further down the document than a visitor sees it.
  *
+ * **A column meaning "no vertical padding" says `py-0 sm:py-0`.**
+ * `COLUMN.wide` is `py-6 sm:py-10`, and tailwind-merge treats a responsive
+ * variant as its own group — a bare `py-0` overrides the base and leaves the
+ * `sm:` one standing, which is 40px nobody asked for at every width above
+ * `sm`.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -544,7 +550,7 @@ export function BlockEditor<T extends FieldValues>({
     // routes already make, where the route asks the shell for a full-width
     // `main` and each section centres itself.
     <section data-editor-stack className="mt-8 grid gap-4">
-      <WidePageColumn className={`${CHROME_SCOPE} py-0`}>
+      <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
         {/* **A workbench group PAINTS, because what is behind it is somebody
             else's page.** These used to be bare text and a ghost button on the
             app's own muted field. The document wears the author's theme now, so
@@ -611,7 +617,7 @@ export function BlockEditor<T extends FieldValues>({
         <div data-editor-stack className="grid gap-6">
           {seats.map((seat) => (
             <div key={seat.key} data-editor-stack className="grid gap-2">
-              <WidePageColumn className={`${CHROME_SCOPE} py-0`}>
+              <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
                 <BlockSlot
                   path={[seat.position]}
                   filled
@@ -664,7 +670,7 @@ export function BlockEditor<T extends FieldValues>({
         </div>
       </DndContext>
 
-      <WidePageColumn className={`${CHROME_SCOPE} grid gap-4 py-0`}>
+      <WidePageColumn className={`${CHROME_SCOPE} grid gap-4 py-0 sm:py-0`}>
         {atBlockLimit ? (
           <p className="text-sm text-(--muted)">{labels.atLimit}</p>
         ) : (

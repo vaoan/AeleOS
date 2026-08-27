@@ -1270,6 +1270,44 @@ the face created. Measured on bare section background after the face went:
 `[232, 245, 222]`, the picture at about a tenth, which is exactly what a visitor
 sees. It asserts a CHANGE against the same probe with no picture now.
 
+**A STICKY BAR STICKS ONLY WITHIN ITS PARENT'S BOX, and moving the previews out
+of the control column shortened that box.** The toolbar and the language strip
+lived inside the `WidePageColumn` that used to wrap the whole editor. When
+`BlockEditor` moved out of it so section previews could own the page's full
+width, that column came to end just after the strip — and both bars stopped
+sticking a few hundred pixels down a page thousands of pixels long. Measured:
+Save at `y = -511` after scrolling 1200, and `-1132` once the toolbar was
+nested one level deeper.
+
+**Nothing in any computed style says so**, which is why it needs a browser and a
+scroll: `position` still reads `sticky` and the offset still reads
+`--bar-top`. Only `getBoundingClientRect` after scrolling can tell you the bar
+is above the viewport.
+
+Both bars are direct children of the element carrying `data-controls`, which
+spans the whole editor, and each puts a `WidePageColumn` INSIDE itself rather
+than sitting in one. `EditorToolbar` carries `CHROME_SCOPE` on its own root for
+the same reason — a wrapper would become its parent, and a wrapper the height of
+one bar pins it for the height of one bar. `editor-bars-stay-pinned.spec.ts` is
+the guard, and it scrolls a seeded eight-section page because a short one can be
+scrolled to the bottom without ever passing the point where the bars came
+unstuck.
+
+**A bare `py-0` does not remove `sm:py-10`, and that is how the language strip
+came to hang below the bar it belongs under.** `COLUMN.wide` is
+`px-4 py-6 sm:px-6 sm:py-10`; tailwind-merge treats a responsive variant as its
+own group, so a `className="py-0"` handed to `WidePageColumn` overrides the base
+and leaves the `sm:` one standing. Measured at 1280: the strip's wrapper stuck
+correctly at `--bar-top-2` = 120 while the card inside it started at 160, a 47px
+drop below a save bar ending at 113. Every editor column that means "no vertical
+padding" says `py-0 sm:py-0`.
+
+`editor-bars-stay-pinned.spec.ts` asserts the gap as well as the pinning, and
+measures it against the bar's own bottom rather than a literal — both heights
+are composed from `--bar-h`, so a number in the test would be a second source of
+truth. Being pinned is not the whole claim: a strip can stick at exactly the
+right offset and still sit 47px too low.
+
 **Hiding the controls leaves the page, and that is what replaced the framed
 preview.** The toolbar carries a control that sets `data-controls="hidden"` on
 the element wrapping the whole editor; two rules in `globals.css` do the rest.

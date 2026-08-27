@@ -429,6 +429,18 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * that brings the workbench back is rendered OUTSIDE the armed element, or the
  * rule would hide the only way out of the state it created.
  *
+ * **Both sticky bars are direct children of the element carrying
+ * `data-controls`**, which spans the whole editor, and each puts a
+ * `WidePageColumn` inside itself rather than sitting in one. A sticky element
+ * sticks only within its parent's box, and the control column ends before the
+ * section previews — which own the page's full width and cannot be inside it.
+ *
+ * **A column meaning "no vertical padding" says `py-0 sm:py-0`.**
+ * `COLUMN.wide` is `py-6 sm:py-10`, and tailwind-merge treats a responsive
+ * variant as its own group — a bare `py-0` overrides the base and leaves the
+ * `sm:` one standing, which is 40px nobody asked for at every width above
+ * `sm`.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -558,17 +570,22 @@ export function FursonaEditor({
             the sections close up to exactly the spacing `pageBoxClass` gives
             them on a public page. */}
         <div data-controls={controlsHidden ? "hidden" : "shown"}>
+          {/* **Both sticky bars are direct children of THIS box**, which spans
+              the whole editor. A sticky element sticks only within its parent's
+              box, and the control column below stops before the section
+              previews — so a bar inside it comes unstuck a few hundred pixels
+              down. See `editor-bars-stay-pinned.spec.ts`. */}
+          <EditorToolbar
+            title={labels.title}
+            labels={labels}
+            saving={saving}
+            cancelHref={LIST}
+            onHideControls={() => setControlsHidden(true)}
+          />
+
           <WidePageColumn
             className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
           >
-            <EditorToolbar
-              title={labels.title}
-              labels={labels}
-              saving={saving}
-              cancelHref={LIST}
-              onHideControls={() => setControlsHidden(true)}
-            />
-
             <FormErrorBanner
               errors={{ ...schemaErrors, ...fieldErrors }}
               labels={{ title: labels.bannerTitle, errors: labels.errors }}
@@ -684,65 +701,77 @@ export function FursonaEditor({
                 profileTheme={profileTheme}
               />
             </div>
+          </WidePageColumn>
 
-            {/* Directly above the sections it governs, and nothing else: `lang`
+          {/* Directly above the sections it governs, and nothing else: `lang`
           reaches only `SectionEditor`, so a strip sitting between the top
           fields and the theme panel used to announce itself over content it
           does not touch. Its `sticky` offset is what makes this position
           correct rather than merely tidier — it comes into force exactly
           when the sections it governs are on screen. */}
-            <div // **`--menu`, which is OPAQUE, for the same reason the toolbar takes it.**
-              // `--bar-solid` is 35% alpha — glass that assumed the app's own muted
-              // field behind it. The document wears the author's page now, so this
-              // strip's hint sat over whatever picture they chose. Photographed
-              // against a four-quadrant photo, it was unreadable over two of them.
-              className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 backdrop-blur-sm short:static"
-            >
-              <div className="grid gap-0.5">
-                <span className="font-display text-sm font-bold">
-                  {labels.writingIn}
-                </span>
-                <span className="text-xs text-(--muted)">
-                  {labels.writingInHint}
-                </span>
-              </div>
+          <div
+            className={`${CHROME_SCOPE} sticky top-(--bar-top-2) z-10 mt-8 short:static`}
+          >
+            {/* **`py-0 sm:py-0`, and BOTH are needed.** `COLUMN.wide` is
+                `py-6 sm:py-10`; a bare `py-0` overrides the base and leaves the
+                responsive variant standing, because tailwind-merge treats
+                `sm:py-10` as its own group. Measured at 1280: this wrapper stuck
+                correctly at 120 while the card inside it started at 160, so the
+                strip hung 47px below the save bar instead of under it. */}
+            <WidePageColumn className="py-0 sm:py-0">
+              {/* **`--menu`, which is OPAQUE, for the same reason the toolbar
+                    takes it.** `--bar-solid` is 35% alpha — glass that assumed
+                    the app's own muted field behind it. The document wears the
+                    author's page now, so this strip's hint sat over whatever
+                    picture they chose; photographed against a four-quadrant
+                    photo, it was unreadable over two of them. */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 backdrop-blur-sm">
+                <div className="grid gap-0.5">
+                  <span className="font-display text-sm font-bold">
+                    {labels.writingIn}
+                  </span>
+                  <span className="text-xs text-(--muted)">
+                    {labels.writingInHint}
+                  </span>
+                </div>
 
-              {/*
+                {/*
           Both languages are on screen and each names itself, so nothing has to
           be inferred from a single label. The endonyms are deliberately not
           translated: a language is called the same thing whatever interface
           you are reading, and "Spanish"/"Español" changing under somebody is
           how a language picker becomes unreadable to the person who needs it.
         */}
-              <div
-                role="group"
-                aria-label={labels.writingIn}
-                className="flex rounded-lg surface border-(--edge) p-0.5"
-              >
-                {(
-                  [
-                    ["en", "English"],
-                    ["es", "Español"],
-                  ] as const
-                ).map(([value, name]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => select(value)}
-                    aria-pressed={lang === value}
-                    {...tid(`writing-in-${value}`)}
-                    className={
-                      lang === value
-                        ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
-                        : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
-                    }
-                  >
-                    {name}
-                  </button>
-                ))}
+                <div
+                  role="group"
+                  aria-label={labels.writingIn}
+                  className="flex rounded-lg surface border-(--edge) p-0.5"
+                >
+                  {(
+                    [
+                      ["en", "English"],
+                      ["es", "Español"],
+                    ] as const
+                  ).map(([value, name]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => select(value)}
+                      aria-pressed={lang === value}
+                      {...tid(`writing-in-${value}`)}
+                      className={
+                        lang === value
+                          ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
+                          : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
+                      }
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          </WidePageColumn>
+            </WidePageColumn>
+          </div>
 
           <BlockEditor
             control={control}
