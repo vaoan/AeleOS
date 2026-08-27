@@ -188,6 +188,41 @@ Key choices and _why_:
   coverage gates this — an untested error branch fails the build. A test that
   guards already-correct behaviour must be **verified by sabotage**: break the
   code, watch it go red, restore. A test never seen red proves nothing.
+- **Edge cases are owed at BOTH levels, and they are different questions at
+  each.** Happy path plus failure modes is the floor, not the bar.
+
+  A unit test's edges are the boundaries of a **value**: empty, one, many, the
+  cap, one past the cap, absent against explicitly-default, the first position
+  and the last, the palindrome that hides a reversal, the list whose last entry
+  equals the constant you would pad with.
+
+  An end-to-end test's edges are the boundaries of a **situation**: the
+  narrowest viewport, the longest string in the longest language, the deepest
+  nesting the model allows, the fullest page, the cold cache, the second drag
+  in a suite where the first one's announcement is still on screen.
+
+  **Neither level covers for the other, and that is measured rather than
+  argued.** On 2026-08-27 an eyebrow added to the leaf editor's header row
+  displaced a 204px `select` — as wide as `Reproductor de música`, its longest
+  option in Spanish, which is this app's FALLBACK language — and pushed the
+  editor 71px past a 320px viewport. 3023 unit tests at 100% branch coverage,
+  `lint`, `typecheck` and `check:tools` were all green; `responsive.spec.ts` at
+  portrait 320 was the only thing in the repository that failed, because "how
+  wide is this control, in the longest language, on the smallest phone" is not
+  a question any unit test has an opinion about. The converse holds just as
+  hard: no browser case will tell you what `moveBlock` does at the depth cap,
+  and `block-moves.test.ts` is where that lives.
+
+  The practical form: when you add anything to a row that already holds a
+  `select`, the select is as wide as its longest option **in Spanish**, and the
+  row has no slack you have not measured.
+
+  **An edge case still has to discriminate.** Rule 27 is at its sharpest here —
+  the middle of a range is exactly where a right answer and a wrong one land on
+  the same pixel, and the edge is where they part. So name the wrong behaviour
+  the case excludes and ask whether this edge can tell it from the right one.
+  If it cannot, that is a case to rewrite, not one to count.
+
 - **Every bug gets a regression test. No exceptions.** Finding the cause is half
   the work; the other half is a test that fails on the unfixed code. Write it
   before the fix where you can, and **sabotage-verify it against the original
@@ -252,11 +287,45 @@ Key choices and _why_:
   compares each exported symbol against the base branch — and against the index
   in pre-commit — failing when the code moved and the TSDoc did not. It is a
   heuristic and it is deliberate: under AI-driven development a stale comment is
-  a confident, wrong instruction. There is no suppression flag.
+  a confident, wrong instruction. There is no suppression flag. Its companion
+  `pnpm check:agent-notes` asks the same question one level up, of the directory
+  notes — see the bullet below for the three rulings that shape it.
 - **Constraints about an export live in its TSDoc**, where they are enforced and
-  freshness-checked. A `CLAUDE.md` beside the code is optional and unenforced,
-  for rules constraining code that does not exist yet. TSDoc constrains what
-  exists; a directory note constrains what comes next.
+  freshness-checked. A `CLAUDE.md` beside the code is optional, for rules
+  constraining code that does not exist yet. TSDoc constrains what exists; a
+  directory note constrains what comes next.
+
+  **A directory note is no longer unenforced (2026-08-27).**
+  `pnpm check:agent-notes` fails when a file changed under a note and the note
+  did not — the companion to `check:docs`, which is per exported symbol and so
+  structurally blind to a note whose subject is a different file. It is generic:
+  every `CLAUDE.md` and `AGENTS.md` governs its own directory, so a note written
+  tomorrow is guarded on the day it lands, with nothing to register.
+
+  Three rulings it is built on, each of which changes what it costs:
+
+  - **Nearest note only, and a skipped note does not fall through.** A pointer
+    (`apps/hub/CLAUDE.md` is the eleven bytes `@AGENTS.md`) and a wholly
+    generated file (`apps/hub/AGENTS.md` is Next.js's own rules) govern nothing,
+    and their subtree is then unguarded rather than handed up. Falling through
+    would put every change under `apps/hub` on THIS file — 118KB of running
+    record — and a gate that fires on a workflow tweak is one people satisfy
+    with a blank line. So the run PRINTS what it skipped: the fix for an
+    unguarded subtree is to write a real note in it, not to bend the rule.
+  - **Both exemptions are mechanical, not a list.** A pointer is a file whose
+    every non-blank line starts with `@`; a vendored file is one where stripping
+    `BEGIN`/`END` blocks leaves nothing. Prose beside a generated block is
+    prose. Rule 32's hand-maintained skip list is why neither is a list.
+  - **No suppression flag**, matching `check:docs` and for its reason: a
+    suppression flag becomes the thing everyone types. Restating something that
+    still holds counts, and the failure message prints the three questions the
+    actors note already asks rather than only naming a file.
+
+  It runs as a step in `conformance` beside `check:docs`, taking the base ref
+  the same way, and in pre-commit as `--staged`. Both modes only see what is
+  committed or staged — an edit sitting unstaged in the working tree is invisible
+  to it, exactly as it is to its sibling.
+
 - **Squash the migrations, and squash them again.** Nothing is in production
   yet, so the schema is still allowed a clean start — and a clean start is
   worth keeping, because the migration set is the thing every consuming app
@@ -352,6 +421,28 @@ Key choices and _why_:
   it at a preview of _this_ branch, before taking the pictures. A picture of
   the deployed site is only proof after that commit is what production is
   serving.
+
+  **Then READ the pictures back, as a step of its own (2026-08-27).** Posting
+  is not the end of the job. Open every image you just posted and say what it
+  shows — including what it shows that you did not intend. A screenshot is
+  evidence of **everything in its frame**, not only of the claim you took it
+  for, and the claim is all you will see if checking the claim is all you do.
+
+  Paid for immediately, on the pull request that added this line. A shot
+  captioned "the way back to the controls sits at the top right, not over the
+  page's foot" proved exactly that — and in the same frame the button was
+  sitting **on top of** the language toggle, the light/dark toggle and the
+  account menu, hiding all three. Both facts were in the picture. Only the one
+  being argued for was read, and the reviewer saw the other in seconds.
+
+  So it is a separate pass asking a different question: not "does this show
+  what I claimed" but **"what else is in this frame, and is any of it wrong"**.
+  Walk the whole frame rather than the subject — edges and corners, anything
+  overlapping anything, anything clipped or cut off, a control that has landed
+  on another, text that is a raw message key, a colour that did not apply. Do
+  it before the comment goes up where you can, and immediately after where you
+  cannot; and where a comment is already up, correct it **on the thread**
+  rather than quietly, because the picture is there and somebody will read it.
 
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**
   Never bare `git checkout -b <name>`, which silently branches from whatever is
@@ -1698,6 +1789,23 @@ every Tailwind utility for months without anything noticing.
     that was checked across 61 callers, including one whose identity does not
     exist, with 59 of them able to see something, because a comparison where
     both sides return nothing is rule 27 wearing a security hat.
+
+    **The one thing this rule does NOT forbid is naming a cost you have
+    measured (2026-08-27).** A DEFAULT is not a budget anybody chose.
+    `block-editor.test.tsx`'s cap case renders `BLOCK_LIMITS.blocks` — 500 —
+    real leaf editors into jsdom, and sat against vitest's generic 5000ms:
+    measured at 843/858ms with the card eyebrow rendering nothing and
+    1048/1056ms with it, while CI ran the same case at 5314ms and timed out.
+    At about 5x this machine the case was already inside 15% of the ceiling
+    **before** the eyebrow existed, with no headroom for a loaded runner.
+
+    So the forbidden move is raising a number until a red run goes green
+    without knowing why. Naming an explicit ceiling, on a case that asserts no
+    duration, with the readings and the mechanism written beside it, is the
+    opposite act — and the giveaway is that it comes with numbers. A micro-fix
+    was tried first and refused for the right reason: replacing the leaf's icon
+    with a CSS box read 896–1043ms against 1048/1056, distributions that
+    overlap, so rule 14 says there is no claim there to make.
 
 34. **A SABOTAGE that restores with `git` restores to the last COMMIT, which is
     not where you were.** "Break it, run it, put it back" is the discipline this

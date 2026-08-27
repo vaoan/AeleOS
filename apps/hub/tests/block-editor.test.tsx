@@ -388,6 +388,24 @@ describe("BlockEditor", () => {
   // WITHDRAWN AT THE CAP, WITH A SENTENCE SAYING WHY. A button that silently
   // does nothing reads as broken, and the cap is not a fault on the person's
   // part — it is a number `blocksSchema` and `validate_block` both enforce.
+  //
+  // **Its timeout is explicit, and the number is measured rather than
+  // widened until it went green.** This renders `BLOCK_LIMITS.blocks` — 500 —
+  // real leaf editors into jsdom, so it is a stress fixture wearing a unit
+  // test's clothes, and vitest's 5000ms DEFAULT was never a budget anybody
+  // chose for it. Measured on one developer machine: 843ms and 858ms with the
+  // card eyebrow and rail rendering nothing, 1048ms and 1056ms as shipped.
+  // CI ran the same case at 5314ms and timed out — about 5x this machine — so
+  // the case was already inside 15% of the default before the eyebrow existed
+  // and had no headroom for a loaded runner.
+  //
+  // Root rule 33 forbids widening a timeout to make a flake stop; the
+  // mechanism here is measured and written down, which is the case that rule
+  // exempts. **Nothing about this case asserts a duration**, so a generous
+  // ceiling costs no signal: it fails when the controls do not withdraw, and
+  // 20s is chosen so a runner four times slower than the one that failed still
+  // reaches the assertions. If it ever times out again, that is a real
+  // rendering regression and not a number to raise.
   it("withdraws every add control at the block cap and says why", () => {
     const full: Block[] = Array.from({ length: BLOCK_LIMITS.blocks }, () => ({
       ...newLeaf("text"),
@@ -397,7 +415,7 @@ describe("BlockEditor", () => {
     expect(screen.getByText(labels.atLimit)).toBeInTheDocument();
     expect(screen.queryByTestId("add-section")).toBeNull();
     expect(screen.queryByTestId("section-presets")).toBeNull();
-  });
+  }, 20_000);
 
   // The cap counts what `blocksSchema` counts, empty places excluded — a page
   // of wide-open sections must not be refused for blocks it does not hold.

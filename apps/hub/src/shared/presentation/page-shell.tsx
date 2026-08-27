@@ -7,6 +7,10 @@ import { LanguageToggle } from "@/shared/presentation/language-toggle";
 import { NebulaToggle } from "@/shared/presentation/nebula-toggle";
 import { ThemeToggle } from "@/shared/presentation/theme-toggle";
 import { tid } from "@/shared/infrastructure/test-id";
+import {
+  EscapeSlotProvider,
+  EscapeSlotTarget,
+} from "@/shared/presentation/escape-slot";
 
 /**
  * What every page renders inside.
@@ -317,6 +321,13 @@ export function WidePageColumn(props: WidePageColumnProps): ReactNode {
  * something offers it back. The signed-in bar passes nothing, and since
  * 2026-08-27 the editor themes its own document with the draft, so clearing
  * there would throw away the page somebody is building. See `ThemeToggle`.
+ *
+ * **It wraps everything in `EscapeSlotProvider` and offers one slot in the
+ * header's control row.** That lets a page put a single control of its own
+ * beside the app's settings without this component learning what the control
+ * is — the fursona editor's way back to its workbench is the only user today.
+ * The provider has to enclose the header AND the page, because the slot is in
+ * one and whatever fills it is in the other.
  */
 export async function PageShell({
   children,
@@ -333,31 +344,35 @@ export async function PageShell({
   const tNebula = await getTranslations("nebula");
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {/* The bar spans the window and so do its contents. Pinning them to the
+    // **The provider wraps the header AND the page**, because the slot is in
+    // one and whatever fills it is in the other. A provider around the header
+    // alone would publish a node nothing below could read.
+    <EscapeSlotProvider>
+      <div className="flex min-h-screen flex-col">
+        {/* The bar spans the window and so do its contents. Pinning them to the
           620px content column instead left the wordmark stranded at x=434 on a
           1440px screen — text dropped in the middle of an empty bar rather
           than a navigation bar. Width ownership for the page below is selected
           independently. */}
-      {/* `short:static` and the fixed height are one mechanism: anything else that
+        {/* `short:static` and the fixed height are one mechanism: anything else that
           sticks — the editor's toolbar — parks at `--bar-top`, which is this
           height, and the class is what lets a short landscape screen take the
           stickiness away and set that offset to zero together. Both live in
           `globals.css`, where the reasoning is. */}
-      <header className="sticky top-0 z-10 h-(--bar-h) border-b border-(--edge)/40 bg-(--bar) backdrop-blur-md short:static">
-        {/* Everything here is measured against 320px, the narrowest phone
+        <header className="sticky top-0 z-10 h-(--bar-h) border-b border-(--edge)/40 bg-(--bar) backdrop-blur-md short:static">
+          {/* Everything here is measured against 320px, the narrowest phone
             still in use. The star, the wordmark, two section links, language,
             theme and the account menu came to 324px there — four over, which
             is a page that scrolls sideways on every screen of the app rather
             than only in the editor. The padding and the gaps are where those
             four came from. */}
-        <div className="flex size-full min-w-0 items-center gap-1 px-2 sm:gap-2 sm:px-6">
-          {/* The star sits with the wordmark because it *is* the wordmark's
+          <div className="flex size-full min-w-0 items-center gap-1 px-2 sm:gap-2 sm:px-6">
+            {/* The star sits with the wordmark because it *is* the wordmark's
               light source: switching it off puts out the dust it lights. That
               relationship is the reason it needs no visible label, and it is
               lost when the control is filed away with the page settings. */}
-          <NebulaToggle label={tNebula("toggle")} />
-          {/* The wordmark is a proper noun, so it is a literal rather than a
+            <NebulaToggle label={tNebula("toggle")} />
+            {/* The wordmark is a proper noun, so it is a literal rather than a
               catalogue entry — it reads the same in every language.
 
               It is a link because a wordmark that does nothing is the most
@@ -366,38 +381,47 @@ export async function PageShell({
               this one was a `span`. The locale-aware Link, not an `a` — a bare
               href drops the `/es` prefix and switches somebody's language on
               the way home. */}
-          <Link
-            href={homeHref}
-            className="shrink-0 rounded-lg px-1 font-display text-base font-bold tracking-tight sm:text-lg"
-            {...tid("wordmark")}
-          >
-            AeleOS
-          </Link>
-          {nav}
-          {/* Controls live together on the right. Beside the wordmark the star
+            <Link
+              href={homeHref}
+              className="shrink-0 rounded-lg px-1 font-display text-base font-bold tracking-tight sm:text-lg"
+              {...tid("wordmark")}
+            >
+              AeleOS
+            </Link>
+            {nav}
+            {/* Controls live together on the right. Beside the wordmark the star
               read as a bullet point rather than something pressable. */}
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            {/* Before language and theme, because it decides whether the
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              {/* **Where a page's own escape control lands, empty until one
+                portals in.** It is first in the row so the control belonging
+                to what you are looking AT sits before the app's own settings,
+                and it is in FLOW so it displaces them instead of covering
+                them — see `ESCAPE_SLOT`. An empty div costs nothing: with no
+                children and no padding it is zero-wide, and the `gap-1` either
+                side of nothing collapses to one gap. */}
+              <EscapeSlotTarget />
+              {/* Before language and theme, because it decides whether the
                 light/dark choice beside it is even in force. */}
-            {pageThemeSwitch ? (
-              <div {...tid("public-theme-switch")}>{pageThemeSwitch}</div>
-            ) : null}
-            <LanguageToggle label={t("language")} />
-            <ThemeToggle
-              toDarkLabel={t("toDark")}
-              toLightLabel={t("toLight")}
-              // **The way back is what licenses taking it away.** The switch
-              // above offers the author's colours again; where it is absent —
-              // the signed-in bar, and so the editor — clearing would discard
-              // the page somebody is building with nothing to restore it.
-              clearsPageTheme={Boolean(pageThemeSwitch)}
-            />
-            {trailing ? <div className="ml-1">{trailing}</div> : null}
+              {pageThemeSwitch ? (
+                <div {...tid("public-theme-switch")}>{pageThemeSwitch}</div>
+              ) : null}
+              <LanguageToggle label={t("language")} />
+              <ThemeToggle
+                toDarkLabel={t("toDark")}
+                toLightLabel={t("toLight")}
+                // **The way back is what licenses taking it away.** The switch
+                // above offers the author's colours again; where it is absent —
+                // the signed-in bar, and so the editor — clearing would discard
+                // the page somebody is building with nothing to restore it.
+                clearsPageTheme={Boolean(pageThemeSwitch)}
+              />
+              {trailing ? <div className="ml-1">{trailing}</div> : null}
+            </div>
           </div>
-        </div>
-      </header>
-      <PageContent width={width}>{children}</PageContent>
-    </div>
+        </header>
+        <PageContent width={width}>{children}</PageContent>
+      </div>
+    </EscapeSlotProvider>
   );
 }
 

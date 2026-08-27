@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { EyeOff } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { PageContext } from "@/features/actors/presentation/blocks";
@@ -15,8 +16,10 @@ import {
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { WidePageColumn } from "@/shared/presentation/page-shell";
+import { useEscapeSlot } from "@/shared/presentation/escape-slot";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { ThemeScope } from "@/features/actors/presentation/theme-scope";
+import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
 import {
   EditorToolbar,
@@ -35,6 +38,7 @@ import {
 import {
   DEFAULT_THEME,
   themeSchema,
+  isCustomised,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
 import type { Block } from "@/features/actors/domain/block-schema";
@@ -73,11 +77,25 @@ import { z } from "zod";
  * than by a layout name; what replaced it is `modes` and `leafKinds`, both
  * built by mapping the vocabulary in `pages/labels.ts` so a name nobody wrote
  * fails the build rather than rendering its own id at somebody.
+ *
+ * `pageStyle` names the switch that takes the page's own look off while
+ * building. It is deliberately not the visitor's string for the same control:
+ * "this author's colours" is the wrong way to say it to the author.
  */
 export interface FursonaEditorLabels
   extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
+  /**
+   * Names the switch that takes the page's own look off while building.
+   *
+   * It is the aria-label and the tooltip of an icon toggle, so it names the
+   * THING being worn rather than the action — the pressed state says whether
+   * it is on. The visitor's copy of the same control on a public page uses a
+   * string of its own, because "this author's colours" is the wrong way to say
+   * it to the author.
+   */
+  pageStyle: string;
   /** Names the control that switches which language is being written. */
   writingIn: string;
   /** Says which fields the language switch governs. */
@@ -441,6 +459,22 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `sm:` one standing, which is 40px nobody asked for at every width above
  * `sm`.
  *
+ * **The way out of the author's own look is in the bar.** Since the document
+ * wears the draft, a busy theme is worn by the workbench too; the editor hands
+ * `EditorToolbar` a `PageThemeSwitch` — the same control a visitor gets — gated
+ * on `isCustomised(liveTheme)`, so it arrives with the first colour somebody
+ * picks and leaves when they reset. It needed no mechanism of its own:
+ * `setPageTheme` writes an attribute and persists nothing, and every rule
+ * `themeCss` emits is already gated on it.
+ *
+ * **The way back to the CONTROLS is portalled into the app header's own
+ * control row**, through `useEscapeSlot`. That header is outside the armed
+ * element, which is what the escape hatch requires; the editor's own toolbar
+ * is inside it and therefore forbidden. It was `fixed` to a corner twice and
+ * both were wrong — bottom right covered the page's foot, top right covered
+ * the language and light/dark toggles by 88% each. A control out of flow has
+ * no way to know what it lands on.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -470,6 +504,12 @@ export function FursonaEditor({
   // remembered value would open the editor with no controls at all for whoever
   // did that once.
   const [controlsHidden, setControlsHidden] = useState(false);
+  // **Read from the shell rather than looked up.** The slot is in the header,
+  // which this component does not own; a `document.querySelector` for it would
+  // be an untyped string contract between two components and is restricted in
+  // this app for that reason. Null until the header mounts, which is long
+  // before anybody can press Hide controls.
+  const escapeSlot = useEscapeSlot();
 
   const {
     control,
@@ -581,6 +621,15 @@ export function FursonaEditor({
             saving={saving}
             cancelHref={LIST}
             onHideControls={() => setControlsHidden(true)}
+            // **Gated on the LIVE theme, so it arrives with the first colour
+            // somebody picks and leaves when they reset.** Computed here rather
+            // than in the bar for the same reason the public routes compute it:
+            // the bar owns no domain concept, and `isCustomised` is one.
+            pageThemeSwitch={
+              isCustomised(liveTheme as ActorTheme) ? (
+                <PageThemeSwitch labels={{ author: labels.pageStyle }} />
+              ) : null
+            }
           />
 
           <WidePageColumn
@@ -787,20 +836,41 @@ export function FursonaEditor({
           />
         </div>
 
-        {/* **OUTSIDE the element the rule reaches**, so it needs no exception and
-          cannot be part of what the fidelity comparison photographs. It is the
-          only thing on screen that is not the page. */}
-        {controlsHidden ? (
-          <button
-            type="button"
-            onClick={() => setControlsHidden(false)}
-            {...tid("show-controls")}
-            className={`${CHROME_SCOPE} fixed right-4 bottom-4 z-50 flex items-center gap-1.5 rounded-full bg-(--menu) px-4 py-2.5 text-sm font-medium shadow-lg`}
-          >
-            <EyeOff className="size-4" />
-            {labels.showControls}
-          </button>
-        ) : null}
+        {/* **PORTALLED INTO THE HEADER, which is outside the element the rule
+          arms** — so it needs no exception, cannot be part of what the fidelity
+          comparison photographs, and cannot be hidden by the rule it exists to
+          undo. It is the only thing on screen that is not the page.
+
+          It cannot go in the EDITOR's toolbar, however much it reads like a bar
+          control: that bar is inside the armed element and the rule removes
+          `CHROME_SCOPE` islands by class, so a button there would be hidden by
+          the press that summons it. `fursona-editor.test.tsx` pins that.
+
+          It was `fixed` to a corner and that was wrong twice. Bottom right
+          covered the page's own foot, which is part of what somebody hides the
+          controls to look at; top right then covered the language and
+          light/dark toggles by 88% each, making both impossible to press. A control
+          out of flow has no way to know what it lands on, so it sits in the
+          header's own row now and displaces rather than covers. */}
+        {controlsHidden && escapeSlot
+          ? createPortal(
+              <button
+                type="button"
+                onClick={() => setControlsHidden(false)}
+                {...tid("show-controls")}
+                // **Still `CHROME_SCOPE` and still opaque.** The header wears
+                // the author's theme like the rest of the document, so a
+                // translucent control here has no guaranteed contrast against
+                // colours they chose. `--menu` is the one token declared
+                // opaque in both modes.
+                className={`${CHROME_SCOPE} flex items-center gap-1.5 rounded-lg bg-(--menu) px-3 py-1.5 text-sm font-medium`}
+              >
+                <EyeOff className="size-4" />
+                {labels.showControls}
+              </button>,
+              escapeSlot,
+            )
+          : null}
       </ThemeScope>
     </form>
   );

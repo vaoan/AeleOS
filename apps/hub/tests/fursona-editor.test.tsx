@@ -15,6 +15,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { isContainer, type Block } from "@/features/actors/domain/block-schema";
 import { blockEditorLabels } from "./support/editor-labels";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
+import {
+  EscapeSlotProvider,
+  EscapeSlotTarget,
+} from "@/shared/presentation/escape-slot";
 
 /**
  * What the live section previews currently render.
@@ -109,6 +113,7 @@ const labels = {
   hideControls: "Hide controls",
   showControls: "Show controls",
   bannerTitle: "Fix these before saving",
+  pageStyle: "Your page’s own look",
   writingIn: "Writing in",
   writingInHint: "Only the page text.",
   theme: {
@@ -258,14 +263,35 @@ const untitled = () => [
  *
  * @param props - what to override.
  */
+/**
+ * The editor under a slot, which is the arrangement `PageShell` gives it.
+ *
+ * **The target comes FIRST, as it does in production**, where it is in the
+ * header and the editor is in the content beneath — so the assertion that the
+ * escape control lands outside the armed region is testing the real
+ * relationship rather than an accident of this file.
+ *
+ * **Supplying the slot here is only honest because something else proves the
+ * shell really has one.** A suite that hands a component the wiring it depends
+ * on is exactly how this repository has hidden setup requirements before, so
+ * `editor-is-the-page.spec.ts` finds `show-controls` inside a real `<header>`
+ * in the running app, and asserts it covers none of the controls already
+ * there.
+ *
+ * @param props - overrides for the editor.
+ * @returns what `render` returned.
+ */
 function renderEditor(props: Record<string, unknown> = {}) {
   return render(
-    <FursonaEditor
-      labels={labels}
-      handleEditable
-      page={pageContext({ parentHost: "" })}
-      {...props}
-    />,
+    <EscapeSlotProvider>
+      <EscapeSlotTarget />
+      <FursonaEditor
+        labels={labels}
+        handleEditable
+        page={pageContext({ parentHost: "" })}
+        {...props}
+      />
+    </EscapeSlotProvider>,
   );
 }
 
@@ -923,5 +949,49 @@ describe("a page the write schema refuses", () => {
       labels.errors.sectionsTooLarge,
     );
     expect(screen.queryByTestId("leaf-title-problem")).toBeNull();
+  });
+});
+
+describe("leaving the page's own look while building", () => {
+  // The document is where this lands, so it survives a render. Cleared rather
+  // than trusted, or the "it starts on" assertion below reads whatever the
+  // previous case left and can pass for the wrong reason.
+  beforeEach(() => {
+    document.documentElement.removeAttribute("data-page-theme");
+  });
+
+  // `initialTheme` is its own prop — the theme is not part of `initial`.
+  const customised = { initialTheme: { ...DEFAULT_THEME, accent: "#ff0000" } };
+
+  // **A control offering to remove colours the page never had does nothing**,
+  // which is the shape this repository keeps trimming — and `PageThemeSwitch`'s
+  // own doc says the caller decides. The default fixture is the discriminating
+  // half: without it, "renders when customised" passes for a switch that always
+  // renders.
+  it("is absent while the page still wears the default look", () => {
+    renderEditor();
+    expect(screen.queryByTestId("page-theme-switch")).toBeNull();
+  });
+
+  it("appears once the page has a look of its own", () => {
+    renderEditor(customised);
+    expect(screen.getByTestId("page-theme-switch")).toBeInTheDocument();
+  });
+
+  // **Asserted on the DOCUMENT, not on the button's own state.** The editor
+  // themes `:root`, and `themeCss` gates every rule it writes on
+  // `:not([data-page-theme="default"])` — so this attribute is the whole
+  // mechanism, and a switch that flipped its own `aria-pressed` and wrote
+  // nothing here would look right and change nothing on screen.
+  it("takes the page's look off the document and puts it back", () => {
+    renderEditor(customised);
+    const root = document.documentElement;
+    expect(root.getAttribute("data-page-theme")).not.toBe("default");
+
+    fireEvent.click(screen.getByTestId("page-theme-switch"));
+    expect(root.getAttribute("data-page-theme")).toBe("default");
+
+    fireEvent.click(screen.getByTestId("page-theme-switch"));
+    expect(root.getAttribute("data-page-theme")).toBe("author");
   });
 });

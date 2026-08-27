@@ -310,11 +310,14 @@ async function quiet(page: Page): Promise<void> {
       // **The control that brings the workbench back, and it is the one thing
       // on screen that is deliberately not the page.** It is rendered outside
       // the element the hide rule reaches — that is what stops the rule hiding
-      // the only way out of the state it created — but it is `fixed` to the
-      // bottom-right corner, so a VIEWPORT clip of a section pinned low in the
-      // window captures it. Measured before it was hidden: 2.598% of the last
-      // section differing, worst pixel AeleOS's near-white `255,250,247` where
-      // the page paints the photograph's gold quadrant at `176,142,34`.
+      // the only way out of the state it created — but it is `fixed` to a
+      // corner, so a VIEWPORT clip of a section pinned there captures it.
+      // Measured while it sat at the BOTTOM right, against a section pinned
+      // low: 2.598% of the last section differing, worst pixel AeleOS's
+      // near-white `255,250,247` where the page paints the photograph's gold
+      // quadrant at `176,142,34`. It sits at the TOP right now, so the clip it
+      // would spoil is a different one — the hiding is still needed, and the
+      // number above is a record of the fault rather than of today's geometry.
       //
       // `openEditorAsPage` asserts it is THERE before this hides it, so the
       // suite still fails if hiding the controls leaves no way back.
@@ -544,4 +547,119 @@ test("the canvas is the author's on both sides, with nothing quieted", async ({
   expect(published.canvas).not.toBe("");
   expect(edited.canvas).toBe(published.canvas);
   expect(published.body).toContain("url(");
+});
+
+// THE WAY BACK OUT SITS WHERE THE BAR WAS.
+//
+// It cannot live IN the toolbar: the hide rule removes every `CHROME_SCOPE`
+// island by class, so a button inside the bar would be hidden by the very
+// press that summoned it, and `fursona-editor.test.tsx` pins that structural
+// invariant. What moved is only where it is drawn — the bottom-right corner
+// covered the page's own last section, which is the part somebody hides the
+// controls to look at.
+//
+// **Asserted on the measured box rather than on the class list**, because a
+// class assertion cannot see the box it produces — root rule 30 is what that
+// costs.
+test("the way back to the controls is drawn at the top, not over the page's foot", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await servePhoto(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, await mintTicket(identity!.userId));
+
+  // **Driven here rather than through `openEditorAsPage`**, whose `quiet`
+  // deliberately gives this very button `display:none` so a pinned viewport
+  // clip cannot capture it. A helper that hides the subject cannot measure it.
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await page.getByTestId("hide-controls").click();
+  await expect(page.getByTestId("show-controls")).toBeVisible();
+
+  const box = await page.getByTestId("show-controls").boundingBox();
+  expect(box).not.toBeNull();
+  // Well inside the top eighth at this height, and nowhere near the 744px a
+  // bottom-anchored button reports — so the two placements cannot both pass.
+  expect(box!.y).toBeLessThan(100);
+
+  // **AND IT COVERS NOTHING. The line above could not tell that.** Moved to
+  // the corner as a `fixed` element it satisfied "near the top" perfectly
+  // while sitting ON the language and light/dark toggles — measured at 88% of
+  // each, which does not overlap them so much as put them out of reach. A
+  // placement assertion that a broken placement passes is rule 27 exactly, so
+  // the guard is what the button DOES to its neighbours.
+  const covered = await page.evaluate(`(() => {
+    const self = document.querySelector('[data-testid="show-controls"]');
+    const b = self.getBoundingClientRect();
+    // Excluding the subject, which lives IN the header now and would otherwise
+    // report covering itself by 100%.
+    return [...document.querySelectorAll("header button, header a")]
+      .filter((el) => el !== self && !el.contains(self) && !self.contains(el))
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        const over =
+          Math.max(0, Math.min(b.right, r.right) - Math.max(b.left, r.left)) *
+          Math.max(0, Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top));
+        return { what: el.getAttribute("data-testid") || el.tagName, over };
+      })
+      .filter((hit) => hit.over > 0);
+  })()`);
+  expect(covered).toEqual([]);
+});
+
+// TAKING THE PAGE'S OWN LOOK OFF WHILE BUILDING.
+//
+// The unit case proves the switch writes `data-page-theme`. It cannot prove
+// that writing it removes anything, because `themeCss`'s gate is a stylesheet
+// and jsdom resolves no custom properties through one — root rule 30 is what
+// an assertion on the attribute alone would be worth.
+//
+// **Read off `--canvas`, which the author's theme emits and the default does
+// not.** `themeVars` writes that property only for a canvas OTHER than the
+// design's, so an empty string is the design's own — a value the author's theme
+// cannot produce, which is what makes the two states distinguishable at all.
+test("the builder can take the page's own look off, and put it back", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await servePhoto(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  const canvas = () =>
+    page.evaluate(() =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--canvas")
+        .trim(),
+    );
+
+  // Anti-vacuity: the page really is wearing something, so "it went away"
+  // below is not passing on a page that never had a look of its own.
+  const wearing = await canvas();
+  expect(wearing).not.toBe("");
+
+  await page.getByTestId("page-theme-switch").click();
+  await expect.poll(canvas).toBe("");
+
+  await page.getByTestId("page-theme-switch").click();
+  await expect.poll(canvas).toBe(wearing);
+
+  // **The narrowest screen, with the switch actually present.**
+  // `responsive.spec.ts` drives `/pages/new`, whose theme is the default — so
+  // `isCustomised` is false there and that suite has never once rendered this
+  // control. A bar control nothing checks at 320px is how the last one cost
+  // 71px of sideways scroll.
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect(page.getByTestId("page-theme-switch")).toBeVisible();
+  const overflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  );
+  expect(overflow, `the editor scrolls sideways by ${overflow}px`).toBeLessThan(
+    2,
+  );
 });

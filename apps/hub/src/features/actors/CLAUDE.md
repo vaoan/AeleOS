@@ -1326,8 +1326,19 @@ the WINDOW, a section at the wrong offset shows the wrong slice of their own
 backdrop. Three elements carry `data-editor-stack` for that rule to reach.
 
 **The control that brings the workbench back is rendered OUTSIDE the armed
-element**, so it needs no exception in the rule and cannot be part of what the
-fidelity comparison photographs. Putting it inside would let the rule hide the
+element**, and that is why it cannot become an EDITOR-toolbar button however
+much it reads like one: the rule removes islands by CLASS, so a button in that
+bar would be hidden by the very press that summons it.
+
+**The app HEADER is a different bar and is not armed**, which is what makes the
+current arrangement legal: `PageShell` offers `EscapeSlotTarget` in its control
+row and `FursonaEditor` portals into it through `useEscapeSlot`. A context
+rather than a `document.querySelector`, because that call is restricted in this
+app in favour of a ref and the rule is right — a string contract between two
+components is untyped and silently wrong the day either side renames it. The
+invariant now holds by WHERE the slot is rather than by anybody remembering. It needs no exception in the rule and
+cannot be part of what the fidelity comparison photographs. Putting it inside
+would let the rule hide the
 only control that could undo it, stranding somebody on a page with no way back.
 `fursona-editor.test.tsx` asserts both halves of that containment, and the
 sabotage that moves it inside reddens.
@@ -1366,10 +1377,25 @@ those are the widths where a geometry difference flips a visible answer. A
 doubled 16px gutter is what moved this threshold the last time it went wrong.
 
 **Its `hide-controls` mechanism has one exception the camera needs.** The
-restore control is `fixed` to the bottom-right corner, so a viewport clip of a
-section pinned low in the window captures it — 2.598% of the last section
-differing, AeleOS's near-white where the page paints the photograph's gold. It
-is hidden for the photograph only, after the suite has asserted it is there.
+restore control is `fixed` to a corner, so a viewport clip of a section pinned
+there captures it — measured while it sat at the BOTTOM right, against a section
+pinned low: 2.598% of the last section differing, AeleOS's near-white where the
+page paints the photograph's gold. It is hidden for the photograph only, after
+the suite has asserted it is there.
+
+**It is IN the header's control row now (2026-08-27), and got there by being
+wrong twice.** Bottom right covered the page's own foot, which is part of what
+somebody hides the controls to look at. Top right, still `fixed`, then covered
+the language and light/dark toggles by **88% each** — measured — putting both
+out of reach. A control out of flow has no way to know what it lands on, so it
+is portalled into `EscapeSlotTarget` and displaces its neighbours instead.
+
+**The guard changed with it, and the old one could not have caught this.** `the
+way back to the controls is drawn at the top` asserted `y < 100`, which the
+broken placement satisfied perfectly — root rule 27. It now asserts the button
+overlaps no other control in the header, which reddens naming
+`language-toggle` at 901px² and `theme-toggle` at 795px² when the button is put
+back out of flow.
 
 **It is deliberately NOT `serial`.** The config already runs one worker, so
 serial buys no isolation and costs the whole point of a responsive guard: the
@@ -1412,6 +1438,93 @@ different source or provider is admitted.
 **A tray does not participate in dragging.** It is a sibling of the top-level
 `BlockSlot`, never its descendant, so changing its height cannot change
 droppable geometry.
+
+### Telling a section from content (2026-08-27)
+
+**The two cards painted the same colour, and that is measured rather than
+impressionistic.** `globals.css` declares `--surface: var(--surface-solid)` in
+the one `:root, .aeleos-chrome` block, and the dark block below redeclares only
+the raw pair — so the composed line still applies in both modes. The editor's
+cards sit inside `CHROME_SCOPE`, so they wear exactly those tokens. A section
+card's `bg-(--surface-solid)` and a leaf's `bg-(--surface)` were therefore the
+same colour, and the whole distinction between a container and a piece of
+content was one border-alpha step, four pixels of radius and two of padding.
+
+**A nested section was worse: byte-for-byte identical to a top-level one.**
+`idsFor` changes the test ids and the labels and nothing else, so depth was
+legible only from position. Three things were conflated, not two.
+
+`card-kind.tsx` holds both answers and neither is in a card:
+
+- **`ContainerRail`** is drawn once per container at EVERY depth. Rails nest
+  physically, so depth becomes countable instead of inferred — three stacked
+  rails is a block at the cap.
+
+  **Where it sits was measured twice, against two opposite faults, and the
+  second one is the instructive half.** At `left-0.5` it sat 1px from the
+  card's own border, read as part of it, and was invisible — present in the
+  DOM, passing its test. **No unit test can see that**: the case asserts the
+  element exists, and an element nobody can distinguish exists just as hard;
+  photographing it is what found it.
+
+  Widening the card to `py-3 pr-3 pl-4` to give it a gutter fixed that and cost
+  **8px of the card's MIN-CONTENT width** — 4px per nesting level — because
+  padding on a box whose contents cannot shrink below their own intrinsic width
+  makes the box wider, not the contents narrower. That pushed the editor 6px
+  past a 568px screen and is what `responsive.spec.ts` caught in CI.
+
+  It sits at `left-1` inside the uniform `p-3` now: 4–7px, so 3px clear of the
+  border and 1px clear of the header's `-m-1` bleed at 8px, and the card is
+  **exactly as wide as it was before any of this** — measured at a squeezed
+  280px, where the whole editor reports a `scrollWidth` of 293 with the rail
+  and 293 without it, against 301 with the gutter.
+  **Its test id is `container-rail`, not `section-rail`**: the end-to-end suite
+  counts sections through `section-card`, which `idsFor` emits at depth 0 only,
+  and a rail calling itself a section at every depth would make that vocabulary
+  mean two things — the same ambiguity `idsFor`'s two sets exist to avoid.
+
+- **`CardKind`** is the eyebrow: a mark and the noun, and it sits on the field
+  LABEL's line — never in the row holding the control. Measured at 320px in
+  Spanish: put beside the leaf's kind select it pushed a 204px `select` — as
+  wide as `Reproductor de música`, and with no `w-full` fallback to wrap onto a
+  line of its own the way the section's selects have — **71px past the
+  viewport**, which `responsive.spec.ts` caught and no unit test could. Above
+  the control it competes with a two-word label instead, so it costs no width
+  in the tight row and no height anywhere.
+
+  **The general shape is worth more than the fix.** A control row that fits is
+  not a row with slack in it; the leaf header happened to fit and had no
+  wrapping fallback, so the first thing added to it broke a screen size. Before
+  putting anything in a row beside a `select`, remember the select is as wide
+  as its longest option in the LONGEST language, and that Spanish is the
+  fallback here.
+
+  The caller names the kind rather than handing in a glyph, so a third kind is
+  an edit in one file. The
+  container's mark is `Layers`, the one its own "add a section here" button
+  carries, so an action keeps its sign through the flow.
+
+  **Content's tile is FILLED, and that is not decoration.** An outlined square
+  beside a word is an unchecked checkbox to anybody who has used a form — it
+  invites a click that does nothing. Also found by photographing it rather than
+  by any check; the outline shipped through lint, typecheck and 3023 green
+  tests.
+
+**A nested section answers `"container"` too, and says "Section".** A nested
+section IS a section; a third noun would be something to learn for a difference
+the rail already draws.
+
+**Two field labels were reworded so the eyebrow is not saying it twice.**
+`sectionName` is "Name" where it was "Section name", and `leafKind` is "Type"
+where it was "Content" — the eyebrow is the noun, the field label is the field,
+and a label that quietly did both is how the noun ended up invisible in a row of
+four identical `text-xs font-medium` labels. The keys did not change, and the
+test fixture uses real English for scalars, so both had to move together.
+
+**The rail is what the nested fixture in `block-card.test.tsx` exists for.** One
+rail on the outermost card and one rail per container are indistinguishable on a
+flat page, so the case nests to the cap; rendering the rail only at depth 0
+reddens that case and no other, which is the proof the fixture discriminates.
 
 ### Dragging (2026-08-18) — anything, anywhere a place will hold it
 
@@ -2714,6 +2827,30 @@ options did, moved with the question.
 
 `PageShell` lost its `themed` prop with it. Passing `pageThemeSwitch` at all is
 now the statement that there is a theme to leave.
+
+**The EDITOR's toolbar carries the same switch now (2026-08-27), and it is the
+same control rather than a second one.** Since the editor wears the page, a
+busy theme is worn by the workbench too; this is the way out while building.
+`EditorToolbar` takes a `pageThemeSwitch` node exactly as `PageShell` does, so
+the bar never learns what a theme is, and `FursonaEditor` gates it on
+`isCustomised(liveTheme)` — the LIVE form value, so it arrives with the first
+colour somebody picks and leaves when they reset.
+
+**It needed no new mechanism, which is the point.** `setPageTheme` writes
+`data-page-theme` and persists nothing by design, and every rule `themeCss`
+emits is already gated on `:not([data-page-theme="default"])` — so one attribute
+takes the palette, the field, the skin, the background picture and the canvas
+off together. Per-session falls out of that rather than being a decision taken
+twice.
+
+**Two guards, because neither is enough alone.** `fursona-editor.test.tsx`
+proves the attribute is written and that the switch is ABSENT on a default
+theme — a control offering to remove colours the page never had accepts a press
+and does nothing. `editor-is-the-page.spec.ts` proves the attribute removes
+something, reading `--canvas`, which `themeVars` emits only for a canvas other
+than the design's: the empty string is a value the author's theme cannot
+produce. jsdom resolves no custom property through a stylesheet, so the unit
+case structurally cannot see the effect — root rule 30.
 
 ## Things not to do
 

@@ -49,6 +49,10 @@ import {
   type SectionStylePopupLabels,
 } from "@/features/actors/presentation/section-style-popup";
 import { tid } from "@/shared/infrastructure/test-id";
+import {
+  CardKind,
+  ContainerRail,
+} from "@/features/actors/presentation/card-kind";
 
 /**
  * Already-translated strings a card renders.
@@ -57,10 +61,23 @@ import { tid } from "@/shared/infrastructure/test-id";
  * naming an action — a disabled bin with no reason is one somebody presses
  * twice and then gives up on.
  *
+ * `sectionEyebrow` is the noun the card wears, and it is not `sectionName`:
+ * one says what the card IS, the other labels the field naming this particular
+ * one. Letting a single string do both is how the noun ended up invisible in a
+ * row of identically-set field labels.
+ *
  * This bag deliberately has no preview heading: a card renders controls only.
  * `BlockEditorLabels` owns the title for the sibling `SectionPreviewTray`.
  */
 export interface BlockCardLabels extends LeafEditorLabels {
+  /**
+   * The word naming this card a section, shown in its eyebrow.
+   *
+   * The same noun at every depth. A nested section IS a section, and giving
+   * the nested case a name of its own would be a second thing to learn for a
+   * difference the rail already draws.
+   */
+  sectionEyebrow: string;
   /** Field label for a section's name. */
   sectionName: string;
   /** Field label for the arrangement selector. */
@@ -471,6 +488,14 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * **The style popup is told whether this block is a SECTION.** Only a section
  * may reach the window's edges, so only a section is offered that control.
  *
+ * **It says what it is, in a rail and in a word.** `ContainerRail` runs down
+ * the inside edge once per container at every depth, so nesting is countable
+ * rather than inferred, and `CardKind` names the card beside the name field's
+ * own label. The padding stays a uniform `p-3` and the rail lives INSIDE it:
+ * widening the left side to `pl-4` for a gutter cost 8px of the card's
+ * min-content width — 4px per nesting level — which is a card, not a decoration,
+ * and it pushed the editor sideways on a narrow screen.
+ *
  * @returns the container's card.
  */
 export function BlockCard({
@@ -564,6 +589,8 @@ export function BlockCard({
       {...tid(ids.card)}
       className="@container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3"
     >
+      <ContainerRail />
+
       {/* Wraps, and the selects are what wrap. A `select` is as wide as its
           longest option whatever surrounds it, so on a 320px screen the header
           would otherwise force the page wider than the phone. The menus take a
@@ -594,9 +621,12 @@ export function BlockCard({
         </button>
 
         <div className="grid min-w-0 flex-1 gap-1.5">
-          <label htmlFor={`${id}-name`} className="text-xs font-medium">
-            {labels.sectionName}
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardKind kind="container">{labels.sectionEyebrow}</CardKind>
+            <label htmlFor={`${id}-name`} className="text-xs font-medium">
+              {labels.sectionName}
+            </label>
+          </div>
           <input
             {...tid(ids.name)}
             id={`${id}-name`}

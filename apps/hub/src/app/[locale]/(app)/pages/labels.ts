@@ -196,6 +196,14 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * that steps the workbench aside and the one that brings it back are rendered
  * in different places and never both exist at once.
  *
+ * `sectionEyebrow` and `contentEyebrow` are the nouns the two card kinds wear,
+ * and each is separate from the field label beside it — `sectionName` and
+ * `leafKind` label fields, these two say what the card IS. One string doing
+ * both is how the noun ended up invisible.
+ *
+ * `pageStyle` names the switch that takes the page's own look off while
+ * building.
+ *
  * @returns the translated labels.
  */
 export async function fursonaEditorLabels(
@@ -210,6 +218,7 @@ export async function fursonaEditorLabels(
     hideControls: t("hideControls"),
     showControls: t("showControls"),
     bannerTitle: t("bannerTitle"),
+    pageStyle: t("pageStyle"),
     writingIn: t("writingIn"),
     writingInHint: t("writingInHint"),
     sectionsTitle: t("sectionsTitle"),
@@ -232,6 +241,7 @@ export async function fursonaEditorLabels(
       tooDeep: t("dragRefusedTooDeep"),
       noSuchPlace: t("dragRefusedNoSuchPlace"),
     },
+    sectionEyebrow: t("sectionEyebrow"),
     sectionName: t("sectionName"),
     sectionMode: t("sectionMode"),
     sectionSpaces: t("sectionSpaces"),
@@ -259,6 +269,7 @@ export async function fursonaEditorLabels(
     removeLocked: t("removeLocked"),
     collapse: t("collapseSection"),
     expand: t("expandSection"),
+    contentEyebrow: t("contentEyebrow"),
     leafKind: t("leafKind"),
     leafKinds: Object.fromEntries(
       LEAF_KINDS.map((kind) => [kind, t(`leafKinds.${kind}`)]),
