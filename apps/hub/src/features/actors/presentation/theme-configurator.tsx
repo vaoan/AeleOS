@@ -23,10 +23,10 @@ import {
   withCanvasColour,
   withChosenColour,
   THEME_SEEDS,
-  accentPreview,
   type ActorTheme,
   type CanvasId,
 } from "@/features/actors/domain/actor-theme";
+import { accentPreview } from "@/features/actors/presentation/theme-css";
 import {
   GradientPicker,
   type GradientPickerLabels,

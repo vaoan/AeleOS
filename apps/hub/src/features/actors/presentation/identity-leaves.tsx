@@ -3,45 +3,13 @@ import {
   contentFor,
   isMachineHandle,
 } from "@/features/actors/domain/actor-content";
-import type { LeafBlock } from "@/features/actors/domain/block-schema";
-import type { PageContext } from "@/features/actors/presentation/blocks";
+import type {
+  LeafProps,
+  LeafRenderer,
+} from "@/features/actors/presentation/block-contract";
 import { FursonaCardList } from "@/features/actors/presentation/fursona-card-list";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
-
-/**
- * What every identity leaf is handed.
- *
- * The same shape `blocks.tsx` gives every leaf. It is restated here rather
- * than imported because importing it would make this module depend on the
- * renderer that imports it — see the note on {@link IdentityLeafRenderer}.
- */
-export interface IdentityLeafProps {
-  /** The leaf, which supplies only a title. */
-  leaf: LeafBlock;
-  /** The locale being read, deciding which language a title prefers. */
-  locale: string;
-  /**
-   * Whether this leaf still owes its own title.
-   *
-   * False when an enclosing `tabs` or `accordion` has already shown it. These
-   * leaves honour it for the same reason every other kind does: a tab that has
-   * said "Portrait" does not need the card beneath it to say so again.
-   */
-  labelled: boolean;
-  /** The page-level data these leaves exist to render. */
-  page: PageContext;
-}
-
-/**
- * One identity leaf, as a component over {@link IdentityLeafProps}.
- *
- * Structurally identical to `blocks.tsx`'s own `LeafRenderer`, which is why
- * these slot into `LEAVES` without a wrapper. Declared separately so this
- * module imports only the `PageContext` TYPE from that file and never a value
- * — the two would otherwise import each other at runtime.
- */
-export type IdentityLeafRenderer = (props: IdentityLeafProps) => ReactNode;
 
 /**
  * The label an identity leaf shows above its value.
@@ -58,7 +26,7 @@ export type IdentityLeafRenderer = (props: IdentityLeafProps) => ReactNode;
  * @param props - the leaf and the locale to resolve its title in.
  * @returns the label.
  */
-function labelOf(props: IdentityLeafProps): string {
+function labelOf(props: LeafProps): string {
   return contentFor(props.leaf, "title", props.locale);
 }
 
@@ -88,11 +56,16 @@ function Label({ text }: { text: string }): ReactNode {
  * by hand, so it would try to optimise a host it has never been configured
  * for. Same reasoning, same disable, as `PictureLeaf`.
  *
+ * Typed by the shared `LeafRenderer` from `block-contract.ts`, which is the
+ * same contract every content kind speaks. This module used to restate that
+ * shape rather than import it, to avoid depending on the file that registers
+ * it; the contract moved out of `blocks.tsx` instead.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the portrait.
  */
-export const AvatarLeaf: IdentityLeafRenderer = (props) => {
+export const AvatarLeaf: LeafRenderer = (props) => {
   const { labelled, page } = props;
   const alt = labelled ? labelOf(props) : "";
   return page.avatarUrl ? (
@@ -128,11 +101,16 @@ export const AvatarLeaf: IdentityLeafRenderer = (props) => {
  * header's heading; it belongs here rather than on `NameLeaf` because this
  * kind is required on every page and a display name is optional.
  *
+ * Typed by the shared `LeafRenderer` from `block-contract.ts`, which is the
+ * same contract every content kind speaks. This module used to restate that
+ * shape rather than import it, to avoid depending on the file that registers
+ * it; the contract moved out of `blocks.tsx` instead.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the handle or the address.
  */
-export const HandleLeaf: IdentityLeafRenderer = (props) => (
+export const HandleLeaf: LeafRenderer = (props) => (
   <span className="grid gap-1" {...tid("block-handle")}>
     <Label text={props.labelled ? labelOf(props) : ""} />
     {/* **`public-actor-name` lives here, not on the display name.** It is the
@@ -166,11 +144,16 @@ export const HandleLeaf: IdentityLeafRenderer = (props) => (
  * of a guarantee rather than the guarantee itself. See
  * `domain/required-blocks.ts`.
  *
+ * Typed by the shared `LeafRenderer` from `block-contract.ts`, which is the
+ * same contract every content kind speaks. This module used to restate that
+ * shape rather than import it, to avoid depending on the file that registers
+ * it; the contract moved out of `blocks.tsx` instead.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the name, or nothing.
  */
-export const NameLeaf: IdentityLeafRenderer = (props) =>
+export const NameLeaf: LeafRenderer = (props) =>
   props.page.displayName ? (
     <span className="grid gap-1" {...tid("block-name")}>
       <Label text={props.labelled ? labelOf(props) : ""} />
@@ -198,11 +181,16 @@ export const NameLeaf: IdentityLeafRenderer = (props) =>
  * is unreachable through the editor — `owner` is refused on a person's page at
  * the write — so this is a belt rather than a case anybody sees.
  *
+ * Typed by the shared `LeafRenderer` from `block-contract.ts`, which is the
+ * same contract every content kind speaks. This module used to restate that
+ * shape rather than import it, to avoid depending on the file that registers
+ * it; the contract moved out of `blocks.tsx` instead.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the link, or nothing when there is no owner.
  */
-export const OwnerLeaf: IdentityLeafRenderer = (props) => {
+export const OwnerLeaf: LeafRenderer = (props) => {
   const { labelled, page } = props;
   const owner = page.owner;
   if (!owner) return null;
@@ -251,11 +239,16 @@ export const OwnerLeaf: IdentityLeafRenderer = (props) => {
  * It renders nothing on a fursona's page, where `fursonas` is absent and the
  * kind is refused at the write.
  *
+ * Typed by the shared `LeafRenderer` from `block-contract.ts`, which is the
+ * same contract every content kind speaks. This module used to restate that
+ * shape rather than import it, to avoid depending on the file that registers
+ * it; the contract moved out of `blocks.tsx` instead.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the list, or nothing when this page has none.
  */
-export const FursonasLeaf: IdentityLeafRenderer = (props) => {
+export const FursonasLeaf: LeafRenderer = (props) => {
   const { leaf, locale, page } = props;
   if (!page.fursonas) return null;
   const title = contentFor(leaf, "title", locale) || page.fursonasFallbackTitle;

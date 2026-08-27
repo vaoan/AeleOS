@@ -204,6 +204,11 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * `pageStyle` names the switch that takes the page's own look off while
  * building.
  *
+ * **The leaf's strings are nested under `leaf`.** `BlockCardLabels` holds a
+ * `LeafEditorLabels` rather than extending one, so the shape this builds is
+ * the card's own vocabulary plus one bag it forwards — see that interface for
+ * why the forward is named rather than inherited.
+ *
  * @returns the translated labels.
  */
 export async function fursonaEditorLabels(
@@ -264,36 +269,10 @@ export async function fursonaEditorLabels(
     removePlace: t("removePlace"),
     addPlace: t("addPlace"),
     previewTitle: t("previewTitle"),
-    removeBlock: t("removeBlock"),
     removeSection: t("removeSection"),
     removeLocked: t("removeLocked"),
     collapse: t("collapseSection"),
     expand: t("expandSection"),
-    contentEyebrow: t("contentEyebrow"),
-    leafKind: t("leafKind"),
-    leafKinds: Object.fromEntries(
-      LEAF_KINDS.map((kind) => [kind, t(`leafKinds.${kind}`)]),
-    ),
-    leafTitle: Object.fromEntries(
-      LEAF_KINDS.map((kind) => [kind, t(`leafFields.${kind}.title`)]),
-    ),
-    leafDescription: Object.fromEntries(
-      DESCRIBED_KINDS.map((kind) => [
-        kind,
-        t(`leafFields.${kind}.description`),
-      ]),
-    ),
-    leafHint: Object.fromEntries(
-      DESCRIBED_KINDS.map((kind) => [kind, t(`leafFields.${kind}.hint`)]),
-    ),
-    tableRows: t("tableRows"),
-    addRow: t("addRow"),
-    removeRow: t("removeRow"),
-    addCell: t("addCell"),
-    removeCell: t("removeCell"),
-    cellText: t("cellText"),
-    problemTitle: t("problemTitle"),
-    problemGeneric: t("problemGeneric"),
     // Nested, like `theme` below — the popup has a `title` of its own, and a
     // flat bag would have it silently collide with this level's.
     style: {
@@ -321,22 +300,11 @@ export async function fursonaEditorLabels(
       borderDotted: t("sectionStyleBorderDotted"),
       borderDouble: t("sectionStyleBorderDouble"),
     },
-    imageUrl: t("imageUrl"),
-    imageUrlHint: t("imageUrlHint"),
     // Nested rather than spread into the same bag as everything else. Both
     // the toolbar and the theme panel have a `title`, and flattening them would
     // have one silently win — which is the kind of collision a label bag makes
     // easy to create and impossible to see.
     theme: themeConfiguratorLabels(t),
-    linkUrl: t("linkUrl"),
-    linkUrlHint: t("linkUrlHint"),
-    linkUrlPlainHint: t("linkUrlPlainHint"),
-    imageMissing: t("imageMissing"),
-    chooseIcon: t("chooseIcon"),
-    searchIcons: t("searchIcons"),
-    noIconsFound: t("noIconsFound"),
-    clearIcon: t("clearIcon"),
-    noIcon: t("noIcon"),
     useTemplate: t("useTemplate"),
     templateConfirm: t("templateConfirm"),
     templateConfirmYes: t("templateConfirmYes"),
@@ -384,6 +352,45 @@ export async function fursonaEditorLabels(
       sectionsMarked: t("form.errors.sectionsMarked"),
       sectionsTooLarge: t("form.errors.sectionsTooLarge"),
       pageUnreadable: t("form.errors.pageUnreadable"),
+    },
+    leaf: {
+      removeBlock: t("removeBlock"),
+      contentEyebrow: t("contentEyebrow"),
+      leafKind: t("leafKind"),
+      leafKinds: Object.fromEntries(
+        LEAF_KINDS.map((kind) => [kind, t(`leafKinds.${kind}`)]),
+      ),
+      leafTitle: Object.fromEntries(
+        LEAF_KINDS.map((kind) => [kind, t(`leafFields.${kind}.title`)]),
+      ),
+      leafDescription: Object.fromEntries(
+        DESCRIBED_KINDS.map((kind) => [
+          kind,
+          t(`leafFields.${kind}.description`),
+        ]),
+      ),
+      leafHint: Object.fromEntries(
+        DESCRIBED_KINDS.map((kind) => [kind, t(`leafFields.${kind}.hint`)]),
+      ),
+      tableRows: t("tableRows"),
+      addRow: t("addRow"),
+      removeRow: t("removeRow"),
+      addCell: t("addCell"),
+      removeCell: t("removeCell"),
+      cellText: t("cellText"),
+      problemTitle: t("problemTitle"),
+      problemGeneric: t("problemGeneric"),
+      imageUrl: t("imageUrl"),
+      imageUrlHint: t("imageUrlHint"),
+      linkUrl: t("linkUrl"),
+      linkUrlHint: t("linkUrlHint"),
+      linkUrlPlainHint: t("linkUrlPlainHint"),
+      imageMissing: t("imageMissing"),
+      chooseIcon: t("chooseIcon"),
+      searchIcons: t("searchIcons"),
+      noIconsFound: t("noIconsFound"),
+      clearIcon: t("clearIcon"),
+      noIcon: t("noIcon"),
     },
   };
 }

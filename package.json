@@ -34,6 +34,7 @@
     "check:docs": "node scripts/check-doc-freshness.mjs",
     "check:agent-notes": "node scripts/check-agent-notes.mjs",
     "check:schema-drift": "node scripts/check-schema-drift.mjs",
+    "check:page-shapes": "node scripts/check-page-shapes.mjs",
     "test:tools": "vitest run -c vitest.config.tools.ts",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:source-bytes": "node scripts/check-source-bytes.mjs",

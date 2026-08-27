@@ -312,6 +312,10 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * `sm:` one standing, which is 40px nobody asked for at every width above
  * `sm`.
  *
+ * **It forwards `labels.leaf` to a top-level leaf**, the same bag a card hands
+ * its own leaves. A page may hold a leaf at depth 0, so this file renders one
+ * directly and speaks the same contract the card does.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -648,7 +652,7 @@ export function BlockEditor<T extends FieldValues>({
                         path={[seat.position]}
                         apply={apply}
                         lang={lang}
-                        labels={labels}
+                        labels={labels.leaf}
                         problems={problems}
                         dragHandle={handle}
                       />

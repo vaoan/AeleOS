@@ -8,8 +8,8 @@ import {
   HandleLeaf,
   NameLeaf,
   OwnerLeaf,
-  type IdentityLeafRenderer,
 } from "@/features/actors/presentation/identity-leaves";
+import type { LeafRenderer } from "@/features/actors/presentation/block-contract";
 import type { LeafBlock } from "@/features/actors/domain/block-schema";
 import type { PageContext } from "@/features/actors/presentation/blocks";
 import { pageContext } from "./helpers/page-context";
@@ -41,11 +41,7 @@ function leaf(kind: string, over: Partial<LeafBlock> = {}): LeafBlock {
  * @param block - the leaf.
  * @returns testing-library's result.
  */
-function renderLeaf(
-  Leaf: IdentityLeafRenderer,
-  page: PageContext,
-  block: LeafBlock,
-) {
+function renderLeaf(Leaf: LeafRenderer, page: PageContext, block: LeafBlock) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
       {Leaf({ leaf: block, locale: "en", labelled: true, page })}

@@ -73,7 +73,7 @@ function harness(
         path={[0, 0]}
         apply={apply}
         lang={lang}
-        labels={labels}
+        labels={labels.leaf}
         problems={problems}
         dragHandle={null}
       />
@@ -151,7 +151,7 @@ describe("LeafEditor", () => {
     it("labels an unknown kind's fields as a plain card's", () => {
       harness({ ...newLeaf("text"), kind: "diagram" } as LeafBlock);
       expect(screen.getByTestId("leaf-title")).toHaveAccessibleName(
-        labels.leafTitle.text!,
+        labels.leaf.leafTitle.text!,
       );
       expect(screen.getByTestId("leaf-description")).toBeInTheDocument();
     });
@@ -173,7 +173,7 @@ describe("LeafEditor", () => {
       );
       // The icon is a picker rather than an input, and it names itself.
       expect(
-        Boolean(screen.queryByRole("button", { name: labels.chooseIcon })),
+        Boolean(screen.queryByRole("button", { name: labels.leaf.chooseIcon })),
       ).toBe(fields.icon);
     });
 
@@ -184,7 +184,7 @@ describe("LeafEditor", () => {
     it.each(LEAF_KINDS)("names a %s leaf's own title field", (kind) => {
       harness(newLeaf(kind));
       expect(screen.getByTestId("leaf-title")).toHaveAccessibleName(
-        labels.leafTitle[kind]!,
+        labels.leaf.leafTitle[kind]!,
       );
     });
 
@@ -193,8 +193,11 @@ describe("LeafEditor", () => {
       (kind) => {
         harness(newLeaf(kind));
         const field = screen.getByTestId("leaf-description");
-        expect(field).toHaveAccessibleName(labels.leafDescription[kind]!);
-        expect(field).toHaveAttribute("placeholder", labels.leafHint[kind]!);
+        expect(field).toHaveAccessibleName(labels.leaf.leafDescription[kind]!);
+        expect(field).toHaveAttribute(
+          "placeholder",
+          labels.leaf.leafHint[kind]!,
+        );
       },
     );
 
@@ -208,8 +211,8 @@ describe("LeafEditor", () => {
         harness(newLeaf(kind));
         expect(screen.getByTestId("leaf-link")).toHaveAccessibleDescription(
           leafFields(kind).embeds
-            ? labels.linkUrlHint
-            : labels.linkUrlPlainHint,
+            ? labels.leaf.linkUrlHint
+            : labels.leaf.linkUrlPlainHint,
         );
       },
     );
@@ -277,7 +280,9 @@ describe("LeafEditor", () => {
 
     it("writes a chosen icon", () => {
       const page = harness(newLeaf("link"));
-      fireEvent.click(screen.getByRole("button", { name: labels.chooseIcon }));
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.leaf.chooseIcon }),
+      );
       fireEvent.click(screen.getByRole("button", { name: "paw-print" }));
       expect(held(page())?.icon).toBe("paw-print");
     });
@@ -307,7 +312,7 @@ describe("LeafEditor", () => {
         "true",
       );
       expect(screen.getByTestId("leaf-title")).toHaveAccessibleDescription(
-        labels.problemTitle,
+        labels.leaf.problemTitle,
       );
     });
 
@@ -329,7 +334,7 @@ describe("LeafEditor", () => {
     it("says so when the refusal is on a field it does not draw", () => {
       harness(newLeaf("text"), "en", [{ path: [0, 0], field: "rows" }]);
       expect(screen.getByTestId("leaf-problem")).toHaveTextContent(
-        labels.problemGeneric,
+        labels.leaf.problemGeneric,
       );
       expect(screen.getByTestId("leaf-title")).toHaveAttribute(
         "aria-invalid",
@@ -386,15 +391,15 @@ describe("LeafEditor", () => {
         .map((input) => input.getAttribute("aria-label"));
       expect(new Set(names).size).toBe(names.length);
       expect(names).toEqual([
-        `${labels.cellText} 1.1`,
-        `${labels.cellText} 1.2`,
-        `${labels.cellText} 2.1`,
+        `${labels.leaf.cellText} 1.1`,
+        `${labels.leaf.cellText} 1.2`,
+        `${labels.leaf.cellText} 2.1`,
       ]);
       expect(
         screen
           .getAllByTestId("remove-row")
           .map((button) => button.getAttribute("aria-label")),
-      ).toEqual([`${labels.removeRow} 1`, `${labels.removeRow} 2`]);
+      ).toEqual([`${labels.leaf.removeRow} 1`, `${labels.leaf.removeRow} 2`]);
     });
 
     it("adds and removes a cell", () => {
