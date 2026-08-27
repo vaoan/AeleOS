@@ -3,6 +3,7 @@
 import { Check, Eye, X } from "lucide-react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
+import { CHROME_SCOPE } from "@/shared/domain/chrome";
 
 /**
  * Translated strings {@link EditorToolbar} renders.
@@ -95,6 +96,16 @@ export interface EditorToolbarProps {
  * button inside a `<form>` submits by default, so an unspecified type would
  * save the page on the way to looking at it.
  *
+ * **It spans the page and its ROW is columned, not the other way round**, and
+ * it must be a DIRECT child of whatever box spans the whole editor. A
+ * `position: sticky` element sticks only within its parent's box: this used to
+ * sit inside the editor's control column, and when that column stopped wrapping
+ * the section previews it came to end just after the language strip — Save
+ * scrolled 511px off the top of a page thousands of pixels long, with nothing
+ * in any computed style to say so. `CHROME_SCOPE` is on this element rather than
+ * on a wrapper for the same reason: a wrapper the height of one bar pins it for
+ * the height of one bar. `editor-bars-stay-pinned.spec.ts` is the guard.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -105,15 +116,35 @@ export function EditorToolbar({
   onHideControls,
 }: EditorToolbarProps) {
   return (
-    <div className="sticky top-(--bar-top) z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-(--edge)/40 bg-(--menu) px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
-      {/* `truncate` rather than wrap. A two-line title doubled the bar's height
+    // **The bar spans the page and its ROW is columned, not the other way
+    // round.** A `position: sticky` element sticks only within its parent's
+    // box, so this has to be a child of something that spans the whole editor —
+    // and the editor's control column stops before the section previews, which
+    // own the page's full width. It used to be inside that column with negative
+    // margins, and on 2026-08-27 that column got shorter: Save scrolled 511px
+    // off the top of a page thousands of pixels long.
+    //
+    // `editor-bars-stay-pinned.spec.ts` is the guard, and it has to scroll a
+    // real page — a bar that has come unstuck reports `position: sticky` and
+    // its right offset in every computed style.
+    // **It carries `CHROME_SCOPE` itself rather than being wrapped in it**, and
+    // that is the sticky rule again: a wrapper would be this bar's parent, and
+    // a `position: sticky` element sticks only within its parent's box — a
+    // wrapper the height of one bar pins it for the height of one bar. Its
+    // parent has to be the element spanning the whole editor, so the class has
+    // to be on the bar.
+    <div
+      className={`${CHROME_SCOPE} sticky top-(--bar-top) z-20 mb-6 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
+    >
+      <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
+        {/* `truncate` rather than wrap. A two-line title doubled the bar's height
           on a phone and pushed Save down with it, so the one control that must
           never move moved every time the name got longer. */}
-      <span className="min-w-0 truncate font-display text-base font-bold tracking-tight sm:text-lg">
-        {title}
-      </span>
-      <span className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-        {/* **A link, not a button that pushes.** Cancel goes to one known
+        <span className="min-w-0 truncate font-display text-base font-bold tracking-tight sm:text-lg">
+          {title}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+          {/* **A link, not a button that pushes.** Cancel goes to one known
             place, so a link is the right element on its own merits: a middle
             click or a modified click opens it in a new tab, which a button
             silently refuses.
@@ -121,36 +152,39 @@ export function EditorToolbar({
             a click that lands on an `<a>` and on a form submission — Save is
             covered by the submit, and Cancel was covered by neither, so
             leaving the editor changed the route with nothing on screen. */}
-        {/* **`type="button"`, and that is not a formality.** Every button
+          {/* **`type="button"`, and that is not a formality.** Every button
             inside a `<form>` submits by default, so an unspecified type here
             would SAVE the page on the way to looking at it. */}
-        <button
-          type="button"
-          onClick={onHideControls}
-          {...tid("hide-controls")}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
-        >
-          <Eye className="size-4" />
-          <span className="sr-only sm:not-sr-only">{labels.hideControls}</span>
-        </button>
-        <Link
-          href={cancelHref}
-          {...tid("editor-cancel")}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
-        >
-          <X className="size-4" />
-          {labels.cancel}
-        </Link>
-        <button
-          type="submit"
-          {...tid("editor-save")}
-          disabled={saving}
-          className="flex items-center gap-1.5 rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent) disabled:opacity-60"
-        >
-          <Check className="size-4" />
-          {saving ? labels.saving : labels.save}
-        </button>
-      </span>
+          <button
+            type="button"
+            onClick={onHideControls}
+            {...tid("hide-controls")}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
+          >
+            <Eye className="size-4" />
+            <span className="sr-only sm:not-sr-only">
+              {labels.hideControls}
+            </span>
+          </button>
+          <Link
+            href={cancelHref}
+            {...tid("editor-cancel")}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
+          >
+            <X className="size-4" />
+            {labels.cancel}
+          </Link>
+          <button
+            type="submit"
+            {...tid("editor-save")}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent) disabled:opacity-60"
+          >
+            <Check className="size-4" />
+            {saving ? labels.saving : labels.save}
+          </button>
+        </span>
+      </div>
     </div>
   );
 }
