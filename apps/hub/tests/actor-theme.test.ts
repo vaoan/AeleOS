@@ -492,7 +492,11 @@ describe("previewThemeCss", () => {
     ]);
 
     const composed = new Set<string>();
-    for (const block of css.matchAll(/:root\s*\{([^}]*)\}/g)) {
+    // The selector list is `:root, .aeleos-chrome` now — one rule declaring
+    // the app's tokens for the document AND for a control island — so this
+    // admits anything between `:root` and the brace rather than requiring the
+    // brace to follow immediately.
+    for (const block of css.matchAll(/^:root[^{}]*\{([^}]*)\}/gm)) {
       for (const line of block[1]!.matchAll(
         /(--[\w-]+)\s*:\s*var\((--[\w-]+)\)\s*;/g,
       )) {

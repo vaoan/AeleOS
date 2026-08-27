@@ -23,18 +23,11 @@ import {
   BlockEditor,
   type BlockEditorLabels,
 } from "@/features/actors/presentation/block-editor";
-import {
-  useLanguageToggle,
-  type AuthoringLanguage,
-} from "@/features/actors/application/use-language-toggle";
+import { useLanguageToggle } from "@/features/actors/application/use-language-toggle";
 import {
   ThemeConfigurator,
   type ThemeConfiguratorLabels,
 } from "@/features/actors/presentation/theme-configurator";
-import {
-  CompletePagePreview,
-  type CompletePagePreviewLabels,
-} from "@/features/actors/presentation/complete-page-preview";
 import {
   DEFAULT_THEME,
   themeSchema,
@@ -66,10 +59,6 @@ import { z } from "zod";
  * name itself and then say what it governs — this editor has an app language
  * and an authoring language, and the switch moves only the second.
  *
- * `completePreview` is nested because its disclosure has a title and two state
- * labels of its own. Keeping that bag intact lets the read-only page preview
- * own its wording without colliding with the editor toolbar's title.
- *
  * Extends the toolbar's and the block editor's, because the editor owns one
  * label bag and hands slices of it down rather than each level resolving its
  * own — a component that resolved its own would need the catalogue in the
@@ -85,8 +74,6 @@ export interface FursonaEditorLabels
   extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
-  /** The collapsed, read-only whole-page preview's strings. */
-  completePreview: CompletePagePreviewLabels;
   /** Names the control that switches which language is being written. */
   writingIn: string;
   /** Says which fields the language switch governs. */
@@ -396,9 +383,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * made, but naming the missing English title would be naming a cause that is
  * not the cause.
  *
- * `page` is overlaid with the live identity and measure, then threaded to both
- * the section trays and the complete page preview — see
- * {@link FursonaEditorProps}.
+ * `page` is overlaid with the live identity and measure, then threaded to every
+ * section tray — see {@link FursonaEditorProps}.
  *
  * **The block editor previews from the LIVE form, not from the saved page.**
  * Identity leaves render out of the page context, so handing down the one the
@@ -413,16 +399,12 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `PreviewThemeHost` contains it; the editor controls therefore keep the
  * AeleOS workbench palette and shape while the public renderer updates live.
  *
- * **The complete preview follows the workbench and stays outside its drag
- * context and its column.** It is a collapsed, read-only rendering of the
- * whole live tree, using the same `PublicBlocks` component a stranger sees.
- * `WidePageColumn` recreates the old signed-in shell around every control and
- * stops before this sibling, so its sections can own their public measure and
- * bleed. Keeping it after `BlockEditor` means its geometry is never measured
- * as a droppable.
- * Its sections subscription lives in a small controller at that boundary,
- * rather than in this editor, so a leaf edit does not rerender the toolbar,
- * identity fields and theme controls merely to update the complete preview.
+ * **There is no whole-page preview component any more.** It was an iframe of a
+ * real route, deleted on 2026-08-27: a preview needs a document of its own only
+ * while the editor's document belongs to the app, and this editor themes its
+ * own `:root` with the draft. The page being built is the document it is being
+ * built on, so the section trays are the whole of the preview and hiding the
+ * controls is what shows the page.
  *
  * **A page being CREATED opens with its required blocks**, the same
  * `withRequiredBlocks` output `readActorPage` answers for an actor with
@@ -727,48 +709,7 @@ export function FursonaEditor({
           problems={problems}
         />
       </WidePageColumn>
-      <CompletePreviewController
-        control={control}
-        theme={liveTheme as ActorTheme}
-        lang={lang}
-        page={livePage}
-        labels={labels.completePreview}
-      />
     </form>
-  );
-}
-
-/**
- * Subscribes the optional full-page preview to the live block tree.
- *
- * Kept below the editor boundary so a leaf edit rerenders the block workbench
- * and this small read-only disclosure, not the toolbar, identity fields and
- * theme controls above them.
- *
- * @returns the complete preview bound to the form's sections field.
- */
-function CompletePreviewController<T extends FieldValues>({
-  control,
-  theme,
-  lang,
-  page,
-  labels,
-}: {
-  control: Control<T>;
-  theme: ActorTheme;
-  lang: AuthoringLanguage;
-  page: PageContext;
-  labels: CompletePagePreviewLabels;
-}) {
-  const blocks = useWatch({ control, name: "sections" as Path<T> });
-  return (
-    <CompletePagePreview
-      blocks={(blocks ?? []) as Block[]}
-      theme={theme}
-      lang={lang}
-      page={page}
-      labels={labels}
-    />
   );
 }
 

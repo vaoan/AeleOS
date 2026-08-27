@@ -258,14 +258,6 @@ test("author colours and skin change both real previews without restyling the wo
   await page.getByTestId("add-content").last().click();
   await page.getByTestId("leaf-title").last().fill("Previewed");
 
-  const complete = page.getByTestId("complete-page-preview");
-  await expect(complete.locator("h2")).toBeVisible();
-  await page.getByTestId("complete-page-preview-toggle").click();
-  const framed = page.frameLocator(
-    '[data-testid="complete-page-preview-frame"]',
-  );
-  await expect(framed.getByTestId("page-content")).toBeVisible();
-
   const toolbar = page.getByTestId("editor-save");
   const identityInput = page.getByTestId("editor-display-name");
   const sectionInput = page.getByTestId("section-name").last();
@@ -273,12 +265,19 @@ test("author colours and skin change both real previews without restyling the wo
     .getByTestId("block-preview")
     .last()
     .getByTestId("preview-theme-host");
-  // **The complete preview is its own DOCUMENT now**, so what this reads is
-  // the framed page's own content element rather than a host of ours. The
-  // claim is unchanged and is arguably stronger: the author's theme has to
-  // reach a separate document, and the workbench assertions below still prove
-  // it did not reach the editor.
-  const completePreview = framed.getByTestId("page-content");
+  // **The page the editor draws, which is the document itself now.** There is
+  // no framed second document and no boxed preview host: the editor themes its
+  // own `:root` with the draft, exactly as a public route does, so this reads
+  // the page content element the editor renders.
+  //
+  // **This is the guard on the inversion, and it only became one when the
+  // document started carrying the theme.** While the app owned the document
+  // and each preview was a boxed exception, the workbench assertions below
+  // could not fail — a control was safe from an author's palette for a reason
+  // that had nothing to do with any containment. They are the real thing now:
+  // an author's colours are at `:root`, and `.aeleos-chrome` is the only
+  // reason the toolbar and the inputs still read as AeleOS.
+  const completePreview = page.getByTestId("page-content");
 
   /**
    * Reads control properties the live atmosphere must leave unchanged.

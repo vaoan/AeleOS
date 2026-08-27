@@ -82,9 +82,6 @@
     "bannerTitle": "Fix these before saving",
     "writingIn": "Writing in",
     "writingInHint": "Only the name and the page text below — not the app itself.",
-    "completePreviewTitle": "Complete page preview",
-    "completePreviewExpand": "Show complete page",
-    "completePreviewCollapse": "Hide complete page",
     "sectionsTitle": "Sections",
     "sectionsEmpty": "No sections yet. Add one to start building the page.",
     "addSection": "Add section",
@@ -398,13 +395,7 @@
       "full": "Full width"
     },
     "sectionStyleBleed": "Reach both edges of the window",
-    "sectionStyleMargins": "Margins",
-    "completePreviewSizeHint": "Shown at {width} by {height}",
-    "completePreviewDevices": {
-      "phone": "Phone",
-      "tablet": "Tablet",
-      "desktop": "Desktop"
-    }
+    "sectionStyleMargins": "Margins"
   },
   "picker": {
     "title": "Who do you want to be?",

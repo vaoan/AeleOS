@@ -113,11 +113,13 @@ describe("contentSecurityPolicy", () => {
   describe("the directives that actually protect something", () => {
     it.each([
       ["object-src", "'none'"],
-      // **`'self'`, not `'none'`, and the difference is one origin: ours.**
-      // The complete-page preview frames `/{locale}/me/preview` so a draft
-      // gets its own viewport, and `'none'` refused that outright. Every
-      // CROSS-origin frame — which is what clickjacking is — is still blocked.
-      ["frame-ancestors", "'self'"],
+      // **`'none'`, and it is `'none'` again rather than still.** It was
+      // widened to `'self'` on 2026-08-26 for exactly one caller — the
+      // complete-page preview framing `/{locale}/me/preview` so a draft got
+      // its own viewport. The editor themes its own document now and hides its
+      // controls to show the page, so nothing frames anything and the widening
+      // has no beneficiary. Nothing on this origin may frame us either.
+      ["frame-ancestors", "'none'"],
       ["base-uri", "'self'"],
       ["form-action", "'self'"],
     ])("sets %s to %s", (name, value) => {
@@ -203,7 +205,7 @@ describe("securityHeaders", () => {
       NEXT_PUBLIC_SUPABASE_URL: undefined,
     });
     const csp = headers.find((h) => h.key === "Content-Security-Policy")!.value;
-    expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("https://www.youtube-nocookie.com");
   });
 

@@ -7,7 +7,6 @@ import { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
 import { SECTION_SHAPES } from "@/features/actors/presentation/section-shapes";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import type { BlockEditorLabels } from "@/features/actors/presentation/block-editor";
-import type { CompletePagePreviewLabels } from "@/features/actors/presentation/complete-page-preview";
 
 /**
  * Every string the page editor renders, with each name standing in for its
@@ -156,31 +155,6 @@ export function blockEditorLabels(): BlockEditorLabels {
       borderDashed: "Dashed line",
       borderDotted: "Dotted line",
       borderDouble: "Double line",
-    },
-  };
-}
-
-/**
- * The complete-page disclosure strings used by editor test fixtures.
- *
- * It carries the device names and one size hint PER DEVICE, since the preview
- * is shown at a named viewport and the real catalogue message is ICU — a
- * single string with `{width}`/`{height}` left in it would be a fixture shaped
- * unlike anything the app ever passes, which is how the render-time
- * `FORMATTING_ERROR` stayed invisible to every unit test.
- *
- * @returns labels that make the disclosure's state explicit in assertions.
- */
-export function completePagePreviewLabels(): CompletePagePreviewLabels {
-  return {
-    title: "Complete page preview",
-    expand: "Show complete page",
-    collapse: "Hide complete page",
-    devices: { phone: "Phone", tablet: "Tablet", desktop: "Desktop" },
-    sizeHint: {
-      phone: "Shown at 390 by 844",
-      tablet: "Shown at 768 by 1024",
-      desktop: "Shown at 1280 by 900",
     },
   };
 }

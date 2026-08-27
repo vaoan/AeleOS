@@ -69,10 +69,6 @@ const { SECTION_SHAPES } =
 // place, so a stub would let the suite pass with a catalogue missing an
 // entry for a place a container can actually lay.
 const { SPACE_CHOICES } = await import("@/features/actors/domain/block-edits");
-// Same reason again: `labels.ts` maps over this to name each preview device,
-// so a barrel mock omitting it fails the page rather than the label code.
-const { PREVIEW_DEVICES } =
-  await import("@/features/actors/domain/preview-devices");
 
 vi.mock("@/features/actors", () => ({
   listMyActors: (...a: unknown[]) => listMyActors(...a),
@@ -90,7 +86,6 @@ vi.mock("@/features/actors", () => ({
   DESCRIBED_KINDS,
   SECTION_SHAPES,
   SPACE_CHOICES,
-  PREVIEW_DEVICES,
   themeConfiguratorLabels,
   // A stub, not a render: this suite never mounts the tree, so the stub only
   // needs a stable identity to assert the page picked it, plus a body that

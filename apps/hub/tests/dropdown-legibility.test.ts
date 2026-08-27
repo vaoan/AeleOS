@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { ruleBody } from "./support/css";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const SRC = join(process.cwd(), "src");
-const CSS = readFileSync(join(SRC, "app", "globals.css"), "utf8");
 
 /**
  * Every component file.
@@ -88,11 +88,7 @@ describe("a dropdown's menu", () => {
   it.each([":root", '[data-theme="dark"]'])(
     "declares an opaque menu colour for %s",
     (selector) => {
-      const start = CSS.indexOf(`${selector} {`);
-      expect(start).toBeGreaterThan(-1);
-      const value = /--menu:\s*([^;]+);/.exec(
-        CSS.slice(start, CSS.indexOf("\n}", start)),
-      )?.[1];
+      const value = /--menu:\s*([^;]+);/.exec(ruleBody(selector))?.[1];
       expect(value).toBeTruthy();
       expect(value).not.toMatch(/\//);
     },

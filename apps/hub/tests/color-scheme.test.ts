@@ -1,20 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-const CSS = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
-
-/**
- * The declarations inside one selector's block.
- *
- * @param selector - the block to read, as it appears in the file.
- * @returns its body.
- */
-function block(selector: string): string {
-  const start = CSS.indexOf(`${selector} {`);
-  expect(start, `${selector} is missing from globals.css`).toBeGreaterThan(-1);
-  return CSS.slice(start, CSS.indexOf("\n}", start));
-}
+import { ruleBody as block } from "./support/css";
 
 describe("the browser's own colour scheme", () => {
   // **THE REGRESSION TEST for an unreadable dropdown.** `color-scheme` decides
