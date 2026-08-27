@@ -1266,6 +1266,38 @@ it. Rule 29 — a sabotage that leaves the suite green has proved nothing.
 preference; a remembered value would open the editor with no controls at all for
 whoever did it once.
 
+**`editor-is-the-page.spec.ts` is where "hiding the controls leaves the page"
+stops being a claim.** It photographs ONE seeded page twice — at its public
+address and in the editor with the controls hidden — at seven viewport widths,
+and asserts both the section boxes and the pixels.
+
+**The two halves catch different faults and neither stands in for the other.**
+The box half reads `getBoundingClientRect` from the DOM, so it is exact and
+immune to scroll; the pixel half pins the same section at the same VIEWPORT
+offset in both documents and compares strips, which is the only instrument that
+can see the author's field — anchored to the window, so which slice sits behind
+a section is decided by where that section is on screen. Sabotaged by leaving
+the editor's stack gaps in place, all four pixel cases redden between 40.2% and
+46.1% and NOT ONE box case does: the sections are the same size, simply at a
+different offset.
+
+**The widths STRADDLE measured thresholds rather than sampling round numbers.**
+A grid stops collapsing to one track at 352px for two places, 544px for three
+and 720px for four; the stops sit either side of the second and third, because
+those are the widths where a geometry difference flips a visible answer. A
+doubled 16px gutter is what moved this threshold the last time it went wrong.
+
+**Its `hide-controls` mechanism has one exception the camera needs.** The
+restore control is `fixed` to the bottom-right corner, so a viewport clip of a
+section pinned low in the window captures it — 2.598% of the last section
+differing, AeleOS's near-white where the page paints the photograph's gold. It
+is hidden for the photograph only, after the suite has asserted it is there.
+
+**It is deliberately NOT `serial`.** The config already runs one worker, so
+serial buys no isolation and costs the whole point of a responsive guard: the
+first failing width would skip every other, and "1 failed" cannot tell you
+whether the editor is wrong at every size or only below a threshold.
+
 **THE FRAMED PREVIEW IS GONE (2026-08-27), AND SO IS EVERYTHING WRITTEN ABOUT
 IT.** `/{locale}/me/preview`, `PreviewDocument`, the `postMessage` handshake and
 draft contract, `CompletePagePreview`, the device table and the backdrop banding
