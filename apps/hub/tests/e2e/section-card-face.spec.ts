@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -187,6 +187,51 @@ const READABLE: {
     min: 4.5,
   },
 ];
+
+/**
+ * The darkest pixel the browser actually PAINTED inside one element.
+ *
+ * **Computed style cannot answer the question this file needs answered.**
+ * `textColour` reads what the element resolved its `color` to, which stays
+ * correct no matter what paints on top of it — so an occluding layer is
+ * invisible to it. Measured while this guard was written: with the section's
+ * writing veiled to near-white on screen, tray and page still reported the
+ * same ink and a contrast of exactly 1.00 against each other.
+ *
+ * Sampling the rendered image is the only instrument that can see a veil.
+ * Darkest rather than mean, because glyphs are a minority of a text box's
+ * pixels and antialiasing pulls the average toward the background whether or
+ * not anything is wrong.
+ *
+ * @param page - the page to decode the screenshot in.
+ * @param target - the element to photograph.
+ * @returns that pixel as `[r, g, b]`.
+ */
+async function darkestPixel(page: Page, target: Locator): Promise<number[]> {
+  const shot = (await target.screenshot()).toString("base64");
+  return page.evaluate(async (data) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d")!;
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height).data;
+    let darkest = [255, 255, 255];
+    let lowest = Number.POSITIVE_INFINITY;
+    for (let at = 0; at < pixels.length; at += 4) {
+      const luminance =
+        0.2126 * pixels[at] + 0.7152 * pixels[at + 1] + 0.0722 * pixels[at + 2];
+      if (luminance < lowest) {
+        lowest = luminance;
+        darkest = [pixels[at], pixels[at + 1], pixels[at + 2]];
+      }
+    }
+    return darkest;
+  }, shot);
+}
 
 let identity: TestIdentity | undefined;
 
@@ -825,4 +870,76 @@ test("the three background fits are three different paints", async ({
   expect(unsetResolved).toEqual(["no-repeat", "auto"]);
   expect(tiledResolved).toEqual(["repeat", "auto"]);
   expect(coveredResolved).toEqual(["no-repeat", "cover"]);
+});
+
+// **THE FACE MUST NOT PAINT OVER THE SECTION'S OWN WRITING.** Everything above
+// measures what the face paints; nothing measured whether anything survived
+// underneath it, and for two days nothing did. The face is `absolute` with
+// `z-index: auto` while the section content is `static`, and positioned
+// descendants paint AFTER in-flow content — so its `--surface`, at 90% alpha,
+// veiled every tray in the editor from the day it shipped in `6636b4c`.
+//
+// Measured on the unfixed code: hiding the face changed 79.56% of a tray's
+// pixels, and the section heading painted `[238, 228, 224]` where the page
+// paints `[57, 30, 23]` — 201 channels, on the words somebody is reading.
+// Where the author had a background picture the text vanished outright, since
+// that picture is on the face too and paints at full strength.
+//
+// Rule 27: this is asserted on RENDERED pixels because the veiled and unveiled
+// cases are byte-identical in every computed value. See `darkestPixel`.
+test("the face does not paint over the section's own writing", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize(VIEWPORT);
+  expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
+  await page.goto("/es/pages/new");
+  // The dev overlay's badge is the darkest thing on this page and lands
+  // inside the box being photographed, where it — not the writing — would be
+  // the darkest pixel in BOTH the veiled and unveiled cases. Measured: it made
+  // the two indistinguishable at [23, 23, 23]. Same idiom as `responsive` and
+  // `preview-fidelity`.
+  await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  await page.getByTestId("editor-handle").fill("veilcheck");
+  await page.getByTestId("editor-display-name").fill("Veil check");
+  await chooseNewSectionSpaces(page, "1");
+  await page.getByTestId("add-section").click();
+  await page.getByTestId("section-name").last().fill("Legible heading");
+  await page.getByTestId("add-content").last().click();
+  await page.getByTestId("leaf-title").last().fill("Legible body");
+  await page.getByTestId("collapse-section").last().click();
+
+  const heading = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("public-section")
+    .locator("h2")
+    .first();
+  await expect(heading).toBeVisible();
+
+  // What the section says its ink is, and what reached the glass.
+  const ink = await textColour(heading);
+  const painted = await darkestPixel(page, heading);
+  expect(
+    apart(painted, ink),
+    `the heading's ink reaches the screen: painted ${JSON.stringify(painted)} ` +
+      `against a declared ${JSON.stringify(ink)}`,
+  ).toBeLessThan(30);
+
+  // And the same claim one level in, because a leaf's writing sits deeper in
+  // the tree than the section name and could be occluded by a layer the
+  // heading escapes.
+  const leaf = page
+    .getByTestId("block-preview")
+    .last()
+    .getByTestId("public-section")
+    .getByTestId("public-leaf")
+    .first();
+  await expect(leaf).toBeVisible();
+  expect(
+    apart(await darkestPixel(page, leaf), await textColour(leaf)),
+    "a leaf's own writing reaches the screen too",
+  ).toBeLessThan(30);
 });
