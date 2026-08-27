@@ -283,19 +283,19 @@ describe("CompletePagePreview", () => {
     expect(frame()).not.toHaveClass("rounded-xl", "surface", "border-(--edge)");
   });
 
-  // **The frame pins, and the spacer is the distance it pins for.** Together
-  // they are what replaces the frame's own scrollbar with the page's: without
-  // the pin the preview scrolls away while being scrubbed, and without the
-  // spacer there is no scroll to scrub it with.
-  it("pins the frame clear of the editor's bars", () => {
+  // **Nothing pins, and there is no spacer.** The frame is as tall as the page
+  // it frames, so it scrolls away with the editor like any other block of
+  // content — one scrollbar, and no scrubbing. The arrangement this replaces
+  // held the frame still while its content slid underneath, which reads as
+  // scrolling with the page and not scrolling with it at the same time, and
+  // left a viewport-anchored backdrop pinned while everything moved.
+  it("does not pin the frame or reserve scroll distance for it", () => {
     mount();
     fireEvent.click(screen.getByTestId("complete-page-preview-toggle"));
 
     const surround = screen.getByTestId("preview-surround");
-    expect(surround).toHaveClass("sticky");
-    // Not `top-0`: the header, the toolbar and the section strip are all still
-    // held above when somebody has scrolled far enough to reach the preview.
-    expect(surround).toHaveClass("top-(--bar-top-3)");
-    expect(screen.getByTestId("preview-scroller")).toContainElement(surround);
+    expect(surround).not.toHaveClass("sticky");
+    expect(surround.className).not.toMatch(/top-/);
+    expect(screen.queryByTestId("preview-scroller")).toBeNull();
   });
 });

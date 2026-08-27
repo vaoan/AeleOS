@@ -582,16 +582,6 @@ option {
 
   /* And a third, under both — plus the gap the strip carries above itself. */
   --bar-top-2: calc(var(--bar-top) + var(--bar-h) + 0.5rem);
-
-  /*
-   * Where the complete preview pins, clear of all three.
-   *
-   * It is not a bar and does not look like one, but it sticks for the same
-   * reason and has to clear the same stack: the editor's strip is still held
-   * at `--bar-top-2` when somebody has scrolled far enough down the form to
-   * reach the preview at all.
-   */
-  --bar-top-3: calc(var(--bar-top-2) + var(--bar-h) + 0.5rem);
 }
 
 @media (height <= 600px) {
