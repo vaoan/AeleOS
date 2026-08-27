@@ -1230,6 +1230,46 @@ property BY NAME, which is root rule 30's shape one level down — the suite was
 asserting the fault. The document scrolls instead, exactly as it does for a
 stranger on an over-wide page.
 
+**Three faults the browser suite found after the inversion, and each is a
+different shape.**
+
+**`ThemeScope` remounted the whole editor on the first edit.** It returned
+`children` bare when the theme overrode nothing and a fragment when it did, so
+the first colour an author picked changed the element type at that position and
+React threw the subtree away — taking the theme panel's open state with it, so
+the next control they reached for was not in the document. A public page can
+never see this: its theme is resolved once on the server and never moves. The
+shape it returns is constant now, with an empty slot where the stylesheet goes.
+
+**A chrome island has to CONSUME the tokens it re-declares.** `color` inherits,
+and `globals.css` resolves it once on `body` against whatever `--ink` is at
+`:root` — the author's, now — so every control that sets no colour of its own
+inherited theirs, and re-declaring `--ink` on the island changed nothing because
+nothing under it asked for the island's copy. Measured: an input painted
+`oklch(0.97 0 89.88)` where AeleOS's ink is `lab(14.95 13.07 10.78)`.
+`font-family` is the same one scope down, since a skin writes `--skin-font` at
+`SKIN_SCOPE`. `PreviewThemeHost` carried both for this reason before the
+inversion, pointing the other way; the hazard changed sides rather than going
+away.
+
+**The light/dark toggle threw the page away.** It clears an author's theme as
+well as setting a scheme, which is right on a public page — the switch beside it
+offers the colours back. Its own comment said this "costs the signed-in pages
+nothing", true while they had no theme and false the moment the editor grew one:
+there is no page-theme switch in the signed-in bar, so an author pressing
+light/dark lost the page they were building with no way to restore it. It clears
+only where `PageShell` renders that switch, which is the app's existing signal
+for "there is a way back".
+
+**And a claim that turned out to be about the deleted face rather than the
+product.** `section-card-face.spec.ts` required a section's background picture
+to preview "at full strength" — which held only because the tray painted its own
+element carrying the picture ABOVE a 90%-alpha surface, while the public page
+showed it through that surface. The assertion was pinning the very difference
+the face created. Measured on bare section background after the face went:
+`[232, 245, 222]`, the picture at about a tenth, which is exactly what a visitor
+sees. It asserts a CHANGE against the same probe with no picture now.
+
 **Hiding the controls leaves the page, and that is what replaced the framed
 preview.** The toolbar carries a control that sets `data-controls="hidden"` on
 the element wrapping the whole editor; two rules in `globals.css` do the rest.

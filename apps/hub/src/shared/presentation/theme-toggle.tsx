@@ -20,12 +20,24 @@ import { tid } from "@/shared/infrastructure/test-id";
  * somebody's own" and went with the question mark: a themed page now has a
  * palette toggle of its own beside this one, so this control is only ever
  * naming a direction again.
+ *
+ * `clearsPageTheme` is what decides whether pressing also takes an author's
+ * theme off, and it follows the presence of a way back rather than a guess
+ * about where the control is.
  */
 export interface ThemeToggleProps {
   /** Accessible name when the control will switch to dark. */
   toDarkLabel: string;
   /** Accessible name when the control will switch to light. */
   toLightLabel: string;
+  /**
+   * Whether pressing this also takes an author's theme off the page.
+   *
+   * **True only where there is a way back.** `PageShell` passes the page-theme
+   * switch on a public page and nothing on a signed-in one, so that presence is
+   * what this follows — see its own note.
+   */
+  clearsPageTheme?: boolean;
 }
 
 /**
@@ -162,13 +174,25 @@ function nextTheme(
  * Its icon and its accessible name are decided together in `nextTheme`, so a moon labelled "switch to light" is a state this shape cannot express.
  *
  *
- * **It clears an author's theme as well as setting the default**, which is
- * what the page theme switch's own light and dark options used to do. Without
- * it, pressing this on a themed page would change nothing a visitor can see.
+ * **It clears an author's theme as well as setting the default, but only where
+ * something offers it back.** On a public page the page-theme switch sits
+ * beside this control, so clearing is both safe and necessary — without it,
+ * pressing on a themed page would change nothing a visitor can see. In the
+ * signed-in bar there is no such switch, and since 2026-08-27 the editor themes
+ * its own document with the draft: clearing there would discard the page
+ * somebody is building with no way to restore it. A caller says which case it
+ * is through `clearsPageTheme`, and `PageShell` derives that from whether it is
+ * rendering the switch at all. The press still changes what somebody sees
+ * either way, because every control is a `CHROME_SCOPE` island that follows the
+ * light/dark choice.
  *
  * @returns the theme control.
  */
-export function ThemeToggle({ toDarkLabel, toLightLabel }: ThemeToggleProps) {
+export function ThemeToggle({
+  toDarkLabel,
+  toLightLabel,
+  clearsPageTheme = false,
+}: ThemeToggleProps) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const next = otherTheme(theme);
   const { Icon, label } = nextTheme(next, toDarkLabel, toLightLabel);
@@ -176,17 +200,23 @@ export function ThemeToggle({ toDarkLabel, toLightLabel }: ThemeToggleProps) {
   return (
     <button
       type="button"
-      // **It takes an author's theme off as well as setting the default.**
-      // Otherwise, pressing this on a themed page would change nothing a
-      // visitor can see — the accepts-a-press-and-does-nothing failure this
-      // repository keeps catching. The behaviour is not new: it is what the
-      // page theme switch's own light and dark options did before those two
-      // questions were split across two controls.
+      // **It takes an author's theme off as well as setting the default, but
+      // only where there is a way back.** On a public page, pressing this
+      // without clearing would change nothing a visitor can see — the
+      // accepts-a-press-and-does-nothing failure this repository keeps
+      // catching — and the page-theme switch beside it offers the author's
+      // colours again.
       //
-      // `setPageTheme` is a no-op on a page with no theme of its own, so this
-      // costs the signed-in pages nothing.
+      // **In the EDITOR it must not clear, and that is new.** This used to say
+      // `setPageTheme` was a no-op on a page with no theme of its own, so it
+      // cost the signed-in pages nothing. That stopped being true on
+      // 2026-08-27: the editor themes its own document with the draft, so
+      // clearing would throw away the page its author is building — with no
+      // page-theme switch in the signed-in bar to bring it back. Pressing this
+      // there still changes what somebody sees, because every control is a
+      // `CHROME_SCOPE` island that follows the light/dark choice.
       onClick={() => {
-        setPageTheme("default");
+        if (clearsPageTheme) setPageTheme("default");
         setTheme(next);
       }}
       aria-label={label}

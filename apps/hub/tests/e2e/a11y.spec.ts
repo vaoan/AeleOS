@@ -167,6 +167,16 @@ test.describe("the signed-in pages are accessible", () => {
     await expect(page.getByTestId("add-section")).toBeVisible();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
+    // **A section of this test's own, and the assertions below depend on it.**
+    // Every page opens carrying the identity section the database requires, and
+    // that section is a two-place grid holding a NESTED container — so without
+    // a section added here, `section-card.last()` is the identity one and
+    // `section-style-open` inside it resolves to two elements, its own and its
+    // child's. Removing this line when the framed preview went is exactly the
+    // fault it caused.
+    await page.getByTestId("add-section").click();
+    await page.getByTestId("section-name").last().fill("A section of my own");
+
     // **There is no framed preview to scan any more.** The editor themes its
     // own document and hides its controls to show the page, so what used to be
     // a second document inside this one is simply this one. The page the

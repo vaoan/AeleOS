@@ -727,6 +727,32 @@ body {
  * carrying this attribute, so it needs no exception here and cannot be part of
  * what the fidelity comparison photographs.
  */
+
+/*
+ * **A chrome island must CONSUME the tokens it re-declares, not merely declare
+ * them**, and the two inherited ones are the whole of the difference.
+ *
+ * `color` inherits, and `globals.css` resolves it once on `body` against
+ * whatever `--ink` is at `:root` — the AUTHOR's, now. Every control that does
+ * not set a colour of its own then inherits that computed value, and no amount
+ * of re-declaring `--ink` on the island changes it: the island's token is never
+ * consulted, because nothing on or under it asks for it. Measured on a page
+ * whose author had chosen a near-black field: the display-name input painted
+ * `oklch(0.97 0 89.88)`, the author's near-white derived ink, where AeleOS's is
+ * `lab(14.95 13.07 10.78)`.
+ *
+ * `font-family` is the same shape one scope down. A skin writes `--skin-font`
+ * at `SKIN_SCOPE`, which in the editor encloses the controls, so a workbench
+ * without this wears whatever face the author picked for their page.
+ *
+ * `PreviewThemeHost` carried both for exactly this reason before the inversion,
+ * pointing the other way. The hazard did not go away with it; it changed sides.
+ */
+.aeleos-chrome {
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
 [data-controls="hidden"] .aeleos-chrome {
   display: none;
 }

@@ -18,35 +18,36 @@ import { chooseNewSectionSpaces } from "./support/editor";
 
 // WHY THIS FILE EXISTS.
 //
-// `cutout` is the first skin to set `clip-path`. Controls and previews are now
+// **Its subject moved on 2026-08-27 and its questions did not.** It was written
+// about a `section-preview-face` — an element the preview tray painted on the
+// author's behalf, beneath the real renderer, so a picture could sit under the
+// card's own corners at a workable alpha. The editor themes its own document
+// now and the tray paints nothing at all: it renders the real section, so every
+// question below is asked of `public-section`, the element a visitor's browser
+// resolves. `face` is kept as the local name because it is what each assertion
+// has always been reaching for — the thing that paints.
+//
+// `cutout` is the first skin to set `clip-path`. Controls and previews are
 // siblings, so the old fault — a clipped card cutting away its own popup — is
-// structurally impossible. The first case is repurposed as a browser-level
-// boundary check: the real preview receives the clip while the AeleOS card,
-// popup and focus treatment remain unclipped. Its hit and pixel assertions are
-// corroboration of that split, not evidence that controls survive inside a
-// clipped ancestor.
+// structurally impossible. The first case is a browser-level boundary check:
+// the real section receives the clip while the AeleOS card, popup and focus
+// treatment remain unclipped.
 //
-// **The second test is about what the face PAINTS**, and it exists because the
-// refactor that fixed the clip moved the paint without measuring it. Delete
-// `surface` from the layer and the editor's preview loses its border, its
-// gloss and its chamfer while every other test in the repository stays green —
-// the "control that does nothing" fault, in the file whose comments invoke it
-// three times. And a section's own background picture has to READ in the
-// editor about as it reads on the public page, where the wrapper carries no
-// surface at all and the picture is at full strength; a picture behind a
-// 90%-alpha face is a preview showing a tenth of what it previews, and a
-// picture on the ROOT bleeds past the face's corners.
+// **The second test is about what the section PAINTS**, and it exists because
+// the refactor that fixed the clip moved the paint without measuring it. A
+// section's own background picture has to READ in the editor as it reads on the
+// public page — which is now true by construction rather than by arrangement,
+// since it is the same element on both.
 //
-// **The third test measures the same boundary under hostile paint.** AeleOS
-// controls in the card clear their contrast targets while the sibling tray
-// keeps the picture at full strength. It does not claim the controls read over
-// that picture: the workbench split means they never overlap it.
+// **The third test measures the same boundary under hostile paint, and it
+// matters more than it did.** The document wears the author's theme now, so
+// every control in the editor is standing on a colour somebody else chose.
+// AeleOS controls must clear their contrast targets against anything.
 //
 // **The fourth test is about the fit control**, and it belongs here because
-// this is the file that photographs this element. Its own comment carries the
-// account; the short version is that two of the three options painted the
-// same picture and the third read the SKIN's texture tile.
-
+// this is the file that photographs this element. Two of the three options
+// painted the same picture and the third read the SKIN's texture tile.
+//
 // **A test's own card is the LAST one.** Every page opens carrying the identity
 // section the database requires, and `add-section` appends — so `.first()` here
 // would reach for the identity section's controls instead, and a page-wide
@@ -261,10 +262,13 @@ test("author colours and skin change both real previews without restyling the wo
   const toolbar = page.getByTestId("editor-save");
   const identityInput = page.getByTestId("editor-display-name");
   const sectionInput = page.getByTestId("section-name").last();
+  // The section the tray renders. There is no boxed preview host any more —
+  // the document carries the theme, so a section inherits it the way a
+  // stranger's browser will.
   const sectionPreview = page
     .getByTestId("block-preview")
     .last()
-    .getByTestId("preview-theme-host");
+    .getByTestId("public-section");
   // **The page the editor draws, which is the document itself now.** There is
   // no framed second document and no boxed preview host: the editor themes its
   // own `:root` with the draft, exactly as a public route does, so this reads
@@ -304,9 +308,13 @@ test("author colours and skin change both real previews without restyling the wo
     });
 
   /**
-   * Reads the author tokens a preview host is expected to consume.
+   * Reads the author tokens a previewed section is expected to resolve.
    *
-   * @param host - a section or complete-page preview boundary.
+   * It INHERITS them from `:root` now rather than receiving them from a boxed
+   * host, which is the inversion — so a section reading the app's values here
+   * means the document is not carrying the draft.
+   *
+   * @param host - a section the tray renders.
    * @returns the resolved author palette and skin tokens.
    */
   const previewStyle = (host: typeof sectionPreview) =>
@@ -524,10 +532,21 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").last().click();
+  // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
+  // neither a title nor a description, so a freshly added content block draws
+  // no card — and the card is what carries the skin's edge.
+  await page.getByTestId("leaf-title").last().fill("Painted");
   await page.getByTestId("collapse-section").last().click();
 
   const tray = page.getByTestId("block-preview").last();
-  const face = tray.getByTestId("section-preview-face");
+  // **TWO elements, because the section SETS what the card CONSUMES.** The
+  // skin's form arrives as custom properties on the section and is drawn by
+  // each leaf's own `surface` card; the background picture is painted by the
+  // section itself. The deleted face carried both at once, which is why this
+  // spec used to need one locator and now needs two. Reading the border off
+  // the section answers `0px` however the choice went — measured, it did.
+  const section = tray.getByTestId("public-section");
+  const face = tray.getByTestId("public-leaf").locator("div").first();
 
   // **The skin's form, on the layer that paints it.** Delete `surface` from
   // that layer and the border is Preflight's `0`, which no other test in the
@@ -543,14 +562,14 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).clipPath))
     .toMatch(/^polygon\(/);
-  // A corner-vs-edge screenshot cannot independently prove this FACE's clip
-  // any more. The face is an absolute backing beneath the real `Block`, which
-  // carries the same section style, and the rounded preview host clips both;
-  // viewport pixels therefore read the renderer/host above the face. Measured
-  // at the face's own corner and top edge, colour distance was 5 both with the
-  // polygon intact and with `face.style.clipPath = "none"` sabotaged. Keeping
-  // that probe would be false evidence, so the face's computed clip is the
-  // direct assertion and the first test checks the rendered boundary.
+  // **There is no face any more, and `face` here names the SECTION.** The tray
+  // used to paint an absolute backing beneath the real `Block`, so a viewport
+  // probe read the renderer above it rather than the backing — measured, colour
+  // distance was 5 whether or not the polygon was there, which is why this
+  // reads the computed clip rather than pixels. The tray paints nothing now and
+  // renders the real section, so what is asserted below is the element a
+  // visitor's browser resolves, and the first test checks the rendered
+  // boundary.
   await page.keyboard.press("Escape");
   await face.scrollIntoViewIfNeeded();
 
@@ -565,38 +584,63 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
   await expect
-    .poll(() => face.evaluate((el) => getComputedStyle(el).backgroundImage))
+    .poll(() => section.evaluate((el) => getComputedStyle(el).backgroundImage))
     .toContain(PICTURE.url);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("section-style-panel")).toBeHidden();
   await face.scrollIntoViewIfNeeded();
 
-  box = (await face.boundingBox())!;
-  const left = Math.round(box.x);
-  const top = Math.round(box.y);
-  // `rounded-xl` at the design's own `--skin-round` is 12px, so (6,6) is
-  // inside that corner's arc and (2,2) is outside it — the arithmetic the
-  // sister spec's corner probe rests on, used here for both answers at once.
-  const picture = await sampleColours(page, [
-    { name: "inside", x: left + 6, y: top + 6 },
-    { name: "outside", x: left + 2, y: top + 2 },
-  ]);
+  box = (await section.boundingBox())!;
+  // **"AT FULL STRENGTH" WAS A PROPERTY OF THE FACE, AND THE FACE WAS THE BUG.**
+  //
+  // This used to require the probe within 30 channels of the picture's own
+  // colour. That held because the preview tray painted an element of its OWN,
+  // carrying the picture above its 90%-alpha surface — so the editor showed the
+  // picture at full strength while the public page, which has no such element,
+  // showed it through that surface. The assertion was pinning the very
+  // difference the face created.
+  //
+  // Measured after the face went, on bare section background: `[232, 245, 222]`
+  // — the picture at about a tenth, behind the surface — which is exactly what
+  // a visitor sees, and 232 channels from the flat green the old claim wanted.
+  //
+  // So the surviving claim is that the section PAINTS it, asserted as a CHANGE
+  // against the same probe with no picture set. A literal would be restating
+  // whatever the surface's alpha happens to be; the change is the behaviour.
+  // `editor-is-the-page.spec.ts` is what holds the editor to the page.
+  const spot = {
+    name: "bare",
+    x: Math.round(box.x + box.width * 0.75),
+    y: Math.round(box.y + box.height / 2),
+  };
+  const withPicture = await sampleColours(page, [spot]);
 
-  // Full strength: the face paints the picture ABOVE its own 90%-alpha
-  // colour, on one element, so what a probe reads is the picture. Behind that
-  // colour instead it would read within a few units of the page's own near
-  // white, which is the regression this exists to catch.
-  expect(
-    apart(picture.inside!, PICTURE.rgb),
-    "the picture previews at full strength",
-  ).toBeLessThan(30);
+  await page.getByTestId("section-style-open").last().click();
+  await page.getByTestId("section-style-background-url").fill("");
+  await expect
+    .poll(() => section.evaluate((el) => getComputedStyle(el).backgroundImage))
+    .not.toContain(PICTURE.url);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("section-style-panel")).toBeHidden();
+  const withoutPicture = await sampleColours(page, [spot]);
 
-  // And clipped by the face's corners: on the ROOT the picture is a square
-  // rect behind a rounded face, and shows in four bright wedges outside it.
   expect(
-    apart(picture.outside!, PICTURE.rgb),
-    "the picture does not bleed past the card's corner",
-  ).toBeGreaterThan(60);
+    apart(withPicture.bare!, withoutPicture.bare!),
+    "the section paints the picture a visitor would see",
+  ).toBeGreaterThan(10);
+  // And it is the picture rather than any change: with it, the probe is nearer
+  // the picture's own colour than the bare surface is.
+  expect(apart(withPicture.bare!, PICTURE.rgb)).toBeLessThan(
+    apart(withoutPicture.bare!, PICTURE.rgb),
+  );
+
+  // **THE CORNER-BLEED ASSERTION IS GONE, AND IT IS NOT A LOOSENING.** It
+  // asked whether a picture on the ROOT showed in four bright wedges outside a
+  // rounded FACE — a question about two elements, one painting behind the
+  // other, which is exactly the arrangement the preview tray had and no longer
+  // has. There is one element now, the same one a visitor's browser paints, so
+  // there is no root for a picture to bleed from. Keeping the assertion would
+  // have meant inventing a second element for it to be about.
 });
 
 test("AeleOS controls stay readable beside a hostile full-strength tray picture", async ({
@@ -634,7 +678,7 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   const face = page
     .getByTestId("block-preview")
     .last()
-    .getByTestId("section-preview-face");
+    .getByTestId("public-section");
   await expect
     .poll(() =>
       card.evaluate((el) => {
@@ -699,10 +743,15 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
 
     await face.scrollIntoViewIfNeeded();
     const faceBox = (await face.boundingBox())!;
+    // **Clear of the heading's GLYPHS.** The section's name sits along the top
+    // of its box, so a probe six pixels in from the left lands on antialiased
+    // text over the picture and reads a blend — measured, 35 channels off a
+    // flat mid-grey, which is a near miss that looks exactly like a real
+    // fault. The right-hand end of that same row is bare picture.
     const picture = await sampleColours(page, [
       {
         name: "picture",
-        x: Math.round(faceBox.x) + 6,
+        x: Math.round(faceBox.x + faceBox.width) - 10,
         y: Math.round(faceBox.y) + 6,
       },
     ]);
@@ -753,10 +802,25 @@ test("the three background fits are three different paints", async ({
   await chooseNewSectionSpaces(page, "2");
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").last().click();
+  // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
+  // neither a title nor a description, so a freshly added content block draws
+  // no card — and the card is what carries the skin's edge.
+  await page.getByTestId("leaf-title").last().fill("Painted");
   await page.getByTestId("collapse-section").last().click();
 
   const tray = page.getByTestId("block-preview").last();
-  const face = tray.getByTestId("section-preview-face");
+  // **TWO elements, because the section SETS what the card CONSUMES.** The
+  // skin's form arrives as custom properties on the section and is drawn by
+  // each leaf's own `surface` card; the background picture is painted by the
+  // section itself. The deleted face carried both at once, which is why this
+  // spec used to need one locator and now needs two. Reading the border off
+  // the section answers `0px` however the choice went — measured, it did.
+  // **The SECTION, because the subject here is the picture.** A background
+  // picture is painted by the section; a skin's edge is drawn by each leaf's
+  // own card. The deleted face carried both, which is why this spec's two
+  // tests now name different elements — and reading the picture off the card
+  // finds no inline style at all, which is how this one failed.
+  const face = tray.getByTestId("public-section");
 
   await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
