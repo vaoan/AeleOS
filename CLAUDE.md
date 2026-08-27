@@ -326,6 +326,17 @@ Key choices and _why_:
   committed or staged — an edit sitting unstaged in the working tree is invisible
   to it, exactly as it is to its sibling.
 
+- **What the block model CANNOT be pushed toward is written down, and it was
+  found by trying.** `scripts/seed-pastiches.mjs` builds eight pages aiming at
+  eight eras of somebody else's social network — the arrangement and palette,
+  never a logo — because a pastiche fails visibly and in a way you can name,
+  where "the editor feels limited" is not actionable. Findings:
+  `docs/superpowers/specs/2026-08-27-pastiche-findings.md`. The headline is that
+  **a leaf is always a card**: `border_style: "none"` removes the border style
+  and cannot make a leaf render as bare content, which blocks every modern feed
+  aesthetic at once. Read it before designing a style key, and note the two
+  things in it that LOOKED like faults and are not.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is
