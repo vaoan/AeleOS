@@ -368,8 +368,10 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * wearing `CHROME_SCOPE`, which re-declares those tokens on the island itself
  * — the cascade compares declarations on the same element, so an island always
  * beats what `:root` is carrying. Workbench groups that hold bare text paint an
- * opaque AeleOS solid beneath themselves, and that is a GUARANTEE rather than a
- * measurement: what is behind a control is a colour the author chose, they may
+ * opaque AeleOS solid beneath themselves — the toolbar and the language strip
+ * take `--menu`, which is opaque in both modes, rather than the 35%-alpha
+ * `--bar-solid` they wore while the app's own field was behind them. That is a
+ * GUARANTEE rather than a measurement: what is behind a control is a colour the author chose, they may
  * choose any colour, and no measurement can give a translucent control contrast
  * against a colour somebody else picks. The page remains visible in the spaces
  * between groups and inside
@@ -689,7 +691,13 @@ export function FursonaEditor({
           does not touch. Its `sticky` offset is what makes this position
           correct rather than merely tidier — it comes into force exactly
           when the sections it governs are on screen. */}
-            <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar-solid) p-3 backdrop-blur-sm short:static">
+            <div // **`--menu`, which is OPAQUE, for the same reason the toolbar takes it.**
+              // `--bar-solid` is 35% alpha — glass that assumed the app's own muted
+              // field behind it. The document wears the author's page now, so this
+              // strip's hint sat over whatever picture they chose. Photographed
+              // against a four-quadrant photo, it was unreadable over two of them.
+              className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 backdrop-blur-sm short:static"
+            >
               <div className="grid gap-0.5">
                 <span className="font-display text-sm font-bold">
                   {labels.writingIn}
