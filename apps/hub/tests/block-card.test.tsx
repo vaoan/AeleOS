@@ -692,6 +692,57 @@ describe("BlockCard", () => {
   // Chrome that is NOT nested is deliberately out of scope: the toolbar, the
   // gradient picker and the theme panel sit in the page's own column, where
   // the window IS the box they are in.
+  describe("telling a section from content", () => {
+    // Before this, the two cards painted the SAME background: `--surface` is
+    // `var(--surface-solid)` in the one `:root, .aeleos-chrome` block, and dark
+    // mode redeclares only the raw pair — so the whole distinction was one
+    // border-alpha step, 4px of radius and 2px of padding, and a nested
+    // section was styled byte-for-byte like a top-level one.
+
+    it("gives a section a rail and names it, and gives a leaf neither", () => {
+      harness([{ ...newContainer("grid", 1), children: [newLeaf("text")] }]);
+
+      expect(screen.getAllByTestId("container-rail")).toHaveLength(1);
+      // **Read off a marker of its own, never off the card's whole text.**
+      // The name field is labelled "Section name" and the kind select was
+      // labelled "Content", so `toHaveTextContent` on either card passes
+      // whether or not an eyebrow was ever rendered — a fixture that cannot
+      // tell the right answer from the wrong one.
+      const [sectionEyebrow] = screen.getAllByTestId("card-kind");
+      expect(sectionEyebrow).toHaveTextContent("Section");
+
+      // The leaf names itself, and the rail is the section's alone.
+      const leaf = screen.getByTestId("leaf-editor");
+      expect(within(leaf).getByTestId("card-kind")).toHaveTextContent(
+        "Content",
+      );
+      expect(within(leaf).queryByTestId("container-rail")).toBeNull();
+    });
+
+    it("gives every nested section a rail of its own", () => {
+      // **Nested to the cap on purpose.** One rail on the outermost card and
+      // one rail per container are indistinguishable on a flat fixture, so a
+      // page with a single section could not tell the right behaviour from the
+      // wrong one — and the point of the rail is that depth becomes countable.
+      harness([
+        {
+          ...newContainer("stack", 1),
+          children: [
+            {
+              ...newContainer("stack", 1),
+              children: [newLeaf("text")],
+            },
+          ],
+        },
+      ]);
+
+      expect(screen.getAllByTestId("container-rail")).toHaveLength(2);
+      // Anti-vacuity: the fixture really did nest, so the count above is not
+      // passing on a tree that collapsed to one card.
+      expect(screen.getAllByTestId("nested-card")).toHaveLength(1);
+    });
+  });
+
   it("emits no viewport breakpoint anywhere in a card, a nested card or a leaf", () => {
     const kinds = LEAF_KINDS.map((kind) => ({
       ...newLeaf(kind),

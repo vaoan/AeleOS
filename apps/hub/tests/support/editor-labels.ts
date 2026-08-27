@@ -45,6 +45,10 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * the page and cannot escape it. `margins` is the independent chrome toggle
  * beside it.
  *
+ * `sectionEyebrow` and `contentEyebrow` carry real English rather than their
+ * own key names, like the other scalars here, because the assertions that read
+ * them are looking for a word a person sees.
+ *
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
  */
@@ -68,7 +72,8 @@ export function blockEditorLabels(): BlockEditorLabels {
       tooDeep: "That is one level too deep.",
       noSuchPlace: "That place is no longer there.",
     },
-    sectionName: "Section name",
+    sectionEyebrow: "Section",
+    sectionName: "Name",
     sectionMode: "Arrangement",
     sectionSpaces: "Spaces across",
     sectionSpacesHint: "Fewer means more rows. Nothing is removed.",
@@ -93,7 +98,8 @@ export function blockEditorLabels(): BlockEditorLabels {
     addPlace: "Add a place",
     previewTitle: "How it will look",
     removeBlock: "Remove what is here",
-    leafKind: "Content",
+    contentEyebrow: "Content",
+    leafKind: "Type",
     leafKinds: Object.fromEntries(LEAF_KINDS.map((kind) => [kind, kind])),
     leafTitle: Object.fromEntries(
       LEAF_KINDS.map((kind) => [kind, `${kind} title`]),

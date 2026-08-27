@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Eye, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
@@ -11,6 +12,10 @@ import { CHROME_SCOPE } from "@/shared/domain/chrome";
  * `hideControls` and `showControls` are two strings for one idea because the
  * control that steps the workbench aside is not the control that brings it
  * back: they are rendered in different places, and only one exists at a time.
+ *
+ * There is no string here for the page-theme switch. That control arrives as a
+ * ready-made node, so its words belong to whoever built it — see
+ * {@link EditorToolbarProps.pageThemeSwitch}.
  */
 export interface EditorToolbarLabels {
   /** The save button when idle. */
@@ -35,6 +40,11 @@ export interface EditorToolbarLabels {
  * `onHideControls` is a callback and not a link for the mirror reason: it
  * changes how this page is being LOOKED at and goes nowhere, so there is no
  * address for it to have.
+ *
+ * `pageThemeSwitch` is a NODE where those two are a callback and a string,
+ * and the difference is deliberate: whether there is a look to leave is a
+ * domain question, and this bar owns no domain concept. `PageShell` takes the
+ * visitor's copy of the same control the same way.
  */
 export interface EditorToolbarProps {
   /** What is being edited, shown on the left. */
@@ -43,6 +53,17 @@ export interface EditorToolbarProps {
   labels: EditorToolbarLabels;
   /** Steps the workbench out of the way. */
   onHideControls: () => void;
+  /**
+   * The control that takes the page's own look off, or null when there is none
+   * to take off.
+   *
+   * **A node rather than a flag, so this bar never learns what a theme is** —
+   * the same arrangement `PageShell` uses for the visitor's copy of the same
+   * switch. Passing it at all is the statement that there is a look to leave;
+   * a switch offering to remove colours the page never had is a control that
+   * accepts a press and changes nothing.
+   */
+  pageThemeSwitch?: ReactNode;
   /** True while a save is in flight. */
   saving: boolean;
   /** Where leaving without saving goes. */
@@ -106,6 +127,11 @@ export interface EditorToolbarProps {
  * on a wrapper for the same reason: a wrapper the height of one bar pins it for
  * the height of one bar. `editor-bars-stay-pinned.spec.ts` is the guard.
  *
+ * **It renders `pageThemeSwitch` without knowing what one is.** The node is
+ * built by the editor, which owns the domain question of whether there is a
+ * look to leave; this bar decides only where in the row it sits — beside Hide
+ * controls, because both answer "let me see this differently".
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -114,6 +140,7 @@ export function EditorToolbar({
   saving,
   cancelHref,
   onHideControls,
+  pageThemeSwitch,
 }: EditorToolbarProps) {
   return (
     // **The bar spans the page and its ROW is columned, not the other way
@@ -155,6 +182,7 @@ export function EditorToolbar({
           {/* **`type="button"`, and that is not a formality.** Every button
             inside a `<form>` submits by default, so an unspecified type here
             would SAVE the page on the way to looking at it. */}
+          {pageThemeSwitch}
           <button
             type="button"
             onClick={onHideControls}

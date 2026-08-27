@@ -31,6 +31,7 @@ import {
   type IconPickerLabels,
 } from "@/features/actors/presentation/icon-picker";
 import { tid } from "@/shared/infrastructure/test-id";
+import { CardKind } from "@/features/actors/presentation/card-kind";
 
 /**
  * Translated strings {@link LeafEditor} renders.
@@ -67,8 +68,22 @@ import { tid } from "@/shared/infrastructure/test-id";
  * page where nothing was marked is worse than no banner — and that was the
  * ordinary path, since a new piece of content starts untitled and the write
  * schema requires a heading.
+ *
+ * `contentEyebrow` and `leafKind` are two strings for what looks like one idea
+ * and is not: the first names the card, the second labels the control choosing
+ * WHICH kind it holds. The second used to read "Content" and do both, which
+ * left the noun indistinguishable from every other field label in the row.
  */
 export interface LeafEditorLabels extends IconPickerLabels {
+  /**
+   * The word naming this card one piece of content, shown in its eyebrow.
+   *
+   * Distinct from {@link LeafEditorLabels.leafKind}, which labels the control
+   * choosing WHICH kind. One says what the card is; the other says what the
+   * select does, and letting one string do both is how the noun ended up
+   * invisible in a row of field labels.
+   */
+  contentEyebrow: string;
   /** Field label for the control choosing what a piece of content is. */
   leafKind: string;
   /** One name per content kind, keyed by kind. */
@@ -234,6 +249,12 @@ const INPUT =
  * dropping any of them leaves a control that renders, looks right and does
  * nothing at all — silently, by mouse as well as by keyboard.
  *
+ * **`CardKind` sits on the kind field's LABEL line, not in the row holding
+ * the select.** That row has no slack: the select is as wide as its longest
+ * option — `Reproductor de música` in Spanish, 204px — and unlike the section
+ * card's selects it has no `w-full` fallback to wrap onto a line of its own,
+ * so anything placed beside it pushes a 320px screen sideways.
+ *
  * @returns the leaf's fields.
  */
 export function LeafEditor({
@@ -306,10 +327,14 @@ export function LeafEditor({
     >
       <div className="flex flex-wrap items-end gap-2">
         {dragHandle}
+
         <div className="grid min-w-0 flex-1 gap-1.5">
-          <label htmlFor={`${id}-kind`} className="text-xs font-medium">
-            {labels.leafKind}
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardKind kind="content">{labels.contentEyebrow}</CardKind>
+            <label htmlFor={`${id}-kind`} className="text-xs font-medium">
+              {labels.leafKind}
+            </label>
+          </div>
           <select
             id={`${id}-kind`}
             {...tid("leaf-kind")}

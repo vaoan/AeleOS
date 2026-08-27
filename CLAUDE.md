@@ -188,6 +188,41 @@ Key choices and _why_:
   coverage gates this — an untested error branch fails the build. A test that
   guards already-correct behaviour must be **verified by sabotage**: break the
   code, watch it go red, restore. A test never seen red proves nothing.
+- **Edge cases are owed at BOTH levels, and they are different questions at
+  each.** Happy path plus failure modes is the floor, not the bar.
+
+  A unit test's edges are the boundaries of a **value**: empty, one, many, the
+  cap, one past the cap, absent against explicitly-default, the first position
+  and the last, the palindrome that hides a reversal, the list whose last entry
+  equals the constant you would pad with.
+
+  An end-to-end test's edges are the boundaries of a **situation**: the
+  narrowest viewport, the longest string in the longest language, the deepest
+  nesting the model allows, the fullest page, the cold cache, the second drag
+  in a suite where the first one's announcement is still on screen.
+
+  **Neither level covers for the other, and that is measured rather than
+  argued.** On 2026-08-27 an eyebrow added to the leaf editor's header row
+  displaced a 204px `select` — as wide as `Reproductor de música`, its longest
+  option in Spanish, which is this app's FALLBACK language — and pushed the
+  editor 71px past a 320px viewport. 3023 unit tests at 100% branch coverage,
+  `lint`, `typecheck` and `check:tools` were all green; `responsive.spec.ts` at
+  portrait 320 was the only thing in the repository that failed, because "how
+  wide is this control, in the longest language, on the smallest phone" is not
+  a question any unit test has an opinion about. The converse holds just as
+  hard: no browser case will tell you what `moveBlock` does at the depth cap,
+  and `block-moves.test.ts` is where that lives.
+
+  The practical form: when you add anything to a row that already holds a
+  `select`, the select is as wide as its longest option **in Spanish**, and the
+  row has no slack you have not measured.
+
+  **An edge case still has to discriminate.** Rule 27 is at its sharpest here —
+  the middle of a range is exactly where a right answer and a wrong one land on
+  the same pixel, and the edge is where they part. So name the wrong behaviour
+  the case excludes and ask whether this edge can tell it from the right one.
+  If it cannot, that is a case to rewrite, not one to count.
+
 - **Every bug gets a regression test. No exceptions.** Finding the cause is half
   the work; the other half is a test that fails on the unfixed code. Write it
   before the fix where you can, and **sabotage-verify it against the original
@@ -252,11 +287,45 @@ Key choices and _why_:
   compares each exported symbol against the base branch — and against the index
   in pre-commit — failing when the code moved and the TSDoc did not. It is a
   heuristic and it is deliberate: under AI-driven development a stale comment is
-  a confident, wrong instruction. There is no suppression flag.
+  a confident, wrong instruction. There is no suppression flag. Its companion
+  `pnpm check:agent-notes` asks the same question one level up, of the directory
+  notes — see the bullet below for the three rulings that shape it.
 - **Constraints about an export live in its TSDoc**, where they are enforced and
-  freshness-checked. A `CLAUDE.md` beside the code is optional and unenforced,
-  for rules constraining code that does not exist yet. TSDoc constrains what
-  exists; a directory note constrains what comes next.
+  freshness-checked. A `CLAUDE.md` beside the code is optional, for rules
+  constraining code that does not exist yet. TSDoc constrains what exists; a
+  directory note constrains what comes next.
+
+  **A directory note is no longer unenforced (2026-08-27).**
+  `pnpm check:agent-notes` fails when a file changed under a note and the note
+  did not — the companion to `check:docs`, which is per exported symbol and so
+  structurally blind to a note whose subject is a different file. It is generic:
+  every `CLAUDE.md` and `AGENTS.md` governs its own directory, so a note written
+  tomorrow is guarded on the day it lands, with nothing to register.
+
+  Three rulings it is built on, each of which changes what it costs:
+
+  - **Nearest note only, and a skipped note does not fall through.** A pointer
+    (`apps/hub/CLAUDE.md` is the eleven bytes `@AGENTS.md`) and a wholly
+    generated file (`apps/hub/AGENTS.md` is Next.js's own rules) govern nothing,
+    and their subtree is then unguarded rather than handed up. Falling through
+    would put every change under `apps/hub` on THIS file — 118KB of running
+    record — and a gate that fires on a workflow tweak is one people satisfy
+    with a blank line. So the run PRINTS what it skipped: the fix for an
+    unguarded subtree is to write a real note in it, not to bend the rule.
+  - **Both exemptions are mechanical, not a list.** A pointer is a file whose
+    every non-blank line starts with `@`; a vendored file is one where stripping
+    `BEGIN`/`END` blocks leaves nothing. Prose beside a generated block is
+    prose. Rule 32's hand-maintained skip list is why neither is a list.
+  - **No suppression flag**, matching `check:docs` and for its reason: a
+    suppression flag becomes the thing everyone types. Restating something that
+    still holds counts, and the failure message prints the three questions the
+    actors note already asks rather than only naming a file.
+
+  It runs as a step in `conformance` beside `check:docs`, taking the base ref
+  the same way, and in pre-commit as `--staged`. Both modes only see what is
+  committed or staged — an edit sitting unstaged in the working tree is invisible
+  to it, exactly as it is to its sibling.
+
 - **Squash the migrations, and squash them again.** Nothing is in production
   yet, so the schema is still allowed a clean start — and a clean start is
   worth keeping, because the migration set is the thing every consuming app

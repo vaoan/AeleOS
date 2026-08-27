@@ -48,6 +48,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm check:tools
       - run: pnpm check:docs origin/${{ github.base_ref || 'main' }}
+      - run: pnpm check:agent-notes origin/${{ github.base_ref || 'main' }}
 
       # v3 is a composite action — no Node runtime, so it is unaffected by the
       # Node 20 deprecation. Pinned by SHA for the same supply-chain reason as

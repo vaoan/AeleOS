@@ -109,6 +109,7 @@ const labels = {
   hideControls: "Hide controls",
   showControls: "Show controls",
   bannerTitle: "Fix these before saving",
+  pageStyle: "Your page’s own look",
   writingIn: "Writing in",
   writingInHint: "Only the page text.",
   theme: {
@@ -923,5 +924,49 @@ describe("a page the write schema refuses", () => {
       labels.errors.sectionsTooLarge,
     );
     expect(screen.queryByTestId("leaf-title-problem")).toBeNull();
+  });
+});
+
+describe("leaving the page's own look while building", () => {
+  // The document is where this lands, so it survives a render. Cleared rather
+  // than trusted, or the "it starts on" assertion below reads whatever the
+  // previous case left and can pass for the wrong reason.
+  beforeEach(() => {
+    document.documentElement.removeAttribute("data-page-theme");
+  });
+
+  // `initialTheme` is its own prop — the theme is not part of `initial`.
+  const customised = { initialTheme: { ...DEFAULT_THEME, accent: "#ff0000" } };
+
+  // **A control offering to remove colours the page never had does nothing**,
+  // which is the shape this repository keeps trimming — and `PageThemeSwitch`'s
+  // own doc says the caller decides. The default fixture is the discriminating
+  // half: without it, "renders when customised" passes for a switch that always
+  // renders.
+  it("is absent while the page still wears the default look", () => {
+    renderEditor();
+    expect(screen.queryByTestId("page-theme-switch")).toBeNull();
+  });
+
+  it("appears once the page has a look of its own", () => {
+    renderEditor(customised);
+    expect(screen.getByTestId("page-theme-switch")).toBeInTheDocument();
+  });
+
+  // **Asserted on the DOCUMENT, not on the button's own state.** The editor
+  // themes `:root`, and `themeCss` gates every rule it writes on
+  // `:not([data-page-theme="default"])` — so this attribute is the whole
+  // mechanism, and a switch that flipped its own `aria-pressed` and wrote
+  // nothing here would look right and change nothing on screen.
+  it("takes the page's look off the document and puts it back", () => {
+    renderEditor(customised);
+    const root = document.documentElement;
+    expect(root.getAttribute("data-page-theme")).not.toBe("default");
+
+    fireEvent.click(screen.getByTestId("page-theme-switch"));
+    expect(root.getAttribute("data-page-theme")).toBe("default");
+
+    fireEvent.click(screen.getByTestId("page-theme-switch"));
+    expect(root.getAttribute("data-page-theme")).toBe("author");
   });
 });

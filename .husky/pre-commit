@@ -19,4 +19,10 @@ pnpm lint-staged --concurrent false --no-stash --no-revert
 echo ""
 pnpm check:docs --staged
 
+# Agent-note freshness, staged against HEAD. Same reason lint-staged cannot do
+# it: this compares the whole staged SET against the notes governing it, not
+# one file at a time.
+echo ""
+pnpm check:agent-notes --staged
+
 echo "All pre-commit checks passed."

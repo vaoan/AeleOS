@@ -17,6 +17,7 @@ import { tid } from "@/shared/infrastructure/test-id";
 import { WidePageColumn } from "@/shared/presentation/page-shell";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { ThemeScope } from "@/features/actors/presentation/theme-scope";
+import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
 import {
   EditorToolbar,
@@ -35,6 +36,7 @@ import {
 import {
   DEFAULT_THEME,
   themeSchema,
+  isCustomised,
   type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
 import type { Block } from "@/features/actors/domain/block-schema";
@@ -73,11 +75,25 @@ import { z } from "zod";
  * than by a layout name; what replaced it is `modes` and `leafKinds`, both
  * built by mapping the vocabulary in `pages/labels.ts` so a name nobody wrote
  * fails the build rather than rendering its own id at somebody.
+ *
+ * `pageStyle` names the switch that takes the page's own look off while
+ * building. It is deliberately not the visitor's string for the same control:
+ * "this author's colours" is the wrong way to say it to the author.
  */
 export interface FursonaEditorLabels
   extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
+  /**
+   * Names the switch that takes the page's own look off while building.
+   *
+   * It is the aria-label and the tooltip of an icon toggle, so it names the
+   * THING being worn rather than the action — the pressed state says whether
+   * it is on. The visitor's copy of the same control on a public page uses a
+   * string of its own, because "this author's colours" is the wrong way to say
+   * it to the author.
+   */
+  pageStyle: string;
   /** Names the control that switches which language is being written. */
   writingIn: string;
   /** Says which fields the language switch governs. */
@@ -441,6 +457,18 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `sm:` one standing, which is 40px nobody asked for at every width above
  * `sm`.
  *
+ * **The way out of the author's own look is in the bar.** Since the document
+ * wears the draft, a busy theme is worn by the workbench too; the editor hands
+ * `EditorToolbar` a `PageThemeSwitch` — the same control a visitor gets — gated
+ * on `isCustomised(liveTheme)`, so it arrives with the first colour somebody
+ * picks and leaves when they reset. It needed no mechanism of its own:
+ * `setPageTheme` writes an attribute and persists nothing, and every rule
+ * `themeCss` emits is already gated on it.
+ *
+ * **The way back to the CONTROLS is drawn at the top right**, outside the
+ * armed element as it has to be. The bottom-right corner covered the page's
+ * own foot, which is part of what somebody hides the controls to look at.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -581,6 +609,15 @@ export function FursonaEditor({
             saving={saving}
             cancelHref={LIST}
             onHideControls={() => setControlsHidden(true)}
+            // **Gated on the LIVE theme, so it arrives with the first colour
+            // somebody picks and leaves when they reset.** Computed here rather
+            // than in the bar for the same reason the public routes compute it:
+            // the bar owns no domain concept, and `isCustomised` is one.
+            pageThemeSwitch={
+              isCustomised(liveTheme as ActorTheme) ? (
+                <PageThemeSwitch labels={{ author: labels.pageStyle }} />
+              ) : null
+            }
           />
 
           <WidePageColumn
@@ -789,13 +826,21 @@ export function FursonaEditor({
 
         {/* **OUTSIDE the element the rule reaches**, so it needs no exception and
           cannot be part of what the fidelity comparison photographs. It is the
-          only thing on screen that is not the page. */}
+          only thing on screen that is not the page.
+
+          It cannot move INTO the toolbar, however much it reads like a bar
+          control: the hide rule removes every `CHROME_SCOPE` island by class,
+          so a button in the bar would be hidden by the press that summons it,
+          stranding somebody on a page with no way back to the workbench.
+          `fursona-editor.test.tsx` pins that. What it can do is sit where the
+          bar was — the bottom-right corner covered the page's own foot, which
+          is part of what somebody hides the controls to look at. */}
         {controlsHidden ? (
           <button
             type="button"
             onClick={() => setControlsHidden(false)}
             {...tid("show-controls")}
-            className={`${CHROME_SCOPE} fixed right-4 bottom-4 z-50 flex items-center gap-1.5 rounded-full bg-(--menu) px-4 py-2.5 text-sm font-medium shadow-lg`}
+            className={`${CHROME_SCOPE} fixed top-4 right-4 z-50 flex items-center gap-1.5 rounded-full bg-(--menu) px-4 py-2.5 text-sm font-medium shadow-lg`}
           >
             <EyeOff className="size-4" />
             {labels.showControls}
