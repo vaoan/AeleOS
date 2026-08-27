@@ -34,6 +34,9 @@
     "pixabay",
     "showcase",
     "Cascadia",
+    // Impact's metric-compatible fallback on Windows, named in the poster font
+    // stack. A real face, not a coinage.
+    "Haettenschweiler",
     "Consolas",
     "Segoe",
     "Tahoma",

@@ -33,7 +33,7 @@ function labelOf(props: LeafProps): string {
 /** The label element, shared so the identity leaves cannot drift apart. */
 function Label({ text }: { text: string }): ReactNode {
   return text ? (
-    <span className="font-display text-xs/tight font-bold text-(--muted)">
+    <span className="font-display text-[0.75em]/tight font-bold text-(--muted)">
       {text}
     </span>
   ) : null;
@@ -109,6 +109,9 @@ export const AvatarLeaf: LeafRenderer = (props) => {
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the handle or the address.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced.
  */
 export const HandleLeaf: LeafRenderer = (props) => (
   <span className="grid gap-1" {...tid("block-handle")}>
@@ -120,7 +123,7 @@ export const HandleLeaf: LeafRenderer = (props) => (
         display name. It rode the welded header's <h1> until that header became
         blocks. */}
     <span
-      className="font-mono text-sm text-(--muted)"
+      className="font-mono text-[0.875em] text-(--muted)"
       {...tid("public-actor-name")}
     >
       {isMachineHandle(props.page.handle)
@@ -189,6 +192,9 @@ export const NameLeaf: LeafRenderer = (props) =>
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the link, or nothing when there is no owner.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced.
  */
 export const OwnerLeaf: LeafRenderer = (props) => {
   const { labelled, page } = props;
@@ -211,11 +217,11 @@ export const OwnerLeaf: LeafRenderer = (props) => {
         ) : null}
         <span className="grid min-w-0 gap-0.5">
           {owner.displayName ? (
-            <span className="truncate font-display text-sm font-bold">
+            <span className="truncate font-display text-[0.875em] font-bold">
               {owner.displayName}
             </span>
           ) : null}
-          <span className="font-mono text-xs text-(--muted)">
+          <span className="font-mono text-[0.75em] text-(--muted)">
             {owner.address}
           </span>
         </span>
@@ -247,6 +253,9 @@ export const OwnerLeaf: LeafRenderer = (props) => {
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the list, or nothing when this page has none.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced.
  */
 export const FursonasLeaf: LeafRenderer = (props) => {
   const { leaf, locale, page } = props;
@@ -264,7 +273,7 @@ export const FursonasLeaf: LeafRenderer = (props) => {
   if (page.fursonas.length === 0) {
     return (
       <section className="grid gap-3" {...tid("block-fursonas")}>
-        <h2 className="font-display text-lg font-bold tracking-tight">
+        <h2 className="font-display text-[1.125em] font-bold tracking-tight">
           {title}
         </h2>
       </section>

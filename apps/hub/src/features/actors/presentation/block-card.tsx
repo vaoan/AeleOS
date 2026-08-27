@@ -519,6 +519,9 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * {@link BlockCardLabels.leaf}.
  *
  * @returns the container's card.
+ *
+ * It tells the style popup whether this block carries a name, because the
+ * name-style control is offered only where there is a name to draw.
  */
 export function BlockCard({
   block,
@@ -811,6 +814,7 @@ export function BlockCard({
           // Only a SECTION may reach the window's edges — a nested block has
           // one between it and the page.
           atTop={depth === 0}
+          named={Boolean(block.name_en?.trim() || block.name_es?.trim())}
         />
 
         <RemoveSectionButton

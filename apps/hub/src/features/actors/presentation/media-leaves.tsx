@@ -59,10 +59,12 @@ function LeafCaption({
   return (
     <figcaption className="grid gap-1">
       {title ? (
-        <span className="font-display text-sm/tight font-bold">{title}</span>
+        <span className="font-display text-[0.875em]/tight font-bold">
+          {title}
+        </span>
       ) : null}
       {description ? (
-        <p className="text-xs/relaxed text-(--muted)">{description}</p>
+        <p className="text-[0.75em]/relaxed text-(--muted)">{description}</p>
       ) : null}
     </figcaption>
   );

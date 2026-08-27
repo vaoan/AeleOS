@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_THEME,
+  PAGE_FONTS,
   PAGE_MEASURES,
+  PAGE_SPACINGS,
+  type PageFont,
   type PageMeasure,
+  type PageSpacing,
 } from "@/features/actors/domain/actor-theme";
 import { pageContext } from "./helpers/page-context";
 import type { ComponentProps, ReactNode } from "react";
@@ -196,6 +200,18 @@ const labels = {
     // a type error in a suite that tests none of these names — the catalogues
     // themselves are `messages.test.ts`'s job.
     measure: "measure",
+    font: "font",
+    fontDefault: "fontDefault",
+    fonts: Object.fromEntries(PAGE_FONTS.map((f) => [f, f])) as Record<
+      PageFont,
+      string
+    >,
+    spacing: "spacing",
+    spacingDefault: "spacingDefault",
+    spacings: Object.fromEntries(PAGE_SPACINGS.map((s) => [s, s])) as Record<
+      PageSpacing,
+      string
+    >,
     measures: Object.fromEntries(PAGE_MEASURES.map((m) => [m, m])) as Record<
       PageMeasure,
       string
@@ -772,6 +788,8 @@ describe("FursonaEditor for a person", () => {
           backgroundUrl: null,
           backgroundFit: "cover",
           measure: null,
+          font: null,
+          spacing: null,
           skin: "default",
           density: 1,
           speed: 1,

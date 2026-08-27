@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  PAGE_FONTS,
+  PAGE_MEASURES,
+  PAGE_SPACINGS,
+} from "@/features/actors/domain/actor-theme";
+import {
   BLOCK_KINDS,
   BLOCK_LIMITS,
   BLOCK_STYLE_LIMITS,
@@ -190,6 +195,9 @@ describe("the client's style limits", () => {
     ["background_fit", BLOCK_STYLE_LIMITS.background_fit],
     ["card_size", BLOCK_STYLE_LIMITS.card_size],
     ["border", BLOCK_STYLE_LIMITS.border],
+    ["chrome", BLOCK_STYLE_LIMITS.chrome],
+    ["heading", BLOCK_STYLE_LIMITS.heading],
+    ["text_align", BLOCK_STYLE_LIMITS.text_align],
   ])("the %s values match 0009's style block", (key, expected) => {
     const found = styleBlock?.match(
       new RegExp(`v_key = '${key}' then[\\s\\S]*?v_value not in \\(([^)]+)\\)`),
@@ -198,5 +206,46 @@ describe("the client's style limits", () => {
       .split(",")
       .map((value) => value.trim().replaceAll("'", ""));
     expect(values?.toSorted()).toEqual(expected.toSorted());
+  });
+});
+
+/**
+ * The PAGE-level vocabularies, pinned to `set_actor_theme`'s own allowlist.
+ *
+ * **This is the guard that did not exist when `measure` shipped.** That key was
+ * added to `PAGE_MEASURES` and never to the allowlist, whose final branch is
+ * `raise exception 'unknown theme key %'` — so picking a width did not merely
+ * fail to persist, it made the WHOLE theme save throw, every colour beside it
+ * included. Root rule 30 is that incident; nothing pinned these three until
+ * now, and `font` and `spacing` are added in the same change as this test for
+ * exactly that reason.
+ *
+ * These read `set_actor_theme`'s branches rather than `validate_block`'s: the
+ * three keys named here appear only in the former, so the pattern cannot
+ * accidentally match the style bag's loop.
+ */
+describe("the client's page-level theme vocabulary", () => {
+  it.each([
+    ["measure", PAGE_MEASURES],
+    ["font", PAGE_FONTS],
+    ["spacing", PAGE_SPACINGS],
+  ])("the %s values match 0009's set_actor_theme", (key, expected) => {
+    const found = sql.match(
+      // **`String.raw`, and this file already warned about it.** In an
+      // ordinary template literal these are STRING escapes and collapse before
+      // `RegExp` sees them — the pattern becomes `[sS]`, matches nothing, and
+      // every assertion after it passes forever. Written the plain way first
+      // here, and caught only because the self-check below exists.
+      new RegExp(
+        String.raw`v_key = '${key}' then[\s\S]*?v_value not in \(([^)]+)\)`,
+      ),
+    );
+    // Self-checked before the comparison, like every other regex in this file:
+    // a pattern that matches nothing makes the assertion after it pass forever.
+    expect(found?.[1]).toBeDefined();
+    const values = found?.[1]
+      .split(",")
+      .map((value) => value.trim().replaceAll("'", ""));
+    expect(values?.toSorted()).toEqual([...expected].toSorted());
   });
 });

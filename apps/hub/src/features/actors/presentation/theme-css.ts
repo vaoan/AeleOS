@@ -24,6 +24,8 @@ import {
   DEFAULT_THEME,
   THEME_SEEDS,
   type ActorTheme,
+  type PageFont,
+  type PageSpacing,
 } from "@/features/actors/domain/actor-theme";
 
 /**
@@ -257,6 +259,68 @@ export function accentPreview(accentHex: string, background: Gradient): string {
 }
 
 /**
+ * The face each named typeface resolves to.
+ *
+ * **Every stack is faces the reader already has**, so choosing one ships no
+ * font file and adds no request — which is what keeps a typeface picker inside
+ * the $0 constraint, and why the set is what it is rather than what a type
+ * designer would pick. `casual` and `poster` are the two that actually SIGN
+ * the era this exists for: a personal page of 2003 in Comic Sans, a banner in
+ * Impact.
+ *
+ * **`satisfies Record<PageFont, …>` rather than a plain record**, so a face
+ * added to {@link PAGE_FONTS} with no stack behind it is a build failure
+ * rather than a control that offers a name and changes nothing.
+ */
+const FONT_STACKS = {
+  system:
+    'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  classic: "Verdana, Tahoma, Geneva, sans-serif",
+  serif: '"Times New Roman", Times, Georgia, serif',
+  mono: 'ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace',
+  casual: '"Comic Sans MS", "Comic Sans", cursive',
+  poster: 'Impact, "Arial Narrow", Haettenschweiler, sans-serif',
+} satisfies Record<PageFont, string>;
+
+/**
+ * The padding and text size each spacing sets, as ONE pair.
+ *
+ * Changing either alone is what makes a page look squeezed rather than dense,
+ * so the key sets both or neither. Exhaustive over {@link PAGE_SPACINGS} for
+ * the reason above.
+ */
+const SPACINGS = {
+  compact: { pad: "0.5rem", text: "0.8125rem" },
+  roomy: { pad: "1.5rem", text: "1.0625rem" },
+} satisfies Record<PageSpacing, { pad: string; text: string }>;
+
+/**
+ * What a page sets on its own CONTENT: the typeface and the spacing.
+ *
+ * **Separate from `themeVars` because the scope is different**, not because the
+ * values are. Colour has to reach the canvas and the field, which sit outside
+ * anything a page can wrap, so it goes to `:root`; a face and a padding belong
+ * to the author's content and must not touch the app's own bar.
+ *
+ * Both keys are OPTIONS: absent emits nothing at all, so a page that chose
+ * neither is byte-for-byte what it was before either existed.
+ *
+ * @param theme - the chosen theme.
+ * @returns the properties, empty when the page chose neither.
+ */
+function contentVars(theme: ActorTheme): Record<string, string> {
+  const vars: Record<string, string> = {};
+  const stack = theme.font ? FONT_STACKS[theme.font] : undefined;
+  if (stack) vars["font-family"] = stack;
+  const spacing = theme.spacing ? SPACINGS[theme.spacing] : undefined;
+  if (spacing) {
+    vars["--block-pad"] = spacing.pad;
+    vars["font-size"] = spacing.text;
+  }
+  return vars;
+}
+
+/**
  * A theme as CSS.
  *
  * **Three rules, and no media queries at all.** The media queries went when a
@@ -312,6 +376,9 @@ export function accentPreview(accentHex: string, background: Gradient): string {
  *
  * @param theme - the chosen theme.
  * @returns the CSS text, or empty when the theme overrides nothing.
+ *
+ * A page's own typeface and spacing are emitted into the SKIN scope beside the
+ * skin, never at `:root`, so a page cannot restyle the app's own bar.
  */
 export function themeCss(theme: ActorTheme): string {
   // `:not([data-page-theme="default"])` rather than `[data-page-theme="author"]`,
@@ -321,7 +388,15 @@ export function themeCss(theme: ActorTheme): string {
   // never ran, and only an explicit opt-out takes them off.
   const gate = `:root:not([data-page-theme="default"])`;
   const root = declarations(themeVars(theme));
-  const skin = declarations(skinVars(theme.skin));
+  // **The face and the spacing join the SKIN rule, not the `:root` one.** Both
+  // are the author's content and neither is the app's: a font-family at
+  // `:root` would reset the bar, the account menu and the language toggle to
+  // whatever a page chose, which is the same mistake scoping a skin to `:root`
+  // would be. `SKIN_SCOPE` is exactly the author's own content.
+  const skin = declarations({
+    ...skinVars(theme.skin),
+    ...contentVars(theme),
+  });
   const body = declarations(bodyBackgroundVars(theme));
   return [
     root ? `${gate}{${root}}` : "",

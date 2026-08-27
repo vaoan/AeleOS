@@ -34,6 +34,8 @@ describe("setActorTheme", () => {
       backgroundUrl: null,
       backgroundFit: "tile",
       measure: null,
+      font: null,
+      spacing: null,
       skin: "glass",
       density: 1,
       speed: 1,

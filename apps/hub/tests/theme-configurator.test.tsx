@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import {
+  PAGE_FONTS,
   PAGE_MEASURES,
+  PAGE_SPACINGS,
+  type PageFont,
   type PageMeasure,
+  type PageSpacing,
 } from "@/features/actors/domain/actor-theme";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { CANVASES, DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
@@ -75,6 +79,18 @@ const LABELS: ThemeConfiguratorLabels = {
   ) as ThemeConfiguratorLabels["canvases"],
   skin: "Style",
   measure: "measure",
+  font: "font",
+  fontDefault: "fontDefault",
+  fonts: Object.fromEntries(PAGE_FONTS.map((f) => [f, f])) as Record<
+    PageFont,
+    string
+  >,
+  spacing: "spacing",
+  spacingDefault: "spacingDefault",
+  spacings: Object.fromEntries(PAGE_SPACINGS.map((s) => [s, s])) as Record<
+    PageSpacing,
+    string
+  >,
   measures: Object.fromEntries(PAGE_MEASURES.map((m) => [m, m])) as Record<
     PageMeasure,
     string

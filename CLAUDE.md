@@ -1659,6 +1659,21 @@ every Tailwind utility for months without anything noticing.
     cheap version is a regex over the migration — not because a regex is
     elegant but because nothing else in the build can see across the two.
 
+    **The theme half of this is closed now (2026-08-27).** `PAGE_MEASURES`,
+    `PAGE_FONTS` and `PAGE_SPACINGS` are compared against `set_actor_theme`'s
+    own allowlist in `block-limits-match-migration.test.ts`, so the exact
+    failure above — a seventh closed vocabulary added beside the pinned ones
+    without being pinned itself — now reddens. Sabotaging the allowlist to
+    forget one face reddens exactly that row. The block-level vocabularies were
+    already pinned; the page-level ones were the gap this rule named and nobody
+    had filled.
+
+    A trap came with writing it, and it is the one this file already warns
+    about two paragraphs down: the pattern was written as a plain template
+    literal, so `[\s\S]` collapsed to `[sS]`, matched nothing, and would have
+    passed forever. It was caught only because the file's convention is to
+    assert the regex matched BEFORE comparing anything. Use `String.raw`.
+
     What found both was one browser test that seeded a REAL page through the
     product's own RPC and then measured boxes. Neither fault was reachable from
     any suite that mocked the shell or compared a class name, and the second

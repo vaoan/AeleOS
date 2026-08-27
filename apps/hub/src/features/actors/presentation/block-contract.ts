@@ -142,9 +142,12 @@ export interface LeafProps {
 /** One content kind, as a component over {@link LeafProps}. */
 export type LeafRenderer = (props: LeafProps) => ReactNode;
 
-/** The surface a card-shaped leaf sits on, shared so the kinds cannot drift. */
+/** The surface a card-shaped leaf sits on, shared so the kinds cannot drift. *
+ * A leaf card pads itself by `--block-pad` rather than a literal, so a block's
+ * own `chrome` and a page's `spacing` can both reach it.
+ */
 export const LEAF_CARD =
-  "flex items-center gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-4";
+  "flex items-center gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-(--block-pad)";
 
 /**
  * The tile a card-shaped leaf's icon sits in.

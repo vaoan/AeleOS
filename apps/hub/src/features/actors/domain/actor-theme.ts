@@ -95,6 +95,53 @@ export const PAGE_MEASURES = [
   "full",
 ] as const;
 
+/**
+ * The typefaces a page may be set in.
+ *
+ * **Every one is a stack of faces the reader already has**, which is what keeps
+ * this inside the $0 constraint: choosing one ships no font file and adds no
+ * request. `null` is the design's own face and is what every page written
+ * before this key carries.
+ *
+ * Each entry earns its place by an era it makes reachable rather than by being
+ * a typographic category: `system` is the reader's own UI face that every
+ * modern feed uses, `classic` is the Verdana/Tahoma the 2000s web was set in,
+ * `serif` is what a GeoCities page used, `mono` is a terminal, and `casual`
+ * and `poster` are the two that actually SIGN that era — a personal page of
+ * 2003 set in Comic Sans, a banner set in Impact. See the pastiche findings for
+ * why the face is the single biggest thing between a page and the era it is
+ * imitating.
+ */
+export const PAGE_FONTS = [
+  "system",
+  "classic",
+  "serif",
+  "mono",
+  "casual",
+  "poster",
+] as const;
+
+/** One of the page typefaces. */
+export type PageFont = (typeof PAGE_FONTS)[number];
+
+/**
+ * How tightly a page sets its own content.
+ *
+ * **Not to be confused with `density`, which is the CANVAS dial** — that one
+ * says how busy the moving backdrop is and has nothing to do with type. This
+ * sets the padding inside a card and the size of the text in it, together,
+ * because changing one without the other is what makes a page look squeezed
+ * rather than dense.
+ *
+ * `null` is the design's own spacing. Real mid-2000s pages set body text around
+ * 11px with almost no padding, which is why a pastiche with the right colours
+ * and the wrong size still reads as a modern site.
+ */
+export const PAGE_SPACINGS = ["compact", "roomy"] as const;
+
+/** One of the page spacings. */
+export type PageSpacing = (typeof PAGE_SPACINGS)[number];
+
 /** One of the page measures. */
 export type PageMeasure = (typeof PAGE_MEASURES)[number];
 
@@ -165,6 +212,9 @@ export type CanvasId = (typeof CANVASES)[number];
  *
  * A theme also carries a **measure**: how wide the content column is, from the
  * app's own reading width out to no maximum at all. Null is the design's own.
+ *
+ * A theme also carries an optional `font` and `spacing`; both fall back to the
+ * design's own for a value this build does not know.
  */
 export interface ActorTheme {
   /**
@@ -218,6 +268,19 @@ export interface ActorTheme {
    * before this existed — consistent with every other nullable field here.
    */
   measure: PageMeasure | null;
+  /**
+   * The typeface the page's own content is set in, or null for the design's.
+   *
+   * Applied to the author's content alone — the app's bar keeps its own face,
+   * for the reason a skin does.
+   */
+  font: PageFont | null;
+  /**
+   * How tightly the page sets its content, or null for the design's own.
+   *
+   * Sets the padding inside a card and the size of its text together.
+   */
+  spacing: PageSpacing | null;
   /**
    * Which style the page's surfaces are built in.
    *
@@ -348,6 +411,9 @@ export function cursorUrl(raw: string | undefined): string | null {
  *
  * Its `measure` is null — the design's own — so a page that never chose one is
  * laid out exactly as every public page was before the field existed.
+ *
+ * A theme also carries an optional `font` and `spacing`; both fall back to the
+ * design's own for a value this build does not know.
  */
 export const DEFAULT_THEME: ActorTheme = {
   background: null,
@@ -358,6 +424,8 @@ export const DEFAULT_THEME: ActorTheme = {
   backgroundUrl: null,
   backgroundFit: "cover",
   measure: null,
+  font: null,
+  spacing: null,
   skin: DEFAULT_SKIN,
   density: CANVAS_RANGE.default,
   speed: CANVAS_RANGE.default,
@@ -462,6 +530,9 @@ function colour(value: unknown): string | null {
  * render.
  *
  * @returns a theme every field of which is usable.
+ *
+ * A theme also carries an optional `font` and `spacing`; both fall back to the
+ * design's own for a value this build does not know.
  */
 export function parseTheme(value: unknown): ActorTheme {
   const stored =
@@ -489,6 +560,19 @@ export function parseTheme(value: unknown): ActorTheme {
       typeof measure === "string" &&
       (PAGE_MEASURES as readonly string[]).includes(measure)
         ? (measure as PageMeasure)
+        : null,
+    // Outside the vocabulary falls back to null — the design's own — exactly
+    // as the measure above does, so a value this build has never heard of
+    // renders the page rather than refusing it.
+    font:
+      typeof stored.font === "string" &&
+      (PAGE_FONTS as readonly string[]).includes(stored.font)
+        ? (stored.font as PageFont)
+        : null,
+    spacing:
+      typeof stored.spacing === "string" &&
+      (PAGE_SPACINGS as readonly string[]).includes(stored.spacing)
+        ? (stored.spacing as PageSpacing)
         : null,
     canvas:
       typeof canvas === "string" &&
@@ -534,6 +618,9 @@ export function parseTheme(value: unknown): ActorTheme {
  *
  * The measure is pinned to its vocabulary like the canvas and the skin, so the
  * form cannot submit a width the renderer has no class for.
+ *
+ * A theme also carries an optional `font` and `spacing`; both fall back to the
+ * design's own for a value this build does not know.
  */
 export const themeSchema = z.object({
   canvasColours: z.array(z.string()).nullable(),
@@ -560,6 +647,8 @@ export const themeSchema = z.object({
   backgroundUrl: z.string().nullable(),
   backgroundFit: z.enum(["cover", "tile"]),
   measure: z.enum(PAGE_MEASURES).nullable(),
+  font: z.enum(PAGE_FONTS).nullable(),
+  spacing: z.enum(PAGE_SPACINGS).nullable(),
   skin: z.enum(SKINS),
   density: z.number(),
   speed: z.number(),

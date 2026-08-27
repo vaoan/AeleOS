@@ -1,8 +1,10 @@
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import { describe, expect, it } from "vitest";
+import { SKIN_SCOPE } from "@/shared/domain/skins";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import {
   DEFAULT_THEME,
+  type ActorTheme,
   THEME_SEEDS,
   isCustomised,
   isThemed,
@@ -64,6 +66,11 @@ describe("parseTheme", () => {
       backgroundUrl: null,
       backgroundFit: "cover",
       measure: null,
+      // Both new and both OPTIONS: a stored theme that names neither reads
+      // back as the design's own, which is what every page written before
+      // them carries.
+      font: null,
+      spacing: null,
       skin: "retro",
       density: 1,
       speed: 1,
@@ -896,5 +903,65 @@ describe("the page measure", () => {
 
   it("is null when nobody chose one", () => {
     expect(parseTheme({}).measure).toBeNull();
+  });
+});
+
+describe("the typeface and the spacing", () => {
+  const themed = (over: Partial<ActorTheme>) =>
+    themeCss({ ...DEFAULT_THEME, ...over });
+
+  // Both are OPTIONS. A page that chose neither must emit exactly what it did
+  // before either key existed, which is the only reason it is safe to add them
+  // to every stored theme at once.
+  it("emit nothing at all when neither is chosen", () => {
+    expect(themed({})).toBe("");
+  });
+
+  it("names the face a page chose", () => {
+    expect(themed({ font: "casual" })).toContain("Comic Sans MS");
+  });
+
+  it("sets the padding and the text size together", () => {
+    const css = themed({ spacing: "compact" });
+    expect(css).toContain("--block-pad:0.5rem");
+    expect(css).toContain("font-size:0.8125rem");
+  });
+
+  // **The discriminating case, and the whole reason this is not in
+  // `themeVars`.** A `font-family` at `:root` would reset the app's bar, the
+  // account menu and the language toggle to whatever a page chose. A test that
+  // only asserted "the CSS contains Verdana" would pass on exactly that bug,
+  // so this asserts WHICH rule it landed in.
+  it("puts the face on the author's content and never on the root", () => {
+    const css = themed({ font: "classic" });
+    const rules = css.split("}").filter(Boolean);
+    const root = rules.find((rule) => !rule.includes(SKIN_SCOPE));
+    const content = rules.find((rule) => rule.includes(SKIN_SCOPE));
+    expect(content).toContain("Verdana");
+    expect(root ?? "").not.toContain("Verdana");
+  });
+});
+
+describe("parseTheme and the two new options", () => {
+  it("reads a face and a spacing a page chose", () => {
+    const theme = parseTheme({ font: "casual", spacing: "compact" });
+    expect(theme.font).toBe("casual");
+    expect(theme.spacing).toBe("compact");
+  });
+
+  // **The case that keeps a page openable.** A build that has never heard of a
+  // value must render the page as the design's own rather than refuse it —
+  // the same fallback the measure beside it has, and the reason neither is a
+  // hard failure.
+  it("falls back to the design's own for a value it does not know", () => {
+    const theme = parseTheme({ font: "papyrus", spacing: "enormous" });
+    expect(theme.font).toBeNull();
+    expect(theme.spacing).toBeNull();
+  });
+
+  it("falls back for a value that is not text at all", () => {
+    const theme = parseTheme({ font: 7, spacing: { compact: true } });
+    expect(theme.font).toBeNull();
+    expect(theme.spacing).toBeNull();
   });
 });

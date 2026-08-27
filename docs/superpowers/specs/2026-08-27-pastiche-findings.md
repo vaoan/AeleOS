@@ -36,6 +36,17 @@ Winamp-chromed player embedded in a purple starfield is not a thing most page
 builders can produce at all, and it is the one element that made a reviewer say
 "that's MySpace" rather than "that's like MySpace".
 
+## The bar, restated (and it moved)
+
+The first pass measured against "reads as MySpace". **The bar is
+near-identical: put a screenshot of the pastiche beside a screenshot of the
+real thing and you should struggle to tell them apart.** Behaviour does not
+have to match; the picture does.
+
+That is a much higher bar, and it changes which gaps matter. Colour and layout
+get you to "reads as"; **typeface and type scale are what get you to "cannot
+tell"**, and they are exactly what an author cannot touch today.
+
 ## The gaps, in the order they cost the most
 
 ### 1. A leaf is always a card, and nothing can turn that off
@@ -106,6 +117,25 @@ Recorded because both looked like faults in a screenshot and neither is.
   returns 200, and the texture is simply too low-contrast to see over that
   purple. `dark-mosaic` on GeoCities is plainly visible. A choice of texture,
   not a missing feature.
+
+## The consolidated list, against the near-identical bar
+
+Ranked by how much each one costs the "can you tell them apart" test.
+
+| #   | gap                                                                                                                                                                                                                                                               | status                                                                      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 1   | **Typeface.** Every one of these sites is identifiable by its font before anything else — Verdana and Tahoma in the 2000s, a Helvetica-alike now. One display and one body face, no author choice.                                                                | open                                                                        |
+| 2   | **Type scale and density.** Real MySpace body text is ~11px; ours is ~16px. With colour and layout perfect, the size alone still gives it away.                                                                                                                   | **done** — `spacing`, which sets padding and text size together             |
+| 3   | **A divider-separated list.** Modern feeds are rows with a hairline between them. `stack` gives gaps, `timeline` gives a dot-and-rail; neither is a divided list.                                                                                                 | open                                                                        |
+| 4   | **Per-block colour.** MySpace's boxes were individually coloured and hi5's bars are blue on a white page. Colour is page-level, deliberately.                                                                                                                     | open, and reversing the decision is a design question rather than a gap fix |
+| 5   | **Overlap.** A banner with the avatar over its lower edge, which every modern profile has. Blocks tile; nothing sits on anything.                                                                                                                                 | open, and a known cost of refusing free positioning                         |
+| 6   | **Avatar `object-fit`.** The avatar leaf is `object-cover` on a circle, so a WIDE image is cropped to unreadability — found by giving the pastiches their real logos, where hi5's 94x45 wordmark came through as two fragments.                                   | open                                                                        |
+| 7   | **Corner radius is welded to the skin.** Square corners ARE reachable — five skins set `--skin-round: 0` — but only by taking that skin's whole aesthetic with them. Checked rather than assumed; an earlier draft of this list called square corners impossible. | open, and the mildest of these                                              |
+| 8   | **A heading bar is flat.** MySpace's and hi5's title bars were gradients.                                                                                                                                                                                         | open                                                                        |
+| 9   | **No icon inside a table row.** MySpace's contact box has a small icon on every line.                                                                                                                                                                             | open                                                                        |
+| —   | **A leaf is always a card.**                                                                                                                                                                                                                                      | **done** — `chrome: "bare"`                                                 |
+| —   | **A name cannot be a bar.**                                                                                                                                                                                                                                       | **done** — `heading: "bar"`                                                 |
+| —   | **No text alignment.**                                                                                                                                                                                                                                            | **done** — `text_align`                                                     |
 
 ## If any of this were to be built
 

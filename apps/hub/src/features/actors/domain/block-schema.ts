@@ -444,6 +444,9 @@ const utf8 = new TextEncoder();
  *
  * {@link blockStyleShape} is built from this rather than restating it, so
  * there is one value per rule to have gotten wrong.
+ *
+ * The style bag carries `chrome`, `heading` and `text_align` now, each an
+ * OPTION whose absence is inheritance.
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -456,6 +459,29 @@ export const BLOCK_STYLE_LIMITS = {
   card_size: ["s", "m", "l"],
   /** The edge a block draws round every plain surface beneath it. */
   border: ["solid", "dashed", "dotted", "double", "none"],
+  /**
+   * Whether a block's content sits in a card or on the page itself.
+   *
+   * **`bare` is what every borderless feed needs and nothing could reach.**
+   * Measured against real captures: a modern microblog is edge-to-edge rows
+   * with a hairline between them, and `border: "none"` could not get there —
+   * it removes the border STYLE and leaves the fill, the shadow and the
+   * padding, so a leaf was always a card. See
+   * `docs/superpowers/specs/2026-08-27-pastiche-findings.md`.
+   */
+  chrome: ["card", "bare"],
+  /**
+   * How a named container draws its own name.
+   *
+   * **`bar` is the dominant idiom of the mid-2000s social web** — a solid
+   * coloured strip with the content squared off directly beneath it, as
+   * MySpace and hi5 both used for every box on a profile. `plain` is the
+   * heading floating above the content, which is what every page had before
+   * this key and remains the default.
+   */
+  heading: ["plain", "bar"],
+  /** Which edge a block's own text is set against. */
+  text_align: ["start", "center", "end"],
 } as const;
 
 /**
@@ -501,6 +527,18 @@ const blockStyleShape = {
   // the border off here, regardless of what surrounds it. Storing `""` for
   // either would be a third state this bag refuses everywhere else in it.
   border: z.enum(BLOCK_STYLE_LIMITS.border).optional(),
+  // **Absent is INHERITANCE and `card` is a CHOICE**, the same two states
+  // `border` distinguishes one line above, for the same reason: a block inside
+  // a `bare` section has to be able to ask for its card back.
+  chrome: z.enum(BLOCK_STYLE_LIMITS.chrome).optional(),
+  // **Read by a NAMED container and meaningless anywhere else**, which is the
+  // shape `name_en` already has. It is stored at any depth for the reason
+  // `bleed` is: a key that means nothing where it sits costs nothing, and
+  // refusing it would make moving a block fail on a style it legitimately
+  // carried a moment earlier.
+  heading: z.enum(BLOCK_STYLE_LIMITS.heading).optional(),
+  // Inherited by every plain surface beneath the block, like `border`.
+  text_align: z.enum(BLOCK_STYLE_LIMITS.text_align).optional(),
   // **A depth-0 key, and meaningless anywhere else.** A section reaches both
   // edges of the window; a block nested inside one has a section between it
   // and the page and cannot escape that. Absent means the page's own measure,

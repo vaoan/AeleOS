@@ -210,6 +210,8 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * why the forward is named rather than inherited.
  *
  * @returns the translated labels.
+ *
+ * It builds the style popup's `chrome`, `heading` and `text_align` strings too.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -298,6 +300,19 @@ export async function fursonaEditorLabels(
       borderSolid: t("sectionStyleBorderSolid"),
       borderDashed: t("sectionStyleBorderDashed"),
       borderDotted: t("sectionStyleBorderDotted"),
+      chrome: t("styleChrome"),
+      chromeInherit: t("styleChromeInherit"),
+      chromeCard: t("styleChromeCard"),
+      chromeBare: t("styleChromeBare"),
+      chromeHint: t("styleChromeHint"),
+      heading: t("styleHeading"),
+      headingPlain: t("styleHeadingPlain"),
+      headingBar: t("styleHeadingBar"),
+      textAlign: t("styleTextAlign"),
+      textAlignInherit: t("styleTextAlignInherit"),
+      textAlignStart: t("styleTextAlignStart"),
+      textAlignCenter: t("styleTextAlignCenter"),
+      textAlignEnd: t("styleTextAlignEnd"),
       borderDouble: t("sectionStyleBorderDouble"),
     },
     // Nested rather than spread into the same bag as everything else. Both

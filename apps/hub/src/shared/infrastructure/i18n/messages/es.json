@@ -113,6 +113,19 @@
     "sectionStyleFitDefault": "Tamaño original",
     "sectionStyleFitCover": "Cubrir",
     "sectionStyleFitTile": "Mosaico",
+    "styleChrome": "Tarjeta",
+    "styleChromeInherit": "Heredar la página",
+    "styleChromeCard": "Mantener la tarjeta",
+    "styleChromeBare": "Sin tarjeta",
+    "styleChromeHint": "Quita el relleno, el borde y el espacio, y el contenido queda sobre la página.",
+    "styleHeading": "Nombre",
+    "styleHeadingPlain": "Encima del contenido",
+    "styleHeadingBar": "Como una barra sobre él",
+    "styleTextAlign": "Texto",
+    "styleTextAlignInherit": "Heredar la página",
+    "styleTextAlignStart": "Izquierda",
+    "styleTextAlignCenter": "Centrado",
+    "styleTextAlignEnd": "Derecha",
     "sectionStyleBorder": "Borde",
     "sectionStyleBorderHint": "El borde alrededor de las tarjetas y paneles propios de esta sección.",
     "sectionStyleBorderInherit": "Heredar de la página",
@@ -400,7 +413,23 @@
     "sectionStyleBleed": "Llegar a ambos bordes de la ventana",
     "sectionStyleMargins": "Márgenes",
     "hideControls": "Ocultar controles",
-    "showControls": "Mostrar controles"
+    "showControls": "Mostrar controles",
+    "font": "Tipografía",
+    "fontDefault": "La del diseño",
+    "fonts": {
+      "system": "Del sistema",
+      "classic": "Web clásica",
+      "serif": "Serif",
+      "mono": "Monoespaciada",
+      "casual": "Informal",
+      "poster": "Cartel"
+    },
+    "spacing": "Espaciado",
+    "spacingDefault": "El del diseño",
+    "spacings": {
+      "compact": "Compacto",
+      "roomy": "Amplio"
+    }
   },
   "picker": {
     "title": "¿Quién quieres ser?",

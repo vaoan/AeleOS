@@ -76,6 +76,10 @@ import { tid } from "@/shared/infrastructure/test-id";
  * The container above this carries the page's actual outline.
  *
  * @returns the words.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced,
+ * which was measured against production element by element.
  */
 export function PlainLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
   const { title, description } = wordsOf(leaf, locale);
@@ -84,10 +88,12 @@ export function PlainLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
   return (
     <div className="grid gap-1 rounded-xl surface border-(--edge) bg-(--surface) p-5">
       {heading ? (
-        <span className="font-display text-sm/tight font-bold">{title}</span>
+        <span className="font-display text-[0.875em]/tight font-bold">
+          {title}
+        </span>
       ) : null}
       {description ? (
-        <p className="text-xs/relaxed text-(--muted)">{description}</p>
+        <p className="text-[0.75em]/relaxed text-(--muted)">{description}</p>
       ) : null}
     </div>
   );
@@ -100,7 +106,8 @@ export function PlainLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
  * different thing under the label, and a page that mixes them reads as one
  * row of tiles only while that stays true.
  */
-const MEASURE_CARD = "rounded-xl surface border-(--edge) bg-(--surface) p-4";
+const MEASURE_CARD =
+  "rounded-xl surface border-(--edge) bg-(--surface) p-(--block-pad)";
 
 /**
  * The treatment a LABEL gets on the kinds that invert the pair.
@@ -112,7 +119,7 @@ const MEASURE_CARD = "rounded-xl surface border-(--edge) bg-(--surface) p-4";
  * fields is the label, and two independent class lists is how a fix reaches
  * one kind and not the other.
  */
-const MEASURE_LABEL = "text-xs tracking-wide text-(--muted) uppercase";
+const MEASURE_LABEL = "text-[0.75em] tracking-wide text-(--muted) uppercase";
 
 /**
  * One measured fact: a label and the value it names.
@@ -147,13 +154,19 @@ const MEASURE_LABEL = "text-xs tracking-wide text-(--muted) uppercase";
  *
  * @param props - the leaf and how to read it.
  * @returns the pair, the value alone, or the label it could not pair.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced,
+ * which was measured against production element by element.
  */
 export function StatLeaf(props: LeafProps): ReactNode {
   const { leaf, locale, labelled } = props;
   const { title, description } = wordsOf(leaf, locale);
   if (!description) return PlainLeaf(props);
   const value = (
-    <span className="font-display text-lg/tight font-bold">{description}</span>
+    <span className="font-display text-[1.125em]/tight font-bold">
+      {description}
+    </span>
   );
   if (!labelled || !title) {
     return (
@@ -165,7 +178,9 @@ export function StatLeaf(props: LeafProps): ReactNode {
   return (
     <dl className={`grid gap-1 ${MEASURE_CARD}`} {...tid("block-stat")}>
       <dt className={MEASURE_LABEL}>{title}</dt>
-      <dd className="font-display text-lg/tight font-bold">{description}</dd>
+      <dd className="font-display text-[1.125em]/tight font-bold">
+        {description}
+      </dd>
     </dl>
   );
 }
@@ -185,6 +200,10 @@ export function StatLeaf(props: LeafProps): ReactNode {
  *
  * @param props - the leaf and how to read it.
  * @returns the quotation, or the words it could not attribute.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced,
+ * which was measured against production element by element.
  */
 export function QuoteLeaf(props: LeafProps): ReactNode {
   const { leaf, locale, labelled } = props;
@@ -196,11 +215,11 @@ export function QuoteLeaf(props: LeafProps): ReactNode {
       {...tid("block-quote")}
     >
       <QuoteMark className="size-5 text-(--accent)" />
-      <blockquote className="font-display text-lg/snug text-balance">
+      <blockquote className="font-display text-[1.125em]/snug text-balance">
         {description}
       </blockquote>
       {labelled && title ? (
-        <figcaption className="text-xs text-(--muted) before:mr-1 before:content-['—']">
+        <figcaption className="text-[0.75em] text-(--muted) before:mr-1 before:content-['—']">
           {title}
         </figcaption>
       ) : null}
@@ -239,6 +258,10 @@ export function QuoteLeaf(props: LeafProps): ReactNode {
  *
  * @param props - the leaf and how to read it.
  * @returns the bar, or the row it could not draw one from.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced,
+ * which was measured against production element by element.
  */
 export function ProgressLeaf(props: LeafProps): ReactNode {
   const { leaf, locale, labelled } = props;
@@ -255,7 +278,9 @@ export function ProgressLeaf(props: LeafProps): ReactNode {
       <div className="flex items-baseline justify-between gap-3">
         {label ? <span className={MEASURE_LABEL}>{title}</span> : null}
         {description ? (
-          <span className="font-display text-sm font-bold">{description}</span>
+          <span className="font-display text-[0.875em] font-bold">
+            {description}
+          </span>
         ) : null}
       </div>
       {percent === null ? null : (
@@ -389,6 +414,10 @@ function tableRows(leaf: LeafBlock, locale: string): TableRow[] {
  *
  * @param props - the leaf and how to read it.
  * @returns the table, or the words it could not fill one with.
+ *
+ * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
+ * default spacing they resolve to exactly the `rem` values they replaced,
+ * which was measured against production element by element.
  */
 export function TableLeaf(props: LeafProps): ReactNode {
   const { leaf, locale, labelled } = props;
@@ -411,12 +440,12 @@ export function TableLeaf(props: LeafProps): ReactNode {
                 rather than guessed at. */}
             <div className="grid gap-1">
               {caption ? (
-                <span className="font-display text-sm/tight font-bold">
+                <span className="font-display text-[0.875em]/tight font-bold">
                   {caption}
                 </span>
               ) : null}
               {description ? (
-                <span className="text-xs/relaxed text-(--muted)">
+                <span className="text-[0.75em]/relaxed text-(--muted)">
                   {description}
                 </span>
               ) : null}
@@ -431,12 +460,15 @@ export function TableLeaf(props: LeafProps): ReactNode {
             >
               <th
                 scope="row"
-                className="border-r border-(--edge)/25 px-5 py-3.5 text-left font-display text-sm font-bold"
+                className="border-r border-(--edge)/25 px-5 py-3.5 text-left font-display text-[0.875em] font-bold"
               >
                 {row.label}
               </th>
               {row.values.map((cell) => (
-                <td key={cell.key} className="px-5 py-3.5 text-sm/relaxed">
+                <td
+                  key={cell.key}
+                  className="px-5 py-3.5 text-[0.875em]/relaxed"
+                >
                   {cell.text}
                 </td>
               ))}

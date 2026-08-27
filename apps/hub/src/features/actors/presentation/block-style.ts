@@ -141,6 +141,9 @@ const BORDER_MIN_WIDTH = new Map<string, string>([
  *   it unset.
  * @returns inline styles to spread onto the block's own element, or `undefined`
  *   when nothing about this block overrides what contains it.
+ *
+ * `chrome` and `text_align` join the bag it emits: `bare` neutralises the card
+ * by token rather than by a rule on a generated class.
  */
 export function blockStyle(
   style: BlockStyle | undefined,
@@ -189,6 +192,26 @@ export function blockStyle(
     const floor = BORDER_MIN_WIDTH.get(style.border);
     if (floor) vars["--skin-border-min"] = floor;
   }
+
+  // **`bare` neutralises the card by TOKEN, not by a rule on a class.**
+  // Every surface beneath this scope already reads these four, so turning the
+  // card off is the same mechanism a skin uses to turn it on — and styling
+  // `.surface` from outside a cascade layer is the fault root rule 3 exists
+  // for. `card` is the explicit way back, which a block inside a `bare`
+  // section needs; absence is inheritance, as everywhere in this bag.
+  if (style.chrome === "bare") {
+    vars["--surface"] = "transparent";
+    vars["--skin-border"] = "0px";
+    vars["--skin-border-min"] = "0px";
+    vars["--skin-shadow"] = "none";
+    vars["--block-pad"] = "0px";
+  } else if (style.chrome === "card") {
+    vars["--block-pad"] = "1rem";
+  }
+
+  // Inherited, so a section set to `center` centres every leaf beneath it
+  // without each one carrying the key. A block may still set its own.
+  if (style.text_align) vars.textAlign = style.text_align;
 
   return Object.keys(vars).length > 0 ? vars : undefined;
 }
