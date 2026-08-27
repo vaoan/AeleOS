@@ -1293,6 +1293,21 @@ the guard, and it scrolls a seeded eight-section page because a short one can be
 scrolled to the bottom without ever passing the point where the bars came
 unstuck.
 
+**A bare `py-0` does not remove `sm:py-10`, and that is how the language strip
+came to hang below the bar it belongs under.** `COLUMN.wide` is
+`px-4 py-6 sm:px-6 sm:py-10`; tailwind-merge treats a responsive variant as its
+own group, so a `className="py-0"` handed to `WidePageColumn` overrides the base
+and leaves the `sm:` one standing. Measured at 1280: the strip's wrapper stuck
+correctly at `--bar-top-2` = 120 while the card inside it started at 160, a 47px
+drop below a save bar ending at 113. Every editor column that means "no vertical
+padding" says `py-0 sm:py-0`.
+
+`editor-bars-stay-pinned.spec.ts` asserts the gap as well as the pinning, and
+measures it against the bar's own bottom rather than a literal — both heights
+are composed from `--bar-h`, so a number in the test would be a second source of
+truth. Being pinned is not the whole claim: a strip can stick at exactly the
+right offset and still sit 47px too low.
+
 **Hiding the controls leaves the page, and that is what replaced the framed
 preview.** The toolbar carries a control that sets `data-controls="hidden"` on
 the element wrapping the whole editor; two rules in `globals.css` do the rest.

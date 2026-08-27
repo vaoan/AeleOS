@@ -155,5 +155,35 @@ test("the save bar and the language strip stay pinned all the way down", async (
       writing.y,
       `the language strip has not drifted down after scrolling to ${to}`,
     ).toBeLessThan(barTop2 + 60);
+
+    // **AND THE TWO BARS SIT TOGETHER.** Pinned is not the whole claim: a strip
+    // that sticks at the right offset can still hang well below the bar it
+    // belongs under, and it did. `COLUMN.wide` carries `py-6 sm:py-10`, and the
+    // `py-0` meant to remove it overrode only the base — tailwind-merge treats
+    // `sm:py-10` as its own group — so at 1280 the wrapper stuck correctly at
+    // 120 while the card inside it started at 160.
+    //
+    // Measured against the bar's own bottom rather than a literal, because both
+    // heights are composed from `--bar-h` and a number here would be a second
+    // source of truth.
+    const bar = (await page
+      .getByTestId("editor-save")
+      .evaluate(
+        (node) => node.closest("div.sticky")!.getBoundingClientRect().bottom,
+      ))!;
+    const card = await page
+      .getByTestId("writing-in-en")
+      .evaluate(
+        (node) => node.closest("div.rounded-xl")!.getBoundingClientRect().top,
+      );
+
+    expect(
+      card - bar,
+      `the language strip sits under the save bar at ${to}, not far below it`,
+    ).toBeLessThan(24);
+    expect(
+      card - bar,
+      `the language strip does not overlap the save bar at ${to}`,
+    ).toBeGreaterThanOrEqual(0);
   }
 });

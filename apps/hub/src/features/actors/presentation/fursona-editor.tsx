@@ -435,6 +435,12 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * sticks only within its parent's box, and the control column ends before the
  * section previews — which own the page's full width and cannot be inside it.
  *
+ * **A column meaning "no vertical padding" says `py-0 sm:py-0`.**
+ * `COLUMN.wide` is `py-6 sm:py-10`, and tailwind-merge treats a responsive
+ * variant as its own group — a bare `py-0` overrides the base and leaves the
+ * `sm:` one standing, which is 40px nobody asked for at every width above
+ * `sm`.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -706,7 +712,13 @@ export function FursonaEditor({
           <div
             className={`${CHROME_SCOPE} sticky top-(--bar-top-2) z-10 mt-8 short:static`}
           >
-            <WidePageColumn className="py-0">
+            {/* **`py-0 sm:py-0`, and BOTH are needed.** `COLUMN.wide` is
+                `py-6 sm:py-10`; a bare `py-0` overrides the base and leaves the
+                responsive variant standing, because tailwind-merge treats
+                `sm:py-10` as its own group. Measured at 1280: this wrapper stuck
+                correctly at 120 while the card inside it started at 160, so the
+                strip hung 47px below the save bar instead of under it. */}
+            <WidePageColumn className="py-0 sm:py-0">
               {/* **`--menu`, which is OPAQUE, for the same reason the toolbar
                     takes it.** `--bar-solid` is 35% alpha — glass that assumed
                     the app's own muted field behind it. The document wears the
