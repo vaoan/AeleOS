@@ -2141,7 +2141,7 @@ export interface PublicBlocksProps {
  * The padding rides these rather than the shell, because a full-width page has
  * no column to put it on and a bleeding section must not have it at all.
  */
-const DEFAULT_PAGE_MEASURE: PageMeasure = "wider";
+export const DEFAULT_PAGE_MEASURE: PageMeasure = "wider";
 
 /**
  * What a section that opts out of the measure is laid out in.
@@ -2209,13 +2209,21 @@ const LAST_MARGIN = "pb-6 sm:pb-10";
  * Width and page chrome are independent: bleed chooses the width, while
  * margins chooses the horizontal gutter and first/between/last spacing.
  *
+ * **Exported because the EDITOR lays the same box.** A section preview that
+ * did not would show the author a section at the workbench's width rather than
+ * at their own measure, with `bleed` doing nothing and the first and last
+ * section's page spacing absent — and the container queries inside it would
+ * answer to a box no visitor has. It is the same function rather than a second
+ * one for the reason the renderer itself is shared: a copy looks identical the
+ * day it is written and drifts the first time either changes.
+ *
  * @param block - the top-level block.
  * @param position - its zero-based page position.
  * @param count - the number of top-level blocks.
  * @param measure - the page measure chosen by the author.
  * @returns whole Tailwind class strings for that page box.
  */
-function pageBoxClass(
+export function pageBoxClass(
   block: BlockNode,
   position: number,
   count: number,

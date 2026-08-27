@@ -1174,17 +1174,61 @@ padding and a leaf editor's own padding have no container-query form at all —
 the same element asks whatever encloses it. Those two dials were dropped rather
 than converted into a rule that asks the wrong box quietly.
 
-**Controls are AeleOS; previews are the author's page.** The toolbar, identity
-fields, section names and every nested editor consume the app's design tokens
-and never inherit an author's palette, skin or section style. `PreviewThemeHost`
-is the only editor boundary that receives the COMPLETE page-level theme. While
-the theme panel is open, `atmosphereCss` separately puts only `--field`, the
-canvas properties and the body's background-picture layers on the document,
-because the root canvas and page background cannot be judged inside a box.
-Control tokens, skins and the cursor never enter that stylesheet. Workbench
-groups carrying bare labels and section headings paint opaque `--surface-solid`
-beneath their translucent children, so none can read directly over a hostile
-author field while the atmosphere remains visible between them.
+**Controls are AeleOS; the DOCUMENT is the author's page.** This inverted on
+2026-08-27 and it is the single most important thing to understand about the
+editor. It used to be the other way round: the app owned `:root` and each
+preview was a boxed exception carrying the theme inside it. Now `FursonaEditor`
+mounts `ThemeScope` with the live draft — the same component a public route
+mounts with a stored one — so `:root` carries the author's palette, `body`
+paints their field and background picture, and the `NebulaCanvas` in the root
+layout is theirs.
+
+**The canvas is why no arrangement of boxes could have done this.**
+`NebulaCanvas` is `fixed inset-0 -z-10` in the root layout, so anything an
+in-flow preview paints is simply in front of it. What is behind a page has to
+be behind the DOCUMENT.
+
+**Every control is an island wearing `CHROME_SCOPE`**, which re-declares
+AeleOS's own tokens on the island itself. There is no cascade fight: the
+cascade compares declarations on the same element, so a declaration on the
+control always beats one inherited from `:root`. `shared/domain/chrome.ts` has
+the mechanism, `chrome-tokens.test.ts` pins which rule declares what, and
+`section-card-face.spec.ts` is the browser guard — that suite could not fail
+before this change, because a control was safe from an author's palette for a
+reason that had nothing to do with any containment.
+
+**A workbench group PAINTS, and it must be opaque.** What is behind a control
+is now a colour the author chose, and they may choose any colour — so a
+translucent control has NO guaranteed contrast and no measurement can give it
+one. The editor toolbar takes `--menu`, the one token declared opaque in both
+modes and already guarded by `dropdown-legibility.test.ts`, rather than the
+35%-alpha `--bar-solid` it wore when the app's own muted field was behind it.
+The sections heading, the template control and the add-section controls each
+sit on the same `--surface-solid` card every other workbench group has; they
+were bare text and a ghost button, which is legible on the app's field and
+illegible on hot pink.
+
+**A section preview paints NOTHING and lays the real page box.**
+`SectionPreviewTray` renders `Block` inside `pageBoxClass` — the same function
+`PublicBlocks` uses — so a section carries the author's measure, bleeds when it
+bleeds, and takes the same first/between/last spacing a public page gives it.
+Its container queries answer to the page's width rather than the workbench's,
+which is what `WidePageColumn` moving INSIDE `BlockEditor` buys: the control
+card is columned and the preview is full width.
+
+It used to be a card — a label, `p-3`, a rounded face carrying `--surface` at
+90% alpha, a border, and the author's `--field` on an in-flow box. All of that
+was furniture between the author and their page, and the field in particular
+covered the canvas outright.
+
+**`overflow` is not set on it, and must not be.** The host carried
+`overflow-x-auto`, and a `visible` axis paired with a non-visible one computes
+to `auto` — so the box clipped on all four edges. Ink overflow is not scrollable
+overflow, so nothing scrolled and no scrollbar appeared: every `neon` glow and
+`comic` shadow in a tray was simply gone. `responsive.spec.ts` had pinned that
+property BY NAME, which is root rule 30's shape one level down — the suite was
+asserting the fault. The document scrolls instead, exactly as it does for a
+stranger on an over-wide page.
 
 **THE FRAMED PREVIEW IS GONE (2026-08-27), AND SO IS EVERYTHING WRITTEN ABOUT
 IT.** `/{locale}/me/preview`, `PreviewDocument`, the `postMessage` handshake and

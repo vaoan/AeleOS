@@ -61,7 +61,14 @@ export interface EditorToolbarProps {
  * Exposes the `editor-save` and `editor-cancel` test ids, so the signed-in end-to-end suite can
  * submit the form without depending on the button's translated label.
  *
- * Every colour it paints comes from an AeleOS token — `--accent`, `--bar`,
+ * **Its ground is `--menu`, which is OPAQUE, and that is load-bearing.** It
+ * wore `--bar` while the app owned the document; the editor themes its document
+ * with the page being built now, so a 35%-alpha bar sits on a colour the author
+ * chose and `--muted` text on it can be anything at all. `--menu` is the one
+ * token declared opaque in both modes, and `dropdown-legibility.test.ts` is
+ * what keeps it that way.
+ *
+ * Every other colour it paints comes from an AeleOS token — `--accent`,
  * `--edge`, `--muted` — and never from a literal. Author themes are scoped to
  * preview hosts, so those tokens stay the workbench's even while the page
  * underneath is being restyled.
@@ -75,7 +82,7 @@ export function EditorToolbar({
   cancelHref,
 }: EditorToolbarProps) {
   return (
-    <div className="sticky top-(--bar-top) z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-(--edge)/40 bg-(--bar) px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
+    <div className="sticky top-(--bar-top) z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-(--edge)/40 bg-(--menu) px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
       {/* `truncate` rather than wrap. A two-line title doubled the bar's height
           on a phone and pushed Save down with it, so the one control that must
           never move moved every time the name got longer. */}

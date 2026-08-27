@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_THEME,
   PAGE_MEASURES,
   type PageMeasure,
 } from "@/features/actors/domain/actor-theme";
@@ -13,6 +14,7 @@ import {
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { isContainer, type Block } from "@/features/actors/domain/block-schema";
 import { blockEditorLabels } from "./support/editor-labels";
+import { CHROME_SCOPE } from "@/shared/domain/chrome";
 
 /**
  * What the live section previews currently render.
@@ -464,6 +466,61 @@ describe("FursonaEditor", () => {
   // `lang` reaches only the sections, so the strip belongs directly above
   // them, below the theme panel — not above the top fields it does not touch.
   // Sabotage-verified: reverting the render order makes both of these fail.
+  // **THE INVERSION, asserted at its two halves.** A public route themes its
+  // document and the editor now does the same with the draft, so a section
+  // preview sits on the author's field, their background picture and the nebula
+  // canvas mounted in the root layout — none of which any arrangement of boxes
+  // inside the page could have put behind it.
+  //
+  // The stylesheet reaching `:root` is what makes the second half necessary:
+  // every control is standing on the author's palette, and only `CHROME_SCOPE`
+  // keeps it in AeleOS's. `tests/e2e/section-card-face.spec.ts` is where that
+  // is measured in a browser, because a class assertion cannot see a cascade.
+  it("themes the document with the draft and keeps the controls out of it", () => {
+    const { container } = renderEditor({
+      initialTheme: {
+        ...DEFAULT_THEME,
+        background: {
+          kind: "linear" as const,
+          repeating: false,
+          every: 0,
+          angle: 135,
+          shape: "ellipse" as const,
+          extent: "farthest-corner" as const,
+          x: 50,
+          y: 50,
+          stops: [
+            { color: "#2a0845", at: 0 },
+            { color: "#ff2d95", at: 100 },
+          ],
+        },
+      },
+    });
+
+    const css = [...container.querySelectorAll("style")]
+      .map((node) => node.textContent ?? "")
+      .join("");
+    expect(css).toContain(":root");
+    expect(css).toContain("--field:");
+    // The whole theme, not the filtered atmosphere subset the theme panel used
+    // to mount while open — that mechanism is gone, and this is the assertion
+    // that would notice it coming back as a second stylesheet.
+    expect(css).toContain("--accent:");
+
+    const chromed = container.querySelectorAll(`.${CHROME_SCOPE}`);
+    expect(chromed.length).toBeGreaterThan(0);
+    // The toolbar's Save is inside one of them, which is the control most
+    // obviously standing on the author's page.
+    expect(
+      screen.getByTestId("editor-save").closest(`.${CHROME_SCOPE}`),
+    ).not.toBeNull();
+    // A tray is NOT an island: it is the page, and must inherit everything the
+    // document carries.
+    for (const tray of screen.queryAllByTestId("block-preview")) {
+      expect(tray.closest(`.${CHROME_SCOPE}`)).toBeNull();
+    }
+  });
+
   it("puts the theme panel, language strip and sections in order", () => {
     renderEditor();
     const theme = screen.getByTestId("theme-open");

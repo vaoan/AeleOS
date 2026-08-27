@@ -33,7 +33,6 @@ import {
   isContainer,
   type Block,
 } from "@/features/actors/domain/block-schema";
-import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 import {
   newContainer,
   setAt,
@@ -76,6 +75,8 @@ import {
   presetBlock,
 } from "@/features/actors/presentation/section-presets";
 import { SectionPreviewTray } from "@/features/actors/presentation/section-preview-tray";
+import { CHROME_SCOPE } from "@/shared/domain/chrome";
+import { WidePageColumn } from "@/shared/presentation/page-shell";
 import {
   TemplatePicker,
   type TemplatePickerLabels,
@@ -149,9 +150,12 @@ export interface BlockEditorLabels
  * walk of react-hook-form's error tree answers it for every card — and so the
  * banner and the marks beneath it can never disagree about which blocks are
  * wrong. *
- * **It takes a `PageContext` and an `ActorTheme` and reads neither**, threading
- * both to the preview tray so the real renderer sees the live actor and theme
- * without either one restyling the workbench controls.
+ * **It takes a `PageContext` and reads none of it**, threading it to the preview
+ * trays so the real renderer sees the live actor. It takes no theme at all any
+ * more: the DOCUMENT wears the page being built, so a section preview inherits
+ * the author's palette, skin and field from `:root` the same way a stranger's
+ * browser will. What keeps that off the workbench is `CHROME_SCOPE` on each
+ * control island, not a boundary around each preview.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -162,8 +166,6 @@ export interface BlockEditorProps<T extends FieldValues> {
   labels: BlockEditorLabels;
   /** This deployment's own hostname, threaded to every preview for Twitch. */
   page: PageContext;
-  /** The unsaved page theme contained inside every live preview. */
-  theme: ActorTheme;
   /**
    * What the save schema refused, and where.
    *
@@ -280,10 +282,10 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * would strip somebody's portrait and leave a tree the write refuses.
  *
  * `page` supplies the actor facts the identity shim and each real-renderer
- * preview need. `theme` travels only to the sibling preview trays, so neither
- * the author's palette nor a section's style can restyle the droppable control
- * cards. Each card stays visually paired with its tray by a tighter inner gap
- * than the gap separating successive section pairs. See
+ * preview need. Each card stays visually paired with its tray by a tighter
+ * inner gap than the gap separating successive section pairs — and the CARD is
+ * what sits in a column, while the tray is full width, because a depth-0
+ * section has to be able to apply the author's measure and to bleed. See
  * {@link BlockEditorProps}.
  *
  * **The remove control withdraws when a block holds the last copy of a kind
@@ -304,7 +306,6 @@ export function BlockEditor<T extends FieldValues>({
   lang,
   labels,
   page,
-  theme,
   problems,
 }: BlockEditorProps<T>) {
   const id = useId();
@@ -529,52 +530,68 @@ export function BlockEditor<T extends FieldValues>({
   }));
 
   return (
+    // **The section is FULL WIDTH and its controls are columned, not the other
+    // way round.** Every depth-0 preview below has to be able to apply the
+    // author's own measure and to bleed to both browser edges, which it cannot
+    // do inside a `max-w-7xl` box — that is the same inversion the public
+    // routes already make, where the route asks the shell for a full-width
+    // `main` and each section centres itself.
     <section className="mt-8 grid gap-4">
-      <h2 className="font-display text-lg font-bold tracking-tight">
-        {labels.sectionsTitle}
-      </h2>
+      <WidePageColumn className={`${CHROME_SCOPE} py-0`}>
+        {/* **A workbench group PAINTS, because what is behind it is somebody
+            else's page.** These used to be bare text and a ghost button on the
+            app's own muted field. The document wears the author's theme now, so
+            the ground under every control is a colour they chose — and a
+            translucent control has no guaranteed contrast against a colour
+            somebody else picks. */}
+        <div className="grid gap-4 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4">
+          <h2 className="font-display text-lg font-bold tracking-tight">
+            {labels.sectionsTitle}
+          </h2>
 
-      {/* Replaces rather than appends: a template is a starting point, and
+          {/* Replaces rather than appends: a template is a starting point, and
           merging one onto what somebody already wrote produces a page nobody
           asked for. The picker owns the confirmation that makes that safe. */}
-      <TemplatePicker
-        // **Has the AUTHOR written anything**, not "are there any sections".
-        // Every page now opens carrying its required blocks, so the plain
-        // count is true of a page nobody has touched — and the confirmation
-        // this drives would then warn somebody about losing work they had not
-        // done. See `holdsNothingAuthored`.
-        hasSections={!holdsNothingAuthored(blocks, page.actorKind)}
-        labels={labels}
-        // **The shim runs on the converted template.** A template ships
-        // structure in the flat vocabulary and names no identity block, and
-        // applying one REPLACES the page — so without this, choosing a
-        // template would silently strip somebody's portrait and handle and
-        // leave a page the write then refuses. The templates themselves are
-        // deliberately left alone: they are what the app suggests somebody
-        // write, and the identity blocks are not that.
-        onApply={(sections) =>
-          apply(() =>
-            withRequiredBlocks(sectionsToBlocks(sections), page.actorKind),
-          )
-        }
-      />
+          <TemplatePicker
+            // **Has the AUTHOR written anything**, not "are there any sections".
+            // Every page now opens carrying its required blocks, so the plain
+            // count is true of a page nobody has touched — and the confirmation
+            // this drives would then warn somebody about losing work they had not
+            // done. See `holdsNothingAuthored`.
+            hasSections={!holdsNothingAuthored(blocks, page.actorKind)}
+            labels={labels}
+            // **The shim runs on the converted template.** A template ships
+            // structure in the flat vocabulary and names no identity block, and
+            // applying one REPLACES the page — so without this, choosing a
+            // template would silently strip somebody's portrait and handle and
+            // leave a page the write then refuses. The templates themselves are
+            // deliberately left alone: they are what the app suggests somebody
+            // write, and the identity blocks are not that.
+            onApply={(sections) =>
+              apply(() =>
+                withRequiredBlocks(sectionsToBlocks(sections), page.actorKind),
+              )
+            }
+          />
 
-      {/* A refused drop, in words. `moveBlock` names three of them, and a
+          {/* A refused drop, in words. `moveBlock` names three of them, and a
           drag that quietly changed nothing would be indistinguishable from a
           broken grip. */}
-      {refusal ? (
-        <p
-          role="status"
-          {...tid("drag-refusal")}
-          className="text-sm text-(--accent)"
-        >
-          {refusalText(refusal)}
-        </p>
-      ) : null}
+          {refusal ? (
+            <p
+              role="status"
+              {...tid("drag-refusal")}
+              className="text-sm text-(--accent)"
+            >
+              {refusalText(refusal)}
+            </p>
+          ) : null}
 
-      {blocks.length === 0 ? (
-        <p className="text-sm text-(--muted)">{labels.empty}</p>
-      ) : null}
+          {blocks.length === 0 ? (
+            <p className="text-sm text-(--muted)">{labels.empty}</p>
+          ) : null}
+        </div>
+      </WidePageColumn>
 
       <DndContext
         id={dndId}
@@ -587,51 +604,52 @@ export function BlockEditor<T extends FieldValues>({
         <div className="grid gap-6">
           {seats.map((seat) => (
             <div key={seat.key} className="grid gap-2">
-              <BlockSlot
-                path={[seat.position]}
-                filled
-                label={labels.dragSection}
-              >
-                {(handle) =>
-                  isContainer(seat.block) ? (
-                    <BlockCard
-                      block={seat.block}
-                      path={[seat.position]}
-                      apply={apply}
-                      lang={lang}
-                      labels={labels}
-                      atBlockLimit={atBlockLimit}
-                      locked={locked}
-                      problems={problems}
-                      dragHandle={handle}
-                    />
-                  ) : (
-                    // **A page may hold a leaf at the top level**, and one this
-                    // editor could not show would be content nobody can read or
-                    // remove while every save kept writing it back. Nothing here
-                    // builds one — the add control makes sections — but the
-                    // schema admits one, and a drag can now make one: a section
-                    // dropped into a place puts whatever was there at the top.
-                    <LeafEditor
-                      leaf={seat.block}
-                      path={[seat.position]}
-                      apply={apply}
-                      lang={lang}
-                      labels={labels}
-                      problems={problems}
-                      dragHandle={handle}
-                    />
-                  )
-                }
-              </BlockSlot>
+              <WidePageColumn className={`${CHROME_SCOPE} py-0`}>
+                <BlockSlot
+                  path={[seat.position]}
+                  filled
+                  label={labels.dragSection}
+                >
+                  {(handle) =>
+                    isContainer(seat.block) ? (
+                      <BlockCard
+                        block={seat.block}
+                        path={[seat.position]}
+                        apply={apply}
+                        lang={lang}
+                        labels={labels}
+                        atBlockLimit={atBlockLimit}
+                        locked={locked}
+                        problems={problems}
+                        dragHandle={handle}
+                      />
+                    ) : (
+                      // **A page may hold a leaf at the top level**, and one this
+                      // editor could not show would be content nobody can read or
+                      // remove while every save kept writing it back. Nothing here
+                      // builds one — the add control makes sections — but the
+                      // schema admits one, and a drag can now make one: a section
+                      // dropped into a place puts whatever was there at the top.
+                      <LeafEditor
+                        leaf={seat.block}
+                        path={[seat.position]}
+                        apply={apply}
+                        lang={lang}
+                        labels={labels}
+                        problems={problems}
+                        dragHandle={handle}
+                      />
+                    )
+                  }
+                </BlockSlot>
+              </WidePageColumn>
               {isContainer(seat.block) ? (
                 <SectionPreviewTray
                   block={seat.block}
                   position={seat.position}
+                  count={blocks.length}
                   lang={lang}
                   page={page}
-                  theme={theme}
-                  title={labels.previewTitle}
                 />
               ) : null}
             </div>
@@ -639,88 +657,90 @@ export function BlockEditor<T extends FieldValues>({
         </div>
       </DndContext>
 
-      {atBlockLimit ? (
-        <p className="text-sm text-(--muted)">{labels.atLimit}</p>
-      ) : (
-        <>
-          <div className="flex items-end gap-2">
-            <div className="grid gap-1.5">
-              <label
-                htmlFor={`${id}-new-spaces`}
-                className="text-xs font-medium"
-              >
-                {labels.newSectionSpaces}
-              </label>
-              <select
-                id={`${id}-new-spaces`}
-                {...tid("new-section-spaces")}
-                value={String(spaces)}
-                onChange={(event) => setSpaces(Number(event.target.value))}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                {SPACE_CHOICES.map((count) => (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              {...tid("add-section")}
-              onClick={() =>
-                apply((current) =>
-                  setAt(
-                    current,
-                    [current.length],
-                    newContainer("grid", spaces),
-                  ),
-                )
-              }
-              className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              <Plus className="size-4" />
-              {labels.addSection}
-            </button>
-          </div>
-
-          {/* Brand presets append at once — there is nothing to lose by adding
-              a box, unlike the template picker's replace. */}
-          <div className="grid gap-1.5">
-            <button
-              type="button"
-              aria-expanded={presetsOpen}
-              {...tid("section-presets")}
-              onClick={() => setPresetsOpen((was) => !was)}
-              className="flex w-fit items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              <Sparkles className="size-4" />
-              {labels.addSectionFor}
-            </button>
-
-            {presetsOpen ? (
-              <div className="flex flex-wrap gap-1.5">
-                {SECTION_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    {...tid(`preset-${preset.id}`)}
-                    onClick={() => {
-                      apply((current) =>
-                        setAt(current, [current.length], presetBlock(preset)),
-                      );
-                      setPresetsOpen(false);
-                    }}
-                    className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-                  >
-                    {preset.name}
-                  </button>
-                ))}
+      <WidePageColumn className={`${CHROME_SCOPE} grid gap-4 py-0`}>
+        {atBlockLimit ? (
+          <p className="text-sm text-(--muted)">{labels.atLimit}</p>
+        ) : (
+          <>
+            <div className="flex items-end gap-2">
+              <div className="grid gap-1.5">
+                <label
+                  htmlFor={`${id}-new-spaces`}
+                  className="text-xs font-medium"
+                >
+                  {labels.newSectionSpaces}
+                </label>
+                <select
+                  id={`${id}-new-spaces`}
+                  {...tid("new-section-spaces")}
+                  value={String(spaces)}
+                  onChange={(event) => setSpaces(Number(event.target.value))}
+                  className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+                >
+                  {SPACE_CHOICES.map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ) : null}
-          </div>
-        </>
-      )}
+              <button
+                type="button"
+                {...tid("add-section")}
+                onClick={() =>
+                  apply((current) =>
+                    setAt(
+                      current,
+                      [current.length],
+                      newContainer("grid", spaces),
+                    ),
+                  )
+                }
+                className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+              >
+                <Plus className="size-4" />
+                {labels.addSection}
+              </button>
+            </div>
+
+            {/* Brand presets append at once — there is nothing to lose by adding
+              a box, unlike the template picker's replace. */}
+            <div className="grid gap-1.5">
+              <button
+                type="button"
+                aria-expanded={presetsOpen}
+                {...tid("section-presets")}
+                onClick={() => setPresetsOpen((was) => !was)}
+                className="flex w-fit items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+              >
+                <Sparkles className="size-4" />
+                {labels.addSectionFor}
+              </button>
+
+              {presetsOpen ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {SECTION_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      {...tid(`preset-${preset.id}`)}
+                      onClick={() => {
+                        apply((current) =>
+                          setAt(current, [current.length], presetBlock(preset)),
+                        );
+                        setPresetsOpen(false);
+                      }}
+                      className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
+      </WidePageColumn>
     </section>
   );
 }
