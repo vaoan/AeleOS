@@ -185,6 +185,48 @@ grant select, insert, update, delete on public.actor_profiles to service_role;
 -- directly rather than re-deriving from `identity_sub`, so it inherits that
 -- function's `status = 'active'` filter — a suspended person writing their own
 -- page would otherwise be a door around their sanction.
+-- THE SET IS THE DEFINITION, AND THE PREDICATE IS DERIVED FROM IT.
+--
+-- `owns_active_actor` is a `security definer` function, which Postgres cannot
+-- inline — so a policy written as `using (owns_active_actor(actor_ref))` calls
+-- it ONCE PER ROW of the table being scanned. `readArrangement` selects
+-- `actor_profiles` with no filter of its own, because RLS is what narrows it,
+-- and that combination is a sequential scan with a non-inlinable function call
+-- on every row. Measured on the live project at 6,206 rows, returning nine of
+-- them:
+--
+--   Seq Scan on actor_profiles (actual time=542..1383 rows=9 loops=1)
+--     Filter: owns_active_actor(actor_ref)
+--     Rows Removed by Filter: 6206
+--     Buffers: shared hit=56748
+--   Execution Time: 1383.579 ms
+--
+-- Asking for MEMBERSHIP of a set instead lets the planner evaluate the set once
+-- as a hashed subplan: the same read is 2.5ms over 767 buffers. So the owned
+-- set is the primary definition here and the boolean is written in terms of it,
+-- rather than the two being separate pieces of SQL that have to be kept saying
+-- the same thing.
+--
+-- **Inlining the subquery into the policy instead does not work, and the reason
+-- is worth knowing before trying it again.** A policy expression is evaluated
+-- as the CALLING role, and `authenticated` has no `select` on `public.actors`
+-- by design — `0010_client_grants.sql` is the readable index of what a client
+-- may touch. It fails with `permission denied for table actors`. A definer
+-- function is what crosses that boundary, which is why one is kept.
+create or replace function public.owned_active_actor_refs()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select a.actor_ref
+    from public.actors a
+   where a.status = 'active'
+     and (a.actor_ref = public.current_person_ref()
+          or a.owner_ref = public.current_person_ref())
+$$;
+
 create or replace function public.owns_active_actor(p_actor_ref uuid)
 returns boolean
 language sql
@@ -192,14 +234,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select exists (
-    select 1
-      from public.actors a
-     where a.actor_ref = p_actor_ref
-       and a.status    = 'active'
-       and (a.actor_ref = public.current_person_ref()
-            or a.owner_ref = public.current_person_ref())
-  )
+  select p_actor_ref in (select public.owned_active_actor_refs())
 $$;
 
 -- The narrower test, kept for ARRANGEMENT only. Ordering and pinning are about
@@ -222,16 +257,26 @@ as $$
   )
 $$;
 
+revoke all on function public.owned_active_actor_refs() from public;
 revoke all on function public.owns_active_actor(uuid) from public;
 revoke all on function public.owns_active_fursona(uuid) from public;
+-- `authenticated` also needs EXECUTE on the set function, because the SELECT
+-- policy below names it and a policy expression runs as the calling role — but
+-- that grant lives in `0010_client_grants.sql`, which revokes execute on every
+-- function in the schema and grants back an allowlist. A grant written here is
+-- silently undone by that revoke, which is exactly what happened first.
+grant execute on function public.owned_active_actor_refs() to service_role;
 grant execute on function public.owns_active_actor(uuid) to service_role;
 grant execute on function public.owns_active_fursona(uuid) to service_role;
 
 -- Three policies rather than one `for all`, because the write cases need
 -- `with check` and the read case would carry a clause it does not need.
+-- Membership rather than a predicate, so the owned set is computed once for the
+-- whole scan instead of once per row. See the note above the functions for the
+-- measurement; the visible rows are identical, checked across 61 callers.
 create policy actor_profiles_owner_select on public.actor_profiles
   for select to authenticated
-  using (public.owns_active_actor(actor_ref));
+  using (actor_ref in (select public.owned_active_actor_refs()));
 
 create policy actor_profiles_owner_insert on public.actor_profiles
   for insert to authenticated

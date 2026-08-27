@@ -45,6 +45,20 @@ grant execute on function public.ensure_person_actor() to authenticated;
 -- grant does not widen what it can see.
 grant execute on function public.current_person_ref() to service_role;
 
+-- NOT a callable the client has any reason to invoke, and granted anyway.
+--
+-- `actor_profiles`'s SELECT policy asks `actor_ref in (select
+-- public.owned_active_actor_refs())`, and a policy expression is evaluated as
+-- the CALLING role rather than as the table's owner — so `authenticated` needs
+-- EXECUTE on it or every read of that table fails with `42501`, which is what
+-- the conformance suite reported the moment the grant was written into `0009`
+-- and revoked again by the blanket revoke at the top of this file.
+--
+-- It widens nothing. The function is `security definer` and answers only for
+-- `current_person_ref()`, so the set it returns is the caller's own either way;
+-- calling it directly tells somebody which actors they already own.
+grant execute on function public.owned_active_actor_refs() to authenticated;
+
 -- ── Platform roles ──────────────────────────────────────────────────────────
 grant execute on function public.has_platform_role(text) to authenticated;
 
