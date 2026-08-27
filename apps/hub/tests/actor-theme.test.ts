@@ -921,6 +921,18 @@ describe("the typeface and the spacing", () => {
     expect(themed({ font: "casual" })).toContain("Comic Sans MS");
   });
 
+  // **The tokens, not just the property, and this was found on a real page.**
+  // Eighteen elements across the leaf modules carry `font-display` or
+  // `font-sans`, which are explicit `font-family: var(--font-…)` declarations
+  // — and a declaration on the element beats a family inherited from an
+  // ancestor. Setting `font-family` alone left every heading and display name
+  // in the app's own face while body text changed: a control that half works.
+  it("reaches the headings too, not only the body text", () => {
+    const css = themed({ font: "classic" });
+    expect(css).toContain("--font-display:Verdana");
+    expect(css).toContain("--font-sans:Verdana");
+  });
+
   it("sets the padding and the text size together", () => {
     const css = themed({ spacing: "compact" });
     expect(css).toContain("--block-pad:0.5rem");

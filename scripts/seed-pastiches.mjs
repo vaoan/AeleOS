@@ -98,6 +98,8 @@ const theme = (over) => ({
   backgroundUrl: null,
   backgroundFit: "cover",
   measure: null,
+  font: null,
+  spacing: null,
   skin: "default",
   density: 1,
   speed: 1,
@@ -163,7 +165,11 @@ const myspace = [
         leaf("owner", "Owner"),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { skin: "retro" } },
+    {
+      spaces: 2,
+      weights: [1, 2],
+      style: { skin: "default", heading: "bar" },
+    },
   ),
   section(
     "Aeleos' Top 8",
@@ -177,7 +183,7 @@ const myspace = [
         },
       ),
     ),
-    { spaces: 4, style: { skin: "retro" } },
+    { spaces: 4, style: { skin: "default", heading: "bar" } },
   ),
   section(
     "Aeleos' Friends Comments",
@@ -191,21 +197,32 @@ const myspace = [
       }),
       leaf("text", "Tom", { description_en: "top 8 and im not on it. cool." }),
     ],
-    { style: { skin: "retro", border_style: "double" } },
+    { style: { skin: "default", heading: "bar" } },
   ),
 ];
 
+// **Rebuilt from a real 2007 capture of a MySpace profile, not from memory.**
+// The first attempt was a purple gradient with rounded cards and generous type,
+// which is not what the site looked like: a profile is WHITE content boxes with
+// solid coloured title bars, ~11px Verdana, and almost no padding. The page
+// background is the one thing an author customised, so the tile stays.
 const myspaceTheme = theme({
   background: gradient(180, [
-    { color: "#1a0033", at: 0 },
-    { color: "#3d0066", at: 100 },
+    { color: "#e8eef7", at: 0 },
+    { color: "#ffffff", at: 100 },
   ]),
-  accent: "#ff33cc",
-  canvas: "stars",
-  canvasColours: ["#ffffff", "#ff66ff"],
-  density: 1.4,
-  speed: 0.4,
-  skin: "retro",
+  accent: "#003399",
+  canvas: "grid",
+  // **An author cannot turn the backdrop OFF.** `none` is not a canvas, so it
+  // falls back to nebula, and the density dial floors at 0.25. A flat 2007 page
+  // had no animation at all; the nearest reachable thing is a canvas painted in
+  // the page's own colours at the floor. Recorded as a gap in the findings.
+  canvasColours: ["#ffffff", "#f2f5f9"],
+  density: 0.25,
+  speed: 0.25,
+  skin: "default",
+  font: "classic",
+  spacing: "compact",
   backgroundUrl: tile("stardust"),
   backgroundFit: "tile",
   measure: "wide",
@@ -298,6 +315,8 @@ const messengerTheme = theme({
   density: 0.8,
   speed: 0.5,
   skin: "aero",
+  font: "classic",
+  spacing: "compact",
   measure: "narrow",
 });
 
@@ -331,7 +350,7 @@ const board = [
         ),
       ]),
     ],
-    { spaces: 2, weights: [1, 4], style: { border_style: "none" } },
+    { spaces: 2, weights: [1, 4], style: { chrome: "bare" } },
   ),
   section(
     "Posts",
@@ -351,7 +370,7 @@ const board = [
       ),
       post("2d", "hot take: a test that has never been red is a rumour"),
     ],
-    { style: { border_style: "none" } },
+    { style: { chrome: "bare" } },
   ),
   section(
     "Elsewhere",
@@ -362,7 +381,7 @@ const board = [
       }),
       leaf("owner", "Owner"),
     ],
-    { spaces: 2, style: { border_style: "none" } },
+    { spaces: 2, style: { chrome: "bare" } },
   ),
 ];
 
@@ -376,7 +395,9 @@ const boardTheme = theme({
   canvasColours: ["#1d9bf0", "#22303c"],
   density: 0.4,
   speed: 0.2,
-  skin: "outline",
+  skin: "default",
+  font: "system",
+  spacing: "compact",
   measure: "medium",
 });
 
@@ -444,6 +465,7 @@ const skyTheme = theme({
   density: 0.5,
   speed: 0.3,
   skin: "default",
+  font: "system",
   measure: "medium",
 });
 
@@ -467,7 +489,7 @@ const threads = [
       ]),
       group("stack", [leaf("avatar", "Aeleos")]),
     ],
-    { spaces: 2, weights: [3, 1], style: { border_style: "none" } },
+    { spaces: 2, weights: [3, 1], style: { chrome: "bare" } },
   ),
   section(
     "",
@@ -481,7 +503,7 @@ const threads = [
       post("aeleos", "if you can see a card edge here i have failed"),
       leaf("owner", "Owner"),
     ],
-    { style: { border_style: "none" } },
+    { style: { chrome: "bare" } },
   ),
 ];
 
@@ -495,10 +517,14 @@ const threadsTheme = theme({
   canvasColours: ["#1a1a1a", "#101010"],
   density: 0.2,
   speed: 0.1,
-  // **`default`, not `outline`.** The first attempt used `outline`, whose whole
-  // identity is a border — so asking it for `border_style: "none"` was a test
-  // confounded by its own fixture. This is the honest version of the question.
+  // **`default`, and the rows are `chrome: "bare"`.** The first attempt used
+  // `outline`, whose whole identity is a border, and asked it for
+  // `border_style: "none"` — a test confounded by its own fixture, and one that
+  // could not have worked anyway: that key removes the border STYLE and leaves
+  // the card. `chrome` is the key that exists for this.
   skin: "default",
+  font: "system",
+  spacing: "compact",
   measure: "narrow",
 });
 
@@ -519,7 +545,7 @@ const hi5 = [
         leaf("progress", "Profile completeness", { description_en: "80" }),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { skin: "candy" } },
+    { spaces: 2, weights: [1, 2], style: { skin: "default", heading: "bar" } },
   ),
   section(
     "My Friends (247)",
@@ -529,7 +555,7 @@ const hi5 = [
         image_url: photo(`hi5-${i}`, 240, 240),
       }),
     ),
-    { spaces: 3, style: { skin: "sticker" } },
+    { spaces: 3, style: { skin: "default", heading: "bar" } },
   ),
   section(
     "My Widgets",
@@ -542,22 +568,31 @@ const hi5 = [
       leaf("picture", "Glitter", { image_url: photo("hi5-glitter", 400, 300) }),
       leaf("owner", "Owner"),
     ],
-    { style: { skin: "candy" } },
+    { style: { skin: "default", heading: "bar" } },
   ),
 ];
 
+// **hi5 was BLUE, not yellow.** The first attempt built a bright orange candy
+// page off the memory of the logo; a 2007 capture of the real site is blue and
+// grey title bars over white content, the same idiom MySpace used. The orange
+// survives only as the accent, which is where it actually was.
 const hi5Theme = theme({
-  background: gradient(160, [
-    { color: "#fff3c4", at: 0 },
-    { color: "#ffcc4d", at: 60 },
-    { color: "#ff9f1a", at: 100 },
+  background: gradient(180, [
+    { color: "#f2f5f9", at: 0 },
+    { color: "#ffffff", at: 100 },
   ]),
-  accent: "#e8590c",
-  canvas: "bubbles",
-  canvasColours: ["#ffffff", "#ffe08a"],
-  density: 1.2,
-  speed: 0.7,
-  skin: "candy",
+  accent: "#4a7ebb",
+  canvas: "grid",
+  // **An author cannot turn the backdrop OFF.** `none` is not a canvas, so it
+  // falls back to nebula, and the density dial floors at 0.25. A flat 2007 page
+  // had no animation at all; the nearest reachable thing is a canvas painted in
+  // the page's own colours at the floor. Recorded as a gap in the findings.
+  canvasColours: ["#ffffff", "#f2f5f9"],
+  density: 0.25,
+  speed: 0.25,
+  skin: "default",
+  font: "classic",
+  spacing: "compact",
   measure: "wide",
 });
 
@@ -578,7 +613,7 @@ const sonico = [
         leaf("stat", "Fotos", { description_en: "1,038" }),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { skin: "glass" } },
+    { spaces: 2, weights: [1, 2], style: { skin: "default", heading: "bar" } },
   ),
   section(
     "Mis Fotos",
@@ -588,7 +623,7 @@ const sonico = [
         image_url: photo(`sonico-${i}`, 400, 300 + (i % 3) * 120),
       }),
     ),
-    { spaces: 3, style: { skin: "glass" } },
+    { spaces: 3, style: { skin: "default", heading: "bar" } },
   ),
   section(
     "Álbumes",
@@ -601,21 +636,27 @@ const sonico = [
       leaf("picture", "El taller", { image_url: photo("album-3", 500, 340) }),
       leaf("owner", "Owner"),
     ],
-    { style: { skin: "glass" } },
+    { style: { skin: "default", heading: "bar" } },
   ),
 ];
 
 const sonicoTheme = theme({
   background: gradient(180, [
     { color: "#f2f8fd", at: 0 },
-    { color: "#bcd9f0", at: 100 },
+    { color: "#ffffff", at: 100 },
   ]),
   accent: "#1a6bb5",
-  canvas: "waves",
-  canvasColours: ["#8fc0e8", "#1a6bb5"],
-  density: 0.7,
-  speed: 0.4,
-  skin: "glass",
+  canvas: "grid",
+  // **An author cannot turn the backdrop OFF.** `none` is not a canvas, so it
+  // falls back to nebula, and the density dial floors at 0.25. A flat 2007 page
+  // had no animation at all; the nearest reachable thing is a canvas painted in
+  // the page's own colours at the floor. Recorded as a gap in the findings.
+  canvasColours: ["#ffffff", "#f2f5f9"],
+  density: 0.25,
+  speed: 0.25,
+  skin: "default",
+  font: "classic",
+  spacing: "compact",
   measure: "wide",
 });
 
@@ -639,7 +680,7 @@ const geocities = [
       }),
       leaf("handle", "My handle"),
     ],
-    { style: { skin: "terminal" } },
+    { style: { skin: "default", text_align: "center" } },
   ),
   section(
     "MY INTERESTS",
@@ -658,7 +699,7 @@ const geocities = [
         ],
       }),
     ],
-    { style: { skin: "terminal" } },
+    { style: { skin: "default", text_align: "center" } },
   ),
   section(
     "[ THE FURRY WEBRING ]",
@@ -669,7 +710,7 @@ const geocities = [
       leaf("link", "NEXT >>", { link_url: "https://me.furrycolombia.com" }),
       leaf("owner", "Owner"),
     ],
-    { spaces: 3, style: { skin: "terminal", border_style: "dashed" } },
+    { spaces: 3, style: { skin: "default", text_align: "center" } },
   ),
 ];
 
@@ -683,7 +724,13 @@ const geocitiesTheme = theme({
   canvasColours: ["#ffffff", "#00ff66"],
   density: 1.6,
   speed: 0.2,
-  skin: "terminal",
+  skin: "default",
+  // **A serif and centred text, which is what actually dates a page to 1999.**
+  // The first attempt reached for `terminal` and got monospace, which reads as
+  // a developer's site rather than a personal homepage — and left every
+  // heading in the app's own display face, because a skin cannot set one.
+  font: "serif",
+  spacing: "compact",
   backgroundUrl: tile("dark-mosaic"),
   backgroundFit: "tile",
   measure: "medium",

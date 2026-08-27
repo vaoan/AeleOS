@@ -137,6 +137,25 @@ Ranked by how much each one costs the "can you tell them apart" test.
 | —   | **A name cannot be a bar.**                                                                                                                                                                                                                                       | **done** — `heading: "bar"`                                                 |
 | —   | **No text alignment.**                                                                                                                                                                                                                                            | **done** — `text_align`                                                     |
 
+## Found while rebuilding the eight (2026-08-27)
+
+Two more, both discovered by using the new options rather than by reasoning
+about them.
+
+- **An author cannot turn the moving backdrop OFF.** `none` is not a canvas —
+  it falls back to `nebula` — and the density dial floors at `0.25`. A flat
+  2007 page had no animation at all, and the nearest reachable thing is a
+  canvas painted in the page's own colours at the floor, which is what the
+  three flat pastiches do. A real `none` is the fix.
+- **A chosen typeface did not reach headings, and nearly shipped that way.**
+  Eighteen elements across the leaf modules carry `font-display` or
+  `font-sans`, which are explicit `font-family: var(--font-…)` declarations, and
+  a declaration on the element beats a family inherited from an ancestor. Body
+  text changed and every heading stayed in the app's own face. Fixed by setting
+  the TOKENS as well as the property; the general form is that **an inherited
+  property cannot override an explicit one, so a page-level face has to set
+  whatever tokens the elements actually read.**
+
 ## If any of this were to be built
 
 Gap 1 first, and alone it would fix gap 7 and most of gap 4's symptom. The

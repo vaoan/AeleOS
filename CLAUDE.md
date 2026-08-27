@@ -321,6 +321,12 @@ Key choices and _why_:
     still holds counts, and the failure message prints the three questions the
     actors note already asks rather than only naming a file.
 
+  The eight pastiche pages are rebuilt against real archived captures now, and
+  the two things that found were both about USING an option rather than
+  reasoning about one: an author cannot turn the moving backdrop off, and a
+  page-level typeface did not reach headings until it set the font TOKENS as
+  well as the property. Both are in the findings.
+
   It runs as a step in `conformance` beside `check:docs`, taking the base ref
   the same way, and in pre-commit as `--staged`. Both modes only see what is
   committed or staged — an edit sitting unstaged in the working tree is invisible

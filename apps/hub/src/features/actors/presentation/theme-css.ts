@@ -311,7 +311,19 @@ const SPACINGS = {
 function contentVars(theme: ActorTheme): Record<string, string> {
   const vars: Record<string, string> = {};
   const stack = theme.font ? FONT_STACKS[theme.font] : undefined;
-  if (stack) vars["font-family"] = stack;
+  if (stack) {
+    vars["font-family"] = stack;
+    // **The TOKENS as well as the property, and that is not belt-and-braces.**
+    // Eighteen elements across the leaf modules carry `font-display` or
+    // `font-sans`, which are explicit `font-family: var(--font-…)`
+    // declarations — and a declaration on the element always beats a family
+    // inherited from an ancestor. Setting only `font-family` here left every
+    // heading, display name and card title in the app's own face while the
+    // body text changed, which is a control that half works. Measured on a
+    // rebuilt page before it was fixed.
+    vars["--font-display"] = stack;
+    vars["--font-sans"] = stack;
+  }
   const spacing = theme.spacing ? SPACINGS[theme.spacing] : undefined;
   if (spacing) {
     vars["--block-pad"] = spacing.pad;

@@ -2958,6 +2958,16 @@ what the page did before it existed. None of them changes a stored page.
   **Not to be confused with `density`, which is the CANVAS dial** and was
   already taken; that near-collision is why this key is called `spacing`.
 
+**A face sets the TOKENS as well as the property, and nearly did not.**
+Eighteen elements across the leaf modules carry `font-display` or `font-sans`,
+which are explicit `font-family: var(--font-…)` declarations — and a
+declaration on the element beats a family INHERITED from an ancestor. Setting
+`font-family` alone changed body text and left every heading and display name
+in the app's own face, which was found on a rebuilt page rather than reasoned
+about. The general form is worth more than the fix: **an inherited property
+cannot override an explicit one, so a page-level choice has to set whatever
+tokens the elements actually read.**
+
 **Both land in `SKIN_SCOPE`, never `:root`**, and a named test asserts WHICH
 rule they land in. A `font-family` at `:root` would reset the app's bar, the
 account menu and the language toggle to whatever a page chose; a test merely
