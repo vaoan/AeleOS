@@ -1,5 +1,42 @@
 # The actors feature — how an actor is addressed
 
+## Read this before you change anything here, and again before you finish
+
+**Every change inside `features/actors/` ends by re-reading this note against
+what you just did.** Not a skim for the paragraph you touched — a pass asking
+whether anything here has become false, including the parts you did not go near.
+
+Nothing automated can do this for you. `pnpm check:docs` is per exported symbol
+and compares a symbol against its own code, so it is blind to a note whose
+subject is a different file, a deleted prop, a mechanism that moved, or a debt
+that was paid. Root rule 18 names that exposure and root rule 30 is what it
+cost: three comments describing a caller that never existed, green through every
+unit test, and two headline features shipped broken behind them.
+
+The three questions, in order:
+
+1. **Is anything here now false?** A component named that no longer exists, a
+   prop that was deleted, a mechanism replaced, a file path that moved, a
+   measured number taken before the code changed.
+2. **Is anything here still true but no longer the way we work?** A pattern
+   superseded, a constraint lifted, a decision reversed. Say the new one; do not
+   leave both, because a document that contradicts itself is worse than one that
+   is simply wrong — whichever half a reader reaches first is the one they
+   follow.
+3. **Did this change establish something the next person needs?** A trap you
+   fell into, a mechanism that is not obvious from the code, a reason a tempting
+   alternative is wrong. That is what this note is for.
+
+**Whoever fixes a fault deletes the note saying it is open.** A sentence naming
+a file and a line reads like a measurement and will be believed. A note left
+asserting a closed fault is the confident, wrong instruction this repository
+warns about everywhere else — and it has happened here three times in twelve
+days: the `PreviewThemeHost` atmosphere prop documented after it was deleted,
+the drag handle recorded as broken for a day after `#154` fixed it, and a
+superseded spec's banner claiming unwritten phases that had already landed.
+
+---
+
 This note constrains code that **does not exist yet**. Everything already
 built states its own contract in TSDoc, where `pnpm check:docs` keeps it
 honest; what follows is the addressing model the next migration and the public
