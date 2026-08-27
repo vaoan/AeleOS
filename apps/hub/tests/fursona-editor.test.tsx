@@ -15,6 +15,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { isContainer, type Block } from "@/features/actors/domain/block-schema";
 import { blockEditorLabels } from "./support/editor-labels";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
+import {
+  EscapeSlotProvider,
+  EscapeSlotTarget,
+} from "@/shared/presentation/escape-slot";
 
 /**
  * What the live section previews currently render.
@@ -259,14 +263,35 @@ const untitled = () => [
  *
  * @param props - what to override.
  */
+/**
+ * The editor under a slot, which is the arrangement `PageShell` gives it.
+ *
+ * **The target comes FIRST, as it does in production**, where it is in the
+ * header and the editor is in the content beneath — so the assertion that the
+ * escape control lands outside the armed region is testing the real
+ * relationship rather than an accident of this file.
+ *
+ * **Supplying the slot here is only honest because something else proves the
+ * shell really has one.** A suite that hands a component the wiring it depends
+ * on is exactly how this repository has hidden setup requirements before, so
+ * `editor-is-the-page.spec.ts` finds `show-controls` inside a real `<header>`
+ * in the running app, and asserts it covers none of the controls already
+ * there.
+ *
+ * @param props - overrides for the editor.
+ * @returns what `render` returned.
+ */
 function renderEditor(props: Record<string, unknown> = {}) {
   return render(
-    <FursonaEditor
-      labels={labels}
-      handleEditable
-      page={pageContext({ parentHost: "" })}
-      {...props}
-    />,
+    <EscapeSlotProvider>
+      <EscapeSlotTarget />
+      <FursonaEditor
+        labels={labels}
+        handleEditable
+        page={pageContext({ parentHost: "" })}
+        {...props}
+      />
+    </EscapeSlotProvider>,
   );
 }
 

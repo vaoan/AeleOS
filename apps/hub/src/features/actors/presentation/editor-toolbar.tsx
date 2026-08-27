@@ -132,6 +132,13 @@ export interface EditorToolbarProps {
  * look to leave; this bar decides only where in the row it sits — beside Hide
  * controls, because both answer "let me see this differently".
  *
+ * **Cancel shows its icon alone below `sm`, as Hide controls does.** Measured
+ * at 320px once the page-theme switch joined this row: the control group
+ * needed 258px in English and 293px in Spanish, against a bar whose title had
+ * already truncated to nothing. A row with no slack is one the next control
+ * added to it breaks, and it broke under Linux font metrics in CI while one
+ * developer machine read zero.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -200,7 +207,14 @@ export function EditorToolbar({
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
           >
             <X className="size-4" />
-            {labels.cancel}
+            {/* **Collapsed to its icon on a phone, exactly as Hide controls
+                beside it already is.** Measured at 320px with the page-theme
+                switch present: the control group needed 258px in English and
+                293px in Spanish against a 320px bar whose title had already
+                been truncated to nothing — no slack at all, which is how CI
+                found the editor 12px wider than the phone while this machine
+                read zero. A row with no slack is one the next control breaks. */}
+            <span className="sr-only sm:not-sr-only">{labels.cancel}</span>
           </Link>
           <button
             type="submit"

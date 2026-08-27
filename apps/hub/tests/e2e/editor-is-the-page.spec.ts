@@ -582,6 +582,30 @@ test("the way back to the controls is drawn at the top, not over the page's foot
   // Well inside the top eighth at this height, and nowhere near the 744px a
   // bottom-anchored button reports — so the two placements cannot both pass.
   expect(box!.y).toBeLessThan(100);
+
+  // **AND IT COVERS NOTHING. The line above could not tell that.** Moved to
+  // the corner as a `fixed` element it satisfied "near the top" perfectly
+  // while sitting ON the language and light/dark toggles — measured at 88% of
+  // each, which does not overlap them so much as put them out of reach. A
+  // placement assertion that a broken placement passes is rule 27 exactly, so
+  // the guard is what the button DOES to its neighbours.
+  const covered = await page.evaluate(`(() => {
+    const self = document.querySelector('[data-testid="show-controls"]');
+    const b = self.getBoundingClientRect();
+    // Excluding the subject, which lives IN the header now and would otherwise
+    // report covering itself by 100%.
+    return [...document.querySelectorAll("header button, header a")]
+      .filter((el) => el !== self && !el.contains(self) && !self.contains(el))
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        const over =
+          Math.max(0, Math.min(b.right, r.right) - Math.max(b.left, r.left)) *
+          Math.max(0, Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top));
+        return { what: el.getAttribute("data-testid") || el.tagName, over };
+      })
+      .filter((hit) => hit.over > 0);
+  })()`);
+  expect(covered).toEqual([]);
 });
 
 // TAKING THE PAGE'S OWN LOOK OFF WHILE BUILDING.

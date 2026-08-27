@@ -422,6 +422,28 @@ Key choices and _why_:
   the deployed site is only proof after that commit is what production is
   serving.
 
+  **Then READ the pictures back, as a step of its own (2026-08-27).** Posting
+  is not the end of the job. Open every image you just posted and say what it
+  shows — including what it shows that you did not intend. A screenshot is
+  evidence of **everything in its frame**, not only of the claim you took it
+  for, and the claim is all you will see if checking the claim is all you do.
+
+  Paid for immediately, on the pull request that added this line. A shot
+  captioned "the way back to the controls sits at the top right, not over the
+  page's foot" proved exactly that — and in the same frame the button was
+  sitting **on top of** the language toggle, the light/dark toggle and the
+  account menu, hiding all three. Both facts were in the picture. Only the one
+  being argued for was read, and the reviewer saw the other in seconds.
+
+  So it is a separate pass asking a different question: not "does this show
+  what I claimed" but **"what else is in this frame, and is any of it wrong"**.
+  Walk the whole frame rather than the subject — edges and corners, anything
+  overlapping anything, anything clipped or cut off, a control that has landed
+  on another, text that is a raw message key, a colour that did not apply. Do
+  it before the comment goes up where you can, and immediately after where you
+  cannot; and where a comment is already up, correct it **on the thread**
+  rather than quietly, because the picture is there and somebody will read it.
+
 - **Always branch from an explicit base — `git checkout -b <name> origin/main`.**
   Never bare `git checkout -b <name>`, which silently branches from whatever is
   currently checked out — and after a session's work that is usually the last

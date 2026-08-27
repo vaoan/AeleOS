@@ -491,9 +491,10 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * **It says what it is, in a rail and in a word.** `ContainerRail` runs down
  * the inside edge once per container at every depth, so nesting is countable
  * rather than inferred, and `CardKind` names the card beside the name field's
- * own label. The root's left padding is `pl-4` rather than a uniform `p-3` to
- * give that rail a gutter clear of the header's `-m-1` bleed — without one the
- * rail sits against the card's own border and cannot be made out at all.
+ * own label. The padding stays a uniform `p-3` and the rail lives INSIDE it:
+ * widening the left side to `pl-4` for a gutter cost 8px of the card's
+ * min-content width — 4px per nesting level — which is a card, not a decoration,
+ * and it pushed the editor sideways on a narrow screen.
  *
  * @returns the container's card.
  */
@@ -586,7 +587,7 @@ export function BlockCard({
     // correctly.
     <div
       {...tid(ids.card)}
-      className="@container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--surface-solid) py-3 pr-3 pl-4"
+      className="@container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3"
     >
       <ContainerRail />
 

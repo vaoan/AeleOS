@@ -89,12 +89,14 @@ export function CardKind({ kind, children }: CardKindProps): ReactNode {
  * physically, so depth becomes countable rather than inferred: three stacked
  * rails is a block at the cap.
  *
- * **It needs a gutter of its own to be seen at all.** At `left-0.5` inside the
- * card's uniform `p-3` it sat against the card's own border and read as part of
- * it — photographed, and invisible. The section card carries `pl-4` for that
- * reason, which puts the rail at 6–9px with the header's `-m-1` bleed starting
- * at 12px, so nothing paints over it. The cost is four pixels of indent per
- * level, which reinforces the nesting rather than fighting it.
+ * **Where it sits was measured twice, against two different faults.** At
+ * `left-0.5` it sat 1px from the card's own border and read as part of it —
+ * photographed, and invisible. Widening the card to `pl-4` to give it a gutter
+ * fixed that and cost 8px of the card's MIN-CONTENT width, 4px per nesting
+ * level, which pushed the editor sideways at 568px and is what
+ * `responsive.spec.ts` caught. It sits at `left-1` inside the uniform `p-3`
+ * now: 4–7px, so 3px clear of the border and 1px clear of the header's `-m-1`
+ * bleed at 8px, and the card is exactly as wide as it was before any of this.
  *
  * **Its test id says `container`, not `section`.** The end-to-end suite counts
  * sections through `section-card`, which `idsFor` emits at depth 0 only; a rail
@@ -108,7 +110,7 @@ export function ContainerRail(): ReactNode {
     <span
       {...tid("container-rail")}
       aria-hidden
-      className="pointer-events-none absolute inset-y-2 left-1.5 w-[3px] rounded-full bg-(--accent)/60"
+      className="pointer-events-none absolute inset-y-2 left-1 w-[3px] rounded-full bg-(--accent)/60"
     />
   );
 }
