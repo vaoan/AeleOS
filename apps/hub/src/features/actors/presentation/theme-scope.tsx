@@ -37,18 +37,32 @@ export interface ThemeScopeProps {
  * `body`, respectively) within the same `<style>` element this component
  * emits, not a second one.
  *
- * A theme that overrides nothing emits no element at all, so an unthemed page
- * is byte-for-byte what it was before any of this existed.
+ * A theme that overrides nothing emits no `<style>` element at all, so an
+ * unthemed page is byte-for-byte what it was before any of this existed.
+ *
+ * **The SHAPE it returns never changes, and that is load-bearing wherever the
+ * theme is live.** It used to return `children` bare when there was no CSS and
+ * a fragment when there was — so the first colour an author picked changed the
+ * element type at this position, and React unmounted and remounted the whole
+ * subtree. On a public page that can never happen: the theme is resolved once
+ * on the server and never moves. In the EDITOR it happens on the first edit,
+ * and it took the workbench's state with it — the theme panel closed the
+ * instant somebody copied a profile theme or chose a colour, so the next
+ * control they reached for was not there.
+ *
+ * Found by `signed-in.spec.ts` and `atmosphere.spec.ts` timing out on controls
+ * that had simply been unmounted, which is worth knowing because the symptom
+ * reads as a slow page rather than as a remount. The empty slot is what keeps
+ * `children` at a stable index.
  *
  * @returns the page, themed.
  */
 export function ThemeScope({ theme, children }: ThemeScopeProps) {
   const css = themeCss(theme);
-  if (!css) return children;
   return (
     <>
       {/* Either generated or refused first, never stored raw — see themeCss. */}
-      <style>{css}</style>
+      {css ? <style>{css}</style> : null}
       {children}
     </>
   );

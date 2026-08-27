@@ -7,7 +7,6 @@ import {
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import type { Block } from "@/features/actors/domain/block-schema";
-import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import { blockEditorLabels } from "./support/editor-labels";
 
 vi.mock("lucide-react/dynamic", () => ({
@@ -69,10 +68,9 @@ function harness(page: Block[], path: BlockPath = [0]) {
           <SectionPreviewTray
             block={block}
             position={path[0]!}
+            count={1}
             lang="en"
             page={pageContext({ parentHost: "" })}
-            theme={DEFAULT_THEME}
-            title={labels.previewTitle}
           />
         ) : null}
       </>
@@ -416,23 +414,26 @@ describe("SectionStylePopup", () => {
     expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
   });
 
-  // **On the card's FACE, not on its root, and the distinction is the whole
-  // point.** The root is the ancestor every `surface` below it inherits the
-  // skin's custom properties from; the face is the element that paints, and
-  // the only one carrying the card's corners and — under `cutout` — its
-  // chamfer. A picture on the root would paint a square rect behind a rounded
-  // face and bleed at all four corners. `tests/e2e/section-card-face.spec.ts`
-  // measures the pixels; this pins which element carries the value.
-  it("previews a background picture on the face of the card behind the popup", () => {
+  // **On the SECTION the renderer draws, which is where a visitor sees it.**
+  // This used to be asserted on a face the preview tray painted — an element of
+  // the editor's own, carrying the picture on the author's behalf so it could
+  // sit under the card's corners. There is no face any more: the tray paints
+  // nothing and renders the real section, so the picture is on the same element
+  // and in the same property a stranger's browser resolves.
+  //
+  // That is the same claim the border case below makes, and deliberately so.
+  // `tests/e2e/section-card-face.spec.ts` measures the pixels; this pins which
+  // element carries the value.
+  it("previews a background picture on the section the renderer draws", () => {
     harness(onePage());
     openPopup();
     fireEvent.change(screen.getByLabelText("Background picture"), {
       target: { value: "https://example.test/bg.png" },
     });
-    expect(
-      screen.getByTestId("section-preview-face").style.backgroundImage,
-    ).toBe('url("https://example.test/bg.png")');
-    // The root keeps only what inherits, so the picture is not on it twice.
+    expect(screen.getByTestId("public-section").style.backgroundImage).toBe(
+      'url("https://example.test/bg.png")',
+    );
+    // The editor's own card is not in the business of painting the page.
     expect(screen.getByTestId("section-card").style.backgroundImage).toBe("");
   });
 

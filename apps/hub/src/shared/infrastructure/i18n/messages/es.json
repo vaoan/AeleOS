@@ -82,9 +82,6 @@
     "bannerTitle": "Corrige esto antes de guardar",
     "writingIn": "Escribiendo en",
     "writingInHint": "Solo el nombre y el texto de la página — no la app.",
-    "completePreviewTitle": "Vista previa de la página completa",
-    "completePreviewExpand": "Ver la página completa",
-    "completePreviewCollapse": "Ocultar la página completa",
     "sectionsTitle": "Secciones",
     "sectionsEmpty": "Aún no hay secciones. Agrega una para armar la página.",
     "addSection": "Agregar sección",
@@ -399,12 +396,8 @@
     },
     "sectionStyleBleed": "Llegar a ambos bordes de la ventana",
     "sectionStyleMargins": "Márgenes",
-    "completePreviewSizeHint": "Se muestra a {width} por {height}",
-    "completePreviewDevices": {
-      "phone": "Teléfono",
-      "tablet": "Tableta",
-      "desktop": "Escritorio"
-    }
+    "hideControls": "Ocultar controles",
+    "showControls": "Mostrar controles"
   },
   "picker": {
     "title": "¿Quién quieres ser?",

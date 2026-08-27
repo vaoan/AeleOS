@@ -1,7 +1,3 @@
-import {
-  PREVIEW_DEVICES,
-  nearestDevice,
-} from "@/features/actors/domain/preview-devices";
 import { expect, test, type Page } from "@playwright/test";
 import {
   createTestIdentity,
@@ -221,81 +217,25 @@ test.describe("every phone screen, signed in", () => {
 
       await fits(page, `the editor at ${viewport.name}`);
 
-      // Each real section renderer is bounded by its own tray. Horizontal
-      // excess must stay reachable there rather than disappear behind rounded
-      // clipping.
-      const trayHosts = page
-        .getByTestId("block-preview")
-        .getByTestId("preview-theme-host");
-      expect(await trayHosts.count()).toBeGreaterThan(0);
-      expect(
-        await trayHosts.evaluateAll((hosts) =>
-          hosts.map((host) => getComputedStyle(host).overflowX),
-        ),
-      ).toEqual(Array.from({ length: await trayHosts.count() }, () => "auto"));
-
-      // The complete page is its own DOCUMENT now, at a named device size, so
-      // there is no host of ours to ask about overflow — the frame's own
-      // viewport is the width its content answers to. What matters at a phone
-      // stop is that opening it does not push the EDITOR sideways, which the
-      // `fits` call below measures.
-      await page.getByTestId("complete-page-preview-toggle").click();
-      const frame = page.getByTestId("complete-page-preview-frame");
-      await expect(frame).toBeVisible();
-      // The device defaults to the size nearest THIS window, which is not
-      // always the phone: a landscape 667 is nearer the tablet's 768 than the
-      // phone's 390. Derived rather than hardcoded, so the expectation cannot
-      // disagree with `nearestDevice` about its own tie-breaks.
-      const expected = PREVIEW_DEVICES.find(
-        (device) => device.id === nearestDevice(viewport.width),
-      )!;
-      await expect(frame).toHaveAttribute("width", String(expected.width));
-
-      // **The size hint gives up its LINE below `sm`, and never its voice.**
-      // The control row wrapped to three lines on a 320px phone — hint, then
-      // the three device buttons, then the toggle — taking 170px of a 568px
-      // screen, measured on the deployed site. The hint is the line worth
-      // reclaiming, because the SELECTED DEVICE BUTTON already names the
-      // viewport and the numbers are the detail.
+      // **NEITHER THE TRAY'S OVERFLOW NOR THE FRAMED PREVIEW IS ASSERTED HERE
+      // ANY MORE, AND ONE OF THOSE WAS PINNING A BUG BY NAME.**
       //
-      // Two assertions rather than one, because `toBeVisible` cannot draw the
-      // distinction that matters: `sr-only` leaves a 1px box Playwright calls
-      // VISIBLE, so it would neither confirm the row was reclaimed nor catch
-      // `display: none` — and `none` is the wrong answer here, taking the
-      // label from a screen reader at exactly the size where the pressed
-      // button cannot be seen either. So: does it take horizontal room, and
-      // is it still in the accessibility tree.
+      // This block used to require `overflow-x: auto` on every tray host. That
+      // is not a property a preview wants: a `visible` axis paired with a
+      // non-visible one computes to `auto`, so the box clipped on all four
+      // edges — and ink overflow is not scrollable overflow, so nothing
+      // scrolled and no scrollbar appeared. Every `neon` glow and `comic`
+      // shadow in a tray was cut off, and this assertion was what said that was
+      // correct. The same fault was found on the complete preview on
+      // 2026-08-25, where two suites had likewise pinned the mechanism rather
+      // than the behaviour.
       //
-      // The threshold is read from Tailwind's own token rather than written
-      // down twice, and both arms are exercised by the list above — 320, 360,
-      // 390 and 568 reclaim the line; 667 and 844 do not.
-      const smBreakpoint = await page.evaluate(
-        `parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--breakpoint-sm")) * 16`,
-      );
-      expect(
-        smBreakpoint,
-        "Tailwind still publishes --breakpoint-sm; a NaN here would make the " +
-          "expectation below agree with any behaviour at all",
-      ).toBeGreaterThan(0);
-
-      const hint = page.getByTestId("preview-size-hint");
-      const room = await hint.evaluate((node) => ({
-        width: node.getBoundingClientRect().width,
-        display: globalThis.getComputedStyle(node).display,
-      }));
-      expect(
-        room.width > 1,
-        `the size hint takes a line at ${viewport.name}`,
-      ).toBe(viewport.width >= Number(smBreakpoint));
-      expect(
-        room.display,
-        `the size hint is still announced at ${viewport.name}`,
-      ).not.toBe("none");
-      await fits(
-        page,
-        `the editor at ${viewport.name} with the complete preview open`,
-      );
-      await page.getByTestId("complete-page-preview-toggle").click();
+      // The framed preview is gone with it. The editor themes its own document
+      // now and hides its controls to show the page, so there is no second
+      // viewport to name a device size for. What replaced both assertions is
+      // `editor-is-the-page.spec.ts`, which photographs the page the editor
+      // draws against the live one at seven widths — including three below the
+      // stops this file walks.
 
       // The style popup is a real overlay — `position: absolute`, `w-72`,
       // anchored off a section card's own right edge — so the `fits` call

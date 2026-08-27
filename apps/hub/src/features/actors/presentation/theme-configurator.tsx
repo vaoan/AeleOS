@@ -24,7 +24,6 @@ import {
   withChosenColour,
   THEME_SEEDS,
   accentPreview,
-  atmosphereCss,
   type ActorTheme,
   type CanvasId,
 } from "@/features/actors/domain/actor-theme";
@@ -198,12 +197,14 @@ export interface ThemeConfiguratorProps {
  * colour is a decision about how it sits next to everything else, so a panel
  * that needed saving before it could be judged would be unusable: somebody
  * would save, look, dislike it, and go round again for every adjustment. The
- * form value drives the parent `PreviewThemeHost`, whose declarations share
- * their sources with the public page. While this panel is open it also mounts
- * the document's ATMOSPHERE only — field, canvas and background picture — so
- * those page-scale choices can be judged where they actually render. Closing
- * the panel unmounts that stylesheet and restores the AeleOS atmosphere.
- * Control tokens never enter it, so the builder chrome remains stable.
+ * form value travels up to the editor, which puts it on the DOCUMENT through
+ * `ThemeScope` — the same component a public route uses. **This panel emits no
+ * stylesheet of its own**, and that is the change rather than an omission: it
+ * used to mount a filtered atmosphere while open, because a page-scale choice
+ * cannot be judged inside a box. The whole document wears the whole theme now,
+ * open or shut, so a second stylesheet here could only compete with the first.
+ * The builder chrome stays stable because each control is a `CHROME_SCOPE`
+ * island, not because anything is withheld from the document.
  *
  * **A cursor picture is measured, not merely accepted.** Browsers ignore one
  * larger than 128×128 in silence, so an unmeasured field would let somebody
@@ -325,7 +326,6 @@ export function ThemeConfigurator({
   // there is a theme to leave.
   const copyable = copyFrom && isCustomised(copyFrom) ? copyFrom : null;
   const slots = slotsFor(value.canvas);
-  const atmosphere = open ? atmosphereCss(value) : "";
 
   // **Measured, because a browser refuses an oversized cursor in silence.** Past
   // 128×128 the declaration is ignored with no error anywhere, so somebody
@@ -410,7 +410,6 @@ export function ThemeConfigurator({
 
   return (
     <section className="grid gap-3 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4">
-      {atmosphere ? <style>{atmosphere}</style> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"

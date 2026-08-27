@@ -17,10 +17,18 @@ import { apart, contrast, sampleColours, textColour } from "./support/pixels";
 // backdrop control became a control that changed nothing. Unit tests can prove
 // the stylesheet's words and cannot prove that the root canvas consumed them.
 //
-// This drives the real editor and checks all three boundaries in one state
-// transition: atmosphere reaches the document, AeleOS control tokens do not,
-// and bare workbench text remains on an opaque stable backing over hostile
-// author paint. Closing the panel must reverse that same transition exactly.
+// This drives the real editor and checks all three boundaries: the atmosphere
+// reaches the document, AeleOS control tokens do not, and bare workbench text
+// remains on an opaque stable backing over hostile author paint.
+//
+// **The panel is no longer what puts the atmosphere there, and this file was
+// rewritten around that on 2026-08-27.** `atmosphereCss` mounted a filtered
+// subset of the theme while a page-scale surface was open; the editor themes
+// its whole document with the draft now, through the same `ThemeScope` a public
+// route uses, so the atmosphere is the author's whether the panel is open or
+// shut. What the panel changes is the VALUES. What must not change is any
+// control, and the readings taken before it was ever opened are the ones the
+// closing assertions compare against.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 test.setTimeout(60_000);
@@ -217,7 +225,7 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
-test("the open panel owns document atmosphere without restyling editor chrome", async ({
+test("the document wears the draft's atmosphere without restyling editor chrome", async ({
   page,
 }) => {
   await page.route(`**${new URL(PICTURE.url).pathname}`, (route) =>
@@ -402,14 +410,37 @@ test("the open panel owns document atmosphere without restyling editor chrome", 
     "dark chrome over a near-white field",
   ).toBeGreaterThanOrEqual(4.5);
 
-  // Return to the original scheme before testing exact restoration; otherwise
-  // the app's own light/dark tokens would differ for a reason unrelated to the
-  // panel lifecycle.
+  // Return to the original scheme before the closing assertions; otherwise the
+  // app's own light/dark tokens would differ for a reason unrelated to the
+  // panel.
   await page.getByTestId("theme-toggle").click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  // **What the document is wearing with the panel still OPEN**, so the
+  // assertions after it close are about the closing rather than about which
+  // colour happened to be set last. The contrast measurements above leave the
+  // author's field on whatever they ended with, and naming that value here
+  // would be restating the fixture rather than checking anything.
+  const beforeClosing = await atmosphereStyle(page);
+
   await page.getByTestId("theme-open").click();
 
-  await expect.poll(() => atmosphereStyle(page)).toEqual(atmosphereBefore);
+  // **CLOSING THE PANEL NO LONGER TAKES THE ATMOSPHERE WITH IT, AND THAT IS
+  // THE CHANGE RATHER THAN A REGRESSION.**
+  //
+  // This used to assert the opposite: that the field went back to the app's
+  // and the author's picture stopped painting. That was right while
+  // `atmosphereCss` mounted a filtered subset of the theme only while a
+  // page-scale surface was open. The editor themes its whole document with the
+  // draft now, through the same `ThemeScope` a public route uses, so the
+  // atmosphere is the author's whether this panel is open or shut — which is
+  // the entire point, since a canvas fixed to the viewport cannot be judged
+  // inside a box.
+  //
+  // What still has to hold, and is what this test is really for, is that the
+  // CONTROLS did not move. Each is an island wearing `CHROME_SCOPE`, and these
+  // three readings are the same ones taken before the panel was ever opened.
+  await expect.poll(() => atmosphereStyle(page)).toEqual(beforeClosing);
   expect(await controlStyle(toolbar)).toEqual(controlsBefore[0]);
   expect(await controlStyle(input)).toEqual(controlsBefore[1]);
   expect(await controlStyle(card)).toEqual(controlsBefore[2]);
@@ -417,8 +448,8 @@ test("the open panel owns document atmosphere without restyling editor chrome", 
   const closedPaint = await sampleColours(page, [outside]);
   expect(
     apart(closedPaint.outside!, PICTURE.rgb),
-    "closing the panel removes the author's picture",
-  ).toBeGreaterThan(30);
+    "the author's picture keeps painting once the panel is closed",
+  ).toBeLessThan(30);
 });
 
 test("the speed dial changes the animated canvas rate", async ({ page }) => {
@@ -453,14 +484,10 @@ test("the speed dial changes the animated canvas rate", async ({ page }) => {
   ).toBeGreaterThan(slow.rate * 2);
 });
 
-// THE PREVIEW IS NO LONGER A TRIGGER, AND THAT IS THE POINT.
+// WHAT USED TO BE HERE.
 //
-// For one day the complete preview mounted `atmosphereCss` on the editor
-// document so an inline preview could show the author's field and canvas
-// through itself. It is a real document at `/{locale}/me/preview` now, with a
-// real `body` and its own canvas, so it puts NOTHING on the workbench — and
-// `preview-fidelity.spec.ts` asserts both halves of that: the author's field
-// inside the frame, and the app's own field still outside it.
-//
-// What remains here is the theme panel's trigger, which is unchanged and is
-// the case above.
+// A note explaining that the complete preview was, for one day, a second
+// caller of `atmosphereCss`, and then stopped being one when it became a framed
+// route. Both the preview and `atmosphereCss` are gone — see
+// `2026-08-27-the-editor-wears-the-page-design.md` — so the note described a
+// mechanism nobody can run. `git log` has it.

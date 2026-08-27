@@ -948,120 +948,60 @@ replace`, so the newest body of a function could sit in a file named after
   renderers cannot land separately, because `satisfies Record<LeafKind, …>`
   refuses to compile.
 
-- **The builder keeps its controls and borrows the page's atmosphere
-  (2026-08-24) — done.** PR `#8` was right to keep the toolbar, fields, cards,
-  menus, palette, skins and cursor on stable AeleOS **control tokens**, and
-  wrong to treat the atmosphere as another control. While a page-scale surface
-  is open, `atmosphereCss` now puts only `--field`, the body background-picture
-  layers, `--canvas`, the numbered canvas colours, the three canvas dials and
-  `--nebula-blend` on the editor document. Closing it removes that rule
-  and restores the app atmosphere. No control token reaches the document;
-  opaque AeleOS backings keep bare workbench text readable over a hostile
-  author field.
+- **The editor wears the page (2026-08-27) — done, and it replaces the three
+  bullets that were here.** They described the builder borrowing the page's
+  atmosphere (2026-08-24), the preview learning to show what is BEHIND a page
+  (2026-08-25), and the complete preview becoming a route in an iframe
+  (2026-08-26). Each was a step toward the same thing and each is superseded;
+  `git log` holds their measurements, and both specs carry a banner naming this
+  one.
 
-  The complete preview is page-faithful rather than a card in the workbench
-  column. The signed-in shell now gives `main` the full width, exactly as the
-  public routes do, and **each ordinary signed-in page owns its former
-  `max-w-7xl` column through `WidePageColumn`**. Editors end that column before
-  the complete preview, whose host has no surface, border or rounding: depth-0
-  sections apply their real measure and bleed, and their container queries
-  answer to the page. The disclosure control keeps the old column geometry;
-  per-section trays remain bounded workbench previews with card chrome.
+  **The inversion.** The editor used to own its document and contain each
+  preview in a box. It mounts `ThemeScope` with the live draft now — the same
+  component a public route mounts with a stored theme — so `:root` carries the
+  author's palette, `body` paints their field and background picture, and the
+  `NebulaCanvas` in the root layout is theirs. Every control is an island
+  wearing `CHROME_SCOPE`, which re-declares AeleOS's tokens on the island
+  itself; there is no cascade fight, because the cascade only compares
+  declarations on the same element.
 
-  Page-faithful is not pixel-exact. The complete preview still shares the
-  editor document, scrollbar and viewport-unit context; a dedicated preview
-  route in an iframe is deferred unless that remaining difference proves worth
-  its cost. Spec:
-  `docs/superpowers/specs/2026-08-24-atmosphere-and-page-fidelity-design.md`.
+  **The canvas is why no arrangement of boxes could ever have worked.** It is
+  `fixed inset-0 -z-10`, so anything an in-flow preview paints is in front of
+  it. What is behind a page has to be behind the DOCUMENT — which is also why
+  the iframe existed, and why it stopped being needed the moment the editor
+  stopped containing the theme.
 
-- **The preview shows what is BEHIND the page, and the right owner on it
-  (2026-08-25).** Photographing one seeded page twice — at its public address
-  and inside the complete preview — found four things no check could see, and
-  the two categories are worth separating because only one is about layout.
+  **Hiding the controls leaves the page, and that is the whole feature.** One
+  rule removes every `CHROME_SCOPE` island — hiding by CLASS, so a control
+  added tomorrow is hidden without anybody remembering — and a second flattens
+  the editor's own stacking, because `PublicBlocks` has no gaps between
+  sections and lets `pageBoxClass` own every margin. What is left is not a
+  picture of the published page; it is the same document, viewport, scroll,
+  `body` and canvas.
 
-  **The backdrop.** The preview host painted an opaque `--field` on an in-flow
-  element while `NebulaCanvas` is `fixed inset-0 -z-10`, so the canvas was
-  covered outright: a page with a nebula photographed mottled at its address
-  and a perfectly smooth wash in the preview. The same opacity re-anchored the
-  field, since `body` is `background-attachment: fixed` and the host's copy
-  spanned the document rather than the window — 1280×1696 against 1280×900 on
-  an eight-section page. The complete preview now mounts `atmosphereCss` while
-  it is open, exactly as the theme panel does, and its host declines to paint;
-  `body` and the real canvas show through. The set reaching the document is
-  unchanged, so no control token moves.
+  `editor-is-the-page.spec.ts` is what makes that a measurement rather than a
+  claim: one seeded page photographed twice, at seven widths straddling the
+  measured container-query thresholds. Its two halves catch different faults
+  and neither substitutes for the other — sabotaging the stack-flattening rule
+  reddens all four pixel cases between 40.2% and 46.1% and not one box case,
+  because the sections are the same size and simply at a different offset.
 
-  **The identity data, which is not a rendering fault at all.** Three editor
-  routes built `PageContext` with a constant where a read belonged: the fursona
-  editor hardcoded the owner's name and portrait to `null` (304px on the page,
-  280px in the preview), `/me/edit` hardcoded `fursonas: []` (330px against
-  72px), and `/pages/new` passed no `owner` key — which renders NO card rather
-  than an empty one. All three ask `readPublicPerson` now, so the visibility
-  gate is asked rather than copied.
+  **A workbench group must be OPAQUE, and that is a guarantee rather than a
+  measurement.** What is behind a control is now a colour the author chose, and
+  they may choose any colour — so a translucent control has no guaranteed
+  contrast and nothing can give it one. The toolbar takes `--menu`, the one
+  token declared opaque in both modes.
 
-  **The preview was also a SCROLL CONTAINER, and that clipped ink.** Its host
-  carried `overflow-x-auto` so excess would scroll inside the preview rather
-  than dragging the workbench — and a `visible` axis paired with a non-visible
-  one computes to `auto`, so the box clipped on all four edges. Ink overflow is
-  not scrollable overflow, so nothing scrolled and no scrollbar appeared: a
-  margin-less banner's hard shadow measured 77.33 channels over the field below
-  it on the page and **0.00** in the preview. Removed; the document scrolls,
-  exactly as it does for a stranger on an over-wide page, and the full
-  responsive matrix still fits at every phone stop. **Two suites had pinned
-  `overflow-x: auto` by name** — they were asserting the mechanism, and the
-  mechanism was the fault, which is rule 30's shape one level down.
+  `frame-ancestors` closed back to `'none'`: the 2026-08-26 widening had
+  exactly one beneficiary and it is gone.
 
-  **And a section sits at a fractional device row in the preview, which turned
-  out to be about the CAMERA rather than the page.** Heights and widths agree
-  to three decimals; only the fractional part of `y` differs, and it lands on
-  the half pixel on the public side as readily as in the preview. Chromium
-  snaps the layer, so nothing renders differently — but a box at `y = .5`
-  photographs one device row taller, and `locator.screenshot()` fills that row
-  with pure white. On a guard whose budget is 0.1% that is a 0.86% false
-  positive, arriving or not depending on where the content above happened to
-  end. The size claim reads `getBoundingClientRect` now, where it is exact and
-  where a real hole reports `height: 244` against `height: 72` instead of a
-  rounded image dimension.
+  Read `apps/hub/src/features/actors/CLAUDE.md` before touching any of it —
+  and note that it now opens with a standing rule requiring it to be re-read
+  against every change made inside that folder, because `check:docs` is per
+  exported symbol and structurally cannot see a feature note going stale.
 
-  **What let all four ship is rule 27 in its purest form.** The pixel guard
-  seeded an identity with no display name, no portrait and no fursonas, so the
-  right answer and the wrong one photographed identically; and it quiets the
-  canvas on both sides, correctly, which is precisely why an absent backdrop
-  was invisible to it. The fixture now names and pictures its person, a
-  person's page is photographed as well as a fursona's, and the backdrop has a
-  case that does not quiet it — one which asks whether `:root` is resolving the
-  AUTHOR's field, because a transparent host over the app's own backdrop passes
-  every weaker version of that question.
-
-- **The complete preview is a ROUTE in an iframe now (2026-08-26).** The
-  mechanism `2026-08-24-atmosphere-and-page-fidelity` deferred, built because
-  the residue turned out to be the whole of what an author sees. Measured on a
-  real production page: up to 72.6% of a section's pixels somewhere else while
-  every section box matched to the sub-pixel — and the controlling measurement
-  is that scrolling ONE document by 120px moved the same section's backdrop by
-  71.2%. The author's background picture is `background-attachment: fixed`, so
-  which slice shows behind a section is decided by where it sits on screen, and
-  nothing inline can change that.
-
-  `/{locale}/me/preview` is a blank document that holds nothing until the
-  editor posts it a draft, at a NAMED device size — because a framed preview is
-  exactly as faithful as its viewport matches a real one, so filling the
-  editor's width would invent a viewport no visitor has. It replaces the inline
-  preview outright, and the document-atmosphere mode from the day before is
-  deleted rather than left uncalled.
-
-  **Three things this cost that generalise.** `frame-ancestors` was `'none'`
-  and refused the embed — found by driving it, because the frame rendered blank
-  and the violation went to a console where nothing asserts. A static segment
-  directly under `[locale]` would have permanently reserved `preview` against
-  the person-address namespace, so the route lives under the already-reserved
-  `me`. And the fidelity suite took SEVEN wrong instruments before it measured
-  anything real, every one a fact about the camera rather than the page — the
-  list is in that suite's own header, and the last of them left two identical
-  photographs 56 pixels apart and 69.2% differing, because two documents clamp
-  scroll at the top differently.
-
-  Spec: `docs/superpowers/specs/2026-08-26-preview-route-design.md`, complete.
-  Plan: `docs/superpowers/plans/2026-08-26-preview-route.md`.
+  Spec: `docs/superpowers/specs/2026-08-27-the-editor-wears-the-page-design.md`.
+  Plan: `docs/superpowers/plans/2026-08-27-the-editor-wears-the-page.md`.
 
 ## The toolchain, and the rules it cost
 
@@ -1758,6 +1698,40 @@ every Tailwind utility for months without anything noticing.
     that was checked across 61 callers, including one whose identity does not
     exist, with 59 of them able to see something, because a comparison where
     both sides return nothing is rule 27 wearing a security hat.
+
+34. **A SABOTAGE that restores with `git` restores to the last COMMIT, which is
+    not where you were.** "Break it, run it, put it back" is the discipline this
+    file is built on, and the putting-back has a trap: a `git checkout -- <file>`
+    is the obvious way to undo a mutation, and it silently discards every
+    uncommitted change in that file — including the work the sabotage was
+    supposed to be verifying. It happened here. A hide-controls button was
+    written, a sabotage script mutated the same file and "restored" it with
+    `git checkout --`, and the button was gone. Nothing failed: the next run
+    reported the case could not find its control, which reads exactly like a
+    test that was written wrong.
+
+    **Copy the file before the edit and copy it back**, and put the restore in a
+    shell `trap` so a crash cannot leave the tree sabotaged — rule 20's
+    requirement, met by a mechanism that cannot also delete your work.
+
+    The general form is worth more than the git detail: **a restore step that
+    is not the exact inverse of the mutation step is a second mutation.**
+    `git checkout` inverts every change since the last commit, not the one you
+    just made, and the difference is invisible in a green run.
+
+35. **A test that passes in a suite and fails alone has an isolation defect,
+    and the defect is evidence about the SUITE.** The two are not the same
+    program: running the file gives every case the fixtures its neighbours
+    built, running one gives it only its own. This is how a case that depends
+    on a neighbour looks perfectly healthy for months.
+
+    It is worth stating because the diagnostic instinct is backwards. A case
+    failing alone reads as "the filter is wrong" or "the runner is flaky", and
+    both were assumed here before the real answer — that the file under test
+    had been reverted out from under it by rule 34's trap. **Check what the
+    isolated run is actually missing before concluding the isolation is at
+    fault**, because the same symptom covers a genuine dependency between cases
+    and a source file that is no longer what you think it is.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

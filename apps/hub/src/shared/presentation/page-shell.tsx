@@ -310,6 +310,13 @@ export function WidePageColumn(props: WidePageColumnProps): ReactNode {
  * window, and scrolls from the top when it is longer. Sign-in used to cling to
  * the header with a third of the window empty beneath it; this fixes that for
  * every page at once rather than making sign-in a special case.
+ *
+ * **`pageThemeSwitch` decides more than whether a switch renders.** Its presence
+ * is this shell's statement that the page wears a theme a visitor may take off,
+ * so the light/dark toggle beside it clears that theme only here — where
+ * something offers it back. The signed-in bar passes nothing, and since
+ * 2026-08-27 the editor themes its own document with the draft, so clearing
+ * there would throw away the page somebody is building. See `ThemeToggle`.
  */
 export async function PageShell({
   children,
@@ -379,6 +386,11 @@ export async function PageShell({
             <ThemeToggle
               toDarkLabel={t("toDark")}
               toLightLabel={t("toLight")}
+              // **The way back is what licenses taking it away.** The switch
+              // above offers the author's colours again; where it is absent —
+              // the signed-in bar, and so the editor — clearing would discard
+              // the page somebody is building with nothing to restore it.
+              clearsPageTheme={Boolean(pageThemeSwitch)}
             />
             {trailing ? <div className="ml-1">{trailing}</div> : null}
           </div>

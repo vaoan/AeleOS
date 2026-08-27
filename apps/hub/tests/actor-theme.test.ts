@@ -1,19 +1,14 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import { describe, expect, it } from "vitest";
-import { skinVars } from "@/shared/domain/skins";
 import { DEFAULT_GRADIENT } from "@/shared/domain/gradient";
 import {
   DEFAULT_THEME,
   THEME_SEEDS,
   accentPreview,
-  atmosphereCss,
   bodyBackgroundVars,
   isCustomised,
   isThemed,
   parseTheme,
-  previewThemeCss,
   themeCss,
   themeVars,
   withCanvasColour,
@@ -341,172 +336,6 @@ describe("themeCss", () => {
       expect(css).not.toContain("</style>");
     },
   );
-});
-
-describe("atmosphereCss", () => {
-  const propertyNames = (rule: string) =>
-    Array.from(rule.matchAll(/(?:^|;)([-\w]+):/g), (match) => match[1]);
-  const THEMED = {
-    ...DEFAULT_THEME,
-    background: flat("#101a2e"),
-    accent: "#00ff88",
-    canvas: "aurora" as const,
-    canvasColours: ["#112233", "#445566"],
-    density: 2.5,
-    speed: 0.5,
-    scale: 1.75,
-    skin: "comic" as const,
-    cursor: "https://example.test/paw.png",
-    backgroundUrl: "https://example.test/wallpaper.png",
-    backgroundFit: "tile" as const,
-  };
-
-  it("emits the complete atmosphere at the document selectors", () => {
-    const css = atmosphereCss(THEMED);
-    const root = css.match(/^:root\{([^}]*)\}/)?.[1] ?? "";
-    const body = css.match(/body\{([^}]*)\}$/)?.[1] ?? "";
-
-    expect(css).toContain(":root{");
-    expect(new Set(propertyNames(root))).toEqual(
-      new Set([
-        "--field",
-        "--canvas",
-        "--canvas-1",
-        "--canvas-2",
-        "--canvas-density",
-        "--canvas-speed",
-        "--canvas-scale",
-        "--nebula-blend",
-      ]),
-    );
-    expect(new Set(propertyNames(body))).toEqual(
-      new Set(["background-image", "background-repeat", "background-size"]),
-    );
-    expect(css).toContain("--field:");
-    expect(css).toContain("--canvas:aurora");
-    expect(css).toContain("--canvas-1:17 34 51");
-    expect(css).toContain("--canvas-2:68 85 102");
-    expect(css).toContain("--canvas-density:2.5");
-    expect(css).toContain("--canvas-speed:0.5");
-    expect(css).toContain("--canvas-scale:1.75");
-    expect(css).toContain("--nebula-blend:");
-    expect(css).toContain(
-      'body{background-image:url("https://example.test/wallpaper.png"), var(--field)',
-    );
-  });
-
-  // **The discriminating negative case.** Emitting all of `themeVars` would
-  // still pass every positive assertion above, so this names every control
-  // family represented by the fixture: palette, skin and cursor. The wrong
-  // implementation this excludes is the document-level `themeCss` injection
-  // removed by #8.
-  it("emits no control token from the same fully customised theme", () => {
-    const css = atmosphereCss(THEMED);
-
-    for (const control of [
-      "--surface-solid",
-      "--bar-solid",
-      "--menu",
-      "--ink",
-      "--ink-2",
-      "--muted",
-      "--edge",
-      "--accent",
-      "--on-accent",
-      "--skin-",
-      "cursor:",
-    ]) {
-      expect(css).not.toContain(control);
-    }
-  });
-
-  it("emits nothing when the theme overrides no atmosphere", () => {
-    expect(atmosphereCss(DEFAULT_THEME)).toBe("");
-  });
-});
-
-describe("previewThemeCss", () => {
-  it("scopes palette, skin, and background to preview hosts", () => {
-    const css = previewThemeCss({
-      ...DEFAULT_THEME,
-      background: {
-        ...DEFAULT_GRADIENT,
-        stops: [{ color: "#24152f", at: 0 }],
-      },
-      accent: "#f04f91",
-      skin: "comic",
-      backgroundUrl: "https://example.test/background.png",
-    });
-
-    expect(css).toContain("[data-preview-theme]");
-    expect(css).toContain("--accent:");
-    expect(css).toContain("--skin-");
-    expect(css).toContain("background-image:");
-    expect(css).not.toContain(":root");
-    expect(css).not.toContain(" body");
-  });
-
-  it("emits no preview rule when the theme overrides nothing", () => {
-    expect(previewThemeCss(DEFAULT_THEME)).toBe("");
-  });
-
-  it.each([
-    'https://ex"ample.test/a.png',
-    "https://example.test/?x\\",
-    "javascript:alert(1)",
-  ])("keeps the refused picture %s out of both stylesheet sinks", (url) => {
-    const theme = { ...DEFAULT_THEME, backgroundUrl: url };
-    for (const emit of [themeCss, previewThemeCss]) {
-      expect(emit(theme)).not.toContain("background-image");
-      expect(emit(theme)).not.toContain(url);
-    }
-  });
-
-  // **The drift this catches is a THIRD composed property.** `globals.css`
-  // writes `--surface: var(--surface-solid)` at `:root`, where the `var()` is
-  // substituted once and inherited already-resolved — so a preview host that
-  // overrides `--surface-solid` and nothing else leaves every panel painting
-  // the app's colour, which is precisely the fault that shipped. The emitter
-  // restates the composition, and a fourth one added to the stylesheet would
-  // otherwise be missed silently, in a preview nobody screenshots on the day
-  // it lands.
-  //
-  // It reads the stylesheet rather than a copied list for the same reason
-  // `skins.test.ts` does: two lists is one that goes stale. Only compositions
-  // over a property a THEME can write are owed — `--bar-top: var(--bar-h)` in
-  // the same file composes furniture heights nothing here overrides.
-  it("restates every :root composition a theme can reach", () => {
-    const css = readFileSync(
-      join(process.cwd(), "src", "app", "globals.css"),
-      "utf8",
-    );
-    const themed = {
-      ...DEFAULT_THEME,
-      background: flat("#24152f"),
-      accent: "#f04f91",
-      skin: "comic" as const,
-    };
-    const reachable = new Set([
-      ...Object.keys(themeVars(themed)),
-      ...Object.keys(skinVars(themed.skin)),
-    ]);
-
-    const composed = new Set<string>();
-    for (const block of css.matchAll(/:root\s*\{([^}]*)\}/g)) {
-      for (const line of block[1]!.matchAll(
-        /(--[\w-]+)\s*:\s*var\((--[\w-]+)\)\s*;/g,
-      )) {
-        if (reachable.has(line[2]!)) composed.add(line[1]!);
-      }
-    }
-
-    // Without this the loop above could match nothing and the expectations
-    // below would pass over an empty set — an assertion that cannot fail.
-    expect([...composed]).toEqual(["--surface", "--bar"]);
-
-    const preview = previewThemeCss(themed);
-    for (const name of composed) expect(preview).toContain(`${name}:`);
-  });
 });
 
 describe("bodyBackgroundVars", () => {

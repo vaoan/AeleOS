@@ -64,15 +64,23 @@ test("a skin chosen in the popup paints the section preview at once", async ({
   await page.getByTestId("section-name").last().fill("Styled");
 
   const tray = page.getByTestId("block-preview").last();
+  // **One element, not two.** There used to be a `section-preview-face` here —
+  // an element the tray painted on the author's behalf so a picture could sit
+  // under the card's own corners. The tray paints nothing now and renders the
+  // real section, so what inherits and what paints are on the same element, and
+  // it is the element a stranger's browser resolves them on.
   const preview = tray.getByTestId("public-section");
-  const face = tray.getByTestId("section-preview-face");
-  // Nothing chosen yet on the two elements later assertions read. This makes
-  // the skin and picture checks below changes rather than states these preview
-  // layers already carried for another reason.
+  const face = preview;
+  // Nothing chosen yet. This makes the skin and picture checks below changes
+  // rather than states the section already carried for another reason.
   expect(
     await preview.evaluate((el) => el.style.getPropertyValue("--skin-round")),
   ).toBe("");
-  expect(await face.evaluate((el) => el.hasAttribute("style"))).toBe(false);
+  expect(
+    await preview.evaluate((el) =>
+      el.style.getPropertyValue("background-image"),
+    ),
+  ).toBe("");
 
   await page.getByTestId("section-style-open").last().click();
   await expect(page.getByTestId("section-style-panel")).toBeVisible();
@@ -90,11 +98,9 @@ test("a skin chosen in the popup paints the section preview at once", async ({
     await preview.evaluate((el) => el.style.getPropertyValue("--skin-border")),
   ).toBe("3px");
 
-  // The background picture and its fit land on the FACE rather than the root —
-  // a painted property behind a rounded face would show four bright corner
-  // wedges, which is why `SectionPreviewTray` uses `splitStyle` to separate
-  // what inherits from what paints. Reading them off the face is what makes
-  // that split a measurement.
+  // The background picture and its fit land on the section the renderer draws,
+  // which is where a visitor sees them. `splitStyle` and the face it painted on
+  // are gone with the tray's card chrome.
   await page
     .getByTestId("section-style-background-url")
     .fill("https://example.com/section-style-popup.png");

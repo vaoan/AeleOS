@@ -11,7 +11,6 @@ import {
   type Block,
   type ContainerBlock,
 } from "@/features/actors/domain/block-schema";
-import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { SECTION_PRESETS } from "@/features/actors/presentation/section-presets";
@@ -92,7 +91,6 @@ function harness(sections: Block[] = []) {
         lang="en"
         labels={labels}
         page={pageContext({ parentHost: "" })}
-        theme={DEFAULT_THEME}
         problems={[]}
       />
     );
@@ -199,7 +197,7 @@ const firstContainer = (page: Block[]): ContainerBlock => {
 };
 
 describe("BlockEditor", () => {
-  it("keeps a themed live preview outside the section's droppable controls", () => {
+  it("draws the live section in the page's own box, outside the droppable", () => {
     harness([
       {
         ...newContainer("grid", 1),
@@ -215,17 +213,29 @@ describe("BlockEditor", () => {
 
     expect(slot).toContainElement(card);
     expect(slot).not.toContainElement(tray);
-    expect(within(tray).getByTestId("preview-theme-host")).toHaveAttribute(
-      "data-preview-theme",
-    );
     expect(within(tray).getByTestId("public-section")).toBeInTheDocument();
     expect(within(tray).getByText("Real renderer")).toBeInTheDocument();
-    expect(tray).toHaveAccessibleName(`${labels.previewTitle} 1: Styled`);
     expect(tray.parentElement).toHaveClass("gap-2");
     expect(tray.parentElement?.parentElement).toHaveClass("gap-6");
-    expect(within(tray).getByTestId("preview-theme-host")).toHaveClass(
-      "overflow-x-auto",
-    );
+
+    // **THE PAGE BOX, which the tray never laid before.** A preview that does
+    // not is showing the author a section at the workbench's width: `bleed`
+    // does nothing, the first and last section's page spacing is absent, and
+    // every container query inside answers to a box no visitor has. These are
+    // the classes `pageBoxClass` composes for a lone section at the default
+    // `wider` measure — first and last at once, because there is one.
+    expect(tray).toHaveClass("mx-auto", "w-full", "max-w-7xl", "px-4");
+    expect(tray).toHaveClass("pt-6", "pb-6");
+
+    // **NOTHING of the editor's own is painted over the page.** The card face,
+    // the label, the padding and the author's `--field` on an in-flow box are
+    // all gone: the document carries the theme, so the field, the background
+    // picture and the nebula canvas are already behind this. The host that
+    // used to sit here also clipped on all four edges — see the tray's own
+    // TSDoc — so its absence is what lets a `neon` glow leave its box.
+    expect(within(tray).queryByTestId("preview-theme-host")).toBeNull();
+    expect(within(tray).queryByTestId("section-preview-face")).toBeNull();
+    expect(tray.className).not.toContain("overflow");
   });
 
   it("says so when there is nothing on the page", () => {

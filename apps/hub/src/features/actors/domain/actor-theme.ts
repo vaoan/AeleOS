@@ -12,7 +12,6 @@ import { CANVAS_RANGE, dial } from "@/shared/domain/canvas-motion";
 import {
   DEFAULT_SKIN,
   SKINS,
-  SKIN_DEFAULTS,
   SKIN_SCOPE,
   skinVars,
   type SkinId,
@@ -780,7 +779,7 @@ function declarations(properties: Record<string, string>): string {
  *
  * **Reuses `backgroundImageValue`, the same function `blockStyle` calls for
  * a section's own background picture, rather than a second escaping path.**
- * Both {@link themeCss} and {@link previewThemeCss} interpolate its result into
+ * {@link themeCss} interpolates its result into
  * raw `<style>` blocks, where CSSOM offers no protection at all — those sinks
  * are exactly why `backgroundImageValue` refuses a `"` or a `\` outright
  * rather than trusting `safeHttpUrl`'s own normalisation, which leaves both
@@ -918,65 +917,6 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
   };
 }
 
-const ATMOSPHERE_PROPERTIES = new Set([
-  "--field",
-  "--canvas",
-  ...Array.from(
-    { length: MAX_CANVAS_COLOURS },
-    (_, index) => `--canvas-${index + 1}`,
-  ),
-  "--canvas-density",
-  "--canvas-speed",
-  "--canvas-scale",
-  "--nebula-blend",
-]);
-
-/**
- * The live editor atmosphere as document-level CSS.
- *
- * This is deliberately narrower than {@link themeCss}: only the field, canvas
- * choice and colours, canvas dials, and blend mode may reach the editor
- * document. Palette controls, skin declarations and the cursor remain confined
- * to preview hosts, so changing an author's theme cannot restyle AeleOS
- * buttons, inputs, menus or cards.
- *
- * The values are filtered from {@link themeVars}, not derived again. The
- * allowlist is closed: it names the field, canvas choice, three dials, blend
- * mode and every numbered colour slot up to `MAX_CANVAS_COLOURS`. A future
- * `--canvas-*` control therefore stays preview-only until this document-level
- * contract deliberately admits it, while changes to the values of the known
- * declarations still share one source with public pages and preview hosts.
- *
- * The picture declarations likewise come from {@link bodyBackgroundVars} and
- * stay on `body`. Moving them into `:root` would paint the image behind body's
- * own opaque `--field` background, making a valid declaration invisible.
- * Stored addresses are consequently accepted or refused by
- * `backgroundImageValue` before this function interpolates them.
- *
- * The selectors carry no persistent gate: a caller mounts this stylesheet only
- * while its own surface is open, and unmounting it restores the app's
- * inherited field, canvas and body background exactly. There are TWO such
- * callers — `ThemeConfigurator` while its panel is open, and
- * `CompletePagePreview` while its disclosure is — because both are places
- * where a page-scale choice has to be judged. They may be open at once, and
- * that costs nothing: the rules are byte-identical, so neither can win a
- * different value from the other.
- *
- * @param theme - the live theme draft.
- * @returns document CSS containing only atmosphere declarations, or empty when
- *   the draft overrides none.
- */
-export function atmosphereCss(theme: ActorTheme): string {
-  const atmosphere = Object.fromEntries(
-    Object.entries(themeVars(theme)).filter(([name]) =>
-      ATMOSPHERE_PROPERTIES.has(name),
-    ),
-  );
-  const root = declarations(atmosphere);
-  const body = declarations(bodyBackgroundVars(theme));
-  return [root ? `:root{${root}}` : "", body ? `body{${body}}` : ""].join("");
-}
-
 /**
  * What a chosen accent actually renders as.
  *
@@ -996,77 +936,6 @@ export function atmosphereCss(theme: ActorTheme): string {
  */
 export function accentPreview(accentHex: string, background: Gradient): string {
   return derivePalette(background, accentHex)["--accent"] ?? accentHex;
-}
-
-/**
- * The properties `globals.css` composes at `:root` out of other properties.
- *
- * A preview host is a descendant rather than the root, so it has to restate
- * these for them to re-resolve against the author's raw colours; see
- * {@link previewThemeCss} for the mechanism and the fault it caused. Taken from
- * `SKIN_DEFAULTS` because that table is already parsed against `globals.css` by
- * `skins.test.ts` — a fourth composed property added to the stylesheet is
- * caught there and by `previewThemeCss`'s own drift test, not by a reader
- * remembering this list exists.
- */
-const ROOT_COMPOSED: Record<string, string> = {
-  "--surface": SKIN_DEFAULTS["--surface"]!,
-  "--bar": SKIN_DEFAULTS["--bar"]!,
-};
-
-/**
- * A theme as CSS for an editor preview boundary.
- *
- * **Editor-only, and never a replacement for {@link themeCss}.** Public pages
- * need document selectors so their field, canvas and background can receive
- * the theme; the builder instead needs every declaration stopped at its own
- * preview host so none of them restyles the surrounding controls.
- *
- * Every value interpolated here was already generated or refused by
- * {@link themeVars}, `skinVars` or {@link bodyBackgroundVars}, so a stored
- * value can never close this rule and write CSS of its own.
- *
- * Every host intentionally shares this selector because one editor has one
- * live page theme. Rendering two different draft themes side by side is not a
- * supported state; that future feature would require a per-host selector
- * rather than silently changing this invariant.
- *
- * **It re-declares what `globals.css` COMPOSES at `:root`, and without that a
- * preview cannot show an author's colours at all.** A custom property whose
- * value contains `var()` is substituted where it is declared, and descendants
- * inherit the already-substituted result — so `--surface: var(--surface-solid)`
- * at `:root` is frozen to the APP's raw colour, and a host that overrides only
- * `--surface-solid` changes nothing about `--surface`. Measured rather than
- * reasoned: every panel in the complete preview painted the app's near-white
- * while the same section on the public page painted the author's, because
- * `themeCss` writes to `:root` itself and re-resolves the composition there.
- * The values come from `SKIN_DEFAULTS`, which `skins.test.ts` already pins
- * against the stylesheet, rather than from a third copy of them here, and they
- * sit BENEATH the skin so a skin that composes its own alpha still wins.
- *
- * A theme overriding nothing still emits nothing: the composition is added
- * only once there is something authored to compose, so an unthemed preview
- * keeps inheriting the app exactly as it did.
- *
- * **One rule again.** It split in two for a day so that a host wearing the
- * document's atmosphere could be withheld the background-picture layers; that
- * host is gone with the inline complete preview, which is a real document at
- * `/{locale}/me/preview` now. Every remaining host is a bounded tray that
- * paints its own field.
- *
- * @param theme - the chosen theme.
- * @returns one preview-scoped rule, or empty when the theme overrides nothing.
- */
-export function previewThemeCss(theme: ActorTheme): string {
-  const selector = "[data-preview-theme]";
-  const authored = {
-    ...themeVars(theme),
-    ...skinVars(theme.skin),
-    ...bodyBackgroundVars(theme),
-  };
-  if (Object.keys(authored).length === 0) return "";
-  const values = declarations({ ...ROOT_COMPOSED, ...authored });
-  return `${selector}{${values}}`;
 }
 
 /**

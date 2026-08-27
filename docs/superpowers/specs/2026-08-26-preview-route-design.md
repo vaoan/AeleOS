@@ -1,5 +1,24 @@
 # The preview route — design
 
+> **SUPERSEDED, 2026-08-27**, by
+> `2026-08-27-the-editor-wears-the-page-design.md`.
+>
+> This framed a real route in an iframe to give a draft its own viewport. It was
+> buying back a viewport the editor had given away by containing the theme in a
+> box — and once the editor themes its own document, the draft already HAS a
+> real viewport. The route, the document, the `postMessage` contract, the device
+> table and the backdrop banding are all deleted, and `frame-ancestors` closed
+> back to `'none'`.
+>
+> What remains true: the measurement that motivated it — up to 72.6% of a
+> section's pixels somewhere else, and scrolling one document by 120px moving
+> the same section's backdrop by 71.2%. That is why the backdrop has to be
+> behind the DOCUMENT, which is exactly what the superseding design does. The
+> seven wrong instruments its fidelity suite took are also still worth reading.
+>
+> The body below is left as delivered. Read the superseding spec first; this is
+> history, and a banner is only a banner while somebody updates it.
+
 **Status: COMPLETE — implemented and verified 2026-08-26.**
 
 The complete-page preview becomes an `<iframe>` of a real route at a named

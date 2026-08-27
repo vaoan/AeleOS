@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { EyeOff } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { PageContext } from "@/features/actors/presentation/blocks";
 import {
@@ -13,6 +15,8 @@ import {
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { WidePageColumn } from "@/shared/presentation/page-shell";
+import { CHROME_SCOPE } from "@/shared/domain/chrome";
+import { ThemeScope } from "@/features/actors/presentation/theme-scope";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
 import {
   EditorToolbar,
@@ -23,18 +27,11 @@ import {
   BlockEditor,
   type BlockEditorLabels,
 } from "@/features/actors/presentation/block-editor";
-import {
-  useLanguageToggle,
-  type AuthoringLanguage,
-} from "@/features/actors/application/use-language-toggle";
+import { useLanguageToggle } from "@/features/actors/application/use-language-toggle";
 import {
   ThemeConfigurator,
   type ThemeConfiguratorLabels,
 } from "@/features/actors/presentation/theme-configurator";
-import {
-  CompletePagePreview,
-  type CompletePagePreviewLabels,
-} from "@/features/actors/presentation/complete-page-preview";
 import {
   DEFAULT_THEME,
   themeSchema,
@@ -66,10 +63,6 @@ import { z } from "zod";
  * name itself and then say what it governs — this editor has an app language
  * and an authoring language, and the switch moves only the second.
  *
- * `completePreview` is nested because its disclosure has a title and two state
- * labels of its own. Keeping that bag intact lets the read-only page preview
- * own its wording without colliding with the editor toolbar's title.
- *
  * Extends the toolbar's and the block editor's, because the editor owns one
  * label bag and hands slices of it down rather than each level resolving its
  * own — a component that resolved its own would need the catalogue in the
@@ -85,8 +78,6 @@ export interface FursonaEditorLabels
   extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
-  /** The collapsed, read-only whole-page preview's strings. */
-  completePreview: CompletePagePreviewLabels;
   /** Names the control that switches which language is being written. */
   writingIn: string;
   /** Says which fields the language switch governs. */
@@ -373,14 +364,17 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * back through one `onChange`. There is no `sort_order` left to renumber
  * either: the array IS the order, at every depth.
  *
- * **Workbench surfaces use stable AeleOS tokens.** Their `surface` classes
- * style editor panels and fields without admitting author palette, skin or
- * section-style tokens; those are confined to `PreviewThemeHost` boundaries.
- * Workbench groups that hold bare text paint an opaque AeleOS solid beneath
- * themselves. Those backings are load-bearing while the theme panel puts an
- * author's atmosphere on the document: a translucent card or bare label can
- * never end up reading directly over a hostile near-white or near-black field,
- * while the atmosphere remains visible in the spaces between groups and inside
+ * **Workbench surfaces use stable AeleOS tokens.** Every control is an island
+ * wearing `CHROME_SCOPE`, which re-declares those tokens on the island itself
+ * — the cascade compares declarations on the same element, so an island always
+ * beats what `:root` is carrying. Workbench groups that hold bare text paint an
+ * opaque AeleOS solid beneath themselves — the toolbar and the language strip
+ * take `--menu`, which is opaque in both modes, rather than the 35%-alpha
+ * `--bar-solid` they wore while the app's own field was behind them. That is a
+ * GUARANTEE rather than a measurement: what is behind a control is a colour the author chose, they may
+ * choose any colour, and no measurement can give a translucent control contrast
+ * against a colour somebody else picks. The page remains visible in the spaces
+ * between groups and inside
  * preview hosts.
  *
  * **Every one of those groups is a card, and the identity fields were the
@@ -396,9 +390,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * made, but naming the missing English title would be naming a cause that is
  * not the cause.
  *
- * `page` is overlaid with the live identity and measure, then threaded to both
- * the section trays and the complete page preview — see
- * {@link FursonaEditorProps}.
+ * `page` is overlaid with the live identity and measure, then threaded to every
+ * section tray — see {@link FursonaEditorProps}.
  *
  * **The block editor previews from the LIVE form, not from the saved page.**
  * Identity leaves render out of the page context, so handing down the one the
@@ -408,27 +401,33 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * is the route's, because an address is assigned rather than typed and a
  * fursona's owner is not something its editor can change.
  *
- * **The live theme follows the same boundary.** The form's unsaved theme is
- * watched separately and handed to each preview tray, where
- * `PreviewThemeHost` contains it; the editor controls therefore keep the
- * AeleOS workbench palette and shape while the public renderer updates live.
+ * **The live theme goes to the DOCUMENT.** `ThemeScope` takes the form's
+ * unsaved theme, so `:root` carries the author's palette, `body` paints their
+ * field and background picture, and the root layout's canvas is theirs — which
+ * is the only place any of those can be judged, since a canvas fixed to the
+ * viewport cannot be put behind a box. The controls keep the AeleOS workbench
+ * palette because each is an island, not because the theme is contained.
  *
- * **The complete preview follows the workbench and stays outside its drag
- * context and its column.** It is a collapsed, read-only rendering of the
- * whole live tree, using the same `PublicBlocks` component a stranger sees.
- * `WidePageColumn` recreates the old signed-in shell around every control and
- * stops before this sibling, so its sections can own their public measure and
- * bleed. Keeping it after `BlockEditor` means its geometry is never measured
- * as a droppable.
- * Its sections subscription lives in a small controller at that boundary,
- * rather than in this editor, so a leaf edit does not rerender the toolbar,
- * identity fields and theme controls merely to update the complete preview.
+ * **There is no whole-page preview component any more.** It was an iframe of a
+ * real route, deleted on 2026-08-27: a preview needs a document of its own only
+ * while the editor's document belongs to the app, and this editor themes its
+ * own `:root` with the draft. The page being built is the document it is being
+ * built on, so the section trays are the whole of the preview and hiding the
+ * controls is what shows the page.
  *
  * **A page being CREATED opens with its required blocks**, the same
  * `withRequiredBlocks` output `readActorPage` answers for an actor with
  * nothing stored. The create page has no actor to read, so it fell through to
  * an empty tree — which `set_actor_sections` refuses, making a fursona built
  * by hand impossible to save at all.
+ *
+ * **The workbench can step aside.** One attribute on the element wrapping the
+ * editor arms two rules in `globals.css`: one removes every `CHROME_SCOPE`
+ * island, the other flattens this editor's own stacking so the sections close
+ * up to the spacing `pageBoxClass` gives them on a public page. Nothing
+ * persists the choice — it is a way of looking, not a preference. The control
+ * that brings the workbench back is rendered OUTSIDE the armed element, or the
+ * rule would hide the only way out of the state it created.
  *
  * @returns the editor.
  */
@@ -454,6 +453,11 @@ export function FursonaEditor({
     initialSections !== null,
   );
   const { lang, select } = useLanguageToggle();
+  // **A way of LOOKING, not a preference, so nothing persists it.** Somebody
+  // steps the workbench out of the way to see their page and steps it back; a
+  // remembered value would open the editor with no controls at all for whoever
+  // did that once.
+  const [controlsHidden, setControlsHidden] = useState(false);
 
   const {
     control,
@@ -534,241 +538,242 @@ export function FursonaEditor({
         if (await save(values)) router.push(LIST);
       })}
     >
-      <WidePageColumn className="py-0 pt-6 sm:py-0 sm:pt-10">
-        <EditorToolbar
-          title={labels.title}
-          labels={labels}
-          saving={saving}
-          cancelHref={LIST}
-        />
+      {/* **The DOCUMENT wears the page being built.** The same component a
+          public route uses, handed the live draft rather than a stored theme —
+          so `:root` carries the author's palette, `body` paints their field and
+          background picture, and the canvas mounted in the root layout is
+          theirs. That is what makes a section preview sit on the backdrop it
+          will sit on, and it is why there is no framed preview any more.
 
-        <FormErrorBanner
-          errors={{ ...schemaErrors, ...fieldErrors }}
-          labels={{ title: labels.bannerTitle, errors: labels.errors }}
-        />
+          Every control is an island inside it wearing `CHROME_SCOPE`, which
+          re-declares AeleOS's own tokens on itself. See `shared/domain/chrome.ts`
+          for why that needs no cascade fight, and `section-card-face.spec.ts`
+          for the guard. */}
+      <ThemeScope theme={liveTheme as ActorTheme}>
+        {/* **Everything the hide-controls rule reaches.** One CSS rule removes
+            every `CHROME_SCOPE` island beneath this attribute, which is why
+            hiding is by CLASS rather than by a list of components somebody has
+            to keep in step — a control added tomorrow is hidden without anybody
+            remembering. A second rule flattens the editor's own stacking, so
+            the sections close up to exactly the spacing `pageBoxClass` gives
+            them on a public page. */}
+        <div data-controls={controlsHidden ? "hidden" : "shown"}>
+          <WidePageColumn
+            className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
+          >
+            <EditorToolbar
+              title={labels.title}
+              labels={labels}
+              saving={saving}
+              cancelHref={LIST}
+              onHideControls={() => setControlsHidden(true)}
+            />
 
-        {/* Explicit htmlFor/id rather than wrapping each input in its label.
+            <FormErrorBanner
+              errors={{ ...schemaErrors, ...fieldErrors }}
+              labels={{ title: labels.bannerTitle, errors: labels.errors }}
+            />
+
+            {/* Explicit htmlFor/id rather than wrapping each input in its label.
           A wrapping label takes its whole text content as the field's
           accessible name, so the handle's hint became part of the name and it
           announced as "Handle 1-32 characters." The hint is attached with
           aria-describedby instead, which is what it is for. */}
-        {/* **The same container every other workbench group gets.** This one
+            {/* **The same container every other workbench group gets.** This one
           held the opaque backing without the chrome around it, so on a themed
           page it read as a bare rectangle floating on the author's field while
           the theme panel, the language toggle and every section below it were
           rounded, bordered cards. The backing is unchanged — it is what keeps
           these labels off a hostile field — and only the card's own shape has
           been added to it. */}
-        <div
-          {...tid("editor-identity-fields")}
-          className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
-        >
-          {/* **A person has no handle field at all.** Theirs is the provisioned
+            <div
+              {...tid("editor-identity-fields")}
+              className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
+            >
+              {/* **A person has no handle field at all.** Theirs is the provisioned
             `u-<actor_ref>`, which nobody picks and which appears in no
             address — so there is nothing to edit and nothing worth showing.
             Everything else on this form is identical for both. */}
-          {kind === "person" ? null : (
-            <div className="grid gap-1.5">
-              <label htmlFor="handle" className="text-sm font-medium">
-                {labels.handle}
-              </label>
-              {handleEditable ? (
-                <>
-                  <input
-                    id="handle"
-                    {...tid("editor-handle")}
-                    {...register("handle")}
-                    maxLength={32}
-                    aria-invalid={Boolean(errors.handle)}
-                    aria-describedby="handle-hint"
-                    className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                  />
-                  <span id="handle-hint" className="text-xs text-(--muted)">
-                    {labels.handleHint}
-                  </span>
-                </>
-              ) : (
-                // Read-only text rather than a disabled input: update_fursona takes
-                // no handle at all, so an editable one would submit a value the
-                // database ignores.
-                <span className="px-3 py-2 font-mono text-sm text-(--muted)">
-                  @{initial?.handle}
-                </span>
+              {kind === "person" ? null : (
+                <div className="grid gap-1.5">
+                  <label htmlFor="handle" className="text-sm font-medium">
+                    {labels.handle}
+                  </label>
+                  {handleEditable ? (
+                    <>
+                      <input
+                        id="handle"
+                        {...tid("editor-handle")}
+                        {...register("handle")}
+                        maxLength={32}
+                        aria-invalid={Boolean(errors.handle)}
+                        aria-describedby="handle-hint"
+                        className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                      />
+                      <span id="handle-hint" className="text-xs text-(--muted)">
+                        {labels.handleHint}
+                      </span>
+                    </>
+                  ) : (
+                    // Read-only text rather than a disabled input: update_fursona takes
+                    // no handle at all, so an editable one would submit a value the
+                    // database ignores.
+                    <span className="px-3 py-2 font-mono text-sm text-(--muted)">
+                      @{initial?.handle}
+                    </span>
+                  )}
+                </div>
               )}
+
+              <div className="grid gap-1.5">
+                <label htmlFor="displayName" className="text-sm font-medium">
+                  {labels.displayName}
+                </label>
+                <input
+                  id="displayName"
+                  {...tid("editor-display-name")}
+                  {...register("displayName")}
+                  maxLength={64}
+                  aria-invalid={Boolean(errors.displayName)}
+                  className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <label htmlFor="avatarUrl" className="text-sm font-medium">
+                  {labels.avatarUrl}
+                </label>
+                <input
+                  id="avatarUrl"
+                  {...register("avatarUrl")}
+                  type="url"
+                  aria-invalid={Boolean(errors.avatarUrl)}
+                  className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <label htmlFor="visibility" className="text-sm font-medium">
+                  {labels.visibilityLabel}
+                </label>
+                <select
+                  id="visibility"
+                  {...tid("editor-visibility")}
+                  {...register("visibility")}
+                  aria-invalid={Boolean(errors.visibility)}
+                  className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
+                >
+                  {VISIBILITIES.map((value) => (
+                    <option key={value} value={value}>
+                      {labels.visibility[value]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          )}
 
-          <div className="grid gap-1.5">
-            <label htmlFor="displayName" className="text-sm font-medium">
-              {labels.displayName}
-            </label>
-            <input
-              id="displayName"
-              {...tid("editor-display-name")}
-              {...register("displayName")}
-              maxLength={64}
-              aria-invalid={Boolean(errors.displayName)}
-              className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <label htmlFor="avatarUrl" className="text-sm font-medium">
-              {labels.avatarUrl}
-            </label>
-            <input
-              id="avatarUrl"
-              {...register("avatarUrl")}
-              type="url"
-              aria-invalid={Boolean(errors.avatarUrl)}
-              className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <label htmlFor="visibility" className="text-sm font-medium">
-              {labels.visibilityLabel}
-            </label>
-            <select
-              id="visibility"
-              {...tid("editor-visibility")}
-              {...register("visibility")}
-              aria-invalid={Boolean(errors.visibility)}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
-            >
-              {VISIBILITIES.map((value) => (
-                <option key={value} value={value}>
-                  {labels.visibility[value]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Above the language strip and the sections, because it governs how
+            {/* Above the language strip and the sections, because it governs how
           all of them look. The panel is collapsed until somebody opens it —
           theming is a thing people do once and then leave alone, and an open
           colour panel would push everything below it down the page for
           everybody who never touches it. */}
-        <div className="mt-8">
-          <ThemeController
-            control={control}
-            labels={labels.theme}
-            profileTheme={profileTheme}
-          />
-        </div>
+            <div className="mt-8">
+              <ThemeController
+                control={control}
+                labels={labels.theme}
+                profileTheme={profileTheme}
+              />
+            </div>
 
-        {/* Directly above the sections it governs, and nothing else: `lang`
+            {/* Directly above the sections it governs, and nothing else: `lang`
           reaches only `SectionEditor`, so a strip sitting between the top
           fields and the theme panel used to announce itself over content it
           does not touch. Its `sticky` offset is what makes this position
           correct rather than merely tidier — it comes into force exactly
           when the sections it governs are on screen. */}
-        <div className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--bar-solid) p-3 backdrop-blur-sm short:static">
-          <div className="grid gap-0.5">
-            <span className="font-display text-sm font-bold">
-              {labels.writingIn}
-            </span>
-            <span className="text-xs text-(--muted)">
-              {labels.writingInHint}
-            </span>
-          </div>
+            <div // **`--menu`, which is OPAQUE, for the same reason the toolbar takes it.**
+              // `--bar-solid` is 35% alpha — glass that assumed the app's own muted
+              // field behind it. The document wears the author's page now, so this
+              // strip's hint sat over whatever picture they chose. Photographed
+              // against a four-quadrant photo, it was unreadable over two of them.
+              className="sticky top-(--bar-top-2) z-10 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 backdrop-blur-sm short:static"
+            >
+              <div className="grid gap-0.5">
+                <span className="font-display text-sm font-bold">
+                  {labels.writingIn}
+                </span>
+                <span className="text-xs text-(--muted)">
+                  {labels.writingInHint}
+                </span>
+              </div>
 
-          {/*
+              {/*
           Both languages are on screen and each names itself, so nothing has to
           be inferred from a single label. The endonyms are deliberately not
           translated: a language is called the same thing whatever interface
           you are reading, and "Spanish"/"Español" changing under somebody is
           how a language picker becomes unreadable to the person who needs it.
         */}
-          <div
-            role="group"
-            aria-label={labels.writingIn}
-            className="flex rounded-lg surface border-(--edge) p-0.5"
-          >
-            {(
-              [
-                ["en", "English"],
-                ["es", "Español"],
-              ] as const
-            ).map(([value, name]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => select(value)}
-                aria-pressed={lang === value}
-                {...tid(`writing-in-${value}`)}
-                className={
-                  lang === value
-                    ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
-                    : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
-                }
+              <div
+                role="group"
+                aria-label={labels.writingIn}
+                className="flex rounded-lg surface border-(--edge) p-0.5"
               >
-                {name}
-              </button>
-            ))}
-          </div>
+                {(
+                  [
+                    ["en", "English"],
+                    ["es", "Español"],
+                  ] as const
+                ).map(([value, name]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => select(value)}
+                    aria-pressed={lang === value}
+                    {...tid(`writing-in-${value}`)}
+                    className={
+                      lang === value
+                        ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
+                        : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
+                    }
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </WidePageColumn>
+
+          <BlockEditor
+            control={control}
+            lang={lang}
+            labels={labels}
+            // **The LIVE form values, not the saved ones.** An identity leaf
+            // renders from the page context, and every section previews with the
+            // real renderer — so handing the context the route built would show
+            // somebody the portrait they had before they started editing, and the
+            // preview would quietly disagree with the form six inches above it.
+            page={livePage}
+            problems={problems}
+          />
         </div>
 
-        <BlockEditor
-          control={control}
-          lang={lang}
-          labels={labels}
-          // **The LIVE form values, not the saved ones.** An identity leaf
-          // renders from the page context, and every section previews with the
-          // real renderer — so handing the context the route built would show
-          // somebody the portrait they had before they started editing, and the
-          // preview would quietly disagree with the form six inches above it.
-          page={livePage}
-          // The preview contains the unsaved theme for the same reason it takes
-          // live actor facts: authoring chrome must stay stable while the real
-          // renderer shows exactly what the form currently holds.
-          theme={liveTheme as ActorTheme}
-          problems={problems}
-        />
-      </WidePageColumn>
-      <CompletePreviewController
-        control={control}
-        theme={liveTheme as ActorTheme}
-        lang={lang}
-        page={livePage}
-        labels={labels.completePreview}
-      />
+        {/* **OUTSIDE the element the rule reaches**, so it needs no exception and
+          cannot be part of what the fidelity comparison photographs. It is the
+          only thing on screen that is not the page. */}
+        {controlsHidden ? (
+          <button
+            type="button"
+            onClick={() => setControlsHidden(false)}
+            {...tid("show-controls")}
+            className={`${CHROME_SCOPE} fixed right-4 bottom-4 z-50 flex items-center gap-1.5 rounded-full bg-(--menu) px-4 py-2.5 text-sm font-medium shadow-lg`}
+          >
+            <EyeOff className="size-4" />
+            {labels.showControls}
+          </button>
+        ) : null}
+      </ThemeScope>
     </form>
-  );
-}
-
-/**
- * Subscribes the optional full-page preview to the live block tree.
- *
- * Kept below the editor boundary so a leaf edit rerenders the block workbench
- * and this small read-only disclosure, not the toolbar, identity fields and
- * theme controls above them.
- *
- * @returns the complete preview bound to the form's sections field.
- */
-function CompletePreviewController<T extends FieldValues>({
-  control,
-  theme,
-  lang,
-  page,
-  labels,
-}: {
-  control: Control<T>;
-  theme: ActorTheme;
-  lang: AuthoringLanguage;
-  page: PageContext;
-  labels: CompletePagePreviewLabels;
-}) {
-  const blocks = useWatch({ control, name: "sections" as Path<T> });
-  return (
-    <CompletePagePreview
-      blocks={(blocks ?? []) as Block[]}
-      theme={theme}
-      lang={lang}
-      page={page}
-      labels={labels}
-    />
   );
 }
 

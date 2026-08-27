@@ -167,44 +167,22 @@ test.describe("the signed-in pages are accessible", () => {
     await expect(page.getByTestId("add-section")).toBeVisible();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
-    // A blank draft's required identity section has no heading of its own.
-    // Name a real section so the ordering assertion below compares two actual
-    // headings rather than passing over an empty preview.
+    // **A section of this test's own, and the assertions below depend on it.**
+    // Every page opens carrying the identity section the database requires, and
+    // that section is a two-place grid holding a NESTED container — so without
+    // a section added here, `section-card.last()` is the identity one and
+    // `section-style-open` inside it resolves to two elements, its own and its
+    // child's. Removing this line when the framed preview went is exactly the
+    // fault it caused.
     await page.getByTestId("add-section").click();
-    await page.getByTestId("section-name").last().fill("Preview heading");
-    const completePreview = page.getByTestId("complete-page-preview");
-    const workbenchHeading = completePreview
-      .locator(":scope > div")
-      .first()
-      .locator("h2");
-    // The collapsed disclosure is a state of its own, so the broad rendered
-    // scan stays. It does NOT guard the dangling `aria-controls` detail:
-    // deliberately pointing the toggle at the unmounted content left this axe
-    // scan green. `complete-page-preview.test.tsx` owns that exact omission.
-    await isAccessible(page, "the editor with the complete preview collapsed");
-    await page.getByTestId("complete-page-preview-toggle").click();
-    const framed = page.frameLocator(
-      '[data-testid="complete-page-preview-frame"]',
-    );
-    await expect(framed.getByTestId("page-content")).toBeVisible();
-    await isAccessible(page, "the editor with the theme panel open");
+    await page.getByTestId("section-name").last().fill("A section of my own");
 
-    // **The preview is its own DOCUMENT, so heading order across it is no
-    // longer a thing that exists.** This used to assert that the workbench's
-    // own heading came before the preview's first content heading, which was a
-    // real claim while both lived in one outline and is meaningless between
-    // two. What replaces it is the claim that still means something: the
-    // workbench keeps a heading of its own, and the framed page is scanned as
-    // the separate document it is.
-    await expect(workbenchHeading).toBeVisible();
-    const previewScan = await new AxeBuilder({ page })
-      .include('[data-testid="complete-page-preview-frame"]')
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    expect(
-      previewScan.violations,
-      "the framed preview document is accessible in its own right",
-    ).toEqual([]);
+    // **There is no framed preview to scan any more.** The editor themes its
+    // own document and hides its controls to show the page, so what used to be
+    // a second document inside this one is simply this one. The page the
+    // editor draws is covered by the scan below like every other part of it,
+    // and `editor-is-the-page.spec.ts` is what proves it matches the live page.
+    await isAccessible(page, "the editor with the theme panel open");
 
     // Close the theme panel before opening a section's own style popup, so
     // axe reads one open overlay at a time rather than two stacked ones.

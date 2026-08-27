@@ -137,26 +137,44 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       // empty places. A class locator on the last card cannot tell those
       // apart from the one placeholder this case is about — CI went red at
       // count 2 for that reason, not because the cascade had changed.
-      await chooseNewSectionSpaces(page, "1");
+      // **TWO places, one filled.** The claim has two halves and each needs an
+      // element: a painted one in the preview to take the choice, and an empty
+      // one in the control card to refuse it. One place left empty gives the
+      // second and not the first — the section renders nothing at all, because
+      // a container whose every place is empty draws nothing.
+      await chooseNewSectionSpaces(page, "2");
       await page.getByTestId("add-section").click();
       await expect(page.getByTestId("section-card")).toHaveCount(2);
+      await page.getByTestId("add-content").last().click();
+      // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null when
+      // it has neither a title nor a description, so a freshly added content
+      // block draws no card at all — and the card is what paints the edge.
+      await page.getByTestId("leaf-title").last().fill("Bordered");
 
       const card = page.getByTestId("section-card").last();
-      // The face is the layer carrying `surface` — a plain one, naming no
-      // border-style utility — and it is the element the editor's preview
-      // actually paints the section's form on.
+      // **The SECTION the renderer draws, which is what a visitor sees.** This
+      // used to read a `section-preview-face` — an element the preview tray
+      // painted on the author's behalf, so the picture could sit under the
+      // card's own corners. There is no face any more: the tray paints nothing
+      // and renders the real section, so the border resolves on the same
+      // element and in the same property a stranger's browser resolves it on.
       const tray = page.getByTestId("block-preview").last();
       const preview = tray.getByTestId("public-section");
-      const face = tray.getByTestId("section-preview-face");
+      // **The element that CONSUMES the property, not the one that sets it.**
+      // `--skin-border-style` is written on the section; what paints an edge
+      // from it is the `surface` card each leaf renders inside. Reading the
+      // section itself answers `solid` however the choice went, which is an
+      // assertion that cannot fail — measured, it did exactly that.
+      const painted = tray.getByTestId("public-leaf").locator("div").first();
       const placeholder = card.getByTestId("empty-place");
       await expect(placeholder).toHaveCount(1);
 
-      // Before anything is chosen: the face falls through to the design's
+      // Before anything is chosen: the section falls through to the design's
       // own solid edge, and the placeholder is dashed. Read first so the
-      // assertions after the choice measure a CHANGE rather than a state
-      // that was already there — without this, a face that is dotted for
-      // some unrelated reason would pass.
-      expect(await borderStyleOf(face)).toBe("solid");
+      // assertions after the choice measure a CHANGE rather than a state that
+      // was already there — without this, a section that is dotted for some
+      // unrelated reason would pass.
+      expect(await borderStyleOf(painted)).toBe("solid");
       expect(await borderStyleOf(placeholder)).toBe("dashed");
 
       await page.getByTestId("section-style-open").last().click();
@@ -172,11 +190,12 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
         )
         .toBe("dotted");
 
-      // Half 1: the preview face takes the section's choice.
-      expect(await borderStyleOf(face)).toBe("dotted");
+      // Half 1: the previewed section's own card takes the choice.
+      expect(await borderStyleOf(painted)).toBe("dotted");
       // Half 2: the empty place stays dashed because it is in the AeleOS
-      // control card, outside the sibling preview scope. This fixture cannot
-      // discriminate Tailwind utility ordering and makes no claim about it.
+      // control card — a `CHROME_SCOPE` island, and a sibling of the preview
+      // rather than an ancestor of it. This fixture cannot discriminate
+      // Tailwind utility ordering and makes no claim about it.
       expect(await borderStyleOf(placeholder)).toBe("dashed");
     } finally {
       await deleteTestIdentity(identity.userId);
@@ -215,19 +234,31 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
       await page.goto("/es/pages/new");
       await chooseNewSectionSpaces(page, "2");
       await page.getByTestId("add-section").click();
+      // Content, because an edge needs something to be drawn around: a leaf's
+      // own `surface` card is what consumes `--skin-border-style`, and a
+      // container whose every place is empty renders nothing at all.
+      await page.getByTestId("add-content").last().click();
+      // Titled, or `PlainLeaf` renders nothing and there is no card to sample.
+      await page.getByTestId("leaf-title").last().fill("Bordered");
       await page.getByTestId("collapse-section").last().click();
 
       const card = page
         .getByTestId("block-preview")
         .last()
         .getByTestId("public-section");
+      // **The leaf's own card is what paints now.** There is no preview face —
+      // the tray renders the real renderer's element — and the section carries
+      // the custom property while the card beneath it draws the edge, so the
+      // pixels below are the ones a visitor's browser puts on the page.
       const face = page
         .getByTestId("block-preview")
         .last()
-        .getByTestId("section-preview-face");
+        .getByTestId("public-leaf")
+        .locator("div")
+        .first();
 
       /**
-       * The pixel run inward from the face's right edge, at mid-height.
+       * The pixel run inward from the section's right edge, at mid-height.
        *
        * Mid-height because `rounded-xl` curves both corners and a probe inside
        * that arc would be answering a question about the radius. Four pixels

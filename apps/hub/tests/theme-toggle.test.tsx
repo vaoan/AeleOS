@@ -101,10 +101,28 @@ describe("ThemeToggle on a page wearing its author's theme", () => {
   it("takes the author's theme off when pressed", () => {
     document.documentElement.setAttribute("data-page-theme", "author");
     document.documentElement.setAttribute("data-theme", "light");
-    render(<ThemeToggle {...LABELS} />);
+    render(<ThemeToggle {...LABELS} clearsPageTheme />);
     fireEvent.click(screen.getByRole("button"));
     expect(document.documentElement.getAttribute("data-page-theme")).toBe(
       "default",
+    );
+    expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  // **THE REGRESSION TEST for an editor that threw the page away.** Clearing is
+  // licensed by the way back — the page-theme switch `PageShell` renders beside
+  // this control on a public page and nowhere else. The editor themes its own
+  // document with the draft now, so a toggle that cleared there would discard
+  // the page somebody is building, with nothing in the signed-in bar to restore
+  // it. The press still changes what they see: every control is a
+  // `CHROME_SCOPE` island following the light/dark choice.
+  it("leaves the author's theme alone where there is no way back", () => {
+    document.documentElement.setAttribute("data-page-theme", "author");
+    document.documentElement.setAttribute("data-theme", "light");
+    render(<ThemeToggle {...LABELS} />);
+    fireEvent.click(screen.getByRole("button"));
+    expect(document.documentElement.getAttribute("data-page-theme")).toBe(
+      "author",
     );
     expect(document.documentElement.dataset.theme).toBe("dark");
   });

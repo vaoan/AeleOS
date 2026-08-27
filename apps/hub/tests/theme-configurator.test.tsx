@@ -114,7 +114,15 @@ function openPanel(theme = DEFAULT_THEME) {
 }
 
 describe("ThemeConfigurator", () => {
-  it("applies only the live atmosphere while open and removes it on close", () => {
+  // **The panel emits no stylesheet of its own, and that is the change rather
+  // than an omission.** It used to mount `atmosphereCss` while open — a
+  // filtered subset of the theme (`--field`, the canvas dials, the body
+  // picture) put on the document, because a page-scale choice cannot be judged
+  // inside a box. The whole editor document wears the whole theme now, through
+  // the same `ThemeScope` a public route uses, so the atmosphere is live
+  // whether this panel is open or shut and a second stylesheet here could only
+  // compete with the first.
+  it("emits no stylesheet of its own, open or closed", () => {
     function StatefulConfigurator() {
       const [theme, setTheme] = useState(DEFAULT_THEME);
       return (
@@ -133,12 +141,9 @@ describe("ThemeConfigurator", () => {
       target: { value: "https://example.test/wallpaper.png" },
     });
 
-    const css = container.querySelector("style")?.textContent ?? "";
-    expect(css).toContain(":root{");
-    expect(css).toContain("--field:");
-    expect(css).toContain("body{background-image:");
-    expect(css).not.toContain("--ink:");
-    expect(css).not.toContain("--accent:");
+    // The choice still travels — it is the CALLER's to apply, and
+    // `fursona-editor.test.tsx` is where the document is watched receiving it.
+    expect(container.querySelector("style")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("theme-open"));
     expect(container.querySelector("style")).not.toBeInTheDocument();

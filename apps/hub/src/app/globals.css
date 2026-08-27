@@ -12,8 +12,27 @@
  * contrast figures be reasoned about rather than guessed. `pnpm check:contrast`
  * measures the pairs that matter; when a token here moves, move it there too or
  * the check is measuring the old design.
+ *
+ * **The palette is declared for the ROOT and for a chrome island, in one rule,
+ * and that is load-bearing rather than tidy.** The editor themes its own
+ * document with the page its author is building, exactly as a public route
+ * does — so a control sitting on that document would inherit their colours. An
+ * island wearing `.aeleos-chrome` re-declares these ON ITSELF, and a
+ * declaration on an element always beats one inherited from an ancestor: the
+ * cascade only ever compares declarations on the same element, so there is no
+ * specificity or source-order fight to lose here. See `CHROME_SCOPE` in
+ * `shared/domain/chrome.ts`.
+ *
+ * **The composed pair below must stay inside this block.** `--surface` and
+ * `--bar` are composed from the raw values above them, and a descendant
+ * inherits the already-resolved result — so an island restating only the raws
+ * would go on wearing the author's surface. Declaring the composition here
+ * makes it re-resolve against whichever raws win on the island itself. That is
+ * the same hazard `ROOT_COMPOSED` in `features/actors/domain/actor-theme.ts`
+ * exists for, met from the other side.
  */
-:root {
+:root,
+.aeleos-chrome {
   /*
    * **What the browser paints its OWN surfaces with**, which is everything we
    * do not draw: the inside of a `select`'s dropdown, scrollbars, spellcheck
@@ -113,7 +132,15 @@
   --nebula-opacity: 0.45;
 }
 
-[data-theme="dark"] {
+/*
+ * **The dark half, for the root and for a chrome island inside a dark
+ * document.** The island is a descendant rather than the root, so it cannot be
+ * reached by the bare attribute selector — a control in the editor would then
+ * take its raw colours from the light block and its `color-scheme` from
+ * nowhere. The descendant form is what carries the mode across the boundary.
+ */
+[data-theme="dark"],
+[data-theme="dark"] .aeleos-chrome {
   /* The other half. Set on the same attribute the tokens are, so the browser's
    * surfaces and ours can never disagree about which scheme is in force. */
   color-scheme: dark;
@@ -163,8 +190,15 @@
  * They are at `:root` and outside both mode blocks on purpose: a corner radius
  * is not lighter in the light theme. What varies with the mode is colour, and
  * colour is the other file's job.
+ *
+ * **A chrome island restates them for the same reason it restates the
+ * colours.** A skin writes its form tokens at `SKIN_SCOPE`, which in the editor
+ * encloses the controls — so without this an author choosing `comic` would give
+ * every button in the workbench a heavy edge and a hard shadow. Naming the
+ * chrome class here puts the design's own form back on the island.
  */
-:root {
+:root,
+.aeleos-chrome {
   /*
    * A MULTIPLIER on Tailwind's radius scale, not a length. `rounded-lg` and
    * `rounded-xl` sit in a deliberate relationship to each other, and a skin
@@ -669,4 +703,61 @@ body {
     transform: scaleX(1);
     transform-origin: right;
   }
+}
+
+/*
+ * **Hiding the controls leaves the page, and it has to leave EXACTLY the page.**
+ *
+ * The editor themes its own document with the draft, so the only things
+ * standing between an author and their published page are the control islands
+ * and the boxes that space them out. One rule removes every island — including
+ * any added later, which is the point of hiding by CLASS rather than by a list
+ * somebody has to maintain — and a second flattens the editor's own stacking.
+ *
+ * That second rule is not tidiness. `PublicBlocks` renders its sections in a
+ * grid with NO gap and lets `pageBoxClass` own every margin between them; the
+ * editor interleaves a control card with each preview and needs gaps to keep
+ * the pair legible. Left in place with the cards hidden, those gaps would push
+ * every section further down the page than a visitor sees it — and because the
+ * author's field is fixed to the window, a section at the wrong offset shows
+ * the wrong slice of their own backdrop. `editor-is-the-page.spec.ts` is what
+ * measures that.
+ *
+ * The control that brings the workbench back is rendered OUTSIDE the element
+ * carrying this attribute, so it needs no exception here and cannot be part of
+ * what the fidelity comparison photographs.
+ */
+
+/*
+ * **A chrome island must CONSUME the tokens it re-declares, not merely declare
+ * them**, and the two inherited ones are the whole of the difference.
+ *
+ * `color` inherits, and `globals.css` resolves it once on `body` against
+ * whatever `--ink` is at `:root` — the AUTHOR's, now. Every control that does
+ * not set a colour of its own then inherits that computed value, and no amount
+ * of re-declaring `--ink` on the island changes it: the island's token is never
+ * consulted, because nothing on or under it asks for it. Measured on a page
+ * whose author had chosen a near-black field: the display-name input painted
+ * `oklch(0.97 0 89.88)`, the author's near-white derived ink, where AeleOS's is
+ * `lab(14.95 13.07 10.78)`.
+ *
+ * `font-family` is the same shape one scope down. A skin writes `--skin-font`
+ * at `SKIN_SCOPE`, which in the editor encloses the controls, so a workbench
+ * without this wears whatever face the author picked for their page.
+ *
+ * `PreviewThemeHost` carried both for exactly this reason before the inversion,
+ * pointing the other way. The hazard did not go away with it; it changed sides.
+ */
+.aeleos-chrome {
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+[data-controls="hidden"] .aeleos-chrome {
+  display: none;
+}
+
+[data-controls="hidden"] [data-editor-stack] {
+  gap: 0;
+  margin: 0;
 }

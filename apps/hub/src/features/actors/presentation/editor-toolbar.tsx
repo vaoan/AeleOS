@@ -1,10 +1,16 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, Eye, X } from "lucide-react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 
-/** Translated strings {@link EditorToolbar} renders. */
+/**
+ * Translated strings {@link EditorToolbar} renders.
+ *
+ * `hideControls` and `showControls` are two strings for one idea because the
+ * control that steps the workbench aside is not the control that brings it
+ * back: they are rendered in different places, and only one exists at a time.
+ */
 export interface EditorToolbarLabels {
   /** The save button when idle. */
   save: string;
@@ -12,6 +18,10 @@ export interface EditorToolbarLabels {
   saving: string;
   /** Leaves without saving. */
   cancel: string;
+  /** Steps the workbench out of the way to show the page. */
+  hideControls: string;
+  /** Brings the workbench back. */
+  showControls: string;
 }
 
 /**
@@ -20,12 +30,18 @@ export interface EditorToolbarLabels {
  * Cancel takes an HREF rather than a callback, because it is a navigation to
  * one known place and not an action — which is what lets the loading bar see
  * it, and what makes a middle-click open it in a new tab.
+ *
+ * `onHideControls` is a callback and not a link for the mirror reason: it
+ * changes how this page is being LOOKED at and goes nowhere, so there is no
+ * address for it to have.
  */
 export interface EditorToolbarProps {
   /** What is being edited, shown on the left. */
   title: string;
   /** Already-translated strings. */
   labels: EditorToolbarLabels;
+  /** Steps the workbench out of the way. */
+  onHideControls: () => void;
   /** True while a save is in flight. */
   saving: boolean;
   /** Where leaving without saving goes. */
@@ -61,10 +77,23 @@ export interface EditorToolbarProps {
  * Exposes the `editor-save` and `editor-cancel` test ids, so the signed-in end-to-end suite can
  * submit the form without depending on the button's translated label.
  *
- * Every colour it paints comes from an AeleOS token — `--accent`, `--bar`,
+ * **Its ground is `--menu`, which is OPAQUE, and that is load-bearing.** It
+ * wore `--bar` while the app owned the document; the editor themes its document
+ * with the page being built now, so a 35%-alpha bar sits on a colour the author
+ * chose and `--muted` text on it can be anything at all. `--menu` is the one
+ * token declared opaque in both modes, and `dropdown-legibility.test.ts` is
+ * what keeps it that way.
+ *
+ * Every other colour it paints comes from an AeleOS token — `--accent`,
  * `--edge`, `--muted` — and never from a literal. Author themes are scoped to
  * preview hosts, so those tokens stay the workbench's even while the page
  * underneath is being restyled.
+ *
+ * **It carries the control that steps the workbench aside.** Hiding is a CSS
+ * rule over `CHROME_SCOPE`, so this button only arms it; what the editor is
+ * left showing is the page itself. `type="button"` is load-bearing — every
+ * button inside a `<form>` submits by default, so an unspecified type would
+ * save the page on the way to looking at it.
  *
  * @returns the toolbar.
  */
@@ -73,9 +102,10 @@ export function EditorToolbar({
   labels,
   saving,
   cancelHref,
+  onHideControls,
 }: EditorToolbarProps) {
   return (
-    <div className="sticky top-(--bar-top) z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-(--edge)/40 bg-(--bar) px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
+    <div className="sticky top-(--bar-top) z-20 -mx-4 mb-6 flex items-center gap-2 border-b border-(--edge)/40 bg-(--menu) px-4 py-3 backdrop-blur-md sm:-mx-6 sm:gap-3 sm:px-6">
       {/* `truncate` rather than wrap. A two-line title doubled the bar's height
           on a phone and pushed Save down with it, so the one control that must
           never move moved every time the name got longer. */}
@@ -91,6 +121,18 @@ export function EditorToolbar({
             a click that lands on an `<a>` and on a form submission — Save is
             covered by the submit, and Cancel was covered by neither, so
             leaving the editor changed the route with nothing on screen. */}
+        {/* **`type="button"`, and that is not a formality.** Every button
+            inside a `<form>` submits by default, so an unspecified type here
+            would SAVE the page on the way to looking at it. */}
+        <button
+          type="button"
+          onClick={onHideControls}
+          {...tid("hide-controls")}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
+        >
+          <Eye className="size-4" />
+          <span className="sr-only sm:not-sr-only">{labels.hideControls}</span>
+        </button>
         <Link
           href={cancelHref}
           {...tid("editor-cancel")}

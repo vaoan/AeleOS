@@ -1,5 +1,42 @@
 # The actors feature — how an actor is addressed
 
+## Read this before you change anything here, and again before you finish
+
+**Every change inside `features/actors/` ends by re-reading this note against
+what you just did.** Not a skim for the paragraph you touched — a pass asking
+whether anything here has become false, including the parts you did not go near.
+
+Nothing automated can do this for you. `pnpm check:docs` is per exported symbol
+and compares a symbol against its own code, so it is blind to a note whose
+subject is a different file, a deleted prop, a mechanism that moved, or a debt
+that was paid. Root rule 18 names that exposure and root rule 30 is what it
+cost: three comments describing a caller that never existed, green through every
+unit test, and two headline features shipped broken behind them.
+
+The three questions, in order:
+
+1. **Is anything here now false?** A component named that no longer exists, a
+   prop that was deleted, a mechanism replaced, a file path that moved, a
+   measured number taken before the code changed.
+2. **Is anything here still true but no longer the way we work?** A pattern
+   superseded, a constraint lifted, a decision reversed. Say the new one; do not
+   leave both, because a document that contradicts itself is worse than one that
+   is simply wrong — whichever half a reader reaches first is the one they
+   follow.
+3. **Did this change establish something the next person needs?** A trap you
+   fell into, a mechanism that is not obvious from the code, a reason a tempting
+   alternative is wrong. That is what this note is for.
+
+**Whoever fixes a fault deletes the note saying it is open.** A sentence naming
+a file and a line reads like a measurement and will be believed. A note left
+asserting a closed fault is the confident, wrong instruction this repository
+warns about everywhere else — and it has happened here three times in twelve
+days: the `PreviewThemeHost` atmosphere prop documented after it was deleted,
+the drag handle recorded as broken for a day after `#154` fixed it, and a
+superseded spec's banner claiming unwritten phases that had already landed.
+
+---
+
 This note constrains code that **does not exist yet**. Everything already
 built states its own contract in TSDoc, where `pnpm check:docs` keeps it
 honest; what follows is the addressing model the next migration and the public
@@ -1137,150 +1174,206 @@ padding and a leaf editor's own padding have no container-query form at all —
 the same element asks whatever encloses it. Those two dials were dropped rather
 than converted into a rule that asks the wrong box quietly.
 
-**Controls are AeleOS; previews are the author's page.** The toolbar, identity
-fields, section names and every nested editor consume the app's design tokens
-and never inherit an author's palette, skin or section style. `PreviewThemeHost`
-is the only editor boundary that receives the COMPLETE page-level theme.
-While a PAGE-SCALE surface is open — the theme panel, or the complete-page
-preview — `atmosphereCss` separately puts only `--field`, the canvas properties
-and the body's background-picture layers on the document, because the root
-canvas and page background cannot be judged inside a box. Either surface mounts
-it and both may be open at once; the rules are byte-identical, so neither can
-win a different value from the other. Control tokens, skins and the cursor
-never enter that stylesheet. Workbench
-groups carrying bare labels and section headings paint opaque
-`--surface-solid` beneath their translucent children, so none can read directly
-over a hostile author field while the atmosphere remains visible between them.
+**Controls are AeleOS; the DOCUMENT is the author's page.** This inverted on
+2026-08-27 and it is the single most important thing to understand about the
+editor. It used to be the other way round: the app owned `:root` and each
+preview was a boxed exception carrying the theme inside it. Now `FursonaEditor`
+mounts `ThemeScope` with the live draft — the same component a public route
+mounts with a stored one — so `:root` carries the author's palette, `body`
+paints their field and background picture, and the `NebulaCanvas` in the root
+layout is theirs.
 
-**Both previews use the REAL renderers.** `SectionPreviewTray` draws each
+**The canvas is why no arrangement of boxes could have done this.**
+`NebulaCanvas` is `fixed inset-0 -z-10` in the root layout, so anything an
+in-flow preview paints is simply in front of it. What is behind a page has to
+be behind the DOCUMENT.
+
+**Every control is an island wearing `CHROME_SCOPE`**, which re-declares
+AeleOS's own tokens on the island itself. There is no cascade fight: the
+cascade compares declarations on the same element, so a declaration on the
+control always beats one inherited from `:root`. `shared/domain/chrome.ts` has
+the mechanism, `chrome-tokens.test.ts` pins which rule declares what, and
+`section-card-face.spec.ts` is the browser guard — that suite could not fail
+before this change, because a control was safe from an author's palette for a
+reason that had nothing to do with any containment.
+
+**A workbench group PAINTS, and it must be opaque.** What is behind a control
+is now a colour the author chose, and they may choose any colour — so a
+translucent control has NO guaranteed contrast and no measurement can give it
+one. The editor toolbar takes `--menu`, the one token declared opaque in both
+modes and already guarded by `dropdown-legibility.test.ts`, rather than the
+35%-alpha `--bar-solid` it wore when the app's own muted field was behind it.
+The sections heading, the template control and the add-section controls each
+sit on the same `--surface-solid` card every other workbench group has; they
+were bare text and a ghost button, which is legible on the app's field and
+illegible on hot pink.
+
+**A section preview paints NOTHING and lays the real page box.**
+`SectionPreviewTray` renders `Block` inside `pageBoxClass` — the same function
+`PublicBlocks` uses — so a section carries the author's measure, bleeds when it
+bleeds, and takes the same first/between/last spacing a public page gives it.
+Its container queries answer to the page's width rather than the workbench's,
+which is what `WidePageColumn` moving INSIDE `BlockEditor` buys: the control
+card is columned and the preview is full width.
+
+It used to be a card — a label, `p-3`, a rounded face carrying `--surface` at
+90% alpha, a border, and the author's `--field` on an in-flow box. All of that
+was furniture between the author and their page, and the field in particular
+covered the canvas outright.
+
+**`overflow` is not set on it, and must not be.** The host carried
+`overflow-x-auto`, and a `visible` axis paired with a non-visible one computes
+to `auto` — so the box clipped on all four edges. Ink overflow is not scrollable
+overflow, so nothing scrolled and no scrollbar appeared: every `neon` glow and
+`comic` shadow in a tray was simply gone. `responsive.spec.ts` had pinned that
+property BY NAME, which is root rule 30's shape one level down — the suite was
+asserting the fault. The document scrolls instead, exactly as it does for a
+stranger on an over-wide page.
+
+**Three faults the browser suite found after the inversion, and each is a
+different shape.**
+
+**`ThemeScope` remounted the whole editor on the first edit.** It returned
+`children` bare when the theme overrode nothing and a fragment when it did, so
+the first colour an author picked changed the element type at that position and
+React threw the subtree away — taking the theme panel's open state with it, so
+the next control they reached for was not in the document. A public page can
+never see this: its theme is resolved once on the server and never moves. The
+shape it returns is constant now, with an empty slot where the stylesheet goes.
+
+**A chrome island has to CONSUME the tokens it re-declares.** `color` inherits,
+and `globals.css` resolves it once on `body` against whatever `--ink` is at
+`:root` — the author's, now — so every control that sets no colour of its own
+inherited theirs, and re-declaring `--ink` on the island changed nothing because
+nothing under it asked for the island's copy. Measured: an input painted
+`oklch(0.97 0 89.88)` where AeleOS's ink is `lab(14.95 13.07 10.78)`.
+`font-family` is the same one scope down, since a skin writes `--skin-font` at
+`SKIN_SCOPE`. `PreviewThemeHost` carried both for this reason before the
+inversion, pointing the other way; the hazard changed sides rather than going
+away.
+
+**The light/dark toggle threw the page away.** It clears an author's theme as
+well as setting a scheme, which is right on a public page — the switch beside it
+offers the colours back. Its own comment said this "costs the signed-in pages
+nothing", true while they had no theme and false the moment the editor grew one:
+there is no page-theme switch in the signed-in bar, so an author pressing
+light/dark lost the page they were building with no way to restore it. It clears
+only where `PageShell` renders that switch, which is the app's existing signal
+for "there is a way back".
+
+**And a claim that turned out to be about the deleted face rather than the
+product.** `section-card-face.spec.ts` required a section's background picture
+to preview "at full strength" — which held only because the tray painted its own
+element carrying the picture ABOVE a 90%-alpha surface, while the public page
+showed it through that surface. The assertion was pinning the very difference
+the face created. Measured on bare section background after the face went:
+`[232, 245, 222]`, the picture at about a tenth, which is exactly what a visitor
+sees. It asserts a CHANGE against the same probe with no picture now.
+
+**Hiding the controls leaves the page, and that is what replaced the framed
+preview.** The toolbar carries a control that sets `data-controls="hidden"` on
+the element wrapping the whole editor; two rules in `globals.css` do the rest.
+
+The first removes every `CHROME_SCOPE` island. Hiding by CLASS rather than by a
+list of components is the point: a control added tomorrow is hidden without
+anybody remembering to add it anywhere.
+
+The second flattens the editor's own stacking, and it is not tidiness.
+`PublicBlocks` renders its sections in a grid with NO gap and lets
+`pageBoxClass` own every margin between them; the editor interleaves a control
+card with each preview and needs `gap-6` and `gap-2` to keep each pair legible.
+Left in place with the cards hidden, those gaps push every section further down
+the document than a visitor sees it — and because the author's field is fixed to
+the WINDOW, a section at the wrong offset shows the wrong slice of their own
+backdrop. Three elements carry `data-editor-stack` for that rule to reach.
+
+**The control that brings the workbench back is rendered OUTSIDE the armed
+element**, so it needs no exception in the rule and cannot be part of what the
+fidelity comparison photographs. Putting it inside would let the rule hide the
+only control that could undo it, stranding somebody on a page with no way back.
+`fursona-editor.test.tsx` asserts both halves of that containment, and the
+sabotage that moves it inside reddens.
+
+**Its button is `type="button"`, and that is not a formality** — every button
+inside a `<form>` submits by default, so an unspecified type would save the page
+on the way to looking at it. The guard is asserted on the form's own `submit`
+EVENT rather than on the save mock: the first version checked the mock straight
+after the click and passed with the type removed, because react-hook-form
+validates asynchronously and the assertion ran before anything could have called
+it. Rule 29 — a sabotage that leaves the suite green has proved nothing.
+
+**Nothing persists the choice.** It is a way of looking rather than a
+preference; a remembered value would open the editor with no controls at all for
+whoever did it once.
+
+**`editor-is-the-page.spec.ts` is where "hiding the controls leaves the page"
+stops being a claim.** It photographs ONE seeded page twice — at its public
+address and in the editor with the controls hidden — at seven viewport widths,
+and asserts both the section boxes and the pixels.
+
+**The two halves catch different faults and neither stands in for the other.**
+The box half reads `getBoundingClientRect` from the DOM, so it is exact and
+immune to scroll; the pixel half pins the same section at the same VIEWPORT
+offset in both documents and compares strips, which is the only instrument that
+can see the author's field — anchored to the window, so which slice sits behind
+a section is decided by where that section is on screen. Sabotaged by leaving
+the editor's stack gaps in place, all four pixel cases redden between 40.2% and
+46.1% and NOT ONE box case does: the sections are the same size, simply at a
+different offset.
+
+**The widths STRADDLE measured thresholds rather than sampling round numbers.**
+A grid stops collapsing to one track at 352px for two places, 544px for three
+and 720px for four; the stops sit either side of the second and third, because
+those are the widths where a geometry difference flips a visible answer. A
+doubled 16px gutter is what moved this threshold the last time it went wrong.
+
+**Its `hide-controls` mechanism has one exception the camera needs.** The
+restore control is `fixed` to the bottom-right corner, so a viewport clip of a
+section pinned low in the window captures it — 2.598% of the last section
+differing, AeleOS's near-white where the page paints the photograph's gold. It
+is hidden for the photograph only, after the suite has asserted it is there.
+
+**It is deliberately NOT `serial`.** The config already runs one worker, so
+serial buys no isolation and costs the whole point of a responsive guard: the
+first failing width would skip every other, and "1 failed" cannot tell you
+whether the editor is wrong at every size or only below a threshold.
+
+**THE FRAMED PREVIEW IS GONE (2026-08-27), AND SO IS EVERYTHING WRITTEN ABOUT
+IT.** `/{locale}/me/preview`, `PreviewDocument`, the `postMessage` handshake and
+draft contract, `CompletePagePreview`, the device table and the backdrop banding
+were all deleted, together with the fidelity suite that photographed one against
+the other and the seven wrong instruments recorded in its header. `git log` is
+where that account lives now; leaving it here would be a page of measurements
+about a mechanism nobody can run.
+
+**Why it went, since it was six days old and correct.** It was buying back a
+viewport the editor had given away. A preview needs its own document only while
+the editor's document belongs to the app — and the editor themes its own `:root`
+with the draft now, exactly as a public route does, so the page an author is
+building IS the document they are looking at. `frame-ancestors` closed back to
+`'none'` with it: the widening on 2026-08-26 had exactly one beneficiary.
+
+**The section previews use the REAL renderers.** `SectionPreviewTray` draws each
 top-level container with `Block` from `blocks.tsx` — the component both public
 pages are built from — handed the same tree the save will send, parsed by
-`lenientBlockSchema` because the editor's tree is mid-edit. The complete-page
-preview draws the readable members of the live form tree through `PublicBlocks`,
-including unsaved actor facts, authoring language and theme. It lenient-parses
-each top-level block first, so one malformed in-progress section disappears
-from the preview rather than taking down the editor or hiding its valid
-neighbours. A second renderer would have looked identical the day it was
-written and drifted the first time either changed.
+`lenientBlockSchema` because the editor's tree is mid-edit. A malformed
+in-progress section disappears from its own tray rather than taking down the
+editor or hiding its valid neighbours. A second renderer would have looked
+identical the day it was written and drifted the first time either changed.
 
-**The two previews deliberately answer different layout questions.** A section
-tray is still a bounded workbench aid: it keeps its label, rounded card face,
-padding and horizontal scrolling so one section remains readable beside its
-controls. The complete preview is the page-level check: it is full-bleed, has
-no card surface, border or rounding, and lets every depth-zero section own the
-same width and page chrome it owns on the public route.
-
-**They also sit on different backdrops, through `PreviewThemeHost`'s
-`atmosphere` prop, and the asymmetry is the point.** A tray paints the author's
-field on itself (`own`), because it is a card among controls with no page-scale
-backdrop to sit on — and there it keeps the `background-attachment` trade-off
-recorded in that component's TSDoc. The complete preview asks for `document`:
-it paints nothing, and `body` and the root canvas show through it exactly as
-they do on a public page. `previewThemeCss` withholds the background-PICTURE
-layers from a host in that mode, since `body` is already painting them against
-the window; everything else it emits declares rather than paints and is
-harmless on either.
-
-**`--ink` is restated on BOTH, and that asymmetry is the one to keep straight.**
-It is a control token, so it never reaches the document at all — a preview that
-did not restate it would carry the app's writing colour over the author's page.
-
-**A leaf edit does not rerender the whole editor.** `BlockEditor` owns the
-sections controller needed by its controls, while a small complete-preview
-controller owns the second sections subscription. `FursonaEditor` watches only
-identity and theme values, so changing one description does not rerender the
-toolbar, identity fields and theme controls merely to feed the full preview.
-
-**The complete preview owns the same width as a public page.** The signed-in
-shell hands `main` the full window, and every ordinary signed-in route recreates
-the former `max-w-7xl` box with `WidePageColumn`. The editor stops that column
-before the complete preview, so each depth-zero section applies its real
-measure, a bled section reaches both browser edges, and container queries answer
-to the page rather than to workbench chrome. The disclosure control keeps the
-old column geometry, while the themed preview host itself has no card surface,
-rounding or border. Horizontal excess is scrollable, never hidden or clipped to
-fake a fit, and the narrow-viewport browser suite opens the preview at every
-phone stop.
-
-**The host is not a SCROLL CONTAINER, and it was one until 2026-08-25.** It
-carried `overflow-x-auto` so that excess would scroll inside the preview
-instead of dragging the workbench sideways — and `overflow-x: auto` paired with
-`overflow-y: visible` computes the visible axis to `auto` as well, so the box
-was a scroll container on all four edges. **A scroll container clips ink**, and
-ink overflow is not scrollable overflow, so nothing scrolled and no scrollbar
-appeared: a shadow was simply gone. A bled, margin-less, unnamed section is
-flush with the host's own edge, and a `neobrutalism` banner's hard `5px 5px 0`
-cast measured 77.33 channels over the field below it on the page and **0.00**
-in the preview — every sample the bare field. Excess is still reachable and
-still never clipped, because the DOCUMENT scrolls, which is exactly what a
-stranger gets on an over-wide page; `main` is not a scroll container either,
-and that is the point. The guard is a shadow measurement rather than a
-computed-overflow assertion, for the reason rule 30 in the root `CLAUDE.md`
-gives: the two suites that pinned `overflow-x: auto` were pinning the
-mechanism, and the mechanism was the fault.
-
-That is no longer "page-faithful, not pixel-exact" — the preview IS the page,
-in a document of its own, with its own viewport, its own scrollbar and its own
-`body`. The residue this paragraph used to describe belongs to the section
-TRAYS alone now.
-
-**The fidelity suite compares two documents, and the seven wrong instruments it
-took to get there are recorded in its own header.** Every one was a fact about
-the CAMERA rather than the page: a `data:` background is refused by
-`safeHttpUrl` and paints nothing; `page.route` does not reach a framed
-document, but the context's route does; a page screenshot on the preview side
-captures the editor; the editor's sticky bar paints OVER an element screenshot
-of the frame; a 768-wide editor window scales a 768 device to 0.98; the public
-page has a bar and the preview deliberately has none, so a whole-viewport
-comparison can never match; and both documents clamp scroll at the top
-DIFFERENTLY, which left two otherwise identical photographs 56 pixels apart and
-69.2% differing. Reading where the section actually LANDED rather than assuming
-the scroll took brought that to 0.516%, and insetting two pixels from the
-clip's own boundary to 0.029%.
-
-**A section sits at a fractional device row in the preview and a whole one on
-the page, and that is a CAPTURE difference rather than a rendering one.**
-Measured across a page of sections: heights and widths agree to three decimals
-while the fractional parts of `y` do not, and they land on the half pixel on
-the public side as readily as in the preview — it is decided by nothing but
-where the content above happened to end. Chromium snaps the layer, so the
-content compares at zero differing pixels either way. What it does change is
-the photograph: a box at `y = 3458.5` spans one device row more than the same
-box at a whole `y`, so two identical sections photograph 128 rows and 127. The
-size claim is therefore read from `getBoundingClientRect`, where it is exact,
-and never from the image. Before that it was image equality, which had a
-phantom row of pure white in it — `locator.screenshot()` filling a row that is
-not page content — worth about 0.86% on a guard whose budget is 0.1%. Do not
-"fix" the offset itself: a `transform: translate(0, 0.5px)` promotes the
-section to a composited layer that is then resampled, and a fractional
-`scrollBy` is undone by Playwright scrolling the element into view.
-
-**Every fidelity claim here is measured by photographing ONE seeded page
-twice**, at its public address and inside the preview, in
-`tests/e2e/preview-fidelity.spec.ts`. Two properties of that suite are worth
-knowing before adding to it. Its fixture gives the seeded person a display
-name, a portrait and a public profile ON PURPOSE — `ensure_person_actor` mints
-none of those, and without them an `owner` block renders the address alone on
-both sides, so the fixture could not tell a correct preview from one that
-hardcoded the owner's name away, which is what shipped. And its per-section
-comparison quiets the canvas and flattens the field identically on both sides,
-which is right for comparing sections and is exactly why the missing backdrop
-needed a case that does not.
+**A tray restates `--ink`.** It is a control token, so it never reaches the
+document at all — a preview that did not restate it would carry the app's
+writing colour over the author's page.
 
 **Real previews mount real third-party frames while editing.** An author's own
 request and the fact that they are editing therefore reach the same allowlisted
 providers their visitors would reach. That privacy cost is accepted because an
 embed is precisely what must be seen working before publication, and no
-different source or provider is admitted. Opening the complete preview mounts a
-second copy of any embed already visible in its section tray; this double mount
-is temporary, explicit, and accepted in exchange for keeping both previews on
-the public renderer. Closing the disclosure unmounts the second copy.
+different source or provider is admitted.
 
-**Neither preview participates in dragging.** A section tray is a sibling of
-the top-level `BlockSlot`, never its descendant, so changing its height cannot
-change droppable geometry. The complete-page preview follows `BlockEditor`,
-outside its `DndContext`, and is collapsed by default so the builder remains
-the primary surface.
+**A tray does not participate in dragging.** It is a sibling of the top-level
+`BlockSlot`, never its descendant, so changing its height cannot change
+droppable geometry.
 
 ### Dragging (2026-08-18) — anything, anywhere a place will hold it
 
@@ -1864,25 +1957,26 @@ decisions, so they are not quietly undone:
   themes are unsupported and would require unique host selectors. Persistence
   rides the ordinary save: what must be instant is seeing a colour, not storing
   it.
-- **The page-scale atmosphere is live on the document while a page-scale
-  surface is open — the theme panel, or the complete-page preview.**
-  `atmosphereCss` filters `themeVars` down to `--field`,
-  `--canvas`, every canvas colour and dial, and `--nebula-blend`, then emits the
-  same `bodyBackgroundVars` picture rule `themeCss` uses. It never derives or
-  escapes a value twice. Closing the last one unmounts that rule and restores
-  the app's exact atmosphere; palette controls, skin variables and `cursor`
-  remain preview-only throughout.
+- **The page-scale atmosphere is live on the document while the theme panel is
+  open.** `atmosphereCss` filters `themeVars` down to `--field`, `--canvas`,
+  every canvas colour and dial, and `--nebula-blend`, then emits the same
+  `bodyBackgroundVars` picture rule `themeCss` uses. It never derives or escapes
+  a value twice. Closing the panel unmounts that rule and restores the app's
+  exact atmosphere; palette controls, skin variables and `cursor` remain
+  preview-only throughout.
 
-  **The preview was NOT a trigger until 2026-08-25, and what that cost is the
-  reason to keep it one.** The complete preview painted its own opaque
-  `--field`, and the canvas is `fixed inset-0 -z-10` in the root layout — so
-  an in-flow background covered it outright and the preview showed no backdrop
-  at all. Measured by photographing one seeded page twice: mottled with cloud
-  at its public address, a perfectly smooth wash in the preview. The same
+  **Its second caller went with the framed preview on 2026-08-27**, and the
+  finding that made the preview a caller at all is worth keeping because it is
+  about the CANVAS rather than about that component. A preview painting its own
+  opaque `--field` covers the canvas outright — `NebulaCanvas` is
+  `fixed inset-0 -z-10` in the root layout, so an in-flow background is simply
+  on top of it. Measured by photographing one seeded page twice: mottled with
+  cloud at its public address, a perfectly smooth wash in the preview. The same
   opacity re-anchored the field, since `body` is `background-attachment: fixed`
   and the host's copy spanned the whole document rather than the window —
-  1280×1696 against a 1280×900 viewport on an eight-section page. Opaque AeleOS backings on the workbench groups that
-  carry bare text are the legibility boundary over that author field.
+  1280×1696 against a 1280×900 viewport on an eight-section page. Opaque AeleOS
+  backings on the workbench groups that carry bare text are the legibility
+  boundary over that author field.
 
 - **Picking any colour makes them all explicit.** Half a theme that follows the
   reader's scheme and half that does not is why an author's preview once
