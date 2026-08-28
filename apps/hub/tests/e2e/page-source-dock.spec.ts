@@ -911,3 +911,78 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
     enMessages.fursonas.form.errors.sectionsRefused,
   );
 });
+
+// EXPANDING THE REFERENCE MUST LEAVE ITS OWN DISCLOSURE REACHABLE.
+//
+// Reported by Heiner, and it is a geometry fault rather than a missing
+// control: the `<summary>` that closes the reference sits at the TOP of the
+// `<details>`, and `pageReference` returns about seventeen thousand
+// characters. Rendered unbounded in a ~400px panel that is thousands of
+// pixels tall, so expanding pushed the only control that closes it far above
+// the dock's scroll position. Nothing was broken in the DOM — the toggle was
+// there, correct, and passing every unit case that clicks it — and to
+// somebody trying to get their page back that is the same as it not
+// existing. `max-h-80` on the `<pre>` gives the disclosure a fixed cost.
+//
+// Excludes: a reference whose expanded height is bounded by nothing, and a
+// cap that bounds the block while letting the panel itself grow.
+test("expanding the reference leaves its summary on screen, and the block scrolls itself", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  await page.getByTestId("editor-open-source").click();
+  const dock = page.getByTestId("page-source-dock");
+  await expect(dock).toBeVisible();
+
+  const summary = dock.locator("summary");
+  const block = dock.locator("pre");
+  await summary.click();
+  await expect(block).toBeVisible();
+
+  const blockBox = (await block.boundingBox())!;
+  const summaryBox = (await summary.boundingBox())!;
+  const dockBox = (await dock.boundingBox())!;
+
+  // The reference genuinely overflows what it is given — otherwise the cap is
+  // untested, because an unbounded block that happens to be short would pass
+  // every assertion below without the cap existing at all.
+  const overflows = await block.evaluate(
+    (node) => node.scrollHeight > node.clientHeight + 1,
+  );
+  expect(overflows, "the reference is too short to test a height cap").toBe(
+    true,
+  );
+
+  // The cap itself: `max-h-80` is 20rem = 320px. Asserted as a bound rather
+  // than an equality, since the block is shorter than its cap only if the
+  // reference shrinks drastically, which the overflow check above rules out.
+  expect(blockBox.height).toBeLessThanOrEqual(321);
+
+  // And the consequence that was actually reported — the summary is still
+  // where somebody can press it, inside the dock rather than scrolled off
+  // above it.
+  //
+  // **This pair is CORROBORATING, not the discriminating assertion, and
+  // saying so is the point** (root rule 23). Sabotaged by removing the cap,
+  // the FIRST failure is the overflow precondition above: with no cap the
+  // block simply grows instead of scrolling itself, so `scrollHeight` and
+  // `clientHeight` agree and the check reddens before these two are reached.
+  // These would very likely still pass on the unfixed code, because
+  // `boundingBox` is read at the dock's initial scroll position — where the
+  // summary sits regardless of how far the block runs on below it. The
+  // reported symptom is a summary somebody has to scroll thousands of pixels
+  // to reach, and a bounding box taken before any scrolling cannot see that.
+  // What genuinely pins the fix is "the block scrolls itself"; these bound
+  // the panel and are kept for what they document, not counted as proof.
+  expect(summaryBox.y).toBeGreaterThanOrEqual(dockBox.y - 1);
+  expect(summaryBox.y + summaryBox.height).toBeLessThanOrEqual(
+    dockBox.y + dockBox.height + 1,
+  );
+
+  // Reversible, which is the whole complaint: pressing it again closes it.
+  await summary.click();
+  await expect(block).toBeHidden();
+});

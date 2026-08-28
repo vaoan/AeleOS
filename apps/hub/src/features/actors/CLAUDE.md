@@ -2514,6 +2514,28 @@ The copy control also reverts its own label after `COPIED_RESET_MS`, so a
 second copy has feedback too — it used to read "Copied" permanently after the
 first success.
 
+**The reference block is capped at `max-h-80` and scrolls itself, and without
+that the disclosure was unreachable rather than missing (2026-08-28, reported
+by Heiner).** `pageReference` returns about seventeen thousand characters; the
+`<pre>` had no height bound at all, so expanding it in a ~400px panel produced
+a block thousands of pixels tall — and since `<summary>` sits at the TOP of the
+`<details>`, the only control that closes it ended up far above the dock's
+scroll position. **Nothing was broken in the DOM.** The toggle rendered, was
+correct, and passed every unit case that clicks it; a `<details>` toggles
+natively and no state was involved. To somebody trying to get their page back
+that is indistinguishable from a control that does not exist, which is the
+distinction worth carrying: **a control can be present, correct and unreachable,
+and only the third of those is what a person experiences.**
+
+Its browser case is honest about which half proves it. Sabotaged by removing
+the cap, the FIRST failure is the overflow precondition — with no cap the block
+grows instead of scrolling, so `scrollHeight` and `clientHeight` agree — and the
+summary-position assertions beside it would very likely still pass, because
+`boundingBox` is read at the dock's initial scroll offset, where the summary
+sits regardless of how far the block runs on below it. A bounding box taken
+before any scrolling cannot see "somebody would have to scroll to reach this".
+Root rule 23: they are kept for what they document and not counted as proof.
+
 **The dock is mounted now (2026-08-28), and this is the first change that
 made any of the above reachable by a person rather than only by a test.**
 `EditorToolbar` carries a `Braces` control, `openSource` in the catalogue,

@@ -192,6 +192,47 @@ describe("the reference is built from the constants rather than typed out", () =
     expect(text).toMatch(/resets? (the accent|everything else)/i);
   });
 
+  it("names every key a document must NOT carry, and says why visibility is the dangerous one", () => {
+    // **The reference described what a document may hold and never what it may
+    // not.** A model asked to "make this page public" would reach for
+    // `"visibility": "public"` — and `parseDocument` reads only `aeleos`,
+    // `theme` and `blocks`, so an unknown top-level key is IGNORED rather than
+    // refused. The page stays private, the model reports success, and the
+    // person believes their page is published. Silence is the worst of the
+    // three possible outcomes, and it is the one the envelope actually has.
+    //
+    // Asserted per key rather than as one prose match, so a rewrite that drops
+    // any single one of them reddens: the identity trio is what makes a
+    // document shareable at all (section 4 draws the importer), and the list
+    // pair belongs to somebody else's fursona list.
+    const text = pageReference("fursona");
+    for (const key of [
+      "visibility",
+      "handle",
+      "display_name",
+      "avatar_url",
+      "sort_order",
+      "featured",
+    ]) {
+      expect(text, `the reference never mentions \`${key}\``).toContain(key);
+    }
+    // **Matched against whitespace-normalised text, and that is not a
+    // convenience.** The reference is hard-wrapped prose, so any phrase long
+    // enough to be worth asserting will sooner or later straddle a newline and
+    // its indent — this assertion failed exactly that way on its first run,
+    // reporting a missing sentence that was present and merely wrapped. A
+    // pattern that reddens when a paragraph is re-flowed is a pattern that
+    // will be "fixed" by weakening it.
+    const flat = text.replaceAll(/\s+/g, " ");
+    // The safety argument itself, not merely the word. A list of forbidden
+    // keys with no reason attached is one a model may weigh against a user's
+    // instruction to publish; the consequence is what makes it unarguable.
+    expect(flat).toMatch(/publish(es)? a page by paste/i);
+    // And the honest statement of what actually happens, since "must not" and
+    // "will be refused" are different promises and only one of them is true.
+    expect(flat).toMatch(/ignored rather than refused|silently does nothing/i);
+  });
+
   it("carries a complete worked example that this build can read and accepts as complete", () => {
     const example = pageReference("fursona").match(/```json\n([\s\S]*?)```/);
     expect(
