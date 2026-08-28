@@ -2064,16 +2064,17 @@ and never for a weighted grid, where the tracks either side are not the same
 width and "one each" means nothing.
 Both move where a block is DRAWN and neither moves anything stored.
 
-### A page has a document, and an imported theme uses the READ path
+## A page has a document (2026-08-27)
 
-**A page has a document, and an imported theme uses the READ path.**
 `page-document.ts` owns `{ aeleos, theme, blocks }` — the two `jsonb` columns
 of `actor_profiles`, with identity deliberately absent so an imported page
 renders with the importer's own portrait and name. An imported theme goes
 through `parseTheme` and never through `themeSchema`, because the form
-schema's looseness is justified by controls a paste does not have. The size
-is checked before `JSON.parse`, never after. Read the spec
-`2026-08-27-page-source-and-sharing-design.md` before changing any of it.
+schema's looseness is justified by controls a paste does not have; an explicit
+`"theme": null` reads the same as an omitted key — both mean leave the current
+theme alone, never reset it. The size is checked before `JSON.parse`, never
+after. Read the spec `2026-08-27-page-source-and-sharing-design.md` before
+changing any of it.
 
 **A refusal is reported by WHERE it was found, not by re-walking the tree a
 second time.** `blockProblemsFromIssues` (`block-problems.ts`, beside
@@ -2086,7 +2087,11 @@ counted rather than matched by name. That is what lets a refusal inside a
 block's own `style` bag resolve to a path with no special case for `style` at
 all, and it was measured against the installed zod rather than assumed —
 verify any future zod upgrade still reports `[0, "children", 2, "children", 0,
-"children", 0, "title_en"]` for a nested block before trusting this again.
+"children", 0, "title_en"]` for a nested block before trusting this again. **A
+tree nested past `MAX_DEPTH` surfaces the same way "too many blocks" does**,
+as an `envelope` problem naming `"too deep"` rather than a `block` problem: its
+own issue path ends in a number, not a field, so there is nothing for
+`blockProblemsFromIssues` to mark.
 
 **`JSON.parse` runs behind a reviver that refuses `__proto__`, `constructor`
 and `prototype` at any depth, as defence in depth rather than a fix for a real
@@ -2094,7 +2099,21 @@ pollution.** `JSON.parse` does not itself put a `"__proto__"` key onto
 `Object.prototype` — confirmed against the installed engine, not assumed — but
 nothing downstream of a paste should have to prove that of every future
 consumer, which is the same reasoning `TIDAL_KINDS` cost this codebase once
-already. A document carrying one of these anywhere is refused outright.
+already. A document carrying one of these anywhere is refused as its own
+`unsafe-key` problem, named rather than folded into `syntax` — telling
+somebody their JSON has a syntax error at a position that is fine would be
+worse than not checking at all.
+
+**The reviver costs a much lower parser depth ceiling, and that is measured
+rather than assumed.** A plain `JSON.parse` has no ceiling reachable within
+`PASTE_LIMIT_BYTES` — 5,000,000 levels parsed fine. Handing it a reviver makes
+the engine walk the result calling the reviver on every property, and THAT walk
+recurses in JS: measured against the block model's own container shape,
+2026-08-27, the first depth to throw `RangeError` is 857 in this repo's vitest
+worker — reachable inside the byte cap, since 2,000 such containers serialise
+to about 120KB. It cannot escape as an uncaught throw: `RangeError` is an
+`Error`, so the same `catch` that reports a genuine syntax error reports this
+one too.
 
 ## Per-profile theming — built
 

@@ -126,6 +126,21 @@ describe("parseDocument", () => {
     expect(back.theme).toBeNull();
   });
 
+  it('reads an explicit "theme": null as leave-mine-alone too', () => {
+    // Same reading as an omitted key, on the ruling that a document naming
+    // the key and giving it nothing most plausibly means "no theme here" —
+    // resetting somebody's colours on that ambiguity is the destructive
+    // reading. Before this fix, this branch took `parseTheme(null)` and
+    // reset the theme to the default instead of leaving it alone.
+    const back = parseDocument(
+      JSON.stringify({ aeleos: 1, blocks: PAGE, theme: null }),
+      "fursona",
+    );
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    expect(back.theme).toBeNull();
+  });
+
   it("refuses an unrecognised version by name", () => {
     const back = parseDocument(
       JSON.stringify({ aeleos: 99, blocks: PAGE }),
@@ -140,6 +155,17 @@ describe("parseDocument", () => {
 
   it("refuses an object form with no version marker", () => {
     const back = parseDocument(JSON.stringify({ blocks: PAGE }), "fursona");
+    expect(back.ok).toBe(false);
+    if (back.ok) return;
+    expect(back.problems[0]).toMatchObject({ at: "envelope" });
+  });
+
+  it('refuses a document with no "blocks" key at all', () => {
+    // Boundary: the envelope is otherwise well-formed (a real version
+    // marker) and simply never names `blocks` — `envelope.blocks` reads
+    // `undefined`, which `blocksSchema` refuses at the root with no field to
+    // mark, so this is the `envelope` fallback rather than a `block` problem.
+    const back = parseDocument(JSON.stringify({ aeleos: 1 }), "fursona");
     expect(back.ok).toBe(false);
     if (back.ok) return;
     expect(back.problems[0]).toMatchObject({ at: "envelope" });
@@ -224,26 +250,55 @@ describe("parseDocument", () => {
     ]);
   });
 
+  it("accepts a paste of exactly PASTE_LIMIT_BYTES", () => {
+    // Boundary: the cap is `> PASTE_LIMIT_BYTES`, so exactly the limit must
+    // still be read rather than refused — the classic off-by-one on a cap.
+    // Padded with leading whitespace, which JSON permits and which is not
+    // otherwise significant, so the document itself stays a trivial `[]`.
+    const text = " ".repeat(PASTE_LIMIT_BYTES - 2) + "[]";
+    expect(new TextEncoder().encode(text).length).toBe(PASTE_LIMIT_BYTES);
+    const back = parseDocument(text, "fursona");
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    expect(back.blocks).toEqual([]);
+  });
+
   it("does not let a `__proto__` key reach anything", () => {
     const back = parseDocument(
       '{ "aeleos": 1, "__proto__": { "polluted": true }, "blocks": [] }',
       "fursona",
     );
     expect(back.ok).toBe(false);
+    if (back.ok) return;
+    // Discriminating rather than merely `ok === false`: with no version
+    // marker or `blocks` key touched, this document is otherwise ACCEPTABLE
+    // — `blocksSchema.safeParse([])` succeeds — so removing the reviver
+    // reddens this by flipping it to `ok: true`, not by leaving it green for
+    // the wrong reason.
+    expect(back.problems).toEqual([{ at: "unsafe-key", key: "__proto__" }]);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
-  it("refuses a `constructor` key nested inside a block, not only at the top", () => {
+  it("refuses a `constructor` key nested inside the theme, not only at the top", () => {
+    // Discriminating on purpose, unlike the fixture this replaces: a
+    // `constructor` key placed on a BLOCK is refused by `blocksSchema`'s own
+    // `.strict()` whether or not the reviver runs, so that case could never
+    // have told the two apart (root rule 27). `parseTheme` reads named
+    // fields off the theme object rather than validating it as a whole, so
+    // an unsafe key placed there is invisible to any schema — without the
+    // reviver this document parses to `ok: true` with `accent` honoured;
+    // with it, the reviver is the only thing that catches it.
     const back = parseDocument(
       JSON.stringify({
         aeleos: 1,
-        blocks: [
-          { kind: "text", title_en: "t", constructor: { polluted: true } },
-        ],
+        blocks: PAGE,
+        theme: { constructor: { polluted: true }, accent: "#112233" },
       }),
       "fursona",
     );
     expect(back.ok).toBe(false);
+    if (back.ok) return;
+    expect(back.problems).toEqual([{ at: "unsafe-key", key: "constructor" }]);
   });
 
   it("normalises a hostile theme rather than trusting it", () => {
@@ -264,32 +319,77 @@ describe("parseDocument", () => {
     if (!back.ok || !back.theme) return;
     expect(back.theme.accent).toBeNull();
     expect(back.theme.canvasColours?.length ?? 0).toBeLessThan(50);
-    // `dial()` clamps to `CANVAS_RANGE.max` (5), not to 1 — measured against
+    // `dial()` clamps to exactly `CANVAS_RANGE.max` (5), not to 1 and not to
+    // anything looser than the real bound — measured against
     // `shared/domain/canvas-motion.ts` rather than assumed.
-    expect(back.theme.density).toBeLessThanOrEqual(CANVAS_RANGE.max);
+    expect(back.theme.density).toBe(CANVAS_RANGE.max);
     expect(back.theme.skin).toBe(DEFAULT_THEME.skin);
   });
 
-  // Step 5: the parser-depth measurement. `JSON.parse` was measured against
-  // the installed engine (2026-08-27) at depths of 100 through 5,000,000 — a
-  // bare array nested 5,000,000 deep, 10MB of text, parsed in 604ms with no
-  // ceiling found. This depth is comfortably under that, chosen only to clear
-  // `blocksSchema`'s own `MAX_DEPTH` (3) many times over.
-  it("refuses a tree nested past MAX_DEPTH as a problem, never a throw", () => {
-    const DEPTH = 1000;
+  /**
+   * Builds a chain of `depth` nested single-child `stack` containers around
+   * one leaf, the shape `blocksSchema`'s own depth cap and the reviver's
+   * recursion both care about.
+   *
+   * @param depth - how many containers to nest.
+   * @returns the innermost node, before it is serialised.
+   */
+  function nestedChain(depth: number): unknown {
     let node: unknown = {
       kind: "text",
       title_en: "Deepest",
       description_en: "",
     };
-    for (let i = 0; i < DEPTH; i += 1) {
+    for (let i = 0; i < depth; i += 1) {
       node = { kind: "container", mode: "stack", spaces: 1, children: [node] };
     }
-    const text = JSON.stringify({ aeleos: 1, blocks: [node] });
+    return node;
+  }
+
+  // Step 5: the parser-depth measurement, corrected. `JSON.parse` with no
+  // reviver has no ceiling reachable within `PASTE_LIMIT_BYTES` — measured at
+  // 5,000,000 levels, 10MB, 604ms — but that is not the call this function
+  // makes. `refuseUnsafeKeys` turns the walk that invokes it into a recursive
+  // one in JS, whose real ceiling — measured against this exact container
+  // shape, inside this repo's own vitest worker, 2026-08-27 — is depth 857
+  // (862 in plain Node). This case stays two orders of magnitude under that,
+  // which is what lets it demonstrate the SCHEMA's `MAX_DEPTH` refusal rather
+  // than the reviver's own stack limit; the case below this one is what proves
+  // the reviver's limit is a caught problem rather than a thrown one.
+  it('refuses a tree nested past MAX_DEPTH as an "envelope" problem naming it, never a throw', () => {
+    const text = JSON.stringify({ aeleos: 1, blocks: [nestedChain(20)] });
     let back: ReturnType<typeof parseDocument> | undefined;
     expect(() => {
       back = parseDocument(text, "fursona");
     }).not.toThrow();
     expect(back?.ok).toBe(false);
+    if (!back || back.ok) return;
+    // `blocksSchema`'s own depth-cap issue path ends in a NUMBER, not a field
+    // name — `[0, "children", 0, "children", 0, "children", 0]` for a chain
+    // nested past the cap — so `blockProblemsFromIssues` finds no field to
+    // mark. This is the array-level `envelope` fallback, not a `block`
+    // problem naming a field ("children") nobody typed; see parseDocument's
+    // own TSDoc for the measured path shape.
+    expect(back.problems).toEqual([{ at: "envelope", message: "too deep" }]);
+  });
+
+  it("catches the reviver's own stack limit as an ordinary problem, never a throw", () => {
+    // 2,000 levels of minimal containers serialise to about 120KB — comfortably
+    // under `PASTE_LIMIT_BYTES` (128KB) and comfortably PAST the measured 857
+    // depth at which `refuseUnsafeKeys`'s own recursive invocation throws
+    // `RangeError: Maximum call stack size exceeded`. A paste this shape is not
+    // hostile by any cap this module checks; it still has to come back as a
+    // problem rather than escape as an uncaught exception.
+    const text = JSON.stringify({ aeleos: 1, blocks: [nestedChain(2000)] });
+    expect(new TextEncoder().encode(text).length).toBeLessThan(
+      PASTE_LIMIT_BYTES,
+    );
+    let back: ReturnType<typeof parseDocument> | undefined;
+    expect(() => {
+      back = parseDocument(text, "fursona");
+    }).not.toThrow();
+    expect(back?.ok).toBe(false);
+    if (!back || back.ok) return;
+    expect(back.problems[0]).toMatchObject({ at: "syntax" });
   });
 });

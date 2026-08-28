@@ -1159,6 +1159,19 @@ replace`, so the newest body of a function could sit in a file named after
   is true and the reachability half was false. It is fixed on this branch,
   because its fix is the constant the import path needed anyway.
 
+  **Task 3 (the document envelope, export and parse) landed, and its own
+  review found the spec's paste-safety section understated itself.** The
+  design said the `__proto__`/`constructor` guards were "believed clean" and
+  measured parser depth without noticing the call it measures is not the call
+  the code makes. Both are corrected now: a `JSON.parse` reviver refuses all
+  three unsafe keys, sabotage-verified rather than believed, reported as its
+  own `unsafe-key` problem; and the reviver's own recursive invocation has a
+  real, much lower depth ceiling than a bare parse — 857, measured
+  2026-08-27, reachable inside `PASTE_LIMIT_BYTES` — caught as an ordinary
+  `syntax` problem rather than an uncaught `RangeError`, since `RangeError` is
+  an `Error`. See `page-document.ts` and
+  `apps/hub/src/features/actors/CLAUDE.md` for the numbers.
+
   Spec: `docs/superpowers/specs/2026-08-27-page-source-and-sharing-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-page-source-and-sharing.md`.
 

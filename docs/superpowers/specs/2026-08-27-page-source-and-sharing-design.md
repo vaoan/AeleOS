@@ -316,18 +316,43 @@ a user interface, and this feature is where that assumption stops holding.
 **Size is checked before parse, never after.** Live binding parses after every
 burst of typing; a very large paste parsed repeatedly is a frozen tab, and the
 size cannot be learned from a parse that cannot be afforded. The string's byte
-length is measured against `BLOCK_LIMITS.bytes` first, refused with a sentence,
-and `JSON.parse` is never reached.
+length is measured against `PASTE_LIMIT_BYTES` first — twice `BLOCK_LIMITS.bytes`,
+derived rather than a second written number, so the theme's own headroom
+cannot make a legal document read as oversized — refused with a sentence, and
+`JSON.parse` is never reached.
 
-**Parser depth is measured rather than assumed.** Deeply nested JSON can
-exhaust the parser's own stack before any of the model's depth caps are
-reached. What the engine actually does is a number to measure and write down,
-not to recall. The call is wrapped regardless.
+**Parser depth is measured rather than assumed, and the first measurement
+answered the wrong question.** A plain `JSON.parse` has no ceiling reachable
+within `PASTE_LIMIT_BYTES` — 5,000,000 levels parsed in 604ms. But the call
+this module actually makes hands `JSON.parse` a reviver (below), and a
+reviver's own invocation walks the parsed value recursively in JS rather than
+in native code — which has an ordinary stack limit a native parse does not.
+Measured against the block model's own container shape, 2026-08-27: the first
+depth to throw `RangeError: Maximum call stack size exceeded` is 857, reachable
+within the byte cap (2,000 such containers serialise to about 120KB). It
+cannot escape as an uncaught throw — `RangeError` is an `Error`, so the same
+`catch` that reports a genuine syntax error reports this one too, as an
+ordinary `syntax` problem. Both ceilings are what the engine actually does,
+written down rather than recalled; see `page-document.ts` for the exact
+numbers and the date they were taken.
 
-**`__proto__` and `constructor` keys get named tests.** `JSON.parse` makes
-`__proto__` an own property; `blocksSchema` is strict and refuses unknown keys;
-`parseTheme` reads named fields off the value. All three paths are believed
-clean, and "believed" is why this is a test rather than a sentence.
+**`__proto__`, `constructor` and `prototype` keys are refused by a `JSON.parse`
+reviver, not merely believed absent.** `JSON.parse` does not itself put
+`__proto__` onto `Object.prototype` — it becomes an ordinary own property —
+so this is defence in depth rather than a fix for a real pollution:
+`refuseUnsafeKeys` throws on any of the three, at any depth, and
+`parseDocument` reports that as its own `unsafe-key` problem rather than
+folding it into a generic syntax failure, so a person is told which key rather
+than shown a position that is not actually wrong. `blocksSchema` is strict and
+would refuse an unsafe key placed on a BLOCK regardless of the reviver; the
+reviver is what actually closes the gap `parseTheme` leaves open, since it
+reads named fields off the theme object and would let an unrelated key through
+unnoticed. `page-document.test.ts` is sabotage-verified against both shapes:
+removing the reviver flips a top-level `__proto__` key and a `constructor` key
+nested inside `theme` from refused to accepted, which is what makes the second
+case discriminating — a `constructor` key placed on a block instead would have
+been refused by `blocksSchema`'s own strictness whether or not the reviver
+existed.
 
 **Parsing is debounced and never blocks a keystroke.**
 
