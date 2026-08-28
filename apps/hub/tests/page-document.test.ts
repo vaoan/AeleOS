@@ -141,6 +141,63 @@ describe("parseDocument", () => {
     expect(back.theme).toBeNull();
   });
 
+  it("refuses a non-object theme — an array — as an envelope problem rather than resetting it", () => {
+    // A whole-branch review finding: `parseTheme` coerces anything that is
+    // not a plain object to `{}` and answers an all-defaults theme, so
+    // `"theme": []` used to reach `parseTheme` and silently reset the
+    // author's palette — the exact destructive reading the "null" case above
+    // already refuses, arriving on an input that is more clearly malformed
+    // rather than less.
+    const back = parseDocument(
+      JSON.stringify({ aeleos: 1, blocks: PAGE, theme: [] }),
+      "fursona",
+    );
+    expect(back.ok).toBe(false);
+    if (back.ok) return;
+    expect(back.problems).toEqual([
+      { at: "envelope", message: "theme is not an object" },
+    ]);
+  });
+
+  it("refuses a non-object theme — a string — as an envelope problem", () => {
+    const back = parseDocument(
+      JSON.stringify({ aeleos: 1, blocks: PAGE, theme: "x" }),
+      "fursona",
+    );
+    expect(back.ok).toBe(false);
+    if (back.ok) return;
+    expect(back.problems).toEqual([
+      { at: "envelope", message: "theme is not an object" },
+    ]);
+  });
+
+  it("refuses a non-object theme — a number — as an envelope problem", () => {
+    const back = parseDocument(
+      JSON.stringify({ aeleos: 1, blocks: PAGE, theme: 7 }),
+      "fursona",
+    );
+    expect(back.ok).toBe(false);
+    if (back.ok) return;
+    expect(back.problems).toEqual([
+      { at: "envelope", message: "theme is not an object" },
+    ]);
+  });
+
+  it("still parses a valid object theme", () => {
+    const back = parseDocument(
+      JSON.stringify({
+        aeleos: 1,
+        blocks: PAGE,
+        theme: { accent: "#e21233" },
+      }),
+      "fursona",
+    );
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    expect(back.theme).not.toBeNull();
+    expect(back.theme?.accent).toBe("#e21233");
+  });
+
   it("refuses an unrecognised version by name", () => {
     const back = parseDocument(
       JSON.stringify({ aeleos: 99, blocks: PAGE }),

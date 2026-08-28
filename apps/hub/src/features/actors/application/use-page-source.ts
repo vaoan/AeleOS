@@ -156,9 +156,11 @@ interface UsePageSourceOptions {
  * changes will re-run on a theme change too. A theme change arriving mid-type
  * would then cancel and reschedule whatever that dependent effect or memo
  * was doing, which is not itself a debounce bug but would look exactly like
- * one to whoever debugs it next. There are no consumers of this hook yet, so
- * nothing depends on `onChange` today — this is a constraint on the ONE
- * consumer still to be written.
+ * one to whoever debugs it next. `PageSourceField` (`fursona-editor.tsx`) is
+ * the caller, and honours this: it hands the whole `source` object straight
+ * to `PageSourceDock`, which wires `source.onChange` directly onto the
+ * textarea's `onChange` prop, never into an effect's or a memo's dependency
+ * array.
  *
  * @param options - {@link UsePageSourceOptions}.
  * @returns the dock's state and the three actions it can take.

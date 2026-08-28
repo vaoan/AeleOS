@@ -2240,7 +2240,7 @@ sentences would need a fourth name added by hand, and nothing here would
 fail if that were forgotten — "the same as X and Y" contains no `only` or
 `every other` for the gate to catch, so this is a real residual gap. Ruled
 deliberately NOT worth a mechanism for: three members is not worth a second
-gated record the way seventeen leaf kinds or eight container modes are, and
+gated record the way sixteen leaf kinds or eight container modes are, and
 the cost of getting it wrong is a slightly incomplete cross-reference, not a
 falsehood the shape `ROWS_MEANINGS` was built to prevent. Revisit this
 ruling if a fourth inverting kind is ever added — that is the moment the

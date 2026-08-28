@@ -112,6 +112,10 @@ export interface PageSourceDockLabels {
  * through an effect's or a memo's dependency array, because their identity
  * changes with the theme and keying anything off them would restart the
  * binding's debounce on an unrelated theme change.
+ *
+ * `onClose`'s own doc corrects a whole-branch review finding: focus recovery
+ * on close is the native `<dialog>`'s own job, not this component's or its
+ * caller's — see that field's TSDoc for the mechanism.
  */
 export interface PageSourceDockProps {
   /** Whether the panel is showing. */
@@ -119,10 +123,14 @@ export interface PageSourceDockProps {
   /**
    * The panel asked to close, by Escape or by its own close button.
    *
-   * **This component never returns focus anywhere.** It is a `show()` dialog,
-   * not a `showModal()` one, so nothing here traps focus in the first place —
-   * the opener is the one holding the reference to whatever should get focus
-   * back, and it is the opener's job to restore it once `open` becomes false.
+   * **Neither this component nor its caller returns focus anywhere, and none
+   * has to.** The native `<dialog>` element's own closing steps do it: an
+   * `HTMLDialogElement` records whatever had focus immediately before it was
+   * shown and restores focus there once it closes, whether that close comes
+   * from `dialog.close()` or — as here — from this component calling `close()`
+   * inside the `useEffect` on `open`. `tests/e2e/page-source-dock.spec.ts`
+   * proves it: focus lands back on the control that opened the dock with no
+   * focus-restoring code anywhere in this codebase.
    */
   onClose: () => void;
   /** The live binding between the box and the page — see {@link PageSourceState}. */
@@ -278,6 +286,24 @@ export interface PageSourceDockProps {
  * height with `h-auto` absent, 944px (the full `viewport − top − bottom`)
  * with it present.
  *
+ * **`bottom` is conditional on `collapsed`, and a whole-branch review found
+ * the earlier version wrong.** `collapsed` used to gate only the body
+ * (`{!collapsed && …}`); `bottom-0` stayed in force regardless, and
+ * `bottom-0` is exactly the half of the mechanism above that stretches the
+ * box to the foot of the viewport. So collapsing left a full-height, fully
+ * OPAQUE (`bg-(--menu)`) panel with nothing painted below its header, still
+ * covering whatever page was behind it — the whole screen, at 320px. The
+ * spec this component implements says outright that collapsing on a narrow
+ * viewport has to be "the only way to see whether what was typed did
+ * anything", which a panel still covering the page cannot be. `collapsed`
+ * now switches `bottom-0` for `bottom-auto`: with `bottom` no longer
+ * specified and `height: auto`, the CSS 2 auto-height resolution for an
+ * absolutely/fixed-positioned box falls through to sizing the box by its own
+ * content — the header alone, since the body is the only thing
+ * `{!collapsed && …}` was ever removing. `tests/e2e/page-source-dock.spec.ts`
+ * measures both readings, at a wide viewport and at 320, and that a point the
+ * expanded dock covers is visible through the collapsed one.
+ *
  * @returns the `<dialog>` element. It renders unconditionally, whatever
  *   `open` says — a closed native dialog already paints nothing on its own,
  *   and the element has to stay mounted so the effect above always has a
@@ -374,7 +400,14 @@ export function PageSourceDock({
         // exactly that: the dock rendered, visible, before `open` was ever
         // true — confirmed on a real page, not assumed, since jsdom
         // implements neither the dialog UA stylesheet nor real layout.
-        "fixed top-(--bar-top) right-0 bottom-0 left-auto z-40 m-0 hidden h-auto max-h-none flex-col open:flex",
+        "fixed top-(--bar-top) right-0 left-auto z-40 m-0 hidden h-auto max-h-none flex-col open:flex",
+        // **Collapsed drops `bottom-0` in favour of `bottom-auto`, which is
+        // what shrinks the panel to its header** — see the mechanism this
+        // component's own TSDoc explains above `@returns`. Kept out of the
+        // shared string above so the wide-open case keeps its unconditional
+        // `bottom-0` rather than fighting a second declaration of the same
+        // property.
+        collapsed ? "bottom-auto" : "bottom-0",
         "border-l border-(--edge) bg-(--menu) p-0 text-(--ink)",
         "w-(--dock-width) max-w-[min(48rem,80vw)] min-w-[20rem]",
         // Sheet mode overrides all three: `width` back to the media-scoped
