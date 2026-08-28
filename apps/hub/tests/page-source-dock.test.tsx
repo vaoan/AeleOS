@@ -427,6 +427,47 @@ describe("PageSourceDock", () => {
     ).toBeInTheDocument();
   });
 
+  // Excludes: a second copy that does not clear the first reset timer — the
+  // pending `setTimeout` from copy #1 would then fire mid-window and revert
+  // the label copy #2 just set, rather than the window restarting.
+  it("a rapid second copy restarts the reset window rather than firing early", async () => {
+    vi.useFakeTimers();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderDock();
+
+    fireEvent.click(screen.getByRole("button", { name: labels.copyReference }));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByRole("button", { name: labels.copied }),
+    ).toBeInTheDocument();
+
+    // Half the reset window, so copy #1's timer is still pending.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: labels.copied }));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // 1000ms (above) + 1500ms (below) = 2500ms of total elapsed time, past
+    // the 2000ms window copy #1 opened — so this only reads "Copied" if
+    // copy #2 cleared copy #1's timer and opened a fresh 2000ms window of
+    // its own, of which only 1500ms have passed.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(
+      screen.getByRole("button", { name: labels.copied }),
+    ).toBeInTheDocument();
+  });
+
   it("collapsing hides the body and keeps the header, and the control reads expand", () => {
     renderDock();
     expect(
@@ -510,6 +551,32 @@ describe("PageSourceDock", () => {
         fireEvent.keyDown(grip, { key: "ArrowLeft" });
       }
       expect(dockWidth()).toBe("768px");
+    });
+
+    // Excludes: a ceiling that is always the 48rem cap and never the
+    // narrower 80%-of-viewport figure — unreached at jsdom's 1024px default,
+    // where 80% (819.2) exceeds 768 and the cap is always the smaller side of
+    // the `Math.min`. At 500px, 80% is 400, smaller than the 768 cap.
+    it("the ceiling honours 80% of a narrow viewport under the 48rem cap", () => {
+      const originalInnerWidth = window.innerWidth;
+      Object.defineProperty(window, "innerWidth", {
+        value: 500,
+        configurable: true,
+      });
+      try {
+        renderDock();
+        const grip = screen.getByRole("separator", { name: labels.resize });
+        for (let i = 0; i < 30; i += 1) {
+          fireEvent.keyDown(grip, { key: "ArrowLeft" });
+        }
+        // min(768, 500 * 0.8) = 400.
+        expect(dockWidth()).toBe("400px");
+      } finally {
+        Object.defineProperty(window, "innerWidth", {
+          value: originalInnerWidth,
+          configurable: true,
+        });
+      }
     });
 
     it("ArrowRight repeated does not go below the floor", () => {
