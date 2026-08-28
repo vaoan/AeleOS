@@ -324,7 +324,8 @@
         "docs/superpowers/plans/2026-08-20-section-margins.md",
         "docs/superpowers/plans/2026-08-21-builder-workbench.md",
         "scripts/seed-persona.mjs",
-        "scripts/seed-pastiches.mjs"
+        "scripts/seed-pastiches.mjs",
+        "docs/superpowers/plans/2026-08-27-page-source-and-sharing.md"
       ],
       "language": "en,en-GB,es"
     }
