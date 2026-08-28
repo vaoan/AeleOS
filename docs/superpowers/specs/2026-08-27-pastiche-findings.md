@@ -211,6 +211,48 @@ about them.
   with NO name, which the model already allows and which is easy to forget
   exists; recorded because two pages in a row got it wrong the same way.
 
+## The fidelity pass on the eleven (2026-08-28)
+
+### Archive.org answers again, and two pages stopped being guesses
+
+The three knowledge-built pages exist because "web.archive.org stopped
+answering". **Probed directly on 2026-08-28, it answers for all three.** That
+sentence had become a dated claim believed past its date — rule 25 with an
+external service as its subject rather than a database.
+
+- **Fur Affinity is evidence-backed now**, from a real December 2008 capture,
+  and it had been measurably wrong. Built from knowledge it used a near-black
+  ground and saturated teal header bars; the capture shows a **slate blue-grey
+  ground and light silver bars carrying DARK text**. It was reading as a modern
+  dark theme rather than as 2008. Both were corrected from the capture, and
+  `--on-accent` derived the dark text on the light bar with no help.
+- **Facebook's palette is confirmed** from a real March 2007 capture: `#3b5998`
+  was already right, and the capture adds the detail that the navy bar carries
+  a LIGHTER blue sub-bar beneath it, which one accent cannot express.
+- **Fotolog stays knowledge-built and says so.** Its snapshots render the
+  logged-out homepage with broken styling; no profile capture was found.
+
+### 12. One accent cannot express a two-tone header
+
+Facebook stacks a navy bar and a lighter blue sub-bar. `heading: "bar"` takes
+`--accent`, so a page has exactly one bar colour. The second tone is
+unreachable — a smaller gap than the surface one above, and the same family:
+the palette gives a page one of each thing where a real design has two.
+
+### A rule the seeder stated and broke, for a fortnight
+
+Its header said "no marks, no wordmarks, no brand assets" while the list below
+set **eight brand logos** as avatars. The logos were added deliberately and the
+sentence was never updated, so the file contradicted itself in the one place
+that says what it is allowed to copy.
+
+What is true is narrower: each page uses the site's own mark as the profile
+AVATAR, hot-linked and never committed, and nothing else of theirs is
+reproduced. The era looks take the opposite line and use no artwork at all,
+because an operating system's chrome IS the thing being imitated. That
+difference is deliberate and is now written down in both places rather than in
+neither.
+
 ## Found while building the five era looks (2026-08-28)
 
 Five looks aimed at five eras of somebody else's operating system — Windows 98,
