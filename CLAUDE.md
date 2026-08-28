@@ -159,6 +159,15 @@ Key choices and _why_:
   the change, not a note about it.
 - **IdP decision change (Logto → Clerk):**
   `docs/superpowers/specs/2026-07-31-idp-decision-change.md`
+- **Era looks — DESIGNED, NOT BUILT (2026-08-28):**
+  `docs/superpowers/specs/2026-08-28-era-looks-design.md`. Five OS-era looks as
+  page DOCUMENTS rather than skins, because two existing skins already carry
+  the chrome of three of the five — `retro` is Windows 98's bevel and `aero` is
+  Aero glass — and a look spans five vocabularies, so it belongs to none of
+  them. Read it before adding a skin for a named product: the bar that removed
+  `columns` applies. It also predicts, on the record and before building, that
+  Windows 8 cannot be done, because Metro is per-block colour and per-block
+  colour is refused by design.
 - **Clerk:** https://clerk.com — docs: https://clerk.com/docs
 - **Supabase Third-Party Auth:** the mechanism each app uses to trust Clerk.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,
