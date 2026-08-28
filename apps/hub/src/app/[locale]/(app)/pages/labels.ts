@@ -211,7 +211,8 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  *
  * @returns the translated labels.
  *
- * It builds the style popup's `chrome`, `heading`, `text_align`, `image_fit` and `radius` strings too.
+ * It builds the style popup's `chrome`, `heading`, `heading_pad`, `text_align`,
+ * `image_fit` and `radius` strings too.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -309,6 +310,10 @@ export async function fursonaEditorLabels(
       headingPlain: t("styleHeadingPlain"),
       headingBar: t("styleHeadingBar"),
       headingGradient: t("styleHeadingGradient"),
+      headingPad: t("styleHeadingPad"),
+      headingPadDefault: t("styleHeadingPadDefault"),
+      headingPadSnug: t("styleHeadingPadSnug"),
+      headingPadRoomy: t("styleHeadingPadRoomy"),
       textAlign: t("styleTextAlign"),
       textAlignInherit: t("styleTextAlignInherit"),
       textAlignStart: t("styleTextAlignStart"),

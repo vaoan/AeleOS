@@ -620,6 +620,77 @@ test.describe("what a leaf puts inside a track", () => {
   // block is a quarter of that, and `max-w-80`/`max-w-105` are absolute — so
   // the question "does the frame stay inside its place" has a different answer
   // per shape, and only a browser has it.
+  // **A DENSITY THAT ONLY REACHES INSIDE A CARD IS HALF A DENSITY**, and the
+  // gap between two sections is a number no unit test can read. Measured on
+  // real pages before this: a `compact` page and a default page differed in
+  // card padding and in type size and agreed EXACTLY on the 40px between every
+  // section, because the page box carried `mt-10` and `pt-6 sm:pt-10` — fixed
+  // classes no option could touch. The type was already tighter than the sites
+  // being imitated while the page still read as airy.
+  //
+  // **The same tree twice, so the only difference is the theme.** Two pages
+  // with different content could differ in gap for a dozen reasons; this pair
+  // can differ for exactly one. The default page is what pins the absent case
+  // to the values the fixed classes had, which is the claim that "no stored
+  // page moved" actually rests on.
+  test("a page's spacing reaches BETWEEN its sections, not only inside them", async ({
+    page,
+  }) => {
+    const blocks = [
+      container({
+        name_en: "First",
+        mode: "stack",
+        children: [leaf({ kind: "text", title_en: "One" })],
+      }),
+      container({
+        name_en: "Second",
+        mode: "stack",
+        children: [leaf({ kind: "text", title_en: "Two" })],
+      }),
+    ];
+
+    const tight = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "tight",
+      displayName: "Tight",
+      blocks,
+      theme: { spacing: "compact" },
+    });
+    const plain = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "plain",
+      displayName: "Plain",
+      blocks,
+    });
+
+    /**
+     * The vertical distance between the first two sections of a page.
+     *
+     * @param address - the owner's address.
+     * @param handle - the fursona's handle.
+     * @returns the gap in CSS pixels, rounded.
+     */
+    const gapOf = async (address: string, handle: string): Promise<number> => {
+      expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
+      const boxes = page.locator("[data-page-gutter]");
+      await expect(boxes.first()).toBeVisible();
+      const first = (await boxes.nth(0).boundingBox())!;
+      const second = (await boxes.nth(1).boundingBox())!;
+      return Math.round(second.y - (first.y + first.height));
+    };
+
+    await page.setViewportSize(LAPTOP);
+
+    // The default is exactly what `mt-10` was, which is what makes "absence
+    // changes nothing" a measurement rather than a promise.
+    expect(await gapOf(plain.address, plain.handle)).toBe(40);
+
+    // And `compact` is `0.5rem`, near-flush on purpose: the arrangements this
+    // exists for stacked their boxes with a hairline between them, and a gap
+    // that merely halves still reads as modern.
+    expect(await gapOf(tight.address, tight.handle)).toBe(8);
+  });
+
   // **A CLASS THAT COMPILES TO NOTHING LOOKS EXACTLY LIKE ONE THAT WORKS.**
   // `image_fit` was first written as `object-(--img-fit)`, which reads like
   // every other token utility in this codebase — `bg-(--menu)`, `text-(--muted)`

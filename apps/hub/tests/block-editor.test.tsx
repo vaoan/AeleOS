@@ -225,7 +225,7 @@ describe("BlockEditor", () => {
     // the classes `pageBoxClass` composes for a lone section at the default
     // `wider` measure — first and last at once, because there is one.
     expect(tray).toHaveClass("mx-auto", "w-full", "max-w-7xl", "px-4");
-    expect(tray).toHaveClass("pt-6", "pb-6");
+    expect(tray).toHaveClass("pt-(--page-edge)", "pb-(--page-edge)");
 
     // **NOTHING of the editor's own is painted over the page.** The card face,
     // the label, the padding and the author's `--field` on an in-flow box are

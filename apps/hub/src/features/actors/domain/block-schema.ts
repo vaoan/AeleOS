@@ -460,6 +460,11 @@ const utf8 = new TextEncoder();
  * every unstyled block overwrite an enclosing section's `contain`; and
  * `radius` absent leaves whatever multiplier the skin chose, which is what
  * lets a corner and an aesthetic be picked separately.
+ *
+ * `heading_pad` joins them, and it is the one key here READ ONLY IN ONE PLACE:
+ * a name drawn as a bar. A plain name has the page's own spacing around it and
+ * no edge to be pressed against, so padding it would move text with nothing
+ * behind it.
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -516,6 +521,19 @@ export const BLOCK_STYLE_LIMITS = {
    * chose.
    */
   radius: ["square", "soft", "round"],
+  /**
+   * How much room a NAMED block's own name is given.
+   *
+   * **Read only where the name is drawn as a bar**, which is where the
+   * complaint came from: a solid strip at `px-3 py-2` puts small text hard
+   * against a coloured edge, and with `spacing: "compact"` shrinking the type
+   * as well, the bar reads as crowded. A plain floating name has the page's
+   * own spacing around it already and nothing to be crowded by.
+   *
+   * Absent is exactly what every barred page had, so this changes nothing
+   * anybody has stored.
+   */
+  heading_pad: ["snug", "roomy"],
 } as const;
 
 /**
@@ -578,6 +596,8 @@ const blockStyleShape = {
   image_fit: z.enum(BLOCK_STYLE_LIMITS.image_fit).optional(),
   // Overrides the skin's own corner; absent keeps it.
   radius: z.enum(BLOCK_STYLE_LIMITS.radius).optional(),
+  // Read only where `heading` draws a bar; absent is today's `px-3 py-2`.
+  heading_pad: z.enum(BLOCK_STYLE_LIMITS.heading_pad).optional(),
   // **A depth-0 key, and meaningless anywhere else.** A section reaches both
   // edges of the window; a block nested inside one has a section between it
   // and the page and cannot escape that. Absent means the page's own measure,

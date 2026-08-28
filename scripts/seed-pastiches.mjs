@@ -767,15 +767,370 @@ const geocitiesTheme = theme({
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// 9 — Fur Affinity, the furry web's own. Dark, dense, art first, and the one
+//     shape none of the eight had: a WALL of short rows under everything else.
+//
+// **Built from knowledge rather than from a capture**, unlike the eight above:
+// web.archive.org would not answer this session and the live site refuses an
+// unauthenticated fetch. What is claimed here is the FEEL — a dark page, a
+// banner, a narrow stats rail beside a wide body, a thumbnail grid and a
+// shouts wall — not a palette anybody measured. Check it against a real
+// capture before treating any colour in it as reference.
+// ---------------------------------------------------------------------------
+
+const furaffinity = [
+  // The banner: the one place a page reaches both edges and touches the top.
+  // **No NAME on purpose.** A depth-0 container that carries one draws it, and
+  // a heading floating over a full-bleed banner is a label nobody asked for.
+  // An unnamed container at depth 0 is a group with no heading — which is
+  // exactly what a banner is.
+  group(
+    "stack",
+    [
+      leaf("picture", "Aeleos' banner", {
+        image_url: photo("fa-banner", 1600, 260),
+      }),
+    ],
+    { style: { bleed: true, margins: false, chrome: "bare" } },
+  ),
+
+  section(
+    "Aeleos",
+    "grid",
+    [
+      group("stack", [
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+        leaf("table", "Stats", {
+          rows: [
+            [{ text_en: "Views", icon: "eye" }, { text_en: "48,120" }],
+            [{ text_en: "Submissions", icon: "image" }, { text_en: "212" }],
+            [{ text_en: "Favs", icon: "star" }, { text_en: "9,431" }],
+            [
+              { text_en: "Comments", icon: "message-square" },
+              { text_en: "3,077" },
+            ],
+            [
+              { text_en: "Registered", icon: "calendar" },
+              { text_en: "Mar 2007" },
+            ],
+          ],
+        }),
+        leaf("handle", "Username"),
+      ]),
+      group("stack", [
+        leaf("text", "Artist Profile", {
+          description_en:
+            "traditional and digital, mostly canids. commissions are CLOSED until i clear the queue. please read my TOS before noting me. i draw for fun and i answer every shout eventually, i promise.",
+        }),
+        leaf("table", "Contact Information", {
+          rows: [
+            [{ text_en: "Telegram", icon: "send" }, { text_en: "@aeleos" }],
+            [
+              { text_en: "Trello", icon: "clipboard-list" },
+              { text_en: "aeleos/queue" },
+            ],
+            [
+              { text_en: "Stream", icon: "video" },
+              { text_en: "picarto.tv/aeleos" },
+            ],
+          ],
+        }),
+      ]),
+    ],
+    // The narrow stats rail beside the wide body — the arrangement `weights`
+    // exists for, and the one nesting could never have produced.
+    {
+      spaces: 2,
+      weights: [1, 3],
+      style: { heading: "bar", heading_pad: "roomy" },
+    },
+  ),
+
+  section(
+    "Recent Submissions",
+    "grid",
+    Array.from({ length: 8 }, (_, i) =>
+      leaf("picture", "Submission " + (i + 1), {
+        image_url: photo("fa-sub-" + i, 400, 400),
+      }),
+    ),
+    { spaces: 4, style: { heading: "bar", heading_pad: "roomy" } },
+  ),
+
+  // **The shouts wall, and the reason this page is here.** Many short rows of
+  // a name and a line, divided rather than boxed — `list` plus `chrome: bare`,
+  // which is exactly the pair the divided-list phase added and which none of
+  // the eight above had a use for.
+  section(
+    "Shouts",
+    "list",
+    [
+      ["Tavi", "your linework got so clean this year!! teach me"],
+      ["mochi_wolf", "thanks for the trade, it came out great :3"],
+      ["Renard", "commissions when"],
+      ["pixelpaws", "happy belated!! sorry i missed the stream"],
+      ["Kestrel", "that arctic fox piece lives rent free in my head"],
+    ].map(([who, said]) =>
+      leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
+    ),
+    { style: { heading: "bar", heading_pad: "roomy", chrome: "bare" } },
+  ),
+];
+
+const furaffinityTheme = theme({
+  background: gradient(180, [
+    { color: "#0b1417", at: 0 },
+    { color: "#12202a", at: 100 },
+  ]),
+  accent: "#2f7d95",
+  canvas: "none",
+  skin: "default",
+  font: "classic",
+  spacing: "compact",
+  measure: "wider",
+});
+
+// ---------------------------------------------------------------------------
+// 10 — Fotolog / Metroflog, ~2005, and enormous in Colombia specifically.
+//      Structurally the opposite of every page above: ONE photograph, and then
+//      a guestbook longer than the rest of the page put together.
+//
+// Built from knowledge rather than from a capture — see the note on 9.
+// ---------------------------------------------------------------------------
+
+const fotolog = [
+  // **A group, not a section.** A named container draws its name, and this
+  // header already carries the `name` and `handle` leaves — naming it printed
+  // "aeleos" three times down the page before anybody scrolled.
+  group("stack", [leaf("name", "aeleos"), leaf("handle", "fotolog")], {
+    style: { chrome: "bare", text_align: "center" },
+  }),
+
+  // The whole point of the page, and deliberately the only picture on it.
+  section(
+    "hoy",
+    "stack",
+    [
+      leaf("picture", "hoy", { image_url: photo("fl-today", 900, 900) }),
+      leaf("text", "pie de foto", {
+        description_en:
+          "sabado en la tarde, medellin. la camara de mi hermana. 47 comentarios y sigo contando",
+        style: { chrome: "bare", text_align: "center" },
+      }),
+    ],
+    { style: { heading: "bar" } },
+  ),
+
+  // The guestbook: a long column of one-line rows, which is what the page was
+  // actually FOR — the photograph was the excuse.
+  section(
+    "comentarios",
+    "list",
+    [
+      ["luchito_88", "hermosaaa la foto!! pasa por el mio"],
+      ["andre.v", "+1 y firmo, buenisima"],
+      ["kata", "ayyy que linda, saludos desde cali"],
+      ["nano", "firmado, devuelveme la firma porfa"],
+      ["mari_sol", "esa camara es una belleza, cual es?"],
+      ["juanpis", "jajaja la cara de tu hermana al fondo"],
+      ["laura.g", "te dejo mi firma del dia"],
+      ["el_mono", "primero!! ah no, septimo"],
+    ].map(([who, said]) =>
+      leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
+    ),
+    { style: { heading: "bar", chrome: "bare" } },
+  ),
+];
+
+const fotologTheme = theme({
+  background: gradient(180, [
+    { color: "#ffffff", at: 0 },
+    { color: "#eef2f6", at: 100 },
+  ]),
+  accent: "#0a6ebd",
+  canvas: "none",
+  skin: "default",
+  font: "classic",
+  spacing: "compact",
+  // Narrow on purpose: the page was one column and one photograph.
+  measure: "narrow",
+});
+
+// ---------------------------------------------------------------------------
+// 11 — Facebook, ~2008. Blue bars, a narrow left rail of information boxes,
+//      and a wall. The most COPIED layout of its decade.
+//
+// Built from knowledge rather than from a capture — see the note on 9. The
+// blue is the one thing here anybody would recognise on sight.
+// ---------------------------------------------------------------------------
+
+const facebook = [
+  section(
+    "Aeleos",
+    "grid",
+    [
+      group("stack", [
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+        leaf("table", "Information", {
+          rows: [
+            [
+              { text_en: "Networks", icon: "globe" },
+              { text_en: "Medellin, Colombia" },
+            ],
+            [{ text_en: "Sex", icon: "user" }, { text_en: "Male" }],
+            [{ text_en: "Birthday", icon: "cake" }, { text_en: "March 3" }],
+            [
+              { text_en: "Relationship", icon: "heart" },
+              { text_en: "It's complicated" },
+            ],
+          ],
+        }),
+      ]),
+      group("stack", [
+        leaf("name", "Aeleos"),
+        leaf("text", "What's on your mind?", {
+          description_en:
+            "Aeleos is wondering why he spent four hours on a profile page instead of sleeping.",
+        }),
+      ]),
+    ],
+    { spaces: 2, weights: [1, 2], style: { heading: "bar" } },
+  ),
+
+  section(
+    "Friends",
+    "grid",
+    Array.from({ length: 6 }, (_, i) =>
+      leaf("picture", "Friend " + (i + 1), {
+        image_url: photo("fb-friend-" + i, 200, 200),
+      }),
+    ),
+    { spaces: 6, style: { heading: "bar" } },
+  ),
+
+  section(
+    "The Wall",
+    "list",
+    [
+      ["Tomas", "happy birthday man!! drinks on saturday"],
+      ["Valentina", "PICS FROM FRIDAY ARE UP, you got tagged in 11"],
+      ["Sebas", "is anyone else still awake or just me"],
+      ["Camila", "poked you."],
+    ].map(([who, said]) =>
+      leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
+    ),
+    { style: { heading: "bar", chrome: "bare" } },
+  ),
+];
+
+const facebookTheme = theme({
+  background: gradient(180, [
+    { color: "#edeff4", at: 0 },
+    { color: "#dfe3ee", at: 100 },
+  ]),
+  accent: "#3b5998",
+  canvas: "none",
+  skin: "default",
+  font: "classic",
+  spacing: "compact",
+  // **`wider`, and the friends strip is what decides it.** A six-across grid
+  // collapses to ONE column below a 64rem container, with no step in between:
+  // at `wide` the container is 976px and six thumbnails rendered as a single
+  // photograph the width of the page. Recorded in the pastiche findings.
+  measure: "wider",
+});
+
+/**
+ * Each page's avatar, which is the mark of the site it imitates.
+ *
+ * **In the seeder rather than set by hand**, which is how it was done first:
+ * a re-run then left every newly added page with an empty circle, and would
+ * have dropped the rest the moment anybody reset them. A seed that does not
+ * restore everything it depends on works exactly once.
+ *
+ * Several are wide wordmarks, which is what found the `image_fit` gap — every
+ * avatar leaf below asks for `contain` so the mark is shown whole rather than
+ * cropped to a fragment.
+ */
 const PAGES = [
-  ["myspace", "Aeleos ~*~", myspace, myspaceTheme],
-  ["messenger", "Aeleos (Available)", messenger, messengerTheme],
-  ["board", "Aeleos", board, boardTheme],
-  ["sky", "Aeleos", sky, skyTheme],
-  ["threads", "aeleos", threads, threadsTheme],
-  ["hi5", "Aeleos", hi5, hi5Theme],
-  ["sonico", "Aeleos", sonico, sonicoTheme],
-  ["geocities", "AELEOS", geocities, geocitiesTheme],
+  [
+    "myspace",
+    "Aeleos ~*~",
+    myspace,
+    myspaceTheme,
+    "https://cdn.simpleicons.org/myspace/003399",
+  ],
+  [
+    "messenger",
+    "Aeleos (Available)",
+    messenger,
+    messengerTheme,
+    "https://upload.wikimedia.org/wikipedia/en/b/bf/Windows_Live_Messenger_icon.png",
+  ],
+  [
+    "board",
+    "Aeleos",
+    board,
+    boardTheme,
+    "https://cdn.simpleicons.org/x/1d9bf0",
+  ],
+  [
+    "sky",
+    "Aeleos",
+    sky,
+    skyTheme,
+    "https://cdn.simpleicons.org/bluesky/0085ff",
+  ],
+  [
+    "threads",
+    "aeleos",
+    threads,
+    threadsTheme,
+    "https://cdn.simpleicons.org/threads/ffffff",
+  ],
+  [
+    "hi5",
+    "Aeleos",
+    hi5,
+    hi5Theme,
+    "https://www.google.com/s2/favicons?domain=hi5.com&sz=256",
+  ],
+  [
+    "sonico",
+    "Aeleos",
+    sonico,
+    sonicoTheme,
+    "https://upload.wikimedia.org/wikipedia/commons/4/49/Logo-twoo-sonico.png",
+  ],
+  [
+    "geocities",
+    "AELEOS",
+    geocities,
+    geocitiesTheme,
+    "https://upload.wikimedia.org/wikipedia/commons/6/63/GeoCities_logo.svg",
+  ],
+  [
+    "furaffinity",
+    "Aeleos",
+    furaffinity,
+    furaffinityTheme,
+    "https://cdn.simpleicons.org/furaffinity/2f7d95",
+  ],
+  [
+    "fotolog",
+    "aeleos",
+    fotolog,
+    fotologTheme,
+    "https://www.google.com/s2/favicons?domain=fotolog.com&sz=256",
+  ],
+  [
+    "facebook",
+    "Aeleos",
+    facebook,
+    facebookTheme,
+    "https://cdn.simpleicons.org/facebook/3b5998",
+  ],
 ];
 
 await client.connect();
@@ -787,7 +1142,7 @@ try {
   if (!owner) throw new Error(`no person at /${ADDRESS}`);
   const person = owner.actor_ref;
 
-  for (const [handle, displayName, blocks, pageTheme] of PAGES) {
+  for (const [handle, displayName, blocks, pageTheme, avatar] of PAGES) {
     const [existing] = await ask(
       "select actor_ref from public.actors where owner_ref = $1 and handle = $2",
       [person, handle],
@@ -798,14 +1153,16 @@ try {
           await ask(
             `insert into public.actors
                (actor_ref, kind, owner_ref, handle, display_name, visibility, status)
-             values (gen_random_uuid(), 'fursona', $1, $2, $3, 'unlisted', 'active')
+             values (gen_random_uuid(), 'fursona', $1, $2, $3, 'public', 'active')
              returning actor_ref`,
             [person, handle, displayName],
           )
         )[0].actor_ref;
     await ask(
-      "update public.actors set display_name = $1, visibility = 'unlisted' where actor_ref = $2",
-      [displayName, ref],
+      `update public.actors
+          set display_name = $1, visibility = 'public', avatar_url = $2
+        where actor_ref = $3`,
+      [displayName, avatar, ref],
     );
     await ask(
       `insert into public.actor_profiles (actor_ref, sections, theme)

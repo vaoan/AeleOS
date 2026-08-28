@@ -3088,6 +3088,55 @@ reachable from a unit test.**
   a string, both selects were correct on their own, and no unit test asks a page
   for one. **Grep for a test id before minting it.**
 
+### A bar can be given room (2026-08-28)
+
+`heading_pad` — `snug` or `roomy`, absent being the `px-3 py-2` every barred
+page already had. **It is read only where the name is drawn as a bar**, and
+that restriction is the design rather than an oversight: a plain name floats
+with the page's own spacing around it and has no edge to be pressed against, so
+padding it would move text with nothing behind it. A solid strip is the only
+heading that can be crowded, and with `spacing: "compact"` shrinking the type
+inside it, it was.
+
+Two things a fixture here has to get right, both learned by writing them:
+
+- **The default must be GONE when a value is chosen**, not joined to it. Two
+  padding utilities on one element is a class list whose winner depends on
+  Tailwind's ordering, so the cases assert `not.toContain("px-3 py-2")` as well
+  as the new value — and sabotaging the renderer to emit both reddens exactly
+  those two.
+- **A plain name must read none of it**, which is easy to miss because every
+  other fixture on the page has a bar. That case renders `heading_pad` with no
+  `heading` at all and asserts the padding appears nowhere in the section.
+
+### A density that reaches OUTSIDE the card (2026-08-28)
+
+`spacing` set a card's padding and its type size and stopped there. The page
+box carried `mt-10` and `pt-6 sm:pt-10` — fixed classes no option could reach —
+so **a `compact` page and a default page were measured differing in every
+number except the 40px between every section.** The type was already tighter
+than the sites being imitated while the page still read as airy: the air was
+between the cards, not inside them.
+
+`FIRST_MARGIN`, `BETWEEN_MARGIN` and `LAST_MARGIN` are `--page-edge` and
+`--page-gap` now. Three things about that are load-bearing:
+
+- **The defaults live at `:root` and are exactly what the classes were**, the
+  edge's `sm` breakpoint included, as a media query on `:root`. So a page that
+  chooses no spacing is byte-identical and no stored page moved.
+- **A chosen spacing overrides them at every width**, carrying no breakpoint of
+  its own — which is what makes it a choice rather than a suggestion the `sm`
+  step outvotes.
+- **`compact` is near-flush at `0.5rem`.** The arrangements it exists for
+  stacked their boxes with a hairline between them, and a gap that merely
+  halves still reads as modern.
+
+The guard is a browser measurement, not a class assertion, because the class
+string was never what was wrong: `blocks-render.spec.ts` seeds the SAME tree
+twice under two themes and reads the gap — 40px plain, 8px compact. Removing
+the two lines that emit the tokens puts the compact page back to 40 and leaves
+the plain one green, which is the pair discriminating.
+
 **Two gaps are left open deliberately** — per-block colour and overlap. Both
 reverse a decision written down elsewhere (a skin names no colour; free
 positioning is refused), so closing them belongs to a design pass rather than

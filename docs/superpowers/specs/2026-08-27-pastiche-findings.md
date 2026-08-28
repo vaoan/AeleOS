@@ -12,24 +12,39 @@ something specific, because **a pastiche fails visibly and in a way you can
 name**. "The editor feels limited" is not actionable; "a feed cannot lose its
 card edges" is.
 
-`scripts/seed-pastiches.mjs` builds eight pages, each aimed at an era's
+`scripts/seed-pastiches.mjs` builds eleven pages, each aimed at an era's
 characteristic arrangement rather than its logo. No marks, no wordmarks, no
 brand assets: what is copied is layout, palette and density, which is exactly
 what the model either can or cannot express.
 
-They are `unlisted` fursonas of `/137`, so they are reachable by address and
-absent from that curated profile.
+They are `public` fursonas of `/137`, so they are listed on that profile and
+browsable end to end. They began `unlisted` — reachable only by address — and
+the seeder went on writing `unlisted` after they had been made public by hand,
+so every re-run silently undid it. The seeder owns visibility now, along with
+each page's avatar, for the same reason: **a seed that does not restore
+everything it depends on works exactly once.**
+
+**Three were added later and are not the same evidence as the other eight.**
+Fur Affinity, Fotolog and Facebook were built from knowledge, because
+web.archive.org would not answer that session and Fur Affinity refuses an
+unauthenticated fetch. What is claimed for them is the FEEL — a dark page with
+a banner and a shouts wall; one photograph and a guestbook; blue bars, an
+information rail and a wall — not a palette anybody measured. Check them
+against a real capture before treating any colour in them as reference.
 
 ## What landed, and what carried it
 
-| page                   | what made it work                                                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Windows Live Messenger | `aero` — glassy blue cards, `accordion` contact groups, `bubbles` canvas. The closest of the eight.                            |
-| MySpace                | `retro` + the **Winamp jukebox chrome**, a two-column `weights: [1, 2]` body, a `table` for the contact box, a 4-across Top 8. |
-| hi5                    | `candy` pill cards with hard shadows, `sticker` for the friends grid, `progress` as a profile-completeness meter.              |
-| Sonico                 | `glass` + `masonry` for a real photo wall, `carousel` for album strips.                                                        |
-| GeoCities              | `terminal` monospace, `stars`, a tiled `dark-mosaic` background, a `table` of visitor stats, a `link` row as a webring.        |
-| Microblog boards       | `timeline`, `stat` rows, `social` chips that resolve a brand.                                                                  |
+| page                   | what made it work                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows Live Messenger | `aero` — glassy blue cards, `accordion` contact groups, `bubbles` canvas. The closest of the eight.                                                                               |
+| MySpace                | `retro` + the **Winamp jukebox chrome**, a two-column `weights: [1, 2]` body, a `table` for the contact box, a 4-across Top 8.                                                    |
+| hi5                    | `candy` pill cards with hard shadows, `sticker` for the friends grid, `progress` as a profile-completeness meter.                                                                 |
+| Sonico                 | `glass` + `masonry` for a real photo wall, `carousel` for album strips.                                                                                                           |
+| GeoCities              | `terminal` monospace, `stars`, a tiled `dark-mosaic` background, a `table` of visitor stats, a `link` row as a webring.                                                           |
+| Fur Affinity           | A full-bleed banner, `weights: [1, 3]` for the stats rail, a submissions grid, and `list` + `chrome: "bare"` for the shouts wall — the first page here that needed a wall at all. |
+| Fotolog                | One photograph at `measure: "narrow"` and a guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                    |
+| Facebook               | `heading: "bar"` in `#3b5998`, an information `table` with a mark on every row, a six-across friends strip, and a divided wall.                                                   |
+| Microblog boards       | `timeline`, `stat` rows, `social` chips that resolve a brand.                                                                                                                     |
 
 **The single most convincing element in the whole set is the jukebox.** A
 Winamp-chromed player embedded in a purple starfield is not a thing most page
@@ -174,6 +189,27 @@ about them.
   the TOKENS as well as the property; the general form is that **an inherited
   property cannot override an explicit one, so a page-level face has to set
   whatever tokens the elements actually read.**
+
+## Found while adding the last three (2026-08-28)
+
+- **A grid's collapse is a single step, and for a strip of thumbnails that is
+  the wrong shape.** Facebook's six-across friends strip was laid at
+  `measure: "wide"`, where the container is 976px — just under the 64rem the
+  six-space grid's container query asks for — and it collapsed to **one**
+  column, so six thumbnails rendered as a single photograph the width of the
+  page. There is no two- or three-across step in between: a space count either
+  fits or becomes one. It was worked around by widening that page to `wider`,
+  which is a fix for the page and not for the model. What a strip of small
+  square tiles wants is a floor it can wrap against rather than a threshold it
+  falls off, and nothing expresses that today.
+
+- **A named section always draws its name, so a banner cannot be nameless and a
+  header cannot avoid repeating itself.** The Fur Affinity banner printed
+  "Aeleos" over a full-bleed picture, and the Fotolog header printed "aeleos"
+  three times — once as the section's name, once as the `name` leaf's label and
+  once as its value. Both are answered by making the block a depth-0 container
+  with NO name, which the model already allows and which is easy to forget
+  exists; recorded because two pages in a row got it wrong the same way.
 
 ## Two gaps left open, and why
 

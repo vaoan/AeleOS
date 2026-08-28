@@ -30,6 +30,11 @@
     "Reproductor",
     "música",
     "vibro",
+    // The pastiche pages name the sites they imitate; these are the ones no
+    // dictionary has. `README.md` and `scripts/seed-pastiches.mjs` are the only
+    // files that use them.
+    "Fotolog",
+    "Metroflog",
     "picsum",
     "pixabay",
     "showcase",
