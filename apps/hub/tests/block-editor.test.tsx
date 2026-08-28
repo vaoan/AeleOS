@@ -92,6 +92,14 @@ function harness(sections: Block[] = []) {
         labels={labels}
         page={pageContext({ parentHost: "" })}
         problems={[]}
+        // **The harness stands in for `FursonaEditor`, which owns the form.**
+        // `BlockEditor` forwards a picked template upward rather than applying
+        // it, because a look is a second field this component cannot reach —
+        // so the harness writes it, exactly as the real editor does.
+        onApplyDocument={({ blocks }) => form?.setValue("sections", blocks)}
+        // No look chosen, so the picker applies without confirming — which is
+        // what every case in this file assumes.
+        theme={null}
       />
     );
   }
@@ -291,7 +299,7 @@ describe("BlockEditor", () => {
     const [template] = FURSONA_TEMPLATES;
     fireEvent.click(screen.getByTestId(`template-${template!.id}`));
 
-    expect(page().length).toBeGreaterThanOrEqual(template!.sections.length);
+    expect(page().length).toBeGreaterThanOrEqual(template!.blocks.length);
     expect(page().every((block) => isContainer(block))).toBe(true);
     expect(missingRequiredKinds(page(), "fursona")).toEqual([]);
   });

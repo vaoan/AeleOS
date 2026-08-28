@@ -11,7 +11,7 @@ import {
   isContainer,
   type ContainerBlock,
 } from "@/features/actors/domain/block-schema";
-import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
+import { STARTER_LAYOUTS } from "@/features/actors/domain/fursona-templates";
 // WHY THIS SUITE EXISTS, AND WHAT IT IS ALLOWED TO ASSUME.
 //
 // Every page written before the block model is still FLAT in the column —
@@ -267,12 +267,12 @@ describe("what a converted page keeps", () => {
   // is covered without anybody remembering to add a case. The template button
   // is the fastest way to fill a whole page, which is what made it the fastest
   // way to reach a save the database refused.
-  it.each(FURSONA_TEMPLATES.map((one) => [one.id, one] as const))(
+  it.each(STARTER_LAYOUTS.map((one) => [one.id, one] as const))(
     "converts the %s template into a page the database will take",
-    (_id, template) => {
-      const blocks = sectionsToBlocks(structuredClone(template.sections));
+    (_id, layout) => {
+      const blocks = sectionsToBlocks(structuredClone(layout.sections));
       expect(blocksSchema.safeParse(blocks).success).toBe(true);
-      expect(blocks).toHaveLength(template.sections.length);
+      expect(blocks).toHaveLength(layout.sections.length);
     },
   );
 });

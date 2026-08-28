@@ -14,7 +14,6 @@ import {
   startFursona,
 } from "./support/editor";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
-import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import { isContainer } from "@/features/actors/domain/block-schema";
 
 // THE COVERAGE THAT WAS OWED, AND WHY IT IS OWED IN A BROWSER.
@@ -37,11 +36,17 @@ import { isContainer } from "@/features/actors/domain/block-schema";
 // just wrote. A one-way test passes happily on a save that retypes somebody's
 // section on the way back, which they find out a week later.
 //
-// **The editor composes BLOCKS now**, so what a template arrives as is the
-// conversion `sectionsToBlocks` produces — the same one that opens every page
-// written before the block model. The expectations below are built from that
-// function rather than restated, so a change to the decomposition table is a
-// change in one place.
+// **A template ARRIVES as blocks now** (2026-08-28). It is converted once where
+// it is declared rather than when it is applied, so this spec no longer runs
+// `sectionsToBlocks` itself — the expectations below are built from
+// `template.blocks`, which is the very thing the picker hands the editor.
+//
+// That is a stronger guarantee than the conversion it replaced, and worth
+// knowing before somebody "restores" the old shape: building the expectation
+// from the same function the product calls could agree with a decomposition
+// that had drifted from what a template actually ships, because both sides
+// would be running the same drifted code. Reading the shipped value instead
+// means the two can genuinely disagree.
 //
 // Every template is covered by looping over the list that ships them, so a
 // template added later is covered without anybody remembering to add a case.
@@ -171,24 +176,27 @@ const PERSON_FURSONAS: EditorSection = {
 /**
  * The same page, as the template that produced it describes itself.
  *
- * Built by running the template through `sectionsToBlocks` rather than by
+ * Built from the template's own blocks rather than by
  * restating the decomposition table, so what this expects and what the editor
  * is handed cannot disagree about anything except the round trip itself — plus
  * {@link IDENTITY_SECTION}, which is not the template's and is what the editor
  * adds to make the page one the database will accept.
  *
- * @param sections - a template's own sections.
+ * @param blocks - a template's own blocks, already converted. The spec used
+ *   to take flat sections and run `sectionsToBlocks` itself; a template ships
+ *   blocks now, so the conversion lives where it belongs and this helper can
+ *   no longer disagree with what the picker actually hands out.
  * @param identity - what the shim put BEFORE them, which differs by actor
  *   kind. A person's page passes an empty list and places its own two around
  *   the result, because one of theirs is appended rather than prepended.
  * @returns what {@link readEditor} must find.
  */
 const expectedFrom = (
-  sections: (typeof FURSONA_TEMPLATES)[number]["sections"],
+  blocks: (typeof FURSONA_TEMPLATES)[number]["blocks"],
   identity: EditorSection[] = [IDENTITY_SECTION],
 ): EditorSection[] => [
   ...identity,
-  ...sectionsToBlocks(sections).map((block) => {
+  ...blocks.map((block) => {
     if (!isContainer(block)) throw new Error("a template made a leaf");
     return {
       name: block.name_en ?? "",
@@ -219,11 +227,31 @@ for (const template of FURSONA_TEMPLATES) {
     const handle = handleFor(`tpl${template.id.slice(0, 3)}`);
     await startFursona(page, handle, `Template ${template.id}`);
 
+    // **A colour chosen BEFORE the template, so applying one has something of
+    // theirs to lose.** A template carries a `theme` now — null for every
+    // shipped starter, meaning leave the author's colours alone — and the only
+    // way to prove that survives a real save is to have chosen a colour first.
+    // A unit test cannot see a database; this is the same guarantee at the
+    // level where the save actually happens.
+    await page.getByTestId("theme-open").click();
+    await page.getByTestId("theme-accent").fill("#e21233");
+    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
+
     await page.getByTestId("template-picker").click();
     await page.getByTestId(`template-${template.id}`).click();
+    // **The confirmation now APPEARS**, where before this branch it did not:
+    // choosing a colour is authored work, so `holdsNothingAuthored` answers
+    // false and the picker asks first. That is Task 1's change reaching a real
+    // browser, and it is asserted rather than tolerated — a `click` that
+    // silently found nothing would leave the template unapplied and fail
+    // further down with a confusing message.
+    await page.getByTestId("template-confirm-yes").click();
     // Applied before anything is saved, so what the editor holds now is the
     // template itself — the state the round trip below is measured against.
-    expect(await readEditor(page)).toEqual(expectedFrom(template.sections));
+    expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
+
+    // The starter replaced the page and NOT the palette.
+    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
 
     await saveAndLeave(page);
 
@@ -232,7 +260,12 @@ for (const template of FURSONA_TEMPLATES) {
     // one-way conversion passes and a wrong one does not.
     await page.goto(`/es/pages/${handle}/edit`);
     await expect(page.getByTestId("section-card").first()).toBeVisible();
-    expect(await readEditor(page)).toEqual(expectedFrom(template.sections));
+    expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
+
+    // And the colour is still theirs after the round trip through the
+    // database — which a unit test structurally cannot check.
+    await page.getByTestId("theme-open").click();
+    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
 
     // And a second save over what was just reopened, which is the shape of the
     // bug that once deleted people's sections: reopen, press Save, lose the
@@ -247,7 +280,7 @@ for (const template of FURSONA_TEMPLATES) {
       // The template's own sections, plus the identity one the editor added
       // and the save then stored — see {@link IDENTITY_SECTION}.
       await expect(anonymous.getByTestId("public-section")).toHaveCount(
-        template.sections.length + 1,
+        template.blocks.length + 1,
       );
       // The page is not merely present but populated: a section that lost its
       // items would still be a section.
@@ -385,7 +418,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   await expect(page.getByTestId("section-card").first()).toBeVisible();
   expect(await readEditor(page)).toEqual([
     PERSON_HEADER,
-    ...expectedFrom(template!.sections, []),
+    ...expectedFrom(template!.blocks, []),
     PERSON_FURSONAS,
   ]);
 
@@ -395,7 +428,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
     const response = await anonymous.goto(`/es/${address}`);
     expect(response?.status()).toBe(200);
     await expect(anonymous.getByTestId("public-section")).toHaveCount(
-      template!.sections.length + 2,
+      template!.blocks.length + 2,
     );
   } finally {
     await stranger.close();

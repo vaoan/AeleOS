@@ -161,6 +161,7 @@
     "noIcon": "Sin icono",
     "useTemplate": "Empieza con una plantilla",
     "templateConfirm": "Esto reemplaza las secciones que tienes ahora. Lo que escribiste se perderá.",
+    "templateConfirmLook": "Esto reemplaza las secciones que tienes ahora Y los colores que elegiste. Lo que escribiste y elegiste se perderá.",
     "templateConfirmYes": "Reemplázalas",
     "templateConfirmNo": "Mejor no",
     "templateSections": "{count, plural, one {# sección} other {# secciones}}",

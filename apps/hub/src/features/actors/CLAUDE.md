@@ -642,6 +642,20 @@ byte-for-byte what `withRequiredBlocks` seeds. It errs towards ASKING, which is
 the safe direction — the costly mistake is replacing somebody's page without
 one.
 
+**It takes the THEME as well, since 2026-08-28, and the gap it closes is the
+same shape one level along.** A chosen look is the author's work and the blocks
+cannot see it: somebody who picked colours and touched nothing else has a page
+that is still byte-for-byte the scaffold, so every question the predicate asked
+answered "nothing here is theirs" while a palette they chose was about to go.
+The parameter is optional, so a caller with no theme to hand keeps the old
+behaviour rather than being made to invent one, and it asks `isCustomised`
+rather than comparing against a default — that is already the question "has
+this person chosen anything", and a second implementation of it would drift.
+The discriminating case is the negative one: an untouched theme and a null one
+must both still answer true, or an implementation reading `theme !== undefined`
+satisfies the positive case and is wrong about every page that opens with a
+default.
+
 **A person's scaffold is two sections, not one**, and this is the part that
 looks like a bug when a test is written against a fursona's. The composed
 header carries `owner` for a fursona and nothing in its place for a person;
@@ -1889,12 +1903,21 @@ and `set_actor_sections` refuses that shape outright. The editor composes
 blocks now, so the write sends what the form holds and `blocksToSections` — the
 reverse direction, which turned a stored tree back into flat sections for that
 editor to open — is gone with the editor that needed it. Its remaining callers
-are the two read paths and the template picker, and none is going away soon:
-every page written before the block model is still FLAT in the column,
+are the two read paths and `fursona-templates.ts`, and neither is going away
+soon: every page written before the block model is still FLAT in the column,
 converted on the read by `readActorPage` and by the public pages' own
-`parseBlocks`; and the shipped templates are still written in the flat
-vocabulary, converted when the picker applies one. **A page stays flat in
-storage until its owner next saves.**
+`parseBlocks`; and the shipped starters are still AUTHORED in the flat
+vocabulary. **A page stays flat in storage until its owner next saves.**
+
+**The picker stopped being one of those callers on 2026-08-28.** A starter is
+converted once at module scope now, where it is declared, rather than on every
+application — so `FURSONA_TEMPLATES` holds blocks and `STARTER_LAYOUTS` holds
+the flat form the starters are written in. The split is deliberate rather than
+transitional: the guards in `fursona-templates.test.ts` — both languages, no
+prose, icons only on cards, explicit `sort_order` — are rules about **our own
+authorship**, and rewriting them against the converted blocks would assert the
+shim's output instead. So the flat form stays as the thing we write and the
+block form is what anything downstream ever sees.
 
 **Every flat layout still gets a DISTINCT `mode`/`kind` pair.** Nothing reads
 one back any more, so this is no longer a round-trip requirement — what it buys
@@ -2163,6 +2186,80 @@ for space counts where the leftover divides evenly — three places and five —
 and never for a weighted grid, where the tracks either side are not the same
 width and "one each" means nothing.
 Both move where a block is DRAWN and neither moves anything stored.
+
+### A template is a document too (2026-08-28)
+
+**A template could not carry a look at all, and an era look is mostly look.**
+`FursonaTemplate` was `{ id, sections }`, so the picker could hand over
+structure and nothing else — no skin, no palette, no heading, no spacing. It is
+`{ id, blocks, theme }` now, extending a named `ChosenPage` that is
+deliberately the same shape `parseDocument` RETURNS, so a pasted document and a
+picked template are indistinguishable by the time either reaches the form.
+
+**One path applies both, and that is a function rather than a convention.**
+`applyDocumentTo` in `fursona-editor.tsx` is called by the source dock and by
+the picker. Two implementations would have looked identical the day they were
+written and disagreed the first time either changed — and what they would
+disagree about is destructive.
+
+**The seam the spec implied but did not locate:** `BlockEditor` holds the
+picker and does NOT hold the theme. `control` reaches one field, the page; a
+look is a second field the editor above owns. So the picker's choice is
+forwarded up through `onApplyDocument` rather than applied there, and
+`BlockEditor` keeps having no opinion about a look and no field to put one in.
+It still runs `withRequiredBlocks` on the way past, for the reason it always
+did: a template names no identity block and applying one REPLACES the page.
+
+**`if (chosen.theme)` is load-bearing and must never become unconditional.**
+Null means leave the author's colours alone, and every shipped starter carries
+null — so an unconditional write would reset somebody's palette on the ordinary
+path rather than an exotic one. Two cases guard it and they are NOT the same
+claim: the dock's proves the branch, the picker's proves the picker reaches it,
+and the picker's route could drop the theme, invent one, or pass a resolved
+default without reddening the dock's. Sabotaging the guard reddens both.
+
+**The confirmation tells the truth about THIS template, which needed a second
+string rather than a reworded one.** Applying a starter touches no colour —
+every shipped one carries `theme: null` — so a single warning that mentioned
+colours would be a lie on the ordinary path, and a warning somebody learns is
+wrong is worse than no warning. `templateConfirm` names the page;
+`templateConfirmLook` names the page and the colours; the picker chooses on
+`pending.theme`. Both branches are asserted, and the PAIR is the point: either
+alone passes on a component that shows one message unconditionally, and each
+direction of sabotage reddens only its own case.
+
+**`TemplatePicker` takes its list as a prop now, defaulting to the shipped
+one.** Nothing in the app passes another — it exists so the themed branch can
+be REACHED. No starter carries a look, so without it the only ways to guard
+that branch were to mock the module for every case in the file or to leave it
+unguarded until phase 2 ships something that reaches it. Leaving a destructive
+branch unguarded until something reaches it is the fault this repository keeps
+paying for.
+
+**`BlockEditor` takes the live theme — asked about, never styled with — and
+without it the whole guard was unreachable.** `holdsNothingAuthored` is a
+question about the WHOLE page and that component holds only half: the blocks
+are there, the palette is a field the editor above owns. For one commit the
+call site simply did not pass it, so somebody who had chosen colours and
+nothing else got no confirmation — the guard existed, was correct, and was
+reached by nothing.
+
+**Every unit test passed while that was true**, because the case meant to
+cover it clicked the confirmation only `if` it was present. A tolerated
+absence is not an assertion; it is root rule 23 wearing a conditional. What
+found it was the browser suite, where the click had nothing to click and timed
+out. The case asserts the confirmation now, and sabotaging the call site back
+reddens it.
+
+**A colour chosen before a template now triggers the confirmation**, which is
+`holdsNothingAuthored`'s new argument reaching a real browser:
+`editor-saves-page.spec.ts` picks a colour, applies every template, and asserts
+the palette survives both the application and the round trip through the
+database. A unit test structurally cannot check the second half.
+
+**`holdsNothingAuthored` takes the theme for this feature's sake** — see its
+own paragraph above. Applying a template now replaces colours as well as a
+page, so somebody who chose only colours has to be asked first.
 
 ## A page has a document (2026-08-27)
 

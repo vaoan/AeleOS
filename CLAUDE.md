@@ -159,6 +159,31 @@ Key choices and _why_:
   the change, not a note about it.
 - **IdP decision change (Logto → Clerk):**
   `docs/superpowers/specs/2026-07-31-idp-decision-change.md`
+- **Era looks — DESIGNED, NOT BUILT (2026-08-28):**
+  `docs/superpowers/specs/2026-08-28-era-looks-design.md`. Five OS-era looks as
+  page DOCUMENTS rather than skins, because two existing skins already carry
+  the chrome of three of the five — `retro` is Windows 98's bevel and `aero` is
+  Aero glass — and a look spans five vocabularies, so it belongs to none of
+  them. Read it before adding a skin for a named product: the bar that removed
+  `columns` applies. It also predicts, on the record and before building, that
+  Windows 8 cannot be done, because Metro is per-block colour and per-block
+  colour is refused by design.
+
+  Its three phases ship independently and so get a plan each. Phase 1 is
+  `docs/superpowers/plans/2026-08-28-era-looks-phase-1-template-seam.md`, and
+  it locates the seam the spec implied without naming: `BlockEditor` holds the
+  template picker and does NOT hold the theme, so "one path, not two" means
+  lifting document application up to `FursonaEditor`, where the source dock
+  already does it.
+
+  **Read its correction banner first.** The plan was written against a
+  `PageDocument` type that does not exist — `page-document.ts` is text-in and
+  text-out — so a template carries the parsed `{ theme, blocks }` shape rather
+  than JSON, and is not re-parsed at runtime. The guarantee re-parsing would
+  have bought is taken at BUILD time instead: every shipped template is pushed
+  through the real `toDocument`/`parseDocument` pair in its own test, so one
+  the parser refuses fails the build rather than somebody's editor.
+
 - **Clerk:** https://clerk.com — docs: https://clerk.com/docs
 - **Supabase Third-Party Auth:** the mechanism each app uses to trust Clerk.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,

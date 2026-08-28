@@ -53,7 +53,8 @@ import {
   type MoveRefusal,
 } from "@/features/actors/domain/block-moves";
 import type { BlockProblem } from "@/features/actors/domain/block-problems";
-import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
+import type { ChosenPage } from "@/features/actors/domain/fursona-templates";
+import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 import {
   holdsNothingAuthored,
   lockedKinds,
@@ -150,12 +151,27 @@ export interface BlockEditorLabels
  * `problems` is threaded from the form rather than recomputed here, so one
  * walk of react-hook-form's error tree answers it for every card — and so the
  * banner and the marks beneath it can never disagree about which blocks are
- * wrong. *
+ * wrong.
+ *
+ * **Two props cross a boundary rather than describing this component**, and
+ * both exist because the page has two halves and this component holds one.
+ * `onApplyDocument` sends a picked template up to the field that can hold its
+ * look; `theme` brings the current one down so `holdsNothingAuthored` can be
+ * asked about the whole page. Neither is painted with — this component still
+ * owns no look — and without the second the confirmation guard is reachable by
+ * nothing, which is what shipped for a commit.
+ *
+ * **`onApplyDocument` in particular** The template picker lives here and the THEME
+ * does not: `control` reaches a single field, the page, and a look is a second
+ * field the editor above owns. So a picked template is forwarded up rather
+ * than applied here, and lands in the same `applyDocumentTo` a pasted document
+ * goes through.
+ *
  * **It takes a `PageContext` and reads none of it**, threading it to the preview
- * trays so the real renderer sees the live actor. It takes no theme at all any
- * more: the DOCUMENT wears the page being built, so a section preview inherits
- * the author's palette, skin and field from `:root` the same way a stranger's
- * browser will. What keeps that off the workbench is `CHROME_SCOPE` on each
+ * trays so the real renderer sees the live actor. It takes a `theme` only to
+ * ASK about it: nothing here paints from one, because the DOCUMENT wears the
+ * page being built and a section preview inherits the author's palette, skin
+ * and field from `:root` the same way a stranger's browser will. What keeps that off the workbench is `CHROME_SCOPE` on each
  * control island, not a boundary around each preview.
  */
 export interface BlockEditorProps<T extends FieldValues> {
@@ -175,6 +191,31 @@ export interface BlockEditorProps<T extends FieldValues> {
    * can never disagree about which blocks are wrong.
    */
   problems: readonly BlockProblem[];
+  /**
+   * Applies a whole chosen page — blocks AND look — to the form.
+   *
+   * **This component holds the picker and does NOT hold the theme**, which is
+   * the seam this prop exists to cross. `control` reaches one field, the page;
+   * a look is a second field the editor above owns. So the picker's choice is
+   * forwarded up rather than applied here, and it lands in the same
+   * `applyDocument` a pasted document goes through — one path, not two.
+   */
+  onApplyDocument: (chosen: ChosenPage) => void;
+  /**
+   * The live theme, asked about rather than styled with.
+   *
+   * **This component still owns no look** — it paints nothing from this and
+   * hands it to no child. It exists because `holdsNothingAuthored` is a
+   * question about the WHOLE page and this component holds only half of it:
+   * the blocks are here, the palette is a field the editor above owns. Passing
+   * the theme keeps that predicate in one place; computing half the answer
+   * here and half above is the second implementation that drifts.
+   *
+   * Without it the guard is unreachable, which is exactly what shipped for one
+   * commit: somebody who had chosen colours and nothing else got no
+   * confirmation, because the call site never told the predicate about them.
+   */
+  theme: ActorTheme | null;
 }
 
 /** The shape a new section starts at, before anybody changes it. */
@@ -256,7 +297,7 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  *
  * **A template fills the whole page rather than adding to it**, which is why
  * the picker asks first when there is anything to lose. Templates are still
- * written in the flat vocabulary and are converted by `sectionsToBlocks` — the
+ * written in the flat vocabulary and are converted where they are declared — the
  * same conversion that opens every page already stored — so a template and a
  * stored page arrive in the editor as the same shape.
  *
@@ -324,6 +365,14 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * top-level `BlockCard` and `LeafEditor` exactly as `locked` already is, so
  * every card in the tree agrees on the same list.
  *
+ * **The template picker's confirmation is decided here and needs BOTH halves
+ * of the page.** `holdsNothingAuthored` reads the blocks this component holds
+ * and the `theme` it is handed; without the second it answers "nothing here is
+ * theirs" for somebody who chose colours and touched nothing else, and the
+ * picker replaces their palette without asking. That is not hypothetical — it
+ * shipped for one commit, and no unit test caught it because the case written
+ * for it clicked the confirmation only if it happened to be there.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -332,6 +381,8 @@ export function BlockEditor<T extends FieldValues>({
   labels,
   page,
   problems,
+  onApplyDocument,
+  theme,
 }: BlockEditorProps<T>) {
   const id = useId();
   const dndId = useId();
@@ -588,7 +639,7 @@ export function BlockEditor<T extends FieldValues>({
             // count is true of a page nobody has touched — and the confirmation
             // this drives would then warn somebody about losing work they had not
             // done. See `holdsNothingAuthored`.
-            hasSections={!holdsNothingAuthored(blocks, page.actorKind)}
+            hasSections={!holdsNothingAuthored(blocks, page.actorKind, theme)}
             labels={labels}
             // **The shim runs on the converted template.** A template ships
             // structure in the flat vocabulary and names no identity block, and
@@ -597,10 +648,17 @@ export function BlockEditor<T extends FieldValues>({
             // leave a page the write then refuses. The templates themselves are
             // deliberately left alone: they are what the app suggests somebody
             // write, and the identity blocks are not that.
-            onApply={(sections) =>
-              apply(() =>
-                withRequiredBlocks(sectionsToBlocks(sections), page.actorKind),
-              )
+            // **`withRequiredBlocks` still runs, and for the reason above it
+            // always did**: a template names no identity block and applying one
+            // REPLACES the page, so without this a template would silently
+            // strip somebody's portrait and handle and leave a page the write
+            // then refuses. The theme rides up untouched — this component has
+            // no opinion about a look and no field to put one in.
+            onApply={({ blocks: chosen, theme }) =>
+              onApplyDocument({
+                blocks: withRequiredBlocks(chosen, page.actorKind),
+                theme,
+              })
             }
           />
 
