@@ -36,11 +36,17 @@ import { isContainer } from "@/features/actors/domain/block-schema";
 // just wrote. A one-way test passes happily on a save that retypes somebody's
 // section on the way back, which they find out a week later.
 //
-// **The editor composes BLOCKS now**, so what a template arrives as is the
-// conversion `sectionsToBlocks` produces — the same one that opens every page
-// written before the block model. The expectations below are built from that
-// function rather than restated, so a change to the decomposition table is a
-// change in one place.
+// **A template ARRIVES as blocks now** (2026-08-28). It is converted once where
+// it is declared rather than when it is applied, so this spec no longer runs
+// `sectionsToBlocks` itself — the expectations below are built from
+// `template.blocks`, which is the very thing the picker hands the editor.
+//
+// That is a stronger guarantee than the conversion it replaced, and worth
+// knowing before somebody "restores" the old shape: building the expectation
+// from the same function the product calls could agree with a decomposition
+// that had drifted from what a template actually ships, because both sides
+// would be running the same drifted code. Reading the shipped value instead
+// means the two can genuinely disagree.
 //
 // Every template is covered by looping over the list that ships them, so a
 // template added later is covered without anybody remembering to add a case.
