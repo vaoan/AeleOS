@@ -302,7 +302,11 @@ export interface PageSourceDockProps {
  * content — the header alone, since the body is the only thing
  * `{!collapsed && …}` was ever removing. `tests/e2e/page-source-dock.spec.ts`
  * measures both readings, at a wide viewport and at 320, and that a point the
- * expanded dock covers is visible through the collapsed one.
+ * expanded dock covers is visible through the collapsed one — with an
+ * explicit LOWER bound (`> 16px`) beside the upper one, a re-review finding:
+ * without it, "shrunk to its header" was indistinguishable from "shrunk to
+ * zero" or "scrolled off the viewport", both of which would also satisfy
+ * `< 100px`.
  *
  * @returns the `<dialog>` element. It renders unconditionally, whatever
  *   `open` says — a closed native dialog already paints nothing on its own,
@@ -401,12 +405,12 @@ export function PageSourceDock({
         // true — confirmed on a real page, not assumed, since jsdom
         // implements neither the dialog UA stylesheet nor real layout.
         "fixed top-(--bar-top) right-0 left-auto z-40 m-0 hidden h-auto max-h-none flex-col open:flex",
-        // **Collapsed drops `bottom-0` in favour of `bottom-auto`, which is
-        // what shrinks the panel to its header** — see the mechanism this
-        // component's own TSDoc explains above `@returns`. Kept out of the
-        // shared string above so the wide-open case keeps its unconditional
-        // `bottom-0` rather than fighting a second declaration of the same
-        // property.
+        // **`bottom` is conditional on `collapsed` now, switching between
+        // `bottom-0` (expanded) and `bottom-auto` (collapsed, which shrinks
+        // the panel to its header)** — see the mechanism this component's
+        // own TSDoc explains above `@returns`. Kept out of the shared string
+        // above, which declares no `bottom` of its own, so there is exactly
+        // one declaration of the property rather than two fighting over it.
         collapsed ? "bottom-auto" : "bottom-0",
         "border-l border-(--edge) bg-(--menu) p-0 text-(--ink)",
         "w-(--dock-width) max-w-[min(48rem,80vw)] min-w-[20rem]",

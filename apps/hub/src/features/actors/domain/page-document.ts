@@ -124,9 +124,10 @@ function resolveEnvelope(raw: unknown): ResolvedEnvelope {
  * array, a string, a number — to `{}` and answers an all-defaults theme, so a
  * malformed `theme` reaching it resets the author's palette exactly as a bare
  * `"theme": null` would, on an input that is more clearly wrong rather than
- * less. `null` and `undefined` are the two values this returns `false` for —
- * both already mean "leave the current theme alone" — everywhere else in
- * `parseDocument`.
+ * less. `null` and `undefined` are two of the values this returns `false`
+ * for — both already mean "leave the current theme alone" everywhere else in
+ * `parseDocument`; a genuine theme object is the third, as the `@returns`
+ * below states.
  *
  * @param value - `envelope.theme` as parsed, or `undefined` for the
  *   bare-array shorthand, which carries no theme at all.
@@ -274,6 +275,16 @@ function refusedLeaves(
  * theme, which is the same destructive reset `null` is refused above for
  * arriving on an input that is more clearly malformed rather than less —
  * `"theme": []` is not an ambiguous absence, it is a wrong shape.
+ *
+ * **That guard runs BEFORE `blocksSchema` ever sees `rawBlocks`, which is a
+ * real behaviour change worth stating rather than leaving implicit.** A
+ * document carrying both a malformed theme and refused blocks reports only
+ * the theme problem — the block issues are never reached, because this
+ * function returns on the first refusal it finds. Envelope before contents is
+ * the ordering every other envelope-level refusal here already uses (the
+ * version marker and the outer shape are both checked before `rawBlocks` is
+ * touched at all), so this keeps rather than breaks that convention; it is
+ * recorded here because it was not obvious from the diff that added it.
  *
  * A bare array is accepted as shorthand for `{ blocks: [...] }`, because a
  * model asked for a page very often emits the array alone. That is leniency

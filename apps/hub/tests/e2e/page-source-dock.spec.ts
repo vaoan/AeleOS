@@ -240,14 +240,25 @@ for (const width of [1280, 320]) {
 
     const collapsedBox = (await dock.boundingBox())!;
 
-    // **The header's own height, not the viewport's.** A header holding two
-    // icon buttons and one line of text is nowhere near either viewport
-    // height tried here — a loose bound rather than a pinned pixel count,
-    // because the header's exact height is not this test's business.
+    // **The header's own height, not the viewport's, and not zero either.**
+    // A header holding two icon buttons and one line of text is nowhere near
+    // either viewport height tried here, and the DOM half of this claim
+    // (`page-source-dock.test.tsx`'s "collapsing hides the body and keeps the
+    // header") already proves the header stays in the document. What that
+    // case cannot see is LAYOUT: a real header rendered at zero height, or a
+    // dock that scrolled off the viewport, would both still satisfy
+    // `< 100` with nothing below to catch it. `toBeGreaterThan(16)` closes
+    // that — a header holding two icon buttons cannot be shorter than one
+    // of them — so this asserts "shrunk to its header", not merely
+    // "shrunk to less than a viewport".
     expect(
       collapsedBox.height,
       "collapsed height is the header's, not the viewport's",
     ).toBeLessThan(100);
+    expect(
+      collapsedBox.height,
+      "collapsed height is a real header, not zero or an off-screen dock",
+    ).toBeGreaterThan(16);
 
     // The probe point — inside the EXPANDED dock a moment ago — now falls
     // below the collapsed dock's own bottom edge.
