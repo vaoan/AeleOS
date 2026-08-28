@@ -58,6 +58,16 @@ import {
  * wording flatly contradicted the `weights` field two sentences later in
  * {@link pageReference}'s own section 2, which lays unequal tracks whenever a
  * `grid` carries one.
+ *
+ * **No line here may claim exclusivity, checked by `page-reference.test.ts`
+ * against `/only|every other/i` (review round 2).** `tabs` used to say "only
+ * one panel is visible" and `accordion` "shows every child as a collapsible
+ * panel" — the first is true of the mode's OWN state rather than a claim
+ * about other modes, so it was simply reworded ("the rest stay hidden until
+ * chosen"); the second was an overclaim, since an EMPTY place gets no panel
+ * at all (`filledSeatsOf` in `blocks.tsx`), so it now says "each filled
+ * place". See {@link KIND_MEANINGS}'s own note for why the gate itself
+ * exists.
  */
 export const MODE_MEANINGS = {
   stack:
@@ -68,9 +78,9 @@ export const MODE_MEANINGS = {
     "packs children into columns by height, so a short entry is followed immediately by whatever comes next rather than waiting for a taller neighbour",
   carousel:
     "lays children in a single row that scrolls sideways, at every width",
-  tabs: "shows one child at a time, chosen by a tab — only one panel is visible",
+  tabs: "shows one child at a time, chosen by a tab — the rest stay hidden until chosen",
   accordion:
-    "shows every child as a collapsible panel; any number may be open at once",
+    "shows each filled place as a collapsible panel — an empty one gets no panel at all — and any number may be open at once",
   timeline: "lays children as a marked, ordered sequence",
 } as const satisfies Record<ContainerMode, string>;
 
@@ -97,6 +107,24 @@ export const MODE_MEANINGS = {
  * it was wrong. See {@link ROWS_MEANINGS}, which is gated against
  * `leafFields` rather than asserted by hand, so this cannot silently regress
  * a second time.
+ *
+ * **A THIRD copy of that exact sentence turned up in `text-leaves.tsx`'s own
+ * `tableRows` TSDoc, one review round after the first two were fixed** — "every
+ * kind stores them and only this one reads them", corrected the same way.
+ * Three independent copies of one false generalisation is why round 2 stopped
+ * trusting hand-written exclusivity claims at all: `stat` and `quote` each
+ * used to say their pair inverts "from every other kind", when `progress`
+ * inverts too — both now cross-reference the other two kinds that actually
+ * share the behaviour, rather than claiming something about every kind that
+ * does not. `jukebox` said "audio only", which is true of the kind's OWN
+ * shape rather than a claim about others, and was simply reworded ("with no
+ * video pane") to keep the line out of the gate's way. **No line here may
+ * contain "only" or "every other" at all** — `page-reference.test.ts` checks
+ * every entry in this record (and in {@link MODE_MEANINGS},
+ * {@link THEME_KEY_MEANINGS} and {@link ROWS_MEANINGS}) against
+ * `/only|every other/i`, sabotage-verified to redden the original `table`
+ * falsehood. See the actors feature note for the rule this proved: an
+ * exclusivity claim belongs in a gated record, never in prose.
  */
 export const KIND_MEANINGS = {
   text: "a paragraph of the author's own prose — a heading and a body",
@@ -105,16 +133,16 @@ export const KIND_MEANINGS = {
   player:
     "a retro media player of AeleOS's own, with a video pane, playing a playlist of audio and video files",
   jukebox:
-    "a retro music player of AeleOS's own, audio only, playing a playlist of audio files",
+    "a retro music player of AeleOS's own, with no video pane, playing a playlist of audio files",
   embed:
     "somebody else's own embed — YouTube, Spotify, Tidal, Twitch, Instagram, Mastodon and more — framed from an allowlisted provider",
   social:
     "a branded chip linking out to a profile elsewhere, labelled by whichever brand its address matches, or by its own hostname when none does",
-  stat: "one fact — the description is the big value and the title is its label, the pair inverted from every other kind",
+  stat: "one fact — the description is the big value and the title is its label; the pair is inverted, the same as `quote` and `progress`",
   quote:
-    "a quotation — the description is what was said and the title is who said it, the pair inverted from every other kind",
+    "a quotation — the description is what was said and the title is who said it; the pair is inverted, the same as `stat` and `progress`",
   progress:
-    "one measured thing drawn as a bar — the title labels it and the description (a fraction, a percentage or a number) sets how full the bar is",
+    "one measured thing drawn as a bar — the title labels it and the description (a fraction, a percentage or a number) sets how full the bar is; the pair is inverted, the same as `stat` and `quote`",
   table: "rows of paired cells",
   avatar:
     "the actor's own portrait, resolved by the page rather than typed in — its title is the picture's alt text",
@@ -437,6 +465,23 @@ function styleLimitLine(
  * Re-check this paragraph against `blocks.tsx` before trusting it after a
  * change to any mode's renderer.
  *
+ * **Section 2's own `spaces` prose used to say "whichever mode is in charge,
+ * children still fill places row by row" — false for `carousel`, `tabs` and
+ * `accordion`, and self-contradicting two paragraphs above it, inside the
+ * SAME document (review round 2).** A true statement about `grid` and
+ * `masonry` had been generalised to "whichever mode", which is the identical
+ * mistake as the theme paragraph below. Both are scoped back to only the
+ * modes and keys they are actually true of.
+ *
+ * **Section 8's own closing paragraph used to say an invalid value for "any
+ * other theme key" falls back to the design's own default — false for
+ * `density`, `speed` and `scale` (review round 2).** `dial()`
+ * (`canvas-motion.ts`) CLAMPS an out-of-range but usable number to
+ * `CANVAS_RANGE.min`–`CANVAS_RANGE.max` rather than resetting it, and only
+ * resets to the default when the value is not a usable number at all. The
+ * sentence was true of colours when it was written and became false the
+ * moment "any other theme key" widened it to cover the three dials too.
+ *
  * @param kind - which kind of actor's page this reference is being generated
  *   for. Decides which leaf kinds section 5 says are required and refused,
  *   and which shape the worked example takes.
@@ -520,13 +565,15 @@ ${modeRows}
 
 - \`spaces\`: how many places it lays out ACROSS, from 1 to ${BLOCK_LIMITS.spaces}.
   **Only two modes read it, and read it differently: \`grid\` lays that many
-  tracks and \`masonry\` reads it as its column count. Every other mode ignores
-  it** — \`stack\`, for one, lays exactly one place per row whatever \`spaces\`
-  says. Whichever mode is in charge, children still fill places row by row and
-  the container still grows downward, so a section of fifty pictures three
-  across is three spaces and seventeen rows, not a section nobody can build.
-  Narrowing \`spaces\` re-wraps existing children into more rows and loses
-  nothing.
+  tracks and \`masonry\` reads it as its column count. For both of them,
+  children fill places row by row and the container grows downward as more
+  are added, so a section of fifty pictures three across is three spaces and
+  seventeen rows, not a section nobody can build.** Every other mode ignores
+  the number entirely — \`stack\`, for one, lays exactly one place per row
+  whatever \`spaces\` says, and \`carousel\`, \`tabs\` and \`accordion\` arrange
+  their children by their own rules with no \`spaces\`-wide rows at all; see
+  each mode's own line above. Narrowing \`spaces\` re-wraps a \`grid\` or
+  \`masonry\` container's existing children into more rows and loses nothing.
 - \`weights\` (optional): one whole share per place, each from 1 to
   ${BLOCK_LIMITS.weight}, so \`spaces: 3\` with \`weights: [1, 3, 1]\` lays a
   narrow place, one three times as wide, and a narrow place. **Read only by
@@ -646,10 +693,16 @@ shape, extent, x, y, stops }\`:
   with \`at\` from 0 to 100 — never empty, up to ${MAX_STOPS} stops.
 
 Every colour anywhere in the theme — \`accent\`, \`canvasColours\`, a gradient
-stop's \`color\` — is written as \`#rrggbb\`. An invalid one, or an invalid
-value for any other theme key, is dropped and that key falls back to the
-design's own default — never to whatever the page had a moment ago, because
-parsing a theme carries no memory of what was already stored.
+stop's \`color\` — is written as \`#rrggbb\`; an invalid one is dropped and that
+key falls back to the design's own default. The same is true of an invalid
+\`canvas\`, \`skin\`, \`measure\`, \`font\`, \`spacing\`, \`backgroundFit\`, \`cursor\`
+or \`backgroundUrl\`. **\`density\`, \`speed\` and \`scale\` are the exception: a
+number outside ${CANVAS_RANGE.min}–${CANVAS_RANGE.max} is CLAMPED to that
+range rather than reset, and only a value that is not a usable number at
+all** (not a number, or non-finite) **falls back to the default
+(${CANVAS_RANGE.default}).** None of this remembers whatever the page had a
+moment ago either way — every key is resolved fresh from what this document
+sends.
 
 **A theme object is not a patch, and this is the one thing in this whole
 document most worth getting right.** Every key inside it is resolved

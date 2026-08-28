@@ -2139,6 +2139,38 @@ differently toned, it was **wrong**. Both are corrected now, and the
 reference's `ROWS_MEANINGS` is gated against `leafFields` — checked per kind
 in `page-reference.test.ts` — rather than asserted by hand a second time.
 
+**The identical sentence had a THIRD copy, in `text-leaves.tsx`'s own
+`tableRows` TSDoc — "every kind stores them and only this one reads them" —
+found and corrected 2026-08-28, one review round after the first two.** Three
+independent authors (or the same author three times) wrote the same false
+generalisation about the same field without any of them checking it against
+`leafFields`, which had the true answer the entire time. The lesson from
+`table` was "fix the origin, not the copy"; the lesson from a THIRD copy
+surviving that fix is that a false sentence does not announce which other
+files repeat it — grep for the claim, not only for the file you already know
+about.
+
+**An exclusivity claim belongs in a gated record, never in prose, and this
+was learned by trying it twice.** Round 1's sabotage — restoring
+`page-reference.ts`'s hand-written `table` meaning to claim exclusivity over
+`rows` — reddened nothing, and the honest conclusion at the time was that a
+prose falsehood is not mechanically catchable. **That conclusion was true of
+arbitrary prose and false of this one CLASS of claim.** Round 2 then
+introduced two MORE sentences of the identical shape while fixing other
+things — "children still fill places row by row [...] whichever mode is in
+charge" (false for `carousel`/`tabs`/`accordion`) and "an invalid value for
+any other theme key... falls back to the design's own default" (false for
+`density`/`speed`/`scale`, which clamp rather than reset) — each a true
+statement about a SUBSET, generalised with "only", "every other" or "any
+other" into a false one about the whole. `page-reference.test.ts` now asserts
+`KIND_MEANINGS`, `MODE_MEANINGS` and `THEME_KEY_MEANINGS` contain neither
+`/only/i` nor `/every other/i` anywhere — sabotage-verified to redden the
+original `table` claim — which is what makes the rule enforceable rather than
+merely stated: **the moment a meaning needs to say a kind is exclusive, that
+claim has to move into a record checked against real data (the way
+`ROWS_MEANINGS` is checked against `leafFields`), because the sentence beside
+it is not proof of anything.**
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The

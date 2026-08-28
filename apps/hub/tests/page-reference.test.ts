@@ -90,6 +90,53 @@ describe("the reference describes every member of every vocabulary", () => {
     // the cue to revisit `RETRO_KINDS` too.
     expect(leafFields("player")).toEqual(leafFields("jukebox"));
   });
+
+  it("never claims exclusivity in a hand-written meaning", () => {
+    // The gate this task learned it needed twice over. Round 1's Critical was
+    // "table is the only kind that reads rows", asserted in prose and caught
+    // by nothing — sabotaging it back in reddened no test. Round 2 then
+    // introduced two MORE of the identical shape while fixing other things:
+    // "children still fill places row by row [...] whichever mode is in
+    // charge" (false for carousel/tabs/accordion) and "an invalid value for
+    // any other theme key... falls back to the design's own default" (false
+    // for density/speed/scale, which clamp). All three are one mistake: a
+    // sentence true of a SUBSET, generalised to "only"/"every other"/"all".
+    //
+    // The fix each time was to derive the claim into a gated record
+    // (`ROWS_MEANINGS`, checked against `leafFields`) rather than assert it
+    // in prose — so THIS is the rule as code: no hand-written meaning may
+    // use an exclusivity word at all. If a meaning genuinely needs one, that
+    // is a ruling for a human to make deliberately, not a reason to loosen
+    // this pattern — see the actors feature note for why.
+    //
+    // Scoped to the per-member MEANING records (`KIND_MEANINGS`,
+    // `MODE_MEANINGS`, `THEME_KEY_MEANINGS`, and `ROWS_MEANINGS`'s non-null
+    // entries) rather than to `pageReference`'s whole generated text: the
+    // surrounding prose legitimately uses "only" to describe something
+    // checked elsewhere (section 2's "only two modes read `spaces`" is true
+    // and pinned by nothing else), and a document-wide ban would either miss
+    // that distinction or force those sentences into worse phrasing for no
+    // safety gained. The four falsehoods this test guards against were all
+    // in the hand-written per-member text, which nothing had gated before.
+    const exclusivity = /only|every other/i;
+    for (const mode of CONTAINER_MODES) {
+      expect(MODE_MEANINGS[mode], `${mode}`).not.toMatch(exclusivity);
+    }
+    for (const kind of LEAF_KINDS) {
+      expect(KIND_MEANINGS[kind], `${kind}`).not.toMatch(exclusivity);
+      // `?? ""` rather than an `if`/skip — `vitest/no-conditional-expect`
+      // refuses a conditional `expect`, and an empty string trivially never
+      // matches `exclusivity`, so this is the unconditional form of "check it
+      // when there is a meaning to check".
+      expect(ROWS_MEANINGS[kind] ?? "", `${kind}`).not.toMatch(exclusivity);
+    }
+    for (const key of Object.keys(DEFAULT_THEME)) {
+      expect(
+        (THEME_KEY_MEANINGS as Record<string, string>)[key],
+        `${key}`,
+      ).not.toMatch(exclusivity);
+    }
+  });
 });
 
 describe("the reference is built from the constants rather than typed out", () => {
