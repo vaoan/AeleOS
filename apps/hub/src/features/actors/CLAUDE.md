@@ -2367,6 +2367,47 @@ hide-controls rule remove this panel by CLASS — the rule that already strips
 every `CHROME_SCOPE` island when the controls are hidden reaches this one with
 nothing added, and nobody wiring that rule has to know this component exists.
 
+**A first review round found the dock's own reasoning had shipped the
+opposite of what it argued (2026-08-28), and the fixes are worth carrying
+forward.** `--dock-width` was declared on the `<dialog>` and consumed with an
+INLINE `style={{ width: "var(--dock-width)" }}` on the wrapper one element in
+— which permanently beats a media-scoped class regardless of the query,
+exactly the fault the surrounding comment warned against while committing it
+on the neighbour instead. Consumption is `w-(--dock-width)` now, a real class
+in the same `w-*` utility family as `max-md:w-full`, so the two genuinely
+compete in the cascade rather than one silently winning by being inline —
+confirmed by compiling this exact class list through the installed Tailwind
+and reading where each rule landed, rather than assumed. **The always-on
+`max-w-[min(48rem,80vw)]`/`min-w-[20rem]` also had to gain `max-md:` twins**:
+at a narrow viewport `80vw` is frequently narrower than the viewport itself
+(300px at 375px wide), so even a correctly-won `width: 100%` was still being
+clamped down by `max-width` — sheet mode needs `max-md:max-w-none
+max-md:min-w-0` alongside `max-md:w-full`, not that class alone. `resize()`
+now clamps at both ends, mirroring the CSS bound in JS, so an arrow key
+cannot walk `width` state past what the panel can ever render.
+
+**The stale strip used to be MOUNTED by the same condition that populates
+it**, which a screen reader commonly misses entirely — `aria-live` announces
+a CHANGE inside a region already in the DOM, not a region that arrives
+already carrying text. The wrapping `<div aria-live="polite">` is
+unconditional now; only its children come and go. The regression test for
+this has to rerender the SAME instance and assert the SAME node persisted —
+"there is an aria-live ancestor while stale is true" cannot tell the fix from
+the fault, since both produce that ancestor.
+
+**jsdom 26.1.0 has no `PointerEvent` constructor at all**, confirmed the same
+way the missing `<dialog>` methods were — `typeof window.PointerEvent` is
+`"undefined"`. `fireEvent.pointerDown`/`pointerMove` degrade silently rather
+than throwing, so a case built on them looks like it drove a real drag while
+`clientX` never actually reaches the handler. The grip's own tests dispatch a
+plain `MouseEvent` typed `"pointerdown"`/`"pointermove"` instead — React binds
+by event type string, not by constructor, and `MouseEvent` supports `clientX`
+where `PointerEvent` cannot even be constructed.
+
+The copy control also reverts its own label after `COPIED_RESET_MS`, so a
+second copy has feedback too — it used to read "Copied" permanently after the
+first success.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The

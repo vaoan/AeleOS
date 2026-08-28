@@ -11,11 +11,21 @@ import type { DocumentProblem } from "@/features/actors/domain/page-document";
 /** The panel's width before anybody resizes it, in pixels. */
 const DEFAULT_WIDTH_PX = 420;
 
-/** The narrowest the panel may be dragged or arrowed to, in pixels. */
+/** The narrowest the panel may be dragged or arrowed to, in pixels — `20rem`. */
 const MIN_WIDTH_PX = 320;
+
+/**
+ * The widest the panel may be dragged or arrowed to, in pixels — `48rem`,
+ * the same figure the CSS `max-w-[min(48rem,80vw)]` class clamps to. Assumes
+ * a `16px` root font size, which this app never overrides.
+ */
+const MAX_WIDTH_REM_PX = 768;
 
 /** How far one Left/Right arrow press moves the grip, in pixels. */
 const RESIZE_STEP_PX = 24;
+
+/** How long the copy control reads "Copied" before reverting, in milliseconds. */
+const COPIED_RESET_MS = 2000;
 
 /**
  * A block path as the strip shows it.
@@ -164,7 +174,29 @@ export interface PageSourceDockProps {
  * `role="separator" aria-orientation="vertical"` with `tabIndex={0}`, handling
  * a pointer drag and the Left/Right arrows alike — a control that only a mouse
  * could operate would be exactly the fault Tab-trapping is above, in a
- * different control.
+ * different control. `resize()` clamps at both `MIN_WIDTH_PX` and
+ * `MAX_WIDTH_REM_PX`, mirroring the CSS bound (20rem to `min(48rem, 80vw)`) so
+ * an arrow key cannot walk the `width` state past what the panel can ever
+ * actually render.
+ *
+ * **The width is consumed through the `w-(--dock-width)` CLASS, never an
+ * inline `style`.** An inline `width` beats every class regardless of a media
+ * query's specificity, which would silently defeat `max-md:w-full` — the
+ * exact fault a first review round found shipped on the neighbouring element.
+ * `w-(--dock-width)` is a real member of the same `w-*` utility family as
+ * `max-md:w-full`, so the two genuinely compete on ordinary cascade order
+ * (confirmed by compiling this component's class list through the installed
+ * Tailwind). Sheet mode additionally relaxes the min/max-width clamp itself —
+ * `max-md:max-w-none` and `max-md:min-w-0` — because the always-on max-width
+ * bound clamps the USED width regardless of what `width` says, and 80% of the
+ * viewport is frequently narrower than the viewport itself (300px at 375px
+ * wide).
+ *
+ * **The stale strip is mounted unconditionally; only its content is gated on
+ * `source.stale`.** A region that enters the DOM already carrying its text is
+ * commonly missed by assistive technology entirely, because `aria-live`
+ * announces a CHANGE inside an existing region rather than the region's own
+ * arrival.
  *
  * @returns the `<dialog>` element. It renders unconditionally, whatever
  *   `open` says — a closed native dialog already paints nothing on its own,
@@ -183,6 +215,9 @@ export function PageSourceDock({
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH_PX);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -194,6 +229,15 @@ export function PageSourceDock({
     }
   }, [open]);
 
+  // Clears a pending "copied" reset on unmount, so a timer outliving the
+  // component never calls `setState` on it.
+  useEffect(
+    () => () => {
+      if (copiedTimer.current !== undefined) clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
+
   // Position named once, exactly as `places` does it in `block-card.tsx` and
   // for the same reason: a parsed problem has no identity but where it lands
   // in this render's own array — problems are re-derived from the box on
@@ -204,12 +248,26 @@ export function PageSourceDock({
     key: `problem-${at}`,
   }));
 
-  const resize = (next: number) => setWidth(Math.max(MIN_WIDTH_PX, next));
+  const resize = (next: number) => {
+    // Mirrors the CSS clamp (`min-w-[20rem] max-w-[min(48rem,80vw)]`) in JS,
+    // so a keyboard arrow past either bound cannot push `width` beyond what
+    // the panel can ever actually render — the CSS clamp alone still holds,
+    // but a `width` state wandering arbitrarily far past it is a control
+    // reporting a size to itself that the page never shows.
+    const ceiling = Math.min(MAX_WIDTH_REM_PX, window.innerWidth * 0.8);
+    setWidth(Math.min(ceiling, Math.max(MIN_WIDTH_PX, next)));
+  };
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(reference);
       setCopied(true);
+      // Reverts the label on its own, so a second copy has feedback too —
+      // without this the control read "Copied" permanently after the first
+      // success. Any timer already pending is cleared first, so a rapid
+      // second press restarts the window rather than firing early.
+      if (copiedTimer.current !== undefined) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), COPIED_RESET_MS);
     } catch {
       // Left alone on rejection rather than claiming success — a caller
       // whose clipboard write failed must not be told it worked.
@@ -229,15 +287,21 @@ export function PageSourceDock({
         CHROME_SCOPE,
         "fixed top-(--bar-top) right-0 bottom-0 z-40 m-0 flex max-h-none flex-col",
         "border-l border-(--edge) bg-(--menu) p-0 text-(--ink)",
-        "max-w-[min(48rem,80vw)] min-w-[20rem]",
-        "max-md:inset-x-0 max-md:w-full",
+        "w-(--dock-width) max-w-[min(48rem,80vw)] min-w-[20rem]",
+        // Sheet mode overrides all three: `width` back to the media-scoped
+        // `max-md:w-full` is not enough on its own, because the always-on
+        // `max-w-[min(48rem,80vw)]` (frequently narrower than the viewport —
+        // 80vw is 300px at 375px wide) and `min-w-[20rem]` still clamp the
+        // USED width regardless of what the `width` property says. Measured
+        // by compiling this exact class list through the installed
+        // Tailwind: all four `max-md:` rules land in one later `@media`
+        // block, after the three unprefixed ones, so they win the cascade at
+        // a narrow viewport on ordinary specificity-tie source order.
+        "max-md:inset-x-0 max-md:w-full max-md:max-w-none max-md:min-w-0",
       )}
       style={{ "--dock-width": `${width}px` } as CSSProperties}
     >
-      <div
-        style={{ width: "var(--dock-width)" }}
-        className="relative flex h-full max-md:w-full"
-      >
+      <div className="relative flex size-full">
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- a `role="separator"` splitter/grip is the WAI-ARIA APG's own window-splitter pattern: a keyboard-and-pointer-operable widget with no interactive HTML element to carry it. */}
         <div
           role="separator"
@@ -323,18 +387,32 @@ export function PageSourceDock({
                 className="min-h-40 flex-1 resize-none rounded-md border border-(--edge) bg-(--surface) p-2 font-mono text-xs"
               />
 
-              {source.stale && (
-                <div
-                  aria-live="polite"
-                  {...tid("page-source-problems")}
-                  className="grid gap-1 rounded-md border border-(--edge) bg-(--surface) px-2 py-1.5 text-xs"
-                >
-                  <p className="font-medium">{labels.stale}</p>
-                  {problemRows.map((row) => (
-                    <p key={row.key}>{row.text}</p>
-                  ))}
-                </div>
-              )}
+              {/* **Mounted unconditionally, and only the children are
+                  gated.** Assistive technology announces a CHANGE inside an
+                  already-existing `aria-live` region; a region that enters
+                  the DOM already carrying its text is commonly missed
+                  entirely, because there was never a change to notice. So
+                  this element persists across every render — `stale` true or
+                  false — and it is the CONTENT beneath it that comes and
+                  goes. */}
+              <div
+                aria-live="polite"
+                {...tid("page-source-problems")}
+                className={
+                  source.stale
+                    ? "grid gap-1 rounded-md border border-(--edge) bg-(--surface) px-2 py-1.5 text-xs"
+                    : undefined
+                }
+              >
+                {source.stale && (
+                  <>
+                    <p className="font-medium">{labels.stale}</p>
+                    {problemRows.map((row) => (
+                      <p key={row.key}>{row.text}</p>
+                    ))}
+                  </>
+                )}
+              </div>
 
               <details className="rounded-md border border-(--edge)">
                 <summary className="flex cursor-pointer items-center justify-between gap-2 px-2 py-1.5 text-xs font-medium">

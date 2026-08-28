@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createEvent, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import {
   PageSourceDock,
   sourceAddress,
@@ -22,6 +28,15 @@ import type { DocumentProblem } from "@/features/actors/domain/page-document";
  * real implementation would, which is what lets `getByRole("dialog")` find
  * the element afterwards — `dom-testing-library` only exposes a `<dialog>`
  * with the `open` attribute present, confirmed by direct probe as well.
+ *
+ * **`vi.restoreAllMocks()` cannot undo this.** These are plain assignments
+ * to a prototype property that never existed, not `vi.spyOn` wrapping an
+ * existing one — `restoreAllMocks` only reverts the latter. Harmless under
+ * Vitest's per-file isolation, since a fresh module graph gets a fresh
+ * `HTMLDialogElement` either way, but a comment implying cleanup that is not
+ * happening is the same fault this whole review round is about. See
+ * {@link unstubDialogMethods}, called explicitly rather than relied on
+ * implicitly.
  */
 function stubDialogMethods(): void {
   HTMLDialogElement.prototype.show = vi.fn(function (this: HTMLDialogElement) {
@@ -34,6 +49,83 @@ function stubDialogMethods(): void {
   });
   HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
     this.removeAttribute("open");
+  });
+}
+
+/**
+ * Removes the three properties {@link stubDialogMethods} added.
+ *
+ * `Reflect.deleteProperty` rather than the `delete` operator: TypeScript
+ * refuses `delete` on a non-optional property (`ts(2790)`), which
+ * `HTMLDialogElement.prototype.show` is in `lib.dom.d.ts`.
+ */
+function unstubDialogMethods(): void {
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
+}
+
+/**
+ * Stubs `Element.prototype.setPointerCapture`/`hasPointerCapture`.
+ *
+ * jsdom implements neither at all — confirmed by direct probe, the same way
+ * the dialog methods were — so the resize grip's `onPointerDown` throws
+ * calling `setPointerCapture` unless this runs first. `hasPointerCapture`
+ * defaults to returning `true`, matching a browser immediately after
+ * `setPointerCapture` succeeded; a case that needs the FALSE arm overrides
+ * the mock's return value for that one case.
+ */
+function stubPointerCapture(): void {
+  Element.prototype.setPointerCapture = vi.fn();
+  Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(true);
+}
+
+/** Removes the two properties {@link stubPointerCapture} added. */
+function unstubPointerCapture(): void {
+  Reflect.deleteProperty(Element.prototype, "setPointerCapture");
+  Reflect.deleteProperty(Element.prototype, "hasPointerCapture");
+}
+
+/**
+ * Dispatches a pointer-shaped event by hand.
+ *
+ * **jsdom 26.1.0 has no `PointerEvent` constructor at all** — confirmed by
+ * direct probe: `typeof window.PointerEvent` is `"undefined"`, so
+ * `new PointerEvent(...)` throws before a test even gets to `clientX`. Testing
+ * Library's `fireEvent.pointerDown`/`pointerMove` degrade silently rather than
+ * throwing — they still dispatch SOMETHING, but without a real `PointerEvent`
+ * to construct, `clientX` never reaches the handler (measured: it comes back
+ * `undefined`, and `--dock-width` resolves to `NaNpx`). A plain `MouseEvent`
+ * DOES support `clientX` as a constructor option, and React's listener is
+ * bound to the event TYPE STRING rather than to the constructor, so a
+ * `MouseEvent` dispatched as `"pointerdown"`/`"pointermove"` reaches
+ * `onPointerDown`/`onPointerMove` exactly as a real `PointerEvent` would, and
+ * `event.pointerId` is added afterwards since `MouseEvent`'s own constructor
+ * does not accept it.
+ *
+ * @param element - the element to dispatch on.
+ * @param type - `"pointerdown"` or `"pointermove"`.
+ * @param clientX - the horizontal position the handler reads.
+ * @param pointerId - defaults to 7, matching {@link stubPointerCapture}'s
+ *   `hasPointerCapture` stub, which ignores its argument entirely.
+ */
+function firePointerEvent(
+  element: Element,
+  type: "pointerdown" | "pointermove",
+  clientX: number,
+  pointerId = 7,
+): void {
+  const event = new MouseEvent(type, {
+    clientX,
+    bubbles: true,
+    cancelable: true,
+  });
+  Object.defineProperty(event, "pointerId", {
+    value: pointerId,
+    configurable: true,
+  });
+  act(() => {
+    element.dispatchEvent(event);
   });
 }
 
@@ -87,34 +179,53 @@ interface RenderDockOverrides {
  * Renders the dock with overrides.
  *
  * @param props - what to override.
- * @returns the `source` and `onClose` fixtures actually used, so a case can
- *   assert against the exact mock it rendered with.
+ * @returns the `source` and `onClose` fixtures actually used, plus a
+ *   `rerender` bound to the same element so a case can change props on the
+ *   already-mounted dock — `open` going false, or `source.stale` flipping on
+ *   the very node that was already there.
  */
 function renderDock(props: RenderDockOverrides = {}): {
   source: PageSourceState;
   onClose: () => void;
+  rerender: (next?: RenderDockOverrides) => void;
 } {
   const source = props.source ?? baseSource();
   const onClose = props.onClose ?? vi.fn();
-  render(
+  const reference = props.reference ?? '{"aeleos":1,"blocks":[]}';
+  const result = render(
     <PageSourceDock
       open={props.open ?? true}
       onClose={onClose}
       source={source}
-      reference={props.reference ?? '{"aeleos":1,"blocks":[]}'}
+      reference={reference}
       labels={labels}
     />,
   );
-  return { source, onClose };
+  const rerender = (next: RenderDockOverrides = {}) => {
+    result.rerender(
+      <PageSourceDock
+        open={next.open ?? props.open ?? true}
+        onClose={next.onClose ?? onClose}
+        source={next.source ?? source}
+        reference={next.reference ?? reference}
+        labels={labels}
+      />,
+    );
+  };
+  return { source, onClose, rerender };
 }
 
 describe("PageSourceDock", () => {
   beforeEach(() => {
     stubDialogMethods();
+    stubPointerCapture();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    unstubDialogMethods();
+    unstubPointerCapture();
+    vi.useRealTimers();
   });
 
   // Excludes: a dock that inerts the page behind it. `showModal()` would add
@@ -133,6 +244,18 @@ describe("PageSourceDock", () => {
     const { onClose } = renderDock();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // The effect's `else if (dialog.open) dialog.close()` arm — unreached by
+  // every other case here, which all render `open: true` and never flip it.
+  it("calls the native close() when open goes from true to false", () => {
+    const { rerender } = renderDock({ open: true });
+    expect(HTMLDialogElement.prototype.close).not.toHaveBeenCalled();
+
+    rerender({ open: false });
+
+    expect(HTMLDialogElement.prototype.close).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   // Excludes: a textarea that swallows Tab to insert one, which strands a
@@ -203,14 +326,28 @@ describe("PageSourceDock", () => {
     expect(screen.queryByText(/blocks\[/)).not.toBeInTheDocument();
   });
 
-  it("announces the stale state, carrying aria-live=polite", () => {
-    renderDock({
+  // Excludes: an `aria-live` region that enters the DOM already carrying its
+  // text — AT announces a CHANGE inside an existing region and commonly
+  // misses one that arrives pre-populated. Asserting only "there is an
+  // aria-live ancestor while stale is true" cannot tell that fault apart from
+  // the fix, because both produce that ancestor; this asserts the SAME node
+  // persists across the transition and only its content changes.
+  it("mounts the aria-live region unconditionally and only gates its content", () => {
+    const { rerender } = renderDock({ source: baseSource() });
+    const region = screen.getByTestId("page-source-problems");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toBeEmptyDOMElement();
+
+    rerender({
       source: baseSource({
         problems: [{ at: "envelope", message: "not a document" }],
       }),
     });
-    const strip = screen.getByText(labels.stale);
-    expect(strip.closest('[aria-live="polite"]')).toBeInTheDocument();
+
+    // The SAME element, not a newly mounted one carrying the same testid.
+    expect(screen.getByTestId("page-source-problems")).toBe(region);
+    expect(region).toHaveTextContent(labels.stale);
+    expect(region).toHaveTextContent("not a document");
   });
 
   it("shows no problem strip when nothing is stale", () => {
@@ -258,6 +395,38 @@ describe("PageSourceDock", () => {
     ).toBeInTheDocument();
   });
 
+  // Excludes: a label that reads "Copied" forever after the first success,
+  // which gives a second copy no feedback at all.
+  it("the copied label reverts on its own after the reset window", async () => {
+    vi.useFakeTimers();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderDock();
+
+    fireEvent.click(screen.getByRole("button", { name: labels.copyReference }));
+    // Fake timers leave microtasks alone, but the click handler's `await`
+    // still needs a turn of the microtask queue before `setCopied(true)` runs
+    // — and this act() wraps only that flush, never the fireEvent call
+    // itself, which already wraps its own synchronous dispatch.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByRole("button", { name: labels.copied }),
+    ).toBeInTheDocument();
+
+    // 2000ms — COPIED_RESET_MS in the component, not exported, so restated
+    // here; a change to that constant should be a deliberate edit to both.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    expect(
+      screen.getByRole("button", { name: labels.copyReference }),
+    ).toBeInTheDocument();
+  });
+
   it("collapsing hides the body and keeps the header, and the control reads expand", () => {
     renderDock();
     expect(
@@ -292,6 +461,98 @@ describe("PageSourceDock", () => {
     const grip = screen.getByRole("separator", { name: labels.resize });
     expect(grip).toHaveAttribute("aria-orientation", "vertical");
     expect(grip).toHaveAttribute("tabIndex", "0");
+  });
+
+  // Given the coverage exclusion on presentation .tsx (root CLAUDE.md's
+  // toolchain section), these branches are invisible to CI's threshold
+  // forever unless a named case reaches each one directly — a grip wired to
+  // the wrong sign passes the attribute-only case above just as well.
+  describe("resizing", () => {
+    /**
+     * Reads the dialog's own `--dock-width` custom property.
+     *
+     * @returns the current width, as the literal string the inline style
+     *   carries (e.g. `"420px"`).
+     */
+    function dockWidth(): string {
+      return screen.getByRole("dialog").style.getPropertyValue("--dock-width");
+    }
+
+    it("ArrowLeft widens the panel by the step", () => {
+      renderDock();
+      fireEvent.keyDown(
+        screen.getByRole("separator", { name: labels.resize }),
+        {
+          key: "ArrowLeft",
+        },
+      );
+      expect(dockWidth()).toBe("444px");
+    });
+
+    it("ArrowRight narrows the panel by the step", () => {
+      renderDock();
+      fireEvent.keyDown(
+        screen.getByRole("separator", { name: labels.resize }),
+        {
+          key: "ArrowRight",
+        },
+      );
+      expect(dockWidth()).toBe("396px");
+    });
+
+    // Excludes: a ceiling that does not exist, or one set to the wrong
+    // figure. `window.innerWidth` is jsdom's default, 1024, so the measured
+    // ceiling here is `min(768, 1024 * 0.8) === 768`.
+    it("ArrowLeft repeated does not exceed the measured ceiling", () => {
+      renderDock();
+      const grip = screen.getByRole("separator", { name: labels.resize });
+      for (let i = 0; i < 30; i += 1) {
+        fireEvent.keyDown(grip, { key: "ArrowLeft" });
+      }
+      expect(dockWidth()).toBe("768px");
+    });
+
+    it("ArrowRight repeated does not go below the floor", () => {
+      renderDock();
+      const grip = screen.getByRole("separator", { name: labels.resize });
+      for (let i = 0; i < 30; i += 1) {
+        fireEvent.keyDown(grip, { key: "ArrowRight" });
+      }
+      expect(dockWidth()).toBe("320px");
+    });
+
+    it("a key other than the two arrows changes nothing", () => {
+      renderDock();
+      fireEvent.keyDown(
+        screen.getByRole("separator", { name: labels.resize }),
+        {
+          key: "Enter",
+        },
+      );
+      expect(dockWidth()).toBe("420px");
+    });
+
+    // Excludes: a grip that resizes from wherever the pointer happens to be,
+    // rather than only while it is actually captured.
+    it("a pointer drag sets the width from the pointer position while captured", () => {
+      renderDock();
+      const grip = screen.getByRole("separator", { name: labels.resize });
+      firePointerEvent(grip, "pointerdown", 900);
+      expect(Element.prototype.setPointerCapture).toHaveBeenCalledTimes(1);
+      // window.innerWidth (1024) - clientX (500) = 524.
+      firePointerEvent(grip, "pointermove", 500);
+      expect(dockWidth()).toBe("524px");
+    });
+
+    // Excludes: a `pointermove` handler with no capture guard at all, which
+    // would resize on every hover rather than only during an active drag.
+    it("a pointer move with no capture changes nothing", () => {
+      renderDock();
+      vi.mocked(Element.prototype.hasPointerCapture).mockReturnValue(false);
+      const grip = screen.getByRole("separator", { name: labels.resize });
+      firePointerEvent(grip, "pointermove", 500);
+      expect(dockWidth()).toBe("420px");
+    });
   });
 });
 
