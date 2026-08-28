@@ -595,36 +595,82 @@ describe("FursonaEditor", () => {
   // stylesheet — and `editor-is-the-page.spec.ts` is where it is photographed
   // against the live page at seven widths.
   it("arms the hide-controls rule and keeps its own way back out of it", () => {
-    const { container } = renderEditor();
-    const armed = () =>
-      container.querySelector("[data-controls]")!.getAttribute("data-controls");
+    // Stubs `HTMLDialogElement.prototype.show`/`close`, which jsdom 26
+    // implements as entirely absent properties — see
+    // `page-source-dock.test.tsx`'s own copy of this stub for the full
+    // account. Needed here because the dock is opened below: its
+    // containment inside `[data-controls]` is the entire reason the dock
+    // was placed there rather than as a sibling of `ThemeScope` (see
+    // `apps/hub/src/features/actors/CLAUDE.md`), and that containment was
+    // asserted by NOTHING once `PageSourceField` stopped mounting
+    // unconditionally — this is the regression test for that gap.
+    HTMLDialogElement.prototype.show = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.removeAttribute("open");
+    });
 
-    expect(armed()).toBe("shown");
-    expect(screen.queryByTestId("show-controls")).toBeNull();
+    try {
+      const { container } = renderEditor();
+      const armed = () =>
+        container
+          .querySelector("[data-controls]")!
+          .getAttribute("data-controls");
 
-    fireEvent.click(screen.getByTestId("hide-controls"));
-    expect(armed()).toBe("hidden");
+      // Opened BEFORE hiding controls, so the dock's own `CHROME_SCOPE`
+      // island exists for the containment loop below to find. Counted
+      // before and after, so a click that silently failed to mount it
+      // cannot leave this test green for the wrong reason.
+      const islandsBeforeOpen = container.querySelectorAll(
+        `.${CHROME_SCOPE}`,
+      ).length;
+      fireEvent.click(screen.getByTestId("editor-open-source"));
+      const dock = screen.getByTestId("page-source-dock");
+      const islandsAfterOpen = container.querySelectorAll(
+        `.${CHROME_SCOPE}`,
+      ).length;
+      expect(islandsAfterOpen).toBeGreaterThan(islandsBeforeOpen);
 
-    // Every island is INSIDE the armed element, or the rule cannot reach it.
-    const region = container.querySelector("[data-controls]")!;
-    for (const island of container.querySelectorAll(`.${CHROME_SCOPE}`)) {
-      if (
-        island.hasAttribute("data-testid") &&
-        island.getAttribute("data-testid") === "show-controls"
-      )
-        continue;
-      expect(region.contains(island)).toBe(true);
+      expect(armed()).toBe("shown");
+      expect(screen.queryByTestId("show-controls")).toBeNull();
+
+      fireEvent.click(screen.getByTestId("hide-controls"));
+      expect(armed()).toBe("hidden");
+
+      // Every island is INSIDE the armed element, or the rule cannot reach it.
+      const region = container.querySelector("[data-controls]")!;
+      const islands = [...container.querySelectorAll(`.${CHROME_SCOPE}`)];
+      // The dock itself has to be one of them — otherwise this loop is not
+      // actually covering it, and the earlier count increase proved only
+      // that SOMETHING mounted, not that it was the dock.
+      expect(islands).toContain(dock);
+      for (const island of islands) {
+        if (
+          island.hasAttribute("data-testid") &&
+          island.getAttribute("data-testid") === "show-controls"
+        )
+          continue;
+        expect(region.contains(island)).toBe(true);
+      }
+
+      // And the way back is OUTSIDE it, so the rule cannot hide the only
+      // control that could undo it — which would strand somebody on a page
+      // with no workbench and no way to reach one.
+      const restore = screen.getByTestId("show-controls");
+      expect(region.contains(restore)).toBe(false);
+
+      fireEvent.click(restore);
+      expect(armed()).toBe("shown");
+      expect(screen.queryByTestId("show-controls")).toBeNull();
+    } finally {
+      Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
+      Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
     }
-
-    // And the way back is OUTSIDE it, so the rule cannot hide the only control
-    // that could undo it — which would strand somebody on a page with no
-    // workbench and no way to reach one.
-    const restore = screen.getByTestId("show-controls");
-    expect(region.contains(restore)).toBe(false);
-
-    fireEvent.click(restore);
-    expect(armed()).toBe("shown");
-    expect(screen.queryByTestId("show-controls")).toBeNull();
   });
 
   // **Not a submit.** Every button inside a `<form>` submits by default, so an
