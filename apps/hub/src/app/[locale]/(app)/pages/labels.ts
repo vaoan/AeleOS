@@ -209,6 +209,13 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * the card's own vocabulary plus one bag it forwards — see that interface for
  * why the forward is named rather than inherited.
  *
+ * **`openSource` and `source` are two catalogue entries for the same
+ * feature, and they stay separate on purpose.** `openSource` is the
+ * toolbar's own control — one string, flat, alongside `hideControls` — while
+ * `source` is the dock it opens, nested exactly as `theme` is because both it
+ * and this bag carry a `title`. The dock itself never renders the control
+ * that opens it, so its own label bag has no `open` entry to collide with.
+ *
  * @returns the translated labels.
  *
  * It builds the style popup's `chrome`, `heading`, `heading_pad`, `text_align`,
@@ -225,6 +232,7 @@ export async function fursonaEditorLabels(
     cancel: t("cancel"),
     hideControls: t("hideControls"),
     showControls: t("showControls"),
+    openSource: t("source.open"),
     bannerTitle: t("bannerTitle"),
     pageStyle: t("pageStyle"),
     writingIn: t("writingIn"),
@@ -335,6 +343,24 @@ export async function fursonaEditorLabels(
     // have one silently win — which is the kind of collision a label bag makes
     // easy to create and impossible to see.
     theme: themeConfiguratorLabels(t),
+    // Nested, like `theme` above: both it and this bag have a `title`, and a
+    // flat bag would have one silently win. `open` is not repeated here — it
+    // is the toolbar's own control, `openSource` above — because the dock
+    // itself never renders a button that opens it.
+    source: {
+      title: t("source.title"),
+      close: t("source.close"),
+      collapse: t("source.collapse"),
+      expand: t("source.expand"),
+      copyReference: t("source.copyReference"),
+      copied: t("source.copied"),
+      referenceTitle: t("source.referenceTitle"),
+      resync: t("source.resync"),
+      drifted: t("source.drifted"),
+      stale: t("source.stale"),
+      sourceLabel: t("source.sourceLabel"),
+      resize: t("source.resize"),
+    },
     useTemplate: t("useTemplate"),
     templateConfirm: t("templateConfirm"),
     templateConfirmYes: t("templateConfirmYes"),

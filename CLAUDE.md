@@ -1172,6 +1172,26 @@ replace`, so the newest body of a function could sit in a file named after
   an `Error`. See `page-document.ts` and
   `apps/hub/src/features/actors/CLAUDE.md` for the numbers.
 
+  **Task 7 wired it in (2026-08-28) — the dock is reachable by a person for
+  the first time.** A `Braces` control in the editor toolbar opens it;
+  `FursonaEditor` holds the open/closed state and mounts a small isolated
+  component, `PageSourceField`, that watches `sections` itself so the dock's
+  own live binding never re-renders the toolbar on every keystroke in a leaf
+  — see `apps/hub/src/features/actors/CLAUDE.md` for why that isolation is
+  load-bearing rather than tidiness. The hand check this task's brief asked
+  for found three real bugs in the dock's own class list, all invisible to
+  every suite that existed before it because they are about `<dialog>`'s
+  user-agent stylesheet, which jsdom implements none of: an unconditional
+  `flex` beat the UA's `dialog:not([open]) { display: none }`, so the dock
+  was visible on every page before anyone pressed the control that opens it;
+  the UA's own `left: 0` over-constrained the box against this component's
+  `right: 0`, pinning it to the wrong edge; and the UA's `height:
+fit-content` (not `auto`) kept it from ever reaching the foot of the
+  viewport. Fixed and sabotage-verified in
+  `apps/hub/tests/e2e/page-source-dock.spec.ts`, which Task 8 extends rather
+  than creates — its plan step still says "Create," and that instruction is
+  stale the moment this lands.
+
   Spec: `docs/superpowers/specs/2026-08-27-page-source-and-sharing-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-page-source-and-sharing.md`.
 

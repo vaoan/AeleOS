@@ -2408,6 +2408,97 @@ The copy control also reverts its own label after `COPIED_RESET_MS`, so a
 second copy has feedback too — it used to read "Copied" permanently after the
 first success.
 
+**The dock is mounted now (2026-08-28), and this is the first change that
+made any of the above reachable by a person rather than only by a test.**
+`EditorToolbar` carries a `Braces` control, `openSource` in the catalogue,
+beside `hideControls`. `FursonaEditor` holds the open/closed `useState` and
+renders `PageSourceField` — a small component of its own, defined in the same
+file — as a sibling of `EditorToolbar`, **inside** the element carrying
+`data-controls`, so the dock is one more island the hide-controls rule
+removes exactly like every other workbench control. That is not a styling
+requirement — `PageSourceDock` wears `CHROME_SCOPE` on its own `<dialog>`
+wherever it sits — it is a deliberate behavioural choice, and the more
+tempting placement (a sibling of `ThemeScope`, outside `data-controls`, so
+the dock would survive hiding the rest of the workbench) was tried first and
+reddened `fursona-editor.test.tsx`'s hide-controls containment case: every
+`CHROME_SCOPE` island has to be inside the armed element, or the ONE rule
+that removes them by class cannot reach it, and the dock is not the
+show-controls button — it has no argued reason to be the second exception.
+
+**`PageSourceField` exists ONLY to keep `sections` out of `FursonaEditor`'s
+own `useWatch`, and getting this wrong is silent.** `BlockEditor` already
+proved the pattern: it holds its own `useController({ control, name:
+"sections" })` rather than being handed the tree as a prop, so a change to
+`sections` re-renders `BlockEditor` and nothing above it. The first version
+of this wiring added `"sections"` to `FursonaEditor`'s existing
+`useWatch(["handle", "displayName", "avatarUrl", "theme"])` call instead —
+which reaches `FursonaEditor`'s own render on every keystroke in a leaf's
+text, and from there every descendant that is not individually memoised,
+`EditorToolbar` included. `fursona-editor.test.tsx`'s
+"updates a leaf preview without rerendering the whole editor" case is the
+regression test for exactly this: it counts `EditorToolbar`'s own renders
+around a single leaf-description edit and failed at 4 against an expected 2
+the moment `sections` joined that watch. `PageSourceField` takes `control`
+and `setValue` as props and calls `useWatch({ control, name: "sections" })`
+itself, so the subscription — and the re-render it causes — lives in a
+component the toolbar is not a descendant of.
+
+`apply`'s theme half is written exactly as the hook's own TSDoc requires:
+`setValue("sections", blocks, { shouldDirty: true })` unconditionally, and
+`setValue("theme", theme, …)` only when `theme` is non-null. Writing the
+theme unconditionally — even to a value read as `null` — would reset an
+author's theme to whatever `themeSchema`'s defaults resolve `null` to on the
+next render, on every accepted parse of a document that never mentioned a
+theme at all. `apply`'s own reference in `usePageSource`'s TSDoc is spelled
+out precisely because this is the one place a careless `setValue(..., theme)`
+would have shipped that fault silently — nothing renders differently for a
+moment, and the loss only shows up the next time somebody opens the theme
+panel.
+
+**Mounting the dock for the first time found three bugs in its class list,
+all invisible to every suite that existed before this one, because all three
+are about `<dialog>`'s USER-AGENT stylesheet — which jsdom implements none
+of.** The hand check this task's brief asks for is what found them; the
+regression test is `tests/e2e/page-source-dock.spec.ts`, sabotage-verified
+against each of the three individually as well as together.
+
+- **A bare, unconditional `flex` beat `dialog:not([open]) { display: none }`,
+  so the dock was VISIBLE, full size, on every page, from the moment it was
+  mounted — before anybody had ever pressed the control that is supposed to
+  open it.** Author origin always wins over user-agent origin for a normal
+  declaration, regardless of specificity or cascade layers — the same rule
+  root rule 36 already names for the opposite direction (a Tailwind class
+  compiling to nothing). Here a Tailwind class compiled to something, and
+  what it beat was the ONE rule that keeps a closed dialog off the page. The
+  class is `hidden open:flex` now: `hidden` is the author declaration that
+  loses to nothing, and `open:flex` only ever adds `display: flex` back once
+  the `[open]` attribute — which `dialog.show()`/`dialog.close()` write — is
+  present.
+- **The UA stylesheet also sets `left: 0` unconditionally**, and this
+  component's own styles never named `left` at all. With that, `right: 0`,
+  an explicit `width`, and `margin: 0` (`m-0`) all in force together, the box
+  was over-constrained on the horizontal axis — and per the CSS 2 resolution
+  rule for that case, the browser drops `right` in LTR and solves from `left`
+  instead. So the panel rendered pinned to the LEFT edge of the window,
+  420px wide, with `right: 0px` sitting uselessly in its own computed style.
+  `left-auto` is the fix: it removes `left` from the over-constrained set, so
+  `right: 0` is what actually decides where the box sits.
+- **The UA default `height` is `fit-content`, a different value from
+  `auto`**, and nothing here had ever declared `height` at all. With `top`
+  and `bottom` both specified and `height: auto`, a fixed box stretches to
+  fill between them — that is the whole mechanism `bottom-0` relies on to
+  reach the foot of the viewport. `fit-content` instead sizes the box to its
+  own content, so the panel stopped a few hundred pixels down rather than
+  reaching the bottom. `h-auto` is the fix.
+
+None of the three had ANY unit-test-visible symptom: jsdom 26 implements
+neither `<dialog>`'s UA stylesheet nor real layout, so `getBoundingClientRect`
+and `getComputedStyle` in a jsdom test cannot see any of this, and the
+existing unit suite for this component was and remains 100% green throughout.
+Only a real browser, actually mounting the real component, found it — the
+same lesson root rule 36 already draws about a different property, landing
+on `display`, `left` and `height` instead of `object-fit`.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The

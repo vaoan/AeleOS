@@ -198,6 +198,45 @@ export interface PageSourceDockProps {
  * announces a CHANGE inside an existing region rather than the region's own
  * arrival.
  *
+ * **`hidden open:flex`, never a bare `flex` — found the first time this
+ * component was ever mounted in a real browser, in task 7 (2026-08-28), and
+ * jsdom could not have caught it.** A closed native `<dialog>` paints nothing
+ * because the UA stylesheet carries `dialog:not([open]) { display: none }` —
+ * and that is a USER-AGENT-origin rule, which loses to ANY author-origin
+ * declaration of the same property regardless of specificity or layers. A
+ * bare, unconditional `flex` utility is exactly such a declaration, so the
+ * dock rendered — visible, at its full open size — on every page, before
+ * `open` was ever true, the entire time this component existed unmounted.
+ * `hidden open:flex` keeps `display` conditional on the `[open]` attribute
+ * `dialog.show()`/`dialog.close()` write, so the UA rule is the one deciding
+ * "closed" and the author rule only ever adds "open, and it's a flex column."
+ * jsdom 26 implements neither the dialog UA stylesheet nor real layout, so no
+ * unit test here could see this — confirmed by mounting the real component
+ * against the real dev server, not assumed.
+ *
+ * **`left-auto` is not decoration; without it `right-0` does nothing.** The
+ * same UA stylesheet also sets `left: 0` unconditionally on every `<dialog>`,
+ * and this component's author styles never named `left` at all — so with
+ * `left: 0` (UA), `right: 0` (author), an explicit `width`, and `margin: 0`
+ * (`m-0`) all in force at once, the box is over-constrained on the horizontal
+ * axis. Per the CSS 2 spec's resolution rule for that case, the browser
+ * drops `right` (in LTR) and solves from `left` instead — so the panel
+ * rendered pinned to the LEFT edge, 420px wide, with `right: 0px` sitting
+ * uselessly in its own computed style. `left-auto` removes `left` from the
+ * over-constrained set, which is what lets `right: 0` actually decide where
+ * the box sits.
+ *
+ * **`h-auto` overrides a THIRD UA default, `height: fit-content`, which is
+ * not the same value as `auto`.** With `top` and `bottom` both specified and
+ * `height: auto`, a fixed-position box stretches to fill between them —
+ * that is the mechanism `bottom-0` is relying on to reach the foot of the
+ * viewport. `fit-content` is a different value, sizing the box to its own
+ * content instead, and nothing in this component's author styles had ever
+ * set `height` at all — so the UA default was the only declaration for that
+ * property and simply applied. Confirmed in the browser: 291px of content
+ * height with `h-auto` absent, 944px (the full `viewport − top − bottom`)
+ * with it present.
+ *
  * @returns the `<dialog>` element. It renders unconditionally, whatever
  *   `open` says — a closed native dialog already paints nothing on its own,
  *   and the element has to stay mounted so the effect above always has a
@@ -285,7 +324,16 @@ export function PageSourceDock({
       {...tid("page-source-dock")}
       className={cn(
         CHROME_SCOPE,
-        "fixed top-(--bar-top) right-0 bottom-0 z-40 m-0 flex max-h-none flex-col",
+        // **`hidden open:flex`, never a bare `flex`.** The native UA
+        // stylesheet's `dialog:not([open]) { display: none }` is what
+        // actually keeps a closed dialog off the page — and it is
+        // AUTHOR-origin-beats-user-agent-origin that decides this, not
+        // specificity, so ANY unconditional `display` utility on this
+        // element beats it regardless of layers. A bare `flex` here did
+        // exactly that: the dock rendered, visible, before `open` was ever
+        // true — confirmed on a real page, not assumed, since jsdom
+        // implements neither the dialog UA stylesheet nor real layout.
+        "fixed top-(--bar-top) right-0 bottom-0 left-auto z-40 m-0 hidden h-auto max-h-none flex-col open:flex",
         "border-l border-(--edge) bg-(--menu) p-0 text-(--ink)",
         "w-(--dock-width) max-w-[min(48rem,80vw)] min-w-[20rem]",
         // Sheet mode overrides all three: `width` back to the media-scoped
