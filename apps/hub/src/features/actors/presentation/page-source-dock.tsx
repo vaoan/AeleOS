@@ -189,14 +189,21 @@ export interface PageSourceDockProps {
  * ceiling `resize()` also clamps to, close enough for an announced range and
  * reachable with no `window` access during a server render.
  *
- * **The reference panel's copy button is a SIBLING of `<summary>`, never a
- * descendant — the same scan's second finding.** `<summary>` is itself an
+ * **The reference panel's copy button is a SIBLING of `<details>` ITSELF,
+ * never a descendant of it at all — the same scan's second finding, and a
+ * round-1 review caught the first fix wrong.** `<summary>` is itself an
  * implicit interactive control (it toggles the `<details>`), so nesting a
- * `<button>` inside it is `nested-interactive`, the same class of fault as a
- * link inside a link. `<summary>` still has to be `<details>`'s direct child
- * for the native disclosure to work at all, so the button sits positioned
- * over it as a sibling instead of trying to keep it a descendant carrying a
- * different role.
+ * `<button>` inside it is `nested-interactive` — that diagnosis was right,
+ * but moving the button to sit beside `<summary>` while STILL inside
+ * `<details>` traded it for a worse fault: a closed `<details>` renders none
+ * of its non-`<summary>` children, so the button was invisible and out of
+ * the tab order in the panel's default, collapsed state. Confirmed
+ * empirically against this repo's own Chromium — a sibling `absolute` button
+ * inside a closed `<details>` reports `visible: false`, `true` only once the
+ * summary is clicked — and invisible to the axe case that found the
+ * original fault, since that case opens the dock but never expands the
+ * reference. The button is a sibling of `<details>` now, inside a shared
+ * `relative` wrapper, positioned over the summary row in both states.
  *
  * **The width is consumed through the `w-(--dock-width)` CLASS, never an
  * inline `style`.** An inline `width` beats every class regardless of a media
@@ -494,21 +501,34 @@ export function PageSourceDock({
                 )}
               </div>
 
-              {/* **The copy button is a SIBLING of `<summary>`, never a
-                  descendant.** It used to sit inside it, which is
-                  `nested-interactive`: a `<summary>` is itself an implicit
-                  interactive control (it is what toggles the `<details>`),
-                  and nesting a `<button>` inside another interactive element
-                  is invalid — found only once a real axe scan finally
-                  reached this panel, since no suite before
-                  `a11y.spec.ts`'s dock case had ever opened it. `<summary>`
-                  must stay the direct child `<details>` requires for its own
-                  native disclosure behaviour, so the button is positioned
-                  over it instead of nested inside it. */}
-              <details className="relative rounded-md border border-(--edge)">
-                <summary className="flex cursor-pointer items-center gap-2 py-1.5 pr-24 pl-2 text-xs font-medium">
-                  {labels.referenceTitle}
-                </summary>
+              {/* **The copy button is a SIBLING of `<details>` ITSELF,
+                  never a descendant of it at all — a round-1 review caught
+                  the first fix wrong.** That version moved the button out of
+                  `<summary>`, correctly avoiding `nested-interactive`, but
+                  left it INSIDE `<details>` as a sibling of `<summary>` —
+                  and a closed `<details>` renders none of its non-`<summary>`
+                  children. Confirmed empirically against this repo's own
+                  Chromium: a sibling `absolute` button inside a closed
+                  `<details>` reports `visible: false`, and only becomes
+                  `true` once the summary is clicked. So the control was
+                  invisible and out of the tab order in its DEFAULT state,
+                  with `pr-24` on the summary reserving space for a button
+                  that was not there — and nothing caught it, because the
+                  a11y case opens the dock but never expands the reference,
+                  so axe scanned neither the original nor this fault. The
+                  button is a sibling of `<details>` now, inside a `relative`
+                  wrapper that also carries the border — so it renders in
+                  BOTH states, positioned over the summary row exactly as
+                  before, but never inside anything that collapses. */}
+              <div className="relative rounded-md border border-(--edge)">
+                <details>
+                  <summary className="flex cursor-pointer items-center gap-2 py-1.5 pr-24 pl-2 text-xs font-medium">
+                    {labels.referenceTitle}
+                  </summary>
+                  <pre className="overflow-x-auto px-2 pb-2 font-mono text-xs whitespace-pre-wrap">
+                    {reference}
+                  </pre>
+                </details>
                 <button
                   type="button"
                   onClick={(event) => {
@@ -523,10 +543,7 @@ export function PageSourceDock({
                   <Copy aria-hidden className="size-3.5" />
                   {copied ? labels.copied : labels.copyReference}
                 </button>
-                <pre className="overflow-x-auto px-2 pb-2 font-mono text-xs whitespace-pre-wrap">
-                  {reference}
-                </pre>
-              </details>
+              </div>
             </div>
           )}
         </div>

@@ -3726,3 +3726,25 @@ to a gap sweep. The pastiche findings document says which and why.
   `better-tailwindcss` rules silently disable themselves — see rule 1 in the
   root `CLAUDE.md`'s toolchain section — so the run reports a false clean
   instead of failing.
+- **A `next dev` webServer can crash mid-suite from a Turbopack internal
+  panic that has nothing to do with anything under test, and the symptom is
+  a wave of unrelated failures rather than one honest one.** Seen on Next
+  16.3.0, task 8's round-1 fix pass: a `thread 'tokio-rt-worker' panicked at
+turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:292:17`,
+  reading `Restore of All for task TaskId … failed in another thread:
+restoring failed`, followed by Turbopack's own `an internal panic occurred
+outside the per-task panic boundary … please report it` and `Aborting.` —
+  after which the dev server process is gone, Playwright's own webServer
+  plumbing keeps sending requests to a dead port, and every remaining test
+  in the run fails fast (2–4 seconds each, a "connection refused" shape
+  rather than a timeout) until the runner gives up and reports a batch of
+  specs as "did not run." It struck after only 3 of 174 cases on one run and
+  did not recur on an immediate, unmodified re-run — so it is a `next dev`
+  process fault, not a flake in any spec. **Recognise it by the panic line
+  itself** (`turbo-tasks-backend`, `panicked at`, `Aborting.`) appearing in
+  the `[WebServer]`-prefixed log before the first unrelated failure, and by
+  the failures spanning many UNCONNECTED spec files rather than clustering
+  in one feature. The fix is to re-run the suite against a fresh server, not
+  to chase the individual failures as regressions — but confirm the panic
+  line is actually there before assuming that; a real regression can still
+  produce a wide failure spread for its own reasons.

@@ -210,6 +210,46 @@ test("editing the box changes the page; breaking it leaves the page alone", asyn
 // round trip, hostile documents, hostile text, Escape's focus return, and the
 // two directions of drift arbitration.
 
+// THE COPY CONTROL — NAMED IN THE SPEC AS AN OWED BROWSER CASE, and absent
+// from this suite until a round-1 review of task 8 found it missing outright
+// (`grep -r page-source-copy tests/e2e` found nothing) and, while adding it,
+// found the control was invisible in its own default state — see the button's
+// own comment in `page-source-dock.tsx` for the fault and the fix.
+test("the copy control works with the reference collapsed, its default state", async ({
+  page,
+}) => {
+  // Excludes: a control that only works once the reference has been
+  // expanded, or one that changes the page's clipboard permission state
+  // rather than the system clipboard.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  await page.getByTestId("editor-open-source").click();
+  const dock = page.getByTestId("page-source-dock");
+  await expect(dock).toBeVisible();
+
+  // The reference is never expanded anywhere in this test — the `<details>`
+  // is collapsed, which is the state every dock opens in.
+  const copyButton = dock.getByTestId("page-source-copy");
+  await expect(copyButton).toBeVisible();
+  const reference = await dock.locator("pre").textContent();
+
+  const before = await copyButton.innerText();
+  await copyButton.click();
+  await expect.poll(async () => copyButton.innerText()).not.toBe(before);
+
+  // The OS clipboard on Windows normalises a bare newline to a
+  // carriage-return-newline pair for plain text, observed here rather
+  // than assumed, so the comparison reads both sides through the same
+  // normalisation instead of asserting a platform's own rewrite.
+  const clipboardText = await page.evaluate(() =>
+    navigator.clipboard.readText(),
+  );
+  expect(clipboardText.replace(/\r\n/g, "\n")).toBe(reference);
+});
+
 /**
  * Types into an input WITHOUT taking focus away from whatever already has it.
  *
@@ -221,6 +261,22 @@ test("editing the box changes the page; breaking it leaves the page alone", asyn
  * native setter and dispatches a real, bubbling `input` event — which is what
  * a controlled React input's `onChange` actually listens for — while never
  * calling `.focus()` on anything, so `document.activeElement` never moves.
+ *
+ * **No ordinary interaction in this product reaches the branch this proves,
+ * and this helper is a deliberate stand-in rather than a discovered path.**
+ * Every real control a person could use to change `sections`/`theme` while
+ * the dock is open — a section's own fields, a leaf's, the theme panel, a
+ * drag — is itself a focusable element a click or keypress would move focus
+ * to, which blurs the textarea before the change ever lands. There is
+ * currently no realtime sync, no second tab, and no autosave in this app
+ * that could change the page out from under a focused box on its own. The
+ * hook's own unit suite (`use-page-source.test.ts`) proves the BEHAVIOUR
+ * this branch implements, driven directly against the hook with no DOM
+ * focus involved at all; what a browser test can add that a unit test
+ * cannot is that the real, rendered textarea genuinely keeps what was
+ * typed rather than losing it to a re-render — and reaching that state at
+ * all requires dispatching the "external" change without going through
+ * focus, since nothing in the product currently does.
  *
  * @param input - the control to change.
  * @param value - what to set it to.
@@ -389,6 +445,15 @@ test("a round trip through copy and paste reproduces the page, weights included"
   expect(middle! / left!).toBeGreaterThan(2);
   expect(left!).toBeLessThan(right!);
   expect(right!).toBeLessThan(middle!);
+
+  // The depth-cap half of the SAME fixture, previously seeded and only ever
+  // counted as one opaque section — a flattening bug in the round trip would
+  // have passed unnoticed. `atTheCap` is a section holding a container
+  // holding a container holding the leaf: three nested `stack`s, each
+  // carrying the `block-stack` test id, with "Deep" inside the innermost.
+  const nestedSection = page.getByTestId("public-section").nth(1);
+  await expect(nestedSection.getByTestId("block-stack")).toHaveCount(3);
+  expect(await nestedSection.innerText()).toContain("Deep");
 });
 
 test("a hostile theme does not break the page", async ({ page }) => {
@@ -608,4 +673,15 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
   ).toBeLessThan(2);
 
   expect(await previews.nth(0).innerText()).toContain("Fine");
+
+  // **The spec's own claim, proven with the fixture already in hand.** This
+  // document names neither `avatar`, `handle` nor `owner` — `parseDocument`
+  // does not check required kinds, only refused ones, so it applied above
+  // with `problems` empty. Save is a different boundary, and it still
+  // refuses: the dock accepting a paste is not the same guarantee as the
+  // save accepting it. The dock is closed first — it is a fixed sibling of
+  // the whole editor and would otherwise intercept the click.
+  await page.getByTestId("page-source-close").click();
+  await page.getByTestId("editor-save").click();
+  await expect(page.getByTestId("editor-error-banner")).toBeVisible();
 });
