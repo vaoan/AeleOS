@@ -2221,6 +2221,63 @@ falsehood the shape `ROWS_MEANINGS` was built to prevent. Revisit this
 ruling if a fourth inverting kind is ever added — that is the moment the
 maintenance cost stops being hypothetical.
 
+### The document is bound to the page live, in both directions (2026-08-28)
+
+`application/use-page-source.ts` is `usePageSource`, the state machine behind
+the source dock — a textarea showing `toDocument`'s output, editable, changing
+the live page as it is typed. It takes `theme`/`blocks` the same way the rest
+of the form holds them and an `apply` callback; it never touches
+react-hook-form itself, which is what keeps it testable with no form mounted.
+
+**The page holds the last good tree because a bad parse never writes anything,
+not because a copy is kept anywhere.** There is no second "last good" variable
+in the hook. A failed `parseDocument` sets `problems` and returns; `blocks`/
+`theme` are exactly what they already were, because nothing ever called
+`apply` to change them. A stored copy would be a second source of truth able
+to disagree with the form that actually holds the page — the absence of a
+write is the whole mechanism.
+
+**Which direction wins is arbitrated by one `mirror` ref, read before every
+write in both directions.** `mirror` holds the last serialisation this hook
+itself produced or accepted — never the tree, only the string. Text → page is
+a debounced valid parse (`onChange` records every keystroke and schedules a
+parse `debounceMs` later, cleared and rescheduled on each one); on success
+`mirror` becomes the accepted text and `apply` is called, and that is the
+**only** place this hook ever writes to its caller. Page → text is a
+`useEffect` on `[theme, blocks]` that re-serialises and compares the result
+against `mirror` **by string, not by reference** — a caller's form very often
+hands back a freshly built array for content that has not actually changed,
+so comparing `blocks` by identity would treat that as a real change and
+re-enter the loop. Past that guard, a genuine external change overwrites the
+box while it is unfocused and is recorded as `drifted` while it is focused,
+never both — naively re-serialising a focused box would destroy the author's
+whitespace and jump their cursor mid-word, which is why `resync` exists as an
+explicit choice instead. `focused` is tracked in a ref rather than state,
+deliberately: nothing renders from it directly (only `drifted` does), and a
+ref read inside the effect does not have to be a dependency the way a state
+variable read the same way would.
+
+**The mirror guard is what stops a successful edit from immediately declaring
+itself drifted.** The ordinary shape this hook is used in has `apply` call
+`setValue`, which re-renders the form with new `theme`/`blocks` props on the
+very next tick — while the box is very likely still focused, since the person
+just finished typing. Without the guard, that round trip would flag `drifted`
+on every accepted edit, because the props changed and the box is focused;
+`use-page-source.test.ts`'s "loop guard" case is built around exactly this,
+typing the canonical `toDocument` output so the round-tripped serialisation
+matches `mirror` byte for byte, and asserts `drifted` stays false. Sabotage-
+verified: removing the `if (doc === mirror.current) return;` line reddens
+that case and only that one.
+
+Two more things worth knowing before touching it. `resync` cancels any
+pending debounce timer before re-serialising — otherwise a parse scheduled
+just before `resync` would still land 250ms later, applying an edit the
+author asked to throw away right on top of the page `resync` just restored.
+And the `theme: null` a parse returns for a document that carried none is
+passed to `apply` **verbatim** — this hook does not resolve it to a real
+theme, because the caller is the one holding the actual current theme in its
+own form and is the one who gets to decide what "unchanged" means.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The
