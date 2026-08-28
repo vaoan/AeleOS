@@ -10,11 +10,24 @@ import {
   type LeafKind,
 } from "@/features/actors/domain/block-schema";
 import {
+  CANVASES,
+  CURSOR_MAX_PX,
+  DEFAULT_THEME,
   PAGE_FONTS,
   PAGE_MEASURES,
   PAGE_SPACINGS,
+  type ActorTheme,
 } from "@/features/actors/domain/actor-theme";
+import { leafFields } from "@/features/actors/domain/leaf-fields";
 import { SKINS } from "@/shared/domain/skins";
+import {
+  GRADIENT_KINDS,
+  MAX_STOPS,
+  RADIAL_EXTENTS,
+  RADIAL_SHAPES,
+} from "@/shared/domain/gradient";
+import { CANVAS_RANGE } from "@/shared/domain/canvas-motion";
+import { MAX_CANVAS_COLOURS } from "@/shared/domain/canvas-slots";
 import {
   REFUSED_KIND,
   REQUIRED_KINDS,
@@ -39,12 +52,18 @@ import {
  * `satisfies Record<ContainerMode, string>` is what makes the gate structural
  * as well as tested: adding a mode to {@link CONTAINER_MODES} stops this file
  * compiling until a line is added here too.
+ *
+ * **`grid`'s own line says "equal width unless `weights` says otherwise"
+ * rather than plain "equal tracks" (fixed in review round 1)** — the earlier
+ * wording flatly contradicted the `weights` field two sentences later in
+ * {@link pageReference}'s own section 2, which lays unequal tracks whenever a
+ * `grid` carries one.
  */
 export const MODE_MEANINGS = {
   stack:
     "lays children one after another down the page — the resting, default arrangement",
   list: "lays children in a single column with a hairline between rows and no gap, the shape a modern feed uses",
-  grid: "lays children across a fixed number of equal tracks, wrapping into more rows as more are added",
+  grid: "lays children across a fixed number of tracks — equal width unless `weights` says otherwise — wrapping into more rows as more are added",
   masonry:
     "packs children into columns by height, so a short entry is followed immediately by whatever comes next rather than waiting for a taller neighbour",
   carousel:
@@ -68,6 +87,16 @@ export const MODE_MEANINGS = {
  * corrections and the account of a rename (`post` became `embed`), which is
  * exactly the kind of material a reader with no memory of any of it should
  * never be handed as though it were the current behaviour.
+ *
+ * **`table`'s own line no longer claims exclusivity over `rows` (fixed in
+ * review round 1).** It used to say "the only kind that reads its own `rows`
+ * field", which was false — `player` and `jukebox` read it too, as a
+ * playlist — and `block-schema.ts`'s TSDoc said the identical false thing,
+ * which is exactly the failure the spec's "never generate this from the
+ * TSDoc" rule exists to prevent: the TSDoc was not merely differently toned,
+ * it was wrong. See {@link ROWS_MEANINGS}, which is gated against
+ * `leafFields` rather than asserted by hand, so this cannot silently regress
+ * a second time.
  */
 export const KIND_MEANINGS = {
   text: "a paragraph of the author's own prose — a heading and a body",
@@ -86,7 +115,7 @@ export const KIND_MEANINGS = {
     "a quotation — the description is what was said and the title is who said it, the pair inverted from every other kind",
   progress:
     "one measured thing drawn as a bar — the title labels it and the description (a fraction, a percentage or a number) sets how full the bar is",
-  table: "rows of paired cells — the only kind that reads its own `rows` field",
+  table: "rows of paired cells",
   avatar:
     "the actor's own portrait, resolved by the page rather than typed in — its title is the picture's alt text",
   handle:
@@ -99,21 +128,169 @@ export const KIND_MEANINGS = {
 } as const satisfies Record<LeafKind, string>;
 
 /**
+ * What each leaf kind's `rows` field means to its own renderer, or `null`
+ * when that kind ignores the field entirely (it is still stored regardless,
+ * per {@link LeafBlock.rows}'s own note, since every field but `kind` is
+ * accepted whatever the kind is).
+ *
+ * **Gated against `leafFields` rather than asserted by hand — the whole
+ * reason this constant exists.** `page-reference.test.ts` checks, for every
+ * member of {@link LEAF_KINDS}, that this record names a meaning exactly
+ * where `leafFields(kind).rows` is `true` and names `null` everywhere else.
+ * That is the direct fix for the Critical finding on this file's first
+ * review: both this reference and `block-schema.ts`'s own TSDoc asserted
+ * "`table` is the only kind that reads `rows`" as an absolute, when
+ * `leaf-fields.ts`'s `RETRO` entry — `player` and `jukebox` — had `rows: true`
+ * the entire time. A hand-written absolute claim about which kinds read a
+ * field is exactly the kind of sentence that goes silently wrong the day the
+ * data it was never checked against changes; this one is checked.
+ */
+export const ROWS_MEANINGS = {
+  text: null,
+  link: null,
+  picture: null,
+  player:
+    "a playlist — one row per track, holding its address, then a title, then who made it",
+  jukebox:
+    "a playlist — one row per track, holding its address, then a title, then who made it",
+  embed: null,
+  social: null,
+  stat: null,
+  quote: null,
+  progress: null,
+  table: "the table's own paired cells",
+  avatar: null,
+  handle: null,
+  name: null,
+  owner: null,
+  fursonas: null,
+} as const satisfies Record<LeafKind, string | null>;
+
+/**
+ * The two kinds whose `icon` field picks a CHROME rather than a glyph.
+ *
+ * **Named explicitly rather than derived**, unlike {@link IDENTITY_KINDS}:
+ * `LeafFields.icon` is one boolean for both meanings, so nothing in the data
+ * itself distinguishes a glyph from a chrome choice — that distinction lives
+ * only in `leaf-fields.ts`'s own prose. What IS checked, in
+ * `page-reference.test.ts`, is that `leafFields("player")` and
+ * `leafFields("jukebox")` are still the same object — `leaf-fields.ts` draws
+ * both from its one `RETRO` entry — so this list cannot quietly drift from
+ * that grouping without the test noticing the two have diverged.
+ */
+const RETRO_KINDS: ReadonlySet<LeafKind> = new Set(["player", "jukebox"]);
+
+/**
  * The leaf kinds that draw the actor rather than what somebody typed.
  *
- * A subset of {@link LEAF_KINDS} named here rather than derived, because
- * "draws the actor" is a fact about what a kind reads, not something the
- * vocabulary array itself carries — {@link LEAF_KINDS} has no such marker, on
- * purpose, since adding one would be exactly the kind of welding this model
- * exists to avoid.
+ * **Derived from {@link leafFields} rather than named by hand (fixed in
+ * review round 1) — every identity kind's `LeafFields` has every flag false,
+ * because there is nothing for an author to type**, and nothing else in
+ * {@link LEAF_KINDS} shares that shape. `LEAF_KINDS` itself deliberately
+ * carries no marker for "is an identity kind" — adding one would be exactly
+ * the kind of welding this model exists to avoid — so this is the one honest
+ * way to ask the question without restating a list that could silently fall
+ * out of step with a sixth identity kind arriving later. `pageReference`
+ * reads this array's own `.length` wherever the text used to say "Five" by
+ * hand.
  */
-const IDENTITY_KINDS: readonly LeafKind[] = [
-  "avatar",
-  "handle",
-  "name",
-  "owner",
-  "fursonas",
-];
+const IDENTITY_KINDS: readonly LeafKind[] = LEAF_KINDS.filter((kind) => {
+  const fields = leafFields(kind);
+  return (
+    !fields.description &&
+    !fields.link &&
+    !fields.embeds &&
+    !fields.icon &&
+    !fields.picture &&
+    !fields.rows
+  );
+});
+
+/**
+ * Which of a leaf's optional fields this kind actually draws, and what each
+ * one means for it — one sentence, generated from {@link leafFields} rather
+ * than typed out by hand.
+ *
+ * This is the fix for the Important finding that section 3 named only the
+ * four field NAMES a leaf might carry (`icon`, `image_url`, `link_url`,
+ * `rows`) with no per-kind mapping, when `LEAF_FIELDS` already held the exact
+ * answer, pinned by `leaf-fields.test.tsx`: `picture`'s own meaning never
+ * mentioned `image_url`, `social` was implied to carry a description when its
+ * own table entry sets `description: false`, and `icon` on `player`/`jukebox`
+ * is the retro chrome rather than a glyph — see {@link RETRO_KINDS}.
+ *
+ * @param kind - the leaf kind.
+ * @returns one sentence naming its optional fields, or that it carries none
+ *   beyond the title every leaf must have.
+ */
+function fieldNotes(kind: LeafKind): string {
+  const fields = leafFields(kind);
+  const parts: string[] = [];
+  if (fields.description) parts.push("a description");
+  if (fields.link) {
+    parts.push(
+      fields.embeds
+        ? "`link_url` (framed as an embed when the address matches a recognised provider, an ordinary button otherwise)"
+        : "`link_url`",
+    );
+  }
+  if (fields.icon) {
+    parts.push(
+      RETRO_KINDS.has(kind)
+        ? "`icon` (which of the retro player's own chrome to wear — not a glyph)"
+        : "`icon` (a small glyph)",
+    );
+  }
+  if (fields.picture) parts.push("`image_url`");
+  const rows = ROWS_MEANINGS[kind];
+  if (rows) parts.push(`\`rows\` (${rows})`);
+  if (parts.length === 0) {
+    return "nothing beyond its title — its content is resolved by the page, not typed in";
+  }
+  return parts.join(", ");
+}
+
+/**
+ * What each key of {@link ActorTheme} means, in one line.
+ *
+ * **Hand-written and gated, the same shape as {@link MODE_MEANINGS} and
+ * {@link KIND_MEANINGS}.** `ActorTheme` is a TypeScript interface, which has
+ * no runtime existence to iterate — so this is gated against
+ * {@link DEFAULT_THEME} instead, a real object typed `: ActorTheme`, whose own
+ * keys TypeScript already structurally checks against the interface.
+ * `satisfies Record<keyof ActorTheme, string>` stops this file compiling the
+ * moment `ActorTheme` gains a field with no line here; `page-reference.test.ts`
+ * additionally compares `Object.keys` of the two at runtime, which is what
+ * actually catches a field ADDED to `DEFAULT_THEME` without a matching entry
+ * here, since a `satisfies` check alone would not notice an object holding
+ * more keys than its declared type demands.
+ *
+ * This is the fix for the Important finding that section 8 named 4 of the
+ * theme's 14 keys and section 1 promised "colours, canvas, skin and layout"
+ * while delivering none of the canvas or the gradient's own shape.
+ */
+export const THEME_KEY_MEANINGS = {
+  background:
+    "the page's own background: a gradient object (see below), or `null` for the design's own",
+  accent: "the accent colour, as `#rrggbb`, or `null` for the design's own",
+  canvasColours: `the moving canvas's own colours, one \`#rrggbb\` per slot the chosen canvas paints with (up to ${MAX_CANVAS_COLOURS}), or \`null\` for the design's own`,
+  canvas:
+    "which moving backdrop plays behind the page — one of the canvases below",
+  density: `how busy the canvas is, a multiplier from ${CANVAS_RANGE.min} to ${CANVAS_RANGE.max} (${CANVAS_RANGE.default} is untouched)`,
+  speed: `how fast the canvas moves — the same ${CANVAS_RANGE.min}–${CANVAS_RANGE.max} multiplier range as \`density\``,
+  scale: `how large what the canvas draws is — the same ${CANVAS_RANGE.min}–${CANVAS_RANGE.max} multiplier range as \`density\``,
+  measure:
+    "how wide the page's content column is — one of the measures below, or `null` for the design's own",
+  font: "the page's own typeface — one of the fonts below, or `null` for the design's own",
+  spacing:
+    "how tightly the page sets its own content — one of the spacings below, or `null` for the design's own",
+  skin: 'the page\'s own form — one of the skins below (never `null`: "default" IS a skin)',
+  cursor: `a picture address to use as the mouse cursor, up to ${CURSOR_MAX_PX}px, or \`null\` for the ordinary one`,
+  backgroundUrl:
+    "a picture address behind the whole page, layered over the gradient, or `null` for none",
+  backgroundFit:
+    "how that background picture is placed — one of the values below",
+} as const satisfies Record<keyof ActorTheme, string>;
 
 /**
  * One leaf, carrying only the title every leaf must have.
@@ -140,6 +317,13 @@ function exampleLeaf(kind: LeafKind, title: string): Block {
  * fursona's page only — the owner; an "About" section; and, on a person's
  * page only, a section naming their fursona list separately, because
  * `fursonas` is not part of the header either.
+ *
+ * **Checked against `missingRequiredKinds`, not only against `parseDocument`,
+ * in the test file.** `parseDocument` only ever checks REFUSED kinds — it
+ * never calls `missingRequiredKinds` — so a worked example missing a
+ * required kind (an `avatar`-less fursona page, say) would still parse
+ * `ok: true` while `set_actor_sections` refuses it outright. That gap was an
+ * Important finding on this file's first review.
  *
  * @param kind - which actor kind the example is for.
  * @returns the page's blocks.
@@ -223,19 +407,35 @@ function styleLimitLine(
  *
  * **Every list and cap below is interpolated from the constants this module
  * imports, never typed out by hand.** Only the one-line MEANING of each
- * container mode and leaf kind is hand-written, in {@link MODE_MEANINGS} and
- * {@link KIND_MEANINGS}, because a meaning cannot be derived from a type —
- * and `page-reference.test.ts` fails the build the day either vocabulary
- * gains a member with no meaning written for it. A reference that has gone
- * stale is worse than none, because the thing reading it believes it
- * completely.
+ * container mode, leaf kind and theme key is hand-written, in
+ * {@link MODE_MEANINGS}, {@link KIND_MEANINGS} and {@link THEME_KEY_MEANINGS},
+ * because a meaning cannot be derived from a type — and `page-reference.test.ts`
+ * fails the build the day any of those three vocabularies gains a member with
+ * no meaning written for it. A reference that has gone stale is worse than
+ * none, because the thing reading it believes it completely.
  *
  * **The worked example is generated for the given `kind` and goes through
- * the real `parseDocument`** — proved in the test file, which is what keeps
- * this function from ever handing out an example this build itself refuses.
- * A person's page and a fursona's page require and refuse different leaf
- * kinds, so the example — and the rules section above it — differ by `kind`
- * rather than describing one page shape for both.
+ * the real `parseDocument`, AND is checked against `missingRequiredKinds`**
+ * — proved in the test file, which is what keeps this function from ever
+ * handing out an example this build's own parser refuses, or one
+ * `set_actor_sections` would refuse for missing a required kind that
+ * `parseDocument` itself never checks. A person's page and a fursona's page
+ * require and refuse different leaf kinds, so the example — and the rules
+ * section above it — differ by `kind` rather than describing one page shape
+ * for both.
+ *
+ * **Which modes read `spaces` and `weights` is stated as a fact about
+ * `blocks.tsx`, not derived from it — domain code cannot import the
+ * presentation layer that renders these modes, by this codebase's own
+ * layering rule, so there is no constant to interpolate here the way
+ * {@link CONTAINER_MODES} is.** Verified by reading `blocks.tsx` directly
+ * (2026-08-28): only `Grid` reads `props.container.spaces` (as its track
+ * count) and calls `trackListFor`, which is the only reader of `weights`;
+ * `Masonry` reads `spaces` too, as its column count; `Stack`, `List`,
+ * `Carousel`, `Tabs`, `Accordion` and `Timeline` read neither — `Stack`'s own
+ * comment says so explicitly ("a `spaces` of three means nothing here").
+ * Re-check this paragraph against `blocks.tsx` before trusting it after a
+ * change to any mode's renderer.
  *
  * @param kind - which kind of actor's page this reference is being generated
  *   for. Decides which leaf kinds section 5 says are required and refused,
@@ -251,6 +451,10 @@ export function pageReference(kind: ActorKind): string {
     (leaf) => `- \`${leaf}\` — ${KIND_MEANINGS[leaf]}`,
   ).join("\n");
 
+  const fieldRows = LEAF_KINDS.map(
+    (leaf) => `- \`${leaf}\`: ${fieldNotes(leaf)}`,
+  ).join("\n");
+
   const identityRows = IDENTITY_KINDS.map(
     (leaf) => `- \`${leaf}\` — ${KIND_MEANINGS[leaf]}`,
   ).join("\n");
@@ -261,6 +465,15 @@ export function pageReference(kind: ActorKind): string {
 
   const styleRows = Object.entries(BLOCK_STYLE_LIMITS)
     .map(([key, limit]) => styleLimitLine(key, limit))
+    .join("\n");
+
+  const depthChain = Array.from({ length: MAX_DEPTH }, (_, index) =>
+    index === 0 ? "section" : "container",
+  ).join(" → ");
+
+  const themeKeys = Object.keys(DEFAULT_THEME) as (keyof ActorTheme)[];
+  const themeRows = themeKeys
+    .map((key) => `- \`${key}\`: ${THEME_KEY_MEANINGS[key]}`)
     .join("\n");
 
   const example = JSON.stringify(
@@ -278,13 +491,17 @@ capability this build does not have.
 
 ## 1. What a document is
 
-A document is one JSON object with three keys:
+A document is one JSON object carrying these keys:
 
 - \`aeleos\`: the version marker. This build writes and reads exactly
   \`${DOCUMENT_VERSION}\`; any other value, or a missing key, is refused.
 - \`theme\`: the page's colours, canvas, skin and layout — described in
-  section 7. Omitting this key, or setting it to \`null\`, means "leave the
-  page's existing theme alone" rather than resetting it.
+  section 8. Omitting this key, or setting it to \`null\`, means "leave the
+  page's existing theme alone" rather than resetting it. **Sending a theme
+  object is not the same as sending a patch to one** — every key inside it is
+  read independently and falls back to the design's own default when absent,
+  so a theme object that only sets \`skin\` resets everything else the page
+  had. See section 8's closing note.
 - \`blocks\`: the tree of content described in sections 2 through 5.
 
 As a shorthand, a bare JSON array is also accepted in place of the whole
@@ -302,14 +519,18 @@ A **container** arranges other blocks; it holds no content of its own. Its
 ${modeRows}
 
 - \`spaces\`: how many places it lays out ACROSS, from 1 to ${BLOCK_LIMITS.spaces}.
-  **This is a width, never a capacity.** Children fill the places row by row
-  and the container grows downward, so a section of fifty pictures three
+  **Only two modes read it, and read it differently: \`grid\` lays that many
+  tracks and \`masonry\` reads it as its column count. Every other mode ignores
+  it** — \`stack\`, for one, lays exactly one place per row whatever \`spaces\`
+  says. Whichever mode is in charge, children still fill places row by row and
+  the container still grows downward, so a section of fifty pictures three
   across is three spaces and seventeen rows, not a section nobody can build.
   Narrowing \`spaces\` re-wraps existing children into more rows and loses
   nothing.
 - \`weights\` (optional): one whole share per place, each from 1 to
   ${BLOCK_LIMITS.weight}, so \`spaces: 3\` with \`weights: [1, 3, 1]\` lays a
-  narrow place, one three times as wide, and a narrow place. Omitting it
+  narrow place, one three times as wide, and a narrow place. **Read only by
+  \`grid\` — every other mode, \`masonry\` included, ignores it.** Omitting it
   means every place is the same width. It belongs on the PARENT, not on the
   child that sits in the place.
 - \`children\`: an array, one entry per place, filling row by row. An entry
@@ -330,14 +551,15 @@ ${kindRows}
 Every leaf carries \`title_en\` (required, non-empty) and \`description_en\`
 (may be empty); both may also carry a Spanish counterpart, \`title_es\` /
 \`description_es\`, which is the author's own writing and not a required
-translation. Depending on the kind, a leaf may also carry \`icon\`,
-\`image_url\`, \`link_url\` or \`rows\` (\`table\` is the only kind that reads
-\`rows\`).
+translation. Beyond that, what each kind actually reads differs — some carry
+no description at all, and a field's meaning can differ by kind:
+
+${fieldRows}
 
 ## 4. The identity kinds — content that is not typed in
 
-Five of the kinds above draw the ACTOR itself rather than words the author
-typed:
+${IDENTITY_KINDS.length} of the kinds above draw the ACTOR itself rather than
+words the author typed:
 
 ${identityRows}
 
@@ -362,16 +584,22 @@ this" rather than a blank value:
 
 ${styleRows}
 
-Two of these are depth-0 only (meaningful on a section, not on a block
-nested inside one): \`bleed\` reaches both edges of the page rather than the
-theme's measure, and \`margins: false\` removes that section's own side gutter
-and the spacing before or after its neighbours.
+Two further keys live in the same style bag as plain booleans rather than an
+enum or a character cap, which is why the list above — built from
+\`BLOCK_STYLE_LIMITS\`, which only ever holds the capped and enumerated keys —
+does not carry them, and why they are named here directly instead:
+
+- \`bleed\` (boolean, optional, section-only — depth 0): \`true\` reaches both
+  edges of the page instead of stopping at the theme's own measure.
+- \`margins\` (boolean, optional, section-only — depth 0): explicit \`false\`
+  removes that section's own side gutter and the spacing before or after its
+  neighbours; absent (or \`true\`) is the page's ordinary chrome.
 
 ## 7. Caps
 
 - A container may nest up to ${MAX_DEPTH} levels deep, the top-level section
-  counting as the first: section → container → container → leaves only.
-  Nesting one level past that is refused by name.
+  counting as the first: ${depthChain} → leaves only. Nesting one level
+  past that is refused by name.
 - A page may hold up to ${BLOCK_LIMITS.blocks} blocks in total, counting every
   depth.
 - A \`table\` leaf may hold up to ${BLOCK_LIMITS.rows} rows of up to
@@ -385,20 +613,54 @@ and the spacing before or after its neighbours.
 
 ## 8. The theme
 
-- \`skin\`: the page's form — corners, borders, shadow and texture. One of
-  ${SKINS.map((skin) => `\`${skin}\``).join(", ")}.
-- \`measure\`: how wide the page's content column is. One of
-  ${PAGE_MEASURES.map((measure) => `\`${measure}\``).join(", ")}.
-- \`font\`: the page's typeface. One of
-  ${PAGE_FONTS.map((font) => `\`${font}\``).join(", ")}.
-- \`spacing\`: how tightly the page sets its own content. One of
-  ${PAGE_SPACINGS.map((spacing) => `\`${spacing}\``).join(", ")}.
-- Every colour in the theme is written as \`#rrggbb\`. Anything else is
-  dropped rather than refused, and the page falls back to its previous
-  colour, or the design's own.
+A theme carries:
 
-Any theme key this document omits, or sets to \`null\`, is left exactly as it
-already is on the page.
+${themeRows}
+
+- Canvases (\`canvas\`): ${CANVASES.map((canvas) => `\`${canvas}\``).join(", ")}.
+- Skins (\`skin\`): ${SKINS.map((skin) => `\`${skin}\``).join(", ")}.
+- Measures (\`measure\`): ${PAGE_MEASURES.map((measure) => `\`${measure}\``).join(", ")}.
+- Fonts (\`font\`): ${PAGE_FONTS.map((font) => `\`${font}\``).join(", ")}.
+- Spacings (\`spacing\`): ${PAGE_SPACINGS.map((spacing) => `\`${spacing}\``).join(", ")}.
+- How the background picture is placed (\`backgroundFit\`): one of
+  ${BLOCK_STYLE_LIMITS.background_fit.map((fit) => `\`${fit}\``).join(", ")} —
+  the same two options a block's own \`background_url\` takes.
+
+\`background\` is an OBJECT, not a colour — \`{ kind, repeating, every, angle,
+shape, extent, x, y, stops }\`:
+
+- \`kind\`: which shape it runs in — one of
+  ${GRADIENT_KINDS.map((value) => `\`${value}\``).join(", ")}.
+- \`repeating\` (boolean) / \`every\` (percentage): whether the stops repeat
+  outward, and how much of the gradient one repetition covers; \`every\` is
+  ignored while \`repeating\` is false.
+- \`angle\` (degrees): which way a linear gradient runs, or where a conic one
+  starts; ignored by a radial gradient.
+- \`shape\` / \`extent\`: a radial gradient's own shape (one of
+  ${RADIAL_SHAPES.map((value) => `\`${value}\``).join(", ")}) and how far it
+  reaches (one of ${RADIAL_EXTENTS.map((value) => `\`${value}\``).join(", ")});
+  ignored by the other two kinds.
+- \`x\` / \`y\` (percentage across, percentage down): where a radial or conic
+  gradient is centred; ignored by a linear gradient.
+- \`stops\`: the colours along it, in order, each \`{ color: "#rrggbb", at }\`
+  with \`at\` from 0 to 100 — never empty, up to ${MAX_STOPS} stops.
+
+Every colour anywhere in the theme — \`accent\`, \`canvasColours\`, a gradient
+stop's \`color\` — is written as \`#rrggbb\`. An invalid one, or an invalid
+value for any other theme key, is dropped and that key falls back to the
+design's own default — never to whatever the page had a moment ago, because
+parsing a theme carries no memory of what was already stored.
+
+**A theme object is not a patch, and this is the one thing in this whole
+document most worth getting right.** Every key inside it is resolved
+independently, each falling back to its own design default when the key is
+absent or its value unrecognised. So \`{"skin": "comic"}\` does not merely add
+a skin: it also resets the accent, the background gradient, the canvas
+colours and every dial to the design's own, because nothing here remembers
+what the page had before. The ONLY way to leave the page's current theme
+untouched is to omit the whole \`theme\` key, or send it as \`null\` — see
+section 1. To change one thing and keep the rest, read the page's current
+theme first and send it back with that one key edited.
 
 ## A worked example, for a ${kind}'s page
 

@@ -2121,10 +2121,23 @@ stack would parse it cleanly and redden the case on `at: "envelope"` instead.
 
 **The reference is generated, and its meanings are gated.** `page-reference.ts`
 interpolates every list and cap from the constants; the one-line meaning of
-each mode and kind is hand-written and `page-reference.test.ts` fails the
-build when a vocabulary member has none. Its worked example is run through
-the real `parseDocument`, because an example a model copies and this build
+each mode, kind and theme key is hand-written and `page-reference.test.ts`
+fails the build when a vocabulary member has none. Its worked example is run
+through the real `parseDocument`, **and is checked against
+`missingRequiredKinds`** — `parseDocument` only ever checks refused kinds, so
+an example missing a required one would still parse `ok: true` while
+`set_actor_sections` refuses it. An example a model copies and this build
 refuses is worse than no example.
+
+**`table` was never the only kind that reads `rows`, and this file's own
+TSDoc said otherwise until 2026-08-28.** `player` and `jukebox` read it too,
+as their playlist (`leaf-fields.ts`'s `RETRO` entry has carried `rows: true`
+since both existed) — and `page-reference.ts` had copied the identical false
+claim into the generated reference. That is exactly why the spec forbids
+generating the reference from this file's TSDoc: the TSDoc was not merely
+differently toned, it was **wrong**. Both are corrected now, and the
+reference's `ROWS_MEANINGS` is gated against `leafFields` — checked per kind
+in `page-reference.test.ts` — rather than asserted by hand a second time.
 
 ## Per-profile theming — built
 
