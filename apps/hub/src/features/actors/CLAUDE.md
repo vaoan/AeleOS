@@ -2150,6 +2150,28 @@ surviving that fix is that a false sentence does not announce which other
 files repeat it — grep for the claim, not only for the file you already know
 about.
 
+**And there was a FOURTH, found on 2026-08-28 by taking that last sentence
+literally on the closing task of this branch.** `0009_actor_profiles.sql`'s
+`is_block_kind` carried the identical claim as an inline comment above
+`'table'` — "The only kind that reads `rows`. Every other kind ignores it" —
+**sixteen lines below its own `'player', 'jukebox'` comment saying "Both read
+`rows` as a playlist".** So the file the root note calls the readable index of
+the block model contradicted itself inside one `select ... in (...)` list, and
+the three rounds above had each grepped the TypeScript and stopped there.
+Every correction they claim is real; what was wrong was reading "the third
+copy" as "the last copy", three times running, on a sweep that had never left
+one language.
+
+Two things follow, and the second is the one that generalises. **Grep the
+whole repository for the claim, not the language you were working in** — a
+model documented in TypeScript and in SQL has two places to be wrong, and
+`check:docs` reads only one of them. And **a comment inside a function body
+is `prosrc`, so correcting one is an edit to an applied migration**: it was
+hand-applied to the live project the same day and `pnpm check:schema-drift`
+re-run green either side of it. Root rule 28's own incident is the proof that
+this matters rather than an assumption — CRLF inside these same function
+bodies was reported as drift precisely because migra compares source text.
+
 **An exclusivity claim belongs in a gated record, never in prose, and this
 was learned by trying it twice.** Round 1's sabotage — restoring
 `page-reference.ts`'s hand-written `table` meaning to claim exclusivity over

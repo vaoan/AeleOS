@@ -1140,8 +1140,8 @@ replace`, so the newest body of a function could sit in a file named after
   Spec: `docs/superpowers/specs/2026-08-27-the-editor-wears-the-page-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-the-editor-wears-the-page.md`.
 
-- **A page has a source (2026-08-27) — DESIGNED, being built.** The editor
-  grows a live, two-way JSON dock: a page can be inspected, copied out, pasted
+- **A page has a source (2026-08-28) — done.** The editor carries a live,
+  two-way JSON dock: a page can be inspected, copied out, pasted
   in, and authored by a language model against a reference the dock publishes.
   The document is `{ aeleos, theme, blocks }` — the two `jsonb` columns of
   `actor_profiles` and nothing from `actors`, so an imported page renders with
@@ -1207,6 +1207,40 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   e2e case pastes a document round-tripped through `toDocument`, which always
   carries a `theme` key. Both are pinned in `fursona-editor.test.tsx` now, see
   `apps/hub/src/features/actors/CLAUDE.md` for the account in full.
+
+  **Task 8 pointed a real axe scan at the dock OPEN for the first time and
+  found two more, both structural rather than corner cases.** The resize grip
+  was `role="separator"` with `tabIndex={0}` and no `aria-valuenow` — the APG's
+  window-splitter is a FOCUSABLE separator, which is a value widget and owes a
+  value — and the reference panel's copy button sat INSIDE `<summary>`, which
+  is itself the control that toggles the `<details>`, so it was a
+  `nested-interactive` failure of the same class as a link inside a link. The
+  button is `<summary>`'s sibling now, positioned over it, because `<summary>`
+  must stay a direct child for the native disclosure to work at all.
+
+  **The same new case surfaced a third fault a layer down, and it is the one
+  that had the widest blast radius.** `/pages/new` never called
+  `ensurePersonActor()` — `/me`, `/me/edit`, `/pages` and `/picker` all did —
+  so a person arriving on their genuinely first click, which is the route this
+  app hands a brand-new sign-in to from Puck or Libra, got an `owner` block
+  with no text and a real `link-name` violation. Its regression test uses its
+  OWN fresh identity, because the file's shared one is already provisioned by
+  an earlier case: the shared identity is exactly why nothing caught this.
+
+  **And the branch's own closing sweep found a FOURTH copy of a false sentence
+  it had already fixed three times.** "`table` is the only kind that reads
+  `rows`" is false — `player` and `jukebox` read it as their playlist — and
+  after the TSDoc, the generated reference and `text-leaves.tsx` were each
+  corrected in turn, the claim was still sitting in
+  `0009_actor_profiles.sql`'s `is_block_kind`, **sixteen lines below that same
+  file's comment saying `player` and `jukebox` both read `rows`.** Three
+  rounds had each grepped the TypeScript and stopped there. Two things
+  generalise: **grep the whole repository for a false claim rather than the
+  language you happen to be working in**, since a model written down in
+  TypeScript and in SQL has two places to be wrong and `check:docs` reads only
+  one of them; and **a comment inside a function body is `prosrc`**, so
+  correcting one is an edit to an applied migration and was hand-applied to
+  live with `check:schema-drift` re-run green either side of it.
 
   Spec: `docs/superpowers/specs/2026-08-27-page-source-and-sharing-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-page-source-and-sharing.md`.

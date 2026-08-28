@@ -398,9 +398,14 @@ as $$
     -- inversion is a rendering fact rather than a schema one, so the fields
     -- are named the same here for every kind.
     'stat', 'quote', 'progress',
-    -- The only kind that reads `rows`. Every other kind ignores it and stores
-    -- it regardless, so switching a block kind to look at it and switching
-    -- back finds what was typed still there.
+    -- Reads `rows` as its cells, and is NOT the only kind that does:
+    -- `player` and `jukebox` above read the same field as their
+    -- playlist. This comment asserted that exclusivity until
+    -- 2026-08-28, contradicting the `player`/`jukebox` line sixteen
+    -- lines above it in this same list. What IS true of every kind
+    -- that reads none of them is that it stores `rows` anyway, so
+    -- switching a block kind to look at the field and switching back
+    -- finds what was typed still there.
     'table',
     -- The identity leaves. Their content is the ACTOR's — resolved by the
     -- renderer from the row, not typed into the block — so there is nothing
