@@ -332,6 +332,15 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * still naming a third bar or a `short:static` offset for one is describing
  * an arrangement this editor no longer has.
  *
+ * **The control that brings the workbench back sets `--chrome-text`**, and
+ * that is a cascade fact rather than a style choice. `.aeleos-chrome` resets
+ * `font-size` so an author's `spacing` cannot resize the workbench, and those
+ * declarations are unlayered — so a bare reset would beat this button's own
+ * `text-sm` and render it at 16px instead of 14px. The rule reads
+ * `var(--chrome-text, 1rem)`, so an island asking for another size sets that
+ * token rather than trying to outrank a rule it cannot. See `globals.css` and
+ * `controls-stay-stable.spec.ts`.
+ *
  * **Navigation is decided by what `save` returns, never by reading
  * `fieldErrors` afterwards.** That value is captured from the render that built
  * the submit handler, so it is still empty when a save fails — and this editor
@@ -919,7 +928,7 @@ export function FursonaEditor({
                 // translucent control here has no guaranteed contrast against
                 // colours they chose. `--menu` is the one token declared
                 // opaque in both modes.
-                className={`${CHROME_SCOPE} flex items-center gap-1.5 rounded-lg bg-(--menu) px-3 py-1.5 text-sm font-medium`}
+                className={`${CHROME_SCOPE} flex items-center gap-1.5 rounded-lg bg-(--menu) px-3 py-1.5 text-sm font-medium [--chrome-text:0.875rem]`}
               >
                 <EyeOff className="size-4" />
                 {labels.showControls}
