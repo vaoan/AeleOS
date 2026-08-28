@@ -22,8 +22,35 @@
  * set -a; . ./.secrets; set +a; node scripts/seed-pastiches.mjs
  * ```
  */
+import { readFileSync } from "node:fs";
 import pg from "pg";
 import { poolerUrl, PROJECT_NAME } from "./aeleos-project.mjs";
+
+/**
+ * The five OS-era looks, read rather than restated.
+ *
+ * **Generated from `era-looks.ts`, which is the source.** This script is plain
+ * JavaScript writing direct SQL and cannot import that module — Node strips
+ * types but will not resolve the app's `@/` alias, and every path out of it
+ * goes through one. Pasting the trees here would give two copies that looked
+ * identical the day they were written and drifted the first time either
+ * changed, and the whole point of seeding these is to LOOK at what the picker
+ * offers: a page that had diverged would be a photograph of something nobody
+ * can pick. `apps/hub/tests/era-looks-json.test.ts` fails when the two
+ * disagree and says how to regenerate.
+ */
+const ERA_LOOKS = JSON.parse(
+  readFileSync(new URL("./era-looks.generated.json", import.meta.url), "utf8"),
+);
+
+/** What each look is called on the page, since an id is not a name. */
+const ERA_NAMES = {
+  "era-win98": "Windows 98",
+  "era-winxp": "Windows XP",
+  "era-vista": "Windows Vista",
+  "era-win7": "Windows 7",
+  "era-win8": "Windows 8",
+};
 
 const password = process.env.SUPABASE_DB_PASSWORD;
 if (!password) {
@@ -1174,7 +1201,47 @@ try {
     console.log(`[pastiche] /${ADDRESS}/${handle}`);
   }
 
-  console.log(`\n${PROJECT_NAME}: ${PAGES.length} pastiches written.`);
+  // **The era looks, seeded from the same data the picker offers.** They are
+  // `unlisted` like every other pastiche: a profile lists only public
+  // fursonas, so these stay reachable by address and absent from `/en/137`,
+  // which keeps that curated page what it is.
+  for (const look of ERA_LOOKS) {
+    const handle = look.id;
+    const displayName = ERA_NAMES[look.id];
+    const [existing] = await ask(
+      "select actor_ref from public.actors where owner_ref = $1 and handle = $2",
+      [person, handle],
+    );
+    const ref = existing
+      ? existing.actor_ref
+      : (
+          await ask(
+            `insert into public.actors
+               (actor_ref, kind, owner_ref, handle, display_name, visibility, status)
+             values (gen_random_uuid(), 'fursona', $1, $2, $3, 'unlisted', 'active')
+             returning actor_ref`,
+            [person, handle, displayName],
+          )
+        )[0].actor_ref;
+    await ask(
+      `update public.actors
+          set display_name = $1, visibility = 'unlisted', avatar_url = null
+        where actor_ref = $2`,
+      [displayName, ref],
+    );
+    await ask(
+      `insert into public.actor_profiles (actor_ref, sections, theme)
+       values ($1, $2::jsonb, $3::jsonb)
+       on conflict (actor_ref) do update
+         set sections = excluded.sections, theme = excluded.theme`,
+      [ref, JSON.stringify(look.blocks), JSON.stringify(look.theme)],
+    );
+    console.log(`[era]      /${ADDRESS}/${handle}`);
+  }
+
+  console.log(
+    `\n${PROJECT_NAME}: ${PAGES.length} pastiches and ${ERA_LOOKS.length} era looks written.`,
+  );
 } finally {
   await client.end();
 }

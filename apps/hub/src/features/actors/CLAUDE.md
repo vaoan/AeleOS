@@ -2230,6 +2230,29 @@ sizes are ordinary `spaces` and `weights`. So the arrangement lands and the
 colour does not, which is the most useful shape a failure can have — it names
 one mechanism rather than a feeling.
 
+**What the photographs then found, which the plan could not.** One gap
+explains most of the fidelity loss across three of the five: **a page cannot
+choose its SURFACE colour independently of its background.** Every derived
+colour comes from the background gradient, so a panel is always a tint of the
+ground. Win98 wants silver on teal, XP near-white on blue, Metro coloured tiles
+on black — one missing mechanism, three looks. It is NOT gap 6, which is
+per-block colour; this is per-page, and it is the more ordinary want.
+
+**`chrome: "bare"` was the wrong tool for Metro, and that is a trap rather than
+a gap.** `bare` drops the FILL along with the edge, shadow and padding, so the
+first attempt turned the tiles into floating labels on black. A tile is a
+strong fill with no border and no corner — `card` plus `border: "none"` plus
+`radius: "square"`. The key reads as if it meant "flat" and means "absent".
+
+**A look must turn the canvas off if its ground is flat.** Windows 98, XP and 8
+are flat desktops, and the default drifting nebula painted clouds across all
+three until each said `canvas: "none"`. It reads as a bug in the look rather
+than a default doing its job.
+
+**Vista and Windows 7 needed nothing new at all**, which is the strongest
+evidence here that a look belongs in a document: `aero` carries Aero glass
+whole, and photographed, the Vista page reads as Aero without qualification.
+
 **Windows XP cannot reach Luna's TOP-ONLY rounding.** `radius` is one value for
 all four corners, so `soft` rounds the foot as well as the head. No key was
 invented on the way past; whether one earns a place is a judgement for after

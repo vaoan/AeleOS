@@ -196,6 +196,24 @@ Key choices and _why_:
   colour alone that is out of reach, which makes it a decision about a standing
   ruling rather than a gap to patch quietly.
 
+  **Built and photographed on 2026-08-28, and the pictures found the biggest
+  gap of all.** Five looks are seeded under `/137/era-*` and the findings sit
+  with the eleven social ones. One missing mechanism explains most of the
+  fidelity loss across three of the five: **a page cannot choose its SURFACE
+  colour independently of its background**, so a panel is always a tint of the
+  ground — Win98 wants silver on teal, XP near-white on blue, Metro coloured
+  tiles on black. That is not the per-BLOCK colour already refused by design;
+  it is per-page, and it is the more ordinary want. Vista and Windows 7, by
+  contrast, needed nothing new at all.
+
+  **The seeder reads a generated artefact rather than importing or copying.**
+  `scripts/seed-pastiches.mjs` is plain JavaScript and cannot resolve the app's
+  `@/` alias, so `scripts/era-looks.generated.json` is the seam and
+  `apps/hub/tests/era-looks-json.test.ts` fails when it drifts from the module.
+  That guard compares DATA and not text, because comparing text made it fight
+  prettier forever — rule 6, with the formatter owning shape and the guard
+  owning content.
+
 - **Clerk:** https://clerk.com — docs: https://clerk.com/docs
 - **Supabase Third-Party Auth:** the mechanism each app uses to trust Clerk.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,

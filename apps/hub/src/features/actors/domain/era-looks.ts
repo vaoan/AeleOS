@@ -144,6 +144,7 @@ const WIN98: FursonaTemplate = {
       { color: "#008080", at: 100 },
     ]),
     accent: "#000080",
+    canvas: "none",
     measure: "wide",
   }),
   blocks: [
@@ -179,6 +180,7 @@ const WINXP: FursonaTemplate = {
       { color: "#9dc4f0", at: 100 },
     ]),
     accent: "#245edb",
+    canvas: "none",
     measure: "wide",
   }),
   blocks: [
@@ -237,6 +239,7 @@ const WIN7: FursonaTemplate = {
       { color: "#cfe9fb", at: 100 },
     ]),
     accent: "#2b7fd4",
+    canvas: "none",
     measure: "wide",
   }),
   blocks: [
@@ -274,6 +277,7 @@ const WIN8: FursonaTemplate = {
       { color: "#1d1d1d", at: 100 },
     ]),
     accent: "#0072c6",
+    canvas: "none",
     measure: "full",
   }),
   blocks: [
@@ -289,7 +293,17 @@ const WIN8: FursonaTemplate = {
         mode: "grid",
         spaces: 3,
         weights: [2, 1, 1],
-        style: { chrome: "bare", radius: "square", text_align: "start" },
+        // **`card` and not `bare`, which the first photograph corrected.**
+        // `bare` drops the fill along with the edge, the shadow and the
+        // padding — so the tiles vanished and Metro became floating labels on
+        // black. A tile is a strong FILL with no border and no corner, which
+        // is `card` with `border: "none"` and `radius: "square"`.
+        style: {
+          chrome: "card",
+          border: "none",
+          radius: "square",
+          text_align: "start",
+        },
       },
     ),
     identity(),
