@@ -187,9 +187,16 @@ export const NameLeaf: LeafRenderer = (props) =>
  * The address is safe unconditionally: it is already the first segment of this
  * page's own URL.
  *
- * It renders nothing on a person's page, where `owner` is absent. That state
- * is unreachable through the editor — `owner` is refused on a person's page at
- * the write — so this is a belt rather than a case anybody sees.
+ * It renders nothing on a person's page, where `owner` is absent.
+ *
+ * **That state was reachable through the editor until 2026-08-27, and this
+ * comment said it was not.** `set_actor_sections` refuses `owner` on a
+ * person's page, but the kind select offered every leaf kind on every page —
+ * so somebody could pick it, and the save came back as a database exception
+ * with no block marked. The select is narrowed by `offerableLeafKinds` now and
+ * `leaf-kind-options.test.tsx` is what keeps it narrowed. This branch is a
+ * belt again rather than a case anybody meets, which is what it always claimed
+ * to be.
  *
  * The owner's small portrait reads `--img-fit` like every other picture here,
  * so a block asking for `contain` reaches this one too rather than only the

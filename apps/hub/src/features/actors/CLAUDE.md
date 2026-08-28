@@ -657,6 +657,12 @@ the kind select offered a choice the database rejected. It is pinned to `0009`
 by `block-limits-match-migration.test.ts` like every other vocabulary written
 down twice.
 
+The kind select is narrowed by `offerableLeafKinds` and shows a stored kind
+it cannot offer as a disabled option, so a page saved by a newer build is not
+silently retyped. `leaf-kind-options.test.tsx` carries a positive assertion
+beside each negative one, because an empty select satisfies every
+`not.toContain` ever written.
+
 `progressValue` (`domain/progress-value.ts`) accepts a fraction (`3/5`), a
 percentage (`60%`) or a bare number (`60`), decimals allowed wherever a whole
 number is, clamped to 0–100 because nothing stops somebody writing `150`.

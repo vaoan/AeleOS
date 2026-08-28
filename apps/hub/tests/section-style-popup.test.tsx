@@ -6,7 +6,7 @@ import {
   newContainer,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
-import type { Block } from "@/features/actors/domain/block-schema";
+import { LEAF_KINDS, type Block } from "@/features/actors/domain/block-schema";
 import { blockEditorLabels } from "./support/editor-labels";
 
 vi.mock("lucide-react/dynamic", () => ({
@@ -63,6 +63,7 @@ function harness(page: Block[], path: BlockPath = [0]) {
           locked={new Set<string>()}
           problems={[]}
           dragHandle={null}
+          kinds={LEAF_KINDS}
         />
         {path.length === 1 ? (
           <SectionPreviewTray
@@ -129,6 +130,7 @@ function threeHarness() {
             locked={new Set<string>()}
             problems={[]}
             dragHandle={null}
+            kinds={LEAF_KINDS}
           />
         ) : null,
       )}

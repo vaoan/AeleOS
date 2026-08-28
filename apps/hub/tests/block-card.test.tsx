@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { lockedKinds } from "@/features/actors/domain/required-blocks";
+import {
+  lockedKinds,
+  offerableLeafKinds,
+} from "@/features/actors/domain/required-blocks";
 import { NextIntlClientProvider } from "next-intl";
 
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
@@ -81,6 +84,7 @@ function harness(
         locked={lockedKinds(held.page, "fursona")}
         problems={problems}
         dragHandle={null}
+        kinds={offerableLeafKinds("fursona")}
       />
     );
   };
@@ -136,6 +140,7 @@ function renderCard(
       locked={new Set<string>()}
       problems={[]}
       dragHandle={null}
+      kinds={LEAF_KINDS}
     />,
   );
 }
@@ -773,6 +778,7 @@ describe("BlockCard", () => {
           locked={new Set<string>()}
           dragHandle={null}
           problems={[]}
+          kinds={LEAF_KINDS}
         />
       </NextIntlClientProvider>,
     );
