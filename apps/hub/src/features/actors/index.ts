@@ -106,3 +106,21 @@ export {
   withRequiredBlocks,
   type ActorKind,
 } from "@/features/actors/domain/required-blocks";
+export {
+  DOCUMENT_VERSION,
+  PASTE_LIMIT_BYTES,
+  parseDocument,
+  toDocument,
+  type DocumentParse,
+  type DocumentProblem,
+} from "@/features/actors/domain/page-document";
+export { pageReference } from "@/features/actors/domain/page-reference";
+export {
+  usePageSource,
+  type PageSourceState,
+} from "@/features/actors/application/use-page-source";
+export {
+  PageSourceDock,
+  type PageSourceDockProps,
+  type PageSourceDockLabels,
+} from "@/features/actors/presentation/page-source-dock";

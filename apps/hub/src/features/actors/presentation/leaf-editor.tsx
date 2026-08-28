@@ -4,7 +4,6 @@ import { ImageOff, Plus, Trash2, X } from "lucide-react";
 import { useId, type ReactNode } from "react";
 import {
   BLOCK_LIMITS,
-  LEAF_KINDS,
   type Block,
   type LeafBlock,
   type LeafKind,
@@ -157,6 +156,9 @@ export interface LeafEditorLabels extends IconPickerLabels {
  *
  * `problems` is the whole page's, not this leaf's share, because the
  * components above pass one value down the tree; `problemFields` narrows it.
+ *
+ * `kinds` is newer still (2026-08-27): see its own note for why the kind
+ * select stopped mapping over every `LEAF_KIND` unconditionally.
  */
 export interface LeafEditorProps {
   /** The leaf being edited, as the form is holding it. */
@@ -184,6 +186,17 @@ export interface LeafEditorProps {
    * the only one in the editor that spreads them.
    */
   dragHandle: ReactNode;
+  /**
+   * The leaf kinds this page may hold, already narrowed to its actor kind.
+   *
+   * A list rather than an actor kind, so this component never learns what a
+   * person or a fursona is — which of them a page refuses is
+   * `required-blocks.ts`'s business and is pinned to the SQL there. Offering a
+   * kind `set_actor_sections` refuses is a control that accepts a press and
+   * produces an unexplained failure one save later, which is what this prop
+   * exists to end.
+   */
+  kinds: readonly LeafKind[];
 }
 
 /** The class every text input in this editor wears. */
@@ -225,10 +238,10 @@ const INPUT =
  * deployment can be read here and not re-saved here.
  *
  * **The records are never indexed by the stored `kind`.** Every lookup below
- * goes through a value taken from `LEAF_KINDS`, so a plain object indexed by
- * text out of `jsonb` — the shape that put `__proto__` through `TIDAL_KINDS`
- * and shipped a Critical — cannot arise here even though the labels are
- * records rather than maps.
+ * goes through a value taken from `kinds` — itself built from `LEAF_KINDS` by
+ * `offerableLeafKinds` — so a plain object indexed by text out of `jsonb` — the
+ * shape that put `__proto__` through `TIDAL_KINDS` and shipped a Critical —
+ * cannot arise here even though the labels are records rather than maps.
  *
  * **An unwritten Spanish field is an ordinary state.** No warning, no badge,
  * nothing marking it as missing: the app's own chrome is next-intl and fails a
@@ -272,13 +285,14 @@ export function LeafEditor({
   labels,
   problems,
   dragHandle,
+  kinds,
 }: LeafEditorProps) {
   // Ids rather than wrapping labels: a wrapping label takes its whole text
   // content as the field's accessible name, which is how the fursona editor's
   // handle once announced its hint as part of its name.
   const id = useId();
   const kind = leaf.kind;
-  const known = (LEAF_KINDS as readonly string[]).includes(kind);
+  const known = kinds.includes(kind as LeafKind);
   const fields = leafFields(kind);
   // **What the save refused ON THIS LEAF.** Both halves are marked: the title,
   // which is the refusal somebody will actually meet, and anything else, so a
@@ -362,7 +376,7 @@ export function LeafEditor({
                 {kind}
               </option>
             )}
-            {LEAF_KINDS.map((one) => (
+            {kinds.map((one) => (
               <option key={one} value={one}>
                 {labels.leafKinds[one]}
               </option>

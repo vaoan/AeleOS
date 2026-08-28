@@ -445,6 +445,21 @@
     "spacings": {
       "compact": "Compact",
       "roomy": "Roomy"
+    },
+    "source": {
+      "open": "Page source",
+      "title": "Page source",
+      "close": "Close the page source",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "copyReference": "Copy the format reference",
+      "copied": "Copied",
+      "referenceTitle": "The format, for an assistant",
+      "resync": "Reload from the page",
+      "drifted": "The page changed while you were typing.",
+      "stale": "Showing your last valid version.",
+      "sourceLabel": "This page as JSON",
+      "resize": "Resize the panel"
     }
   },
   "picker": {

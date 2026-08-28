@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { EyeOff } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,8 @@ import {
   type Control,
   type FieldValues,
   type Path,
+  type PathValue,
+  type UseFormSetValue,
 } from "react-hook-form";
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -36,6 +38,12 @@ import {
   type ThemeConfiguratorLabels,
 } from "@/features/actors/presentation/theme-configurator";
 import {
+  PageSourceDock,
+  type PageSourceDockLabels,
+} from "@/features/actors/presentation/page-source-dock";
+import { usePageSource } from "@/features/actors/application/use-page-source";
+import { pageReference } from "@/features/actors/domain/page-reference";
+import {
   DEFAULT_THEME,
   themeSchema,
   isCustomised,
@@ -49,7 +57,10 @@ import {
   type Visibility,
 } from "@/features/actors/domain/fursona-schema";
 import { blocksSchema } from "@/features/actors/domain/block-schema";
-import { withRequiredBlocks } from "@/features/actors/domain/required-blocks";
+import {
+  withRequiredBlocks,
+  type ActorKind,
+} from "@/features/actors/domain/required-blocks";
 import {
   blockProblems,
   type BlockProblem,
@@ -81,11 +92,22 @@ import { z } from "zod";
  * `pageStyle` names the switch that takes the page's own look off while
  * building. It is deliberately not the visitor's string for the same control:
  * "this author's colours" is the wrong way to say it to the author.
+ *
+ * `source`, the page-source dock's own bag, is inherited through neither
+ * extends clause — `EditorToolbarLabels` carries only `openSource`, the flat
+ * control that opens the dock, and `PageSourceDockLabels` is declared here as
+ * its own field for the same nesting reason `theme` is.
  */
 export interface FursonaEditorLabels
   extends EditorToolbarLabels, BlockEditorLabels {
   /** The theme panel's own strings, nested to avoid a `title` collision. */
   theme: ThemeConfiguratorLabels;
+  /**
+   * The page-source dock's own strings, nested for the same reason `theme`
+   * is: both it and this bag have a `title`, and a flat bag would have one
+   * silently win.
+   */
+  source: PageSourceDockLabels;
   /**
    * Names the switch that takes the page's own look off while building.
    *
@@ -475,6 +497,29 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * the language and light/dark toggles by 88% each. A control out of flow has
  * no way to know what it lands on.
  *
+ * **It mounts the page-source dock through `PageSourceField`, a component of
+ * its own rather than a `usePageSource` call inline here.** `BlockEditor`
+ * already keeps this component from re-rendering on every keystroke inside a
+ * block by holding its own `useController({ control, name: "sections" })`
+ * rather than being handed the tree as a prop; `PageSourceField` does the
+ * same for the dock's `blocks`, with its own `useWatch`. Watching `sections`
+ * here directly — which an earlier version of this wiring did — reaches
+ * every ancestor down to `EditorToolbar` on every keystroke in a leaf's own
+ * text, which `fursona-editor.test.tsx`'s toolbar-render-count case exists
+ * to catch. `PageSourceField` is rendered INSIDE the `data-controls`
+ * element, as a sibling of `EditorToolbar`, so it is one more `CHROME_SCOPE`
+ * island the hide-controls rule removes — see the note above about
+ * everything that rule reaches.
+ *
+ * **`PageSourceField` does not exist in the tree until `sourceMounted` is
+ * set, on the FIRST press of the toolbar control — never merely on
+ * `sourceOpen`.** Its `useWatch({ control, name: "sections" })` would
+ * otherwise fire `usePageSource`'s `[theme, blocks]` effect, a full
+ * `toDocument` serialisation of the whole page, on every keystroke in the
+ * editor for every author who never opens the dock at all. Once mounted it
+ * stays mounted regardless of `sourceOpen`, so closing the dock keeps the
+ * text and problems it was showing rather than throwing them away.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -504,6 +549,23 @@ export function FursonaEditor({
   // remembered value would open the editor with no controls at all for whoever
   // did that once.
   const [controlsHidden, setControlsHidden] = useState(false);
+  // **A way of LOOKING, not a preference either.** The dock is closed by
+  // default and nothing persists whether it was open — opening it is
+  // something somebody does to check or edit the raw page, not a standing
+  // choice about how the editor should behave next time.
+  const [sourceOpen, setSourceOpen] = useState(false);
+  // **Gates whether `PageSourceField` — and the `usePageSource` hook inside
+  // it — exists in the tree AT ALL.** `PageSourceDock`'s own `<dialog>`
+  // has to stay mounted once it exists so its effect always has a node to
+  // call `show()`/`close()` on; but nothing forces it to exist BEFORE
+  // anybody has ever opened it. Without this, `PageSourceField`'s
+  // `useWatch({ control, name: "sections" })` would fire `usePageSource`'s
+  // `[theme, blocks]` effect — a full `toDocument` serialisation of up to
+  // 500 blocks — on every keystroke in the editor, for every author who
+  // never once opens the dock. Set true the first time `sourceOpen` is
+  // asked to become true, and never reset, so closing the dock does not
+  // tear down the text and problems it was showing.
+  const [sourceMounted, setSourceMounted] = useState(false);
   // **Read from the shell rather than looked up.** The slot is in the header,
   // which this component does not own; a `document.querySelector` for it would
   // be an untyped string contract between two components and is restricted in
@@ -515,6 +577,7 @@ export function FursonaEditor({
     control,
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(
@@ -566,6 +629,11 @@ export function FursonaEditor({
     avatarUrl: liveAvatar || null,
     measure: (liveTheme as ActorTheme).measure ?? null,
   };
+
+  // The reference document names no page-specific value — it is generated
+  // wholly from the vocabulary constants for this actor kind — so it is
+  // memoised on `kind` alone rather than recomputed on every render.
+  const reference = useMemo(() => pageReference(kind), [kind]);
 
   // Schema failures carry a zod code; the database's refusals carry ours. The
   // banner reads both the same way, so this only has to flatten them.
@@ -621,6 +689,10 @@ export function FursonaEditor({
             saving={saving}
             cancelHref={LIST}
             onHideControls={() => setControlsHidden(true)}
+            onOpenSource={() => {
+              setSourceMounted(true);
+              setSourceOpen(true);
+            }}
             // **Gated on the LIVE theme, so it arrives with the first colour
             // somebody picks and leaves when they reset.** Computed here rather
             // than in the bar for the same reason the public routes compute it:
@@ -631,6 +703,40 @@ export function FursonaEditor({
               ) : null
             }
           />
+
+          {/* **Its own `sections` watch, isolated in its own component so it
+              stays out of THIS render.** `BlockEditor` already keeps this
+              component from re-rendering on every keystroke inside a block
+              by holding its own `useController({ control, name: "sections"
+              })` — the subscription lives in the CHILD, so a change to
+              `sections` re-renders `BlockEditor` and nothing above it.
+              `PageSourceField` does the same for the dock: watching
+              `sections` directly here would reach every ancestor down to
+              `EditorToolbar` on every keystroke in a leaf's own text, which
+              `fursona-editor.test.tsx`'s toolbar-render-count case is what
+              caught when an earlier version of this wiring watched it at
+              this level instead.
+
+              **Gated on `sourceMounted`, not merely on `open`.** Before
+              anybody presses the toolbar control, `PageSourceField` does not
+              exist in the tree at all — so `usePageSource`'s `[theme,
+              blocks]` effect, a full `toDocument` serialisation of the whole
+              page, never runs for an author who never opens the dock. Once
+              mounted it stays mounted regardless of `open`, so closing the
+              dock does not throw away the text or the problems it was
+              showing. */}
+          {sourceMounted && (
+            <PageSourceField
+              control={control}
+              setValue={setValue}
+              theme={liveTheme as ActorTheme}
+              actorKind={kind}
+              open={sourceOpen}
+              onClose={() => setSourceOpen(false)}
+              reference={reference}
+              labels={labels.source}
+            />
+          )}
 
           <WidePageColumn
             className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
@@ -873,6 +979,91 @@ export function FursonaEditor({
           : null}
       </ThemeScope>
     </form>
+  );
+}
+
+/**
+ * The page-source dock's live binding, isolated in its own component.
+ *
+ * **Why this exists rather than a `useWatch` call in `FursonaEditor`
+ * itself.** `FursonaEditor` watches `handle`, `displayName`, `avatarUrl` and
+ * `theme` directly because every one of those already has to reach its own
+ * render — the toolbar's title, the identity-leaf preview overlay, the
+ * gated `PageThemeSwitch`. `sections` does not: nothing in `FursonaEditor`'s
+ * own render reads it, exactly as `BlockEditor` already proved by holding its
+ * own `useController({ control, name: "sections" })` rather than being handed
+ * the tree as a prop, so a change to `sections` re-renders `BlockEditor` and
+ * nothing above it. This component does the same for
+ * {@link usePageSource}'s `blocks`: the subscription lives here, so typing in
+ * a leaf's own text re-renders this component and the dock it draws, never
+ * `EditorToolbar` two levels up. An earlier version of this wiring watched
+ * `sections` in `FursonaEditor` directly, and
+ * `fursona-editor.test.tsx`'s toolbar-render-count case is the regression
+ * test that caught it.
+ *
+ * `theme` is a prop rather than a second watch, because `FursonaEditor`
+ * already holds the live theme for its own reasons above — watching it twice
+ * would be a second subscription answering a question the caller already
+ * has the answer to.
+ *
+ * **`apply`'s `theme` half is written only when it is non-null.** A pasted
+ * document that names no theme at all answers `theme: null` from
+ * `usePageSource`, and that means leave the person's current theme alone —
+ * see that hook's own TSDoc for the contract. Writing it unconditionally would
+ * reset an author's theme to whatever `themeSchema` resolves `null` to on
+ * the very next accepted parse of a document that never mentioned a theme,
+ * which is silent: nothing renders differently in the moment, and the loss
+ * only shows up the next time somebody opens the theme panel.
+ *
+ * @returns the dock.
+ */
+function PageSourceField<T extends FieldValues>({
+  control,
+  setValue,
+  theme,
+  actorKind,
+  open,
+  onClose,
+  reference,
+  labels,
+}: {
+  control: Control<T>;
+  setValue: UseFormSetValue<T>;
+  theme: ActorTheme;
+  actorKind: ActorKind;
+  open: boolean;
+  onClose: () => void;
+  reference: string;
+  labels: PageSourceDockLabels;
+}) {
+  const blocks = useWatch({
+    control,
+    name: "sections" as Path<T>,
+  }) as Block[];
+  const source = usePageSource({
+    theme,
+    blocks,
+    actorKind,
+    apply: ({ theme: nextTheme, blocks: nextBlocks }) => {
+      setValue("sections" as Path<T>, nextBlocks as PathValue<T, Path<T>>, {
+        shouldDirty: true,
+      });
+      if (nextTheme) {
+        setValue("theme" as Path<T>, nextTheme as PathValue<T, Path<T>>, {
+          shouldDirty: true,
+        });
+      }
+    },
+  });
+
+  return (
+    <PageSourceDock
+      open={open}
+      onClose={onClose}
+      source={source}
+      reference={reference}
+      labels={labels}
+    />
   );
 }
 

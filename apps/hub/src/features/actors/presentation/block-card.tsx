@@ -17,6 +17,7 @@ import {
   type Block,
   type ContainerBlock,
   type ContainerMode,
+  type LeafKind,
 } from "@/features/actors/domain/block-schema";
 import {
   addToPlace,
@@ -194,6 +195,11 @@ export interface BlockCardLabels {
  * recomputed per card**: `atBlockLimit` and `locked`. One walk in
  * `BlockEditor` answers both, which is what makes every control in the editor
  * change state at the same moment rather than card by card.
+ *
+ * **`kinds` joins them (2026-08-27), and this card never reads it.** It is
+ * `offerableLeafKinds(page.actorKind)`, computed once in `BlockEditor` and
+ * threaded through every nested card so a leaf at any depth gets the same
+ * narrowed list — see `LeafEditorProps.kinds` for what it prevents.
  */
 export interface BlockCardProps {
   /** The container being edited, as the form is holding it. */
@@ -241,6 +247,13 @@ export interface BlockCardProps {
    * the grip sits.
    */
   dragHandle: ReactNode;
+  /**
+   * The leaf kinds this page may hold, already narrowed to its actor kind.
+   *
+   * Passed straight to `LeafEditor` — see its own note. `BlockCard` never
+   * reads it.
+   */
+  kinds: readonly LeafKind[];
 }
 
 /**
@@ -518,6 +531,11 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * else on the bag is a string this card draws itself. See
  * {@link BlockCardLabels.leaf}.
  *
+ * **It forwards `kinds` and reads none of it (2026-08-27).** The prop passes
+ * straight through to every `LeafEditor` this card renders, nested containers
+ * included, so a leaf at any depth offers exactly what its page's actor kind
+ * may hold — see {@link BlockCardProps.kinds}.
+ *
  * @returns the container's card.
  *
  * It tells the style popup whether this block carries a name, because the
@@ -533,6 +551,7 @@ export function BlockCard({
   locked,
   problems,
   dragHandle,
+  kinds,
 }: BlockCardProps) {
   const id = useId();
   const [hidden, setHidden] = useState(false);
@@ -925,6 +944,7 @@ export function BlockCard({
                 atBlockLimit={atBlockLimit}
                 locked={locked}
                 problems={problems}
+                kinds={kinds}
               />
             ))}
           </div>
@@ -964,6 +984,8 @@ interface PlaceProps {
   locked: ReadonlySet<string>;
   /** What the save schema refused, and where. */
   problems: readonly BlockProblem[];
+  /** The leaf kinds this page may hold — see `BlockCardProps.kinds`. */
+  kinds: readonly LeafKind[];
 }
 
 /**
@@ -980,6 +1002,7 @@ function Place({
   atBlockLimit,
   locked,
   problems,
+  kinds,
 }: PlaceProps): ReactNode {
   return (
     <BlockSlot path={path} filled={Boolean(child)} label={labels.dragBlock}>
@@ -994,6 +1017,7 @@ function Place({
           locked={locked}
           problems={problems}
           dragHandle={handle}
+          kinds={kinds}
         />
       )}
     </BlockSlot>
@@ -1019,6 +1043,7 @@ function PlaceContent({
   locked,
   problems,
   dragHandle,
+  kinds,
 }: PlaceProps & { dragHandle: ReactNode }): ReactNode {
   if (child && isContainer(child)) {
     return (
@@ -1032,6 +1057,7 @@ function PlaceContent({
         locked={locked}
         problems={problems}
         dragHandle={dragHandle}
+        kinds={kinds}
       />
     );
   }
@@ -1045,6 +1071,7 @@ function PlaceContent({
         labels={labels.leaf}
         problems={problems}
         dragHandle={dragHandle}
+        kinds={kinds}
       />
     );
   }

@@ -76,6 +76,7 @@ function harness(
         labels={labels.leaf}
         problems={problems}
         dragHandle={null}
+        kinds={LEAF_KINDS}
       />
     );
   };

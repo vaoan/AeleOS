@@ -57,6 +57,7 @@ import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import {
   holdsNothingAuthored,
   lockedKinds,
+  offerableLeafKinds,
   withRequiredBlocks,
 } from "@/features/actors/domain/required-blocks";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
@@ -316,6 +317,13 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * its own leaves. A page may hold a leaf at depth 0, so this file renders one
  * directly and speaks the same contract the card does.
  *
+ * **It computes `kinds` once, beside `locked` (2026-08-27).**
+ * `offerableLeafKinds(page.actorKind)` is what narrows the kind select to what
+ * this page's actor kind may hold — `owner` on a person's page and `fursonas`
+ * on a fursona's are the ones each excludes — and it is threaded to every
+ * top-level `BlockCard` and `LeafEditor` exactly as `locked` already is, so
+ * every card in the tree agrees on the same list.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -537,6 +545,11 @@ export function BlockEditor<T extends FieldValues>({
   // every remove control in the editor locks at the same moment. A required
   // kind the page holds twice is not locked — the rule is at-least-one.
   const locked = lockedKinds(blocks, page.actorKind);
+  // The kind select is narrowed to what this actor kind's page may hold —
+  // `set_actor_sections` refuses the other one outright, and offering it here
+  // was a control that accepted a press and produced an unexplained failure
+  // one save later.
+  const kinds = offerableLeafKinds(page.actorKind);
   // Position named once, exactly as `PublicBlocks` does it and for the same
   // reason: a block has no identity but where it sits, and
   // `react/no-array-index-key` reads the map callback's index parameter.
@@ -639,6 +652,7 @@ export function BlockEditor<T extends FieldValues>({
                         locked={locked}
                         problems={problems}
                         dragHandle={handle}
+                        kinds={kinds}
                       />
                     ) : (
                       // **A page may hold a leaf at the top level**, and one this
@@ -655,6 +669,7 @@ export function BlockEditor<T extends FieldValues>({
                         labels={labels.leaf}
                         problems={problems}
                         dragHandle={handle}
+                        kinds={kinds}
                       />
                     )
                   }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_THEME,
   PAGE_FONTS,
@@ -10,7 +10,13 @@ import {
 } from "@/features/actors/domain/actor-theme";
 import { pageContext } from "./helpers/page-context";
 import type { ComponentProps, ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   BLOCK_LIMITS,
   BLOCK_STYLE_LIMITS,
@@ -116,6 +122,21 @@ const labels = {
   cancel: "Cancel",
   hideControls: "Hide controls",
   showControls: "Show controls",
+  openSource: "Page source",
+  source: {
+    title: "Page source",
+    close: "Close the page source",
+    collapse: "Collapse",
+    expand: "Expand",
+    copyReference: "Copy the format reference",
+    copied: "Copied",
+    referenceTitle: "The format, for an assistant",
+    resync: "Reload from the page",
+    drifted: "The page changed while you were typing.",
+    stale: "Showing your last valid version.",
+    sourceLabel: "This page as JSON",
+    resize: "Resize the panel",
+  },
   bannerTitle: "Fix these before saving",
   pageStyle: "Your page’s own look",
   writingIn: "Writing in",
@@ -574,36 +595,82 @@ describe("FursonaEditor", () => {
   // stylesheet — and `editor-is-the-page.spec.ts` is where it is photographed
   // against the live page at seven widths.
   it("arms the hide-controls rule and keeps its own way back out of it", () => {
-    const { container } = renderEditor();
-    const armed = () =>
-      container.querySelector("[data-controls]")!.getAttribute("data-controls");
+    // Stubs `HTMLDialogElement.prototype.show`/`close`, which jsdom 26
+    // implements as entirely absent properties — see
+    // `page-source-dock.test.tsx`'s own copy of this stub for the full
+    // account. Needed here because the dock is opened below: its
+    // containment inside `[data-controls]` is the entire reason the dock
+    // was placed there rather than as a sibling of `ThemeScope` (see
+    // `apps/hub/src/features/actors/CLAUDE.md`), and that containment was
+    // asserted by NOTHING once `PageSourceField` stopped mounting
+    // unconditionally — this is the regression test for that gap.
+    HTMLDialogElement.prototype.show = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.removeAttribute("open");
+    });
 
-    expect(armed()).toBe("shown");
-    expect(screen.queryByTestId("show-controls")).toBeNull();
+    try {
+      const { container } = renderEditor();
+      const armed = () =>
+        container
+          .querySelector("[data-controls]")!
+          .getAttribute("data-controls");
 
-    fireEvent.click(screen.getByTestId("hide-controls"));
-    expect(armed()).toBe("hidden");
+      // Opened BEFORE hiding controls, so the dock's own `CHROME_SCOPE`
+      // island exists for the containment loop below to find. Counted
+      // before and after, so a click that silently failed to mount it
+      // cannot leave this test green for the wrong reason.
+      const islandsBeforeOpen = container.querySelectorAll(
+        `.${CHROME_SCOPE}`,
+      ).length;
+      fireEvent.click(screen.getByTestId("editor-open-source"));
+      const dock = screen.getByTestId("page-source-dock");
+      const islandsAfterOpen = container.querySelectorAll(
+        `.${CHROME_SCOPE}`,
+      ).length;
+      expect(islandsAfterOpen).toBeGreaterThan(islandsBeforeOpen);
 
-    // Every island is INSIDE the armed element, or the rule cannot reach it.
-    const region = container.querySelector("[data-controls]")!;
-    for (const island of container.querySelectorAll(`.${CHROME_SCOPE}`)) {
-      if (
-        island.hasAttribute("data-testid") &&
-        island.getAttribute("data-testid") === "show-controls"
-      )
-        continue;
-      expect(region.contains(island)).toBe(true);
+      expect(armed()).toBe("shown");
+      expect(screen.queryByTestId("show-controls")).toBeNull();
+
+      fireEvent.click(screen.getByTestId("hide-controls"));
+      expect(armed()).toBe("hidden");
+
+      // Every island is INSIDE the armed element, or the rule cannot reach it.
+      const region = container.querySelector("[data-controls]")!;
+      const islands = [...container.querySelectorAll(`.${CHROME_SCOPE}`)];
+      // The dock itself has to be one of them — otherwise this loop is not
+      // actually covering it, and the earlier count increase proved only
+      // that SOMETHING mounted, not that it was the dock.
+      expect(islands).toContain(dock);
+      for (const island of islands) {
+        if (
+          island.hasAttribute("data-testid") &&
+          island.getAttribute("data-testid") === "show-controls"
+        )
+          continue;
+        expect(region.contains(island)).toBe(true);
+      }
+
+      // And the way back is OUTSIDE it, so the rule cannot hide the only
+      // control that could undo it — which would strand somebody on a page
+      // with no workbench and no way to reach one.
+      const restore = screen.getByTestId("show-controls");
+      expect(region.contains(restore)).toBe(false);
+
+      fireEvent.click(restore);
+      expect(armed()).toBe("shown");
+      expect(screen.queryByTestId("show-controls")).toBeNull();
+    } finally {
+      Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
+      Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
     }
-
-    // And the way back is OUTSIDE it, so the rule cannot hide the only control
-    // that could undo it — which would strand somebody on a page with no
-    // workbench and no way to reach one.
-    const restore = screen.getByTestId("show-controls");
-    expect(region.contains(restore)).toBe(false);
-
-    fireEvent.click(restore);
-    expect(armed()).toBe("shown");
-    expect(screen.queryByTestId("show-controls")).toBeNull();
   });
 
   // **Not a submit.** Every button inside a `<form>` submits by default, so an
@@ -754,6 +821,147 @@ describe("FursonaEditor", () => {
     // the edit landed, observable in the preview the editor renders inline.
     expect(previewText()).toContain("Live words");
     expect(toolbarRenders).toBe(before);
+  });
+});
+
+describe("the page-source dock's own mount and its theme guard", () => {
+  /**
+   * Stubs `HTMLDialogElement.prototype.show`/`showModal`/`close`.
+   *
+   * jsdom 26 implements none of the three, not as no-ops but as entirely
+   * absent properties — see `page-source-dock.test.tsx`'s own copy of this
+   * stub for the full account. Scoped to this describe block rather than the
+   * whole file: nothing else here ever mounts a `<dialog>`.
+   */
+  beforeEach(() => {
+    HTMLDialogElement.prototype.show = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.showModal = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.removeAttribute("open");
+    });
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
+  });
+
+  // **THE REGRESSION TEST for a cost review round found by construction
+  // rather than by measurement.** `PageSourceField`'s `useWatch({ control,
+  // name: "sections" })` would fire `usePageSource`'s `[theme, blocks]`
+  // effect — a full `toDocument` serialisation of the whole page — on every
+  // keystroke in the editor, for every author who never opens the dock, if
+  // it existed in the tree from the start. It does not: `sourceMounted`
+  // gates its very presence, set only on the first press of the toolbar
+  // control and never unset. The absence of the dock's own test id from the
+  // DOM before that press is the proof — nothing here MEASURES a cost,
+  // because there is nothing mounted yet to have one.
+  it("does not mount the source dock until it is opened, and keeps it once it has been", () => {
+    renderEditor();
+
+    expect(screen.queryByTestId("page-source-dock")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("editor-open-source"));
+    expect(screen.getByTestId("page-source-dock")).toBeInTheDocument();
+
+    // **Closing does not tear it down.** `sourceMounted` is never unset by
+    // `onClose`, so the dock keeps the text and problems it was showing
+    // rather than losing them the moment somebody closes it.
+    fireEvent.click(screen.getByTestId("page-source-close"));
+    expect(screen.getByTestId("page-source-dock")).toBeInTheDocument();
+  });
+
+  // **THE REGRESSION TEST for the one branch that can destroy an author's
+  // colours.** `PageSourceField`'s `apply` writes `sections` unconditionally
+  // and `theme` only `if (nextTheme)` — `usePageSource` answers `theme:
+  // null` for a document that never mentioned one, by design (see its own
+  // TSDoc), and a caller that wrote `null` through to the form would reset
+  // the author's palette to whatever `themeSchema` resolves `null` to on the
+  // very next render. `PageSourceField` is under `presentation/**/*.tsx`,
+  // excluded from the coverage gate, and every other case in this
+  // repository pastes a document round-tripped through `toDocument`, which
+  // ALWAYS emits a `theme` key — so this is the only place the FALSE arm of
+  // that `if` is ever exercised at all.
+  it("leaves the author's theme alone when a pasted document omits it", () => {
+    vi.useFakeTimers();
+    try {
+      // A gradient, not accent alone. `themeVars` derives every colour from
+      // `theme.background` and emits nothing accent-related when it is
+      // absent — "a theme with no background emits only the cloud colours
+      // and the canvas, since there is nothing to solve the rest against"
+      // (see `themeVars`'s own TSDoc). A background is what puts this test on
+      // the path the guard actually protects.
+      const CUSTOMISED_THEME = {
+        ...DEFAULT_THEME,
+        accent: "#ff0000",
+        background: {
+          kind: "linear" as const,
+          repeating: false,
+          every: 0,
+          angle: 135,
+          shape: "ellipse" as const,
+          extent: "farthest-corner" as const,
+          x: 50,
+          y: 50,
+          stops: [
+            { color: "#2a0845", at: 0 },
+            { color: "#ff2d95", at: 100 },
+          ],
+        },
+      };
+      const { container } = renderEditor({ initialTheme: CUSTOMISED_THEME });
+
+      const cssText = () =>
+        [...container.querySelectorAll("style")]
+          .map((node) => node.textContent ?? "")
+          .join(" ");
+      // Compared by IDENTITY, not by matching a literal hex — the solved
+      // palette converts the author's accent to OKLCH rather than repeating
+      // it verbatim, so the assertion this test needs is "the whole derived
+      // stylesheet is unchanged," not "one string still appears."
+      const before = cssText();
+      expect(before).toContain("--accent:");
+
+      fireEvent.click(screen.getByTestId("editor-open-source"));
+      const textarea = screen.getByTestId(
+        "page-source-textarea",
+      ) as HTMLTextAreaElement;
+
+      // A genuine document missing its `theme` key entirely — not merely a
+      // document whose theme happens to match the author's own, which would
+      // pass this case whether or not the guard exists.
+      const withoutTheme = JSON.parse(textarea.value) as {
+        theme?: unknown;
+        blocks: unknown;
+        aeleos: number;
+      };
+      delete withoutTheme.theme;
+      const pasted = JSON.stringify(withoutTheme);
+      expect(pasted).not.toContain('"theme"');
+
+      fireEvent.change(textarea, { target: { value: pasted } });
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+
+      // The whole derived stylesheet is exactly what it was — never reset to
+      // whatever an unguarded `setValue("theme", null, …)` would have
+      // resolved to on the very next render.
+      expect(cssText()).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

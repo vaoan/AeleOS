@@ -362,8 +362,14 @@ interface TableRow {
  * an already-filtered list would hide the empty case from the one function
  * that has to answer for it.
  *
- * @param leaf - the leaf, whose `rows` may be absent — every kind stores them
- *   and only this one reads them.
+ * `table`, `player` and `jukebox` are the only kinds that read `rows` — see
+ * the actors feature note for why that is worth saying explicitly rather
+ * than assuming. This function is `table`'s own reader; `playlistFromRows`
+ * (`domain/playlist.ts`) is the other, reading the same field as a playlist
+ * for the two retro players.
+ *
+ * @param leaf - the leaf, whose `rows` may be absent — every kind stores the
+ *   field regardless of whether it reads it.
  * @param locale - the locale being read.
  * @returns one entry per stored row, in the order the author put them.
  */

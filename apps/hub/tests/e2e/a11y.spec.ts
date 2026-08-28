@@ -122,6 +122,39 @@ test.describe("the signed-out pages are accessible", () => {
   });
 });
 
+test.describe("a person's first visit ever is straight to /pages/new", () => {
+  test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+
+  // **A regression test for the fault the source-dock case below found.** A
+  // person landing on `/pages/new` who had never visited `/me` or `/pages`
+  // first read `readMyAddress` as `null`, so `OwnerLeaf` linked to `/` with
+  // an empty label — a real `link-name` violation, not merely something axe
+  // could theoretically catch. `/pages/new` calls `ensurePersonActor()` now,
+  // the same idempotent call `/pages` already documents making for the
+  // identical reason. This uses its OWN identity, deliberately never
+  // touching `/me` or `/pages` first, because the shared identity below is
+  // provisioned by an earlier test in this file and could not have caught
+  // the fault it is guarding against.
+  test("the owner card links somewhere real, with a name", async ({ page }) => {
+    const fresh = await createTestIdentity();
+    try {
+      await signIn(page, await mintTicket(fresh.userId));
+      await page.goto("/es/pages/new");
+      await expect(page.getByTestId("add-section")).toBeVisible();
+
+      // The owner card's own link carries the address as its visible text —
+      // asserted as non-empty rather than compared to a specific value,
+      // since the address is assigned by the database and not known ahead
+      // of time.
+      const ownerLink = page.getByTestId("block-owner").locator("a");
+      await expect(ownerLink).not.toHaveAttribute("href", "/es");
+      expect((await ownerLink.innerText()).trim().length).toBeGreaterThan(0);
+    } finally {
+      await deleteTestIdentity(fresh.userId);
+    }
+  });
+});
+
 test.describe.configure({ mode: "serial" });
 
 let identity: TestIdentity | undefined;
@@ -221,6 +254,24 @@ test.describe("the signed-in pages are accessible", () => {
     await card.getByTestId("add-nested").first().click();
     await expect(card.getByTestId("nested-card")).toBeVisible();
     await isAccessible(page, "the editor with content and a nested section");
+  });
+
+  // **The page-source dock — a third overlay, never scanned before.** It is a
+  // non-modal `<dialog>`, unlike the theme panel (an ordinary in-flow region)
+  // and the section style popup above (which owes its own Escape and focus
+  // handling), so it is the one surface here whose accessibility depends on
+  // native `<dialog>` semantics rather than on anything this codebase wrote by
+  // hand. `withRules` is deliberately not used to widen this beyond `TAGS` —
+  // see that constant's own TSDoc for why `best-practice` is refused wholesale
+  // rather than cherry-picked.
+  test("the editor with the source dock open", async ({ page }) => {
+    await signIn(page, await mintTicket(identity!.userId));
+    await page.goto("/es/pages/new");
+    await expect(page.getByTestId("add-section")).toBeVisible();
+
+    await page.getByTestId("editor-open-source").click();
+    await expect(page.getByTestId("page-source-dock")).toBeVisible();
+    await isAccessible(page, "the editor with the source dock open");
   });
 });
 

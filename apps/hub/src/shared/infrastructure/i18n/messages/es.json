@@ -445,6 +445,21 @@
     "spacings": {
       "compact": "Compacto",
       "roomy": "Amplio"
+    },
+    "source": {
+      "open": "Código de la página",
+      "title": "Código de la página",
+      "close": "Cerrar el código de la página",
+      "collapse": "Contraer",
+      "expand": "Expandir",
+      "copyReference": "Copiar la referencia del formato",
+      "copied": "Copiado",
+      "referenceTitle": "El formato, para un asistente",
+      "resync": "Recargar desde la página",
+      "drifted": "La página cambió mientras escribías.",
+      "stale": "Mostrando tu última versión válida.",
+      "sourceLabel": "Esta página como JSON",
+      "resize": "Cambiar el tamaño del panel"
     }
   },
   "picker": {

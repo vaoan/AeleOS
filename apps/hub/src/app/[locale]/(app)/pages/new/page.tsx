@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import {
+  ensurePersonActor,
   FursonaEditor,
   readMyAddress,
   readMyProfileTheme,
@@ -38,6 +39,15 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
  * block every fursona page must carry rendered NOTHING on the one screen where
  * somebody is deciding where to put it.
  *
+ * **It calls `ensurePersonActor()` first, for the same reason `/pages` does
+ * and found the same way `/pages`'s own TSDoc already names: somebody can
+ * arrive here from another app having never opened `/me` or `/pages` at
+ * all.** Without it, a person with no address row yet reads `readMyAddress`
+ * as `null`, `ownerAddress` falls back to `""`, and `OwnerLeaf` links to
+ * `/${""}` with nothing inside it — a link with no accessible name, found
+ * by `a11y.spec.ts`'s source-dock case the first time anything scanned this
+ * route without visiting `/me` first. The call is idempotent, so a person who
+ * did already visit `/me` pays nothing extra for it.
  *
  * The context also carries the page's MEASURE, which the block renderer
  * reads to lay each top-level section out in the author's chosen width.
@@ -51,6 +61,7 @@ import { fursonaEditorLabels } from "@/app/[locale]/(app)/pages/labels";
  * its own key path where a heading belonged.
  */
 export default async function NewFursonaPage() {
+  await ensurePersonActor();
   const t = await getTranslations("fursonas");
   // **The SAME key the public route reads.** This is the heading over the
   // fursona list when its author has written none, and the editor previews

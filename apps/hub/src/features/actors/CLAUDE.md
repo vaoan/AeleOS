@@ -648,6 +648,21 @@ header carries `owner` for a fursona and nothing in its place for a person;
 their third required kind, `fursonas`, is not part of that header at all, so it
 is APPENDED in a section of its own — after everything the author has, not
 beside the header.
+
+**A page also REFUSES one kind, and the client knows it now.** `REFUSED_KIND`
+is the mirror of `REQUIRED_KINDS` — `owner` is refused on a person's page and
+`fursonas` on a fursona's, because neither has anything to render on the
+other. It lived only in `set_actor_sections` until 2026-08-27, which is why
+the kind select offered a choice the database rejected. It is pinned to `0009`
+by `block-limits-match-migration.test.ts` like every other vocabulary written
+down twice.
+
+The kind select is narrowed by `offerableLeafKinds` and shows a stored kind
+it cannot offer as a disabled option, so a page saved by a newer build is not
+silently retyped. `leaf-kind-options.test.tsx` carries a positive assertion
+beside each negative one, because an empty select satisfies every
+`not.toContain` ever written.
+
 `progressValue` (`domain/progress-value.ts`) accepts a fraction (`3/5`), a
 percentage (`60%`) or a bare number (`60`), decimals allowed wherever a whole
 number is, clamped to 0–100 because nothing stops somebody writing `150`.
@@ -2049,6 +2064,582 @@ and never for a weighted grid, where the tracks either side are not the same
 width and "one each" means nothing.
 Both move where a block is DRAWN and neither moves anything stored.
 
+## A page has a document (2026-08-27)
+
+`page-document.ts` owns `{ aeleos, theme, blocks }` — the two `jsonb` columns
+of `actor_profiles`, with identity deliberately absent so an imported page
+renders with the importer's own portrait and name. An imported theme goes
+through `parseTheme` and never through `themeSchema`, because the form
+schema's looseness is justified by controls a paste does not have; an explicit
+`"theme": null` reads the same as an omitted key — both mean leave the current
+theme alone, never reset it. The size is checked before `JSON.parse`, never
+after. Read the spec `2026-08-27-page-source-and-sharing-design.md` before
+changing any of it.
+
+**A refusal is reported by WHERE it was found, not by re-walking the tree a
+second time.** `blockProblemsFromIssues` (`block-problems.ts`, beside
+`blockProblems`) reads a raw `ZodError`'s own flat `issues` array — there is
+no react-hook-form tree here, because `parseDocument` has no resolver — and
+shares `blockProblems`' rule exactly: the numeric steps in an issue's `path`
+are the `BlockPath` and the final named step is the field, with every other
+named step (`children`, `style`, or anything nested under it) simply not
+counted rather than matched by name. That is what lets a refusal inside a
+block's own `style` bag resolve to a path with no special case for `style` at
+all, and it was measured against the installed zod rather than assumed —
+verify any future zod upgrade still reports `[0, "children", 2, "children", 0,
+"children", 0, "title_en"]` for a nested block before trusting this again. **A
+tree nested past `MAX_DEPTH` surfaces the same way "too many blocks" does**,
+as an `envelope` problem naming `"too deep"` rather than a `block` problem: its
+own issue path ends in a number, not a field, so there is nothing for
+`blockProblemsFromIssues` to mark.
+
+**`JSON.parse` runs behind a reviver that refuses `__proto__`, `constructor`
+and `prototype` at any depth, as defence in depth rather than a fix for a real
+pollution.** `JSON.parse` does not itself put a `"__proto__"` key onto
+`Object.prototype` — confirmed against the installed engine, not assumed — but
+nothing downstream of a paste should have to prove that of every future
+consumer, which is the same reasoning `TIDAL_KINDS` cost this codebase once
+already. A document carrying one of these anywhere is refused as its own
+`unsafe-key` problem, named rather than folded into `syntax` — telling
+somebody their JSON has a syntax error at a position that is fine would be
+worse than not checking at all.
+
+**The reviver costs a much lower parser depth ceiling, and that is measured
+rather than assumed.** A plain `JSON.parse` has no ceiling reachable within
+`PASTE_LIMIT_BYTES` — 5,000,000 levels parsed fine. Handing it a reviver makes
+the engine walk the result calling the reviver on every property, and THAT walk
+recurses in JS: measured against the block model's own container shape,
+2026-08-27, the first depth to throw `RangeError` is 857 in this repo's vitest
+worker and 863 in plain Node (862 is the last depth still accepted there) —
+reachable inside the byte cap, since 2,000 such containers serialise to about
+120KB against a 128KB cap. It cannot escape as an uncaught throw: `RangeError`
+is an `Error`, so the same `catch` that reports a genuine syntax error reports
+this one too. **The test fixture covering this is coupled to the host's own
+stack**, not a flake: its window is bounded below by that ~857-863 ceiling and
+above by the byte cap (~2,180 levels), so a runner with a materially larger
+stack would parse it cleanly and redden the case on `at: "envelope"` instead.
+
+**The reference is generated, and its meanings are gated.** `page-reference.ts`
+interpolates every list and cap from the constants; the one-line meaning of
+each mode, kind and theme key is hand-written and `page-reference.test.ts`
+fails the build when a vocabulary member has none. Its worked example is run
+through the real `parseDocument`, **and is checked against
+`missingRequiredKinds`** — `parseDocument` only ever checks refused kinds, so
+an example missing a required one would still parse `ok: true` while
+`set_actor_sections` refuses it. An example a model copies and this build
+refuses is worse than no example.
+
+**`table` was never the only kind that reads `rows`, and this file's own
+TSDoc said otherwise until 2026-08-28.** `player` and `jukebox` read it too,
+as their playlist (`leaf-fields.ts`'s `RETRO` entry has carried `rows: true`
+since both existed) — and `page-reference.ts` had copied the identical false
+claim into the generated reference. That is exactly why the spec forbids
+generating the reference from this file's TSDoc: the TSDoc was not merely
+differently toned, it was **wrong**. Both are corrected now, and the
+reference's `ROWS_MEANINGS` is gated against `leafFields` — checked per kind
+in `page-reference.test.ts` — rather than asserted by hand a second time.
+
+**The identical sentence had a THIRD copy, in `text-leaves.tsx`'s own
+`tableRows` TSDoc — "every kind stores them and only this one reads them" —
+found and corrected 2026-08-28, one review round after the first two.** Three
+independent authors (or the same author three times) wrote the same false
+generalisation about the same field without any of them checking it against
+`leafFields`, which had the true answer the entire time. The lesson from
+`table` was "fix the origin, not the copy"; the lesson from a THIRD copy
+surviving that fix is that a false sentence does not announce which other
+files repeat it — grep for the claim, not only for the file you already know
+about.
+
+**And there was a FOURTH, found on 2026-08-28 by taking that last sentence
+literally on the closing task of this branch.** `0009_actor_profiles.sql`'s
+`is_block_kind` carried the identical claim as an inline comment above
+`'table'` — "The only kind that reads `rows`. Every other kind ignores it" —
+**sixteen lines below its own `'player', 'jukebox'` comment saying "Both read
+`rows` as a playlist".** So the file the root note calls the readable index of
+the block model contradicted itself inside one `select ... in (...)` list, and
+the three rounds above had each grepped the TypeScript and stopped there.
+Every correction they claim is real; what was wrong was reading "the third
+copy" as "the last copy", three times running, on a sweep that had never left
+one language.
+
+Two things follow, and the second is the one that generalises. **Grep the
+whole repository for the claim, not the language you were working in** — a
+model documented in TypeScript and in SQL has two places to be wrong, and
+neither of the mechanisms below this paragraph reads the second one: the
+`/\bonly\b|\bevery other\b/i` gate runs over `page-reference.ts`'s records,
+and `check:docs` compares a TypeScript symbol against its own code. A `.sql`
+comment is outside both, so it is grep or nothing. And **a comment inside a function body
+is `prosrc`, so correcting one is an edit to an applied migration**: it was
+hand-applied to the live project the same day and `pnpm check:schema-drift`
+re-run green either side of it. Root rule 28's own incident is the proof that
+this matters rather than an assumption — CRLF inside these same function
+bodies was reported as drift precisely because migra compares source text.
+
+**An exclusivity claim belongs in a gated record, never in prose, and this
+was learned by trying it twice.** Round 1's sabotage — restoring
+`page-reference.ts`'s hand-written `table` meaning to claim exclusivity over
+`rows` — reddened nothing, and the honest conclusion at the time was that a
+prose falsehood is not mechanically catchable. **That conclusion was true of
+arbitrary prose and false of this one CLASS of claim.** Round 2 then
+introduced two MORE sentences of the identical shape while fixing other
+things — "children still fill places row by row [...] whichever mode is in
+charge" (false for `carousel`/`tabs`/`accordion`) and "an invalid value for
+any other theme key... falls back to the design's own default" (false for
+`density`/`speed`/`scale`, which clamp rather than reset) — each a true
+statement about a SUBSET, generalised with "only", "every other" or "any
+other" into a false one about the whole. `page-reference.test.ts` now asserts
+`KIND_MEANINGS`, `MODE_MEANINGS` and `THEME_KEY_MEANINGS` contain neither
+`/only/i` nor `/every other/i` anywhere — sabotage-verified to redden the
+original `table` claim — which is what makes the rule enforceable rather than
+merely stated: **the moment a meaning needs to say a kind is exclusive, that
+claim has to move into a record checked against real data (the way
+`ROWS_MEANINGS` is checked against `leafFields`), because the sentence beside
+it is not proof of anything.**
+
+**Round 2 SHARPENED a pre-existing falsehood into a more precise one by
+naming a mode explicitly, without checking the mechanism (round 3).** Section
+2's `spaces` prose already said the wrong thing about every mode when it said
+"whichever mode is in charge, children fill rows"; fixing `carousel`/`tabs`/
+`accordion` and then writing "for both of them [`grid` and `masonry`],
+children fill places row by row" made the SAME underlying error concrete and
+specific by naming `masonry` outright — which is false, because CSS
+multi-column fills column-major (down the first column, not across the first
+row), the exact fact `MODE_MEANINGS.masonry` two paragraphs above already
+states ("packs children into columns by height"). The lesson: correcting an
+adjacent falsehood is not the same as verifying the sentence you are writing,
+and a self-contradiction inside the SAME generated document — one paragraph
+naming the mechanism correctly, another getting it wrong — is a check worth
+running on its own, not assumed to follow from fixing something else nearby.
+
+**The gate's regex grew a word boundary (round 3): `/\bonly\b|\bevery
+other\b/i`, not the bare `/only|every other/i` round 2 shipped.** A fragment
+match snags "commonly", "monopoly" or any future word merely containing "only"
+— harmless today, since nothing in these records happens to contain such a
+word, but a future true sentence could lose a legitimate word to it for no
+reason connected to what the gate exists to catch. Sabotage-verified again
+after the change: restoring the original `table` claim still reddens it.
+
+**Where the history of a correction belongs is not inside a `@param`
+(round 3).** `text-leaves.tsx`'s `tableRows` carried five lines of
+provenance — including the original false sentence, quoted verbatim — inside
+its `@param leaf` description, which this repo reserves for the parameter's
+own contract. A `@param` is read as an assertion about the parameter, not a
+changelog; quoting a falsehood there plants a searchable copy of it exactly
+where someone skimming mid-comment is most likely to read it as still true.
+The fix moved the (now true) fact into the function's TSDoc body and cut the
+provenance entirely, since this note already carries it.
+
+**A known, accepted limit: the gate cannot catch a fourth inverting kind.**
+`stat`, `quote` and `progress` each name the OTHER two in their own meaning
+("the pair is inverted, the same as `quote` and `progress`", and so on) —
+hand-maintained cross-references rather than a derived list, because nothing
+in {@link LEAF_KINDS} or `LEAF_FIELDS` marks which kinds invert their
+title/description pair (that fact lives only in `block-schema.ts`'s own
+TSDoc). If a fourth kind is ever given the same inversion, these three
+sentences would need a fourth name added by hand, and nothing here would
+fail if that were forgotten — "the same as X and Y" contains no `only` or
+`every other` for the gate to catch, so this is a real residual gap. Ruled
+deliberately NOT worth a mechanism for: three members is not worth a second
+gated record the way seventeen leaf kinds or eight container modes are, and
+the cost of getting it wrong is a slightly incomplete cross-reference, not a
+falsehood the shape `ROWS_MEANINGS` was built to prevent. Revisit this
+ruling if a fourth inverting kind is ever added — that is the moment the
+maintenance cost stops being hypothetical.
+
+### The document is bound to the page live, in both directions (2026-08-28)
+
+`application/use-page-source.ts` is `usePageSource`, the state machine behind
+the source dock — a textarea showing `toDocument`'s output, editable, changing
+the live page as it is typed. It takes `theme`/`blocks` the same way the rest
+of the form holds them and an `apply` callback; it never touches
+react-hook-form itself, which is what keeps it testable with no form mounted.
+
+**The page holds the last good tree because a bad parse never writes anything,
+not because a copy is kept anywhere.** There is no second "last good" variable
+in the hook. A failed `parseDocument` sets `problems` and returns; `blocks`/
+`theme` are exactly what they already were, because nothing ever called
+`apply` to change them. A stored copy would be a second source of truth able
+to disagree with the form that actually holds the page — the absence of a
+write is the whole mechanism.
+
+**Which direction wins is arbitrated by one `mirror` ref, read before every
+write in both directions.** `mirror` holds the last serialisation this hook
+itself produced or accepted — never the tree, only the string. Text → page is
+a debounced valid parse (`onChange` records every keystroke and schedules a
+parse `debounceMs` later, cleared and rescheduled on each one); on success
+`mirror` becomes the CANONICAL form of what was accepted (never the raw
+typed text — see the paragraph below this one for why) and `apply` is
+called, and that is the
+**only** place this hook ever writes to its caller. Page → text is a
+`useEffect` on `[theme, blocks]` that re-serialises and compares the result
+against `mirror` **by string, not by reference** — a caller's form very often
+hands back a freshly built array for content that has not actually changed,
+so comparing `blocks` by identity would treat that as a real change and
+re-enter the loop. Past that guard, a genuine external change overwrites the
+box while it is unfocused and is recorded as `drifted` while it is focused,
+never both — naively re-serialising a focused box would destroy the author's
+whitespace and jump their cursor mid-word, which is why `resync` exists as an
+explicit choice instead. `focused` is tracked in a ref rather than state,
+deliberately: nothing renders from it directly (only `drifted` does), and a
+ref read inside the effect does not have to be a dependency the way a state
+variable read the same way would.
+
+**`mirror` is set to the CANONICAL `toDocument` output of what was accepted,
+never to the raw text that was typed — a round 1 review caught this wrong in
+the shipped version, and it is worth stating exactly how it was wrong, because
+the wrong version passed its own test.** The first version set
+`mirror.current = next` (the literal typed string), which only ever equals
+`toDocument(theme, blocks)` when the person's typed text happens to BE
+`toDocument`'s own canonical form — indentation, key order and envelope all
+included. That is true of no ordinary hand edit: different whitespace,
+different key order, the bare-array shorthand all break it. So the guard
+worked for exactly one input, and the round-1 test happened to type that one
+input (`toDocument(...)` itself) — a fixture that could not discriminate a
+real guard from one that only works by coincidence, root rule 27 exactly. The
+fix stores what the ACCEPTED PARSE re-serialises to,
+`toDocument(parsed.theme ?? theme, parsed.blocks)`, so the round trip compares
+like against like whatever the person actually typed. `onChange`'s
+`useCallback` deps now include `theme` for the same reason: the fallback
+`parsed.theme ?? theme` reads the CURRENT theme prop, and a stale closure over
+an old one would silently compute the wrong mirror.
+
+**The mirror guard is what stops a successful edit from immediately declaring
+itself drifted.** The ordinary shape this hook is used in has `apply` call
+`setValue`, which re-renders the form with new `theme`/`blocks` props on the
+very next tick — while the box is very likely still focused, since the person
+just finished typing. Without the guard, that round trip would flag `drifted`
+on every accepted edit, because the props changed and the box is focused.
+`use-page-source.test.ts`'s two "loop guard" cases are built around exactly
+this, and deliberately type the bare-array shorthand rather than `toDocument`'s
+own output — a NON-canonical valid document is what a real hand edit looks
+like, and it is the only fixture that can tell the fixed guard apart from the
+round-1 guard that merely happened to pass. One case asserts `drifted` stays
+`false` after the round trip while focused; the other asserts `text` is not
+silently reformatted into canonical JSON while unfocused. Sabotage-verified
+against the fixed code: removing the `if (doc === mirror.current) return;`
+line reddens both loop-guard cases and no others, 14 of 16 still passing.
+
+**A successful `apply` also clears `drifted`.** Once the person's own edit has
+been applied, the page IS what their text says, so a `drifted` banner
+surviving their own change would be lying about a disagreement that no longer
+exists.
+
+**Blur does not self-heal a drift, and that is a consequence of the `focused`
+ref worth naming rather than assuming away.** The page→text effect only
+depends on `[theme, blocks]`, never on focus, so a box left `drifted` while
+focused stays `drifted` after the person clicks out of it — until `resync`, or
+until the next genuine page change arrives while the box happens to be
+unfocused. A `useState` for focus would have made the effect re-run on blur
+and could have cleared the flag there instead; the ref does not, and that is
+kept deliberately: a blur is not the person accepting or declining the drift,
+so silently healing it on blur would be a second, unannounced way for their
+box to change under them — the exact thing this whole hook exists to prevent
+in the other direction.
+
+Sabotaging the focus branch itself (making the effect write `text`
+unconditionally, regardless of `focused.current`) reddens **three** cases, not
+one: the case built directly against it (`keeps the box and flags drift when
+it is focused`), and two more whose SETUP reaches the same branch as a
+precondition (`clears drift once the person's own edit is applied` and
+`throws the box away and re-reads the page on resync`, both of which first
+drive the page into a drifted state by rerendering while focused before
+testing what happens next). Only the first of the three is independent
+evidence of the fault — the other two fail on a precondition assertion before
+reaching the behaviour they actually name, root rule 23's "corroborating, not
+independent" exactly. Recorded here rather than only in the task report,
+because whoever next changes this branch should know the true blast radius of
+breaking it, not the undercount an earlier review round shipped.
+
+Two more things worth knowing before touching it. `resync` cancels any
+pending debounce timer before re-serialising — otherwise a parse scheduled
+just before `resync` would still land 250ms later, applying an edit the
+author asked to throw away right on top of the page `resync` just restored.
+And the `theme: null` a parse returns for a document that carried none is
+passed to `apply` **verbatim** — this hook does not resolve it to a real
+theme, because the caller is the one holding the actual current theme in its
+own form and is the one who gets to decide what "unchanged" means.
+
+**The panel that shows it, `presentation/page-source-dock.tsx`, is a DOCK and
+not a modal, and that is a design idea rather than a taste.** The editor's
+document IS the page — the author's own theme paints it — so a modal backdrop
+would put the very thing this panel exists to be watched against underneath
+the panel itself. It opens with the native `<dialog>`'s `show()`, never
+`showModal()`, driven by a `useEffect` on `open` that calls the imperative
+methods; the `open` attribute is never written from JSX, because that would
+open the dialog the browser's own way rather than this component's. **jsdom
+26.1.0, the version installed here, implements none of `show`, `showModal` or
+`close` on `HTMLDialogElement`** — confirmed by direct probe, not assumed —
+so its own test stubs all three on the prototype before rendering, and a
+component that guarded the calls instead would hide the exact mistake
+(calling `showModal()`) it exists to refuse.
+
+**`--menu` is a guarantee here, not a preference.** What sits behind this
+panel is a colour the page's own author chose, and they may choose any colour
+at all — a translucent panel has no guaranteed contrast against a page
+somebody else designed, and no measurement can give it one. `--menu` is the
+one token declared opaque in both modes, the same reason the editor toolbar
+and the style popup's panel both take it.
+
+**Tab is deliberately unhandled in the textarea.** Trapping it — swallowing
+the keystroke to insert a literal tab character — strands a keyboard user
+mid-escape, so the absence of an `onKeyDown` for Tab is the feature rather
+than an oversight. Escape is the one key this component reads, to close
+itself, since a non-modal dialog gets no native Escape handling at all (that
+is `showModal()`'s job).
+
+**It wears `CHROME_SCOPE`**, which is what lets the editor's existing
+hide-controls rule remove this panel by CLASS — the rule that already strips
+every `CHROME_SCOPE` island when the controls are hidden reaches this one with
+nothing added, and nobody wiring that rule has to know this component exists.
+
+**A first review round found the dock's own reasoning had shipped the
+opposite of what it argued (2026-08-28), and the fixes are worth carrying
+forward.** `--dock-width` was declared on the `<dialog>` and consumed with an
+INLINE `style={{ width: "var(--dock-width)" }}` on the wrapper one element in
+— which permanently beats a media-scoped class regardless of the query,
+exactly the fault the surrounding comment warned against while committing it
+on the neighbour instead. Consumption is `w-(--dock-width)` now, a real class
+in the same `w-*` utility family as `max-md:w-full`, so the two genuinely
+compete in the cascade rather than one silently winning by being inline —
+confirmed by compiling this exact class list through the installed Tailwind
+and reading where each rule landed, rather than assumed. **The always-on
+`max-w-[min(48rem,80vw)]`/`min-w-[20rem]` also had to gain `max-md:` twins**:
+at a narrow viewport `80vw` is frequently narrower than the viewport itself
+(300px at 375px wide), so even a correctly-won `width: 100%` was still being
+clamped down by `max-width` — sheet mode needs `max-md:max-w-none
+max-md:min-w-0` alongside `max-md:w-full`, not that class alone. `resize()`
+now clamps at both ends, mirroring the CSS bound in JS, so an arrow key
+cannot walk `width` state past what the panel can ever render.
+
+**The stale strip used to be MOUNTED by the same condition that populates
+it**, which a screen reader commonly misses entirely — `aria-live` announces
+a CHANGE inside a region already in the DOM, not a region that arrives
+already carrying text. The wrapping `<div aria-live="polite">` is
+unconditional now; only its children come and go. The regression test for
+this has to rerender the SAME instance and assert the SAME node persisted —
+"there is an aria-live ancestor while stale is true" cannot tell the fix from
+the fault, since both produce that ancestor.
+
+**jsdom 26.1.0 has no `PointerEvent` constructor at all**, confirmed the same
+way the missing `<dialog>` methods were — `typeof window.PointerEvent` is
+`"undefined"`. `fireEvent.pointerDown`/`pointerMove` degrade silently rather
+than throwing, so a case built on them looks like it drove a real drag while
+`clientX` never actually reaches the handler. The grip's own tests dispatch a
+plain `MouseEvent` typed `"pointerdown"`/`"pointermove"` instead — React binds
+by event type string, not by constructor, and `MouseEvent` supports `clientX`
+where `PointerEvent` cannot even be constructed.
+
+The copy control also reverts its own label after `COPIED_RESET_MS`, so a
+second copy has feedback too — it used to read "Copied" permanently after the
+first success.
+
+**The dock is mounted now (2026-08-28), and this is the first change that
+made any of the above reachable by a person rather than only by a test.**
+`EditorToolbar` carries a `Braces` control, `openSource` in the catalogue,
+beside `hideControls`. `FursonaEditor` holds the open/closed `useState` and
+renders `PageSourceField` — a small component of its own, defined in the same
+file — as a sibling of `EditorToolbar`, **inside** the element carrying
+`data-controls`, so the dock is one more island the hide-controls rule
+removes exactly like every other workbench control. That is not a styling
+requirement — `PageSourceDock` wears `CHROME_SCOPE` on its own `<dialog>`
+wherever it sits — it is a deliberate behavioural choice, and the more
+tempting placement (a sibling of `ThemeScope`, outside `data-controls`, so
+the dock would survive hiding the rest of the workbench) was tried first and
+reddened `fursona-editor.test.tsx`'s hide-controls containment case: every
+`CHROME_SCOPE` island has to be inside the armed element, or the ONE rule
+that removes them by class cannot reach it, and the dock is not the
+show-controls button — it has no argued reason to be the second exception.
+
+**`PageSourceField` exists ONLY to keep `sections` out of `FursonaEditor`'s
+own `useWatch`, and getting this wrong is silent.** `BlockEditor` already
+proved the pattern: it holds its own `useController({ control, name:
+"sections" })` rather than being handed the tree as a prop, so a change to
+`sections` re-renders `BlockEditor` and nothing above it. The first version
+of this wiring added `"sections"` to `FursonaEditor`'s existing
+`useWatch(["handle", "displayName", "avatarUrl", "theme"])` call instead —
+which reaches `FursonaEditor`'s own render on every keystroke in a leaf's
+text, and from there every descendant that is not individually memoised,
+`EditorToolbar` included. `fursona-editor.test.tsx`'s
+"updates a leaf preview without rerendering the whole editor" case is the
+regression test for exactly this: it counts `EditorToolbar`'s own renders
+around a single leaf-description edit and failed at 4 against an expected 2
+the moment `sections` joined that watch. `PageSourceField` takes `control`
+and `setValue` as props and calls `useWatch({ control, name: "sections" })`
+itself, so the subscription — and the re-render it causes — lives in a
+component the toolbar is not a descendant of.
+
+`apply`'s theme half is written exactly as the hook's own TSDoc requires:
+`setValue("sections", blocks, { shouldDirty: true })` unconditionally, and
+`setValue("theme", theme, …)` only when `theme` is non-null. Writing the
+theme unconditionally — even to a value read as `null` — would reset an
+author's theme to whatever `themeSchema`'s defaults resolve `null` to on the
+next render, on every accepted parse of a document that never mentioned a
+theme at all. `apply`'s own reference in `usePageSource`'s TSDoc is spelled
+out precisely because this is the one place a careless `setValue(..., theme)`
+would have shipped that fault silently — nothing renders differently for a
+moment, and the loss only shows up the next time somebody opens the theme
+panel.
+
+**That guard was wired correctly from the start and exercised by NOTHING,
+which the first review round caught.** `PageSourceField` sits under
+`features/*/presentation/**/*.tsx`, excluded from the coverage gate, and the
+one e2e case pasting a document always round-trips it through `toDocument`
+first — which ALWAYS emits a `theme` key, so only the truthy arm of `if
+(nextTheme)` ever ran. `fursona-editor.test.tsx`'s "leaves the author's
+theme alone when a pasted document omits it" is the case that closes it: it
+pastes a document with the `theme` key deleted outright, and asserts the
+whole derived stylesheet — compared by IDENTITY, not by matching one hex
+string, because the solved palette converts an author's accent to OKLCH
+rather than repeating it verbatim — is byte-identical before and after.
+Sabotage-verified by deleting the `if`: the unconditional `setValue("theme",
+null, …)` crashes `FursonaEditor`'s own render outright
+(`(liveTheme as ActorTheme).measure` reading a property off `null`), which is
+a clean red rather than a silent one.
+
+**The dock does not exist in the tree at all until it has been opened
+once, which the same review round asked for BY CONSTRUCTION rather than by
+measurement.** Before this, `PageSourceField` — and therefore
+`usePageSource`'s `[theme, blocks]` effect, a full `toDocument`
+serialisation of up to 500 blocks — mounted unconditionally alongside
+`EditorToolbar`, so every keystroke in the editor paid that cost whether or
+not anybody had ever pressed the control that opens the dock. `sourceMounted`
+gates `PageSourceField`'s very presence now: set `true` the first time
+`sourceOpen` is asked to become `true`, in the same click handler, and never
+reset — so closing the dock does not tear down the text or the problems it
+was showing. `fursona-editor.test.tsx`'s "does not mount the source dock
+until it is opened, and keeps it once it has been" is the proof, and it is a
+DOM-absence assertion rather than a timing one: nothing is mounted, so there
+is no cost to have measured in the first place.
+
+**Mounting the dock for the first time found three bugs in its class list,
+all invisible to every suite that existed before this one, because all three
+are about `<dialog>`'s USER-AGENT stylesheet — which jsdom implements none
+of.** The hand check this task's brief asks for is what found them; the
+regression test is `tests/e2e/page-source-dock.spec.ts`, sabotage-verified
+against each of the three individually as well as together.
+
+- **A bare, unconditional `flex` beat `dialog:not([open]) { display: none }`,
+  so the dock was VISIBLE, full size, on every page, from the moment it was
+  mounted — before anybody had ever pressed the control that is supposed to
+  open it.** Author origin always wins over user-agent origin for a normal
+  declaration, regardless of specificity or cascade layers — the same rule
+  root rule 36 already names for the opposite direction (a Tailwind class
+  compiling to nothing). Here a Tailwind class compiled to something, and
+  what it beat was the ONE rule that keeps a closed dialog off the page. The
+  class is `hidden open:flex` now: `hidden` is the author declaration that
+  loses to nothing, and `open:flex` only ever adds `display: flex` back once
+  the `[open]` attribute — which `dialog.show()`/`dialog.close()` write — is
+  present.
+- **The UA stylesheet also sets `left: 0` unconditionally**, and this
+  component's own styles never named `left` at all. With that, `right: 0`,
+  an explicit `width`, and `margin: 0` (`m-0`) all in force together, the box
+  was over-constrained on the horizontal axis — and per the CSS 2 resolution
+  rule for that case, the browser drops `right` in LTR and solves from `left`
+  instead. So the panel rendered pinned to the LEFT edge of the window,
+  420px wide, with `right: 0px` sitting uselessly in its own computed style.
+  `left-auto` is the fix: it removes `left` from the over-constrained set, so
+  `right: 0` is what actually decides where the box sits.
+- **The UA default `height` is `fit-content`, a different value from
+  `auto`**, and nothing here had ever declared `height` at all. With `top`
+  and `bottom` both specified and `height: auto`, a fixed box stretches to
+  fill between them — that is the whole mechanism `bottom-0` relies on to
+  reach the foot of the viewport. `fit-content` instead sizes the box to its
+  own content, so the panel stopped a few hundred pixels down rather than
+  reaching the bottom. `h-auto` is the fix.
+
+None of the three had ANY unit-test-visible symptom: jsdom 26 implements
+neither `<dialog>`'s UA stylesheet nor real layout, so `getBoundingClientRect`
+and `getComputedStyle` in a jsdom test cannot see any of this, and the
+existing unit suite for this component was and remains 100% green throughout.
+Only a real browser, actually mounting the real component, found it — the
+same lesson root rule 36 already draws about a different property, landing
+on `display`, `left` and `height` instead of `object-fit`.
+
+**Task 8 (2026-08-28) is the dock's browser PROOF — `page-source-dock.spec.ts`
+extended past the three cases task 7 left it with — and running a real axe
+scan over it for the first time found two more faults, neither visible to
+any suite before it either.** `a11y.spec.ts`'s new "the editor with the
+source dock open" case is what found them, and both are fixed:
+
+- **The resize grip failed `aria-required-attr`.** `role="separator"` with
+  `tabIndex={0}` is the WAI-ARIA APG's window-splitter pattern — a FOCUSABLE
+  separator, which the spec treats as a value widget rather than a static
+  divider, and a value widget is required to carry `aria-valuenow`. It had
+  none. `aria-valuenow={width}`, `aria-valuemin={MIN_WIDTH_PX}` and
+  `aria-valuemax={MAX_WIDTH_REM_PX}` are on it now — the max is the fixed
+  bound rather than the dynamic `min(768, 80vw)` `resize()` also clamps to,
+  which is close enough for an announced range and costs no `window` read
+  during a server render.
+- **The reference panel's copy button failed `nested-interactive`.** It sat
+  INSIDE `<summary>`, and `<summary>` is itself an implicit interactive
+  control — it is what toggles the `<details>` — so a `<button>` nested
+  inside it is invalid, the same class of fault as a link inside a link.
+  `<summary>` still has to be `<details>`'s direct child for the native
+  disclosure to work at all, so the fix moves the button OUT to be
+  `<summary>`'s sibling instead, positioned over it, rather than trying to
+  keep it a descendant with a different role.
+
+Neither is a `wcag2a`/`21aa` corner case reachable only by an unusual
+interaction: they are structural, and `TAGS`'s reasoning about which
+`best-practice` rules stay off (`heading-order`, `scope-attr-valid`,
+`empty-table-header`) does not apply to either — `aria-required-attr` and
+`nested-interactive` are both in the tag sets this suite already runs. They
+went uncaught for the same reason the three UA-stylesheet faults above did:
+nothing had ever pointed a real accessibility scan at this panel OPEN before
+task 8, because it did not exist as a reachable state to scan until task 7
+mounted it and nothing after that opened it in `a11y.spec.ts` until now.
+
+**A third, unrelated fault surfaced by the SAME new case, one layer down from
+the dock itself.** `/pages/new` builds its `owner` block by reading
+`readMyAddress()` and falling back to `""` if it answers `null` — which it
+does for a person who has never been provisioned, because `ensurePersonActor()`
+was called by `/me`, `/me/edit`, `/pages` and `/picker` and never by
+`/pages/new`. A person arriving here as their genuinely first click — the
+route this app hands a brand-new sign-in to from Puck or Libra — got an
+`OwnerLeaf` linking to `/` with no text at all: a real `link-name` violation,
+not a hypothetical one, since `/pages/new`'s own TSDoc already says "whoever
+is signed in will own whatever this form makes" as if the person row already
+existed. `ensurePersonActor()` is called first now, idempotently, matching
+`/pages`'s own documented reason for the identical call.
+`a11y.spec.ts`'s "a person's first visit ever is straight to `/pages/new`"
+is the regression test, and it uses its OWN fresh identity rather than the
+file's shared one — the shared identity is provisioned by an earlier test in
+the same file by the time the dock's own a11y case runs, which is exactly why
+that case could not have caught this on its own.
+
+**Task 9's own photograph pass found the copy control a THIRD time, and this
+one was geometry rather than markup (2026-08-28).** Round 1 moved the button
+out of `<summary>` (`nested-interactive`); round 2 moved it out of `<details>`
+so it renders while collapsed; and it was still **covering the summary it sits
+over.** `pr-24` on that summary is the reserve — 96px — and the button
+measured **227px** at 1440, 1100 and 320 alike, because its width came from a
+translated string and not from the space set aside for it. So an absolutely
+positioned control sat on the CENTRE of a full-width row styled
+`cursor-pointer`: pressing the middle of a disclosure that invites a press
+copied instead of expanding, and at 320 the button covered 227px of a 293px
+row.
+
+The idle button is the icon alone now, with `aria-label` and `title` carrying
+its name and the visible label returning only for `copied` (~75px, inside the
+reserve). Every unit case kept passing through the change and had to —
+they address the control by ACCESSIBLE NAME, which `aria-label` supplies
+whether or not any text is rendered, so the entire suite was blind to how wide
+the thing actually was. `page-source-dock.spec.ts` asserts
+`elementFromPoint` at the summary's own centre at 1440 and 320, sabotage-
+verified: restoring the visible label reddens exactly those two cases and
+nothing else.
+
+**Three lessons, and the second is the one this note keeps re-learning.**
+A fix aimed at one property of a control does not check the others — three
+rounds each corrected where the button was in the DOM and none asked how big
+it was. **A width that comes from a translated string cannot be reserved for
+by a fixed padding**, which is the same fact the root note already records
+about a `select` being as wide as its longest option in Spanish, arriving here
+on a different control. And it was found because **Playwright refused to click
+the summary** — a click failure reading as a flaky locator was a real control
+landing on another, exactly what the read-the-pictures-back rule exists for,
+except that the camera never got as far as taking the picture.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The
@@ -3193,3 +3784,25 @@ to a gap sweep. The pastiche findings document says which and why.
   `better-tailwindcss` rules silently disable themselves — see rule 1 in the
   root `CLAUDE.md`'s toolchain section — so the run reports a false clean
   instead of failing.
+- **A `next dev` webServer can crash mid-suite from a Turbopack internal
+  panic that has nothing to do with anything under test, and the symptom is
+  a wave of unrelated failures rather than one honest one.** Seen on Next
+  16.3.0, task 8's round-1 fix pass: a `thread 'tokio-rt-worker' panicked at
+turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs:292:17`,
+  reading `Restore of All for task TaskId … failed in another thread:
+restoring failed`, followed by Turbopack's own `an internal panic occurred
+outside the per-task panic boundary … please report it` and `Aborting.` —
+  after which the dev server process is gone, Playwright's own webServer
+  plumbing keeps sending requests to a dead port, and every remaining test
+  in the run fails fast (2–4 seconds each, a "connection refused" shape
+  rather than a timeout) until the runner gives up and reports a batch of
+  specs as "did not run." It struck after only 3 of 174 cases on one run and
+  did not recur on an immediate, unmodified re-run — so it is a `next dev`
+  process fault, not a flake in any spec. **Recognise it by the panic line
+  itself** (`turbo-tasks-backend`, `panicked at`, `Aborting.`) appearing in
+  the `[WebServer]`-prefixed log before the first unrelated failure, and by
+  the failures spanning many UNCONNECTED spec files rather than clustering
+  in one feature. The fix is to re-run the suite against a fresh server, not
+  to chase the individual failures as regressions — but confirm the panic
+  line is actually there before assuming that; a real regression can still
+  produce a wide failure spread for its own reasons.

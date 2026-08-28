@@ -11,8 +11,14 @@ import {
   BLOCK_LIMITS,
   BLOCK_STYLE_LIMITS,
   CONTAINER_MODES,
+  LEAF_KINDS,
   MAX_DEPTH,
 } from "@/features/actors/domain/block-schema";
+import {
+  offerableLeafKinds,
+  REFUSED_KIND,
+  REQUIRED_KINDS,
+} from "@/features/actors/domain/required-blocks";
 
 /**
  * The migration's own constants, read out of the SQL.
@@ -251,4 +257,100 @@ describe("the client's page-level theme vocabulary", () => {
       .map((value) => value.trim().replaceAll("'", ""));
     expect(values?.toSorted()).toEqual([...expected].toSorted());
   });
+});
+
+/**
+ * Reads one branch of `set_actor_sections`' per-kind rules out of the
+ * migration.
+ *
+ * @param branch - the SQL that opens the branch, as it appears in `0009`.
+ * @returns the required kinds and the refused one the database declares.
+ */
+function kindRules(branch: string): { required: string[]; refused: string } {
+  const found = sql.match(
+    new RegExp(
+      branch +
+        String.raw`\s+v_required := array\[([^\]]+)\];\s+v_refused\s+:= '([a-z]+)';`,
+    ),
+  );
+  if (!found?.[1] || !found[2])
+    throw new Error(
+      `The per-kind rules were not found after "${branch}" in 0009. If that ` +
+        `block was rewritten, this guard is now checking nothing and must be ` +
+        `updated with it.`,
+    );
+  return {
+    required: found[1].split(",").map((one) => one.trim().replaceAll("'", "")),
+    refused: found[2],
+  };
+}
+
+describe("the per-actor-kind block rules match the migration", () => {
+  it("agrees with 0009 about a person's page", () => {
+    const sqlRules = kindRules(String.raw`v_actor_kind = 'person' then`);
+    expect(sqlRules.required).toEqual([...REQUIRED_KINDS.person]);
+    expect(sqlRules.refused).toBe(REFUSED_KIND.person);
+  });
+
+  it("agrees with 0009 about a fursona's page", () => {
+    const sqlRules = kindRules(String.raw`else`);
+    expect(sqlRules.required).toEqual([...REQUIRED_KINDS.fursona]);
+    expect(sqlRules.refused).toBe(REFUSED_KIND.fursona);
+  });
+});
+
+describe("offerableLeafKinds", () => {
+  // Excludes: a person's page still offering the one kind it cannot save —
+  // `owner`, which is what a stranger reading a person's page would need a
+  // fursona for.
+  it("a person's page omits owner", () => {
+    expect(offerableLeafKinds("person")).not.toContain("owner");
+  });
+
+  // Excludes: the filter accidentally dropping a kind neither actor kind
+  // refuses. `fursonas` is required ON a person's page, so its continued
+  // presence here is the sign the filter removed exactly one entry rather
+  // than the wrong one, or several.
+  it("a person's page still offers fursonas", () => {
+    expect(offerableLeafKinds("person")).toContain("fursonas");
+  });
+
+  // Excludes: a fursona's page still offering `fursonas`, which nothing on a
+  // fursona's own page could ever render — a fursona has no characters of its
+  // own.
+  it("a fursona's page omits fursonas", () => {
+    expect(offerableLeafKinds("fursona")).not.toContain("fursonas");
+  });
+
+  // Excludes: the mirror miss on the other actor kind — `owner` is required
+  // ON a fursona's page, so it must survive the filter.
+  it("a fursona's page still offers owner", () => {
+    expect(offerableLeafKinds("fursona")).toContain("owner");
+  });
+
+  // Excludes: a function that returns `[]` (or drops more than one entry).
+  // Every "does not contain" case above is satisfied by an empty array, so
+  // the length has to be pinned on its own — exactly one fewer than the full
+  // vocabulary, for both actor kinds.
+  it.each(["person", "fursona"] as const)(
+    "removes exactly one kind for a %s's page",
+    (kind) => {
+      expect(offerableLeafKinds(kind)).toHaveLength(LEAF_KINDS.length - 1);
+    },
+  );
+
+  // Excludes: a reordering. Compared against `LEAF_KINDS.filter(...)` rather
+  // than a hand-written array, so this case is derived from the same
+  // vocabulary the function itself filters and cannot drift from it — a
+  // sort, a reverse, or a kind moved out of order would all be caught, and
+  // hand-writing the expected list here would only restate the
+  // implementation rather than check it against something independent.
+  it.each(["person", "fursona"] as const)(
+    "preserves LEAF_KINDS order for a %s's page",
+    (kind) => {
+      expect(offerableLeafKinds(kind)).toEqual(
+        LEAF_KINDS.filter((one) => one !== REFUSED_KIND[kind]),
+      );
+    },
+  );
 });

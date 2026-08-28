@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Eye, X } from "lucide-react";
+import { Braces, Check, Eye, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -16,6 +16,11 @@ import { CHROME_SCOPE } from "@/shared/domain/chrome";
  * There is no string here for the page-theme switch. That control arrives as a
  * ready-made node, so its words belong to whoever built it — see
  * {@link EditorToolbarProps.pageThemeSwitch}.
+ *
+ * `openSource` is the toolbar's own control — a flat entry alongside
+ * `hideControls`, not nested. The panel it opens has its own, separate label
+ * bag, `PageSourceDockLabels`, because that panel has words `openSource`
+ * never needs to know about.
  */
 export interface EditorToolbarLabels {
   /** The save button when idle. */
@@ -28,6 +33,8 @@ export interface EditorToolbarLabels {
   hideControls: string;
   /** Brings the workbench back. */
   showControls: string;
+  /** Opens the panel showing the page as JSON. */
+  openSource: string;
 }
 
 /**
@@ -39,7 +46,8 @@ export interface EditorToolbarLabels {
  *
  * `onHideControls` is a callback and not a link for the mirror reason: it
  * changes how this page is being LOOKED at and goes nowhere, so there is no
- * address for it to have.
+ * address for it to have. `onOpenSource` is the same shape for the same
+ * reason — see its own TSDoc.
  *
  * `pageThemeSwitch` is a NODE where those two are a callback and a string,
  * and the difference is deliberate: whether there is a look to leave is a
@@ -53,6 +61,14 @@ export interface EditorToolbarProps {
   labels: EditorToolbarLabels;
   /** Steps the workbench out of the way. */
   onHideControls: () => void;
+  /**
+   * Opens the page-source dock.
+   *
+   * A callback rather than a link, for the reason `onHideControls` is one: it
+   * changes how this page is being looked at and goes nowhere, so there is no
+   * address for it to have.
+   */
+  onOpenSource: () => void;
   /**
    * The control that takes the page's own look off, or null when there is none
    * to take off.
@@ -117,6 +133,13 @@ export interface EditorToolbarProps {
  * button inside a `<form>` submits by default, so an unspecified type would
  * save the page on the way to looking at it.
  *
+ * **It also carries the control that opens the page-source dock**, beside
+ * the page-theme switch — a `Braces`-icon button with no visible text of its
+ * own, named for assistive technology by `labels.openSource` alone. It calls
+ * `onOpenSource` rather than owning any state of its own, exactly as
+ * `onHideControls` does: whether the dock is open is `FursonaEditor`'s
+ * concern, not this bar's.
+ *
  * **It spans the page and its ROW is columned, not the other way round**, and
  * it must be a DIRECT child of whatever box spans the whole editor. A
  * `position: sticky` element sticks only within its parent's box: this used to
@@ -147,6 +170,7 @@ export function EditorToolbar({
   saving,
   cancelHref,
   onHideControls,
+  onOpenSource,
   pageThemeSwitch,
 }: EditorToolbarProps) {
   return (
@@ -190,6 +214,16 @@ export function EditorToolbar({
             inside a `<form>` submits by default, so an unspecified type here
             would SAVE the page on the way to looking at it. */}
           {pageThemeSwitch}
+          <button
+            type="button"
+            onClick={onOpenSource}
+            aria-label={labels.openSource}
+            title={labels.openSource}
+            {...tid("editor-open-source")}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
+          >
+            <Braces className="size-4" />
+          </button>
           <button
             type="button"
             onClick={onHideControls}

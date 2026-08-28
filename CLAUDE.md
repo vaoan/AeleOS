@@ -1140,6 +1140,111 @@ replace`, so the newest body of a function could sit in a file named after
   Spec: `docs/superpowers/specs/2026-08-27-the-editor-wears-the-page-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-the-editor-wears-the-page.md`.
 
+- **A page has a source (2026-08-28) — done.** The editor carries a live,
+  two-way JSON dock: a page can be inspected, copied out, pasted
+  in, and authored by a language model against a reference the dock publishes.
+  The document is `{ aeleos, theme, blocks }` — the two `jsonb` columns of
+  `actor_profiles` and nothing from `actors`, so an imported page renders with
+  the importer's own portrait and name and **a template and somebody's real
+  page are the same artefact**. `visibility` is excluded on a safety argument
+  rather than a tidiness one: a document carrying it would publish a page by
+  paste.
+
+  Two findings came out of DESIGNING it, before a line was written, and both
+  are recorded rather than left in the branch. Rule 37 below is the first. The
+  second is a bug: **the leaf-kind select offers every kind on every page**,
+  so a person can pick `owner` on `/me/edit` and `set_actor_sections` refuses
+  the save with no block marked — and `identity-leaves.tsx` documents that
+  state as _"unreachable through the editor"_. The write half of that sentence
+  is true and the reachability half was false. It is fixed on this branch,
+  because its fix is the constant the import path needed anyway.
+
+  **Task 3 (the document envelope, export and parse) landed, and its own
+  review found the spec's paste-safety section understated itself.** The
+  design said the `__proto__`/`constructor` guards were "believed clean" and
+  measured parser depth without noticing the call it measures is not the call
+  the code makes. Both are corrected now: a `JSON.parse` reviver refuses all
+  three unsafe keys, sabotage-verified rather than believed, reported as its
+  own `unsafe-key` problem; and the reviver's own recursive invocation has a
+  real, much lower depth ceiling than a bare parse — 857, measured
+  2026-08-27, reachable inside `PASTE_LIMIT_BYTES` — caught as an ordinary
+  `syntax` problem rather than an uncaught `RangeError`, since `RangeError` is
+  an `Error`. See `page-document.ts` and
+  `apps/hub/src/features/actors/CLAUDE.md` for the numbers.
+
+  **Task 7 wired it in (2026-08-28) — the dock is reachable by a person for
+  the first time.** A `Braces` control in the editor toolbar opens it;
+  `FursonaEditor` holds the open/closed state and mounts a small isolated
+  component, `PageSourceField`, that watches `sections` itself so the dock's
+  own live binding never re-renders the toolbar on every keystroke in a leaf
+  — see `apps/hub/src/features/actors/CLAUDE.md` for why that isolation is
+  load-bearing rather than tidiness. The hand check this task's brief asked
+  for found three real bugs in the dock's own class list, all invisible to
+  every suite that existed before it because they are about `<dialog>`'s
+  user-agent stylesheet, which jsdom implements none of: an unconditional
+  `flex` beat the UA's `dialog:not([open]) { display: none }`, so the dock
+  was visible on every page before anyone pressed the control that opens it;
+  the UA's own `left: 0` over-constrained the box against this component's
+  `right: 0`, pinning it to the wrong edge; and the UA's `height:
+fit-content` (not `auto`) kept it from ever reaching the foot of the
+  viewport. Fixed and sabotage-verified in
+  `apps/hub/tests/e2e/page-source-dock.spec.ts`, which Task 8 extends rather
+  than creates — its plan step still says "Create," and that instruction is
+  stale the moment this lands.
+
+  **Review round 1 found two more.** The full `pnpm --filter hub test:e2e`
+  suite had never actually been run against this wiring — only the one new
+  spec had — and `editor-toolbar.tsx`'s new button is exactly what
+  `responsive.spec.ts` exists to catch at portrait 320; run in full, 165
+  cases passed and none skipped, `responsive.spec.ts` included. The other two
+  were real gaps rather than a missing run: the dock mounted unconditionally
+  alongside the toolbar, so `usePageSource`'s full-page `toDocument` effect
+  fired on every keystroke for an author who never opened it — closed now by
+  gating `PageSourceField`'s very existence on having been opened once,
+  proved by DOM absence rather than by a timing measurement; and `apply`'s
+  `if (nextTheme)` guard, the one branch standing between a stray paste and a
+  reset author palette, was wired correctly and reached by nothing — every
+  e2e case pastes a document round-tripped through `toDocument`, which always
+  carries a `theme` key. Both are pinned in `fursona-editor.test.tsx` now, see
+  `apps/hub/src/features/actors/CLAUDE.md` for the account in full.
+
+  **Task 8 pointed a real axe scan at the dock OPEN for the first time and
+  found two more, both structural rather than corner cases.** The resize grip
+  was `role="separator"` with `tabIndex={0}` and no `aria-valuenow` — the APG's
+  window-splitter is a FOCUSABLE separator, which is a value widget and owes a
+  value — and the reference panel's copy button sat INSIDE `<summary>`, which
+  is itself the control that toggles the `<details>`, so it was a
+  `nested-interactive` failure of the same class as a link inside a link. The
+  button is `<summary>`'s sibling now, positioned over it, because `<summary>`
+  must stay a direct child for the native disclosure to work at all.
+
+  **The same new case surfaced a third fault a layer down, and it is the one
+  that had the widest blast radius.** `/pages/new` never called
+  `ensurePersonActor()` — `/me`, `/me/edit`, `/pages` and `/picker` all did —
+  so a person arriving on their genuinely first click, which is the route this
+  app hands a brand-new sign-in to from Puck or Libra, got an `owner` block
+  with no text and a real `link-name` violation. Its regression test uses its
+  OWN fresh identity, because the file's shared one is already provisioned by
+  an earlier case: the shared identity is exactly why nothing caught this.
+
+  **And the branch's own closing sweep found a FOURTH copy of a false sentence
+  it had already fixed three times.** "`table` is the only kind that reads
+  `rows`" is false — `player` and `jukebox` read it as their playlist — and
+  after the TSDoc, the generated reference and `text-leaves.tsx` were each
+  corrected in turn, the claim was still sitting in
+  `0009_actor_profiles.sql`'s `is_block_kind`, **sixteen lines below that same
+  file's comment saying `player` and `jukebox` both read `rows`.** Three
+  rounds had each grepped the TypeScript and stopped there. Two things
+  generalise: **grep the whole repository for a false claim rather than the
+  language you happen to be working in**, since a model written down in
+  TypeScript and in SQL has two places to be wrong and `check:docs` reads only
+  one of them; and **a comment inside a function body is `prosrc`**, so
+  correcting one is an edit to an applied migration and was hand-applied to
+  live with `check:schema-drift` re-run green either side of it.
+
+  Spec: `docs/superpowers/specs/2026-08-27-page-source-and-sharing-design.md`.
+  Plan: `docs/superpowers/plans/2026-08-27-page-source-and-sharing.md`.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
@@ -1930,6 +2035,35 @@ every Tailwind utility for months without anything noticing.
     stored page has, because a stylesheet where both resolved the same way
     would otherwise pass. Restoring the shorthand reddens it and reddens
     nothing else.
+
+37. **A write path's looseness is usually justified by a CONTROL, and the
+    justification is void the moment a paste box exists.** `themeSchema` — the
+    schema the editor's form validates against — is loose on `accent`,
+    `cursor`, `backgroundUrl` and the three dials, and its own TSDoc gives the
+    reason in two sentences: the colours are `#rrggbb` or null _"and nothing
+    else is reachable through a colour input"_, and the dials are loose
+    _"since a slider cannot produce anything else"_. Both are true. Both are
+    statements about a **user interface** rather than about the data, and
+    `canvasColours` is `z.array(z.string())` there with no length bound at
+    all — a picker produces a handful, a paste can carry a hundred thousand.
+
+    So an import must use the **READ** path's guards, never the write path's.
+    `parseTheme` already existed and was already correct, because it was
+    written for a `jsonb` column nobody controls: it normalises every colour,
+    drops what is not `#rrggbb`, caps the list, clamps every dial and falls
+    back per field. Nothing new had to be written; what had to be noticed was
+    which of two functions was the right one.
+
+    The giveaway is mechanical and worth grepping for: **a schema comment
+    whose reason names a widget.** "A slider cannot", "nothing else is
+    reachable through", "the picker only offers" — each is a guard credited to
+    a control, and each becomes false the day a second way in exists. It is
+    the repository's own "a mocked dependency hides its own setup
+    requirements" one level up, with the thing being assumed upstream being a
+    user interface rather than a module.
+
+    Found designing `2026-08-27-page-source-and-sharing-design.md`, before any
+    of it was built — which is the cheap way to find it and not the usual one.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

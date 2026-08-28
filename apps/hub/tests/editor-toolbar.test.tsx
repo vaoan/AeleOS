@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
@@ -26,6 +26,7 @@ const labels = {
   cancel: "Cancel",
   hideControls: "Hide controls",
   showControls: "Show controls",
+  openSource: "Page source",
 };
 
 /**
@@ -42,6 +43,7 @@ function renderToolbar(props: Record<string, unknown> = {}): void {
       saving={false}
       cancelHref="/pages"
       onHideControls={() => {}}
+      onOpenSource={() => {}}
       {...props}
     />,
   );
@@ -93,5 +95,15 @@ describe("EditorToolbar", () => {
   it("is not disabled when idle", () => {
     renderToolbar();
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  // The regression this guards: `onOpenSource` is a required prop precisely
+  // because there is no address for the dock to have — see the prop's own
+  // TSDoc — so nothing but a click on this control can ever reach it.
+  it("opens the page-source dock on press", () => {
+    const onOpenSource = vi.fn();
+    renderToolbar({ onOpenSource });
+    fireEvent.click(screen.getByRole("button", { name: "Page source" }));
+    expect(onOpenSource).toHaveBeenCalledOnce();
   });
 });

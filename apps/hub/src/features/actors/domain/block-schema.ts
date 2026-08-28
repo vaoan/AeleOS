@@ -72,8 +72,23 @@ export type ContainerMode = (typeof CONTAINER_MODES)[number];
  * the same here for every kind, so switching a block's kind to look at it and
  * switching back finds what was typed still there.
  *
- * `table` is the only kind that reads {@link LeafBlock.rows}; every other kind
- * ignores it, and stores it regardless, for that same reason.
+ * `table`, `player` and `jukebox` are the only kinds that read
+ * {@link LeafBlock.rows} — `table` as its own paired cells, `player` and
+ * `jukebox` as a playlist, one row per track holding the address, then a
+ * title, then who made it (`playlistFromRows`, `domain/playlist.ts`). Every
+ * other kind ignores the field and stores it regardless, for that same
+ * reason.
+ *
+ * **This sentence used to say `table` was the ONLY reader, and that was
+ * false — found 2026-08-28, reviewing the page-source reference this file is
+ * quoted by.** `leaf-fields.ts`'s `RETRO` entry, shared by `player` and
+ * `jukebox`, has carried `rows: true` since the two of them existed; this
+ * comment simply never matched it, and `page-reference.ts` copied the false
+ * claim verbatim, which is exactly the failure the page-source-and-sharing
+ * spec's "never generate the reference from this TSDoc" rule exists to
+ * prevent — the TSDoc was not merely differently toned, it was wrong.
+ * `page-reference.ts`'s `ROWS_MEANINGS` is gated against `leafFields` now,
+ * rather than asserted by hand a second time.
  *
  * **A debt these kinds inherited from the `two-column` layout they replace,
  * now PAID — and one half of it deliberately reversed.** That layout was the
