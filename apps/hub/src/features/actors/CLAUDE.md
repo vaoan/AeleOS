@@ -2334,6 +2334,39 @@ passed to `apply` **verbatim** — this hook does not resolve it to a real
 theme, because the caller is the one holding the actual current theme in its
 own form and is the one who gets to decide what "unchanged" means.
 
+**The panel that shows it, `presentation/page-source-dock.tsx`, is a DOCK and
+not a modal, and that is a design idea rather than a taste.** The editor's
+document IS the page — the author's own theme paints it — so a modal backdrop
+would put the very thing this panel exists to be watched against underneath
+the panel itself. It opens with the native `<dialog>`'s `show()`, never
+`showModal()`, driven by a `useEffect` on `open` that calls the imperative
+methods; the `open` attribute is never written from JSX, because that would
+open the dialog the browser's own way rather than this component's. **jsdom
+26.1.0, the version installed here, implements none of `show`, `showModal` or
+`close` on `HTMLDialogElement`** — confirmed by direct probe, not assumed —
+so its own test stubs all three on the prototype before rendering, and a
+component that guarded the calls instead would hide the exact mistake
+(calling `showModal()`) it exists to refuse.
+
+**`--menu` is a guarantee here, not a preference.** What sits behind this
+panel is a colour the page's own author chose, and they may choose any colour
+at all — a translucent panel has no guaranteed contrast against a page
+somebody else designed, and no measurement can give it one. `--menu` is the
+one token declared opaque in both modes, the same reason the editor toolbar
+and the style popup's panel both take it.
+
+**Tab is deliberately unhandled in the textarea.** Trapping it — swallowing
+the keystroke to insert a literal tab character — strands a keyboard user
+mid-escape, so the absence of an `onKeyDown` for Tab is the feature rather
+than an oversight. Escape is the one key this component reads, to close
+itself, since a non-modal dialog gets no native Escape handling at all (that
+is `showModal()`'s job).
+
+**It wears `CHROME_SCOPE`**, which is what lets the editor's existing
+hide-controls rule remove this panel by CLASS — the rule that already strips
+every `CHROME_SCOPE` island when the controls are hidden reaches this one with
+nothing added, and nobody wiring that rule has to know this component exists.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The
