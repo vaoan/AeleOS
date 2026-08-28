@@ -118,16 +118,25 @@ const myspace = [
     "grid",
     [
       group("stack", [
-        leaf("avatar", "Aeleos"),
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
         leaf("text", "Aeleos is in your extended network", {
           description_en:
             "Last login: 8/27/2026\n\nMale\n24 years old\nMedellín, COLOMBIA",
         }),
         leaf("table", "Contacting Aeleos", {
           rows: [
-            [{ text_en: "Send Message" }, { text_en: "Forward to Friend" }],
-            [{ text_en: "Add to Friends" }, { text_en: "Add to Favorites" }],
-            [{ text_en: "Instant Message" }, { text_en: "Block User" }],
+            [
+              { text_en: "Send Message", icon: "mail" },
+              { text_en: "Forward to Friend" },
+            ],
+            [
+              { text_en: "Add to Friends", icon: "user-plus" },
+              { text_en: "Add to Favorites" },
+            ],
+            [
+              { text_en: "Instant Message", icon: "message-square" },
+              { text_en: "Block User" },
+            ],
           ],
         }),
         leaf("handle", "URL"),
@@ -168,7 +177,7 @@ const myspace = [
     {
       spaces: 2,
       weights: [1, 2],
-      style: { skin: "default", heading: "bar" },
+      style: { skin: "default", heading: "gradient" },
     },
   ),
   section(
@@ -183,7 +192,7 @@ const myspace = [
         },
       ),
     ),
-    { spaces: 4, style: { skin: "default", heading: "bar" } },
+    { spaces: 4, style: { skin: "default", heading: "gradient" } },
   ),
   section(
     "Aeleos' Friends Comments",
@@ -197,7 +206,7 @@ const myspace = [
       }),
       leaf("text", "Tom", { description_en: "top 8 and im not on it. cool." }),
     ],
-    { style: { skin: "default", heading: "bar" } },
+    { style: { skin: "default", heading: "gradient" } },
   ),
 ];
 
@@ -212,14 +221,11 @@ const myspaceTheme = theme({
     { color: "#ffffff", at: 100 },
   ]),
   accent: "#003399",
-  canvas: "grid",
-  // **An author cannot turn the backdrop OFF.** `none` is not a canvas, so it
-  // falls back to nebula, and the density dial floors at 0.25. A flat 2007 page
-  // had no animation at all; the nearest reachable thing is a canvas painted in
-  // the page's own colours at the floor. Recorded as a gap in the findings.
-  canvasColours: ["#ffffff", "#f2f5f9"],
-  density: 0.25,
-  speed: 0.25,
+  // **No animation at all, which is what a flat 2007 page had.** This used to
+  // fake it with a grid at the density floor, because `CANVASES` did not list
+  // `none` — the mechanism was there the whole time and only the picker was
+  // missing.
+  canvas: "none",
   skin: "default",
   font: "classic",
   spacing: "compact",
@@ -238,7 +244,11 @@ const messenger = [
     "Aeleos (Available)",
     "grid",
     [
-      group("stack", [leaf("avatar", "Display picture")]),
+      group("stack", [
+        leaf("avatar", "Display picture", {
+          style: { image_fit: "contain" },
+        }),
+      ]),
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("text", "Personal message", {
@@ -331,7 +341,9 @@ const board = [
     "Aeleos",
     "grid",
     [
-      group("stack", [leaf("avatar", "Aeleos")]),
+      group("stack", [
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+      ]),
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("handle", "@aeleos"),
@@ -412,7 +424,9 @@ const sky = [
     "Aeleos",
     "grid",
     [
-      group("stack", [leaf("avatar", "Aeleos")]),
+      group("stack", [
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+      ]),
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("handle", "@aeleos.furrycolombia.com"),
@@ -492,7 +506,9 @@ const threads = [
         }),
         leaf("stat", "Followers", { description_en: "1,204" }),
       ]),
-      group("stack", [leaf("avatar", "Aeleos")]),
+      group("stack", [
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+      ]),
     ],
     { spaces: 2, weights: [3, 1], style: { chrome: "bare" } },
   ),
@@ -542,7 +558,10 @@ const hi5 = [
     "Aeleos",
     "grid",
     [
-      group("stack", [leaf("avatar", "Aeleos"), leaf("handle", "hi5 ID")]),
+      group("stack", [
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+        leaf("handle", "hi5 ID"),
+      ]),
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("stat", "Mood", { description_en: "😎 chillin" }),
@@ -550,7 +569,11 @@ const hi5 = [
         leaf("progress", "Profile completeness", { description_en: "80" }),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { skin: "default", heading: "bar" } },
+    {
+      spaces: 2,
+      weights: [1, 2],
+      style: { skin: "default", heading: "gradient" },
+    },
   ),
   section(
     "My Friends (247)",
@@ -560,7 +583,7 @@ const hi5 = [
         image_url: photo(`hi5-${i}`, 240, 240),
       }),
     ),
-    { spaces: 3, style: { skin: "default", heading: "bar" } },
+    { spaces: 3, style: { skin: "default", heading: "gradient" } },
   ),
   section(
     "My Widgets",
@@ -573,7 +596,7 @@ const hi5 = [
       leaf("picture", "Glitter", { image_url: photo("hi5-glitter", 400, 300) }),
       leaf("owner", "Owner"),
     ],
-    { style: { skin: "default", heading: "bar" } },
+    { style: { skin: "default", heading: "gradient" } },
   ),
 ];
 
@@ -587,14 +610,11 @@ const hi5Theme = theme({
     { color: "#ffffff", at: 100 },
   ]),
   accent: "#4a7ebb",
-  canvas: "grid",
-  // **An author cannot turn the backdrop OFF.** `none` is not a canvas, so it
-  // falls back to nebula, and the density dial floors at 0.25. A flat 2007 page
-  // had no animation at all; the nearest reachable thing is a canvas painted in
-  // the page's own colours at the floor. Recorded as a gap in the findings.
-  canvasColours: ["#ffffff", "#f2f5f9"],
-  density: 0.25,
-  speed: 0.25,
+  // **No animation at all, which is what a flat 2007 page had.** This used to
+  // fake it with a grid at the density floor, because `CANVASES` did not list
+  // `none` — the mechanism was there the whole time and only the picker was
+  // missing.
+  canvas: "none",
   skin: "default",
   font: "classic",
   spacing: "compact",
@@ -610,7 +630,10 @@ const sonico = [
     "Aeleos",
     "grid",
     [
-      group("stack", [leaf("avatar", "Aeleos"), leaf("handle", "Usuario")]),
+      group("stack", [
+        leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+        leaf("handle", "Usuario"),
+      ]),
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("stat", "Ciudad", { description_en: "Medellín, Colombia" }),
@@ -618,7 +641,11 @@ const sonico = [
         leaf("stat", "Fotos", { description_en: "1,038" }),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { skin: "default", heading: "bar" } },
+    {
+      spaces: 2,
+      weights: [1, 2],
+      style: { skin: "default", heading: "gradient" },
+    },
   ),
   section(
     "Mis Fotos",
@@ -628,7 +655,7 @@ const sonico = [
         image_url: photo(`sonico-${i}`, 400, 300 + (i % 3) * 120),
       }),
     ),
-    { spaces: 3, style: { skin: "default", heading: "bar" } },
+    { spaces: 3, style: { skin: "default", heading: "gradient" } },
   ),
   section(
     "Álbumes",
@@ -641,7 +668,7 @@ const sonico = [
       leaf("picture", "El taller", { image_url: photo("album-3", 500, 340) }),
       leaf("owner", "Owner"),
     ],
-    { style: { skin: "default", heading: "bar" } },
+    { style: { skin: "default", heading: "gradient" } },
   ),
 ];
 
@@ -651,14 +678,11 @@ const sonicoTheme = theme({
     { color: "#ffffff", at: 100 },
   ]),
   accent: "#1a6bb5",
-  canvas: "grid",
-  // **An author cannot turn the backdrop OFF.** `none` is not a canvas, so it
-  // falls back to nebula, and the density dial floors at 0.25. A flat 2007 page
-  // had no animation at all; the nearest reachable thing is a canvas painted in
-  // the page's own colours at the floor. Recorded as a gap in the findings.
-  canvasColours: ["#ffffff", "#f2f5f9"],
-  density: 0.25,
-  speed: 0.25,
+  // **No animation at all, which is what a flat 2007 page had.** This used to
+  // fake it with a grid at the density floor, because `CANVASES` did not list
+  // `none` — the mechanism was there the whole time and only the picker was
+  // missing.
+  canvas: "none",
   skin: "default",
   font: "classic",
   spacing: "compact",
@@ -675,7 +699,7 @@ const geocities = [
     "*~*~ WELCOME TO AELEOS' HOMEPAGE ~*~*",
     "stack",
     [
-      leaf("avatar", "Aeleos"),
+      leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
       leaf("text", "", {
         description_en:
           "You are visitor number 000142. This page is best viewed in Netscape Navigator 4.0 at 800x600.",

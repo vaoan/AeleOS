@@ -611,6 +611,40 @@ export function setTableCell(
 }
 
 /**
+ * The page with one table row's icon set or cleared.
+ *
+ * **The icon lives on the row's FIRST cell**, which is the cell the renderer
+ * reads it from — one mark per row rather than one per cell. A row with no
+ * cells at all is left exactly as it was: there is nowhere to put the icon,
+ * and creating a cell to hold one would add a column to the table as a side
+ * effect of choosing a decoration.
+ *
+ * @param blocks - the whole page.
+ * @param path - which leaf.
+ * @param row - which row.
+ * @param icon - the lucide name, or `""` to clear it.
+ * @returns the new page. Clearing REMOVES the key rather than storing an empty
+ *   string, so a cleared icon leaves the cell byte-identical to one that never
+ *   had it.
+ */
+export function setTableRowIcon(
+  blocks: readonly Block[],
+  path: BlockPath,
+  row: number,
+  icon: string,
+): Block[] {
+  return editRows(blocks, path, (rows) =>
+    rows.map((cells, index) =>
+      index === row
+        ? cells.map((held, at) =>
+            at === 0 ? { ...held, icon: icon || undefined } : held,
+          )
+        : cells,
+    ),
+  );
+}
+
+/**
  * The page with a section moved to another position among the sections.
  *
  * Sections only — the outermost level. Moving a block between places is

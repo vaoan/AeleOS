@@ -2959,11 +2959,13 @@ what the page did before it existed. None of them changes a stored page.
   (`--surface`, `--skin-border`, `--skin-border-min`, `--skin-shadow`,
   `--block-pad`), never as a rule on the card's class, because styling a
   generated class from outside a cascade layer is root rule 3.
-- **`heading`** (`plain` / `bar`). A named container's name as a solid strip
-  with its content squared off beneath — the dominant idiom of the mid-2000s
-  social web, measured off real captures of MySpace and hi5. **It collapses the
-  section's gap as well as filling the heading**: a bar that kept `gap-3` is a
-  floating label with a background, which is not what either site did.
+- **`heading`** (`plain` / `bar` / `gradient`). A named container's name as a
+  solid strip with its content squared off beneath — the dominant idiom of the
+  mid-2000s social web, measured off real captures of MySpace and hi5. **It
+  collapses the section's gap as well as filling the heading**: a bar that kept
+  `gap-3` is a floating label with a background, which is not what either site
+  did. `gradient` is the same bar with a vertical sheen; see the section below
+  for why its ramp is symmetric.
 - **`text_align`** (`start` / `center` / `end`).
 
 **Two on the page's theme.**
@@ -3003,6 +3005,72 @@ production, element for element.
 `set_actor_theme`'s allowlist, whose final branch is
 `raise exception 'unknown theme key %'` — the branch that made picking a width
 throw the WHOLE theme save when `measure` shipped unpinned. Root rule 30.
+
+### Closing the REST of the pastiche gaps (2026-08-27) — four more options
+
+Same rule as the section above and it is the one to keep in mind here:
+**every one is a key an author may set, and absence is exactly what a page did
+before the key existed.** Nothing stored changed appearance and no migration
+was needed.
+
+- **`image_fit`** (`cover` / `contain`) on a block's style bag. It is emitted
+  as `--img-fit` and read by the three renderers that draw an `<img>` —
+  `AvatarLeaf`, the owner portrait and `PictureLeaf` — because the style bag
+  lands on a wrapper the leaf's own image is nested inside and never reaches
+  it. **The default lives at `:root`, and absence emits NOTHING rather than
+  `cover`**: emitting the default would have every unstyled block overwrite an
+  enclosing section's `contain`, which is inheritance defeated by the very
+  mechanism meant to express it. Found by giving the pastiches their real
+  logos, where hi5's 94×45 wordmark came through a circular avatar as two
+  meaningless fragments.
+
+- **`radius`** (`square` / `soft` / `round`). `--skin-round` is a MULTIPLIER on
+  Tailwind's radius scale, so this is an absolute stop rather than a nudge, and
+  it is written into the bag AFTER `nestedSkinVars` is spread — which is the
+  whole mechanism: a later key in the same object wins, so a block may wear
+  `comic` and still be round. `square` is a real `0` rather than a small
+  number, because a nearly-square corner reads as a mistake. This is the same
+  complaint `border` answered a fortnight earlier: square corners were
+  reachable, but only by taking a whole skin's texture, shadow and edge along
+  with them.
+
+- **`heading: "gradient"`** — the bar with a vertical sheen, which is what both
+  sites' title bars actually had. **The ramp is symmetric on purpose and that
+  is the interesting part.** `--on-accent` is DERIVED from the accent somebody
+  chose, so any lightness ramp moves half the bar toward the label and half
+  away; a one-directional ramp would quietly spend contrast the palette had
+  already budgeted. Mixing 12% white at the top and 12% black at the bottom
+  keeps the accent itself as the midpoint, so the deviation is bounded and
+  lands on both sides. `check:contrast` cannot measure this — it reads fixed
+  token pairs and cannot read a colour a stranger picked — and the page-level
+  readability escape hatch is what covers a marginal accent, here as everywhere.
+
+- **An `icon` on a table cell**, read from each row's FIRST cell and drawn
+  beside the label in the `<th>`. MySpace's contact box has a small mark on
+  every line. It is stored on every cell because a cell is one shape, and read
+  on the first: a second cell type differing by position is two shapes the row
+  builder would have to keep in step with the markup. `setTableRowIcon` writes
+  it, and **a row with no cells is left exactly as it was** — creating one would
+  add a COLUMN to the table as a side effect of choosing a decoration.
+  **An empty icon draws nothing rather than a fallback mark**, which is the
+  opposite of `LinkLeaf` and a different question: there the mark says "this is
+  a link", here it says whatever its author meant.
+
+**`canvas: "none"` was never missing, and neither was the picker.** The
+findings document recorded this as a gap twice over — first as "`none` is not a
+canvas, it falls back to `nebula`", then as "the one absent thing was `\"none\"`
+in `CANVASES`" — and BOTH were invented. `"none"` is the last entry of
+`CANVASES` on `main` and has been throughout; adding it again produced a
+duplicate React key that only a browser log reported, because a repeated entry
+in a `readonly` array changes no type and fails no assertion. Root rule 16 (a
+conclusion closes the question where an observation sends somebody to look) and
+root rule 25 (a claim about what exists is dated the moment it is written).
+Check the array before believing a sentence about it.
+
+**Two gaps are left open deliberately** — per-block colour and overlap. Both
+reverse a decision written down elsewhere (a skin names no colour; free
+positioning is refused), so closing them belongs to a design pass rather than
+to a gap sweep. The pastiche findings document says which and why.
 
 ## Things not to do
 

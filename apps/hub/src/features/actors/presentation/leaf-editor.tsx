@@ -18,6 +18,7 @@ import {
   removeTableRow,
   setLeafKind,
   setTableCell,
+  setTableRowIcon,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import { leafFields } from "@/features/actors/domain/leaf-fields";
@@ -73,6 +74,10 @@ import { CardKind } from "@/features/actors/presentation/card-kind";
  * and is not: the first names the card, the second labels the control choosing
  * WHICH kind it holds. The second used to read "Content" and do both, which
  * left the noun indistinguishable from every other field label in the row.
+ *
+ * `rowIcon` names a table row's own icon picker and has a POSITION appended by
+ * the caller, because a page offering one per row would otherwise carry several
+ * buttons a screen reader cannot tell apart.
  */
 export interface LeafEditorLabels extends IconPickerLabels {
   /**
@@ -108,6 +113,8 @@ export interface LeafEditorLabels extends IconPickerLabels {
   imageUrlHint: string;
   /** Stands in for the preview until an address is written. */
   imageMissing: string;
+  /** Names one row's icon picker, with its position appended. */
+  rowIcon: string;
   /** Heading above a table's rows. */
   tableRows: string;
   /** Adds a row. */
@@ -547,6 +554,14 @@ interface EditableRow {
 
 /** One cell of a `table` leaf, in whichever languages have been written. */
 interface BlockTableCell {
+  /**
+   * The mark drawn beside the row, stored on the row's FIRST cell.
+   *
+   * Restated here rather than imported because the schema's own cell type is
+   * module-private by design — see its note. The cost of that is this field
+   * having to be added twice, which is why it is written down.
+   */
+  icon?: string;
   /** What it says in English. */
   text_en: string;
   /** What it says in Spanish, which its author may not have written. */
@@ -593,6 +608,20 @@ function TableRows({ rows, path, apply, lang, labels }: TableRowsProps) {
       <span className="text-xs font-medium">{labels.tableRows}</span>
       {rows.map((row) => (
         <div key={row.key} className="flex flex-wrap items-center gap-1.5">
+          {/* **Offered only where there is a cell to store it on.** The icon
+              lives on the row's first cell, so a row emptied of every cell has
+              nowhere to put one — and a control that stores nothing is the
+              worst kind. */}
+          {row.cells.length > 0 ? (
+            <IconPicker
+              value={row.cells[0]?.cell.icon ?? ""}
+              label={`${labels.rowIcon} ${row.row + 1}`}
+              onChange={(icon) =>
+                apply((blocks) => setTableRowIcon(blocks, path, row.row, icon))
+              }
+              labels={labels}
+            />
+          ) : null}
           {row.cells.map((cell) => (
             <span key={cell.key} className="flex items-center gap-1">
               <input

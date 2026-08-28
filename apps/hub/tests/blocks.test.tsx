@@ -2086,7 +2086,7 @@ describe("a table leaf", () => {
    * @returns the leaf.
    */
   const tableLeaf = (
-    rows?: { text_en: string; text_es?: string }[][],
+    rows?: { text_en: string; text_es?: string; icon?: string }[][],
     over: Record<string, unknown> = {},
   ): LeafBlock => leaf({ kind: "table", rows, ...over });
 
@@ -2252,6 +2252,42 @@ describe("a table leaf", () => {
   it("carries a test id of its own", () => {
     renderBlock(tableLeaf([SPECIES]));
     expect(screen.getByTestId("block-table")).toBeInTheDocument();
+  });
+
+  // **Read off the row's FIRST cell, and drawn beside the label.** A contact
+  // box from 2004 has a small mark on every line; the header is where it
+  // belongs, because an icon on a value cell would sit in the middle of the
+  // text it decorates.
+  it("draws a mark beside the label when the first cell names one", () => {
+    // A name the REAL lucide has, checked past the mock — the mock draws an
+    // `<svg>` for anything, so a name lucide lacks would pass here and render
+    // nothing on a stranger's page. That is this file's own standing trap.
+    expect(REAL_ICON_NAMES).toContain("paw-print");
+    const { container: root } = renderBlock(
+      tableLeaf([
+        [{ ...cell("Species"), icon: "paw-print" }, cell("Arctic fox")],
+      ]),
+    );
+    expect(root.querySelector("tbody th svg")).not.toBeNull();
+  });
+
+  // **The discriminating pair.** An icon named on a VALUE cell must draw
+  // nothing — a renderer reading "any cell with an icon" would pass the case
+  // above and fail this one — and a row with no icon at all must stay bare
+  // rather than take a fallback mark, which is where this deliberately parts
+  // from `LinkLeaf`.
+  it("ignores a mark named on a value cell", () => {
+    const { container: root } = renderBlock(
+      tableLeaf([
+        [cell("Species"), { ...cell("Arctic fox"), icon: "paw-print" }],
+      ]),
+    );
+    expect(root.querySelector("tbody th svg")).toBeNull();
+  });
+
+  it("draws no mark at all when no cell names one", () => {
+    const { container: root } = renderBlock(tableLeaf([SPECIES]));
+    expect(root.querySelector("tbody th svg")).toBeNull();
   });
 
   // The rest of this file trusts nothing that came out of `jsonb` — it is why
@@ -3095,6 +3131,28 @@ describe("a section's name as a bar", () => {
     expect(container.querySelector("section")?.className).not.toContain(
       "gap-3",
     );
+  });
+
+  // **The gradient must be a CHANGE from the flat bar, not merely "a bar".**
+  // Asserting only that the strip exists would pass on code that ignored the
+  // new value entirely and fell through to `bg-(--accent)` — which is what a
+  // renderer reading `=== "bar"` alone does. So the flat fill is asserted
+  // absent as well.
+  it("shades the bar when the gradient is asked for", () => {
+    const { container } = renderBlock(named({ heading: "gradient" }));
+    const bar = container.querySelector('[data-testid="heading-bar"]');
+    expect(bar?.className).toContain("linear-gradient");
+    expect(bar?.className).not.toContain("bg-(--accent)");
+    expect(container.querySelector("section")?.className).toContain("gap-0");
+  });
+
+  // The mirror of it: the flat bar must not GAIN a gradient, which a renderer
+  // that shaded every bar would.
+  it("leaves the plain bar flat", () => {
+    const { container } = renderBlock(named({ heading: "bar" }));
+    expect(
+      container.querySelector('[data-testid="heading-bar"]')?.className,
+    ).not.toContain("linear-gradient");
   });
 
   // A container with no name has nothing to put in a bar, and asking for one

@@ -97,6 +97,11 @@ function LeafCaption({
  * an item in a list of pictures and is wrong for a block: its author placed it
  * in a grid, and a block that vanished would leave a hole nothing explains.
  *
+ * **How it fills its box is the block's to choose**, through `--img-fit` and
+ * the `image_fit` key that emits it. `cover` remains what every stored page
+ * gets, because the default is declared at `:root` rather than by this
+ * renderer.
+ *
  * @param props - the leaf and how to read it.
  * @returns the picture, or the words it could not illustrate.
  */
@@ -111,7 +116,7 @@ export function PictureLeaf(props: LeafProps): ReactNode {
       <img
         src={src}
         alt={title}
-        className="w-full rounded-xl surface border-(--edge) object-cover"
+        className="w-full rounded-xl surface border-(--edge) [object-fit:var(--img-fit)]"
       />
       <LeafCaption title="" description={description} />
     </figure>

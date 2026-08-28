@@ -211,7 +211,7 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  *
  * @returns the translated labels.
  *
- * It builds the style popup's `chrome`, `heading` and `text_align` strings too.
+ * It builds the style popup's `chrome`, `heading`, `text_align`, `image_fit` and `radius` strings too.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -308,11 +308,21 @@ export async function fursonaEditorLabels(
       heading: t("styleHeading"),
       headingPlain: t("styleHeadingPlain"),
       headingBar: t("styleHeadingBar"),
+      headingGradient: t("styleHeadingGradient"),
       textAlign: t("styleTextAlign"),
       textAlignInherit: t("styleTextAlignInherit"),
       textAlignStart: t("styleTextAlignStart"),
       textAlignCenter: t("styleTextAlignCenter"),
       textAlignEnd: t("styleTextAlignEnd"),
+      imageFit: t("styleImageFit"),
+      imageFitInherit: t("styleImageFitInherit"),
+      imageFitCover: t("styleImageFitCover"),
+      imageFitContain: t("styleImageFitContain"),
+      radius: t("styleRadius"),
+      radiusInherit: t("styleRadiusInherit"),
+      radiusSquare: t("styleRadiusSquare"),
+      radiusSoft: t("styleRadiusSoft"),
+      radiusRound: t("styleRadiusRound"),
       borderDouble: t("sectionStyleBorderDouble"),
     },
     // Nested rather than spread into the same bag as everything else. Both
@@ -387,6 +397,7 @@ export async function fursonaEditorLabels(
       leafHint: Object.fromEntries(
         DESCRIBED_KINDS.map((kind) => [kind, t(`leafFields.${kind}.hint`)]),
       ),
+      rowIcon: t("leafRowIcon"),
       tableRows: t("tableRows"),
       addRow: t("addRow"),
       removeRow: t("removeRow"),

@@ -122,31 +122,50 @@ Recorded because both looked like faults in a screenshot and neither is.
 
 Ranked by how much each one costs the "can you tell them apart" test.
 
-| #     | gap                                                                                                                                                                                                                                                               | status                                                                      |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 1     | **Typeface.** Every one of these sites is identifiable by its font before anything else — Verdana and Tahoma in the 2000s, a Helvetica-alike now. One display and one body face, no author choice.                                                                | open                                                                        |
-| 2     | **Type scale and density.** Real MySpace body text is ~11px; ours is ~16px. With colour and layout perfect, the size alone still gives it away.                                                                                                                   | **done** — `spacing`, which sets padding and text size together             |
-| ~~3~~ | **A divider-separated list.** Modern feeds are rows with a hairline between them. `stack` gives gaps, `timeline` gives a dot-and-rail; neither is a divided list.                                                                                                 | **done** — the `list` container mode                                        |
-| 4     | **Per-block colour.** MySpace's boxes were individually coloured and hi5's bars are blue on a white page. Colour is page-level, deliberately.                                                                                                                     | open, and reversing the decision is a design question rather than a gap fix |
-| 5     | **Overlap.** A banner with the avatar over its lower edge, which every modern profile has. Blocks tile; nothing sits on anything.                                                                                                                                 | open, and a known cost of refusing free positioning                         |
-| 6     | **Avatar `object-fit`.** The avatar leaf is `object-cover` on a circle, so a WIDE image is cropped to unreadability — found by giving the pastiches their real logos, where hi5's 94x45 wordmark came through as two fragments.                                   | open                                                                        |
-| 7     | **Corner radius is welded to the skin.** Square corners ARE reachable — five skins set `--skin-round: 0` — but only by taking that skin's whole aesthetic with them. Checked rather than assumed; an earlier draft of this list called square corners impossible. | open, and the mildest of these                                              |
-| 8     | **A heading bar is flat.** MySpace's and hi5's title bars were gradients.                                                                                                                                                                                         | open                                                                        |
-| 9     | **No icon inside a table row.** MySpace's contact box has a small icon on every line.                                                                                                                                                                             | open                                                                        |
-| —     | **A leaf is always a card.**                                                                                                                                                                                                                                      | **done** — `chrome: "bare"`                                                 |
-| —     | **A name cannot be a bar.**                                                                                                                                                                                                                                       | **done** — `heading: "bar"`                                                 |
-| —     | **No text alignment.**                                                                                                                                                                                                                                            | **done** — `text_align`                                                     |
+| #     | gap                                                                                                                                                                                                                                                               | status                                                                    |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1     | **Typeface.** Every one of these sites is identifiable by its font before anything else — Verdana and Tahoma in the 2000s, a Helvetica-alike now. One display and one body face, no author choice.                                                                | **done** — the page-level `font` dial, six stacks                         |
+| 2     | **Type scale and density.** Real MySpace body text is ~11px; ours is ~16px. With colour and layout perfect, the size alone still gives it away.                                                                                                                   | **done** — `spacing`, which sets padding and text size together           |
+| ~~3~~ | **A divider-separated list.** Modern feeds are rows with a hairline between them. `stack` gives gaps, `timeline` gives a dot-and-rail; neither is a divided list.                                                                                                 | **done** — the `list` container mode                                      |
+| 4     | **Per-block colour.** MySpace's boxes were individually coloured and hi5's bars are blue on a white page. Colour is page-level, deliberately.                                                                                                                     | **open on purpose** — see "Two gaps left open, and why" below             |
+| 5     | **Overlap.** A banner with the avatar over its lower edge, which every modern profile has. Blocks tile; nothing sits on anything.                                                                                                                                 | **open on purpose** — see "Two gaps left open, and why" below             |
+| 6     | **Avatar `object-fit`.** The avatar leaf is `object-cover` on a circle, so a WIDE image is cropped to unreadability — found by giving the pastiches their real logos, where hi5's 94x45 wordmark came through as two fragments.                                   | **done** — the `image_fit` style key, absent still meaning `cover`        |
+| 7     | **Corner radius is welded to the skin.** Square corners ARE reachable — five skins set `--skin-round: 0` — but only by taking that skin's whole aesthetic with them. Checked rather than assumed; an earlier draft of this list called square corners impossible. | **done** — the `radius` style key, absent still inheriting the skin's own |
+| 8     | **A heading bar is flat.** MySpace's and hi5's title bars were gradients.                                                                                                                                                                                         | **done** — `heading: "gradient"`, a third value beside `plain` and `bar`  |
+| 9     | **No icon inside a table row.** MySpace's contact box has a small icon on every line.                                                                                                                                                                             | **done** — an `icon` on the row's first cell                              |
+| —     | **A leaf is always a card.**                                                                                                                                                                                                                                      | **done** — `chrome: "bare"`                                               |
+| —     | **A name cannot be a bar.**                                                                                                                                                                                                                                       | **done** — `heading: "bar"`                                               |
+| —     | **No text alignment.**                                                                                                                                                                                                                                            | **done** — `text_align`                                                   |
 
 ## Found while rebuilding the eight (2026-08-27)
 
 Two more, both discovered by using the new options rather than by reasoning
 about them.
 
-- **An author cannot turn the moving backdrop OFF.** `none` is not a canvas —
-  it falls back to `nebula` — and the density dial floors at `0.25`. A flat
-  2007 page had no animation at all, and the nearest reachable thing is a
-  canvas painted in the page's own colours at the floor, which is what the
-  three flat pastiches do. A real `none` is the fix.
+- **THE BACKDROP COULD ALWAYS BE TURNED OFF. This bullet used to say it could
+  not, and every word of the diagnosis was invented.** It read: "`none` is not
+  a canvas — it falls back to `nebula` — and the density dial floors at
+  `0.25`." Checked against `origin/main`: `"none"` is the LAST entry of
+  `CANVASES`, has been for as long as the list has existed, `CANVAS_SLOTS`
+  carries it, `resolveCanvas` answers it, and `nebula-canvas.tsx` clears the
+  bitmap and returns on it by name. Nothing was missing. The three flat
+  pastiches were faked with a grid at the density floor to work around a
+  limitation that did not exist, and they now simply say `canvas: "none"`.
+
+  **The second attempt to close it was wrong in the same direction**, which is
+  what makes this worth the space rather than a quiet edit: believing the
+  sentence above, an entry was added to `CANVASES` — a DUPLICATE, which React
+  reported as "two children with the same key, `none`" from the canvas select,
+  and which no unit test caught because a duplicate in a `readonly` array
+  changes no type and breaks no assertion. It was found in a browser log.
+
+  So the same false claim cost work twice, and the shape is root rule 16 plus
+  root rule 25 together: **a conclusion about what the code cannot do, believed
+  because it was written down, and never dated or rechecked against what is
+  actually on `main`.** The observation ("my seeded `canvas: "none"` came back
+  as a nebula") was real and is still unexplained by anything in the current
+  code; whatever produced it, it was not this.
+
 - **A chosen typeface did not reach headings, and nearly shipped that way.**
   Eighteen elements across the leaf modules carry `font-display` or
   `font-sans`, which are explicit `font-family: var(--font-…)` declarations, and
@@ -155,6 +174,37 @@ about them.
   the TOKENS as well as the property; the general form is that **an inherited
   property cannot override an explicit one, so a page-level face has to set
   whatever tokens the elements actually read.**
+
+## Two gaps left open, and why
+
+Both are refusals somebody already reasoned through and wrote down, and closing
+them here would be reversing a documented decision as a side effect of a
+tidying pass. They are named rather than quietly skipped.
+
+**4 — per-block colour.** The standing rule is that a skin names no colour of
+its own and every pairing of a style and a palette is somebody's page; a
+per-block colour collapses that. The pastiche cost is real — a MySpace page's
+boxes were individually coloured, often badly, and the badness was the medium —
+but reversing it is a design question with an owner, not a gap fix. Everything
+short of colour now composes freely: a block picks its own skin, border, corner,
+card, alignment, picture fit and heading treatment independently of the page.
+
+**5 — overlap.** A banner with an avatar over its lower edge is the one common
+arrangement blocks cannot express, and it is the priced cost of refusing free
+positioning: coordinates on a canvas cannot degrade to a narrow viewport, make
+the editor close to unusable on a phone, and are how the pages this product is
+inspired by became unreadable. That trade was taken deliberately in the
+sections-of-spaces design. It stays taken.
+
+## Everything here is an OPTION
+
+Worth saying once, because it governs how every row above was closed: each of
+these is a key an author may set, and **absence means exactly what a page did
+before the key existed.** `image_fit` absent is `cover`. `radius` absent is
+whatever the skin chose. `heading` absent is a floating name. `canvas: "none"`
+is a choice a person makes, never a new default. No stored page changed
+appearance when any of this landed, and no migration was needed for the same
+reason.
 
 ## If any of this were to be built
 

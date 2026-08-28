@@ -27,7 +27,12 @@ export interface IconPickerLabels {
   noIcon: string;
 }
 
-/** What {@link IconPicker} needs. */
+/**
+ * What {@link IconPicker} needs.
+ *
+ * Every field but `label` is required; `label` exists for a page that offers
+ * more than one picker and needs to tell them apart.
+ */
 export interface IconPickerProps {
   /** The stored icon name, which may be empty or not an icon at all. */
   value: string;
@@ -35,10 +40,22 @@ export interface IconPickerProps {
   onChange: (name: string) => void;
   /** Already-translated strings. */
   labels: IconPickerLabels;
+  /**
+   * What to call this picker, when the page holds more than one.
+   *
+   * Defaults to `labels.chooseIcon`. A table offers one per row, and several
+   * buttons named "Choose an icon" are several controls a screen reader cannot
+   * tell apart — which axe cannot flag, because each of them HAS a name. The
+   * caller passes a position, exactly as the cell inputs beside it do.
+   */
+  label?: string;
 }
 
 /**
  * Chooses one lucide icon for a section item, or none.
+ *
+ * **A caller may name it**, which a page holding more than one has to — see
+ * {@link IconPickerProps.label}. Unnamed, it is what it always was.
  *
  * **The stored value is checked against `iconNames` before it reaches
  * `DynamicIcon`.** `icon` is free text as far as `0009` is concerned, so a name
@@ -62,7 +79,12 @@ export interface IconPickerProps {
  *
  * @returns the picker.
  */
-export function IconPicker({ value, onChange, labels }: IconPickerProps) {
+export function IconPicker({
+  value,
+  onChange,
+  labels,
+  label,
+}: IconPickerProps) {
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -111,7 +133,7 @@ export function IconPicker({ value, onChange, labels }: IconPickerProps) {
     <div className="grid gap-2">
       <button
         type="button"
-        aria-label={labels.chooseIcon}
+        aria-label={label ?? labels.chooseIcon}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => (open ? close() : setOpen(true))}

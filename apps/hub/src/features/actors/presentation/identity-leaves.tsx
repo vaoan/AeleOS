@@ -61,6 +61,13 @@ function Label({ text }: { text: string }): ReactNode {
  * shape rather than import it, to avoid depending on the file that registers
  * it; the contract moved out of `blocks.tsx` instead.
  *
+ * **How it fills its circle is the block's to choose.** The `<img>` reads
+ * `--img-fit`, which `blockStyle` emits for `image_fit` and which falls back
+ * to the `cover` declared at `:root` — so a portrait is still cropped to its
+ * edges by default, and a WIDE picture can be asked to show whole instead.
+ * That case is not hypothetical: a 94x45 wordmark came through this circle as
+ * two meaningless fragments.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the portrait.
@@ -73,7 +80,7 @@ export const AvatarLeaf: LeafRenderer = (props) => {
     <img
       src={page.avatarUrl}
       alt={alt}
-      className="size-24 rounded-full surface border-(--edge) object-cover"
+      className="size-24 rounded-full surface border-(--edge) [object-fit:var(--img-fit)]"
       {...tid("block-avatar")}
     />
   ) : (
@@ -184,6 +191,10 @@ export const NameLeaf: LeafRenderer = (props) =>
  * is unreachable through the editor — `owner` is refused on a person's page at
  * the write — so this is a belt rather than a case anybody sees.
  *
+ * The owner's small portrait reads `--img-fit` like every other picture here,
+ * so a block asking for `contain` reaches this one too rather than only the
+ * avatar beside it.
+ *
  * Typed by the shared `LeafRenderer` from `block-contract.ts`, which is the
  * same contract every content kind speaks. This module used to restate that
  * shape rather than import it, to avoid depending on the file that registers
@@ -212,7 +223,7 @@ export const OwnerLeaf: LeafRenderer = (props) => {
           <img
             src={owner.avatarUrl}
             alt=""
-            className="size-10 shrink-0 rounded-full surface border-(--edge) object-cover"
+            className="size-10 shrink-0 rounded-full surface border-(--edge) [object-fit:var(--img-fit)]"
           />
         ) : null}
         <span className="grid min-w-0 gap-0.5">

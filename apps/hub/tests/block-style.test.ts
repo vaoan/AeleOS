@@ -279,3 +279,46 @@ describe("text_align", () => {
     expect(blockStyle({ skin: "glass" })).not.toHaveProperty("textAlign");
   });
 });
+
+describe("image_fit", () => {
+  // **A token rather than a class, because the `<img>` is inside a leaf this
+  // bag never reaches.** The renderers ask for `object-(--img-fit)`, so what
+  // is asserted here is the property they read.
+  it("sets how a picture fills its box", () => {
+    expect(blockStyle({ image_fit: "contain" })).toMatchObject({
+      "--img-fit": "contain",
+    });
+  });
+
+  // The discriminating half. Absent must emit NOTHING rather than `cover`:
+  // the default lives at `:root`, so an inherited `contain` from an enclosing
+  // section would be overwritten by every unstyled block beneath it.
+  it("emits nothing when the key is absent", () => {
+    expect(blockStyle({ skin: "glass" })).not.toHaveProperty("--img-fit");
+  });
+});
+
+describe("radius", () => {
+  // **The composition case, which is the whole reason this key exists.**
+  // `comic` sets `--skin-round: 0`; asking the same block for `round` must
+  // beat it, or the corner is still welded to the aesthetic. A fixture with no
+  // skin could not tell that from a bag that simply emits the number.
+  it("beats the skin its own block is wearing", () => {
+    expect(blockStyle({ skin: "comic", radius: "round" })).toMatchObject({
+      "--skin-round": "2.5",
+    });
+  });
+
+  it("is a real zero for square, not a small number", () => {
+    expect(blockStyle({ radius: "square" })).toMatchObject({
+      "--skin-round": "0",
+    });
+  });
+
+  // Absent is INHERITANCE, so a block inside a squared section stays square.
+  it("emits nothing when the key is absent", () => {
+    expect(blockStyle({ text_align: "center" })).not.toHaveProperty(
+      "--skin-round",
+    );
+  });
+});

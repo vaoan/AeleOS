@@ -18,6 +18,7 @@ import {
   setLeafKind,
   setSpaces,
   setTableCell,
+  setTableRowIcon,
   SPACE_CHOICES,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
@@ -521,7 +522,9 @@ describe("moveSection", () => {
 
 describe("a table leaf's rows", () => {
   /** A page of one section holding one `table` leaf. */
-  const withTable = (rows?: { text_en: string; text_es?: string }[][]) =>
+  const withTable = (
+    rows?: { text_en: string; text_es?: string; icon?: string }[][],
+  ) =>
     [
       {
         ...newContainer("stack", 1),
@@ -606,6 +609,44 @@ describe("a table leaf's rows", () => {
     expect(rowsOf(written)).toEqual([[{ text_en: "a", text_es: "á" }]]);
     expect(rowsOf(setTableCell(written, [0, 0], 0, 0, "es", ""))).toEqual([
       [{ text_en: "a", text_es: undefined }],
+    ]);
+  });
+
+  // **The mark lives on the row's FIRST cell**, which is where the renderer
+  // reads it from. A fixture whose row has ONE cell could not tell that from
+  // "every cell", so the row has two and the second is asserted untouched.
+  it("writes the mark onto the row's first cell alone", () => {
+    const page = withTable([[{ text_en: "a" }, { text_en: "b" }]]);
+    expect(rowsOf(setTableRowIcon(page, [0, 0], 0, "paw-print"))).toEqual([
+      [{ text_en: "a", icon: "paw-print" }, { text_en: "b" }],
+    ]);
+  });
+
+  // Clearing REMOVES the key, exactly as an unwritten Spanish cell is absent
+  // rather than empty: a cleared mark leaves the cell as it was before one was
+  // ever chosen.
+  it("removes the key when the mark is cleared", () => {
+    const page = withTable([[{ text_en: "a", icon: "paw-print" }]]);
+    expect(rowsOf(setTableRowIcon(page, [0, 0], 0, ""))).toEqual([
+      [{ text_en: "a", icon: undefined }],
+    ]);
+  });
+
+  // A row emptied of every cell has nowhere to put a mark. Creating one would
+  // add a COLUMN to the table as a side effect of choosing a decoration.
+  it("leaves a row with no cells exactly as it was", () => {
+    const page = withTable([[], [{ text_en: "b" }]]);
+    expect(rowsOf(setTableRowIcon(page, [0, 0], 0, "paw-print"))).toEqual([
+      [],
+      [{ text_en: "b" }],
+    ]);
+  });
+
+  it("leaves every other row's mark alone", () => {
+    const page = withTable([[{ text_en: "a" }], [{ text_en: "b" }]]);
+    expect(rowsOf(setTableRowIcon(page, [0, 0], 1, "paw-print"))).toEqual([
+      [{ text_en: "a" }],
+      [{ text_en: "b", icon: "paw-print" }],
     ]);
   });
 
