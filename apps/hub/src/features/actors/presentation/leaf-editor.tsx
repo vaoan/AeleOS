@@ -31,7 +31,10 @@ import {
   type IconPickerLabels,
 } from "@/features/actors/presentation/icon-picker";
 import { tid } from "@/shared/infrastructure/test-id";
-import { CardKind } from "@/features/actors/presentation/card-kind";
+import {
+  CardKind,
+  ContentMark,
+} from "@/features/actors/presentation/card-kind";
 
 /**
  * Translated strings {@link LeafEditor} renders.
@@ -275,6 +278,13 @@ const INPUT =
  * card's selects it has no `w-full` fallback to wrap onto a line of its own,
  * so anything placed beside it pushes a 320px screen sideways.
  *
+ * **`ContentMark` is the other half of that naming, and it costs no width
+ * either.** It sits inside the padding this card already had, so the card is
+ * exactly as wide as it was — which is the constraint the paragraph above
+ * exists for, and the reason the mark is not given a gutter of its own. See
+ * {@link ContentMark} for why it is a stub rather than the full-height rail a
+ * container wears.
+ *
  * @returns the leaf's fields.
  */
 export function LeafEditor({
@@ -344,8 +354,9 @@ export function LeafEditor({
     <div
       {...tid("leaf-editor")}
       data-leaf-kind={kind}
-      className="grid gap-2 rounded-lg surface border-(--edge)/40 bg-(--surface) p-2.5"
+      className="relative grid gap-2 rounded-lg surface border-(--edge)/40 bg-(--surface) p-2.5"
     >
+      <ContentMark />
       <div className="flex flex-wrap items-end gap-2">
         {dragHandle}
 

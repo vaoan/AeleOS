@@ -9,7 +9,7 @@ import {
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
 
-// THE EDITOR'S BARS STAY PINNED FOR THE WHOLE PAGE.
+// THE EDITOR'S BAR STAYS PINNED FOR THE WHOLE PAGE.
 //
 // **A `position: sticky` element sticks only within its PARENT's box.** When
 // that box ends, the element scrolls away with it — silently, with no error and
@@ -19,14 +19,31 @@ import { container, leaf, seedPage } from "./support/blocks";
 //
 // That is what happened on 2026-08-27. Moving `BlockEditor` out of the control
 // column so section previews could own the page's full width shortened that
-// column to end just after the language strip — and both bars, which live
+// column to end just after the language strip — and both bars, which lived
 // inside it, stopped sticking a few hundred pixels down a page that is
 // thousands long. Save was the control that scrolled away, which is the one
 // this editor's own toolbar note says must never move.
 //
-// So this scrolls a genuinely long page and asks where the bars are. Reading
+// So this scrolls a genuinely long page and asks where the bar is. Reading
 // `getComputedStyle` cannot answer it; only `getBoundingClientRect` after a
 // scroll can.
+//
+// **THERE IS ONE BAR NOW, and half this file went with the other one
+// (2026-08-28).** The language strip became a control inside the toolbar, so
+// the two claims it used to carry — that the strip is pinned at `--bar-top-2`,
+// and that it sits under the save bar rather than 47px below it — no longer
+// have a subject. They are DELETED rather than repointed at the toolbar,
+// because repointed they would be vacuous: everything in the bar is pinned
+// exactly when the bar is, so an assertion about the switch could not fail
+// first and would be corroborating rather than evidence. The switch's own
+// pinning is covered by Save's, which is the whole of the claim that remains.
+//
+// What the deletion gives up is the guarantee that the switch is still IN the
+// bar at all, and that is picked up where it can actually fail:
+// `fursona-editor.test.tsx` asserts containment rather than position, which is
+// the only question that can tell "in the bar" from "in a strip above the
+// theme panel". Repeating it here in a browser would measure the same fact a
+// second time.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -75,10 +92,10 @@ test.afterAll(async () => {
 /**
  * How far down the viewport a named bar offset resolves to, in pixels.
  *
- * Read from the document rather than written down here, because `--bar-top`
- * and `--bar-top-2` are composed in `globals.css` out of the bar height and
- * each other — and a copy of that arithmetic in a test is a second source of
- * truth that drifts the first time a bar changes height.
+ * Read from the document rather than written down here, because `--bar-top` is
+ * composed in `globals.css` out of the bar height — and a copy of that
+ * arithmetic in a test is a second source of truth that drifts the first time
+ * a bar changes height.
  *
  * @param page - the editor page.
  * @param name - the custom property to resolve.
@@ -98,9 +115,7 @@ async function barOffset(page: Page, name: string): Promise<number> {
   }, name);
 }
 
-test("the save bar and the language strip stay pinned all the way down", async ({
-  page,
-}) => {
+test("the save bar stays pinned all the way down", async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   await signIn(page, await mintTicket(identity!.userId));
@@ -108,7 +123,6 @@ test("the save bar and the language strip stay pinned all the way down", async (
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
   const toolbar = page.getByTestId("editor-save");
-  const strip = page.getByTestId("writing-in-en");
 
   const height = await page.evaluate(
     () => document.documentElement.scrollHeight,
@@ -119,7 +133,6 @@ test("the save bar and the language strip stay pinned all the way down", async (
   );
 
   const barTop = await barOffset(page, "--bar-top");
-  const barTop2 = await barOffset(page, "--bar-top-2");
 
   for (const to of [1200, 2400, height - 900]) {
     await page.evaluate(
@@ -131,13 +144,12 @@ test("the save bar and the language strip stay pinned all the way down", async (
     );
 
     const save = (await toolbar.boundingBox())!;
-    const writing = (await strip.boundingBox())!;
 
-    // **Still on screen, and still where the offset puts them.** A bar that has
+    // **Still on screen, and still where the offset puts it.** A bar that has
     // come unstuck is not merely misplaced: it is above the viewport entirely,
     // so its `y` goes negative and keeps going. The tolerance is the bar's own
-    // padding, since these probes are on the controls inside each bar rather
-    // than on the bar element.
+    // padding, since this probe is on a control inside the bar rather than on
+    // the bar element.
     expect(
       save.y,
       `Save is still pinned after scrolling to ${to}`,
@@ -146,44 +158,5 @@ test("the save bar and the language strip stay pinned all the way down", async (
       save.y,
       `Save has not drifted down after scrolling to ${to}`,
     ).toBeLessThan(barTop + 60);
-
-    expect(
-      writing.y,
-      `the language strip is still pinned after scrolling to ${to}`,
-    ).toBeGreaterThanOrEqual(barTop2 - 1);
-    expect(
-      writing.y,
-      `the language strip has not drifted down after scrolling to ${to}`,
-    ).toBeLessThan(barTop2 + 60);
-
-    // **AND THE TWO BARS SIT TOGETHER.** Pinned is not the whole claim: a strip
-    // that sticks at the right offset can still hang well below the bar it
-    // belongs under, and it did. `COLUMN.wide` carries `py-6 sm:py-10`, and the
-    // `py-0` meant to remove it overrode only the base — tailwind-merge treats
-    // `sm:py-10` as its own group — so at 1280 the wrapper stuck correctly at
-    // 120 while the card inside it started at 160.
-    //
-    // Measured against the bar's own bottom rather than a literal, because both
-    // heights are composed from `--bar-h` and a number here would be a second
-    // source of truth.
-    const bar = (await page
-      .getByTestId("editor-save")
-      .evaluate(
-        (node) => node.closest("div.sticky")!.getBoundingClientRect().bottom,
-      ))!;
-    const card = await page
-      .getByTestId("writing-in-en")
-      .evaluate(
-        (node) => node.closest("div.rounded-xl")!.getBoundingClientRect().top,
-      );
-
-    expect(
-      card - bar,
-      `the language strip sits under the save bar at ${to}, not far below it`,
-    ).toBeLessThan(24);
-    expect(
-      card - bar,
-      `the language strip does not overlap the save bar at ${to}`,
-    ).toBeGreaterThanOrEqual(0);
   }
 });

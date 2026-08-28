@@ -648,8 +648,11 @@ option {
   /* Where a second bar sticks: directly under the header. */
   --bar-top: var(--bar-h);
 
-  /* And a third, under both — plus the gap the strip carries above itself. */
-  --bar-top-2: calc(var(--bar-top) + var(--bar-h) + 0.5rem);
+  /* There was a `--bar-top-2` here for a third bar — the editor's language
+     strip. That strip became a control in the editor's toolbar on 2026-08-28
+     and the token had no other consumer, so it is gone rather than left
+     declared: a custom property nothing reads is a value the next person has
+     to work out is dead. */
 }
 
 @media (height <= 600px) {

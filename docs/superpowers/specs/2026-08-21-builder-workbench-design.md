@@ -81,7 +81,9 @@ The editor stays one scrollable form:
    visibility).
 3. Theme configurator — the controls remain; they stop painting the rest of
    the app.
-4. Authoring-language strip, still above the sections.
+4. Authoring-language strip, still above the sections. **(Superseded
+   2026-08-28: there is no strip — the switch is a control in the toolbar at
+   step 1.)**
 5. Block editor: templates, then one workbench card per top-level section.
 6. Complete-page preview, collapsed by default, at the end of the form.
 

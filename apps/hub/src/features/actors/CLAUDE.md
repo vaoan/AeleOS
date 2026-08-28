@@ -1563,6 +1563,60 @@ legible only from position. Three things were conflated, not two.
   by any check; the outline shipped through lint, typecheck and 3023 green
   tests.
 
+- **`ContentMark`** is content's own bar, added 2026-08-28 because the pair
+  above only ever marked HALF the question. A section said what it was in two
+  places and a leaf said it in one, so "which of these am I looking at" was
+  answerable about a section and answerable about a leaf only by noticing what
+  it did NOT have. A mark that has to be inferred from an absence is not a
+  mark.
+
+  **It is deliberately NOT a rail, and the difference is the whole design.** A
+  container's rail runs the card's full height because it encloses everything
+  drawn inside it; a leaf encloses nothing, so a bar spanning its body would
+  claim a containment it does not have — and, worse, would break the one thing
+  the rail buys. Rails nest physically, so three stacked ones is a block at the
+  cap; a leaf drawing a fourth makes that count answer a number nobody can act
+  on. A stub at the card's head cannot be miscounted, because a leaf is always
+  the end of the line.
+
+  **Colour is not allowed to be the only difference, and that is measured
+  rather than assumed.** `--accent` is 46% lightness and `--muted` is 50%, so
+  the two are nearly the same grey once the hue is gone — a reader who cannot
+  separate the two hues would have had nothing at all from a pair of equal
+  bars. Length is what carries it, and length survives greyscale and survives a
+  skin, since neither token is one an author can set.
+
+  **Its geometry is the rail's on purpose.** `left-1` inside the leaf's uniform
+  `p-2.5` puts it at 4–7px — 3px clear of the border, the same clearance the
+  rail's own placement was measured to need, and 3px before content the padding
+  had already started at. So it costs the card no width at all, which is the
+  constraint `responsive.spec.ts` enforces at 320px and the reason the rail was
+  never simply given a gutter. Confirmed by running that suite: 25 cases, none
+  skipped.
+
+  **NO UNIT TEST CAN TELL THE STUB FROM A RAIL**, and that is written down
+  rather than papered over. Sabotaged to `inset-y-2` — a full-height bar, the
+  exact wrong answer this component exists to avoid — `block-card.test.tsx`
+  stays green at 44 of 44, because both are an element carrying a class string
+  and jsdom lays out neither. It is the same blindness this section already
+  records about the rail's own placement, where an invisible rail passed its
+  test; the discriminating instrument is a photograph, and the stub was
+  lengthened from `h-4` to `h-8` by taking one. What the unit cases DO pin is
+  that the two bars are different ELEMENTS — sabotaging the mark away reddens
+  exactly one case, and the rail count is asserted unmoved by a leaf being
+  present at all.
+
+**Each eyebrow is set in its own bar's colour** — `TONES` in the same file,
+accent for a container and muted for content. Before this both were `--muted`,
+byte-identical, so the only thing separating them at a glance was a 14px glyph,
+and a stack of sheets against a filled tile is a distinction you have to look
+at rather than one you notice. The word and the bar now say the same thing
+twice, so either answers on its own. **The pairing is the point, not the
+accent**: whoever changes a bar's colour changes its word's in the same edit,
+or the card starts telling a reader two different things about itself. Its case
+asserts the two class names DIFFER as well as naming each, since asserting both
+eyebrows exist passes whether or not anybody can tell them apart.
+
 **A nested section answers `"container"` too, and says "Section".** A nested
 section IS a section; a third noun would be something to learn for a difference
 the rail already draws.
@@ -3520,6 +3574,93 @@ emits is already gated on `:not([data-page-theme="default"])` — so one attribu
 takes the palette, the field, the skin, the background picture and the canvas
 off together. Per-session falls out of that rather than being a decision taken
 twice.
+
+### The writing switch is in the bar too (2026-08-28)
+
+**The language strip — `writingIn`, "Writing in" — is gone.** It was a
+full-width card — a heading,
+a hint sentence and the segmented switch — sitting between the theme panel and
+the sections, sticky at its own `--bar-top-2`. The switch is a control in the
+editor's toolbar now, and `WritingInToggle` is handed to `EditorToolbar` as a
+NODE for the reason `pageThemeSwitch` is one: which languages somebody may
+author in is a domain question and the bar owns no domain concept.
+
+**The objection to moving it is real, and was accepted rather than argued
+away.** `lang` reaches only `BlockEditor`, so the strip's old position was
+deliberate — anywhere higher and it announced itself over the four top fields
+it does not touch. It now sits above every one of them. What buys that is the
+change in KIND rather than a change in the argument: a 67px switch beside the
+title is a control, where a full-width card with a heading and a hint sentence
+was a statement about whatever sat under it. The hint survives as the switch's
+own `title` and its group `aria-label`, which is also what distinguishes it
+from the app's own language button in the header directly above — a different
+question with a confusingly similar answer.
+
+**The bar's row WRAPS below `sm`, and that is arithmetic.** Measured at 320 in
+Spanish, the controls wanted **345.1px against a 288px content box** with the
+title already squeezed to 0. Nothing could be shaved to find 57px: the three
+icon-only buttons and Save's padding together give back 32. So the row is
+allowed a second line rather than every control being trimmed to the bone —
+which the bar's own note already warns is how the NEXT control breaks a screen
+size.
+
+**It pays for itself.** The title read 0px at 320 in both languages before
+this, so a phone never showed what was being edited at all; on its own line it
+gets 212.8px and shows the whole name — 104.9px in Spanish, 90.2 in English.
+`sm:flex-nowrap` keeps every wider screen byte-for-byte the single row it was,
+and because `flex-wrap` wraps only on overflow, the second line appears **below
+about 500px and nowhere else** — the bar measures 95px at 400–480 and 57px from
+500 up.
+
+**The switch sits OUTSIDE the action group, and that is what makes the wrap
+work at all.** Inside it, the switch would wrap WITH the actions and the second
+line would want the same 345.1px one line down. Outside, it stays with the
+title — which is also where it belongs by meaning: what you are editing and
+which language you are writing it in are both context, and everything right of
+the `ml-auto` is an action.
+
+**THE ENDONYMS STAGGER TO `md`, AND THE BAND THIS CLOSES IS THE PART WORTH
+CARRYING.** Below `md` each side shrinks to `EN`/`ES`; at `md` it is
+`English`/`Español`. Putting that swap at `sm` made three things arrive at one
+width — the row going to a single line, Hide controls and Cancel getting their
+words back, and the endonyms — and the row then wanted **673px against a 640px
+viewport**. It overflowed from exactly 640 to about 672 **and nowhere else**:
+320 was clean, 700 was clean, every desktop width was clean. A spot check at a
+phone width and a desktop width sees nothing at all, which is the general
+lesson — **a responsive fault can live in a band a few dozen pixels wide, and
+the band starts at whichever breakpoint you just used.** Sweep the widths
+either side of every breakpoint a change touches, rather than sampling the
+sizes you happen to think in.
+
+What the codes give up is only how fully each side names itself; both sides are
+still shown and each still names ITSELF, which is the property that had to
+survive. A single button that flips can only mean "the other one" — the
+ambiguity `useLanguageToggle` carries two setters for, and `select` is the verb
+here rather than `toggle`. `writing-in-toggle.test.tsx` has the only fixture
+that can tell those two apart: pressing the side already ACTIVE, since both
+verbs agree on the inactive one.
+
+**`--bar-top-2` is deleted.** The strip was its only consumer, and a custom
+property nothing reads is a value the next person has to work out is dead.
+Anything still describing a third bar, or a `short:static` offset for one, is
+describing an arrangement this editor no longer has.
+
+**`editor-bars-stay-pinned.spec.ts` lost half of itself with the strip**, and
+the half went rather than being repointed. Its two strip claims — pinned at
+`--bar-top-2`, and sitting under the save bar rather than 47px below it — have
+no subject now, and repointed at the toolbar they would be vacuous: everything
+in the bar is pinned exactly when the bar is, so an assertion about the switch
+could not fail first. What that gives up is the guarantee that the switch is
+still IN the bar, and that is picked up in `fursona-editor.test.tsx` as
+CONTAINMENT rather than position — the only question that can tell "in the bar"
+from "in a strip above the theme panel", since a strip would satisfy every
+ordering assertion that could be written. Sabotaging the switch out of the bar
+reddens exactly that one case.
+
+**One cost, stated because it is real.** Between about 640 and 900 the title
+truncates a few pixels earlier than it did, because the switch takes 67px out
+of the row the title was shrinking into. It is whole again by the widths most
+authoring happens at, and it is strictly better than before below 500.
 
 **Two guards, because neither is enough alone.** `fursona-editor.test.tsx`
 proves the attribute is written and that the switch is ABSENT on a default

@@ -53,6 +53,11 @@ export interface EditorToolbarLabels {
  * and the difference is deliberate: whether there is a look to leave is a
  * domain question, and this bar owns no domain concept. `PageShell` takes the
  * visitor's copy of the same control the same way.
+ *
+ * `writingIn` is the same shape for the same reason, and it joined on
+ * 2026-08-28 when the editor's language strip became a control in this bar.
+ * It differs from `pageThemeSwitch` in one way: it is NOT optional. Every page
+ * is being written in some language, where not every page has a look to leave.
  */
 export interface EditorToolbarProps {
   /** What is being edited, shown on the left. */
@@ -80,6 +85,15 @@ export interface EditorToolbarProps {
    * accepts a press and changes nothing.
    */
   pageThemeSwitch?: ReactNode;
+  /**
+   * The switch choosing which language the page is being WRITTEN in.
+   *
+   * A node for the reason `pageThemeSwitch` is one: which languages a person
+   * may author in is a domain question, and this bar owns no domain concept.
+   * It is not optional, unlike that one — every page has an authoring
+   * language, where not every page has a look to leave.
+   */
+  writingIn: ReactNode;
   /** True while a save is in flight. */
   saving: boolean;
   /** Where leaving without saving goes. */
@@ -155,6 +169,32 @@ export interface EditorToolbarProps {
  * look to leave; this bar decides only where in the row it sits — beside Hide
  * controls, because both answer "let me see this differently".
  *
+ * **It carries the WRITING-LANGUAGE switch too, and that one sits outside the
+ * action group (2026-08-28).** It is beside the title, because what you are
+ * editing and which language you are writing it in are both context where
+ * everything right of the `ml-auto` is an action — and, structurally, because
+ * inside the group it would wrap WITH the actions and defeat the row's second
+ * line entirely.
+ *
+ * **The row WRAPS below `sm`, and that is arithmetic rather than taste.**
+ * Measured at 320px in Spanish once the switch joined: the controls wanted
+ * 345.1px against a 288px content box, with the title already squeezed to
+ * 6.1px. Nothing could be shaved to close 57px — the three icon-only buttons
+ * and Save's own padding together give back 32 — so the row takes a second
+ * line and every control keeps the size it was designed at. It pays for
+ * itself: the title read 0px at 320 in both languages before this, so a phone
+ * never showed what was being edited, and on its own line it gets 212.8px.
+ * `sm:flex-nowrap` keeps every wider screen the single row it already was, and
+ * because `flex-wrap` wraps only on overflow the second line appears below
+ * about 500px and nowhere else — 95px tall at 400–480, 57px from 500 up.
+ *
+ * **The switch's own endonyms arrive at `md`, one step later than this row
+ * goes single-line, and the stagger is what keeps it fitting.** Putting them
+ * at `sm` made three things arrive at one width — the row going to one line,
+ * Hide controls and Cancel getting their words back, and the endonyms — and
+ * the row then wanted 673px against a 640px viewport. See
+ * {@link WritingInToggle} for the band that closes.
+ *
  * **Cancel shows its icon alone below `sm`, as Hide controls does.** Measured
  * at 320px once the page-theme switch joined this row: the control group
  * needed 258px in English and 293px in Spanish, against a bar whose title had
@@ -172,6 +212,7 @@ export function EditorToolbar({
   onHideControls,
   onOpenSource,
   pageThemeSwitch,
+  writingIn,
 }: EditorToolbarProps) {
   return (
     // **The bar spans the page and its ROW is columned, not the other way
@@ -194,13 +235,36 @@ export function EditorToolbar({
     <div
       className={`${CHROME_SCOPE} sticky top-(--bar-top) z-20 mb-6 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
-        {/* `truncate` rather than wrap. A two-line title doubled the bar's height
-          on a phone and pushed Save down with it, so the one control that must
-          never move moved every time the name got longer. */}
+      {/* **It WRAPS below `sm`, and that is arithmetic rather than taste.**
+          Measured at 320px in Spanish with the writing switch added: the
+          controls want 345.1px against a 288px content box, and the title had
+          already been squeezed to 0. Nothing could be shaved to close 57px —
+          the three icon buttons and Save's own padding together give back 32 —
+          so the row is allowed a second line instead, and every control keeps
+          the size it was designed at.
+
+          It PAYS for itself rather than merely costing height. The title read
+          0px at 320 in both languages before this, so a phone never showed
+          what was being edited at all; on its own line it has 212.8px and
+          shows the whole name. `sm:flex-nowrap` is what keeps every wider
+          screen byte-for-byte the single row it already was. */}
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:flex-nowrap sm:gap-3 sm:px-6">
+        {/* `truncate` rather than wrap. A two-line TITLE doubled the bar's
+          height on a phone and pushed Save down with it, so the one control
+          that must never move moved every time the name got longer — which is
+          a different thing from the row's own fixed second line above, whose
+          height does not vary with anybody's name. */}
         <span className="min-w-0 truncate font-display text-base font-bold tracking-tight sm:text-lg">
           {title}
         </span>
+        {/* **Outside the action group, which is what makes the wrap work.**
+            Inside it, the switch would wrap WITH the actions and the second
+            line would want 345.1px — the same overflow one line down. Out
+            here it stays with the title, which is also where it belongs by
+            meaning: what you are editing and which language you are writing
+            it in are both context, where everything to the right is an
+            action. */}
+        {writingIn}
         <span className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           {/* **A link, not a button that pushes.** Cancel goes to one known
             place, so a link is the right element on its own merits: a middle

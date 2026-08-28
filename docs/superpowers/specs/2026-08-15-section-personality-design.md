@@ -369,6 +369,15 @@ Persistence rides the ordinary save. What must be instant is _seeing_ it.
 
 ### The language strip moves below the theme panel
 
+> **Superseded 2026-08-28. There is no strip.** The switch is a control in the
+> editor's toolbar, above every field this section argues it must sit below,
+> and `--bar-top-2` has been deleted. The objection below is real and was
+> accepted rather than refuted — what changed is that a 67px switch beside the
+> title is a control where a full-width card with a heading and a hint was an
+> announcement about whatever sat under it. `apps/hub/src/features/actors/CLAUDE.md`
+> is the current word, including what the move cost. The rest of this section
+> is left as delivered.
+
 Today the order is: fursona fields → **language strip** → theme panel →
 sections.
 

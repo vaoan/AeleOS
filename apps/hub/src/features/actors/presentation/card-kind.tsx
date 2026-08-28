@@ -20,6 +20,25 @@ const MARKS = {
 } as const satisfies Record<CardKindName, unknown>;
 
 /**
+ * The colour each kind's word is set in, paired with the colour of its bar.
+ *
+ * **The two eyebrows were byte-identical before this**, both `--muted`, so the
+ * only thing separating them at a glance was a 14px glyph — and the glyphs are
+ * a stack of sheets against a filled tile, which is a distinction you have to
+ * look at rather than one you notice. Setting each word in its own bar's
+ * colour means the word and the bar say the same thing twice, so either one
+ * answers "which of these am I looking at" on its own.
+ *
+ * **The pairing is the point, not the accent.** Whoever changes a bar's colour
+ * changes the word's here in the same edit, or the card starts telling a reader
+ * two different things about itself.
+ */
+const TONES = {
+  container: "text-(--accent)",
+  content: "text-(--muted)",
+} as const satisfies Record<CardKindName, string>;
+
+/**
  * What {@link CardKind} draws.
  */
 export interface CardKindProps {
@@ -49,6 +68,13 @@ export interface CardKindProps {
  * The mark is hidden from assistive technology because the word beside it says
  * the same thing.
  *
+ * **Each kind's word is set in its own bar's colour** — see {@link TONES}. Both
+ * were `--muted` until 2026-08-28, byte-identical, so the glyph was the only
+ * thing separating them and a reader had to compare two 14px marks to answer
+ * which card they were looking at. The word and the bar now say it twice, so
+ * either answers alone. The tone comes from the same `kind` the glyph does, so
+ * a third kind is still an edit in this file and nowhere else.
+ *
  * **It belongs on the LABEL's line, never in the row holding the control.**
  * Measured at 320px in Spanish: put beside the leaf's kind select it pushed a
  * 204px `select` — as wide as `Reproductor de música`, and with no `w-full`
@@ -64,7 +90,7 @@ export function CardKind({ kind, children }: CardKindProps): ReactNode {
     <span
       {...tid("card-kind")}
       data-card-kind={kind}
-      className="flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold tracking-wider text-(--muted) uppercase"
+      className={`flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold tracking-wider uppercase ${TONES[kind]}`}
     >
       {/* **Filled for content, outline for a container.** An outlined square
           beside a word is an unchecked checkbox to anybody who has used a
@@ -111,6 +137,45 @@ export function ContainerRail(): ReactNode {
       {...tid("container-rail")}
       aria-hidden
       className="pointer-events-none absolute inset-y-2 left-1 w-[3px] rounded-full bg-(--accent)/60"
+    />
+  );
+}
+
+/**
+ * The stub at a leaf's inside edge — content's answer to {@link ContainerRail}.
+ *
+ * **It is deliberately NOT a rail, and the difference is the whole design.** A
+ * container's rail runs the full height of the card because it encloses
+ * everything drawn inside it; a leaf encloses nothing, so a bar spanning its
+ * body would claim a containment it does not have. Worse, it would break the
+ * one thing the rail buys: rails nest physically, so three stacked ones is a
+ * block at the depth cap, and a leaf drawing a fourth would make that count
+ * answer a number nobody can act on. A short stub at the card's head cannot be
+ * miscounted, because a leaf is always the end of the line.
+ *
+ * **Colour is not allowed to be the only difference, which is why length
+ * carries it.** `--accent` at 46% lightness and `--muted` at 50% are nearly the
+ * same grey once the hue is gone, so a reader who cannot separate the two hues
+ * would have had nothing at all from a pair of equal bars. Full height against
+ * a stub survives greyscale, and it survives a skin: neither token is one an
+ * author can set.
+ *
+ * **Its geometry is the rail's, and that is not a coincidence to preserve by
+ * hand.** `left-1` inside the leaf's uniform `p-2.5` puts it at 4–7px — 3px
+ * clear of the border, which is the clearance the rail's own placement was
+ * measured to need, and 3px before the content the padding already started at.
+ * So it costs the card no width at all, which is the constraint
+ * `responsive.spec.ts` enforces at 320px and the reason the rail is not simply
+ * given a gutter.
+ *
+ * @returns the stub, decorative and hidden from assistive technology.
+ */
+export function ContentMark(): ReactNode {
+  return (
+    <span
+      {...tid("content-mark")}
+      aria-hidden
+      className="pointer-events-none absolute top-2.5 left-1 h-8 w-[3px] rounded-full bg-(--muted)"
     />
   );
 }
