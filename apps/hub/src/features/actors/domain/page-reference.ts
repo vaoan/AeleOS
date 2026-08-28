@@ -503,6 +503,16 @@ function styleLimitLine(
  * instruction — read the current theme first, send it back with one key
  * changed — that section 1 does not.
  *
+ * **Section 1 names what a document may NOT carry, and that half is as
+ * load-bearing as the rest.** `parseDocument` reads `aeleos`, `theme` and
+ * `blocks` and ignores every other top-level key rather than refusing it — so
+ * an assistant asked to publish a page reaches for `"visibility": "public"`,
+ * the page stays private, the assistant reports success, and the person
+ * believes their page is published. Silence is the worst of the three
+ * outcomes available there, and it is the one the envelope actually has, so
+ * the reference states the exclusions, the reason `visibility` in particular
+ * is dangerous, and that an unknown key silently does nothing.
+ *
  * @param kind - which kind of actor's page this reference is being generated
  *   for. Decides which leaf kinds section 5 says are required and refused,
  *   and which shape the worked example takes.
@@ -574,6 +584,24 @@ As a shorthand, a bare JSON array is also accepted in place of the whole
 object, and is read as though it were \`blocks\` with no \`theme\` named. It is
 leniency about the envelope's shape only — the array still has to satisfy
 everything below.
+
+**Those three keys are the whole document. Nothing else in it is read.** In
+particular a document cannot carry, and must not try to set:
+
+- \`visibility\` — whether strangers can read the page. This is deliberately
+  outside the document, because a document that carried it would **publish a
+  page by paste**: somebody imports a page to try it, saves, and a page they
+  believed private is being read by strangers. Visibility is changed in the
+  editor's own control and nowhere else.
+- \`handle\`, \`display_name\`, \`avatar_url\` — who the page belongs to. These
+  live on the actor rather than on the page, which is what lets a document be
+  shared at all: see section 4, where the identity kinds draw whoever is
+  importing rather than whoever wrote it.
+- \`sort_order\`, \`featured\` — where a fursona's card sits in its owner's own
+  list. They describe somebody else's list and mean nothing here.
+
+A key this build does not read is ignored rather than refused, so adding one
+does not fail — it silently does nothing. Do not emit them.
 
 ## 2. Containers — arrangement
 
