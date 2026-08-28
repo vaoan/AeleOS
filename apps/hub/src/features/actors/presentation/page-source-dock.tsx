@@ -308,6 +308,16 @@ export interface PageSourceDockProps {
  * zero" or "scrolled off the viewport", both of which would also satisfy
  * `< 100px`.
  *
+ * **The reference block is height-capped and scrolls itself, which is what
+ * keeps its own disclosure reachable.** `reference` is about seventeen
+ * thousand characters, and an uncapped `<pre>` renders all of it inline — a
+ * block thousands of pixels tall in a panel a few hundred wide, with the
+ * `<summary>` that closes it at the TOP of the `<details>` it just pushed
+ * away. Nothing about that is broken in the DOM: the disclosure toggles
+ * natively and every unit case clicking it passes either way. It is
+ * unreachable rather than absent, and only the third of present, correct and
+ * reachable is what a person actually experiences.
+ *
  * @returns the `<dialog>` element. It renders unconditionally, whatever
  *   `open` says — a closed native dialog already paints nothing on its own,
  *   and the element has to stay mounted so the effect above always has a
@@ -577,7 +587,19 @@ export function PageSourceDock({
                   <summary className="flex cursor-pointer items-center gap-2 py-1.5 pr-24 pl-2 text-xs font-medium">
                     {labels.referenceTitle}
                   </summary>
-                  <pre className="overflow-x-auto px-2 pb-2 font-mono text-xs whitespace-pre-wrap">
+                  {/* **The reference scrolls inside its own box, and the
+                      height cap is what makes the disclosure reversible.**
+                      `pageReference` returns about seventeen thousand
+                      characters; rendered unbounded at this width that is
+                      thousands of pixels tall, and since `<summary>` sits at
+                      the TOP of the `<details>`, expanding the reference
+                      pushed the only control that closes it far above the
+                      panel's scroll position. The control was never missing —
+                      it was unreachable, which is the same thing to somebody
+                      trying to get their page back. Capping the block gives
+                      the disclosure a fixed cost: the summary stays put, and
+                      the reference scrolls against itself. */}
+                  <pre className="max-h-80 overflow-auto px-2 pb-2 font-mono text-xs whitespace-pre-wrap">
                     {reference}
                   </pre>
                 </details>
