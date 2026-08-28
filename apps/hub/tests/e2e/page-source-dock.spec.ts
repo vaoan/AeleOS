@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -7,7 +7,14 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { container, leaf, seedPage } from "./support/blocks";
+import {
+  container,
+  leaf,
+  seedPage,
+  SEEDED_IDENTITY_SECTIONS,
+} from "./support/blocks";
+import { tracksOf } from "./support/grid";
+import { DOCUMENT_VERSION } from "@/features/actors/domain/page-document";
 
 // THE PAGE-SOURCE DOCK, MOUNTED FOR THE FIRST TIME.
 //
@@ -188,4 +195,417 @@ test("editing the box changes the page; breaking it leaves the page alone", asyn
     .poll(async () => (await problems.innerText()).length, { timeout: 5000 })
     .toBeGreaterThan(0);
   expect(await preview.innerText()).toContain("Edited by hand");
+});
+
+// THE REMAINING BRIEF CASES, AND WHAT THE THREE ABOVE ALREADY COVER.
+//
+// The brief (`task-8-brief.md`) lists nine cases. Its case 1 ("the dock opens
+// and the page stays interactive") is subsumed by "opens beside the page,
+// reaching the right edge and the foot of the window" above, which already
+// proves the dock is a non-modal sibling rather than a backdrop over the page
+// — a modal backdrop would have failed that test's own bounding-box math, since
+// the page behind it would never have been reachable to measure against. Its
+// cases 2 and 3 ARE "editing the box changes the page; breaking it leaves the
+// page alone" above, verbatim. Everything below is what that leaves: the
+// round trip, hostile documents, hostile text, Escape's focus return, and the
+// two directions of drift arbitration.
+
+/**
+ * Types into an input WITHOUT taking focus away from whatever already has it.
+ *
+ * Playwright's own `fill`/`click`/`type` all focus their target first, which
+ * is exactly wrong for proving drift while the source box stays focused: a
+ * real click on any other control blurs the textarea before the "external"
+ * edit's change event can even fire, so the case under test could never be
+ * reached through ordinary interaction. This sets the value through the
+ * native setter and dispatches a real, bubbling `input` event — which is what
+ * a controlled React input's `onChange` actually listens for — while never
+ * calling `.focus()` on anything, so `document.activeElement` never moves.
+ *
+ * @param input - the control to change.
+ * @param value - what to set it to.
+ */
+async function editWithoutFocusing(input: Locator, value: string) {
+  await input.evaluate((el, next) => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    setter.call(el, next);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+}
+
+test("a page edit refreshes the box when it is not focused", async ({
+  page,
+}) => {
+  // Excludes: a dock that keeps showing a stale document after somebody
+  // else's edit lands through the ordinary controls, while the box itself
+  // was never the thing being typed into.
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  await page.getByTestId("editor-open-source").click();
+  const textarea = page.getByTestId("page-source-textarea");
+  await expect(textarea).toBeVisible();
+
+  // The textarea was never clicked — it is not focused — so the ordinary
+  // control below is the "click away and change a title" of the brief's own
+  // wording: reaching for it is itself the click elsewhere.
+  await page.getByTestId("section-name").first().fill("Refreshed via control");
+
+  await expect
+    .poll(async () => textarea.inputValue())
+    .toContain("Refreshed via control");
+});
+
+test("a page edit does not clobber a focused box, and shows the drift notice", async ({
+  page,
+}) => {
+  // Excludes: a dock that silently overwrites what somebody is mid-typing
+  // the moment an unrelated control changes the page, destroying their
+  // cursor position and their unsaved edit with no warning at all.
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  await page.getByTestId("editor-open-source").click();
+  const textarea = page.getByTestId("page-source-textarea");
+  await expect(textarea).toBeVisible();
+  const resync = page.getByTestId("page-source-resync");
+
+  const original = await textarea.inputValue();
+  // A genuine, still-valid hand edit — `fill` focuses the textarea and
+  // leaves it focused, which is the precondition this whole case rests on.
+  const typed = original.replace('"About"', '"Focused typing"');
+  await textarea.fill(typed);
+
+  // Let the hook's own debounce accept this edit first, so what follows is
+  // unambiguously an EXTERNAL change arriving on top of an already-applied
+  // one, not a race with our own keystroke's parse.
+  await expect(resync).toBeHidden();
+
+  // The ordinary control, changed through a real native event that never
+  // focuses it — see `editWithoutFocusing` — so the textarea's own focus is
+  // never disturbed by driving this "somebody else's edit".
+  await editWithoutFocusing(
+    page.getByTestId("section-name").first(),
+    "External edit",
+  );
+
+  await expect(resync).toBeVisible();
+  await expect(textarea).toHaveValue(typed);
+});
+
+test("a round trip through copy and paste reproduces the page, weights included", async ({
+  page,
+}) => {
+  // Excludes: an export that loses `weights` or `spaces`. The fixture's
+  // weights are [1, 3, 2] — not a palindrome, so a reversal bug in either
+  // direction cannot pass by accident — and the second section nests a
+  // container three deep, at the model's own depth cap.
+  await signIn(page, await mintTicket(identity!.userId));
+
+  const weighted = container({
+    name_en: "Ratio",
+    mode: "grid",
+    spaces: 3,
+    weights: [1, 3, 2],
+    children: [
+      leaf({ title_en: "Left" }),
+      leaf({ title_en: "Middle" }),
+      leaf({ title_en: "Right" }),
+    ],
+  });
+  const atTheCap = container({
+    name_en: "Nested",
+    mode: "stack",
+    children: [
+      container({
+        mode: "stack",
+        children: [
+          container({ mode: "stack", children: [leaf({ title_en: "Deep" })] }),
+        ],
+      }),
+    ],
+  });
+
+  const { handle: sourceHandle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "roundtripsource",
+    displayName: "Round trip source",
+    blocks: [weighted, atTheCap],
+  });
+
+  await page.goto(`/en/pages/${sourceHandle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await page.getByTestId("editor-open-source").click();
+  const sourceTextarea = page.getByTestId("page-source-textarea");
+  await expect(sourceTextarea).toBeVisible();
+  const copied = await sourceTextarea.inputValue();
+  expect(copied).toContain('"weights"');
+
+  const { address, handle: targetHandle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "roundtriptarget",
+    displayName: "Round trip target",
+    blocks: [],
+  });
+
+  await page.goto(`/en/pages/${targetHandle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await page.getByTestId("editor-open-source").click();
+  const targetTextarea = page.getByTestId("page-source-textarea");
+  await expect(targetTextarea).toBeVisible();
+  await targetTextarea.fill(copied);
+
+  const targetProblems = page.getByTestId("page-source-problems");
+  await expect
+    .poll(async () => (await targetProblems.innerText()).trim())
+    .toBe("");
+  await expect(page.getByTestId("block-preview")).toHaveCount(
+    2 + SEEDED_IDENTITY_SECTIONS,
+  );
+
+  // The dock is a fixed sibling of the whole editor and stays open until
+  // told otherwise — closing it first is what stops it intercepting the
+  // pointer click Save needs.
+  await page.getByTestId("page-source-close").click();
+  await page.getByTestId("editor-save").click();
+  await page.waitForURL(/\/pages$/, { timeout: 60_000 });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const response = await page.goto(`/en/${address}/${targetHandle}`);
+  expect(response?.status()).toBe(200);
+  await expect(page.getByTestId("public-section")).toHaveCount(
+    2 + SEEDED_IDENTITY_SECTIONS,
+  );
+
+  const grid = page.getByTestId("block-grid").first();
+  const tracks = await tracksOf(grid);
+  expect(tracks).toHaveLength(3);
+  const [left, middle, right] = tracks;
+  expect(middle! / left!).toBeGreaterThan(2);
+  expect(left!).toBeLessThan(right!);
+  expect(right!).toBeLessThan(middle!);
+});
+
+test("a hostile theme does not break the page", async ({ page }) => {
+  // Excludes: a paste whose colours or canvas list reach the page unfiltered.
+  // `accent` fails `parseHex` and is dropped; `canvasColours` is sliced to
+  // `MAX_CANVAS_COLOURS` regardless of how many arrive — both already true of
+  // `parseTheme` for any stored theme, and this proves it holds for one that
+  // walked in through a paste rather than through a colour picker.
+  await signIn(page, await mintTicket(identity!.userId));
+  const { handle: hostileHandle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "hostiletheme",
+    displayName: "Hostile theme",
+    blocks: [
+      container({
+        name_en: "About",
+        mode: "stack",
+        children: [leaf({ title_en: "Untouched" })],
+      }),
+    ],
+  });
+
+  await page.goto(`/en/pages/${hostileHandle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await page.getByTestId("editor-open-source").click();
+  const textarea = page.getByTestId("page-source-textarea");
+  await expect(textarea).toBeVisible();
+
+  const hostileDoc = {
+    aeleos: DOCUMENT_VERSION,
+    theme: {
+      accent: "javascript:alert(1)",
+      canvasColours: Array.from({ length: 5000 }, () => "#123456"),
+    },
+    blocks: [
+      container({
+        name_en: "About",
+        mode: "stack",
+        children: [leaf({ title_en: "Still here" })],
+      }),
+    ],
+  };
+  await textarea.fill(JSON.stringify(hostileDoc));
+
+  const problems = page.getByTestId("page-source-problems");
+  await expect.poll(async () => (await problems.innerText()).trim()).toBe("");
+  const preview = page.getByTestId("block-preview").first();
+  await expect(preview).toBeVisible();
+  await expect.poll(async () => preview.innerText()).toContain("Still here");
+
+  // The hostile string never reaches the STYLE system — `colour()` refuses
+  // anything that is not `#rrggbb`, so nothing derived from it can carry the
+  // scheme through. (It DOES sit, harmlessly, as plain text inside the
+  // textarea's own value — that is the box faithfully showing what was
+  // pasted, not a leak, so the check reads the computed custom property
+  // rather than the page's raw HTML.)
+  const accentVar = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--accent"),
+  );
+  expect(accentVar).not.toContain("javascript");
+});
+
+// **A correction to the brief, recorded rather than silently worked around.**
+// The brief's case 7 asks for "Save is refused with the block marked" after
+// pasting an `owner` leaf onto a person's page. That is not what happens, and
+// it is worth being precise about why: `parseDocument`'s `refusedLeaves` check
+// runs BEFORE `apply` is ever called, so a document naming a refused kind
+// never reaches the form at all — `sections` stays exactly what it already
+// was. There is nothing for Save to refuse, because nothing changed for it to
+// refuse; pressing Save afterward saves the untouched, legitimate page. The
+// stronger and genuinely testable claim is the one below: the hostile block
+// never reaches the page, proved by reading the live preview rather than by
+// asserting a banner that this flow never produces.
+test("an owner leaf pasted onto a person's page is refused before it ever reaches the page", async ({
+  page,
+}) => {
+  // Excludes: a dock that applies a document naming a kind the destination
+  // page refuses, which would let a pasted `owner` block silently land on a
+  // person's page — the one leaf kind `REFUSED_KIND` exists to keep off it.
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/en/me/edit");
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  await page.getByTestId("editor-open-source").click();
+  const textarea = page.getByTestId("page-source-textarea");
+  await expect(textarea).toBeVisible();
+
+  const hostileDoc = {
+    aeleos: DOCUMENT_VERSION,
+    blocks: [
+      container({
+        name_en: "Bad",
+        mode: "stack",
+        children: [leaf({ kind: "owner", title_en: "Should not be here" })],
+      }),
+    ],
+  };
+  await textarea.fill(JSON.stringify(hostileDoc));
+
+  const problems = page.getByTestId("page-source-problems");
+  await expect
+    .poll(async () => (await problems.innerText()).trim())
+    .toContain("owner");
+
+  // Nothing was applied: the hostile title never reaches the live preview,
+  // which is still whatever the person's page already held.
+  const previewText = await page
+    .getByTestId("block-preview")
+    .first()
+    .innerText();
+  expect(previewText).not.toContain("Should not be here");
+
+  // And Save — pressed on the untouched page, because there is nothing else
+  // for it to save — succeeds normally rather than producing a refusal, which
+  // is the correction above made concrete. The dock is closed first: it is a
+  // fixed sibling of the whole editor and would otherwise intercept the click.
+  await page.getByTestId("page-source-close").click();
+  await page.getByTestId("editor-save").click();
+  await page.waitForURL(/\/pages$/, { timeout: 60_000 });
+});
+
+test("escape closes the dock and returns focus to the control that opened it", async ({
+  page,
+}) => {
+  // Excludes: focus left stranded inside a closed, invisible dialog, or
+  // dropped to the document body — either of which strands a keyboard user.
+  // `PageSourceDock` itself does no focus management at all (see its own
+  // TSDoc); this proves the native `<dialog>` element's own focusing steps
+  // do it, which is why nothing in this codebase has to.
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  const opener = page.getByTestId("editor-open-source");
+  await opener.click();
+  const dock = page.getByTestId("page-source-dock");
+  await expect(dock).toBeVisible();
+
+  // Focus has to move INTO the dialog for its own `onKeyDown` to ever see
+  // the Escape key at all — a keydown fired at the opener, outside the
+  // dialog's subtree, would never bubble through it.
+  await page.getByTestId("page-source-textarea").click();
+  await page.keyboard.press("Escape");
+
+  await expect(dock).toBeHidden();
+  await expect(opener).toBeFocused();
+});
+
+test("hostile text is ugly, not page-breaking — the containment proof the spec owes", async ({
+  page,
+}) => {
+  // Excludes: text that escapes its own block and breaks the page's
+  // geometry. The spec deliberately does not defend how these characters
+  // RENDER — reachable equally by typing, so that defence belongs at every
+  // render rather than at this one door — and asserts nothing about
+  // appearance here for exactly that reason. What it does owe, and what this
+  // proves, is that none of the three can widen the document or take any
+  // other section down with it.
+  await signIn(page, await mintTicket(identity!.userId));
+  const { handle: hostileHandle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "hostiletext",
+    displayName: "Hostile text",
+    blocks: [],
+  });
+
+  await page.goto(`/en/pages/${hostileHandle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await page.getByTestId("editor-open-source").click();
+  const textarea = page.getByTestId("page-source-textarea");
+  await expect(textarea).toBeVisible();
+
+  const doc = {
+    aeleos: DOCUMENT_VERSION,
+    blocks: [
+      container({
+        name_en: "Ordinary",
+        mode: "stack",
+        children: [leaf({ title_en: "Fine" }), leaf({ title_en: "Also fine" })],
+      }),
+      container({
+        name_en: "Hostile",
+        mode: "stack",
+        children: [
+          // Written as escapes, never as literals — a raw control character
+          // pasted into a source file is the hazard `check-source-bytes`
+          // exists for, and a reviewer cannot see it in a diff.
+          leaf({ title_en: "\u202Etesting" }),
+          leaf({ title_en: "a" + "\u200D".repeat(50) + "b" }),
+          leaf({ title_en: "e" + "\u0301".repeat(200) }),
+        ],
+      }),
+    ],
+  };
+  await textarea.fill(JSON.stringify(doc));
+
+  const problems = page.getByTestId("page-source-problems");
+  await expect.poll(async () => (await problems.innerText()).trim()).toBe("");
+  await expect(page.getByTestId("block-preview")).toHaveCount(2);
+
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+
+  const overflowPast = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  );
+  expect(overflowPast).toBeLessThanOrEqual(1);
+
+  const previews = page.getByTestId("block-preview");
+  const ordinaryBox = (await previews.nth(0).boundingBox())!;
+  const hostileBox = (await previews.nth(1).boundingBox())!;
+  expect(
+    Math.abs(hostileBox.width - ordinaryBox.width),
+    "the hostile section is clipped by its own container, not widened",
+  ).toBeLessThan(2);
+
+  expect(await previews.nth(0).innerText()).toContain("Fine");
 });

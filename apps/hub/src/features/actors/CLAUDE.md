@@ -2530,6 +2530,58 @@ Only a real browser, actually mounting the real component, found it — the
 same lesson root rule 36 already draws about a different property, landing
 on `display`, `left` and `height` instead of `object-fit`.
 
+**Task 8 (2026-08-28) is the dock's browser PROOF — `page-source-dock.spec.ts`
+extended past the three cases task 7 left it with — and running a real axe
+scan over it for the first time found two more faults, neither visible to
+any suite before it either.** `a11y.spec.ts`'s new "the editor with the
+source dock open" case is what found them, and both are fixed:
+
+- **The resize grip failed `aria-required-attr`.** `role="separator"` with
+  `tabIndex={0}` is the WAI-ARIA APG's window-splitter pattern — a FOCUSABLE
+  separator, which the spec treats as a value widget rather than a static
+  divider, and a value widget is required to carry `aria-valuenow`. It had
+  none. `aria-valuenow={width}`, `aria-valuemin={MIN_WIDTH_PX}` and
+  `aria-valuemax={MAX_WIDTH_REM_PX}` are on it now — the max is the fixed
+  bound rather than the dynamic `min(768, 80vw)` `resize()` also clamps to,
+  which is close enough for an announced range and costs no `window` read
+  during a server render.
+- **The reference panel's copy button failed `nested-interactive`.** It sat
+  INSIDE `<summary>`, and `<summary>` is itself an implicit interactive
+  control — it is what toggles the `<details>` — so a `<button>` nested
+  inside it is invalid, the same class of fault as a link inside a link.
+  `<summary>` still has to be `<details>`'s direct child for the native
+  disclosure to work at all, so the fix moves the button OUT to be
+  `<summary>`'s sibling instead, positioned over it, rather than trying to
+  keep it a descendant with a different role.
+
+Neither is a `wcag2a`/`21aa` corner case reachable only by an unusual
+interaction: they are structural, and `TAGS`'s reasoning about which
+`best-practice` rules stay off (`heading-order`, `scope-attr-valid`,
+`empty-table-header`) does not apply to either — `aria-required-attr` and
+`nested-interactive` are both in the tag sets this suite already runs. They
+went uncaught for the same reason the three UA-stylesheet faults above did:
+nothing had ever pointed a real accessibility scan at this panel OPEN before
+task 8, because it did not exist as a reachable state to scan until task 7
+mounted it and nothing after that opened it in `a11y.spec.ts` until now.
+
+**A third, unrelated fault surfaced by the SAME new case, one layer down from
+the dock itself.** `/pages/new` builds its `owner` block by reading
+`readMyAddress()` and falling back to `""` if it answers `null` — which it
+does for a person who has never been provisioned, because `ensurePersonActor()`
+was called by `/me`, `/me/edit`, `/pages` and `/picker` and never by
+`/pages/new`. A person arriving here as their genuinely first click — the
+route this app hands a brand-new sign-in to from Puck or Libra — got an
+`OwnerLeaf` linking to `/` with no text at all: a real `link-name` violation,
+not a hypothetical one, since `/pages/new`'s own TSDoc already says "whoever
+is signed in will own whatever this form makes" as if the person row already
+existed. `ensurePersonActor()` is called first now, idempotently, matching
+`/pages`'s own documented reason for the identical call.
+`a11y.spec.ts`'s "a person's first visit ever is straight to `/pages/new`"
+is the regression test, and it uses its OWN fresh identity rather than the
+file's shared one — the shared identity is provisioned by an earlier test in
+the same file by the time the dock's own a11y case runs, which is exactly why
+that case could not have caught this on its own.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The

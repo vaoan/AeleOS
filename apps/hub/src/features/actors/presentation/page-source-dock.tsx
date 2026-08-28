@@ -179,6 +179,25 @@ export interface PageSourceDockProps {
  * an arrow key cannot walk the `width` state past what the panel can ever
  * actually render.
  *
+ * **It also carries `aria-valuenow`/`aria-valuemin`/`aria-valuemax` — found
+ * missing by the first real axe scan of this panel OPEN, task 8's
+ * `a11y.spec.ts` case, and required rather than decorative.** A FOCUSABLE
+ * `role="separator"` is the WAI-ARIA APG's window-splitter pattern, which the
+ * spec treats as a value widget rather than a static divider — axe's
+ * `aria-required-attr` is what caught the absence. `aria-valuemax` mirrors the
+ * fixed `MAX_WIDTH_REM_PX` bound rather than the dynamic `min(768, 80vw)`
+ * ceiling `resize()` also clamps to, close enough for an announced range and
+ * reachable with no `window` access during a server render.
+ *
+ * **The reference panel's copy button is a SIBLING of `<summary>`, never a
+ * descendant — the same scan's second finding.** `<summary>` is itself an
+ * implicit interactive control (it toggles the `<details>`), so nesting a
+ * `<button>` inside it is `nested-interactive`, the same class of fault as a
+ * link inside a link. `<summary>` still has to be `<details>`'s direct child
+ * for the native disclosure to work at all, so the button sits positioned
+ * over it as a sibling instead of trying to keep it a descendant carrying a
+ * different role.
+ *
  * **The width is consumed through the `w-(--dock-width)` CLASS, never an
  * inline `style`.** An inline `width` beats every class regardless of a media
  * query's specificity, which would silently defeat `max-md:w-full` — the
@@ -355,6 +374,19 @@ export function PageSourceDock({
           role="separator"
           aria-orientation="vertical"
           aria-label={labels.resize}
+          // **Required, not decorative.** A `role="separator"` that is
+          // focusable (`tabIndex={0}`) is the WAI-ARIA APG's window-splitter
+          // pattern, which the ARIA spec treats as a value widget rather than
+          // a static divider — axe's `aria-required-attr` is what caught
+          // their absence, the first time anything ever scanned this control
+          // for accessibility at all. `aria-valuemax` mirrors the fixed
+          // `MAX_WIDTH_REM_PX` bound rather than the dynamic `80vw` ceiling
+          // `resize()` also clamps to: an approximation close enough for a
+          // range announcement, computed with no risk of reading `window`
+          // during a server render.
+          aria-valuenow={width}
+          aria-valuemin={MIN_WIDTH_PX}
+          aria-valuemax={MAX_WIDTH_REM_PX}
           tabIndex={0}
           {...tid("page-source-resize")}
           onPointerDown={(event) => {
@@ -462,24 +494,35 @@ export function PageSourceDock({
                 )}
               </div>
 
-              <details className="rounded-md border border-(--edge)">
-                <summary className="flex cursor-pointer items-center justify-between gap-2 px-2 py-1.5 text-xs font-medium">
-                  <span>{labels.referenceTitle}</span>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      void copy();
-                    }}
-                    aria-label={copied ? labels.copied : labels.copyReference}
-                    {...tid("page-source-copy")}
-                    className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-(--muted) hover:text-(--ink)"
-                  >
-                    <Copy aria-hidden className="size-3.5" />
-                    {copied ? labels.copied : labels.copyReference}
-                  </button>
+              {/* **The copy button is a SIBLING of `<summary>`, never a
+                  descendant.** It used to sit inside it, which is
+                  `nested-interactive`: a `<summary>` is itself an implicit
+                  interactive control (it is what toggles the `<details>`),
+                  and nesting a `<button>` inside another interactive element
+                  is invalid — found only once a real axe scan finally
+                  reached this panel, since no suite before
+                  `a11y.spec.ts`'s dock case had ever opened it. `<summary>`
+                  must stay the direct child `<details>` requires for its own
+                  native disclosure behaviour, so the button is positioned
+                  over it instead of nested inside it. */}
+              <details className="relative rounded-md border border-(--edge)">
+                <summary className="flex cursor-pointer items-center gap-2 py-1.5 pr-24 pl-2 text-xs font-medium">
+                  {labels.referenceTitle}
                 </summary>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void copy();
+                  }}
+                  aria-label={copied ? labels.copied : labels.copyReference}
+                  {...tid("page-source-copy")}
+                  className="absolute top-1 right-1.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-(--muted) hover:text-(--ink)"
+                >
+                  <Copy aria-hidden className="size-3.5" />
+                  {copied ? labels.copied : labels.copyReference}
+                </button>
                 <pre className="overflow-x-auto px-2 pb-2 font-mono text-xs whitespace-pre-wrap">
                   {reference}
                 </pre>
