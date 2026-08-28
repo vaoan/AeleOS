@@ -321,6 +321,11 @@ Key choices and _why_:
     still holds counts, and the failure message prints the three questions the
     actors note already asks rather than only naming a file.
 
+  Gap 3 is closed too: `list` is a container mode that lays a stack with a
+  hairline between its children and no gap, which is the shape every modern
+  feed has and the one `stack` cannot be asked for. It is an arrangement and
+  decides nothing about its children — a feed is `list` plus `chrome: "bare"`.
+
   The eight pastiche pages are rebuilt against real archived captures now, and
   the two things that found were both about USING an option rather than
   reasoning about one: an author cannot turn the moving backdrop off, and a

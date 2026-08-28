@@ -276,6 +276,7 @@
     "sectionWeightsHint": "These set how wide each place is next to the others. When there is little room they even out, and on a narrow screen the places stack in the order they are in here.",
     "modes": {
       "stack": "Stacked",
+      "list": "Divided list",
       "grid": "Grid",
       "masonry": "Masonry",
       "carousel": "Carousel",

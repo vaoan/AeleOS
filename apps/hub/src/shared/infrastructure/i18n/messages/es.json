@@ -276,6 +276,7 @@
     "sectionWeightsHint": "Definen qué tan ancho es cada espacio junto a los demás. Cuando hay poco lugar se emparejan, y en una pantalla angosta los espacios se apilan en el orden en que están aquí.",
     "modes": {
       "stack": "Apilado",
+      "list": "Lista con separadores",
       "grid": "Cuadrícula",
       "masonry": "Mosaico",
       "carousel": "Carrusel",

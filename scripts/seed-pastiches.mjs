@@ -354,7 +354,7 @@ const board = [
   ),
   section(
     "Posts",
-    "timeline",
+    "list",
     [
       post(
         "2h",
@@ -432,17 +432,22 @@ const sky = [
     ],
     { spaces: 2, weights: [1, 4] },
   ),
-  section("Feed", "timeline", [
-    post(
-      "· 3h",
-      "the nice thing about a small timeline is you can read all of it",
-    ),
-    post("· 9h", "reposting my own post because the algorithm is me"),
-    post(
-      "· 1d",
-      "starter packs but for people who write commit messages too long",
-    ),
-  ]),
+  section(
+    "Feed",
+    "list",
+    [
+      post(
+        "· 3h",
+        "the nice thing about a small timeline is you can read all of it",
+      ),
+      post("· 9h", "reposting my own post because the algorithm is me"),
+      post(
+        "· 1d",
+        "starter packs but for people who write commit messages too long",
+      ),
+    ],
+    { style: { chrome: "bare" } },
+  ),
   section(
     "Links",
     "grid",
@@ -493,7 +498,7 @@ const threads = [
   ),
   section(
     "",
-    "timeline",
+    "list",
     [
       post(
         "aeleos",

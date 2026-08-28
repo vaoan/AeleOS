@@ -3111,3 +3111,42 @@ describe("a section's name as a bar", () => {
     expect(container.querySelector("section")?.className).toContain("gap-3");
   });
 });
+
+describe("the divided list", () => {
+  const listOf = (mode: "list" | "stack"): ContainerBlock => ({
+    kind: "container",
+    mode,
+    spaces: 1,
+    children: [
+      { kind: "text", title_en: "One", description_en: "" },
+      { kind: "text", title_en: "Two", description_en: "" },
+    ],
+  });
+
+  // **Asserted against `stack`, not in isolation.** Both render their children
+  // in a column, so a test that only checked "the children are there" passes
+  // for either and proves nothing about which one ran. What separates them is
+  // the rule and the absence of a gap — a gap between cards says "separate
+  // things", a rule says "one sequence" — so those are what the fixtures
+  // compare.
+  it("draws a rule between its children where a stack draws a gap", () => {
+    const { container } = renderBlock(listOf("list"));
+    const list = container.querySelector('[data-testid="block-list"]');
+    expect(list?.className).toContain("divide-y");
+    expect(list?.className).not.toContain("gap-4");
+  });
+
+  it("is not what a stack already did", () => {
+    const { container } = renderBlock(listOf("stack"));
+    const stack = container.querySelector('[data-testid="block-stack"]');
+    expect(container.querySelector('[data-testid="block-list"]')).toBeNull();
+    expect(stack?.className).toContain("gap-4");
+    expect(stack?.className).not.toContain("divide-y");
+  });
+
+  it("still renders every child", () => {
+    renderBlock(listOf("list"));
+    expect(screen.getByText("One")).toBeInTheDocument();
+    expect(screen.getByText("Two")).toBeInTheDocument();
+  });
+});

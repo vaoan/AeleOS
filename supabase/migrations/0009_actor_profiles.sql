@@ -434,6 +434,11 @@ as $$
   select p_mode in (
     -- The resting state. It lays out nothing at all.
     'stack',
+    -- A stack with a hairline between its children and no gap: the shape every
+    -- modern feed has and the one `stack` cannot make, because a gap between
+    -- cards is not a divided list. Arrangement only — it draws the rule and
+    -- says nothing about whether the children are cards; `chrome` decides that.
+    'list',
     -- Uniform tracks, one for each of the container's own `spaces`.
     --
     -- A `columns` MODE sat beside this one and was removed before anything
