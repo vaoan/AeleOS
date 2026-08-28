@@ -2257,17 +2257,71 @@ deliberately: nothing renders from it directly (only `drifted` does), and a
 ref read inside the effect does not have to be a dependency the way a state
 variable read the same way would.
 
+**`mirror` is set to the CANONICAL `toDocument` output of what was accepted,
+never to the raw text that was typed — a round 1 review caught this wrong in
+the shipped version, and it is worth stating exactly how it was wrong, because
+the wrong version passed its own test.** The first version set
+`mirror.current = next` (the literal typed string), which only ever equals
+`toDocument(theme, blocks)` when the person's typed text happens to BE
+`toDocument`'s own canonical form — indentation, key order and envelope all
+included. That is true of no ordinary hand edit: different whitespace,
+different key order, the bare-array shorthand all break it. So the guard
+worked for exactly one input, and the round-1 test happened to type that one
+input (`toDocument(...)` itself) — a fixture that could not discriminate a
+real guard from one that only works by coincidence, root rule 27 exactly. The
+fix stores what the ACCEPTED PARSE re-serialises to,
+`toDocument(parsed.theme ?? theme, parsed.blocks)`, so the round trip compares
+like against like whatever the person actually typed. `onChange`'s
+`useCallback` deps now include `theme` for the same reason: the fallback
+`parsed.theme ?? theme` reads the CURRENT theme prop, and a stale closure over
+an old one would silently compute the wrong mirror.
+
 **The mirror guard is what stops a successful edit from immediately declaring
 itself drifted.** The ordinary shape this hook is used in has `apply` call
 `setValue`, which re-renders the form with new `theme`/`blocks` props on the
 very next tick — while the box is very likely still focused, since the person
 just finished typing. Without the guard, that round trip would flag `drifted`
-on every accepted edit, because the props changed and the box is focused;
-`use-page-source.test.ts`'s "loop guard" case is built around exactly this,
-typing the canonical `toDocument` output so the round-tripped serialisation
-matches `mirror` byte for byte, and asserts `drifted` stays false. Sabotage-
-verified: removing the `if (doc === mirror.current) return;` line reddens
-that case and only that one.
+on every accepted edit, because the props changed and the box is focused.
+`use-page-source.test.ts`'s two "loop guard" cases are built around exactly
+this, and deliberately type the bare-array shorthand rather than `toDocument`'s
+own output — a NON-canonical valid document is what a real hand edit looks
+like, and it is the only fixture that can tell the fixed guard apart from the
+round-1 guard that merely happened to pass. One case asserts `drifted` stays
+`false` after the round trip while focused; the other asserts `text` is not
+silently reformatted into canonical JSON while unfocused. Sabotage-verified
+against the fixed code: removing the `if (doc === mirror.current) return;`
+line reddens both loop-guard cases and no others, 14 of 16 still passing.
+
+**A successful `apply` also clears `drifted`.** Once the person's own edit has
+been applied, the page IS what their text says, so a `drifted` banner
+surviving their own change would be lying about a disagreement that no longer
+exists.
+
+**Blur does not self-heal a drift, and that is a consequence of the `focused`
+ref worth naming rather than assuming away.** The page→text effect only
+depends on `[theme, blocks]`, never on focus, so a box left `drifted` while
+focused stays `drifted` after the person clicks out of it — until `resync`, or
+until the next genuine page change arrives while the box happens to be
+unfocused. A `useState` for focus would have made the effect re-run on blur
+and could have cleared the flag there instead; the ref does not, and that is
+kept deliberately: a blur is not the person accepting or declining the drift,
+so silently healing it on blur would be a second, unannounced way for their
+box to change under them — the exact thing this whole hook exists to prevent
+in the other direction.
+
+Sabotaging the focus branch itself (making the effect write `text`
+unconditionally, regardless of `focused.current`) reddens **three** cases, not
+one: the case built directly against it (`keeps the box and flags drift when
+it is focused`), and two more whose SETUP reaches the same branch as a
+precondition (`clears drift once the person's own edit is applied` and
+`throws the box away and re-reads the page on resync`, both of which first
+drive the page into a drifted state by rerendering while focused before
+testing what happens next). Only the first of the three is independent
+evidence of the fault — the other two fail on a precondition assertion before
+reaching the behaviour they actually name, root rule 23's "corroborating, not
+independent" exactly. Recorded here rather than only in the task report,
+because whoever next changes this branch should know the true blast radius of
+breaking it, not the undercount an earlier review round shipped.
 
 Two more things worth knowing before touching it. `resync` cancels any
 pending debounce timer before re-serialising — otherwise a parse scheduled

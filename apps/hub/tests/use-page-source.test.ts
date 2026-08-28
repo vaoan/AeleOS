@@ -41,10 +41,11 @@ function advance(ms: number) {
 function mount(
   initialProps: { theme: ActorTheme; blocks: Block[] },
   apply: (next: { theme: ActorTheme | null; blocks: Block[] }) => void,
+  debounceMs?: number,
 ) {
   return renderHook(
     (props: { theme: ActorTheme; blocks: Block[] }) =>
-      usePageSource({ ...props, actorKind: "fursona", apply }),
+      usePageSource({ ...props, actorKind: "fursona", apply, debounceMs }),
     { initialProps },
   );
 }
@@ -225,44 +226,129 @@ describe("usePageSource", () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it(
-    "does not flag a false drift for a page change that echoes the box's own edit " +
-      "(the loop guard)",
-    () => {
-      // This is the case that makes the mirror comparison worth having.
-      // Without it, every successful edit while the box is focused would
-      // immediately relabel itself as drifted the moment the caller's form
-      // round-trips the applied value back in as new `theme`/`blocks` props —
-      // which is the ordinary, expected shape of how this hook is used, not
-      // an edge case.
-      const apply = vi.fn();
-      const { result, rerender } = mount(
-        { theme: DEFAULT_THEME, blocks: BLOCKS_A },
-        apply,
-      );
+  it("does not flag a false drift after its own non-canonical edit round-trips while focused (the loop guard)", () => {
+    // The typed text here is deliberately NOT `toDocument`'s own output —
+    // it is the bare-array shorthand, with none of `toDocument`'s envelope,
+    // key order or indentation. That is what makes this fixture discriminate:
+    // if `mirror` were set to the raw typed text (as an earlier version did),
+    // comparing it against the caller's re-serialised `toDocument(theme,
+    // blocks)` would never match on THIS input, and every successful edit
+    // while focused would immediately relabel itself as drifted the moment
+    // the caller's form round-trips the applied value back in as new
+    // `theme`/`blocks` props — which is the ordinary, ever-present shape of
+    // how this hook is used, not an edge case. A fixture built from
+    // `toDocument`'s own output cannot tell that fault from a working guard,
+    // because the two forms happen to be byte-identical only on that one
+    // input.
+    const apply = vi.fn();
+    const { result, rerender } = mount(
+      { theme: DEFAULT_THEME, blocks: BLOCKS_A },
+      apply,
+    );
 
-      act(() => {
-        result.current.onFocusChange(true);
-      });
+    act(() => {
+      result.current.onFocusChange(true);
+    });
 
-      const typed = toDocument(DEFAULT_THEME, BLOCKS_B);
-      act(() => {
-        result.current.onChange(typed);
-      });
-      advance(250);
-      expect(apply).toHaveBeenCalledTimes(1);
+    const typed = JSON.stringify(BLOCKS_B);
+    act(() => {
+      result.current.onChange(typed);
+    });
+    advance(250);
+    expect(apply).toHaveBeenCalledTimes(1);
+    const applied = apply.mock.calls[0]?.[0] as {
+      theme: ActorTheme | null;
+      blocks: Block[];
+    };
+    expect(applied.theme).toBeNull();
 
-      // The round trip: content-identical to what was just typed, but a
-      // freshly parsed array — never the literal `BLOCKS_B` reference — which
-      // is exactly what a form's `setValue` followed by a re-render produces.
-      const roundTripped = JSON.parse(JSON.stringify(BLOCKS_B)) as Block[];
-      rerender({ theme: DEFAULT_THEME, blocks: roundTripped });
+    // The round trip: content- and key-order-identical to what was just
+    // accepted, but a freshly cloned array — never the literal object
+    // `apply` received — which is exactly what a form's `setValue` followed
+    // by a re-render produces.
+    const roundTripped = structuredClone(applied.blocks);
+    rerender({ theme: DEFAULT_THEME, blocks: roundTripped });
 
-      expect(result.current.drifted).toBe(false);
-      expect(result.current.text).toBe(typed);
-      expect(apply).toHaveBeenCalledTimes(1);
-    },
-  );
+    expect(result.current.drifted).toBe(false);
+    expect(apply).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reformat a non-canonical edit round-tripping back while unfocused (the loop guard)", () => {
+    // The unfocused half of the same fixture: instead of a spurious drift,
+    // an unguarded round trip here would silently rewrite what the person
+    // typed into `toDocument`'s canonical form the instant it echoed back —
+    // reformatting their box out from under them with no edit of their own.
+    const apply = vi.fn();
+    const { result, rerender } = mount(
+      { theme: DEFAULT_THEME, blocks: BLOCKS_A },
+      apply,
+    );
+
+    act(() => {
+      result.current.onFocusChange(false);
+    });
+
+    const typed = JSON.stringify(BLOCKS_B);
+    act(() => {
+      result.current.onChange(typed);
+    });
+    advance(250);
+    expect(apply).toHaveBeenCalledTimes(1);
+    const applied = apply.mock.calls[0]?.[0] as {
+      theme: ActorTheme | null;
+      blocks: Block[];
+    };
+
+    const roundTripped = structuredClone(applied.blocks);
+    rerender({ theme: DEFAULT_THEME, blocks: roundTripped });
+
+    expect(result.current.text).toBe(typed);
+  });
+
+  it("honours a non-default debounceMs rather than hardcoding 250", () => {
+    const apply = vi.fn();
+    const { result } = mount(
+      { theme: DEFAULT_THEME, blocks: BLOCKS_A },
+      apply,
+      1000,
+    );
+
+    act(() => {
+      result.current.onChange(JSON.stringify(BLOCKS_B));
+    });
+    advance(250);
+    expect(apply).not.toHaveBeenCalled();
+
+    advance(750);
+    expect(apply).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears drift once the person's own edit is applied", () => {
+    // My ruling: once the person's text has been applied, the page IS what
+    // the text says, so the drift is resolved by their edit winning. A
+    // banner still reading "the page changed underneath you" after the page
+    // has taken their change would be describing a disagreement that no
+    // longer exists.
+    const apply = vi.fn();
+    const { result, rerender } = mount(
+      { theme: DEFAULT_THEME, blocks: BLOCKS_A },
+      apply,
+    );
+
+    act(() => {
+      result.current.onFocusChange(true);
+    });
+    rerender({ theme: DEFAULT_THEME, blocks: BLOCKS_C });
+    expect(result.current.drifted).toBe(true);
+
+    act(() => {
+      result.current.onChange(JSON.stringify(BLOCKS_B));
+    });
+    advance(250);
+
+    expect(result.current.drifted).toBe(false);
+    expect(apply).toHaveBeenCalledTimes(1);
+  });
 
   it("refreshes the box when it is not focused", () => {
     const apply = vi.fn();

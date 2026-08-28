@@ -77,10 +77,22 @@ interface UsePageSourceOptions {
  *
  * **Text to page.** `onChange` records every keystroke immediately, so the
  * box never lags what was typed, and schedules a parse `debounceMs` after
- * the last one. A successful parse clears `problems`, records the accepted
- * text as `mirror`, and calls `apply` — the only place this hook ever tells
- * its caller anything. A failed parse only records `problems`; it never
- * calls `apply` and never touches `mirror`.
+ * the last one. A successful parse clears `problems` and `drifted`, records
+ * `mirror`, and calls `apply` — the only place this hook ever tells its
+ * caller anything. A failed parse only records `problems`; it never calls
+ * `apply` and never touches `mirror` or `drifted`.
+ *
+ * **`mirror` is set to the CANONICAL `toDocument` output of what was
+ * accepted, never to the raw text that was typed, and this is not a detail —
+ * an earlier version stored the raw text and the guard below only ever
+ * worked for the one input where the two happen to be identical.** A
+ * hand-edited box is not canonical JSON in general — different whitespace,
+ * different key order, the bare-array shorthand — so comparing a caller's
+ * re-serialised `toDocument(theme, blocks)` against raw typed text fails on
+ * every ordinary edit, which is exactly the input this feature exists for.
+ * The fix is to store what the ACCEPTED PARSE re-serialises to,
+ * `toDocument(parsed.theme ?? theme, parsed.blocks)`, so the round trip
+ * through the caller's form compares like against like.
  *
  * **The page keeps the last good tree, and that is a consequence of never
  * applying rather than a stored copy.** There is no second variable holding
@@ -105,10 +117,29 @@ interface UsePageSourceOptions {
  * jump their cursor mid-word; recording the drift and leaving `resync` as an
  * explicit choice is the alternative that does neither.
  *
+ * **A successful `apply` also clears `drifted`, and that is a ruling rather
+ * than an omission.** Once the person's own edit has been applied, the page
+ * IS what their text says — so a banner still reading "the page changed
+ * underneath you" after their own change just won would be describing a
+ * disagreement that no longer exists.
+ *
+ * **`focused` is a ref, and the one consequence worth naming: this hook does
+ * not self-heal a drift on blur.** The page→text effect only runs when
+ * `[theme, blocks]` changes, never when focus changes, so a box left
+ * `drifted` while focused stays `drifted` after the person clicks away —
+ * until `resync`, or until the next real page change arrives while unfocused.
+ * A `useState` for focus would have made the effect re-run on blur and could
+ * have cleared it there instead; a ref does not, and that is the design this
+ * hook keeps rather than a gap in it — a blur is not the person accepting or
+ * rejecting the drift, so healing it silently on blur would be a second,
+ * unannounced way for their box to change out from under them.
+ *
  * **`resync` is the one place this hook throws the box away on purpose.** It
- * re-serialises the CURRENT `theme`/`blocks` unconditionally, regardless of
- * focus, and clears `drifted` and `problems` with it — the escape hatch for
- * discarding whatever was typed and showing the page instead.
+ * cancels any pending debounce first — otherwise a parse scheduled just
+ * before `resync` would still land and apply an edit the person just asked
+ * to discard, on top of the page `resync` put back — then re-serialises the
+ * CURRENT `theme`/`blocks` unconditionally, regardless of focus, and clears
+ * `drifted` and `problems` with it.
  *
  * **`theme` coming back `null` from a parse means leave the current theme
  * alone, and `apply` is called with that `null` verbatim.** This hook does
@@ -187,14 +218,23 @@ export function usePageSource(options: UsePageSourceOptions): PageSourceState {
         const parsed = parseDocument(next, actorKind);
         if (parsed.ok) {
           setProblems([]);
-          mirror.current = next;
+          // The CANONICAL form of what was applied, not the raw text that was
+          // typed — see this function's own TSDoc for why a hand-edited box
+          // makes those two different on every input except one.
+          mirror.current = toDocument(parsed.theme ?? theme, parsed.blocks);
+          setDrifted(false);
           apply({ theme: parsed.theme, blocks: parsed.blocks });
         } else {
           setProblems(parsed.problems);
         }
       }, debounceMs);
     },
-    [actorKind, apply, debounceMs],
+    // `theme` is a real dependency here, not an oversight: it is read inside
+    // the debounced callback as the fallback for `parsed.theme ?? theme`, and
+    // a stale closure over an old `theme` would compute the wrong mirror the
+    // moment the page's theme changes for any reason other than this same
+    // parse.
+    [actorKind, apply, debounceMs, theme],
   );
 
   const onFocusChange = useCallback((next: boolean) => {
