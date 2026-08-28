@@ -414,6 +414,30 @@
 }
 
 /*
+ * **The app's own faces, captured where an author cannot reach them.**
+ *
+ * next/font sets `--font-sans` and `--font-display` through an unlayered class
+ * on `<html>`, and a page's own typeface OVERRIDES both at `SKIN_SCOPE` — which
+ * in the editor encloses the controls. A custom property inherits, so a chrome
+ * island restating `font-family: var(--font-sans)` would resolve the AUTHOR's
+ * value and change face with their page. That is the same trap `--surface` and
+ * `--bar` already have, met on a property instead of a colour: restating the
+ * declaration is not enough when the declaration reads a token somebody else
+ * has written.
+ *
+ * **Declared here and NOWHERE else, which is what keeps it acyclic.** Naming
+ * `.aeleos-chrome` on this rule as well would make the island resolve
+ * `--chrome-font-sans` from its own `--font-sans`, which is set from
+ * `--chrome-font-sans` — a cycle, invalid at computed-value time, and both
+ * faces would fall back to `system-ui` silently. It is declared at `:root`,
+ * where the author writes nothing, and inherits unchanged to every descendant.
+ */
+:root {
+  --chrome-font-sans: var(--font-sans);
+  --chrome-font-display: var(--font-display);
+}
+
+/*
  * `inline` substitutes each value into the utility rather than adding another
  * layer of indirection through a Tailwind-owned variable.
  *
@@ -797,12 +821,60 @@ body {
  * at `SKIN_SCOPE`, which in the editor encloses the controls, so a workbench
  * without this wears whatever face the author picked for their page.
  *
- * `PreviewThemeHost` carried both for exactly this reason before the inversion,
- * pointing the other way. The hazard did not go away with it; it changed sides.
+ * **`font-size` is the THIRD, and it was missing until 2026-08-28.** A page's
+ * `spacing` writes a raw `font-size` into the skin rule — see `spacingVars` —
+ * and that scope encloses the controls in the editor exactly as the face does.
+ * So choosing `compact` shrank the workbench: measured before the fix, **45 of
+ * 77 marked controls changed**, every island's base type going 16px to 13px,
+ * and the spacing select that caused it shrinking from 14px to 11.375px and
+ * from 34px to 31px tall under the pointer that had just set it. `1rem` is the
+ * app's own base because nothing writes a size on the ROOT element; the
+ * author's choice lands one scope in.
+ *
+ * **The general shape is the part to carry: this list is hand-maintained and
+ * nothing can see it is short.** No type, no linter and no unit test knows
+ * which inheritable properties a theme has learned to write. Whoever adds one
+ * to a theme adds it here in the same change, and
+ * `controls-stay-stable.spec.ts` is what fails when they do not.
+ *
+ * **The rule is LAYERED, and that is load-bearing rather than tidiness.**
+ * Unlayered it would beat every utility on the island itself — and the
+ * show-controls button is an island that sets its own `text-sm`, which an
+ * unlayered `font-size` here would silently override. Layering costs nothing
+ * that matters: these declarations exist to beat an INHERITED value, and
+ * inheritance loses to any declaration on the element whatever its layer, so
+ * the guarantee is untouched while an island may still say otherwise about
+ * itself. Root rule 4 wanted this anyway.
+ *
+ * `PreviewThemeHost` carried the first two for exactly this reason before the
+ * inversion, pointing the other way. The hazard did not go away with it; it
+ * changed sides.
  */
 .aeleos-chrome {
   color: var(--ink);
+
+  /* **The TOKENS, not only the property.** Descendants inside an island
+     carry `font-display` and `font-sans` utilities, which compile to
+     explicit `font-family: var(--font-…)` declarations — the editor
+     toolbar's own title is one — so restating `font-family` here would fix
+     this element and leave every heading under it wearing the author's
+     face. Put back from the `:root` capture above, never from a literal. */
+  --font-sans: var(--chrome-font-sans);
+  --font-display: var(--chrome-font-display);
+
   font-family: var(--font-sans), system-ui, sans-serif;
+
+  /* **`1rem` through a token, so an island may still ask for another size.**
+     These declarations are deliberately UNLAYERED — `chrome-tokens.test.ts`
+     pins that, because a layered token would lose to any unlayered rule that
+     reached the island — and unlayered also beats every utility ON the island
+     itself. Measured: with a bare `font-size: 1rem` here, the show-controls
+     button's own `text-sm` lost and it rendered at 16px instead of 14px.
+     Reading a custom property sidesteps the fight rather than winning it: the
+     island rule and an island's own `--chrome-text` are DIFFERENT properties,
+     so there is nothing to outrank. An island wanting another size sets that
+     token; everything else takes the app's base. */
+  font-size: var(--chrome-text, 1rem);
 }
 
 [data-controls="hidden"] .aeleos-chrome {

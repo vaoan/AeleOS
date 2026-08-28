@@ -1305,6 +1305,54 @@ nothing under it asked for the island's copy. Measured: an input painted
 inversion, pointing the other way; the hazard changed sides rather than going
 away.
 
+**And the list was short by two, found 2026-08-28 by somebody using the
+editor.** Choosing a `spacing` shrank the workbench. `spacing` writes a raw
+`font-size` into the SKIN rule — which encloses the controls — and the island
+restated `color` and `font-family` and not `font-size`. Measured before the
+fix: **45 of 77 marked controls changed**, every island's base type going 16px
+to 13px, and the spacing select that caused it shrinking from 14px to 11.375px
+and from 34px to 31px tall under the pointer that had just set it.
+
+**The second leak is the more instructive one, because the property WAS
+restated.** A page's typeface writes `--font-sans` and `--font-display`, so the
+island's own `font-family: var(--font-sans)` resolved the AUTHOR's token — and
+so did every `font-display` utility on a descendant, the editor toolbar's title
+among them. That is the `--surface`/`--bar` trap met on a property instead of a
+colour: **restating a declaration is not enough when the declaration reads a
+token somebody else has written.** The app's faces are captured at `:root` as
+`--chrome-font-sans`/`--chrome-font-display`, where an author writes nothing,
+and put back on the island. That capture is declared at `:root` and NOWHERE
+else on purpose — naming the chrome class on it too would make the island
+resolve the capture from its own `--font-sans`, which is set from the capture: a
+cycle, invalid at computed-value time, and both faces would fall back to
+`system-ui` silently.
+
+**The reset reads `var(--chrome-text, 1rem)` rather than `1rem`, and that is a
+cascade fact worth keeping.** These declarations are deliberately UNLAYERED —
+`chrome-tokens.test.ts` pins it, because a layered token would lose to any
+unlayered rule that reached the island — and unlayered also beats every utility
+ON the island. Measured: with a bare `font-size: 1rem`, the show-controls
+button's own `text-sm` lost and it rendered 16px instead of 14px. Reading a
+custom property sidesteps the fight instead of winning it, because the island
+rule and an island's own `--chrome-text` are different properties with nothing
+to outrank. An island wanting another size sets that token.
+
+**`controls-stay-stable.spec.ts` is the guard, and its load-bearing assertion
+is the anti-vacuity one.** "No control changed" is also what a broken fixture
+reports — a wrong selector, a control that silently refused — so every case
+asserts the author's PAGE did change in the same breath, and that half is
+proved capable of failing by pointing the controls at a value they already
+hold. The two fixes are sabotage-verified independently: removing `font-size`
+reddens only the spacing case, removing the font-token restatement only the
+typeface case.
+
+**The general shape, and why no static check can replace that spec:** this list
+is hand-maintained and nothing in the type system, the linter or any unit test
+knows which inheritable properties a theme has learned to write. Whoever adds
+one to a theme adds it to the island in the same change. `letter-spacing` and
+`line-height` are watched by that spec already, being the next two a
+page-level typography option would reach for.
+
 **The light/dark toggle threw the page away.** It clears an author's theme as
 well as setting a scheme, which is right on a public page — the switch beside it
 offers the colours back. Its own comment said this "costs the signed-in pages
