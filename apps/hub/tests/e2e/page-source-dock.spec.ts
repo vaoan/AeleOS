@@ -15,6 +15,7 @@ import {
 } from "./support/blocks";
 import { tracksOf } from "./support/grid";
 import { DOCUMENT_VERSION } from "@/features/actors/domain/page-document";
+import enMessages from "@/shared/infrastructure/i18n/messages/en.json" with { type: "json" };
 
 // THE PAGE-SOURCE DOCK, MOUNTED FOR THE FIRST TIME.
 //
@@ -681,7 +682,31 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
   // refuses: the dock accepting a paste is not the same guarantee as the
   // save accepting it. The dock is closed first — it is a fixed sibling of
   // the whole editor and would otherwise intercept the click.
+  //
+  // **The banner's WORDS are asserted, not merely its presence** — a banner
+  // existing cannot tell "refused for missing required kinds" from a network
+  // error or an unrelated refusal left over from something else, which is
+  // exactly the mistake `saveAndLeave`'s own note already warns against on
+  // this surface. `useFursonaEditor` reports every database-level page
+  // refusal — `PageRefusedError`, matched on its SQLSTATE class rather than
+  // its message — as the single generic code `sectionsRefused`, so the string
+  // asserted here is what the CATALOGUE renders for that code, read from the
+  // same JSON the component does rather than hardcoded.
+  //
+  // **This is also the honest limit of what that banner can prove.** The
+  // message is "Your sections were refused. Fix them and save again —
+  // nothing else was lost." — it does not name `avatar`, `handle` or `owner`,
+  // or any missing kind at all. `set_actor_sections` collapses every reason a
+  // page write can be refused into one SQLSTATE class, so the client cannot
+  // distinguish a missing required kind from any other block-level refusal
+  // (too many blocks, a title too long, and so on) without a more specific
+  // signal from the database than it currently sends. That is a real
+  // limitation of the refusal message, not an artefact of this test.
   await page.getByTestId("page-source-close").click();
   await page.getByTestId("editor-save").click();
-  await expect(page.getByTestId("editor-error-banner")).toBeVisible();
+  const banner = page.getByTestId("editor-error-banner");
+  await expect(banner).toBeVisible();
+  expect(await banner.innerText()).toContain(
+    enMessages.fursonas.form.errors.sectionsRefused,
+  );
 });
