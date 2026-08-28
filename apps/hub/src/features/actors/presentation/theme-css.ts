@@ -283,16 +283,35 @@ const FONT_STACKS = {
 } satisfies Record<PageFont, string>;
 
 /**
- * The padding and text size each spacing sets, as ONE pair.
+ * What each spacing sets, as ONE set of four.
  *
- * Changing either alone is what makes a page look squeezed rather than dense,
- * so the key sets both or neither. Exhaustive over {@link PAGE_SPACINGS} for
+ * Changing one alone is what makes a page look squeezed rather than dense, so
+ * the key sets all of them or none. Exhaustive over {@link PAGE_SPACINGS} for
  * the reason above.
+ *
+ * **`gap` and `edge` are the half this originally missed**, and it was measured
+ * rather than noticed: a `compact` page and a default page differed in card
+ * padding and in type size and agreed EXACTLY on the 40px between every
+ * section, because the page box carried fixed classes no option could reach.
+ * So the type was already tighter than the sites being imitated while the page
+ * still read as airy — the air was between the cards, not inside them.
+ *
+ * `compact` is deliberately near-flush at `0.5rem`: the arrangement it exists
+ * for stacked its boxes with a hairline between them, and a gap that merely
+ * halves is a gap that still reads as modern.
  */
 const SPACINGS = {
-  compact: { pad: "0.5rem", text: "0.8125rem" },
-  roomy: { pad: "1.5rem", text: "1.0625rem" },
-} satisfies Record<PageSpacing, { pad: string; text: string }>;
+  compact: {
+    pad: "0.5rem",
+    text: "0.8125rem",
+    gap: "0.5rem",
+    edge: "0.75rem",
+  },
+  roomy: { pad: "1.5rem", text: "1.0625rem", gap: "4rem", edge: "3rem" },
+} satisfies Record<
+  PageSpacing,
+  { pad: string; text: string; gap: string; edge: string }
+>;
 
 /**
  * What a page sets on its own CONTENT: the typeface and the spacing.
@@ -328,6 +347,12 @@ function contentVars(theme: ActorTheme): Record<string, string> {
   if (spacing) {
     vars["--block-pad"] = spacing.pad;
     vars["font-size"] = spacing.text;
+    // **Outside the card as well as inside it.** These default at `:root` to
+    // what the page box's fixed classes used to be, so absence changes
+    // nothing; a chosen spacing overrides them at every width, which is what
+    // makes it a choice rather than a suggestion the `sm` breakpoint outvotes.
+    vars["--page-gap"] = spacing.gap;
+    vars["--page-edge"] = spacing.edge;
   }
   return vars;
 }

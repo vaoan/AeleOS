@@ -2941,8 +2941,7 @@ describe("page chrome belongs to each top-level section", () => {
       "max-w-7xl",
       "px-4",
       "sm:px-6",
-      "pt-6",
-      "sm:pt-10",
+      "pt-(--page-edge)",
     ]);
     expect(middle).toEqual([
       "mx-auto",
@@ -2950,7 +2949,7 @@ describe("page chrome belongs to each top-level section", () => {
       "max-w-7xl",
       "px-4",
       "sm:px-6",
-      "mt-10",
+      "mt-(--page-gap)",
     ]);
     expect(last).toEqual([
       "mx-auto",
@@ -2958,9 +2957,8 @@ describe("page chrome belongs to each top-level section", () => {
       "max-w-7xl",
       "px-4",
       "sm:px-6",
-      "mt-10",
-      "pb-6",
-      "sm:pb-10",
+      "mt-(--page-gap)",
+      "pb-(--page-edge)",
     ]);
   });
 
@@ -2972,10 +2970,8 @@ describe("page chrome belongs to each top-level section", () => {
       "max-w-7xl",
       "px-4",
       "sm:px-6",
-      "pt-6",
-      "sm:pt-10",
-      "pb-6",
-      "sm:pb-10",
+      "pt-(--page-edge)",
+      "pb-(--page-edge)",
     ]);
   });
 
@@ -2989,9 +2985,8 @@ describe("page chrome belongs to each top-level section", () => {
       "max-w-7xl",
       "px-4",
       "sm:px-6",
-      "mt-10",
-      "pb-6",
-      "sm:pb-10",
+      "mt-(--page-gap)",
+      "pb-(--page-edge)",
     ]);
   });
 
@@ -3001,7 +2996,7 @@ describe("page chrome belongs to each top-level section", () => {
       { style: { bleed: true, margins: false } },
     ]);
     const [bled, banner] = gutters;
-    expect(bled).toEqual(["w-full", "pt-6", "sm:pt-10"]);
+    expect(bled).toEqual(["w-full", "pt-(--page-edge)"]);
     expect(banner).toEqual(["w-full"]);
   });
 
@@ -3022,10 +3017,8 @@ describe("page chrome belongs to each top-level section", () => {
       "max-w-7xl",
       "px-4",
       "sm:px-6",
-      "pt-6",
-      "sm:pt-10",
-      "pb-6",
-      "sm:pb-10",
+      "pt-(--page-edge)",
+      "pb-(--page-edge)",
     ]);
   });
 
@@ -3153,6 +3146,37 @@ describe("a section's name as a bar", () => {
     expect(
       container.querySelector('[data-testid="heading-bar"]')?.className,
     ).not.toContain("linear-gradient");
+  });
+
+  // **The room a bar gives its name, which is the complaint this answers.** A
+  // solid strip at `px-3 py-2` with `compact` type in it reads as crowded.
+  it.each([
+    ["roomy", "px-5 py-4"],
+    ["snug", "px-2 py-0.5"],
+  ] as const)("gives a %s bar its own padding", (heading_pad, expected) => {
+    const { container } = renderBlock(named({ heading: "bar", heading_pad }));
+    const bar = container.querySelector('[data-testid="heading-bar"]');
+    expect(bar?.className).toContain(expected);
+    // The default must be GONE, not merely joined — two padding utilities on
+    // one element is a class list whose winner depends on Tailwind's order.
+    expect(bar?.className).not.toContain("px-3 py-2");
+  });
+
+  it("leaves a bar that asks for nothing exactly as it was", () => {
+    const { container } = renderBlock(named({ heading: "bar" }));
+    expect(
+      container.querySelector('[data-testid="heading-bar"]')?.className,
+    ).toContain("px-3 py-2");
+  });
+
+  // **A plain name reads none of it**, which is the half a fixture could
+  // easily miss: padding on a heading with nothing behind it moves text for no
+  // reason, and the key is documented as bar-only.
+  it("gives a plain name no padding of its own", () => {
+    const { container } = renderBlock(named({ heading_pad: "roomy" }));
+    const section = container.querySelector("section");
+    expect(section?.textContent).toContain("Contacting Aeleos");
+    expect(section?.innerHTML).not.toContain("px-5 py-4");
   });
 
   // A container with no name has nothing to put in a bar, and asking for one

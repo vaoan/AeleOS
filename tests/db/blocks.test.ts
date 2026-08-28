@@ -1078,6 +1078,25 @@ describe("the style bag it refuses", () => {
     expect(await read(alice.sonaRef)).toEqual([leaf({ style })]);
   });
 
+  it.each(["snug", "roomy"])(
+    "accepts the %s heading padding and reads it back unchanged",
+    async (heading_pad) => {
+      const style = { heading_pad };
+      expect(
+        await write(alice.sub, alice.sonaRef, [leaf({ style })]),
+      ).toBeNull();
+      expect(await read(alice.sonaRef)).toEqual([leaf({ style })]);
+    },
+  );
+
+  it("refuses a heading padding it cannot render", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { heading_pad: "huge" } }),
+      ]),
+    ).toMatch(/unknown heading padding/i);
+  });
+
   it("refuses a style key nothing reads", async () => {
     expect(
       await write(alice.sub, alice.sonaRef, [

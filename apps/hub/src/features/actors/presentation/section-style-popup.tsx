@@ -73,8 +73,10 @@ export type SectionStyle = BlockStyle;
  * opacity rule exists to forbid. Every select INSIDE it already used `--menu`;
  * the group around them did not.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
- * an empty option that CLEARS the key rather than naming a value.
+ * It offers `chrome`, `heading`, `heading_pad`, `text_align`, `image_fit` and
+ * `radius` beside the border, each with an empty option that CLEARS the key
+ * rather than naming a value. `heading_pad` sits under the name-style select
+ * and behind the same condition: both are offered on a NAMED block only.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -126,6 +128,14 @@ export interface SectionStylePopupLabels {
   headingBar: string;
   /** The same bar with a vertical sheen. */
   headingGradient: string;
+  /** Field label for how much room a bar gives its name. */
+  headingPad: string;
+  /** The room option that keeps the ordinary strip. */
+  headingPadDefault: string;
+  /** A tighter strip. */
+  headingPadSnug: string;
+  /** A strip with room to breathe. */
+  headingPadRoomy: string;
   /** Field label for the text-alignment select. */
   textAlign: string;
   /** The alignment option that clears `style.text_align`. */
@@ -292,6 +302,11 @@ export interface SectionStylePopupProps {
  * `section-style-fit`, which the BACKGROUND fit above it already owns. The two
  * collided for one commit and four browser suites went red on it; nothing
  * short of a browser could have seen it.
+ *
+ * **`heading_pad` is offered on a NAMED block only**, behind the same
+ * condition as the name-style select it sits under — which is the honest
+ * shape, since the renderer reads it only where a bar is drawn and a control
+ * that stores what somebody picks and changes nothing is the worst kind.
  */
 export function SectionStylePopup({
   value,
@@ -557,6 +572,34 @@ export function SectionStylePopup({
                 <option value="">{labels.headingPlain}</option>
                 <option value="bar">{labels.headingBar}</option>
                 <option value="gradient">{labels.headingGradient}</option>
+              </select>
+
+              {/* **Offered beside the name style, and only where a name
+                  exists** — the same condition the select above carries. A
+                  bar is the only heading that can be crowded: a plain name
+                  floats with the page's own spacing around it and has no edge
+                  to be pressed against. */}
+              <label
+                htmlFor={`${id}-heading-pad`}
+                className="text-xs font-medium"
+              >
+                {labels.headingPad}
+              </label>
+              <select
+                id={`${id}-heading-pad`}
+                value={style.heading_pad ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "heading_pad",
+                    event.target.value as SectionStyle["heading_pad"] | "",
+                  )
+                }
+                {...tid("section-style-heading-pad")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.headingPadDefault}</option>
+                <option value="snug">{labels.headingPadSnug}</option>
+                <option value="roomy">{labels.headingPadRoomy}</option>
               </select>
             </div>
           ) : null}

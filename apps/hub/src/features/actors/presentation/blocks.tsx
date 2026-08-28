@@ -1093,6 +1093,12 @@ function Leaf(props: LeafProps): ReactNode {
  * named container may draw its name as a BAR — see `heading` in the style bag.
  * `gradient` is that same bar with a vertical sheen, and it collapses the
  * section's gap exactly as `bar` does: the two differ in the fill alone.
+ * `heading_pad` decides how much room that bar gives the name, and is read
+ * nowhere else — see {@link BAR_PADDING}.
+ *
+ * The page chrome it lays around a depth-0 section is `--page-edge` and
+ * `--page-gap` rather than fixed classes, so a page's `spacing` reaches
+ * BETWEEN its sections and not only inside their cards.
  */
 export function Block({
   block,
@@ -1158,8 +1164,13 @@ export function Block({
     barStyle === "gradient"
       ? "bg-[linear-gradient(to_bottom,color-mix(in_oklab,var(--accent)_88%,white),color-mix(in_oklab,var(--accent)_88%,black))]"
       : "bg-(--accent)";
+  // **Only a BAR can be crowded, so only a bar reads this.** A plain name
+  // floats with the page's own spacing around it and has no edge to be pressed
+  // against; giving it padding would move text with nothing behind it. Absent
+  // is `px-3 py-2`, which is what every barred page already had.
+  const barPad = BAR_PADDING.get(block.style?.heading_pad ?? "") ?? "px-3 py-2";
   const headingClass = barred
-    ? `${heading.className} ${fill} px-3 py-2 text-(--on-accent)`
+    ? `${heading.className} ${fill} ${barPad} text-(--on-accent)`
     : heading.className;
   // Spread rather than a ternary inside the JSX, which `sonarjs` reads as a
   // nested conditional — and it is right that a marker is not a thing to work
@@ -1318,9 +1329,40 @@ const MEASURE_WITHOUT_GUTTER_CLASS: Record<PageMeasure, string> = {
   full: "w-full",
 };
 
-const FIRST_MARGIN = "pt-6 sm:pt-10";
-const BETWEEN_MARGIN = "mt-10";
-const LAST_MARGIN = "pb-6 sm:pb-10";
+/**
+ * What each `heading_pad` gives a name drawn as a bar.
+ *
+ * A `Map` because the key arrives from `jsonb`, exactly as `CARD_SIZE_MIN` and
+ * `ROUNDNESS` are. Whole class strings rather than composed ones, so Tailwind
+ * can see every candidate it has to generate.
+ *
+ * `roomy` is the value this exists for — a solid strip at `px-3 py-2` with
+ * `compact` type in it reads as crowded — and `snug` is the other direction,
+ * which a 2003 table-based bar genuinely was.
+ */
+const BAR_PADDING = new Map<string, string>([
+  ["snug", "px-2 py-0.5"],
+  ["roomy", "px-5 py-4"],
+]);
+
+/**
+ * The page chrome around a depth-0 section, as TOKENS rather than fixed
+ * classes.
+ *
+ * **`spacing` reached inside a card and stopped there**, which is why a
+ * `compact` page still read as airy: measured against a default page, the two
+ * differed in card padding and in type size and agreed exactly on the 40px
+ * between every section. A density that cannot compress the gap between two
+ * boxes is a density that only half applies.
+ *
+ * `--page-gap` and `--page-edge` default at `:root` to precisely what `mt-10`
+ * and `pt-6 sm:pt-10` were, the edge's own breakpoint included, so a page that
+ * chooses no spacing renders exactly as it did. Only `themeCss` overrides
+ * them, and only when an author picked a spacing.
+ */
+const FIRST_MARGIN = "pt-(--page-edge)";
+const BETWEEN_MARGIN = "mt-(--page-gap)";
+const LAST_MARGIN = "pb-(--page-edge)";
 
 /**
  * Composes the page box a depth-0 block owns.

@@ -200,6 +200,7 @@ describe("the client's style limits", () => {
     ["text_align", BLOCK_STYLE_LIMITS.text_align],
     ["image_fit", BLOCK_STYLE_LIMITS.image_fit],
     ["radius", BLOCK_STYLE_LIMITS.radius],
+    ["heading_pad", BLOCK_STYLE_LIMITS.heading_pad],
   ])("the %s values match 0009's style block", (key, expected) => {
     const found = styleBlock?.match(
       new RegExp(`v_key = '${key}' then[\\s\\S]*?v_value not in \\(([^)]+)\\)`),

@@ -326,11 +326,12 @@ Key choices and _why_:
   feed has and the one `stack` cannot be asked for. It is an arrangement and
   decides nothing about its children — a feed is `list` plus `chrome: "bare"`.
 
-  The eight pastiche pages are rebuilt against real archived captures now, and
-  the two things that found were both about USING an option rather than
-  reasoning about one: an author cannot turn the moving backdrop off, and a
-  page-level typeface did not reach headings until it set the font TOKENS as
-  well as the property. Both are in the findings.
+  The pastiche pages are rebuilt against real archived captures, and the one
+  real thing that found was about USING an option rather than reasoning about
+  one: a page-level typeface did not reach headings until it set the font
+  TOKENS as well as the property. (The other, "an author cannot turn the
+  backdrop off", was a false diagnosis twice over — see the findings, which now
+  carry the correction rather than the claim.)
 
   It runs as a step in `conformance` beside `check:docs`, taking the base ref
   the same way, and in pre-commit as `--staged`. Both modes only see what is
@@ -338,15 +339,29 @@ Key choices and _why_:
   to it, exactly as it is to its sibling.
 
 - **What the block model CANNOT be pushed toward is written down, and it was
-  found by trying.** `scripts/seed-pastiches.mjs` builds eight pages aiming at
-  eight eras of somebody else's social network — the arrangement and palette,
-  never a logo — because a pastiche fails visibly and in a way you can name,
-  where "the editor feels limited" is not actionable. Findings:
-  `docs/superpowers/specs/2026-08-27-pastiche-findings.md`. The headline is that
-  **a leaf is always a card**: `border_style: "none"` removes the border style
-  and cannot make a leaf render as bare content, which blocks every modern feed
-  aesthetic at once. Read it before designing a style key, and note the two
-  things in it that LOOKED like faults and are not.
+  found by trying.** `scripts/seed-pastiches.mjs` builds **eleven** pages aiming
+  at eleven eras of somebody else's social network — the arrangement and
+  palette, never a logo — because a pastiche fails visibly and in a way you can
+  name, where "the editor feels limited" is not actionable. Findings:
+  `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, and the README's own
+  showcase table links every page with what each one proves. Read the findings
+  before designing a style key, and note the things in them that LOOKED like
+  faults and are not.
+
+  **Eight were rebuilt from real archived captures and three were not.** Fur
+  Affinity, Fotolog and Facebook were built from knowledge, because
+  web.archive.org stopped answering and Fur Affinity refuses an
+  unauthenticated fetch. That distinction is written into the findings, the
+  README and the seeder itself rather than left implicit, because the eight and
+  the three are not the same evidence and a reader cannot tell them apart by
+  looking.
+
+  **The seeder owns everything the pages depend on**, and that was learned the
+  hard way twice in one session: the avatars had been set by hand outside it,
+  so a re-run left the newest pages with an empty circle; and it went on
+  writing `unlisted` after the pages had been made public by hand, silently
+  undoing that on every run. **A seed that does not restore everything it
+  depends on works exactly once.**
 
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so

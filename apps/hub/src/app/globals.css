@@ -99,6 +99,22 @@
    * — is unreadable cropped into a round avatar, which is how this was found.
    */
   --img-fit: cover;
+
+  /*
+   * **The page's own spacing, so a density choice can reach OUTSIDE a card.**
+   * `spacing` compressed a card's padding and its type and stopped there, so
+   * every section still floated in 40px of air whatever an author picked —
+   * measured on a real `compact` page beside a default one, where the two
+   * differed in every number except this one. The values here are exactly what
+   * `mt-10` and `pt-6 sm:pt-10` were, so a page that sets no spacing is
+   * byte-identical to what it rendered before these existed.
+   *
+   * Declared at `:root` rather than only on a scope for the reason
+   * `--block-pad` is: an unset value makes `mt-(--page-gap)` invalid, which is
+   * no spacing at all on every page at once.
+   */
+  --page-gap: 2.5rem;
+  --page-edge: 1.5rem;
   --menu: oklch(99% 0.01 40deg);
   --surface: var(--surface-solid);
   --bar: var(--bar-solid);
@@ -639,6 +655,21 @@ option {
 @media (height <= 600px) {
   :root {
     --bar-top: 0px;
+  }
+}
+
+/*
+ * **The page's top and bottom edge grows on a real screen**, which is what
+ * `pt-6 sm:pt-10` said before this was a token. Written as a media query on
+ * `:root` rather than as a responsive utility because the value is now a token
+ * a page's own `spacing` overrides — and an override carrying no breakpoint of
+ * its own must win at every width, which is what a deliberate choice means.
+ * `40rem` is Tailwind's own `sm`, restated here because a token cannot ask a
+ * utility what its breakpoint is.
+ */
+@media (width >= 40rem) {
+  :root {
+    --page-edge: 2.5rem;
   }
 }
 

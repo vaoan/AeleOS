@@ -939,6 +939,34 @@ describe("the typeface and the spacing", () => {
     expect(css).toContain("font-size:0.8125rem");
   });
 
+  // **And the page's own spacing, which is the half this originally missed.**
+  // A `compact` page and a default page were measured differing in card
+  // padding and type size and agreeing EXACTLY on the 40px between every
+  // section, because the page box carried fixed classes no option could reach.
+  // The type was already tighter than the sites being imitated while the page
+  // still read as airy: the air was between the cards, not inside them.
+  it("compresses the space between sections, not only inside them", () => {
+    const css = themed({ spacing: "compact" });
+    expect(css).toContain("--page-gap:0.5rem");
+    expect(css).toContain("--page-edge:0.75rem");
+  });
+
+  it("opens that same space up for a roomy page", () => {
+    const css = themed({ spacing: "roomy" });
+    expect(css).toContain("--page-gap:4rem");
+    expect(css).toContain("--page-edge:3rem");
+  });
+
+  // **The discriminating half. Absence must emit NEITHER**, because the
+  // defaults live at `:root` and carry the `sm` breakpoint the page box used
+  // to spell out — so a page choosing no spacing has to fall through to them
+  // rather than be handed a constant at every width.
+  it("emits no page spacing at all when the key is absent", () => {
+    const css = themed({ font: "classic" });
+    expect(css).not.toContain("--page-gap");
+    expect(css).not.toContain("--page-edge");
+  });
+
   // **The discriminating case, and the whole reason this is not in
   // `themeVars`.** A `font-family` at `:root` would reset the app's bar, the
   // account menu and the language toggle to whatever a page chose. A test that

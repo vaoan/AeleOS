@@ -56,9 +56,9 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
  *
- * It carries the style popup's `chrome`, `heading`, `text_align`, `image_fit`
- * and `radius` strings, the theme panel's `font` and `spacing`, and the leaf
- * editor's `rowIcon`.
+ * It carries the style popup's `chrome`, `heading`, `heading_pad`,
+ * `text_align`, `image_fit` and `radius` strings, the theme panel's `font` and
+ * `spacing`, and the leaf editor's `rowIcon`.
  */
 export function blockEditorLabels(): BlockEditorLabels {
   return {
@@ -145,6 +145,10 @@ export function blockEditorLabels(): BlockEditorLabels {
       headingPlain: "Above the content",
       headingBar: "As a bar on top of it",
       headingGradient: "As a shaded bar",
+      headingPad: "Name spacing",
+      headingPadDefault: "Ordinary",
+      headingPadSnug: "Tight",
+      headingPadRoomy: "Roomy",
       textAlign: "Text",
       textAlignInherit: "Inherit the page",
       textAlignStart: "Left",

@@ -50,6 +50,45 @@ logins are configured for everybody.
 - **Nothing is uploaded.** Every picture, video and song on a page is a link
   somebody pasted. AeleOS hosts no files.
 
+## Eleven pages, one editor
+
+Every page below is built out of the same blocks, by the same editor, with no
+custom CSS anywhere. They are real fursonas of one person — `/137` — and each
+one is a pastiche of an era of somebody else's social network: the arrangement,
+the palette and the density, never a logo or a wordmark that is not the site's
+own mark used to identify it.
+
+They exist because **a pastiche fails visibly and in a way you can name.** "The
+editor feels limited" is not actionable; "a feed cannot lose its card edges"
+is. Six of the options the editor offers today were added because one of these
+pages could not be built without them.
+
+| page                                                                 | the era                    | what it proves the editor can do                                                                      |
+| -------------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [MySpace](https://me.furrycolombia.com/137/myspace)                  | 2005                       | A tiled background, a two-column body on `weights`, a Top 8, and a Winamp-chromed music player        |
+| [Fur Affinity](https://me.furrycolombia.com/137/furaffinity)         | the furry web              | A full-bleed banner, a narrow stats rail beside a wide body, a submissions grid, and a wall of shouts |
+| [Fotolog](https://me.furrycolombia.com/137/fotolog)                  | 2005, and huge in Colombia | One enormous photograph and a guestbook longer than the rest of the page                              |
+| [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | Blue title bars, an information table, a six-across friends strip, and a divided wall                 |
+| [hi5](https://me.furrycolombia.com/137/hi5)                          | 2007                       | Pill cards with hard shadows, a sticker grid, and a profile-completeness meter                        |
+| [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Glassy blue cards, contact groups that collapse, and a bubbles backdrop                               |
+| [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | A real photo wall in `masonry`, and album strips in a carousel                                        |
+| [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | Monospace type, a starfield, a tiled mosaic, a visitor-stats table and a webring                      |
+| [a microblog board](https://me.furrycolombia.com/137/board)          | 2012                       | A timeline, counts rows, and social chips that resolve a brand                                        |
+| [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | The one that is deliberately roomy, to show the density dial has two ends                             |
+| [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline between them and no cards at all                                    |
+
+Two of these are worth knowing about before you trust them. **The eight older
+pages were rebuilt against real archived captures**; Fur Affinity, Fotolog and
+Facebook were built from knowledge, because the archive would not answer the
+session that added them. And what is copied is layout, palette and density —
+if a pastiche and the real thing differ, the pastiche is wrong, not the model.
+
+The findings, including what the block model **cannot** be pushed toward and
+why two of those gaps are deliberate:
+[`docs/superpowers/specs/2026-08-27-pastiche-findings.md`](docs/superpowers/specs/2026-08-27-pastiche-findings.md).
+
+Rebuild them all with `node scripts/seed-pastiches.mjs`.
+
 ## How it works
 
 ```mermaid
