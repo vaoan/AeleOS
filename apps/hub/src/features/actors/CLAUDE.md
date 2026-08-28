@@ -2455,6 +2455,37 @@ would have shipped that fault silently — nothing renders differently for a
 moment, and the loss only shows up the next time somebody opens the theme
 panel.
 
+**That guard was wired correctly from the start and exercised by NOTHING,
+which the first review round caught.** `PageSourceField` sits under
+`features/*/presentation/**/*.tsx`, excluded from the coverage gate, and the
+one e2e case pasting a document always round-trips it through `toDocument`
+first — which ALWAYS emits a `theme` key, so only the truthy arm of `if
+(nextTheme)` ever ran. `fursona-editor.test.tsx`'s "leaves the author's
+theme alone when a pasted document omits it" is the case that closes it: it
+pastes a document with the `theme` key deleted outright, and asserts the
+whole derived stylesheet — compared by IDENTITY, not by matching one hex
+string, because the solved palette converts an author's accent to OKLCH
+rather than repeating it verbatim — is byte-identical before and after.
+Sabotage-verified by deleting the `if`: the unconditional `setValue("theme",
+null, …)` crashes `FursonaEditor`'s own render outright
+(`(liveTheme as ActorTheme).measure` reading a property off `null`), which is
+a clean red rather than a silent one.
+
+**The dock does not exist in the tree at all until it has been opened
+once, which the same review round asked for BY CONSTRUCTION rather than by
+measurement.** Before this, `PageSourceField` — and therefore
+`usePageSource`'s `[theme, blocks]` effect, a full `toDocument`
+serialisation of up to 500 blocks — mounted unconditionally alongside
+`EditorToolbar`, so every keystroke in the editor paid that cost whether or
+not anybody had ever pressed the control that opens the dock. `sourceMounted`
+gates `PageSourceField`'s very presence now: set `true` the first time
+`sourceOpen` is asked to become `true`, in the same click handler, and never
+reset — so closing the dock does not tear down the text or the problems it
+was showing. `fursona-editor.test.tsx`'s "does not mount the source dock
+until it is opened, and keeps it once it has been" is the proof, and it is a
+DOM-absence assertion rather than a timing one: nothing is mounted, so there
+is no cost to have measured in the first place.
+
 **Mounting the dock for the first time found three bugs in its class list,
 all invisible to every suite that existed before this one, because all three
 are about `<dialog>`'s USER-AGENT stylesheet — which jsdom implements none

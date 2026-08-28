@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_THEME,
   PAGE_FONTS,
@@ -10,7 +10,13 @@ import {
 } from "@/features/actors/domain/actor-theme";
 import { pageContext } from "./helpers/page-context";
 import type { ComponentProps, ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   BLOCK_LIMITS,
   BLOCK_STYLE_LIMITS,
@@ -769,6 +775,147 @@ describe("FursonaEditor", () => {
     // the edit landed, observable in the preview the editor renders inline.
     expect(previewText()).toContain("Live words");
     expect(toolbarRenders).toBe(before);
+  });
+});
+
+describe("the page-source dock's own mount and its theme guard", () => {
+  /**
+   * Stubs `HTMLDialogElement.prototype.show`/`showModal`/`close`.
+   *
+   * jsdom 26 implements none of the three, not as no-ops but as entirely
+   * absent properties — see `page-source-dock.test.tsx`'s own copy of this
+   * stub for the full account. Scoped to this describe block rather than the
+   * whole file: nothing else here ever mounts a `<dialog>`.
+   */
+  beforeEach(() => {
+    HTMLDialogElement.prototype.show = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.showModal = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.setAttribute("open", "");
+    });
+    HTMLDialogElement.prototype.close = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.removeAttribute("open");
+    });
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+    Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
+  });
+
+  // **THE REGRESSION TEST for a cost review round found by construction
+  // rather than by measurement.** `PageSourceField`'s `useWatch({ control,
+  // name: "sections" })` would fire `usePageSource`'s `[theme, blocks]`
+  // effect — a full `toDocument` serialisation of the whole page — on every
+  // keystroke in the editor, for every author who never opens the dock, if
+  // it existed in the tree from the start. It does not: `sourceMounted`
+  // gates its very presence, set only on the first press of the toolbar
+  // control and never unset. The absence of the dock's own test id from the
+  // DOM before that press is the proof — nothing here MEASURES a cost,
+  // because there is nothing mounted yet to have one.
+  it("does not mount the source dock until it is opened, and keeps it once it has been", () => {
+    renderEditor();
+
+    expect(screen.queryByTestId("page-source-dock")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("editor-open-source"));
+    expect(screen.getByTestId("page-source-dock")).toBeInTheDocument();
+
+    // **Closing does not tear it down.** `sourceMounted` is never unset by
+    // `onClose`, so the dock keeps the text and problems it was showing
+    // rather than losing them the moment somebody closes it.
+    fireEvent.click(screen.getByTestId("page-source-close"));
+    expect(screen.getByTestId("page-source-dock")).toBeInTheDocument();
+  });
+
+  // **THE REGRESSION TEST for the one branch that can destroy an author's
+  // colours.** `PageSourceField`'s `apply` writes `sections` unconditionally
+  // and `theme` only `if (nextTheme)` — `usePageSource` answers `theme:
+  // null` for a document that never mentioned one, by design (see its own
+  // TSDoc), and a caller that wrote `null` through to the form would reset
+  // the author's palette to whatever `themeSchema` resolves `null` to on the
+  // very next render. `PageSourceField` is under `presentation/**/*.tsx`,
+  // excluded from the coverage gate, and every other case in this
+  // repository pastes a document round-tripped through `toDocument`, which
+  // ALWAYS emits a `theme` key — so this is the only place the FALSE arm of
+  // that `if` is ever exercised at all.
+  it("leaves the author's theme alone when a pasted document omits it", () => {
+    vi.useFakeTimers();
+    try {
+      // A gradient, not accent alone. `themeVars` derives every colour from
+      // `theme.background` and emits nothing accent-related when it is
+      // absent — "a theme with no background emits only the cloud colours
+      // and the canvas, since there is nothing to solve the rest against"
+      // (see `themeVars`'s own TSDoc). A background is what puts this test on
+      // the path the guard actually protects.
+      const CUSTOMISED_THEME = {
+        ...DEFAULT_THEME,
+        accent: "#ff0000",
+        background: {
+          kind: "linear" as const,
+          repeating: false,
+          every: 0,
+          angle: 135,
+          shape: "ellipse" as const,
+          extent: "farthest-corner" as const,
+          x: 50,
+          y: 50,
+          stops: [
+            { color: "#2a0845", at: 0 },
+            { color: "#ff2d95", at: 100 },
+          ],
+        },
+      };
+      const { container } = renderEditor({ initialTheme: CUSTOMISED_THEME });
+
+      const cssText = () =>
+        [...container.querySelectorAll("style")]
+          .map((node) => node.textContent ?? "")
+          .join(" ");
+      // Compared by IDENTITY, not by matching a literal hex — the solved
+      // palette converts the author's accent to OKLCH rather than repeating
+      // it verbatim, so the assertion this test needs is "the whole derived
+      // stylesheet is unchanged," not "one string still appears."
+      const before = cssText();
+      expect(before).toContain("--accent:");
+
+      fireEvent.click(screen.getByTestId("editor-open-source"));
+      const textarea = screen.getByTestId(
+        "page-source-textarea",
+      ) as HTMLTextAreaElement;
+
+      // A genuine document missing its `theme` key entirely — not merely a
+      // document whose theme happens to match the author's own, which would
+      // pass this case whether or not the guard exists.
+      const withoutTheme = JSON.parse(textarea.value) as {
+        theme?: unknown;
+        blocks: unknown;
+        aeleos: number;
+      };
+      delete withoutTheme.theme;
+      const pasted = JSON.stringify(withoutTheme);
+      expect(pasted).not.toContain('"theme"');
+
+      fireEvent.change(textarea, { target: { value: pasted } });
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+
+      // The whole derived stylesheet is exactly what it was — never reset to
+      // whatever an unguarded `setValue("theme", null, …)` would have
+      // resolved to on the very next render.
+      expect(cssText()).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

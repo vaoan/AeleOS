@@ -1192,6 +1192,22 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   than creates — its plan step still says "Create," and that instruction is
   stale the moment this lands.
 
+  **Review round 1 found two more.** The full `pnpm --filter hub test:e2e`
+  suite had never actually been run against this wiring — only the one new
+  spec had — and `editor-toolbar.tsx`'s new button is exactly what
+  `responsive.spec.ts` exists to catch at portrait 320; run in full, 165
+  cases passed and none skipped, `responsive.spec.ts` included. The other two
+  were real gaps rather than a missing run: the dock mounted unconditionally
+  alongside the toolbar, so `usePageSource`'s full-page `toDocument` effect
+  fired on every keystroke for an author who never opened it — closed now by
+  gating `PageSourceField`'s very existence on having been opened once,
+  proved by DOM absence rather than by a timing measurement; and `apply`'s
+  `if (nextTheme)` guard, the one branch standing between a stray paste and a
+  reset author palette, was wired correctly and reached by nothing — every
+  e2e case pastes a document round-tripped through `toDocument`, which always
+  carries a `theme` key. Both are pinned in `fursona-editor.test.tsx` now, see
+  `apps/hub/src/features/actors/CLAUDE.md` for the account in full.
+
   Spec: `docs/superpowers/specs/2026-08-27-page-source-and-sharing-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-page-source-and-sharing.md`.
 

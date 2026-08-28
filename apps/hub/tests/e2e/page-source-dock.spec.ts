@@ -114,6 +114,37 @@ test("opens beside the page, reaching the right edge and the foot of the window"
   await expect(dock).toBeHidden();
 });
 
+// **Sheet mode is what the class list's own `max-md:` rules are for, and
+// nothing until now had watched it in a real browser.** The previous task
+// broke this exact shape once — `max-md:w-full` alone was not enough against
+// the always-on `max-w-[min(48rem,80vw)]` and `min-w-[20rem]`, both of which
+// clamp the USED width regardless of what `width` says — and it was found
+// only by measuring, not by re-reading the cascade reasoning. 320 is this
+// repository's own narrowest-phone convention, matching `responsive.spec.ts`.
+test("reaches both edges of the window at a narrow viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  await page.getByTestId("editor-open-source").click();
+  const dock = page.getByTestId("page-source-dock");
+  await expect(dock).toBeVisible();
+
+  const box = (await dock.boundingBox())!;
+
+  expect(
+    box.x,
+    "the dock reaches the left edge in sheet mode",
+  ).toBeLessThanOrEqual(1);
+  expect(
+    box.x + box.width,
+    "the dock reaches the right edge in sheet mode",
+  ).toBeGreaterThanOrEqual(319);
+});
+
 test("editing the box changes the page; breaking it leaves the page alone", async ({
   page,
 }) => {

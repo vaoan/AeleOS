@@ -140,7 +140,6 @@ export interface EditorToolbarProps {
  * `onHideControls` does: whether the dock is open is `FursonaEditor`'s
  * concern, not this bar's.
  *
-
  * **It spans the page and its ROW is columned, not the other way round**, and
  * it must be a DIRECT child of whatever box spans the whole editor. A
  * `position: sticky` element sticks only within its parent's box: this used to
