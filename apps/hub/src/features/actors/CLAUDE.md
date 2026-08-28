@@ -642,6 +642,20 @@ byte-for-byte what `withRequiredBlocks` seeds. It errs towards ASKING, which is
 the safe direction — the costly mistake is replacing somebody's page without
 one.
 
+**It takes the THEME as well, since 2026-08-28, and the gap it closes is the
+same shape one level along.** A chosen look is the author's work and the blocks
+cannot see it: somebody who picked colours and touched nothing else has a page
+that is still byte-for-byte the scaffold, so every question the predicate asked
+answered "nothing here is theirs" while a palette they chose was about to go.
+The parameter is optional, so a caller with no theme to hand keeps the old
+behaviour rather than being made to invent one, and it asks `isCustomised`
+rather than comparing against a default — that is already the question "has
+this person chosen anything", and a second implementation of it would drift.
+The discriminating case is the negative one: an untouched theme and a null one
+must both still answer true, or an implementation reading `theme !== undefined`
+satisfies the positive case and is wrong about every page that opens with a
+default.
+
 **A person's scaffold is two sections, not one**, and this is the part that
 looks like a bug when a test is written against a fursona's. The composed
 header carries `owner` for a fursona and nothing in its place for a person;

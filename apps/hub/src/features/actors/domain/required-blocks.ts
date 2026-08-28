@@ -6,6 +6,10 @@ import {
   type ContainerBlock,
   type LeafKind,
 } from "@/features/actors/domain/block-schema";
+import {
+  isCustomised,
+  type ActorTheme,
+} from "@/features/actors/domain/actor-theme";
 
 /**
  * Which kind of page is being validated.
@@ -290,6 +294,16 @@ export function withRequiredBlocks(blocks: Block[], kind: ActorKind): Block[] {
  * recognises, and both sides come from the same builder, so their key order is
  * the same by construction.
  *
+ * **A chosen LOOK is their work too, and the blocks cannot see it.** Somebody
+ * may have picked colours and touched nothing else: the page is then still
+ * byte-for-byte the scaffold, so every question above answers "nothing here is
+ * theirs" while a palette they chose is about to be replaced. `theme` is how
+ * this function is told. It is optional so that a caller with no theme to hand
+ * keeps the old behaviour rather than being forced to invent one, and it asks
+ * {@link isCustomised} rather than comparing against a default, because that is
+ * already the question "has this person chosen anything" and a second
+ * implementation of it would drift.
+ *
  * **It errs towards asking.** Anything that is not one of those two — a title
  * somebody edited, a block they moved, a second portrait — counts as theirs
  * and the picker confirms. The costly mistake is the other one: replacing a
@@ -297,12 +311,17 @@ export function withRequiredBlocks(blocks: Block[], kind: ActorKind): Block[] {
  *
  * @param blocks - the page as the form holds it.
  * @param kind - which kind of actor's page it is.
+ * @param theme - the live theme, when the caller has one. A customised theme
+ *   is the author's work whatever the blocks say; an untouched or absent one
+ *   decides nothing.
  * @returns true when nothing on the page is the author's.
  */
 export function holdsNothingAuthored(
   blocks: readonly Block[],
   kind: ActorKind,
+  theme?: ActorTheme | null,
 ): boolean {
+  if (theme && isCustomised(theme)) return false;
   if (blocks.length === 0) return true;
   return (
     JSON.stringify(blocks) === JSON.stringify(withRequiredBlocks([], kind))

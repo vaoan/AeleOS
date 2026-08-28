@@ -11,6 +11,7 @@ import {
   type Block,
   type ContainerBlock,
 } from "@/features/actors/domain/block-schema";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 
 /** A leaf of the given kind. */
 const leaf = (kind: string): Block =>
@@ -193,6 +194,33 @@ describe("holdsNothingAuthored", () => {
   // answer has to be right rather than merely unreachable.
   it("counts an empty page as holding nothing of theirs", () => {
     expect(holdsNothingAuthored([], "fursona")).toBe(true);
+  });
+
+  // **A LOOK is the author's work too, and the blocks cannot see it.** Somebody
+  // may have picked colours and touched nothing else; the page is then still
+  // byte-for-byte the scaffold, and replacing it would take their palette with
+  // it. Before this the picker applied without asking, because it asked the
+  // wrong question.
+  it("counts a chosen theme as the author's work", () => {
+    const scaffold = withRequiredBlocks([], "fursona");
+    expect(holdsNothingAuthored(scaffold, "fursona")).toBe(true);
+
+    expect(
+      holdsNothingAuthored(scaffold, "fursona", {
+        ...DEFAULT_THEME,
+        accent: "#e21233",
+      }),
+    ).toBe(false);
+  });
+
+  // **Anti-vacuity, and it is the half that discriminates.** The case above
+  // must go false because the theme is CUSTOMISED, not merely because a theme
+  // was passed — an implementation reading `theme !== undefined` would satisfy
+  // it and be wrong about every page that opens with a default.
+  it("does not count an untouched theme", () => {
+    const scaffold = withRequiredBlocks([], "fursona");
+    expect(holdsNothingAuthored(scaffold, "fursona", DEFAULT_THEME)).toBe(true);
+    expect(holdsNothingAuthored(scaffold, "fursona", null)).toBe(true);
   });
 
   it.each([
