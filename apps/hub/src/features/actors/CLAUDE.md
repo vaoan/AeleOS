@@ -2165,7 +2165,10 @@ one language.
 Two things follow, and the second is the one that generalises. **Grep the
 whole repository for the claim, not the language you were working in** — a
 model documented in TypeScript and in SQL has two places to be wrong, and
-`check:docs` reads only one of them. And **a comment inside a function body
+neither of the mechanisms below this paragraph reads the second one: the
+`/\bonly\b|\bevery other\b/i` gate runs over `page-reference.ts`'s records,
+and `check:docs` compares a TypeScript symbol against its own code. A `.sql`
+comment is outside both, so it is grep or nothing. And **a comment inside a function body
 is `prosrc`, so correcting one is an edit to an applied migration**: it was
 hand-applied to the live project the same day and `pnpm check:schema-drift`
 re-run green either side of it. Root rule 28's own incident is the proof that
