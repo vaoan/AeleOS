@@ -2171,6 +2171,56 @@ claim has to move into a record checked against real data (the way
 `ROWS_MEANINGS` is checked against `leafFields`), because the sentence beside
 it is not proof of anything.**
 
+**Round 2 SHARPENED a pre-existing falsehood into a more precise one by
+naming a mode explicitly, without checking the mechanism (round 3).** Section
+2's `spaces` prose already said the wrong thing about every mode when it said
+"whichever mode is in charge, children fill rows"; fixing `carousel`/`tabs`/
+`accordion` and then writing "for both of them [`grid` and `masonry`],
+children fill places row by row" made the SAME underlying error concrete and
+specific by naming `masonry` outright — which is false, because CSS
+multi-column fills column-major (down the first column, not across the first
+row), the exact fact `MODE_MEANINGS.masonry` two paragraphs above already
+states ("packs children into columns by height"). The lesson: correcting an
+adjacent falsehood is not the same as verifying the sentence you are writing,
+and a self-contradiction inside the SAME generated document — one paragraph
+naming the mechanism correctly, another getting it wrong — is a check worth
+running on its own, not assumed to follow from fixing something else nearby.
+
+**The gate's regex grew a word boundary (round 3): `/\bonly\b|\bevery
+other\b/i`, not the bare `/only|every other/i` round 2 shipped.** A fragment
+match snags "commonly", "monopoly" or any future word merely containing "only"
+— harmless today, since nothing in these records happens to contain such a
+word, but a future true sentence could lose a legitimate word to it for no
+reason connected to what the gate exists to catch. Sabotage-verified again
+after the change: restoring the original `table` claim still reddens it.
+
+**Where the history of a correction belongs is not inside a `@param`
+(round 3).** `text-leaves.tsx`'s `tableRows` carried five lines of
+provenance — including the original false sentence, quoted verbatim — inside
+its `@param leaf` description, which this repo reserves for the parameter's
+own contract. A `@param` is read as an assertion about the parameter, not a
+changelog; quoting a falsehood there plants a searchable copy of it exactly
+where someone skimming mid-comment is most likely to read it as still true.
+The fix moved the (now true) fact into the function's TSDoc body and cut the
+provenance entirely, since this note already carries it.
+
+**A known, accepted limit: the gate cannot catch a fourth inverting kind.**
+`stat`, `quote` and `progress` each name the OTHER two in their own meaning
+("the pair is inverted, the same as `quote` and `progress`", and so on) —
+hand-maintained cross-references rather than a derived list, because nothing
+in {@link LEAF_KINDS} or `LEAF_FIELDS` marks which kinds invert their
+title/description pair (that fact lives only in `block-schema.ts`'s own
+TSDoc). If a fourth kind is ever given the same inversion, these three
+sentences would need a fourth name added by hand, and nothing here would
+fail if that were forgotten — "the same as X and Y" contains no `only` or
+`every other` for the gate to catch, so this is a real residual gap. Ruled
+deliberately NOT worth a mechanism for: three members is not worth a second
+gated record the way seventeen leaf kinds or eight container modes are, and
+the cost of getting it wrong is a slightly incomplete cross-reference, not a
+falsehood the shape `ROWS_MEANINGS` was built to prevent. Revisit this
+ruling if a fourth inverting kind is ever added — that is the moment the
+maintenance cost stops being hypothetical.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The

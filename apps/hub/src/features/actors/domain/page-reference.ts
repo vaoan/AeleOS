@@ -482,6 +482,27 @@ function styleLimitLine(
  * sentence was true of colours when it was written and became false the
  * moment "any other theme key" widened it to cover the three dials too.
  *
+ * **Round 2's own fix for the `spaces` paragraph named `masonry` explicitly
+ * and was STILL wrong (review round 3).** "For both of them [`grid` and
+ * `masonry`], children fill places row by row" is false for `masonry`: CSS
+ * multi-column fills column-major — children go DOWN the first column, not
+ * ACROSS the first row — which is the exact fact {@link MODE_MEANINGS}'s own
+ * `masonry` line states two paragraphs above ("packs children into columns
+ * by height"). Naming a mode explicitly while fixing an adjacent falsehood
+ * is not the same as verifying the sentence being written; the paragraph now
+ * says `grid` fills row by row and `masonry` fills its columns and grows
+ * taller, and the "re-wraps into more rows" trailing clause was corrected
+ * the same way — `masonry` gets taller columns, not more rows.
+ *
+ * **Section 8's closing paragraph repeated "a theme object is not a patch"
+ * three times across the document (review round 3) — cut to one.** Section
+ * 1's `theme` bullet already states the full claim; the dial paragraph's
+ * own closing clause and section 8's restatement (which quoted the
+ * `{"skin": "comic"}` example a second time) were redundant with it and are
+ * gone. Section 8 now only points back to section 1 and gives the practical
+ * instruction — read the current theme first, send it back with one key
+ * changed — that section 1 does not.
+ *
  * @param kind - which kind of actor's page this reference is being generated
  *   for. Decides which leaf kinds section 5 says are required and refused,
  *   and which shape the worked example takes.
@@ -564,16 +585,20 @@ A **container** arranges other blocks; it holds no content of its own. Its
 ${modeRows}
 
 - \`spaces\`: how many places it lays out ACROSS, from 1 to ${BLOCK_LIMITS.spaces}.
-  **Only two modes read it, and read it differently: \`grid\` lays that many
-  tracks and \`masonry\` reads it as its column count. For both of them,
-  children fill places row by row and the container grows downward as more
-  are added, so a section of fifty pictures three across is three spaces and
-  seventeen rows, not a section nobody can build.** Every other mode ignores
-  the number entirely — \`stack\`, for one, lays exactly one place per row
-  whatever \`spaces\` says, and \`carousel\`, \`tabs\` and \`accordion\` arrange
-  their children by their own rules with no \`spaces\`-wide rows at all; see
-  each mode's own line above. Narrowing \`spaces\` re-wraps a \`grid\` or
-  \`masonry\` container's existing children into more rows and loses nothing.
+  **Only two modes read it, and read it very differently: \`grid\` lays that
+  many tracks, filling them row by row and growing DOWNWARD — more rows — as
+  more children are added, so a section of fifty pictures three across is
+  three spaces and seventeen rows, not a section nobody can build.
+  \`masonry\` reads it as its column count instead: children fill DOWN each
+  column in turn (CSS multi-column's own column-major order), so adding more
+  grows a column TALLER rather than adding another row.** Every other mode
+  ignores the number entirely — \`stack\`, for one, lays exactly one place
+  per row whatever \`spaces\` says, and \`carousel\`, \`tabs\` and \`accordion\`
+  arrange their children by their own rules with no \`spaces\`-wide rows at
+  all; see each mode's own line above. Narrowing \`spaces\` re-wraps a
+  \`grid\` container's existing children into more rows, and makes a
+  \`masonry\` container's columns taller — either way nothing already there
+  is lost.
 - \`weights\` (optional): one whole share per place, each from 1 to
   ${BLOCK_LIMITS.weight}, so \`spaces: 3\` with \`weights: [1, 3, 1]\` lays a
   narrow place, one three times as wide, and a narrow place. **Read only by
@@ -700,20 +725,12 @@ or \`backgroundUrl\`. **\`density\`, \`speed\` and \`scale\` are the exception: 
 number outside ${CANVAS_RANGE.min}–${CANVAS_RANGE.max} is CLAMPED to that
 range rather than reset, and only a value that is not a usable number at
 all** (not a number, or non-finite) **falls back to the default
-(${CANVAS_RANGE.default}).** None of this remembers whatever the page had a
-moment ago either way — every key is resolved fresh from what this document
-sends.
+(${CANVAS_RANGE.default}).**
 
-**A theme object is not a patch, and this is the one thing in this whole
-document most worth getting right.** Every key inside it is resolved
-independently, each falling back to its own design default when the key is
-absent or its value unrecognised. So \`{"skin": "comic"}\` does not merely add
-a skin: it also resets the accent, the background gradient, the canvas
-colours and every dial to the design's own, because nothing here remembers
-what the page had before. The ONLY way to leave the page's current theme
-untouched is to omit the whole \`theme\` key, or send it as \`null\` — see
-section 1. To change one thing and keep the rest, read the page's current
-theme first and send it back with that one key edited.
+See section 1 for what sending a theme object actually does to the rest of
+the page's theme — every key is resolved independently, so this is not the
+place to repeat it. To change one thing and keep the rest, read the page's
+current theme first and send it back with that one key edited.
 
 ## A worked example, for a ${kind}'s page
 

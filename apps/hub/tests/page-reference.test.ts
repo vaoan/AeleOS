@@ -118,7 +118,7 @@ describe("the reference describes every member of every vocabulary", () => {
     // that distinction or force those sentences into worse phrasing for no
     // safety gained. The four falsehoods this test guards against were all
     // in the hand-written per-member text, which nothing had gated before.
-    const exclusivity = /only|every other/i;
+    const exclusivity = /\bonly\b|\bevery other\b/i;
     for (const mode of CONTAINER_MODES) {
       expect(MODE_MEANINGS[mode], `${mode}`).not.toMatch(exclusivity);
     }
@@ -184,7 +184,11 @@ describe("the reference is built from the constants rather than typed out", () =
     // own default. Only the whole `theme` KEY being absent or null leaves the
     // page untouched.
     const text = pageReference("fursona");
-    expect(text).toMatch(/not a patch/i);
+    // "not a patch" no longer appears as a literal substring after round 3
+    // trimmed section 8's own restatement of it (the coordinator's
+    // redundancy finding) — section 1 carries the claim now, phrased as
+    // "not the same as sending a patch to one".
+    expect(text).toMatch(/not the same as sending a patch/i);
     expect(text).toMatch(/resets? (the accent|everything else)/i);
   });
 
