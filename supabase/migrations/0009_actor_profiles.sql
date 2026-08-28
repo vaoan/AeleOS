@@ -51,9 +51,9 @@ create table public.actor_profiles (
   --                description_es?, icon?, image_url?, link_url?, rows?,
   --                style? }
   --   rows:      the rows of cells a `table` leaf carries — an array of rows,
-  --              each an array of { text_en?, text_es? }
+  --              each an array of { text_en?, text_es?, icon? }
   --   style:     { skin?, background_url?, background_fit?, card_size?,
-  --                border?, chrome?, heading?, text_align? } — how the BLOCK
+  --                border?, chrome?, heading?, text_align?, image_fit?, radius? } — how the BLOCK
   --                chooses to look, form only and
   --              never colour. Every key is optional and absence means
   --              "inherit the page", exactly as the theme's own keys work.
@@ -124,7 +124,7 @@ create table public.actor_profiles (
 );
 
 comment on column public.actor_profiles.sections is
-  'An actor page as a TREE OF BLOCKS, not a flat list of sections. Each element is a block discriminated on kind, which is one of is_block_kind(). A container arranges: {kind: "container", mode, spaces?, weights?, name_en?, name_es?, children[], style?}, where mode is one of is_container_mode() and decides arrangement only. A leaf holds one piece of content: {kind, title_en, title_es?, description_en?, description_es?, icon?, image_url?, link_url?, rows?, style?}, where rows is the rows of cells a table leaf carries, each cell {text_en?, text_es?}. A section is a container at depth 0 carrying a name; depth is capped and the cap is counted explicitly rather than inferred from shape. spaces is how many places the container lays out ACROSS, absent meaning one. It is a width and never a total: children fill the places row by row and the section grows downward, so a part-filled last row is the ordinary state and the two counts are unrelated. weights is one whole share per place, 1 to 6, deciding how wide each place is relative to its siblings; absent means uniform, a list whose length is not spaces is refused on the write and ignored on the read, and it is stored for every mode though only grid lays tracks to spend it on. A children entry may be JSON null, an empty place that keeps its width on the page and draws nothing; the entries are positional, because a merely shorter list cannot say that the middle place is empty, and nothing may collapse or trim them, a trailing null included. columns and span are what spaces replaces and are refused by name, so a stale writer hears about it rather than having the page come back a shape nobody chose. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) is stored and read by no renderer today; it named a minimum card width for a grid that chose its own column count, and a container declares its spaces explicitly now. border (solid/dashed/dotted/double/none) sets --skin-border-style for the block; none is a choice and absence is inheritance of whatever the page already set. chrome (card/bare) decides whether the block''s content sits in a card at all: bare drops the fill, the edge, the shadow and the padding together, which border=none cannot do because it removes the border style alone. heading (plain/bar) is how a NAMED container draws its name, plain floating it above the content and bar making it a solid strip with the content squared off beneath; it is read only where a name exists. text_align (start/center/end) sets the edge the block''s own text is set against, inherited by the surfaces beneath it. bleed is a boolean read at depth 0 only: true takes the section out of the measure its page chose so it reaches both edges of the window, absent means it sits inside that measure. It is stored at any depth, because a key that means nothing where it sits costs nothing and refusing it would make moving a section into another one fail on a style it carried legitimately a moment before. margins is a boolean read at depth 0 only and independent of bleed, which decides width alone: absent or true keeps the page chrome around that section, meaning its side gutter, the gap to its neighbour, and the space under the bar or above the floor when it is first or last, while false removes all of it, which is what makes a first section a banner and a last one a footer. Absence is what every page written before this key was added carries, so the editor stores false alone and never true. It is stored at any depth for the same reason bleed is. Validated by set_actor_sections, which walks the tree through validate_block.';
+  'An actor page as a TREE OF BLOCKS, not a flat list of sections. Each element is a block discriminated on kind, which is one of is_block_kind(). A container arranges: {kind: "container", mode, spaces?, weights?, name_en?, name_es?, children[], style?}, where mode is one of is_container_mode() and decides arrangement only. A leaf holds one piece of content: {kind, title_en, title_es?, description_en?, description_es?, icon?, image_url?, link_url?, rows?, style?}, where rows is the rows of cells a table leaf carries, each cell {text_en?, text_es?, icon?}, the icon being a mark drawn beside the row and read from the row''s first cell only. A section is a container at depth 0 carrying a name; depth is capped and the cap is counted explicitly rather than inferred from shape. spaces is how many places the container lays out ACROSS, absent meaning one. It is a width and never a total: children fill the places row by row and the section grows downward, so a part-filled last row is the ordinary state and the two counts are unrelated. weights is one whole share per place, 1 to 6, deciding how wide each place is relative to its siblings; absent means uniform, a list whose length is not spaces is refused on the write and ignored on the read, and it is stored for every mode though only grid lays tracks to spend it on. A children entry may be JSON null, an empty place that keeps its width on the page and draws nothing; the entries are positional, because a merely shorter list cannot say that the middle place is empty, and nothing may collapse or trim them, a trailing null included. columns and span are what spaces replaces and are refused by name, so a stale writer hears about it rather than having the page come back a shape nobody chose. style is form only, never colour, every key optional meaning "inherit the page", and skin is not checked against a list for the same reason the page-level skin is not. card_size (s/m/l) is stored and read by no renderer today; it named a minimum card width for a grid that chose its own column count, and a container declares its spaces explicitly now. border (solid/dashed/dotted/double/none) sets --skin-border-style for the block; none is a choice and absence is inheritance of whatever the page already set. chrome (card/bare) decides whether the block''s content sits in a card at all: bare drops the fill, the edge, the shadow and the padding together, which border=none cannot do because it removes the border style alone. heading (plain/bar/gradient) is how a NAMED container draws its name, plain floating it above the content, bar making it a solid strip with the content squared off beneath, and gradient the same strip with a symmetric vertical sheen; it is read only where a name exists. text_align (start/center/end) sets the edge the block''s own text is set against, inherited by the surfaces beneath it. image_fit (cover/contain) is how a picture fills its box: cover crops and contain does not, absent being cover. radius (square/soft/round) overrides the skin''s own corner, absent inheriting it. bleed is a boolean read at depth 0 only: true takes the section out of the measure its page chose so it reaches both edges of the window, absent means it sits inside that measure. It is stored at any depth, because a key that means nothing where it sits costs nothing and refusing it would make moving a section into another one fail on a style it carried legitimately a moment before. margins is a boolean read at depth 0 only and independent of bleed, which decides width alone: absent or true keeps the page chrome around that section, meaning its side gutter, the gap to its neighbour, and the space under the bar or above the floor when it is first or last, while false removes all of it, which is what makes a first section a banner and a last one a footer. Absence is what every page written before this key was added carries, so the editor stores false alone and never true. It is stored at any depth for the same reason bleed is. Validated by set_actor_sections, which walks the tree through validate_block.';
 
 alter table public.actor_profiles enable row level security;
 
@@ -716,6 +716,14 @@ begin
           raise exception 'block %, row %: cell text is too long (limit %)',
             p_path, m, c_max_text using errcode = '22023';
         end if;
+
+        -- A mark beside the row, read from the row's FIRST cell only. Named
+        -- rather than checked against a list, exactly like a leaf's own icon:
+        -- the renderer falls back when it does not know the name.
+        if length(coalesce(v_cell ->> 'icon', '')) > c_max_text then
+          raise exception 'block %, row %: cell icon is too long (limit %)',
+            p_path, m, c_max_text using errcode = '22023';
+        end if;
       end loop;
     end loop;
   end if;
@@ -788,12 +796,26 @@ begin
         -- content, `bar` is a solid strip with the content squared off
         -- beneath. Read only where a name exists, and stored at any depth for
         -- the reason `bleed` is.
-        if v_value not in ('plain', 'bar') then
+        if v_value not in ('plain', 'bar', 'gradient') then
           raise exception 'block %: unknown heading style', p_path using errcode = '22023';
         end if;
       elsif v_key = 'text_align' then
         if v_value not in ('start', 'center', 'end') then
           raise exception 'block %: unknown text alignment', p_path using errcode = '22023';
+        end if;
+      elsif v_key = 'radius' then
+        -- How round this block's corners are, independent of its skin. The
+        -- corner used to come welded to a whole aesthetic; absent still
+        -- inherits, so an existing page keeps the corner its skin chose.
+        if v_value not in ('square', 'soft', 'round') then
+          raise exception 'block %: unknown corner radius', p_path using errcode = '22023';
+        end if;
+      elsif v_key = 'image_fit' then
+        -- How a picture fills its box. `cover` crops and `contain` does not;
+        -- absent is `cover`, which is what every page carried before this key.
+        -- A wide image — a logo, a banner — is unreadable cropped to a circle.
+        if v_value not in ('cover', 'contain') then
+          raise exception 'block %: unknown image fit', p_path using errcode = '22023';
         end if;
       elsif v_key = 'bleed' then
         -- **Checked as a JSON BOOLEAN, never as the text this loop yields.**

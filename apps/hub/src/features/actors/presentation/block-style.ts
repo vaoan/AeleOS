@@ -45,6 +45,24 @@ const CARD_SIZES = {
 const CARD_SIZE_MIN = new Map<string, string>(Object.entries(CARD_SIZES));
 
 /**
+ * The `--skin-round` multiplier each corner stop asks for.
+ *
+ * A `Map` for the same reason {@link CARD_SIZE_MIN} is one: the key arrives
+ * from `jsonb`, and indexing a plain object with stored data is the shape that
+ * put a `__proto__` through a lookup once already.
+ *
+ * `square` is `0` and not a small number — a corner that is nearly square
+ * reads as a mistake rather than a choice. `soft` is `1`, which is Tailwind's
+ * own scale unmodified, and `round` is `2.5`, chosen to sit between `candy`'s
+ * `1.8` and `pill`-like `3.5` so it is visibly a stop of its own.
+ */
+const ROUNDNESS = new Map<string, string>([
+  ["square", "0"],
+  ["soft", "1"],
+  ["round", "2.5"],
+]);
+
+/**
  * The narrowest edge each border style can be drawn on and still be that
  * style, as `--skin-border-min`.
  *
@@ -144,6 +162,15 @@ const BORDER_MIN_WIDTH = new Map<string, string>([
  *
  * `chrome` and `text_align` join the bag it emits: `bare` neutralises the card
  * by token rather than by a rule on a generated class.
+ *
+ * `image_fit` and `radius` join it too, and both are emitted as TOKENS for
+ * reasons worth keeping. `--img-fit` because the `<img>` that reads it sits
+ * inside a leaf this bag never reaches, and it is emitted only when the key is
+ * present: the default lives at `:root`, so an unstyled block emitting `cover`
+ * would overwrite an enclosing section's `contain`. `--skin-round` because it
+ * is a multiplier the skins already spend, which is what lets a block wear
+ * `comic` and still be round — and it is written AFTER the skin's own vars are
+ * spread into this same object, so the later key wins.
  */
 export function blockStyle(
   style: BlockStyle | undefined,
@@ -208,6 +235,20 @@ export function blockStyle(
   } else if (style.chrome === "card") {
     vars["--block-pad"] = "1rem";
   }
+
+  // **A token, because the image is inside a leaf this bag never reaches.**
+  // The kinds that draw a picture read `--img-fit`; absent leaves the default
+  // `cover` declared at `:root`, so an existing page is untouched.
+  if (style.image_fit) vars["--img-fit"] = style.image_fit;
+
+  // **Written AFTER the skin, which is what makes it compose.**
+  // `nestedSkinVars` is spread into this same object above, so a later key
+  // wins — a block may wear `comic` and still be round, which is the whole
+  // point of separating the corner from the aesthetic. `--skin-round` is a
+  // MULTIPLIER on Tailwind's radius scale, so these are absolute stops rather
+  // than nudges, and absence leaves the skin's own number untouched.
+  const round = ROUNDNESS.get(style.radius ?? "");
+  if (round) vars["--skin-round"] = round;
 
   // Inherited, so a section set to `center` centres every leaf beneath it
   // without each one carrying the key. A block may still set its own.

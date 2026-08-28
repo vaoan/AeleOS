@@ -65,7 +65,15 @@ export type SectionStyle = BlockStyle;
  * `margins` names the chrome checkbox beside it: default checked, storing
  * nothing, with `false` the only persisted opt-out.
  *
- * It offers `chrome`, `heading` and `text_align` beside the border, each with
+ * **The panel takes `--menu`, the one token declared opaque in both modes**,
+ * and this was found by READING a screenshot rather than by any check. It took
+ * `--surface`, which carries `/.9` in the editor's chrome scope — measured, not
+ * inferred — so the page behind it showed through a control floating over
+ * whatever colour its author chose, which is the exact thing the workbench's
+ * opacity rule exists to forbid. Every select INSIDE it already used `--menu`;
+ * the group around them did not.
+ *
+ * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
  * an empty option that CLEARS the key rather than naming a value.
  */
 export interface SectionStylePopupLabels {
@@ -116,6 +124,8 @@ export interface SectionStylePopupLabels {
   headingPlain: string;
   /** The name-style option that welds the name to its content as a bar. */
   headingBar: string;
+  /** The same bar with a vertical sheen. */
+  headingGradient: string;
   /** Field label for the text-alignment select. */
   textAlign: string;
   /** The alignment option that clears `style.text_align`. */
@@ -126,6 +136,24 @@ export interface SectionStylePopupLabels {
   textAlignCenter: string;
   /** Text set against the far edge. */
   textAlignEnd: string;
+  /** Field label for the picture-fit select. */
+  imageFit: string;
+  /** The fit option that clears `style.image_fit`. */
+  imageFitInherit: string;
+  /** A picture cropped to fill its box. */
+  imageFitCover: string;
+  /** A picture shown whole, letterboxed in its box. */
+  imageFitContain: string;
+  /** Field label for the corner select. */
+  radius: string;
+  /** The corner option that keeps whatever the skin chose. */
+  radiusInherit: string;
+  /** Corners with no rounding at all. */
+  radiusSquare: string;
+  /** Ordinary rounding. */
+  radiusSoft: string;
+  /** Heavily rounded corners. */
+  radiusRound: string;
   /** Field label for the border select. */
   border: string;
   /**
@@ -164,7 +192,7 @@ export interface SectionStylePopupLabels {
  * offered: this component sees a style bag and never knows where its block
  * sits.
  *
- * It offers `chrome`, `heading` and `text_align` beside the border, each with
+ * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
  * an empty option that CLEARS the key rather than naming a value.
  */
 export interface SectionStylePopupProps {
@@ -250,8 +278,20 @@ export interface SectionStylePopupProps {
  *
  * @returns the button and, while open, the popup.
  *
- * It offers `chrome`, `heading` and `text_align` beside the border, each with
+ * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
  * an empty option that CLEARS the key rather than naming a value.
+ *
+ * **The panel itself takes `--menu`, the one token declared opaque in both
+ * modes**, where every select inside it already did. It took `--surface`,
+ * which carries `/.9` in the chrome scope, so the page behind it showed
+ * through a control floating over a colour its author chose — the exact thing
+ * the workbench opacity rule forbids. Guarded in `editor-is-the-page.spec.ts`
+ * on the computed alpha, because the class name was never what was wrong.
+ *
+ * **The picture-fit select's test id is `section-style-image-fit`**, not
+ * `section-style-fit`, which the BACKGROUND fit above it already owns. The two
+ * collided for one commit and four browser suites went red on it; nothing
+ * short of a browser could have seen it.
  */
 export function SectionStylePopup({
   value,
@@ -355,7 +395,7 @@ export function SectionStylePopup({
         <div
           ref={panelRef}
           {...tid("section-style-panel")}
-          className="absolute top-full right-0 z-20 mt-1 grid w-72 max-w-[calc(100vw-2rem-49px)] gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-3 shadow-lg"
+          className="absolute top-full right-0 z-20 mt-1 grid w-72 max-w-[calc(100vw-2rem-49px)] gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 shadow-lg"
         >
           <span className="text-xs font-medium">{labels.title}</span>
 
@@ -516,6 +556,7 @@ export function SectionStylePopup({
               >
                 <option value="">{labels.headingPlain}</option>
                 <option value="bar">{labels.headingBar}</option>
+                <option value="gradient">{labels.headingGradient}</option>
               </select>
             </div>
           ) : null}
@@ -540,6 +581,51 @@ export function SectionStylePopup({
               <option value="start">{labels.textAlignStart}</option>
               <option value="center">{labels.textAlignCenter}</option>
               <option value="end">{labels.textAlignEnd}</option>
+            </select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-image-fit`} className="text-xs font-medium">
+              {labels.imageFit}
+            </label>
+            <select
+              id={`${id}-image-fit`}
+              value={style.image_fit ?? ""}
+              onChange={(event) =>
+                setField(
+                  "image_fit",
+                  event.target.value as SectionStyle["image_fit"] | "",
+                )
+              }
+              {...tid("section-style-image-fit")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              <option value="">{labels.imageFitInherit}</option>
+              <option value="cover">{labels.imageFitCover}</option>
+              <option value="contain">{labels.imageFitContain}</option>
+            </select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-radius`} className="text-xs font-medium">
+              {labels.radius}
+            </label>
+            <select
+              id={`${id}-radius`}
+              value={style.radius ?? ""}
+              onChange={(event) =>
+                setField(
+                  "radius",
+                  event.target.value as SectionStyle["radius"] | "",
+                )
+              }
+              {...tid("section-style-radius")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              <option value="">{labels.radiusInherit}</option>
+              <option value="square">{labels.radiusSquare}</option>
+              <option value="soft">{labels.radiusSoft}</option>
+              <option value="round">{labels.radiusRound}</option>
             </select>
           </div>
 

@@ -56,8 +56,9 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
  *
- * It carries the style popup's new `chrome`, `heading` and `text_align`
- * strings, and the theme panel's `font` and `spacing`.
+ * It carries the style popup's `chrome`, `heading`, `text_align`, `image_fit`
+ * and `radius` strings, the theme panel's `font` and `spacing`, and the leaf
+ * editor's `rowIcon`.
  */
 export function blockEditorLabels(): BlockEditorLabels {
   return {
@@ -143,15 +144,26 @@ export function blockEditorLabels(): BlockEditorLabels {
       heading: "Name",
       headingPlain: "Above the content",
       headingBar: "As a bar on top of it",
+      headingGradient: "As a shaded bar",
       textAlign: "Text",
       textAlignInherit: "Inherit the page",
       textAlignStart: "Left",
       textAlignCenter: "Centred",
       textAlignEnd: "Right",
       borderDouble: "Double line",
+      imageFit: "Pictures",
+      imageFitInherit: "Inherit",
+      imageFitCover: "Cropped to fill",
+      imageFitContain: "Shown whole",
+      radius: "Corners",
+      radiusInherit: "Inherit",
+      radiusSquare: "Square",
+      radiusSoft: "Soft",
+      radiusRound: "Round",
     },
     leaf: {
       removeBlock: "Remove what is here",
+      rowIcon: "Row icon",
       contentEyebrow: "Content",
       leafKind: "Type",
       leafKinds: Object.fromEntries(LEAF_KINDS.map((kind) => [kind, kind])),

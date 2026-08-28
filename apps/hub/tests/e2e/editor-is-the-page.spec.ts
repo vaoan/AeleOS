@@ -663,3 +663,51 @@ test("the builder can take the page's own look off, and put it back", async ({
     2,
   );
 });
+
+// **A WORKBENCH GROUP MUST BE OPAQUE, and the style popup was not.**
+// What is behind an editor control is a colour its author chose, and they may
+// choose any colour — so a translucent control has no guaranteed contrast and
+// nothing can give it one. That is why the toolbar takes `--menu`, the one
+// token declared opaque in both modes.
+//
+// The section style popup took `--surface`, which carries `/.9` in the chrome
+// scope, so the page showed through it. Every select INSIDE the popup already
+// used `--menu`; the group around them did not, which is why nothing looked
+// wrong in the source. It was found by reading a screenshot of the popup and
+// noticing the page behind it — no check in the repository had an opinion.
+//
+// The assertion is on the ALPHA rather than on the class, because a class name
+// is what was already right. `--surface` is asserted translucent in the same
+// scope as the control: without it a build where both tokens were opaque would
+// pass this and prove nothing about which one the popup reads.
+test("every workbench group is opaque, whatever the page behind it", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+  await expect(page.getByTestId("add-section")).toBeVisible();
+  await page.getByTestId("add-section").click();
+
+  const card = page.getByTestId("section-card").last();
+  await card.getByTestId("section-style-open").click();
+  const panel = page.getByTestId("section-style-panel");
+  await expect(panel).toBeVisible();
+
+  const seen = await panel.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      background: style.backgroundColor,
+      opacity: style.opacity,
+      surface: style.getPropertyValue("--surface").trim(),
+    };
+  });
+
+  // The control paints something, and paints it at full alpha.
+  expect(seen.background).not.toMatch(/transparent|rgba?\([^)]*,\s*0\s*\)/);
+  expect(seen.background).not.toMatch(/\/\s*0?\.\d/);
+  expect(seen.opacity).toBe("1");
+
+  // The discriminating half: the token it must NOT be reading is translucent
+  // right here, so this pair can tell the two apart.
+  expect(seen.surface).toMatch(/\/\s*\.?9/);
+});

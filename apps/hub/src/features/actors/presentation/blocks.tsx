@@ -1091,6 +1091,8 @@ function Leaf(props: LeafProps): ReactNode {
  *
  * Heading sizes are `em`-relative so a page's `spacing` reaches them, and a
  * named container may draw its name as a BAR — see `heading` in the style bag.
+ * `gradient` is that same bar with a vertical sheen, and it collapses the
+ * section's gap exactly as `bar` does: the two differ in the fill alone.
  */
 export function Block({
   block,
@@ -1136,9 +1138,28 @@ export function Block({
   // takes the accent — a heading that merely gained a background while the
   // section kept its `gap-3` would be a floating label with a fill, which is
   // not what either site did. See the pastiche findings.
-  const barred = block.style?.heading === "bar" && Boolean(name);
+  //
+  // **`gradient` is the same bar with a sheen, and the ramp is SYMMETRIC on
+  // purpose.** Both sites' title bars were a vertical gradient rather than a
+  // flat fill, and the honest difficulty is that `--on-accent` is derived from
+  // the accent an author chose: any lightness ramp moves half the bar toward
+  // the label and half away, so a ramp in one direction alone would quietly
+  // spend contrast the palette had already budgeted. Mixing 12% of white at
+  // the top and 12% of black at the bottom keeps the accent itself as the
+  // midpoint, so the deviation is bounded and lands on both sides rather than
+  // one. It is not measured by `check:contrast`, which reads fixed token pairs
+  // and cannot read a colour a stranger picked; the page-level readability
+  // escape hatch is what covers an accent whose derived label is marginal, and
+  // it covers this the same way.
+  const barStyle = block.style?.heading;
+  const barred =
+    (barStyle === "bar" || barStyle === "gradient") && Boolean(name);
+  const fill =
+    barStyle === "gradient"
+      ? "bg-[linear-gradient(to_bottom,color-mix(in_oklab,var(--accent)_88%,white),color-mix(in_oklab,var(--accent)_88%,black))]"
+      : "bg-(--accent)";
   const headingClass = barred
-    ? `${heading.className} bg-(--accent) px-3 py-2 text-(--on-accent)`
+    ? `${heading.className} ${fill} px-3 py-2 text-(--on-accent)`
     : heading.className;
   // Spread rather than a ternary inside the JSX, which `sonarjs` reads as a
   // nested conditional — and it is right that a marker is not a thing to work

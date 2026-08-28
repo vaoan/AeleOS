@@ -453,8 +453,13 @@ const utf8 = new TextEncoder();
  * {@link blockStyleShape} is built from this rather than restating it, so
  * there is one value per rule to have gotten wrong.
  *
- * The style bag carries `chrome`, `heading` and `text_align` now, each an
- * OPTION whose absence is inheritance.
+ * The style bag carries `chrome`, `heading`, `text_align`, `image_fit` and
+ * `radius` now, each an OPTION whose absence is inheritance. That word is
+ * load-bearing for the last two in particular: `image_fit` absent emits
+ * nothing at all rather than `cover`, because emitting the default would have
+ * every unstyled block overwrite an enclosing section's `contain`; and
+ * `radius` absent leaves whatever multiplier the skin chose, which is what
+ * lets a corner and an aesthetic be picked separately.
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -487,9 +492,30 @@ export const BLOCK_STYLE_LIMITS = {
    * heading floating above the content, which is what every page had before
    * this key and remains the default.
    */
-  heading: ["plain", "bar"],
+  heading: ["plain", "bar", "gradient"],
   /** Which edge a block's own text is set against. */
   text_align: ["start", "center", "end"],
+  /**
+   * How a picture fills the box it is given.
+   *
+   * **`cover` crops and `contain` does not, and the default has to stay
+   * `cover`.** A portrait in a round avatar wants its edges taken off; a WIDE
+   * image does not, and giving the pastiches their real logos is what found
+   * this — a 94x45 wordmark came through a circular avatar as two meaningless
+   * fragments. Absent is `cover`, which is what every page had before this key.
+   */
+  image_fit: ["cover", "contain"],
+  /**
+   * How round this block's corners are, independent of its skin.
+   *
+   * **The corner was welded to the whole aesthetic and this is the same
+   * complaint `border` answered.** Square corners were reachable — five skins
+   * set `--skin-round: 0` — but only by taking that skin's texture, shadow and
+   * edge with them, and a 2003 page is square corners on an ordinary surface.
+   * Absent inherits, so every existing page keeps exactly the corner its skin
+   * chose.
+   */
+  radius: ["square", "soft", "round"],
 } as const;
 
 /**
@@ -547,6 +573,11 @@ const blockStyleShape = {
   heading: z.enum(BLOCK_STYLE_LIMITS.heading).optional(),
   // Inherited by every plain surface beneath the block, like `border`.
   text_align: z.enum(BLOCK_STYLE_LIMITS.text_align).optional(),
+  // Read by the kinds that draw a picture; absent is `cover`, the crop every
+  // page had before this existed.
+  image_fit: z.enum(BLOCK_STYLE_LIMITS.image_fit).optional(),
+  // Overrides the skin's own corner; absent keeps it.
+  radius: z.enum(BLOCK_STYLE_LIMITS.radius).optional(),
   // **A depth-0 key, and meaningless anywhere else.** A section reaches both
   // edges of the window; a block nested inside one has a section between it
   // and the page and cannot escape that. Absent means the page's own measure,
@@ -579,6 +610,19 @@ const tableCellShape = {
   // table — so this defaults to empty rather than being required.
   text_en: text.default(""),
   text_es: optionalText,
+  /**
+   * A mark drawn beside the row, read from the row's FIRST cell only.
+   *
+   * A contact box from 2004 has a small icon on every line, and the row header
+   * is where it belongs — one icon per row rather than one per cell, which
+   * would put a mark in the middle of a value. It is stored on every cell
+   * because a cell is one shape, and read on the first: the alternative is a
+   * second cell type that differs by position, which the row builder would
+   * then have to keep in step with the markup.
+   *
+   * Absent draws nothing, which is what every stored table has.
+   */
+  icon: optionalText,
 };
 
 /**

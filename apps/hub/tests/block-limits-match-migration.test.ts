@@ -198,6 +198,8 @@ describe("the client's style limits", () => {
     ["chrome", BLOCK_STYLE_LIMITS.chrome],
     ["heading", BLOCK_STYLE_LIMITS.heading],
     ["text_align", BLOCK_STYLE_LIMITS.text_align],
+    ["image_fit", BLOCK_STYLE_LIMITS.image_fit],
+    ["radius", BLOCK_STYLE_LIMITS.radius],
   ])("the %s values match 0009's style block", (key, expected) => {
     const found = styleBlock?.match(
       new RegExp(`v_key = '${key}' then[\\s\\S]*?v_value not in \\(([^)]+)\\)`),

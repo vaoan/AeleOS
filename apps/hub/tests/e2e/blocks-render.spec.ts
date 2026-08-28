@@ -620,6 +620,67 @@ test.describe("what a leaf puts inside a track", () => {
   // block is a quarter of that, and `max-w-80`/`max-w-105` are absolute — so
   // the question "does the frame stay inside its place" has a different answer
   // per shape, and only a browser has it.
+  // **A CLASS THAT COMPILES TO NOTHING LOOKS EXACTLY LIKE ONE THAT WORKS.**
+  // `image_fit` was first written as `object-(--img-fit)`, which reads like
+  // every other token utility in this codebase — `bg-(--menu)`, `text-(--muted)`
+  // — and emits NO CSS AT ALL: Tailwind's `(--var)` shorthand resolves against
+  // a utility's own namespace, and `object-`'s is `object-position`, not
+  // `object-fit`. Compiled through Tailwind directly, the candidate produced an
+  // empty rule set.
+  //
+  // Every unit test stayed green, and structurally had to: they render the
+  // component and assert CLASS STRINGS, and the class string was always
+  // exactly what was intended. This is root rule 30 with the subject one step
+  // in — a claim about what a class MEANS, checked by a suite that can only
+  // see what it is CALLED. The only thing that can tell the two apart is a
+  // browser reading the computed property, which is what this does.
+  test("fits a picture the way its block asked, as a computed property", async ({
+    page,
+  }) => {
+    const { address, handle } = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "fit",
+      displayName: "Fit",
+      blocks: [
+        container({
+          name_en: "Fit",
+          mode: "grid",
+          spaces: 2,
+          children: [
+            leaf({
+              kind: "picture",
+              title_en: "Whole",
+              image_url: "https://example.com/wide.png",
+              style: { image_fit: "contain" },
+            }),
+            // **The control, and it is what makes the case discriminate.**
+            // Without it, a stylesheet where BOTH resolved to `contain` — or
+            // where the token leaked onto every block — would pass. Absence
+            // must still be the crop every stored page has.
+            leaf({
+              kind: "picture",
+              title_en: "Cropped",
+              image_url: "https://example.com/tall.png",
+            }),
+          ],
+        }),
+      ],
+    });
+
+    await page.setViewportSize(LAPTOP);
+    expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
+
+    const fits = await page
+      .getByTestId("block-grid")
+      .first()
+      .evaluate((el) =>
+        [...el.querySelectorAll("img")].map(
+          (img) => getComputedStyle(img).objectFit,
+        ),
+      );
+    expect(fits).toEqual(["contain", "cover"]);
+  });
+
   test("keeps every frame and picture inside the track it was placed in", async ({
     page,
   }) => {

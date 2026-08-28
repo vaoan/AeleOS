@@ -92,6 +92,13 @@
    * `p-(--block-pad)` invalid, which is zero padding on every page at once.
    */
   --block-pad: 1rem;
+
+  /*
+   * **How a picture fills its box, so a block can say `contain`.** `cover` is
+   * what every page had and stays the default; a WIDE image — a logo, a banner
+   * — is unreadable cropped into a round avatar, which is how this was found.
+   */
+  --img-fit: cover;
   --menu: oklch(99% 0.01 40deg);
   --surface: var(--surface-solid);
   --bar: var(--bar-solid);

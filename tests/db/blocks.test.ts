@@ -1031,6 +1031,53 @@ describe("the style bag it refuses", () => {
     ).toMatch(/unknown border style/i);
   });
 
+  it.each(["cover", "contain"])(
+    "accepts the %s picture fit and reads it back unchanged",
+    async (image_fit) => {
+      const style = { image_fit };
+      expect(
+        await write(alice.sub, alice.sonaRef, [leaf({ style })]),
+      ).toBeNull();
+      expect(await read(alice.sonaRef)).toEqual([leaf({ style })]);
+    },
+  );
+
+  it("refuses a picture fit it cannot render", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { image_fit: "fill" } }),
+      ]),
+    ).toMatch(/unknown image fit/i);
+  });
+
+  it.each(["square", "soft", "round"])(
+    "accepts the %s corner and reads it back unchanged",
+    async (radius) => {
+      const style = { radius };
+      expect(
+        await write(alice.sub, alice.sonaRef, [leaf({ style })]),
+      ).toBeNull();
+      expect(await read(alice.sonaRef)).toEqual([leaf({ style })]);
+    },
+  );
+
+  it("refuses a corner it cannot render", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { radius: "pill" } }),
+      ]),
+    ).toMatch(/unknown corner radius/i);
+  });
+
+  // The third heading value, added beside `plain` and `bar`. A vocabulary
+  // written down in two languages needs the case that says so — see the root
+  // note's rule 30, which this is the seventh instance of.
+  it("accepts the gradient heading and reads it back unchanged", async () => {
+    const style = { heading: "gradient" };
+    expect(await write(alice.sub, alice.sonaRef, [leaf({ style })])).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual([leaf({ style })]);
+  });
+
   it("refuses a style key nothing reads", async () => {
     expect(
       await write(alice.sub, alice.sonaRef, [
@@ -1149,6 +1196,26 @@ describe("a table's rows", () => {
         leaf({ kind: "table", rows: [[{ text_en: "x".repeat(2001) }]] }),
       ]),
     ).toMatch(/cell text is too long/i);
+  });
+
+  // **A mark beside the row, stored on the row's first cell.** Named rather
+  // than checked against a list, exactly like a leaf's own `icon`: the
+  // renderer answers a name lucide does not have with nothing at all, so a
+  // stranger's page cannot be taken down by a value from an older row.
+  it("keeps a cell's mark and reads it back unchanged", async () => {
+    const rows = [[{ text_en: "Species", icon: "paw-print" }]];
+    expect(
+      await write(alice.sub, alice.sonaRef, [leaf({ kind: "table", rows })]),
+    ).toBeNull();
+    expect(await read(alice.sonaRef)).toEqual([leaf({ kind: "table", rows })]);
+  });
+
+  it("refuses a cell mark over the character cap", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ kind: "table", rows: [[{ icon: "x".repeat(2001) }]] }),
+      ]),
+    ).toMatch(/cell icon is too long/i);
   });
 
   // A blank row is a real row — a table with a gap in it is an ordinary

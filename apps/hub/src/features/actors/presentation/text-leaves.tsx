@@ -25,6 +25,7 @@ import {
   wordsOf,
   type LeafProps,
 } from "@/features/actors/presentation/block-contract";
+import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
@@ -337,6 +338,16 @@ interface TableRow {
   values: TableCell[];
   /** Its position in the table, as a key — see {@link TableCell.key}. */
   key: string;
+  /**
+   * The mark drawn beside the label, from the row's FIRST cell.
+   *
+   * Empty draws nothing at all rather than a fallback mark: a table of stats
+   * is the ordinary case and a column of identical placeholder icons beside
+   * it is noise. That is the opposite of {@link LinkLeaf}, where a link with
+   * no icon still gets one, and it is a different question — there the mark
+   * says "this is a link", here it says whatever its author meant by it.
+   */
+  icon: string;
 }
 
 /**
@@ -372,7 +383,12 @@ function tableRows(leaf: LeafBlock, locale: string): TableRow[] {
       text: contentFor(cell, "text", locale),
       key: String(column),
     }));
-    return { label: head?.text ?? "", values, key: String(position) };
+    // **Read off the raw first cell, not off `head`** — the mapped shape
+    // carries the localised text and nothing else, and widening it would put
+    // an icon field on every value cell where nothing reads one.
+    const first = Array.isArray(row) ? row[0] : undefined;
+    const icon = typeof first?.icon === "string" ? first.icon : "";
+    return { label: head?.text ?? "", values, icon, key: String(position) };
   });
 }
 
@@ -414,6 +430,15 @@ function tableRows(leaf: LeafBlock, locale: string): TableRow[] {
  *
  * @param props - the leaf and how to read it.
  * @returns the table, or the words it could not fill one with.
+ *
+ * **A row may carry a mark, read from its FIRST cell and drawn in the `<th>`**
+ * beside the label — a contact box from 2004 has a small icon on every line.
+ * One per row rather than one per cell, because a mark on a value cell would
+ * sit in the middle of the text it decorates. An absent or unknown name draws
+ * NOTHING rather than a fallback, which is the opposite of {@link LinkLeaf}
+ * and a different question: there the mark says "this is a link", here it says
+ * whatever its author meant by it, and a column of identical placeholders
+ * beside a table of stats is noise.
  *
  * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
  * default spacing they resolve to exactly the `rem` values they replaced,
@@ -462,7 +487,14 @@ export function TableLeaf(props: LeafProps): ReactNode {
                 scope="row"
                 className="border-r border-(--edge)/25 px-5 py-3.5 text-left font-display text-[0.875em] font-bold"
               >
-                {row.label}
+                {row.icon ? (
+                  <span className="flex items-center gap-2">
+                    <PublicSectionIcon name={row.icon} fallback="" />
+                    {row.label}
+                  </span>
+                ) : (
+                  row.label
+                )}
               </th>
               {row.values.map((cell) => (
                 <td
