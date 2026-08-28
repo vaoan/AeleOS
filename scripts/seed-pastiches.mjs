@@ -8,9 +8,23 @@
  * the only way to find the walls, because a pastiche fails visibly and in a way
  * you can name.
  *
- * Each page targets an era's characteristic thing rather than its logo: no
- * marks, no wordmarks, no brand assets. What is copied is arrangement, palette
- * and density, which is what the block model either can or cannot express.
+ * Each page targets an era's characteristic ARRANGEMENT, palette and density,
+ * which is what the block model either can or cannot express. Its chrome is
+ * never copied wholesale — no navigation, no page furniture, no reproduction
+ * of anybody's interface.
+ *
+ * **This paragraph used to say "no marks, no wordmarks, no brand assets" while
+ * the list below set eight brand logos as avatars**, and the contradiction sat
+ * in one file for a fortnight. The logos were added deliberately and the
+ * sentence was never updated — see the actors note, where the change is
+ * recorded. What is true is narrower and worth stating exactly: each page uses
+ * the site's own mark as the profile AVATAR, hot-linked and never committed,
+ * to say which era is being imitated. Nothing else of theirs is reproduced.
+ *
+ * The era looks under `era-*` take the opposite line and use no artwork at
+ * all, because an operating system's chrome is the thing being imitated rather
+ * than a name beside it. That difference is deliberate; if it is ever
+ * reconciled, reconcile it here rather than in one of the two.
  *
  * **They are `unlisted` on purpose.** A profile lists only public fursonas, so
  * these are reachable by address and absent from `/en/137` — which keeps that
@@ -906,11 +920,17 @@ const furaffinity = [
 ];
 
 const furaffinityTheme = theme({
+  // **Measured off a real 2008 capture (2026-08-28), where it had been built
+  // from knowledge.** The ground is a slate BLUE-GREY rather than the
+  // near-black this page used to assume, and the section headers are a light
+  // silver bar carrying DARK text — not a saturated accent with white on it.
+  // Both were wrong in the same direction: the page was reading as a modern
+  // dark theme rather than as 2008.
   background: gradient(180, [
-    { color: "#0b1417", at: 0 },
-    { color: "#12202a", at: 100 },
+    { color: "#2e3a45", at: 0 },
+    { color: "#38444f", at: 100 },
   ]),
-  accent: "#2f7d95",
+  accent: "#b9c4cd",
   canvas: "none",
   skin: "default",
   font: "classic",
@@ -1056,6 +1076,8 @@ const facebookTheme = theme({
     { color: "#edeff4", at: 0 },
     { color: "#dfe3ee", at: 100 },
   ]),
+  // `#3b5998` off the 2007 capture, which is the one colour of Facebook's that
+  // everybody can name.
   accent: "#3b5998",
   canvas: "none",
   skin: "default",

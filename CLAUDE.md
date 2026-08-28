@@ -405,11 +405,26 @@ Key choices and _why_:
 
   **Eight were rebuilt from real archived captures and three were not.** Fur
   Affinity, Fotolog and Facebook were built from knowledge, because
-  web.archive.org stopped answering and Fur Affinity refuses an
-  unauthenticated fetch. That distinction is written into the findings, the
-  README and the seeder itself rather than left implicit, because the eight and
-  the three are not the same evidence and a reader cannot tell them apart by
-  looking.
+  web.archive.org would not answer and Fur Affinity refuses an unauthenticated
+  fetch. That distinction is written into the findings, the README and the
+  seeder itself rather than left implicit, because the eight and the three are
+  not the same evidence and a reader cannot tell them apart by looking.
+
+  **ARCHIVE.ORG ANSWERS AGAIN (2026-08-28), and that sentence was a dated claim
+  believed past its date.** Probed directly: the availability API returns a
+  2008 snapshot for every one of the three. Two of them are now evidence-backed
+  — a real 2008 Fur Affinity capture and a real 2007 Facebook one — and the FA
+  page was measurably wrong as a result: built from knowledge it had a
+  near-black ground and saturated teal header bars, where the capture shows a
+  slate BLUE-GREY ground and light silver bars carrying DARK text. Fotolog
+  stays knowledge-built, because its snapshots render the logged-out homepage
+  with broken styling rather than a profile.
+
+  The general lesson is rule 25 with a different subject: **a claim about what
+  an external service will do is dated the moment it is written**, and this one
+  was load-bearing — it is the reason three pages were built from recall. Re-probe
+  before believing it; the probe is one `curl` against
+  `archive.org/wayback/available`.
 
   **The seeder owns everything the pages depend on**, and that was learned the
   hard way twice in one session: the avatars had been set by hand outside it,
