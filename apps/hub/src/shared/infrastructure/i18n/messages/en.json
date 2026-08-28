@@ -161,6 +161,7 @@
     "noIcon": "No icon",
     "useTemplate": "Start from a template",
     "templateConfirm": "This replaces the sections you have now. What you wrote will be gone.",
+    "templateConfirmLook": "This replaces the sections you have now AND the colours you chose. What you wrote and picked will be gone.",
     "templateConfirmYes": "Replace them",
     "templateConfirmNo": "Keep mine",
     "templateSections": "{count, plural, one {# section} other {# sections}}",

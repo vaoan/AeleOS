@@ -227,11 +227,31 @@ for (const template of FURSONA_TEMPLATES) {
     const handle = handleFor(`tpl${template.id.slice(0, 3)}`);
     await startFursona(page, handle, `Template ${template.id}`);
 
+    // **A colour chosen BEFORE the template, so applying one has something of
+    // theirs to lose.** A template carries a `theme` now — null for every
+    // shipped starter, meaning leave the author's colours alone — and the only
+    // way to prove that survives a real save is to have chosen a colour first.
+    // A unit test cannot see a database; this is the same guarantee at the
+    // level where the save actually happens.
+    await page.getByTestId("theme-open").click();
+    await page.getByTestId("theme-accent").fill("#e21233");
+    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
+
     await page.getByTestId("template-picker").click();
     await page.getByTestId(`template-${template.id}`).click();
+    // **The confirmation now APPEARS**, where before this branch it did not:
+    // choosing a colour is authored work, so `holdsNothingAuthored` answers
+    // false and the picker asks first. That is Task 1's change reaching a real
+    // browser, and it is asserted rather than tolerated — a `click` that
+    // silently found nothing would leave the template unapplied and fail
+    // further down with a confusing message.
+    await page.getByTestId("template-confirm-yes").click();
     // Applied before anything is saved, so what the editor holds now is the
     // template itself — the state the round trip below is measured against.
     expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
+
+    // The starter replaced the page and NOT the palette.
+    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
 
     await saveAndLeave(page);
 
@@ -241,6 +261,11 @@ for (const template of FURSONA_TEMPLATES) {
     await page.goto(`/es/pages/${handle}/edit`);
     await expect(page.getByTestId("section-card").first()).toBeVisible();
     expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
+
+    // And the colour is still theirs after the round trip through the
+    // database — which a unit test structurally cannot check.
+    await page.getByTestId("theme-open").click();
+    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
 
     // And a second save over what was just reopened, which is the shape of the
     // bug that once deleted people's sections: reopen, press Save, lose the

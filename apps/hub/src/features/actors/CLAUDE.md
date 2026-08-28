@@ -2220,6 +2220,30 @@ claim: the dock's proves the branch, the picker's proves the picker reaches it,
 and the picker's route could drop the theme, invent one, or pass a resolved
 default without reddening the dock's. Sabotaging the guard reddens both.
 
+**The confirmation tells the truth about THIS template, which needed a second
+string rather than a reworded one.** Applying a starter touches no colour —
+every shipped one carries `theme: null` — so a single warning that mentioned
+colours would be a lie on the ordinary path, and a warning somebody learns is
+wrong is worse than no warning. `templateConfirm` names the page;
+`templateConfirmLook` names the page and the colours; the picker chooses on
+`pending.theme`. Both branches are asserted, and the PAIR is the point: either
+alone passes on a component that shows one message unconditionally, and each
+direction of sabotage reddens only its own case.
+
+**`TemplatePicker` takes its list as a prop now, defaulting to the shipped
+one.** Nothing in the app passes another — it exists so the themed branch can
+be REACHED. No starter carries a look, so without it the only ways to guard
+that branch were to mock the module for every case in the file or to leave it
+unguarded until phase 2 ships something that reaches it. Leaving a destructive
+branch unguarded until something reaches it is the fault this repository keeps
+paying for.
+
+**A colour chosen before a template now triggers the confirmation**, which is
+`holdsNothingAuthored`'s new argument reaching a real browser:
+`editor-saves-page.spec.ts` picks a colour, applies every template, and asserts
+the palette survives both the application and the round trip through the
+database. A unit test structurally cannot check the second half.
+
 **`holdsNothingAuthored` takes the theme for this feature's sake** — see its
 own paragraph above. Applying a template now replaces colours as well as a
 page, so somebody who chose only colours has to be asked first.

@@ -216,6 +216,11 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * and this bag carry a `title`. The dock itself never renders the control
  * that opens it, so its own label bag has no `open` entry to collide with.
  *
+ * It builds BOTH confirmation warnings. `templateConfirm` names the page and
+ * `templateConfirmLook` names the page and the colours; which one a person
+ * sees depends on whether the template they chose carries a look, so both are
+ * always built and the picker decides.
+ *
  * **`sectionCounts` reads a template's BLOCKS**, and the number it shows is the
  * same one under a new name: `sectionsToBlocks` maps one top-level section to
  * one container, and a template is converted where it is declared rather than
@@ -369,6 +374,7 @@ export async function fursonaEditorLabels(
     },
     useTemplate: t("useTemplate"),
     templateConfirm: t("templateConfirm"),
+    templateConfirmLook: t("templateConfirmLook"),
     templateConfirmYes: t("templateConfirmYes"),
     templateConfirmNo: t("templateConfirmNo"),
     // Built by mapping the shipped templates rather than listed by hand, so a

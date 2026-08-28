@@ -12,6 +12,10 @@ import {
 /**
  * Translated strings {@link TemplatePicker} renders.
  *
+ * **There are TWO confirmation warnings, not one reworded.** They are
+ * different promises and only one is true of any given template — see
+ * `templateConfirmLook`.
+ *
  * The three records are keyed by template id, and the caller is expected to
  * build them by mapping `FURSONA_TEMPLATES` rather than listing them by hand —
  * a template added later would otherwise show a raw catalogue key at somebody.
@@ -19,8 +23,18 @@ import {
 export interface TemplatePickerLabels {
   /** Names the control that opens the list. */
   useTemplate: string;
-  /** Warns that applying one replaces what is there. */
+  /** Warns that applying one replaces the page. */
   templateConfirm: string;
+  /**
+   * Warns that applying one replaces the page AND the colours.
+   *
+   * **A second string rather than a reworded first**, because the two are not
+   * the same promise and only one of them is true of any given template. Every
+   * shipped starter carries `theme: null` and touches no colour at all, so a
+   * single warning mentioning colours would be a lie on the ordinary path —
+   * and a warning somebody learns is wrong is worse than none.
+   */
+  templateConfirmLook: string;
   /**
    * Goes ahead with the replacement.
    *
@@ -43,6 +57,11 @@ export interface TemplatePickerLabels {
 /**
  * What {@link TemplatePicker} needs.
  *
+ * **`templates` is the only optional one, and it is a seam rather than a
+ * feature.** It defaults to the shipped list and nothing in the app overrides
+ * it; a test passes one so the themed confirmation branch can be reached
+ * before any shipped template reaches it.
+ *
  * `onApply` hands over a whole {@link ChosenPage} — the page AND the look —
  * where it used to hand over sections alone. That is what makes a look
  * pickable at all: chrome, palette, heading and spacing are not structure, so
@@ -51,6 +70,18 @@ export interface TemplatePickerLabels {
 export interface TemplatePickerProps {
   /** Whether there is anything a template would replace. */
   hasSections: boolean;
+  /**
+   * The templates to offer, defaulting to the ones the hub ships.
+   *
+   * **A parameter so the themed branch can be REACHED**, not because anything
+   * in the app passes another list. Whether the confirmation mentions colours
+   * depends on the chosen template carrying a look, and no shipped starter
+   * does — so without this the only ways to test that branch are to mock the
+   * module for every case in the file or to leave it unguarded until phase 2
+   * ships something that reaches it. Leaving a destructive branch unguarded
+   * until something reaches it is the fault this repository keeps paying for.
+   */
+  templates?: readonly FursonaTemplate[];
   /** Already-translated strings. */
   labels: TemplatePickerLabels;
   /**
@@ -68,6 +99,11 @@ export interface TemplatePickerProps {
 
 /**
  * Starts a fursona's page from one of the shipped layouts.
+ *
+ * **Its `templates` come from a prop that defaults to the shipped list**, so
+ * a caller may hand it another. Nothing in the app does; it exists so the
+ * themed confirmation branch can be reached by a test before phase 2 ships a
+ * template that reaches it.
  *
  * **It offers a page and a look together.** A template carries a `theme` now,
  * null for every shipped starter, and null means leave the author's colours
@@ -113,6 +149,7 @@ export function TemplatePicker({
   hasSections,
   labels,
   onApply,
+  templates = FURSONA_TEMPLATES,
 }: TemplatePickerProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<FursonaTemplate | undefined>();
@@ -166,7 +203,7 @@ export function TemplatePicker({
 
       {open ? (
         <div className="grid gap-1 rounded-xl surface border-(--edge) bg-(--surface) p-2">
-          {FURSONA_TEMPLATES.map((template) => (
+          {templates.map((template) => (
             <button
               key={template.id}
               type="button"
@@ -194,11 +231,19 @@ export function TemplatePicker({
           role="alert"
           className="grid gap-2 rounded-xl surface border-(--edge) bg-(--surface) p-3"
         >
-          <p className="text-sm">{labels.templateConfirm}</p>
+          {/* The warning tells the truth about THIS template. A look is the
+              only thing that makes applying one destructive to colours, and
+              only an era look carries one. */}
+          <p className="text-sm">
+            {pending.theme
+              ? labels.templateConfirmLook
+              : labels.templateConfirm}
+          </p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => apply(pending)}
+              {...tid("template-confirm-yes")}
               className="rounded-lg bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent)"
             >
               {labels.templateConfirmYes}

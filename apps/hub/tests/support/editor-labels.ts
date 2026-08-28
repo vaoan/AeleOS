@@ -53,6 +53,9 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * a card holds a `LeafEditorLabels` rather than extending one, so a suite
  * asserting a leaf string reads `labels.leaf.…` exactly as the component does.
  *
+ * It carries BOTH template confirmations, because the picker chooses between
+ * them on whether the chosen template has a look.
+ *
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
  *
@@ -107,6 +110,7 @@ export function blockEditorLabels(): BlockEditorLabels {
     previewTitle: "How it will look",
     useTemplate: "Start from a template",
     templateConfirm: "This replaces the sections you have.",
+    templateConfirmLook: "Replaces the page and the colours",
     templateConfirmYes: "Replace them",
     templateConfirmNo: "Keep mine",
     names: {},
