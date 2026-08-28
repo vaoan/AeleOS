@@ -105,6 +105,20 @@ describe("ERA_LOOKS", () => {
     expect(vista.theme!.background).not.toEqual(win7.theme!.background);
   });
 
+  // **Every look sets an ACCENT, and a browser test depends on it.**
+  // `editor-saves-page.spec.ts` predicts the colour after applying a template
+  // as `template.theme?.accent ?? CHOSEN_ACCENT` — one unconditional
+  // assertion rather than a branch. A look that left its accent null would
+  // make that formula silently expect the author's own colour and pass
+  // whatever the look did, which is the vacuous shape this repository keeps
+  // paying for.
+  it.each(ERA_LOOKS.map((one) => [one.id, one] as const))(
+    "%s sets an accent of its own",
+    (_id, look) => {
+      expect(look.theme!.accent).toBeTruthy();
+    },
+  );
+
   // Every id is prefixed, because `fursona-templates.ts` tells a starter from
   // a look by that prefix when it asserts starters carry no theme.
   it.each(ERA_LOOKS.map((one) => [one.id] as const))(

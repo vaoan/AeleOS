@@ -213,6 +213,14 @@ const expectedFrom = (
 // is covered the moment it is added, which is the property a hand-listed set
 // of four cases does not have — and the templates are exactly the surface
 // nobody thought to test against the block model.
+/**
+ * A colour the author picks BEFORE applying a template.
+ *
+ * It has to be one no shipped look also uses, or "the look replaced it" and
+ * "the look happened to agree" would be the same observation.
+ */
+const CHOSEN_ACCENT = "#e21233";
+
 for (const template of FURSONA_TEMPLATES) {
   test(`the ${template.id} template saves, reopens and reaches a stranger`, async ({
     page,
@@ -234,8 +242,17 @@ for (const template of FURSONA_TEMPLATES) {
     // A unit test cannot see a database; this is the same guarantee at the
     // level where the save actually happens.
     await page.getByTestId("theme-open").click();
-    await page.getByTestId("theme-accent").fill("#e21233");
-    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
+    await page.getByTestId("theme-accent").fill(CHOSEN_ACCENT);
+    await expect(page.getByTestId("theme-accent")).toHaveValue(CHOSEN_ACCENT);
+
+    // **What a template does to a palette depends on whether it HAS one**, and
+    // this is that contract as one value rather than a branch. A starter
+    // carries `theme: null`, which means leave the author's colours alone; an
+    // era look carries a whole palette and replaces them, which is the entire
+    // point of being a look. Written unconditionally because a conditional
+    // `expect` is one that can silently not run — the exact shape this suite
+    // has been bitten by.
+    const expectedAccent = template.theme?.accent ?? CHOSEN_ACCENT;
 
     await page.getByTestId("template-picker").click();
     await page.getByTestId(`template-${template.id}`).click();
@@ -250,8 +267,14 @@ for (const template of FURSONA_TEMPLATES) {
     // template itself — the state the round trip below is measured against.
     expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
 
-    // The starter replaced the page and NOT the palette.
-    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
+    // **What a template does to a palette depends on whether it HAS one**, and
+    // both branches run here rather than one being assumed. A starter carries
+    // `theme: null`, which means leave the author's colours alone; an era look
+    // carries a whole palette and replaces them, which is the entire point of
+    // being a look. Asserting only the first would have gone red the moment
+    // the looks joined the list, and asserting only the second would let a
+    // starter quietly reset somebody.
+    await expect(page.getByTestId("theme-accent")).toHaveValue(expectedAccent);
 
     await saveAndLeave(page);
 
@@ -262,10 +285,10 @@ for (const template of FURSONA_TEMPLATES) {
     await expect(page.getByTestId("section-card").first()).toBeVisible();
     expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
 
-    // And the colour is still theirs after the round trip through the
-    // database — which a unit test structurally cannot check.
+    // And whatever the template decided about the palette survived the round
+    // trip through the database — which a unit test structurally cannot check.
     await page.getByTestId("theme-open").click();
-    await expect(page.getByTestId("theme-accent")).toHaveValue("#e21233");
+    await expect(page.getByTestId("theme-accent")).toHaveValue(expectedAccent);
 
     // And a second save over what was just reopened, which is the shape of the
     // bug that once deleted people's sections: reopen, press Save, lose the
