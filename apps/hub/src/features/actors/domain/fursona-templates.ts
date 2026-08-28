@@ -2,6 +2,7 @@ import type { FursonaSection } from "@/features/actors/domain/section-schema";
 import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import type { Block } from "@/features/actors/domain/block-schema";
 import type { ActorTheme } from "@/features/actors/domain/actor-theme";
+import { ERA_LOOKS } from "@/features/actors/domain/era-looks";
 
 /**
  * A starting layout somebody can begin a fursona's page from.
@@ -338,11 +339,26 @@ export const STARTER_LAYOUTS: readonly StarterLayout[] = Object.freeze([
  * **Every starter carries `theme: null`.** They are what the app suggests
  * somebody WRITE, not a look it suggests they wear, and null means leave the
  * author's colours alone.
+ *
+ * **The era looks are appended, and they are the opposite kind of thing.** A
+ * starter is structure with no palette; a look is mostly palette. They share
+ * this list because they share a control — picking a starting point and
+ * picking a look are the same act — and the `era-` prefix is what tells them
+ * apart wherever the difference matters. It matters in two places: the guard
+ * that stops a palette being quietly attached to a STARTER, and the picker,
+ * which withholds a look from a page whose kind refuses it.
  */
-export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze(
-  STARTER_LAYOUTS.map((layout) => ({
+export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
+  ...STARTER_LAYOUTS.map((layout) => ({
     id: layout.id,
     blocks: sectionsToBlocks(layout.sections),
     theme: null,
   })),
-);
+  // **The era looks sit after the starters, and they are a different kind of
+  // thing.** A starter is structure and carries no theme; a look is mostly
+  // theme and carries a whole palette. They share this list because they share
+  // a control — somebody picking a starting point and somebody picking a look
+  // are doing the same thing — and `era-` is what tells them apart wherever
+  // the difference matters.
+  ...ERA_LOOKS,
+]);

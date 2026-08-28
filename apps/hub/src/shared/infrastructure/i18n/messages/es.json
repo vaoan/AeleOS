@@ -181,6 +181,26 @@
       "fursuit": {
         "name": "Fursuit",
         "description": "El traje en sí: quién lo hizo, de qué, y dónde ha estado."
+      },
+      "era-win98": {
+        "name": "Windows 98",
+        "description": "Verde azulado, biseles plateados y barras de título azul marino. Esquinas cuadradas y cada panel levantado de la página."
+      },
+      "era-winxp": {
+        "name": "Windows XP",
+        "description": "Azul Luna: franjas de título con degradado sobre paneles claros, con el cuerpo cuadrado justo debajo."
+      },
+      "era-vista": {
+        "name": "Windows Vista",
+        "description": "Cristal Aero, oscuro, sobre una aurora verde. Todo lo que escribes se transparenta."
+      },
+      "era-win7": {
+        "name": "Windows 7",
+        "description": "El mismo cristal, más claro, sobre azul brillante. Aero en su versión más tranquila."
+      },
+      "era-win8": {
+        "name": "Windows 8",
+        "description": "Metro: mosaicos planos de distintos tamaños sobre casi negro, sin bordes ni esquinas."
       }
     },
     "themeTitle": "Cómo se ve tu página",

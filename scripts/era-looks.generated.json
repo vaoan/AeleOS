@@ -1,0 +1,453 @@
+[
+  {
+    "id": "era-win98",
+    "theme": {
+      "background": {
+        "kind": "linear",
+        "repeating": false,
+        "every": 100,
+        "angle": 180,
+        "shape": "ellipse",
+        "extent": "farthest-corner",
+        "x": 50,
+        "y": 50,
+        "stops": [
+          {
+            "color": "#008080",
+            "at": 0
+          },
+          {
+            "color": "#008080",
+            "at": 100
+          }
+        ]
+      },
+      "accent": "#000080",
+      "canvasColours": null,
+      "canvas": "none",
+      "cursor": null,
+      "backgroundUrl": null,
+      "backgroundFit": "cover",
+      "measure": "wide",
+      "font": "system",
+      "spacing": null,
+      "skin": "retro",
+      "density": 1,
+      "speed": 1,
+      "scale": 1
+    },
+    "blocks": [
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "My Computer",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "text",
+            "title_en": "About me"
+          }
+        ],
+        "style": {
+          "heading": "bar",
+          "radius": "square"
+        }
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "Programs",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "text",
+            "title_en": "What I do"
+          }
+        ],
+        "style": {
+          "heading": "bar",
+          "radius": "square"
+        }
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "About",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "avatar",
+            "title_en": "Portrait"
+          },
+          {
+            "kind": "handle",
+            "title_en": "Handle"
+          },
+          {
+            "kind": "owner",
+            "title_en": "Owner"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "era-winxp",
+    "theme": {
+      "background": {
+        "kind": "linear",
+        "repeating": false,
+        "every": 100,
+        "angle": 160,
+        "shape": "ellipse",
+        "extent": "farthest-corner",
+        "x": 50,
+        "y": 50,
+        "stops": [
+          {
+            "color": "#4e8bd8",
+            "at": 0
+          },
+          {
+            "color": "#9dc4f0",
+            "at": 100
+          }
+        ]
+      },
+      "accent": "#245edb",
+      "canvasColours": null,
+      "canvas": "none",
+      "cursor": null,
+      "backgroundUrl": null,
+      "backgroundFit": "cover",
+      "measure": "wide",
+      "font": "system",
+      "spacing": null,
+      "skin": "default",
+      "density": 1,
+      "speed": 1,
+      "scale": 1
+    },
+    "blocks": [
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "System Tasks",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "link",
+            "title_en": "Somewhere I am"
+          }
+        ],
+        "style": {
+          "heading": "gradient",
+          "radius": "soft"
+        }
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "Other Places",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "text",
+            "title_en": "What I like"
+          }
+        ],
+        "style": {
+          "heading": "gradient",
+          "radius": "soft"
+        }
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "About",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "avatar",
+            "title_en": "Portrait"
+          },
+          {
+            "kind": "handle",
+            "title_en": "Handle"
+          },
+          {
+            "kind": "owner",
+            "title_en": "Owner"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "era-vista",
+    "theme": {
+      "background": {
+        "kind": "linear",
+        "repeating": false,
+        "every": 100,
+        "angle": 150,
+        "shape": "ellipse",
+        "extent": "farthest-corner",
+        "x": 50,
+        "y": 50,
+        "stops": [
+          {
+            "color": "#0b3d2e",
+            "at": 0
+          },
+          {
+            "color": "#12706b",
+            "at": 55
+          },
+          {
+            "color": "#7fc7a4",
+            "at": 100
+          }
+        ]
+      },
+      "accent": "#1f9ea8",
+      "canvasColours": null,
+      "canvas": "aurora",
+      "cursor": null,
+      "backgroundUrl": null,
+      "backgroundFit": "cover",
+      "measure": "wide",
+      "font": null,
+      "spacing": null,
+      "skin": "aero",
+      "density": 1,
+      "speed": 1,
+      "scale": 1
+    },
+    "blocks": [
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "Welcome Centre",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "text",
+            "title_en": "Who I am"
+          }
+        ]
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "Gallery",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "picture",
+            "title_en": "A picture"
+          }
+        ]
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "About",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "avatar",
+            "title_en": "Portrait"
+          },
+          {
+            "kind": "handle",
+            "title_en": "Handle"
+          },
+          {
+            "kind": "owner",
+            "title_en": "Owner"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "era-win7",
+    "theme": {
+      "background": {
+        "kind": "linear",
+        "repeating": false,
+        "every": 100,
+        "angle": 170,
+        "shape": "ellipse",
+        "extent": "farthest-corner",
+        "x": 50,
+        "y": 50,
+        "stops": [
+          {
+            "color": "#1c6fc4",
+            "at": 0
+          },
+          {
+            "color": "#63b6ef",
+            "at": 60
+          },
+          {
+            "color": "#cfe9fb",
+            "at": 100
+          }
+        ]
+      },
+      "accent": "#2b7fd4",
+      "canvasColours": null,
+      "canvas": "none",
+      "cursor": null,
+      "backgroundUrl": null,
+      "backgroundFit": "cover",
+      "measure": "wide",
+      "font": null,
+      "spacing": null,
+      "skin": "aero",
+      "density": 1,
+      "speed": 1,
+      "scale": 1
+    },
+    "blocks": [
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "Libraries",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "text",
+            "title_en": "What I keep"
+          }
+        ]
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "Pictures",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "picture",
+            "title_en": "A picture"
+          }
+        ]
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "About",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "avatar",
+            "title_en": "Portrait"
+          },
+          {
+            "kind": "handle",
+            "title_en": "Handle"
+          },
+          {
+            "kind": "owner",
+            "title_en": "Owner"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "era-win8",
+    "theme": {
+      "background": {
+        "kind": "linear",
+        "repeating": false,
+        "every": 100,
+        "angle": 180,
+        "shape": "ellipse",
+        "extent": "farthest-corner",
+        "x": 50,
+        "y": 50,
+        "stops": [
+          {
+            "color": "#1d1d1d",
+            "at": 0
+          },
+          {
+            "color": "#1d1d1d",
+            "at": 100
+          }
+        ]
+      },
+      "accent": "#0072c6",
+      "canvasColours": null,
+      "canvas": "none",
+      "cursor": null,
+      "backgroundUrl": null,
+      "backgroundFit": "cover",
+      "measure": "full",
+      "font": "system",
+      "spacing": "compact",
+      "skin": "default",
+      "density": 1,
+      "speed": 1,
+      "scale": 1
+    },
+    "blocks": [
+      {
+        "kind": "container",
+        "mode": "grid",
+        "name_en": "Start",
+        "spaces": 3,
+        "children": [
+          {
+            "kind": "text",
+            "title_en": "Me"
+          },
+          {
+            "kind": "text",
+            "title_en": "Words"
+          },
+          {
+            "kind": "link",
+            "title_en": "Elsewhere"
+          },
+          {
+            "kind": "picture",
+            "title_en": "A picture"
+          }
+        ],
+        "weights": [2, 1, 1],
+        "style": {
+          "chrome": "card",
+          "border": "none",
+          "radius": "square",
+          "text_align": "start"
+        }
+      },
+      {
+        "kind": "container",
+        "mode": "stack",
+        "name_en": "About",
+        "spaces": 1,
+        "children": [
+          {
+            "kind": "avatar",
+            "title_en": "Portrait"
+          },
+          {
+            "kind": "handle",
+            "title_en": "Handle"
+          },
+          {
+            "kind": "owner",
+            "title_en": "Owner"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -2,7 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import type React from "react";
 import { missingRequiredKinds } from "@/features/actors/domain/required-blocks";
 import { pageContext } from "./helpers/page-context";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import {
   BLOCK_LIMITS,
@@ -76,7 +83,10 @@ type FormValues = { sections: Block[] };
  *
  * @returns the form.
  */
-function harness(sections: Block[] = []) {
+function harness(
+  sections: Block[] = [],
+  actorKind: "person" | "fursona" = "fursona",
+) {
   let form: UseFormReturn<FormValues> | undefined;
   /**
    * The editor, capturing the form it is bound to.
@@ -90,7 +100,7 @@ function harness(sections: Block[] = []) {
         control={form.control}
         lang="en"
         labels={labels}
-        page={pageContext({ parentHost: "" })}
+        page={pageContext({ parentHost: "", actorKind })}
         problems={[]}
         // **The harness stands in for `FursonaEditor`, which owns the form.**
         // `BlockEditor` forwards a picked template upward rather than applying
@@ -439,6 +449,29 @@ describe("BlockEditor", () => {
     harness([{ ...newLeaf("text"), title_en: "Loose" }]);
     expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
     expect(screen.queryByTestId("section-card")).toBeNull();
+  });
+
+  // **A LOOK IS A FURSONA DOCUMENT, AND A PERSON'S PAGE REFUSES IT.** An era
+  // look names `owner`, which has nothing to render on somebody's own profile,
+  // so `set_actor_sections` refuses the save outright. Offering one at
+  // `/me/edit` would hand them a page that applies cleanly and then cannot be
+  // saved — the "the control did nothing" fault wearing its worst face, since
+  // it looks like it did everything.
+  //
+  // Both halves, because either alone passes on a picker that offers nothing
+  // at all or on one that filters nothing.
+  it("offers era looks on a fursona's page and withholds them from a person's", () => {
+    harness([], "fursona");
+    fireEvent.click(screen.getByTestId("template-picker"));
+    expect(screen.getByTestId("template-era-win98")).toBeInTheDocument();
+    cleanup();
+
+    harness([], "person");
+    fireEvent.click(screen.getByTestId("template-picker"));
+    expect(screen.queryByTestId("template-era-win98")).toBeNull();
+    // And a starter is still offered there, so the filter narrowed rather
+    // than emptied.
+    expect(screen.getByTestId("template-reference-sheet")).toBeInTheDocument();
   });
 
   it("names every arrangement the schema knows, on a section's own control", () => {

@@ -2187,6 +2187,77 @@ and never for a weighted grid, where the tracks either side are not the same
 width and "one each" means nothing.
 Both move where a block is DRAWN and neither moves anything stored.
 
+### Era looks (2026-08-28) — five OPTIONS, and not one new skin
+
+`domain/era-looks.ts` holds five looks aimed at five eras of somebody else's
+operating system, as a second test of reach after the eleven social pastiches.
+**Every one is an option and none is a default**; a page that picks none is
+byte-for-byte what it was.
+
+**Not one new skin was added, which is the finding that shaped the phase.**
+`retro` already IS Windows 98's raised bevel and `aero` already IS Aero glass,
+so three of the five needed no chrome written at all. Adding `win98` or `win7`
+to `SKINS` would be the "another set of numbers" the bar forbids. What a look
+adds is the PALETTE and the arrangement around an existing skin — which is
+exactly why a look is a document rather than a vocabulary member.
+
+**Vista and Windows 7 differ by PALETTE, not mechanism**, and that is a
+refinement of the spec, which called them near-identical. The captures show one
+dark-tinted on green and the other light-tinted on blue; both are `aero`. It is
+the clearest single piece of evidence in the phase that a look is a document.
+
+**A look is a FURSONA document and a person's page refuses it.** It names
+`owner`, which has nothing to render on somebody's own profile, so
+`set_actor_sections` refuses the save outright. The picker withholds what does
+not fit — `fitsActorKind` — because offering one at `/me/edit` would hand
+somebody a page that applies cleanly and then cannot be saved, which is the
+"the control did nothing" fault wearing its worst face: it looks like it did
+everything. A PASTED document needs no such filter, because `parseDocument`
+already reports a refused kind as its own problem, naming the block; only the
+picker, which does not parse, needed asking.
+
+**A look carries its own identity section** rather than leaving it to
+`withRequiredBlocks`. A look is pasted as well as picked, and a paste never
+runs the read path that would add one.
+
+**Windows 8 is a FINDING rather than a delivery, and it was predicted before it
+was built.** Metro is flat solid tiles in DIFFERENT colours — the capture holds
+seven in one screen — and per-block colour is refused by design. What IS
+reachable is everything else, and it is worth knowing how much: `chrome:
+"bare"` removes fill, edge, shadow and padding together, `radius: "square"`
+squares the corners, `spacing: "compact"` closes the gaps, and the mixed tile
+sizes are ordinary `spaces` and `weights`. So the arrangement lands and the
+colour does not, which is the most useful shape a failure can have — it names
+one mechanism rather than a feeling.
+
+**What the photographs then found, which the plan could not.** One gap
+explains most of the fidelity loss across three of the five: **a page cannot
+choose its SURFACE colour independently of its background.** Every derived
+colour comes from the background gradient, so a panel is always a tint of the
+ground. Win98 wants silver on teal, XP near-white on blue, Metro coloured tiles
+on black — one missing mechanism, three looks. It is NOT gap 6, which is
+per-block colour; this is per-page, and it is the more ordinary want.
+
+**`chrome: "bare"` was the wrong tool for Metro, and that is a trap rather than
+a gap.** `bare` drops the FILL along with the edge, shadow and padding, so the
+first attempt turned the tiles into floating labels on black. A tile is a
+strong fill with no border and no corner — `card` plus `border: "none"` plus
+`radius: "square"`. The key reads as if it meant "flat" and means "absent".
+
+**A look must turn the canvas off if its ground is flat.** Windows 98, XP and 8
+are flat desktops, and the default drifting nebula painted clouds across all
+three until each said `canvas: "none"`. It reads as a bug in the look rather
+than a default doing its job.
+
+**Vista and Windows 7 needed nothing new at all**, which is the strongest
+evidence here that a look belongs in a document: `aero` carries Aero glass
+whole, and photographed, the Vista page reads as Aero without qualification.
+
+**Windows XP cannot reach Luna's TOP-ONLY rounding.** `radius` is one value for
+all four corners, so `soft` rounds the foot as well as the head. No key was
+invented on the way past; whether one earns a place is a judgement for after
+somebody has looked at how close it gets.
+
 ### A template is a document too (2026-08-28)
 
 **A template could not carry a look at all, and an era look is mostly look.**

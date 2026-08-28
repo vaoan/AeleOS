@@ -9,6 +9,7 @@ import {
 } from "@/features/actors/domain/block-schema";
 import { DESCRIBED_KINDS } from "@/features/actors/domain/leaf-fields";
 import { SKINS } from "@/shared/domain/skins";
+import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 
 /**
  * Every leaf key in a nested catalogue, dot-joined.
@@ -121,6 +122,15 @@ describe("message catalogues", () => {
   it("have no Spanish values left identical to the English", () => {
     const allowed = [
       "fursonas.templates.fursuit.name",
+      // **The era looks are named after products, and a product name is the
+      // same word in both languages.** Their DESCRIPTIONS beside them are
+      // translated, which is the evidence that each was considered rather
+      // than skipped — the same argument `fursuit.name` above rests on.
+      "fursonas.templates.era-win98.name",
+      "fursonas.templates.era-winxp.name",
+      "fursonas.templates.era-vista.name",
+      "fursonas.templates.era-win7.name",
+      "fursonas.templates.era-win8.name",
       // The same loanword again, heading the list of somebody's characters on
       // their public page. Spanish uses it unchanged, exactly as `nav.fursonas`
       // does.
@@ -171,6 +181,17 @@ const NAMED_LISTS = [
   ["fursonas.modes", CONTAINER_MODES],
   ["fursonas.leafKinds", LEAF_KINDS],
   ["fursonas.canvases", CANVASES],
+  // **The template names, which nothing checked until 2026-08-28.** They are
+  // reached by an INTERPOLATED key — `templates.${template.id}.name` — so
+  // `message-keys-exist.test.ts`, which reads literal keys out of the source,
+  // is structurally blind to them; and the parity check in this file only
+  // catches a key present in one catalogue and missing from the other. A
+  // template whose entries were absent from BOTH would show its own id to
+  // somebody, and phase 2 of the era looks adds five templates at once.
+  //
+  // Listing it here buys the no-EXTRAS half as well, which is the one that
+  // catches a name left behind by a template that was renamed or removed.
+  ["fursonas.templates", FURSONA_TEMPLATES.map((one) => one.id)],
 ] as const;
 
 // **This is the app's own chrome, and only that.** A person's own writing — a
@@ -203,6 +224,33 @@ describe.each(NAMED_LISTS)("%s", (path, ids) => {
       expect(
         Object.keys(branchIn(locale)).filter((key) => !listed.has(key)),
       ).toEqual([]);
+    },
+  );
+});
+
+// A TEMPLATE OWES TWO STRINGS, NOT ONE.
+//
+// `NAMED_LISTS` above proves every template has an ENTRY and that no entry is
+// left behind by a template that went away. It cannot see inside one: an entry
+// carrying a name and no description satisfies it completely, and the picker
+// draws both.
+describe("every template's own two strings", () => {
+  it.each(FURSONA_TEMPLATES.map((one) => [one.id] as const))(
+    "%s is named and described in both languages",
+    (id) => {
+      for (const locale of ["en", "es"] as const) {
+        const entry = (
+          valueAt(locale === "en" ? en : es, "fursonas.templates") as Record<
+            string,
+            { name?: string; description?: string } | undefined
+          >
+        )[id];
+        expect(entry?.name, `${id}.name in ${locale}`).toBeTruthy();
+        expect(
+          entry?.description,
+          `${id}.description in ${locale}`,
+        ).toBeTruthy();
+      }
     },
   );
 });

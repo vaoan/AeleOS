@@ -211,6 +211,71 @@ about them.
   with NO name, which the model already allows and which is easy to forget
   exists; recorded because two pages in a row got it wrong the same way.
 
+## Found while building the five era looks (2026-08-28)
+
+Five looks aimed at five eras of somebody else's operating system — Windows 98,
+XP, Vista, 7 and 8 — built from captures fetched and looked at, seeded under
+`/137/` and photographed. The same method as the eleven, pointed at a different
+kind of thing.
+
+### 8. A page cannot choose its SURFACE colour, and this one gap explains most of the loss
+
+**The biggest finding, and it was invisible until three looks failed the same
+way.** Every derived colour comes from the page's background gradient, so a
+panel is always a tint of the ground behind it. Windows 98 wants **silver
+panels on teal**; XP wants **near-white panels on blue**; Metro wants
+**coloured tiles on near-black**. All three are one missing mechanism: a
+surface colour an author can set independently of the background.
+
+It is not the same as gap 6. That one is per-BLOCK colour; this is per-PAGE,
+and it is the more ordinary want — every real page in this set has a background
+and a panel colour that are not shades of each other.
+
+Photographed: the Win98 page's panels come out teal-on-teal and the XP page's
+blue-on-blue, both legible and both wrong.
+
+### 9. Metro's tiles are reachable; their COLOURS are not
+
+Windows 8 was predicted unbuildable before it was built, and the photograph
+sharpened the prediction into something more useful.
+
+The **arrangement lands completely**: `spaces` with `weights: [2, 1, 1]` gives
+the mixed tile widths, `radius: "square"` squares them, `border: "none"`
+removes the edge and `spacing: "compact"` closes the gaps. What is left is one
+thing — the tiles are all one colour where the capture holds seven.
+
+**A trap on the way, and it is worth knowing.** The first attempt used
+`chrome: "bare"`, which is the wrong tool: `bare` drops the FILL along with the
+edge, the shadow and the padding, so the tiles vanished and Metro became
+floating labels on black. A tile is a strong fill with no border and no corner
+— `card` plus `border: "none"` plus `radius: "square"`. There is no gap here,
+only a key that reads as if it meant "flat" and means "absent".
+
+### 10. `radius` is one value for four corners
+
+Luna rounds a panel's TOP corners and leaves its foot square. `radius: "soft"`
+rounds all four, so XP's panels come out with a rounded bottom the original
+never had. Small, visible, and unreachable without a key that no look was
+allowed to invent on the way past.
+
+### 11. The canvas is ON unless a look turns it off, and three flat desktops forgot
+
+Not a gap — a thing to remember when authoring a look. Windows 98, XP and 8 are
+FLAT grounds, and the default drifting nebula painted clouds across all three
+until each said `canvas: "none"`. It reads as a bug in the look rather than a
+default doing its job, which is exactly why it is written down here.
+
+### What went RIGHT, because that is evidence too
+
+**Vista and Windows 7 needed nothing new at all.** `aero` carries Aero glass
+whole — the backdrop blur, the top sheen, the translucent surface — and the two
+differ only in palette, one dark-tinted on green and the other light on blue.
+Photographed, the Vista page reads as Aero without qualification. That is the
+strongest evidence in this exercise that a look belongs in a document rather
+than in `SKINS`: three of five eras needed no chrome written, and adding
+`win98` or `win7` as skins would have duplicated what `retro` and `aero`
+already are.
+
 ## Two gaps left open, and why
 
 Both are refusals somebody already reasoned through and wrote down, and closing
