@@ -2238,6 +2238,21 @@ unguarded until phase 2 ships something that reaches it. Leaving a destructive
 branch unguarded until something reaches it is the fault this repository keeps
 paying for.
 
+**`BlockEditor` takes the live theme — asked about, never styled with — and
+without it the whole guard was unreachable.** `holdsNothingAuthored` is a
+question about the WHOLE page and that component holds only half: the blocks
+are there, the palette is a field the editor above owns. For one commit the
+call site simply did not pass it, so somebody who had chosen colours and
+nothing else got no confirmation — the guard existed, was correct, and was
+reached by nothing.
+
+**Every unit test passed while that was true**, because the case meant to
+cover it clicked the confirmation only `if` it was present. A tolerated
+absence is not an assertion; it is root rule 23 wearing a conditional. What
+found it was the browser suite, where the click had nothing to click and timed
+out. The case asserts the confirmation now, and sabotaging the call site back
+reddens it.
+
 **A colour chosen before a template now triggers the confirmation**, which is
 `holdsNothingAuthored`'s new argument reaching a real browser:
 `editor-saves-page.spec.ts` picks a colour, applies every template, and asserts

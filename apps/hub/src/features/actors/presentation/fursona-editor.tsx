@@ -342,6 +342,10 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * token rather than trying to outrank a rule it cannot. See `globals.css` and
  * `controls-stay-stable.spec.ts`.
  *
+ * **It hands `BlockEditor` the live theme, which that component asks about
+ * rather than paints with.** The picker lives down there and the palette lives
+ * here, so a predicate about the whole page needs both halves in one place.
+ *
  * **A picked template and a pasted document take the same path.** Both end at
  * `applyDocumentTo`, which writes the page and — only when there is one — the
  * look. That sharing is a function rather than a convention: two
@@ -900,6 +904,9 @@ export function FursonaEditor({
             labels={labels}
             // The picker's choice takes the same path a pasted document does.
             onApplyDocument={(chosen) => applyDocumentTo(setValue, chosen)}
+            // **Asked about, never styled with.** It is what lets the picker
+            // warn somebody who has chosen colours and nothing else.
+            theme={liveTheme as ActorTheme}
             // **The LIVE form values, not the saved ones.** An identity leaf
             // renders from the page context, and every section previews with the
             // real renderer — so handing the context the route built would show

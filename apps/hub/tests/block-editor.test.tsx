@@ -97,6 +97,9 @@ function harness(sections: Block[] = []) {
         // it, because a look is a second field this component cannot reach —
         // so the harness writes it, exactly as the real editor does.
         onApplyDocument={({ blocks }) => form?.setValue("sections", blocks)}
+        // No look chosen, so the picker applies without confirming — which is
+        // what every case in this file assumes.
+        theme={null}
       />
     );
   }

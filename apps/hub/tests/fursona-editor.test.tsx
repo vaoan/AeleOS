@@ -942,14 +942,20 @@ describe("the page-source dock's own mount and its theme guard", () => {
     const before = cssText();
     expect(before).toContain("--accent:");
 
-    // A page they have already touched, so the picker CONFIRMS rather than
-    // applying at once — which is also the branch `holdsNothingAuthored`'s new
-    // theme argument decides, and this exercises it end to end.
+    // **The confirmation MUST appear, and asserting that is the point.** This
+    // page's blocks are untouched — it is the scaffold — so the only thing
+    // making it the author's is the palette they chose, which is exactly what
+    // `holdsNothingAuthored`'s theme argument decides.
+    //
+    // An earlier version of this case clicked the confirmation only `if` it
+    // was there, and that conditional hid a real bug for a commit: the call
+    // site never passed the theme, so the guard was unreachable and somebody
+    // who had chosen colours got no warning at all. A tolerated absence is not
+    // an assertion.
     fireEvent.click(screen.getByTestId("template-picker"));
     const [template] = FURSONA_TEMPLATES;
     fireEvent.click(screen.getByTestId(`template-${template!.id}`));
-    const confirm = screen.queryByTestId("template-confirm");
-    if (confirm) fireEvent.click(confirm);
+    fireEvent.click(screen.getByTestId("template-confirm-yes"));
 
     // The page changed — anti-vacuity, because "the stylesheet is unchanged"
     // is also what a picker that did nothing at all would report.
