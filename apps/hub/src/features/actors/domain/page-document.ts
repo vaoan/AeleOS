@@ -67,6 +67,82 @@ function refuseUnsafeKeys(key: string, value: unknown): unknown {
 }
 
 /**
+ * What a parsed document's outer shape turned out to hold, or the one
+ * {@link DocumentProblem} that shape itself is refused for.
+ *
+ * **Extracted out of `parseDocument` to keep its own cognitive complexity
+ * under the linter's cap**, not because this shape is reused anywhere else.
+ * `rawTheme` is `undefined` for the bare-array shorthand, which carries no
+ * theme at all — the same reading `isMalformedTheme` and `parseDocument`'s own
+ * theme handling already give an omitted key.
+ */
+type ResolvedEnvelope =
+  | { ok: true; rawBlocks: unknown; rawTheme: unknown }
+  | { ok: false; problem: DocumentProblem };
+
+/**
+ * Reads a parsed value's outer shape — the bare-array shorthand, or an
+ * object envelope naming a version, blocks and a theme — before anything
+ * inside `blocks` or `theme` is looked at.
+ *
+ * @param raw - whatever `JSON.parse` returned.
+ * @returns the two raw halves to validate next, or the one problem that rules
+ *   out looking at them at all.
+ */
+function resolveEnvelope(raw: unknown): ResolvedEnvelope {
+  if (Array.isArray(raw))
+    return { ok: true, rawBlocks: raw, rawTheme: undefined };
+
+  if (typeof raw !== "object" || raw === null)
+    return {
+      ok: false,
+      problem: { at: "envelope", message: "not a document" },
+    };
+
+  const envelope = raw as Record<string, unknown>;
+  if (envelope.aeleos !== DOCUMENT_VERSION)
+    return {
+      ok: false,
+      problem: {
+        at: "envelope",
+        message:
+          envelope.aeleos === undefined
+            ? "no version marker"
+            : `unknown version ${String(envelope.aeleos)}`,
+      },
+    };
+
+  return { ok: true, rawBlocks: envelope.blocks, rawTheme: envelope.theme };
+}
+
+/**
+ * Whether a parsed `theme` value is something {@link parseTheme} must never
+ * see — anything that is not absent and not a plain object.
+ *
+ * **Extracted out of `parseDocument` for its own sake, not only for
+ * complexity.** `parseTheme` coerces anything that is not a plain object — an
+ * array, a string, a number — to `{}` and answers an all-defaults theme, so a
+ * malformed `theme` reaching it resets the author's palette exactly as a bare
+ * `"theme": null` would, on an input that is more clearly wrong rather than
+ * less. `null` and `undefined` are two of the values this returns `false`
+ * for — both already mean "leave the current theme alone" everywhere else in
+ * `parseDocument`; a genuine theme object is the third, as the `@returns`
+ * below states.
+ *
+ * @param value - `envelope.theme` as parsed, or `undefined` for the
+ *   bare-array shorthand, which carries no theme at all.
+ * @returns `true` for an array or any non-object value other than `null` or
+ *   `undefined`.
+ */
+function isMalformedTheme(value: unknown): boolean {
+  return (
+    value !== undefined &&
+    value !== null &&
+    (typeof value !== "object" || Array.isArray(value))
+  );
+}
+
+/**
  * The largest paste this will look at, in bytes.
  *
  * **Checked before `JSON.parse`, never after**, which is the whole reason it is
@@ -192,6 +268,24 @@ function refusedLeaves(
  * "reset it", since a document naming the key and giving it nothing most
  * plausibly means there is no theme here.
  *
+ * **A `theme` that is present but not an object — `[]`, a string, a number —
+ * is refused as its own `envelope` problem, before `parseTheme` ever sees
+ * it, and a whole-branch review found this missing.** `parseTheme` treats
+ * anything that is not a plain object as `{}` and answers an all-defaults
+ * theme, which is the same destructive reset `null` is refused above for
+ * arriving on an input that is more clearly malformed rather than less —
+ * `"theme": []` is not an ambiguous absence, it is a wrong shape.
+ *
+ * **That guard runs BEFORE `blocksSchema` ever sees `rawBlocks`, which is a
+ * real behaviour change worth stating rather than leaving implicit.** A
+ * document carrying both a malformed theme and refused blocks reports only
+ * the theme problem — the block issues are never reached, because this
+ * function returns on the first refusal it finds. Envelope before contents is
+ * the ordering every other envelope-level refusal here already uses (the
+ * version marker and the outer shape are both checked before `rawBlocks` is
+ * touched at all), so this keeps rather than breaks that convention; it is
+ * recorded here because it was not obvious from the diff that added it.
+ *
  * A bare array is accepted as shorthand for `{ blocks: [...] }`, because a
  * model asked for a page very often emits the array alone. That is leniency
  * about the envelope's SHAPE and never about validation: the blocks still go
@@ -259,34 +353,18 @@ export function parseDocument(text: string, kind: ActorKind): DocumentParse {
     };
   }
 
-  let rawBlocks: unknown;
-  let rawTheme: unknown;
-  if (Array.isArray(raw)) {
-    rawBlocks = raw;
-    rawTheme = undefined;
-  } else if (typeof raw === "object" && raw !== null) {
-    const envelope = raw as Record<string, unknown>;
-    if (envelope.aeleos !== DOCUMENT_VERSION)
-      return {
-        ok: false,
-        problems: [
-          {
-            at: "envelope",
-            message:
-              envelope.aeleos === undefined
-                ? "no version marker"
-                : `unknown version ${String(envelope.aeleos)}`,
-          },
-        ],
-      };
-    rawBlocks = envelope.blocks;
-    rawTheme = envelope.theme;
-  } else {
+  const envelope = resolveEnvelope(raw);
+  if (!envelope.ok) return { ok: false, problems: [envelope.problem] };
+  const { rawBlocks, rawTheme } = envelope;
+
+  // A `theme` that is neither absent nor an object is refused here, before it
+  // ever reaches `parseTheme` — see {@link isMalformedTheme}'s own TSDoc for
+  // why.
+  if (isMalformedTheme(rawTheme))
     return {
       ok: false,
-      problems: [{ at: "envelope", message: "not a document" }],
+      problems: [{ at: "envelope", message: "theme is not an object" }],
     };
-  }
 
   const parsed = blocksSchema.safeParse(rawBlocks);
   if (!parsed.success) {

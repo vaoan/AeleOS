@@ -153,6 +153,143 @@ test("reaches both edges of the window at a narrow viewport", async ({
   ).toBeGreaterThanOrEqual(319);
 });
 
+// COLLAPSING THE DOCK HAS TO REVEAL THE PAGE, NOT JUST HIDE THE TEXTAREA.
+//
+// A whole-branch review found `collapsed` gating only the body
+// (`{!collapsed && …}`) while the dialog kept `bottom-0` — the half of the
+// mechanism above that stretches the panel to the foot of the viewport —
+// regardless. So collapsing left a full-height, fully OPAQUE (`bg-(--menu)`)
+// panel with nothing painted below its header, still covering whatever page
+// was behind it: the entire screen at 320px. The design this component
+// implements says collapsing on a narrow viewport has to be "the only way to
+// see whether what was typed did anything", which a panel that still covers
+// the page cannot be.
+//
+// Excludes: a fix that shrinks the panel's CLASS list without changing what
+// is actually painted at a given screen coordinate, and a fix that only works
+// at one viewport. Both widths below assert the measured height AND that a
+// point the expanded dock covered is occupied by a real block preview once
+// collapsed — not merely "not the dialog", but the page itself.
+//
+// Sabotage-verified: restoring `bottom-0` unconditionally (dropping the
+// `collapsed ? "bottom-auto" : "bottom-0"` branch) reddens both cases below.
+for (const width of [1280, 320]) {
+  test(`collapsing shrinks the dock to its header and reveals the page at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await signIn(page, await mintTicket(identity!.userId));
+    await page.goto(`/en/pages/${handle}/edit`);
+    await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+    await page.getByTestId("editor-open-source").click();
+    const dock = page.getByTestId("page-source-dock");
+    await expect(dock).toBeVisible();
+
+    const viewport = page.viewportSize()!;
+    const expandedBox = (await dock.boundingBox())!;
+
+    // Baseline: expanded reaches near the bottom of the viewport, exactly as
+    // the two tests above already establish for their own widths — restated
+    // here because the collapse assertion below is a claim about shrinking
+    // AWAY from this.
+    expect(
+      expandedBox.y + expandedBox.height,
+      "expanded reaches near the bottom of the viewport",
+    ).toBeGreaterThan(viewport.height - 4);
+
+    // A point that is inside BOTH the expanded dock's box and a real block
+    // preview's box — the overlap, not a guessed coordinate — so the probe
+    // is provably a point the expanded dock was covering real page content
+    // at, rather than an empty margin. The identity section's control card
+    // sits above its own preview and is tall enough that the FIRST block
+    // preview is routinely below the fold on load, so it is scrolled into
+    // view first — the dock is `fixed`, unaffected by page scroll, so its
+    // own box is re-read after rather than assumed unchanged.
+    const preview = page.getByTestId("block-preview").first();
+    await preview.scrollIntoViewIfNeeded();
+    // The dock is `fixed`, so page scroll cannot move it — re-read anyway
+    // rather than assume, since a scroll is exactly the kind of event that
+    // has broken a sticky bar's own offset in this file's own history.
+    const dockBoxAfterScroll = (await dock.boundingBox())!;
+    const previewBox = (await preview.boundingBox())!;
+    const overlapXMin = Math.max(dockBoxAfterScroll.x, previewBox.x);
+    const overlapXMax = Math.min(
+      dockBoxAfterScroll.x + dockBoxAfterScroll.width,
+      previewBox.x + previewBox.width,
+    );
+    const overlapYMin = Math.max(dockBoxAfterScroll.y, previewBox.y);
+    const overlapYMax = Math.min(
+      dockBoxAfterScroll.y + dockBoxAfterScroll.height,
+      previewBox.y + previewBox.height,
+    );
+    expect(
+      overlapXMin,
+      "the expanded dock genuinely overlaps a block preview horizontally",
+    ).toBeLessThan(overlapXMax);
+    expect(
+      overlapYMin,
+      "the expanded dock genuinely overlaps a block preview vertically",
+    ).toBeLessThan(overlapYMax);
+    const point = {
+      x: (overlapXMin + overlapXMax) / 2,
+      y: (overlapYMin + overlapYMax) / 2,
+    };
+
+    await page.getByTestId("page-source-collapse").click();
+
+    const collapsedBox = (await dock.boundingBox())!;
+
+    // **The header's own height, not the viewport's, and not zero either.**
+    // A header holding two icon buttons and one line of text is nowhere near
+    // either viewport height tried here, and the DOM half of this claim
+    // (`page-source-dock.test.tsx`'s "collapsing hides the body and keeps the
+    // header") already proves the header stays in the document. What that
+    // case cannot see is LAYOUT: a real header rendered at zero height, or a
+    // dock that scrolled off the viewport, would both still satisfy
+    // `< 100` with nothing below to catch it. `toBeGreaterThan(16)` closes
+    // that — a header holding two icon buttons cannot be shorter than one
+    // of them — so this asserts "shrunk to its header", not merely
+    // "shrunk to less than a viewport".
+    expect(
+      collapsedBox.height,
+      "collapsed height is the header's, not the viewport's",
+    ).toBeLessThan(100);
+    expect(
+      collapsedBox.height,
+      "collapsed height is a real header, not zero or an off-screen dock",
+    ).toBeGreaterThan(16);
+
+    // The probe point — inside the EXPANDED dock a moment ago — now falls
+    // below the collapsed dock's own bottom edge.
+    expect(
+      point.y,
+      "the probe point now sits below the collapsed dock",
+    ).toBeGreaterThan(collapsedBox.y + collapsedBox.height);
+
+    // And a real block preview, not the dialog, is what is actually painted
+    // there.
+    const behind = await page.evaluate(
+      ([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        return {
+          isDock: el?.closest('[data-testid="page-source-dock"]') !== null,
+          isPreview: el?.closest('[data-testid="block-preview"]') !== null,
+        };
+      },
+      [point.x, point.y],
+    );
+    expect(
+      behind.isDock,
+      "the collapsed dock no longer covers this point",
+    ).toBe(false);
+    expect(
+      behind.isPreview,
+      "the page's own block preview is visible at this point",
+    ).toBe(true);
+  });
+}
+
 test("editing the box changes the page; breaking it leaves the page alone", async ({
   page,
 }) => {

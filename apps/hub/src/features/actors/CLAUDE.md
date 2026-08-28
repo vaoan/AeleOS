@@ -2076,6 +2076,17 @@ theme alone, never reset it. The size is checked before `JSON.parse`, never
 after. Read the spec `2026-08-27-page-source-and-sharing-design.md` before
 changing any of it.
 
+**A `theme` that is present but not a plain object — `[]`, a string, a
+number — is refused as its own `envelope` problem too (2026-08-28), found by
+a whole-branch review.** `parseTheme` coerces any non-object to `{}` and
+answers an all-defaults theme, which is the exact destructive reset `null` is
+already refused above for, on an input that is more clearly malformed rather
+than less. `isMalformedTheme`/`resolveEnvelope` in `page-document.ts` are
+where this lives, and the guard runs BEFORE `blocksSchema` ever sees the
+blocks — so a document carrying both a malformed theme and bad blocks reports
+only the theme problem, the same envelope-before-contents ordering every other
+envelope-level refusal here already uses.
+
 **A refusal is reported by WHERE it was found, not by re-walking the tree a
 second time.** `blockProblemsFromIssues` (`block-problems.ts`, beside
 `blockProblems`) reads a raw `ZodError`'s own flat `issues` array — there is
@@ -2240,7 +2251,7 @@ sentences would need a fourth name added by hand, and nothing here would
 fail if that were forgotten — "the same as X and Y" contains no `only` or
 `every other` for the gate to catch, so this is a real residual gap. Ruled
 deliberately NOT worth a mechanism for: three members is not worth a second
-gated record the way seventeen leaf kinds or eight container modes are, and
+gated record the way sixteen leaf kinds or eight container modes are, and
 the cost of getting it wrong is a slightly incomplete cross-reference, not a
 falsehood the shape `ROWS_MEANINGS` was built to prevent. Revisit this
 ruling if a fourth inverting kind is ever added — that is the moment the
@@ -2410,6 +2421,22 @@ clamped down by `max-width` — sheet mode needs `max-md:max-w-none
 max-md:min-w-0` alongside `max-md:w-full`, not that class alone. `resize()`
 now clamps at both ends, mirroring the CSS bound in JS, so an arrow key
 cannot walk `width` state past what the panel can ever render.
+
+**A whole-branch review found collapsing did not shrink the panel at all
+(2026-08-28).** `collapsed` gated only the body (`{!collapsed && …}`); the
+dialog kept `bottom-0` regardless, which is exactly the half of the mechanism
+above that stretches the box to the foot of the viewport. So collapsing left
+a full-height, fully OPAQUE (`bg-(--menu)`) panel with nothing painted below
+its header — the whole screen at 320px, against this component's own spec
+saying collapsing on a narrow viewport has to be "the only way to see whether
+what was typed did anything". `bottom` is conditional on `collapsed` now,
+switching to `bottom-auto` so `height: auto` resolves to the header's own
+content size. `tests/e2e/page-source-dock.spec.ts` measures the collapsed
+height at a wide viewport and at 320, with BOTH an upper bound (under 100px,
+nowhere near a viewport) and a lower one (over 16px, so "shrunk to its
+header" cannot be confused with "shrunk to zero" or "scrolled off the
+viewport") — the lower bound was itself a re-review finding, added after the
+first draft of this fix shipped with only the upper one.
 
 **The stale strip used to be MOUNTED by the same condition that populates
 it**, which a screen reader commonly misses entirely — `aria-live` announces
