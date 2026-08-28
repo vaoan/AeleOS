@@ -20,6 +20,28 @@ template picker — the "one path, not two" the spec requires — and
 
 **Spec:** `docs/superpowers/specs/2026-08-28-era-looks-design.md`
 
+> **Correction, made while executing Task 2 (2026-08-28).** This plan was
+> written against a `PageDocument` type that **does not exist**.
+> `page-document.ts` is text-in and text-out: `toDocument` returns a JSON
+> string and `parseDocument` consumes one. So a shipped template carries the
+> shape `parseDocument` RETURNS — `{ theme: ActorTheme | null; blocks: Block[] }`
+> — rather than JSON text, and is not re-parsed at runtime.
+>
+> That is a better design than the one written below, not merely an
+> accommodation. Shipped templates are ours and type-checked at compile time;
+> round-tripping them through JSON at runtime would parse our own data to
+> discover errors the compiler already refuses, and hide type errors behind a
+> runtime check. What "one path, not two" actually buys is that APPLICATION is
+> shared — `applyDocument` in Task 4, called by the dock with what
+> `parseDocument` returned and by the picker with a template's literal — and
+> that is preserved exactly.
+>
+> The guarantee the plan wanted from parsing is kept as a BUILD-TIME one
+> instead: Task 2's test round-trips every shipped template through the real
+> `toDocument`/`parseDocument` pair, so a malformed template fails the build
+> rather than a user's editor. Read `PageDocument` below as
+> `{ theme, blocks }` throughout.
+
 ## Global Constraints
 
 - **A look is never a default.** Absence keeps meaning what it meant before;

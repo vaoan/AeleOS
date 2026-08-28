@@ -176,6 +176,14 @@ Key choices and _why_:
   lifting document application up to `FursonaEditor`, where the source dock
   already does it.
 
+  **Read its correction banner first.** The plan was written against a
+  `PageDocument` type that does not exist — `page-document.ts` is text-in and
+  text-out — so a template carries the parsed `{ theme, blocks }` shape rather
+  than JSON, and is not re-parsed at runtime. The guarantee re-parsing would
+  have bought is taken at BUILD time instead: every shipped template is pushed
+  through the real `toDocument`/`parseDocument` pair in its own test, so one
+  the parser refuses fails the build rather than somebody's editor.
+
 - **Clerk:** https://clerk.com — docs: https://clerk.com/docs
 - **Supabase Third-Party Auth:** the mechanism each app uses to trust Clerk.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,

@@ -53,7 +53,7 @@ import {
   type MoveRefusal,
 } from "@/features/actors/domain/block-moves";
 import type { BlockProblem } from "@/features/actors/domain/block-problems";
-import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
+import type { ChosenPage } from "@/features/actors/domain/fursona-templates";
 import {
   holdsNothingAuthored,
   lockedKinds,
@@ -150,7 +150,15 @@ export interface BlockEditorLabels
  * `problems` is threaded from the form rather than recomputed here, so one
  * walk of react-hook-form's error tree answers it for every card — and so the
  * banner and the marks beneath it can never disagree about which blocks are
- * wrong. *
+ * wrong.
+ *
+ * **`onApplyDocument` is the one prop that crosses a boundary rather than
+ * describing this component.** The template picker lives here and the THEME
+ * does not: `control` reaches a single field, the page, and a look is a second
+ * field the editor above owns. So a picked template is forwarded up rather
+ * than applied here, and lands in the same `applyDocumentTo` a pasted document
+ * goes through.
+ *
  * **It takes a `PageContext` and reads none of it**, threading it to the preview
  * trays so the real renderer sees the live actor. It takes no theme at all any
  * more: the DOCUMENT wears the page being built, so a section preview inherits
@@ -175,6 +183,16 @@ export interface BlockEditorProps<T extends FieldValues> {
    * can never disagree about which blocks are wrong.
    */
   problems: readonly BlockProblem[];
+  /**
+   * Applies a whole chosen page — blocks AND look — to the form.
+   *
+   * **This component holds the picker and does NOT hold the theme**, which is
+   * the seam this prop exists to cross. `control` reaches one field, the page;
+   * a look is a second field the editor above owns. So the picker's choice is
+   * forwarded up rather than applied here, and it lands in the same
+   * `applyDocument` a pasted document goes through — one path, not two.
+   */
+  onApplyDocument: (chosen: ChosenPage) => void;
 }
 
 /** The shape a new section starts at, before anybody changes it. */
@@ -256,7 +274,7 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  *
  * **A template fills the whole page rather than adding to it**, which is why
  * the picker asks first when there is anything to lose. Templates are still
- * written in the flat vocabulary and are converted by `sectionsToBlocks` — the
+ * written in the flat vocabulary and are converted where they are declared — the
  * same conversion that opens every page already stored — so a template and a
  * stored page arrive in the editor as the same shape.
  *
@@ -332,6 +350,7 @@ export function BlockEditor<T extends FieldValues>({
   labels,
   page,
   problems,
+  onApplyDocument,
 }: BlockEditorProps<T>) {
   const id = useId();
   const dndId = useId();
@@ -597,10 +616,17 @@ export function BlockEditor<T extends FieldValues>({
             // leave a page the write then refuses. The templates themselves are
             // deliberately left alone: they are what the app suggests somebody
             // write, and the identity blocks are not that.
-            onApply={(sections) =>
-              apply(() =>
-                withRequiredBlocks(sectionsToBlocks(sections), page.actorKind),
-              )
+            // **`withRequiredBlocks` still runs, and for the reason above it
+            // always did**: a template names no identity block and applying one
+            // REPLACES the page, so without this a template would silently
+            // strip somebody's portrait and handle and leave a page the write
+            // then refuses. The theme rides up untouched — this component has
+            // no opinion about a look and no field to put one in.
+            onApply={({ blocks: chosen, theme }) =>
+              onApplyDocument({
+                blocks: withRequiredBlocks(chosen, page.actorKind),
+                theme,
+              })
             }
           />
 

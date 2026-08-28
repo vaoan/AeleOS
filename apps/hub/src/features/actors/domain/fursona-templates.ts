@@ -1,4 +1,7 @@
 import type { FursonaSection } from "@/features/actors/domain/section-schema";
+import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
+import type { Block } from "@/features/actors/domain/block-schema";
+import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 
 /**
  * A starting layout somebody can begin a fursona's page from.
@@ -9,11 +12,52 @@ import type { FursonaSection } from "@/features/actors/domain/section-schema";
  * template is applied they are the person's own writing, to edit or delete, and
  * a catalogue key cannot describe a string somebody else is about to rewrite.
  */
-export interface FursonaTemplate {
+export interface StarterLayout {
   /** Stable key, and the catalogue key for the name and description. */
   id: string;
-  /** What applying it puts in the editor. Never handed out unwrapped. */
+  /** The layout, authored in the flat vocabulary. */
   sections: FursonaSection[];
+}
+
+/**
+ * A page and the look to wear it in, as chosen by a person.
+ *
+ * **One named shape rather than the same object literal in four places.** It
+ * is what the picker hands out, what `BlockEditor` forwards, and what the
+ * editor's one `applyDocument` writes — and it is deliberately the same shape
+ * `parseDocument` returns, so a pasted document and a picked template are
+ * indistinguishable by the time either reaches the form.
+ *
+ * `theme` is nullable and never optional: null means **leave the author's
+ * colours alone**, and a look that forgot to say so should be a type error
+ * rather than a silent reset.
+ */
+export interface ChosenPage {
+  /** The page to put in the editor. */
+  blocks: Block[];
+  /** The look to apply, or null to keep whatever the author already chose. */
+  theme: ActorTheme | null;
+}
+
+/**
+ * A pickable starting point: a page, a look, and a key naming it.
+ *
+ * **This is what the picker offers, and it is deliberately not how a starter
+ * is AUTHORED.** The shipped starters are written as flat sections — see
+ * {@link STARTER_LAYOUTS} — because that is the vocabulary their guards are
+ * written in, and those guards are about our own authorship rather than about
+ * the shim's output. What a caller receives is blocks, because blocks are what
+ * the editor holds.
+ *
+ * There is no `name` or `description` here on purpose. Those are the picker's
+ * words — ours — so they belong in the message catalogue keyed by `id`, where
+ * a missing Spanish one fails the build. The page does not: the instant a
+ * template is applied it is the person's own writing, and a catalogue key
+ * cannot describe a string somebody else is about to rewrite.
+ */
+export interface FursonaTemplate extends ChosenPage {
+  /** Stable key, and the catalogue key for the name and description. */
+  id: string;
 }
 
 /**
@@ -48,7 +92,7 @@ export interface FursonaTemplate {
  * the rest of the session. `TemplatePicker` does the `structuredClone`, and its
  * test is the only thing that can catch its absence.
  */
-export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
+export const STARTER_LAYOUTS: readonly StarterLayout[] = Object.freeze([
   {
     id: "reference-sheet",
     sections: [
@@ -278,3 +322,27 @@ export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze([
     ],
   },
 ]);
+
+/**
+ * The starting points the picker offers.
+ *
+ * Derived from {@link STARTER_LAYOUTS} rather than authored twice: the flat
+ * form is what the guards in `fursona-templates.test.ts` read, and converting
+ * here means a starter cannot be correct in one shape and wrong in the other.
+ *
+ * The conversion runs once at module scope rather than per application. It is
+ * the shim's remaining reason to exist — see `section-block-shim.ts`, which
+ * converts ONE way now — and it is why a starter can go on being written in
+ * the vocabulary it reads best in while the editor only ever sees blocks.
+ *
+ * **Every starter carries `theme: null`.** They are what the app suggests
+ * somebody WRITE, not a look it suggests they wear, and null means leave the
+ * author's colours alone.
+ */
+export const FURSONA_TEMPLATES: readonly FursonaTemplate[] = Object.freeze(
+  STARTER_LAYOUTS.map((layout) => ({
+    id: layout.id,
+    blocks: sectionsToBlocks(layout.sections),
+    theme: null,
+  })),
+);

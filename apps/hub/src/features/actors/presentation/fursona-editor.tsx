@@ -23,6 +23,7 @@ import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { ThemeScope } from "@/features/actors/presentation/theme-scope";
 import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
+import type { ChosenPage } from "@/features/actors/domain/fursona-templates";
 import { WritingInToggle } from "@/features/actors/presentation/writing-in-toggle";
 import {
   EditorToolbar,
@@ -340,6 +341,12 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `var(--chrome-text, 1rem)`, so an island asking for another size sets that
  * token rather than trying to outrank a rule it cannot. See `globals.css` and
  * `controls-stay-stable.spec.ts`.
+ *
+ * **A picked template and a pasted document take the same path.** Both end at
+ * `applyDocumentTo`, which writes the page and — only when there is one — the
+ * look. That sharing is a function rather than a convention: two
+ * implementations would have looked identical the day they were written and
+ * disagreed the first time either changed, about something destructive.
  *
  * **Navigation is decided by what `save` returns, never by reading
  * `fieldErrors` afterwards.** That value is captured from the render that built
@@ -891,6 +898,8 @@ export function FursonaEditor({
             control={control}
             lang={lang}
             labels={labels}
+            // The picker's choice takes the same path a pasted document does.
+            onApplyDocument={(chosen) => applyDocumentTo(setValue, chosen)}
             // **The LIVE form values, not the saved ones.** An identity leaf
             // renders from the page context, and every section previews with the
             // real renderer — so handing the context the route built would show
@@ -939,6 +948,40 @@ export function FursonaEditor({
       </ThemeScope>
     </form>
   );
+}
+
+/**
+ * Writes a whole chosen page — blocks, and a look when there is one — to the
+ * form.
+ *
+ * **The ONE path a document reaches the editor by**, whatever chose it: a
+ * pasted document from the source dock, and a template picked from the list.
+ * Two implementations would have looked identical the day they were written
+ * and disagreed the first time either changed, and the thing they would
+ * disagree about is destructive.
+ *
+ * **`if (theme)` is load-bearing and must not become unconditional.** A null
+ * theme means "leave whatever the author already chose" — absence is inherit
+ * everywhere in this model — so writing one through would reset somebody's
+ * palette on every document and every template that carries none, which is
+ * every shipped starter. That exact branch shipped untested once on the dock
+ * and had to be closed in review; `fursona-editor.test.tsx` aims a case at it.
+ *
+ * @param setValue - the form's writer.
+ * @param chosen - the page, and the look to wear it in.
+ */
+function applyDocumentTo<T extends FieldValues>(
+  setValue: UseFormSetValue<T>,
+  chosen: ChosenPage,
+): void {
+  setValue("sections" as Path<T>, chosen.blocks as PathValue<T, Path<T>>, {
+    shouldDirty: true,
+  });
+  if (chosen.theme) {
+    setValue("theme" as Path<T>, chosen.theme as PathValue<T, Path<T>>, {
+      shouldDirty: true,
+    });
+  }
 }
 
 /**
@@ -1003,16 +1046,7 @@ function PageSourceField<T extends FieldValues>({
     theme,
     blocks,
     actorKind,
-    apply: ({ theme: nextTheme, blocks: nextBlocks }) => {
-      setValue("sections" as Path<T>, nextBlocks as PathValue<T, Path<T>>, {
-        shouldDirty: true,
-      });
-      if (nextTheme) {
-        setValue("theme" as Path<T>, nextTheme as PathValue<T, Path<T>>, {
-          shouldDirty: true,
-        });
-      }
-    },
+    apply: (chosen) => applyDocumentTo(setValue, chosen),
   });
 
   return (

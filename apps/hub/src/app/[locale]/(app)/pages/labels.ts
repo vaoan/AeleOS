@@ -216,6 +216,12 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * and this bag carry a `title`. The dock itself never renders the control
  * that opens it, so its own label bag has no `open` entry to collide with.
  *
+ * **`sectionCounts` reads a template's BLOCKS**, and the number it shows is the
+ * same one under a new name: `sectionsToBlocks` maps one top-level section to
+ * one container, and a template is converted where it is declared rather than
+ * when it is applied. If a starter ever gains a nested section this stops being
+ * a coincidence and the count has to be taken from the authored form instead.
+ *
  * @returns the translated labels.
  *
  * It builds the style popup's `chrome`, `heading`, `heading_pad`, `text_align`,
@@ -382,7 +388,7 @@ export async function fursonaEditorLabels(
     sectionCounts: Object.fromEntries(
       FURSONA_TEMPLATES.map((template) => [
         template.id,
-        t("templateSections", { count: template.sections.length }),
+        t("templateSections", { count: template.blocks.length }),
       ]),
     ),
     handle: t("form.handle"),

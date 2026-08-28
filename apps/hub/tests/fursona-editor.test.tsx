@@ -24,6 +24,7 @@ import {
 import { SKINS, type SkinId } from "@/shared/domain/skins";
 import { isContainer, type Block } from "@/features/actors/domain/block-schema";
 import { blockEditorLabels } from "./support/editor-labels";
+import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import {
   EscapeSlotProvider,
@@ -904,6 +905,60 @@ describe("the page-source dock's own mount and its theme guard", () => {
   // repository pastes a document round-tripped through `toDocument`, which
   // ALWAYS emits a `theme` key — so this is the only place the FALSE arm of
   // that `if` is ever exercised at all.
+  // **THE PICKER'S OWN COPY OF THAT GUARANTEE.** The dock's case above proves
+  // `applyDocumentTo`'s `if (theme)` branch; this proves the picker actually
+  // REACHES it. They are not the same claim — the picker's route runs through
+  // `BlockEditor`'s `onApplyDocument`, which could drop the theme, invent one,
+  // or pass a resolved default, and none of that would redden the dock's case.
+  //
+  // It matters because every shipped starter carries `theme: null`, so this is
+  // the ordinary path rather than an edge: an author who chose colours and
+  // then picked a starting layout must keep them.
+  it("leaves the author's theme alone when a picked template carries none", () => {
+    const CUSTOMISED_THEME = {
+      ...DEFAULT_THEME,
+      accent: "#ff0000",
+      background: {
+        kind: "linear" as const,
+        repeating: false,
+        every: 0,
+        angle: 135,
+        shape: "ellipse" as const,
+        extent: "farthest-corner" as const,
+        x: 50,
+        y: 50,
+        stops: [
+          { color: "#2a0845", at: 0 },
+          { color: "#ff2d95", at: 100 },
+        ],
+      },
+    };
+    const { container } = renderEditor({ initialTheme: CUSTOMISED_THEME });
+
+    const cssText = () =>
+      [...container.querySelectorAll("style")]
+        .map((node) => node.textContent ?? "")
+        .join(" ");
+    const before = cssText();
+    expect(before).toContain("--accent:");
+
+    // A page they have already touched, so the picker CONFIRMS rather than
+    // applying at once — which is also the branch `holdsNothingAuthored`'s new
+    // theme argument decides, and this exercises it end to end.
+    fireEvent.click(screen.getByTestId("template-picker"));
+    const [template] = FURSONA_TEMPLATES;
+    fireEvent.click(screen.getByTestId(`template-${template!.id}`));
+    const confirm = screen.queryByTestId("template-confirm");
+    if (confirm) fireEvent.click(confirm);
+
+    // The page changed — anti-vacuity, because "the stylesheet is unchanged"
+    // is also what a picker that did nothing at all would report.
+    expect(screen.getAllByTestId("section-card").length).toBeGreaterThan(0);
+
+    // And the look did not.
+    expect(cssText()).toBe(before);
+  });
+
   it("leaves the author's theme alone when a pasted document omits it", () => {
     vi.useFakeTimers();
     try {

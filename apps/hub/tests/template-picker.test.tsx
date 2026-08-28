@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
+import { isContainer, type Block } from "@/features/actors/domain/block-schema";
 import { TemplatePicker } from "@/features/actors/presentation/template-picker";
 
 const labels = {
@@ -20,7 +21,7 @@ const labels = {
   sectionCounts: Object.fromEntries(
     FURSONA_TEMPLATES.map((template) => [
       template.id,
-      `${template.sections.length} sections in ${template.id}`,
+      `${template.blocks.length} sections in ${template.id}`,
     ]),
   ),
 };
@@ -85,7 +86,13 @@ describe("TemplatePicker", () => {
       screen.getByRole("button", { name: labels.names[first.id] }),
     );
     expect(onApply).toHaveBeenCalledOnce();
-    expect(onApply.mock.calls[0]![0]).toEqual(first.sections);
+    // **Blocks AND a look**, which is what makes an era look pickable at all.
+    // Asserting only the blocks would pass on a picker that silently dropped
+    // the theme — the half a template could never carry before.
+    expect(onApply.mock.calls[0]![0]).toEqual({
+      blocks: first.blocks,
+      theme: first.theme,
+    });
   });
 
   // The house pattern, and it is not `globalThis.confirm`: the destructive step
@@ -136,13 +143,29 @@ describe("TemplatePicker", () => {
       screen.getByRole("button", { name: labels.names[first.id] }),
     );
 
-    const given = onApply.mock.calls[0]![0] as typeof first.sections;
-    given[0]!.name_en = "rewritten";
-    given[0]!.items[0]!.title_en = "rewritten too";
+    const given = onApply.mock.calls[0]![0] as {
+      blocks: Block[];
+      theme: unknown;
+    };
+    // Narrowed by THROWING rather than by an `if` around the assertion: a
+    // conditional `expect` silently passes when its condition is false, which
+    // is the one outcome this case must never report as success.
+    const section = given.blocks[0];
+    if (!section || !isContainer(section))
+      throw new Error("expected a section");
+    const child = section.children[0];
+    if (!child || isContainer(child)) throw new Error("expected a leaf");
+    section.name_en = "rewritten";
+    child.title_en = "rewritten too";
 
-    expect(FURSONA_TEMPLATES[0]!.sections[0]!.name_en).not.toBe("rewritten");
-    expect(FURSONA_TEMPLATES[0]!.sections[0]!.items[0]!.title_en).not.toBe(
-      "rewritten too",
-    );
+    const shipped = FURSONA_TEMPLATES[0]!.blocks[0];
+    if (!shipped || !isContainer(shipped))
+      throw new Error("expected a section");
+    const shippedChild = shipped.children[0];
+    if (!shippedChild || isContainer(shippedChild)) {
+      throw new Error("expected a leaf");
+    }
+    expect(shipped.name_en).not.toBe("rewritten");
+    expect(shippedChild.title_en).not.toBe("rewritten too");
   });
 });

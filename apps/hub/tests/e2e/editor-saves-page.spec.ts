@@ -14,7 +14,6 @@ import {
   startFursona,
 } from "./support/editor";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
-import { sectionsToBlocks } from "@/features/actors/domain/section-block-shim";
 import { isContainer } from "@/features/actors/domain/block-schema";
 
 // THE COVERAGE THAT WAS OWED, AND WHY IT IS OWED IN A BROWSER.
@@ -171,24 +170,27 @@ const PERSON_FURSONAS: EditorSection = {
 /**
  * The same page, as the template that produced it describes itself.
  *
- * Built by running the template through `sectionsToBlocks` rather than by
+ * Built from the template's own blocks rather than by
  * restating the decomposition table, so what this expects and what the editor
  * is handed cannot disagree about anything except the round trip itself — plus
  * {@link IDENTITY_SECTION}, which is not the template's and is what the editor
  * adds to make the page one the database will accept.
  *
- * @param sections - a template's own sections.
+ * @param blocks - a template's own blocks, already converted. The spec used
+ *   to take flat sections and run `sectionsToBlocks` itself; a template ships
+ *   blocks now, so the conversion lives where it belongs and this helper can
+ *   no longer disagree with what the picker actually hands out.
  * @param identity - what the shim put BEFORE them, which differs by actor
  *   kind. A person's page passes an empty list and places its own two around
  *   the result, because one of theirs is appended rather than prepended.
  * @returns what {@link readEditor} must find.
  */
 const expectedFrom = (
-  sections: (typeof FURSONA_TEMPLATES)[number]["sections"],
+  blocks: (typeof FURSONA_TEMPLATES)[number]["blocks"],
   identity: EditorSection[] = [IDENTITY_SECTION],
 ): EditorSection[] => [
   ...identity,
-  ...sectionsToBlocks(sections).map((block) => {
+  ...blocks.map((block) => {
     if (!isContainer(block)) throw new Error("a template made a leaf");
     return {
       name: block.name_en ?? "",
@@ -223,7 +225,7 @@ for (const template of FURSONA_TEMPLATES) {
     await page.getByTestId(`template-${template.id}`).click();
     // Applied before anything is saved, so what the editor holds now is the
     // template itself — the state the round trip below is measured against.
-    expect(await readEditor(page)).toEqual(expectedFrom(template.sections));
+    expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
 
     await saveAndLeave(page);
 
@@ -232,7 +234,7 @@ for (const template of FURSONA_TEMPLATES) {
     // one-way conversion passes and a wrong one does not.
     await page.goto(`/es/pages/${handle}/edit`);
     await expect(page.getByTestId("section-card").first()).toBeVisible();
-    expect(await readEditor(page)).toEqual(expectedFrom(template.sections));
+    expect(await readEditor(page)).toEqual(expectedFrom(template.blocks));
 
     // And a second save over what was just reopened, which is the shape of the
     // bug that once deleted people's sections: reopen, press Save, lose the
@@ -247,7 +249,7 @@ for (const template of FURSONA_TEMPLATES) {
       // The template's own sections, plus the identity one the editor added
       // and the save then stored — see {@link IDENTITY_SECTION}.
       await expect(anonymous.getByTestId("public-section")).toHaveCount(
-        template.sections.length + 1,
+        template.blocks.length + 1,
       );
       // The page is not merely present but populated: a section that lost its
       // items would still be a section.
@@ -385,7 +387,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   await expect(page.getByTestId("section-card").first()).toBeVisible();
   expect(await readEditor(page)).toEqual([
     PERSON_HEADER,
-    ...expectedFrom(template!.sections, []),
+    ...expectedFrom(template!.blocks, []),
     PERSON_FURSONAS,
   ]);
 
@@ -395,7 +397,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
     const response = await anonymous.goto(`/es/${address}`);
     expect(response?.status()).toBe(200);
     await expect(anonymous.getByTestId("public-section")).toHaveCount(
-      template!.sections.length + 2,
+      template!.blocks.length + 2,
     );
   } finally {
     await stranger.close();

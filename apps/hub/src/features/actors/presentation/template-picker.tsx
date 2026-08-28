@@ -5,9 +5,9 @@ import { tid } from "@/shared/infrastructure/test-id";
 import { useState } from "react";
 import {
   FURSONA_TEMPLATES,
+  type ChosenPage,
   type FursonaTemplate,
 } from "@/features/actors/domain/fursona-templates";
-import type { FursonaSection } from "@/features/actors/domain/section-schema";
 
 /**
  * Translated strings {@link TemplatePicker} renders.
@@ -40,18 +40,39 @@ export interface TemplatePickerLabels {
   sectionCounts: Record<string, string>;
 }
 
-/** What {@link TemplatePicker} needs. */
+/**
+ * What {@link TemplatePicker} needs.
+ *
+ * `onApply` hands over a whole {@link ChosenPage} — the page AND the look —
+ * where it used to hand over sections alone. That is what makes a look
+ * pickable at all: chrome, palette, heading and spacing are not structure, so
+ * a template that could only carry structure could never express one.
+ */
 export interface TemplatePickerProps {
   /** Whether there is anything a template would replace. */
   hasSections: boolean;
   /** Already-translated strings. */
   labels: TemplatePickerLabels;
-  /** Called with a fresh copy of the chosen template's sections. */
-  onApply: (sections: FursonaSection[]) => void;
+  /**
+   * Called with a fresh copy of the chosen template's page AND its look.
+   *
+   * **It hands out both, and that is what makes an era look pickable.** A
+   * template used to be sections alone, which could never express a look —
+   * chrome, palette, heading and spacing are not structure. `theme` is null for
+   * every shipped starter and means "leave the author's colours alone"; a
+   * caller must not write a null through, or applying a starter would reset
+   * somebody's palette.
+   */
+  onApply: (chosen: ChosenPage) => void;
 }
 
 /**
  * Starts a fursona's page from one of the shipped layouts.
+ *
+ * **It offers a page and a look together.** A template carries a `theme` now,
+ * null for every shipped starter, and null means leave the author's colours
+ * alone — so picking a starter is exactly as non-destructive to a palette as
+ * it always was, while an era look can replace one deliberately.
  *
  * **Applying replaces, and replacing is confirmed inline.** Appending a
  * template onto existing sections would produce a page nobody asked for, so it
@@ -102,7 +123,14 @@ export function TemplatePicker({
    * @param template - the template to apply.
    */
   const apply = (template: FursonaTemplate): void => {
-    onApply(structuredClone(template.sections));
+    // **Cloned, and the clone is the whole reason this is a function.** The
+    // shipped list is frozen shallowly and its contents are not, so a reference
+    // handed straight into the form would let one person's edits rewrite the
+    // constant for the rest of the session.
+    onApply({
+      blocks: structuredClone(template.blocks),
+      theme: structuredClone(template.theme),
+    });
     setPending(undefined);
     setOpen(false);
   };

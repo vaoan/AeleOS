@@ -1,21 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { iconNames } from "lucide-react/dynamic";
-import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
+import {
+  FURSONA_TEMPLATES,
+  STARTER_LAYOUTS,
+} from "@/features/actors/domain/fursona-templates";
 import { sectionsSchema } from "@/features/actors/domain/section-schema";
+import {
+  parseDocument,
+  toDocument,
+} from "@/features/actors/domain/page-document";
+import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 
-const each = FURSONA_TEMPLATES.map(
-  (template) => [template.id, template] as const,
-);
+// **The guards below read the AUTHORED form, which is still flat sections.**
+// A starter is written that way because these rules — both languages, no
+// prose, icons only on cards, explicit `sort_order` — are rules about what we
+// wrote, and rewriting them against the converted blocks would be asserting
+// the shim's output rather than our own authorship.
+const each = STARTER_LAYOUTS.map((layout) => [layout.id, layout] as const);
 
 describe("FURSONA_TEMPLATES", () => {
   it("ships templates at all", () => {
-    expect(FURSONA_TEMPLATES.length).toBeGreaterThan(0);
+    expect(STARTER_LAYOUTS.length).toBeGreaterThan(0);
   });
 
   // The id is the catalogue key for the name and the description, so a
   // duplicate would silently give two templates one label.
   it("gives every template a distinct id", () => {
-    const ids = FURSONA_TEMPLATES.map((template) => template.id);
+    const ids = STARTER_LAYOUTS.map((layout) => layout.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -97,6 +108,59 @@ describe("FURSONA_TEMPLATES", () => {
     for (const icon of seeded) {
       expect(iconNames as readonly string[]).toContain(icon);
     }
+  });
+
+  // WHAT THE PICKER ACTUALLY HANDS OUT.
+  //
+  // A template is authored as flat sections above and DERIVED into blocks, so
+  // everything up to here guards our authorship and nothing has yet asked
+  // whether the derived thing is a page the product would accept.
+  //
+  // These carry the guarantee that re-parsing at runtime would have bought.
+  // Shipped templates are ours and type-checked, so pushing them through
+  // `parseDocument` on every application would look for errors the compiler
+  // already refuses — but pushing them through it HERE means a template the
+  // real parser rejects fails the build rather than somebody's editor. It is
+  // the same code a pasted document meets: depth caps, block limits, the
+  // unsafe-key reviver and `parseTheme`.
+  describe("the documents the picker hands out", () => {
+    it("derives one block per authored section", () => {
+      // Anti-vacuity for everything below: a derivation that silently produced
+      // nothing would satisfy every `it.each` on an empty list.
+      expect(FURSONA_TEMPLATES.length).toBe(STARTER_LAYOUTS.length);
+      for (const [index, template] of FURSONA_TEMPLATES.entries()) {
+        expect(template.blocks).toHaveLength(
+          STARTER_LAYOUTS[index]!.sections.length,
+        );
+      }
+    });
+
+    it.each(["fursona", "person"] as const)(
+      "ships pages a %s's own parser accepts",
+      (kind) => {
+        for (const template of FURSONA_TEMPLATES) {
+          const parsed = parseDocument(
+            toDocument(template.theme ?? DEFAULT_THEME, [...template.blocks]),
+            kind,
+          );
+          // Named, so a failure says WHICH template rather than that one of
+          // several is wrong.
+          expect(parsed.ok, `${template.id} parses for a ${kind}`).toBe(true);
+        }
+      },
+    );
+
+    // **The starters are STRUCTURE, not a look.** They are what the app
+    // suggests somebody write, not a palette it suggests they wear, and null
+    // means "leave the author's colours alone". The era looks phase 2 adds are
+    // the opposite and will carry one; this is what would redden if a palette
+    // were ever quietly attached to a starter.
+    it.each(FURSONA_TEMPLATES.map((one) => [one.id, one] as const))(
+      "%s carries no theme, so applying it keeps the author's colours",
+      (_id, template) => {
+        expect(template.theme).toBeNull();
+      },
+    );
   });
 
   // 0013 stores sort_order; array position is not what comes back.
