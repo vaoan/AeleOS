@@ -168,6 +168,14 @@ Key choices and _why_:
   `columns` applies. It also predicts, on the record and before building, that
   Windows 8 cannot be done, because Metro is per-block colour and per-block
   colour is refused by design.
+
+  Its three phases ship independently and so get a plan each. Phase 1 is
+  `docs/superpowers/plans/2026-08-28-era-looks-phase-1-template-seam.md`, and
+  it locates the seam the spec implied without naming: `BlockEditor` holds the
+  template picker and does NOT hold the theme, so "one path, not two" means
+  lifting document application up to `FursonaEditor`, where the source dock
+  already does it.
+
 - **Clerk:** https://clerk.com — docs: https://clerk.com/docs
 - **Supabase Third-Party Auth:** the mechanism each app uses to trust Clerk.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,
