@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type { BlockPath } from "@/features/actors/domain/block-edits";
 
 /**
@@ -91,6 +92,56 @@ export function blockProblems(errors: unknown): BlockProblem[] {
   };
 
   walk(errors, []);
+  return found;
+}
+
+/**
+ * Every refusal in one flat array of zod issues, as block paths.
+ *
+ * **`page-document.ts`'s counterpart to {@link blockProblems}, reading a raw
+ * `ZodError` instead of react-hook-form's tree.** `zodResolver` is what builds
+ * the `{ type, message }` shape {@link blockProblems} walks; `parseDocument`
+ * has no resolver, only `blocksSchema.safeParse(...).error.issues` — a FLAT
+ * array whose own `path` already names every step, so there is no tree to
+ * recurse over. A nested block's title refusal reads
+ * `[0, "children", 2, "children", 0, "children", 0, "title_en"]`.
+ *
+ * **The same rule as {@link blockProblems}, read off a different shape: the
+ * numeric steps are the {@link BlockPath} and the final named step is the
+ * field.** Every other named step — `children`, `style`, or anything else
+ * a future leaf nests fields under — is neither counted nor required to be
+ * `"children"` by name, exactly as `blockProblems`' structural walk does not
+ * name it either; it is simply not a number, so it is not part of the path,
+ * and it is not the last step, so it is not the field. That is what lets a
+ * refusal inside a block's own `style` bag (`[0, "style", "border"]`) resolve
+ * to `{ path: [0], field: "border" }` with no special case for `style` at
+ * all — measured against the installed zod rather than assumed, because a
+ * shape assumption stated in prose is the kind of thing this project keeps
+ * paying for.
+ *
+ * **A page-level refusal produces nothing, deliberately — the same rule
+ * `blockProblems` states for `refine`s on the whole array.** "Too many
+ * blocks" reports `path: []`; the last element of an empty path is
+ * `undefined`, which is not a string, so no field is named and nothing is
+ * pushed. An issue whose last step is a number rather than a name — the
+ * array itself, not one of its fields — is refused the same way, for the
+ * same reason: there is no field to mark.
+ *
+ * @param issues - `ZodError.issues` from a refused `blocksSchema` parse.
+ * @returns one entry per refused field, outermost first, in issue order.
+ */
+export function blockProblemsFromIssues(
+  issues: readonly z.core.$ZodIssue[],
+): BlockProblem[] {
+  const found: BlockProblem[] = [];
+  for (const issue of issues) {
+    const field = issue.path.at(-1);
+    if (typeof field !== "string") continue;
+    const path = issue.path
+      .slice(0, -1)
+      .filter((step): step is number => typeof step === "number");
+    found.push({ path, field });
+  }
   return found;
 }
 

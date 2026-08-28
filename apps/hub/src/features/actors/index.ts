@@ -106,3 +106,11 @@ export {
   withRequiredBlocks,
   type ActorKind,
 } from "@/features/actors/domain/required-blocks";
+export {
+  DOCUMENT_VERSION,
+  PASTE_LIMIT_BYTES,
+  parseDocument,
+  toDocument,
+  type DocumentParse,
+  type DocumentProblem,
+} from "@/features/actors/domain/page-document";

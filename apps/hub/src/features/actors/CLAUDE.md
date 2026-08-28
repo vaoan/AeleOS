@@ -2064,6 +2064,38 @@ and never for a weighted grid, where the tracks either side are not the same
 width and "one each" means nothing.
 Both move where a block is DRAWN and neither moves anything stored.
 
+### A page has a document, and an imported theme uses the READ path
+
+**A page has a document, and an imported theme uses the READ path.**
+`page-document.ts` owns `{ aeleos, theme, blocks }` — the two `jsonb` columns
+of `actor_profiles`, with identity deliberately absent so an imported page
+renders with the importer's own portrait and name. An imported theme goes
+through `parseTheme` and never through `themeSchema`, because the form
+schema's looseness is justified by controls a paste does not have. The size
+is checked before `JSON.parse`, never after. Read the spec
+`2026-08-27-page-source-and-sharing-design.md` before changing any of it.
+
+**A refusal is reported by WHERE it was found, not by re-walking the tree a
+second time.** `blockProblemsFromIssues` (`block-problems.ts`, beside
+`blockProblems`) reads a raw `ZodError`'s own flat `issues` array — there is
+no react-hook-form tree here, because `parseDocument` has no resolver — and
+shares `blockProblems`' rule exactly: the numeric steps in an issue's `path`
+are the `BlockPath` and the final named step is the field, with every other
+named step (`children`, `style`, or anything nested under it) simply not
+counted rather than matched by name. That is what lets a refusal inside a
+block's own `style` bag resolve to a path with no special case for `style` at
+all, and it was measured against the installed zod rather than assumed —
+verify any future zod upgrade still reports `[0, "children", 2, "children", 0,
+"children", 0, "title_en"]` for a nested block before trusting this again.
+
+**`JSON.parse` runs behind a reviver that refuses `__proto__`, `constructor`
+and `prototype` at any depth, as defence in depth rather than a fix for a real
+pollution.** `JSON.parse` does not itself put a `"__proto__"` key onto
+`Object.prototype` — confirmed against the installed engine, not assumed — but
+nothing downstream of a paste should have to prove that of every future
+consumer, which is the same reasoning `TIDAL_KINDS` cost this codebase once
+already. A document carrying one of these anywhere is refused outright.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The
