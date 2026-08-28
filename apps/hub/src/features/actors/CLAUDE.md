@@ -2119,6 +2119,13 @@ stack**, not a flake: its window is bounded below by that ~857-863 ceiling and
 above by the byte cap (~2,180 levels), so a runner with a materially larger
 stack would parse it cleanly and redden the case on `at: "envelope"` instead.
 
+**The reference is generated, and its meanings are gated.** `page-reference.ts`
+interpolates every list and cap from the constants; the one-line meaning of
+each mode and kind is hand-written and `page-reference.test.ts` fails the
+build when a vocabulary member has none. Its worked example is run through
+the real `parseDocument`, because an example a model copies and this build
+refuses is worse than no example.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The
