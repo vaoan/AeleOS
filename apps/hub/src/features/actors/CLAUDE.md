@@ -2607,6 +2607,39 @@ file's shared one — the shared identity is provisioned by an earlier test in
 the same file by the time the dock's own a11y case runs, which is exactly why
 that case could not have caught this on its own.
 
+**Task 9's own photograph pass found the copy control a THIRD time, and this
+one was geometry rather than markup (2026-08-28).** Round 1 moved the button
+out of `<summary>` (`nested-interactive`); round 2 moved it out of `<details>`
+so it renders while collapsed; and it was still **covering the summary it sits
+over.** `pr-24` on that summary is the reserve — 96px — and the button
+measured **227px** at 1440, 1100 and 320 alike, because its width came from a
+translated string and not from the space set aside for it. So an absolutely
+positioned control sat on the CENTRE of a full-width row styled
+`cursor-pointer`: pressing the middle of a disclosure that invites a press
+copied instead of expanding, and at 320 the button covered 227px of a 293px
+row.
+
+The idle button is the icon alone now, with `aria-label` and `title` carrying
+its name and the visible label returning only for `copied` (~75px, inside the
+reserve). Every unit case kept passing through the change and had to —
+they address the control by ACCESSIBLE NAME, which `aria-label` supplies
+whether or not any text is rendered, so the entire suite was blind to how wide
+the thing actually was. `page-source-dock.spec.ts` asserts
+`elementFromPoint` at the summary's own centre at 1440 and 320, sabotage-
+verified: restoring the visible label reddens exactly those two cases and
+nothing else.
+
+**Three lessons, and the second is the one this note keeps re-learning.**
+A fix aimed at one property of a control does not check the others — three
+rounds each corrected where the button was in the DOM and none asked how big
+it was. **A width that comes from a translated string cannot be reserved for
+by a fixed padding**, which is the same fact the root note already records
+about a `select` being as wide as its longest option in Spanish, arriving here
+on a different control. And it was found because **Playwright refused to click
+the summary** — a click failure reading as a flaky locator was a real control
+landing on another, exactly what the read-the-pictures-back rule exists for,
+except that the camera never got as far as taking the picture.
+
 ## Per-profile theming — built
 
 A person themes their own page and a stranger sees it as they built it. The

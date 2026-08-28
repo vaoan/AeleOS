@@ -251,6 +251,70 @@ test("the copy control works with the reference collapsed, its default state", a
   expect(clipboardText.replace(/\r\n/g, "\n")).toBe(reference);
 });
 
+// THE COPY CONTROL MUST NOT COVER THE DISCLOSURE IT SITS OVER.
+//
+// The button is absolutely positioned over the `<summary>` row, and `pr-24`
+// on that summary is the reserve meant to keep its text clear of it. That
+// reserve is 96px and the button — while it rendered `copyReference` as
+// visible text — measured **227px** at 1440, 1100 and 320 alike, because its
+// width comes from a translated string and not from the space set aside for
+// it. So it covered the CENTRE of a full-width row styled `cursor-pointer`,
+// and pressing the middle of a disclosure that invites a press copied
+// instead of expanding. At 320 it covered 227px of a 293px row.
+//
+// Excludes: a button merely *near* the summary's centre, and a summary that
+// happens to be wide enough on a desktop viewport to hide the fault. The
+// check is `elementFromPoint` at the summary's own centre — the point
+// Playwright and a thumb both aim at — asserted at the widest and narrowest
+// viewports this dock supports.
+//
+// Sabotage-verified: restoring `{copied ? labels.copied : labels.copyReference}`
+// as the button's visible content reddens both viewports here and nothing
+// else in this file.
+for (const width of [1440, 320]) {
+  test(`the copy control leaves the reference's own disclosure pressable at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await signIn(page, await mintTicket(identity!.userId));
+    await page.goto(`/en/pages/${handle}/edit`);
+    await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+    await page.getByTestId("editor-open-source").click();
+    const dock = page.getByTestId("page-source-dock");
+    await expect(dock).toBeVisible();
+
+    const summary = dock.locator("summary");
+    await expect(summary).toBeVisible();
+
+    const hit = await summary.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const top = document.elementFromPoint(
+        box.x + box.width / 2,
+        box.y + box.height / 2,
+      );
+      return {
+        isSummary: top?.closest("summary") === node,
+        onCopy: top?.closest('[data-testid="page-source-copy"]') !== null,
+      };
+    });
+
+    expect(
+      hit.onCopy,
+      "the copy button does not sit on the summary's centre",
+    ).toBe(false);
+    expect(
+      hit.isSummary,
+      "the summary's own centre belongs to the summary",
+    ).toBe(true);
+
+    // And it still opens when pressed there, which is the behaviour the
+    // geometry above exists to protect.
+    await summary.click();
+    await expect(dock.locator("details")).toHaveAttribute("open", "");
+  });
+}
+
 /**
  * Types into an input WITHOUT taking focus away from whatever already has it.
  *

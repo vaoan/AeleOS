@@ -205,6 +205,21 @@ export interface PageSourceDockProps {
  * reference. The button is a sibling of `<details>` now, inside a shared
  * `relative` wrapper, positioned over the summary row in both states.
  *
+ * **And its idle face is the icon ALONE, because it was covering the summary
+ * it is positioned over — the third round on this one control, and the first
+ * that was geometry rather than markup.** `pr-24` on the summary is the
+ * reserve, 96px; the button rendering `copyReference` as visible text
+ * measured 227px at 1440, 1100 and 320 alike, since its width comes from a
+ * translated string and not from the space set aside for it. So it sat on the
+ * CENTRE of a full-width row styled `cursor-pointer`, and pressing the middle
+ * of a disclosure that invites a press copied instead of expanding — at 320,
+ * over a 293px row. `aria-label` and `title` carry the name now and the
+ * visible label returns only for `copied`, which fits the reserve. Every unit
+ * case survived the change and had to: they address this button by ACCESSIBLE
+ * NAME, which `aria-label` supplies whether or not text renders, so no unit
+ * suite can see how wide it is. `page-source-dock.spec.ts` checks
+ * `elementFromPoint` at the summary's own centre at both widths instead.
+ *
  * **The width is consumed through the `w-(--dock-width)` CLASS, never an
  * inline `style`.** An inline `width` beats every class regardless of a media
  * query's specificity, which would silently defeat `max-md:w-full` — the
@@ -537,11 +552,26 @@ export function PageSourceDock({
                     void copy();
                   }}
                   aria-label={copied ? labels.copied : labels.copyReference}
+                  title={copied ? labels.copied : labels.copyReference}
                   {...tid("page-source-copy")}
                   className="absolute top-1 right-1.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-(--muted) hover:text-(--ink)"
                 >
                   <Copy aria-hidden className="size-3.5" />
-                  {copied ? labels.copied : labels.copyReference}
+                  {/* **The idle control is the icon ALONE, and the width is
+                      the whole reason.** Rendering `copyReference` here made
+                      the button 227px wide against the 96px `pr-24` above
+                      reserves for it — measured at 1440, 1100 and 320 — so an
+                      absolutely-positioned button covered the CENTRE of the
+                      `<summary>` it sits over, at every width. Pressing the
+                      middle of a disclosure row that says "click me to
+                      expand" copied instead, and at 320 the button covered
+                      227px of a 293px row. Playwright found it by refusing to
+                      click the summary; a person would have found it by
+                      tapping one. The label comes back for `copied`, which is
+                      ~75px and fits the reserve, because a confirmation
+                      nobody can see is not a confirmation — the idle name is
+                      carried by `aria-label` and `title` instead. */}
+                  {copied ? labels.copied : null}
                 </button>
               </div>
             </div>
