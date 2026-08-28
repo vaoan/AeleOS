@@ -352,7 +352,8 @@ describe("parseDocument", () => {
   // makes. `refuseUnsafeKeys` turns the walk that invokes it into a recursive
   // one in JS, whose real ceiling — measured against this exact container
   // shape, inside this repo's own vitest worker, 2026-08-27 — is depth 857
-  // (862 in plain Node). This case stays two orders of magnitude under that,
+  // (863 in plain Node, where 862 is the last depth still accepted). This
+  // case stays two orders of magnitude under that,
   // which is what lets it demonstrate the SCHEMA's `MAX_DEPTH` refusal rather
   // than the reviver's own stack limit; the case below this one is what proves
   // the reviver's limit is a caught problem rather than a thrown one.
@@ -380,6 +381,14 @@ describe("parseDocument", () => {
     // `RangeError: Maximum call stack size exceeded`. A paste this shape is not
     // hostile by any cap this module checks; it still has to come back as a
     // problem rather than escape as an uncaught exception.
+    //
+    // This fixture's usable window is bounded below by the host's own stack
+    // (~857-863, measured, and host-dependent) and above by the byte cap
+    // (~2,180 levels at ~60 bytes each) — 2,000 sits inside both with margin,
+    // but there is no fixture with more headroom than that available. A
+    // runner with a materially larger stack would parse this depth cleanly
+    // and redden this case on `at: "envelope"` instead of `"syntax"` — that is
+    // this fixture's own coupling to the host, not a flake.
     const text = JSON.stringify({ aeleos: 1, blocks: [nestedChain(2000)] });
     expect(new TextEncoder().encode(text).length).toBeLessThan(
       PASTE_LIMIT_BYTES,

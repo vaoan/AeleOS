@@ -217,7 +217,8 @@ function refusedLeaves(
  * limit a hand-written recursive walk would. Measured with the reviver
  * attached, against the container shape a real page nests (one child per
  * level): the first depth to throw a `RangeError` is **857** inside this
- * repo's own vitest worker and **862** in plain Node — both on 2026-08-27, the
+ * repo's own vitest worker; in plain Node the last depth still accepted is
+ * **862**, so the first to throw there is **863** — both on 2026-08-27, the
  * small gap being ordinary variance from how much stack the host process had
  * already spent. That depth is reachable
  * within the paste budget: a chain of 2,000 such containers serialises to

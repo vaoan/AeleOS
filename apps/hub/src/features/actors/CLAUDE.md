@@ -2110,10 +2110,14 @@ rather than assumed.** A plain `JSON.parse` has no ceiling reachable within
 the engine walk the result calling the reviver on every property, and THAT walk
 recurses in JS: measured against the block model's own container shape,
 2026-08-27, the first depth to throw `RangeError` is 857 in this repo's vitest
-worker — reachable inside the byte cap, since 2,000 such containers serialise
-to about 120KB. It cannot escape as an uncaught throw: `RangeError` is an
-`Error`, so the same `catch` that reports a genuine syntax error reports this
-one too.
+worker and 863 in plain Node (862 is the last depth still accepted there) —
+reachable inside the byte cap, since 2,000 such containers serialise to about
+120KB against a 128KB cap. It cannot escape as an uncaught throw: `RangeError`
+is an `Error`, so the same `catch` that reports a genuine syntax error reports
+this one too. **The test fixture covering this is coupled to the host's own
+stack**, not a flake: its window is bounded below by that ~857-863 ceiling and
+above by the byte cap (~2,180 levels), so a runner with a materially larger
+stack would parse it cleanly and redden the case on `at: "envelope"` instead.
 
 ## Per-profile theming — built
 
