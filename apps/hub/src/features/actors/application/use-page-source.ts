@@ -148,6 +148,18 @@ interface UsePageSourceOptions {
  * in its own form, is the one deciding what "unchanged" resolves to, rather
  * than this hook guessing at a value it was not given fresh.
  *
+ * **A CONTRACT ON THE CALLER: pass `onChange` straight to the textarea's
+ * change handler, and never put it in an effect's or a memo's dependency
+ * array.** `onChange`'s identity changes whenever `theme` (among other
+ * things) changes — see its own implementation for why `theme` has to be a
+ * real dependency — so anything that re-runs when `onChange`'s reference
+ * changes will re-run on a theme change too. A theme change arriving mid-type
+ * would then cancel and reschedule whatever that dependent effect or memo
+ * was doing, which is not itself a debounce bug but would look exactly like
+ * one to whoever debugs it next. There are no consumers of this hook yet, so
+ * nothing depends on `onChange` today — this is a constraint on the ONE
+ * consumer still to be written.
+ *
  * @param options - {@link UsePageSourceOptions}.
  * @returns the dock's state and the three actions it can take.
  */
@@ -231,9 +243,18 @@ export function usePageSource(options: UsePageSourceOptions): PageSourceState {
     },
     // `theme` is a real dependency here, not an oversight: it is read inside
     // the debounced callback as the fallback for `parsed.theme ?? theme`, and
-    // a stale closure over an old `theme` would compute the wrong mirror the
-    // moment the page's theme changes for any reason other than this same
-    // parse.
+    // omitting it would leave every keystroke's closure pinned to whichever
+    // `theme` happened to be in scope the last time `actorKind`, `apply` or
+    // `debounceMs` changed — which could be arbitrarily stale.
+    //
+    // This does NOT close every staleness window, and the one that is left is
+    // accepted rather than fixed: a theme change landing AFTER the keystroke
+    // that starts a debounce but BEFORE it fires still runs inside the
+    // closure that keystroke captured, with the pre-change `theme` baked in —
+    // so the resulting mirror mismatches and a drift is raised. That drift is
+    // an honest one (the page genuinely moved while an edit was in flight),
+    // and it resolves itself the ordinary way: the next `resync`, or the next
+    // real page change while unfocused.
     [actorKind, apply, debounceMs, theme],
   );
 

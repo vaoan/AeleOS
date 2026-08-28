@@ -2242,7 +2242,9 @@ write in both directions.** `mirror` holds the last serialisation this hook
 itself produced or accepted — never the tree, only the string. Text → page is
 a debounced valid parse (`onChange` records every keystroke and schedules a
 parse `debounceMs` later, cleared and rescheduled on each one); on success
-`mirror` becomes the accepted text and `apply` is called, and that is the
+`mirror` becomes the CANONICAL form of what was accepted (never the raw
+typed text — see the paragraph below this one for why) and `apply` is
+called, and that is the
 **only** place this hook ever writes to its caller. Page → text is a
 `useEffect` on `[theme, blocks]` that re-serialises and compares the result
 against `mirror` **by string, not by reference** — a caller's form very often

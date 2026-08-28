@@ -305,6 +305,103 @@ describe("usePageSource", () => {
     expect(result.current.text).toBe(typed);
   });
 
+  it("does not flag a false drift after a PASTED theme round-trips (the theme half of the loop guard)", () => {
+    // Every case above pastes a document whose theme is null, so
+    // `parsed.theme ?? theme` always takes the right-hand `theme` fallback —
+    // the `parsed.theme` half of that expression is never exercised, and
+    // coverage cannot see the gap because v8 records a range for the taken
+    // side of `??` and says nothing about the side that never ran. This case
+    // pastes a full envelope carrying a REAL, non-null theme, so the accepted
+    // parse's own `parsed.theme` is what has to end up in `mirror` — a wrong
+    // implementation that deletes the `parsed.theme` half (using the current
+    // `theme` prop unconditionally instead) computes `mirror` from the WRONG
+    // theme, which the round trip below turns into a spurious drift. This
+    // case does NOT exercise a stale `theme` closure — `parsed.theme` is
+    // non-null here, so `parsed.theme ?? theme` never even reads `theme` —
+    // the sibling case below is what covers that half.
+    const apply = vi.fn();
+    const { result, rerender } = mount(
+      { theme: DEFAULT_THEME, blocks: BLOCKS_A },
+      apply,
+    );
+
+    act(() => {
+      result.current.onFocusChange(true);
+    });
+
+    const pastedTheme: ActorTheme = { ...DEFAULT_THEME, accent: "#123456" };
+    const typed = toDocument(pastedTheme, BLOCKS_B);
+    act(() => {
+      result.current.onChange(typed);
+    });
+    advance(250);
+    expect(apply).toHaveBeenCalledTimes(1);
+    const applied = apply.mock.calls[0]?.[0] as {
+      theme: ActorTheme | null;
+      blocks: Block[];
+    };
+    // The parse actually carried a theme — this is what makes the case able
+    // to tell `parsed.theme` apart from the `theme` fallback at all.
+    expect(applied.theme).not.toBeNull();
+    expect(applied.theme?.accent).toBe("#123456");
+
+    // The round trip a real consumer performs: BOTH halves of what `apply`
+    // received feed back as new props, exactly as `setValue("theme", ...)`
+    // and `setValue("sections", ...)` followed by a re-render would. The
+    // page's `theme` prop is therefore the PASTED one now, not
+    // `DEFAULT_THEME` — the case would not discriminate anything if it were.
+    const roundTrippedTheme = structuredClone(applied.theme) as ActorTheme;
+    const roundTrippedBlocks = structuredClone(applied.blocks);
+    rerender({ theme: roundTrippedTheme, blocks: roundTrippedBlocks });
+
+    expect(result.current.drifted).toBe(false);
+  });
+
+  it("reads the CURRENT theme when the pasted document carries none, not a stale one (the deps half of the theme fix)", () => {
+    // The sibling of the case above, covering the other half of the same
+    // fix. Here `parsed.theme` IS null (a bare-array paste), so
+    // `parsed.theme ?? theme` actually reads `theme` — and `theme` changes
+    // via a rerender BEFORE any typing happens, with nothing else that
+    // `onChange` depends on changing alongside it. That is the one
+    // condition under which a fresh `onChange` closure (which sees the new
+    // `theme`) and a stale one (which does not, if `theme` were dropped
+    // from the dependency array) diverge; a `parsed.theme`-half sabotage
+    // alone cannot redden this case, because `parsed.theme` is null on both
+    // sides of it here.
+    const apply = vi.fn();
+    const { result, rerender } = mount(
+      { theme: DEFAULT_THEME, blocks: BLOCKS_A },
+      apply,
+    );
+
+    const otherTheme: ActorTheme = { ...DEFAULT_THEME, accent: "#654321" };
+    rerender({ theme: otherTheme, blocks: BLOCKS_A });
+
+    act(() => {
+      result.current.onFocusChange(true);
+    });
+
+    const typed = JSON.stringify(BLOCKS_B);
+    act(() => {
+      result.current.onChange(typed);
+    });
+    advance(250);
+    expect(apply).toHaveBeenCalledTimes(1);
+    const applied = apply.mock.calls[0]?.[0] as {
+      theme: ActorTheme | null;
+      blocks: Block[];
+    };
+    expect(applied.theme).toBeNull();
+
+    // The round trip: `theme` is null, so a real caller leaves its OWN
+    // current theme — `otherTheme`, the one already in its form — untouched
+    // and only the blocks change.
+    const roundTrippedBlocks = structuredClone(applied.blocks);
+    rerender({ theme: otherTheme, blocks: roundTrippedBlocks });
+
+    expect(result.current.drifted).toBe(false);
+  });
+
   it("honours a non-default debounceMs rather than hardcoding 250", () => {
     const apply = vi.fn();
     const { result } = mount(
