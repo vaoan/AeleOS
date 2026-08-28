@@ -724,21 +724,32 @@ describe("BlockCard", () => {
       expect(within(leaf).queryByTestId("container-rail")).toBeNull();
     });
 
-    it("marks a leaf with a stub of its own, and never with the rail", () => {
-      // **The two bars must be DIFFERENT bars, which is what this asserts.**
-      // Giving a leaf the container's own rail would satisfy "content has a
-      // highlight too" and quietly destroy what the rail buys — depth counted
-      // by stacking — so the case pins that the leaf's mark is its own element
-      // and that the rail count is unmoved by the leaf being there at all.
+    it("marks a leaf with a heavier border, and never with the rail", () => {
+      // **The two marks must be DIFFERENT mechanisms, which is what this
+      // asserts.** Giving a leaf the container's own rail would satisfy
+      // "content has a highlight too" and quietly destroy what the rail buys —
+      // depth counted by stacking — so the case pins that content's mark is
+      // its own BORDER and that the rail count is unmoved by the leaf being
+      // there at all.
       harness([{ ...newContainer("grid", 1), children: [newLeaf("text")] }]);
 
       const leaf = screen.getByTestId("leaf-editor");
-      expect(within(leaf).getByTestId("content-mark")).toBeInTheDocument();
+      // Both halves, because either alone passes on the wrong card: a weight
+      // with no colour is the faint 40%-alpha edge this replaced, and a colour
+      // with no weight is what the container already wears.
+      expect(leaf.className).toContain("border-2");
+      expect(leaf.className).toContain("border-(--edge)");
+      // The faint alpha it replaced must be GONE, not merely joined — two
+      // border-colour utilities on one element is a class list whose winner
+      // depends on Tailwind's ordering.
+      expect(leaf.className).not.toContain("border-(--edge)/40");
+
       // One container, one rail — the leaf added none.
       expect(screen.getAllByTestId("container-rail")).toHaveLength(1);
-      // And the container did not acquire a stub either: the mark belongs to
-      // the leaf alone, so a card holding a leaf reports exactly one.
-      expect(screen.getAllByTestId("content-mark")).toHaveLength(1);
+      // And the container did not acquire the leaf's weight either: a section
+      // is marked by its rail, not by its edge.
+      const section = screen.getByTestId("section-card");
+      expect(section.className).not.toContain("border-2");
     });
 
     it("sets each eyebrow in its own bar's colour", () => {

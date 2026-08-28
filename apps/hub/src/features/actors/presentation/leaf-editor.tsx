@@ -31,10 +31,7 @@ import {
   type IconPickerLabels,
 } from "@/features/actors/presentation/icon-picker";
 import { tid } from "@/shared/infrastructure/test-id";
-import {
-  CardKind,
-  ContentMark,
-} from "@/features/actors/presentation/card-kind";
+import { CardKind } from "@/features/actors/presentation/card-kind";
 
 /**
  * Translated strings {@link LeafEditor} renders.
@@ -278,12 +275,24 @@ const INPUT =
  * card's selects it has no `w-full` fallback to wrap onto a line of its own,
  * so anything placed beside it pushes a 320px screen sideways.
  *
- * **`ContentMark` is the other half of that naming, and it costs no width
- * either.** It sits inside the padding this card already had, so the card is
- * exactly as wide as it was — which is the constraint the paragraph above
- * exists for, and the reason the mark is not given a gutter of its own. See
- * {@link ContentMark} for why it is a stub rather than the full-height rail a
- * container wears.
+ * **The card's own BORDER is the other half of that naming, and it is a
+ * mechanism rather than a decoration.** A container says what it is with an
+ * accent rail down one edge; content says it with a heavier perimeter — two
+ * pixels of `--edge` at full strength where this card used to carry one at 40%
+ * alpha. Three channels separate them and none is colour alone: a rail against
+ * a perimeter, `--accent` against `--edge`, and thin against thick.
+ *
+ * **Weight is doing the work that colour cannot.** The chrome palette has ONE
+ * accent and a neutral ramp — there is no second hue to reach for, and the
+ * nearest candidate, `--ink-2`, is 45% lightness against `--accent`'s 46% in
+ * light mode, which is invisible. `--edge` is the only token that separates
+ * from the accent by lightness in both modes (66 against 46 light, 52 against
+ * 74 dark), so this pairing survives greyscale.
+ *
+ * **A border adds to the BOX, which is why this is measured and not assumed.**
+ * The paragraph above records what padding cost the last time; a second pixel
+ * of border is the same arithmetic on a different property. See the feature
+ * note for the numbers this was checked against at 320 and 568.
  *
  * @returns the leaf's fields.
  */
@@ -354,9 +363,8 @@ export function LeafEditor({
     <div
       {...tid("leaf-editor")}
       data-leaf-kind={kind}
-      className="relative grid gap-2 rounded-lg surface border-(--edge)/40 bg-(--surface) p-2.5"
+      className="relative grid gap-2 rounded-lg surface border-2 border-(--edge) bg-(--surface) p-2.5"
     >
-      <ContentMark />
       <div className="flex flex-wrap items-end gap-2">
         {dragHandle}
 
