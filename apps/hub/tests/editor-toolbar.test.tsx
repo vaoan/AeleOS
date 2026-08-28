@@ -44,6 +44,10 @@ function renderToolbar(props: Record<string, unknown> = {}): void {
       cancelHref="/pages"
       onHideControls={() => {}}
       onOpenSource={() => {}}
+      // A stand-in, because this suite is about the BAR. The real control has
+      // its own suite; what matters here is that the bar renders the node it
+      // is handed, which a marker proves better than the real component would.
+      writingIn={<span data-testid="writing-in-slot" />}
       {...props}
     />,
   );

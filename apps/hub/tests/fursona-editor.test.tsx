@@ -694,17 +694,28 @@ describe("FursonaEditor", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it("puts the theme panel, language strip and sections in order", () => {
+  // It was a strip of its own between the theme panel and the sections until
+  // 2026-08-28, and this case asserted that order. The switch is a control in
+  // the toolbar now, so the old assertion is not merely stale — it asserts the
+  // opposite of what is true, since the bar comes FIRST.
+  //
+  // **CONTAINMENT, not position**, and that distinction is the whole case: a
+  // strip placed above the theme panel would satisfy every ordering assertion
+  // that could be written here while not being in the bar at all. Asking which
+  // element encloses it is the only question that can tell the two apart.
+  it("puts the writing switch inside the toolbar, not in a strip of its own", () => {
+    renderEditor();
+    const toolbar = screen.getByTestId("editor-save").closest("div.sticky");
+    expect(toolbar).not.toBeNull();
+    expect(toolbar).toContainElement(screen.getByTestId("writing-in"));
+  });
+
+  it("leaves the theme panel above the sections it governs", () => {
     renderEditor();
     const theme = screen.getByTestId("theme-open");
-    const writingIn = screen.getByTestId("writing-in-en");
     const sections = screen.getByTestId("add-section");
     expect(
-      theme.compareDocumentPosition(writingIn) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      writingIn.compareDocumentPosition(sections) &
+      theme.compareDocumentPosition(sections) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });

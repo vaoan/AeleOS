@@ -724,6 +724,41 @@ describe("BlockCard", () => {
       expect(within(leaf).queryByTestId("container-rail")).toBeNull();
     });
 
+    it("marks a leaf with a stub of its own, and never with the rail", () => {
+      // **The two bars must be DIFFERENT bars, which is what this asserts.**
+      // Giving a leaf the container's own rail would satisfy "content has a
+      // highlight too" and quietly destroy what the rail buys — depth counted
+      // by stacking — so the case pins that the leaf's mark is its own element
+      // and that the rail count is unmoved by the leaf being there at all.
+      harness([{ ...newContainer("grid", 1), children: [newLeaf("text")] }]);
+
+      const leaf = screen.getByTestId("leaf-editor");
+      expect(within(leaf).getByTestId("content-mark")).toBeInTheDocument();
+      // One container, one rail — the leaf added none.
+      expect(screen.getAllByTestId("container-rail")).toHaveLength(1);
+      // And the container did not acquire a stub either: the mark belongs to
+      // the leaf alone, so a card holding a leaf reports exactly one.
+      expect(screen.getAllByTestId("content-mark")).toHaveLength(1);
+    });
+
+    it("sets each eyebrow in its own bar's colour", () => {
+      // **Colour is the second channel and length is the first.** Asserting
+      // only that both eyebrows exist passes whether or not they are
+      // distinguishable, which is what the case above this one used to be the
+      // whole of. The two classes must DIFFER; naming both is what makes a
+      // sabotage that sets them to one token redden.
+      harness([{ ...newContainer("grid", 1), children: [newLeaf("text")] }]);
+
+      const [sectionEyebrow] = screen.getAllByTestId("card-kind");
+      const leafEyebrow = within(screen.getByTestId("leaf-editor")).getByTestId(
+        "card-kind",
+      );
+
+      expect(sectionEyebrow).toHaveClass("text-(--accent)");
+      expect(leafEyebrow).toHaveClass("text-(--muted)");
+      expect(sectionEyebrow?.className).not.toBe(leafEyebrow.className);
+    });
+
     it("gives every nested section a rail of its own", () => {
       // **Nested to the cap on purpose.** One rail on the outermost card and
       // one rail per container are indistinguishable on a flat fixture, so a

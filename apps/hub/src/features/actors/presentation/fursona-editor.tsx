@@ -23,6 +23,7 @@ import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { ThemeScope } from "@/features/actors/presentation/theme-scope";
 import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
+import { WritingInToggle } from "@/features/actors/presentation/writing-in-toggle";
 import {
   EditorToolbar,
   type EditorToolbarLabels,
@@ -311,20 +312,25 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `blocksSchema`, composed rather than restated so neither set of rules exists
  * twice.
  *
- * **The language strip sits directly above the sections it governs, below the
- * theme panel.** `lang` reaches only `BlockEditor` — `fursonaSchema` has no
- * `_en`/`_es` field at all — so a strip that used to sit above the theme panel
- * announced itself over the top fields it does not touch, separated from the
- * ones it does by however tall that panel happened to be open. Its sticky
- * offset, `top-(--bar-top-2)`, which is under both bars above it, is correct
- * as a consequence of the new position rather than by design: it now comes
- * into force exactly when the sections are on screen, instead of hovering
- * over somebody picking colours. Pinned near the top it was covered by the
- * toolbar and covered the page header in turn, so on every screen size the
- * control it holds was unreachable for as long as anybody scrolled. It
- * carries `short:static`, so on a screen too short for three bars it scrolls
- * away and leaves the top to Save — see `globals.css`, where the offsets are
- * declared together.
+ * **The language switch is a control in the toolbar (2026-08-28), and the
+ * strip it used to be is gone.** That strip sat between the theme panel and
+ * the sections, sticky at its own `--bar-top-2`, and the reasoning for the
+ * position was sound: `lang` reaches only `BlockEditor` — `fursonaSchema` has
+ * no `_en`/`_es` field at all — so a strip anywhere higher announced itself
+ * over the four top fields it does not touch.
+ *
+ * **That objection is real and was accepted rather than argued away.** The
+ * switch now sits above every one of those fields, and what buys it is that a
+ * control in the bar is a control rather than an announcement: it is 67px of
+ * segmented switch beside the title, not a full-width card with a heading and
+ * a hint sentence, so there is nothing left to read as a statement about the
+ * fields under it. What the hint said survives as the switch's own `title`
+ * and its group `aria-label`, which is also what tells it apart from the
+ * app's own language button in the header directly above.
+ *
+ * `--bar-top-2` went with the strip; it had exactly one consumer. Anything
+ * still naming a third bar or a `short:static` offset for one is describing
+ * an arrangement this editor no longer has.
  *
  * **Navigation is decided by what `save` returns, never by reading
  * `fieldErrors` afterwards.** That value is captured from the render that built
@@ -702,6 +708,20 @@ export function FursonaEditor({
                 <PageThemeSwitch labels={{ author: labels.pageStyle }} />
               ) : null
             }
+            // **The switch that used to be a strip above the sections.** It is
+            // handed in as a node for the reason `pageThemeSwitch` is: the bar
+            // owns no domain concept, and which languages somebody may author
+            // in is one.
+            writingIn={
+              <WritingInToggle
+                lang={lang}
+                onSelect={select}
+                labels={{
+                  writingIn: labels.writingIn,
+                  writingInHint: labels.writingInHint,
+                }}
+              />
+            }
           />
 
           {/* **Its own `sections` watch, isolated in its own component so it
@@ -857,76 +877,6 @@ export function FursonaEditor({
               />
             </div>
           </WidePageColumn>
-
-          {/* Directly above the sections it governs, and nothing else: `lang`
-          reaches only `SectionEditor`, so a strip sitting between the top
-          fields and the theme panel used to announce itself over content it
-          does not touch. Its `sticky` offset is what makes this position
-          correct rather than merely tidier — it comes into force exactly
-          when the sections it governs are on screen. */}
-          <div
-            className={`${CHROME_SCOPE} sticky top-(--bar-top-2) z-10 mt-8 short:static`}
-          >
-            {/* **`py-0 sm:py-0`, and BOTH are needed.** `COLUMN.wide` is
-                `py-6 sm:py-10`; a bare `py-0` overrides the base and leaves the
-                responsive variant standing, because tailwind-merge treats
-                `sm:py-10` as its own group. Measured at 1280: this wrapper stuck
-                correctly at 120 while the card inside it started at 160, so the
-                strip hung 47px below the save bar instead of under it. */}
-            <WidePageColumn className="py-0 sm:py-0">
-              {/* **`--menu`, which is OPAQUE, for the same reason the toolbar
-                    takes it.** `--bar-solid` is 35% alpha — glass that assumed
-                    the app's own muted field behind it. The document wears the
-                    author's page now, so this strip's hint sat over whatever
-                    picture they chose; photographed against a four-quadrant
-                    photo, it was unreadable over two of them. */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 backdrop-blur-sm">
-                <div className="grid gap-0.5">
-                  <span className="font-display text-sm font-bold">
-                    {labels.writingIn}
-                  </span>
-                  <span className="text-xs text-(--muted)">
-                    {labels.writingInHint}
-                  </span>
-                </div>
-
-                {/*
-          Both languages are on screen and each names itself, so nothing has to
-          be inferred from a single label. The endonyms are deliberately not
-          translated: a language is called the same thing whatever interface
-          you are reading, and "Spanish"/"Español" changing under somebody is
-          how a language picker becomes unreadable to the person who needs it.
-        */}
-                <div
-                  role="group"
-                  aria-label={labels.writingIn}
-                  className="flex rounded-lg surface border-(--edge) p-0.5"
-                >
-                  {(
-                    [
-                      ["en", "English"],
-                      ["es", "Español"],
-                    ] as const
-                  ).map(([value, name]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => select(value)}
-                      aria-pressed={lang === value}
-                      {...tid(`writing-in-${value}`)}
-                      className={
-                        lang === value
-                          ? "rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--on-accent)"
-                          : "rounded-md px-4 py-1.5 text-sm font-medium text-(--muted)"
-                      }
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </WidePageColumn>
-          </div>
 
           <BlockEditor
             control={control}
