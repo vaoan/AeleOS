@@ -65,6 +65,14 @@ export type SectionStyle = BlockStyle;
  * `margins` names the chrome checkbox beside it: default checked, storing
  * nothing, with `false` the only persisted opt-out.
  *
+ * **The panel takes `--menu`, the one token declared opaque in both modes**,
+ * and this was found by READING a screenshot rather than by any check. It took
+ * `--surface`, which carries `/.9` in the editor's chrome scope — measured, not
+ * inferred — so the page behind it showed through a control floating over
+ * whatever colour its author chose, which is the exact thing the workbench's
+ * opacity rule exists to forbid. Every select INSIDE it already used `--menu`;
+ * the group around them did not.
+ *
  * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
  * an empty option that CLEARS the key rather than naming a value.
  */
@@ -272,6 +280,18 @@ export interface SectionStylePopupProps {
  *
  * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
  * an empty option that CLEARS the key rather than naming a value.
+ *
+ * **The panel itself takes `--menu`, the one token declared opaque in both
+ * modes**, where every select inside it already did. It took `--surface`,
+ * which carries `/.9` in the chrome scope, so the page behind it showed
+ * through a control floating over a colour its author chose — the exact thing
+ * the workbench opacity rule forbids. Guarded in `editor-is-the-page.spec.ts`
+ * on the computed alpha, because the class name was never what was wrong.
+ *
+ * **The picture-fit select's test id is `section-style-image-fit`**, not
+ * `section-style-fit`, which the BACKGROUND fit above it already owns. The two
+ * collided for one commit and four browser suites went red on it; nothing
+ * short of a browser could have seen it.
  */
 export function SectionStylePopup({
   value,
@@ -375,7 +395,7 @@ export function SectionStylePopup({
         <div
           ref={panelRef}
           {...tid("section-style-panel")}
-          className="absolute top-full right-0 z-20 mt-1 grid w-72 max-w-[calc(100vw-2rem-49px)] gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-3 shadow-lg"
+          className="absolute top-full right-0 z-20 mt-1 grid w-72 max-w-[calc(100vw-2rem-49px)] gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 shadow-lg"
         >
           <span className="text-xs font-medium">{labels.title}</span>
 
@@ -565,11 +585,11 @@ export function SectionStylePopup({
           </div>
 
           <div className="grid gap-1.5">
-            <label htmlFor={`${id}-fit`} className="text-xs font-medium">
+            <label htmlFor={`${id}-image-fit`} className="text-xs font-medium">
               {labels.imageFit}
             </label>
             <select
-              id={`${id}-fit`}
+              id={`${id}-image-fit`}
               value={style.image_fit ?? ""}
               onChange={(event) =>
                 setField(
@@ -577,7 +597,7 @@ export function SectionStylePopup({
                   event.target.value as SectionStyle["image_fit"] | "",
                 )
               }
-              {...tid("section-style-fit")}
+              {...tid("section-style-image-fit")}
               className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
             >
               <option value="">{labels.imageFitInherit}</option>

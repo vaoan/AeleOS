@@ -3067,6 +3067,27 @@ conclusion closes the question where an observation sends somebody to look) and
 root rule 25 (a claim about what exists is dated the moment it is written).
 Check the array before believing a sentence about it.
 
+**Two things the browser found after all of this passed, and neither was
+reachable from a unit test.**
+
+- **The style popup's panel was TRANSLUCENT.** It took `--surface`, which
+  carries `/.9` in the editor's chrome scope — measured on the live element,
+  not inferred — so the author's page showed through a control floating over a
+  colour they chose. That is the workbench opacity rule exactly, and the giveaway
+  is that every select INSIDE the popup already used `--menu`: the group around
+  them did not, so nothing looked wrong in the source. It takes `--menu` now,
+  and `editor-is-the-page.spec.ts` asserts the computed ALPHA rather than the
+  class — the class name was never what was wrong — with `--surface` asserted
+  translucent in the same scope so the pair can tell the two tokens apart.
+  **It was found by reading a screenshot**, which is the only reason it was
+  found at all.
+- **A new test id collided with an existing one.** `section-style-fit` is the
+  BACKGROUND fit; the picture-fit select took the same string and four browser
+  suites went red on a strict-mode violation. It is `section-style-image-fit`.
+  Worth a line because the failure mode is invisible everywhere else: an id is
+  a string, both selects were correct on their own, and no unit test asks a page
+  for one. **Grep for a test id before minting it.**
+
 **Two gaps are left open deliberately** — per-block colour and overlap. Both
 reverse a decision written down elsewhere (a skin names no colour; free
 positioning is refused), so closing them belongs to a design pass rather than
