@@ -1611,48 +1611,46 @@ legible only from position. Three things were conflated, not two.
   by any check; the outline shipped through lint, typecheck and 3023 green
   tests.
 
-- **`ContentMark`** is content's own bar, added 2026-08-28 because the pair
-  above only ever marked HALF the question. A section said what it was in two
-  places and a leaf said it in one, so "which of these am I looking at" was
-  answerable about a section and answerable about a leaf only by noticing what
-  it did NOT have. A mark that has to be inferred from an absence is not a
-  mark.
+- **Content is marked by its own BORDER**, and the short stub that shipped on
+  2026-08-28 is gone the same day. The stub marked the card's head only; what
+  was asked for was a mark over the whole card, the way a container's rail runs
+  its full height. A leaf card carries **2px of full-strength `--edge`** now,
+  where it wore 1px at 40% alpha.
 
-  **It is deliberately NOT a rail, and the difference is the whole design.** A
-  container's rail runs the card's full height because it encloses everything
-  drawn inside it; a leaf encloses nothing, so a bar spanning its body would
-  claim a containment it does not have — and, worse, would break the one thing
-  the rail buys. Rails nest physically, so three stacked ones is a block at the
-  cap; a leaf drawing a fourth makes that count answer a number nobody can act
-  on. A stub at the card's head cannot be miscounted, because a leaf is always
-  the end of the line.
+  **Three channels separate the two kinds, and none of them is colour alone:**
+  a rail down one edge against a perimeter, `--accent` against `--edge`, and
+  thin against thick.
 
-  **Colour is not allowed to be the only difference, and that is measured
-  rather than assumed.** `--accent` is 46% lightness and `--muted` is 50%, so
-  the two are nearly the same grey once the hue is gone — a reader who cannot
-  separate the two hues would have had nothing at all from a pair of equal
-  bars. Length is what carries it, and length survives greyscale and survives a
-  skin, since neither token is one an author can set.
+  **Weight is doing the work colour cannot, and the palette is why.** There is
+  ONE accent and a neutral ramp — no second hue exists to reach for. The
+  nearest candidate, `--ink-2`, is 45% lightness against `--accent`'s 46% in
+  light mode, which is invisible; and `--star`, the only genuinely different
+  hue we own, is disqualified twice over — it is semantically the nebula
+  toggle's star, and it is not the same hue across modes (32° light, 78° dark),
+  so a pairing built on it would read as one thing in light and another in
+  dark. `--edge` is the only token separating from the accent by lightness in
+  BOTH modes: 66 against 46 light, 52 against 74 dark. Photographed in both
+  rather than argued from the numbers.
 
-  **Its geometry is the rail's on purpose.** `left-1` inside the leaf's uniform
-  `p-2.5` puts it at 4–7px — 3px clear of the border, the same clearance the
-  rail's own placement was measured to need, and 3px before content the padding
-  had already started at. So it costs the card no width at all, which is the
-  constraint `responsive.spec.ts` enforces at 320px and the reason the rail was
-  never simply given a gutter. Confirmed by running that suite: 25 cases, none
-  skipped.
+  **A perimeter also cannot corrupt what the rail buys.** Rails nest
+  physically, so three stacked ones is a block at the depth cap; giving leaves
+  a second full-height rail would make that count answer a number nobody can
+  act on, which is exactly why the first attempt hedged with a stub.
 
-  **NO UNIT TEST CAN TELL THE STUB FROM A RAIL**, and that is written down
-  rather than papered over. Sabotaged to `inset-y-2` — a full-height bar, the
-  exact wrong answer this component exists to avoid — `block-card.test.tsx`
-  stays green at 44 of 44, because both are an element carrying a class string
-  and jsdom lays out neither. It is the same blindness this section already
-  records about the rail's own placement, where an invisible rail passed its
-  test; the discriminating instrument is a photograph, and the stub was
-  lengthened from `h-4` to `h-8` by taking one. What the unit cases DO pin is
-  that the two bars are different ELEMENTS — sabotaging the mark away reddens
-  exactly one case, and the rail count is asserted unmoved by a leaf being
-  present at all.
+  **Two things measured rather than assumed.** `border-2` genuinely beats
+  `@utility surface`'s `max(--skin-border, --skin-border-min)` — computed
+  `border-top-width` reads 2px on a leaf and 1px on a section in a real
+  browser, which matters because `surface` OWNS border width and a plain
+  utility beating it is the documented sort-order mechanism rather than an
+  assumption. And a second pixel of border costs the editor no width:
+  `scrollWidth` equals `clientWidth` at 320 and at 568, the two sizes the
+  rail's own padding broke before.
+
+  **It does invert the visual weight**, and that is a ruling rather than an
+  oversight: a leaf now carries more ink than the section enclosing it. The
+  leaf cards are the things somebody types into, so making them the defined
+  ones was judged right; if that is ever reversed, soften to `--edge/70` or
+  thicken the rail rather than going back to a stub.
 
 **Each eyebrow is set in its own bar's colour** — `TONES` in the same file,
 accent for a container and muted for content. Before this both were `--muted`,
