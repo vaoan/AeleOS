@@ -53,9 +53,13 @@ import {
   type MoveRefusal,
 } from "@/features/actors/domain/block-moves";
 import type { BlockProblem } from "@/features/actors/domain/block-problems";
-import type { ChosenPage } from "@/features/actors/domain/fursona-templates";
+import {
+  FURSONA_TEMPLATES,
+  type ChosenPage,
+} from "@/features/actors/domain/fursona-templates";
 import type { ActorTheme } from "@/features/actors/domain/actor-theme";
 import {
+  fitsActorKind,
   holdsNothingAuthored,
   lockedKinds,
   offerableLeafKinds,
@@ -373,6 +377,13 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * shipped for one commit, and no unit test caught it because the case written
  * for it clicked the confirmation only if it happened to be there.
  *
+ * **It offers only the templates that could actually be applied here.** An era
+ * look is a FURSONA document — it names `owner`, which has nothing to render on
+ * somebody's own profile — so offering one at `/me/edit` would hand them a page
+ * that applies cleanly and then cannot be saved. `fitsActorKind` withholds it,
+ * which is the same reasoning that withdraws a refused kind from the leaf
+ * select rather than letting the database explain it afterwards.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -640,6 +651,15 @@ export function BlockEditor<T extends FieldValues>({
             // this drives would then warn somebody about losing work they had not
             // done. See `holdsNothingAuthored`.
             hasSections={!holdsNothingAuthored(blocks, page.actorKind, theme)}
+            // **Only what could actually be applied here.** An era look is a
+            // FURSONA document — it names `owner`, which has nothing to render
+            // on somebody's own profile — so offering one at `/me/edit` would
+            // hand them a page that applies cleanly and then cannot be saved.
+            // The same reasoning withdraws a refused kind from the leaf select
+            // rather than letting the database explain it afterwards.
+            templates={FURSONA_TEMPLATES.filter((template) =>
+              fitsActorKind(template.blocks, page.actorKind),
+            )}
             labels={labels}
             // **The shim runs on the converted template.** A template ships
             // structure in the flat vocabulary and names no identity block, and

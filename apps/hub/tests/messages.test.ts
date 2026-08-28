@@ -122,6 +122,15 @@ describe("message catalogues", () => {
   it("have no Spanish values left identical to the English", () => {
     const allowed = [
       "fursonas.templates.fursuit.name",
+      // **The era looks are named after products, and a product name is the
+      // same word in both languages.** Their DESCRIPTIONS beside them are
+      // translated, which is the evidence that each was considered rather
+      // than skipped — the same argument `fursuit.name` above rests on.
+      "fursonas.templates.era-win98.name",
+      "fursonas.templates.era-winxp.name",
+      "fursonas.templates.era-vista.name",
+      "fursonas.templates.era-win7.name",
+      "fursonas.templates.era-win8.name",
       // The same loanword again, heading the list of somebody's characters on
       // their public page. Spanish uses it unchanged, exactly as `nav.fursonas`
       // does.

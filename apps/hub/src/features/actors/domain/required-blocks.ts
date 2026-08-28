@@ -139,6 +139,37 @@ export function missingRequiredKinds(
 }
 
 /**
+ * Whether a page could be applied to this kind of actor at all.
+ *
+ * **A page can be complete and still be the wrong SHAPE.** `owner` is refused
+ * on a person's page and `fursonas` on a fursona's, because neither has
+ * anything to render there — so a document built for one is not merely
+ * imperfect on the other, it is a page `set_actor_sections` refuses outright.
+ *
+ * It exists because the era looks are fursona documents: they name `owner`,
+ * and offering one on `/me/edit` would hand somebody a page that looks applied
+ * and cannot be saved. The picker asks this and withholds what does not fit,
+ * which is the same reasoning that withdraws a refused kind from the leaf
+ * select rather than letting the database explain it later.
+ *
+ * A pasted document needs no such filter: `parseDocument` REPORTS a refused
+ * kind as its own problem, naming the block, which is better than dropping it
+ * silently. Only the picker — which does not parse — needed asking.
+ *
+ * @param blocks - the page being offered.
+ * @param kind - which kind of actor's page it would land on.
+ * @returns true when nothing in the tree is refused for that kind.
+ */
+export function fitsActorKind(
+  blocks: readonly (Block | null)[],
+  kind: ActorKind,
+): boolean {
+  const present = new Set<string>();
+  collectKinds(blocks, present);
+  return !present.has(REFUSED_KIND[kind]);
+}
+
+/**
  * The label each identity kind is seeded with.
  *
  * The app's suggestion, not the author's writing — the moment somebody edits

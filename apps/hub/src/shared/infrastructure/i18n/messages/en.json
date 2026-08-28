@@ -181,6 +181,26 @@
       "fursuit": {
         "name": "Fursuit",
         "description": "The suit itself — who built it, what of, and where it has been."
+      },
+      "era-win98": {
+        "name": "Windows 98",
+        "description": "Teal, silver bevels and navy title bars. Square corners, and every panel raised off the page."
+      },
+      "era-winxp": {
+        "name": "Windows XP",
+        "description": "Luna blue: gradient title strips over pale panels, with the body squared up beneath each one."
+      },
+      "era-vista": {
+        "name": "Windows Vista",
+        "description": "Aero glass, dark-tinted, over a green aurora. Everything you write shows through."
+      },
+      "era-win7": {
+        "name": "Windows 7",
+        "description": "The same glass, lighter, over bright blue. Aero at its calmest."
+      },
+      "era-win8": {
+        "name": "Windows 8",
+        "description": "Metro: flat tiles of different sizes on near-black, with no edges and no corners at all."
       }
     },
     "themeTitle": "How your page looks",

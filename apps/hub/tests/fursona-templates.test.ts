@@ -125,20 +125,34 @@ describe("FURSONA_TEMPLATES", () => {
   // unsafe-key reviver and `parseTheme`.
   describe("the documents the picker hands out", () => {
     it("derives one block per authored section", () => {
+      // **Starters only.** The list also carries era looks now, which are
+      // authored as blocks and have no sections to derive from — so comparing
+      // the whole list against `STARTER_LAYOUTS` would be comparing two
+      // different things. The starters come first, which is what makes the
+      // index line up.
+      const starters = FURSONA_TEMPLATES.filter(
+        (one) => !one.id.startsWith("era-"),
+      );
       // Anti-vacuity for everything below: a derivation that silently produced
       // nothing would satisfy every `it.each` on an empty list.
-      expect(FURSONA_TEMPLATES.length).toBe(STARTER_LAYOUTS.length);
-      for (const [index, template] of FURSONA_TEMPLATES.entries()) {
+      expect(starters.length).toBe(STARTER_LAYOUTS.length);
+      for (const [index, template] of starters.entries()) {
         expect(template.blocks).toHaveLength(
           STARTER_LAYOUTS[index]!.sections.length,
         );
       }
     });
 
+    // **A STARTER fits either kind of page and an era look does not.** A look
+    // names `owner`, which a person's page refuses, and the picker withholds
+    // one there — see `fitsActorKind`. So this asks of starters what is true of
+    // starters; `era-looks.test.ts` asserts the looks' own shape.
     it.each(["fursona", "person"] as const)(
-      "ships pages a %s's own parser accepts",
+      "ships starter pages a %s's own parser accepts",
       (kind) => {
-        for (const template of FURSONA_TEMPLATES) {
+        for (const template of FURSONA_TEMPLATES.filter(
+          (one) => !one.id.startsWith("era-"),
+        )) {
           const parsed = parseDocument(
             toDocument(template.theme ?? DEFAULT_THEME, [...template.blocks]),
             kind,
@@ -155,12 +169,28 @@ describe("FURSONA_TEMPLATES", () => {
     // means "leave the author's colours alone". The era looks phase 2 adds are
     // the opposite and will carry one; this is what would redden if a palette
     // were ever quietly attached to a starter.
-    it.each(FURSONA_TEMPLATES.map((one) => [one.id, one] as const))(
-      "%s carries no theme, so applying it keeps the author's colours",
+    it.each(
+      FURSONA_TEMPLATES.filter((one) => !one.id.startsWith("era-")).map(
+        (one) => [one.id, one] as const,
+      ),
+    )(
+      "%s carries no theme, because a STARTER is structure",
       (_id, template) => {
         expect(template.theme).toBeNull();
       },
     );
+
+    // The other half of that, so the filter above cannot quietly select
+    // nothing: an era look is the opposite kind of thing and MUST carry one.
+    it("ships era looks, and every one of them carries a theme", () => {
+      const looks = FURSONA_TEMPLATES.filter((one) =>
+        one.id.startsWith("era-"),
+      );
+      expect(looks.length).toBeGreaterThan(0);
+      for (const look of looks) {
+        expect(look.theme, `${look.id} carries a theme`).not.toBeNull();
+      }
+    });
   });
 
   // 0013 stores sort_order; array position is not what comes back.
