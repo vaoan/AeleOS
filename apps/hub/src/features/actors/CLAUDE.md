@@ -648,6 +648,15 @@ header carries `owner` for a fursona and nothing in its place for a person;
 their third required kind, `fursonas`, is not part of that header at all, so it
 is APPENDED in a section of its own — after everything the author has, not
 beside the header.
+
+**A page also REFUSES one kind, and the client knows it now.** `REFUSED_KIND`
+is the mirror of `REQUIRED_KINDS` — `owner` is refused on a person's page and
+`fursonas` on a fursona's, because neither has anything to render on the
+other. It lived only in `set_actor_sections` until 2026-08-27, which is why
+the kind select offered a choice the database rejected. It is pinned to `0009`
+by `block-limits-match-migration.test.ts` like every other vocabulary written
+down twice.
+
 `progressValue` (`domain/progress-value.ts`) accepts a fraction (`3/5`), a
 percentage (`60%`) or a bare number (`60`), decimals allowed wherever a whole
 number is, clamped to 0–100 because nothing stops somebody writing `150`.

@@ -1,6 +1,7 @@
 import {
   CONTAINER_KIND,
   isContainer,
+  LEAF_KINDS,
   type Block,
   type ContainerBlock,
   type LeafKind,
@@ -47,6 +48,42 @@ export const REQUIRED_KINDS = {
   person: ["avatar", "handle", "fursonas"],
   fursona: ["avatar", "handle", "owner"],
 } as const satisfies Record<ActorKind, readonly LeafKind[]>;
+
+/**
+ * The leaf kind a page of each actor kind may NOT carry.
+ *
+ * The mirror of {@link REQUIRED_KINDS}, and until this constant existed it was
+ * enforced **only** in `set_actor_sections`: the client knew what a page must
+ * have and nothing about what it may not. So `owner` could be chosen from the
+ * leaf-kind select on a person's page, and the save came back as a database
+ * exception with no block marked and no reason named.
+ *
+ * `owner` and `fursonas` refuse each other's pages because neither has
+ * anything to render on the other — a person has no owner and a fursona has no
+ * characters of its own.
+ *
+ * `block-limits-match-migration.test.ts` pins this to `0009`, because a
+ * vocabulary written down in two languages needs the test that says so in the
+ * same change.
+ */
+export const REFUSED_KIND = {
+  person: "owner",
+  fursona: "fursonas",
+} as const satisfies Record<ActorKind, LeafKind>;
+
+/**
+ * The leaf kinds a page of this actor kind may hold.
+ *
+ * Every kind but the one its actor kind refuses. Exported so the editor's kind
+ * select can withdraw the option rather than offering a choice the database
+ * will reject, and so an import can name a block it must report.
+ *
+ * @param kind - which kind of actor's page it is.
+ * @returns the offerable kinds, in {@link LEAF_KINDS} order.
+ */
+export function offerableLeafKinds(kind: ActorKind): readonly LeafKind[] {
+  return LEAF_KINDS.filter((one) => one !== REFUSED_KIND[kind]);
+}
 
 /**
  * Every leaf kind present anywhere in a tree.
