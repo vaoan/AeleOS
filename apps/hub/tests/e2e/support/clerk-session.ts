@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
 
+import { retryingFetch } from "./retry-fetch";
+
 /**
  * Whether a real Clerk instance is reachable.
  *
@@ -12,12 +14,16 @@ export const hasClerk = (): boolean =>
 /**
  * Calls Clerk's backend API.
  *
+ * The connection-level retry lives in {@link retryingFetch}, which explains
+ * why only a THROW is retried and never an answer.
+ *
  * @param path - the path under `/v1`.
  * @param init - fetch options.
  * @returns the parsed body, or null when there is none.
+ * @throws when Clerk answers with a non-2xx status, or cannot be reached.
  */
 async function backend(path: string, init: RequestInit = {}): Promise<never> {
-  const response = await fetch(`https://api.clerk.com/v1${path}`, {
+  const response = await retryingFetch(`https://api.clerk.com/v1${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${process.env.CLERK_SECRET_KEY as string}`,
@@ -31,7 +37,6 @@ async function backend(path: string, init: RequestInit = {}): Promise<never> {
   }
   return (body ? JSON.parse(body) : null) as never;
 }
-
 /** A throwaway identity. */
 export interface TestIdentity {
   /** Clerk's user id: mint tickets from it, and delete it afterwards. */

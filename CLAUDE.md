@@ -2873,6 +2873,32 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     on any branch that added a test file before trusting a green `vitest`
     run**; a passing suite is not evidence about a file `tsc` never saw.
 
+41. **A NETWORK failure is not a flaky test, and telling them apart decides
+    whether retrying is discipline or its opposite.** Rule 33 forbids retrying
+    a flaky assertion, because the assertion's failure is evidence about our
+    own code. A `fetch` to a third-party API that never gets a response is
+    evidence about a socket, and the assertion it was setting up never ran at
+    all — so the fix is to make the CALL resilient, which is ordinary
+    engineering, and not to re-run the case, which would be hiding something.
+
+    **The diagnosis has to come first, and the first diagnosis here was
+    wrong.** A `TypeError: fetch failed` in the browser suite was read as
+    Clerk rate limiting, and it was not: a rate limit is answered with **429**
+    and a body, where this error carried `status: undefined` and
+    `code: 'unexpected_error'` — it never got a response. The suite makes
+    about a hundred backend calls across fifteen minutes against a documented
+    limit of roughly a hundred per ten seconds, so the numbers were not close
+    either. **An error with no HTTP status never reached the service**, and
+    that single field is what separates "they refused us" from "we never got
+    there".
+
+    **Retry the throw, never the answer.** `retryingFetch`
+    (`tests/e2e/support/retry-fetch.ts`) retries only when `fetch` itself
+    throws; a 4xx or 5xx is handed straight back, because retrying a real
+    refusal makes it a slow real refusal. Its test pins that by CALL COUNT
+    rather than by status — a retried call that eventually returns the same
+    429 looks identical from the status alone.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected
