@@ -77,8 +77,8 @@ first thing to go stale.
 | [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | A real photo wall in `masonry`, and album strips in a carousel                                                 |
 | [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | A serif and centred text, a starfield, a tiled mosaic, a visitor-stats table and a webring                     |
 | [a microblog board](https://me.furrycolombia.com/137/board)          | 2012                       | Bare rows with a hairline between them, counts rows, and social chips that resolve a brand                     |
-| [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | The one page that sets no spacing at all, so it is roomy where the rest are compact                            |
-| [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline between them and no cards at all                                             |
+| [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | Flat white and `#006aff`, both read off the live site; roomy where the rest are compact                        |
+| [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline and no cards, on the live site's own `#0a0a0a`                               |
 
 **What is copied is layout, palette and density** — if a pastiche and the real
 thing differ, the pastiche is wrong, not the model.
@@ -89,11 +89,15 @@ trust a colour (as of 2026-08-28):
 - **Measured against a real archived capture:** Fur Affinity (December 2008 —
   it was measurably wrong and was corrected), Facebook (March 2007), MySpace
   (a 2007 profile) and hi5 (2007).
+- **Measured against the live site:** Bluesky and Threads, both still running,
+  so neither needs an archive at all. Both moved when checked — Bluesky's
+  accent is `#006aff` and not the `#0085ff` everybody quotes, and Threads had
+  to be read under a dark colour scheme to mean anything.
 - **Built from knowledge:** Fotolog, whose snapshots render the logged-out
   homepage rather than a profile.
 - **Provenance not recorded:** Windows Live Messenger, the microblog board,
-  Bluesky, Threads, Sonico and GeoCities. They may well have been built from
-  captures; the file does not say, so this table cannot either.
+  Sonico and GeoCities. They may well have been built from captures; the file
+  does not say, so this table cannot either.
 
 The findings, including what the block model **cannot** be pushed toward and
 why two of those gaps are deliberate:

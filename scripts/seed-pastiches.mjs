@@ -133,6 +133,7 @@ const gradient = (angle, stops, kind = "linear") => ({
 const theme = (over) => ({
   background: null,
   accent: null,
+  surface: null,
   canvasColours: null,
   canvas: "nebula",
   cursor: null,
@@ -517,16 +518,27 @@ const sky = [
   ),
 ];
 
+// **Measured against the LIVE site on 2026-08-29**, which is the one kind of
+// evidence this page can have — Bluesky is still running, so there is nothing
+// to reach into an archive for. Two values moved:
+//
+//   - the ground is FLAT `#ffffff`. It was a white-to-pale-blue ramp, and the
+//     real page has no gradient at all: `getComputedStyle(document.body)`
+//     answers `rgb(255, 255, 255)` on both `body` and `html`.
+//   - the accent is `#006aff`, read off the Follow button. It was `#0085ff` —
+//     the brand blue everybody quotes, and NOT the blue the application
+//     paints. A colour being the official one is not evidence about what the
+//     page looks like.
 const skyTheme = theme({
   background: gradient(170, [
     { color: "#ffffff", at: 0 },
-    { color: "#eef6ff", at: 100 },
+    { color: "#ffffff", at: 100 },
   ]),
-  accent: "#0085ff",
-  canvas: "bubbles",
-  canvasColours: ["#cfe6ff", "#0085ff"],
-  density: 0.5,
-  speed: 0.3,
+  accent: "#006aff",
+  // Live Bluesky paints nothing behind itself, so neither does this. The same
+  // reasoning five other pages here already carry: an animated backdrop reads
+  // as a bug in the pastiche rather than as a default doing its job.
+  canvas: "none",
   skin: "default",
   font: "system",
   measure: "medium",
@@ -572,16 +584,32 @@ const threads = [
   ),
 ];
 
+// **Measured against the LIVE site in DARK mode on 2026-08-29.** Threads is
+// still running, so this needs no archive either — but it needs a colour
+// scheme: a probe with no dark preference is served `#fafafa`, and this page
+// is the black one Threads launched with. `colorScheme: "dark"` is what makes
+// the measurement the right one.
+//
+// Live reads `rgb(10, 10, 10)` on `body`, `rgb(243, 245, 247)` for ink and
+// `rgb(16, 16, 16)` for the card the profile sits in. The old second stop was
+// already exactly right; what moved is that the ground is FLAT rather than a
+// ramp from pure black, and that the card is now expressible at all —
+// `theme.surface` did not exist when this page was written, so its panels were
+// a derived step off the ground rather than the colour the real page uses.
+//
+// **What is deliberately NOT copied is the 2026 relayout.** Live Threads now
+// puts the profile in a rounded card on a grey field; this page is the 2023
+// edge-to-edge one the README dates it to. A live site is evidence about
+// today, and today is not always the era being imitated.
 const threadsTheme = theme({
   background: gradient(180, [
-    { color: "#000000", at: 0 },
+    { color: "#0a0a0a", at: 0 },
     { color: "#0a0a0a", at: 100 },
   ]),
-  accent: "#f5f5f5",
-  canvas: "grid",
-  canvasColours: ["#1a1a1a", "#101010"],
-  density: 0.2,
-  speed: 0.1,
+  accent: "#f3f5f7",
+  surface: "#101010",
+  // As with Bluesky: the real page is a flat ground and nothing moves on it.
+  canvas: "none",
   // **`default`, and the rows are `chrome: "bare"`.** The first attempt used
   // `outline`, whose whole identity is a border, and asked it for
   // `border_style: "none"` — a test confounded by its own fixture, and one that
