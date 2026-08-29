@@ -785,10 +785,12 @@ Key choices and _why_:
   restyled — an `owner` leaf appended to each page's own final section,
   `avatar`/`handle` added to the identity block at the top the same way every
   other page already does it, the two speeds raised to the floor, and the two
-  empty titles given real text (`threads`' bio is titled "Bio", matching the
-  identical content on `board` and `sky`; `geocities` gained "NOTICE" over its
+  empty titles given real text (`threads`' bio was titled "Bio", matching
+  `board` and `sky`; `geocities` gained "NOTICE" over its
   visitor-counter-and-browser-notice text). The restyle itself is still each
-  page's own later task.
+  page's own later task — **and `threads`' own restyle later replaced "Bio"
+  with its own text, so it no longer matches `board` and `sky`, which still
+  carry the word.**
 
   **And it is rule 29 again, on the SABOTAGE rather than the page.** The first
   attempt to sabotage-verify the theme case matched `skin: "default"` inside
@@ -916,14 +918,32 @@ Key choices and _why_:
   still worth dating**, so both comments now carry their own re-confirmation
   date rather than resting on the original one silently.
 
-  **Threads' "Bio" label was a small stale decision worth reversing rather
-  than keeping.** An earlier task filled its empty `title_en` with "Bio" to
+  **Threads' "Bio" label was a small stale decision, and the first fix for it
+  was wrong too.** An earlier task filled its empty `title_en` with "Bio" to
   satisfy strict validation, matching board and sky — but this page's whole
   design is that nothing is labelled, and "Bio" is a field name no real
-  Threads profile shows. It is "aeleos" now, reusing the exact attribution
-  every `post()` on the same page already gives its own text: a bold line,
-  then a paragraph. The bio is a fourth instance of that idiom, not a UI
-  label — the fix a later task owed the earlier one's shortcut.
+  Threads profile shows. The first replacement was "aeleos", reasoned from the
+  `post()` idiom below it (a bold handle line over a paragraph) without
+  reading what the SURROUNDING leaves actually render. **Review traced the
+  real output and found it was worse than a label: the section is itself
+  named "aeleos"; `NameLeaf` labels its own `title_en` — "Aeleos" — over
+  `page.displayName`, which is "aeleos"; `HandleLeaf` labels ITS `title_en` —
+  "aeleos" — over `page.handle`, "threads".** So "aeleos" was already three
+  plain-text occurrences deep before the bio, and retitling it to the same
+  word made four, stacked with no separation — a different visual context
+  from the same word prefacing several separated posts in a feed. The bio is
+  `title_en: "building in public"` / `description_en: "posting in private"`
+  now: its own two clauses, split so `PlainLeaf` renders bold-then-plain — no
+  invented word, no label, no repetition.
+
+  **The grep that should have caught the stale "Bio" sentence two paragraphs
+  above searched the wrong axis.** It searched `messenger`, `no capture`,
+  `no archive` — terms for the TOPIC being worked on — and missed the one
+  two paragraphs above this that names `Bio` as threads' title, which the
+  retitle made false: it still read "`threads`' bio is titled 'Bio', matching
+  the identical content on `board` and `sky`" after the bio no longer was.
+  **Grep for the strings you edited, not the topic you worked on** — a stale
+  sentence is falsified by what changed, not by what the change was about.
 
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so

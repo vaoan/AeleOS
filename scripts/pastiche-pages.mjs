@@ -719,17 +719,34 @@ const skyTheme = theme({
 // 5 — Black, borderless, almost nothing. The hardest of the eight, because
 //     what defines it is what it REMOVES.
 //
-// **Task 9's own decision: the bio's title is "aeleos", not "Bio".** An
-// earlier task filled `title_en` with "Bio" to satisfy strict validation
-// (`98dddf0`) — matching board and sky, whose bios reuse the same word — but
-// this page's whole design is that nothing is LABELLED, and "Bio" is a field
-// name no real Threads profile shows. Leaving it would have been the quiet
-// choice; it is replaced instead with "aeleos", the same attribution every
-// `post()` below already gives its own text. A bold line then a paragraph is
-// this page's one idiom for "here is some of aeleos's writing", used for
-// three posts already — the bio is a fourth instance of exactly that, not a
-// UI label. `title_es` is dropped rather than translated: a handle carries no
-// language.
+// **Task 9's own decision, corrected on review: the bio is split into its own
+// two clauses, not retitled "aeleos".** An earlier task filled `title_en`
+// with "Bio" to satisfy strict validation (`98dddf0`) — matching board and
+// sky, whose bios still carry that word — but this page's whole design is
+// that nothing is LABELLED, and "Bio" is a field name no real Threads profile
+// shows.
+//
+// The first attempt replaced it with "aeleos", reasoning by class string
+// alone from the `post()` idiom below. **Reading what actually RENDERS
+// top to bottom refuted that**, the way it has to be checked rather than
+// assumed: this section is itself named "aeleos" (a plain, unbarred
+// heading); `NameLeaf` draws a small label from its own `title_en` — "Aeleos"
+// — over `page.displayName`, which for this page is "aeleos"; `HandleLeaf`
+// draws a small label from ITS `title_en` — "aeleos" — over `page.handle`,
+// "threads" (a real chosen handle, not a machine one, so `isMachineHandle`
+// leaves it showing verbatim). So before the bio is even reached, "aeleos"
+// already appears three times as plain text — the section name, the name
+// leaf's VALUE, and the handle leaf's LABEL — and giving the bio's own title
+// the same word made it four, stacked with no separation between them,
+// which is a different visual context from the same word prefacing several
+// SEPARATED posts in a feed.
+//
+// `title_en: "building in public"` / `description_en: "posting in private"`
+// is what ships instead: the bio's own two clauses, split so `PlainLeaf`
+// renders the first bold and the second plain — an emphasised bio line, no
+// invented word, no label, and no repetition. `title_es` stays unset either
+// way: a handle needed no translation and neither does half a sentence
+// carried over from `description_en`.
 // ---------------------------------------------------------------------------
 
 const threads = [
@@ -740,8 +757,8 @@ const threads = [
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("handle", "aeleos"),
-        leaf("text", "aeleos", {
-          description_en: "building in public, posting in private",
+        leaf("text", "building in public", {
+          description_en: "posting in private",
         }),
         leaf("stat", "Followers", { description_en: "1,204" }),
       ]),
