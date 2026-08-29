@@ -27,6 +27,7 @@ describe("setActorTheme", () => {
         angle: 90,
         stops: [{ color: "#1a1a2e", at: 0 }],
       },
+      surface: null,
       accent: "#00ff88",
       canvasColours: ["#112233", "#445566"],
       canvas: "none",

@@ -260,7 +260,14 @@ XP, Vista, 7 and 8 — built from captures fetched and looked at, seeded under
 `/137/` and photographed. The same method as the eleven, pointed at a different
 kind of thing.
 
-### 8. A page cannot choose its SURFACE colour, and this one gap explains most of the loss
+### 8. A page cannot choose its SURFACE colour — CLOSED (2026-08-28)
+
+> **Built.** `theme.surface` is a page-level panel colour. Windows 98 is silver
+> on teal, XP is near-white on Luna blue, and Fur Affinity's panels sit a shade
+> off its slate ground — all three photographed. The account below is what the
+> gap was; it is kept because the reasoning is the reason the key exists.
+
+### What the gap was
 
 **The biggest finding, and it was invisible until three looks failed the same
 way.** Every derived colour comes from the page's background gradient, so a
@@ -355,3 +362,31 @@ Gap 1 first, and alone it would fix gap 7 and most of gap 4's symptom. The
 smallest version is a per-block `chrome: "none"` that suppresses the card
 surface, padding and edge while leaving the content — which is a style key
 beside `border_style`, not a new model.
+
+## Closing gap 8 (2026-08-28)
+
+`theme.surface` is a colour or null. Null derives the stepped panel every page
+had before, so nothing stored moved.
+
+**Choosing one gives the page TWO grounds, and that is the whole design
+problem.** Text has to be legible on the field AND on the panel, and one ink
+cannot serve a near-black field and a near-white panel. `derivePalette` solves
+against whichever of the two leaves least room — the same rule the hardest
+gradient stop already followed, extended from one ground to two — so the worse
+case is the one that was measured.
+
+**What it guarantees is narrower than "both clear 4.5", and the difference was
+found by a test that failed.** The first case asserted 4.5:1 on both grounds
+and failed at 4.05 — because `#008080` sits near mid-lightness and _never_
+cleared the minimum, with or without this feature. Lowering the threshold would
+have been rule 7's forbidden move. Measured instead:
+
+|              | ink on field | ink on panel |
+| ------------ | ------------ | ------------ |
+| no surface   | 4.05         | 4.97         |
+| silver panel | 4.05         | **10.61**    |
+
+So the real contract is **a second ground costs the first nothing**, which is
+both true and checkable, and stronger than the claim it replaced because it
+admits that an author's own field is rendered exactly as picked — the
+page-level escape hatch being what makes that safe.

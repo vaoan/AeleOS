@@ -215,6 +215,8 @@ export type CanvasId = (typeof CANVASES)[number];
  *
  * A theme also carries an optional `font` and `spacing`; both fall back to the
  * design's own for a value this build does not know.
+ *
+ * **`surface` is the newest key and the only one that changes what OTHER colours are solved against.** Every other colour here is emitted; that one gives the page a second ground, and `derivePalette` then measures text against whichever of the two leaves least room.
  */
 export interface ActorTheme {
   /**
@@ -228,6 +230,23 @@ export interface ActorTheme {
   background: Gradient | null;
   /** The accent colour as `#rrggbb`, or null for the design's own. */
   accent: string | null;
+  /**
+   * What a PANEL is painted with, as `#rrggbb`, or null to step off the field.
+   *
+   * **Without this a panel is always a tint of the ground behind it**, because
+   * every derived colour steps away from the background gradient — which is
+   * why a page could not be silver-on-teal or near-white-on-blue. One missing
+   * mechanism explained most of the fidelity loss across three imitated
+   * designs; see the pastiche findings.
+   *
+   * Choosing one gives the page TWO grounds, and `derivePalette` then solves
+   * text against whichever leaves least room. Measured: it costs the field
+   * nothing and takes a silver panel on teal from 4.97 to 10.61.
+   *
+   * Null is the stepped surface every page had before this key existed, so an
+   * untouched page derives byte-for-byte what it always did.
+   */
+  surface: string | null;
   /**
    * The canvas's own colours, one per slot, or null for the design's own.
    *
@@ -414,10 +433,13 @@ export function cursorUrl(raw: string | undefined): string | null {
  *
  * A theme also carries an optional `font` and `spacing`; both fall back to the
  * design's own for a value this build does not know.
+ *
+ * `surface: null` is the stepped panel every page had before a page could choose one, so a page that overrides nothing derives byte-for-byte what it always did.
  */
 export const DEFAULT_THEME: ActorTheme = {
   background: null,
   accent: null,
+  surface: null,
   canvasColours: null,
   canvas: DEFAULT_CANVAS,
   cursor: null,
@@ -449,9 +471,20 @@ export const DEFAULT_THEME: ActorTheme = {
  * page is actually wearing rather than black. They are seeds for a control, NOT
  * defaults for a page — {@link DEFAULT_THEME} overrides nothing, and these are
  * what a person sees the moment they decide to start overriding.
+ *
+ * The surface seed is the design's own light panel, so the picker opens on the colour a panel is ALREADY wearing rather than on black.
  */
 export const THEME_SEEDS = {
   accent: "#9a2929",
+  /**
+   * What the panel picker opens on.
+   *
+   * The design's own light surface, so the control shows the colour a panel is
+   * ALREADY wearing rather than black. It is a seed for a control and never a
+   * default for a page — a page that never touches it keeps `surface: null`
+   * and derives the stepped panel it always did.
+   */
+  surface: "#fdfbfa",
   /** One per slot, for the canvas that takes the most. */
   canvasColours: ["#ec8e4a", "#d66a60", "#c9587a", "#a25ec8"],
 } as const;
@@ -533,6 +566,8 @@ function colour(value: unknown): string | null {
  *
  * A theme also carries an optional `font` and `spacing`; both fall back to the
  * design's own for a value this build does not know.
+ *
+ * `surface` reads through the same `colour` guard as the accent: a stored value that is not `#rrggbb` reads back as null, which means the stepped panel rather than a broken one.
  */
 export function parseTheme(value: unknown): ActorTheme {
   const stored =
@@ -546,6 +581,7 @@ export function parseTheme(value: unknown): ActorTheme {
   return {
     background: parseGradient(stored.background),
     accent: colour(stored.accent),
+    surface: colour(stored.surface),
     canvasColours: colourList(stored.canvasColours),
     cursor: cursorUrl(
       typeof stored.cursor === "string" ? stored.cursor : undefined,
@@ -621,6 +657,8 @@ export function parseTheme(value: unknown): ActorTheme {
  *
  * A theme also carries an optional `font` and `spacing`; both fall back to the
  * design's own for a value this build does not know.
+ *
+ * `surface` is `z.string().nullable()` beside the accent, and loose for the same reason and with the same caveat — see the widget warning above, and use `parseTheme` for anything that did not come from a colour input.
  */
 export const themeSchema = z.object({
   canvasColours: z.array(z.string()).nullable(),
@@ -642,6 +680,7 @@ export const themeSchema = z.object({
     })
     .nullable(),
   accent: z.string().nullable(),
+  surface: z.string().nullable(),
   canvas: z.enum(CANVASES),
   cursor: z.string().nullable(),
   backgroundUrl: z.string().nullable(),
@@ -686,10 +725,12 @@ export const themeSchema = z.object({
  * @param key - which colour was chosen.
  * @param value - the colour, as `#rrggbb`.
  * @returns the theme with every colour explicit.
+ *
+ * It takes the panel colour as well as the accent now. Both are one colour on a page, and picking either makes the rest of the palette explicit for the reason stated above.
  */
 export function withChosenColour(
   theme: ActorTheme,
-  key: "accent",
+  key: "accent" | "surface",
   value: string,
 ): ActorTheme {
   return {
@@ -749,9 +790,13 @@ export function withCanvasColour(
  *
  * @param theme - the theme.
  * @returns true when any colour is the author's own.
+ *
+ * A chosen panel colour counts: it is a colour the author picked, so a page carrying only that one still has something to put back and something to leave.
  */
 export function isThemed(theme: ActorTheme): boolean {
-  return Boolean(theme.background ?? theme.accent ?? theme.canvasColours);
+  return Boolean(
+    theme.background ?? theme.accent ?? theme.surface ?? theme.canvasColours,
+  );
 }
 
 /**

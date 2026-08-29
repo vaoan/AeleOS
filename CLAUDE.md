@@ -206,6 +206,28 @@ Key choices and _why_:
   it is per-page, and it is the more ordinary want. Vista and Windows 7, by
   contrast, needed nothing new at all.
 
+  **Gap 8 is closed: a page chooses what its PANELS are painted with
+  (2026-08-28).** `theme.surface` is a colour or null, null being the stepped
+  panel every page had, so nothing stored moved. Windows 98 is silver on teal
+  now and XP near-white on Luna blue — both unreachable before, because every
+  derived colour stepped away from the background and a panel was always a tint
+  of the ground behind it.
+
+  **Choosing one gives the page TWO grounds**, and `derivePalette` solves ink,
+  muted and edge against whichever leaves least room — the hardest-stop rule
+  extended from one ground to two. What it guarantees is narrower than "both
+  clear 4.5", and a failing test is what found the difference: `#008080` sits
+  near mid-lightness and never cleared the minimum with or without this key, so
+  the contract is that **a second ground costs the first nothing** — measured,
+  the field stays at 4.05 exactly while the panel goes from 4.97 to 10.61.
+  Weakening the assertion to make it pass would have been rule 7's forbidden
+  move.
+
+  It edits `set_actor_theme` in `0009`, so it carries the in-place-migration
+  obligation: hand-apply to live, and do it LAST, immediately before merge, one
+  pull request at a time — the push makes live the newer side and every other
+  open pull request sees drift until yours merges.
+
   **The seeder reads a generated artefact rather than importing or copying.**
   `scripts/seed-pastiches.mjs` is plain JavaScript and cannot resolve the app's
   `@/` alias, so `scripts/era-looks.generated.json` is the seam and

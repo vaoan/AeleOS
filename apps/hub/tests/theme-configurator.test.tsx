@@ -67,6 +67,7 @@ const LABELS: ThemeConfiguratorLabels = {
     preview: "How the background looks",
   },
   accent: "Accent",
+  surface: "Panels",
   canvasColours: "Animation colours",
   canvasGroup: "The moving backdrop",
   canvasGroupHint: "It moves behind your page.",

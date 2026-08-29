@@ -100,6 +100,8 @@ import { tid } from "@/shared/infrastructure/test-id";
  *
  * It offers a typeface and a spacing, both page-level and both optional: the
  * first option clears the key rather than naming a face.
+ *
+ * `surface` names the panel colour, which sits beside the accent because both are one colour a person picks rather than a scheme.
  */
 export interface ThemeConfiguratorLabels {
   /** Names the whole panel. */
@@ -110,6 +112,8 @@ export interface ThemeConfiguratorLabels {
   gradient: GradientPickerLabels;
   /** Field label for the accent. */
   accent: string;
+  /** Field label for the panel colour. */
+  surface: string;
   /** Names the group of colours the chosen canvas paints with. */
   canvasColours: string;
   /** Names the group the animation's own controls live in. */
@@ -323,6 +327,8 @@ export interface ThemeConfiguratorProps {
  *
  * It offers a typeface and a spacing, both page-level and both optional: the
  * first option clears the key rather than naming a face.
+ *
+ * It offers the panel colour beside the accent. `colourField` takes either key, and both write through `withChosenColour` so picking one makes the rest of the palette explicit.
  */
 export function ThemeConfigurator({
   value,
@@ -395,7 +401,7 @@ export function ThemeConfigurator({
     </span>
   );
 
-  const colourField = (key: "accent", label: string) => (
+  const colourField = (key: "accent" | "surface", label: string) => (
     <div className="grid gap-1.5">
       <label
         htmlFor={`${id}-${key}`}
@@ -458,6 +464,11 @@ export function ThemeConfigurator({
 
           <div className="grid gap-3 sm:grid-cols-3">
             {colourField("accent", labels.accent)}
+            {/* **What a PANEL is painted with**, which without this was always
+                a tint of the ground behind it. See `ActorTheme.surface`: it is
+                the one mechanism that lets a page be silver on teal rather
+                than a shade of its own background. */}
+            {colourField("surface", labels.surface)}
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

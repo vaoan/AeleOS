@@ -171,6 +171,7 @@ const labels = {
       preview: "How the background looks",
     },
     accent: "Accent",
+    surface: "Panels",
     canvasColours: "Animation colours",
     canvasGroup: "The moving backdrop",
     canvasGroupHint: "It moves behind your page.",
@@ -1062,6 +1063,7 @@ describe("FursonaEditor for a person", () => {
         initialTheme={{
           background: null,
           accent: null,
+          surface: null,
           canvasColours: null,
           canvas: "nebula",
           cursor: null,
