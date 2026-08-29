@@ -623,13 +623,24 @@ Key choices and _why_:
   at `20081024054301` as its own subject: a photograph background, `surface:
 "#555a6a"` sampled from the capture's boxes, and `border: "solid"` with
   `radius: "square"` on every section for the thin square-cornered edge the
-  capture has in place of the old rounded default. `corners` and
-  `heading_gap` — unused anywhere in this file until this landed — weld each
-  bar flush to its content. **What did not come along is the translucency
-  itself**: a block's fill is one opaque colour with no alpha channel, so the
-  sampled tone stands in for the photograph showing through rather than being
-  it — recorded as gap 13 in the pastiche findings rather than approximated
-  past.
+  capture has in place of the old rounded default. `heading_gap` — unused
+  anywhere in this file until this landed — welds each bar flush to its
+  content. **What did not come along is the translucency itself**: a block's
+  fill is one opaque colour with no alpha channel, so the sampled tone stands
+  in for the photograph showing through rather than being it — recorded as
+  gap 13 in the pastiche findings rather than approximated past.
+
+  **`corners` was tried alongside `radius: "square"` and removed.** A key
+  named in the brief turned out to be a no-op there: `radius: "square"` drives
+  `--skin-round` to `0`, and every corner `corners` names computes as a
+  multiple of that same token — so a "rounded" corner and a square one are
+  the identical `0`. `corners` says WHERE and `radius` says HOW MUCH, and
+  where is meaningless once how-much is zero everywhere. A key that changes
+  nothing is a dead letter that reads like a change in the diff, so it is
+  absent from this page rather than decorative on it — its first real use
+  belongs to a page that wants the window shape it actually draws: a bar
+  rounded across its top over a body square at its foot, which needs
+  `radius: "soft"` to mean anything.
 
   **An SPA replays as nothing, so "no archive" and "an archive of the wrong
   subject" are different claims.** Bluesky and Threads were written up as

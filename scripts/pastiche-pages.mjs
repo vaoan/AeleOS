@@ -217,7 +217,6 @@ const myspace = [
         heading: "gradient",
         border: "solid",
         radius: "square",
-        corners: "tl,tr",
         heading_gap: "none",
       },
     },
@@ -241,7 +240,6 @@ const myspace = [
         heading: "gradient",
         border: "solid",
         radius: "square",
-        corners: "tl,tr",
         heading_gap: "none",
       },
     },
@@ -264,7 +262,6 @@ const myspace = [
         heading: "gradient",
         border: "solid",
         radius: "square",
-        corners: "tl,tr",
         heading_gap: "none",
       },
     },
@@ -307,14 +304,19 @@ const myspace = [
 //
 // `border: "solid"` with `radius: "square"` on every section draws the thin,
 // sharp-cornered edge the capture has in place of this page's old rounded
-// default. `corners: "tl,tr"` and `heading_gap: "none"` are set explicitly on
-// each barred section too, welding its bar flush to its content — the first
-// use of either key in this file. Combined with `radius: "square"`, every
-// corner already resolves to zero regardless of which corners `corners`
-// names, so the pixels are the same as leaving it unset; it is set anyway,
-// naming the shape outright rather than leaving it an accident of the radius
-// choice, and it would draw a visibly different join the moment this page's
-// radius ever loosens.
+// default. `heading_gap: "none"` is set explicitly on each barred section
+// too, welding its bar flush to its content.
+//
+// **`corners` was tried here and removed.** `radius: "square"` sets
+// `--skin-round: 0`, and `squareOffCorners` writes every corner — named or
+// not — as a multiple of that same token, so at `--skin-round: 0` a "rounded"
+// corner and a square one compute to the identical `0`. `corners: "tl,tr"`
+// alongside `radius: "square"` is a no-op: it names WHERE to round when HOW
+// MUCH is already zero everywhere. A key that changes nothing is a dead
+// letter that reads like a change in the diff, so it is absent rather than
+// decorative — this file's first real use of `corners` belongs to a page that
+// wants the window shape it actually draws: a bar rounded across its top over
+// a body square at its foot, which needs `radius: "soft"` to mean anything.
 //
 // Kept: `font: "classic"`, `spacing: "compact"` and `measure: "wide"` — the
 // capture confirms all three.
