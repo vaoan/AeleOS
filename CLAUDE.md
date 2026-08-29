@@ -594,9 +594,14 @@ Key choices and _why_:
   draws the window shape a single `radius` could not. `radius` says how MUCH
   and these say WHERE.
 
-  **Only the corners switched OFF emit anything**, which is what keeps every
-  stored page byte-identical and stops the renderer restating the skin's own
-  number where nothing can see it.
+  **The XP era look wears it**, which closes gap 10 of the pastiche findings —
+  a bar rounded on top over a body rounded at its foot, join straight. That gap
+  had been open since the era looks were built, and it closed **from the other
+  end**: not by a look reaching for a key, but by somebody looking at the pages
+  and naming what was missing.
+
+  **Absence still emits nothing**, which is what keeps every stored page
+  byte-identical.
 
   Two things it cost that generalise past this feature:
 
@@ -605,6 +610,12 @@ Key choices and _why_:
     `disabled` attribute alone made that a property of one control rather than
     an invariant about the value. The handler refuses it too — which is also
     what makes the guard reachable in a unit test at all.
+  - **A control can reach the wrong ELEMENT and every unit test still pass.**
+    The first version wrote `border-radius` on the styled element — but a
+    block's style bag lands on a WRAPPER, and the card that draws the corner is
+    nested inside it. The class string was always right; the box it was written
+    on drew nothing. Root rule 30's shape, and the same fault `--img-fit`
+    already cost once. Only a computed style in a browser can see it.
   - **A `sed` sabotage that fails to apply looks exactly like a successful
     verification.** One here matched nothing, the suite stayed green, and the
     pin appeared proven. Rule 29 with the mutation step itself as the fixture:

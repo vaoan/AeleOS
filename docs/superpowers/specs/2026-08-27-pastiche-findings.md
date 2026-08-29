@@ -530,12 +530,25 @@ floating labels on black. A tile is a strong fill with no border and no corner
 — `card` plus `border: "none"` plus `radius: "square"`. There is no gap here,
 only a key that reads as if it meant "flat" and means "absent".
 
-### 10. `radius` is one value for four corners
+### 10. `radius` is one value for four corners — CLOSED (2026-08-29)
 
-Luna rounds a panel's TOP corners and leaves its foot square. `radius: "soft"`
-rounds all four, so XP's panels come out with a rounded bottom the original
-never had. Small, visible, and unreachable without a key that no look was
+Luna rounds a panel's TOP corners. `radius: "soft"` rounded all four, so the
+strip could not sit flush on the body and XP's panels came out softer than the
+original. Small, visible, and unreachable without a key that no look was
 allowed to invent on the way past.
+
+**It was closed from the other end**, which is the part worth keeping: not by a
+look reaching for a key, but by somebody looking at these pages and naming what
+was missing. `corners` and `heading_corners` name which corners are rounded,
+on a block's cards and on its bar, and the XP look wears the result — bar
+rounded on top, body rounded at its foot, join straight.
+
+**The mechanism took two corrections a browser had to supply.** Written as
+`border-radius` on the styled element it reached nothing, because the style bag
+lands on a wrapper and the card is nested inside it — every unit case passed
+while a real browser measured 0. And writing only the corners switched off left
+the bar inheriting the section's, because custom properties inherit and the bar
+sits inside the section. Both are recorded against the feature itself.
 
 ### 11. The canvas is ON unless a look turns it off, and three flat desktops forgot
 

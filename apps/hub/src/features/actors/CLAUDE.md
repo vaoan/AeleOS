@@ -2308,10 +2308,16 @@ than a default doing its job.
 evidence here that a look belongs in a document: `aero` carries Aero glass
 whole, and photographed, the Vista page reads as Aero without qualification.
 
-**Windows XP cannot reach Luna's TOP-ONLY rounding.** `radius` is one value for
-all four corners, so `soft` rounds the foot as well as the head. No key was
-invented on the way past; whether one earns a place is a judgement for after
-somebody has looked at how close it gets.
+**Windows XP reaches Luna's panel shape now, and this note recorded it as
+unreachable until 2026-08-29.** `radius` was one value for all four corners,
+so `soft` rounded the foot as well as the head and the strip could not sit
+flush on the body. `corners` and `heading_corners` are the key that was not
+invented on the way past — it arrived from the other end, from somebody
+looking at these pages and naming what was missing, which is the outcome the
+old sentence was holding the question open for.
+
+The XP look wears it: the bar rounds its top and squares its foot, the body
+squares its head and rounds its foot, and the join is straight.
 
 ### A template is a document too (2026-08-28)
 

@@ -189,10 +189,16 @@ const WIN98: FursonaTemplate = {
  * collapses the gap beneath itself so the body squares up under the strip the
  * way Luna's panels do.
  *
- * **What it cannot reach is Luna's TOP-ONLY rounding.** XP rounds a panel's
- * top corners and leaves the bottom square; `radius` is one value for all four
- * corners, so `soft` rounds the foot too. Recorded in the findings rather than
- * fixed by inventing a key on the way past.
+ * **It reaches Luna's panel SHAPE now, which it could not when this was
+ * written.** `radius` was one value for four corners, so a soft top brought a
+ * soft join with it and the strip could not sit flush on the body; this note
+ * recorded that as an open gap rather than inventing a key on the way past.
+ * `corners` and `heading_corners` are that key, arrived at from the other end
+ * — somebody looking at these pages and naming what was missing.
+ *
+ * The two sections below are the shape: the bar rounds its top and squares its
+ * foot, the body squares its head and rounds its foot, and the join between
+ * them is straight. That is a window.
  */
 const WINXP: FursonaTemplate = {
   id: "era-winxp",
@@ -221,10 +227,20 @@ const WINXP: FursonaTemplate = {
   }),
   blocks: [
     section("System Tasks", [leaf("link", "Somewhere I am")], {
-      style: { heading: "gradient", radius: "soft" },
+      style: {
+        heading: "gradient",
+        radius: "soft",
+        heading_corners: "tl,tr",
+        corners: "bl,br",
+      },
     }),
     section("Other Places", [leaf("text", "What I like")], {
-      style: { heading: "gradient", radius: "soft" },
+      style: {
+        heading: "gradient",
+        radius: "soft",
+        heading_corners: "tl,tr",
+        corners: "bl,br",
+      },
     }),
     identity(),
   ],
