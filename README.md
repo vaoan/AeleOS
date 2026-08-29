@@ -87,9 +87,11 @@ How much evidence each one rests on differs, and it is worth knowing before you
 trust a colour (as of 2026-08-29):
 
 - **Measured against a real archived capture:** Fur Affinity (December 2008 —
-  it was measurably wrong and was corrected), Facebook (February 2008 — not
-  "March 2007", a date this table stated wrongly until task 7, 2026-08-29),
-  MySpace (a 2007 profile) and hi5 (February 2008).
+  it was measurably wrong and was corrected), Facebook (March 2007, from
+  **web.archive.org** — a separate, unreachable-from-here archive, not to be
+  confused with the February 2008 **arquivo.pt** capture the page links to as
+  its reference; see the findings for why there are two), MySpace (a 2007
+  profile) and hi5 (February 2008).
 - **Measured against the live site:** Bluesky and Threads, both still running,
   so neither needs an archive at all. Both moved when checked — Bluesky's
   accent is `#006aff` and not the `#0085ff` everybody quotes, and Threads had

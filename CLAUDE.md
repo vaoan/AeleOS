@@ -436,7 +436,7 @@ Key choices and _why_:
   **ARCHIVE.ORG ANSWERS AGAIN (2026-08-28), and that sentence was a dated claim
   believed past its date.** Probed directly: the availability API returns a
   2008 snapshot for every one of the three. Two of them are now evidence-backed
-  — a real 2008 Fur Affinity capture and a real 2008 Facebook one — and the FA
+  — a real 2008 Fur Affinity capture and a real 2007 Facebook one — and the FA
   page was measurably wrong as a result: built from knowledge it had a
   near-black ground and saturated teal header bars, where the capture shows a
   slate BLUE-GREY ground and light silver bars carrying DARK text. Fotolog
@@ -449,23 +449,34 @@ Key choices and _why_:
   before believing it; the probe is one `curl` against
   `archive.org/wayback/available`.
 
-  **Fotolog no longer "stays knowledge-built" (task 7, 2026-08-29), and the
-  Facebook date above was wrong the whole time.** A fresh render of Fotolog's
-  own `20080215112915` capture shows the nav replaying without its stylesheet
-  — raw links in the browser's own default blue — but the boxed panels
-  underneath ARE table-and-inline styled and DO render, so its arrangement and
-  density are measured (a `#f0f0f0` panel on a flat white field) while its
-  accent stays recalled. That is a third label, PARTIAL, not a stronger
-  reading of "knowledge-built". Separately, "a real 2008 Facebook one" two
-  paragraphs up was itself a correction of a _stale_ "March 2007" that had sat
-  in this file, the actors feature note, the findings and the README — the
-  fetched timestamp, `20080215125110`, decodes as 2008-02-15, and arquivo.pt's
-  own index holds no 2007 Facebook capture at all. See
+  **Fotolog no longer "stays knowledge-built" (task 7, 2026-08-29).** A fresh
+  render of Fotolog's own `20080215112915` capture shows the nav replaying
+  without its stylesheet — raw links in the browser's own default blue — but
+  the boxed panels underneath ARE table-and-inline styled and DO render, so
+  its arrangement and density are measured (a `#f0f0f0` panel on a flat white
+  field) while its accent stays recalled. That is a third label, PARTIAL, not
+  a stronger reading of "knowledge-built".
+
+  **There are TWO Facebook captures, not one, and a fix note is what it took
+  to stop conflating them (2026-08-29).** Task 7 read "a real 2007 Facebook
+  one" above beside a _different_ capture it had just fetched — arquivo.pt at
+  February 2008, `20080215125110`, from `scripts/pastiche-references.mjs`
+  (added on this branch) — and concluded the 2007 date was simply wrong.
+  It was not: "2007" names the **web.archive.org** capture this section is
+  about, confirmed on 2026-08-28 while that archive was answering; it is
+  unreachable from this machine now, which is why nothing on this branch
+  could re-verify it rather than why it was wrong. "February 2008" names a
+  separate arquivo.pt capture, fetched _because_ web.archive.org does not
+  answer here and arquivo has nothing earlier. Both dates are real and
+  describe different things. The check that would have caught this the first
+  time is `git log -S "March 2007"` — find where a claim about an external
+  source _entered_ before deciding a different reading of a different source
+  makes it false. See
   `docs/superpowers/specs/2026-08-27-pastiche-findings.md` for the full
-  account of both.
+  account of both captures.
 
   **Gap 12 is closed (2026-08-28) and the way it was nearly closed WRONG is
-  the part worth carrying.** The 2008 Facebook capture is a navy bar over a
+  the part worth carrying.** The 2007 Facebook capture is a navy bar over a
   lighter blue one, which one accent could not draw; `heading: "soft"` is a
   second, DERIVED tone. The obvious derivation — move the accent a fraction of
   the way toward the panel — is what anybody writes first, and it collapses on

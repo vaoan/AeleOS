@@ -27,16 +27,27 @@ everything it depends on works exactly once.**
 **What each page's palette actually rests on, as of 2026-08-29.** This
 paragraph used to say all three of the late additions were knowledge-built, and
 two of them stopped being so lower down this same document — a document
-contradicting itself, which is worse than one that is simply wrong. It also
-used to date the Facebook capture to "March 2007", which was simply wrong: the
-timestamp `scripts/pastiche-pages.mjs` has always fetched, `20080215125110`,
-decodes as 2008-02-15, and arquivo.pt's CDX index holds no Facebook capture
-from 2007 at all.
+contradicting itself, which is worse than one that is simply wrong.
+
+**Facebook has TWO captures, from two different archives, and a fix note is
+what it took to stop conflating them (2026-08-29).** A prior pass here read
+"a real March 2007 capture" beside a _different_ capture it had just fetched
+— arquivo.pt at February 2008, `20080215125110`, from
+`scripts/pastiche-references.mjs` (added on this branch) — and concluded the
+2007 date was simply wrong. It was not. "March 2007" names a real
+**web.archive.org** capture, confirmed on 2026-08-28 while that archive was
+answering; it is unreachable from this machine now, which is why this branch
+could not re-verify it, not why it was wrong. "February 2008" names the
+separate arquivo.pt capture, fetched because web.archive.org does not answer
+here and arquivo has nothing earlier. Both dates are real and describe
+different things — the palette below is confirmed from the first; the
+on-page reference link is the second.
 
 - **Fur Affinity** and **Facebook** are evidence-backed, from a real December
-  2008 and a real February 2008 capture. FA was measurably wrong and was
+  2008 and a real March 2007 capture. FA was measurably wrong and was
   corrected; Facebook's `#3b5998` was already right, reconfirmed by a second,
-  independently fetched render of the same capture (task 7, 2026-08-29).
+  independently fetched render of the arquivo.pt reference capture (task 7,
+  2026-08-29).
 - **Fotolog is genuinely PARTIAL, and that is a third label, not a stronger
   reading of "knowledge-built" (task 7, 2026-08-29).** Its capture replays
   without its stylesheet — the nav is 126 raw links in the browser's own
@@ -418,10 +429,11 @@ external service as its subject rather than a database.
   ground and light silver bars carrying DARK text**. It was reading as a modern
   dark theme rather than as 2008. Both were corrected from the capture, and
   `--on-accent` derived the dark text on the light bar with no help.
-- **Facebook's palette is confirmed** from a real February 2008 capture (not
-  "March 2007", a date this section stated wrongly until task 7, 2026-08-29 —
-  the fetched timestamp, `20080215125110`, decodes as 2008-02-15 and no 2007
-  Facebook capture exists in arquivo.pt's own index): `#3b5998` was already
+- **Facebook's palette is confirmed** from a real March 2007
+  **web.archive.org** capture — genuinely a different source and a different
+  date from the February 2008 **arquivo.pt** capture the page links to as its
+  reference (see above; a prior pass here mistook one for a wrong version of
+  the other and said so wrongly, fixed 2026-08-29): `#3b5998` was already
   right, and the capture adds the detail that the navy bar carries a LIGHTER
   blue sub-bar beneath it, which one accent could not express — the gap below,
   since closed.

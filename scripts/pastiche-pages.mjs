@@ -1388,30 +1388,39 @@ const fotologTheme = theme({
 // 11 — Facebook, ~2008. Blue bars, a narrow left rail of information boxes,
 //      and a wall. The most COPIED layout of its decade.
 //
-// **Confirmed against a real capture (2026-08-28) — dated February 2008, not
-// "March 2007" as this comment and several documents elsewhere said until
-// task 7 (2026-08-29).** That date was simply wrong: the timestamp this file
-// has always fetched, `20080215125110`, decodes as 2008-02-15, and arquivo.pt's
-// own CDX index holds no Facebook capture from 2007 at all — the nearest
-// "March" capture is `20080315170646`, March 2008. `#3b5998` was already
-// right — the one colour of theirs anybody would recognise on sight — and the
-// capture added a detail the model could not then express: the navy bar
-// carries a LIGHTER blue sub-bar beneath it. `heading: "soft"` is that second
-// tone, and the subordinate sections below wear it.
+// **Confirmed against a real March 2007 capture (2026-08-28) — and this is
+// now TWO captures, from two different archives, not one corrected into the
+// other (fix note, 2026-08-29).** The palette below was confirmed from a real
+// **web.archive.org** capture dated March 2007; that source was answering on
+// 2026-08-28 and is unreachable from this machine now, which is why nothing
+// on this branch could re-verify it. `#3b5998` was already right — the one
+// colour of theirs anybody would recognise on sight — and that capture added
+// a detail the model could not then express: the navy bar carries a LIGHTER
+// blue sub-bar beneath it. `heading: "soft"` is that second tone, and the
+// subordinate sections below wear it.
 //
-// **A fresh fetch of the same capture (task 7, 2026-08-29) turned out to be
-// STYLED, which contradicts this whole task's own premise that Facebook and
-// Fotolog both replay without a stylesheet.** There is no raw bullet list
+// **The reference link this page shows is a SEPARATE, later capture: arquivo.pt
+// at February 2008, `20080215125110`** (`scripts/pastiche-references.mjs`,
+// added this branch) — chosen because web.archive.org does not answer from
+// here and arquivo has nothing earlier. An earlier pass on this branch (task
+// 7) treated the two as one and concluded "March 2007" was simply wrong; it
+// was not — it conflated an unreachable archive's true date with a different,
+// reachable archive's different capture. Both dates are real; they describe
+// different things.
+//
+// **A fresh fetch of the arquivo.pt capture (task 7, 2026-08-29) turned out to
+// be STYLED, which contradicts this whole task's own premise that Facebook
+// and Fotolog both replay without a stylesheet.** There is no raw bullet list
 // anywhere on it and no browser-default blue: every box is a flat,
 // sharp-cornered rectangle in the period's own navy and green. Re-sampled:
-// `#3b5998` at 3.9% and `#ffffff` at 91.9%, both reconfirming what was
-// already stored. It is the logged-out FRONT PAGE, not the profile this
-// pastiche imitates, so it is not direct evidence for the Wall or
-// Information boxes — but the SQUARE, flat design language is real evidence
-// rather than a guess: at 3x zoom the wordmark box, the Sign Up button and
-// the Login button all have visibly sharp, unrounded corners, on a page with
-// no rounding anywhere. `radius: "square"` below is that measurement,
-// applied to the three barred sections.
+// `#3b5998` at 3.9% and `#ffffff` at 91.9%, both reconfirming what the March
+// 2007 capture already established. It is the logged-out FRONT PAGE, not the
+// profile this pastiche imitates, so it is not direct evidence for the Wall
+// or Information boxes — but the SQUARE, flat design language is real
+// evidence rather than a guess: at 3x zoom the wordmark box, the Sign Up
+// button and the Login button all have visibly sharp, unrounded corners, on
+// a page with no rounding anywhere. `radius: "square"` below is that
+// measurement, applied to the three barred sections.
 //
 // **`corners` is deliberately NOT added, and neither is `heading_gap`.**
 // With `radius: "square"`, `corners` is a complete no-op (ruling 8 — a
