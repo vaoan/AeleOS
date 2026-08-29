@@ -32,10 +32,14 @@ describe("every seeded page", () => {
       // seeder sets is silently DISCARDED at read, which is the exact shape of
       // the shipped `measure` bug — a vocabulary written down in TypeScript that
       // the read path had never heard of.
-      const parsed = parseTheme(theme) as Record<string, unknown>;
+      const parsed = parseTheme(theme);
+      // `Object.entries` on a plain interface (no index signature) resolves to
+      // its `{}` overload, `[string, unknown][]` — which is exactly the loose
+      // typing this comparison needs, with no cast of the whole shape.
+      const parsedByKey = new Map<string, unknown>(Object.entries(parsed));
       for (const [key, value] of Object.entries(theme)) {
         if (value === null) continue; // null means "the design's own", not a value.
-        expect(parsed[key], `${id} lost its ${key}`).toEqual(value);
+        expect(parsedByKey.get(key), `${id} lost its ${key}`).toEqual(value);
       }
     },
   );

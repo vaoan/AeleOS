@@ -4,7 +4,30 @@ import {
   captureUrl,
   inspirationSection,
   REFERENCES,
+  type Reference,
 } from "../../scripts/pastiche-references.mjs";
+
+/**
+ * Looks up one entry of {@link REFERENCES} by handle, asserting it exists.
+ *
+ * `REFERENCES` is typed as `Record<string, Reference>`, so a plain index
+ * access is `Reference | undefined` under `noUncheckedIndexedAccess` even
+ * where the handle is a literal known to be present. This makes that
+ * assumption explicit and named, rather than silencing it with `!`: a typo'd
+ * or removed handle fails the test with a clear message instead of either a
+ * type error or a silent `undefined` flowing into later assertions.
+ *
+ * @param handle - a key expected to exist in {@link REFERENCES}.
+ * @returns the entry at `handle`.
+ * @throws if `handle` is not a key of {@link REFERENCES}.
+ */
+function reference(handle: string): Reference {
+  const ref = REFERENCES[handle];
+  if (!ref) {
+    throw new Error(`REFERENCES.${handle} does not exist`);
+  }
+  return ref;
+}
 
 describe("captureUrl", () => {
   it("wraps a noFrame replay, not a framed one", () => {
@@ -108,31 +131,31 @@ describe("REFERENCES", () => {
 
 describe("inspirationSection", () => {
   it("draws a picture and a link when there is a capture", () => {
-    const section = inspirationSection(REFERENCES.hi5);
+    const section = inspirationSection(reference("hi5"));
     const kinds = section.children.map((c) => c.kind);
     expect(kinds).toContain("picture");
     expect(kinds).toContain("link");
   });
 
   it("draws no picture when there is none, and says why instead", () => {
-    const section = inspirationSection(REFERENCES.board);
+    const section = inspirationSection(reference("board"));
     const kinds = section.children.map((c) => c.kind);
     // The discriminating half: a section that merely omitted the picture would
     // pass a `not.toContain` on its own. It has to carry the reason too.
     expect(kinds).not.toContain("picture");
     expect(kinds).toContain("text");
     const reason = section.children.find((c) => c.kind === "text");
-    expect(reason.description_en).toBe(REFERENCES.board.absent);
+    expect(reason?.description_en).toBe(reference("board").absent);
   });
 
   it("is bilingual, because a section name is the author's own writing", () => {
-    const section = inspirationSection(REFERENCES.hi5);
+    const section = inspirationSection(reference("hi5"));
     expect(section.name_en).toBe("The inspiration");
     expect(section.name_es).toBe("La inspiración");
   });
 
   it("sits at depth 0 as a named container", () => {
-    const section = inspirationSection(REFERENCES.hi5);
+    const section = inspirationSection(reference("hi5"));
     expect(section.kind).toBe("container");
     expect(typeof section.name_en).toBe("string");
   });
