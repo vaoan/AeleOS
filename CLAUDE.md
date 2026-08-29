@@ -518,6 +518,38 @@ Key choices and _why_:
     to. This is the one way a running site is HARDER than a capture — a capture
     carries its date and a live page does not.
 
+  **The last four were chased down on 2026-08-29, and the framing had been
+  wrong the whole time.** "Six pages have no provenance and the archive is
+  down" is one problem with one blocked source; it was four different problems.
+  Two were live sites. One — **Windows Live Messenger — is a DESKTOP
+  APPLICATION**, so a capture of it is a SCREENSHOT rather than an archived
+  page, and `web.archive.org` was never the right place to look for it;
+  Wikipedia had version 8.0, the exact release the page is dated to, and
+  sampling it found the page measurably wrong in the same way Fur Affinity had
+  been. Only the last two genuinely had nothing.
+
+  **Searching and finding nothing is a FINISHED answer, not a deferred one**,
+  and it is the half that gets skipped. Sonico has a logo and no screenshot on
+  three separate wikis; the only GeoCities file is a 2009 Yahoo-era page, a
+  different product wearing the same name. Those two are recalled and now SAY
+  so — which is the difference between "we do not know" and "we looked, and
+  there is nothing to know." A gap closes when every entry has an answer, not
+  when every entry has evidence.
+
+  **A palette can be evidence about a DATE.** The microblog board carries
+  `#15202b` and `#1d9bf0` — recognisably Twitter's dark mode from about 2019 —
+  while it was filed under 2012, which was a light page with a paler blue. The
+  page was coherent and its label was not, so the label moved. Restyling it
+  would have been the wrong repair: a pastiche of a real era is worth more than
+  a pastiche of a date somebody typed.
+
+  **And where fidelity and PURPOSE conflict, say which won.** The Messenger
+  capture is near-white panels over blue chrome, and this page had it the other
+  way round; the panels went to the measurement and the field deliberately did
+  not, because `aero` is the whole reason that page exists and glass needs
+  something behind it to show through. A correction that deletes the thing the
+  page is a test of is not a correction.
+
   **And "unreachable" is a claim about a host, not a network, until three
   clients agree.** `web.archive.org` fails from `curl` (~21s), from headless
   Chromium (`ERR_CONNECTION_TIMED_OUT`) and from the agent's own fetcher (which

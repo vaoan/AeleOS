@@ -73,10 +73,10 @@ first thing to go stale.
 | [Fotolog](https://me.furrycolombia.com/137/fotolog)                  | 2005, and huge in Colombia | One enormous photograph and a guestbook longer than the rest of the page                                       |
 | [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | A navy title bar over a lighter blue one, an information table, a six-across friends strip, and a divided wall |
 | [hi5](https://me.furrycolombia.com/137/hi5)                          | 2007                       | Gradient title bars over white, a carousel of widgets, and a profile-completeness meter                        |
-| [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Glassy blue cards, contact groups that collapse, and a bubbles backdrop                                        |
+| [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Near-white panels over blue glass, both measured off a real 8.0 screenshot, and contact groups that collapse   |
 | [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | A real photo wall in `masonry`, and album strips in a carousel                                                 |
 | [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | A serif and centred text, a starfield, a tiled mosaic, a visitor-stats table and a webring                     |
-| [a microblog board](https://me.furrycolombia.com/137/board)          | 2012                       | Bare rows with a hairline between them, counts rows, and social chips that resolve a brand                     |
+| [a microblog board](https://me.furrycolombia.com/137/board)          | ~2019                      | Bare rows with a hairline between them, counts rows, and social chips that resolve a brand                     |
 | [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | Flat white and `#006aff`, both read off the live site; roomy where the rest are compact                        |
 | [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline and no cards, on the live site's own `#0a0a0a`                               |
 
@@ -93,11 +93,16 @@ trust a colour (as of 2026-08-28):
   so neither needs an archive at all. Both moved when checked — Bluesky's
   accent is `#006aff` and not the `#0085ff` everybody quotes, and Threads had
   to be read under a dark colour scheme to mean anything.
-- **Built from knowledge:** Fotolog, whose snapshots render the logged-out
-  homepage rather than a profile.
-- **Provenance not recorded:** Windows Live Messenger, the microblog board,
-  Sonico and GeoCities. They may well have been built from captures; the file
-  does not say, so this table cannot either.
+- **Measured against a screenshot:** Windows Live Messenger, from Wikipedia's
+  own capture of version **8.0** — the 2006 release this page is dated to. It
+  is a desktop application, so a screenshot is the right evidence and an
+  archived page never was.
+- **Built from knowledge, and no evidence exists to check them against:**
+  Fotolog, Sonico, GeoCities and the microblog board. Each was searched for
+  rather than assumed — Fotolog's snapshots render the logged-out homepage,
+  Sonico has a logo and no screenshot anywhere, the only GeoCities file is a
+  2009 Yahoo-era page rather than the 1998 one this imitates, and the board is
+  a generic feed rather than one product.
 
 The findings, including what the block model **cannot** be pushed toward and
 why two of those gaps are deliberate:

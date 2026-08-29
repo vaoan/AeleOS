@@ -355,13 +355,36 @@ const messenger = [
   ),
 ];
 
+// **Evidence-backed since 2026-08-29**, from Wikipedia's own
+// `File:Windows-Live-Messenger-80-236x300.png` — Messenger **8.0**, which is
+// exactly the 2006 release this page is dated to. `web.archive.org` is
+// unreachable, and it was the wrong place to look anyway: Messenger is a
+// desktop application, so a capture of it is a screenshot rather than an
+// archived page.
+//
+// Sampled rather than eyeballed: **56% of that window is `#f8f8f8`** and the
+// contact list itself is `#ffffff`, over a `#193c74` navy title bar, with a
+// pale `#dbf1ee` band under it.
+//
+// **So the real thing is near-white PANELS over blue chrome, and this page had
+// it the other way round** — a blue field with panels tinted from it, because
+// until `theme.surface` existed a panel could only ever be a step off the
+// ground. Two values move: the accent becomes the measured navy, and the
+// surface becomes the measured near-white.
+//
+// **The blue ground STAYS, and that is a judgement rather than an oversight.**
+// `aero` is the whole reason this page exists — it is the one pastiche wearing
+// a skin for its own sake — and glass needs something behind it to show
+// through. A near-white ground would be more faithful to a screenshot of the
+// window and would delete the effect the page is a test of.
 const messengerTheme = theme({
   background: gradient(160, [
     { color: "#dff0ff", at: 0 },
     { color: "#9ec9ec", at: 60 },
     { color: "#6ba7d6", at: 100 },
   ]),
-  accent: "#0b6bcb",
+  accent: "#193c74",
+  surface: "#f8f8f8",
   canvas: "bubbles",
   canvasColours: ["#ffffff", "#bfe0f7"],
   density: 0.8,
@@ -377,6 +400,14 @@ const messengerTheme = theme({
 //     use it: `list` — a stack with a hairline and no gap — is what a feed
 //     actually is, and it did not exist when this page was written. The
 //     rebuild moved to it and this line went on naming the old mode.
+//
+// **No capture backs this one and its palette is not the era it was filed
+// under (checked 2026-08-29).** `#15202b` and `#1d9bf0` are recognisably
+// Twitter's DARK mode from about 2019 onward; 2012 Twitter was a light page
+// with a paler blue. So the page is coherent and the date on it was not — the
+// README says ~2019 now. Nothing was restyled: a pastiche of a real era is
+// worth more than a pastiche of a date somebody typed, and this is a generic
+// board rather than a reproduction, so the honest fix is the label.
 // ---------------------------------------------------------------------------
 
 const post = (when, text) => leaf("text", when, { description_en: text });
@@ -703,6 +734,13 @@ const hi5Theme = theme({
 
 // ---------------------------------------------------------------------------
 // 7 — Sonico. Blue, photo-forward, album-shaped. `masonry` is the test here.
+//
+// **No evidence exists for this one and that was established rather than
+// assumed (2026-08-29).** `web.archive.org` is unreachable; the Spanish
+// Wikipedia article carries a logo and no screenshot; Commons and the English
+// Wikipedia have nothing but an Italian town of the same name. So its palette
+// is recalled, like Fotolog's, and it is listed that way rather than left to
+// look measured.
 // ---------------------------------------------------------------------------
 
 const sonico = [
@@ -772,6 +810,12 @@ const sonicoTheme = theme({
 // ---------------------------------------------------------------------------
 // 8 — GeoCities. A tiled starfield, a visitor counter, a webring, and a page
 //     that is under construction and always will be.
+//
+// **No evidence for the 1998 era this is dated to (2026-08-29).** The only
+// GeoCities file on Commons is the Yahoo wordmark, and the one screenshot
+// named for it is a 2009 Yahoo-era page — a different product wearing the same
+// name, so it would be worse than nothing to measure against. Recalled, and
+// listed that way.
 // ---------------------------------------------------------------------------
 
 const geocities = [
