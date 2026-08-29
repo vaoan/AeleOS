@@ -802,3 +802,54 @@ What is recorded here is narrower and checkable by inspection: the gate that
 exists checks the design system, not the data, and the two are different
 questions answered by different code, so a passing `check:contrast` has
 never been evidence that a page's own colours are legible.
+
+### 15. A reference capture's canvas is arquivo.pt's, not ours, and its shape cannot be fixed here
+
+Found photographing all sixteen pages against production, task 12 — not a
+capture that failed to load, but four that loaded correctly and are the
+wrong shape.
+
+**Wanted.** Every reference-capture section hot-links the archive's own
+screenshot of the real page, so a visitor sees the thing being imitated
+rather than a claim about it. That mechanism itself is sound: all sixteen
+pages were seeded and photographed, and every reference capture loaded, at
+the right date, showing the right page, with no archive-error placeholder.
+
+**Tried, and found already broken upstream.** `arquivo.pt`'s screenshot
+endpoint answers every request with a canvas fixed at 1200×2000px,
+regardless of the archived page's real height. Where the real page is
+short, most of that fixed canvas is blank white below genuinely-loaded
+content, and four pages carry it: Facebook, hi5, Sonico and Fotolog. It is
+worst on Facebook — the real February 2008 homepage fills only the top of
+the canvas, leaving roughly 1700px of blank white beneath it, on a page
+whose own pastiche content is about 800px tall. The reference section
+illustrating that page is more than twice its height, and almost all of the
+extra is empty. MySpace and Fur Affinity are the other two
+`arquivo.pt`-backed pages and carry no such blank; not because anything
+here treats them differently, but because their own real archived pages
+happen to be tall enough to fill the canvas unassisted.
+
+**The obvious escape does not work, checked rather than assumed.**
+`image_fit: "cover"` reads as the fix — crop the blank away instead of
+letter-boxing it — and it cannot, because there is nothing shorter for it to
+crop against. `media-leaves.tsx:125` renders the picture leaf `w-full` with
+`[object-fit:var(--img-fit)]` and no height constraint of any kind, so the
+box always takes the image's own aspect ratio. Setting `cover` on these four
+pages changes nothing visible.
+
+**What mechanism would be needed:** either of two things, and both are
+refused by standing constraints rather than left undone. Cropping the
+picture itself — trimming the blank canvas before it ever reaches the page —
+would mean hosting a modified copy, and this project hosts nothing: every
+picture is a hot-linked address, and storing even a processed copy of one is
+exactly the cost the $0 budget refuses. Constraining the box instead — a
+fixed or capped height on the picture leaf, so `cover` would have something
+to crop against — needs a new style key, and this plan's own scope refused
+adding one.
+
+So the gap is a consequence of those two standing constraints meeting a
+third party's API, not an oversight: the reference-capture mechanism is
+sound and `arquivo.pt`'s endpoint is not, and both routes around that were
+already closed on purpose before this was found. Not a defect in the
+reference mechanism — all sixteen captures load, and each shows the right
+page. What is wrong is the shape, not the content.

@@ -1010,6 +1010,37 @@ Key choices and _why_:
   brief or dispatcher ruling that stated it, not reconstructed from memory —
   was added atop the plan rather than rewriting its body.
 
+  **Task 12 closed the branch: all sixteen pages were seeded to production and
+  photographed, the first time anyone had looked at any of them rendered
+  rather than merely validated.** Every gate on this branch passes with a
+  broken reference capture — the URL is a string and nothing fetches it at
+  build time — so a look was the only way to find out. All sixteen reference
+  captures loaded, none showed an archive-error placeholder, and every page
+  read back as its subject. One new limitation came out of that look rather
+  than a bug: **gap 15 in the pastiche findings**, arquivo.pt's screenshot
+  endpoint returning a fixed canvas regardless of the archived page's real
+  height, on four of the six pages it backs.
+
+  **The photography method itself had a bug first, and it is the same
+  instrument-versus-subject failure this file already names from the other
+  direction.** Playwright's `fullPage: true` does not recompute layout for
+  `background-attachment: fixed`, which the body's own gradient uses —
+  Chromium keeps the original viewport for layout purposes during a
+  full-page capture, so a fixed-attachment background stays anchored to
+  that one rectangle rather than extending into the captured overflow. A
+  dark-themed page taller than the viewport therefore photographed with a
+  false white band below the fold, on the first pass. A normal scrolled
+  screenshot, and one taken after resizing the viewport to the page's true
+  `scrollHeight` before capturing, both show the gradient correctly the
+  whole way down — proving no visitor ever sees it. The fix is to resize to
+  `scrollHeight` before capturing, not to distrust the theme. Worth
+  carrying past this branch: **picture proof on a pull request is required
+  in this repository**, so anyone photographing a themed page will hit this
+  exact artifact and can file it as a rendering bug that does not exist — an
+  instrument reporting its own behaviour as the world's, the same shape as
+  this file's warning never to sabotage a mechanism your instrument is
+  built on.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is
