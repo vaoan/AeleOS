@@ -48,16 +48,16 @@ contradicting itself, which is worse than one that is simply wrong.
 
 ### The last four (2026-08-29)
 
-The four pages that recorded no provenance at all. **One found evidence and
-three were proved to have none available** — which is a finished answer rather
+The four pages that recorded no provenance at all. **One found evidence here, and two more
+were found once other archives were tried** — which is a finished answer rather
 than a deferred one, because the searching is what nobody had done.
 
-| page      | evidence | outcome                                                                     |
-| --------- | -------- | --------------------------------------------------------------------------- |
-| Messenger | **yes**  | Wikipedia's own capture of version **8.0**, the 2006 release it is dated to |
-| Board     | none     | no 2012 capture; and its palette is not 2012 — see below                    |
-| Sonico    | none     | a logo and nothing else, on three separate wikis                            |
-| GeoCities | none     | the only file is a 2009 Yahoo-era page, a different product                 |
+| page      | evidence   | outcome                                                                     |
+| --------- | ---------- | --------------------------------------------------------------------------- |
+| Messenger | **yes**    | Wikipedia's own capture of version **8.0**, the 2006 release it is dated to |
+| Board     | none, ever | a dark mode is not archivable — see "Other sources" below                   |
+| Sonico    | **yes**    | arquivo.pt, October 2008 — found once other sources were tried              |
+| GeoCities | **yes**    | a restored gallery of real personal pages; the portal was the wrong subject |
 
 **`web.archive.org` was the wrong place to look for Messenger, and that is the
 finding.** It is a desktop application: a capture of it is a SCREENSHOT, not an
@@ -88,9 +88,64 @@ so the README says ~2019 now. **Nothing was restyled**: a pastiche of a real
 era is worth more than a pastiche of a date somebody typed, and this one is a
 generic board rather than a reproduction of one product.
 
-**Three pages are recalled and now SAY so** — Fotolog, Sonico and GeoCities —
-which is the difference between "we do not know" and "we looked, and there is
-nothing to know."
+**Three pages were recalled and said so — and then a different SOURCE closed
+two of them (2026-08-29).**
+
+### Other sources, when one archive is unreachable
+
+`web.archive.org` was treated as _the_ archive, and the whole provenance
+question was shaped by its being down. It is one of several, and the others
+answer:
+
+| source                         | reachable          | what it gave                                                      |
+| ------------------------------ | ------------------ | ----------------------------------------------------------------- |
+| `web.archive.org`              | **no**             | nothing — three clients, connection times out                     |
+| `arquivo.pt`                   | yes                | **Sonico** at Oct 2008 and **Fotolog** at Feb 2008, both replayed |
+| `geocities.restorativland.org` | yes                | a restored gallery of real archived GeoCities **personal pages**  |
+| Wikipedia / Commons            | yes                | the Messenger 8.0 screenshot                                      |
+| `archive.ph`                   | yes (rate-limited) | nothing usable — its coverage starts too late                     |
+
+**Sonico is measured now, and its accent was wrong.** arquivo.pt replays
+`http://www.sonico.com/` at `20081024155043` with its stylesheet intact: a
+white page, a solid **`#003399`** navigation bar and footer, `#f3f3f3` panels,
+`#3366cc` as the secondary blue. The ground was already right; the accent was
+`#1a6bb5`, a plausible mid-blue nobody had measured. **That `#003399` is the
+same navy MySpace carries is a genuine coincidence of 2008 web design** — both
+measured, and it was a web-safe value half the era reached for.
+
+**GeoCities is measured, and the portal was never the right subject.** An
+archive of `geocities.com` holds the PORTAL; this pastiche imitates somebody's
+personal homepage, which is what the restored gallery holds. Five pages sampled
+from one neighbourhood: **`font-family` is `"Times New Roman"` on all five**,
+grounds are `#000000` (three), `#ffffff` and `#ff0000`, two of five tile a
+background image, and `<center>` tags and layout `<table>`s are everywhere.
+
+**Nothing about that page changed, which is the useful shape for evidence to
+have.** The seeder already recorded that the first attempt reached for
+`terminal`, got monospace and read as a developer's site rather than a personal
+one; five out of five Times New Roman is the measurement that reasoning was
+missing.
+
+**Fotolog stays recalled, and a second archive says why.** arquivo.pt replays
+it too, with the same result as the first: 126 links at `#0000ee` — the
+browser's own default — unstyled serif headings and raw bullet lists. The
+markup survives and the stylesheet does not, at two independent archives. It is
+also the logged-out homepage either way, where this pastiche imitates a
+profile.
+
+**The board can never be closed by any archive, and that is a property rather
+than a gap.** arquivo.pt holds `twitter.com/twitter` profile captures from 2009
+and 2010 — a crawler arrives **logged out and is served the default LIGHT
+page**, so no archive anywhere holds the dark palette this page imitates. That
+will still be true next time somebody looks.
+
+**The general lesson is narrower than "try harder".** One unreachable host had
+been standing in for "the archive", and the four pages behind it needed four
+different sources — a national archive, a fan-restored gallery, an encyclopedia
+and, for one of them, nothing that can exist. **Ask what the SUBJECT is before
+asking which archive has it**: a desktop application wants a screenshot, a
+personal homepage wants a page archive rather than a portal capture, and a
+logged-in dark mode wants something no crawler has ever seen.
 
 ### Two live sites, measured (2026-08-29)
 
@@ -163,8 +218,8 @@ built from the file now rather than from recall.
 | Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas — over `surface: "#f8f8f8"` and a `#193c74` accent, both measured off a real 8.0 screenshot.             |
 | MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"` and a tiled backdrop.                                                                           |
 | hi5                    | `heading: "gradient"` title bars over white content, a `carousel` of widgets, and `progress` as a profile-completeness meter.                                                                                              |
-| Sonico                 | `masonry` for a real photo wall and `carousel` for album strips — the arrangement doing the work, with no skin at all.                                                                                                     |
-| GeoCities              | `font: "serif"` and centred text, a `stars` canvas, a tiled backdrop, a `table` of visitor stats and a `link` row as a webring.                                                                                            |
+| Sonico                 | Navy `#003399` bars on white with `#f3f3f3` panels, all measured off an October 2008 capture, plus `masonry` for a real photo wall and `carousel` for album strips.                                                        |
+| GeoCities              | `font: "serif"` and centred text — measured, five of five real pages are Times New Roman — a `stars` canvas, a tiled backdrop, a `table` of visitor stats and a `link` row as a webring.                                   |
 | Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, and `list` + `chrome: "bare"` for the shouts wall.                                                                  |
 | Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                                                      |
 | Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall.                                                           |

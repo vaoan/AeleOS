@@ -74,7 +74,7 @@ first thing to go stale.
 | [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | A navy title bar over a lighter blue one, an information table, a six-across friends strip, and a divided wall |
 | [hi5](https://me.furrycolombia.com/137/hi5)                          | 2007                       | Gradient title bars over white, a carousel of widgets, and a profile-completeness meter                        |
 | [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Near-white panels over blue glass, both measured off a real 8.0 screenshot, and contact groups that collapse   |
-| [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | A real photo wall in `masonry`, and album strips in a carousel                                                 |
+| [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | Navy `#003399` bars on white with grey panels, all measured, and a real photo wall in `masonry`                |
 | [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | A serif and centred text, a starfield, a tiled mosaic, a visitor-stats table and a webring                     |
 | [a microblog board](https://me.furrycolombia.com/137/board)          | ~2019                      | Bare rows with a hairline between them, counts rows, and social chips that resolve a brand                     |
 | [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | Flat white and `#006aff`, both read off the live site; roomy where the rest are compact                        |
@@ -97,12 +97,16 @@ trust a colour (as of 2026-08-28):
   own capture of version **8.0** — the 2006 release this page is dated to. It
   is a desktop application, so a screenshot is the right evidence and an
   archived page never was.
-- **Built from knowledge, and no evidence exists to check them against:**
-  Fotolog, Sonico, GeoCities and the microblog board. Each was searched for
-  rather than assumed — Fotolog's snapshots render the logged-out homepage,
-  Sonico has a logo and no screenshot anywhere, the only GeoCities file is a
-  2009 Yahoo-era page rather than the 1998 one this imitates, and the board is
-  a generic feed rather than one product.
+- **Measured against a different web archive:** Sonico, from **arquivo.pt**
+  (the Portuguese national archive) at October 2008 — its accent was a
+  plausible mid-blue nobody had measured and is the real `#003399` now. And
+  GeoCities, from a restored gallery of real archived personal pages, where
+  five out of five are Times New Roman: that confirmed the design rather than
+  changing it.
+- **Built from knowledge, because no source can settle them:** Fotolog, whose
+  captures render unstyled at two independent archives, and the microblog
+  board — a crawler arrives logged out and is served the light page, so **no
+  archive anywhere holds the dark palette it imitates.**
 
 The findings, including what the block model **cannot** be pushed toward and
 why two of those gaps are deliberate:

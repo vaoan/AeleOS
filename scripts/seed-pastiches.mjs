@@ -408,6 +408,13 @@ const messengerTheme = theme({
 // README says ~2019 now. Nothing was restyled: a pastiche of a real era is
 // worth more than a pastiche of a date somebody typed, and this is a generic
 // board rather than a reproduction, so the honest fix is the label.
+//
+// **And a dark mode is not ARCHIVABLE, which is why no source will ever close
+// this one.** arquivo.pt holds `twitter.com/twitter` profile captures from
+// 2009 and 2010 — a crawler arrives logged out and is served the default LIGHT
+// page, so no archive anywhere holds the palette this page imitates. That is a
+// property of what an archive can see rather than a gap in coverage, and it
+// will still be true next time somebody looks.
 // ---------------------------------------------------------------------------
 
 const post = (when, text) => leaf("text", when, { description_en: text });
@@ -735,12 +742,20 @@ const hi5Theme = theme({
 // ---------------------------------------------------------------------------
 // 7 — Sonico. Blue, photo-forward, album-shaped. `masonry` is the test here.
 //
-// **No evidence exists for this one and that was established rather than
-// assumed (2026-08-29).** `web.archive.org` is unreachable; the Spanish
-// Wikipedia article carries a logo and no screenshot; Commons and the English
-// Wikipedia have nothing but an Italian town of the same name. So its palette
-// is recalled, like Fotolog's, and it is listed that way rather than left to
-// look measured.
+// **Evidence-backed since 2026-08-29, from a DIFFERENT web archive.**
+// `web.archive.org` is unreachable and Wikipedia has nothing but an Italian
+// town of the same name — but **arquivo.pt**, the Portuguese national web
+// archive, holds `http://www.sonico.com/` at `20081024155043`, inside the year
+// this page is dated to, and it replays with its stylesheet intact.
+//
+// Sampled from that render: a white page, a solid **`#003399`** navigation bar
+// and footer, `#f3f3f3`/`#f7f7f7` panels, and `#3366cc` as the secondary blue.
+// So the ground was already right and the accent was not — `#1a6bb5` was a
+// plausible mid-blue nobody measured.
+//
+// **That `#003399` is the same navy MySpace carries is a real coincidence of
+// 2008 web design rather than a copy-paste**, and both are measured: it was a
+// web-safe value half the era reached for.
 // ---------------------------------------------------------------------------
 
 const sonico = [
@@ -792,10 +807,11 @@ const sonico = [
 
 const sonicoTheme = theme({
   background: gradient(180, [
-    { color: "#f2f8fd", at: 0 },
+    { color: "#ffffff", at: 0 },
     { color: "#ffffff", at: 100 },
   ]),
-  accent: "#1a6bb5",
+  accent: "#003399",
+  surface: "#f3f3f3",
   // **No animation at all, which is what a flat 2007 page had.** This used to
   // fake it with a grid at the density floor, because `CANVASES` did not list
   // `none` — the mechanism was there the whole time and only the picker was
@@ -811,11 +827,28 @@ const sonicoTheme = theme({
 // 8 — GeoCities. A tiled starfield, a visitor counter, a webring, and a page
 //     that is under construction and always will be.
 //
-// **No evidence for the 1998 era this is dated to (2026-08-29).** The only
-// GeoCities file on Commons is the Yahoo wordmark, and the one screenshot
-// named for it is a 2009 Yahoo-era page — a different product wearing the same
-// name, so it would be worse than nothing to measure against. Recalled, and
-// listed that way.
+// **Evidence-backed since 2026-08-29, and the evidence CONFIRMED the design
+// rather than changing it.** Wikipedia has only a Yahoo-era wordmark, and
+// `geocities.com` in an archive is the PORTAL rather than anybody's page — but
+// this pastiche imitates a personal homepage, so the portal was never the
+// right subject. `geocities.restorativland.org` is a restored gallery of real
+// archived GeoCities sites by neighbourhood, which is exactly that subject.
+//
+// Five pages sampled out of Area51/Dreamworld, in a browser:
+//
+//   - **`font-family` is `"Times New Roman"` on all five.** Every one is the
+//     browser's default serif, nobody having set a face at all.
+//   - Grounds are `#000000` (three), `#ffffff` and `#ff0000` — dark and
+//     saturated, arbitrary per author.
+//   - Two of five carry a TILED background image.
+//   - `<center>` tags and layout `<table>`s throughout; link colours
+//     `#ff9900`, `#0000ff`, `#0000ee`.
+//
+// **So `font: "serif"` and centred text are measured now rather than argued.**
+// The note below records that the first attempt reached for `terminal`, got
+// monospace, and read as a developer's site; five out of five Times New Roman
+// is what that reasoning was missing. Nothing about this page changed — which
+// is the useful shape for evidence to have.
 // ---------------------------------------------------------------------------
 
 const geocities = [
@@ -1029,12 +1062,16 @@ const furaffinityTheme = theme({
 //      Structurally the opposite of every page above: ONE photograph, and then
 //      a guestbook longer than the rest of the page put together.
 //
-// **The one page still built from knowledge rather than from a capture**, and
-// the only one. Its snapshots render the logged-out homepage with broken
-// styling rather than a profile, and no profile capture has been found — so
-// what is claimed here is the FEEL, one photograph and a guestbook longer than
-// the rest of the page, not a palette anybody measured. Check it against a
-// real capture before treating any colour in it as reference.
+// **The one page still built from knowledge, and a SECOND archive now says
+// why (2026-08-29).** The claim used to rest on `web.archive.org` alone;
+// **arquivo.pt** holds `http://www.fotolog.com/` at `20080215112915`, and
+// rendering it gives the same result — 126 links at `#0000ee`, the browser's
+// own default, headings in unstyled serif and raw bullet lists. The markup
+// survives and the stylesheet does not, at two independent archives.
+//
+// It is also the logged-out HOMEPAGE either way, where this pastiche imitates
+// a profile. So what is claimed here is the FEEL — one photograph and a
+// guestbook longer than the rest of the page — not a palette anybody measured.
 // ---------------------------------------------------------------------------
 
 const fotolog = [
