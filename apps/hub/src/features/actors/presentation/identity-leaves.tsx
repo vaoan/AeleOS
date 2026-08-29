@@ -215,8 +215,10 @@ export const NameLeaf: LeafRenderer = (props) =>
  * default spacing they resolve to exactly the `rem` values they replaced.
  *
  * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
- * a block's own `corners` can square any of them; the default is the radius it
- * always had.
+ * a block's own `corners` can square any of them. Each falls back to the
+ * expression `rounded-xl` itself compiles to, which is what keeps a nested
+ * skin's own radius — see `block-style.ts` for why a token reference there
+ * would freeze the page's.
  */
 export const OwnerLeaf: LeafRenderer = (props) => {
   const { labelled, page } = props;
@@ -227,7 +229,7 @@ export const OwnerLeaf: LeafRenderer = (props) => {
       <Label text={labelled ? labelOf(props) : ""} />
       <Link
         href={`/${owner.address}`}
-        className="flex items-center gap-3 rounded-[var(--corner-tl)_var(--corner-tr)_var(--corner-br)_var(--corner-bl)] surface border-(--edge) bg-(--surface) p-4"
+        className="flex items-center gap-3 rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface) p-4"
       >
         {owner.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- as elsewhere here, the address is arbitrary and pasted.

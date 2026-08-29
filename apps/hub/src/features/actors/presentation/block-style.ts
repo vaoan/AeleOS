@@ -86,10 +86,16 @@ const CORNER_PROPERTY = {
  * corners, because the two zeroes flowed straight through. Naming all four
  * makes each key self-contained.
  *
- * A rounded corner is written as `var(--radius-xl)`, which is the token the
- * cards already resolved and is itself `calc(var(--skin-round) * …)` — so
- * `radius` still decides how MUCH and this decides WHERE, and the two compose
- * rather than compete.
+ * A rounded corner is written as `calc(var(--skin-round) * 0.75rem)` rather
+ * than `var(--radius-xl)`, and that is not a style choice. `@theme inline`
+ * means `rounded-xl` INLINES that expression instead of referencing the token,
+ * so `--skin-round` resolves at the element and a nested skin gets its own
+ * corner. Referencing `--radius-xl` reads a value already computed at `:root`,
+ * which froze root's skin and gave every nested skin the page's radius —
+ * measured end to end, a styled block and an unstyled one both read 12px.
+ *
+ * So `radius` still decides how MUCH, through `--skin-round`, and this decides
+ * WHERE.
  *
  * An absent list writes nothing at all, so a page that never set this is
  * byte-for-byte what it was.
@@ -105,7 +111,7 @@ export function squareOffCorners(
   const rounded = new Set(list.split(","));
   for (const corner of CORNERS) {
     vars[CORNER_PROPERTY[corner]] = rounded.has(corner)
-      ? "var(--radius-xl)"
+      ? "calc(var(--skin-round)*0.75rem)"
       : "0";
   }
 }

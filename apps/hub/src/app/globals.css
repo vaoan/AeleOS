@@ -94,26 +94,27 @@
   --block-pad: 1rem;
 
   /*
-   * **Which of a card's corners are rounded, one token per corner.**
+   * **The four corner tokens are declared NOWHERE, and that is the fix rather
+   * than an omission.**
    *
-   * The default is exactly what every card already resolved — `--radius-xl`,
-   * which is itself `calc(var(--skin-round) * …)` — so a page that sets none
-   * of these is byte-for-byte what it was, and the skin still owns the number.
+   * They were declared here, defaulting to `var(--radius-xl)`, and it broke
+   * every nested skin: a custom property's computed value substitutes its
+   * `var()`s AT THE DECLARATION SITE, so `--corner-tl` computed at `:root`
+   * froze ROOT's `--skin-round` and inherited that number into every scope
+   * below. A block wearing `paper` inside a `comic` page then drew comic's
+   * corner. Measured end to end — a styled block and an unstyled one both read
+   * 12px, where the whole point is that they differ.
    *
-   * They exist because the block style bag lands on a WRAPPER: a leaf's own
-   * card is nested inside `<Leaf>` and a section's children are cards of their
-   * own, so a `border-radius` written on the styled element reaches nothing
-   * that draws a corner. Same shape as `--block-pad` above, and the same
-   * reason `--img-fit` exists.
+   * The card reads `var(--corner-tl, calc(var(--skin-round) * 0.75rem))`
+   * instead — the expression `@theme inline` already inlines into `rounded-xl`
+   * — so an unset token resolves `--skin-round` AT THE CARD, where the skin in
+   * force is the one that applies. Referencing `--radius-xl` there is the same
+   * bug one step along: that token is computed at `:root` too. A block that sets the token sets it on its
+   * own wrapper, where its own skin applies.
    *
-   * Declared here rather than only on a scope because an unset value makes the
-   * card's own `rounded-[…]` invalid, which is square corners on every page at
-   * once.
+   * Nothing here to declare, then — and nothing to keep in step with the four
+   * places that read it.
    */
-  --corner-tl: var(--radius-xl);
-  --corner-tr: var(--radius-xl);
-  --corner-br: var(--radius-xl);
-  --corner-bl: var(--radius-xl);
 
   /*
    * **How a picture fills its box, so a block can say `contain`.** `cover` is

@@ -4330,6 +4330,32 @@ number and `radius` still decides how MUCH.
 by the box and by the bar so the two cannot drift, and `CLASS_CORNERS` in
 `blocks.tsx` is the one class both read them through.
 
+**A CUSTOM PROPERTY SUBSTITUTES ITS `var()`s WHERE IT IS DECLARED, and that
+broke every nested skin for one commit.** The tokens were declared at `:root`
+defaulting to `var(--radius-xl)` — which looks like "the radius each card
+already had" and is not: a custom property's computed value performs its
+substitutions at the DECLARATION SITE, so `--corner-tl` froze root's
+`--skin-round` and inherited that number into every scope below. A block
+wearing `paper` inside a `comic` page drew comic's corner. Measured end to end
+by `section-skin-nesting.spec.ts`: a styled block and an unstyled one both read
+12px, where that case exists to prove they differ.
+
+So the tokens are declared **nowhere**, and the card reads
+`var(--corner-tl, calc(var(--skin-round) * 0.75rem))`. An unset token then
+resolves `--skin-round` AT THE CARD.
+
+**The fallback cannot be `var(--radius-xl)` either, and that is the second
+half.** `@theme inline` means a utility INLINES the token's expression rather
+than referencing it — `rounded-xl` compiles to
+`border-radius: calc(var(--skin-round) * 0.75rem)`, which is exactly why per
+skin radius ever worked. Referencing `--radius-xl` reads a value computed at
+`:root`, so it is the same bug one step along. The written value for a ROUNDED
+corner is the same expression, for the same reason.
+
+**Neither of these is visible from a class string**, which is why both survived
+a full unit suite at 100% and were caught by a browser measuring a computed
+style.
+
 **A browser case has to measure the CARD, not the section.** A section is a
 transparent wrapper that draws no corner at all, so pointing the assertion at
 it reads 0 whatever the key says — which is how the first version of that case

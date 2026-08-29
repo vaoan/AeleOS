@@ -804,7 +804,7 @@ function Accordion(props: ModeProps): ReactNode {
   if (seats.length === 0) return null;
   return (
     <div
-      className="overflow-hidden rounded-[var(--corner-tl)_var(--corner-tr)_var(--corner-br)_var(--corner-bl)] surface border-(--edge) bg-(--surface)"
+      className="overflow-hidden rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface)"
       {...tid("block-accordion")}
     >
       {seats.map((seat) => (
@@ -1425,7 +1425,7 @@ const MEASURE_WITHOUT_GUTTER_CLASS: Record<PageMeasure, string> = {
  * is how one of them stops matching the other.
  */
 const CLASS_CORNERS =
-  "rounded-[var(--corner-tl)_var(--corner-tr)_var(--corner-br)_var(--corner-bl)]";
+  "rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))]";
 
 const HEADING_GAP = new Map<string, string>([
   ["none", "gap-0"],

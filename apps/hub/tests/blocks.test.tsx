@@ -3300,8 +3300,16 @@ describe("a section's name as a bar", () => {
     // Named corners are written too, not merely left alone: these inherit, and
     // a bar sits inside the section whose own corners it would otherwise pick
     // up. Measured in a browser, that gave a bar with square top corners.
-    expect(bar?.style.getPropertyValue("--corner-tl")).toBe("var(--radius-xl)");
-    expect(bar?.style.getPropertyValue("--corner-tr")).toBe("var(--radius-xl)");
+    //
+    // The value is the expression `@theme inline` puts in `rounded-xl`, NOT
+    // `var(--radius-xl)`: that token is computed at `:root`, so referencing it
+    // freezes root's skin and a nested skin loses its own corner.
+    expect(bar?.style.getPropertyValue("--corner-tl")).toBe(
+      "calc(var(--skin-round)*0.75rem)",
+    );
+    expect(bar?.style.getPropertyValue("--corner-tr")).toBe(
+      "calc(var(--skin-round)*0.75rem)",
+    );
   });
 
   it("squares off only the corners a block's box does not name", () => {
@@ -3310,10 +3318,10 @@ describe("a section's name as a bar", () => {
     expect(section?.style.getPropertyValue("--corner-tl")).toBe("0");
     expect(section?.style.getPropertyValue("--corner-tr")).toBe("0");
     expect(section?.style.getPropertyValue("--corner-bl")).toBe(
-      "var(--radius-xl)",
+      "calc(var(--skin-round)*0.75rem)",
     );
     expect(section?.style.getPropertyValue("--corner-br")).toBe(
-      "var(--radius-xl)",
+      "calc(var(--skin-round)*0.75rem)",
     );
   });
 

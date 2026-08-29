@@ -610,6 +610,16 @@ Key choices and _why_:
     `disabled` attribute alone made that a property of one control rather than
     an invariant about the value. The handler refuses it too — which is also
     what makes the guard reachable in a unit test at all.
+  - **A CUSTOM PROPERTY substitutes its `var()`s where it is DECLARED, not
+    where it is read.** Defaulting the corner tokens at `:root` to
+    `var(--radius-xl)` looks like "the radius each card already had" and is
+    not: the substitution happens at `:root`, freezing that scope's
+    `--skin-round`, so every nested skin lost its own corner. And the fallback
+    cannot reference `--radius-xl` either, because `@theme inline` makes a
+    utility INLINE the token's expression rather than reference it — which is
+    precisely why per-skin radius worked before. Both faults are invisible from
+    a class string and were caught by a browser reading a computed style, with
+    a full unit suite green at 100% throughout.
   - **A control can reach the wrong ELEMENT and every unit test still pass.**
     The first version wrote `border-radius` on the styled element — but a
     block's style bag lands on a WRAPPER, and the card that draws the corner is

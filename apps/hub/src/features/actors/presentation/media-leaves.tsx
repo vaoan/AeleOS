@@ -106,8 +106,10 @@ function LeafCaption({
  * @returns the picture, or the words it could not illustrate.
  *
  * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
- * a block's own `corners` can square any of them; the default is the radius it
- * always had.
+ * a block's own `corners` can square any of them. Each falls back to the
+ * expression `rounded-xl` itself compiles to, which is what keeps a nested
+ * skin's own radius — see `block-style.ts` for why a token reference there
+ * would freeze the page's.
  */
 export function PictureLeaf(props: LeafProps): ReactNode {
   const { leaf, locale } = props;
@@ -120,7 +122,7 @@ export function PictureLeaf(props: LeafProps): ReactNode {
       <img
         src={src}
         alt={title}
-        className="w-full rounded-[var(--corner-tl)_var(--corner-tr)_var(--corner-br)_var(--corner-bl)] surface border-(--edge) [object-fit:var(--img-fit)]"
+        className="w-full rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) [object-fit:var(--img-fit)]"
       />
       <LeafCaption title="" description={description} />
     </figure>
