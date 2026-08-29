@@ -665,6 +665,39 @@ Key choices and _why_:
   it: **a thing that cannot be imported cannot be checked**, and moving it is
   usually cheaper than whatever the alternative gate would have been.
 
+  **The gate landed and immediately paid for itself, same day.**
+  `apps/hub/tests/pastiche-pages.test.ts` pushes all sixteen pages through the
+  real `parseTheme`, `blocksSchema` and a walk against `REQUIRED_KINDS` — the
+  three checks `set_actor_sections` would have made, reassembled outside the
+  database because the seeder still cannot be imported. It found real defects
+  on its first run, six of the sixteen pages, all the exact shape this note
+  predicted: `board` and `geocities` had `speed: 0.2`, below
+  `CANVAS_RANGE.min` of `0.25`, silently raised to it on every read rather than
+  refused; `threads` and `geocities` each had an empty `title_en` on an
+  otherwise-unlabelled text leaf, which the strict schema refuses outright;
+  and `furaffinity`, `fotolog` and `facebook` were each missing at least one
+  required kind — `owner` on all three, `avatar` on `fotolog` too, `handle` on
+  `facebook` too. Every one had been rendering anyway, because nothing had
+  ever asked. All seven are fixed now, minimally and idiomatically rather than
+  restyled — an `owner` leaf appended to each page's own final section,
+  `avatar`/`handle` added to the identity block at the top the same way every
+  other page already does it, the two speeds raised to the floor, and the two
+  empty titles given real text (`threads`' bio is titled "Bio", matching the
+  identical content on `board` and `sky`; `geocities` gained "NOTICE" over its
+  visitor-counter-and-browser-notice text). The restyle itself is still each
+  page's own later task.
+
+  **And it is rule 29 again, on the SABOTAGE rather than the page.** The first
+  attempt to sabotage-verify the theme case matched `skin: "default"` inside
+  the shared `theme()` factory's own default literal — the one every page
+  overrides via its own `...over` spread — rather than inside `myspaceTheme`
+  itself. The substitution landed and grep confirmed it, and the suite came
+  back reporting the same 7 pre-existing failures it already had: a sabotage
+  that applied and changed nothing observable, which reads exactly like a
+  successful verification unless the failure COUNT is checked rather than the
+  presence of the edit. Redone against the theme object's own line, it
+  reddened exactly the one case it should and none of the other two.
+
 - **A window is corners chosen one at a time (2026-08-29).** `corners` and
   `heading_corners` name which of a block's — and its bar's — corners are
   rounded, so a bar rounded across its top over content rounded across its foot

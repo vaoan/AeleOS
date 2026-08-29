@@ -482,7 +482,7 @@ const boardTheme = theme({
   canvas: "grid",
   canvasColours: ["#1d9bf0", "#22303c"],
   density: 0.4,
-  speed: 0.2,
+  speed: 0.25,
   skin: "default",
   font: "system",
   spacing: "compact",
@@ -588,7 +588,8 @@ const threads = [
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("handle", "aeleos"),
-        leaf("text", "", {
+        leaf("text", "Bio", {
+          title_es: "Biografía",
           description_en: "building in public, posting in private",
         }),
         leaf("stat", "Followers", { description_en: "1,204" }),
@@ -850,7 +851,8 @@ const geocities = [
     "stack",
     [
       leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
-      leaf("text", "", {
+      leaf("text", "NOTICE", {
+        title_es: "AVISO",
         description_en:
           "You are visitor number 000142. This page is best viewed in Netscape Navigator 4.0 at 800x600.",
       }),
@@ -902,7 +904,7 @@ const geocitiesTheme = theme({
   canvas: "stars",
   canvasColours: ["#ffffff", "#00ff66"],
   density: 1.6,
-  speed: 0.2,
+  speed: 0.25,
   skin: "default",
   // **A serif and centred text, which is what actually dates a page to 1999.**
   // The first attempt reached for `terminal` and got monospace, which reads as
@@ -1021,9 +1023,11 @@ const furaffinity = [
       ["Renard", "commissions when"],
       ["pixelpaws", "happy belated!! sorry i missed the stream"],
       ["Kestrel", "that arctic fox piece lives rent free in my head"],
-    ].map(([who, said]) =>
-      leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
-    ),
+    ]
+      .map(([who, said]) =>
+        leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
+      )
+      .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
     { style: { heading: "bar", heading_pad: "roomy", chrome: "bare" } },
   ),
 ];
@@ -1070,10 +1074,19 @@ const furaffinityTheme = theme({
 const fotolog = [
   // **A group, not a section.** A named container draws its name, and this
   // header already carries the `name` and `handle` leaves — naming it printed
-  // "aeleos" three times down the page before anybody scrolled.
-  group("stack", [leaf("name", "aeleos"), leaf("handle", "fotolog")], {
-    style: { chrome: "bare", text_align: "center" },
-  }),
+  // "aeleos" three times down the page before anybody scrolled. `avatar` was
+  // added later, alongside `owner` on the guestbook below: the page rendered
+  // fine without either because the seeder bypasses `set_actor_sections`,
+  // which is the exact gap `pastiche-pages.test.ts` exists to catch.
+  group(
+    "stack",
+    [
+      leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+      leaf("name", "aeleos"),
+      leaf("handle", "fotolog"),
+    ],
+    { style: { chrome: "bare", text_align: "center" } },
+  ),
 
   // The whole point of the page, and deliberately the only picture on it.
   section(
@@ -1104,9 +1117,11 @@ const fotolog = [
       ["juanpis", "jajaja la cara de tu hermana al fondo"],
       ["laura.g", "te dejo mi firma del dia"],
       ["el_mono", "primero!! ah no, septimo"],
-    ].map(([who, said]) =>
-      leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
-    ),
+    ]
+      .map(([who, said]) =>
+        leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
+      )
+      .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
     { style: { heading: "bar", chrome: "bare" } },
   ),
 ];
@@ -1160,6 +1175,7 @@ const facebook = [
       ]),
       group("stack", [
         leaf("name", "Aeleos"),
+        leaf("handle", "aeleos.facebook"),
         leaf("text", "What's on your mind?", {
           description_en:
             "Aeleos is wondering why he spent four hours on a profile page instead of sleeping.",
@@ -1192,9 +1208,11 @@ const facebook = [
       ["Valentina", "PICS FROM FRIDAY ARE UP, you got tagged in 11"],
       ["Sebas", "is anyone else still awake or just me"],
       ["Camila", "poked you."],
-    ].map(([who, said]) =>
-      leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
-    ),
+    ]
+      .map(([who, said]) =>
+        leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
+      )
+      .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
     { style: { heading: "soft", chrome: "bare" } },
   ),
 ];
