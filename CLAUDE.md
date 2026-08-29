@@ -550,6 +550,30 @@ Key choices and _why_:
   something behind it to show through. A correction that deletes the thing the
   page is a test of is not a correction.
 
+  **`web.archive.org` HAD BEEN STANDING IN FOR "THE ARCHIVE", and that was the
+  real mistake (2026-08-29).** With one host unreachable the provenance
+  question looked closed; it was not, and two of the four pages were settled by
+  going elsewhere. `arquivo.pt` — the Portuguese national web archive — replays
+  Sonico at October 2008 with its stylesheet intact, which found the accent
+  measurably wrong; `geocities.restorativland.org`, a fan-restored gallery of
+  real archived personal pages, gave five GeoCities homepages that confirmed
+  that page's design rather than changing it.
+
+  **Ask what the SUBJECT is before asking which archive has it.** The four
+  needed four different kinds of source, and naming the subject is what picks
+  the source: a desktop application wants a SCREENSHOT (Messenger, from
+  Wikipedia); a personal homepage wants a page archive rather than a PORTAL
+  capture (`geocities.com` is the portal, and nobody's page); a defunct site
+  wants an archive that is not the famous one; and a logged-in dark mode wants
+  something **no crawler has ever seen** — a crawler arrives logged out and is
+  served the light page, so no archive anywhere holds the board's palette, and
+  that is a property rather than a gap in coverage.
+
+  **A second archive can also CORROBORATE a negative.** Fotolog renders
+  unstyled at `arquivo.pt` exactly as it does at the other — 126 links at the
+  browser's own `#0000ee`, raw bullet lists — so "its captures do not render"
+  is now two independent observations rather than one claim.
+
   **And "unreachable" is a claim about a host, not a network, until three
   clients agree.** `web.archive.org` fails from `curl` (~21s), from headless
   Chromium (`ERR_CONNECTION_TIMED_OUT`) and from the agent's own fetcher (which

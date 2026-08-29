@@ -24,6 +24,9 @@
     ".superpowers/**"
   ],
   "words": [
+    // The Portuguese national web archive, which holds captures
+    // `web.archive.org` does not — see the pastiche findings.
+    "arquivo",
     // The longest option in the leaf's kind select, quoted where the 320px
     // overflow it caused is recorded. Named rather than paraphrased, because
     // "its longest option" is not something a reader can check.
