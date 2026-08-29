@@ -2509,6 +2509,36 @@ re-run green either side of it. Root rule 28's own incident is the proof that
 this matters rather than an assumption — CRLF inside these same function
 bodies was reported as drift precisely because migra compares source text.
 
+**The STYLE keys had no meanings at all until 2026-08-29, which is the gap
+this whole mechanism existed to prevent.** `MODE_MEANINGS`, `KIND_MEANINGS`,
+`THEME_KEY_MEANINGS` and `ROWS_MEANINGS` had been gated for months; the style
+bag was generated from `BLOCK_STYLE_LIMITS` alone, so the reference told a
+model that `heading_gap` accepts `none`, `snug` or `roomy` and **nothing
+whatever about what any of them changes**. Every key added since inherited the
+omission silently, because the generator was working exactly as written.
+
+`STYLE_KEY_MEANINGS` closes it, gated the same way and covered by the same
+exclusivity pattern. Two things it cost that are worth carrying:
+
+- **The gate catches a SPELLING; a writer has to catch the shape.** A first
+  draft said `heading_pad` is read where a bar is drawn "and nowhere else" —
+  the exact claim `/only|every other/i` exists to refuse, phrased
+  around the words it looks for. Rewritten to say why instead: a plain name has
+  no strip to pad.
+- **A defensive fallback became an untestable branch.** The first version read
+  the meaning with `meaning ? … : ""`, and the coverage gate refused it: the
+  record is `satisfies Record<keyof typeof BLOCK_STYLE_LIMITS, string>`, so
+  there is no absent case to reach. Typing the parameter as
+  `keyof typeof BLOCK_STYLE_LIMITS` and indexing directly removes the branch
+  rather than testing it.
+
+**`0009`'s own column comment was stale in the same breath**, and by more than
+this branch: it still said `heading (plain/bar/gradient)` after `soft` shipped.
+That comment is the readable index of the block model, so it now carries `soft`
+and the three new keys — and, being `prosrc`-adjacent, it is an edit to an
+applied migration that was hand-applied to live with `check:schema-drift` green
+either side.
+
 **An exclusivity claim belongs in a gated record, never in prose, and this
 was learned by trying it twice.** Round 1's sabotage — restoring
 `page-reference.ts`'s hand-written `table` meaning to claim exclusivity over

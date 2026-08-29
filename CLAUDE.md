@@ -638,6 +638,14 @@ Key choices and _why_:
   request would have turned red for a change that is not in it, which is the
   most confusing failure this repository can produce.
 
+  **It happened AGAIN the same day, and worse.** The column comment on
+  `actor_profiles.sections` was hand-applied to live before a pull request
+  carrying it existed at all — so `main` went red on a change that was in
+  nobody's branch. Twice in one session, by the same agent, on the same rule,
+  minutes after writing the paragraph above. That is the measure of how strong
+  the pull is: the edit and the apply feel like one act, and the note saying
+  they are not does not stop it.
+
   **The trap is that applying feels like part of finishing the code**, because
   the edit and the apply are the same thought. They are not the same step: the
   apply belongs to the MERGE, and the test for whether it is safe is `gh pr

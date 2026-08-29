@@ -411,6 +411,55 @@ function exampleBlocks(kind: ActorKind): Block[] {
 }
 
 /**
+ * What each key of a block's style bag DOES.
+ *
+ * **Hand-written and gated, for the reason {@link MODE_MEANINGS} is** — a
+ * meaning cannot be derived from a type, and `page-reference.test.ts` fails
+ * the build the day {@link BLOCK_STYLE_LIMITS} gains a key with none.
+ *
+ * **Until 2026-08-29 the style keys were the one vocabulary here with no
+ * meanings at all**, so the reference told an assistant that `heading_gap`
+ * accepts `none`, `snug` or `roomy` and nothing whatever about what it
+ * changes. Modes, kinds, theme keys and `rows` had carried meanings for
+ * months; this list simply never got them, and every key added since inherited
+ * the omission.
+ *
+ * The same exclusivity gate covers these: no `only` and no `every other`, for
+ * the reason recorded against {@link KIND_MEANINGS} — a claim that a key is
+ * the sole reader of something belongs in a record checked against real data,
+ * never in a sentence beside it.
+ */
+export const STYLE_KEY_MEANINGS = {
+  skin: "the block's own aesthetic — corner, edge, shadow, gloss — absent inheriting whatever encloses it",
+  background_url:
+    "a picture painted behind this block's own content, as an `https` address; nothing is uploaded",
+  background_fit:
+    "how that picture is laid down: `cover` fills the box and crops, `tile` repeats it, absent places it once at its natural size",
+  card_size:
+    "kept for pages that stored it, and no renderer reads it today; it named a minimum card width for a grid that chose its own column count, where a container declares its places explicitly now",
+  border:
+    "the edge this block draws round every plain surface beneath it; `none` is a choice and absence inherits",
+  chrome:
+    'whether the block\'s content sits in a card at all: `bare` drops the fill, the edge, the shadow and the padding together, which `border: "none"` cannot do because it removes the border style alone',
+  heading:
+    "how a NAMED container draws its name: `plain` floats it above the content, `bar` is a solid strip with the content squared off beneath, `gradient` that strip with a vertical sheen, `soft` that strip in a quieter tone derived from the accent",
+  text_align:
+    "the edge this block's own text is set against, inherited by the surfaces beneath it",
+  image_fit:
+    "how a picture fills its box: `cover` crops and `contain` does not, absent being `cover`. A wide picture — a logo, a wordmark — is unreadable cropped into a round avatar",
+  radius:
+    "this block's corner, independent of its skin; absent inherits whatever the skin chose",
+  heading_pad:
+    "how much room a named block's name is given INSIDE its strip; a plain name has no strip to pad, so it is read where `heading` draws a bar",
+  heading_image:
+    "a picture painted ON that strip, as an `https` address, over the fill rather than instead of it — so a picture that fails to load leaves the author's colour behind the bar. Separate from `background_url`, which paints behind the CONTENT",
+  heading_fit:
+    "how the strip's picture is laid down, the same two options `background_fit` takes",
+  heading_gap:
+    "the room between a named block's name and the content under it. Absence is not one value: a bar welds to what it names and a plain name floats above it, so absent means whichever of those applies and this key is how to say something else",
+} as const satisfies Record<keyof typeof BLOCK_STYLE_LIMITS, string>;
+
+/**
  * One line describing what a key of the block style bag accepts.
  *
  * Built from {@link BLOCK_STYLE_LIMITS} rather than restated, so a value
@@ -423,14 +472,22 @@ function exampleBlocks(kind: ActorKind): Block[] {
  * @returns the line.
  */
 function styleLimitLine(
-  key: string,
+  key: keyof typeof BLOCK_STYLE_LIMITS,
   limit: readonly string[] | number,
 ): string {
+  // **Indexed rather than guarded, and the key is TYPED for that reason.**
+  // `STYLE_KEY_MEANINGS` is `satisfies Record<keyof typeof
+  // BLOCK_STYLE_LIMITS, string>`, so every key this can be called with has a
+  // meaning and there is no absent case to handle. A `?? ""` here would be a
+  // branch nothing can reach — which the coverage gate caught on the first
+  // draft, and which is exactly the kind of defensive fallback that makes a
+  // suite report a hole it cannot test.
+  const says = ` — ${STYLE_KEY_MEANINGS[key]}`;
   if (Array.isArray(limit)) {
     const options = limit.map((value) => "`" + value + "`").join(", ");
-    return `- \`${key}\`: one of ${options}`;
+    return `- \`${key}\`: one of ${options}${says}`;
   }
-  return `- \`${key}\`: up to ${limit} characters`;
+  return `- \`${key}\`: up to ${limit} characters${says}`;
 }
 
 /**
@@ -439,8 +496,9 @@ function styleLimitLine(
  *
  * **Every list and cap below is interpolated from the constants this module
  * imports, never typed out by hand.** Only the one-line MEANING of each
- * container mode, leaf kind and theme key is hand-written, in
- * {@link MODE_MEANINGS}, {@link KIND_MEANINGS} and {@link THEME_KEY_MEANINGS},
+ * container mode, leaf kind, style key and theme key is hand-written, in
+ * {@link MODE_MEANINGS}, {@link KIND_MEANINGS}, {@link STYLE_KEY_MEANINGS} and
+ * {@link THEME_KEY_MEANINGS},
  * because a meaning cannot be derived from a type — and `page-reference.test.ts`
  * fails the build the day any of those three vocabularies gains a member with
  * no meaning written for it. A reference that has gone stale is worse than
@@ -543,8 +601,11 @@ export function pageReference(kind: ActorKind): string {
   const refused = REFUSED_KIND[kind];
   const other: ActorKind = kind === "person" ? "fursona" : "person";
 
-  const styleRows = Object.entries(BLOCK_STYLE_LIMITS)
-    .map(([key, limit]) => styleLimitLine(key, limit))
+  const styleKeys = Object.keys(
+    BLOCK_STYLE_LIMITS,
+  ) as (keyof typeof BLOCK_STYLE_LIMITS)[];
+  const styleRows = styleKeys
+    .map((key) => styleLimitLine(key, BLOCK_STYLE_LIMITS[key]))
     .join("\n");
 
   const depthChain = Array.from({ length: MAX_DEPTH }, (_, index) =>

@@ -4,9 +4,11 @@ import {
   MODE_MEANINGS,
   pageReference,
   ROWS_MEANINGS,
+  STYLE_KEY_MEANINGS,
   THEME_KEY_MEANINGS,
 } from "@/features/actors/domain/page-reference";
 import {
+  BLOCK_STYLE_LIMITS,
   CONTAINER_MODES,
   LEAF_KINDS,
   MAX_DEPTH,
@@ -17,6 +19,30 @@ import { DEFAULT_THEME } from "@/features/actors/domain/actor-theme";
 import { leafFields } from "@/features/actors/domain/leaf-fields";
 
 describe("the reference describes every member of every vocabulary", () => {
+  // **The style keys were the one vocabulary here with no meanings at all**,
+  // so the reference told an assistant that `heading_gap` accepts three words
+  // and nothing about what any of them changes. This is the gate that stops a
+  // key being added without one, matching the four beside it.
+  it("writes a meaning for every style key", () => {
+    for (const key of Object.keys(BLOCK_STYLE_LIMITS)) {
+      expect(
+        (STYLE_KEY_MEANINGS as Record<string, string>)[key]?.trim().length,
+        `no meaning written for style key "${key}"`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  // Each meaning has to REACH the document, not merely exist in the record —
+  // asserting the record alone would pass on a generator that ignored it.
+  it("prints each style meaning in the document", () => {
+    const text = pageReference("fursona");
+    for (const [key, meaning] of Object.entries(STYLE_KEY_MEANINGS)) {
+      expect(text, `style key "${key}" has a meaning nobody prints`).toContain(
+        meaning,
+      );
+    }
+  });
+
   it("has a meaning for each container mode", () => {
     for (const mode of CONTAINER_MODES) {
       // `.trim().length` rather than `toBeTruthy()`: a whitespace-only string
@@ -133,6 +159,17 @@ describe("the reference describes every member of every vocabulary", () => {
     for (const key of Object.keys(DEFAULT_THEME)) {
       expect(
         (THEME_KEY_MEANINGS as Record<string, string>)[key],
+        `${key}`,
+      ).not.toMatch(exclusivity);
+    }
+    // The style keys join the gate on the day they gain meanings at all. One
+    // of the first drafts said a key was read "and nowhere else" — the same
+    // claim this pattern exists to catch, phrased around the words it looks
+    // for — which is worth knowing: the gate catches a spelling, and a writer
+    // has to catch the shape.
+    for (const key of Object.keys(BLOCK_STYLE_LIMITS)) {
+      expect(
+        (STYLE_KEY_MEANINGS as Record<string, string>)[key],
         `${key}`,
       ).not.toMatch(exclusivity);
     }
