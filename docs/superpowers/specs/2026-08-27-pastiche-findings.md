@@ -36,19 +36,67 @@ contradicting itself, which is worse than one that is simply wrong.
   snapshots render the logged-out homepage with broken styling; no profile
   capture has been found. What is claimed for it is the FEEL, not a palette
   anybody measured.
-- **The other eight have not been re-compared since they were built**, and only
+- **Bluesky and Threads are measured against the LIVE sites** (2026-08-29),
+  which is the only evidence either can have — both are still running, so
+  there is no archive to reach into. Both moved; see "Two live sites, measured"
+  below.
+- **The other six have not been re-compared since they were built**, and only
   two of them say in the seeder what they were built from: MySpace names a real
   2007 profile capture and hi5 names a 2007 capture of the site. The remaining
-  six — Windows Live Messenger, the microblog board, Bluesky, Threads, Sonico
-  and GeoCities — carry no provenance note at all, so this document cannot tell
-  you whether their colours were measured or recalled. That is a real gap and
-  it is stated rather than papered over.
+  four — Windows Live Messenger, the microblog board, Sonico and GeoCities —
+  carry no provenance note at all, so this document cannot tell you whether
+  their colours were measured or recalled. That is a real gap and it is stated
+  rather than papered over.
 
-**Re-checking those six was attempted on 2026-08-28 and BLOCKED, at the
+### Two live sites, measured (2026-08-29)
+
+**A page whose subject is still running needs no archive at all**, which is
+obvious in hindsight and was not what anybody reached for first: the whole
+provenance question had been framed as an archive problem, and two of the six
+were never archive problems.
+
+| page    | was                           | is                   | read from                           |
+| ------- | ----------------------------- | -------------------- | ----------------------------------- |
+| Bluesky | ground `#ffffff` → `#eef6ff`  | flat `#ffffff`       | `getComputedStyle(document.body)`   |
+| Bluesky | accent `#0085ff`              | `#006aff`            | the Follow button's own background  |
+| Threads | ground `#000000` → `#0a0a0a`  | flat `#0a0a0a`       | `body`, under `colorScheme: "dark"` |
+| Threads | accent `#f5f5f5`              | `#f3f5f7`            | `body`'s own `color`                |
+| Threads | no `surface` (a derived step) | `surface: "#101010"` | the card the profile sits in        |
+
+Both also lost their canvas. Neither real page paints anything behind itself,
+which is the same fidelity argument five other pages here already carry.
+
+**The Bluesky accent is the useful finding.** `#0085ff` is the brand blue
+everybody quotes and it is **not** the blue the application paints. A colour
+being the official one is not evidence about what a page looks like — the
+measurement and the brand guideline are different claims, and only one of them
+is about pixels.
+
+**Threads needed a colour SCHEME before the measurement meant anything.** A
+probe with no dark preference is served `#fafafa`, and this page is the black
+one Threads launched with; `colorScheme: "dark"` is what makes the reading the
+right one. A live measurement carries the prober's own environment into the
+result unless that environment is stated.
+
+**And its 2026 relayout is deliberately NOT copied.** Live Threads now puts the
+profile in a rounded card on a grey field; this page stays the 2023
+edge-to-edge one the README dates it to. **A live site is evidence about today,
+and today is not always the era being imitated** — which is the one way
+checking a running site is harder than reading a capture, since a capture
+carries its date and a live page does not.
+
+**Re-checking the remaining four was attempted on 2026-08-28 and BLOCKED, at the
 network rather than at the archive.** `archive.org/wayback/available` answered
 for seven of the eight and named snapshots; `web.archive.org` — the host the
 capture itself comes from — resolved to `207.241.237.3` and then never
 completed a connection, three tries, ~21s each, over both `http` and `https`.
+
+Retried on 2026-08-29 through three different clients, which is what makes this
+a fact about the HOST rather than about one tool: `curl` times out at ~21s,
+headless Chromium answers `ERR_CONNECTION_TIMED_OUT`, and the agent's own
+fetcher refuses the domain outright. `archive.ph` answered (429, rate-limited)
+and `archive.org` itself answered 200 in the same run, so it is that one
+hostname and not the network as a whole.
 So the two hosts have to be probed SEPARATELY: a green availability probe is
 not evidence that a capture can be fetched, and reading it as one is how "the
 archive answers again" could be written truthfully and still leave the work
@@ -77,8 +125,8 @@ built from the file now rather than from recall.
 | Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.            |
 | Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall. |
 | Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test.                  |
-| Bluesky                | The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`. That contrast IS the page.                           |
-| Threads                | `list` + `chrome: "bare"` on near-black, `measure: "narrow"`. What defines it is what it removes.                                                                |
+| Bluesky                | Flat `#ffffff` and `#006aff`, measured live. The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`.         |
+| Threads                | `list` + `chrome: "bare"` on the live site's own `#0a0a0a`, with `surface: "#101010"` for the card. What defines it is what it removes.                          |
 
 **GeoCities is worth reading twice**: it reached for `terminal` first and got
 monospace, which reads as a developer's site rather than a personal homepage. A

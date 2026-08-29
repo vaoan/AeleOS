@@ -494,6 +494,36 @@ Key choices and _why_:
   reading it.** It is faster than checking one claim by hand and it cannot
   agree with a sentence out of politeness.
 
+  **A page whose subject is STILL RUNNING needs no archive, and that took a
+  day to notice (2026-08-29).** The provenance gap had been framed entirely as
+  an archive problem — `web.archive.org` unreachable, six pages unverifiable —
+  and two of the six were never archive problems at all. Bluesky and Threads
+  are live sites; `getComputedStyle` on the real page is stronger evidence than
+  any capture, because it is a measurement rather than a photograph. Both
+  moved when checked.
+
+  Three things that generalise, each measured:
+
+  - **A brand colour is not a measurement of a page.** Bluesky's accent is the
+    `#0085ff` everybody quotes, and the application paints `#006aff` — read off
+    the Follow button's own background. The official value and the rendered one
+    are different claims and only one of them is about pixels.
+  - **A live measurement carries the PROBER's environment into the result.**
+    Threads served `#fafafa` to a probe with no colour-scheme preference; the
+    page being imitated is the black one, so `colorScheme: "dark"` is what made
+    the reading mean anything. State the environment or the number is unowned.
+  - **A live site is evidence about TODAY, and today is not always the era
+    being imitated.** Threads has since moved its profile into a rounded card
+    on a grey field; the pastiche stays the 2023 edge-to-edge one it is dated
+    to. This is the one way a running site is HARDER than a capture — a capture
+    carries its date and a live page does not.
+
+  **And "unreachable" is a claim about a host, not a network, until three
+  clients agree.** `web.archive.org` fails from `curl` (~21s), from headless
+  Chromium (`ERR_CONNECTION_TIMED_OUT`) and from the agent's own fetcher (which
+  refuses the domain outright) — while `archive.org` answers 200 and
+  `archive.ph` answers 429 in the same run. One hostname, not the connection.
+
   **The seeder owns everything the pages depend on**, and that was learned the
   hard way twice in one session: the avatars had been set by hand outside it,
   so a re-run left the newest pages with an empty circle; and it went on
