@@ -737,7 +737,7 @@ describe("BlockCard", () => {
       // Both halves, because either alone passes on the wrong card: a weight
       // with no colour is the faint 40%-alpha edge this replaced, and a colour
       // with no weight is what the container already wears.
-      expect(leaf.className).toContain("border-2");
+      expect(leaf.className).toContain("border-4");
       expect(leaf.className).toContain("border-(--edge)");
       // The faint alpha it replaced must be GONE, not merely joined — two
       // border-colour utilities on one element is a class list whose winner
@@ -749,7 +749,7 @@ describe("BlockCard", () => {
       // And the container did not acquire the leaf's weight either: a section
       // is marked by its rail, not by its edge.
       const section = screen.getByTestId("section-card");
-      expect(section.className).not.toContain("border-2");
+      expect(section.className).not.toContain("border-4");
     });
 
     it("sets each eyebrow in its own bar's colour", () => {

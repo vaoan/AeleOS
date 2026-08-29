@@ -290,9 +290,11 @@ const INPUT =
  * 74 dark), so this pairing survives greyscale.
  *
  * **A border adds to the BOX, which is why this is measured and not assumed.**
- * The paragraph above records what padding cost the last time; a second pixel
- * of border is the same arithmetic on a different property. See the feature
- * note for the numbers this was checked against at 320 and 568.
+ * The paragraph above records what padding cost the last time; three more
+ * pixels of border are the same arithmetic on a different property, and a
+ * nested card pays them twice. Measured with a container inside a section so
+ * the borders stack: no overflow at 320, 375, 568 or 640. See the feature
+ * note for the survey those came from.
  *
  * @returns the leaf's fields.
  */
@@ -363,7 +365,7 @@ export function LeafEditor({
     <div
       {...tid("leaf-editor")}
       data-leaf-kind={kind}
-      className="relative grid gap-2 rounded-lg surface border-2 border-(--edge) bg-(--surface) p-2.5"
+      className="relative grid gap-2 rounded-lg surface border-4 border-(--edge) bg-(--surface) p-2.5"
     >
       <div className="flex flex-wrap items-end gap-2">
         {dragHandle}
