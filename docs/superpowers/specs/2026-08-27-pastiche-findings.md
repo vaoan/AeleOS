@@ -24,32 +24,66 @@ so every re-run silently undid it. The seeder owns visibility now, along with
 each page's avatar, for the same reason: **a seed that does not restore
 everything it depends on works exactly once.**
 
-**Three were added later and are not the same evidence as the other eight.**
-Fur Affinity, Fotolog and Facebook were built from knowledge, because
-web.archive.org would not answer that session and Fur Affinity refuses an
-unauthenticated fetch. What is claimed for them is the FEEL — a dark page with
-a banner and a shouts wall; one photograph and a guestbook; blue bars, an
-information rail and a wall — not a palette anybody measured. Check them
-against a real capture before treating any colour in them as reference.
+**What each page's palette actually rests on, as of 2026-08-28.** This
+paragraph used to say all three of the late additions were knowledge-built, and
+two of them stopped being so lower down this same document — a document
+contradicting itself, which is worse than one that is simply wrong.
+
+- **Fur Affinity** and **Facebook** are evidence-backed, from a real December
+  2008 and a real March 2007 capture. FA was measurably wrong and was
+  corrected; Facebook's `#3b5998` was already right.
+- **Fotolog** is the one page still built from knowledge, and the only one. Its
+  snapshots render the logged-out homepage with broken styling; no profile
+  capture has been found. What is claimed for it is the FEEL, not a palette
+  anybody measured.
+- **The other eight have not been re-compared since they were built**, and only
+  two of them say in the seeder what they were built from: MySpace names a real
+  2007 profile capture and hi5 names a 2007 capture of the site. The remaining
+  six — Windows Live Messenger, the microblog board, Bluesky, Threads, Sonico
+  and GeoCities — carry no provenance note at all, so this document cannot tell
+  you whether their colours were measured or recalled. That is a real gap and
+  it is stated rather than papered over.
+
+**Re-checking those six was attempted on 2026-08-28 and BLOCKED, at the
+network rather than at the archive.** `archive.org/wayback/available` answered
+for seven of the eight and named snapshots; `web.archive.org` — the host the
+capture itself comes from — resolved to `207.241.237.3` and then never
+completed a connection, three tries, ~21s each, over both `http` and `https`.
+So the two hosts have to be probed SEPARATELY: a green availability probe is
+not evidence that a capture can be fetched, and reading it as one is how "the
+archive answers again" could be written truthfully and still leave the work
+undone. Whoever picks this up re-probes `web.archive.org` itself first.
 
 ## What landed, and what carried it
 
-| page                   | what made it work                                                                                                                                                                 |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows Live Messenger | `aero` — glassy blue cards, `accordion` contact groups, `bubbles` canvas. The closest of the eight.                                                                               |
-| MySpace                | `retro` + the **Winamp jukebox chrome**, a two-column `weights: [1, 2]` body, a `table` for the contact box, a 4-across Top 8.                                                    |
-| hi5                    | `candy` pill cards with hard shadows, `sticker` for the friends grid, `progress` as a profile-completeness meter.                                                                 |
-| Sonico                 | `glass` + `masonry` for a real photo wall, `carousel` for album strips.                                                                                                           |
-| GeoCities              | `terminal` monospace, `stars`, a tiled `dark-mosaic` background, a `table` of visitor stats, a `link` row as a webring.                                                           |
-| Fur Affinity           | A full-bleed banner, `weights: [1, 3]` for the stats rail, a submissions grid, and `list` + `chrome: "bare"` for the shouts wall — the first page here that needed a wall at all. |
-| Fotolog                | One photograph at `measure: "narrow"` and a guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                    |
-| Facebook               | `heading: "bar"` in `#3b5998`, an information `table` with a mark on every row, a six-across friends strip, and a divided wall.                                                   |
-| Microblog boards       | `timeline`, `stat` rows, `social` chips that resolve a brand.                                                                                                                     |
+**Re-derived from `seed-pastiches.mjs` on 2026-08-28, and five of these rows
+were wrong.** The table below used to name `retro` on MySpace, `candy` and
+`sticker` on hi5, `glass` on Sonico, `terminal` on GeoCities and `timeline` on
+the microblog board. **Every one of those five is a skin or a mode the page
+does not use** — nine of the eleven pages are `skin: "default"` throughout, and
+the board is a `list`. The rebuild against real captures is what changed them:
+the real sites were plain white-and-blue pages, so the decorative skins came
+off, and this summary went on describing the pages as they had been. It is
+built from the file now rather than from recall.
 
-**The single most convincing element in the whole set is the jukebox.** A
-Winamp-chromed player embedded in a purple starfield is not a thing most page
-builders can produce at all, and it is the one element that made a reviewer say
-"that's MySpace" rather than "that's like MySpace".
+| page                   | what actually carries it                                                                                                                                         |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas. The closest of the eleven.                    |
+| MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"` and a tiled backdrop.                 |
+| hi5                    | `heading: "gradient"` title bars over white content, a `carousel` of widgets, and `progress` as a profile-completeness meter.                                    |
+| Sonico                 | `masonry` for a real photo wall and `carousel` for album strips — the arrangement doing the work, with no skin at all.                                           |
+| GeoCities              | `font: "serif"` and centred text, a `stars` canvas, a tiled backdrop, a `table` of visitor stats and a `link` row as a webring.                                  |
+| Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, and `list` + `chrome: "bare"` for the shouts wall.        |
+| Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.            |
+| Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall. |
+| Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test.                  |
+| Bluesky                | The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`. That contrast IS the page.                           |
+| Threads                | `list` + `chrome: "bare"` on near-black, `measure: "narrow"`. What defines it is what it removes.                                                                |
+
+**GeoCities is worth reading twice**: it reached for `terminal` first and got
+monospace, which reads as a developer's site rather than a personal homepage. A
+serif and centred text is what actually dates a page to 1999 — a finding about
+what a decade LOOKED like rather than about the model.
 
 ## The bar, restated (and it moved)
 

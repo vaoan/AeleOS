@@ -60,34 +60,79 @@ own mark used to identify it.
 
 They exist because **a pastiche fails visibly and in a way you can name.** "The
 editor feels limited" is not actionable; "a feed cannot lose its card edges"
-is. Six of the options the editor offers today were added because one of these
-pages could not be built without them.
+is. The options the editor offers today that exist **because** one of these
+pages could not be built without them are tracked by name, with a status each,
+in the findings document linked below — by now they are most of the style bag.
+That list is deliberately not restated here as a count, because a count is the
+first thing to go stale.
 
-| page                                                                 | the era                    | what it proves the editor can do                                                                      |
-| -------------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| [MySpace](https://me.furrycolombia.com/137/myspace)                  | 2005                       | A tiled background, a two-column body on `weights`, a Top 8, and a Winamp-chromed music player        |
-| [Fur Affinity](https://me.furrycolombia.com/137/furaffinity)         | the furry web              | A full-bleed banner, a narrow stats rail beside a wide body, a submissions grid, and a wall of shouts |
-| [Fotolog](https://me.furrycolombia.com/137/fotolog)                  | 2005, and huge in Colombia | One enormous photograph and a guestbook longer than the rest of the page                              |
-| [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | Blue title bars, an information table, a six-across friends strip, and a divided wall                 |
-| [hi5](https://me.furrycolombia.com/137/hi5)                          | 2007                       | Pill cards with hard shadows, a sticker grid, and a profile-completeness meter                        |
-| [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Glassy blue cards, contact groups that collapse, and a bubbles backdrop                               |
-| [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | A real photo wall in `masonry`, and album strips in a carousel                                        |
-| [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | Monospace type, a starfield, a tiled mosaic, a visitor-stats table and a webring                      |
-| [a microblog board](https://me.furrycolombia.com/137/board)          | 2012                       | A timeline, counts rows, and social chips that resolve a brand                                        |
-| [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | The one that is deliberately roomy, to show the density dial has two ends                             |
-| [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline between them and no cards at all                                    |
+| page                                                                 | the era                    | what it proves the editor can do                                                                               |
+| -------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [MySpace](https://me.furrycolombia.com/137/myspace)                  | 2005                       | A tiled background, a two-column body on `weights`, a Top 8, and a Winamp-chromed music player                 |
+| [Fur Affinity](https://me.furrycolombia.com/137/furaffinity)         | the furry web              | A full-bleed banner, a narrow stats rail beside a wide body, a submissions grid, and a wall of shouts          |
+| [Fotolog](https://me.furrycolombia.com/137/fotolog)                  | 2005, and huge in Colombia | One enormous photograph and a guestbook longer than the rest of the page                                       |
+| [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | A navy title bar over a lighter blue one, an information table, a six-across friends strip, and a divided wall |
+| [hi5](https://me.furrycolombia.com/137/hi5)                          | 2007                       | Gradient title bars over white, a carousel of widgets, and a profile-completeness meter                        |
+| [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Glassy blue cards, contact groups that collapse, and a bubbles backdrop                                        |
+| [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | A real photo wall in `masonry`, and album strips in a carousel                                                 |
+| [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | A serif and centred text, a starfield, a tiled mosaic, a visitor-stats table and a webring                     |
+| [a microblog board](https://me.furrycolombia.com/137/board)          | 2012                       | Bare rows with a hairline between them, counts rows, and social chips that resolve a brand                     |
+| [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | The one page that sets no spacing at all, so it is roomy where the rest are compact                            |
+| [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline between them and no cards at all                                             |
 
-Two of these are worth knowing about before you trust them. **The eight older
-pages were rebuilt against real archived captures**; Fur Affinity, Fotolog and
-Facebook were built from knowledge, because the archive would not answer the
-session that added them. And what is copied is layout, palette and density —
-if a pastiche and the real thing differ, the pastiche is wrong, not the model.
+**What is copied is layout, palette and density** — if a pastiche and the real
+thing differ, the pastiche is wrong, not the model.
+
+How much evidence each one rests on differs, and it is worth knowing before you
+trust a colour (as of 2026-08-28):
+
+- **Measured against a real archived capture:** Fur Affinity (December 2008 —
+  it was measurably wrong and was corrected), Facebook (March 2007), MySpace
+  (a 2007 profile) and hi5 (2007).
+- **Built from knowledge:** Fotolog, whose snapshots render the logged-out
+  homepage rather than a profile.
+- **Provenance not recorded:** Windows Live Messenger, the microblog board,
+  Bluesky, Threads, Sonico and GeoCities. They may well have been built from
+  captures; the file does not say, so this table cannot either.
 
 The findings, including what the block model **cannot** be pushed toward and
 why two of those gaps are deliberate:
 [`docs/superpowers/specs/2026-08-27-pastiche-findings.md`](docs/superpowers/specs/2026-08-27-pastiche-findings.md).
 
 Rebuild them all with `node scripts/seed-pastiches.mjs`.
+
+## Five more, aimed at an operating system
+
+The same test run against a different target: five eras of somebody else's
+desktop, as **pickable templates** in the editor as well as seeded pages.
+Arrangement and palette only — no logo, no wordmark, no artwork of anybody's.
+Each was built from a screenshot fetched from Wikipedia and looked at.
+
+They are seeded **unlisted**, so every link below resolves and none of them
+appears on `/137` — they are demonstrations rather than part of anybody's
+public set, which is exactly what `unlisted` is for.
+
+| look                                                        | built on              | what it proves, or fails to                                                                      |
+| ----------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |
+| [Windows 98](https://me.furrycolombia.com/137/era-win98)    | the `retro` skin      | The raised bevel and navy title bars, on silver panels over a flat teal desktop                  |
+| [Windows XP](https://me.furrycolombia.com/137/era-winxp)    | `heading: "gradient"` | Luna's blue gradient title strips over near-white panel bodies                                   |
+| [Windows Vista](https://me.furrycolombia.com/137/era-vista) | the `aero` skin       | Aero glass whole — the blur, the sheen, the translucent surface — with **nothing new added**     |
+| [Windows 7](https://me.furrycolombia.com/137/era-win7)      | the same `aero` skin  | The same mechanism as Vista in a different palette, which is the argument for looks as documents |
+| [Windows 8](https://me.furrycolombia.com/137/era-win8)      | `weights` + `radius`  | The Metro **arrangement** lands completely and the colour does not — see below                   |
+
+**Not one new skin was added for any of them**, which is the finding that
+shaped the whole set: `retro` already _is_ the Windows 98 bevel and `aero`
+already _is_ Aero glass, so what a look adds is the palette and the
+arrangement around a skin that exists. That is why a look is a document you can
+paste rather than a new entry in a vocabulary.
+
+**Windows 8 is a deliberate failure and was predicted before it was built.**
+Metro is flat solid tiles in _different_ colours — the capture holds seven in
+one screen — and a per-block colour is refused by design here. Everything else
+lands: `weights: [2, 1, 1]` gives the mixed tile widths, `radius: "square"`
+squares them, `border: "none"` removes the edge and `spacing: "compact"` closes
+the gaps. A failure that names one mechanism is worth more than one that names
+a feeling.
 
 ## How it works
 

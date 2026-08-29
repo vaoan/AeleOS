@@ -468,6 +468,32 @@ Key choices and _why_:
   whitespace and compare whole tokens. **Where one name is a prefix of another,
   a substring assertion cannot discriminate in either direction.**
 
+  **A SUMMARY TABLE of what each page uses is root rule 30 in its purest form,
+  and five of eleven rows were false (2026-08-28).** The findings document's
+  "what landed, and what carried it" table named `retro` on MySpace, `candy`
+  and `sticker` on hi5, `glass` on Sonico, `terminal` on GeoCities and
+  `timeline` on the microblog board. **Not one of those five is in the file** —
+  nine of the eleven pages are `skin: "default"` throughout and the board is a
+  `list`. Nothing was broken: the rebuild against real captures took the
+  decorative skins off _because the real sites were plain_, which is the pass
+  working, and the table went on describing the pages as they had been.
+
+  Two seeder headers had drifted the same way and each contradicted a note a
+  few lines below it — hi5's said "Loud, yellow" directly above "hi5 was BLUE,
+  not yellow", and claimed an orange "survives only as the accent" over an
+  accent that is `#4a7ebb`; the board's said "`timeline` is the mode this
+  exists to test" over a page that uses `list`, the mode that did not exist
+  when the header was written.
+
+  **The check is mechanical and nothing runs it: re-derive the table from the
+  file.** A row naming a skin, a mode or a canvas is a claim about
+  `seed-pastiches.mjs`, and `check:docs` cannot see it because no TypeScript
+  symbol moved. Twenty lines of regex over the seeder answered all eleven rows
+  at once — which is the general form worth keeping: **when a document
+  summarises what another file contains, extract the summary rather than
+  reading it.** It is faster than checking one claim by hand and it cannot
+  agree with a sentence out of politeness.
+
   **The seeder owns everything the pages depend on**, and that was learned the
   hard way twice in one session: the avatars had been set by hand outside it,
   so a re-run left the newest pages with an empty circle; and it went on
