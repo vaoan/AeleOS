@@ -230,7 +230,8 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * @returns the translated labels.
  *
  * It builds the style popup's `chrome`, `heading`, `heading_pad`, `text_align`,
- * `image_fit` and `radius` strings too.
+ * `image_fit` and `radius` strings too — `heading` being four names now, since
+ * a bar may be drawn in the accent, shaded, or in the quieter derived tone.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -329,6 +330,10 @@ export async function fursonaEditorLabels(
       headingPlain: t("styleHeadingPlain"),
       headingBar: t("styleHeadingBar"),
       headingGradient: t("styleHeadingGradient"),
+      // The quieter bar tone. Its wording says how the strip READS rather than
+      // what it is made of — an author picks no colour for it, so naming a
+      // derivation would describe machinery they never meet.
+      headingSoft: t("styleHeadingSoft"),
       headingPad: t("styleHeadingPad"),
       headingPadDefault: t("styleHeadingPadDefault"),
       headingPadSnug: t("styleHeadingPadSnug"),

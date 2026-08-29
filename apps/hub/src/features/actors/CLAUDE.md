@@ -4102,6 +4102,53 @@ reachable from a unit test.**
   a string, both selects were correct on their own, and no unit test asks a page
   for one. **Grep for a test id before minting it.**
 
+### A bar can be given a QUIETER tone (2026-08-28)
+
+`heading: "soft"` — the same strip in a second tone, so a page can stack a
+strong bar and a quieter one under it. It is a fourth value on the existing
+`heading` key rather than a key of its own, because it is the same question
+answered differently and a second key would be a second thing to keep in step
+with `BAR_FILL`.
+
+**The tone is DERIVED, never picked, and that is the whole design.**
+`--accent-soft` and `--on-accent-soft` come out of `derivePalette` beside the
+accent's own pair. An author choosing a second colour outright would be a
+second palette to keep readable, and every pairing of two chosen colours is
+somebody's mistake to make; a sub-bar is a quieter version of the bar above it,
+which is a derivation. Its LABEL is solved against the tone itself, exactly as
+`--on-accent` is solved against the accent — nobody picked the tone, so nobody
+can fix its label, which is the same argument the accent's label already rests
+on.
+
+**It travels in LIGHTNESS toward whichever extreme has room, and the obvious
+alternative was measured failing.** Moving the accent a fraction of the way
+toward the surface is the rule anybody writes first, and it collapses on the
+exact page this exists for: a dark page's panel is dark too, so `#000080`'s
+tone landed within 1.2 of the accent and the second bar was the first one. The
+step is fixed in lightness, up from a dark accent and down from a light one —
+the same shape `--on-accent` uses to pick a label — with chroma eased to 72% so
+a tint does not read as a second accent. `palette.test.ts` keeps `#7f7f7f` in
+its list on purpose: a mid-grey has the least room to travel, so it is where a
+derivation that barely moves stops being visible first.
+
+**`BAR_FILL` in `blocks.tsx` decides what counts as a bar**, and `barred` is
+derived from it rather than from a second list of styles — so a style added to
+that map draws a strip, collapses the section's gap and takes its padding with
+nothing else being told about it. Each entry names its OWN label token, because
+`soft` is a different colour from the accent and the label that reads on one
+need not read on the other.
+
+**A fixture here CANNOT use `toContain` on the class string.**
+`bg-(--accent)` is a prefix of `bg-(--accent-soft)`, so a substring assertion
+passes both on a renderer that ignores `soft` entirely and on one that paints
+every bar soft. `blocks.test.tsx`'s two cases split the class list on
+whitespace and compare whole tokens, in both directions — root rule 27, met on
+a string rather than on a page shape.
+
+It reaches the Facebook pastiche as the strong bar on the identity section and
+the quieter one on everything subordinate to it, which is what the March 2007
+capture shows and what gap 12 of the pastiche findings recorded as unreachable.
+
 ### A bar can be given room (2026-08-28)
 
 `heading_pad` — `snug` or `roomy`, absent being the `px-3 py-2` every barred

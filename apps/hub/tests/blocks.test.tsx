@@ -3139,6 +3139,34 @@ describe("a section's name as a bar", () => {
     expect(container.querySelector("section")?.className).toContain("gap-0");
   });
 
+  // **The quieter tone, and the assertions compare whole CLASS TOKENS rather
+  // than substrings.** `bg-(--accent)` is a prefix of `bg-(--accent-soft)`, so
+  // a `toContain` on the string cannot tell the two apart in either direction
+  // — it would pass on a renderer that ignored `soft` entirely and on one that
+  // painted every bar soft. Splitting on whitespace makes each assertion an
+  // exact match, which is what discriminates.
+  it("paints the quieter tone when soft is asked for", () => {
+    const { container } = renderBlock(named({ heading: "soft" }));
+    const classes = container
+      .querySelector('[data-testid="heading-bar"]')
+      ?.className.split(/\s+/);
+    expect(classes).toContain("bg-(--accent-soft)");
+    expect(classes).toContain("text-(--on-accent-soft)");
+    expect(classes).not.toContain("bg-(--accent)");
+    expect(container.querySelector("section")?.className).toContain("gap-0");
+  });
+
+  // The mirror: a flat bar must not quietly become the soft one, which a
+  // renderer reading the key loosely would do.
+  it("leaves the plain bar at full strength", () => {
+    const { container } = renderBlock(named({ heading: "bar" }));
+    const classes = container
+      .querySelector('[data-testid="heading-bar"]')
+      ?.className.split(/\s+/);
+    expect(classes).toContain("bg-(--accent)");
+    expect(classes).not.toContain("bg-(--accent-soft)");
+  });
+
   // The mirror of it: the flat bar must not GAIN a gradient, which a renderer
   // that shaded every bar would.
   it("leaves the plain bar flat", () => {

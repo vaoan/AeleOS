@@ -122,6 +122,7 @@
     "styleHeadingPlain": "Above the content",
     "styleHeadingBar": "As a bar on top of it",
     "styleHeadingGradient": "As a shaded bar",
+    "styleHeadingSoft": "As a quieter bar",
     "styleHeadingPad": "Name spacing",
     "styleHeadingPadDefault": "Ordinary",
     "styleHeadingPadSnug": "Tight",

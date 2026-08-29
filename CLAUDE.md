@@ -448,6 +448,26 @@ Key choices and _why_:
   before believing it; the probe is one `curl` against
   `archive.org/wayback/available`.
 
+  **Gap 12 is closed (2026-08-28) and the way it was nearly closed WRONG is
+  the part worth carrying.** The 2007 Facebook capture is a navy bar over a
+  lighter blue one, which one accent could not draw; `heading: "soft"` is a
+  second, DERIVED tone. The obvious derivation — move the accent a fraction of
+  the way toward the panel — is what anybody writes first, and it collapses on
+  exactly the page the gap exists for: a dark page's panel is dark too, so a
+  navy accent's tone landed within 1.2 of the accent and the second bar WAS the
+  first one. It steps in LIGHTNESS toward whichever extreme has room instead,
+  which is the rule `--on-accent` already uses to pick a label. **The
+  discriminating fixture is a mid-grey accent**, because that is the colour
+  with the least room to travel and therefore the first place a derivation that
+  barely moves stops being visible.
+
+  A fixture trap came with it, and it is rule 27 landing on a STRING rather
+  than on a page shape: `bg-(--accent)` is a prefix of `bg-(--accent-soft)`, so
+  a `toContain` on the class list passes both on a renderer that ignores the
+  new value and on one that paints every bar with it. The cases split on
+  whitespace and compare whole tokens. **Where one name is a prefix of another,
+  a substring assertion cannot discriminate in either direction.**
+
   **The seeder owns everything the pages depend on**, and that was learned the
   hard way twice in one session: the avatars had been set by hand outside it,
   so a re-run left the newest pages with an empty circle; and it went on

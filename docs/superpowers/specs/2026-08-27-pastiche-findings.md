@@ -228,16 +228,39 @@ external service as its subject rather than a database.
   `--on-accent` derived the dark text on the light bar with no help.
 - **Facebook's palette is confirmed** from a real March 2007 capture: `#3b5998`
   was already right, and the capture adds the detail that the navy bar carries
-  a LIGHTER blue sub-bar beneath it, which one accent cannot express.
+  a LIGHTER blue sub-bar beneath it, which one accent could not express — the
+  gap below, since closed.
 - **Fotolog stays knowledge-built and says so.** Its snapshots render the
   logged-out homepage with broken styling; no profile capture was found.
 
-### 12. One accent cannot express a two-tone header
+### 12. One accent cannot express a two-tone header — CLOSED (2026-08-28)
 
 Facebook stacks a navy bar and a lighter blue sub-bar. `heading: "bar"` takes
-`--accent`, so a page has exactly one bar colour. The second tone is
-unreachable — a smaller gap than the surface one above, and the same family:
-the palette gives a page one of each thing where a real design has two.
+`--accent`, so a page had exactly one bar colour and the second tone was
+unreachable.
+
+`heading: "soft"` closes it. **The tone is DERIVED and not picked**, which is
+what keeps it from being a second palette to keep in step: a sub-bar is a
+quieter version of the bar above it rather than an unrelated colour, and every
+pairing of two chosen colours is somebody's mistake to make. Its label is
+solved against the tone itself, exactly as `--on-accent` is solved against the
+accent, so the guarantee the accent already carries extends to it rather than
+being re-argued.
+
+**A value here that was measured wrong first, and it is the useful half.** The
+obvious derivation is "move the accent a fraction of the way toward the panel",
+and it fails on the exact page this gap exists for: a dark page's panel is dark
+too, so `#000080`'s tone landed within 1.2 of the accent and the second bar WAS
+the first one. It travels a fixed step in LIGHTNESS toward whichever extreme
+has room instead — the same rule `--on-accent` already uses to choose a label —
+because lightness is where a sub-bar's difference actually lives and every
+accent has room in one direction or the other. `palette.test.ts` pins it with
+`#7f7f7f` in the list on purpose: a mid-grey has the least room to travel, so
+it is where a derivation that barely moves stops being visible first.
+
+It reaches the Facebook pastiche as the strong bar on the identity section and
+the quieter one on everything subordinate to it, which is the arrangement the
+capture shows.
 
 ### A rule the seeder stated and broke, for a fortnight
 

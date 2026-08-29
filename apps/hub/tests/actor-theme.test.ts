@@ -286,7 +286,7 @@ describe("themeCss", () => {
 
   it("preserves the public stylesheet contract", () => {
     expect(themeCss(THEMED)).toMatchInlineSnapshot(
-      `":root:not([data-page-theme="default"]){--surface-solid:oklch(0.1784 0.0384 282.93);--menu:oklch(0.1784 0.0384 282.93);--bar-solid:oklch(0.1784 0.0384 282.93 / 0.55);--ink:oklch(0.9700 0.0384 282.93);--ink-2:oklch(0.8014 0.0341 282.93);--muted:oklch(0.6328 0.0341 282.93);--edge:oklch(0.5297 0.0355 282.93);--accent:oklch(0.4596 0.1492 25.26);--on-accent:oklch(0.9700 0.0384 282.93);--nebula-blend:screen;--field:linear-gradient(#1a1a2e, #1a1a2e)}"`,
+      `":root:not([data-page-theme="default"]){--surface-solid:oklch(0.1784 0.0384 282.93);--menu:oklch(0.1784 0.0384 282.93);--bar-solid:oklch(0.1784 0.0384 282.93 / 0.55);--ink:oklch(0.9700 0.0384 282.93);--ink-2:oklch(0.8014 0.0341 282.93);--muted:oklch(0.6328 0.0341 282.93);--edge:oklch(0.5297 0.0355 282.93);--accent:oklch(0.4596 0.1492 25.26);--on-accent:oklch(0.9700 0.0384 282.93);--accent-soft:oklch(0.6396 0.1074 25.26);--on-accent-soft:oklch(0.1500 0.0384 282.93);--nebula-blend:screen;--field:linear-gradient(#1a1a2e, #1a1a2e)}"`,
     );
   });
 

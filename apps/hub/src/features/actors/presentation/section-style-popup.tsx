@@ -77,6 +77,10 @@ export type SectionStyle = BlockStyle;
  * `radius` beside the border, each with an empty option that CLEARS the key
  * rather than naming a value. `heading_pad` sits under the name-style select
  * and behind the same condition: both are offered on a NAMED block only.
+ *
+ * The name-style select carries a fourth option, `soft` — the same strip in a
+ * quieter tone. It needs no label of its own beyond a name: the tone is
+ * derived from the accent already chosen, so there is nothing further to pick.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -128,6 +132,7 @@ export interface SectionStylePopupLabels {
   headingBar: string;
   /** The same bar with a vertical sheen. */
   headingGradient: string;
+  headingSoft: string;
   /** Field label for how much room a bar gives its name. */
   headingPad: string;
   /** The room option that keeps the ordinary strip. */
@@ -307,6 +312,10 @@ export interface SectionStylePopupProps {
  * condition as the name-style select it sits under — which is the honest
  * shape, since the renderer reads it only where a bar is drawn and a control
  * that stores what somebody picks and changes nothing is the worst kind.
+ *
+ * The name-style select gained `soft` beside `bar` and `gradient`; every one
+ * of them is offered under the same condition, since all three draw a strip
+ * and a block with no name has none.
  */
 export function SectionStylePopup({
   value,
@@ -572,6 +581,7 @@ export function SectionStylePopup({
                 <option value="">{labels.headingPlain}</option>
                 <option value="bar">{labels.headingBar}</option>
                 <option value="gradient">{labels.headingGradient}</option>
+                <option value="soft">{labels.headingSoft}</option>
               </select>
 
               {/* **Offered beside the name style, and only where a name
