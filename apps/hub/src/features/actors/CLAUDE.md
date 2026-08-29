@@ -2522,7 +2522,7 @@ exclusivity pattern. Two things it cost that are worth carrying:
 
 - **The gate catches a SPELLING; a writer has to catch the shape.** A first
   draft said `heading_pad` is read where a bar is drawn "and nowhere else" —
-  the exact claim `/only|every other/i` exists to refuse, phrased
+  the exact claim `/\bonly\b|\bevery other\b/i` exists to refuse, phrased
   around the words it looks for. Rewritten to say why instead: a plain name has
   no strip to pad.
 - **A defensive fallback became an untestable branch.** The first version read
