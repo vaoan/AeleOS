@@ -418,7 +418,8 @@ Key choices and _why_:
 - **What the block model CANNOT be pushed toward is written down, and it was
   found by trying.** `scripts/seed-pastiches.mjs` builds **eleven** pages aiming
   at eleven eras of somebody else's social network — the arrangement and
-  palette, never a logo — because a pastiche fails visibly and in a way you can
+  palette, plus the site's own mark as the profile AVATAR and nothing else of
+  theirs — because a pastiche fails visibly and in a way you can
   name, where "the editor feels limited" is not actionable. Findings:
   `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, and the README's own
   showcase table links every page with what each one proves. Read the findings

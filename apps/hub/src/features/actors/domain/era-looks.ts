@@ -16,11 +16,20 @@ import type { FursonaTemplate } from "@/features/actors/domain/fursona-templates
 // a pastiche fails visibly and in a way you can name, where "the editor feels
 // limited" is not actionable.
 //
-// **Arrangement and palette, never a logo or a brand asset.** These are
-// trademarked visual designs and what is imitated is an era's aesthetic. No
-// artwork of anybody's is fetched, embedded or committed — the Win98 capture
-// used as reference carries third-party marks in its channel bar and none of
-// that appears here.
+// **Arrangement and palette, and the subject's own mark as the AVATAR.** These
+// are trademarked visual designs and what is imitated is an era's aesthetic;
+// no artwork of anybody's is fetched, embedded or committed here, and the
+// avatar a seeded page wears is hot-linked by `scripts/seed-pastiches.mjs`
+// rather than living in this repository.
+//
+// **That is a reversal, made deliberately on 2026-08-29.** These looks used to
+// carry no artwork at all, on the argument that an operating system's CHROME
+// is the thing being imitated and a logo is no part of it — while the eleven
+// social pastiches beside them each wore their subject's mark. The two sets
+// took opposite lines and it was written down as a deliberate difference
+// rather than settled. It is settled towards consistency now: a page with an
+// empty circle where every neighbour has a mark reads as unfinished rather
+// than as principled.
 //
 // **Not one new skin was added for any of them**, which is the finding that
 // shaped the whole phase. `retro` already IS Windows 98's raised bevel and
@@ -122,7 +131,19 @@ const section = (
  */
 const identity = (): ContainerBlock =>
   section("About", [
-    leaf("avatar", "Portrait"),
+    // **`contain`, because four of the five era marks are WORDMARKS** — the
+    // Windows XP, Vista and 7 lockups are about five times as wide as they are
+    // tall, and the avatar leaf is `object-cover` on a circle, so `cover`
+    // crops them to two meaningless fragments. That is exactly the fault
+    // `image_fit` was added for, found the first time the social pastiches
+    // were given their real logos.
+    //
+    // It reaches somebody who PICKS one of these as a template too, and that
+    // is the safer direction rather than a cost: `contain` and `cover` render
+    // a square portrait identically, and they differ only on a picture that is
+    // not square — where showing the whole of somebody's character beats
+    // cropping it.
+    leaf("avatar", "Portrait", { style: { image_fit: "contain" } }),
     leaf("handle", "Handle"),
     leaf("owner", "Owner"),
   ]);

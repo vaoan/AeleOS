@@ -452,10 +452,36 @@ that says what it is allowed to copy.
 
 What is true is narrower: each page uses the site's own mark as the profile
 AVATAR, hot-linked and never committed, and nothing else of theirs is
-reproduced. The era looks take the opposite line and use no artwork at all,
-because an operating system's chrome IS the thing being imitated. That
-difference is deliberate and is now written down in both places rather than in
-neither.
+reproduced.
+
+**Both sets wear their subject's mark now (2026-08-29), and that closes a split
+this document used to record as deliberate.** The era looks carried no artwork
+at all, on the argument that an operating system's CHROME is the thing being
+imitated and a logo is no part of it, while the eleven social pages each wore
+their subject's. Two sets, opposite lines, written down rather than settled —
+and the note said which way it should go was a judgement about this project
+rather than something measurable. The judgement was made: consistency. **A page
+with an empty circle where every neighbour has a mark reads as unfinished
+rather than as principled.**
+
+Each look wears the mark that shipped WITH its release rather than a modern
+Windows logo — the 1998 flag, the XP wordmark, Vista's and 7's own lockups, the
+flat 2012 flag — which is the same era-fidelity the palettes are held to.
+
+**Four of the five are WORDMARKS, and that made `image_fit: "contain"`
+load-bearing rather than decorative.** The XP, Vista and 7 lockups are about
+five times as wide as they are tall, and the avatar leaf is `object-cover` on a
+circle: `cover` crops them to two meaningless fragments. That is gap 6 exactly,
+met a second time — the fault was first found by giving the social pastiches
+their real logos, where hi5's 94x45 wordmark came through as two pieces.
+
+**It reaches anybody who PICKS one of these as a template, and that is the safe
+direction.** `contain` and `cover` render a square portrait identically and
+differ only on a picture that is not square, where showing the whole of
+somebody's character beats cropping it.
+
+**They are public and listed now, too.** Seeded `unlisted`, the five looks this
+project is proudest of were the five nobody browsing `/137` could find.
 
 ## Found while building the five era looks (2026-08-28)
 
