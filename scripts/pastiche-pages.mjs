@@ -316,20 +316,30 @@ const myspace = [
 // legibility and does not recover it until `L≈0.19` (`ΔL≈-0.28`), where the
 // solved ink flips from dark to light text and both clear at once — a much
 // larger move. Lighter needs only `ΔL≈+0.11`: `surface: "#737989"` (OKLCH
-// `L≈0.577`) reads ink 4.52:1, muted 4.53:1, edge 3.02:1 against itself —
-// every floor cleared, barely, which is what "nearest" means. **Fidelity
-// loses to readability here, and readability wins**: an unreadable page is
+// `L≈0.577`) reads ink 4.52518:1, muted 4.53026:1, edge 3.00432:1 against
+// itself — every floor cleared, but the edge by four thousandths rather than
+// two hundredths: 0.00432 of headroom above the 3:1 floor, not 0.02, which is
+// the difference between "barely clears" and "knife-edge". Any change to
+// `derivePalette`'s constants or solve order is expected to redden the
+// surface-contrast test over this exact value — that is the guard doing its
+// job, not a hazard to work around. **Fidelity loses to readability here, and
+// readability wins**: an unreadable page is
 // not a pastiche of anything, so the surface is the swept value rather than
 // the sampled one. It still reads close to the capture's dusk boxes — lighter
 // than the exact blend, not a different colour family — and every box on the
 // page is painted with it outright, standing in for the photograph showing
 // through rather than being it.
 //
-// **Nothing in the build would have caught the original value.**
+// **Nothing in the build would have caught the original value at the time —
+// and an AUTHOR's page still ships with no such check today.**
 // `pnpm check:contrast` measures the design system's own fixed token pairs
 // and never reads a page's own authored colour, so this could have shipped
-// unreadable with every gate green — recorded as its own gap in the pastiche
-// findings, separate from gap 13.
+// unreadable with every gate green. `pastiche-pages.test.ts` now pins ink,
+// muted and edge contrast for every one of this file's own pages that sets
+// a surface, so this exact regression would turn that suite red — but that
+// pin covers only these seeded pages; it is not a general checker, and a
+// real person choosing a colour on their own page gets no feedback at all.
+// Recorded as its own gap in the pastiche findings, separate from gap 13.
 //
 // `border: "solid"` with `radius: "square"` on every section draws the thin,
 // sharp-cornered edge the capture has in place of this page's old rounded
@@ -1528,7 +1538,7 @@ const fotologTheme = theme({
   // **Measured (task 7): `#f0f0f0`, 31.7% of the frame** — the grey every
   // boxed panel (login, member stats, the three-column footer) sits on,
   // clearly distinct from the white field it floats over. Clears the gate:
-  // ink 17.26:1, muted 4.94:1, edge 3.20:1 against this surface.
+  // ink 17.28927:1, muted 4.91950:1, edge 3.20917:1 against this surface.
   surface: "#f0f0f0",
   canvas: "none",
   skin: "default",

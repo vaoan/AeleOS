@@ -66,6 +66,11 @@ in the findings document linked below — by now they are most of the style bag.
 That list is deliberately not restated here as a count, because a count is the
 first thing to go stale.
 
+**Every page below also carries its own reference capture at its foot** — the
+real archived page, live site or screenshot it was rebuilt against, embedded
+on the page itself rather than left to a caption, so a visitor can compare the
+pastiche to its subject without leaving it.
+
 | page                                                                 | the era                    | what it proves the editor can do                                                                                                          |
 | -------------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | [MySpace](https://me.furrycolombia.com/137/myspace)                  | 2005                       | A night-skyline photograph behind every box, a two-column body on `weights`, a Top 8, and a Winamp-chromed music player                   |
@@ -137,6 +142,9 @@ was built from a screenshot fetched from Wikipedia and looked at.
 They are **public and listed on `/137`** beside the social pastiches. They were
 `unlisted` at first, which made the five this project is proudest of the five
 nobody browsing the profile could find.
+
+Each carries its own reference screenshot at its foot too, the same as the
+eleven pages above.
 
 | look                                                        | built on              | what it proves, or fails to                                                                      |
 | ----------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |

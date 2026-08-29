@@ -94,8 +94,11 @@ describe("pages with a surface stay readable", () => {
 
   it("found pages to check", () => {
     // The vacuous-suite guard again: if parseTheme ever started reading every
-    // surface back as null, every case below would pass by not existing.
-    expect(withSurface.length).toBeGreaterThan(0);
+    // surface back as null, every case below would pass by not existing —
+    // and a weaker `toBeGreaterThan(0)` would still pass if parseTheme
+    // regressed and read only some of the ten as non-null. Pinned to the
+    // exact count so that regression turns this red instead of quiet.
+    expect(withSurface.length).toBe(10);
   });
 
   // **This pins our sixteen pages. It does not close gap 14.** Gap 14 is that
@@ -105,7 +108,7 @@ describe("pages with a surface stay readable", () => {
   // pages this repository itself ships is sitting on the same mid-lightness
   // hole `#555a6a` was found in, and a future change to the accent, the
   // background stops, the OKLCH constants or the solve order that reopens it
-  // on any of these nine pages turns red here instead of shipping quietly.
+  // on any of these ten pages turns red here instead of shipping quietly.
   //
   // The floors are `derivePalette`'s own — `TEXT = 4.5`, `NON_TEXT = 3` — not
   // reimplemented, and the palette itself comes from the real function, given

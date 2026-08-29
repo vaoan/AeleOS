@@ -46,6 +46,10 @@
     // pastiche. A real username, quoted so the capture can be found again —
     // "a real profile" is not something a reader can check.
     "akioyang",
+    // Sonico's own handle-leaf title, quoted verbatim in the pastiche
+    // findings' account of how that title has no shared convention across
+    // the sixteen seeded pages.
+    "Usuario",
     // arquivo.pt's own missing-page placeholder, quoted verbatim because it
     // appears INSIDE some captures and a reader meeting it in a screenshot
     // should be able to grep for what it is.

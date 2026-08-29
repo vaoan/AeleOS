@@ -689,9 +689,12 @@ Key choices and _why_:
   `radius: "soft"` to mean anything.
 
   **That page arrived the same day — hi5 and Sonico (2026-08-29).** Every
-  section on both now carries `radius: "soft"` with `corners: "tl,tr"`,
-  `heading_gap: "none"` and `heading_pad: "snug"`: the bar rounds across its
-  top, the body squares off at its foot. Which of the two keeps `heading:
+  section on both now carries `radius: "soft"` with `corners: "tl,tr"` and
+  `heading_pad: "snug"`: the bar rounds across its top, the body squares off
+  at its foot. (`heading_gap: "none"` was set alongside these too and removed
+  in a later pass — both are `heading: "bar"` or `heading: "gradient"`,
+  already barred, and a barred heading's gap already collapses with no key
+  set at all; see the Task 10 fix below.) Which of the two keeps `heading:
 "gradient"` was decided from a fresh sample of each capture rather than
   copied from the other — hi5's SIGN IN / SEARCH IN YOUR CITY / POPULAR
   VIDEOS bars read a real vertical sheen pixel by pixel (`#6d95b3` →
@@ -888,12 +891,15 @@ Key choices and _why_:
   archived (or, for two, live) capture; `docs/superpowers/specs/2026-08-27-pastiche-findings.md`
   and this file's own pastiche entries above carry each page's account.
   **Fur Affinity gained the window-shape keys** — `heading: "bar"`,
-  `heading_gap: "none"` and `radius: "square"` on its three named sections —
+  `heading_pad: "roomy"` and `radius: "square"` on its three named sections —
   confirmed from a _second_, newer arquivo.pt capture
   (`20191214070143`, December 2019) whose date does not match the page's own
   (2008, from a `web.archive.org` capture unreachable now): kept at 2008 and
   the mismatch stated in the comment, the same shape already recorded for
-  Facebook's two captures above. **GeoCities changed once, narrowly**: every
+  Facebook's two captures above. (`heading_gap: "none"` was set alongside
+  these too and removed in a later pass — the sections are already barred,
+  which already welds the bar flush to its content with no key set at all;
+  see the Task 10 fix below.) **GeoCities changed once, narrowly**: every
   section now carries `radius: "square"`, which nothing had set before —
   a 1998 personal homepage rounds nothing, where the default skin rounds at
   `--skin-round: 1`. Neither page took a `corners` key: a task brief asked for

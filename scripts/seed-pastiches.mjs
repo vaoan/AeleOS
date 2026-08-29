@@ -116,9 +116,10 @@ try {
   }
 
   // **The era looks, seeded from the same data the picker offers.** They are
-  // `unlisted` like every other pastiche: a profile lists only public
-  // fursonas, so these stay reachable by address and absent from `/en/137`,
-  // which keeps that curated page what it is.
+  // `public`, not `unlisted` like every other pastiche — see the update below
+  // this loop's insert, which is where that was corrected — so these are
+  // reachable by address AND listed on `/en/137`, unlike the eleven social
+  // pastiches.
   for (const look of ERA_LOOKS) {
     const handle = look.id;
     const { name: displayName, avatar } = ERA_LOOKS_META[look.id];

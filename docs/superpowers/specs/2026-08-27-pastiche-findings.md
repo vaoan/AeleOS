@@ -774,22 +774,36 @@ one lands near the middle by construction, which is exactly the region nothing
 here can serve.
 
 The page was corrected by sweeping the lightness axis for the nearest colour
-that clears 4.5:1 both ways, `surface: "#737989"` (ink 4.52:1, muted 4.53:1,
-edge 3.02:1) — see the theme's own comment in `pastiche-pages.mjs` for the
-full sweep. **That correction is not what this gap is about.** This gap is
-that nothing short of a human running the numbers by hand would have caught
-the failing value at all.
+that clears 4.5:1 both ways, `surface: "#737989"` (ink 4.52518:1, muted
+4.53026:1, edge 3.00432:1) — see the theme's own comment in
+`pastiche-pages.mjs` for the full sweep. The edge clears its 3:1 floor by
+0.00432, four thousandths rather than the two hundredths a rounder reading
+suggests — a knife-edge rather than a comfortable margin, and any future
+change to `derivePalette`'s constants or solve order is expected to redden
+`pastiche-pages.test.ts`'s surface-contrast case over this exact value.
+**That correction is not what this gap is about.** This gap is that nothing
+short of a human running the numbers by hand would have caught the failing
+value at all.
 
 `pnpm check:contrast` — the one gate in this repository that measures
 contrast — reads `globals.css`'s own fixed token pairs (heading on card, body
 on card, and so on for both modes) and asserts each clears its floor. It
 never reads a stored theme: an author's `surface`, `accent` or `background`
 is invisible to it by construction, because those are rows in a database
-this check does not query. `pastiche-pages.test.ts` runs every page through
-`parseTheme` and the block schema, and neither asks whether the RESULT reads
-— both ask only whether the shape is valid `jsonb`. So a page can set a
-perfectly well-formed `surface` that happens to sit near mid-lightness and
-ship with every required check green, exactly as this one nearly did.
+this check does not query. At the time this was found, `pastiche-pages.test.ts`
+ran every page through `parseTheme` and the block schema alone, and neither
+asked whether the RESULT reads — both asked only whether the shape is valid
+`jsonb`. So a page could set a perfectly well-formed `surface` that happens to
+sit near mid-lightness and ship with every required check green, exactly as
+this one nearly did.
+
+**A case was added the same day that narrows this**, and the supporting
+sentence above is now dated rather than current: `pastiche-pages.test.ts`'s
+"pages with a surface stay readable" runs `derivePalette` for every one of
+the ten seeded pages that sets a surface and asserts ink and muted clear
+4.5:1 and edge clears 3:1 against it — exactly the regression above, which
+would now turn that suite red instead of shipping quietly. **The gap's own
+conclusion is unchanged by that case** — see below.
 
 **Not proposing a checker.** Naming the hole is the job here, not filling it:
 a general "is this author's palette readable" gate is a harder problem than
@@ -853,3 +867,33 @@ sound and `arquivo.pt`'s endpoint is not, and both routes around that were
 already closed on purpose before this was found. Not a defect in the
 reference mechanism — all sixteen captures load, and each shows the right
 page. What is wrong is the shape, not the content.
+
+### 16. Every identity leaf is a label over a value, and nothing says the three together read as a person
+
+Found closing out this branch, not building it — the same way gap 14 was.
+It predates this branch entirely, sits under all sixteen pages here and
+under every real author's page besides, and no single restyle task in this
+plan could have owned it: it is a property of `identity-leaves.tsx`, not of
+any one page's style bag.
+
+**What is there.** `AvatarLeaf`, `HandleLeaf`, `NameLeaf` and `OwnerLeaf` each
+draw an optional `Label` above their own value — the leaf's own `title_en` —
+and none of the four knows the other three exist. Stacked at the top of a
+page as the required-blocks shim arranges them, the result is a short column
+of label-value pairs rather than a single identity: the Threads page reads
+_aeleos / Aeleos: aeleos / aeleos: threads_ — three near-identical lines
+before any content the page's own author wrote.
+
+**Its visible edge is the handle leaf's title**, because that is the one
+field every page sets and every page sets differently, with no shared
+convention across the sixteen: `URL`, `Messenger ID`, `@aeleos`, `aeleos`,
+`hi5 ID`, `Usuario`, `My handle`, `fotolog`, `Username`, `Profile ID`. Each
+was chosen to fit its own subject and none is wrong on its own page — the
+gap is that there is no rule saying what this label is FOR, so eleven
+authors reaching for the same field reached eleven different ways.
+
+**Not proposing a fix.** Naming it is the job here, matching gaps 13 and 14:
+whether identity belongs in one composed block instead of four independent
+ones, whether a label is owed here at all, and what a handle's title should
+say when nobody has told it what convention to follow are all product
+questions this file's method does not settle in passing.
