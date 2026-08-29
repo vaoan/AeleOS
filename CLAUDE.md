@@ -649,9 +649,11 @@ Key choices and _why_:
   at `20081024054301` as its own subject: a photograph background, `border:
 "solid"` with `radius: "square"` on every section for the thin
   square-cornered edge the capture has in place of the old rounded default,
-  and a `surface` sampled from the capture's own boxes. `heading_gap` —
-  unused anywhere in this file until this landed — welds each bar flush to
-  its content. **What did not come along is the translucency itself**: a
+  and a `surface` sampled from the capture's own boxes. `heading_gap` was set
+  here too, on the belief that it welded each bar flush to its content —
+  removed in a later pass once `blocks.tsx` was read closely enough to show
+  the barred default already does that with no key set at all (see the Task
+  10 fix below). **What did not come along is the translucency itself**: a
   block's fill is one opaque colour with no alpha channel, so the sampled
   tone stands in for the photograph showing through rather than being it —
   recorded as gap 13 in the pastiche findings rather than approximated past.
@@ -908,9 +910,12 @@ Key choices and _why_:
 "tl,tr"` on all three sections, and `heading: "bar"` on the first one, whose
   own name — "Aeleos (Available)" — is the literal text a real Messenger
   title bar carries, so the measured navy accent finally renders as a bar
-  instead of sitting unused. `heading_corners: "tl,tr"` matches it and
-  `heading_gap: "none"` welds it flush to Aeleos's own info beneath it. The
-  board changed nothing at all: `chrome: "bare"` and a dark mode no crawler
+  instead of sitting unused. `heading_corners: "tl,tr"` matches its own bar's
+  corners to the section's. (`heading_gap: "none"` was set alongside it and
+  removed in a later pass — the section is already barred, which already
+  welds it flush to Aeleos's own info beneath it with no key at all; see the
+  Task 10 fix below.) The board changed nothing at all: `chrome: "bare"` and
+  a dark mode no crawler
   will ever see are both already right. Bluesky and Threads were re-measured
   live rather than re-derived — both confirmed unmoved, Threads across four
   readings with one transient outlier that read the CARD colour rather than
