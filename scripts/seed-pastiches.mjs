@@ -372,7 +372,10 @@ const messengerTheme = theme({
 });
 
 // ---------------------------------------------------------------------------
-// 3 — A dark microblog board. `timeline` is the mode this exists to test.
+// 3 — A dark microblog board. It was built to test `timeline`, and it does not
+//     use it: `list` — a stack with a hairline and no gap — is what a feed
+//     actually is, and it did not exist when this page was written. The
+//     rebuild moved to it and this line went on naming the old mode.
 // ---------------------------------------------------------------------------
 
 const post = (when, text) => leaf("text", when, { description_en: text });
@@ -591,7 +594,9 @@ const threadsTheme = theme({
 });
 
 // ---------------------------------------------------------------------------
-// 6 — hi5. Loud, yellow, widget-shaped.
+// 6 — hi5. Blue, busy, widget-shaped. The yellow everybody remembers is the
+//     LOGO rather than the site; see the theme note below, which is where
+//     that correction was measured.
 // ---------------------------------------------------------------------------
 
 const hi5 = [
@@ -642,9 +647,15 @@ const hi5 = [
 ];
 
 // **hi5 was BLUE, not yellow.** The first attempt built a bright orange candy
-// page off the memory of the logo; a 2007 capture of the real site is blue and
-// grey title bars over white content, the same idiom MySpace used. The orange
-// survives only as the accent, which is where it actually was.
+// page off the memory of the LOGO; a 2007 capture of the real site is blue and
+// grey title bars over white content, the same idiom MySpace used.
+//
+// **No orange survives anywhere in this theme**, and a sentence here used to
+// claim it did — "the orange survives only as the accent, which is where it
+// actually was" — over an accent that is and always was `#4a7ebb`, a blue. The
+// correction was made and the sentence describing it was not, which is the
+// exact shape this repository keeps paying for: a note that reads like a
+// measurement, sitting four lines above the value that falsifies it.
 const hi5Theme = theme({
   background: gradient(180, [
     { color: "#f2f5f9", at: 0 },
@@ -812,12 +823,12 @@ const geocitiesTheme = theme({
 // 9 — Fur Affinity, the furry web's own. Dark, dense, art first, and the one
 //     shape none of the eight had: a WALL of short rows under everything else.
 //
-// **Built from knowledge rather than from a capture**, unlike the eight above:
-// web.archive.org would not answer this session and the live site refuses an
-// unauthenticated fetch. What is claimed here is the FEEL — a dark page, a
-// banner, a narrow stats rail beside a wide body, a thumbnail grid and a
-// shouts wall — not a palette anybody measured. Check it against a real
-// capture before treating any colour in it as reference.
+// **Evidence-backed since 2026-08-28, from a real December 2008 capture.** It
+// was built from knowledge first, and it was measurably WRONG: a near-black
+// ground and saturated teal header bars, where the capture shows a slate
+// blue-grey ground and light silver bars carrying DARK text. It had been
+// reading as a modern dark theme rather than as 2008. Both were corrected
+// against the capture — see the theme below, where the measurement lives.
 // ---------------------------------------------------------------------------
 
 const furaffinity = [
@@ -946,7 +957,12 @@ const furaffinityTheme = theme({
 //      Structurally the opposite of every page above: ONE photograph, and then
 //      a guestbook longer than the rest of the page put together.
 //
-// Built from knowledge rather than from a capture — see the note on 9.
+// **The one page still built from knowledge rather than from a capture**, and
+// the only one. Its snapshots render the logged-out homepage with broken
+// styling rather than a profile, and no profile capture has been found — so
+// what is claimed here is the FEEL, one photograph and a guestbook longer than
+// the rest of the page, not a palette anybody measured. Check it against a
+// real capture before treating any colour in it as reference.
 // ---------------------------------------------------------------------------
 
 const fotolog = [
@@ -1011,8 +1027,11 @@ const fotologTheme = theme({
 // 11 — Facebook, ~2008. Blue bars, a narrow left rail of information boxes,
 //      and a wall. The most COPIED layout of its decade.
 //
-// Built from knowledge rather than from a capture — see the note on 9. The
-// blue is the one thing here anybody would recognise on sight.
+// **Confirmed against a real March 2007 capture (2026-08-28).** `#3b5998` was
+// already right — the one colour of theirs anybody would recognise on sight —
+// and the capture added a detail the model could not then express: the navy
+// bar carries a LIGHTER blue sub-bar beneath it. `heading: "soft"` is that
+// second tone, and the subordinate sections below wear it.
 // ---------------------------------------------------------------------------
 
 const facebook = [
