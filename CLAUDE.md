@@ -658,10 +658,12 @@ Key choices and _why_:
   `seed-pastiches.mjs` reads `SUPABASE_DB_PASSWORD` and calls `process.exit`
   at module top level and then `client.connect()`, so it cannot be imported at
   all — the only way to find out whether a page was valid was to write it to
-  production and look. That is why the page definitions now live in a module
-  the seeder imports: **a thing that cannot be imported cannot be checked**,
-  and moving it is usually cheaper than whatever the alternative gate would
-  have been.
+  production and look. That is why the page definitions now live in
+  `scripts/pastiche-pages.mjs`, the module the seeder imports — named here in
+  the commit before that module existed, which is worth marking, since a note
+  that runs ahead of its code reads exactly like one that has fallen behind
+  it: **a thing that cannot be imported cannot be checked**, and moving it is
+  usually cheaper than whatever the alternative gate would have been.
 
 - **A window is corners chosen one at a time (2026-08-29).** `corners` and
   `heading_corners` name which of a block's — and its bar's — corners are
