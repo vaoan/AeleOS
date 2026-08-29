@@ -620,15 +620,33 @@ Key choices and _why_:
   **The MySpace pastiche was built from the default white-box chrome instead
   of that subject, and this is the one place that was still true after it —
   closed 2026-08-29.** `myspaceTheme` now carries `profile.myspace.com/akioyang`
-  at `20081024054301` as its own subject: a photograph background, `surface:
-"#555a6a"` sampled from the capture's boxes, and `border: "solid"` with
-  `radius: "square"` on every section for the thin square-cornered edge the
-  capture has in place of the old rounded default. `heading_gap` — unused
-  anywhere in this file until this landed — welds each bar flush to its
-  content. **What did not come along is the translucency itself**: a block's
-  fill is one opaque colour with no alpha channel, so the sampled tone stands
-  in for the photograph showing through rather than being it — recorded as
-  gap 13 in the pastiche findings rather than approximated past.
+  at `20081024054301` as its own subject: a photograph background, `border:
+"solid"` with `radius: "square"` on every section for the thin
+  square-cornered edge the capture has in place of the old rounded default,
+  and a `surface` sampled from the capture's own boxes. `heading_gap` —
+  unused anywhere in this file until this landed — welds each bar flush to
+  its content. **What did not come along is the translucency itself**: a
+  block's fill is one opaque colour with no alpha channel, so the sampled
+  tone stands in for the photograph showing through rather than being it —
+  recorded as gap 13 in the pastiche findings rather than approximated past.
+
+  **The first sampled surface made the page unreadable, and nothing in the
+  build would have said so — closed in review, same day.** Averaging five
+  patches of a translucent box blended with a photograph landed on
+  `#555a6a`, OKLCH `L≈0.4691` — almost exactly mid-lightness, which is the
+  one region `derivePalette` cannot serve text in either direction. Measured:
+  ink read 2.86:1 against it, muted 3.06:1, edge 3.01:1, against floors of
+  4.5, 4.5 and 3.0 — the same "no direction clears the minimum" hole this
+  file already documents for `#008080`. The fix is `surface: "#737989"`, the
+  nearest colour to the sample along the same lightness axis that clears
+  4.5:1 both ways (found by sweeping, not guessing: darker does not recover
+  legibility until `ΔL≈-0.28`, where the solved ink flips from dark to
+  light text; lighter needs only `ΔL≈+0.11`). **`pnpm check:contrast` never
+  caught this and structurally cannot**: it measures `globals.css`'s own
+  fixed token pairs and never reads a stored theme, so an author's `surface`
+  can sit on the one lightness a palette cannot serve and every gate stays
+  green. Recorded as gap 14 in the pastiche findings, separate from gap 13 —
+  naming the hole rather than proposing a general checker.
 
   **`corners` was tried alongside `radius: "square"` and removed.** A key
   named in the brief turned out to be a no-op there: `radius: "square"` drives

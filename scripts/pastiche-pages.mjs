@@ -296,11 +296,43 @@ const myspace = [
 // **Semi-transparent boxes are NOT reachable, and that is recorded as gap 13
 // in the pastiche findings rather than approximated.** A block's fill is
 // `theme.surface`, one opaque colour with no alpha channel — there is no key
-// for translucency anywhere in the style bag. `surface: "#555a6a"` is the
-// nearest reachable thing: every box on the page is painted with the sampled
-// tone outright, which reads close to what the capture shows but is a flat
-// colour standing in for a photograph showing through, not the mechanism
-// itself.
+// for translucency anywhere in the style bag.
+//
+// **The sampled average was tried as `surface` and made the page
+// unreadable, measured rather than assumed.** `#555a6a` is OKLCH
+// `L≈0.4691` — mid-lightness by construction, because averaging five
+// patches of a *translucent* box blended with a photograph behind it lands
+// exactly where a flat opaque colour cannot serve text in either direction.
+// Run through this theme's own `derivePalette` (background `#e8eef7`,
+// `hardestStop` of the field): ink read 2.86:1 against that surface, muted
+// 3.06:1, edge 3.01:1 — against floors of 4.5, 4.5 and 3.0. The same tokens
+// read 16.86 / 18.00 / 17.71 against the field, so the failure is specific to
+// the surface, not to the page's palette generally. Walking `dimmestLegible`
+// the full 100 steps toward black cannot exceed ~3.06 there: it is the same
+// "no direction clears the minimum" hole this codebase already documents for
+// `#008080`, which sits at almost exactly the same lightness.
+//
+// **The fix is a colour nearest `#555a6a` along the same lightness axis that
+// clears 4.5:1 for both ink and muted, found by sweeping rather than
+// guessing.** Holding the sampled hue and chroma fixed (`H≈271.65`,
+// `C≈0.0267`) and walking lightness in both directions: darker crosses zero
+// legibility and does not recover it until `L≈0.19` (`ΔL≈-0.28`), where the
+// solved ink flips from dark to light text and both clear at once — a much
+// larger move. Lighter needs only `ΔL≈+0.11`: `surface: "#737989"` (OKLCH
+// `L≈0.577`) reads ink 4.52:1, muted 4.53:1, edge 3.02:1 against itself —
+// every floor cleared, barely, which is what "nearest" means. **Fidelity
+// loses to readability here, and readability wins**: an unreadable page is
+// not a pastiche of anything, so the surface is the swept value rather than
+// the sampled one. It still reads close to the capture's dusk boxes — lighter
+// than the exact blend, not a different colour family — and every box on the
+// page is painted with it outright, standing in for the photograph showing
+// through rather than being it.
+//
+// **Nothing in the build would have caught the original value.**
+// `pnpm check:contrast` measures the design system's own fixed token pairs
+// and never reads a page's own authored colour, so this could have shipped
+// unreadable with every gate green — recorded as its own gap in the pastiche
+// findings, separate from gap 13.
 //
 // `border: "solid"` with `radius: "square"` on every section draws the thin,
 // sharp-cornered edge the capture has in place of this page's old rounded
@@ -326,7 +358,7 @@ const myspaceTheme = theme({
     { color: "#ffffff", at: 100 },
   ]),
   accent: "#003399",
-  surface: "#555a6a",
+  surface: "#737989",
   // **No animation at all, which is what a flat 2008 page had.** This used to
   // fake it with a grid at the density floor, because `CANVASES` did not list
   // `none` — the mechanism was there the whole time and only the picker was

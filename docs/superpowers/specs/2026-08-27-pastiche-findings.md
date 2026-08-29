@@ -689,3 +689,53 @@ now closed. This is neither: `surface` exists and is exactly the second
 ground gap 8 built, and the page has one and used it. What is missing is a
 third dial on that same key — how much of what is behind it comes through —
 which neither gap needed and neither closed.
+
+### 14. A page can ship unreadable, and nothing in the build says so
+
+Found reviewing this task, not while building it — which is itself worth
+keeping: nobody who wrote the code above ran the numbers, and a review that
+did found a page that would have shipped failing its own readability by a
+wide margin.
+
+`surface: "#555a6a"` — the average gap 13 sampled — is OKLCH `L≈0.4691`,
+almost exactly mid-lightness. Run through this theme's own `derivePalette`:
+ink read 2.86:1 against it, muted 3.06:1, edge 3.01:1, against floors of 4.5,
+4.5 and 3.0. The same tokens read 16.86 / 18.00 / 17.71 against the page's
+field, so nothing else about the palette was wrong — only this one colour.
+Walking `dimmestLegible`'s full 100 steps toward black cannot exceed ~3.06
+against a ground at that lightness: the same "no direction clears the
+minimum" hole this file already documents for `#008080`, which sits at
+almost the same `L`. Averaging patches of a _translucent_ box blended with a
+photograph is what produced it — the blend of a light photograph and a dark
+one lands near the middle by construction, which is exactly the region nothing
+here can serve.
+
+The page was corrected by sweeping the lightness axis for the nearest colour
+that clears 4.5:1 both ways, `surface: "#737989"` (ink 4.52:1, muted 4.53:1,
+edge 3.02:1) — see the theme's own comment in `pastiche-pages.mjs` for the
+full sweep. **That correction is not what this gap is about.** This gap is
+that nothing short of a human running the numbers by hand would have caught
+the failing value at all.
+
+`pnpm check:contrast` — the one gate in this repository that measures
+contrast — reads `globals.css`'s own fixed token pairs (heading on card, body
+on card, and so on for both modes) and asserts each clears its floor. It
+never reads a stored theme: an author's `surface`, `accent` or `background`
+is invisible to it by construction, because those are rows in a database
+this check does not query. `pastiche-pages.test.ts` runs every page through
+`parseTheme` and the block schema, and neither asks whether the RESULT reads
+— both ask only whether the shape is valid `jsonb`. So a page can set a
+perfectly well-formed `surface` that happens to sit near mid-lightness and
+ship with every required check green, exactly as this one nearly did.
+
+**Not proposing a checker.** Naming the hole is the job here, not filling it:
+a general "is this author's palette readable" gate is a harder problem than
+this file's method can settle in passing — it would need to run
+`derivePalette` against every stored theme and decide a floor for how much
+unreadability a person is allowed to choose for their own page, which is a
+product question (`PageThemeSwitch` already exists because an author's page
+is rendered exactly as picked, unreadable or not) rather than a build one.
+What is recorded here is narrower and checkable by inspection: the gate that
+exists checks the design system, not the data, and the two are different
+questions answered by different code, so a passing `check:contrast` has
+never been evidence that a page's own colours are legible.
