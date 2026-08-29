@@ -1261,7 +1261,11 @@ begin
          or jsonb_array_length(p_theme -> 'canvasColours') > 8 then
         raise exception 'canvasColours: at most 8' using errcode = '22023';
       end if;
-    elsif v_key = 'accent' then
+    elsif v_key in ('accent', 'surface') then
+      -- `surface` is what a PANEL is painted with, where `accent` is what a bar
+      -- or a button is. Both are one colour and neither is nullable here: a
+      -- page that wants the design's own omits the key rather than storing a
+      -- null, which is how absence means inherit everywhere in this model.
       if v_value !~ '^#[0-9a-fA-F]{6}$' then
         raise exception '%: must be #rrggbb', v_key using errcode = '22023';
       end if;

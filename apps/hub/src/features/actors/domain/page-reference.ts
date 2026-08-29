@@ -296,11 +296,15 @@ function fieldNotes(kind: LeafKind): string {
  * This is the fix for the Important finding that section 8 named 4 of the
  * theme's 14 keys and section 1 promised "colours, canvas, skin and layout"
  * while delivering none of the canvas or the gradient's own shape.
+ *
+ * `surface` joined on 2026-08-28; the `Record<keyof ActorTheme, string>` above is what refused to compile until it had a meaning, which is the documentation gate being structural rather than remembered.
  */
 export const THEME_KEY_MEANINGS = {
   background:
     "the page's own background: a gradient object (see below), or `null` for the design's own",
   accent: "the accent colour, as `#rrggbb`, or `null` for the design's own",
+  surface:
+    "what panels are painted with, as `#rrggbb`, or `null` to step off the background. Setting it lets a page be silver on teal or near-white on blue, which a stepped panel cannot be; text is then solved against whichever of the two grounds leaves least room",
   canvasColours: `the moving canvas's own colours, one \`#rrggbb\` per slot the chosen canvas paints with (up to ${MAX_CANVAS_COLOURS}), or \`null\` for the design's own`,
   canvas:
     "which moving backdrop plays behind the page — one of the canvases below",

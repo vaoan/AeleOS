@@ -931,6 +931,9 @@ const furaffinityTheme = theme({
     { color: "#38444f", at: 100 },
   ]),
   accent: "#b9c4cd",
+  // The 2008 capture's panels are a shade LIGHTER than the slate ground rather
+  // than the same colour, which a stepped surface could not express.
+  surface: "#3f4d59",
   canvas: "none",
   skin: "default",
   font: "classic",
@@ -1079,6 +1082,8 @@ const facebookTheme = theme({
   // `#3b5998` off the 2007 capture, which is the one colour of Facebook's that
   // everybody can name.
   accent: "#3b5998",
+  // Facebook's body is white, not a tint of its own pale-blue page ground.
+  surface: "#ffffff",
   canvas: "none",
   skin: "default",
   font: "classic",

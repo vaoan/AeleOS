@@ -396,3 +396,89 @@ describe("the menu colour", () => {
     },
   );
 });
+
+// A PAGE MAY CHOOSE ITS PANEL COLOUR, AND THEN THERE ARE TWO GROUNDS.
+//
+// Without a choice a panel is a step away from the field, so every derived
+// colour is a tint of the ground behind it — which is why a page could never
+// be silver-on-teal or near-white-on-blue. One missing mechanism explained
+// most of the fidelity loss across three imitated designs; see the pastiche
+// findings.
+describe("a chosen surface colour", () => {
+  /** Windows 98: silver panels on a teal ground, which was unreachable. */
+  const TEAL = {
+    ...DEFAULT_GRADIENT,
+    stops: [
+      { color: "#008080", at: 0 },
+      { color: "#008080", at: 100 },
+    ],
+  };
+
+  it("is used exactly, not stepped away from the background", () => {
+    const chosen = "#c0c0c0";
+    const palette = derivePalette(TEAL, "#000080", chosen);
+
+    // Compared in OKLCH rather than by string: `css` rounds, so asserting the
+    // hex back would be asserting the formatter.
+    const want = srgbToOklch(parseHex(chosen) as number[]);
+    const got = colourOf(palette, "--surface-solid");
+    expect(got[0]).toBeCloseTo(want[0], 3);
+    expect(got[1]).toBeCloseTo(want[1], 3);
+  });
+
+  // **What choosing a surface must not do is make the FIELD worse**, and that
+  // is the honest claim rather than "both clear 4.5". Measured: `#008080` is a
+  // mid-lightness ground and its ink reaches 4.05 with no surface chosen at
+  // all — teal never cleared the minimum, and no derived colour can make it,
+  // because the author's own field is rendered exactly as picked and the
+  // page-level escape hatch is what makes that safe.
+  //
+  // An earlier version of this case asserted 4.5 on both and failed at 4.05.
+  // Lowering the threshold would have been rule 7's forbidden move; measuring
+  // what the system actually guarantees is the fix. The guarantee is that a
+  // second ground costs the first nothing.
+  it("costs the field nothing and lifts the panel", () => {
+    const field = srgbToOklch(parseHex("#008080") as number[]);
+    const surface = srgbToOklch(parseHex("#c0c0c0") as number[]);
+
+    const bare = derivePalette(TEAL, "#000080");
+    const chosen = derivePalette(TEAL, "#000080", "#c0c0c0");
+    const bareInk = colourOf(bare, "--ink");
+    const ink = colourOf(chosen, "--ink");
+
+    // The field reads exactly as well as it did, to four places.
+    expect(contrastRatio(ink, field)).toBeCloseTo(
+      contrastRatio(bareInk, field),
+      4,
+    );
+
+    // And the panel is genuinely legible, which is the point of choosing one.
+    expect(contrastRatio(ink, surface)).toBeGreaterThanOrEqual(4.5);
+
+    // Anti-vacuity: the panel must be BETTER than the stepped one it replaced,
+    // or this case would pass on a change that did nothing.
+    expect(contrastRatio(ink, surface)).toBeGreaterThan(
+      contrastRatio(bareInk, colourOf(bare, "--surface-solid")),
+    );
+  });
+
+  it("changes nothing at all when no surface is chosen", () => {
+    // The regression guard: every page that never picks one must derive
+    // byte-for-byte what it derived before this existed.
+    expect(derivePalette(TEAL, "#000080", null)).toEqual(
+      derivePalette(TEAL, "#000080"),
+    );
+    expect(derivePalette(TEAL, "#000080", "")).toEqual(
+      derivePalette(TEAL, "#000080"),
+    );
+  });
+
+  it("ignores a value that is not a colour", () => {
+    // A stored page is `jsonb` nobody controls, so the read path has to answer
+    // something rather than throw. Falling back to the stepped surface is the
+    // same answer absence gives.
+    expect(derivePalette(TEAL, "#000080", "not-a-colour")).toEqual(
+      derivePalette(TEAL, "#000080"),
+    );
+  });
+});

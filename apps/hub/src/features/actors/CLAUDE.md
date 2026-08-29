@@ -2230,6 +2230,25 @@ sizes are ordinary `spaces` and `weights`. So the arrangement lands and the
 colour does not, which is the most useful shape a failure can have — it names
 one mechanism rather than a feeling.
 
+**Gap 8 is CLOSED (2026-08-28): `theme.surface` is a page-level panel
+colour.** Null derives the stepped panel every page had, so nothing stored
+moved. Choosing one gives the page TWO grounds, and `derivePalette` solves ink,
+muted and edge against whichever leaves least room — the hardest-stop rule
+extended from one ground to two, with the same reason: text has to clear its
+minimum wherever it lands.
+
+**What it guarantees is narrower than "both grounds clear 4.5", and a failing
+test is what found the difference.** `#008080` sits near mid-lightness and
+never cleared the minimum with or without this key; measured, choosing a
+surface leaves the field at 4.05 exactly and takes the panel from 4.97 to
+10.61. The contract is **a second ground costs the first nothing**. Weakening
+the assertion to make it pass would have been rule 7's forbidden move.
+
+**`--bar-solid` follows the surface's own HUE now**, not the background's. It
+used to splice `bgH` onto the surface's lightness, which was harmless while a
+surface was always a tint of the ground and wrong the moment it stopped being
+one.
+
 **What the photographs then found, which the plan could not.** One gap
 explains most of the fidelity loss across three of the five: **a page cannot
 choose its SURFACE colour independently of its background.** Every derived

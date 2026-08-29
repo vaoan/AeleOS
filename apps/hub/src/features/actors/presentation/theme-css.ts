@@ -191,6 +191,8 @@ export function bodyBackgroundVars(theme: ActorTheme): Record<string, string> {
  *
  * @param theme - the chosen theme.
  * @returns the custom properties, ready for a rule.
+ *
+ * It hands `derivePalette` the author's chosen panel colour when there is one. That is not another emitted value: it changes what every derived colour is SOLVED against, because the page then has two grounds rather than one.
  */
 export function themeVars(theme: ActorTheme): Record<string, string> {
   // One property per colour, indexed from one, so a canvas asks for the slot it
@@ -205,7 +207,11 @@ export function themeVars(theme: ActorTheme): Record<string, string> {
   return {
     ...canvas,
     ...(theme.background
-      ? derivePalette(theme.background, theme.accent ?? THEME_SEEDS.accent)
+      ? derivePalette(
+          theme.background,
+          theme.accent ?? THEME_SEEDS.accent,
+          theme.surface,
+        )
       : {}),
     ...(theme.canvas === DEFAULT_THEME.canvas
       ? {}

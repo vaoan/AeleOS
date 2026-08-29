@@ -206,6 +206,7 @@
     "themeTitle": "How your page looks",
     "themeLive": "Changes show straight away",
     "themeAccent": "Accent",
+    "themeSurface": "Panels",
     "themeCanvasGroup": "The moving backdrop",
     "themeCanvasGroupHint": "It moves behind your page, under everything you write.",
     "themeCanvas": "Animation",

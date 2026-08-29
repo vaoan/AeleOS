@@ -60,6 +60,9 @@ describe("parseTheme", () => {
         stops: [{ color: "#1a1a2e", at: 0 }],
       },
       accent: "#00ff88",
+      // Absent from the stored object above, so it reads back as null — the
+      // stepped panel every page had before this key existed.
+      surface: null,
       canvasColours: ["#112233", "#445566"],
       canvas: "none",
       cursor: null,

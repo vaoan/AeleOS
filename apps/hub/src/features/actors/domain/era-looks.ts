@@ -144,6 +144,9 @@ const WIN98: FursonaTemplate = {
       { color: "#008080", at: 100 },
     ]),
     accent: "#000080",
+    // **Silver panels on a teal ground**, which was unreachable until a page
+    // could choose its own. This is the exact pairing that motivated the key.
+    surface: "#c0c0c0",
     canvas: "none",
     measure: "wide",
   }),
@@ -180,6 +183,9 @@ const WINXP: FursonaTemplate = {
       { color: "#9dc4f0", at: 100 },
     ]),
     accent: "#245edb",
+    // Luna's panels are near-white, where a stepped surface gave them the
+    // ground's own blue.
+    surface: "#f4f7fd",
     canvas: "none",
     measure: "wide",
   }),
@@ -277,6 +283,10 @@ const WIN8: FursonaTemplate = {
       { color: "#1d1d1d", at: 100 },
     ]),
     accent: "#0072c6",
+    // A tile has to be distinguishable from the ground it sits on, and a
+    // stepped surface on near-black is barely that. It is still ONE colour
+    // where Metro has seven — the gap this look exists to demonstrate.
+    surface: "#2d2d2d",
     canvas: "none",
     measure: "full",
   }),

@@ -66,6 +66,8 @@ export type Translate = (key: string) => string;
  *
  * The faces and the spacings are mapped from their vocabularies, so one added
  * without a label fails `messages.test.ts` rather than showing a raw key.
+ *
+ * It carries the panel colour's label beside the accent's.
  */
 export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
   return {
@@ -104,6 +106,7 @@ export function themeConfiguratorLabels(t: Translate): ThemeConfiguratorLabels {
       preview: t("gradientPreview"),
     },
     accent: t("themeAccent"),
+    surface: t("themeSurface"),
     canvasColours: t("themeCanvasColours"),
     canvasGroup: t("themeCanvasGroup"),
     canvasGroupHint: t("themeCanvasGroupHint"),

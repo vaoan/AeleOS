@@ -179,11 +179,16 @@ function dimmestLegible(
  *
  * @param background - the gradient somebody built.
  * @param accentHex - their accent, as `#rrggbb`.
+ * @param surfaceHex - what panels are painted with, or absent to step off the
+ *   background as every page did before this existed. A page that sets one has
+ *   TWO grounds, and every derived colour is then solved against whichever of
+ *   them leaves least room.
  * @returns every custom property the theme sets.
  */
 export function derivePalette(
   background: Gradient,
   accentHex: string,
+  surfaceHex?: string | null,
 ): Palette {
   // **The solve is memoised, and this is where the cost was.** The gradient
   // picker reports every pointer move, so a drag ran the two walks below — up
@@ -199,7 +204,7 @@ export function derivePalette(
   // `--field` is spliced in afterwards because it alone follows the whole
   // gradient, and building that string is a join rather than a search.
   const field = gradientCss(background);
-  const key = `${hardestStop(background)}|${accentHex}`;
+  const key = `${hardestStop(background)}|${accentHex}|${surfaceHex ?? ""}`;
   const remembered = SOLVED.get(key);
   if (remembered) return { ...remembered, "--field": field };
   // **Solved against the hardest stop, not the first.** Text crosses the whole
@@ -218,11 +223,24 @@ export function derivePalette(
   const dark = bgL < MID;
   // What every ratio below is solved against: the gradient at its hardest.
   const lifted: Oklch = [bgL, bgC, bgH];
-  const surface: Oklch = [
-    Math.max(0, Math.min(1, dark ? bgL - SURFACE_STEP : bgL + SURFACE_STEP)),
-    bgC,
-    bgH,
-  ];
+
+  // **A page may choose its panel colour outright, and then there are TWO
+  // grounds rather than one.** Without a choice a panel is a step away from
+  // the field, which is why a page could never be silver-on-teal or
+  // near-white-on-blue — every derived colour was a tint of the ground behind
+  // it. See the pastiche findings, where one missing mechanism explains most
+  // of the fidelity loss across three imitated designs.
+  const chosenSurface = surfaceHex ? parseHex(surfaceHex) : undefined;
+  const surface: Oklch = chosenSurface
+    ? srgbToOklch(chosenSurface)
+    : [
+        Math.max(
+          0,
+          Math.min(1, dark ? bgL - SURFACE_STEP : bgL + SURFACE_STEP),
+        ),
+        bgC,
+        bgH,
+      ];
 
   // **Which extreme reads better is measured, not assumed.** A saturated
   // background moves the crossover away from the midpoint, and deciding by
@@ -232,16 +250,45 @@ export function derivePalette(
   const textChroma = Math.min(bgC, 0.05);
   const light: Oklch = [0.97, textChroma, bgH];
   const shade: Oklch = [0.15, textChroma, bgH];
-  const inkIsLight =
-    contrastRatio(light, lifted) >= contrastRatio(shade, lifted);
+
+  // **Every ratio is solved against the HARDER of the two grounds**, which is
+  // the same rule the hardest stop already follows one level down: text has to
+  // clear its minimum wherever it lands, so the ground that leaves least room
+  // is the one worth measuring against. A single ink cannot serve a near-black
+  // field and a near-white panel, and nothing here pretends otherwise — what
+  // it guarantees is that the worse of the two is the case that was solved.
+  //
+  // In practice the two sit on the same side of mid: silver panels on teal,
+  // near-white on blue, dark tiles on black. That is not luck, it is what a
+  // page somebody designed looks like.
+  const worstFor = (candidate: Oklch): number =>
+    Math.min(
+      contrastRatio(candidate, lifted),
+      contrastRatio(candidate, surface),
+    );
+  const inkIsLight = worstFor(light) >= worstFor(shade);
   const ink = inkIsLight ? light : shade;
 
-  const muted = dimmestLegible(bgH, textChroma, lifted, TEXT, inkIsLight);
+  // Which ground actually bound the choice, so `muted` and `edge` are solved
+  // against the same one rather than each picking for itself — the fault this
+  // file already records, where two solvers reached two answers about one page.
+  const hardestGround: Oklch =
+    contrastRatio(ink, lifted) <= contrastRatio(ink, surface)
+      ? lifted
+      : surface;
+
+  const muted = dimmestLegible(
+    bgH,
+    textChroma,
+    hardestGround,
+    TEXT,
+    inkIsLight,
+  );
   const inkTwo: Oklch = [(ink[0] + muted[0]) / 2, muted[1], bgH];
   const edge = dimmestLegible(
     bgH,
     Math.min(bgC, 0.09),
-    lifted,
+    hardestGround,
     NON_TEXT,
     inkIsLight,
   );
@@ -275,7 +322,7 @@ export function derivePalette(
 
     // The bar is a translucent wash over whatever is behind it, so it is the
     // surface again with an alpha rather than a solved colour.
-    "--bar-solid": `oklch(${surface[0].toFixed(4)} ${surface[1].toFixed(4)} ${bgH.toFixed(2)} / 0.55)`,
+    "--bar-solid": `oklch(${surface[0].toFixed(4)} ${surface[1].toFixed(4)} ${surface[2].toFixed(2)} / 0.55)`,
     "--ink": css(...ink),
     "--ink-2": css(...inkTwo),
     "--muted": css(...muted),

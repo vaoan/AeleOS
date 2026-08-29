@@ -23,6 +23,7 @@
         ]
       },
       "accent": "#000080",
+      "surface": "#c0c0c0",
       "canvasColours": null,
       "canvas": "none",
       "cursor": null,
@@ -115,6 +116,7 @@
         ]
       },
       "accent": "#245edb",
+      "surface": "#f4f7fd",
       "canvasColours": null,
       "canvas": "none",
       "cursor": null,
@@ -211,6 +213,7 @@
         ]
       },
       "accent": "#1f9ea8",
+      "surface": null,
       "canvasColours": null,
       "canvas": "aurora",
       "cursor": null,
@@ -299,6 +302,7 @@
         ]
       },
       "accent": "#2b7fd4",
+      "surface": null,
       "canvasColours": null,
       "canvas": "none",
       "cursor": null,
@@ -383,6 +387,7 @@
         ]
       },
       "accent": "#0072c6",
+      "surface": "#2d2d2d",
       "canvasColours": null,
       "canvas": "none",
       "cursor": null,
