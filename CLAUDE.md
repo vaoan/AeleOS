@@ -628,6 +628,30 @@ Key choices and _why_:
   to be kept in step, **was current**: truthful about the file and false about
   the database. So the designed signal pointed the wrong way.
 
+  **THE ORDERING IS THE WHOLE RULE, AND IT WAS BROKEN ON 2026-08-29 BY THE
+  AGENT WHO WROTE IT DOWN.** "Apply LAST, immediately before merge, one pull
+  request at a time" is stated two paragraphs up; a heading-picture branch
+  hand-applied `validate_block` while an unrelated pull request was still open
+  and waiting on `e2e`. That request's `schema-drift` had already passed, so
+  nothing went red — the check does not re-run on its own — and the breach was
+  invisible rather than caught. Had anything re-triggered it, a green pull
+  request would have turned red for a change that is not in it, which is the
+  most confusing failure this repository can produce.
+
+  **The trap is that applying feels like part of finishing the code**, because
+  the edit and the apply are the same thought. They are not the same step: the
+  apply belongs to the MERGE, and the test for whether it is safe is `gh pr
+list --state open` returning nothing else.
+
+  **A SEEDED page has the same shape, and the same branch tripped it too.**
+  Running `seed-pastiches.mjs` from a feature branch makes live reflect
+  whichever branch last ran it — so re-seeding from a branch cut before an
+  avatar change silently wiped five avatars that a pull request not yet
+  rebased onto had added. Nothing failed; the pages simply lost something, and only
+  reading a screenshot found it. **The seeder writes production from whatever
+  tree you are standing in**, so re-seed from `main` after a rebase, never from
+  a branch that predates work already live.
+
   What guards it now is the `schema-drift` job below. Until it is a required
   check, the obligation is yours: **after editing an applied migration, apply
   the changed statements to the live project yourself** — a `create or replace`

@@ -81,6 +81,11 @@ export type SectionStyle = BlockStyle;
  * The name-style select carries a fourth option, `soft` — the same strip in a
  * quieter tone. It needs no label of its own beyond a name: the tone is
  * derived from the accent already chosen, so there is nothing further to pick.
+ *
+ * Three more sit under it: a picture for the bar, how that picture lies, and
+ * the room under the name. The first two are offered only where a bar is
+ * drawn; the gap is offered for a plain name as well, because there is space
+ * above the content either way.
  */
 export interface SectionStylePopupLabels {
   /** Names the button that opens the popup, which carries no visible text. */
@@ -133,6 +138,16 @@ export interface SectionStylePopupLabels {
   /** The same bar with a vertical sheen. */
   headingGradient: string;
   headingSoft: string;
+  headingGap: string;
+  headingGapDefault: string;
+  headingGapNone: string;
+  headingGapSnug: string;
+  headingGapRoomy: string;
+  headingImage: string;
+  headingImageHint: string;
+  headingFit: string;
+  headingFitCover: string;
+  headingFitTile: string;
   /** Field label for how much room a bar gives its name. */
   headingPad: string;
   /** The room option that keeps the ordinary strip. */
@@ -315,7 +330,9 @@ export interface SectionStylePopupProps {
  *
  * The name-style select gained `soft` beside `bar` and `gradient`; every one
  * of them is offered under the same condition, since all three draw a strip
- * and a block with no name has none.
+ * and a block with no name has none. The bar's picture and its fit sit behind
+ * that same condition; `heading_gap` sits beside them but applies to a plain
+ * name too, so an author can pull a floating name tight against what it names.
  */
 export function SectionStylePopup({
   value,
@@ -610,6 +627,86 @@ export function SectionStylePopup({
                 <option value="">{labels.headingPadDefault}</option>
                 <option value="snug">{labels.headingPadSnug}</option>
                 <option value="roomy">{labels.headingPadRoomy}</option>
+              </select>
+
+              {/* **The room UNDER the name, which had no control at all.** A
+                  bar welds to its content and a plain name floats above it, so
+                  the empty option is not one value — it is whichever of those
+                  applies. Offered for a plain name as well as a bar, unlike
+                  the padding above: there is real space above the content
+                  either way, so pulling a floating name tight against what it
+                  names is a thing somebody can want. */}
+              <label
+                htmlFor={`${id}-heading-gap`}
+                className="text-xs font-medium"
+              >
+                {labels.headingGap}
+              </label>
+              <select
+                id={`${id}-heading-gap`}
+                value={style.heading_gap ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "heading_gap",
+                    event.target.value as SectionStyle["heading_gap"] | "",
+                  )
+                }
+                {...tid("section-style-heading-gap")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.headingGapDefault}</option>
+                <option value="none">{labels.headingGapNone}</option>
+                <option value="snug">{labels.headingGapSnug}</option>
+                <option value="roomy">{labels.headingGapRoomy}</option>
+              </select>
+
+              {/* **A picture ON the bar.** Read only where a bar is drawn —
+                  there is no strip to paint on otherwise — so it sits inside
+                  the same condition rather than beside the section's own
+                  background field, which paints behind the CONTENT and is a
+                  different picture entirely. */}
+              <label
+                htmlFor={`${id}-heading-image`}
+                className="text-xs font-medium"
+              >
+                {labels.headingImage}
+              </label>
+              <input
+                id={`${id}-heading-image`}
+                type="url"
+                inputMode="url"
+                value={style.heading_image ?? ""}
+                onChange={(event) =>
+                  setField("heading_image", event.target.value)
+                }
+                placeholder="https://"
+                {...tid("section-style-heading-image")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--surface) px-3 py-1.5 text-sm"
+              />
+              <p className="text-xs text-(--muted)">
+                {labels.headingImageHint}
+              </p>
+
+              <label
+                htmlFor={`${id}-heading-fit`}
+                className="text-xs font-medium"
+              >
+                {labels.headingFit}
+              </label>
+              <select
+                id={`${id}-heading-fit`}
+                value={style.heading_fit ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "heading_fit",
+                    event.target.value as SectionStyle["heading_fit"] | "",
+                  )
+                }
+                {...tid("section-style-heading-fit")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.headingFitCover}</option>
+                <option value="tile">{labels.headingFitTile}</option>
               </select>
             </div>
           ) : null}

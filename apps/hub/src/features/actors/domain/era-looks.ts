@@ -207,6 +207,15 @@ const WINXP: FursonaTemplate = {
     // Luna's panels are near-white, where a stepped surface gave them the
     // ground's own blue.
     surface: "#f4f7fd",
+    // **Bliss, which is the single most recognisable thing about this era**
+    // and was missing while the page carried a hand-mixed blue ramp. The
+    // gradient stays underneath it: a background picture is a layer over
+    // `--field`, so an address that fails to load leaves the ramp rather than
+    // a blank page. Hot-linked like every other picture here; nothing is
+    // stored.
+    backgroundUrl:
+      "https://upload.wikimedia.org/wikipedia/en/2/27/Bliss_%28Windows_XP%29.png",
+    backgroundFit: "cover",
     canvas: "none",
     measure: "wide",
   }),

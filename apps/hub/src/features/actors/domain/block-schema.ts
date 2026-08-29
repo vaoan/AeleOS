@@ -485,6 +485,12 @@ const utf8 = new TextEncoder();
  * the same question — how is this name drawn — answered differently, and a
  * second key would be a second thing to keep in step with the renderer's own
  * table of what counts as a bar.
+ *
+ * `heading_image`, `heading_fit` and `heading_gap` are keys of their own,
+ * because none of them is that question: two are a picture and how it lies,
+ * and the third is the room UNDER the name rather than how the name is drawn.
+ * The first two are read only where a bar exists; the third wherever a name
+ * does.
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -561,6 +567,40 @@ export const BLOCK_STYLE_LIMITS = {
    * anybody has stored.
    */
   heading_pad: ["snug", "roomy"],
+  /**
+   * Characters in the address of a picture painted ON a named block's bar.
+   *
+   * **The bar is a design surface now, not only a colour.** A title strip
+   * carrying a photograph is most of what makes a page of this era look like
+   * itself, and until this key the bar could be the accent, a sheen or the
+   * soft tone and nothing else. Same cap as `background_url`, and it goes
+   * through the same `backgroundImageValue` guard, because it lands in the
+   * same kind of sink.
+   *
+   * It is INDEPENDENT of `background_url`: a section may carry one picture
+   * behind its content and a different one on its bar. Reusing the section's
+   * would have made the bar show whatever slice of it happened to fall there,
+   * which is not "fill the strip".
+   */
+  heading_image: 500,
+  /**
+   * How that picture is laid down — the same vocabulary `background_fit` uses.
+   *
+   * One vocabulary rather than two, because it is the same question about the
+   * same kind of value, and two lists would be two things to keep in step.
+   */
+  heading_fit: ["cover", "tile"],
+  /**
+   * The room between a named block's name and the content under it.
+   *
+   * **Absent is the behaviour every page already had, which is not one
+   * value.** A bar welds to its content — a strip with a gap under it is a
+   * floating label with a background — and a plain name floats with the page's
+   * own spacing. So absence means "whichever of those applies", and this key
+   * is the way to say something else: a barred section that wants air, or a
+   * plain name pulled tight against what it names.
+   */
+  heading_gap: ["none", "snug", "roomy"],
 } as const;
 
 /**
@@ -625,6 +665,11 @@ const blockStyleShape = {
   radius: z.enum(BLOCK_STYLE_LIMITS.radius).optional(),
   // Read only where `heading` draws a bar; absent is today's `px-3 py-2`.
   heading_pad: z.enum(BLOCK_STYLE_LIMITS.heading_pad).optional(),
+  // Read only where `heading` draws a bar, like `heading_pad`.
+  heading_image: z.string().max(BLOCK_STYLE_LIMITS.heading_image).optional(),
+  heading_fit: z.enum(BLOCK_STYLE_LIMITS.heading_fit).optional(),
+  // Read wherever a name is drawn, barred or not.
+  heading_gap: z.enum(BLOCK_STYLE_LIMITS.heading_gap).optional(),
   // **A depth-0 key, and meaningless anywhere else.** A section reaches both
   // edges of the window; a block nested inside one has a section between it
   // and the page and cannot escape that. Absent means the page's own measure,

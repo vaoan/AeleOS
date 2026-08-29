@@ -54,7 +54,8 @@ create table public.actor_profiles (
   --              each an array of { text_en?, text_es?, icon? }
   --   style:     { skin?, background_url?, background_fit?, card_size?,
   --                border?, chrome?, heading?, text_align?, image_fit?, radius?,
-  --                heading_pad? } — how the BLOCK
+  --                heading_pad?, heading_image?, heading_fit?,
+  --                heading_gap? } — how the BLOCK
   --                chooses to look, form only and
   --              never colour. Every key is optional and absence means
   --              "inherit the page", exactly as the theme's own keys work.
@@ -814,6 +815,28 @@ begin
         -- `heading` draws a bar. Absent is what every barred page had.
         if v_value not in ('snug', 'roomy') then
           raise exception 'block %: unknown heading padding', p_path using errcode = '22023';
+        end if;
+      elsif v_key = 'heading_image' then
+        -- A picture painted ON the bar, read only where `heading` draws one.
+        -- Independent of `background_url`: a block may carry one picture
+        -- behind its content and a different one on its bar.
+        if length(v_value) > 500 then
+          raise exception 'block %: heading picture address is too long', p_path using errcode = '22023';
+        end if;
+      elsif v_key = 'heading_fit' then
+        -- How that picture is laid down. Same vocabulary as
+        -- `background_fit`, because it is the same question about the same
+        -- kind of value.
+        if v_value not in ('cover', 'tile') then
+          raise exception 'block %: unknown heading fit', p_path using errcode = '22023';
+        end if;
+      elsif v_key = 'heading_gap' then
+        -- The room between a named block's name and the content under it.
+        -- Absence is not one value: a bar welds to its content and a plain
+        -- name floats above it, so absent means whichever of those applies
+        -- and this key is how an author says something else.
+        if v_value not in ('none', 'snug', 'roomy') then
+          raise exception 'block %: unknown heading gap', p_path using errcode = '22023';
         end if;
       elsif v_key = 'radius' then
         -- How round this block's corners are, independent of its skin. The
