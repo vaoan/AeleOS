@@ -118,12 +118,13 @@ Rebuild them all with `node scripts/seed-pastiches.mjs`.
 
 The same test run against a different target: five eras of somebody else's
 desktop, as **pickable templates** in the editor as well as seeded pages.
-Arrangement and palette only — no logo, no wordmark, no artwork of anybody's.
-Each was built from a screenshot fetched from Wikipedia and looked at.
+Arrangement and palette, plus each release's own mark as the profile avatar —
+hot-linked and never committed, exactly as the eleven pages above do. Each look
+was built from a screenshot fetched from Wikipedia and looked at.
 
-They are seeded **unlisted**, so every link below resolves and none of them
-appears on `/137` — they are demonstrations rather than part of anybody's
-public set, which is exactly what `unlisted` is for.
+They are **public and listed on `/137`** beside the social pastiches. They were
+`unlisted` at first, which made the five this project is proudest of the five
+nobody browsing the profile could find.
 
 | look                                                        | built on              | what it proves, or fails to                                                                      |
 | ----------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |

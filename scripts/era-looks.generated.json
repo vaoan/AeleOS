@@ -78,7 +78,10 @@
         "children": [
           {
             "kind": "avatar",
-            "title_en": "Portrait"
+            "title_en": "Portrait",
+            "style": {
+              "image_fit": "contain"
+            }
           },
           {
             "kind": "handle",
@@ -171,7 +174,10 @@
         "children": [
           {
             "kind": "avatar",
-            "title_en": "Portrait"
+            "title_en": "Portrait",
+            "style": {
+              "image_fit": "contain"
+            }
           },
           {
             "kind": "handle",
@@ -260,7 +266,10 @@
         "children": [
           {
             "kind": "avatar",
-            "title_en": "Portrait"
+            "title_en": "Portrait",
+            "style": {
+              "image_fit": "contain"
+            }
           },
           {
             "kind": "handle",
@@ -349,7 +358,10 @@
         "children": [
           {
             "kind": "avatar",
-            "title_en": "Portrait"
+            "title_en": "Portrait",
+            "style": {
+              "image_fit": "contain"
+            }
           },
           {
             "kind": "handle",
@@ -441,7 +453,10 @@
         "children": [
           {
             "kind": "avatar",
-            "title_en": "Portrait"
+            "title_en": "Portrait",
+            "style": {
+              "image_fit": "contain"
+            }
           },
           {
             "kind": "handle",

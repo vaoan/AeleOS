@@ -2212,6 +2212,24 @@ operating system, as a second test of reach after the eleven social pastiches.
 **Every one is an option and none is a default**; a page that picks none is
 byte-for-byte what it was.
 
+**Each look wears its release's own mark as an avatar, and is public and listed
+(2026-08-29).** They carried no artwork and were seeded `unlisted` — the
+opposite line from the eleven social pastiches beside them, recorded as a
+deliberate difference rather than settled. It is settled towards consistency:
+an empty circle where every neighbour has a mark reads as unfinished, and five
+looks nobody browsing `/137` can find are five looks nobody sees. The marks are
+hot-linked by the seeder and none is committed.
+
+**Four of the five are WORDMARKS, so `identity()` sets `image_fit: "contain"`
+on its avatar leaf.** The XP, Vista and 7 lockups are about five times as wide
+as they are tall and the avatar renders `object-cover` on a circle, which crops
+them to two meaningless fragments — the same fault `image_fit` was added for
+when the social pastiches were first given their real logos. It reaches
+somebody who PICKS one of these as a template too, which is the safe direction:
+`contain` and `cover` are identical on a square portrait and differ only on one
+that is not, where showing the whole of somebody's character beats cropping
+it.
+
 **Not one new skin was added, which is the finding that shaped the phase.**
 `retro` already IS Windows 98's raised bevel and `aero` already IS Aero glass,
 so three of the five needed no chrome written at all. Adding `win98` or `win7`

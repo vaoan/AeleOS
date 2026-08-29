@@ -57,13 +57,52 @@ const ERA_LOOKS = JSON.parse(
   readFileSync(new URL("./era-looks.generated.json", import.meta.url), "utf8"),
 );
 
-/** What each look is called on the page, since an id is not a name. */
-const ERA_NAMES = {
-  "era-win98": "Windows 98",
-  "era-winxp": "Windows XP",
-  "era-vista": "Windows Vista",
-  "era-win7": "Windows 7",
-  "era-win8": "Windows 8",
+/**
+ * What each look is called on the page, and the mark it wears as an avatar.
+ *
+ * **The same allowance the eleven social pages take**, and it took a ruling to
+ * get here: this file used to say the era looks carried no artwork at all,
+ * because an operating system's CHROME is the thing being imitated and a logo
+ * is not part of that. The two sets therefore took opposite lines, which was
+ * written down as a deliberate difference rather than settled.
+ *
+ * It is settled now, in favour of consistency: **every page here uses its
+ * subject's own mark as the profile avatar, hot-linked and never committed,
+ * and nothing else of theirs is reproduced.** A page with an empty circle
+ * where every neighbour has a mark reads as unfinished rather than as
+ * principled.
+ *
+ * Each mark is the one that shipped WITH that release rather than a modern
+ * Windows logo, which is the same era-fidelity the palettes are held to: the
+ * 1998 flag, the XP wordmark, Vista's and 7's own lockups, and the flat 2012
+ * flag for 8.
+ */
+const ERA_LOOKS_META = {
+  "era-win98": {
+    name: "Windows 98",
+    avatar:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Windows_98_logo.svg/330px-Windows_98_logo.svg.png",
+  },
+  "era-winxp": {
+    name: "Windows XP",
+    avatar:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Windows_XP_wordmark.svg/330px-Windows_XP_wordmark.svg.png",
+  },
+  "era-vista": {
+    name: "Windows Vista",
+    avatar:
+      "https://upload.wikimedia.org/wikipedia/en/thumb/8/8a/Windows_Vista_Logo_and_Wordmark.svg/330px-Windows_Vista_Logo_and_Wordmark.svg.png",
+  },
+  "era-win7": {
+    name: "Windows 7",
+    avatar:
+      "https://upload.wikimedia.org/wikipedia/en/thumb/2/26/Windows_7_Logo_and_Wordmark.svg/330px-Windows_7_Logo_and_Wordmark.svg.png",
+  },
+  "era-win8": {
+    name: "Windows 8",
+    avatar:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Windows_logo_-_2012.svg/330px-Windows_logo_-_2012.svg.png",
+  },
 };
 
 const password = process.env.SUPABASE_DB_PASSWORD;
@@ -1266,7 +1305,7 @@ const PAGES = [
     "Aeleos",
     sky,
     skyTheme,
-    "https://cdn.simpleicons.org/bluesky/0085ff",
+    "https://cdn.simpleicons.org/bluesky/006aff",
   ],
   [
     "threads",
@@ -1366,7 +1405,7 @@ try {
   // which keeps that curated page what it is.
   for (const look of ERA_LOOKS) {
     const handle = look.id;
-    const displayName = ERA_NAMES[look.id];
+    const { name: displayName, avatar } = ERA_LOOKS_META[look.id];
     const [existing] = await ask(
       "select actor_ref from public.actors where owner_ref = $1 and handle = $2",
       [person, handle],
@@ -1377,16 +1416,22 @@ try {
           await ask(
             `insert into public.actors
                (actor_ref, kind, owner_ref, handle, display_name, visibility, status)
-             values (gen_random_uuid(), 'fursona', $1, $2, $3, 'unlisted', 'active')
+             values (gen_random_uuid(), 'fursona', $1, $2, $3, 'public', 'active')
              returning actor_ref`,
             [person, handle, displayName],
           )
         )[0].actor_ref;
+    // **`public` and an avatar, exactly as the eleven social pages get.** These
+    // were `unlisted` with an empty circle, which made them reachable by link
+    // and invisible on `/137` — so the five looks this project is proudest of
+    // were the five nobody browsing the profile could find. The seeder owns
+    // both fields, so a re-run restores them; setting either by hand is what
+    // this file's own header warns against.
     await ask(
       `update public.actors
-          set display_name = $1, visibility = 'unlisted', avatar_url = null
-        where actor_ref = $2`,
-      [displayName, ref],
+          set display_name = $1, visibility = 'public', avatar_url = $2
+        where actor_ref = $3`,
+      [displayName, avatar, ref],
     );
     await ask(
       `insert into public.actor_profiles (actor_ref, sections, theme)
