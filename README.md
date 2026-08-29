@@ -72,7 +72,7 @@ first thing to go stale.
 | [Fur Affinity](https://me.furrycolombia.com/137/furaffinity)         | the furry web              | A full-bleed banner, a narrow stats rail beside a wide body, a submissions grid, and a wall of shouts          |
 | [Fotolog](https://me.furrycolombia.com/137/fotolog)                  | 2005, and huge in Colombia | One enormous photograph and a guestbook longer than the rest of the page                                       |
 | [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | A navy title bar over a lighter blue one, an information table, a six-across friends strip, and a divided wall |
-| [hi5](https://me.furrycolombia.com/137/hi5)                          | 2007                       | Gradient title bars over white, a carousel of widgets, and a profile-completeness meter                        |
+| [hi5](https://me.furrycolombia.com/137/hi5)                          | 2008                       | Gradient title bars over white, a carousel of widgets, and a profile-completeness meter                        |
 | [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Near-white panels over blue glass, both measured off a real 8.0 screenshot, and contact groups that collapse   |
 | [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | Navy `#003399` bars on white with grey panels, all measured, and a real photo wall in `masonry`                |
 | [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | A serif and centred text, a starfield, a tiled mosaic, a visitor-stats table and a webring                     |
@@ -88,7 +88,7 @@ trust a colour (as of 2026-08-28):
 
 - **Measured against a real archived capture:** Fur Affinity (December 2008 —
   it was measurably wrong and was corrected), Facebook (March 2007), MySpace
-  (a 2007 profile) and hi5 (2007).
+  (a 2007 profile) and hi5 (February 2008).
 - **Measured against the live site:** Bluesky and Threads, both still running,
   so neither needs an archive at all. Both moved when checked — Bluesky's
   accent is `#006aff` and not the `#0085ff` everybody quotes, and Threads had

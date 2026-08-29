@@ -781,7 +781,14 @@ const hi5 = [
     {
       spaces: 2,
       weights: [1, 2],
-      style: { skin: "default", heading: "gradient" },
+      style: {
+        skin: "default",
+        heading: "gradient",
+        heading_gap: "none",
+        heading_pad: "snug",
+        radius: "soft",
+        corners: "tl,tr",
+      },
     },
   ),
   section(
@@ -792,7 +799,17 @@ const hi5 = [
         image_url: photo(`hi5-${i}`, 240, 240),
       }),
     ),
-    { spaces: 3, style: { skin: "default", heading: "gradient" } },
+    {
+      spaces: 3,
+      style: {
+        skin: "default",
+        heading: "gradient",
+        heading_gap: "none",
+        heading_pad: "snug",
+        radius: "soft",
+        corners: "tl,tr",
+      },
+    },
   ),
   section(
     "My Widgets",
@@ -805,12 +822,21 @@ const hi5 = [
       leaf("picture", "Glitter", { image_url: photo("hi5-glitter", 400, 300) }),
       leaf("owner", "Owner"),
     ],
-    { style: { skin: "default", heading: "gradient" } },
+    {
+      style: {
+        skin: "default",
+        heading: "gradient",
+        heading_gap: "none",
+        heading_pad: "snug",
+        radius: "soft",
+        corners: "tl,tr",
+      },
+    },
   ),
 ];
 
 // **hi5 was BLUE, not yellow.** The first attempt built a bright orange candy
-// page off the memory of the LOGO; a 2007 capture of the real site is blue and
+// page off the memory of the LOGO; a real capture of the real site is blue and
 // grey title bars over white content, the same idiom MySpace used.
 //
 // **No orange survives anywhere in this theme**, and a sentence here used to
@@ -819,6 +845,33 @@ const hi5 = [
 // correction was made and the sentence describing it was not, which is the
 // exact shape this repository keeps paying for: a note that reads like a
 // measurement, sitting four lines above the value that falsifies it.
+//
+// **The date was wrong too, and is corrected here rather than left to compound
+// the last error.** This used to say "a 2007 capture"; the timestamp actually
+// fetched is `20080215082853` — **2008-02-15**, `arquivo.pt`'s replay of
+// `http://www.hi5.com/`.
+//
+// **Sampled from that render.** The page is the logged-out landing screen
+// (SIGN IN, SEARCH IN YOUR CITY, POPULAR VIDEOS, JUST RELEASED), each panel a
+// title bar over a white body. Reading down a single column of the SIGN IN
+// bar, pixel by pixel: `#6d95b3` at its top edge, brightening to `#80a0c8`
+// a few pixels in, then darkening back down through `#7b9bbf` and `#7593b5`
+// to `#5481b6` at its foot — a real vertical sheen, not a flat fill, and the
+// same ramp reappears identically under SEARCH IN YOUR CITY and POPULAR
+// VIDEOS (`#6d95b3` → `#80a0c8` → `#5481b6`, sampled the same way). So
+// `heading: "gradient"` is kept rather than moved to `"bar"` — this is the one
+// of the two pages in this task whose strips are genuinely a ramp. `#4a7ebb`,
+// already the accent, sits inside that same sampled range and needed no
+// change.
+//
+// **The window shape now belongs to it.** Every section gets `radius: "soft"`
+// with `corners: "tl,tr"` — the bar rounds across its top, the body squares
+// off at its foot — plus `heading_gap: "none"`, welding the bar flush to its
+// content, and `heading_pad: "snug"`, since `spacing: "compact"` already
+// shrinks the type. None of the three panels in the capture round a corner at
+// all; the window shape is this page's own idiom applied rather than a second
+// thing copied from the capture, which is why `corners` earns its place here
+// instead of being left at square like MySpace.
 const hi5Theme = theme({
   background: gradient(180, [
     { color: "#f2f5f9", at: 0 },
@@ -874,7 +927,14 @@ const sonico = [
     {
       spaces: 2,
       weights: [1, 2],
-      style: { skin: "default", heading: "gradient" },
+      style: {
+        skin: "default",
+        heading: "bar",
+        heading_gap: "none",
+        heading_pad: "snug",
+        radius: "soft",
+        corners: "tl,tr",
+      },
     },
   ),
   section(
@@ -885,7 +945,17 @@ const sonico = [
         image_url: photo(`sonico-${i}`, 400, 300 + (i % 3) * 120),
       }),
     ),
-    { spaces: 3, style: { skin: "default", heading: "gradient" } },
+    {
+      spaces: 3,
+      style: {
+        skin: "default",
+        heading: "bar",
+        heading_gap: "none",
+        heading_pad: "snug",
+        radius: "soft",
+        corners: "tl,tr",
+      },
+    },
   ),
   section(
     "Álbumes",
@@ -898,10 +968,36 @@ const sonico = [
       leaf("picture", "El taller", { image_url: photo("album-3", 500, 340) }),
       leaf("owner", "Owner"),
     ],
-    { style: { skin: "default", heading: "gradient" } },
+    {
+      style: {
+        skin: "default",
+        heading: "bar",
+        heading_gap: "none",
+        heading_pad: "snug",
+        radius: "soft",
+        corners: "tl,tr",
+      },
+    },
   ),
 ];
 
+// **Re-sampled for this task, and it holds.** The top navigation strip (under
+// the Principal/Postais/Jogos tabs) reads flat `#3366cc` across its whole
+// width at three consecutive scanlines; the footer reads flat `#003399` the
+// same way — no vertical variation at either, which is what makes both
+// FLAT rather than a ramp. So `heading: "bar"` replaces `"gradient"` on every
+// section here: this is the one of the two pages in this task whose strips
+// are genuinely flat. The panel backgrounds behind "Iniciar Sessão" and
+// "Cadastrar-se no Sonico" sample `#f7f7f7`, a hair off the recorded
+// `surface: "#f3f3f3"` — close enough that the stored value holds rather than
+// being churned for a one-shade difference.
+//
+// **The window shape now belongs to it too**, the same as hi5: `radius:
+// "soft"` with `corners: "tl,tr"` rounds the bar across its top and squares
+// the body off at its foot, `heading_gap: "none"` welds the bar to its
+// content, and `heading_pad: "snug"` matches the type `spacing: "compact"`
+// already shrank. Neither captured panel rounds a corner at all — this is the
+// idiom applied to the page, not a second thing copied from the capture.
 const sonicoTheme = theme({
   background: gradient(180, [
     { color: "#ffffff", at: 0 },

@@ -41,7 +41,7 @@ contradicting itself, which is worse than one that is simply wrong.
   there is no archive to reach into. Both moved; see "Two live sites, measured"
   below.
 - **MySpace and hi5** name what they were built from in the seeder: a real 2007
-  profile capture and a 2007 capture of the site.
+  profile capture and a real February 2008 capture of the site.
 - **The last four were chased down on 2026-08-29** and the gap is closed — not
   because all four found evidence, but because each now says which it is. See
   "The last four" below.

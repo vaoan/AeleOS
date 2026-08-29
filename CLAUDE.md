@@ -656,9 +656,29 @@ Key choices and _why_:
   where is meaningless once how-much is zero everywhere. A key that changes
   nothing is a dead letter that reads like a change in the diff, so it is
   absent from this page rather than decorative on it — its first real use
-  belongs to a page that wants the window shape it actually draws: a bar
+  belonged to a page that wants the window shape it actually draws: a bar
   rounded across its top over a body square at its foot, which needs
   `radius: "soft"` to mean anything.
+
+  **That page arrived the same day — hi5 and Sonico (2026-08-29).** Every
+  section on both now carries `radius: "soft"` with `corners: "tl,tr"`,
+  `heading_gap: "none"` and `heading_pad: "snug"`: the bar rounds across its
+  top, the body squares off at its foot. Which of the two keeps `heading:
+"gradient"` was decided from a fresh sample of each capture rather than
+  copied from the other — hi5's SIGN IN / SEARCH IN YOUR CITY / POPULAR
+  VIDEOS bars read a real vertical sheen pixel by pixel (`#6d95b3` →
+  `#80a0c8` → `#5481b6`), so it keeps `"gradient"`; Sonico's top nav
+  (`#3366cc`) and footer (`#003399`) read flat at every scanline sampled, so
+  it moves to `"bar"`. Sonico's `accent`/`surface` were re-sampled and held.
+
+  **And hi5's own comment carried a wrong date, which is the same fault this
+  file warns about under "Squash the migrations" and elsewhere: a confident
+  sentence outliving the value that falsifies it.** It said "a 2007 capture";
+  the timestamp actually fetched (`20080215082853`) is **February 2008**. The
+  same wrong year was repeated in the README's evidence list and in the
+  pastiche findings doc — both fixed in the same change, because a wrong date
+  left standing in two more places is not a smaller problem than the one in
+  the seeder.
 
   **An SPA replays as nothing, so "no archive" and "an archive of the wrong
   subject" are different claims.** Bluesky and Threads were written up as
