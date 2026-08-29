@@ -47,9 +47,15 @@ describe("every seeded page", () => {
     };
     (blocks as unknown[]).forEach(walk);
     // Every one of these is a fursona page, so `owner` is required and
-    // `fursonas` is refused.
-    for (const required of REQUIRED_KINDS.fursona) {
-      expect(kinds, `${id} is missing a ${required} block`).toContain(required);
-    }
+    // `fursonas` is refused. Collected into one array and asserted in a
+    // single `expect` — a sequential `expect` per kind stops at the first
+    // failure, so a page missing two kinds would only ever report one.
+    const missing = REQUIRED_KINDS.fursona.filter(
+      (required) => !kinds.has(required),
+    );
+    expect(
+      missing,
+      `${id} is missing: ${missing.join(", ") || "nothing"}`,
+    ).toEqual([]);
   });
 });

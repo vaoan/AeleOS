@@ -21,6 +21,32 @@ export default defineConfig({
     // Externalizing lets Node's native ESM loader load the file directly,
     // which sets `import.meta.url` correctly. `tests/pastiche-pages.test.ts`
     // is what needs this.
+    //
+    // The pattern matches every import specifier reaching into `scripts/`,
+    // not just this one file — and it does affect others. `color.test.ts`
+    // and `ring-contrast.test.ts` both `import ... from
+    // "../../../scripts/check-contrast.mjs"`, a real ES import vitest loads,
+    // so this pattern externalizes that module for them too. That is safe:
+    // `check-contrast.mjs` has no `import.meta.url` dependency, externalizing
+    // only changes which loader resolves a module (Node's native one instead
+    // of Vite's transform) and not what it exports, and the whole suite is
+    // green with the pattern in place.
+    //
+    // Two more files contain the same-looking text and are NOT affected, for
+    // two different reasons worth telling apart. `era-looks-json.test.ts`
+    // reads `scripts/era-looks.generated.json` via a plain
+    // `readFileSync(resolve(...))` call — a runtime string, never a module
+    // specifier — so it is never resolved through Vite's pipeline at all,
+    // regardless of this setting. `e2e/support/pixels.ts` genuinely imports
+    // `scripts/check-contrast.mjs`, but it is loaded only by Playwright's own
+    // runner (`playwright.config.ts`, testDir `tests/e2e`) — no `.test.ts`
+    // imports it, so vitest's `include` glob never reaches it and this file's
+    // `server.deps` has no jurisdiction over it either way.
+    //
+    // A narrower pattern scoped to `pastiche-pages.mjs` alone was possible
+    // but would have been a promise this config cannot keep as more files
+    // reach into `scripts/` — the directory, not one file, is what needs the
+    // native loader's semantics.
     server: {
       deps: { inline: [/next-intl/], external: [/\/scripts\//] },
     },
