@@ -59,37 +59,54 @@ const CARD_SIZE_MIN = new Map<string, string>(Object.entries(CARD_SIZES));
  * own scale unmodified, and `round` is `2.5`, chosen to sit between `candy`'s
  * `1.8` and `pill`-like `3.5` so it is visibly a stop of its own.
  */
-/** The CSS longhand each corner name squares off. */
+/** The token each corner name drives. */
 const CORNER_PROPERTY = {
-  tl: "borderTopLeftRadius",
-  tr: "borderTopRightRadius",
-  br: "borderBottomRightRadius",
-  bl: "borderBottomLeftRadius",
+  tl: "--corner-tl",
+  tr: "--corner-tr",
+  br: "--corner-br",
+  bl: "--corner-bl",
 } as const satisfies Record<(typeof CORNERS)[number], string>;
 
 /**
  * Squares off every corner a list does NOT name.
  *
- * **Only the corners switched OFF emit anything, which is the whole design.**
- * A corner left on keeps whatever its class and `--skin-round` already give
- * it, so `radius` still decides how MUCH and this decides WHERE, and the two
- * compose rather than compete. Emitting all four would mean restating the
- * skin's own number here, where nothing can see it.
+ * **It writes TOKENS rather than `border-radius`, and that is forced.** This
+ * object lands on a WRAPPER — a leaf's own card is nested inside `<Leaf>` and
+ * a section's children are cards of their own — so a radius written here
+ * reaches nothing that draws a corner. The cards read `--corner-*`, whose
+ * default is the `--radius-xl` they already resolved. Same shape as
+ * `--block-pad`, and found the same way: by measuring a computed style in a
+ * browser and getting 0 where the class said otherwise.
  *
- * An absent list emits nothing at all, so a page that never set this is
+ * **When a list is present all FOUR are written, and that is a correction a
+ * browser forced.** Writing only the corners switched off looks tidier and is
+ * wrong: these are custom properties, so they INHERIT, and a bar sits inside
+ * the section whose own `corners` it would then pick up. Measured — a section
+ * squaring its top and a bar rounding its top gave a bar with square top
+ * corners, because the two zeroes flowed straight through. Naming all four
+ * makes each key self-contained.
+ *
+ * A rounded corner is written as `var(--radius-xl)`, which is the token the
+ * cards already resolved and is itself `calc(var(--skin-round) * …)` — so
+ * `radius` still decides how MUCH and this decides WHERE, and the two compose
+ * rather than compete.
+ *
+ * An absent list writes nothing at all, so a page that never set this is
  * byte-for-byte what it was.
  *
  * @param vars - the style object to write into.
  * @param list - the comma-separated corner names, or undefined.
  */
 export function squareOffCorners(
-  vars: CSSProperties,
+  vars: CSSProperties & Record<`--${string}`, string>,
   list: string | undefined,
 ): void {
   if (!list) return;
   const rounded = new Set(list.split(","));
   for (const corner of CORNERS) {
-    if (!rounded.has(corner)) vars[CORNER_PROPERTY[corner]] = "0";
+    vars[CORNER_PROPERTY[corner]] = rounded.has(corner)
+      ? "var(--radius-xl)"
+      : "0";
   }
 }
 

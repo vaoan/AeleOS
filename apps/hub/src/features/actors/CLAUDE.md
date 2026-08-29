@@ -4302,13 +4302,34 @@ panel, and it was recorded as an open gap when the era looks were built —
 compose instead of compete. `radius: "soft"` with `corners: "tl,tr"` is a soft
 top and a square foot; the skin still owns the number.
 
-**Only the corners switched OFF emit anything, and that is the mechanism rather
-than an optimisation.** A corner left on keeps whatever its class and
-`--skin-round` already give it, so nothing here restates the skin's number
-where nothing can see it — and a block that names no corners emits no
-longhands at all, which is why every stored page is byte-for-byte what it was.
+**It writes TOKENS rather than `border-radius`, and a browser is what forced
+that.** The style bag lands on a WRAPPER — a leaf's own card is nested inside
+`<Leaf>` and a section's children are cards of their own — so a radius written
+on the styled element reaches nothing that draws a corner. The first version
+did exactly that: every unit case passed, and the computed radius in a real
+browser was 0 where the class said 12px. The cards read `--corner-tl` and its
+three siblings now, defaulting at `:root` to the `--radius-xl` they already
+resolved, so a page that sets nothing is byte-for-byte what it was. Same shape
+as `--block-pad`, and the same reason `--img-fit` exists.
+
+**When a list is present ALL FOUR are written**, which is the second thing the
+browser corrected. Writing only the corners switched off looks tidier and is
+wrong: custom properties INHERIT, and the bar sits inside the section, so a
+section squaring its top gave a bar with square top corners however the bar's
+own key was set. Naming all four makes each key self-contained. A rounded
+corner is written as `var(--radius-xl)`, so `--skin-round` still owns the
+number and `radius` still decides how MUCH.
+
 `squareOffCorners` in `block-style.ts` is the one place that decides it, used
-by the box and by the bar so the two cannot drift.
+by the box and by the bar so the two cannot drift, and `CLASS_CORNERS` in
+`blocks.tsx` is the one class both read them through.
+
+**A browser case has to measure the CARD, not the section.** A section is a
+transparent wrapper that draws no corner at all, so pointing the assertion at
+it reads 0 whatever the key says — which is how the first version of that case
+"failed" against working code, and then passed against the bar because the bar
+carries the same class and comes first in the DOM. It is scoped through
+`public-leaf` for that reason.
 
 **There is deliberately no spelling for "no corners".** `radius: "square"`
 already says that, and a second spelling for one answer is a thing to keep in

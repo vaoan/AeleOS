@@ -1482,7 +1482,15 @@ test("rounds only the corners a block names, against the skin's own radius", asy
   });
 
   await page.goto(`/en/${address}/${handle}`);
-  const section = page.getByTestId("public-section").first();
+  // **The CARD, not the section.** A section is a transparent wrapper that
+  // draws no corner at all, so measuring it would read 0 whatever the key
+  // said — which is how the first version of this case "failed" against
+  // working code. The card is the element that reads the corner tokens.
+  const section = page
+    .getByTestId("public-leaf")
+    .first()
+    .locator('[class*="--corner-tl"]')
+    .first();
   const bar = page.getByTestId("heading-bar").first();
   await expect(bar).toBeVisible();
 

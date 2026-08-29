@@ -213,6 +213,10 @@ export const NameLeaf: LeafRenderer = (props) =>
  *
  * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
  * default spacing they resolve to exactly the `rem` values they replaced.
+ *
+ * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
+ * a block's own `corners` can square any of them; the default is the radius it
+ * always had.
  */
 export const OwnerLeaf: LeafRenderer = (props) => {
   const { labelled, page } = props;
@@ -223,7 +227,7 @@ export const OwnerLeaf: LeafRenderer = (props) => {
       <Label text={labelled ? labelOf(props) : ""} />
       <Link
         href={`/${owner.address}`}
-        className="flex items-center gap-3 rounded-xl surface border-(--edge) bg-(--surface) p-4"
+        className="flex items-center gap-3 rounded-[var(--corner-tl)_var(--corner-tr)_var(--corner-br)_var(--corner-bl)] surface border-(--edge) bg-(--surface) p-4"
       >
         {owner.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- as elsewhere here, the address is arbitrary and pasted.

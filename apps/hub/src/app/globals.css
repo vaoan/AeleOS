@@ -94,6 +94,28 @@
   --block-pad: 1rem;
 
   /*
+   * **Which of a card's corners are rounded, one token per corner.**
+   *
+   * The default is exactly what every card already resolved — `--radius-xl`,
+   * which is itself `calc(var(--skin-round) * …)` — so a page that sets none
+   * of these is byte-for-byte what it was, and the skin still owns the number.
+   *
+   * They exist because the block style bag lands on a WRAPPER: a leaf's own
+   * card is nested inside `<Leaf>` and a section's children are cards of their
+   * own, so a `border-radius` written on the styled element reaches nothing
+   * that draws a corner. Same shape as `--block-pad` above, and the same
+   * reason `--img-fit` exists.
+   *
+   * Declared here rather than only on a scope because an unset value makes the
+   * card's own `rounded-[…]` invalid, which is square corners on every page at
+   * once.
+   */
+  --corner-tl: var(--radius-xl);
+  --corner-tr: var(--radius-xl);
+  --corner-br: var(--radius-xl);
+  --corner-bl: var(--radius-xl);
+
+  /*
    * **How a picture fills its box, so a block can say `contain`.** `cover` is
    * what every page had and stays the default; a WIDE image — a logo, a banner
    * — is unreadable cropped into a round avatar, which is how this was found.

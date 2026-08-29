@@ -104,6 +104,10 @@ function LeafCaption({
  *
  * @param props - the leaf and how to read it.
  * @returns the picture, or the words it could not illustrate.
+ *
+ * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
+ * a block's own `corners` can square any of them; the default is the radius it
+ * always had.
  */
 export function PictureLeaf(props: LeafProps): ReactNode {
   const { leaf, locale } = props;
@@ -116,7 +120,7 @@ export function PictureLeaf(props: LeafProps): ReactNode {
       <img
         src={src}
         alt={title}
-        className="w-full rounded-xl surface border-(--edge) [object-fit:var(--img-fit)]"
+        className="w-full rounded-[var(--corner-tl)_var(--corner-tr)_var(--corner-br)_var(--corner-bl)] surface border-(--edge) [object-fit:var(--img-fit)]"
       />
       <LeafCaption title="" description={description} />
     </figure>

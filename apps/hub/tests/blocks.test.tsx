@@ -3277,9 +3277,11 @@ describe("a section's name as a bar", () => {
     ).toContain("gap-6");
   });
 
-  // `.style` reads the INLINE declaration verbatim — "0", not the "0px" a
-  // computed style would normalise it to. Asserting the computed value here
-  // would be asserting jsdom's own layout, which it does not do.
+  // **These assert TOKENS, not `border-radius`.** The style bag lands on a
+  // wrapper and the card that draws the corner is nested inside it, so the
+  // renderer writes `--corner-*` and the cards read them — see
+  // `squareOffCorners`. A longhand here would have been the version that
+  // measured 0 in a browser while every unit case stayed green.
   //
   // **The window shape: a bar rounded across its top over content rounded
   // across its foot.** Asserting only that something is `0` would pass on a
@@ -3293,19 +3295,26 @@ describe("a section's name as a bar", () => {
     const bar = container.querySelector<HTMLElement>(
       '[data-testid="heading-bar"]',
     );
-    expect(bar?.style.borderBottomLeftRadius).toBe("0");
-    expect(bar?.style.borderBottomRightRadius).toBe("0");
-    expect(bar?.style.borderTopLeftRadius).toBe("");
-    expect(bar?.style.borderTopRightRadius).toBe("");
+    expect(bar?.style.getPropertyValue("--corner-bl")).toBe("0");
+    expect(bar?.style.getPropertyValue("--corner-br")).toBe("0");
+    // Named corners are written too, not merely left alone: these inherit, and
+    // a bar sits inside the section whose own corners it would otherwise pick
+    // up. Measured in a browser, that gave a bar with square top corners.
+    expect(bar?.style.getPropertyValue("--corner-tl")).toBe("var(--radius-xl)");
+    expect(bar?.style.getPropertyValue("--corner-tr")).toBe("var(--radius-xl)");
   });
 
   it("squares off only the corners a block's box does not name", () => {
     const { container } = renderBlock(named({ corners: "bl,br" }));
     const section = container.querySelector<HTMLElement>("section");
-    expect(section?.style.borderTopLeftRadius).toBe("0");
-    expect(section?.style.borderTopRightRadius).toBe("0");
-    expect(section?.style.borderBottomLeftRadius).toBe("");
-    expect(section?.style.borderBottomRightRadius).toBe("");
+    expect(section?.style.getPropertyValue("--corner-tl")).toBe("0");
+    expect(section?.style.getPropertyValue("--corner-tr")).toBe("0");
+    expect(section?.style.getPropertyValue("--corner-bl")).toBe(
+      "var(--radius-xl)",
+    );
+    expect(section?.style.getPropertyValue("--corner-br")).toBe(
+      "var(--radius-xl)",
+    );
   });
 
   // **Absent emits NOTHING**, which is what keeps every stored page identical.
@@ -3318,14 +3327,14 @@ describe("a section's name as a bar", () => {
     const bar = container.querySelector<HTMLElement>(
       '[data-testid="heading-bar"]',
     );
-    for (const corner of [
-      "borderTopLeftRadius",
-      "borderTopRightRadius",
-      "borderBottomLeftRadius",
-      "borderBottomRightRadius",
-    ] as const) {
-      expect(section?.style[corner]).toBe("");
-      expect(bar?.style[corner]).toBe("");
+    for (const token of [
+      "--corner-tl",
+      "--corner-tr",
+      "--corner-bl",
+      "--corner-br",
+    ]) {
+      expect(section?.style.getPropertyValue(token)).toBe("");
+      expect(bar?.style.getPropertyValue(token)).toBe("");
     }
   });
 
@@ -3336,7 +3345,7 @@ describe("a section's name as a bar", () => {
       named({ heading: "plain", heading_corners: "tl" }),
     );
     const heading = container.querySelector<HTMLElement>("h2");
-    expect(heading?.style.borderBottomLeftRadius).toBe("");
+    expect(heading?.style.getPropertyValue("--corner-bl")).toBe("");
   });
 
   // **The room a bar gives its name, which is the complaint this answers.** A
