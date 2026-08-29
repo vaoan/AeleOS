@@ -1628,8 +1628,17 @@ legible only from position. Three things were conflated, not two.
 - **Content is marked by its own BORDER**, and the short stub that shipped on
   2026-08-28 is gone the same day. The stub marked the card's head only; what
   was asked for was a mark over the whole card, the way a container's rail runs
-  its full height. A leaf card carries **2px of full-strength `--edge`** now,
+  its full height. A leaf card carries **4px of full-strength `--edge`** now,
   where it wore 1px at 40% alpha.
+
+  **It went 2px → 4px on 2026-08-29 because 2px was not doing the job**, and
+  the reason is worth keeping: a content card sits among a section card's own
+  border and six input outlines, so one step of weight is a difference you
+  have to look for rather than one you notice. The alternative considered was
+  quieting everything else — lightening the section card and the inputs so the
+  content card wins by contrast — and it was declined in favour of making the
+  one thing that carries meaning louder, rather than making five things that
+  do not carry meaning quieter.
 
   **Three channels separate the two kinds, and none of them is colour alone:**
   a rail down one edge against a perimeter, `--accent` against `--edge`, and
@@ -1651,14 +1660,23 @@ legible only from position. Three things were conflated, not two.
   a second full-height rail would make that count answer a number nobody can
   act on, which is exactly why the first attempt hedged with a stub.
 
-  **Two things measured rather than assumed.** `border-2` genuinely beats
-  `@utility surface`'s `max(--skin-border, --skin-border-min)` — computed
-  `border-top-width` reads 2px on a leaf and 1px on a section in a real
-  browser, which matters because `surface` OWNS border width and a plain
-  utility beating it is the documented sort-order mechanism rather than an
-  assumption. And a second pixel of border costs the editor no width:
-  `scrollWidth` equals `clientWidth` at 320 and at 568, the two sizes the
-  rail's own padding broke before.
+  **Two things measured rather than assumed.** `border-4` genuinely beats
+  `@utility surface`'s `max(--skin-border, --skin-border-min)` — surveyed in a
+  real browser, every element wearing `surface` in the editor resolves to
+  1px except the leaf cards, which resolve to 4px, and that survey is what
+  settles it rather than reading the class list: `surface` OWNS border width,
+  so a plain utility beating it is the documented sort-order mechanism rather
+  than an assumption.
+
+  **And the extra weight costs the editor no width**, which is the assertion
+  that matters, because a heavier border on a nested card is exactly the shape
+  that broke 568px once before — the rail's own padding widened a card whose
+  contents could not shrink. Measured with a container nested inside a section
+  so the borders stack: `scrollWidth` equals `clientWidth` at **320, 375, 568
+  and 640**. The same survey is also how the "only content is bold" claim is
+  checked rather than argued — 5 elements at 4px, every one a `leaf-editor`,
+  and an author skin as heavy as `neobrutalism` puts its 3px edges only on the
+  PREVIEW, never on a control.
 
   **It does invert the visual weight**, and that is a ruling rather than an
   oversight: a leaf now carries more ink than the section enclosing it. The
