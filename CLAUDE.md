@@ -581,6 +581,64 @@ Key choices and _why_:
   refuses the domain outright) — while `archive.org` answers 200 and
   `archive.ph` answers 429 in the same run. One hostname, not the connection.
 
+  **A CAPTURE IS A HOT LINK, and that reopens what a pastiche page can show
+  (2026-08-29).** `arquivo.pt/screenshot?url=<encoded replay URL>` renders an
+  archived page and returns a PNG. Pointed at `noFrame/replay/<ts>/<url>`
+  rather than `wayback/<ts>/<url>` it omits the archive's own banner and
+  sidebar — the difference between a usable reference picture and one that is
+  40% Portuguese navigation. So a reference can sit ON a page under the
+  images-are-links-only rule, with nothing stored and no budget touched.
+
+  Two things about it were measured rather than reasoned, and the second
+  contradicts the reasoning. `img-src` already allows any https host. And
+  **Chromium renders that response despite `nosniff`**: it is served as
+  `application/octet-stream` with `X-Content-Type-Options: nosniff`, which
+  reading the spec says should stop an `<img>` — driven in a real browser,
+  `naturalWidth` is 1000 and the console is silent. Rule 10, on a header this
+  time.
+
+  What it costs is a published page depending on a research archive's
+  rendering service, so **the section carries a `link` to the replay beside
+  the picture**: when the picture dies the provenance does not.
+
+  **`archive.org` ANSWERING IS NOT `web.archive.org` ANSWERING**, and
+  conflating the two is what shaped the whole provenance story above. The
+  availability API answers for every subject and hands back URLs on the host
+  that does not respond — so a snapshot is findable and not fetchable, which
+  looks like evidence right up until you try to open it. The question is never
+  "is the archive up", it is **"which source holds this subject"**.
+
+  **A PORTAL capture is not a PAGE capture — and that lesson, already learned
+  for GeoCities, had been missed for MySpace the whole time.** `myspace.com`
+  is the portal; `profile.myspace.com/<user>` is somebody's profile, and
+  arquivo holds **43** of them. A real October 2008 one is a photo behind
+  everything, boxes gone semi-transparent with thin bright borders, and text
+  fighting the image — which is what that site WAS, and not the default
+  white-box chrome the pastiche was built from. **Ask what the subject is, then
+  ask which URL is it**, because the site's own domain is usually neither.
+
+  **An SPA replays as nothing, so "no archive" and "an archive of the wrong
+  subject" are different claims.** Bluesky and Threads were written up as
+  having no archive at all; both have years of captures. Bluesky's replays as
+  the logged-out splash and Threads' replays **blank**, because a crawler
+  stores markup and these pages are built after it. Only the sharper statement
+  is true, and it is the one that tells the next person not to look again.
+
+  **Fotolog is sharper too, in the other direction.** "Its captures do not
+  render" holds for the nav — raw bullet lists, browser-default blue — and the
+  page's table-and-inline-styled content panels DO render. So it is partial
+  evidence: good for density and arrangement, none at all for anything the
+  stylesheet governed. Neither "knowledge-built" nor "evidence-backed" is the
+  right label, which is why it now carries the caveat instead of a label.
+
+  **`ERA_LOOKS` ARE THE PICKER'S TEMPLATES, so nothing decorative may be added
+  to them.** They are spread into `TEMPLATES` in `fursona-templates.ts`, which
+  means anything put there lands on the page of every author who picks that
+  look — a reference screenshot of somebody else's operating system included.
+  Whatever a showcase page needs beyond the look itself is appended by
+  `scripts/seed-pastiches.mjs`, which is also the only place the two sets can
+  be kept consistent.
+
   **The seeder owns everything the pages depend on**, and that was learned the
   hard way twice in one session: the avatars had been set by hand outside it,
   so a re-run left the newest pages with an empty circle; and it went on

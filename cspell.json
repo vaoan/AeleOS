@@ -42,6 +42,19 @@
     // files that use them.
     "Fotolog",
     "Metroflog",
+    // The MySpace profile whose October 2008 capture is the reference for that
+    // pastiche. A real username, quoted so the capture can be found again —
+    // "a real profile" is not something a reader can check.
+    "akioyang",
+    // arquivo.pt's own missing-page placeholder, quoted verbatim because it
+    // appears INSIDE some captures and a reader meeting it in a screenshot
+    // should be able to grep for what it is.
+    "conseguimos",
+    "encontrar",
+    "página",
+    // The Spanish half of the inspiration section's name. The catalogues are
+    // key-checked, but this document names the string.
+    "inspiración",
     "picsum",
     "pixabay",
     "showcase",
