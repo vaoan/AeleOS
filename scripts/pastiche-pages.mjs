@@ -377,6 +377,26 @@ const myspaceTheme = theme({
 // ---------------------------------------------------------------------------
 // 2 — Windows Live Messenger. The `aero` skin already exists, which is the
 //     single biggest hint that this one should land.
+//
+// **Task 9 adds the window shape and changes no measurement.** `radius:
+// "soft"` with `corners: "tl,tr"` on all three sections rounds each panel's
+// top and squares its foot, the way a stacked window does; the first
+// section's own name — "Aeleos (Available)", the literal text a Messenger
+// window's title bar carries — is what gets `heading: "bar"`, so the
+// navy-and-white bar this page's accent was measured FOR actually renders as
+// one. `heading_corners: "tl,tr"` matches that bar's own corners to the
+// section's, and `heading_gap: "none"` welds the bar flush to Aeleos's own
+// info directly beneath it (personal message, status, Messenger ID) — no
+// stray gap between the title strip and the panel it labels. "Contacts" and
+// "Conversation" stay plain headings; nothing about them was a bar in the
+// capture either.
+//
+// **The fidelity-versus-purpose ruling this page was built on is still
+// true, restated rather than left to rot below:** the real 8.0 window is
+// near-white panels over blue chrome, and this page keeps a blue FIELD on
+// purpose — `aero` is the entire reason the page exists, and glass needs
+// something behind it to show through. The window shape above changes the
+// corners, not the ground.
 // ---------------------------------------------------------------------------
 
 const messenger = [
@@ -398,7 +418,18 @@ const messenger = [
         leaf("handle", "Messenger ID"),
       ]),
     ],
-    { spaces: 2, weights: [1, 3], style: { skin: "aero" } },
+    {
+      spaces: 2,
+      weights: [1, 3],
+      style: {
+        skin: "aero",
+        heading: "bar",
+        heading_corners: "tl,tr",
+        heading_gap: "none",
+        radius: "soft",
+        corners: "tl,tr",
+      },
+    },
   ),
   section(
     "Contacts",
@@ -433,7 +464,7 @@ const messenger = [
         },
       ),
     ],
-    { style: { skin: "aero" } },
+    { style: { skin: "aero", radius: "soft", corners: "tl,tr" } },
   ),
   section(
     "Conversation",
@@ -449,7 +480,7 @@ const messenger = [
       }),
       leaf("owner", "Owner"),
     ],
-    { style: { skin: "aero" } },
+    { style: { skin: "aero", radius: "soft", corners: "tl,tr" } },
   ),
 ];
 
@@ -665,6 +696,10 @@ const sky = [
 //     the brand blue everybody quotes, and NOT the blue the application
 //     paints. A colour being the official one is not evidence about what the
 //     page looks like.
+//
+// **Re-confirmed for Task 9 (2026-08-29): nothing moved.** The same probe
+// against `https://bsky.app/` in light mode still answers `rgb(255, 255,
+// 255)` on `body`. No value here changed.
 const skyTheme = theme({
   background: gradient(170, [
     { color: "#ffffff", at: 0 },
@@ -683,6 +718,18 @@ const skyTheme = theme({
 // ---------------------------------------------------------------------------
 // 5 — Black, borderless, almost nothing. The hardest of the eight, because
 //     what defines it is what it REMOVES.
+//
+// **Task 9's own decision: the bio's title is "aeleos", not "Bio".** An
+// earlier task filled `title_en` with "Bio" to satisfy strict validation
+// (`98dddf0`) — matching board and sky, whose bios reuse the same word — but
+// this page's whole design is that nothing is LABELLED, and "Bio" is a field
+// name no real Threads profile shows. Leaving it would have been the quiet
+// choice; it is replaced instead with "aeleos", the same attribution every
+// `post()` below already gives its own text. A bold line then a paragraph is
+// this page's one idiom for "here is some of aeleos's writing", used for
+// three posts already — the bio is a fourth instance of exactly that, not a
+// UI label. `title_es` is dropped rather than translated: a handle carries no
+// language.
 // ---------------------------------------------------------------------------
 
 const threads = [
@@ -693,8 +740,7 @@ const threads = [
       group("stack", [
         leaf("name", "Aeleos"),
         leaf("handle", "aeleos"),
-        leaf("text", "Bio", {
-          title_es: "Biografía",
+        leaf("text", "aeleos", {
           description_en: "building in public, posting in private",
         }),
         leaf("stat", "Followers", { description_en: "1,204" }),
@@ -738,6 +784,14 @@ const threads = [
 // puts the profile in a rounded card on a grey field; this page is the 2023
 // edge-to-edge one the README dates it to. A live site is evidence about
 // today, and today is not always the era being imitated.
+//
+// **Re-confirmed for Task 9 (2026-08-29): nothing moved.** The same probe in
+// `colorScheme: "dark"` against `https://www.threads.net/` still answers
+// `rgb(10, 10, 10)` on `body` and `rgb(243, 245, 247)` for ink — three of four
+// consecutive readings; the fourth read `rgb(16, 16, 16)`, the CARD colour
+// rather than the ground, which is what a body read catches mid-transition
+// past a loading skeleton rather than a value that moved. No value here
+// changed.
 const threadsTheme = theme({
   background: gradient(180, [
     { color: "#0a0a0a", at: 0 },

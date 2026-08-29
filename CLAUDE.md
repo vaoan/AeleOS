@@ -899,6 +899,32 @@ Key choices and _why_:
   `--skin-round`, so `squareOffCorners` resolves every named corner through it
   to the same zero.
 
+  **The last four had no capture of the right subject to rebuild against, and
+  three of them barely moved (2026-08-29).** Messenger's measurements were
+  already right — `#f8f8f8` over `#193c74`, from the Wikipedia 8.0 screenshot
+  — and gained only the window shape: `radius: "soft"` with `corners:
+"tl,tr"` on all three sections, and `heading: "bar"` on the first one, whose
+  own name — "Aeleos (Available)" — is the literal text a real Messenger
+  title bar carries, so the measured navy accent finally renders as a bar
+  instead of sitting unused. `heading_corners: "tl,tr"` matches it and
+  `heading_gap: "none"` welds it flush to Aeleos's own info beneath it. The
+  board changed nothing at all: `chrome: "bare"` and a dark mode no crawler
+  will ever see are both already right. Bluesky and Threads were re-measured
+  live rather than re-derived — both confirmed unmoved, Threads across four
+  readings with one transient outlier that read the CARD colour rather than
+  the ground and did not reproduce. **A live reading that does not move is
+  still worth dating**, so both comments now carry their own re-confirmation
+  date rather than resting on the original one silently.
+
+  **Threads' "Bio" label was a small stale decision worth reversing rather
+  than keeping.** An earlier task filled its empty `title_en` with "Bio" to
+  satisfy strict validation, matching board and sky — but this page's whole
+  design is that nothing is labelled, and "Bio" is a field name no real
+  Threads profile shows. It is "aeleos" now, reusing the exact attribution
+  every `post()` on the same page already gives its own text: a bold line,
+  then a paragraph. The bio is a fourth instance of that idiom, not a UI
+  label — the fix a later task owed the earlier one's shortcut.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is
