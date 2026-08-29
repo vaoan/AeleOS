@@ -698,6 +698,34 @@ Key choices and _why_:
   presence of the edit. Redone against the theme object's own line, it
   reddened exactly the one case it should and none of the other two.
 
+  **A page can now show what it is imitating (2026-08-29), and "three" and
+  "four" are both true statements about it.** `scripts/pastiche-references.mjs`
+  is the registry — one entry per handle, each a hot link and never a stored
+  file — and `inspirationSection` turns an entry into an appendix section, no
+  colour or chrome of its own, that a later task appends at seed time.
+  `absent` means "this page carries no picture," and it covers two different
+  reasons rather than one. `board`, `sky` and `threads` are three where no
+  archive can hold the SUBJECT — a crawler never sees the dark mode, the
+  signed-in profile, or the client-rendered markup — matching the design
+  spec's "three of sixteen have no capture of the right subject." `geocities`
+  is a fourth, for a different reason, and it is not a counterexample to that
+  sentence: `geocities.restorativland.org` **is** evidence of the right
+  subject, a restored gallery of real archived personal pages. What it lacks
+  is a single capture, because the subject was never one page. A reader who
+  counts four `absent` entries against a spec that says three should read
+  both as true rather than go looking for the bug that reconciles them.
+
+  Two dated operational facts about sources a published page now hot-links at
+  render time, measured 2026-08-29 and worth re-checking past that date
+  rather than trusted: `arquivo.pt`'s screenshot endpoint connect-times-out
+  (10s) on a request fired immediately after another to the same host, and
+  the identical URL succeeds once spaced a few seconds apart or retried;
+  `upload.wikimedia.org` answered `429` to two rapid requests and `200`
+  moments later. Neither is a bad URL — both are load on somebody else's
+  server, not a wrong timestamp — so a script that resolves several of these
+  in a tight loop should expect a failure a respaced retry clears, and should
+  not read one as evidence the reference itself is wrong.
+
 - **A window is corners chosen one at a time (2026-08-29).** `corners` and
   `heading_corners` name which of a block's — and its bar's — corners are
   rounded, so a bar rounded across its top over content rounded across its foot
