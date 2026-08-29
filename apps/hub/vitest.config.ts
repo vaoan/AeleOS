@@ -12,7 +12,18 @@ export default defineConfig({
     // next-intl's ESM build imports "next/navigation" without an extension,
     // which Vite cannot resolve from inside pnpm's nested store. Inlining it
     // makes Vite process the package and resolve the import the way Next does.
-    server: { deps: { inline: [/next-intl/] } },
+    //
+    // `scripts/` is the opposite problem. `pastiche-pages.mjs` reads
+    // `era-looks.generated.json` via `readFileSync(new URL(...,
+    // import.meta.url))`, and Vite's own module runner does not give a
+    // transformed module a real `file:` URL for `import.meta.url` — reading
+    // through it throws `ERR_INVALID_URL_SCHEME` before a single test runs.
+    // Externalizing lets Node's native ESM loader load the file directly,
+    // which sets `import.meta.url` correctly. `tests/pastiche-pages.test.ts`
+    // is what needs this.
+    server: {
+      deps: { inline: [/next-intl/], external: [/\/scripts\//] },
+    },
     setupFiles: ["tests/setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {
