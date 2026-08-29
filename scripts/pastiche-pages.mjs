@@ -217,7 +217,6 @@ const myspace = [
         heading: "gradient",
         border: "solid",
         radius: "square",
-        heading_gap: "none",
       },
     },
   ),
@@ -240,7 +239,6 @@ const myspace = [
         heading: "gradient",
         border: "solid",
         radius: "square",
-        heading_gap: "none",
       },
     },
   ),
@@ -262,7 +260,6 @@ const myspace = [
         heading: "gradient",
         border: "solid",
         radius: "square",
-        heading_gap: "none",
       },
     },
   ),
@@ -336,8 +333,15 @@ const myspace = [
 //
 // `border: "solid"` with `radius: "square"` on every section draws the thin,
 // sharp-cornered edge the capture has in place of this page's old rounded
-// default. `heading_gap: "none"` is set explicitly on each barred section
-// too, welding its bar flush to its content.
+// default.
+//
+// **`heading_gap: "none"` was set on all three sections here and removed
+// (2026-08-29) — the identical no-op the next paragraph already names for
+// `corners`.** Every section above is `heading: "gradient"`, which
+// `blocks.tsx` treats as barred; a barred heading's gap already collapses to
+// `gap-0` with no key set at all, so writing `"none"` read the same class.
+// It changed nothing rendered and was removed rather than left as a key that
+// reads like a change in the diff.
 //
 // **`corners` was tried here and removed.** `radius: "square"` sets
 // `--skin-round: 0`, and `squareOffCorners` writes every corner — named or
@@ -385,11 +389,14 @@ const myspaceTheme = theme({
 // window's title bar carries — is what gets `heading: "bar"`, so the
 // navy-and-white bar this page's accent was measured FOR actually renders as
 // one. `heading_corners: "tl,tr"` matches that bar's own corners to the
-// section's, and `heading_gap: "none"` welds the bar flush to Aeleos's own
-// info directly beneath it (personal message, status, Messenger ID) — no
-// stray gap between the title strip and the panel it labels. "Contacts" and
-// "Conversation" stay plain headings; nothing about them was a bar in the
-// capture either.
+// section's. "Contacts" and "Conversation" stay plain headings; nothing
+// about them was a bar in the capture either.
+//
+// **`heading_gap: "none"` was set here too and removed (2026-08-29).** The
+// section is already `heading: "bar"`, which is barred, and a barred
+// heading's gap already collapses to `gap-0` with no key set at all — so
+// "welds the bar flush to Aeleos's own info beneath it" was never something
+// the key did; the weld was already there. It changed nothing rendered.
 //
 // **The fidelity-versus-purpose ruling this page was built on is still
 // true, restated rather than left to rot below:** the real 8.0 window is
@@ -425,7 +432,6 @@ const messenger = [
         skin: "aero",
         heading: "bar",
         heading_corners: "tl,tr",
-        heading_gap: "none",
         radius: "soft",
         corners: "tl,tr",
       },
@@ -857,7 +863,6 @@ const hi5 = [
       style: {
         skin: "default",
         heading: "gradient",
-        heading_gap: "none",
         heading_pad: "snug",
         radius: "soft",
         corners: "tl,tr",
@@ -877,7 +882,6 @@ const hi5 = [
       style: {
         skin: "default",
         heading: "gradient",
-        heading_gap: "none",
         heading_pad: "snug",
         radius: "soft",
         corners: "tl,tr",
@@ -899,7 +903,6 @@ const hi5 = [
       style: {
         skin: "default",
         heading: "gradient",
-        heading_gap: "none",
         heading_pad: "snug",
         radius: "soft",
         corners: "tl,tr",
@@ -939,12 +942,17 @@ const hi5 = [
 //
 // **The window shape now belongs to it.** Every section gets `radius: "soft"`
 // with `corners: "tl,tr"` — the bar rounds across its top, the body squares
-// off at its foot — plus `heading_gap: "none"`, welding the bar flush to its
-// content, and `heading_pad: "snug"`, since `spacing: "compact"` already
-// shrinks the type. None of the three panels in the capture round a corner at
-// all; the window shape is this page's own idiom applied rather than a second
-// thing copied from the capture, which is why `corners` earns its place here
-// instead of being left at square like MySpace.
+// off at its foot — and `heading_pad: "snug"`, since `spacing: "compact"`
+// already shrinks the type. None of the three panels in the capture round a
+// corner at all; the window shape is this page's own idiom applied rather
+// than a second thing copied from the capture, which is why `corners` earns
+// its place here instead of being left at square like MySpace.
+//
+// **`heading_gap: "none"` was set here too and removed (2026-08-29).** Every
+// section here is `heading: "gradient"`, already barred, and a barred
+// heading's gap already collapses to `gap-0` with no key set at all — so
+// "welding the bar flush to its content" was never something the key did.
+// It changed nothing rendered.
 const hi5Theme = theme({
   background: gradient(180, [
     { color: "#f2f5f9", at: 0 },
@@ -1003,7 +1011,6 @@ const sonico = [
       style: {
         skin: "default",
         heading: "bar",
-        heading_gap: "none",
         heading_pad: "snug",
         radius: "soft",
         corners: "tl,tr",
@@ -1023,7 +1030,6 @@ const sonico = [
       style: {
         skin: "default",
         heading: "bar",
-        heading_gap: "none",
         heading_pad: "snug",
         radius: "soft",
         corners: "tl,tr",
@@ -1045,7 +1051,6 @@ const sonico = [
       style: {
         skin: "default",
         heading: "bar",
-        heading_gap: "none",
         heading_pad: "snug",
         radius: "soft",
         corners: "tl,tr",
@@ -1067,10 +1072,16 @@ const sonico = [
 //
 // **The window shape now belongs to it too**, the same as hi5: `radius:
 // "soft"` with `corners: "tl,tr"` rounds the bar across its top and squares
-// the body off at its foot, `heading_gap: "none"` welds the bar to its
-// content, and `heading_pad: "snug"` matches the type `spacing: "compact"`
-// already shrank. Neither captured panel rounds a corner at all — this is the
-// idiom applied to the page, not a second thing copied from the capture.
+// the body off at its foot, and `heading_pad: "snug"` matches the type
+// `spacing: "compact"` already shrank. Neither captured panel rounds a
+// corner at all — this is the idiom applied to the page, not a second thing
+// copied from the capture.
+//
+// **`heading_gap: "none"` was set on all three sections here and removed
+// (2026-08-29).** Every one is already `heading: "bar"`, already barred, and
+// a barred heading's gap already collapses to `gap-0` with no key set at
+// all — so "welds the bar to its content" was never something the key did.
+// It changed nothing rendered.
 const sonicoTheme = theme({
   background: gradient(180, [
     { color: "#ffffff", at: 0 },
@@ -1238,12 +1249,19 @@ const geocitiesTheme = theme({
 //
 // Sampled from the 2019 render: each "Recent Artwork"/"Recent Writing" bar is
 // a flat `#6a7283`, square-cornered, welded directly to the panel beneath it
-// with no gap — confirming `heading: "bar"`, `heading_gap: "none"` and
-// `radius: "square"` below, all three added on this task. Its own label reads
-// WHITE, not dark — a detail belonging to 2019's render rather than to 2008's
-// stored palette, which is why `accent`/`surface` are untouched: this task
-// changes shape, not colour, and the bar still renders in this page's own
-// light `#b9c4cd` with a derived dark label, per the earlier capture.
+// with no gap — confirming `heading: "bar"` and `radius: "square"` below,
+// both added on this task. Its own label reads WHITE, not dark — a detail
+// belonging to 2019's render rather than to 2008's stored palette, which is
+// why `accent`/`surface` are untouched: this task changes shape, not
+// colour, and the bar still renders in this page's own light `#b9c4cd` with
+// a derived dark label, per the earlier capture.
+//
+// **`heading_gap: "none"` was set on all three sections here too and removed
+// (2026-08-29).** Every one is already `heading: "bar"`, already barred, and
+// a barred heading's gap already collapses to `gap-0` with no key set at
+// all — the capture's own "welded directly to the panel beneath it with no
+// gap" was already true before this key was ever added, not because of it.
+// It changed nothing rendered.
 //
 // **`corners` is deliberately absent.** A version of this task's brief said
 // to pair `radius: "square"` with `corners: "tl,tr"` — a complete no-op,
@@ -1319,7 +1337,6 @@ const furaffinity = [
       style: {
         heading: "bar",
         heading_pad: "roomy",
-        heading_gap: "none",
         radius: "square",
       },
     },
@@ -1338,7 +1355,6 @@ const furaffinity = [
       style: {
         heading: "bar",
         heading_pad: "roomy",
-        heading_gap: "none",
         radius: "square",
       },
     },
@@ -1366,7 +1382,6 @@ const furaffinity = [
       style: {
         heading: "bar",
         heading_pad: "roomy",
-        heading_gap: "none",
         chrome: "bare",
         radius: "square",
       },

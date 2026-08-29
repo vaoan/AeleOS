@@ -966,6 +966,21 @@ Key choices and _why_:
   would have been a real, wrong weld, not the harmless no-op it is on an
   already-barred section.
 
+  **The same no-op had already shipped 13 times, from the same author's own
+  briefs, before this was caught (2026-08-29).** `heading_gap: "none"` sat on
+  every `heading: "bar"`/`"gradient"` section MySpace, Messenger, hi5, Sonico
+  and Fur Affinity's Tasks 5, 6, 8 and 9 added — enumerated through the real
+  `PAGES` module rather than by pattern-matching text, which is what makes
+  the count exact: 13 dead, 0 live. That contradicted two rulings already on
+  the record for this exact principle — `heading_pad` stripped from
+  Vista/7/8 above, and `corners: "tl,tr"` stripped from MySpace for pairing
+  with `radius: "square"` — so all 13 came out, and the five stale comments
+  that credited the key with "welding" a bar were corrected to say what
+  actually welded it: the barred default, which was there regardless.
+  **A survey is a claim about the day it ran**, and the day this one ran was
+  before `blocks.tsx`'s own fallback had been read for what it does on a bar
+  specifically, not only on a plain heading.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is
