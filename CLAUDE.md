@@ -676,9 +676,23 @@ Key choices and _why_:
   sentence outliving the value that falsifies it.** It said "a 2007 capture";
   the timestamp actually fetched (`20080215082853`) is **February 2008**. The
   same wrong year was repeated in the README's evidence list and in the
-  pastiche findings doc — both fixed in the same change, because a wrong date
-  left standing in two more places is not a smaller problem than the one in
-  the seeder.
+  pastiche findings doc — fixed there too, because a wrong date left standing
+  in two more places is not a smaller problem than the one in the seeder.
+
+  **Three places corrected is where you check for a fourth, and there were
+  two more — both inside `pastiche-pages.mjs` itself.** Review found the
+  MySpace paragraph two entries up still read "belongs to" — future tense,
+  even though hi5 and Sonico fulfil the prediction later in the very same
+  file and commit — and found the boilerplate "No animation at all, which is
+  what a flat 2007 page had" sentence surviving unchanged inside BOTH
+  `hi5Theme` and `sonicoTheme`, six lines below the new date-correction
+  comment in hi5's case and simply false in Sonico's, whose capture is
+  October 2008 and which was already dated 2008 everywhere else. **The
+  easiest place to miss a stale copy is the file you are actively editing**,
+  because you are reading it for the change you meant to make, not grepping
+  it for every other sentence the change might have made false. All four are
+  fixed now: "belongs" → "belonged" with hi5 and Sonico named, and each
+  boilerplate sentence carries its own page's real year.
 
   **An SPA replays as nothing, so "no archive" and "an archive of the wrong
   subject" are different claims.** Bluesky and Threads were written up as

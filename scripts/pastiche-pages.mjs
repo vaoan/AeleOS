@@ -346,9 +346,11 @@ const myspace = [
 // alongside `radius: "square"` is a no-op: it names WHERE to round when HOW
 // MUCH is already zero everywhere. A key that changes nothing is a dead
 // letter that reads like a change in the diff, so it is absent rather than
-// decorative — this file's first real use of `corners` belongs to a page that
-// wants the window shape it actually draws: a bar rounded across its top over
-// a body square at its foot, which needs `radius: "soft"` to mean anything.
+// decorative — this file's first real use of `corners` belonged to a page
+// that wants the window shape it actually draws: a bar rounded across its top
+// over a body square at its foot, which needs `radius: "soft"` to mean
+// anything. **hi5 and Sonico are that page, in this same commit** — both
+// carry `radius: "soft"` with `corners: "tl,tr"` below.
 //
 // Kept: `font: "classic"`, `spacing: "compact"` and `measure: "wide"` — the
 // capture confirms all three.
@@ -878,10 +880,10 @@ const hi5Theme = theme({
     { color: "#ffffff", at: 100 },
   ]),
   accent: "#4a7ebb",
-  // **No animation at all, which is what a flat 2007 page had.** This used to
-  // fake it with a grid at the density floor, because `CANVASES` did not list
-  // `none` — the mechanism was there the whole time and only the picker was
-  // missing.
+  // **No animation at all, which is what a flat February 2008 page had.**
+  // This used to fake it with a grid at the density floor, because
+  // `CANVASES` did not list `none` — the mechanism was there the whole time
+  // and only the picker was missing.
   canvas: "none",
   skin: "default",
   font: "classic",
@@ -1005,10 +1007,10 @@ const sonicoTheme = theme({
   ]),
   accent: "#003399",
   surface: "#f3f3f3",
-  // **No animation at all, which is what a flat 2007 page had.** This used to
-  // fake it with a grid at the density floor, because `CANVASES` did not list
-  // `none` — the mechanism was there the whole time and only the picker was
-  // missing.
+  // **No animation at all, which is what a flat October 2008 page had.**
+  // This used to fake it with a grid at the density floor, because
+  // `CANVASES` did not list `none` — the mechanism was there the whole time
+  // and only the picker was missing.
   canvas: "none",
   skin: "default",
   font: "classic",
