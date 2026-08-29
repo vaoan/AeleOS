@@ -22,8 +22,9 @@ import { contentFor } from "@/features/actors/domain/actor-content";
 import type { LeafBlock } from "@/features/actors/domain/block-schema";
 import { progressValue } from "@/features/actors/domain/progress-value";
 import {
-  wordsOf,
+  CORNER_CLASS,
   type LeafProps,
+  wordsOf,
 } from "@/features/actors/presentation/block-contract";
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -82,18 +83,19 @@ import { tid } from "@/shared/infrastructure/test-id";
  * default spacing they resolve to exactly the `rem` values they replaced,
  * which was measured against production element by element.
  *
- * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
- * a block's own `corners` can square any of them. Each falls back to the
- * expression `rounded-xl` itself compiles to, which is what keeps a nested
- * skin's own radius — see `block-style.ts` for why a token reference there
- * would freeze the page's.
+ * Its card wears {@link CORNER_CLASS} rather than a fixed `rounded-xl`, so a
+ * block's own `corners` can square any of them. That class is written out in
+ * one file and interpolated everywhere else — eight copies of it is how a bar
+ * and its cards stop agreeing, which opens a window's join and fails nothing.
  */
 export function PlainLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
   const { title, description } = wordsOf(leaf, locale);
   const heading = labelled ? title : "";
   if (!heading && !description) return null;
   return (
-    <div className="grid gap-1 rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface) p-5">
+    <div
+      className={`grid gap-1 ${CORNER_CLASS} surface border-(--edge) bg-(--surface) p-5`}
+    >
       {heading ? (
         <span className="font-display text-[0.875em]/tight font-bold">
           {title}
@@ -113,8 +115,7 @@ export function PlainLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
  * different thing under the label, and a page that mixes them reads as one
  * row of tiles only while that stays true.
  */
-const MEASURE_CARD =
-  "rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface) p-(--block-pad)";
+const MEASURE_CARD = `${CORNER_CLASS} surface border-(--edge) bg-(--surface) p-(--block-pad)`;
 
 /**
  * The treatment a LABEL gets on the kinds that invert the pair.
@@ -212,11 +213,10 @@ export function StatLeaf(props: LeafProps): ReactNode {
  * default spacing they resolve to exactly the `rem` values they replaced,
  * which was measured against production element by element.
  *
- * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
- * a block's own `corners` can square any of them. Each falls back to the
- * expression `rounded-xl` itself compiles to, which is what keeps a nested
- * skin's own radius — see `block-style.ts` for why a token reference there
- * would freeze the page's.
+ * Its card wears {@link CORNER_CLASS} rather than a fixed `rounded-xl`, so a
+ * block's own `corners` can square any of them. That class is written out in
+ * one file and interpolated everywhere else — eight copies of it is how a bar
+ * and its cards stop agreeing, which opens a window's join and fails nothing.
  */
 export function QuoteLeaf(props: LeafProps): ReactNode {
   const { leaf, locale, labelled } = props;
@@ -224,7 +224,7 @@ export function QuoteLeaf(props: LeafProps): ReactNode {
   if (!description) return PlainLeaf(props);
   return (
     <figure
-      className="grid gap-3 rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface) p-5"
+      className={`grid gap-3 ${CORNER_CLASS} surface border-(--edge) bg-(--surface) p-5`}
       {...tid("block-quote")}
     >
       <QuoteMark className="size-5 text-(--accent)" />
@@ -462,11 +462,10 @@ function tableRows(leaf: LeafBlock, locale: string): TableRow[] {
  * default spacing they resolve to exactly the `rem` values they replaced,
  * which was measured against production element by element.
  *
- * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
- * a block's own `corners` can square any of them. Each falls back to the
- * expression `rounded-xl` itself compiles to, which is what keeps a nested
- * skin's own radius — see `block-style.ts` for why a token reference there
- * would freeze the page's.
+ * Its card wears {@link CORNER_CLASS} rather than a fixed `rounded-xl`, so a
+ * block's own `corners` can square any of them. That class is written out in
+ * one file and interpolated everywhere else — eight copies of it is how a bar
+ * and its cards stop agreeing, which opens a window's join and fails nothing.
  */
 export function TableLeaf(props: LeafProps): ReactNode {
   const { leaf, locale, labelled } = props;
@@ -477,7 +476,9 @@ export function TableLeaf(props: LeafProps): ReactNode {
   if (rows.length === 0) return PlainLeaf(props);
   const caption = labelled ? title : "";
   return (
-    <div className="overflow-x-auto rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface)">
+    <div
+      className={`overflow-x-auto ${CORNER_CLASS} surface border-(--edge) bg-(--surface)`}
+    >
       <table className="w-full" {...tid("block-table")}>
         {caption || description ? (
           <caption className="px-5 py-3.5 text-left">

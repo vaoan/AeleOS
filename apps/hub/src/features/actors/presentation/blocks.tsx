@@ -48,6 +48,7 @@ import type {
   LeafRenderer,
 } from "@/features/actors/presentation/block-contract";
 import type { PageContext } from "@/features/actors/presentation/block-contract";
+import { CORNER_CLASS } from "@/features/actors/presentation/block-contract";
 
 /**
  * Re-exported so the routes and the editor keep one import for the page's own
@@ -804,7 +805,7 @@ function Accordion(props: ModeProps): ReactNode {
   if (seats.length === 0) return null;
   return (
     <div
-      className="overflow-hidden rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface)"
+      className={`overflow-hidden ${CORNER_CLASS} surface border-(--edge) bg-(--surface)`}
       {...tid("block-accordion")}
     >
       {seats.map((seat) => (
@@ -1104,7 +1105,8 @@ function Leaf(props: LeafProps): ReactNode {
  * over that fill rather than instead of it, so a picture that fails to load
  * leaves the author's colour behind the strip; `heading_corners` decides the
  * corners of that strip the way `corners` does the block's own cards — both
- * through the `--corner-*` tokens {@link CLASS_CORNERS} reads, because the
+ * through the `--corner-*` tokens {@link CORNER_CLASS} reads — one constant in
+ * `block-contract.ts`, because the
  * style bag lands on a wrapper and the card is nested inside it — which
  * together draw a window; `heading_gap` is the room
  * under the name, and {@link HEADING_GAP} deliberately holds no default,
@@ -1226,7 +1228,7 @@ export function Block({
   const headingStyle: CSSProperties | undefined =
     Object.keys(headingVars).length > 0 ? headingVars : undefined;
   const headingClass = barred
-    ? `${heading.className} ${fill} ${barPad} ${CLASS_CORNERS}`
+    ? `${heading.className} ${fill} ${barPad} ${CORNER_CLASS}`
     : heading.className;
   // Spread rather than a ternary inside the JSX, which `sonarjs` reads as a
   // nested conditional — and it is right that a marker is not a thing to work
@@ -1417,16 +1419,6 @@ const MEASURE_WITHOUT_GUTTER_CLASS: Record<PageMeasure, string> = {
  * caller falls back to whichever applies. Putting a default here would make
  * one of those two pages change.
  */
-/**
- * What a card — and a bar — reads its four corners from.
- *
- * Written once because the bar and every card have to agree: a window is a bar
- * whose foot is square over content whose head is square, and two class lists
- * is how one of them stops matching the other.
- */
-const CLASS_CORNERS =
-  "rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))]";
-
 const HEADING_GAP = new Map<string, string>([
   ["none", "gap-0"],
   ["snug", "gap-2"],

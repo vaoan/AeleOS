@@ -7,6 +7,7 @@ import type {
   LeafProps,
   LeafRenderer,
 } from "@/features/actors/presentation/block-contract";
+import { CORNER_CLASS } from "@/features/actors/presentation/block-contract";
 import { FursonaCardList } from "@/features/actors/presentation/fursona-card-list";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -214,11 +215,10 @@ export const NameLeaf: LeafRenderer = (props) =>
  * Its type sizes are `em`-relative so a page's `spacing` reaches them; at the
  * default spacing they resolve to exactly the `rem` values they replaced.
  *
- * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
- * a block's own `corners` can square any of them. Each falls back to the
- * expression `rounded-xl` itself compiles to, which is what keeps a nested
- * skin's own radius — see `block-style.ts` for why a token reference there
- * would freeze the page's.
+ * Its card wears {@link CORNER_CLASS} rather than a fixed `rounded-xl`, so a
+ * block's own `corners` can square any of them. That class is written out in
+ * one file and interpolated everywhere else — eight copies of it is how a bar
+ * and its cards stop agreeing, which opens a window's join and fails nothing.
  */
 export const OwnerLeaf: LeafRenderer = (props) => {
   const { labelled, page } = props;
@@ -229,7 +229,7 @@ export const OwnerLeaf: LeafRenderer = (props) => {
       <Label text={labelled ? labelOf(props) : ""} />
       <Link
         href={`/${owner.address}`}
-        className="flex items-center gap-3 rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface) p-4"
+        className={`flex items-center gap-3 ${CORNER_CLASS} surface border-(--edge) bg-(--surface) p-4`}
       >
         {owner.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- as elsewhere here, the address is arbitrary and pasted.
