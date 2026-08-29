@@ -986,6 +986,30 @@ Key choices and _why_:
   before `blocks.tsx`'s own fallback had been read for what it does on a bar
   specifically, not only on a plain heading.
 
+  **Task 11 re-derived both README tables and the findings document from the
+  file rather than from memory, and found a SECOND instance of the exact
+  failure this branch already paid for once.** The findings document's own
+  "what landed, and what carried it" table — the one whose header already
+  confesses that five of eleven rows went stale after a rebuild — had drifted
+  again in the same direction: it still called MySpace's backdrop "tiled"
+  after task 5 replaced it with a photograph, and named no window shape at all
+  for hi5, Sonico, Messenger or Fur Affinity after tasks 6, 8 and 9 added one.
+  A genuine self-contradiction sat twenty lines below its own correction too —
+  "**Fotolog stays recalled**" survived after "Fotolog is genuinely PARTIAL,
+  not knowledge-built" had already replaced that reading higher up the same
+  document. Also corrected: Fur Affinity's two-capture pattern stated to match
+  Facebook's (a December 2008 palette capture, unreachable now, plus a
+  December 2019 chrome capture at a different archive); MySpace's stale
+  "2007 profile" claim replaced with the October 2008 `arquivo.pt` capture and
+  the portal-vs-page (43 real profiles) finding, which had reached this file
+  but not the findings document itself; Bluesky and Threads' "no archive"
+  framing sharpened to "archive history of the wrong subject" (a logged-out
+  splash, a blank client-rendered replay); and gap 10 (the window shape) noted
+  as closed for the social pastiches too, not only the era looks. A
+  corrections banner naming six wrong plan instructions — each traced to the
+  brief or dispatcher ruling that stated it, not reconstructed from memory —
+  was added atop the plan rather than rewriting its body.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is

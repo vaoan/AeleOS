@@ -23,6 +23,45 @@ seeding.
 
 **Spec:** `docs/superpowers/specs/2026-08-29-pastiches-against-their-captures-design.md`
 
+> **Corrections, 2026-08-29 — this plan was executed and six of its
+> instructions were wrong.** Each was found by running it, not by arguing with
+> it, and the body below is left as delivered rather than rewritten.
+>
+> - **`corners` was prescribed alongside `radius: "square"`**, in the Task 5
+>   and Task 8 briefs. A complete no-op: `radius: "square"` already sets
+>   `--skin-round: 0`, and `squareOffCorners` writes every named corner as a
+>   multiple of that same token, so a "rounded" corner and a square one
+>   compute to the identical `0`. `corners` needs `radius: "soft"` or
+>   `"round"` to mean anything, and is absent on every page this plan left at
+>   `"square"`.
+> - **`heading_gap: "none"` was suggested on sections already carrying a bar
+>   heading**, across several tasks' briefs. Also a no-op — `blocks.tsx`
+>   resolves an absent `heading_gap` to `gap-0` on a barred heading with no key
+>   set at all. It produced **13 dead keys** across four tasks before being
+>   caught; all were removed rather than left reading as a change in the diff.
+> - **`heading_pad: "roomy"` was prescribed for Vista and Windows 7** (Task
+>   10's brief). Both captures show visibly translucent Aero glass and keep
+>   plain headings on purpose — a `bar` fill would paint over the one thing
+>   `aero` is — and `heading_pad` is read only where a bar is drawn. Neither
+>   look carries it.
+> - **Task 3's brief contradicts itself.** Its test asserts exactly three
+>   pages carry no capture (`board`, `sky`, `threads`), while its own prose two
+>   paragraphs above puts `geocities` through the identical `absent` branch
+>   for an unrelated reason — GeoCities was millions of personal pages, never
+>   one capture. Both are true and the test's list is the incomplete one:
+>   `absent` covers four pages, not three.
+> - **Task 7's brief opens on a false premise: "Both replay without their
+>   stylesheets"**, of Facebook and Fotolog together. A fresh fetch of
+>   Facebook's arquivo.pt reference capture (run as part of the same task)
+>   turned out fully styled — flat, sharp-cornered boxes in the period's own
+>   navy and green, no raw bullet list anywhere. Only Fotolog replays
+>   unstyled.
+> - **A ruling dispatched alongside Task 10 claimed "`heading_corners` is unset
+>   on all five looks."** `era-winxp` already carried it —
+>   `corners`/`heading_corners` express Luna's window shape from a prior
+>   commit on this same branch, so the premise was stale before the task began.
+>   Confirmed rather than re-added.
+
 ## Global Constraints
 
 Every task's requirements implicitly include these. Values are copied verbatim

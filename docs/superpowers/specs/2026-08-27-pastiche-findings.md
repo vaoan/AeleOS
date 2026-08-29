@@ -43,9 +43,16 @@ here and arquivo has nothing earlier. Both dates are real and describe
 different things — the palette below is confirmed from the first; the
 on-page reference link is the second.
 
-- **Fur Affinity** and **Facebook** are evidence-backed, from a real December
-  2008 and a real March 2007 capture. FA was measurably wrong and was
-  corrected; Facebook's `#3b5998` was already right, reconfirmed by a second,
+- **Fur Affinity** and **Facebook** are evidence-backed, and each rests on TWO
+  captures from two different archives, the same shape and for the same
+  reason: a real December 2008 / March 2007 capture set the palette, from an
+  archive now unreachable from here, and a second, later capture at a
+  different, reachable archive confirmed something further. FA was measurably
+  wrong from the first and was corrected; the second, from arquivo.pt at
+  December 2019, then confirmed its chrome — `heading: "bar"` and
+  `radius: "square"`, welded flush with no gap — which is evidence for the
+  STRUCTURE and none at all for the DATE, so the page stays dated 2008.
+  Facebook's `#3b5998` was already right, reconfirmed by a second,
   independently fetched render of the arquivo.pt reference capture (task 7,
   2026-08-29).
 - **Fotolog is genuinely PARTIAL, and that is a third label, not a stronger
@@ -59,11 +66,19 @@ on-page reference link is the second.
   homepage, where this pastiche imitates a profile, so the arrangement is
   still the FEEL rather than a layout the capture shows directly.
 - **Bluesky and Threads are measured against the LIVE sites** (2026-08-29),
-  which is the only evidence either can have — both are still running, so
-  there is no archive to reach into. Both moved; see "Two live sites, measured"
-  below.
-- **MySpace and hi5** name what they were built from in the seeder: a real 2007
-  profile capture and a real February 2008 capture of the site.
+  which is the only evidence either can have for its PROFILE — both have
+  archive history, and neither holds one: a crawler is served Bluesky's
+  logged-out splash, and Threads builds its markup client-side, so a
+  crawler's stored copy replays blank. Sharper than "there is no archive."
+  Both moved; see "Two live sites, measured" below.
+- **MySpace's own 2007 capture was a PORTAL, not a page — the same lesson
+  GeoCities had already taught, missed here the whole time (task 5,
+  2026-08-29).** `myspace.com` is the portal; `profile.myspace.com/<user>` is
+  somebody's profile, and arquivo.pt holds **43** of them. Rebuilt against one,
+  `profile.myspace.com/akioyang` at October 2008 — see "Rebuilt against a real
+  capture: MySpace" below.
+- **hi5** names what it was built from in the seeder: a real February 2008
+  capture of the site.
 - **The last four were chased down on 2026-08-29** and the gap is closed — not
   because all four found evidence, but because each now says which it is. See
   "The last four" below.
@@ -148,12 +163,13 @@ have.** The seeder already recorded that the first attempt reached for
 one; five out of five Times New Roman is the measurement that reasoning was
 missing.
 
-**Fotolog stays recalled, and a second archive says why.** arquivo.pt replays
-it too, with the same result as the first: 126 links at `#0000ee` — the
-browser's own default — unstyled serif headings and raw bullet lists. The
-markup survives and the stylesheet does not, at two independent archives. It is
-also the logged-out homepage either way, where this pastiche imitates a
-profile.
+**Fotolog stays partial, and a second archive confirms why.** arquivo.pt
+replays it too, with the same result as the first: 126 links at `#0000ee` —
+the browser's own default — unstyled serif headings and raw bullet lists,
+beside boxed panels that ARE table-and-inline styled and do render. The markup
+survives and the stylesheet does not, at two independent archives, in exactly
+the same places both times. It is also the logged-out homepage either way,
+where this pastiche imitates a profile.
 
 **The board can never be closed by any archive, and that is a property rather
 than a gap.** arquivo.pt holds `twitter.com/twitter` profile captures from 2009
@@ -235,19 +251,19 @@ the real sites were plain white-and-blue pages, so the decorative skins came
 off, and this summary went on describing the pages as they had been. It is
 built from the file now rather than from recall.
 
-| page                   | what actually carries it                                                                                                                                                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas — over `surface: "#f8f8f8"` and a `#193c74` accent, both measured off a real 8.0 screenshot.             |
-| MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"` and a tiled backdrop.                                                                           |
-| hi5                    | `heading: "gradient"` title bars over white content, a `carousel` of widgets, and `progress` as a profile-completeness meter.                                                                                              |
-| Sonico                 | Navy `#003399` bars on white with `#f3f3f3` panels, all measured off an October 2008 capture, plus `masonry` for a real photo wall and `carousel` for album strips.                                                        |
-| GeoCities              | `font: "serif"` and centred text — measured, five of five real pages are Times New Roman — a `stars` canvas, a tiled backdrop, a `table` of visitor stats and a `link` row as a webring.                                   |
-| Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, and `list` + `chrome: "bare"` for the shouts wall.                                                                  |
-| Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                                                      |
-| Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall.                                                           |
-| Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test. Its palette is Twitter's ~2019 dark mode, not the 2012 it was filed under. |
-| Bluesky                | Flat `#ffffff` and `#006aff`, measured live. The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`.                                                                   |
-| Threads                | `list` + `chrome: "bare"` on the live site's own `#0a0a0a`, with `surface: "#101010"` for the card. What defines it is what it removes.                                                                                    |
+| page                   | what actually carries it                                                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas — over `surface: "#f8f8f8"` and a `#193c74` accent, both measured off a real 8.0 screenshot. Every panel now carries the window shape too: `radius: "soft"` with matching `corners`/`heading_corners` on `"tl,tr"`. |
+| MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"`, and a real October 2008 profile's night-skyline photograph behind every box (task 5) — semi-transparency itself stays unreachable, gap 13 below.                                                          |
+| hi5                    | `heading: "gradient"` title bars over white content — a genuine ramp, sampled and kept — a `carousel` of widgets, `progress` as a profile-completeness meter, and the same window shape as Messenger's: `radius: "soft"` with `corners: "tl,tr"`.                                                                                     |
+| Sonico                 | Flat navy `#003399` bars on white with `#f3f3f3` panels, all measured off an October 2008 capture — `heading: "bar"` replaces the gradient this table used to name, on evidence the strip is flat rather than a ramp — plus `masonry` for a real photo wall, `carousel` for album strips, and hi5's own window shape.                 |
+| GeoCities              | `font: "serif"` and centred text — measured, five of five real pages are Times New Roman — a `stars` canvas, a tiled backdrop, a `table` of visitor stats, a `link` row as a webring, and `radius: "square"` panels, since no section had set one and the skin rounded.                                                               |
+| Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, `list` + `chrome: "bare"` for the shouts wall, and — confirmed by a second, December 2019 capture at a different archive — `heading: "bar"` welded flush to `radius: "square"` panels, no `corners` at all.                    |
+| Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                                                                                                                                                                 |
+| Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall.                                                                                                                                                                      |
+| Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test. Its palette is Twitter's ~2019 dark mode, not the 2012 it was filed under.                                                                                                            |
+| Bluesky                | Flat `#ffffff` and `#006aff`, measured live. The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`.                                                                                                                                                                              |
+| Threads                | `list` + `chrome: "bare"` on the live site's own `#0a0a0a`, with `surface: "#101010"` for the card. What defines it is what it removes.                                                                                                                                                                                               |
 
 **GeoCities is worth reading twice**: it reached for `terminal` first and got
 monospace, which reads as a developer's site rather than a personal homepage. A
@@ -578,6 +594,19 @@ while a real browser measured 0. And writing only the corners switched off left
 the bar inheriting the section's, because custom properties inherit and the bar
 sits inside the section. Both are recorded against the feature itself.
 
+**Closed for the social pastiches too, across three tasks the same week
+(2026-08-29) — not only the era looks.** hi5 and Sonico (task 6) and Messenger
+(task 9) each now carry `radius: "soft"` with `corners: "tl,tr"`, the identical
+bar-rounds-top-body-squares-foot shape XP wears. Fur Affinity took the
+mechanism's other direction on its own evidence: its second, December 2019
+capture (task 8; see "The fidelity pass" above) showed its bars welded flush
+with no gap and every corner square, so it earns `heading: "bar"` with
+`radius: "square"` and no `corners` named at all — a page with nothing rounded
+needs no corner singled out, which this same mechanism already covers without
+a new key. MySpace, by contrast, keeps `radius: "square"` throughout on its
+own capture's evidence and so carries no `corners` either — three pages
+reaching the identical no-op for three different, all-measured reasons.
+
 ### 11. The canvas is ON unless a look turns it off, and three flat desktops forgot
 
 Not a gap — a thing to remember when authoring a look. Windows 98, XP and 8 are
@@ -671,6 +700,12 @@ profile chrome: a pale gradient, a stardust tile, white boxes, `#003399`. That
 is what MySpace handed somebody at signup. It is not what MySpace WAS — real
 profiles were customised almost universally, and the customisation was the
 point.
+
+**A PORTAL capture is not a PAGE capture — the lesson already learned for
+GeoCities, missed here the whole time.** `myspace.com` is the portal;
+`profile.myspace.com/<user>` is somebody's profile, and arquivo.pt holds **43**
+of them. This page's own prior capture had been the portal, not a profile;
+rebuilt against one of the 43 instead.
 
 Rebuilt against `profile.myspace.com/akioyang`, captured at `arquivo.pt`,
 timestamp `20081024054301` (2008-10-24 05:43:01 UTC). It is a photograph
