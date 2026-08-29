@@ -1260,16 +1260,30 @@ const furaffinityTheme = theme({
 //      Structurally the opposite of every page above: ONE photograph, and then
 //      a guestbook longer than the rest of the page put together.
 //
-// **The one page still built from knowledge, and a SECOND archive now says
-// why (2026-08-29).** The claim used to rest on `web.archive.org` alone;
-// **arquivo.pt** holds `http://www.fotolog.com/` at `20080215112915`, and
-// rendering it gives the same result — 126 links at `#0000ee`, the browser's
-// own default, headings in unstyled serif and raw bullet lists. The markup
-// survives and the stylesheet does not, at two independent archives.
+// **Neither knowledge-built nor evidence-backed — genuinely PARTIAL, and that
+// is the correct label (task 7, 2026-08-29).** The claim used to rest on
+// `web.archive.org` alone, then on a second archive giving the same
+// result; a fresh render of the identical `20080215112915` capture confirms
+// it again rather than changing it: the nav is still 126 links at `#0000ee`,
+// the browser's own default, in raw unstyled bullet lists — the linked
+// stylesheet never loaded. But the boxed panels beneath it — the login box,
+// the member-stats box, the three-column footer — DO render: they are
+// table-and-inline styled, which survives where the external sheet does not.
+//
+// So arrangement and density are MEASURED here, not recalled: small
+// bold-serif headers, thin grey borders, tight rows, on a field confirmed
+// flat `#ffffff` from the very top pixel to the very bottom one (not merely
+// eyeballed at a corner). The panel colour is measured too, and it is
+// `#f0f0f0` — a ten-colour sample puts it at 31.7% of the frame, where
+// `#eeeeee` accounts for 0.01%. The accent, `#0a6ebd`, is NOT confirmed the
+// same way: the only blue anywhere on the capture is `#0000ee`, the browser's
+// own unstyled link colour, which is nobody's brand choice. It stays
+// RECALLED.
 //
 // It is also the logged-out HOMEPAGE either way, where this pastiche imitates
-// a profile. So what is claimed here is the FEEL — one photograph and a
-// guestbook longer than the rest of the page — not a palette anybody measured.
+// a profile. So the arrangement below is the FEEL — one photograph and a
+// guestbook longer than the rest of the page — not a layout this capture
+// shows directly.
 // ---------------------------------------------------------------------------
 
 const fotolog = [
@@ -1279,10 +1293,17 @@ const fotolog = [
   // added later, alongside `owner` on the guestbook below: the page rendered
   // fine without either because the seeder bypasses `set_actor_sections`,
   // which is the exact gap `pastiche-pages.test.ts` exists to catch.
+  //
+  // **The avatar's alt text was that idiom's placeholder — a bare repeat of
+  // `name` — and is replaced (task 7).** Neither this capture nor any other
+  // shows what a Fotolog profile's own portrait was captioned, so there is
+  // no evidenced string to reach for; "Foto de perfil" ("profile picture")
+  // is the page's own established Spanish voice — already carrying "hoy" and
+  // "pie de foto" below — rather than a repeated name or an English filler.
   group(
     "stack",
     [
-      leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
+      leaf("avatar", "Foto de perfil", { style: { image_fit: "contain" } }),
       leaf("name", "aeleos"),
       leaf("handle", "fotolog"),
     ],
@@ -1322,20 +1343,42 @@ const fotolog = [
       .map(([who, said]) =>
         leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
       )
-      .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
+      // **"Owner" was that idiom's placeholder — bare English in a guestbook
+      // of Spanish signatures — and is replaced (task 7).** No capture shows
+      // this specific string either; "Este Fotolog es de" ("this Fotolog
+      // belongs to") matches the voice the comments already established and
+      // reads as the guestbook's own closing line rather than an app label.
+      .concat(
+        leaf("owner", "Este Fotolog es de", { style: { chrome: "bare" } }),
+      ),
     { style: { heading: "bar", chrome: "bare" } },
   ),
 ];
 
 const fotologTheme = theme({
+  // The field reads flat `#ffffff` from the capture's top row to its bottom
+  // row alike — measured, not sampled at a corner. The `#eef2f6` second stop
+  // is not something the capture shows; it is kept as a barely-perceptible
+  // aesthetic touch rather than corrected away, since the departure from
+  // measured white is too small to matter and the choice predates this task.
   background: gradient(180, [
     { color: "#ffffff", at: 0 },
     { color: "#eef2f6", at: 100 },
   ]),
+  // RECALLED, not measured — see the banner above. The only blue the capture
+  // actually shows is the browser's own unstyled link colour, `#0000ee`,
+  // which is nobody's brand choice.
   accent: "#0a6ebd",
+  // **Measured (task 7): `#f0f0f0`, 31.7% of the frame** — the grey every
+  // boxed panel (login, member stats, the three-column footer) sits on,
+  // clearly distinct from the white field it floats over. Clears the gate:
+  // ink 17.26:1, muted 4.94:1, edge 3.20:1 against this surface.
+  surface: "#f0f0f0",
   canvas: "none",
   skin: "default",
   font: "classic",
+  // **Confirmed by the capture (task 7), not merely already set:** small
+  // type, tight rows, panels packed edge to edge.
   spacing: "compact",
   // Narrow on purpose: the page was one column and one photograph.
   measure: "narrow",
@@ -1345,11 +1388,37 @@ const fotologTheme = theme({
 // 11 — Facebook, ~2008. Blue bars, a narrow left rail of information boxes,
 //      and a wall. The most COPIED layout of its decade.
 //
-// **Confirmed against a real March 2007 capture (2026-08-28).** `#3b5998` was
-// already right — the one colour of theirs anybody would recognise on sight —
-// and the capture added a detail the model could not then express: the navy
-// bar carries a LIGHTER blue sub-bar beneath it. `heading: "soft"` is that
-// second tone, and the subordinate sections below wear it.
+// **Confirmed against a real capture (2026-08-28) — dated February 2008, not
+// "March 2007" as this comment and several documents elsewhere said until
+// task 7 (2026-08-29).** That date was simply wrong: the timestamp this file
+// has always fetched, `20080215125110`, decodes as 2008-02-15, and arquivo.pt's
+// own CDX index holds no Facebook capture from 2007 at all — the nearest
+// "March" capture is `20080315170646`, March 2008. `#3b5998` was already
+// right — the one colour of theirs anybody would recognise on sight — and the
+// capture added a detail the model could not then express: the navy bar
+// carries a LIGHTER blue sub-bar beneath it. `heading: "soft"` is that second
+// tone, and the subordinate sections below wear it.
+//
+// **A fresh fetch of the same capture (task 7, 2026-08-29) turned out to be
+// STYLED, which contradicts this whole task's own premise that Facebook and
+// Fotolog both replay without a stylesheet.** There is no raw bullet list
+// anywhere on it and no browser-default blue: every box is a flat,
+// sharp-cornered rectangle in the period's own navy and green. Re-sampled:
+// `#3b5998` at 3.9% and `#ffffff` at 91.9%, both reconfirming what was
+// already stored. It is the logged-out FRONT PAGE, not the profile this
+// pastiche imitates, so it is not direct evidence for the Wall or
+// Information boxes — but the SQUARE, flat design language is real evidence
+// rather than a guess: at 3x zoom the wordmark box, the Sign Up button and
+// the Login button all have visibly sharp, unrounded corners, on a page with
+// no rounding anywhere. `radius: "square"` below is that measurement,
+// applied to the three barred sections.
+//
+// **`corners` is deliberately NOT added, and neither is `heading_gap`.**
+// With `radius: "square"`, `corners` is a complete no-op (ruling 8 — a
+// rounded-corner list means nothing without `"soft"` or `"round"`), and a
+// barred section already welds to its content with no gap by default, so
+// `heading_gap: "none"` would be an equally silent no-op. Either would be a
+// dead letter reading like a change in the diff.
 // ---------------------------------------------------------------------------
 
 const facebook = [
@@ -1376,14 +1445,20 @@ const facebook = [
       ]),
       group("stack", [
         leaf("name", "Aeleos"),
-        leaf("handle", "aeleos.facebook"),
+        // **Was `"aeleos.facebook"`, a placeholder invented rather than
+        // evidenced (task 7).** February 2008 Facebook had no vanity URLs at
+        // all — those launched in June 2009 — so a profile's only address was
+        // a numeric `profile.php?id=…`. "Profile ID" names that reality
+        // instead of a handle format the site would not offer for another
+        // year and a half.
+        leaf("handle", "Profile ID"),
         leaf("text", "What's on your mind?", {
           description_en:
             "Aeleos is wondering why he spent four hours on a profile page instead of sleeping.",
         }),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { heading: "bar" } },
+    { spaces: 2, weights: [1, 2], style: { heading: "bar", radius: "square" } },
   ),
 
   section(
@@ -1394,11 +1469,12 @@ const facebook = [
         image_url: photo("fb-friend-" + i, 200, 200),
       }),
     ),
-    // **The lighter blue strip under the navy one**, which is what the March
-    // 2007 capture actually shows and what one accent could not express. The
+    // **The lighter blue strip under the navy one**, which is what the
+    // capture actually shows and what one accent could not express. The
     // identity section keeps the strong bar; everything subordinate to it
-    // takes the quieter tone.
-    { spaces: 6, style: { heading: "soft" } },
+    // takes the quieter tone. `radius: "square"` matches the sharp-cornered
+    // boxes the fresh capture shows throughout the front page (task 7).
+    { spaces: 6, style: { heading: "soft", radius: "square" } },
   ),
 
   section(
@@ -1414,7 +1490,7 @@ const facebook = [
         leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
       )
       .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
-    { style: { heading: "soft", chrome: "bare" } },
+    { style: { heading: "soft", chrome: "bare", radius: "square" } },
   ),
 ];
 
@@ -1423,10 +1499,11 @@ const facebookTheme = theme({
     { color: "#edeff4", at: 0 },
     { color: "#dfe3ee", at: 100 },
   ]),
-  // `#3b5998` off the 2007 capture, which is the one colour of Facebook's that
-  // everybody can name.
+  // `#3b5998` off the capture — reconfirmed by a fresh sample, task 7 — the
+  // one colour of Facebook's that everybody can name.
   accent: "#3b5998",
   // Facebook's body is white, not a tint of its own pale-blue page ground.
+  // Reconfirmed 2026-08-29: 91.9% of a fresh capture's pixels.
   surface: "#ffffff",
   canvas: "none",
   skin: "default",

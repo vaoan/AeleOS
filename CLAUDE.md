@@ -436,7 +436,7 @@ Key choices and _why_:
   **ARCHIVE.ORG ANSWERS AGAIN (2026-08-28), and that sentence was a dated claim
   believed past its date.** Probed directly: the availability API returns a
   2008 snapshot for every one of the three. Two of them are now evidence-backed
-  — a real 2008 Fur Affinity capture and a real 2007 Facebook one — and the FA
+  — a real 2008 Fur Affinity capture and a real 2008 Facebook one — and the FA
   page was measurably wrong as a result: built from knowledge it had a
   near-black ground and saturated teal header bars, where the capture shows a
   slate BLUE-GREY ground and light silver bars carrying DARK text. Fotolog
@@ -449,8 +449,23 @@ Key choices and _why_:
   before believing it; the probe is one `curl` against
   `archive.org/wayback/available`.
 
+  **Fotolog no longer "stays knowledge-built" (task 7, 2026-08-29), and the
+  Facebook date above was wrong the whole time.** A fresh render of Fotolog's
+  own `20080215112915` capture shows the nav replaying without its stylesheet
+  — raw links in the browser's own default blue — but the boxed panels
+  underneath ARE table-and-inline styled and DO render, so its arrangement and
+  density are measured (a `#f0f0f0` panel on a flat white field) while its
+  accent stays recalled. That is a third label, PARTIAL, not a stronger
+  reading of "knowledge-built". Separately, "a real 2008 Facebook one" two
+  paragraphs up was itself a correction of a _stale_ "March 2007" that had sat
+  in this file, the actors feature note, the findings and the README — the
+  fetched timestamp, `20080215125110`, decodes as 2008-02-15, and arquivo.pt's
+  own index holds no 2007 Facebook capture at all. See
+  `docs/superpowers/specs/2026-08-27-pastiche-findings.md` for the full
+  account of both.
+
   **Gap 12 is closed (2026-08-28) and the way it was nearly closed WRONG is
-  the part worth carrying.** The 2007 Facebook capture is a navy bar over a
+  the part worth carrying.** The 2008 Facebook capture is a navy bar over a
   lighter blue one, which one accent could not draw; `heading: "soft"` is a
   second, DERIVED tone. The obvious derivation — move the accent a fraction of
   the way toward the panel — is what anybody writes first, and it collapses on

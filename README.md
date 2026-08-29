@@ -84,11 +84,12 @@ first thing to go stale.
 thing differ, the pastiche is wrong, not the model.
 
 How much evidence each one rests on differs, and it is worth knowing before you
-trust a colour (as of 2026-08-28):
+trust a colour (as of 2026-08-29):
 
 - **Measured against a real archived capture:** Fur Affinity (December 2008 —
-  it was measurably wrong and was corrected), Facebook (March 2007), MySpace
-  (a 2007 profile) and hi5 (February 2008).
+  it was measurably wrong and was corrected), Facebook (February 2008 — not
+  "March 2007", a date this table stated wrongly until task 7, 2026-08-29),
+  MySpace (a 2007 profile) and hi5 (February 2008).
 - **Measured against the live site:** Bluesky and Threads, both still running,
   so neither needs an archive at all. Both moved when checked — Bluesky's
   accent is `#006aff` and not the `#0085ff` everybody quotes, and Threads had
@@ -103,8 +104,12 @@ trust a colour (as of 2026-08-28):
   GeoCities, from a restored gallery of real archived personal pages, where
   five out of five are Times New Roman: that confirmed the design rather than
   changing it.
-- **Built from knowledge, because no source can settle them:** Fotolog, whose
-  captures render unstyled at two independent archives, and the microblog
+- **Measured partially, from a capture whose stylesheet did not survive:**
+  Fotolog — the nav replays as 126 raw links in the browser's own default
+  blue, but its boxed panels are table-and-inline styled and DO render, so
+  its arrangement and density are measured (a `#f0f0f0` panel on a flat white
+  field) while its accent stays recalled.
+- **Built from knowledge, because no source can settle it:** the microblog
   board — a crawler arrives logged out and is served the light page, so **no
   archive anywhere holds the dark palette it imitates.**
 

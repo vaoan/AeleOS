@@ -24,18 +24,29 @@ so every re-run silently undid it. The seeder owns visibility now, along with
 each page's avatar, for the same reason: **a seed that does not restore
 everything it depends on works exactly once.**
 
-**What each page's palette actually rests on, as of 2026-08-28.** This
+**What each page's palette actually rests on, as of 2026-08-29.** This
 paragraph used to say all three of the late additions were knowledge-built, and
 two of them stopped being so lower down this same document — a document
-contradicting itself, which is worse than one that is simply wrong.
+contradicting itself, which is worse than one that is simply wrong. It also
+used to date the Facebook capture to "March 2007", which was simply wrong: the
+timestamp `scripts/pastiche-pages.mjs` has always fetched, `20080215125110`,
+decodes as 2008-02-15, and arquivo.pt's CDX index holds no Facebook capture
+from 2007 at all.
 
 - **Fur Affinity** and **Facebook** are evidence-backed, from a real December
-  2008 and a real March 2007 capture. FA was measurably wrong and was
-  corrected; Facebook's `#3b5998` was already right.
-- **Fotolog** is the one page still built from knowledge, and the only one. Its
-  snapshots render the logged-out homepage with broken styling; no profile
-  capture has been found. What is claimed for it is the FEEL, not a palette
-  anybody measured.
+  2008 and a real February 2008 capture. FA was measurably wrong and was
+  corrected; Facebook's `#3b5998` was already right, reconfirmed by a second,
+  independently fetched render of the same capture (task 7, 2026-08-29).
+- **Fotolog is genuinely PARTIAL, and that is a third label, not a stronger
+  reading of "knowledge-built" (task 7, 2026-08-29).** Its capture replays
+  without its stylesheet — the nav is 126 raw links in the browser's own
+  default blue — but the boxed panels beneath it are table-and-inline styled
+  and DO render, so arrangement and density are measured (tight rows, a
+  `#f0f0f0` panel on a flat white field) while the accent, `#0a6ebd`, remains
+  recalled: the only blue the capture itself shows is the browser's own
+  unstyled link colour, nobody's brand choice. It is also the logged-out
+  homepage, where this pastiche imitates a profile, so the arrangement is
+  still the FEEL rather than a layout the capture shows directly.
 - **Bluesky and Threads are measured against the LIVE sites** (2026-08-29),
   which is the only evidence either can have — both are still running, so
   there is no archive to reach into. Both moved; see "Two live sites, measured"
@@ -407,12 +418,17 @@ external service as its subject rather than a database.
   ground and light silver bars carrying DARK text**. It was reading as a modern
   dark theme rather than as 2008. Both were corrected from the capture, and
   `--on-accent` derived the dark text on the light bar with no help.
-- **Facebook's palette is confirmed** from a real March 2007 capture: `#3b5998`
-  was already right, and the capture adds the detail that the navy bar carries
-  a LIGHTER blue sub-bar beneath it, which one accent could not express — the
-  gap below, since closed.
-- **Fotolog stays knowledge-built and says so.** Its snapshots render the
-  logged-out homepage with broken styling; no profile capture was found.
+- **Facebook's palette is confirmed** from a real February 2008 capture (not
+  "March 2007", a date this section stated wrongly until task 7, 2026-08-29 —
+  the fetched timestamp, `20080215125110`, decodes as 2008-02-15 and no 2007
+  Facebook capture exists in arquivo.pt's own index): `#3b5998` was already
+  right, and the capture adds the detail that the navy bar carries a LIGHTER
+  blue sub-bar beneath it, which one accent could not express — the gap below,
+  since closed.
+- **Fotolog is genuinely PARTIAL (relabelled task 7, 2026-08-29), not
+  knowledge-built.** Its nav replays without a stylesheet, but its boxed
+  panels are table-and-inline styled and DO render — see the palette summary
+  above for what that measures and what stays recalled.
 
 ### 12. One accent cannot express a two-tone header — CLOSED (2026-08-28)
 

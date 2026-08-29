@@ -4218,8 +4218,9 @@ whitespace and compare whole tokens, in both directions — root rule 27, met on
 a string rather than on a page shape.
 
 It reaches the Facebook pastiche as the strong bar on the identity section and
-the quieter one on everything subordinate to it, which is what the March 2007
-capture shows and what gap 12 of the pastiche findings recorded as unreachable.
+the quieter one on everything subordinate to it, which is what the February
+2008 capture shows and what gap 12 of the pastiche findings recorded as
+unreachable.
 
 ### A bar can be given room (2026-08-28)
 
