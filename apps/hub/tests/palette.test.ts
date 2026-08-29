@@ -232,6 +232,42 @@ describe("derivePalette", () => {
     }
   });
 
+  // **The soft bar tone owes exactly what the accent owes**, and for the same
+  // reason: nobody picks it, so nobody can fix it. It is derived from a colour
+  // somebody DID pick, which is what makes the label a solved value rather
+  // than a constant.
+  it("keeps a label on the soft tone readable, since nobody picks that one", () => {
+    for (const accent of ["#00ff88", "#000000", "#ffffff", "#7f7f7f"]) {
+      const palette = derivePalette(flat("#1a1a2e"), accent);
+      expect(
+        contrastRatio(
+          colourOf(palette, "--on-accent-soft"),
+          colourOf(palette, "--accent-soft"),
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  // **The tone has to be a DIFFERENT colour from the accent, or the second bar
+  // is the first one.** That is the whole feature, and it is the assertion a
+  // renderer emitting `--accent` under a second name would fail. `#7f7f7f` is
+  // in the list on purpose: a mid-grey accent has the least room to travel
+  // toward a panel, so it is where a derivation that barely moves would first
+  // stop being visible.
+  it.each(["#00ff88", "#000080", "#7f7f7f", "#3b5998"])(
+    "moves the soft tone away from %s",
+    (accent) => {
+      const palette = derivePalette(flat("#1a1a2e"), accent);
+      expect(palette["--accent-soft"]).not.toBe(palette["--accent"]);
+      expect(
+        contrastRatio(
+          colourOf(palette, "--accent-soft"),
+          colourOf(palette, "--accent"),
+        ),
+      ).toBeGreaterThan(1.2);
+    },
+  );
+
   it("falls back to the text colour when the accent is not a colour", () => {
     const palette = derivePalette(flat("#1a1a2e"), "nonsense");
     expect(palette["--accent"]).toBe(palette["--ink"]);

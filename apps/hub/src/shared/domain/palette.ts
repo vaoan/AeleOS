@@ -62,6 +62,22 @@ function remember(key: string, palette: Palette): void {
 export type Palette = Record<string, string>;
 
 /**
+ * How far in lightness the soft bar tone travels from the accent.
+ *
+ * Far enough to read as a different strip and near enough to read as the same
+ * colour, which is what a sub-bar is.
+ */
+const SOFT_STEP = 0.18;
+
+/**
+ * How much of the accent's colourfulness the soft tone keeps.
+ *
+ * Eased off, because a tint holding full saturation reads as a SECOND accent
+ * rather than as a quieter version of the first.
+ */
+const SOFT_CHROMA = 0.72;
+
+/**
  * Formats a colour the way the stylesheet does.
  *
  * Scalar parameters rather than a destructured tuple: destructuring in the
@@ -183,6 +199,11 @@ function dimmestLegible(
  *   background as every page did before this existed. A page that sets one has
  *   TWO grounds, and every derived colour is then solved against whichever of
  *   them leaves least room.
+ * It also emits `--accent-soft` and `--on-accent-soft`, the quieter bar tone
+ * and its own solved label. Nobody picks either, which is exactly why the
+ * label is solved rather than reused: the tone is a different colour from the
+ * accent, so what reads on one need not read on the other.
+ *
  * @returns every custom property the theme sets.
  */
 export function derivePalette(
@@ -302,6 +323,34 @@ export function derivePalette(
       ? light
       : shade;
 
+  // **A SECOND bar tone, derived rather than picked.** Real designs stack two:
+  // a strong strip and a quieter one beneath it — Facebook's navy over a
+  // lighter blue is the case that asked for it, and one accent could only ever
+  // draw one. Moving the accent a fixed part of the way toward the panel keeps
+  // it recognisably the same colour, which is what a sub-bar is; an author
+  // choosing a second colour outright would be a second palette to keep in
+  // step, and every pairing of two chosen colours is somebody's mistake to
+  // make.
+  //
+  // Its label is solved exactly as the accent's is, and for the same reason:
+  // the tone is derived from a colour somebody picked, so nobody chose what
+  // goes on top of it and something has to.
+  //
+  // **It travels toward whichever extreme has ROOM, not toward the panel**,
+  // and that correction was measured rather than reasoned. Moving it a
+  // fraction of the way to the surface is the obvious rule and it fails on
+  // exactly the page this feature exists for: a dark page's panel is dark
+  // too, so a navy accent's tone landed within 1.2 of the accent itself and
+  // the second bar was the first one. Lightness is where a sub-bar's
+  // difference actually lives, and every accent has room in one direction or
+  // the other.
+  const soft = accent[0] < 0.5 ? accent[0] + SOFT_STEP : accent[0] - SOFT_STEP;
+  const accentSoft: Oklch = [soft, accent[1] * SOFT_CHROMA, accent[2]];
+  const onAccentSoft =
+    contrastRatio(light, accentSoft) >= contrastRatio(shade, accentSoft)
+      ? light
+      : shade;
+
   const solved: Palette = {
     // **The RAW pair, not what a panel paints.** `globals.css` composes
     // `--surface` from `--surface-solid` so that a skin can lower its alpha —
@@ -329,6 +378,8 @@ export function derivePalette(
     "--edge": css(...edge),
     "--accent": css(...accent),
     "--on-accent": css(...onAccent),
+    "--accent-soft": css(...accentSoft),
+    "--on-accent-soft": css(...onAccentSoft),
     "--nebula-blend": dark ? "screen" : "multiply",
   };
 

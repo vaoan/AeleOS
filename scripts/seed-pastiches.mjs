@@ -1056,7 +1056,11 @@ const facebook = [
         image_url: photo("fb-friend-" + i, 200, 200),
       }),
     ),
-    { spaces: 6, style: { heading: "bar" } },
+    // **The lighter blue strip under the navy one**, which is what the March
+    // 2007 capture actually shows and what one accent could not express. The
+    // identity section keeps the strong bar; everything subordinate to it
+    // takes the quieter tone.
+    { spaces: 6, style: { heading: "soft" } },
   ),
 
   section(
@@ -1070,7 +1074,7 @@ const facebook = [
     ].map(([who, said]) =>
       leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
     ),
-    { style: { heading: "bar", chrome: "bare" } },
+    { style: { heading: "soft", chrome: "bare" } },
   ),
 ];
 

@@ -1091,8 +1091,10 @@ function Leaf(props: LeafProps): ReactNode {
  *
  * Heading sizes are `em`-relative so a page's `spacing` reaches them, and a
  * named container may draw its name as a BAR — see `heading` in the style bag.
- * `gradient` is that same bar with a vertical sheen, and it collapses the
- * section's gap exactly as `bar` does: the two differ in the fill alone.
+ * `gradient` is that same bar with a vertical sheen and `soft` the same bar in
+ * a quieter derived tone; all three collapse the section's gap exactly as
+ * `bar` does, differing in the fill and its label alone. Which values draw a
+ * bar at all is {@link BAR_FILL}'s to say rather than a second list here.
  * `heading_pad` decides how much room that bar gives the name, and is read
  * nowhere else — see {@link BAR_PADDING}.
  *
@@ -1158,19 +1160,22 @@ export function Block({
   // escape hatch is what covers an accent whose derived label is marginal, and
   // it covers this the same way.
   const barStyle = block.style?.heading;
-  const barred =
-    (barStyle === "bar" || barStyle === "gradient") && Boolean(name);
-  const fill =
-    barStyle === "gradient"
-      ? "bg-[linear-gradient(to_bottom,color-mix(in_oklab,var(--accent)_88%,white),color-mix(in_oklab,var(--accent)_88%,black))]"
-      : "bg-(--accent)";
+  // **`BAR_FILL` decides what counts as a bar**, so a style added to that map
+  // is barred without anything here being told about it. A second list of
+  // which styles draw a strip is a second place to forget one.
+  const fill = BAR_FILL.get(barStyle ?? "");
+  const barred = fill !== undefined && Boolean(name);
+  // **`soft` takes its own label token, not `--on-accent`.** The tone is a
+  // different colour from the accent, so the label that reads on one need not
+  // read on the other — `--on-accent-soft` is solved against the tone itself,
+  // exactly as the accent's label is solved against the accent.
   // **Only a BAR can be crowded, so only a bar reads this.** A plain name
   // floats with the page's own spacing around it and has no edge to be pressed
   // against; giving it padding would move text with nothing behind it. Absent
   // is `px-3 py-2`, which is what every barred page already had.
   const barPad = BAR_PADDING.get(block.style?.heading_pad ?? "") ?? "px-3 py-2";
   const headingClass = barred
-    ? `${heading.className} ${fill} ${barPad} text-(--on-accent)`
+    ? `${heading.className} ${fill} ${barPad}`
     : heading.className;
   // Spread rather than a ternary inside the JSX, which `sonarjs` reads as a
   // nested conditional — and it is right that a marker is not a thing to work
@@ -1340,6 +1345,26 @@ const MEASURE_WITHOUT_GUTTER_CLASS: Record<PageMeasure, string> = {
  * `compact` type in it reads as crowded — and `snug` is the other direction,
  * which a 2003 table-based bar genuinely was.
  */
+/**
+ * What each barred heading style paints, and what it writes on.
+ *
+ * A `Map` rather than a record because the key arrives from `jsonb` — the same
+ * reason every other lookup here is one.
+ *
+ * **Each entry names its OWN label token.** `soft` is a different colour from
+ * the accent, so the label that reads on one need not read on the other;
+ * `--on-accent-soft` is solved against the soft tone itself, exactly as
+ * `--on-accent` is solved against the accent.
+ */
+const BAR_FILL = new Map<string, string>([
+  ["bar", "bg-(--accent) text-(--on-accent)"],
+  [
+    "gradient",
+    "bg-[linear-gradient(to_bottom,color-mix(in_oklab,var(--accent)_88%,white),color-mix(in_oklab,var(--accent)_88%,black))] text-(--on-accent)",
+  ],
+  ["soft", "bg-(--accent-soft) text-(--on-accent-soft)"],
+]);
+
 const BAR_PADDING = new Map<string, string>([
   ["snug", "px-2 py-0.5"],
   ["roomy", "px-5 py-4"],

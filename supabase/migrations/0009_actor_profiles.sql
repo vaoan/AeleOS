@@ -802,7 +802,7 @@ begin
         -- content, `bar` is a solid strip with the content squared off
         -- beneath. Read only where a name exists, and stored at any depth for
         -- the reason `bleed` is.
-        if v_value not in ('plain', 'bar', 'gradient') then
+        if v_value not in ('plain', 'bar', 'gradient', 'soft') then
           raise exception 'block %: unknown heading style', p_path using errcode = '22023';
         end if;
       elsif v_key = 'text_align' then

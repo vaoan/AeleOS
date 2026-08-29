@@ -480,6 +480,11 @@ const utf8 = new TextEncoder();
  * a name drawn as a bar. A plain name has the page's own spacing around it and
  * no edge to be pressed against, so padding it would move text with nothing
  * behind it.
+ *
+ * `heading` gained a fourth value, `soft`, rather than a key of its own: it is
+ * the same question — how is this name drawn — answered differently, and a
+ * second key would be a second thing to keep in step with the renderer's own
+ * table of what counts as a bar.
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -511,8 +516,15 @@ export const BLOCK_STYLE_LIMITS = {
    * MySpace and hi5 both used for every box on a profile. `plain` is the
    * heading floating above the content, which is what every page had before
    * this key and remains the default.
+   *
+   * **`soft` is the same strip in a QUIETER tone**, and it exists because real
+   * designs stack two: Facebook's navy bar over a lighter blue one is the case
+   * that asked for it, and one accent could only ever draw one strip. The tone
+   * is DERIVED from the accent rather than picked — see `--accent-soft` — so
+   * there is no second palette to keep in step, and its label is solved the
+   * same way the accent's is.
    */
-  heading: ["plain", "bar", "gradient"],
+  heading: ["plain", "bar", "gradient", "soft"],
   /** Which edge a block's own text is set against. */
   text_align: ["start", "center", "end"],
   /**
