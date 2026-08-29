@@ -52,9 +52,13 @@
     "conseguimos",
     "encontrar",
     "página",
-    // The Spanish half of the inspiration section's name. The catalogues are
-    // key-checked, but this document names the string.
+    // The Spanish half of the inspiration section's name, and of the line a
+    // page shows where no capture of it can exist. These are the seeded page's
+    // own writing rather than catalogue keys — a person's own words are never
+    // next-intl — so the strings are named in the plan and the seeder.
     "inspiración",
+    "existe",
+    "captura",
     "picsum",
     "pixabay",
     "showcase",

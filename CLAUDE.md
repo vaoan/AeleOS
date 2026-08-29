@@ -646,6 +646,23 @@ Key choices and _why_:
   undoing that on every run. **A seed that does not restore everything it
   depends on works exactly once.**
 
+  **AND THE SEEDER BYPASSES `set_actor_sections` ENTIRELY, which nothing said
+  out loud until 2026-08-29.** It writes `actor_profiles` with direct SQL, so
+  the depth cap, the style-bag allowlist and the required-kind rule — every
+  database-level guard the product has — are simply not applied to a seeded
+  page. A seeded page can therefore be a shape the editor would refuse and a
+  save would reject, and it will render anyway.
+
+  So **the sixteen showcase pages had no validation of any kind**: not the
+  database's, because it is bypassed, and not a test's, because
+  `seed-pastiches.mjs` reads `SUPABASE_DB_PASSWORD` and calls `process.exit`
+  at module top level and then `client.connect()`, so it cannot be imported at
+  all — the only way to find out whether a page was valid was to write it to
+  production and look. That is why the page definitions now live in a module
+  the seeder imports: **a thing that cannot be imported cannot be checked**,
+  and moving it is usually cheaper than whatever the alternative gate would
+  have been.
+
 - **A window is corners chosen one at a time (2026-08-29).** `corners` and
   `heading_corners` name which of a block's — and its bar's — corners are
   rounded, so a bar rounded across its top over content rounded across its foot
