@@ -94,6 +94,29 @@
   --block-pad: 1rem;
 
   /*
+   * **The four corner tokens are declared NOWHERE, and that is the fix rather
+   * than an omission.**
+   *
+   * They were declared here, defaulting to `var(--radius-xl)`, and it broke
+   * every nested skin: a custom property's computed value substitutes its
+   * `var()`s AT THE DECLARATION SITE, so `--corner-tl` computed at `:root`
+   * froze ROOT's `--skin-round` and inherited that number into every scope
+   * below. A block wearing `paper` inside a `comic` page then drew comic's
+   * corner. Measured end to end — a styled block and an unstyled one both read
+   * 12px, where the whole point is that they differ.
+   *
+   * The card reads `var(--corner-tl, calc(var(--skin-round) * 0.75rem))`
+   * instead — the expression `@theme inline` already inlines into `rounded-xl`
+   * — so an unset token resolves `--skin-round` AT THE CARD, where the skin in
+   * force is the one that applies. Referencing `--radius-xl` there is the same
+   * bug one step along: that token is computed at `:root` too. A block that sets the token sets it on its
+   * own wrapper, where its own skin applies.
+   *
+   * Nothing here to declare, then — and nothing to keep in step with the four
+   * places that read it.
+   */
+
+  /*
    * **How a picture fills its box, so a block can say `contain`.** `cover` is
    * what every page had and stays the default; a WIDE image — a logo, a banner
    * — is unreadable cropped into a round avatar, which is how this was found.

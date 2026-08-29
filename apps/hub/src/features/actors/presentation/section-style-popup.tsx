@@ -1,10 +1,13 @@
 "use client";
 
 import { Paintbrush } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactElement } from "react";
 import { tid } from "@/shared/infrastructure/test-id";
 import { SKINS, type SkinId } from "@/shared/domain/skins";
-import type { BlockStyle } from "@/features/actors/domain/block-schema";
+import {
+  CORNERS,
+  type BlockStyle,
+} from "@/features/actors/domain/block-schema";
 
 /**
  * One block's own look — `blockStyleShape`'s bag (see
@@ -82,8 +85,8 @@ export type SectionStyle = BlockStyle;
  * quieter tone. It needs no label of its own beyond a name: the tone is
  * derived from the accent already chosen, so there is nothing further to pick.
  *
- * Three more sit under it: a picture for the bar, how that picture lies, and
- * the room under the name. The first two are offered only where a bar is
+ * Four more sit under it: a picture for the bar, how that picture lies, the
+ * room under the name, and one name per corner for the bar's corner picker. The first two are offered only where a bar is
  * drawn; the gap is offered for a plain name as well, because there is space
  * above the content either way.
  */
@@ -148,6 +151,9 @@ export interface SectionStylePopupLabels {
   headingFit: string;
   headingFitCover: string;
   headingFitTile: string;
+  corners: string;
+  headingCorners: string;
+  corner: Record<(typeof CORNERS)[number], string>;
   /** Field label for how much room a bar gives its name. */
   headingPad: string;
   /** The room option that keeps the ordinary strip. */
@@ -258,6 +264,121 @@ export interface SectionStylePopupProps {
   atTop: boolean;
 }
 
+/** What {@link CornerPicker} needs to draw one set of corners. */
+interface CornerPickerProps {
+  /** The test-id stem; each corner's own box carries it plus the corner. */
+  id: string;
+  /** What this set of corners is called. */
+  label: string;
+  /** The stored list, or undefined meaning every corner. */
+  value: string | undefined;
+  /** The translated strings, for each corner's own name. */
+  labels: SectionStylePopupLabels;
+  /** Given the new list, or `""` to clear the key entirely. */
+  onChange: (next: string) => void;
+}
+
+/**
+ * A corner's own position in the 2x2 grid, so the control is SHAPED like what
+ * it sets.
+ *
+ * A list of four checkboxes reading "top left, top right…" makes somebody hold
+ * the square in their head; laid out as the square, the control is the
+ * picture. `order` is the reading order a keyboard walks — the same order CSS
+ * names them — and the grid places each one where it actually is.
+ */
+/** Which corner each little square rounds, so it looks like what it sets. */
+const CORNER_ROUND = {
+  tl: "rounded-tl-md",
+  tr: "rounded-tr-md",
+  br: "rounded-br-md",
+  bl: "rounded-bl-md",
+} as const satisfies Record<(typeof CORNERS)[number], string>;
+
+const CORNER_CELL = {
+  tl: "col-start-1 row-start-1",
+  tr: "col-start-2 row-start-1",
+  br: "col-start-2 row-start-2",
+  bl: "col-start-1 row-start-2",
+} as const satisfies Record<(typeof CORNERS)[number], string>;
+
+/**
+ * The corner picker: four boxes arranged as a square, each rounding its own
+ * corner.
+ *
+ * **Absent means every corner**, so the control shows all four ticked when
+ * nothing is stored and writes nothing back until somebody unticks one. The
+ * last tick cannot be removed — an empty list is not a value this key has, and
+ * `radius: "square"` is how a page says "no corners at all", so the control
+ * refuses the state rather than storing a spelling the schema would reject.
+ *
+ * @param props - see {@link CornerPickerProps}.
+ * @returns the picker.
+ */
+function CornerPicker(props: CornerPickerProps): ReactElement {
+  // Taken whole and unpacked here rather than in the signature: `jsdoc` wants
+  // a `@param` per destructured field and `tsdoc` refuses the `props.id`
+  // spelling that would name one, so the two rules only agree on a single
+  // parameter. Rule 6 — the owner is named rather than either disabled.
+  const { id, label, value, labels, onChange } = props;
+  const rounded = new Set(value ? value.split(",") : CORNERS);
+  return (
+    <div className="grid gap-1.5">
+      <span className="text-xs font-medium">{label}</span>
+      <div
+        className="grid w-fit grid-cols-2 gap-1 rounded-lg surface border-(--edge)/60 bg-(--surface) p-1.5"
+        role="group"
+        aria-label={label}
+      >
+        {CORNERS.map((corner) => {
+          const on = rounded.has(corner);
+          return (
+            <label
+              key={corner}
+              className={`${CORNER_CELL[corner]} flex size-7 cursor-pointer items-center justify-center`}
+              title={labels.corner[corner]}
+            >
+              <input
+                type="checkbox"
+                checked={on}
+                // The last tick stays: an empty list is not a value.
+                disabled={on && rounded.size === 1}
+                onChange={() => {
+                  // **The handler refuses it too, not only the attribute.** A
+                  // real browser ignores a click on a disabled input, so this
+                  // looks redundant — but the rule is an invariant about the
+                  // value rather than a property of one control, and jsdom
+                  // dispatches a programmatic click to a disabled box quite
+                  // happily. Without this the guard would hold only where the
+                  // browser enforces it.
+                  if (on && rounded.size === 1) return;
+                  const next = new Set(rounded);
+                  if (on) next.delete(corner);
+                  else next.add(corner);
+                  const kept = CORNERS.filter((each) => next.has(each));
+                  onChange(
+                    kept.length === CORNERS.length ? "" : kept.join(","),
+                  );
+                }}
+                {...tid(`${id}-${corner}`)}
+                className="peer sr-only"
+              />
+              {/* The little square: it rounds the corner it stands for, so
+                  the control shows the shape rather than describing it. */}
+              <span
+                aria-hidden
+                className={`size-5 border-2 border-(--edge) peer-checked:border-(--accent) peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--accent) ${
+                  on ? CORNER_ROUND[corner] : ""
+                }`}
+              />
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /**
  * A paintbrush button and the popup it opens: one section's own skin,
  * background picture, card size and border, apart from its layout.
@@ -333,6 +454,10 @@ export interface SectionStylePopupProps {
  * and a block with no name has none. The bar's picture and its fit sit behind
  * that same condition; `heading_gap` sits beside them but applies to a plain
  * name too, so an author can pull a floating name tight against what it names.
+ *
+ * Two {@link CornerPicker}s choose which corners are rounded — one for the
+ * block's own box, beside `radius` because that one says how much and this
+ * says where, and one for the bar, behind the same named condition.
  */
 export function SectionStylePopup({
   value,
@@ -708,6 +833,14 @@ export function SectionStylePopup({
                 <option value="">{labels.headingFitCover}</option>
                 <option value="tile">{labels.headingFitTile}</option>
               </select>
+
+              <CornerPicker
+                id="section-style-heading-corner"
+                label={labels.headingCorners}
+                value={style.heading_corners}
+                labels={labels}
+                onChange={(next) => setField("heading_corners", next)}
+              />
             </div>
           ) : null}
 
@@ -778,6 +911,17 @@ export function SectionStylePopup({
               <option value="round">{labels.radiusRound}</option>
             </select>
           </div>
+
+          {/* Beside `radius` on purpose: that one says how much and this says
+              where, and reading them together is how somebody works out that
+              they compose. */}
+          <CornerPicker
+            id="section-style-corner"
+            label={labels.corners}
+            value={style.corners}
+            labels={labels}
+            onChange={(next) => setField("corners", next)}
+          />
 
           <div className="grid gap-1.5">
             <label htmlFor={`${id}-border`} className="text-xs font-medium">

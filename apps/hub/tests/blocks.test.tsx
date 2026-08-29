@@ -3277,6 +3277,85 @@ describe("a section's name as a bar", () => {
     ).toContain("gap-6");
   });
 
+  // **These assert TOKENS, not `border-radius`.** The style bag lands on a
+  // wrapper and the card that draws the corner is nested inside it, so the
+  // renderer writes `--corner-*` and the cards read them — see
+  // `squareOffCorners`. A longhand here would have been the version that
+  // measured 0 in a browser while every unit case stayed green.
+  //
+  // **The window shape: a bar rounded across its top over content rounded
+  // across its foot.** Asserting only that something is `0` would pass on a
+  // renderer that squared all four, so each case names the corners that must
+  // stay UNSET as well — an unset longhand is what lets the class and the
+  // skin keep deciding, which is the whole mechanism.
+  it("squares off only the corners a bar does not name", () => {
+    const { container } = renderBlock(
+      named({ heading: "bar", heading_corners: "tl,tr" }),
+    );
+    const bar = container.querySelector<HTMLElement>(
+      '[data-testid="heading-bar"]',
+    );
+    expect(bar?.style.getPropertyValue("--corner-bl")).toBe("0");
+    expect(bar?.style.getPropertyValue("--corner-br")).toBe("0");
+    // Named corners are written too, not merely left alone: these inherit, and
+    // a bar sits inside the section whose own corners it would otherwise pick
+    // up. Measured in a browser, that gave a bar with square top corners.
+    //
+    // The value is the expression `@theme inline` puts in `rounded-xl`, NOT
+    // `var(--radius-xl)`: that token is computed at `:root`, so referencing it
+    // freezes root's skin and a nested skin loses its own corner.
+    expect(bar?.style.getPropertyValue("--corner-tl")).toBe(
+      "calc(var(--skin-round)*0.75rem)",
+    );
+    expect(bar?.style.getPropertyValue("--corner-tr")).toBe(
+      "calc(var(--skin-round)*0.75rem)",
+    );
+  });
+
+  it("squares off only the corners a block's box does not name", () => {
+    const { container } = renderBlock(named({ corners: "bl,br" }));
+    const section = container.querySelector<HTMLElement>("section");
+    expect(section?.style.getPropertyValue("--corner-tl")).toBe("0");
+    expect(section?.style.getPropertyValue("--corner-tr")).toBe("0");
+    expect(section?.style.getPropertyValue("--corner-bl")).toBe(
+      "calc(var(--skin-round)*0.75rem)",
+    );
+    expect(section?.style.getPropertyValue("--corner-br")).toBe(
+      "calc(var(--skin-round)*0.75rem)",
+    );
+  });
+
+  // **Absent emits NOTHING**, which is what keeps every stored page identical.
+  // This is the case a renderer that defaulted to "all four" would still pass
+  // on if it emitted `0`s nowhere — so it is paired with the two above, which
+  // fail if nothing is ever emitted.
+  it("leaves every corner alone when none are named", () => {
+    const { container } = renderBlock(named({ heading: "bar" }));
+    const section = container.querySelector<HTMLElement>("section");
+    const bar = container.querySelector<HTMLElement>(
+      '[data-testid="heading-bar"]',
+    );
+    for (const token of [
+      "--corner-tl",
+      "--corner-tr",
+      "--corner-bl",
+      "--corner-br",
+    ]) {
+      expect(section?.style.getPropertyValue(token)).toBe("");
+      expect(bar?.style.getPropertyValue(token)).toBe("");
+    }
+  });
+
+  // A bar's corners are read only where a bar is drawn — there is no strip to
+  // square off otherwise, and the plain heading must not acquire one.
+  it("ignores the bar's corners when the name is not a bar", () => {
+    const { container } = renderBlock(
+      named({ heading: "plain", heading_corners: "tl" }),
+    );
+    const heading = container.querySelector<HTMLElement>("h2");
+    expect(heading?.style.getPropertyValue("--corner-bl")).toBe("");
+  });
+
   // **The room a bar gives its name, which is the complaint this answers.** A
   // solid strip at `px-3 py-2` with `compact` type in it reads as crowded.
   it.each([

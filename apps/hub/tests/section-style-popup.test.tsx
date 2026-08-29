@@ -502,6 +502,67 @@ describe("SectionStylePopup", () => {
       ).toHaveFocus();
     });
 
+    // **The corner picker: four boxes laid out AS the square they set.**
+    // These pin the two rules that could go silently wrong — an all-four state
+    // must clear the key rather than store the longest possible list, and the
+    // last tick must not be removable, because an empty list is not a value
+    // the schema has a spelling for.
+    it("stores nothing while every corner is still rounded", () => {
+      const { held } = harness(onePage());
+      openPopup();
+
+      // Every box starts ticked, because absence means all four.
+      for (const corner of ["tl", "tr", "br", "bl"]) {
+        expect(
+          screen.getByTestId(`section-style-corner-${corner}`),
+        ).toBeChecked();
+      }
+      expect(styleOf(held.page)?.corners).toBeUndefined();
+    });
+
+    it("writes the corners that remain when one is unticked", () => {
+      const { held } = harness(onePage());
+      openPopup();
+
+      fireEvent.click(screen.getByTestId("section-style-corner-bl"));
+
+      // Written in CSS's own order rather than the order they were clicked,
+      // so two authors who untick the same corner store the same string.
+      expect(styleOf(held.page)?.corners).toBe("tl,tr,br");
+    });
+
+    it("clears the key again when the last corner is put back", () => {
+      const { held } = harness(onePage());
+      openPopup();
+
+      fireEvent.click(screen.getByTestId("section-style-corner-bl"));
+      fireEvent.click(screen.getByTestId("section-style-corner-bl"));
+
+      // Not "tl,tr,br,bl" — an all-four list is the default said the long way,
+      // and storing it would leave a page carrying a key that changes nothing.
+      expect(styleOf(held.page)?.corners).toBeUndefined();
+    });
+
+    it("refuses to untick the last remaining corner", () => {
+      const { held } = harness(onePage());
+      openPopup();
+
+      for (const corner of ["tr", "br", "bl"]) {
+        fireEvent.click(screen.getByTestId(`section-style-corner-${corner}`));
+      }
+      expect(styleOf(held.page)?.corners).toBe("tl");
+
+      // Both halves: the control says it is unavailable, AND the handler
+      // refuses the write. jsdom dispatches a click to a disabled input where
+      // a browser would not, which is what makes the second half reachable
+      // here — and what makes it worth having, since the invariant is about
+      // the value rather than about one control's attribute.
+      const last = screen.getByTestId("section-style-corner-tl");
+      expect(last).toBeDisabled();
+      fireEvent.click(last);
+      expect(styleOf(held.page)?.corners).toBe("tl");
+    });
+
     it("does not close on a click inside the panel itself", () => {
       harness(onePage());
       openPopup();

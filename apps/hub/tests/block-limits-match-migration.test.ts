@@ -218,6 +218,34 @@ describe("the client's style limits", () => {
       .map((value) => value.trim().replaceAll("'", ""));
     expect(values?.toSorted()).toEqual(expected.toSorted());
   });
+
+  // **`corners` is a REGEX in the SQL, not an `in (...)` list**, so it cannot
+  // join the table above — and that is exactly why it needs its own pin: a
+  // vocabulary written down in two languages with no test between them is the
+  // fault root rule 30 records. This asserts the pattern MATCHED before
+  // comparing anything, because a regex that quietly matches nothing makes
+  // every comparison after it pass forever.
+  it("the corner list's grammar matches 0009's own", () => {
+    const found = styleBlock?.match(
+      new RegExp(
+        String.raw`v_key in \('corners', 'heading_corners'\)[\s\S]*?v_value !~ '([^']+)'`,
+      ),
+    );
+    expect(
+      found,
+      "0009 does not validate corners the way this expects",
+    ).not.toBeNull();
+    const sql = found?.[1];
+    // The two patterns are written for different engines and are compared by
+    // what they ACCEPT rather than character by character.
+    const client = new RegExp(sql as string);
+    for (const good of ["tl", "br", "tl,tr", "tl,tr,br,bl", "bl,tl"]) {
+      expect(client.test(good), `${good} should be accepted`).toBe(true);
+    }
+    for (const bad of ["", "xx", "tl,", ",tl", "tl tr", "TL", "tl,,tr"]) {
+      expect(client.test(bad), `${bad} should be refused`).toBe(false);
+    }
+  });
 });
 
 /**

@@ -1450,3 +1450,73 @@ test.describe("a narrow space inside a wide window", () => {
     await fits(page, "a narrow space at 1400px");
   });
 });
+
+// **The window shape, measured in a browser rather than read off a class.**
+// The unit cases assert the INLINE declaration, which proves what the renderer
+// wrote and not that it survives — `@utility surface` sets `border-radius` as
+// a shorthand, and a shorthand losing to a longhand is a cascade fact rather
+// than something a class string can show. Only a computed style settles it.
+//
+// A `soft` radius is asked for on purpose: with `square` every corner reads 0
+// and the case would pass on a renderer that ignored `corners` entirely.
+test("rounds only the corners a block names, against the skin's own radius", async ({
+  page,
+}) => {
+  const { address, handle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "corners",
+    displayName: "Corners",
+    blocks: [
+      container({
+        name_en: "Window",
+        mode: "stack",
+        style: {
+          radius: "soft",
+          heading: "bar",
+          heading_corners: "tl,tr",
+          corners: "bl,br",
+        },
+        children: [leaf({ title_en: "Inside the window" })],
+      }),
+    ],
+  });
+
+  await page.goto(`/en/${address}/${handle}`);
+  // **The CARD, not the section.** A section is a transparent wrapper that
+  // draws no corner at all, so measuring it would read 0 whatever the key
+  // said — which is how the first version of this case "failed" against
+  // working code. The card is the element that reads the corner tokens.
+  const section = page
+    .getByTestId("public-leaf")
+    .first()
+    .locator('[class*="--corner-tl"]')
+    .first();
+  const bar = page.getByTestId("heading-bar").first();
+  await expect(bar).toBeVisible();
+
+  const read = async (where: Locator) =>
+    where.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        tl: s.borderTopLeftRadius,
+        tr: s.borderTopRightRadius,
+        br: s.borderBottomRightRadius,
+        bl: s.borderBottomLeftRadius,
+      };
+    });
+
+  const barCorners = await read(bar);
+  const boxCorners = await read(section);
+
+  // The bar is rounded across its top and square along the join.
+  expect(barCorners.br).toBe("0px");
+  expect(barCorners.bl).toBe("0px");
+  expect(Number.parseFloat(barCorners.tl)).toBeGreaterThan(0);
+  expect(Number.parseFloat(barCorners.tr)).toBeGreaterThan(0);
+
+  // The box is the mirror: square where it meets the bar, rounded at its foot.
+  expect(boxCorners.tl).toBe("0px");
+  expect(boxCorners.tr).toBe("0px");
+  expect(Number.parseFloat(boxCorners.bl)).toBeGreaterThan(0);
+  expect(Number.parseFloat(boxCorners.br)).toBeGreaterThan(0);
+});

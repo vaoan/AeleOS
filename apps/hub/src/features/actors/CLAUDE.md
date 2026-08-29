@@ -2308,10 +2308,16 @@ than a default doing its job.
 evidence here that a look belongs in a document: `aero` carries Aero glass
 whole, and photographed, the Vista page reads as Aero without qualification.
 
-**Windows XP cannot reach Luna's TOP-ONLY rounding.** `radius` is one value for
-all four corners, so `soft` rounds the foot as well as the head. No key was
-invented on the way past; whether one earns a place is a judgement for after
-somebody has looked at how close it gets.
+**Windows XP reaches Luna's panel shape now, and this note recorded it as
+unreachable until 2026-08-29.** `radius` was one value for all four corners,
+so `soft` rounded the foot as well as the head and the strip could not sit
+flush on the body. `corners` and `heading_corners` are the key that was not
+invented on the way past — it arrived from the other end, from somebody
+looking at these pages and naming what was missing, which is the outcome the
+old sentence was holding the question open for.
+
+The XP look wears it: the bar rounds its top and squares its foot, the body
+squares its head and rounds its foot, and the join is straight.
 
 ### A template is a document too (2026-08-28)
 
@@ -4288,6 +4294,111 @@ the path, so the refusal never sees one and the value arrives as `%22`. Equally
 safe by a different route. The test asserts the PROPERTY (no raw quote escapes
 the `url("…")` wrapper) rather than the refusal, because asserting the refusal
 would have pinned a path this input does not take.
+
+### The window shape: corners chosen one at a time (2026-08-29)
+
+`corners` on a block's box and `heading_corners` on its bar, each a
+comma-separated list of `tl`, `tr`, `br` and `bl` naming which corners are
+ROUNDED. Together they draw a window: a bar rounded across its top over content
+rounded across its foot, with the join between them straight. That is Luna's
+panel, and it was recorded as an open gap when the era looks were built —
+"`radius` is one value for four corners".
+
+**`radius` says how MUCH and this says WHERE**, which is what makes them
+compose instead of compete. `radius: "soft"` with `corners: "tl,tr"` is a soft
+top and a square foot; the skin still owns the number.
+
+**It writes TOKENS rather than `border-radius`, and a browser is what forced
+that.** The style bag lands on a WRAPPER — a leaf's own card is nested inside
+`<Leaf>` and a section's children are cards of their own — so a radius written
+on the styled element reaches nothing that draws a corner. The first version
+did exactly that: every unit case passed, and the computed radius in a real
+browser was 0 where the class said 12px. The cards read `--corner-tl` and its
+three siblings now, defaulting at `:root` to the `--radius-xl` they already
+resolved, so a page that sets nothing is byte-for-byte what it was. Same shape
+as `--block-pad`, and the same reason `--img-fit` exists.
+
+**When a list is present ALL FOUR are written**, which is the second thing the
+browser corrected. Writing only the corners switched off looks tidier and is
+wrong: custom properties INHERIT, and the bar sits inside the section, so a
+section squaring its top gave a bar with square top corners however the bar's
+own key was set. Naming all four makes each key self-contained. A rounded
+corner is written as `var(--radius-xl)`, so `--skin-round` still owns the
+number and `radius` still decides how MUCH.
+
+`squareOffCorners` in `block-style.ts` is the one place that decides it, used
+by the box and by the bar so the two cannot drift, and `CLASS_CORNERS` in
+`blocks.tsx` is the one class both read them through.
+
+**A CUSTOM PROPERTY SUBSTITUTES ITS `var()`s WHERE IT IS DECLARED, and that
+broke every nested skin for one commit.** The tokens were declared at `:root`
+defaulting to `var(--radius-xl)` — which looks like "the radius each card
+already had" and is not: a custom property's computed value performs its
+substitutions at the DECLARATION SITE, so `--corner-tl` froze root's
+`--skin-round` and inherited that number into every scope below. A block
+wearing `paper` inside a `comic` page drew comic's corner. Measured end to end
+by `section-skin-nesting.spec.ts`: a styled block and an unstyled one both read
+12px, where that case exists to prove they differ.
+
+So the tokens are declared **nowhere**, and the card reads
+`var(--corner-tl, calc(var(--skin-round) * 0.75rem))`. An unset token then
+resolves `--skin-round` AT THE CARD.
+
+**The fallback cannot be `var(--radius-xl)` either, and that is the second
+half.** `@theme inline` means a utility INLINES the token's expression rather
+than referencing it — `rounded-xl` compiles to
+`border-radius: calc(var(--skin-round) * 0.75rem)`, which is exactly why per
+skin radius ever worked. Referencing `--radius-xl` reads a value computed at
+`:root`, so it is the same bug one step along. The written value for a ROUNDED
+corner is the same expression, for the same reason.
+
+**Neither of these is visible from a class string**, which is why both survived
+a full unit suite at 100% and were caught by a browser measuring a computed
+style.
+
+**A browser case has to measure the CARD, not the section.** A section is a
+transparent wrapper that draws no corner at all, so pointing the assertion at
+it reads 0 whatever the key says — which is how the first version of that case
+"failed" against working code, and then passed against the bar because the bar
+carries the same class and comes first in the DOM. It is scoped through
+`public-leaf` for that reason.
+
+**There is deliberately no spelling for "no corners".** `radius: "square"`
+already says that, and a second spelling for one answer is a thing to keep in
+step. The editor enforces it by refusing to untick the last box — **in the
+handler as well as through `disabled`**, because the rule is an invariant about
+the value rather than a property of one control, and jsdom dispatches a
+programmatic click to a disabled input where a browser would not. That is also
+what makes the guard reachable in a unit test at all.
+
+**An all-four list CLEARS the key rather than being stored.** Storing
+`"tl,tr,br,bl"` would leave a page carrying a key that changes nothing, and two
+authors who tick everything would store different-looking pages. The picker
+writes `""` there, and `setField` removes the key.
+
+**The control is SHAPED like the thing it sets** — four boxes in a 2×2 grid,
+each rounding its own corner, so the picker is a picture of the result rather
+than four lines of prose a reader has to assemble in their head. Its
+`aria-label` per box is still the corner's name, so the shape is the
+convenience and not the only way to read it.
+
+**A `.style` read gives `"0"`, not `"0px"`.** Unit cases assert the inline
+declaration verbatim; only a COMPUTED style normalises, and jsdom does no
+layout. Each case also names the corners that must stay UNSET, because
+asserting only that something is zero would pass on a renderer that squared all
+four.
+
+**Both keys carry a meaning in the generated reference**, and the gate added
+the day before is what made sure of it: they were written on a branch cut
+before `STYLE_KEY_MEANINGS` existed, and the rebase failed on them rather than
+letting two keys ship with a shape and no explanation.
+
+**The grammar is pinned to `0009` by its own case**, not by the table beside
+it: `corners` is validated there by a REGEX rather than an `in (...)` list, so
+it could not join `block-limits-match-migration.test.ts`'s enum table. The case
+asserts the pattern MATCHED before comparing anything, then compares what the
+two accept rather than their characters — and it is sabotage-verified, after a
+first attempt whose `sed` silently failed to apply and proved nothing.
 
 ### A density that reaches OUTSIDE the card (2026-08-28)
 

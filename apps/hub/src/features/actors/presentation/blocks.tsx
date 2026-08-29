@@ -12,7 +12,10 @@ import {
 import { trackListFor } from "@/features/actors/domain/block-tracks";
 
 import { backgroundImageValue } from "@/features/actors/domain/embeds";
-import { blockStyle } from "@/features/actors/presentation/block-style";
+import {
+  blockStyle,
+  squareOffCorners,
+} from "@/features/actors/presentation/block-style";
 import { tid } from "@/shared/infrastructure/test-id";
 import {
   AvatarLeaf,
@@ -801,7 +804,7 @@ function Accordion(props: ModeProps): ReactNode {
   if (seats.length === 0) return null;
   return (
     <div
-      className="overflow-hidden rounded-xl surface border-(--edge) bg-(--surface)"
+      className="overflow-hidden rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) bg-(--surface)"
       {...tid("block-accordion")}
     >
       {seats.map((seat) => (
@@ -1099,7 +1102,11 @@ function Leaf(props: LeafProps): ReactNode {
  * `heading_pad` decides how much room that bar gives the name, and is read
  * nowhere else — see {@link BAR_PADDING}. `heading_image` paints a picture
  * over that fill rather than instead of it, so a picture that fails to load
- * leaves the author's colour behind the strip; `heading_gap` is the room
+ * leaves the author's colour behind the strip; `heading_corners` decides the
+ * corners of that strip the way `corners` does the block's own cards — both
+ * through the `--corner-*` tokens {@link CLASS_CORNERS} reads, because the
+ * style bag lands on a wrapper and the card is nested inside it — which
+ * together draw a window; `heading_gap` is the room
  * under the name, and {@link HEADING_GAP} deliberately holds no default,
  * because absence there means whichever of two behaviours applies.
  *
@@ -1195,17 +1202,31 @@ export function Block({
   const barImage = barred
     ? backgroundImageValue(block.style?.heading_image)
     : undefined;
-  const headingStyle: CSSProperties | undefined = barImage
-    ? {
-        backgroundImage: barImage,
-        backgroundRepeat:
-          block.style?.heading_fit === "tile" ? "repeat" : "no-repeat",
-        backgroundSize: block.style?.heading_fit === "tile" ? "auto" : "cover",
-        backgroundPosition: "center",
-      }
-    : undefined;
+  // **The bar's own corners, squared off the same way the block's box is.**
+  // Together with the box's they draw a window: a bar rounded across its top
+  // over content rounded across its foot, with the join between them straight.
+  const headingVars: CSSProperties = {};
+  if (barImage) {
+    headingVars.backgroundImage = barImage;
+    headingVars.backgroundRepeat =
+      block.style?.heading_fit === "tile" ? "repeat" : "no-repeat";
+    headingVars.backgroundSize =
+      block.style?.heading_fit === "tile" ? "auto" : "cover";
+    headingVars.backgroundPosition = "center";
+  }
+  // **The bar sets its OWN corner tokens**, which is what stops a section's
+  // `corners` inheriting into the strip: these are custom properties, so a
+  // value on the section reaches every descendant until one says otherwise.
+  if (barred) {
+    squareOffCorners(
+      headingVars as CSSProperties & Record<`--${string}`, string>,
+      block.style?.heading_corners,
+    );
+  }
+  const headingStyle: CSSProperties | undefined =
+    Object.keys(headingVars).length > 0 ? headingVars : undefined;
   const headingClass = barred
-    ? `${heading.className} ${fill} ${barPad}`
+    ? `${heading.className} ${fill} ${barPad} ${CLASS_CORNERS}`
     : heading.className;
   // Spread rather than a ternary inside the JSX, which `sonarjs` reads as a
   // nested conditional — and it is right that a marker is not a thing to work
@@ -1396,6 +1417,16 @@ const MEASURE_WITHOUT_GUTTER_CLASS: Record<PageMeasure, string> = {
  * caller falls back to whichever applies. Putting a default here would make
  * one of those two pages change.
  */
+/**
+ * What a card — and a bar — reads its four corners from.
+ *
+ * Written once because the bar and every card have to agree: a window is a bar
+ * whose foot is square over content whose head is square, and two class lists
+ * is how one of them stops matching the other.
+ */
+const CLASS_CORNERS =
+  "rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))]";
+
 const HEADING_GAP = new Map<string, string>([
   ["none", "gap-0"],
   ["snug", "gap-2"],

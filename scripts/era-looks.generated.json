@@ -147,7 +147,9 @@
         ],
         "style": {
           "heading": "gradient",
-          "radius": "soft"
+          "radius": "soft",
+          "heading_corners": "tl,tr",
+          "corners": "bl,br"
         }
       },
       {
@@ -163,7 +165,9 @@
         ],
         "style": {
           "heading": "gradient",
-          "radius": "soft"
+          "radius": "soft",
+          "heading_corners": "tl,tr",
+          "corners": "bl,br"
         }
       },
       {

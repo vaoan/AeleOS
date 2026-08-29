@@ -424,6 +424,11 @@ function exampleBlocks(kind: ActorKind): Block[] {
  * months; this list simply never got them, and every key added since inherited
  * the omission.
  *
+ * It earned its first new entries the day after it was written — `corners` and
+ * `heading_corners` arrived on a branch cut before this record existed, and
+ * the gate caught them on the rebase rather than after they shipped, which is
+ * the whole point of having it.
+ *
  * The same exclusivity gate covers these: no `only` and no `every other`, for
  * the reason recorded against {@link KIND_MEANINGS} — a claim that a key is
  * the sole reader of something belongs in a record checked against real data,
@@ -455,6 +460,10 @@ export const STYLE_KEY_MEANINGS = {
     "a picture painted ON that strip, as an `https` address, over the fill rather than instead of it — so a picture that fails to load leaves the author's colour behind the bar. Separate from `background_url`, which paints behind the CONTENT",
   heading_fit:
     "how the strip's picture is laid down, the same two options `background_fit` takes",
+  corners:
+    'which of the corners on this block are rounded, as a comma-separated list of `tl`, `tr`, `br` and `bl`. `radius` says how much and this says where, so `radius: "soft"` with `corners: "tl,tr"` is a panel rounded across the top and square along its foot. Absent means every corner, and `radius: "square"` is how a page says none',
+  heading_corners:
+    "the same for a named block's own bar. A bar rounded across its top over content rounded across its foot, with the join between them straight, is the window shape a single radius could not draw",
   heading_gap:
     "the room between a named block's name and the content under it. Absence is not one value: a bar welds to what it names and a plain name floats above it, so absent means whichever of those applies and this key is how to say something else",
 } as const satisfies Record<keyof typeof BLOCK_STYLE_LIMITS, string>;

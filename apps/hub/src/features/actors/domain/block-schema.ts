@@ -492,6 +492,25 @@ const utf8 = new TextEncoder();
  * The first two are read only where a bar exists; the third wherever a name
  * does.
  */
+/**
+ * The four corners a block may round, in CSS's own order.
+ *
+ * Exported so the editor can draw one control per corner without restating
+ * them, and so the renderer's map cannot fall out of step with the schema.
+ */
+export const CORNERS = ["tl", "tr", "br", "bl"] as const;
+
+/**
+ * What a `corners` value has to look like: one or more corner names, comma
+ * separated, with nothing else.
+ *
+ * **A repeat is accepted rather than refused.** `tl,tl` names the same corner
+ * twice, which is not a mistake anybody can see and not a shape that breaks
+ * anything downstream — the renderer asks whether a corner is in the list.
+ * Refusing it would be a rule with no injury behind it.
+ */
+const CORNER_LIST = /^(tl|tr|br|bl)(,(tl|tr|br|bl))*$/;
+
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
   skin: 32,
@@ -601,6 +620,28 @@ export const BLOCK_STYLE_LIMITS = {
    * plain name pulled tight against what it names.
    */
   heading_gap: ["none", "snug", "roomy"],
+  /**
+   * Which of a block's own corners are rounded, as a comma-separated list of
+   * `tl`, `tr`, `br` and `bl`.
+   *
+   * **`radius` says how MUCH and this says WHERE**, which is what makes the
+   * two compose instead of competing: `radius: "soft"` with `corners: "tl,tr"`
+   * is a panel rounded across the top and square along its foot — the window
+   * shape Luna has and this model could not draw, recorded as an open gap
+   * since the era looks were built.
+   *
+   * **Absent means every corner**, so a page that never sets it emits nothing
+   * and is byte-for-byte what it was. There is no way to spell "no corners"
+   * here and none is needed: `radius: "square"` already says that, and a
+   * second spelling for one answer is a thing to keep in step.
+   *
+   * A string rather than an array because the style bag is validated by
+   * walking `jsonb_each_text`, which hands every value over as text; an array
+   * would need a shape that loop does not have, for a value four tokens long.
+   */
+  corners: 14,
+  /** The same, for a named block's own bar. */
+  heading_corners: 14,
 } as const;
 
 /**
@@ -670,6 +711,17 @@ const blockStyleShape = {
   heading_fit: z.enum(BLOCK_STYLE_LIMITS.heading_fit).optional(),
   // Read wherever a name is drawn, barred or not.
   heading_gap: z.enum(BLOCK_STYLE_LIMITS.heading_gap).optional(),
+  // `tl,tr,br,bl` at its longest is 11 characters; the cap is the SQL's own.
+  corners: z
+    .string()
+    .max(BLOCK_STYLE_LIMITS.corners)
+    .regex(CORNER_LIST)
+    .optional(),
+  heading_corners: z
+    .string()
+    .max(BLOCK_STYLE_LIMITS.heading_corners)
+    .regex(CORNER_LIST)
+    .optional(),
   // **A depth-0 key, and meaningless anywhere else.** A section reaches both
   // edges of the window; a block nested inside one has a section between it
   // and the page and cannot escape that. Absent means the page's own measure,
