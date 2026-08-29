@@ -24,6 +24,29 @@ import type {
 } from "@/features/actors/infrastructure/public-actors";
 
 /**
+ * What a card reads its four corners from, in CSS's own order.
+ *
+ * **One constant, because eight copies is how a bar and its cards stop
+ * agreeing.** A window is a bar whose foot is square over a body whose head is
+ * square; if one shell's class drifts from another's the join opens, and
+ * nothing fails — the page simply stops being a window.
+ *
+ * **The fallback is the EXPRESSION and not `var(--radius-xl)`, which is
+ * load-bearing.** `@theme inline` makes a utility inline a theme token's value
+ * rather than reference it, so `rounded-xl` compiles to exactly this `calc()`
+ * and resolves `--skin-round` at the element. Referencing the token instead
+ * reads a value already computed at `:root`, freezing that scope's skin —
+ * measured, that gave every nested skin the page's own corner, and
+ * `section-skin-nesting.spec.ts` is what caught it.
+ *
+ * It lives in this file rather than in `blocks.tsx` because the leaf modules
+ * need it too and `blocks.tsx` imports them. Nothing here renders, which is
+ * what makes it importable from either direction with no cycle.
+ */
+export const CORNER_CLASS =
+  "rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))]";
+
+/**
  * What a block may need that is not in the block.
  *
  * **Threaded by hand rather than provided by React context, and that is

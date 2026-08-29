@@ -21,10 +21,11 @@ import type { ReactNode } from "react";
 import type { ChromeKind } from "@/features/actors/domain/chromes";
 import { resolveEmbed, safeHttpUrl } from "@/features/actors/domain/embeds";
 import {
+  CORNER_CLASS,
   FRAME_BOX,
   FRAME_SHAPE,
-  wordsOf,
   type LeafProps,
+  wordsOf,
 } from "@/features/actors/presentation/block-contract";
 import { EmbedFrame } from "@/features/actors/presentation/embed-frame";
 // **The two fallbacks these kinds degrade to, and the only edges out of this
@@ -105,11 +106,10 @@ function LeafCaption({
  * @param props - the leaf and how to read it.
  * @returns the picture, or the words it could not illustrate.
  *
- * Its card reads the `--corner-*` tokens rather than a fixed `rounded-xl`, so
- * a block's own `corners` can square any of them. Each falls back to the
- * expression `rounded-xl` itself compiles to, which is what keeps a nested
- * skin's own radius — see `block-style.ts` for why a token reference there
- * would freeze the page's.
+ * Its card wears {@link CORNER_CLASS} rather than a fixed `rounded-xl`, so a
+ * block's own `corners` can square any of them. That class is written out in
+ * one file and interpolated everywhere else — eight copies of it is how a bar
+ * and its cards stop agreeing, which opens a window's join and fails nothing.
  */
 export function PictureLeaf(props: LeafProps): ReactNode {
   const { leaf, locale } = props;
@@ -122,7 +122,7 @@ export function PictureLeaf(props: LeafProps): ReactNode {
       <img
         src={src}
         alt={title}
-        className="w-full rounded-[var(--corner-tl,calc(var(--skin-round)*0.75rem))_var(--corner-tr,calc(var(--skin-round)*0.75rem))_var(--corner-br,calc(var(--skin-round)*0.75rem))_var(--corner-bl,calc(var(--skin-round)*0.75rem))] surface border-(--edge) [object-fit:var(--img-fit)]"
+        className={`w-full ${CORNER_CLASS} surface border-(--edge) [object-fit:var(--img-fit)]`}
       />
       <LeafCaption title="" description={description} />
     </figure>

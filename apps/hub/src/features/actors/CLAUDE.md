@@ -4327,8 +4327,21 @@ corner is written as `var(--radius-xl)`, so `--skin-round` still owns the
 number and `radius` still decides how MUCH.
 
 `squareOffCorners` in `block-style.ts` is the one place that decides it, used
-by the box and by the bar so the two cannot drift, and `CLASS_CORNERS` in
-`blocks.tsx` is the one class both read them through.
+by the box and by the bar so the two cannot drift.
+
+**`CORNER_CLASS` in `block-contract.ts` is the one class every shell reads them
+through**, and it is there rather than in `blocks.tsx` because the leaf modules
+need it too and `blocks.tsx` imports them — the same cycle argument that put
+`LeafProps` in that file. It shipped as eight copies of a 180-character
+literal, which is a shape nothing would have caught: a window is a bar whose
+foot is square over a body whose head is square, so one shell drifting from
+another opens the join and fails no type, no test and no assertion — the page
+just stops being a window.
+
+`corner-class-is-one-constant.test.ts` is what makes that mechanical. It reads
+every source under the feature and asserts the literal appears in exactly one
+file, with an anti-vacuity case beside it because a crawl that found nothing
+would pass just as happily. Sabotage-verified by pasting a ninth copy back in.
 
 **A CUSTOM PROPERTY SUBSTITUTES ITS `var()`s WHERE IT IS DECLARED, and that
 broke every nested skin for one commit.** The tokens were declared at `:root`
