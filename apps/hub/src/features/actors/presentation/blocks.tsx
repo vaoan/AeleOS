@@ -11,6 +11,7 @@ import {
 } from "@/features/actors/domain/block-schema";
 import { trackListFor } from "@/features/actors/domain/block-tracks";
 
+import { backgroundImageValue } from "@/features/actors/domain/embeds";
 import { blockStyle } from "@/features/actors/presentation/block-style";
 import { tid } from "@/shared/infrastructure/test-id";
 import {
@@ -1096,7 +1097,11 @@ function Leaf(props: LeafProps): ReactNode {
  * `bar` does, differing in the fill and its label alone. Which values draw a
  * bar at all is {@link BAR_FILL}'s to say rather than a second list here.
  * `heading_pad` decides how much room that bar gives the name, and is read
- * nowhere else — see {@link BAR_PADDING}.
+ * nowhere else — see {@link BAR_PADDING}. `heading_image` paints a picture
+ * over that fill rather than instead of it, so a picture that fails to load
+ * leaves the author's colour behind the strip; `heading_gap` is the room
+ * under the name, and {@link HEADING_GAP} deliberately holds no default,
+ * because absence there means whichever of two behaviours applies.
  *
  * The page chrome it lays around a depth-0 section is `--page-edge` and
  * `--page-gap` rather than fixed classes, so a page's `spacing` reaches
@@ -1174,6 +1179,31 @@ export function Block({
   // against; giving it padding would move text with nothing behind it. Absent
   // is `px-3 py-2`, which is what every barred page already had.
   const barPad = BAR_PADDING.get(block.style?.heading_pad ?? "") ?? "px-3 py-2";
+  // **A picture ON the bar, painted over the fill rather than instead of it.**
+  // The fill stays underneath, so a picture that fails to load, or one with
+  // transparency, still has the author's own colour behind it rather than the
+  // page showing through a strip that was supposed to be solid.
+  //
+  // It goes through `backgroundImageValue` like every other pasted address
+  // here — that function refuses a `"` or a `\` outright, which is what makes
+  // the value safe in a `style` object rather than the sink it lands in.
+  //
+  // **Nothing corrects the label over it.** A photograph behind a title has no
+  // guaranteed contrast and a scrim would be the correction this codebase
+  // refuses everywhere else: an author's page renders exactly as they built
+  // it, and `PageThemeSwitch` is what makes that safe for a reader.
+  const barImage = barred
+    ? backgroundImageValue(block.style?.heading_image)
+    : undefined;
+  const headingStyle: CSSProperties | undefined = barImage
+    ? {
+        backgroundImage: barImage,
+        backgroundRepeat:
+          block.style?.heading_fit === "tile" ? "repeat" : "no-repeat",
+        backgroundSize: block.style?.heading_fit === "tile" ? "auto" : "cover",
+        backgroundPosition: "center",
+      }
+    : undefined;
   const headingClass = barred
     ? `${heading.className} ${fill} ${barPad}`
     : heading.className;
@@ -1184,12 +1214,12 @@ export function Block({
 
   return (
     <section
-      className={`@container grid min-w-0 grid-cols-[minmax(0,1fr)] ${barred ? "gap-0" : "gap-3"}`}
+      className={`@container grid min-w-0 grid-cols-[minmax(0,1fr)] ${HEADING_GAP.get(block.style?.heading_gap ?? "") ?? (barred ? "gap-0" : "gap-3")}`}
       style={style}
       {...marker}
     >
       {name ? (
-        <Tag className={headingClass} {...headingMarker}>
+        <Tag className={headingClass} style={headingStyle} {...headingMarker}>
           {name}
         </Tag>
       ) : null}
@@ -1356,6 +1386,22 @@ const MEASURE_WITHOUT_GUTTER_CLASS: Record<PageMeasure, string> = {
  * `--on-accent-soft` is solved against the soft tone itself, exactly as
  * `--on-accent` is solved against the accent.
  */
+/**
+ * The room between a named block's name and what it names.
+ *
+ * A `Map` because the key arrives from `jsonb`, like every other lookup here.
+ *
+ * **Absence is deliberately NOT in this table**, because absence is not one
+ * value: a bar welds to its content and a plain name floats above it, so the
+ * caller falls back to whichever applies. Putting a default here would make
+ * one of those two pages change.
+ */
+const HEADING_GAP = new Map<string, string>([
+  ["none", "gap-0"],
+  ["snug", "gap-2"],
+  ["roomy", "gap-6"],
+]);
+
 const BAR_FILL = new Map<string, string>([
   ["bar", "bg-(--accent) text-(--on-accent)"],
   [

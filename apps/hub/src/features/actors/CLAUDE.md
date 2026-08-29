@@ -4206,6 +4206,59 @@ Two things a fixture here has to get right, both learned by writing them:
   other fixture on the page has a bar. That case renders `heading_pad` with no
   `heading` at all and asserts the padding appears nowhere in the section.
 
+### A title bar is a design surface (2026-08-29)
+
+Three keys, and between them the bar stops being a colour and becomes
+something an author can build with.
+
+**`heading_image` paints a picture ON the bar, over the fill rather than
+instead of it.** The fill stays underneath, so a picture that fails to load —
+or one with transparency — leaves the author's own colour behind the strip
+rather than letting the page show through something meant to be solid.
+`heading_fit` lays it down, reusing `background_fit`'s own `cover`/`tile`
+vocabulary because it is the same question about the same kind of value; absent
+is `cover`, which is what "fill the strip" means.
+
+**It is INDEPENDENT of `background_url`, deliberately.** A block may carry one
+picture behind its content and a different one on its bar. Reusing the
+section's would have shown whatever slice of it happened to fall across the
+strip, which is not filling it.
+
+**Nothing corrects the label over it, and that is a ruling rather than an
+omission.** A photograph behind a title has no guaranteed contrast, and a scrim
+would be the correction this codebase refuses everywhere else — an author's
+colours render exactly as picked, and `PageThemeSwitch` is what makes that safe
+for a reader. Confirmed with Heiner on 2026-08-29: _"If the author fucks up, is
+on them."_
+
+**`heading_gap` is the room UNDER the name, which had no control at all.** It
+was one line in the renderer — `barred ? "gap-0" : "gap-3"` — so a bar always
+welded to its content and a plain name always got the same fixed gap. **Absence
+is therefore not one value**, and that shapes both the table and the tests:
+`HEADING_GAP` holds only the three chosen values and the caller falls back to
+whichever default applies, because putting a default in the table would make
+one of those two pages change.
+
+**Unlike `heading_pad`, it is offered on a PLAIN name too.** Padding needs an
+edge to be pressed against and a floating name has none; a gap is real space
+above the content whether or not a strip is drawn, so pulling a floating name
+tight against what it names is a thing somebody can want.
+
+**A fixture here has to depart from the right default, and the first one did
+not.** Asked of a barred section, `none` asserts `gap-0` — exactly what a bar
+already has — so it passed on a renderer ignoring the key entirely. Measured:
+with the lookup removed, the table reddened on two of three. It tests `none` on
+a plain name now and reddens on all three. Rule 27, on a default rather than on
+a shape.
+
+**And the address goes through `backgroundImageValue`, whose guard is not the
+one it looks like.** That function refuses a raw `"` or `\` — but
+`safeHttpUrl` parses through `new URL()` first and percent-encodes a quote in
+the path, so the refusal never sees one and the value arrives as `%22`. Equally
+safe by a different route. The test asserts the PROPERTY (no raw quote escapes
+the `url("…")` wrapper) rather than the refusal, because asserting the refusal
+would have pinned a path this input does not take.
+
 ### A density that reaches OUTSIDE the card (2026-08-28)
 
 `spacing` set a card's padding and its type size and stopped there. The page

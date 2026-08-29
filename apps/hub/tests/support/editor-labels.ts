@@ -62,7 +62,8 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * It carries the style popup's `chrome`, `heading`, `heading_pad`,
  * `text_align`, `image_fit` and `radius` strings, the theme panel's `font` and
  * `spacing`, and the leaf editor's `rowIcon`. `heading` is four names, the
- * fourth being the quieter bar tone.
+ * fourth being the quieter bar tone; beside them sit the bar's own picture,
+ * how that picture lies, and the room under the name.
  */
 export function blockEditorLabels(): BlockEditorLabels {
   return {
@@ -151,6 +152,16 @@ export function blockEditorLabels(): BlockEditorLabels {
       headingBar: "As a bar on top of it",
       headingGradient: "As a shaded bar",
       headingSoft: "As a quieter bar",
+      headingGap: "Space under the name",
+      headingGapDefault: "Ordinary",
+      headingGapNone: "None",
+      headingGapSnug: "Tight",
+      headingGapRoomy: "Roomy",
+      headingImage: "Picture on the name bar",
+      headingImageHint: "A link to a picture. Nothing is uploaded.",
+      headingFit: "How the name picture fills",
+      headingFitCover: "Fill the bar",
+      headingFitTile: "Tile it",
       headingPad: "Name spacing",
       headingPadDefault: "Ordinary",
       headingPadSnug: "Tight",

@@ -3176,6 +3176,107 @@ describe("a section's name as a bar", () => {
     ).not.toContain("linear-gradient");
   });
 
+  // **A picture ON the bar.** The fill must SURVIVE underneath it rather than
+  // being replaced: a picture that fails to load, or one with transparency,
+  // has to leave the author's own colour behind the strip rather than letting
+  // the page show through something meant to be solid. So the case asserts
+  // both — the class list still carries the fill, and the element carries the
+  // image.
+  it("paints a picture on the bar without dropping the fill", () => {
+    const { container } = renderBlock(
+      named({ heading: "bar", heading_image: "https://example.com/bliss.png" }),
+    );
+    const bar = container.querySelector<HTMLElement>(
+      '[data-testid="heading-bar"]',
+    );
+    expect(bar?.style.backgroundImage).toContain("bliss.png");
+    expect(bar?.style.backgroundSize).toBe("cover");
+    expect(bar?.className.split(/\s+/)).toContain("bg-(--accent)");
+  });
+
+  // The mirror, and the one that discriminates: a bar with no picture must
+  // carry no image at all rather than an empty one.
+  it("paints no picture when none is given", () => {
+    const { container } = renderBlock(named({ heading: "bar" }));
+    const bar = container.querySelector<HTMLElement>(
+      '[data-testid="heading-bar"]',
+    );
+    expect(bar?.style.backgroundImage).toBe("");
+  });
+
+  // **A PLAIN name draws no picture**, because there is no strip to paint it
+  // on — the same restriction `heading_pad` has, and for the same reason.
+  it("ignores a bar picture when the name is not a bar", () => {
+    const { container } = renderBlock(
+      named({ heading: "plain", heading_image: "https://example.com/x.png" }),
+    );
+    const heading = container.querySelector("h2");
+    expect(heading?.style.backgroundImage).toBe("");
+  });
+
+  // **A quote cannot escape the `url("…")` wrapper**, which is the guarantee
+  // that matters — and it is NOT reached the way this case first assumed.
+  // `backgroundImageValue` refuses a raw `"` or `\`, but `safeHttpUrl` parses
+  // through `new URL()` first and percent-encodes a quote in the path, so the
+  // refusal never sees one and the value arrives as `%22`. Equally safe by a
+  // different route. Asserting the REFUSAL would have pinned a path this
+  // input does not take; asserting the property pins what protects the sink.
+  it.each([
+    ['https://example.com/a".png', "quote"],
+    ["https://example.com/a\\.png", "backslash"],
+    ["javascript:alert(1)", "a scheme that is not http"],
+  ])("lets no %s reach the style, given %s", (heading_image) => {
+    const { container } = renderBlock(named({ heading: "bar", heading_image }));
+    const emitted =
+      container.querySelector<HTMLElement>('[data-testid="heading-bar"]')?.style
+        .backgroundImage ?? "";
+    const inner = emitted.replace(/^url\("/, "").replace(/"\)$/, "");
+    expect(inner).not.toMatch(/["\\]/);
+  });
+
+  // **The gap under a name, which had no control at all.** Absence is not one
+  // value — a bar welds and a plain name floats — so each case names which
+  // default it is departing from, and the two defaults are asserted first.
+  //
+  // **Each value is tested against the default it DEPARTS from**, which is why
+  // `none` is on a plain name rather than a bar. Asked of a barred section it
+  // would assert `gap-0` — exactly what a bar already gets — so the case would
+  // pass on a renderer that ignored the key entirely. Verified: with the
+  // lookup removed, this table reddens on all three rather than on two.
+  it.each([
+    ["none", "plain", "gap-0"],
+    ["snug", "bar", "gap-2"],
+    ["roomy", "bar", "gap-6"],
+  ] as const)("gives a %s heading gap", (heading_gap, heading, expected) => {
+    const { container } = renderBlock(named({ heading, heading_gap }));
+    const section = container.querySelector("section");
+    expect(section?.className.split(/\s+/)).toContain(expected);
+  });
+
+  // The half that proves absence still means what it meant: a barred section
+  // welds, a plain one does not, and neither reads the table.
+  it("leaves the welded bar and the floating name alone when unset", () => {
+    const { container: barred } = renderBlock(named({ heading: "bar" }));
+    expect(barred.querySelector("section")?.className.split(/\s+/)).toContain(
+      "gap-0",
+    );
+    const { container: plain } = renderBlock(named());
+    expect(plain.querySelector("section")?.className.split(/\s+/)).toContain(
+      "gap-3",
+    );
+  });
+
+  // **A gap reaches a PLAIN name too**, which the padding key deliberately
+  // does not: there is real space above the content whether or not a strip is
+  // drawn, so pulling a floating name tight against what it names is a thing
+  // somebody can want.
+  it("gives a plain name its own gap", () => {
+    const { container } = renderBlock(named({ heading_gap: "roomy" }));
+    expect(
+      container.querySelector("section")?.className.split(/\s+/),
+    ).toContain("gap-6");
+  });
+
   // **The room a bar gives its name, which is the complaint this answers.** A
   // solid strip at `px-3 py-2` with `compact` type in it reads as crowded.
   it.each([
