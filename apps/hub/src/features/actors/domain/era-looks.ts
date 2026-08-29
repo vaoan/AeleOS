@@ -154,6 +154,23 @@ const identity = (): ContainerBlock =>
  * `retro` carries the chrome exactly: `--skin-round: 0`, a 2px border, a white
  * top-left inset against a black bottom-right one, and a hard offset shadow.
  * What this adds is the palette and the title bars, which is `heading: "bar"`.
+ *
+ * **`heading_pad: "snug"` tightens both bars to `px-2 py-0.5` (2026-08-29),
+ * sampled off `Windows98.png` itself**: every small window's title strip
+ * there is a few pixels tall with its label sitting almost flush against the
+ * edges, nothing like the roomier bar Luna or a social pastiche draws.
+ *
+ * **`heading_gap` is deliberately NOT set beside it.** A barred heading's gap
+ * already collapses to `gap-0` with no key at all — `blocks.tsx`'s own
+ * fallback is `barred ? "gap-0" : "gap-3"` — so `heading_gap: "none"` here
+ * would read `HEADING_GAP.get("none")`, which is ALSO `"gap-0"`: the
+ * identical class, a key that reads as a change in the diff and changes
+ * nothing. `blocks.test.tsx`'s own heading-gap table says so in its own
+ * comment, on the case it deliberately does NOT write this way: asked of a
+ * barred section, `"none"` "would pass on a renderer that ignored the key
+ * entirely." This is the same trap the task that added these four keys
+ * warned about on `heading_pad` for Vista and 7 — just on `heading_gap`
+ * instead, and on a look the warning did not name.
  */
 const WIN98: FursonaTemplate = {
   id: "era-win98",
@@ -173,10 +190,10 @@ const WIN98: FursonaTemplate = {
   }),
   blocks: [
     section("My Computer", [leaf("text", "About me")], {
-      style: { heading: "bar", radius: "square" },
+      style: { heading: "bar", radius: "square", heading_pad: "snug" },
     }),
     section("Programs", [leaf("text", "What I do")], {
-      style: { heading: "bar", radius: "square" },
+      style: { heading: "bar", radius: "square", heading_pad: "snug" },
     }),
     identity(),
   ],
@@ -199,6 +216,18 @@ const WIN98: FursonaTemplate = {
  * The two sections below are the shape: the bar rounds its top and squares its
  * foot, the body squares its head and rounds its foot, and the join between
  * them is straight. That is a window.
+ *
+ * **`heading_gap: "none"` was tried and reverted (2026-08-29), rather than
+ * assumed a welding fix.** A `gradient` heading is BARRED — `BAR_FILL` has an
+ * entry for it — so the section's gap already collapses to `gap-0` with no
+ * key set at all. Setting `heading_gap: "none"` explicitly reads
+ * `HEADING_GAP.get("none")`, which is the SAME `"gap-0"` — an identical
+ * class, so the change would be invisible. `blocks.test.tsx`'s own
+ * heading-gap comment names exactly this case: asked of an already-barred
+ * section, `"none"` "would pass on a renderer that ignored the key
+ * entirely." Left unset, and `Windows_XP_Luna.png`'s own task-pane header
+ * confirms nothing was lost — its list of links already sits flush under the
+ * blue strip.
  */
 const WINXP: FursonaTemplate = {
   id: "era-winxp",
@@ -251,6 +280,17 @@ const WINXP: FursonaTemplate = {
  *
  * `aero` is the mechanism whole: an 8px backdrop blur, a top-half sheen and a
  * surface mixed to 72%. The palette is what makes this Vista rather than 7.
+ *
+ * **No section here takes `heading`, `heading_pad` or `heading_gap`, and
+ * that is a deliberate decision rather than an omission (2026-08-29).**
+ * `Windows_Vista.png`'s own "Welcome Centre" window is a TRANSLUCENT glass
+ * strip — the desktop's own aurora shows through it — never a solid fill.
+ * `heading: "bar"` (or `"gradient"`/`"soft"`) paints an opaque accent strip,
+ * which is the one thing Aero's title bar is not; reaching for it just to
+ * unlock `heading_pad: "roomy"` — what this task's original brief asked
+ * for — would have painted over the translucency that IS the era. Left as a
+ * plain heading, which this task's own ruling for this look already called
+ * for; sampling confirmed the reason rather than inventing one.
  */
 const VISTA: FursonaTemplate = {
   id: "era-vista",
@@ -280,6 +320,19 @@ const VISTA: FursonaTemplate = {
  * one dark-tinted on green and the other light-tinted on blue. Both are
  * `aero`, which is the clearest evidence in this whole phase that a look is a
  * document rather than a skin.
+ *
+ * **Sampled directly, and still distinguishable (2026-08-29).** The ten
+ * most-common colours of `Windows_Vista.png` include `#377278`, `#3f7e73` and
+ * `#367177` — teal-green, matching the aurora; `Windows_7_SP1_screenshot.png`
+ * instead samples `#02499b`, `#0260c4` and `#025cbd` — saturated blue, no
+ * green anywhere in its top ten. Same mechanism, confirmed opposite palette.
+ *
+ * **No `heading` key here either, for the identical reason as Vista's.**
+ * `Windows_7_SP1_screenshot.png`'s own chrome — the Start menu's glass panel —
+ * is translucent in exactly the same way; turning a section into a solid
+ * `bar` to reach `heading_pad: "roomy"`, which the original brief for this
+ * task asked for on both looks, would have replaced that translucency with
+ * an opaque accent strip. That is why this task's own ruling refuses it.
  */
 const WIN7: FursonaTemplate = {
   id: "era-win7",
@@ -317,6 +370,19 @@ const WIN7: FursonaTemplate = {
  * to a hairline; and the mixed tile sizes are ordinary `spaces` and `weights`.
  * So the ARRANGEMENT lands and the colour does not, which is the most useful
  * shape a failure can have — it names one mechanism rather than a feeling.
+ *
+ * **`heading_pad` and `heading_gap` are also absent, and for two different
+ * reasons rather than one (2026-08-29).** `heading_pad` is a dead letter
+ * here regardless of value — it is read only where a heading draws as a bar,
+ * and "Start" is a plain one — so the original brief's `heading_pad: "snug"`
+ * for this look would have changed nothing. `heading_gap` is NOT gated the
+ * same way: a plain heading's gap is read from the table whenever a value is
+ * set, defaulting to `gap-3` only when it is absent, so `heading_gap: "none"`
+ * here would be a REAL change, welding "Start" straight onto the tile grid —
+ * not a harmless no-op the way it is on Windows 98 and XP's already-barred
+ * sections above. `Windows_8_Start_Screen.png` shows real air between the
+ * word and the first row of tiles, so that change was measured and declined
+ * rather than assumed dead.
  */
 const WIN8: FursonaTemplate = {
   id: "era-win8",

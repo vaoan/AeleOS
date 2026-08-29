@@ -945,6 +945,27 @@ Key choices and _why_:
   **Grep for the strings you edited, not the topic you worked on** — a stale
   sentence is falsified by what changed, not by what the change was about.
 
+  **Task 10 closed the era looks (2026-08-29), and found the SAME no-op one
+  level up from `corners`/`radius: "square"` — on `heading_gap`, not on the
+  keys the brief warned about.** `era-win98` gained `heading_pad: "snug"` (a
+  real change: `px-2 py-0.5` against the default `px-3 py-2`, sampled off
+  `Windows98.png`'s own tight title-bar chrome) and deliberately did NOT gain
+  `heading_gap: "none"`: a barred heading's gap already collapses to `gap-0`
+  with no key set at all, so `"none"` there reads the identical class —
+  `blocks.test.tsx`'s own heading-gap comment names this exact case ("would
+  pass on a renderer that ignored the key entirely"). `era-winxp` was left
+  alone for the same reason; its `corners`/`heading_corners` already express
+  Luna's window shape from a prior commit on this same branch, which made the
+  dispatched task's own premise that "`heading_corners` is unset on all five
+  looks" stale before the task began. `era-vista` and `era-win7` kept plain
+  headings — both captures show visibly translucent Aero glass, and a solid
+  `bar` fill would have painted over the one thing the era is — and
+  `era-win8` kept its plain heading too, though for a DIFFERENT reason than
+  `heading_pad`'s genuine dead-letterness there: `heading_gap` is not gated
+  to a bar the way `heading_pad` is, so `"none"` on a plain "Start" heading
+  would have been a real, wrong weld, not the harmless no-op it is on an
+  already-barred section.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is
