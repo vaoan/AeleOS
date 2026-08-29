@@ -1,5 +1,8 @@
 import type { CSSProperties } from "react";
-import type { BlockStyle } from "@/features/actors/domain/block-schema";
+import {
+  CORNERS,
+  type BlockStyle,
+} from "@/features/actors/domain/block-schema";
 import { backgroundImageValue } from "@/features/actors/domain/embeds";
 import { nestedSkinVars, type SkinId } from "@/shared/domain/skins";
 
@@ -56,6 +59,40 @@ const CARD_SIZE_MIN = new Map<string, string>(Object.entries(CARD_SIZES));
  * own scale unmodified, and `round` is `2.5`, chosen to sit between `candy`'s
  * `1.8` and `pill`-like `3.5` so it is visibly a stop of its own.
  */
+/** The CSS longhand each corner name squares off. */
+const CORNER_PROPERTY = {
+  tl: "borderTopLeftRadius",
+  tr: "borderTopRightRadius",
+  br: "borderBottomRightRadius",
+  bl: "borderBottomLeftRadius",
+} as const satisfies Record<(typeof CORNERS)[number], string>;
+
+/**
+ * Squares off every corner a list does NOT name.
+ *
+ * **Only the corners switched OFF emit anything, which is the whole design.**
+ * A corner left on keeps whatever its class and `--skin-round` already give
+ * it, so `radius` still decides how MUCH and this decides WHERE, and the two
+ * compose rather than compete. Emitting all four would mean restating the
+ * skin's own number here, where nothing can see it.
+ *
+ * An absent list emits nothing at all, so a page that never set this is
+ * byte-for-byte what it was.
+ *
+ * @param vars - the style object to write into.
+ * @param list - the comma-separated corner names, or undefined.
+ */
+export function squareOffCorners(
+  vars: CSSProperties,
+  list: string | undefined,
+): void {
+  if (!list) return;
+  const rounded = new Set(list.split(","));
+  for (const corner of CORNERS) {
+    if (!rounded.has(corner)) vars[CORNER_PROPERTY[corner]] = "0";
+  }
+}
+
 const ROUNDNESS = new Map<string, string>([
   ["square", "0"],
   ["soft", "1"],
@@ -163,6 +200,10 @@ const BORDER_MIN_WIDTH = new Map<string, string>([
  * `chrome` and `text_align` join the bag it emits: `bare` neutralises the card
  * by token rather than by a rule on a generated class.
  *
+ * `corners` joins them, squaring off every corner a block does NOT name — see
+ * {@link squareOffCorners} for why only the corners switched off emit
+ * anything, and why that is what lets `radius` keep deciding how much.
+ *
  * `image_fit` and `radius` join it too, and both are emitted as TOKENS for
  * reasons worth keeping. `--img-fit` because the `<img>` that reads it sits
  * inside a leaf this bag never reaches, and it is emitted only when the key is
@@ -249,6 +290,8 @@ export function blockStyle(
   // than nudges, and absence leaves the skin's own number untouched.
   const round = ROUNDNESS.get(style.radius ?? "");
   if (round) vars["--skin-round"] = round;
+
+  squareOffCorners(vars, style.corners);
 
   // Inherited, so a section set to `center` centres every leaf beneath it
   // without each one carrying the key. A block may still set its own.

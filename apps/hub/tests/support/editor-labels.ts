@@ -63,7 +63,8 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * `text_align`, `image_fit` and `radius` strings, the theme panel's `font` and
  * `spacing`, and the leaf editor's `rowIcon`. `heading` is four names, the
  * fourth being the quieter bar tone; beside them sit the bar's own picture,
- * how that picture lies, and the room under the name.
+ * how that picture lies, the room under the name, and one name per corner for
+ * the two corner pickers.
  */
 export function blockEditorLabels(): BlockEditorLabels {
   return {
@@ -162,6 +163,14 @@ export function blockEditorLabels(): BlockEditorLabels {
       headingFit: "How the name picture fills",
       headingFitCover: "Fill the bar",
       headingFitTile: "Tile it",
+      corners: "Rounded corners",
+      headingCorners: "Rounded corners on the name bar",
+      corner: {
+        tl: "Top left",
+        tr: "Top right",
+        br: "Bottom right",
+        bl: "Bottom left",
+      },
       headingPad: "Name spacing",
       headingPadDefault: "Ordinary",
       headingPadSnug: "Tight",

@@ -4289,6 +4289,59 @@ safe by a different route. The test asserts the PROPERTY (no raw quote escapes
 the `url("…")` wrapper) rather than the refusal, because asserting the refusal
 would have pinned a path this input does not take.
 
+### The window shape: corners chosen one at a time (2026-08-29)
+
+`corners` on a block's box and `heading_corners` on its bar, each a
+comma-separated list of `tl`, `tr`, `br` and `bl` naming which corners are
+ROUNDED. Together they draw a window: a bar rounded across its top over content
+rounded across its foot, with the join between them straight. That is Luna's
+panel, and it was recorded as an open gap when the era looks were built —
+"`radius` is one value for four corners".
+
+**`radius` says how MUCH and this says WHERE**, which is what makes them
+compose instead of compete. `radius: "soft"` with `corners: "tl,tr"` is a soft
+top and a square foot; the skin still owns the number.
+
+**Only the corners switched OFF emit anything, and that is the mechanism rather
+than an optimisation.** A corner left on keeps whatever its class and
+`--skin-round` already give it, so nothing here restates the skin's number
+where nothing can see it — and a block that names no corners emits no
+longhands at all, which is why every stored page is byte-for-byte what it was.
+`squareOffCorners` in `block-style.ts` is the one place that decides it, used
+by the box and by the bar so the two cannot drift.
+
+**There is deliberately no spelling for "no corners".** `radius: "square"`
+already says that, and a second spelling for one answer is a thing to keep in
+step. The editor enforces it by refusing to untick the last box — **in the
+handler as well as through `disabled`**, because the rule is an invariant about
+the value rather than a property of one control, and jsdom dispatches a
+programmatic click to a disabled input where a browser would not. That is also
+what makes the guard reachable in a unit test at all.
+
+**An all-four list CLEARS the key rather than being stored.** Storing
+`"tl,tr,br,bl"` would leave a page carrying a key that changes nothing, and two
+authors who tick everything would store different-looking pages. The picker
+writes `""` there, and `setField` removes the key.
+
+**The control is SHAPED like the thing it sets** — four boxes in a 2×2 grid,
+each rounding its own corner, so the picker is a picture of the result rather
+than four lines of prose a reader has to assemble in their head. Its
+`aria-label` per box is still the corner's name, so the shape is the
+convenience and not the only way to read it.
+
+**A `.style` read gives `"0"`, not `"0px"`.** Unit cases assert the inline
+declaration verbatim; only a COMPUTED style normalises, and jsdom does no
+layout. Each case also names the corners that must stay UNSET, because
+asserting only that something is zero would pass on a renderer that squared all
+four.
+
+**The grammar is pinned to `0009` by its own case**, not by the table beside
+it: `corners` is validated there by a REGEX rather than an `in (...)` list, so
+it could not join `block-limits-match-migration.test.ts`'s enum table. The case
+asserts the pattern MATCHED before comparing anything, then compares what the
+two accept rather than their characters — and it is sabotage-verified, after a
+first attempt whose `sed` silently failed to apply and proved nothing.
+
 ### A density that reaches OUTSIDE the card (2026-08-28)
 
 `spacing` set a card's padding and its type size and stopped there. The page

@@ -588,6 +588,28 @@ Key choices and _why_:
   undoing that on every run. **A seed that does not restore everything it
   depends on works exactly once.**
 
+- **A window is corners chosen one at a time (2026-08-29).** `corners` and
+  `heading_corners` name which of a block's — and its bar's — corners are
+  rounded, so a bar rounded across its top over content rounded across its foot
+  draws the window shape a single `radius` could not. `radius` says how MUCH
+  and these say WHERE.
+
+  **Only the corners switched OFF emit anything**, which is what keeps every
+  stored page byte-identical and stops the renderer restating the skin's own
+  number where nothing can see it.
+
+  Two things it cost that generalise past this feature:
+
+  - **jsdom dispatches a programmatic click to a DISABLED input where a browser
+    would not.** The picker refuses to untick its last corner, and the
+    `disabled` attribute alone made that a property of one control rather than
+    an invariant about the value. The handler refuses it too — which is also
+    what makes the guard reachable in a unit test at all.
+  - **A `sed` sabotage that fails to apply looks exactly like a successful
+    verification.** One here matched nothing, the suite stayed green, and the
+    pin appeared proven. Rule 29 with the mutation step itself as the fixture:
+    check the substitution LANDED before believing the run.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is

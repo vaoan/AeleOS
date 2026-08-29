@@ -232,8 +232,8 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * It builds the style popup's `chrome`, `heading`, `heading_pad`, `text_align`,
  * `image_fit` and `radius` strings too — `heading` being four names now, since
  * a bar may be drawn in the accent, shaded, or in the quieter derived tone —
- * plus the bar's own picture, how that picture lies, and the room under the
- * name.
+ * plus the bar's own picture, how that picture lies, the room under the name,
+ * and one name per corner for the two corner pickers.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -346,6 +346,14 @@ export async function fursonaEditorLabels(
       headingFit: t("styleHeadingFit"),
       headingFitCover: t("styleHeadingFitCover"),
       headingFitTile: t("styleHeadingFitTile"),
+      corners: t("styleCorners"),
+      headingCorners: t("styleHeadingCorners"),
+      corner: {
+        tl: t("styleCornerTl"),
+        tr: t("styleCornerTr"),
+        br: t("styleCornerBr"),
+        bl: t("styleCornerBl"),
+      },
       headingPad: t("styleHeadingPad"),
       headingPadDefault: t("styleHeadingPadDefault"),
       headingPadSnug: t("styleHeadingPadSnug"),

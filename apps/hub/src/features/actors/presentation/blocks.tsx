@@ -12,7 +12,10 @@ import {
 import { trackListFor } from "@/features/actors/domain/block-tracks";
 
 import { backgroundImageValue } from "@/features/actors/domain/embeds";
-import { blockStyle } from "@/features/actors/presentation/block-style";
+import {
+  blockStyle,
+  squareOffCorners,
+} from "@/features/actors/presentation/block-style";
 import { tid } from "@/shared/infrastructure/test-id";
 import {
   AvatarLeaf,
@@ -1099,7 +1102,9 @@ function Leaf(props: LeafProps): ReactNode {
  * `heading_pad` decides how much room that bar gives the name, and is read
  * nowhere else — see {@link BAR_PADDING}. `heading_image` paints a picture
  * over that fill rather than instead of it, so a picture that fails to load
- * leaves the author's colour behind the strip; `heading_gap` is the room
+ * leaves the author's colour behind the strip; `heading_corners` squares off
+ * the corners of that strip the way `corners` does the block's own box, which
+ * together draw a window; `heading_gap` is the room
  * under the name, and {@link HEADING_GAP} deliberately holds no default,
  * because absence there means whichever of two behaviours applies.
  *
@@ -1195,15 +1200,21 @@ export function Block({
   const barImage = barred
     ? backgroundImageValue(block.style?.heading_image)
     : undefined;
-  const headingStyle: CSSProperties | undefined = barImage
-    ? {
-        backgroundImage: barImage,
-        backgroundRepeat:
-          block.style?.heading_fit === "tile" ? "repeat" : "no-repeat",
-        backgroundSize: block.style?.heading_fit === "tile" ? "auto" : "cover",
-        backgroundPosition: "center",
-      }
-    : undefined;
+  // **The bar's own corners, squared off the same way the block's box is.**
+  // Together with the box's they draw a window: a bar rounded across its top
+  // over content rounded across its foot, with the join between them straight.
+  const headingVars: CSSProperties = {};
+  if (barImage) {
+    headingVars.backgroundImage = barImage;
+    headingVars.backgroundRepeat =
+      block.style?.heading_fit === "tile" ? "repeat" : "no-repeat";
+    headingVars.backgroundSize =
+      block.style?.heading_fit === "tile" ? "auto" : "cover";
+    headingVars.backgroundPosition = "center";
+  }
+  if (barred) squareOffCorners(headingVars, block.style?.heading_corners);
+  const headingStyle: CSSProperties | undefined =
+    Object.keys(headingVars).length > 0 ? headingVars : undefined;
   const headingClass = barred
     ? `${heading.className} ${fill} ${barPad}`
     : heading.className;

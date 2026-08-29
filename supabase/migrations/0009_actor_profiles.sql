@@ -55,7 +55,7 @@ create table public.actor_profiles (
   --   style:     { skin?, background_url?, background_fit?, card_size?,
   --                border?, chrome?, heading?, text_align?, image_fit?, radius?,
   --                heading_pad?, heading_image?, heading_fit?,
-  --                heading_gap? } — how the BLOCK
+  --                heading_gap?, corners?, heading_corners? } — how the BLOCK
   --                chooses to look, form only and
   --              never colour. Every key is optional and absence means
   --              "inherit the page", exactly as the theme's own keys work.
@@ -829,6 +829,17 @@ begin
         -- kind of value.
         if v_value not in ('cover', 'tile') then
           raise exception 'block %: unknown heading fit', p_path using errcode = '22023';
+        end if;
+      elsif v_key in ('corners', 'heading_corners') then
+        -- WHICH of a block's corners are rounded, as a comma-separated list of
+        -- tl, tr, br and bl; `corners` is the block's own box and
+        -- `heading_corners` its bar. `radius` says how MUCH and this says
+        -- where, so the two compose: soft across the top with a square foot is
+        -- the window shape a single radius could not draw. Absent means every
+        -- corner, and there is deliberately no spelling for none — radius
+        -- square already says that.
+        if v_value !~ '^(tl|tr|br|bl)(,(tl|tr|br|bl))*$' then
+          raise exception 'block %: unknown corner list', p_path using errcode = '22023';
         end if;
       elsif v_key = 'heading_gap' then
         -- The room between a named block's name and the content under it.

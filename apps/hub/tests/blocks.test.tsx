@@ -3277,6 +3277,68 @@ describe("a section's name as a bar", () => {
     ).toContain("gap-6");
   });
 
+  // `.style` reads the INLINE declaration verbatim — "0", not the "0px" a
+  // computed style would normalise it to. Asserting the computed value here
+  // would be asserting jsdom's own layout, which it does not do.
+  //
+  // **The window shape: a bar rounded across its top over content rounded
+  // across its foot.** Asserting only that something is `0` would pass on a
+  // renderer that squared all four, so each case names the corners that must
+  // stay UNSET as well — an unset longhand is what lets the class and the
+  // skin keep deciding, which is the whole mechanism.
+  it("squares off only the corners a bar does not name", () => {
+    const { container } = renderBlock(
+      named({ heading: "bar", heading_corners: "tl,tr" }),
+    );
+    const bar = container.querySelector<HTMLElement>(
+      '[data-testid="heading-bar"]',
+    );
+    expect(bar?.style.borderBottomLeftRadius).toBe("0");
+    expect(bar?.style.borderBottomRightRadius).toBe("0");
+    expect(bar?.style.borderTopLeftRadius).toBe("");
+    expect(bar?.style.borderTopRightRadius).toBe("");
+  });
+
+  it("squares off only the corners a block's box does not name", () => {
+    const { container } = renderBlock(named({ corners: "bl,br" }));
+    const section = container.querySelector<HTMLElement>("section");
+    expect(section?.style.borderTopLeftRadius).toBe("0");
+    expect(section?.style.borderTopRightRadius).toBe("0");
+    expect(section?.style.borderBottomLeftRadius).toBe("");
+    expect(section?.style.borderBottomRightRadius).toBe("");
+  });
+
+  // **Absent emits NOTHING**, which is what keeps every stored page identical.
+  // This is the case a renderer that defaulted to "all four" would still pass
+  // on if it emitted `0`s nowhere — so it is paired with the two above, which
+  // fail if nothing is ever emitted.
+  it("leaves every corner alone when none are named", () => {
+    const { container } = renderBlock(named({ heading: "bar" }));
+    const section = container.querySelector<HTMLElement>("section");
+    const bar = container.querySelector<HTMLElement>(
+      '[data-testid="heading-bar"]',
+    );
+    for (const corner of [
+      "borderTopLeftRadius",
+      "borderTopRightRadius",
+      "borderBottomLeftRadius",
+      "borderBottomRightRadius",
+    ] as const) {
+      expect(section?.style[corner]).toBe("");
+      expect(bar?.style[corner]).toBe("");
+    }
+  });
+
+  // A bar's corners are read only where a bar is drawn — there is no strip to
+  // square off otherwise, and the plain heading must not acquire one.
+  it("ignores the bar's corners when the name is not a bar", () => {
+    const { container } = renderBlock(
+      named({ heading: "plain", heading_corners: "tl" }),
+    );
+    const heading = container.querySelector<HTMLElement>("h2");
+    expect(heading?.style.borderBottomLeftRadius).toBe("");
+  });
+
   // **The room a bar gives its name, which is the complaint this answers.** A
   // solid strip at `px-3 py-2` with `compact` type in it reads as crowded.
   it.each([
