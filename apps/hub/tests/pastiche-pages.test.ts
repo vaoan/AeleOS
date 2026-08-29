@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { PAGES, ERA_LOOKS } from "../../../scripts/pastiche-pages.mjs";
+import {
+  REFERENCES,
+  inspirationSection,
+} from "../../../scripts/pastiche-references.mjs";
 import { parseTheme } from "@/features/actors/domain/actor-theme";
 import { blocksSchema } from "@/features/actors/domain/block-schema";
 import { REQUIRED_KINDS } from "@/features/actors/domain/required-blocks";
@@ -57,5 +61,26 @@ describe("every seeded page", () => {
       missing,
       `${id} is missing: ${missing.join(", ") || "nothing"}`,
     ).toEqual([]);
+  });
+});
+
+describe("the inspiration section", () => {
+  it.each(Object.keys(REFERENCES))(
+    "%s appends a tree the schema accepts",
+    (handle) => {
+      // The section is appended at seed time, so this is where it is checked —
+      // the page module never holds it.
+      expect(() =>
+        blocksSchema.parse([inspirationSection(REFERENCES[handle])]),
+      ).not.toThrow();
+    },
+  );
+
+  it("names a reference for every seeded page and no others", () => {
+    const seeded = [
+      ...PAGES.map((p) => p.handle),
+      ...ERA_LOOKS.map((l) => l.id),
+    ];
+    expect(Object.keys(REFERENCES).sort()).toEqual(seeded.sort());
   });
 });

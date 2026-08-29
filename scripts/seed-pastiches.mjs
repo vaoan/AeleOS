@@ -39,6 +39,7 @@
 import pg from "pg";
 import { poolerUrl, PROJECT_NAME } from "./aeleos-project.mjs";
 import { PAGES, ERA_LOOKS, ERA_LOOKS_META } from "./pastiche-pages.mjs";
+import { REFERENCES, inspirationSection } from "./pastiche-references.mjs";
 
 const password = process.env.SUPABASE_DB_PASSWORD;
 if (!password) {
@@ -100,12 +101,16 @@ try {
         where actor_ref = $3`,
       [displayName, avatar, ref],
     );
+    // Appended HERE rather than stored in `pastiche-pages.mjs`: nothing about
+    // the page module changes, and a later reader of `PAGES` sees the page
+    // without it.
+    const withReference = [...blocks, inspirationSection(REFERENCES[handle])];
     await ask(
       `insert into public.actor_profiles (actor_ref, sections, theme)
        values ($1, $2::jsonb, $3::jsonb)
        on conflict (actor_ref) do update
          set sections = excluded.sections, theme = excluded.theme`,
-      [ref, JSON.stringify(blocks), JSON.stringify(pageTheme)],
+      [ref, JSON.stringify(withReference), JSON.stringify(pageTheme)],
     );
     console.log(`[pastiche] /${ADDRESS}/${handle}`);
   }
@@ -144,12 +149,19 @@ try {
         where actor_ref = $3`,
       [displayName, avatar, ref],
     );
+    // Appended HERE and never in `ERA_LOOKS` itself: that array is spread into
+    // `TEMPLATES` for the picker, so a section stored there would land on the
+    // page of every author who picks this look as their starting point.
+    const withReference = [
+      ...look.blocks,
+      inspirationSection(REFERENCES[handle]),
+    ];
     await ask(
       `insert into public.actor_profiles (actor_ref, sections, theme)
        values ($1, $2::jsonb, $3::jsonb)
        on conflict (actor_ref) do update
          set sections = excluded.sections, theme = excluded.theme`,
-      [ref, JSON.stringify(look.blocks), JSON.stringify(look.theme)],
+      [ref, JSON.stringify(withReference), JSON.stringify(look.theme)],
     );
     console.log(`[era]      /${ADDRESS}/${handle}`);
   }

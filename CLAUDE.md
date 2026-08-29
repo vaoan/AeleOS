@@ -702,7 +702,12 @@ Key choices and _why_:
   "four" are both true statements about it.** `scripts/pastiche-references.mjs`
   is the registry — one entry per handle, each a hot link and never a stored
   file — and `inspirationSection` turns an entry into an appendix section, no
-  colour or chrome of its own, that a later task appends at seed time.
+  colour or chrome of its own. **It is appended now**, in both of
+  `seed-pastiches.mjs`'s loops, onto a local copy of each page's `blocks` —
+  never stored in `PAGES` or `ERA_LOOKS` themselves, for the same reason
+  those two arrays carry nothing decorative already: `ERA_LOOKS` is spread
+  into the picker's own `TEMPLATES`, so a section stored there would land on
+  the page of every author who picks that look.
   `absent` means "this page carries no picture," and it covers two different
   reasons rather than one. `board`, `sky` and `threads` are three where no
   archive can hold the SUBJECT — a crawler never sees the dark mode, the
