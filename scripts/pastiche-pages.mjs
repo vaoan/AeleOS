@@ -1044,6 +1044,23 @@ const sonicoTheme = theme({
 // monospace, and read as a developer's site; five out of five Times New Roman
 // is what that reasoning was missing. Nothing about this page changed — which
 // is the useful shape for evidence to have.
+//
+// **Re-checked against the gallery (task 8, 2026-08-29): three more pages,
+// still confirming rather than changing.** `Area51/1007` — `bgcolor="#000000"`,
+// a tiled `background="brick.jpg"`, no font set (default serif), `<center>`
+// throughout. `Area51/1012` — `BGCOLOR="#000000"`, `TEXT="#FFFFFF"`, no font
+// set, `<center>`, flat (no tile). `Area51/1013` — `BGCOLOR="#330033"`, a
+// third arbitrary ground beside the five already on record, and the one
+// counter-case worth naming: it names `Arial`/`Comic Sans MS` in an embedded
+// stylesheet, wrapped around a page that is almost entirely `<table>`-laid
+// pixel images with barely a line of running prose. It does not move
+// `font: "serif"` — five of five personal-homepage BODY TEXT pages had none —
+// it only shows that an image-heavy page has less text for a face to apply
+// to. **The one thing that WAS missing: no section here carried `radius`.**
+// The default skin rounds at `--skin-round: 1`, and a 1998 personal homepage
+// rounds nothing — added to all three sections below, matching the era-looks'
+// own flat desktops. No `corners` key: see the Fur Affinity note above this
+// one for why `radius: "square"` alone is the complete answer.
 // ---------------------------------------------------------------------------
 
 const geocities = [
@@ -1062,7 +1079,7 @@ const geocities = [
       }),
       leaf("handle", "My handle"),
     ],
-    { style: { skin: "default", text_align: "center" } },
+    { style: { skin: "default", text_align: "center", radius: "square" } },
   ),
   section(
     "MY INTERESTS",
@@ -1081,7 +1098,7 @@ const geocities = [
         ],
       }),
     ],
-    { style: { skin: "default", text_align: "center" } },
+    { style: { skin: "default", text_align: "center", radius: "square" } },
   ),
   section(
     "[ THE FURRY WEBRING ]",
@@ -1092,7 +1109,10 @@ const geocities = [
       leaf("link", "NEXT >>", { link_url: "https://me.furrycolombia.com" }),
       leaf("owner", "Owner"),
     ],
-    { spaces: 3, style: { skin: "default", text_align: "center" } },
+    {
+      spaces: 3,
+      style: { skin: "default", text_align: "center", radius: "square" },
+    },
   ),
 ];
 
@@ -1130,6 +1150,35 @@ const geocitiesTheme = theme({
 // blue-grey ground and light silver bars carrying DARK text. It had been
 // reading as a modern dark theme rather than as 2008. Both were corrected
 // against the capture — see the theme below, where the measurement lives.
+//
+// **A second capture, from a different archive, is what closed the section
+// headers (task 8, 2026-08-29) — and it disagrees with the first on its
+// DATE, not on its chrome.** `web.archive.org`, the source of the December
+// 2008 evidence above, is unreachable from this machine; arquivo.pt holds
+// nothing earlier than **`20191214070143`**, December 2019, for this host.
+// Kept anyway, deliberately: FA's classic layout survived that whole span —
+// this render still shows the same slate-blue-grey ground (`#2e3b41`, 53.2%
+// of the frame, against the stored `#2e3a45`/`#38444f`) — so an eleven-year
+// capture is good evidence for the STRUCTURE and none at all for the DATE.
+// **The page stays dated 2008 rather than being moved to match this capture**,
+// the same call the findings document already recorded for Facebook's own
+// two-archive case: the 2008 source that set the palette cannot be re-fetched
+// to confirm it, but it is not un-evidenced either, only unreachable now.
+//
+// Sampled from the 2019 render: each "Recent Artwork"/"Recent Writing" bar is
+// a flat `#6a7283`, square-cornered, welded directly to the panel beneath it
+// with no gap — confirming `heading: "bar"`, `heading_gap: "none"` and
+// `radius: "square"` below, all three added on this task. Its own label reads
+// WHITE, not dark — a detail belonging to 2019's render rather than to 2008's
+// stored palette, which is why `accent`/`surface` are untouched: this task
+// changes shape, not colour, and the bar still renders in this page's own
+// light `#b9c4cd` with a derived dark label, per the earlier capture.
+//
+// **`corners` is deliberately absent.** A version of this task's brief said
+// to pair `radius: "square"` with `corners: "tl,tr"` — a complete no-op,
+// since `radius: "square"` already zeroes `--skin-round` and every named
+// corner resolves through it to the same zero. Squared corners need only the
+// one key; a page with no rounding anywhere needs no ROUND ones singled out.
 // ---------------------------------------------------------------------------
 
 const furaffinity = [
@@ -1196,7 +1245,12 @@ const furaffinity = [
     {
       spaces: 2,
       weights: [1, 3],
-      style: { heading: "bar", heading_pad: "roomy" },
+      style: {
+        heading: "bar",
+        heading_pad: "roomy",
+        heading_gap: "none",
+        radius: "square",
+      },
     },
   ),
 
@@ -1208,7 +1262,15 @@ const furaffinity = [
         image_url: photo("fa-sub-" + i, 400, 400),
       }),
     ),
-    { spaces: 4, style: { heading: "bar", heading_pad: "roomy" } },
+    {
+      spaces: 4,
+      style: {
+        heading: "bar",
+        heading_pad: "roomy",
+        heading_gap: "none",
+        radius: "square",
+      },
+    },
   ),
 
   // **The shouts wall, and the reason this page is here.** Many short rows of
@@ -1229,7 +1291,15 @@ const furaffinity = [
         leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
       )
       .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
-    { style: { heading: "bar", heading_pad: "roomy", chrome: "bare" } },
+    {
+      style: {
+        heading: "bar",
+        heading_pad: "roomy",
+        heading_gap: "none",
+        chrome: "bare",
+        radius: "square",
+      },
+    },
   ),
 ];
 

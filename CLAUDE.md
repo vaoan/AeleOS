@@ -877,6 +877,28 @@ Key choices and _why_:
     pin appeared proven. Rule 29 with the mutation step itself as the fixture:
     check the substitution LANDED before believing the run.
 
+- **The pastiches were rebuilt against their captures, one task at a time
+  (2026-08-29), and the `corners`/`radius: "square"` no-op above shipped in a
+  brief a third time before it was caught.** MySpace, hi5, Sonico, Facebook,
+  Fotolog, Fur Affinity and GeoCities were each re-sampled from a real
+  archived (or, for two, live) capture; `docs/superpowers/specs/2026-08-27-pastiche-findings.md`
+  and this file's own pastiche entries above carry each page's account.
+  **Fur Affinity gained the window-shape keys** — `heading: "bar"`,
+  `heading_gap: "none"` and `radius: "square"` on its three named sections —
+  confirmed from a _second_, newer arquivo.pt capture
+  (`20191214070143`, December 2019) whose date does not match the page's own
+  (2008, from a `web.archive.org` capture unreachable now): kept at 2008 and
+  the mismatch stated in the comment, the same shape already recorded for
+  Facebook's two captures above. **GeoCities changed once, narrowly**: every
+  section now carries `radius: "square"`, which nothing had set before —
+  a 1998 personal homepage rounds nothing, where the default skin rounds at
+  `--skin-round: 1`. Neither page took a `corners` key: a task brief asked for
+  `corners: "tl,tr"` paired with `radius: "square"` a third time (after
+  MySpace and the audit that followed it), and a third writer had to
+  re-confirm the same no-op — `radius: "square"` already zeroes
+  `--skin-round`, so `squareOffCorners` resolves every named corner through it
+  to the same zero.
+
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
   "can the flat-section shim go yet" has a number instead of an opinion. It is
