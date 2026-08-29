@@ -4335,6 +4335,11 @@ layout. Each case also names the corners that must stay UNSET, because
 asserting only that something is zero would pass on a renderer that squared all
 four.
 
+**Both keys carry a meaning in the generated reference**, and the gate added
+the day before is what made sure of it: they were written on a branch cut
+before `STYLE_KEY_MEANINGS` existed, and the rebase failed on them rather than
+letting two keys ship with a shape and no explanation.
+
 **The grammar is pinned to `0009` by its own case**, not by the table beside
 it: `corners` is validated there by a REGEX rather than an `in (...)` list, so
 it could not join `block-limits-match-migration.test.ts`'s enum table. The case
