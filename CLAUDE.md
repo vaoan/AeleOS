@@ -613,9 +613,23 @@ Key choices and _why_:
   is the portal; `profile.myspace.com/<user>` is somebody's profile, and
   arquivo holds **43** of them. A real October 2008 one is a photo behind
   everything, boxes gone semi-transparent with thin bright borders, and text
-  fighting the image — which is what that site WAS, and not the default
-  white-box chrome the pastiche was built from. **Ask what the subject is, then
-  ask which URL is it**, because the site's own domain is usually neither.
+  fighting the image — which is what that site WAS. **Ask what the subject is,
+  then ask which URL is it**, because the site's own domain is usually
+  neither.
+
+  **The MySpace pastiche was built from the default white-box chrome instead
+  of that subject, and this is the one place that was still true after it —
+  closed 2026-08-29.** `myspaceTheme` now carries `profile.myspace.com/akioyang`
+  at `20081024054301` as its own subject: a photograph background, `surface:
+"#555a6a"` sampled from the capture's boxes, and `border: "solid"` with
+  `radius: "square"` on every section for the thin square-cornered edge the
+  capture has in place of the old rounded default. `corners` and
+  `heading_gap` — unused anywhere in this file until this landed — weld each
+  bar flush to its content. **What did not come along is the translucency
+  itself**: a block's fill is one opaque colour with no alpha channel, so the
+  sampled tone stands in for the photograph showing through rather than being
+  it — recorded as gap 13 in the pastiche findings rather than approximated
+  past.
 
   **An SPA replays as nothing, so "no archive" and "an archive of the wrong
   subject" are different claims.** Bluesky and Threads were written up as

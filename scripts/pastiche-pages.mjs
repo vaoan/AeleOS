@@ -212,7 +212,14 @@ const myspace = [
     {
       spaces: 2,
       weights: [1, 2],
-      style: { skin: "default", heading: "gradient" },
+      style: {
+        skin: "default",
+        heading: "gradient",
+        border: "solid",
+        radius: "square",
+        corners: "tl,tr",
+        heading_gap: "none",
+      },
     },
   ),
   section(
@@ -227,7 +234,17 @@ const myspace = [
         },
       ),
     ),
-    { spaces: 4, style: { skin: "default", heading: "gradient" } },
+    {
+      spaces: 4,
+      style: {
+        skin: "default",
+        heading: "gradient",
+        border: "solid",
+        radius: "square",
+        corners: "tl,tr",
+        heading_gap: "none",
+      },
+    },
   ),
   section(
     "Aeleos' Friends Comments",
@@ -241,22 +258,74 @@ const myspace = [
       }),
       leaf("text", "Tom", { description_en: "top 8 and im not on it. cool." }),
     ],
-    { style: { skin: "default", heading: "gradient" } },
+    {
+      style: {
+        skin: "default",
+        heading: "gradient",
+        border: "solid",
+        radius: "square",
+        corners: "tl,tr",
+        heading_gap: "none",
+      },
+    },
   ),
 ];
 
-// **Rebuilt from a real 2007 capture of a MySpace profile, not from memory.**
-// The first attempt was a purple gradient with rounded cards and generous type,
-// which is not what the site looked like: a profile is WHITE content boxes with
-// solid coloured title bars, ~11px Verdana, and almost no padding. The page
-// background is the one thing an author customised, so the tile stays.
+// **Rebuilt a second time, against a real CUSTOMISED profile rather than the
+// site's own default chrome — the "aim at the era, not the product as
+// shipped" ruling this task exists for.** The comment this replaces described
+// white content boxes with solid title bars, which is what MySpace HANDED
+// somebody. It is not what MySpace WAS: a person who customised their page put
+// a photograph behind everything and made every box translucent so it showed
+// through, with thin bright borders holding the shape together. The page's own
+// copy already argued for this reading — "this layout took me four hours and
+// i am NOT taking it down" — while the theme never matched it.
+//
+// **Captured** `profile.myspace.com/akioyang` at `arquivo.pt`, timestamp
+// `20081024054301` (2008-10-24 05:43:01 UTC):
+// `arquivo.pt/screenshot?url=<encoded
+// https://arquivo.pt/noFrame/replay/20081024054301/http://profile.myspace.com/akioyang>`.
+// A night skyline photograph fills the page behind every box; the boxes carry
+// only a thin border, the photograph showing through where a solid fill used
+// to be; corners are square throughout, never rounded.
+//
+// **Sampled from the capture, not eyeballed.** The link colour is the exact
+// `#003399` this theme already carried — confirmed at 6.8% of the
+// "Contacting" box's own pixels, so the accent needed no change. Five patches
+// of the boxes, sampled where they sit over the photograph's dusk sky, read
+// `#495771`, `#4b576e`, `#595c6d`, `#605f67` and `#5d575d` — a dusk blue-grey
+// averaging `#555a6a`.
+//
+// **Semi-transparent boxes are NOT reachable, and that is recorded as gap 13
+// in the pastiche findings rather than approximated.** A block's fill is
+// `theme.surface`, one opaque colour with no alpha channel — there is no key
+// for translucency anywhere in the style bag. `surface: "#555a6a"` is the
+// nearest reachable thing: every box on the page is painted with the sampled
+// tone outright, which reads close to what the capture shows but is a flat
+// colour standing in for a photograph showing through, not the mechanism
+// itself.
+//
+// `border: "solid"` with `radius: "square"` on every section draws the thin,
+// sharp-cornered edge the capture has in place of this page's old rounded
+// default. `corners: "tl,tr"` and `heading_gap: "none"` are set explicitly on
+// each barred section too, welding its bar flush to its content — the first
+// use of either key in this file. Combined with `radius: "square"`, every
+// corner already resolves to zero regardless of which corners `corners`
+// names, so the pixels are the same as leaving it unset; it is set anyway,
+// naming the shape outright rather than leaving it an accident of the radius
+// choice, and it would draw a visibly different join the moment this page's
+// radius ever loosens.
+//
+// Kept: `font: "classic"`, `spacing: "compact"` and `measure: "wide"` — the
+// capture confirms all three.
 const myspaceTheme = theme({
   background: gradient(180, [
     { color: "#e8eef7", at: 0 },
     { color: "#ffffff", at: 100 },
   ]),
   accent: "#003399",
-  // **No animation at all, which is what a flat 2007 page had.** This used to
+  surface: "#555a6a",
+  // **No animation at all, which is what a flat 2008 page had.** This used to
   // fake it with a grid at the density floor, because `CANVASES` did not list
   // `none` — the mechanism was there the whole time and only the picker was
   // missing.
@@ -264,8 +333,8 @@ const myspaceTheme = theme({
   skin: "default",
   font: "classic",
   spacing: "compact",
-  backgroundUrl: tile("stardust"),
-  backgroundFit: "tile",
+  backgroundUrl: photo("myspace-skyline", 1600, 1200),
+  backgroundFit: "cover",
   measure: "wide",
 });
 

@@ -633,3 +633,59 @@ So the real contract is **a second ground costs the first nothing**, which is
 both true and checkable, and stronger than the claim it replaced because it
 admits that an author's own field is rendered exactly as picked — the
 page-level escape hatch being what makes that safe.
+
+## Rebuilt against a real capture: MySpace (2026-08-29)
+
+The pastiches-against-captures plan's task 5, and the largest single restyle
+in that plan — the "aim at the era, not the product as shipped" ruling stated
+plainly for the first time. The old MySpace page was the site's own **default**
+profile chrome: a pale gradient, a stardust tile, white boxes, `#003399`. That
+is what MySpace handed somebody at signup. It is not what MySpace WAS — real
+profiles were customised almost universally, and the customisation was the
+point.
+
+Rebuilt against `profile.myspace.com/akioyang`, captured at `arquivo.pt`,
+timestamp `20081024054301` (2008-10-24 05:43:01 UTC). It is a photograph
+behind the whole page, boxes gone translucent so the photograph shows
+through, thin bright borders, small text fighting the image — and the page's
+own copy already argued for exactly this reading: "this layout took me four
+hours and i am NOT taking it down."
+
+### 13. A box cannot be TRANSLUCENT — the fill is a colour, not an alpha
+
+**Tried.** A block's fill is `theme.surface` (gap 8's own key), and it is one
+opaque `#rrggbb` colour or null. There is no alpha anywhere in the style bag,
+on the theme or on a block — `chrome: "bare"` removes the fill outright
+(transparent) and takes the border, the shadow and the padding with it, which
+is the opposite of what this page wants: a border that stays, over a fill
+that lets what is behind it through.
+
+Sampled the capture rather than guessing: five patches of its boxes, taken
+where they sit over the photograph's dusk sky, read `#495771`, `#4b576e`,
+`#595c6d`, `#605f67` and `#5d575d`, averaging `#555a6a`. `theme.surface:
+"#555a6a"` is the nearest reachable thing — every box on the page painted
+with that sampled tone outright. It reads close to the capture at a glance
+and is a different mechanism entirely: a flat colour standing in for a
+photograph showing through, not the photograph showing through. Nothing
+behind a MySpace box on this page is ever the page's own picture — every box
+is the same opaque `#555a6a`, whether it sits over a bright streetlight or a
+dark rooftop in the photograph beneath it, where the capture's boxes visibly
+vary with what is behind them.
+
+**What mechanism would be needed:** an alpha channel on `surface` (or a
+second key beside it), consumed as `color-mix(in oklab, surface a%,
+transparent)` rather than as an opaque `background-color` — which is exactly
+the shape `chrome: "bare"` already refuses to be, because it exists to turn
+the fill off rather than to dial it down. Composing correctly also needs
+`derivePalette` to solve text against the RESULT of that mix over the page's
+own picture, not against the flat `surface` colour alone, since a translucent
+panel's effective contrast depends on what is currently behind it — a
+question this model has never had to answer, because every ground it solves
+against today is a flat colour by construction.
+
+Not the same gap as 6 or 8. Gap 6 is per-block COLOUR being unreachable at
+all; gap 8 was a page having no SECOND ground independent of its background,
+now closed. This is neither: `surface` exists and is exactly the second
+ground gap 8 built, and the page has one and used it. What is missing is a
+third dial on that same key — how much of what is behind it comes through —
+which neither gap needed and neither closed.
