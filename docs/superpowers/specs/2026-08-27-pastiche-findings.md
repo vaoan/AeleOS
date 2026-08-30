@@ -892,8 +892,41 @@ was chosen to fit its own subject and none is wrong on its own page — the
 gap is that there is no rule saying what this label is FOR, so eleven
 authors reaching for the same field reached eleven different ways.
 
-**Not proposing a fix.** Naming it is the job here, matching gaps 13 and 14:
-whether identity belongs in one composed block instead of four independent
-ones, whether a label is owed here at all, and what a handle's title should
-say when nobody has told it what convention to follow are all product
-questions this file's method does not settle in passing.
+**Closed, partially (2026-08-29).** A block may now say `style: { label:
+"hidden" }`, composing with an enclosing mode's own `labelled` by narrowing
+it only — never widening it — and applied across all sixteen seeded pages:
+`AvatarLeaf`, `HandleLeaf`, `NameLeaf`, `OwnerLeaf` and `PlainLeaf` all read
+it through a shared `showsLabel()`.
+
+**The rule that settles which pages hide it: an identity label says what the
+thing is called on the site being imitated, and is hidden where that site
+shows no label at all.** That turns "is this label owed" from a taste
+question into a question about each capture. Applied: `name` is hidden on
+every page that has one, because no captured site ever captioned a display
+name with the word "Name" — it always just showed the name once, and every
+page's `name` leaf restated `displayName` verbatim regardless. `owner` is
+hidden everywhere except Fotolog, because none of these sites had any
+concept of "who controls this account" separate from the account itself —
+Fotolog's "Este Fotolog es de" is the one exception, a real guestbook
+convention rather than an invented app label. `handle` is judged per page
+against its own capture comment: MySpace, hi5, Sonico, GeoCities, Fur
+Affinity, Fotolog and Messenger each show enough of a labelled-panel
+convention on their own captures to keep the word already chosen (`URL`,
+`hi5 ID`, `Usuario`, `My handle`, `Username`, `fotolog`, `Messenger ID`); the
+board, Bluesky and Threads are live, unlabelled modern profiles, and
+Facebook's `Profile ID` names a fact the real 2008 page never printed on
+itself at all — those four are hidden. The Threads page is the one this was
+found on: it read _aeleos / Aeleos: aeleos / aeleos: threads_ before, and now
+renders "aeleos" (the section heading), "aeleos" (the name, unlabelled) and
+"threads" (the handle, unlabelled) — three lines instead of a label over
+each repeating the word again.
+
+**What this does NOT settle, honestly.** Whether identity belongs in one
+composed block instead of four independent ones is untouched — the four
+leaves still know nothing of each other, and `label: "hidden"` only lets
+each one opt out of its own caption rather than making the four read as a
+single unit. And "what should a handle's title say" still has no shared
+convention across the sixteen; this closes the narrower question of whether
+that title is EVER shown, on a given page, not what it should say when it
+is. Both remain the product questions gap 13 and 14's method does not
+settle in passing.

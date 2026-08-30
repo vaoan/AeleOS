@@ -1988,6 +1988,58 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   change. See `apps/hub/src/features/actors/CLAUDE.md` for the account in
   full.
 
+  **Applied across the sixteen seeded pages the same day, and the rule is:
+  an identity label says what the thing is called on the site being
+  imitated, and is hidden where that site shows no label at all.** That
+  turns "should this page show a label here" from taste into a question
+  about the capture already sitting in `scripts/pastiche-pages.mjs`'s own
+  comments. Three findings fell out, checked page by page rather than
+  assumed:
+
+  - **`name` is hidden on every page that has one.** Its title always
+    restates `displayName` verbatim (`"Aeleos"` over `"Aeleos"`, `"aeleos"`
+    over `"aeleos"`), and no captured site ever captions a display name with
+    the word "Name" — it is only ever shown once. That is true independent
+    of era: MySpace's and Fur Affinity's own dense labelled UIs still never
+    label a NAME field, which is what makes this the one leaf hidden
+    everywhere rather than judged per page.
+  - **`owner` is hidden on ten of the eleven social pages.** It names a
+    person behind the fursona — an AeleOS concept with no equivalent on any
+    of these sites — so the rule hides it by default. Fotolog is the one
+    keep: `"Este Fotolog es de"` is the site's own guestbook convention, not
+    an invented label, so it stays exactly as it already read.
+  - **`handle` is a real per-page judgement, not a blanket move.** MySpace,
+    hi5, Sonico, GeoCities, Fur Affinity, Fotolog and Messenger each show
+    enough of a labelled-panel convention on their own capture to keep the
+    word already chosen — a dense box-and-table UI, a properties-style info
+    card. The board, Bluesky and Threads are live, unlabelled modern
+    profiles; Facebook's `"Profile ID"` names a fact the real 2008 page
+    never printed anywhere on itself, the numeric id having lived in the
+    address bar alone — those four are hidden.
+
+  **`avatar`'s title is untouched everywhere.** It is alt text rather than a
+  visible label — `AvatarLeaf` never draws a `<Label>` at all — so this gap,
+  which is about what RENDERS, has nothing to say about it; hiding it would
+  only have deleted a screen reader's one source for whose portrait this is,
+  for no visual gain.
+
+  **The Threads page is gap 16's own worked example, closed rather than
+  merely described.** Its header comment already named the fault by hand —
+  "aeleos" appearing three times, the section name, the name leaf's value
+  and the handle leaf's label — and that comment is what the fix removes:
+  the page now renders "aeleos" (the section heading), "aeleos" (the name,
+  unlabelled) and "threads" (the handle, unlabelled), each word appearing
+  once rather than a label restating what the line beneath it already says.
+
+  **What this does not settle, on purpose.** Whether the four identity
+  leaves belong in one composed block rather than four independent ones is
+  untouched — hiding a caption is not the same as the four reading as a
+  single unit, and they still know nothing of each other. And "what should a
+  handle's title say" still has no shared convention across the sixteen;
+  this closes only whether a title is ever SHOWN on a given page, not what
+  it should read when it is. Findings:
+  `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, gap 16.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
