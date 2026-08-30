@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
 import {
@@ -125,6 +125,61 @@ describe("AvatarLeaf", () => {
     renderLeaf(AvatarLeaf, pageContext({ avatarUrl: null }), leaf("avatar"));
     expect(screen.getByTestId("block-avatar")).toBeInTheDocument();
   });
+
+  // `size-12`, `size-24` and `size-32` share no prefix with one another, so
+  // splitting the class list and comparing whole tokens is not load-bearing
+  // here the way it is for `--accent`/`--accent-soft` — done anyway to match
+  // this repository's own convention for a class-list assertion.
+  it.each([
+    ["s", "size-12"],
+    ["l", "size-32"],
+  ] as const)(
+    "draws the %s portrait as %s on the picture",
+    (portrait, expected) => {
+      renderLeaf(
+        AvatarLeaf,
+        pageContext({ avatarUrl: "https://example.test/a.png" }),
+        leaf("avatar", { style: { portrait } }),
+      );
+      const classes = screen.getByTestId("block-avatar").className.split(/\s+/);
+      expect(classes).toContain(expected);
+      expect(classes).not.toContain("size-24");
+    },
+  );
+
+  // The empty-state placeholder has to agree with the picture, or a page with
+  // no portrait set contradicts one with a portrait set the moment somebody
+  // adds one.
+  it("draws the same size on the placeholder when there is no picture", () => {
+    renderLeaf(
+      AvatarLeaf,
+      pageContext({ avatarUrl: null }),
+      leaf("avatar", { style: { portrait: "l" } }),
+    );
+    const classes = screen.getByTestId("block-avatar").className.split(/\s+/);
+    expect(classes).toContain("size-32");
+  });
+
+  // **The hard requirement, checked as DOM identity rather than as two
+  // separate `toContain` calls.** Two passing assertions that each look at
+  // one render can never prove the two renders AGREE; comparing the whole
+  // serialised element is what makes "byte-for-byte the same" a claim this
+  // test can actually fail.
+  it('renders "m" identically to leaving the key unset', () => {
+    renderLeaf(
+      AvatarLeaf,
+      pageContext({ avatarUrl: "https://example.test/a.png" }),
+      leaf("avatar"),
+    );
+    const absent = screen.getByTestId("block-avatar").outerHTML;
+    cleanup();
+    renderLeaf(
+      AvatarLeaf,
+      pageContext({ avatarUrl: "https://example.test/a.png" }),
+      leaf("avatar", { style: { portrait: "m" } }),
+    );
+    expect(screen.getByTestId("block-avatar").outerHTML).toBe(absent);
+  });
 });
 
 describe("OwnerLeaf", () => {
@@ -167,6 +222,30 @@ describe("OwnerLeaf", () => {
       leaf("owner"),
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  // **A deliberate decision, made executable.** The owner's own mini avatar
+  // is a mark beside a link, not the page's own portrait, so it does not read
+  // `style.portrait` — a value set here has nowhere to reach. Guards against
+  // this leaf quietly gaining the behaviour later, unnoticed.
+  it("keeps its mini avatar at size-10 whatever its own style asks for", () => {
+    const { container } = renderLeaf(
+      OwnerLeaf,
+      pageContext({
+        owner: {
+          address: "42",
+          displayName: "Heiner",
+          avatarUrl: "https://example.test/a.png",
+        },
+      }),
+      leaf("owner", { style: { portrait: "l" } }),
+    );
+    // `alt=""` makes this an accessibility-tree PRESENTATION node rather than
+    // an `img`, so it is found by tag rather than by role.
+    const img = container.querySelector("img");
+    const classes = img?.className.split(/\s+/) ?? [];
+    expect(classes).toContain("size-10");
+    expect(classes).not.toContain("size-32");
   });
 });
 

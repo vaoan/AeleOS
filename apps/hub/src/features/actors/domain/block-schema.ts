@@ -482,6 +482,17 @@ const utf8 = new TextEncoder();
  * never widens it, and absence changes nothing a page already renders. See
  * its own entry below for the composition rule in full.
  *
+ * **`portrait` names how large `AvatarLeaf` draws an actor's own portrait,
+ * read directly off the LEAF's own style bag rather than emitted as a token
+ * an ancestor could reach.** That is a deliberate difference from
+ * `image_fit`, which shares this key's `<img>`: a picture's crop is safe to
+ * inherit down a whole section, but its SIZE is not — a container setting a
+ * bigger portrait would silently resize any avatar nested anywhere beneath
+ * it, on a page that never touched that leaf. `s`/`m`/`l` is a discrete
+ * choice per avatar rather than a scaling factor for exactly that reason.
+ * Absent and `m` are the same size — `size-24`, what every page already
+ * had — so choosing `m` explicitly says nothing a page did not already say.
+ *
  * `heading_pad` joins them, and it is the one key here READ ONLY IN ONE PLACE:
  * a name drawn as a bar. A plain name has the page's own spacing around it and
  * no edge to be pressed against, so padding it would move text with nothing
@@ -526,6 +537,11 @@ const CORNER_LIST = /^(tl|tr|br|bl)(,(tl|tr|br|bl))*$/;
  * `label` (`"show" | "hidden"`) is gap 16's own key — see its own entry, which
  * as of 2026-08-30 also carries where the key is reachable from (the page
  * source dock) and where it no longer is (the section style popup).
+ *
+ * `portrait` (`"s" | "m" | "l"`) joined the same day — how large `AvatarLeaf`
+ * draws an actor's portrait, absent and `"m"` both being `size-24`. See its
+ * own entry for the measurement and for why it is read off the leaf's own
+ * style rather than emitted as an inherited token the way `image_fit` is.
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -628,6 +644,59 @@ export const BLOCK_STYLE_LIMITS = {
    * fragments. Absent is `cover`, which is what every page had before this key.
    */
   image_fit: ["cover", "contain"],
+  /**
+   * How large an actor's own portrait is drawn: `s`, `m` or `l`.
+   *
+   * **Absent and `m` are the same size, and that is the hard requirement
+   * rather than a convenience.** Both render `size-24` (6rem, 96px) —
+   * byte-for-byte what every page already had — so `m` exists only to let an
+   * author say "the default" explicitly rather than to change anything, the
+   * same relationship `border: "none"` has to leaving `border` unset.
+   *
+   * **`AvatarLeaf` was `size-24` on both its `<img>` and its empty-state
+   * placeholder while `HandleLeaf`'s and `NameLeaf`'s own type is
+   * `em`-relative** — it scales with a page's `spacing` and typeface, the
+   * portrait does not, so the relationship between a page's text and its
+   * portrait changed under an author choosing `spacing: "compact"` without
+   * them choosing it. This key is the way to ask for a different
+   * relationship; it deliberately does **not** make the portrait
+   * `em`-relative itself, which would have been a default change on every
+   * existing page rather than a new option on top of one.
+   *
+   * **`s` and `l` are measured against what a portrait actually sits beside,
+   * not picked for being round numbers.** `s` is `size-12` (3rem, 48px) —
+   * exactly half of `m`, and already the size a fursona's own avatar draws at
+   * elsewhere on the SAME page, in the grid `FursonasLeaf` renders
+   * (`fursona-card-list.tsx`), so choosing "small" does not invent a circle a
+   * visitor has not already seen there. `l` is `size-32` (8rem, 128px) — the
+   * largest a portrait can be while still fitting the narrowest place this
+   * model ever lays out, `TRACK_FLOOR` in `block-tracks.ts` (`8rem`);
+   * anything larger would guarantee horizontal overflow the moment a
+   * weighted grid floors a narrow side, which is exactly the class of fault
+   * root rule 38 exists to name.
+   *
+   * **`OwnerLeaf`'s own inline avatar does not read this key, and that is a
+   * decision rather than an oversight.** It is a small mark beside a link —
+   * whose page you would return to — never the page's own portrait, and it
+   * has no size relationship to keep in step with one: letting a fursona's
+   * `l` choice balloon the mini avatar sitting in the row beside that owner's
+   * name would fight the row it was designed for rather than serve the
+   * identity the row names.
+   *
+   * **Unreachable through `SectionStylePopup`, and reachable only through the
+   * page source dock — the same shape `label`'s own note beside it
+   * carries.** A container-level control would only be meaningful for a key
+   * that INHERITS, the way `--img-fit` does; this key is read directly off
+   * the LEAF's own `style.portrait` instead (see this list's own opening
+   * paragraph for why), and `SectionStylePopup` only ever opens for a
+   * `ContainerBlock` — it has no leaf there to read `style` from.
+   * `leaf-editor.tsx` carries no style-bag control for any key today, so
+   * there is no editor surface offering this one either. An author reaches
+   * it exactly as `label` is reached: by pasting a document into the page
+   * source dock (`page-document.ts`), which runs the pasted `blocks` array
+   * through this same schema before it is applied.
+   */
+  portrait: ["s", "m", "l"],
   /**
    * How round this block's corners are, independent of its skin.
    *
@@ -772,6 +841,9 @@ const blockStyleShape = {
   // Read by the kinds that draw a picture; absent is `cover`, the crop every
   // page had before this existed.
   image_fit: z.enum(BLOCK_STYLE_LIMITS.image_fit).optional(),
+  // Read directly off THIS leaf's own style, never inherited — absent and
+  // `m` both mean `size-24`, what `AvatarLeaf` always drew.
+  portrait: z.enum(BLOCK_STYLE_LIMITS.portrait).optional(),
   // Overrides the skin's own corner; absent keeps it.
   radius: z.enum(BLOCK_STYLE_LIMITS.radius).optional(),
   // Read only where `heading` draws a bar; absent is today's `px-3 py-2`.

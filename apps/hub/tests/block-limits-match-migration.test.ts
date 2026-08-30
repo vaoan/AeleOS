@@ -206,6 +206,7 @@ describe("the client's style limits", () => {
     ["heading", BLOCK_STYLE_LIMITS.heading],
     ["text_align", BLOCK_STYLE_LIMITS.text_align],
     ["image_fit", BLOCK_STYLE_LIMITS.image_fit],
+    ["portrait", BLOCK_STYLE_LIMITS.portrait],
     ["radius", BLOCK_STYLE_LIMITS.radius],
     ["heading_pad", BLOCK_STYLE_LIMITS.heading_pad],
     ["heading_fit", BLOCK_STYLE_LIMITS.heading_fit],

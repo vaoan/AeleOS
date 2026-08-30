@@ -433,6 +433,11 @@ function exampleBlocks(kind: ActorKind): Block[] {
  * may hide its own title, composing with rather than overriding the
  * enclosing mode's own decision.
  *
+ * `portrait` joined on 2026-08-30 — how large `AvatarLeaf` draws an actor's
+ * portrait, `s`/`m`/`l`, read from the leaf's own style rather than inherited
+ * the way `image_fit` is, so a container's own style bag cannot resize an
+ * avatar nested inside it.
+ *
  * The same exclusivity gate covers these: no `only` and no `every other`, for
  * the reason recorded against {@link KIND_MEANINGS} — a claim that a key is
  * the sole reader of something belongs in a record checked against real data,
@@ -458,6 +463,8 @@ export const STYLE_KEY_MEANINGS = {
     "the edge this block's own text is set against, inherited by the surfaces beneath it",
   image_fit:
     "how a picture fills its box: `cover` crops and `contain` does not, absent being `cover`. A wide picture — a logo, a wordmark — is unreadable cropped into a round avatar",
+  portrait:
+    "how large the avatar leaf draws its own portrait: `s`, `m` or `l`, `m` and absence being the same size the avatar always drew. `s` matches the size a fursona's own avatar already draws at elsewhere on the page, and `l` is the largest that still fits the narrowest place this model lays out. Composes with `image_fit`, which crops within whatever size this sets rather than deciding it, and is read from this leaf's own style — a container cannot set it for the leaves inside it",
   radius:
     "this block's corner, independent of its skin; absent inherits whatever the skin chose",
   heading_pad:

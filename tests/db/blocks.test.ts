@@ -1050,6 +1050,25 @@ describe("the style bag it refuses", () => {
     ).toMatch(/unknown image fit/i);
   });
 
+  it.each(["s", "m", "l"])(
+    "accepts the %s portrait size and reads it back unchanged",
+    async (portrait) => {
+      const style = { portrait };
+      expect(
+        await write(alice.sub, alice.sonaRef, [leaf({ style })]),
+      ).toBeNull();
+      expect(await read(alice.sonaRef)).toEqual([leaf({ style })]);
+    },
+  );
+
+  it("refuses a portrait size it cannot render", async () => {
+    expect(
+      await write(alice.sub, alice.sonaRef, [
+        leaf({ style: { portrait: "xl" } }),
+      ]),
+    ).toMatch(/unknown portrait size/i);
+  });
+
   it.each(["square", "soft", "round"])(
     "accepts the %s corner and reads it back unchanged",
     async (radius) => {
