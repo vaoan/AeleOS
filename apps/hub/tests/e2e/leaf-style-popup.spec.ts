@@ -29,6 +29,14 @@ import { chooseNewSectionSpaces } from "./support/editor";
 // author has ever set a picture. That also makes `portrait` a cleaner proof
 // than `label` would have been here — no title has to be typed for the
 // preview to show anything at all.
+//
+// **The trigger this file clicks carries its own test id, `leaf-style-open`,
+// not `section-style-open`.** The two popups are the same component and
+// briefly shared one id, which is what let two OTHER suites'
+// `.last()` calls silently start reaching a leaf's trigger instead of a
+// section's the moment a leaf grew one — see
+// `SectionStylePopupProps.triggerTestId` for the fix and the feature note
+// for the account of finding it.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -79,11 +87,13 @@ test("a leaf's own portrait-size choice resizes its avatar in the live preview",
     .poll(async () => (await avatar.boundingBox())?.width)
     .toBeCloseTo(96, 0);
 
-  // **`.last()` on `section-style-open` is the LEAF's popup, not the
-  // section's.** The section this test added has its own trigger too, and
-  // the leaf's is the one most recently added to the DOM — a section's
-  // header renders before its places, and this leaf sits in one of them.
-  await page.getByTestId("section-style-open").last().click();
+  // **`leaf-style-open`, not `section-style-open`.** A leaf's own trigger
+  // carries a distinct test id from a container's now — see
+  // `SectionStylePopupProps.triggerTestId` — precisely so a query for one can
+  // never resolve to the other. `.last()` is still needed: the identity
+  // section's own required leaves (`avatar`, `handle`, `name`) each have one
+  // too, and this leaf's is simply the most recently added.
+  await page.getByTestId("leaf-style-open").last().click();
   const panel = page.getByTestId("section-style-panel");
   await expect(panel).toBeVisible();
 

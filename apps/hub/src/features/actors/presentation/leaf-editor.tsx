@@ -324,6 +324,14 @@ const INPUT =
  * that draws a picture, `portrait` for `avatar` alone — and the popup writes
  * through `patchLeaf` exactly as every other field here does.
  *
+ * **Its trigger carries its OWN test id, `leaf-style-open`, not
+ * `section-style-open`.** The two popups are the same component and used to
+ * share one id; a leaf's trigger renders inside its section's places, after
+ * the section's own header in DOM order, so a page-wide `.last()` written
+ * against the container's popup silently started reaching a leaf's instead
+ * the moment content existed. Two e2e suites had exactly that shape before
+ * this — see the feature note.
+ *
  * @returns the leaf's fields.
  */
 export function LeafEditor({
@@ -448,6 +456,13 @@ export function LeafEditor({
           // Computed from this leaf's own kind, the same function `BlockCard`
           // calls from its own kind of block — see `styleGatesFor`.
           gates={gates}
+          // **A distinct id from `BlockCard`'s popup (2026-08-30).** Both
+          // used to share `section-style-open`, and a leaf's trigger renders
+          // after its section's own in DOM order — so a page-wide `.last()`
+          // that meant "the section's own popup" silently started reaching a
+          // leaf's instead the moment content existed. See
+          // `SectionStylePopupProps.triggerTestId`'s own TSDoc.
+          triggerTestId="leaf-style-open"
         />
 
         <button

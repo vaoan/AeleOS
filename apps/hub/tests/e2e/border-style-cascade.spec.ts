@@ -6,7 +6,10 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
-import { chooseNewSectionSpaces } from "./support/editor";
+import {
+  assertLastTriggerIsAContainers,
+  chooseNewSectionSpaces,
+} from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 import {
   establishSharedSession,
@@ -195,9 +198,11 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     expect(await borderStyleOf(placeholder)).toBe("dashed");
 
     // **Scoped to the SECTION's own header, not a page-wide `.last()`.** The
-    // content just added has its own style popup now too — only a depth-0
-    // container's header carries `section-header`, so this reaches the
-    // section's trigger whatever popups the leaf beneath it grows.
+    // content just added has its own style popup now too, on its own
+    // distinct id (`leaf-style-open` — see
+    // `SectionStylePopupProps.triggerTestId`), so `section-style-open` alone
+    // could no longer reach it even unscoped. Kept anyway, so this line says
+    // which element it is reaching for.
     await page
       .getByTestId("section-header")
       .last()
@@ -322,6 +327,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
      * @returns nothing; waits.
      */
     const choose = async (border: string): Promise<void> => {
+      await assertLastTriggerIsAContainers(page, "section-style-open");
       await page.getByTestId("section-style-open").last().click();
       await page.getByTestId("section-style-border").selectOption(border);
       await expect

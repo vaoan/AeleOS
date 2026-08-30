@@ -4631,11 +4631,39 @@ suites were measuring the wrong element as a result:
 section and then style it — via `.last()` — without collapsing the section
 first, so the leaf's own trigger, added to the DOM after the section's, is
 what `.last()` found. Both are scoped to `section-header` now, the one test
-id that belongs to a depth-0 CONTAINER's header and nothing a leaf renders,
-so it is unambiguous whatever popups a leaf beneath it grows. Every other
-`.last()`/`.first()` caller either collapses the section first (so the
-leaf's popup never mounts) or was already scoped to a card before any content
-existed — both checked by running the suites, not by reasoning about them.
+id that belongs to a depth-0 CONTAINER's header and nothing a leaf renders.
+
+**That was two instances found by reading. A review asked about the other
+eight `.last()`/`.first()` callers on this id across the same two files, and
+whether "the suite stayed green" was proof or luck — root rule 23's
+question asked of this exact shape.** Read one by one, each was ALREADY
+protected by a real mechanism, not by chance: two open no popup on a fresh
+`/pages/new` at all (`cutout clips…`'s first two calls, before either test
+adds any content anywhere); the other six collapse the section immediately
+after adding content and never re-expand it before the call, and
+`{collapsed ? null : (…)}` in `block-card.tsx` unmounts the ENTIRE places
+subtree when collapsed — the leaf and its popup included, not merely hidden
+by CSS. Both claims were checked against the running suite rather than
+believed from reading the code: `assertLastTriggerIsAContainers`
+(`support/editor.ts`) now asserts, at every one of the eight sites plus the
+two already scoped, that the resolved trigger sits inside a
+`section-header`/`nested-header` rather than a leaf's card — and a combined
+sabotage (reverting the id split below AND forcing `block-card.tsx` to
+render places while "collapsed") reddened it exactly where reverting both
+guards together should, restoring clean. Reverting the id split ALONE left
+every case green, because collapse alone was already sufficient for all
+eight — which is the honest report of a site protected by two independent
+guards, not a discriminating fixture for either one in isolation.
+
+**The id itself is split now too (2026-08-30), which is the fix that removes
+the whole class rather than auditing it one caller at a time.**
+`SectionStylePopupProps.triggerTestId` defaults to `section-style-open`
+(`block-card.tsx` never overrides it) and `leaf-editor.tsx` passes
+`"leaf-style-open"`, so the two controls can no longer share an id for a
+future caller to trust by accident. Two ids sharing a name is what turned a
+correct assumption into a silent one in the first place; a query for either
+can never resolve to the other now, which is stronger than any amount of
+per-site scoping.
 
 **A browser test is the only thing that can prove a leaf's choice actually
 paints**, matching `section-style-popup.spec.ts`'s own argument for why a

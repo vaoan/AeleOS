@@ -289,6 +289,14 @@ export interface SectionStylePopupLabels {
  * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
  * the border, each with an empty option that CLEARS the key rather than
  * naming a value.
+ *
+ * **`triggerTestId` joined the props on 2026-08-30, alongside `gates`.**
+ * `BlockCard` and `leaf-editor.tsx` both mount this component now, and the
+ * trigger button used to carry one hard-coded id regardless — which a
+ * page-wide `.last()` in two e2e suites had silently started reaching a
+ * LEAF's copy of instead of a section's, once a leaf could have one. See
+ * this prop's own entry for why a distinct id per caller, not more careful
+ * scoping, is the fix.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -308,6 +316,25 @@ export interface SectionStylePopupProps {
    * what each one gates and `styleGatesFor` for how it is computed.
    */
   gates: StyleGates;
+  /**
+   * The trigger button's own test id — `section-style-open` unless a caller
+   * says otherwise.
+   *
+   * **Distinct ids for a container's popup and a leaf's, on purpose
+   * (2026-08-30).** Both used to share this one name, and `SectionStylePopup`
+   * opening for a `LeafBlock` as well as a `ContainerBlock` turned that into a
+   * real ambiguity: a leaf's trigger renders inside its section's places,
+   * after the section's own header in DOM order, so a page-wide `.last()`
+   * that meant "the newest SECTION's own popup" silently started reaching the
+   * newest LEAF's instead the moment one existed. Two existing e2e suites
+   * were fixed by scoping to `section-header`, which still works — but a
+   * caller has to remember to do that, and one already forgot once. A
+   * distinct id removes the chance to forget: `block-card.tsx` never passes
+   * this prop, so its trigger stays `section-style-open`; `leaf-editor.tsx`
+   * passes `"leaf-style-open"`, so the two ids can never collide and a query
+   * for either can never resolve to the other.
+   */
+  triggerTestId?: string;
 }
 
 /** What {@link CornerPicker} needs to draw one set of corners. */
@@ -498,6 +525,14 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  * collided for one commit and four browser suites went red on it; nothing
  * short of a browser could have seen it.
  *
+ * **The trigger's own id is `triggerTestId`, not a literal, since this popup
+ * opens for a leaf now as well as a container (2026-08-30).** It used to be
+ * one hard-coded string regardless of caller; two e2e suites' page-wide
+ * `.last()` calls on it silently started resolving to a leaf's copy instead
+ * of a section's the moment a leaf could open one too, and stayed green
+ * doing it — a distinct id per caller is what makes that impossible now
+ * rather than merely unlikely.
+ *
  * **`heading_pad` is offered on a NAMED block only**, behind the same
  * condition as the name-style select it sits under — which is the honest
  * shape, since the renderer reads it only where a bar is drawn and a control
@@ -518,6 +553,7 @@ export function SectionStylePopup({
   onChange,
   labels,
   gates,
+  triggerTestId = "section-style-open",
 }: SectionStylePopupProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -594,7 +630,7 @@ export function SectionStylePopup({
         aria-label={labels.open}
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
-        {...tid("section-style-open")}
+        {...tid(triggerTestId)}
         className="rounded-lg p-1.5 text-(--muted)"
       >
         <Paintbrush className="size-4" />
