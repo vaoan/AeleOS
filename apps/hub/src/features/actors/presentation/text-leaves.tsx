@@ -24,6 +24,7 @@ import { progressValue } from "@/features/actors/domain/progress-value";
 import {
   CORNER_CLASS,
   type LeafProps,
+  showsLabel,
   wordsOf,
 } from "@/features/actors/presentation/block-contract";
 import { PublicSectionIcon } from "@/features/actors/presentation/public-section-icon";
@@ -41,10 +42,12 @@ import { tid } from "@/shared/infrastructure/test-id";
  * leave a hole in a grid its author placed it in.
  *
  * **A leaf with NO words renders nothing at all, and that is the same rule
- * rather than an exception to it.** It is reachable only inside `tabs` or
- * `accordion`, where the mode has lifted the title and the author left the
- * description empty — `title_en` is `min(1)` in the schema, so at
- * `labelled: true` there is always something. What is left is an empty
+ * rather than an exception to it.** `title_en` is `min(1)` in the schema, so
+ * there is always something at `labelled: true` with no `style.label` set.
+ * It is reachable inside `tabs` or `accordion`, where the mode has lifted the
+ * title and the author left the description empty, and it is reachable
+ * directly too: `style.label: "hidden"` (see {@link showsLabel}) with no
+ * description written either. What is left is an empty
  * bordered card in a panel: a visible artefact that says nothing, which is
  * strictly worse than the gap it would fill, and the grid track is held by the
  * WRAPPING element in {@link Block} rather than by this one. `Accordion`
@@ -90,7 +93,7 @@ import { tid } from "@/shared/infrastructure/test-id";
  */
 export function PlainLeaf({ leaf, locale, labelled }: LeafProps): ReactNode {
   const { title, description } = wordsOf(leaf, locale);
-  const heading = labelled ? title : "";
+  const heading = showsLabel(labelled, leaf.style) ? title : "";
   if (!heading && !description) return null;
   return (
     <div

@@ -8,7 +8,7 @@ import type { PageContext } from "@/features/actors/presentation/blocks";
 import { NextIntlClientProvider } from "next-intl";
 
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import {
   BLOCK_LIMITS,
   CONTAINER_MODES,
@@ -2409,6 +2409,67 @@ describe("a leaf with nothing left to show", () => {
       }),
     );
     expect(screen.getByText("English words.")).toBeInTheDocument();
+  });
+});
+
+/**
+ * `style.label` on `PlainLeaf` — gap 16 of
+ * `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, closed for the
+ * `text` kind and its fallback role. The composition rule itself is pinned
+ * in `block-contract.test.ts`; this proves the leaf actually reads it.
+ */
+describe("style.label", () => {
+  it("draws no heading when the style says hidden, keeping the description", () => {
+    renderBlock(
+      leaf({
+        kind: "text",
+        title_en: "English title",
+        description_en: "English words.",
+        style: { label: "hidden" },
+      }),
+    );
+    expect(screen.queryByText("English title")).not.toBeInTheDocument();
+    expect(screen.getByText("English words.")).toBeInTheDocument();
+  });
+
+  // The control: with no style at all, the same title is drawn. Without
+  // this, a renderer that dropped every heading regardless of the key would
+  // pass the case above just as well.
+  it("draws its heading when no style is set", () => {
+    renderBlock(
+      leaf({
+        kind: "text",
+        title_en: "English title",
+        description_en: "English words.",
+      }),
+    );
+    expect(screen.getByText("English title")).toBeInTheDocument();
+  });
+
+  // A mode's own suppression is not undone by an explicit show — the same
+  // edge the identity leaves are checked against, proved here on the kind
+  // that reaches EVERY unrecognised leaf as its fallback. Scoped to
+  // `public-leaf`, the leaf's own wrapper: `tabs` draws the title again of
+  // its own accord, on the tab CONTROL rather than the leaf, and a
+  // document-wide query would find that instead of testing what this leaf
+  // itself decided to draw.
+  it("a tab's suppression is not overridden by an explicit show", () => {
+    renderBlock(
+      container({
+        mode: "tabs",
+        children: [
+          leaf({
+            kind: "text",
+            title_en: "English title",
+            description_en: "English words.",
+            style: { label: "show" },
+          }),
+        ],
+      }),
+    );
+    const leafCard = within(screen.getByTestId("public-leaf"));
+    expect(leafCard.queryByText("English title")).not.toBeInTheDocument();
+    expect(leafCard.getByText("English words.")).toBeInTheDocument();
   });
 });
 

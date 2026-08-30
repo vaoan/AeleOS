@@ -76,7 +76,7 @@ export type SectionStyle = BlockStyle;
  * opacity rule exists to forbid. Every select INSIDE it already used `--menu`;
  * the group around them did not.
  *
- * It offers `chrome`, `heading`, `heading_pad`, `text_align`, `image_fit` and
+ * It offers `chrome`, `label`, `heading`, `heading_pad`, `text_align`, `image_fit` and
  * `radius` beside the border, each with an empty option that CLEARS the key
  * rather than naming a value. `heading_pad` sits under the name-style select
  * and behind the same condition: both are offered on a NAMED block only.
@@ -132,6 +132,19 @@ export interface SectionStylePopupLabels {
   chromeBare: string;
   /** Says what taking the card away removes. */
   chromeHint: string;
+  /** Field label for the label select. */
+  label: string;
+  /** The label select's option that clears `style.label`. */
+  labelInherit: string;
+  /** The label select's option for `"show"`. */
+  labelShow: string;
+  /** The label select's option for `"hidden"`. */
+  labelHidden: string;
+  /**
+   * Says what the key composes with — a mode that already hides a title
+   * keeps hiding it.
+   */
+  labelHint: string;
   /** Field label for the name-style select, offered for a named block only. */
   heading: string;
   /** The name-style option that clears `style.heading`. */
@@ -228,7 +241,7 @@ export interface SectionStylePopupLabels {
  * offered: this component sees a style bag and never knows where its block
  * sits.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
+ * It offers `chrome`, `label`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
  * an empty option that CLEARS the key rather than naming a value.
  */
 export interface SectionStylePopupProps {
@@ -429,7 +442,7 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  *
  * @returns the button and, while open, the popup.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
+ * It offers `chrome`, `label`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
  * an empty option that CLEARS the key rather than naming a value.
  *
  * **The panel itself takes `--menu`, the one token declared opaque in both
@@ -697,6 +710,39 @@ export function SectionStylePopup({
             </select>
             <p id={`${id}-chrome-hint`} className="text-xs text-(--muted)">
               {labels.chromeHint}
+            </p>
+          </div>
+
+          {/* **`hidden` can only NARROW what the mode already decided, never
+              widen it.** A block inside a `tabs` or `accordion` panel that has
+              already shown this leaf's title elsewhere stays that way whatever
+              this select says — there is nowhere left on the leaf to put a
+              title the mode already drew. Absent and `show` are the same
+              state as far as this key is concerned; only `hidden` changes
+              anything. */}
+          <div className="grid gap-1.5">
+            <label htmlFor={`${id}-label`} className="text-xs font-medium">
+              {labels.label}
+            </label>
+            <select
+              id={`${id}-label`}
+              value={style.label ?? ""}
+              onChange={(event) =>
+                setField(
+                  "label",
+                  event.target.value as SectionStyle["label"] | "",
+                )
+              }
+              aria-describedby={`${id}-label-hint`}
+              {...tid("section-style-label")}
+              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+            >
+              <option value="">{labels.labelInherit}</option>
+              <option value="show">{labels.labelShow}</option>
+              <option value="hidden">{labels.labelHidden}</option>
+            </select>
+            <p id={`${id}-label-hint`} className="text-xs text-(--muted)">
+              {labels.labelHint}
             </p>
           </div>
 

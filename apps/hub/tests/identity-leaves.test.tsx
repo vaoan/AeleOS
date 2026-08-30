@@ -39,12 +39,19 @@ function leaf(kind: string, over: Partial<LeafBlock> = {}): LeafBlock {
  * @param Leaf - the renderer under test.
  * @param page - the page context to render from.
  * @param block - the leaf.
+ * @param labelled - whether the enclosing mode has already shown this leaf's
+ *   title; defaults to `true`, which is every mode but `tabs`/`accordion`.
  * @returns testing-library's result.
  */
-function renderLeaf(Leaf: LeafRenderer, page: PageContext, block: LeafBlock) {
+function renderLeaf(
+  Leaf: LeafRenderer,
+  page: PageContext,
+  block: LeafBlock,
+  labelled = true,
+) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      {Leaf({ leaf: block, locale: "en", labelled: true, page })}
+      {Leaf({ leaf: block, locale: "en", labelled, page })}
     </NextIntlClientProvider>,
   );
 }
@@ -213,5 +220,98 @@ describe("FursonasLeaf", () => {
       leaf("fursonas"),
     );
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+/**
+ * `style.label` on the four identity leaves — gap 16 of
+ * `docs/superpowers/specs/2026-08-27-pastiche-findings.md`. `AvatarLeaf`'s
+ * label is its `alt` text rather than visible words, so it gets its own case;
+ * the other three are checked by the text they print.
+ */
+describe("style.label (gap 16)", () => {
+  it("AvatarLeaf hides its title from alt text when the style says hidden", () => {
+    renderLeaf(
+      AvatarLeaf,
+      pageContext({ avatarUrl: "https://example.test/a.png" }),
+      leaf("avatar", {
+        title_en: "Luna, a grey wolf",
+        style: { label: "hidden" },
+      }),
+    );
+    expect(screen.getByTestId("block-avatar")).toHaveAttribute("alt", "");
+  });
+
+  it("AvatarLeaf keeps its title as alt text when the style says show", () => {
+    renderLeaf(
+      AvatarLeaf,
+      pageContext({ avatarUrl: "https://example.test/a.png" }),
+      leaf("avatar", {
+        title_en: "Luna, a grey wolf",
+        style: { label: "show" },
+      }),
+    );
+    expect(screen.getByAltText("Luna, a grey wolf")).toBeInTheDocument();
+  });
+
+  it("HandleLeaf draws no label when the style says hidden", () => {
+    renderLeaf(
+      HandleLeaf,
+      pageContext({ handle: "luna", address: "42" }),
+      leaf("handle", { title_en: "My handle", style: { label: "hidden" } }),
+    );
+    expect(screen.queryByText("My handle")).not.toBeInTheDocument();
+    // The control: the value itself must still be there — this key hides
+    // the label, never the block's content.
+    expect(screen.getByTestId("block-handle")).toHaveTextContent("luna");
+  });
+
+  // The control for the case above: with no style at all, the label is
+  // exactly where it always was. Without this, a renderer that dropped
+  // every label regardless of the key would pass the case above just as
+  // well.
+  it("HandleLeaf draws its label when no style is set", () => {
+    renderLeaf(
+      HandleLeaf,
+      pageContext({ handle: "luna", address: "42" }),
+      leaf("handle", { title_en: "My handle" }),
+    );
+    expect(screen.getByText("My handle")).toBeInTheDocument();
+  });
+
+  it("NameLeaf draws no label when the style says hidden", () => {
+    renderLeaf(
+      NameLeaf,
+      pageContext({ displayName: "Luna" }),
+      leaf("name", { title_en: "Display name", style: { label: "hidden" } }),
+    );
+    expect(screen.queryByText("Display name")).not.toBeInTheDocument();
+    expect(screen.getByTestId("block-name")).toHaveTextContent("Luna");
+  });
+
+  it("OwnerLeaf draws no label when the style says hidden", () => {
+    renderLeaf(
+      OwnerLeaf,
+      pageContext({
+        owner: { address: "42", displayName: "Heiner", avatarUrl: null },
+      }),
+      leaf("owner", { title_en: "Owner", style: { label: "hidden" } }),
+    );
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("block-owner")).toHaveTextContent("Heiner");
+  });
+
+  // The composition rule's sharpest edge, proved at the leaf level rather
+  // than only against the bare function: a mode that has already suppressed
+  // the label (`labelled: false`, as a `tabs`/`accordion` panel passes) is
+  // not undone by an explicit `label: "show"` on the block itself.
+  it("a mode's suppression is not overridden by an explicit show", () => {
+    renderLeaf(
+      HandleLeaf,
+      pageContext({ handle: "luna", address: "42" }),
+      leaf("handle", { title_en: "My handle", style: { label: "show" } }),
+      /* labelled */ false,
+    );
+    expect(screen.queryByText("My handle")).not.toBeInTheDocument();
   });
 });

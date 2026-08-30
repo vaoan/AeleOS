@@ -14,7 +14,10 @@
  */
 
 import type { ReactNode } from "react";
-import type { LeafBlock } from "@/features/actors/domain/block-schema";
+import type {
+  BlockStyle,
+  LeafBlock,
+} from "@/features/actors/domain/block-schema";
 import { contentFor } from "@/features/actors/domain/actor-content";
 import type { EmbedShape } from "@/features/actors/domain/embeds";
 import type { PageMeasure } from "@/features/actors/domain/actor-theme";
@@ -214,6 +217,37 @@ export function wordsOf(leaf: LeafBlock, locale: string) {
     title: contentFor(leaf, "title", locale),
     description: contentFor(leaf, "description", locale),
   };
+}
+
+/**
+ * Whether a leaf should still draw its own title, composing the enclosing
+ * mode's decision with the block's own `style.label`.
+ *
+ * **`labelled` is the mode's answer and `style.label` is the block's own, and
+ * `hidden` can only narrow, never widen, what the mode already decided.** A
+ * `tabs` or `accordion` panel that has already shown this leaf's title
+ * elsewhere sets `labelled: false`, and `label: "show"` cannot undo that —
+ * there is nowhere left on the leaf itself to put a title the mode already
+ * drew. `label: "hidden"` reaches the other way, suppressing a title the mode
+ * would otherwise have shown, which is the whole reason the key exists: see
+ * gap 16 of `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, where
+ * four identity leaves stacked at the top of a page each drawing their own
+ * title read as a column of label-value pairs rather than one identity.
+ *
+ * **Absent (or `"show"`) behaves exactly as `labelled` alone always has**, so
+ * a page that never sets the key renders byte-for-byte as it did before the
+ * key existed.
+ *
+ * @param labelled - whether the enclosing mode has already shown this leaf's
+ *   title, or has left that decision to the leaf.
+ * @param style - the leaf's own style bag, absent when it has none.
+ * @returns whether the leaf should draw its own title.
+ */
+export function showsLabel(
+  labelled: boolean,
+  style: BlockStyle | undefined,
+): boolean {
+  return labelled && style?.label !== "hidden";
 }
 
 /**

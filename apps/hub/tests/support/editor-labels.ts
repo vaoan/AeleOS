@@ -59,12 +59,12 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * @returns the labels, freshly built, so a suite that mutates one is not
  * mutating another's.
  *
- * It carries the style popup's `chrome`, `heading`, `heading_pad`,
+ * It carries the style popup's `chrome`, `label`, `heading`, `heading_pad`,
  * `text_align`, `image_fit` and `radius` strings, the theme panel's `font` and
  * `spacing`, and the leaf editor's `rowIcon`. `heading` is four names, the
  * fourth being the quieter bar tone; beside them sit the bar's own picture,
  * how that picture lies, the room under the name, and one name per corner for
- * the two corner pickers.
+ * the two corner pickers. `label` is gap 16's own key.
  */
 export function blockEditorLabels(): BlockEditorLabels {
   return {
@@ -148,6 +148,11 @@ export function blockEditorLabels(): BlockEditorLabels {
       chromeCard: "Keep the card",
       chromeBare: "No card",
       chromeHint: "Takes away the fill, the edge and the padding.",
+      label: "Own title",
+      labelInherit: "Follow the layout",
+      labelShow: "Show",
+      labelHidden: "Hide",
+      labelHint: "Hides this block's own title.",
       heading: "Name",
       headingPlain: "Above the content",
       headingBar: "As a bar on top of it",

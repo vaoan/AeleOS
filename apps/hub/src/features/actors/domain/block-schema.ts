@@ -476,6 +476,12 @@ const utf8 = new TextEncoder();
  * `radius` absent leaves whatever multiplier the skin chose, which is what
  * lets a corner and an aesthetic be picked separately.
  *
+ * **`label` joined them for gap 16** of
+ * `docs/superpowers/specs/2026-08-27-pastiche-findings.md`: `hidden` narrows
+ * whatever the enclosing mode already decided about a leaf's own title,
+ * never widens it, and absence changes nothing a page already renders. See
+ * its own entry below for the composition rule in full.
+ *
  * `heading_pad` joins them, and it is the one key here READ ONLY IN ONE PLACE:
  * a name drawn as a bar. A plain name has the page's own spacing around it and
  * no edge to be pressed against, so padding it would move text with nothing
@@ -511,6 +517,14 @@ export const CORNERS = ["tl", "tr", "br", "bl"] as const;
  */
 const CORNER_LIST = /^(tl|tr|br|bl)(,(tl|tr|br|bl))*$/;
 
+/**
+ * The values a block's style bag accepts, one entry per key. Each key's own
+ * comment carries its contract; the doc comment above this file's
+ * "What each key of a block's style bag accepts" is the one to read for the
+ * shape as a whole.
+ *
+ * `label` (`"show" | "hidden"`) is gap 16's own key — see its own entry.
+ */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
   skin: 32,
@@ -533,6 +547,35 @@ export const BLOCK_STYLE_LIMITS = {
    * `docs/superpowers/specs/2026-08-27-pastiche-findings.md`.
    */
   chrome: ["card", "bare"],
+  /**
+   * Whether a block draws its own title as a label, apart from whatever the
+   * enclosing MODE has already decided.
+   *
+   * **Never a default, and gap 16 of
+   * `docs/superpowers/specs/2026-08-27-pastiche-findings.md` is why.**
+   * `AvatarLeaf`, `HandleLeaf`, `NameLeaf` and `OwnerLeaf` each draw an
+   * optional label above their own value, none of the four knows the other
+   * three exist, and stacked at the top of a page — as the required-blocks
+   * shim arranges them — the result reads as a column of label-value pairs
+   * rather than one identity. A real profile of that kind carries no label at
+   * all, and until this key a page could not say so: `title_en` is required
+   * and non-empty, and the mode-derived suppression a `tabs` or `accordion`
+   * panel already applies is never something an author chooses.
+   *
+   * **`hidden` composes with `labelled` rather than overriding it in both
+   * directions.** A mode that has already shown this leaf's title elsewhere
+   * keeps suppressing it whatever this key says — there is nowhere left on the
+   * leaf to put a title the mode already drew, so `show` cannot undo that.
+   * `hidden` reaches the other way: it suppresses a title the mode would
+   * otherwise have shown, which is the whole reason the key exists. See
+   * `showsLabel` in `presentation/block-contract.ts`, which is where the two
+   * compose.
+   *
+   * **Absent behaves exactly as `labelled` alone always has**, so a page that
+   * never sets this key renders byte-for-byte as it did before the key
+   * existed — no stored page, template or author's page changes.
+   */
+  label: ["show", "hidden"],
   /**
    * How a named container draws its own name.
    *
@@ -691,6 +734,10 @@ const blockStyleShape = {
   // `border` distinguishes one line above, for the same reason: a block inside
   // a `bare` section has to be able to ask for its card back.
   chrome: z.enum(BLOCK_STYLE_LIMITS.chrome).optional(),
+  // Composes with the enclosing mode's own `labelled` rather than
+  // overriding it; see BLOCK_STYLE_LIMITS.label and `showsLabel` in
+  // `block-contract.ts` for the composition rule. Absent changes nothing.
+  label: z.enum(BLOCK_STYLE_LIMITS.label).optional(),
   // **Read by a NAMED container and meaningless anywhere else**, which is the
   // shape `name_en` already has. It is stored at any depth for the reason
   // `bleed` is: a key that means nothing where it sits costs nothing, and

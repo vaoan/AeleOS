@@ -229,11 +229,13 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  *
  * @returns the translated labels.
  *
- * It builds the style popup's `chrome`, `heading`, `heading_pad`, `text_align`,
- * `image_fit` and `radius` strings too — `heading` being four names now, since
- * a bar may be drawn in the accent, shaded, or in the quieter derived tone —
- * plus the bar's own picture, how that picture lies, the room under the name,
- * and one name per corner for the two corner pickers.
+ * It builds the style popup's `chrome`, `label`, `heading`, `heading_pad`,
+ * `text_align`, `image_fit` and `radius` strings too — `heading` being four
+ * names now, since a bar may be drawn in the accent, shaded, or in the
+ * quieter derived tone — plus the bar's own picture, how that picture lies,
+ * the room under the name, and one name per corner for the two corner
+ * pickers. `label` is gap 16's own key: whether a block draws its own title
+ * as a label, apart from whatever the enclosing mode already decided.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -328,6 +330,11 @@ export async function fursonaEditorLabels(
       chromeCard: t("styleChromeCard"),
       chromeBare: t("styleChromeBare"),
       chromeHint: t("styleChromeHint"),
+      label: t("styleLabel"),
+      labelInherit: t("styleLabelInherit"),
+      labelShow: t("styleLabelShow"),
+      labelHidden: t("styleLabelHidden"),
+      labelHint: t("styleLabelHint"),
       heading: t("styleHeading"),
       headingPlain: t("styleHeadingPlain"),
       headingBar: t("styleHeadingBar"),

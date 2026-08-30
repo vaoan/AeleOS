@@ -1961,6 +1961,33 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   Spec: `docs/superpowers/specs/2026-08-27-page-source-and-sharing-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-page-source-and-sharing.md`.
 
+- **A block may hide its own title as a label (2026-08-29).** `label`
+  (`"show"` / `"hidden"`) on a block's style bag closes gap 16 of the pastiche
+  findings — `AvatarLeaf`, `HandleLeaf`, `NameLeaf` and `OwnerLeaf` each draw
+  an optional label above their own value with no way to turn it off, so a
+  page stacking them at the top, as the required-blocks shim arranges them,
+  reads as a column of label-value pairs rather than one identity.
+
+  **`hidden` composes with the enclosing mode's own suppression by narrowing
+  it, never widening it.** `showsLabel`
+  (`apps/hub/src/features/actors/presentation/block-contract.ts`) is the one
+  place the two meet: `labelled && style?.label !== "hidden"`. A `tabs` or
+  `accordion` panel that has already shown a leaf's title elsewhere
+  (`labelled: false`) stays that way whatever the block's own key says —
+  `label: "show"` cannot put a title back where the mode has already drawn
+  it. Absent (or `"show"`) is exactly what `labelled` alone always meant, so
+  no stored page, template or author's page changes.
+
+  Reached by the four identity leaves and by `PlainLeaf` — the `text` kind and
+  the fallback every unrecognised kind lands on — through the one shared
+  function; no other leaf kind reads it. Pinned like every other closed
+  vocabulary written down twice: `block-limits-match-migration.test.ts`
+  compares `BLOCK_STYLE_LIMITS.label` against `0009`'s own `elsif v_key =
+'label'` branch, added beside `chrome`'s in `validate_block` in the same
+  shape, with the column comment and `STYLE_KEY_MEANINGS` updated in the same
+  change. See `apps/hub/src/features/actors/CLAUDE.md` for the account in
+  full.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
