@@ -19,6 +19,20 @@ import { mintTicket, signIn } from "./clerk-session";
 // **`workers: 1` and `fullyParallel: false`** (see `playwright.config.ts`) are
 // what make sharing safe: every test in the whole run executes one at a time,
 // so nothing else can observe or disturb the throwaway context used here.
+//
+// **A file that adopts this pattern must audit its OWN `browser.newContext()`
+// calls, not just this module's.** `test.use({ storageState: STATE_PATH })`
+// becomes that file's default for every manually created context, including
+// ones a test builds for a deliberately SEPARATE identity — an anonymous
+// "stranger" reading a public page, or a second independent sign-in proving
+// two sessions converge on one platform id. Both faults were caught only by
+// actually running the suite in a browser: `establishSharedSession` itself
+// threw `ENOENT` trying to read its own not-yet-written output (see below),
+// and `signed-in.spec.ts`'s "signing in twice" case failed with "You're
+// already signed in" because its supposedly-fresh second context silently
+// inherited the shared session. Every such call needs its own explicit
+// `{ storageState: undefined }` — the same fix, for the same reason, at every
+// call site that must NOT be the shared identity.
 
 /**
  * Where a spec file's shared signed-in session is written.
@@ -52,6 +66,14 @@ export function sharedStatePath(specTag: string): string {
  * that uses this — a file whose signed-in tests pass could not have read an
  * unauthenticated (or missing) storage state.
  *
+ * **Its own `browser.newContext()` call carries an explicit
+ * `storageState: undefined` (2026-08-29).** Without it, Playwright fills the
+ * key in from the calling file's `test.use({ storageState: path })` — the
+ * same `path` this function is about to write — and this call throws `ENOENT`
+ * reading a file that does not exist yet. See the file header for the wider
+ * version of this trap, which also bit two callers directly.
+ *
+
  * @param browser - the worker-scoped `browser` fixture, requested by
  * `beforeAll` (e.g. `test.beforeAll(async ({ browser }) => { … })`).
  * @param userId - whose identity to sign in as.
@@ -66,7 +88,22 @@ export async function establishSharedSession(
   userId: string,
   path: string,
 ): Promise<void> {
-  const context = await browser.newContext({ baseURL: e2eTarget().baseURL });
+  // **`storageState: undefined` is explicit and load-bearing.** Playwright's
+  // test runner instruments every `browser.newContext()` call — not only the
+  // `context`/`page` fixtures — and fills in any key ABSENT from the options
+  // object from the file's `test.use()` config (see
+  // `runBeforeCreateBrowserContext` in `@playwright/test`). Every caller of
+  // this function has already called `test.use({ storageState: path })` for
+  // the very state this establishes, so omitting the key here does not mean
+  // "no storage state" — it means "inherit the file's default", which is this
+  // same path, which does not exist yet. The result is
+  // `browser.newContext` throwing `ENOENT` reading its own not-yet-written
+  // output. Setting the key to `undefined` makes it PRESENT, which the merge
+  // checks with `in` rather than truthiness, so it is left alone.
+  const context = await browser.newContext({
+    baseURL: e2eTarget().baseURL,
+    storageState: undefined,
+  });
   try {
     const page = await context.newPage();
     await signIn(page, await mintTicket(userId));

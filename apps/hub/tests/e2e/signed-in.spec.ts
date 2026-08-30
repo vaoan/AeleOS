@@ -164,7 +164,7 @@ test.describe("signed in", () => {
       // A genuinely separate browser context: no session, no cookies, nothing
       // carried over. Reading it in the signed-in page would prove only that the
       // owner can see their own work, which was never in doubt.
-      const stranger = await browser.newContext();
+      const stranger = await browser.newContext({ storageState: undefined });
       try {
         const anonymous = await stranger.newPage();
         const response = await anonymous.goto(`/es/${address}/${handle}`);
@@ -208,7 +208,7 @@ test.describe("signed in", () => {
       const address = (await page.getByTestId("my-address").innerText()).trim();
 
       // Private to begin with, which is the state that made this necessary.
-      const before = await browser.newContext();
+      const before = await browser.newContext({ storageState: undefined });
       try {
         const anonymous = await before.newPage();
         const response = await anonymous.goto(`/es/${address}`);
@@ -230,7 +230,7 @@ test.describe("signed in", () => {
       await page.getByTestId("editor-save").click();
       await page.waitForURL(/\/pages$/, { timeout: 30_000 });
 
-      const after = await browser.newContext();
+      const after = await browser.newContext({ storageState: undefined });
       try {
         const anonymous = await after.newPage();
         const response = await anonymous.goto(`/es/${address}`);
@@ -277,7 +277,7 @@ test.describe("signed in", () => {
       ).trim();
       expect(first).not.toBe("");
 
-      const second = await browser.newContext();
+      const second = await browser.newContext({ storageState: undefined });
       try {
         const other = await second.newPage();
         // A genuinely fresh ticket for a genuinely independent session — this
@@ -375,7 +375,7 @@ test.describe("signed in", () => {
         new RegExp(`/${address}/${handle}$`),
       );
 
-      const stranger = await browser.newContext();
+      const stranger = await browser.newContext({ storageState: undefined });
       try {
         const anonymous = await stranger.newPage();
         const response = await anonymous.goto(`/es/${address}/${handle}`);
@@ -409,7 +409,7 @@ test.describe("signed in", () => {
       await page.getByTestId("editor-save").click();
       await page.waitForURL(/\/pages$/, { timeout: 30_000 });
 
-      const after = await browser.newContext();
+      const after = await browser.newContext({ storageState: undefined });
       try {
         const anonymous = await after.newPage();
         await anonymous.goto(`/es/${address}/${handle}`);

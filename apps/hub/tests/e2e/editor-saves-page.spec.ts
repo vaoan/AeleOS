@@ -318,7 +318,7 @@ for (const template of FURSONA_TEMPLATES) {
     // page. It must still be there afterwards.
     await saveAndLeave(page);
 
-    const stranger = await browser.newContext();
+    const stranger = await browser.newContext({ storageState: undefined });
     try {
       const anonymous = await stranger.newPage();
       const response = await anonymous.goto(`/es/${address}/${handle}`);
@@ -412,7 +412,7 @@ test("sections built by hand save, reopen and reach a stranger", async ({
       ),
   ).toEqual(["leaf-editor", "empty-place", "leaf-editor"]);
 
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext({ storageState: undefined });
   try {
     const anonymous = await stranger.newPage();
     const response = await anonymous.goto(`/es/${address}/${handle}`);
@@ -467,7 +467,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
     PERSON_FURSONAS,
   ]);
 
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext({ storageState: undefined });
   try {
     const anonymous = await stranger.newPage();
     const response = await anonymous.goto(`/es/${address}`);
