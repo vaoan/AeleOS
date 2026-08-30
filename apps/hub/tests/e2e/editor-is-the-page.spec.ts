@@ -3,12 +3,20 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
   type TestIdentity,
 } from "./support/clerk-session";
 import { container, leaf, seedPage, seedProfile } from "./support/blocks";
 import { compareShots } from "./support/pixels";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
+
+// One sign-in for the whole file: every case below reads the same seeded
+// page and none depends on what an earlier case left behind, so they
+// restore one saved session rather than minting a fresh ticket each — see
+// `support/shared-session.ts`.
+const STATE_PATH = sharedStatePath("editor-is-the-page");
 
 // HIDING THE CONTROLS LEAVES THE PAGE. THIS IS WHERE THAT IS A MEASUREMENT.
 //
@@ -96,6 +104,7 @@ import { compareShots } from "./support/pixels";
 // RUNTIME: 1m06s for all twelve, on this machine, against `next dev`.
 //
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+test.use({ storageState: STATE_PATH });
 
 /**
  * How much of a section may differ before it is a different-looking section.
@@ -196,9 +205,10 @@ let identity: TestIdentity | undefined;
 let address = "";
 let handle = "";
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
   await seedProfile({
     userId: identity.userId,
     displayName: "Aeleos",
@@ -441,7 +451,6 @@ for (const stop of STOPS) {
     await openPublished(page);
     const published = await sectionBoxes(page.getByTestId("page-content"));
 
-    await signIn(page, await mintTicket(identity!.userId));
     await openEditorAsPage(page);
     const edited = await sectionBoxes(page.locator("form"));
 
@@ -483,7 +492,6 @@ for (const stop of STOPS.filter((entry) => entry.pixels)) {
       );
     }
 
-    await signIn(page, await mintTicket(identity!.userId));
     await openEditorAsPage(page);
     const sections = page.locator("form").getByTestId("public-section");
     expect(await sections.count()).toBe(count);
@@ -535,7 +543,6 @@ test("the canvas is the author's on both sides, with nothing quieted", async ({
   await expect(page.getByTestId("page-content")).toBeVisible();
   const published = await read();
 
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
   const edited = await read();
@@ -567,7 +574,6 @@ test("the way back to the controls is drawn at the top, not over the page's foot
   test.setTimeout(120_000);
   await servePhoto(page);
   await page.setViewportSize({ width: 1280, height: 800 });
-  await signIn(page, await mintTicket(identity!.userId));
 
   // **Driven here rather than through `openEditorAsPage`**, whose `quiet`
   // deliberately gives this very button `display:none` so a pinned viewport
@@ -625,7 +631,6 @@ test("the builder can take the page's own look off, and put it back", async ({
   test.setTimeout(120_000);
   await servePhoto(page);
   await page.setViewportSize({ width: 1280, height: 900 });
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -683,7 +688,6 @@ test("the builder can take the page's own look off, and put it back", async ({
 test("every workbench group is opaque, whatever the page behind it", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await expect(page.getByTestId("add-section")).toBeVisible();
   await page.getByTestId("add-section").click();

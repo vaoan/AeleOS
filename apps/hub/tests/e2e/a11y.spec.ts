@@ -14,6 +14,18 @@ import {
   seedPage,
   SEEDED_IDENTITY_SECTIONS,
 } from "./support/blocks";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
+
+// One sign-in for "the signed-in pages are accessible" below: both of its
+// cases read or extend the same shared identity's own pages, and neither
+// depends on what the other left behind, so they share one Clerk session
+// rather than minting a ticket each — see `support/shared-session.ts`. The
+// fresh-identity case above it is deliberately excluded — see its own
+// comment.
+const STATE_PATH = sharedStatePath("a11y");
 
 // WHAT THIS MEASURES, AND THE ONE THING IT DELIBERATELY DOES NOT.
 //
@@ -159,9 +171,10 @@ test.describe.configure({ mode: "serial" });
 
 let identity: TestIdentity | undefined;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
 });
 
 test.afterAll(async () => {
@@ -170,6 +183,7 @@ test.afterAll(async () => {
 
 test.describe("the signed-in pages are accessible", () => {
   test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+  test.use({ storageState: STATE_PATH });
 
   test("the list and the editor", async ({ page }) => {
     // Several full-page axe scans, including both complete-preview states and
@@ -179,7 +193,6 @@ test.describe("the signed-in pages are accessible", () => {
     // — reported flaky, then green on retry — so the case-level 120s bound is
     // retained for the measured runner spread, not as a performance claim.
     test.setTimeout(120_000);
-    await signIn(page, await mintTicket(identity!.userId));
 
     // The wordmark is in the SHELL, so it is visible before the page's own
     // content has painted. Axe on a still-streaming tree is both slow and a
@@ -265,7 +278,6 @@ test.describe("the signed-in pages are accessible", () => {
   // see that constant's own TSDoc for why `best-practice` is refused wholesale
   // rather than cherry-picked.
   test("the editor with the source dock open", async ({ page }) => {
-    await signIn(page, await mintTicket(identity!.userId));
     await page.goto("/es/pages/new");
     await expect(page.getByTestId("add-section")).toBeVisible();
 
