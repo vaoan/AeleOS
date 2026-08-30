@@ -48,6 +48,13 @@ import type { Locator, Page } from "@playwright/test";
  * — and a helper that guessed would hand back the assertion-that-cannot-fail
  * this suite has already been bitten by once. Assert at the call site.
  *
+ * **Carries a targeted `eslint-disable-next-line` for `no-restricted-syntax`
+ * (2026-08-29).** That rule bans the hand-rolled `setTimeout`-wrapped-in-a-
+ * `Promise` sleep everywhere else under `tests/e2e`, the same guess about
+ * machine speed `playwright/no-wait-for-timeout` already forbids for
+ * `page.waitForTimeout`, spelled by hand. This construction is exempt because
+ * it is not a guess: see the measurements above.
+ *
  * @param page - the browser page.
  * @param grip - the grip to lift.
  * @returns nothing; resolves once an arrow key would be heard.
@@ -55,7 +62,13 @@ import type { Locator, Page } from "@playwright/test";
 export async function liftByKeyboard(page: Page, grip: Locator): Promise<void> {
   await grip.focus();
   await page.keyboard.press("Space");
+  // CLAUDE.md rule 26's ordering fix, not a guess about how slow a machine
+  // is: a measured rAF-then-timer sequence that runs after dnd-kit's
+  // KeyboardSensor has attached its own listener. One macrotask lost the
+  // first arrow key on every run; this construction lost it on none. See the
+  // TSDoc above.
   await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- see the comment above.
     () => new Promise((done) => requestAnimationFrame(() => setTimeout(done))),
   );
 }

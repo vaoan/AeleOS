@@ -719,6 +719,11 @@ test.describe("what a heavily personalised page costs on a phone", () => {
       for (let move = 0; move < moves; move += 1) {
         const due = started + (move * SAMPLE_MS) / moves;
         const wait = due - Date.now();
+        // Paces synthetic input to the wall clock, which is what this
+        // measurement is about: a slower page must not be credited with less
+        // input than a fast one, and `expect.poll` has no way to express
+        // "wait until this real-time instant".
+        // eslint-disable-next-line no-restricted-syntax -- see comment above.
         if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
         const along = move / (moves - 1);
         // Back and forth, so the value keeps changing rather than saturating
@@ -800,6 +805,12 @@ test.describe("what a heavily personalised page costs on a phone", () => {
       // becomes true and a wait for it would only ever time out.
       let last = -1;
       for (let poll = 0; poll < 40; poll += 1) {
+        // Polling for "unchanged since the last sample", which `expect.poll`
+        // cannot express: there is no target value to poll for, only a count
+        // that stops moving. The 250ms is a sampling INTERVAL, not a guess
+        // about how long the settle takes — the loop still runs up to 40
+        // times.
+        // eslint-disable-next-line no-restricted-syntax -- see comment above.
         await new Promise((resolve) => setTimeout(resolve, 250));
         const now = await page.evaluate(() => globalThis.__inputs ?? 0);
         if (now === last) break;

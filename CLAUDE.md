@@ -2899,6 +2899,34 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     rather than by status — a retried call that eventually returns the same
     429 looks identical from the status alone.
 
+    **There is no backoff any more, and there never should have been
+    (2026-08-29).** The first version of `retryingFetch` waited between
+    attempts — `BACKOFF_MS = [250, 1000]` — copied from a rate-limit retry
+    pattern without noticing it contradicted this rule's own diagnosis above.
+    A backoff earns its place only when waiting changes the outcome: a
+    server that is overloaded, or rate-limiting. Neither was ever true here —
+    there was no 429, no status at all, the request never reached the
+    service. For a connection-level failure the socket is already dead; a
+    fresh attempt opens a new connection and can do that at once, so waiting
+    buys nothing. It retries immediately now.
+
+    **`no-restricted-syntax` bans the hand-rolled sleep under `tests/e2e/**`
+    (and the retry module's own unit test), by owner's ruling.** A
+    `Promise` wrapping a raw `setTimeout` is
+    `playwright/no-wait-for-timeout`'s banned `page.waitForTimeout(ms)`
+    spelled by hand to dodge the lint rule, and it is the same "wanting
+    flaky tests instead of fixing things" the backoff above turned out to be.
+    Two pre-existing sleeps are exempted by name, each with a targeted
+    `eslint-disable-next-line` rather than a file exclusion, because neither
+    is a guess about machine speed: `tests/e2e/support/drag.ts`'s
+    rAF-then-timer sequencing (rule 26's ordering fix — MEASURED, not
+    guessed: one macrotask lost the first arrow key every run, this
+    construction lost it on none) and
+    `tests/e2e/personalised-page-cost.spec.ts`'s wall-clock input pacing and
+    its "unchanged since the last sample" poll, neither of which
+    `expect.poll` can express. No third exemption should be added without the
+    same kind of measurement behind it.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected
