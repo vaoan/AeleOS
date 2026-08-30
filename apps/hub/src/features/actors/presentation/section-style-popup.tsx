@@ -76,10 +76,21 @@ export type SectionStyle = BlockStyle;
  * opacity rule exists to forbid. Every select INSIDE it already used `--menu`;
  * the group around them did not.
  *
- * It offers `chrome`, `label`, `heading`, `heading_pad`, `text_align`, `image_fit` and
+ * It offers `chrome`, `heading`, `heading_pad`, `text_align`, `image_fit` and
  * `radius` beside the border, each with an empty option that CLEARS the key
  * rather than naming a value. `heading_pad` sits under the name-style select
  * and behind the same condition: both are offered on a NAMED block only.
+ *
+ * **It does not offer `label`.** This popup only ever opens for a
+ * `ContainerBlock` — see {@link SectionStylePopupProps} — and a container's
+ * `kind` is always the literal `"container"`, never one of the five leaf
+ * kinds `showsLabel` composes with (`presentation/block-contract.ts`). An
+ * "Own title" control briefly lived here, gated behind a `honoursLabel` prop
+ * that was `false` by construction for every caller; removed 2026-08-30
+ * rather than reworked, because reaching leaves is `leaf-editor.tsx`'s job,
+ * not this popup's. `label` is still reachable — through the page source
+ * dock, which pastes a document validated by the block schema — see
+ * `domain/block-schema.ts`'s TSDoc on the key.
  *
  * The name-style select carries a fourth option, `soft` — the same strip in a
  * quieter tone. It needs no label of its own beyond a name: the tone is
@@ -132,19 +143,6 @@ export interface SectionStylePopupLabels {
   chromeBare: string;
   /** Says what taking the card away removes. */
   chromeHint: string;
-  /** Field label for the label select. */
-  label: string;
-  /** The label select's option that clears `style.label`. */
-  labelInherit: string;
-  /** The label select's option for `"show"`. */
-  labelShow: string;
-  /** The label select's option for `"hidden"`. */
-  labelHidden: string;
-  /**
-   * Says what the key composes with — a mode that already hides a title
-   * keeps hiding it.
-   */
-  labelHint: string;
   /** Field label for the name-style select, offered for a named block only. */
   heading: string;
   /** The name-style option that clears `style.heading`. */
@@ -239,13 +237,12 @@ export interface SectionStylePopupLabels {
  *
  * `atTop` is what decides whether the full-width and margins controls are
  * offered: this component sees a style bag and never knows where its block
- * sits. `honoursLabel` (2026-08-30) is the same idiom for `label`: only
- * offered where the caller says the block's own kind actually reads it — see
- * `honoursLabel` in `presentation/block-contract.ts`, the one place that
- * list lives.
+ * sits.
  *
- * It offers `chrome`, `label`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
- * an empty option that CLEARS the key rather than naming a value.
+ * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
+ * the border, each with an empty option that CLEARS the key rather than
+ * naming a value. It does not offer `label` — see this component's own
+ * TSDoc for why.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -270,17 +267,6 @@ export interface SectionStylePopupProps {
    * well.
    */
   named: boolean;
-  /**
-   * Whether this block's kind ever reads `style.label` at all — see
-   * `honoursLabel` in `presentation/block-contract.ts`.
-   *
-   * The "Own title" control is offered only when this is true: a block whose
-   * renderer never consults `style.label` would accept a choice and change
-   * nothing, the shape this repo keeps trimming. Passed in rather than
-   * derived here, for the same reason `named` is: this component sees a
-   * style bag and never knows what kind of block it belongs to.
-   */
-  honoursLabel: boolean;
   /**
    * Whether this block is a SECTION — a container at depth 0.
    *
@@ -456,8 +442,11 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  *
  * @returns the button and, while open, the popup.
  *
- * It offers `chrome`, `label`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
- * an empty option that CLEARS the key rather than naming a value.
+ * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
+ * the border, each with an empty option that CLEARS the key rather than
+ * naming a value. It does not offer `label` — see this component's own
+ * top-of-file TSDoc for why, and `domain/block-schema.ts`'s TSDoc on `label`
+ * for where the key is reachable instead.
  *
  * **The panel itself takes `--menu`, the one token declared opaque in both
  * modes**, where every select inside it already did. It took `--surface`,
@@ -470,13 +459,6 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  * `section-style-fit`, which the BACKGROUND fit above it already owns. The two
  * collided for one commit and four browser suites went red on it; nothing
  * short of a browser could have seen it.
- *
- * **`label` is offered only where `honoursLabel` says the block's own kind
- * reads it (2026-08-30)**, the identical shape one level up: no container
- * and only five leaf kinds ever compose `style.label` through `showsLabel`
- * (`presentation/block-contract.ts`), so the "Own title" control used to be
- * offered on every container and change nothing on any of them — a review
- * finding, fixed by gating rather than by wiring the other renderers.
  *
  * **`heading_pad` is offered on a NAMED block only**, behind the same
  * condition as the name-style select it sits under — which is the honest
@@ -499,7 +481,6 @@ export function SectionStylePopup({
   labels,
   atTop,
   named,
-  honoursLabel,
 }: SectionStylePopupProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -734,49 +715,6 @@ export function SectionStylePopup({
               {labels.chromeHint}
             </p>
           </div>
-
-          {/* **Offered only where the kind actually reads it** — see
-              `honoursLabel` in `presentation/block-contract.ts`. A container
-              never does (its own name reads `labelled` alone) and neither do
-              most leaf kinds; offering the control there would accept a
-              choice and change nothing, the control-that-does-nothing this
-              repo keeps trimming — see `card_size`, removed from this same
-              popup for less.
-
-              **`hidden` can only NARROW what the mode already decided, never
-              widen it.** A block inside a `tabs` or `accordion` panel that has
-              already shown this leaf's title elsewhere stays that way whatever
-              this select says — there is nowhere left on the leaf to put a
-              title the mode already drew. Absent and `show` are the same
-              state as far as this key is concerned; only `hidden` changes
-              anything. */}
-          {honoursLabel ? (
-            <div className="grid gap-1.5">
-              <label htmlFor={`${id}-label`} className="text-xs font-medium">
-                {labels.label}
-              </label>
-              <select
-                id={`${id}-label`}
-                value={style.label ?? ""}
-                onChange={(event) =>
-                  setField(
-                    "label",
-                    event.target.value as SectionStyle["label"] | "",
-                  )
-                }
-                aria-describedby={`${id}-label-hint`}
-                {...tid("section-style-label")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                <option value="">{labels.labelInherit}</option>
-                <option value="show">{labels.labelShow}</option>
-                <option value="hidden">{labels.labelHidden}</option>
-              </select>
-              <p id={`${id}-label-hint`} className="text-xs text-(--muted)">
-                {labels.labelHint}
-              </p>
-            </div>
-          ) : null}
 
           {/* **Offered only where there is a name to draw.** A bar with
               nothing in it is the control-that-does-nothing this repo keeps

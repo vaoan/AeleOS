@@ -17,8 +17,6 @@ vi.mock("lucide-react/dynamic", () => ({
 const { BlockCard } = await import("@/features/actors/presentation/block-card");
 const { SectionPreviewTray } =
   await import("@/features/actors/presentation/section-preview-tray");
-const { SectionStylePopup } =
-  await import("@/features/actors/presentation/section-style-popup");
 
 const labels = blockEditorLabels();
 
@@ -573,59 +571,6 @@ describe("SectionStylePopup", () => {
 
       expect(screen.getByTestId("section-style-panel")).toBeInTheDocument();
     });
-  });
-});
-
-/**
- * The "Own title" ("label") select gates on `honoursLabel`, a prop the
- * caller computes from `block-contract.ts`'s function of the same name — see
- * that file for why: no container and only five leaf kinds ever read
- * `style.label`, so offering the control anywhere else is a choice that
- * changes nothing.
- *
- * Every `BlockCard` in this file's own harness renders a CONTAINER, so
- * `honoursLabel` is always `false` there — the "absent" half is exercised
- * through the real caller. The "present" half has no real caller yet (no
- * leaf currently gets a style popup of its own), so it is exercised by
- * rendering {@link SectionStylePopup} directly with the prop each half
- * would compute. A negative case with no positive control beside it proves
- * nothing — see this repository's own rule on the point.
- */
-describe("SectionStylePopup — the Own title control's gate", () => {
-  it("offers no Own title control through the real container path", () => {
-    harness(onePage());
-    openPopup();
-    expect(screen.queryByTestId("section-style-label")).toBeNull();
-  });
-
-  it("is absent when the block does not honour style.label", () => {
-    render(
-      <SectionStylePopup
-        value={undefined}
-        onChange={() => {}}
-        labels={labels.style}
-        atTop
-        named={false}
-        honoursLabel={false}
-      />,
-    );
-    openPopup();
-    expect(screen.queryByTestId("section-style-label")).toBeNull();
-  });
-
-  it("is present when the block does honour style.label", () => {
-    render(
-      <SectionStylePopup
-        value={undefined}
-        onChange={() => {}}
-        labels={labels.style}
-        atTop
-        named={false}
-        honoursLabel
-      />,
-    );
-    openPopup();
-    expect(screen.getByTestId("section-style-label")).toBeInTheDocument();
   });
 });
 

@@ -523,7 +523,9 @@ const CORNER_LIST = /^(tl|tr|br|bl)(,(tl|tr|br|bl))*$/;
  * "What each key of a block's style bag accepts" is the one to read for the
  * shape as a whole.
  *
- * `label` (`"show" | "hidden"`) is gap 16's own key — see its own entry.
+ * `label` (`"show" | "hidden"`) is gap 16's own key — see its own entry, which
+ * as of 2026-08-30 also carries where the key is reachable from (the page
+ * source dock) and where it no longer is (the section style popup).
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -574,6 +576,27 @@ export const BLOCK_STYLE_LIMITS = {
    * **Absent behaves exactly as `labelled` alone always has**, so a page that
    * never sets this key renders byte-for-byte as it did before the key
    * existed — no stored page, template or author's page changes.
+   *
+   * **Reachable through the page source dock, not through the section style
+   * popup (2026-08-30).** `SectionStylePopup` briefly offered an "Own title"
+   * select gated behind a `honoursLabel(kind)` check — but that popup only
+   * ever opens for a `ContainerBlock` (`presentation/block-card.tsx`), and a
+   * container's `kind` is always the literal `"container"`, never one of the
+   * five leaf kinds `showsLabel` composes with. So the gate was `false` by
+   * construction for every call site, the control was unreachable rather than
+   * merely mis-offered, and it was removed rather than reworked into
+   * something that opens for a leaf — that is `leaf-editor.tsx`'s job, not
+   * this popup's.
+   *
+   * The key is real and validated here regardless: an author reaches it by
+   * pasting a document into the page source dock (`page-document.ts`), which
+   * runs the pasted `blocks` array through this same schema before it is
+   * applied. That is the one path in, and it is a real one — do not read
+   * "the control was removed" as "the key is unreachable"; this repository
+   * has shipped that exact wrong claim in the other direction before (see
+   * `identity-leaves.tsx`'s corrected note on the phrase "unreachable
+   * through the editor", and `CLAUDE.md`'s rule on getting a reachability
+   * claim backwards).
    */
   label: ["show", "hidden"],
   /**

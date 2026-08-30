@@ -238,6 +238,20 @@ export function wordsOf(leaf: LeafBlock, locale: string) {
  * a page that never sets the key renders byte-for-byte as it did before the
  * key existed.
  *
+ * **Only five leaf kinds ever call this at all** — the four identity leaves
+ * (`identity-leaves.tsx`) and `PlainLeaf`, the `text` kind
+ * (`text-leaves.tsx`). Every other leaf kind — `stat`, `quote`, `progress`,
+ * `table`, `link`, `social`, the media leaves — and every container
+ * (`blocks.tsx`'s own name draws from `labelled` alone) ignore `style.label`
+ * entirely. There used to be a `honoursLabel(kind)` helper here and a gate in
+ * `section-style-popup.tsx` built on it, offering an "Own title" control only
+ * for a kind in this list — removed 2026-08-30, because `SectionStylePopup`
+ * only ever opens for a `ContainerBlock`, whose `kind` is always the literal
+ * `"container"` and never one of these five, so the gate it fed was `false`
+ * by construction and the control was unreachable rather than merely
+ * mis-offered. See `domain/block-schema.ts`'s TSDoc on `label` for where the
+ * key is reachable instead — the page source dock, not this popup.
+ *
  * @param labelled - whether the enclosing mode has already shown this leaf's
  *   title, or has left that decision to the leaf.
  * @param style - the leaf's own style bag, absent when it has none.
@@ -248,44 +262,6 @@ export function showsLabel(
   style: BlockStyle | undefined,
 ): boolean {
   return labelled && style?.label !== "hidden";
-}
-
-/**
- * The kinds whose renderer actually reads {@link showsLabel} — every place
- * `style.label` composes with `labelled` at all.
- *
- * **The one list, so a caller deciding whether to OFFER the "Own title"
- * control never repeats it.** The four identity leaves
- * (`identity-leaves.tsx`) and `PlainLeaf`, the `text` kind
- * (`text-leaves.tsx`), are the five call sites; every other leaf kind —
- * `stat`, `quote`, `progress`, `table`, `link`, `social`, the media leaves —
- * and every container (`blocks.tsx`'s own name draws from `labelled` alone)
- * ignore `style.label` entirely. Offering the control there is a choice that
- * changes nothing, which this repository has removed controls for before —
- * see `card_size` in `section-style-popup.tsx`.
- */
-const LABEL_HONOURING_KINDS: ReadonlySet<string> = new Set([
-  "text",
-  "avatar",
-  "handle",
-  "name",
-  "owner",
-]);
-
-/**
- * Whether a block of this `kind` ever reads `style.label` — see
- * {@link showsLabel} and {@link LABEL_HONOURING_KINDS}.
- *
- * A container's `kind` is always `"container"`, never one of the five, so
- * this answers `false` for every container: `blocks.tsx` draws a container's
- * own name from `labelled` alone, with no `style.label` read at all.
- *
- * @param kind - the block's own `kind`, container or leaf.
- * @returns whether offering the "Own title" control on this block would do
- *   anything.
- */
-export function honoursLabel(kind: string): boolean {
-  return LABEL_HONOURING_KINDS.has(kind);
 }
 
 /**

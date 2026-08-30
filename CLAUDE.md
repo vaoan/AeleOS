@@ -2058,19 +2058,29 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   ever SHOWN on a given page, not what it should read when it is. Findings:
   `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, gap 16.
 
-  **A blocking review defect, fixed the next day (2026-08-30): the "Own
-  title" select this key rides in on offered itself on every container,
-  whatever kind it held.** `showsLabel` composes `style.label` for exactly
-  five leaf kinds — the four identity leaves and `PlainLeaf` (`text`) — and
-  no container ever reads it (a container's own name draws from `labelled`
-  alone, `blocks.tsx`). `SectionStylePopup`'s new `honoursLabel` prop —
-  computed once, in `presentation/block-contract.ts`, next to `showsLabel`
-  itself — gates the control on whether the block it belongs to is one of
-  those five, so picking "Hide" where nothing reads it is no longer offered
-  at all. `block-card.tsx` is the only caller today, always a container, so
-  the control is now correctly absent everywhere it is reachable through the
-  editor; a leaf's own style popup, when one exists, gates the same way with
-  no new list to keep in step.
+  **A blocking review defect, and then a second one the fix itself
+  introduced, both closed the same day (2026-08-30).** The "Own title"
+  select this key rides in on offered itself on every container, whatever
+  kind it held: `showsLabel` composes `style.label` for exactly five leaf
+  kinds — the four identity leaves and `PlainLeaf` (`text`) — and no
+  container ever reads it (a container's own name draws from `labelled`
+  alone, `blocks.tsx`). The first fix added a `honoursLabel(kind)` helper and
+  a `SectionStylePopup` prop gating the select on it. **That gate was `false`
+  by construction, not merely narrow**: `SectionStylePopup` only ever opens
+  for a `ContainerBlock` — `block-card.tsx` is its only caller — and a
+  container's `kind` is always the literal `"container"`, never one of the
+  five. So the control went from _visibly doing nothing_ to _unreachable by
+  construction_, which is still wrong, just wrong where nobody could trigger
+  it by clicking around. It was removed rather than reworked into something
+  that opens for a leaf — that is `leaf-editor.tsx`'s job — along with
+  `honoursLabel` and its two catalogue strings, from both `en.json` and
+  `es.json`. `label` itself is untouched and still reachable, just not
+  through this popup: an author reaches it through the page source dock
+  (`page-document.ts`), which validates a pasted `blocks` array through the
+  same schema this key lives in. See
+  `apps/hub/src/features/actors/CLAUDE.md` for the account in full, and
+  `domain/block-schema.ts`'s TSDoc on `label` for where the two paths — the
+  one that's gone and the one that was never touched — are told apart.
 
 ## The toolchain, and the rules it cost
 

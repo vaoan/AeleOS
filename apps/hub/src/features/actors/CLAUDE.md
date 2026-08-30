@@ -4486,24 +4486,39 @@ against `0009`'s own `elsif v_key = 'label'` branch, added beside `chrome`'s in
 meaning, gated the same way `heading_gap`'s omission was found and closed.
 
 **A review found the popup that carries this key shipped offering it on
-every container, and no container is among the five call sites above
+every container, and no container is among the five call sites above — and a
+second review, the same day, found the fix itself was still wrong
 (2026-08-30).** `SectionStylePopup` had no gate on the "Own title" select at
 all, so picking "Hide" on any section or nested container accepted a choice
 and changed nothing — worse than an inert control, because it looked like it
-worked. `honoursLabel(kind)` (`presentation/block-contract.ts`, beside
-`showsLabel`) is the one place "does this kind read `style.label`" is
-answered now — the same five kinds as above, checked against a `Set` rather
-than repeated. `SectionStylePopup` takes a new `honoursLabel` prop, gating
-the select exactly the way `named` already gates `heading`; `block-card.tsx`
-computes it as `honoursLabel(block.kind)`, which is `false` for every call
-there, `ContainerBlock["kind"]` being the literal `"container"` — so the
-control is now correctly absent everywhere it is reachable through the
-editor today. The fix is the gate, not new readers: nothing about which
-kinds honour `style.label` changed, and the fix note the review pointed at
-directly — "This repository removed `card_size` from that same popup for
-less" — is the standing precedent for trimming a control that has no
-mechanism behind it, applied here to a control whose mechanism exists but
-was never reachable through the caller that offered it.
+worked. The first fix added `honoursLabel(kind)`
+(`presentation/block-contract.ts`) and a `honoursLabel` prop gating the
+select. **That gate was `false` by construction, not merely narrow.**
+`SectionStylePopup` only ever opens for a `ContainerBlock` — `block-card.tsx`
+is its only caller — and `ContainerBlock["kind"]` is always the literal
+`"container"`, never one of the five leaf kinds `showsLabel` composes with.
+So `honoursLabel(block.kind)` answered `false` at every call site there ever
+was, and the control went from _visibly doing nothing_ to _unreachable by
+construction_ — still wrong, just wrong in a way nobody could trigger by
+clicking around. Both the prop and the helper are gone now
+(`honoursLabel`, `LABEL_HONOURING_KINDS`), along with the select itself and
+its two catalogue strings (`styleLabel`/`styleLabelHint` and their three
+option siblings), in both `en.json` and `es.json`. The fix is not "open the
+popup for leaves" — leaf editing lives in `leaf-editor.tsx`, and reworking it
+is a product change nobody asked for.
+
+**`label` did not lose its only way in.** It is reachable through the page
+source dock (`page-document.ts`): an author pastes a document, the pasted
+`blocks` array runs through this same schema, and `label` is a plain optional
+enum in it like any other style key. What is gone is the ONE control that
+never worked, not the mechanism — `showsLabel`, the five renderers, the SQL
+validation and the seeded pages are all untouched. Be precise about which
+half of "is this reachable" is true here, because this repository has shipped
+the claim backwards before: `identity-leaves.tsx` once said a state was
+"unreachable through the editor" when the write half was true and the
+reachability half was false. Here the shape is the mirror image and the same
+discipline applies — the popup path is gone, the dock path was never touched,
+and neither sentence stands in for the other.
 
 ### A density that reaches OUTSIDE the card (2026-08-28)
 

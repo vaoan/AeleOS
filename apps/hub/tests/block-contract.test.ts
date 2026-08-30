@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  honoursLabel,
-  showsLabel,
-} from "@/features/actors/presentation/block-contract";
+import { showsLabel } from "@/features/actors/presentation/block-contract";
 import type { BlockStyle } from "@/features/actors/domain/block-schema";
 
 /**
@@ -54,37 +51,5 @@ describe("showsLabel", () => {
   it("ignores every other style key", () => {
     const style: BlockStyle = { chrome: "bare", radius: "square" };
     expect(showsLabel(true, style)).toBe(true);
-  });
-});
-
-/**
- * `honoursLabel` is what a caller asks BEFORE offering the "Own title"
- * control at all — see `section-style-popup.tsx`'s `honoursLabel` prop. Its
- * answer has to agree with every place `showsLabel` is actually called: the
- * four identity leaves and `PlainLeaf` (the `text` kind), and nowhere else.
- */
-describe("honoursLabel", () => {
-  it.each(["text", "avatar", "handle", "name", "owner"])(
-    "is true for %s, which reads style.label through showsLabel",
-    (kind) => {
-      expect(honoursLabel(kind)).toBe(true);
-    },
-  );
-
-  it.each(["stat", "quote", "progress", "table", "link", "social", "picture"])(
-    "is false for %s, which draws its title from `labelled` alone",
-    (kind) => {
-      expect(honoursLabel(kind)).toBe(false);
-    },
-  );
-
-  // A container's own name (`blocks.tsx`) reads `labelled` alone too, and its
-  // `kind` is always the literal `"container"` — never one of the five.
-  it("is false for a container", () => {
-    expect(honoursLabel("container")).toBe(false);
-  });
-
-  it("is false for a kind this build has no name for", () => {
-    expect(honoursLabel("some-future-kind")).toBe(false);
   });
 });
