@@ -51,7 +51,8 @@
         ],
         "style": {
           "heading": "bar",
-          "radius": "square"
+          "radius": "square",
+          "heading_pad": "snug"
         }
       },
       {
@@ -67,7 +68,8 @@
         ],
         "style": {
           "heading": "bar",
-          "radius": "square"
+          "radius": "square",
+          "heading_pad": "snug"
         }
       },
       {

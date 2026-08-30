@@ -2319,6 +2319,28 @@ old sentence was holding the question open for.
 The XP look wears it: the bar rounds its top and squares its foot, the body
 squares its head and rounds its foot, and the join is straight.
 
+**`heading_pad` reached Windows 98 and `heading_gap` deliberately did not
+(2026-08-29).** Win98's two barred sections take `heading_pad: "snug"`,
+sampled off the capture's own tight title-bar chrome. `heading_gap: "none"`
+was tried on the same sections and on XP's, and reverted on both: a barred
+heading's gap already collapses to `gap-0` with no key set at all
+(`blocks.tsx`'s own fallback, `barred ? "gap-0" : "gap-3"`), so setting it to
+`"none"` there reads the identical class — a key that shows as a change in
+the diff and changes nothing, which `blocks.test.tsx`'s own heading-gap
+comment names directly. That is the same trap the task adding these four keys
+warned about for `heading_pad` on Vista and 7, just on `heading_gap` instead,
+and on two looks the warning did not name.
+
+Vista, 7 and 8 took no heading key at all, and not for the same reason as each
+other. Vista and 7 because Aero's title bar is measurably translucent glass —
+sampled off both captures — and turning it into a solid `bar` to reach
+`heading_pad` would erase the one thing the era is. Windows 8 because its
+capture shows real air between "Start" and its tiles: `heading_pad` is a dead
+letter there regardless (no bar is drawn), but `heading_gap` is **not** gated
+the same way — it reads from the table whenever a value is set, defaulting to
+`gap-3` only when absent — so `heading_gap: "none"` there would have been a
+real, wrong weld rather than the harmless no-op it is on a barred section.
+
 ### A template is a document too (2026-08-28)
 
 **A template could not carry a look at all, and an era look is mostly look.**
@@ -4219,7 +4241,10 @@ a string rather than on a page shape.
 
 It reaches the Facebook pastiche as the strong bar on the identity section and
 the quieter one on everything subordinate to it, which is what the March 2007
-capture shows and what gap 12 of the pastiche findings recorded as unreachable.
+capture shows — see `docs/superpowers/specs/2026-08-27-pastiche-findings.md`
+for why there are two Facebook captures, at two different archives, and not
+one corrected into the other — and what gap 12 of the pastiche findings
+recorded as unreachable.
 
 ### A bar can be given room (2026-08-28)
 

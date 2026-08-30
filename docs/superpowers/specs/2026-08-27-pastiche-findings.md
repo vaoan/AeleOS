@@ -24,24 +24,61 @@ so every re-run silently undid it. The seeder owns visibility now, along with
 each page's avatar, for the same reason: **a seed that does not restore
 everything it depends on works exactly once.**
 
-**What each page's palette actually rests on, as of 2026-08-28.** This
+**What each page's palette actually rests on, as of 2026-08-29.** This
 paragraph used to say all three of the late additions were knowledge-built, and
 two of them stopped being so lower down this same document — a document
 contradicting itself, which is worse than one that is simply wrong.
 
-- **Fur Affinity** and **Facebook** are evidence-backed, from a real December
-  2008 and a real March 2007 capture. FA was measurably wrong and was
-  corrected; Facebook's `#3b5998` was already right.
-- **Fotolog** is the one page still built from knowledge, and the only one. Its
-  snapshots render the logged-out homepage with broken styling; no profile
-  capture has been found. What is claimed for it is the FEEL, not a palette
-  anybody measured.
+**Facebook has TWO captures, from two different archives, and a fix note is
+what it took to stop conflating them (2026-08-29).** A prior pass here read
+"a real March 2007 capture" beside a _different_ capture it had just fetched
+— arquivo.pt at February 2008, `20080215125110`, from
+`scripts/pastiche-references.mjs` (added on this branch) — and concluded the
+2007 date was simply wrong. It was not. "March 2007" names a real
+**web.archive.org** capture, confirmed on 2026-08-28 while that archive was
+answering; it is unreachable from this machine now, which is why this branch
+could not re-verify it, not why it was wrong. "February 2008" names the
+separate arquivo.pt capture, fetched because web.archive.org does not answer
+here and arquivo has nothing earlier. Both dates are real and describe
+different things — the palette below is confirmed from the first; the
+on-page reference link is the second.
+
+- **Fur Affinity** and **Facebook** are evidence-backed, and each rests on TWO
+  captures from two different archives, the same shape and for the same
+  reason: a real December 2008 / March 2007 capture set the palette, from an
+  archive now unreachable from here, and a second, later capture at a
+  different, reachable archive confirmed something further. FA was measurably
+  wrong from the first and was corrected; the second, from arquivo.pt at
+  December 2019, then confirmed its chrome — `heading: "bar"` and
+  `radius: "square"`, welded flush with no gap — which is evidence for the
+  STRUCTURE and none at all for the DATE, so the page stays dated 2008.
+  Facebook's `#3b5998` was already right, reconfirmed by a second,
+  independently fetched render of the arquivo.pt reference capture (task 7,
+  2026-08-29).
+- **Fotolog is genuinely PARTIAL, and that is a third label, not a stronger
+  reading of "knowledge-built" (task 7, 2026-08-29).** Its capture replays
+  without its stylesheet — the nav is 126 raw links in the browser's own
+  default blue — but the boxed panels beneath it are table-and-inline styled
+  and DO render, so arrangement and density are measured (tight rows, a
+  `#f0f0f0` panel on a flat white field) while the accent, `#0a6ebd`, remains
+  recalled: the only blue the capture itself shows is the browser's own
+  unstyled link colour, nobody's brand choice. It is also the logged-out
+  homepage, where this pastiche imitates a profile, so the arrangement is
+  still the FEEL rather than a layout the capture shows directly.
 - **Bluesky and Threads are measured against the LIVE sites** (2026-08-29),
-  which is the only evidence either can have — both are still running, so
-  there is no archive to reach into. Both moved; see "Two live sites, measured"
-  below.
-- **MySpace and hi5** name what they were built from in the seeder: a real 2007
-  profile capture and a 2007 capture of the site.
+  which is the only evidence either can have for its PROFILE — both have
+  archive history, and neither holds one: a crawler is served Bluesky's
+  logged-out splash, and Threads builds its markup client-side, so a
+  crawler's stored copy replays blank. Sharper than "there is no archive."
+  Both moved; see "Two live sites, measured" below.
+- **MySpace's own 2007 capture was a PORTAL, not a page — the same lesson
+  GeoCities had already taught, missed here the whole time (task 5,
+  2026-08-29).** `myspace.com` is the portal; `profile.myspace.com/<user>` is
+  somebody's profile, and arquivo.pt holds **43** of them. Rebuilt against one,
+  `profile.myspace.com/akioyang` at October 2008 — see "Rebuilt against a real
+  capture: MySpace" below.
+- **hi5** names what it was built from in the seeder: a real February 2008
+  capture of the site.
 - **The last four were chased down on 2026-08-29** and the gap is closed — not
   because all four found evidence, but because each now says which it is. See
   "The last four" below.
@@ -126,12 +163,13 @@ have.** The seeder already recorded that the first attempt reached for
 one; five out of five Times New Roman is the measurement that reasoning was
 missing.
 
-**Fotolog stays recalled, and a second archive says why.** arquivo.pt replays
-it too, with the same result as the first: 126 links at `#0000ee` — the
-browser's own default — unstyled serif headings and raw bullet lists. The
-markup survives and the stylesheet does not, at two independent archives. It is
-also the logged-out homepage either way, where this pastiche imitates a
-profile.
+**Fotolog stays partial, and a second archive confirms why.** arquivo.pt
+replays it too, with the same result as the first: 126 links at `#0000ee` —
+the browser's own default — unstyled serif headings and raw bullet lists,
+beside boxed panels that ARE table-and-inline styled and do render. The markup
+survives and the stylesheet does not, at two independent archives, in exactly
+the same places both times. It is also the logged-out homepage either way,
+where this pastiche imitates a profile.
 
 **The board can never be closed by any archive, and that is a property rather
 than a gap.** arquivo.pt holds `twitter.com/twitter` profile captures from 2009
@@ -213,19 +251,19 @@ the real sites were plain white-and-blue pages, so the decorative skins came
 off, and this summary went on describing the pages as they had been. It is
 built from the file now rather than from recall.
 
-| page                   | what actually carries it                                                                                                                                                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas — over `surface: "#f8f8f8"` and a `#193c74` accent, both measured off a real 8.0 screenshot.             |
-| MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"` and a tiled backdrop.                                                                           |
-| hi5                    | `heading: "gradient"` title bars over white content, a `carousel` of widgets, and `progress` as a profile-completeness meter.                                                                                              |
-| Sonico                 | Navy `#003399` bars on white with `#f3f3f3` panels, all measured off an October 2008 capture, plus `masonry` for a real photo wall and `carousel` for album strips.                                                        |
-| GeoCities              | `font: "serif"` and centred text — measured, five of five real pages are Times New Roman — a `stars` canvas, a tiled backdrop, a `table` of visitor stats and a `link` row as a webring.                                   |
-| Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, and `list` + `chrome: "bare"` for the shouts wall.                                                                  |
-| Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                                                      |
-| Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall.                                                           |
-| Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test. Its palette is Twitter's ~2019 dark mode, not the 2012 it was filed under. |
-| Bluesky                | Flat `#ffffff` and `#006aff`, measured live. The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`.                                                                   |
-| Threads                | `list` + `chrome: "bare"` on the live site's own `#0a0a0a`, with `surface: "#101010"` for the card. What defines it is what it removes.                                                                                    |
+| page                   | what actually carries it                                                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas — over `surface: "#f8f8f8"` and a `#193c74` accent, both measured off a real 8.0 screenshot. Every panel now carries the window shape too: `radius: "soft"` with matching `corners`/`heading_corners` on `"tl,tr"`. |
+| MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"`, and a real October 2008 profile's night-skyline photograph behind every box (task 5) — semi-transparency itself stays unreachable, gap 13 below.                                                          |
+| hi5                    | `heading: "gradient"` title bars over white content — a genuine ramp, sampled and kept — a `carousel` of widgets, `progress` as a profile-completeness meter, and the same window shape as Messenger's: `radius: "soft"` with `corners: "tl,tr"`.                                                                                     |
+| Sonico                 | Flat navy `#003399` bars on white with `#f3f3f3` panels, all measured off an October 2008 capture — `heading: "bar"` replaces the gradient this table used to name, on evidence the strip is flat rather than a ramp — plus `masonry` for a real photo wall, `carousel` for album strips, and hi5's own window shape.                 |
+| GeoCities              | `font: "serif"` and centred text — measured, five of five real pages are Times New Roman — a `stars` canvas, a tiled backdrop, a `table` of visitor stats, a `link` row as a webring, and `radius: "square"` panels, since no section had set one and the skin rounded.                                                               |
+| Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, `list` + `chrome: "bare"` for the shouts wall, and — confirmed by a second, December 2019 capture at a different archive — `heading: "bar"` welded flush to `radius: "square"` panels, no `corners` at all.                    |
+| Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                                                                                                                                                                 |
+| Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall.                                                                                                                                                                      |
+| Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test. Its palette is Twitter's ~2019 dark mode, not the 2012 it was filed under.                                                                                                            |
+| Bluesky                | Flat `#ffffff` and `#006aff`, measured live. The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`.                                                                                                                                                                              |
+| Threads                | `list` + `chrome: "bare"` on the live site's own `#0a0a0a`, with `surface: "#101010"` for the card. What defines it is what it removes.                                                                                                                                                                                               |
 
 **GeoCities is worth reading twice**: it reached for `terminal` first and got
 monospace, which reads as a developer's site rather than a personal homepage. A
@@ -407,12 +445,18 @@ external service as its subject rather than a database.
   ground and light silver bars carrying DARK text**. It was reading as a modern
   dark theme rather than as 2008. Both were corrected from the capture, and
   `--on-accent` derived the dark text on the light bar with no help.
-- **Facebook's palette is confirmed** from a real March 2007 capture: `#3b5998`
-  was already right, and the capture adds the detail that the navy bar carries
-  a LIGHTER blue sub-bar beneath it, which one accent could not express — the
-  gap below, since closed.
-- **Fotolog stays knowledge-built and says so.** Its snapshots render the
-  logged-out homepage with broken styling; no profile capture was found.
+- **Facebook's palette is confirmed** from a real March 2007
+  **web.archive.org** capture — genuinely a different source and a different
+  date from the February 2008 **arquivo.pt** capture the page links to as its
+  reference (see above; a prior pass here mistook one for a wrong version of
+  the other and said so wrongly, fixed 2026-08-29): `#3b5998` was already
+  right, and the capture adds the detail that the navy bar carries a LIGHTER
+  blue sub-bar beneath it, which one accent could not express — the gap below,
+  since closed.
+- **Fotolog is genuinely PARTIAL (relabelled task 7, 2026-08-29), not
+  knowledge-built.** Its nav replays without a stylesheet, but its boxed
+  panels are table-and-inline styled and DO render — see the palette summary
+  above for what that measures and what stays recalled.
 
 ### 12. One accent cannot express a two-tone header — CLOSED (2026-08-28)
 
@@ -550,6 +594,19 @@ while a real browser measured 0. And writing only the corners switched off left
 the bar inheriting the section's, because custom properties inherit and the bar
 sits inside the section. Both are recorded against the feature itself.
 
+**Closed for the social pastiches too, across three tasks the same week
+(2026-08-29) — not only the era looks.** hi5 and Sonico (task 6) and Messenger
+(task 9) each now carry `radius: "soft"` with `corners: "tl,tr"`, the identical
+bar-rounds-top-body-squares-foot shape XP wears. Fur Affinity took the
+mechanism's other direction on its own evidence: its second, December 2019
+capture (task 8; see "The fidelity pass" above) showed its bars welded flush
+with no gap and every corner square, so it earns `heading: "bar"` with
+`radius: "square"` and no `corners` named at all — a page with nothing rounded
+needs no corner singled out, which this same mechanism already covers without
+a new key. MySpace, by contrast, keeps `radius: "square"` throughout on its
+own capture's evidence and so carries no `corners` either — three pages
+reaching the identical no-op for three different, all-measured reasons.
+
 ### 11. The canvas is ON unless a look turns it off, and three flat desktops forgot
 
 Not a gap — a thing to remember when authoring a look. Windows 98, XP and 8 are
@@ -633,3 +690,210 @@ So the real contract is **a second ground costs the first nothing**, which is
 both true and checkable, and stronger than the claim it replaced because it
 admits that an author's own field is rendered exactly as picked — the
 page-level escape hatch being what makes that safe.
+
+## Rebuilt against a real capture: MySpace (2026-08-29)
+
+The pastiches-against-captures plan's task 5, and the largest single restyle
+in that plan — the "aim at the era, not the product as shipped" ruling stated
+plainly for the first time. The old MySpace page was the site's own **default**
+profile chrome: a pale gradient, a stardust tile, white boxes, `#003399`. That
+is what MySpace handed somebody at signup. It is not what MySpace WAS — real
+profiles were customised almost universally, and the customisation was the
+point.
+
+**A PORTAL capture is not a PAGE capture — the lesson already learned for
+GeoCities, missed here the whole time.** `myspace.com` is the portal;
+`profile.myspace.com/<user>` is somebody's profile, and arquivo.pt holds **43**
+of them. This page's own prior capture had been the portal, not a profile;
+rebuilt against one of the 43 instead.
+
+Rebuilt against `profile.myspace.com/akioyang`, captured at `arquivo.pt`,
+timestamp `20081024054301` (2008-10-24 05:43:01 UTC). It is a photograph
+behind the whole page, boxes gone translucent so the photograph shows
+through, thin bright borders, small text fighting the image — and the page's
+own copy already argued for exactly this reading: "this layout took me four
+hours and i am NOT taking it down."
+
+### 13. A box cannot be TRANSLUCENT — the fill is a colour, not an alpha
+
+**Tried.** A block's fill is `theme.surface` (gap 8's own key), and it is one
+opaque `#rrggbb` colour or null. There is no alpha anywhere in the style bag,
+on the theme or on a block — `chrome: "bare"` removes the fill outright
+(transparent) and takes the border, the shadow and the padding with it, which
+is the opposite of what this page wants: a border that stays, over a fill
+that lets what is behind it through.
+
+Sampled the capture rather than guessing: five patches of its boxes, taken
+where they sit over the photograph's dusk sky, read `#495771`, `#4b576e`,
+`#595c6d`, `#605f67` and `#5d575d`, averaging `#555a6a`. `theme.surface:
+"#555a6a"` is the nearest reachable thing — every box on the page painted
+with that sampled tone outright. It reads close to the capture at a glance
+and is a different mechanism entirely: a flat colour standing in for a
+photograph showing through, not the photograph showing through. Nothing
+behind a MySpace box on this page is ever the page's own picture — every box
+is the same opaque `#555a6a`, whether it sits over a bright streetlight or a
+dark rooftop in the photograph beneath it, where the capture's boxes visibly
+vary with what is behind them.
+
+**What mechanism would be needed:** an alpha channel on `surface` (or a
+second key beside it), consumed as `color-mix(in oklab, surface a%,
+transparent)` rather than as an opaque `background-color` — which is exactly
+the shape `chrome: "bare"` already refuses to be, because it exists to turn
+the fill off rather than to dial it down. Composing correctly also needs
+`derivePalette` to solve text against the RESULT of that mix over the page's
+own picture, not against the flat `surface` colour alone, since a translucent
+panel's effective contrast depends on what is currently behind it — a
+question this model has never had to answer, because every ground it solves
+against today is a flat colour by construction.
+
+Not the same gap as 6 or 8. Gap 6 is per-block COLOUR being unreachable at
+all; gap 8 was a page having no SECOND ground independent of its background,
+now closed. This is neither: `surface` exists and is exactly the second
+ground gap 8 built, and the page has one and used it. What is missing is a
+third dial on that same key — how much of what is behind it comes through —
+which neither gap needed and neither closed.
+
+### 14. A page can ship unreadable, and nothing in the build says so
+
+Found reviewing this task, not while building it — which is itself worth
+keeping: nobody who wrote the code above ran the numbers, and a review that
+did found a page that would have shipped failing its own readability by a
+wide margin.
+
+`surface: "#555a6a"` — the average gap 13 sampled — is OKLCH `L≈0.4691`,
+almost exactly mid-lightness. Run through this theme's own `derivePalette`:
+ink read 2.86:1 against it, muted 3.06:1, edge 3.01:1, against floors of 4.5,
+4.5 and 3.0. The same tokens read 16.86 / 18.00 / 17.71 against the page's
+field, so nothing else about the palette was wrong — only this one colour.
+Walking `dimmestLegible`'s full 100 steps toward black cannot exceed ~3.06
+against a ground at that lightness: the same "no direction clears the
+minimum" hole this file already documents for `#008080`, which sits at
+almost the same `L`. Averaging patches of a _translucent_ box blended with a
+photograph is what produced it — the blend of a light photograph and a dark
+one lands near the middle by construction, which is exactly the region nothing
+here can serve.
+
+The page was corrected by sweeping the lightness axis for the nearest colour
+that clears 4.5:1 both ways, `surface: "#737989"` (ink 4.52518:1, muted
+4.53026:1, edge 3.00432:1) — see the theme's own comment in
+`pastiche-pages.mjs` for the full sweep. The edge clears its 3:1 floor by
+0.00432, four thousandths rather than the two hundredths a rounder reading
+suggests — a knife-edge rather than a comfortable margin, and any future
+change to `derivePalette`'s constants or solve order is expected to redden
+`pastiche-pages.test.ts`'s surface-contrast case over this exact value.
+**That correction is not what this gap is about.** This gap is that nothing
+short of a human running the numbers by hand would have caught the failing
+value at all.
+
+`pnpm check:contrast` — the one gate in this repository that measures
+contrast — reads `globals.css`'s own fixed token pairs (heading on card, body
+on card, and so on for both modes) and asserts each clears its floor. It
+never reads a stored theme: an author's `surface`, `accent` or `background`
+is invisible to it by construction, because those are rows in a database
+this check does not query. At the time this was found, `pastiche-pages.test.ts`
+ran every page through `parseTheme` and the block schema alone, and neither
+asked whether the RESULT reads — both asked only whether the shape is valid
+`jsonb`. So a page could set a perfectly well-formed `surface` that happens to
+sit near mid-lightness and ship with every required check green, exactly as
+this one nearly did.
+
+**A case was added the same day that narrows this**, and the supporting
+sentence above is now dated rather than current: `pastiche-pages.test.ts`'s
+"pages with a surface stay readable" runs `derivePalette` for every one of
+the ten seeded pages that sets a surface and asserts ink and muted clear
+4.5:1 and edge clears 3:1 against it — exactly the regression above, which
+would now turn that suite red instead of shipping quietly. **The gap's own
+conclusion is unchanged by that case** — see below.
+
+**Not proposing a checker.** Naming the hole is the job here, not filling it:
+a general "is this author's palette readable" gate is a harder problem than
+this file's method can settle in passing — it would need to run
+`derivePalette` against every stored theme and decide a floor for how much
+unreadability a person is allowed to choose for their own page, which is a
+product question (`PageThemeSwitch` already exists because an author's page
+is rendered exactly as picked, unreadable or not) rather than a build one.
+What is recorded here is narrower and checkable by inspection: the gate that
+exists checks the design system, not the data, and the two are different
+questions answered by different code, so a passing `check:contrast` has
+never been evidence that a page's own colours are legible.
+
+### 15. A reference capture's canvas is arquivo.pt's, not ours, and its shape cannot be fixed here
+
+Found photographing all sixteen pages against production, task 12 — not a
+capture that failed to load, but four that loaded correctly and are the
+wrong shape.
+
+**Wanted.** Every reference-capture section hot-links the archive's own
+screenshot of the real page, so a visitor sees the thing being imitated
+rather than a claim about it. That mechanism itself is sound: all sixteen
+pages were seeded and photographed, and every reference capture loaded, at
+the right date, showing the right page, with no archive-error placeholder.
+
+**Tried, and found already broken upstream.** `arquivo.pt`'s screenshot
+endpoint answers every request with a canvas fixed at 1200×2000px,
+regardless of the archived page's real height. Where the real page is
+short, most of that fixed canvas is blank white below genuinely-loaded
+content, and four pages carry it: Facebook, hi5, Sonico and Fotolog. It is
+worst on Facebook — the real February 2008 homepage fills only the top of
+the canvas, leaving roughly 1700px of blank white beneath it, on a page
+whose own pastiche content is about 800px tall. The reference section
+illustrating that page is more than twice its height, and almost all of the
+extra is empty. MySpace and Fur Affinity are the other two
+`arquivo.pt`-backed pages and carry no such blank; not because anything
+here treats them differently, but because their own real archived pages
+happen to be tall enough to fill the canvas unassisted.
+
+**The obvious escape does not work, checked rather than assumed.**
+`image_fit: "cover"` reads as the fix — crop the blank away instead of
+letter-boxing it — and it cannot, because there is nothing shorter for it to
+crop against. `media-leaves.tsx:125` renders the picture leaf `w-full` with
+`[object-fit:var(--img-fit)]` and no height constraint of any kind, so the
+box always takes the image's own aspect ratio. Setting `cover` on these four
+pages changes nothing visible.
+
+**What mechanism would be needed:** either of two things, and both are
+refused by standing constraints rather than left undone. Cropping the
+picture itself — trimming the blank canvas before it ever reaches the page —
+would mean hosting a modified copy, and this project hosts nothing: every
+picture is a hot-linked address, and storing even a processed copy of one is
+exactly the cost the $0 budget refuses. Constraining the box instead — a
+fixed or capped height on the picture leaf, so `cover` would have something
+to crop against — needs a new style key, and this plan's own scope refused
+adding one.
+
+So the gap is a consequence of those two standing constraints meeting a
+third party's API, not an oversight: the reference-capture mechanism is
+sound and `arquivo.pt`'s endpoint is not, and both routes around that were
+already closed on purpose before this was found. Not a defect in the
+reference mechanism — all sixteen captures load, and each shows the right
+page. What is wrong is the shape, not the content.
+
+### 16. Every identity leaf is a label over a value, and nothing says the three together read as a person
+
+Found closing out this branch, not building it — the same way gap 14 was.
+It predates this branch entirely, sits under all sixteen pages here and
+under every real author's page besides, and no single restyle task in this
+plan could have owned it: it is a property of `identity-leaves.tsx`, not of
+any one page's style bag.
+
+**What is there.** `AvatarLeaf`, `HandleLeaf`, `NameLeaf` and `OwnerLeaf` each
+draw an optional `Label` above their own value — the leaf's own `title_en` —
+and none of the four knows the other three exist. Stacked at the top of a
+page as the required-blocks shim arranges them, the result is a short column
+of label-value pairs rather than a single identity: the Threads page reads
+_aeleos / Aeleos: aeleos / aeleos: threads_ — three near-identical lines
+before any content the page's own author wrote.
+
+**Its visible edge is the handle leaf's title**, because that is the one
+field every page sets and every page sets differently, with no shared
+convention across the sixteen: `URL`, `Messenger ID`, `@aeleos`, `aeleos`,
+`hi5 ID`, `Usuario`, `My handle`, `fotolog`, `Username`, `Profile ID`. Each
+was chosen to fit its own subject and none is wrong on its own page — the
+gap is that there is no rule saying what this label is FOR, so eleven
+authors reaching for the same field reached eleven different ways.
+
+**Not proposing a fix.** Naming it is the job here, matching gaps 13 and 14:
+whether identity belongs in one composed block instead of four independent
+ones, whether a label is owed here at all, and what a handle's title should
+say when nobody has told it what convention to follow are all product
+questions this file's method does not settle in passing.

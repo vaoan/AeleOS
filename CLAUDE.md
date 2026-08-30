@@ -449,6 +449,32 @@ Key choices and _why_:
   before believing it; the probe is one `curl` against
   `archive.org/wayback/available`.
 
+  **Fotolog no longer "stays knowledge-built" (task 7, 2026-08-29).** A fresh
+  render of Fotolog's own `20080215112915` capture shows the nav replaying
+  without its stylesheet — raw links in the browser's own default blue — but
+  the boxed panels underneath ARE table-and-inline styled and DO render, so
+  its arrangement and density are measured (a `#f0f0f0` panel on a flat white
+  field) while its accent stays recalled. That is a third label, PARTIAL, not
+  a stronger reading of "knowledge-built".
+
+  **There are TWO Facebook captures, not one, and a fix note is what it took
+  to stop conflating them (2026-08-29).** Task 7 read "a real 2007 Facebook
+  one" above beside a _different_ capture it had just fetched — arquivo.pt at
+  February 2008, `20080215125110`, from `scripts/pastiche-references.mjs`
+  (added on this branch) — and concluded the 2007 date was simply wrong.
+  It was not: "2007" names the **web.archive.org** capture this section is
+  about, confirmed on 2026-08-28 while that archive was answering; it is
+  unreachable from this machine now, which is why nothing on this branch
+  could re-verify it rather than why it was wrong. "February 2008" names a
+  separate arquivo.pt capture, fetched _because_ web.archive.org does not
+  answer here and arquivo has nothing earlier. Both dates are real and
+  describe different things. The check that would have caught this the first
+  time is `git log -S "March 2007"` — find where a claim about an external
+  source _entered_ before deciding a different reading of a different source
+  makes it false. See
+  `docs/superpowers/specs/2026-08-27-pastiche-findings.md` for the full
+  account of both captures.
+
   **Gap 12 is closed (2026-08-28) and the way it was nearly closed WRONG is
   the part worth carrying.** The 2007 Facebook capture is a navy bar over a
   lighter blue one, which one accent could not draw; `heading: "soft"` is a
@@ -581,12 +607,239 @@ Key choices and _why_:
   refuses the domain outright) — while `archive.org` answers 200 and
   `archive.ph` answers 429 in the same run. One hostname, not the connection.
 
+  **A CAPTURE IS A HOT LINK, and that reopens what a pastiche page can show
+  (2026-08-29).** `arquivo.pt/screenshot?url=<encoded replay URL>` renders an
+  archived page and returns a PNG. Pointed at `noFrame/replay/<ts>/<url>`
+  rather than `wayback/<ts>/<url>` it omits the archive's own banner and
+  sidebar — the difference between a usable reference picture and one that is
+  40% Portuguese navigation. So a reference can sit ON a page under the
+  images-are-links-only rule, with nothing stored and no budget touched.
+
+  Two things about it were measured rather than reasoned, and the second
+  contradicts the reasoning. `img-src` already allows any https host. And
+  **Chromium renders that response despite `nosniff`**: it is served as
+  `application/octet-stream` with `X-Content-Type-Options: nosniff`, which
+  reading the spec says should stop an `<img>` — driven in a real browser,
+  `naturalWidth` is 1000 and the console is silent. Rule 10, on a header this
+  time.
+
+  What it costs is a published page depending on a research archive's
+  rendering service, so **the section carries a `link` to the replay beside
+  the picture**: when the picture dies the provenance does not.
+
+  **`archive.org` ANSWERING IS NOT `web.archive.org` ANSWERING**, and
+  conflating the two is what shaped the whole provenance story above. The
+  availability API answers for every subject and hands back URLs on the host
+  that does not respond — so a snapshot is findable and not fetchable, which
+  looks like evidence right up until you try to open it. The question is never
+  "is the archive up", it is **"which source holds this subject"**.
+
+  **A PORTAL capture is not a PAGE capture — and that lesson, already learned
+  for GeoCities, had been missed for MySpace the whole time.** `myspace.com`
+  is the portal; `profile.myspace.com/<user>` is somebody's profile, and
+  arquivo holds **43** of them. A real October 2008 one is a photo behind
+  everything, boxes gone semi-transparent with thin bright borders, and text
+  fighting the image — which is what that site WAS. **Ask what the subject is,
+  then ask which URL is it**, because the site's own domain is usually
+  neither.
+
+  **The MySpace pastiche was built from the default white-box chrome instead
+  of that subject, and this is the one place that was still true after it —
+  closed 2026-08-29.** `myspaceTheme` now carries `profile.myspace.com/akioyang`
+  at `20081024054301` as its own subject: a photograph background, `border:
+"solid"` with `radius: "square"` on every section for the thin
+  square-cornered edge the capture has in place of the old rounded default,
+  and a `surface` sampled from the capture's own boxes. `heading_gap` was set
+  here too, on the belief that it welded each bar flush to its content —
+  removed in a later pass once `blocks.tsx` was read closely enough to show
+  the barred default already does that with no key set at all (see the Task
+  10 fix below). **What did not come along is the translucency itself**: a
+  block's fill is one opaque colour with no alpha channel, so the sampled
+  tone stands in for the photograph showing through rather than being it —
+  recorded as gap 13 in the pastiche findings rather than approximated past.
+
+  **The first sampled surface made the page unreadable, and nothing in the
+  build would have said so — closed in review, same day.** Averaging five
+  patches of a translucent box blended with a photograph landed on
+  `#555a6a`, OKLCH `L≈0.4691` — almost exactly mid-lightness, which is the
+  one region `derivePalette` cannot serve text in either direction. Measured:
+  ink read 2.86:1 against it, muted 3.06:1, edge 3.01:1, against floors of
+  4.5, 4.5 and 3.0 — the same "no direction clears the minimum" hole this
+  file already documents for `#008080`. The fix is `surface: "#737989"`, the
+  nearest colour to the sample along the same lightness axis that clears
+  4.5:1 both ways (found by sweeping, not guessing: darker does not recover
+  legibility until `ΔL≈-0.28`, where the solved ink flips from dark to
+  light text; lighter needs only `ΔL≈+0.11`). **`pnpm check:contrast` never
+  caught this and structurally cannot**: it measures `globals.css`'s own
+  fixed token pairs and never reads a stored theme, so an author's `surface`
+  can sit on the one lightness a palette cannot serve and every gate stays
+  green. Recorded as gap 14 in the pastiche findings, separate from gap 13 —
+  naming the hole rather than proposing a general checker.
+
+  **`corners` was tried alongside `radius: "square"` and removed.** A key
+  named in the brief turned out to be a no-op there: `radius: "square"` drives
+  `--skin-round` to `0`, and every corner `corners` names computes as a
+  multiple of that same token — so a "rounded" corner and a square one are
+  the identical `0`. `corners` says WHERE and `radius` says HOW MUCH, and
+  where is meaningless once how-much is zero everywhere. A key that changes
+  nothing is a dead letter that reads like a change in the diff, so it is
+  absent from this page rather than decorative on it — its first real use
+  belonged to a page that wants the window shape it actually draws: a bar
+  rounded across its top over a body square at its foot, which needs
+  `radius: "soft"` to mean anything.
+
+  **That page arrived the same day — hi5 and Sonico (2026-08-29).** Every
+  section on both now carries `radius: "soft"` with `corners: "tl,tr"` and
+  `heading_pad: "snug"`: the bar rounds across its top, the body squares off
+  at its foot. (`heading_gap: "none"` was set alongside these too and removed
+  in a later pass — both are `heading: "bar"` or `heading: "gradient"`,
+  already barred, and a barred heading's gap already collapses with no key
+  set at all; see the Task 10 fix below.) Which of the two keeps `heading:
+"gradient"` was decided from a fresh sample of each capture rather than
+  copied from the other — hi5's SIGN IN / SEARCH IN YOUR CITY / POPULAR
+  VIDEOS bars read a real vertical sheen pixel by pixel (`#6d95b3` →
+  `#80a0c8` → `#5481b6`), so it keeps `"gradient"`; Sonico's top nav
+  (`#3366cc`) and footer (`#003399`) read flat at every scanline sampled, so
+  it moves to `"bar"`. Sonico's `accent`/`surface` were re-sampled and held.
+
+  **And hi5's own comment carried a wrong date, which is the same fault this
+  file warns about under "Squash the migrations" and elsewhere: a confident
+  sentence outliving the value that falsifies it.** It said "a 2007 capture";
+  the timestamp actually fetched (`20080215082853`) is **February 2008**. The
+  same wrong year was repeated in the README's evidence list and in the
+  pastiche findings doc — fixed there too, because a wrong date left standing
+  in two more places is not a smaller problem than the one in the seeder.
+
+  **Three places corrected is where you check for a fourth, and there were
+  two more — both inside `pastiche-pages.mjs` itself.** Review found the
+  MySpace paragraph two entries up still read "belongs to" — future tense,
+  even though hi5 and Sonico fulfil the prediction later in the very same
+  file and commit — and found the boilerplate "No animation at all, which is
+  what a flat 2007 page had" sentence surviving unchanged inside BOTH
+  `hi5Theme` and `sonicoTheme`, six lines below the new date-correction
+  comment in hi5's case and simply false in Sonico's, whose capture is
+  October 2008 and which was already dated 2008 everywhere else. **The
+  easiest place to miss a stale copy is the file you are actively editing**,
+  because you are reading it for the change you meant to make, not grepping
+  it for every other sentence the change might have made false. All four are
+  fixed now: "belongs" → "belonged" with hi5 and Sonico named, and each
+  boilerplate sentence carries its own page's real year.
+
+  **An SPA replays as nothing, so "no archive" and "an archive of the wrong
+  subject" are different claims.** Bluesky and Threads were written up as
+  having no archive at all; both have years of captures. Bluesky's replays as
+  the logged-out splash and Threads' replays **blank**, because a crawler
+  stores markup and these pages are built after it. Only the sharper statement
+  is true, and it is the one that tells the next person not to look again.
+
+  **Fotolog is sharper too, in the other direction.** "Its captures do not
+  render" holds for the nav — raw bullet lists, browser-default blue — and the
+  page's table-and-inline-styled content panels DO render. So it is partial
+  evidence: good for density and arrangement, none at all for anything the
+  stylesheet governed. Neither "knowledge-built" nor "evidence-backed" is the
+  right label, which is why it now carries the caveat instead of a label.
+
+  **`ERA_LOOKS` ARE THE PICKER'S TEMPLATES, so nothing decorative may be added
+  to them.** They are spread into `TEMPLATES` in `fursona-templates.ts`, which
+  means anything put there lands on the page of every author who picks that
+  look — a reference screenshot of somebody else's operating system included.
+  Whatever a showcase page needs beyond the look itself is appended by
+  `scripts/seed-pastiches.mjs`, which is also the only place the two sets can
+  be kept consistent.
+
   **The seeder owns everything the pages depend on**, and that was learned the
   hard way twice in one session: the avatars had been set by hand outside it,
   so a re-run left the newest pages with an empty circle; and it went on
   writing `unlisted` after the pages had been made public by hand, silently
   undoing that on every run. **A seed that does not restore everything it
   depends on works exactly once.**
+
+  **AND THE SEEDER BYPASSES `set_actor_sections` ENTIRELY, which nothing said
+  out loud until 2026-08-29.** It writes `actor_profiles` with direct SQL, so
+  the depth cap, the style-bag allowlist and the required-kind rule — every
+  database-level guard the product has — are simply not applied to a seeded
+  page. A seeded page can therefore be a shape the editor would refuse and a
+  save would reject, and it will render anyway.
+
+  So **the sixteen showcase pages had no validation of any kind**: not the
+  database's, because it is bypassed, and not a test's, because
+  `seed-pastiches.mjs` reads `SUPABASE_DB_PASSWORD` and calls `process.exit`
+  at module top level and then `client.connect()`, so it cannot be imported at
+  all — the only way to find out whether a page was valid was to write it to
+  production and look. That is why the page definitions now live in
+  `scripts/pastiche-pages.mjs`, the module the seeder imports — named here in
+  the commit before that module existed, which is worth marking, since a note
+  that runs ahead of its code reads exactly like one that has fallen behind
+  it: **a thing that cannot be imported cannot be checked**, and moving it is
+  usually cheaper than whatever the alternative gate would have been.
+
+  **The gate landed and immediately paid for itself, same day.**
+  `apps/hub/tests/pastiche-pages.test.ts` pushes all sixteen pages through the
+  real `parseTheme`, `blocksSchema` and a walk against `REQUIRED_KINDS` — the
+  three checks `set_actor_sections` would have made, reassembled outside the
+  database because the seeder still cannot be imported. It found real defects
+  on its first run, six of the sixteen pages, all the exact shape this note
+  predicted: `board` and `geocities` had `speed: 0.2`, below
+  `CANVAS_RANGE.min` of `0.25`, silently raised to it on every read rather than
+  refused; `threads` and `geocities` each had an empty `title_en` on an
+  otherwise-unlabelled text leaf, which the strict schema refuses outright;
+  and `furaffinity`, `fotolog` and `facebook` were each missing at least one
+  required kind — `owner` on all three, `avatar` on `fotolog` too, `handle` on
+  `facebook` too. Every one had been rendering anyway, because nothing had
+  ever asked. All seven are fixed now, minimally and idiomatically rather than
+  restyled — an `owner` leaf appended to each page's own final section,
+  `avatar`/`handle` added to the identity block at the top the same way every
+  other page already does it, the two speeds raised to the floor, and the two
+  empty titles given real text (`threads`' bio was titled "Bio", matching
+  `board` and `sky`; `geocities` gained "NOTICE" over its
+  visitor-counter-and-browser-notice text). The restyle itself is still each
+  page's own later task — **and `threads`' own restyle later replaced "Bio"
+  with its own text, so it no longer matches `board` and `sky`, which still
+  carry the word.**
+
+  **And it is rule 29 again, on the SABOTAGE rather than the page.** The first
+  attempt to sabotage-verify the theme case matched `skin: "default"` inside
+  the shared `theme()` factory's own default literal — the one every page
+  overrides via its own `...over` spread — rather than inside `myspaceTheme`
+  itself. The substitution landed and grep confirmed it, and the suite came
+  back reporting the same 7 pre-existing failures it already had: a sabotage
+  that applied and changed nothing observable, which reads exactly like a
+  successful verification unless the failure COUNT is checked rather than the
+  presence of the edit. Redone against the theme object's own line, it
+  reddened exactly the one case it should and none of the other two.
+
+  **A page can now show what it is imitating (2026-08-29), and "three" and
+  "four" are both true statements about it.** `scripts/pastiche-references.mjs`
+  is the registry — one entry per handle, each a hot link and never a stored
+  file — and `inspirationSection` turns an entry into an appendix section, no
+  colour or chrome of its own. **It is appended now**, in both of
+  `seed-pastiches.mjs`'s loops, onto a local copy of each page's `blocks` —
+  never stored in `PAGES` or `ERA_LOOKS` themselves, for the same reason
+  those two arrays carry nothing decorative already: `ERA_LOOKS` is spread
+  into the picker's own `TEMPLATES`, so a section stored there would land on
+  the page of every author who picks that look.
+  `absent` means "this page carries no picture," and it covers two different
+  reasons rather than one. `board`, `sky` and `threads` are three where no
+  archive can hold the SUBJECT — a crawler never sees the dark mode, the
+  signed-in profile, or the client-rendered markup — matching the design
+  spec's "three of sixteen have no capture of the right subject." `geocities`
+  is a fourth, for a different reason, and it is not a counterexample to that
+  sentence: `geocities.restorativland.org` **is** evidence of the right
+  subject, a restored gallery of real archived personal pages. What it lacks
+  is a single capture, because the subject was never one page. A reader who
+  counts four `absent` entries against a spec that says three should read
+  both as true rather than go looking for the bug that reconciles them.
+
+  Two dated operational facts about sources a published page now hot-links at
+  render time, measured 2026-08-29 and worth re-checking past that date
+  rather than trusted: `arquivo.pt`'s screenshot endpoint connect-times-out
+  (10s) on a request fired immediately after another to the same host, and
+  the identical URL succeeds once spaced a few seconds apart or retried;
+  `upload.wikimedia.org` answered `429` to two rapid requests and `200`
+  moments later. Neither is a bad URL — both are load on somebody else's
+  server, not a wrong timestamp — so a script that resolves several of these
+  in a tight loop should expect a failure a respaced retry clears, and should
+  not read one as evidence the reference itself is wrong.
 
 - **A window is corners chosen one at a time (2026-08-29).** `corners` and
   `heading_corners` name which of a block's — and its bar's — corners are
@@ -630,6 +883,169 @@ Key choices and _why_:
     verification.** One here matched nothing, the suite stayed green, and the
     pin appeared proven. Rule 29 with the mutation step itself as the fixture:
     check the substitution LANDED before believing the run.
+
+- **The pastiches were rebuilt against their captures, one task at a time
+  (2026-08-29), and the `corners`/`radius: "square"` no-op above shipped in a
+  brief a third time before it was caught.** MySpace, hi5, Sonico, Facebook,
+  Fotolog, Fur Affinity and GeoCities were each re-sampled from a real
+  archived (or, for two, live) capture; `docs/superpowers/specs/2026-08-27-pastiche-findings.md`
+  and this file's own pastiche entries above carry each page's account.
+  **Fur Affinity gained the window-shape keys** — `heading: "bar"`,
+  `heading_pad: "roomy"` and `radius: "square"` on its three named sections —
+  confirmed from a _second_, newer arquivo.pt capture
+  (`20191214070143`, December 2019) whose date does not match the page's own
+  (2008, from a `web.archive.org` capture unreachable now): kept at 2008 and
+  the mismatch stated in the comment, the same shape already recorded for
+  Facebook's two captures above. (`heading_gap: "none"` was set alongside
+  these too and removed in a later pass — the sections are already barred,
+  which already welds the bar flush to its content with no key set at all;
+  see the Task 10 fix below.) **GeoCities changed once, narrowly**: every
+  section now carries `radius: "square"`, which nothing had set before —
+  a 1998 personal homepage rounds nothing, where the default skin rounds at
+  `--skin-round: 1`. Neither page took a `corners` key: a task brief asked for
+  `corners: "tl,tr"` paired with `radius: "square"` a third time (after
+  MySpace and the audit that followed it), and a third writer had to
+  re-confirm the same no-op — `radius: "square"` already zeroes
+  `--skin-round`, so `squareOffCorners` resolves every named corner through it
+  to the same zero.
+
+  **The last four had no capture of the right subject to rebuild against, and
+  three of them barely moved (2026-08-29).** Messenger's measurements were
+  already right — `#f8f8f8` over `#193c74`, from the Wikipedia 8.0 screenshot
+  — and gained only the window shape: `radius: "soft"` with `corners:
+"tl,tr"` on all three sections, and `heading: "bar"` on the first one, whose
+  own name — "Aeleos (Available)" — is the literal text a real Messenger
+  title bar carries, so the measured navy accent finally renders as a bar
+  instead of sitting unused. `heading_corners: "tl,tr"` matches its own bar's
+  corners to the section's. (`heading_gap: "none"` was set alongside it and
+  removed in a later pass — the section is already barred, which already
+  welds it flush to Aeleos's own info beneath it with no key at all; see the
+  Task 10 fix below.) The board changed nothing at all: `chrome: "bare"` and
+  a dark mode no crawler
+  will ever see are both already right. Bluesky and Threads were re-measured
+  live rather than re-derived — both confirmed unmoved, Threads across four
+  readings with one transient outlier that read the CARD colour rather than
+  the ground and did not reproduce. **A live reading that does not move is
+  still worth dating**, so both comments now carry their own re-confirmation
+  date rather than resting on the original one silently.
+
+  **Threads' "Bio" label was a small stale decision, and the first fix for it
+  was wrong too.** An earlier task filled its empty `title_en` with "Bio" to
+  satisfy strict validation, matching board and sky — but this page's whole
+  design is that nothing is labelled, and "Bio" is a field name no real
+  Threads profile shows. The first replacement was "aeleos", reasoned from the
+  `post()` idiom below it (a bold handle line over a paragraph) without
+  reading what the SURROUNDING leaves actually render. **Review traced the
+  real output and found it was worse than a label: the section is itself
+  named "aeleos"; `NameLeaf` labels its own `title_en` — "Aeleos" — over
+  `page.displayName`, which is "aeleos"; `HandleLeaf` labels ITS `title_en` —
+  "aeleos" — over `page.handle`, "threads".** So "aeleos" was already three
+  plain-text occurrences deep before the bio, and retitling it to the same
+  word made four, stacked with no separation — a different visual context
+  from the same word prefacing several separated posts in a feed. The bio is
+  `title_en: "building in public"` / `description_en: "posting in private"`
+  now: its own two clauses, split so `PlainLeaf` renders bold-then-plain — no
+  invented word, no label, no repetition.
+
+  **The grep that should have caught the stale "Bio" sentence two paragraphs
+  above searched the wrong axis.** It searched `messenger`, `no capture`,
+  `no archive` — terms for the TOPIC being worked on — and missed the one
+  two paragraphs above this that names `Bio` as threads' title, which the
+  retitle made false: it still read "`threads`' bio is titled 'Bio', matching
+  the identical content on `board` and `sky`" after the bio no longer was.
+  **Grep for the strings you edited, not the topic you worked on** — a stale
+  sentence is falsified by what changed, not by what the change was about.
+
+  **Task 10 closed the era looks (2026-08-29), and found the SAME no-op one
+  level up from `corners`/`radius: "square"` — on `heading_gap`, not on the
+  keys the brief warned about.** `era-win98` gained `heading_pad: "snug"` (a
+  real change: `px-2 py-0.5` against the default `px-3 py-2`, sampled off
+  `Windows98.png`'s own tight title-bar chrome) and deliberately did NOT gain
+  `heading_gap: "none"`: a barred heading's gap already collapses to `gap-0`
+  with no key set at all, so `"none"` there reads the identical class —
+  `blocks.test.tsx`'s own heading-gap comment names this exact case ("would
+  pass on a renderer that ignored the key entirely"). `era-winxp` was left
+  alone for the same reason; its `corners`/`heading_corners` already express
+  Luna's window shape from a prior commit on this same branch, which made the
+  dispatched task's own premise that "`heading_corners` is unset on all five
+  looks" stale before the task began. `era-vista` and `era-win7` kept plain
+  headings — both captures show visibly translucent Aero glass, and a solid
+  `bar` fill would have painted over the one thing the era is — and
+  `era-win8` kept its plain heading too, though for a DIFFERENT reason than
+  `heading_pad`'s genuine dead-letterness there: `heading_gap` is not gated
+  to a bar the way `heading_pad` is, so `"none"` on a plain "Start" heading
+  would have been a real, wrong weld, not the harmless no-op it is on an
+  already-barred section.
+
+  **The same no-op had already shipped 13 times, from the same author's own
+  briefs, before this was caught (2026-08-29).** `heading_gap: "none"` sat on
+  every `heading: "bar"`/`"gradient"` section MySpace, Messenger, hi5, Sonico
+  and Fur Affinity's Tasks 5, 6, 8 and 9 added — enumerated through the real
+  `PAGES` module rather than by pattern-matching text, which is what makes
+  the count exact: 13 dead, 0 live. That contradicted two rulings already on
+  the record for this exact principle — `heading_pad` stripped from
+  Vista/7/8 above, and `corners: "tl,tr"` stripped from MySpace for pairing
+  with `radius: "square"` — so all 13 came out, and the five stale comments
+  that credited the key with "welding" a bar were corrected to say what
+  actually welded it: the barred default, which was there regardless.
+  **A survey is a claim about the day it ran**, and the day this one ran was
+  before `blocks.tsx`'s own fallback had been read for what it does on a bar
+  specifically, not only on a plain heading.
+
+  **Task 11 re-derived both README tables and the findings document from the
+  file rather than from memory, and found a SECOND instance of the exact
+  failure this branch already paid for once.** The findings document's own
+  "what landed, and what carried it" table — the one whose header already
+  confesses that five of eleven rows went stale after a rebuild — had drifted
+  again in the same direction: it still called MySpace's backdrop "tiled"
+  after task 5 replaced it with a photograph, and named no window shape at all
+  for hi5, Sonico, Messenger or Fur Affinity after tasks 6, 8 and 9 added one.
+  A genuine self-contradiction sat twenty lines below its own correction too —
+  "**Fotolog stays recalled**" survived after "Fotolog is genuinely PARTIAL,
+  not knowledge-built" had already replaced that reading higher up the same
+  document. Also corrected: Fur Affinity's two-capture pattern stated to match
+  Facebook's (a December 2008 palette capture, unreachable now, plus a
+  December 2019 chrome capture at a different archive); MySpace's stale
+  "2007 profile" claim replaced with the October 2008 `arquivo.pt` capture and
+  the portal-vs-page (43 real profiles) finding, which had reached this file
+  but not the findings document itself; Bluesky and Threads' "no archive"
+  framing sharpened to "archive history of the wrong subject" (a logged-out
+  splash, a blank client-rendered replay); and gap 10 (the window shape) noted
+  as closed for the social pastiches too, not only the era looks. A
+  corrections banner naming six wrong plan instructions — each traced to the
+  brief or dispatcher ruling that stated it, not reconstructed from memory —
+  was added atop the plan rather than rewriting its body.
+
+  **Task 12 closed the branch: all sixteen pages were seeded to production and
+  photographed, the first time anyone had looked at any of them rendered
+  rather than merely validated.** Every gate on this branch passes with a
+  broken reference capture — the URL is a string and nothing fetches it at
+  build time — so a look was the only way to find out. All sixteen reference
+  captures loaded, none showed an archive-error placeholder, and every page
+  read back as its subject. One new limitation came out of that look rather
+  than a bug: **gap 15 in the pastiche findings**, arquivo.pt's screenshot
+  endpoint returning a fixed canvas regardless of the archived page's real
+  height, on four of the six pages it backs.
+
+  **The photography method itself had a bug first, and it is the same
+  instrument-versus-subject failure this file already names from the other
+  direction.** Playwright's `fullPage: true` does not recompute layout for
+  `background-attachment: fixed`, which the body's own gradient uses —
+  Chromium keeps the original viewport for layout purposes during a
+  full-page capture, so a fixed-attachment background stays anchored to
+  that one rectangle rather than extending into the captured overflow. A
+  dark-themed page taller than the viewport therefore photographed with a
+  false white band below the fold, on the first pass. A normal scrolled
+  screenshot, and one taken after resizing the viewport to the page's true
+  `scrollHeight` before capturing, both show the gradient correctly the
+  whole way down — proving no visitor ever sees it. The fix is to resize to
+  `scrollHeight` before capturing, not to distrust the theme. Worth
+  carrying past this branch: **picture proof on a pull request is required
+  in this repository**, so anyone photographing a themed page will hit this
+  exact artifact and can file it as a rendering bug that does not exist — an
+  instrument reporting its own behaviour as the world's, the same shape as
+  this file's warning never to sabotage a mechanism your instrument is
+  built on.
 
 - **A claim about STORED data is checkable now — `pnpm check:page-shapes`.**
   It counts every page in the live database by the shape it is written in, so
@@ -2428,6 +2844,34 @@ every Tailwind utility for months without anything noticing.
     moved in the same breath as asserting no control did, because a fixture
     where the theme never applied reports "nothing changed" too. That half is
     proved capable of failing by choosing a value the control already holds.
+
+40. **Vitest transpiles without typechecking, so a test file can pass every
+    suite at 100% and still fail `tsc`.** A 25-commit branch passed 3372 hub
+    tests, 131 tool tests, `check:tools` and coverage, then failed CI on two
+    commands no task in the plan ever ran: `pnpm typecheck` and
+    `pnpm --filter hub build`. Both are required checks, and both read the
+    two newest test files with the compiler rather than with `vitest`'s
+    esbuild transform, which strips types and never reports on them.
+
+    Two shapes, both worth naming because each recurs. **A record type under
+    `noUncheckedIndexedAccess` makes `REFERENCES.hi5` a `Reference |
+undefined`**, even where the handle is a literal known to exist — the
+    honest fix is a named lookup helper that throws on a missing key, which
+    is _stronger_ than the unchecked access it replaces rather than a
+    workaround for the compiler: a typo'd handle now fails with a sentence
+    instead of either a type error or a silent `undefined`. And **a plain
+    interface has no index signature**, so `parseTheme(theme) as Record<string,
+unknown>` is a cast between two shapes that do not sufficiently overlap;
+    `Object.entries` on that same value already resolves to `[string,
+unknown][]` through its `{}` overload, with no cast of the whole object
+    needed at all.
+
+    Neither fix reaches for `!`, `as any`, or `@ts-expect-error` — each of
+    those makes the type error disappear while making the assertion it sits
+    in weaker, which is the one move this repository's whole testing
+    discipline forbids. **Run `pnpm typecheck` and `pnpm --filter hub build`
+    on any branch that added a test file before trusting a green `vitest`
+    run**; a passing suite is not evidence about a file `tsc` never saw.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

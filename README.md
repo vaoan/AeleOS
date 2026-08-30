@@ -66,33 +66,46 @@ in the findings document linked below — by now they are most of the style bag.
 That list is deliberately not restated here as a count, because a count is the
 first thing to go stale.
 
-| page                                                                 | the era                    | what it proves the editor can do                                                                               |
-| -------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [MySpace](https://me.furrycolombia.com/137/myspace)                  | 2005                       | A tiled background, a two-column body on `weights`, a Top 8, and a Winamp-chromed music player                 |
-| [Fur Affinity](https://me.furrycolombia.com/137/furaffinity)         | the furry web              | A full-bleed banner, a narrow stats rail beside a wide body, a submissions grid, and a wall of shouts          |
-| [Fotolog](https://me.furrycolombia.com/137/fotolog)                  | 2005, and huge in Colombia | One enormous photograph and a guestbook longer than the rest of the page                                       |
-| [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | A navy title bar over a lighter blue one, an information table, a six-across friends strip, and a divided wall |
-| [hi5](https://me.furrycolombia.com/137/hi5)                          | 2007                       | Gradient title bars over white, a carousel of widgets, and a profile-completeness meter                        |
-| [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Near-white panels over blue glass, both measured off a real 8.0 screenshot, and contact groups that collapse   |
-| [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | Navy `#003399` bars on white with grey panels, all measured, and a real photo wall in `masonry`                |
-| [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | A serif and centred text, a starfield, a tiled mosaic, a visitor-stats table and a webring                     |
-| [a microblog board](https://me.furrycolombia.com/137/board)          | ~2019                      | Bare rows with a hairline between them, counts rows, and social chips that resolve a brand                     |
-| [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | Flat white and `#006aff`, both read off the live site; roomy where the rest are compact                        |
-| [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline and no cards, on the live site's own `#0a0a0a`                               |
+**Every page below also carries its own reference capture at its foot** — the
+real archived page, live site or screenshot it was rebuilt against, embedded
+on the page itself rather than left to a caption, so a visitor can compare the
+pastiche to its subject without leaving it.
+
+| page                                                                 | the era                    | what it proves the editor can do                                                                                                          |
+| -------------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [MySpace](https://me.furrycolombia.com/137/myspace)                  | 2005                       | A night-skyline photograph behind every box, a two-column body on `weights`, a Top 8, and a Winamp-chromed music player                   |
+| [Fur Affinity](https://me.furrycolombia.com/137/furaffinity)         | the furry web              | A full-bleed banner, a narrow stats rail beside a wide body, a submissions grid, bars welded flush to square panels, and a wall of shouts |
+| [Fotolog](https://me.furrycolombia.com/137/fotolog)                  | 2005, and huge in Colombia | One enormous photograph and a guestbook longer than the rest of the page                                                                  |
+| [Facebook](https://me.furrycolombia.com/137/facebook)                | 2008                       | A navy title bar over a lighter blue one, an information table, a six-across friends strip, and a divided wall                            |
+| [hi5](https://me.furrycolombia.com/137/hi5)                          | 2008                       | Gradient title bars rounded across their top over square-footed panels, a carousel of widgets, and a profile-completeness meter           |
+| [Windows Live Messenger](https://me.furrycolombia.com/137/messenger) | 2006                       | Near-white panels over blue glass, both measured off a real 8.0 screenshot, a rounded window shape, and contact groups that collapse      |
+| [Sonico](https://me.furrycolombia.com/137/sonico)                    | 2008                       | Flat navy `#003399` bars on white with grey panels, rounded the same way as hi5's, and a real photo wall in `masonry`                     |
+| [GeoCities](https://me.furrycolombia.com/137/geocities)              | 1998                       | A serif and centred text, square-cornered panels, a starfield, a tiled mosaic, a visitor-stats table and a webring                        |
+| [a microblog board](https://me.furrycolombia.com/137/board)          | ~2019                      | Bare rows with a hairline between them, counts rows, and social chips that resolve a brand                                                |
+| [Bluesky](https://me.furrycolombia.com/137/sky)                      | 2023                       | Flat white and `#006aff`, both read off the live site; roomy where the rest are compact                                                   |
+| [Threads](https://me.furrycolombia.com/137/threads)                  | 2023                       | Edge-to-edge rows with a hairline and no cards, on the live site's own `#0a0a0a`                                                          |
 
 **What is copied is layout, palette and density** — if a pastiche and the real
 thing differ, the pastiche is wrong, not the model.
 
 How much evidence each one rests on differs, and it is worth knowing before you
-trust a colour (as of 2026-08-28):
+trust a colour (as of 2026-08-29):
 
-- **Measured against a real archived capture:** Fur Affinity (December 2008 —
-  it was measurably wrong and was corrected), Facebook (March 2007), MySpace
-  (a 2007 profile) and hi5 (2007).
+- **Measured against a real archived capture:** Fur Affinity (a real December
+  2008 capture confirmed its palette — it was measurably wrong and was
+  corrected; a second, independently reachable **arquivo.pt** capture from
+  December 2019 later confirmed its chrome, the window shape included), Facebook
+  (March 2007, from **web.archive.org** — a separate, unreachable-from-here
+  archive, not to be confused with the February 2008 **arquivo.pt** capture the
+  page links to as its reference; see the findings for why there are two),
+  MySpace (an October 2008 **arquivo.pt** capture of a real customised profile,
+  not the site's own default chrome) and hi5 (February 2008).
 - **Measured against the live site:** Bluesky and Threads, both still running,
-  so neither needs an archive at all. Both moved when checked — Bluesky's
-  accent is `#006aff` and not the `#0085ff` everybody quotes, and Threads had
-  to be read under a dark colour scheme to mean anything.
+  so neither needs an archive at all — and each has archive history that turns
+  out to be of the wrong subject: a crawler is served Bluesky's logged-out
+  splash and Threads' own captures replay blank. Both moved when checked —
+  Bluesky's accent is `#006aff` and not the `#0085ff` everybody quotes, and
+  Threads had to be read under a dark colour scheme to mean anything.
 - **Measured against a screenshot:** Windows Live Messenger, from Wikipedia's
   own capture of version **8.0** — the 2006 release this page is dated to. It
   is a desktop application, so a screenshot is the right evidence and an
@@ -103,8 +116,12 @@ trust a colour (as of 2026-08-28):
   GeoCities, from a restored gallery of real archived personal pages, where
   five out of five are Times New Roman: that confirmed the design rather than
   changing it.
-- **Built from knowledge, because no source can settle them:** Fotolog, whose
-  captures render unstyled at two independent archives, and the microblog
+- **Measured partially, from a capture whose stylesheet did not survive:**
+  Fotolog — the nav replays as 126 raw links in the browser's own default
+  blue, but its boxed panels are table-and-inline styled and DO render, so
+  its arrangement and density are measured (a `#f0f0f0` panel on a flat white
+  field) while its accent stays recalled.
+- **Built from knowledge, because no source can settle it:** the microblog
   board — a crawler arrives logged out and is served the light page, so **no
   archive anywhere holds the dark palette it imitates.**
 
@@ -126,9 +143,12 @@ They are **public and listed on `/137`** beside the social pastiches. They were
 `unlisted` at first, which made the five this project is proudest of the five
 nobody browsing the profile could find.
 
+Each carries its own reference screenshot at its foot too, the same as the
+eleven pages above.
+
 | look                                                        | built on              | what it proves, or fails to                                                                      |
 | ----------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |
-| [Windows 98](https://me.furrycolombia.com/137/era-win98)    | the `retro` skin      | The raised bevel and navy title bars, on silver panels over a flat teal desktop                  |
+| [Windows 98](https://me.furrycolombia.com/137/era-win98)    | the `retro` skin      | The raised bevel and a tight navy title bar, on silver panels over a flat teal desktop           |
 | [Windows XP](https://me.furrycolombia.com/137/era-winxp)    | `heading: "gradient"` | Luna's blue gradient title strips over near-white panel bodies                                   |
 | [Windows Vista](https://me.furrycolombia.com/137/era-vista) | the `aero` skin       | Aero glass whole — the blur, the sheen, the translucent surface — with **nothing new added**     |
 | [Windows 7](https://me.furrycolombia.com/137/era-win7)      | the same `aero` skin  | The same mechanism as Vista in a different palette, which is the argument for looks as documents |
