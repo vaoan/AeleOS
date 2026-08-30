@@ -287,6 +287,10 @@
     "unreconstructable",
     "unrunnable",
     "unskinned",
+    // `retryingFetch`'s own vocabulary for a throw that is rethrown on the
+    // first attempt rather than retried — "retried" is already a word, and
+    // its negation reads the same way "unwelded" already does above.
+    "unretried",
     "unwelding",
     "unstub",
     "unthemed",

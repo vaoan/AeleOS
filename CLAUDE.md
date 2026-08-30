@@ -2897,7 +2897,10 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     throws; a 4xx or 5xx is handed straight back, because retrying a real
     refusal makes it a slow real refusal. Its test pins that by CALL COUNT
     rather than by status — a retried call that eventually returns the same
-    429 looks identical from the status alone.
+    429 looks identical from the status alone. Its coined vocabulary word,
+    "unretried" — the throw that is rethrown on the first attempt rather
+    than retried — is in `cspell.json`'s `words` list, next to "unweld" for
+    the same reason.
 
     **There is no backoff any more, and there never should have been
     (2026-08-29).** The first version of `retryingFetch` waited between
