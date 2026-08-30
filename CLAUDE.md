@@ -1961,6 +1961,127 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   Spec: `docs/superpowers/specs/2026-08-27-page-source-and-sharing-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-page-source-and-sharing.md`.
 
+- **A block may hide its own title as a label (2026-08-29).** `label`
+  (`"show"` / `"hidden"`) on a block's style bag closes gap 16 of the pastiche
+  findings — `AvatarLeaf`, `HandleLeaf`, `NameLeaf` and `OwnerLeaf` each draw
+  an optional label above their own value with no way to turn it off, so a
+  page stacking them at the top, as the required-blocks shim arranges them,
+  reads as a column of label-value pairs rather than one identity.
+
+  **`hidden` composes with the enclosing mode's own suppression by narrowing
+  it, never widening it.** `showsLabel`
+  (`apps/hub/src/features/actors/presentation/block-contract.ts`) is the one
+  place the two meet: `labelled && style?.label !== "hidden"`. A `tabs` or
+  `accordion` panel that has already shown a leaf's title elsewhere
+  (`labelled: false`) stays that way whatever the block's own key says —
+  `label: "show"` cannot put a title back where the mode has already drawn
+  it. Absent (or `"show"`) is exactly what `labelled` alone always meant, so
+  no stored page, template or author's page changes.
+
+  Reached by the four identity leaves and by `PlainLeaf` — the `text` kind and
+  the fallback every unrecognised kind lands on — through the one shared
+  function; no other leaf kind reads it. Pinned like every other closed
+  vocabulary written down twice: `block-limits-match-migration.test.ts`
+  compares `BLOCK_STYLE_LIMITS.label` against `0009`'s own `elsif v_key =
+'label'` branch, added beside `chrome`'s in `validate_block` in the same
+  shape, with the column comment and `STYLE_KEY_MEANINGS` updated in the same
+  change. See `apps/hub/src/features/actors/CLAUDE.md` for the account in
+  full.
+
+  **Applied across the eleven seeded social pages the same day, and the rule
+  is: an identity label says what the thing is called on the site being
+  imitated, and is hidden where that site shows no label at all.** The five
+  era looks are generated picker templates and were correctly left alone —
+  they still render `handle="Handle"` and `owner="Owner"`. That
+  turns "should this page show a label here" from taste into a question
+  about the capture already sitting in `scripts/pastiche-pages.mjs`'s own
+  comments. Three findings fell out, checked page by page rather than
+  assumed:
+
+  - **`name` is hidden on every page that has one.** Its title always
+    restates `displayName` verbatim (`"Aeleos"` over `"Aeleos"`, `"aeleos"`
+    over `"aeleos"`), and no captured site ever captions a display name with
+    the word "Name" — it is only ever shown once. That is true independent
+    of era: MySpace's and Fur Affinity's own dense labelled UIs still never
+    label a NAME field, which is what makes this the one leaf hidden
+    everywhere rather than judged per page.
+  - **`owner` is hidden on ten of the eleven social pages.** It names a
+    person behind the fursona — an AeleOS concept with no equivalent on any
+    of these sites — so the rule hides it by default. Fotolog is the one
+    keep: `"Este Fotolog es de"` is the site's own guestbook convention, not
+    an invented label, so it stays exactly as it already read.
+  - **`handle` is a real per-page judgement, not a blanket move.** MySpace,
+    hi5, Sonico, GeoCities, Fur Affinity, Fotolog and Messenger each show
+    enough of a labelled-panel convention on their own capture to keep the
+    word already chosen — a dense box-and-table UI, a properties-style info
+    card. The board, Bluesky and Threads are live, unlabelled modern
+    profiles; Facebook's `"Profile ID"` names a fact the real 2008 page
+    never printed anywhere on itself, the numeric id having lived in the
+    address bar alone — those four are hidden.
+
+  **`avatar`'s title is untouched everywhere.** It is alt text rather than a
+  visible label — `AvatarLeaf` never draws a `<Label>` at all — so this gap,
+  which is about what RENDERS, has nothing to say about it; hiding it would
+  only have deleted a screen reader's one source for whose portrait this is,
+  for no visual gain.
+
+  **The Threads page is gap 16's own worked example, and hiding the label
+  was not the whole fix.** Its header comment already named the fault by
+  hand — "aeleos" appearing three times, the section name, the name leaf's
+  value and the handle leaf's label — and hiding the LABEL only silenced the
+  third repeat: the page still rendered "aeleos" (the section heading),
+  "aeleos" (the name, unlabelled) and "threads" (the handle, unlabelled),
+  and the first two are the same word, adjacent, because nothing about a
+  leaf's own caption touches a CONTAINER's `name_en`. That half is closed
+  now too (same day): the section's own heading duplicated an identity
+  leaf's value on seven of the sixteen pages — `messenger`, `board`, `sky`,
+  `threads`, `hi5`, `sonico` and `facebook` — found by deriving what each
+  page renders top to bottom rather than by reading the style bag. Each was
+  resolved per page, judged against its own capture note, by dropping
+  whichever of the two — the section's heading or the leaf's value — is not
+  the authentic line: Messenger, hi5 and Sonico keep a genuinely captured
+  title-bar convention and lose the redundant `name` leaf (`name` is
+  optional, never in `REQUIRED_KINDS`); the board, Bluesky, Threads and
+  Facebook have no such convention on their real subject, so the section's
+  invented heading goes (an unnamed `group` in place of a named `section`)
+  and the leaf is what a stranger reads. Threads now renders "aeleos" (the
+  name, unlabelled) then "threads" (the handle, unlabelled) — no two
+  adjacent lines say the same word.
+
+  **What this does not settle, on purpose.** Whether the four identity
+  leaves belong in one composed block rather than four independent ones is
+  untouched — hiding a caption, and choosing which of a section's heading or
+  a leaf's value survives, are both per-instance fixes rather than a
+  mechanism that makes the four read as a single unit, and they still know
+  nothing of each other. And "what should a handle's title say" still has no
+  shared convention across the eleven; this closes only whether a title is
+  ever SHOWN on a given page, not what it should read when it is. Findings:
+  `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, gap 16.
+
+  **A blocking review defect, and then a second one the fix itself
+  introduced, both closed the same day (2026-08-30).** The "Own title"
+  select this key rides in on offered itself on every container, whatever
+  kind it held: `showsLabel` composes `style.label` for exactly five leaf
+  kinds — the four identity leaves and `PlainLeaf` (`text`) — and no
+  container ever reads it (a container's own name draws from `labelled`
+  alone, `blocks.tsx`). The first fix added a `honoursLabel(kind)` helper and
+  a `SectionStylePopup` prop gating the select on it. **That gate was `false`
+  by construction, not merely narrow**: `SectionStylePopup` only ever opens
+  for a `ContainerBlock` — `block-card.tsx` is its only caller — and a
+  container's `kind` is always the literal `"container"`, never one of the
+  five. So the control went from _visibly doing nothing_ to _unreachable by
+  construction_, which is still wrong, just wrong where nobody could trigger
+  it by clicking around. It was removed rather than reworked into something
+  that opens for a leaf — that is `leaf-editor.tsx`'s job — along with
+  `honoursLabel` and its two catalogue strings, from both `en.json` and
+  `es.json`. `label` itself is untouched and still reachable, just not
+  through this popup: an author reaches it through the page source dock
+  (`page-document.ts`), which validates a pasted `blocks` array through the
+  same schema this key lives in. See
+  `apps/hub/src/features/actors/CLAUDE.md` for the account in full, and
+  `domain/block-schema.ts`'s TSDoc on `label` for where the two paths — the
+  one that's gone and the one that was never touched — are told apart.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:

@@ -752,6 +752,69 @@ test.describe("what a leaf puts inside a track", () => {
     expect(fits).toEqual(["contain", "cover"]);
   });
 
+  // **`style.label` — gap 16 of `pastiche-findings.md`.** A block carrying
+  // `label: "hidden"` has to render NO title element at all, not merely a
+  // title that happens to be styled invisible — a class-string assertion
+  // could not tell those apart, and this repository has shipped a class that
+  // compiled to nothing before (`image_fit`, the test above). The control
+  // beside it is what makes the case discriminate: without it, a renderer
+  // that dropped every leaf's title regardless of the key would pass just as
+  // well.
+  test("draws no title element for a leaf whose block asked to hide it", async ({
+    page,
+  }) => {
+    const { address, handle } = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "label",
+      displayName: "Label",
+      blocks: [
+        container({
+          name_en: "Label",
+          mode: "grid",
+          spaces: 2,
+          children: [
+            leaf({
+              kind: "text",
+              title_en: "Hidden",
+              description_en: "Still here.",
+              style: { label: "hidden" },
+            }),
+            leaf({
+              kind: "text",
+              title_en: "Shown",
+              description_en: "Still here too.",
+            }),
+          ],
+        }),
+      ],
+    });
+
+    await page.setViewportSize(LAPTOP);
+    expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
+
+    const { titles, descriptions } = await page
+      .getByTestId("block-grid")
+      .first()
+      .evaluate((el) => {
+        const blocks = [...el.querySelectorAll('[data-block-kind="text"]')];
+        return {
+          titles: blocks.map(
+            (block) =>
+              block.querySelector(".font-display.font-bold")?.textContent ??
+              null,
+          ),
+          // Belt: both descriptions are still there, so the title assertion
+          // above is genuinely about the TITLE element rather than about the
+          // first leaf failing to render at all.
+          descriptions: blocks.map(
+            (block) => block.querySelector("p")?.textContent ?? null,
+          ),
+        };
+      });
+    expect(titles).toEqual([null, "Shown"]);
+    expect(descriptions).toEqual(["Still here.", "Still here too."]);
+  });
+
   test("keeps every frame and picture inside the track it was placed in", async ({
     page,
   }) => {

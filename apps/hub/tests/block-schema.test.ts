@@ -684,6 +684,14 @@ describe("a block's own form", () => {
     expect(accepts(leaf({ style: { border: "groove" } }))).toBe(false);
   });
 
+  it.each(["show", "hidden"])("accepts a %s label style", (label) => {
+    expect(accepts(leaf({ style: { label } }))).toBe(true);
+  });
+
+  it("refuses a label style it does not render", () => {
+    expect(accepts(leaf({ style: { label: "muted" } }))).toBe(false);
+  });
+
   // Absent and `true` are one answer — the page's ordinary chrome — and
   // `false` is the only stored opt-out.
   it.each([true, false])(

@@ -429,6 +429,10 @@ function exampleBlocks(kind: ActorKind): Block[] {
  * the gate caught them on the rebase rather than after they shipped, which is
  * the whole point of having it.
  *
+ * `label` joined the same day for gap 16 of the pastiche findings — a block
+ * may hide its own title, composing with rather than overriding the
+ * enclosing mode's own decision.
+ *
  * The same exclusivity gate covers these: no `only` and no `every other`, for
  * the reason recorded against {@link KIND_MEANINGS} — a claim that a key is
  * the sole reader of something belongs in a record checked against real data,
@@ -446,6 +450,8 @@ export const STYLE_KEY_MEANINGS = {
     "the edge this block draws round every plain surface beneath it; `none` is a choice and absence inherits",
   chrome:
     'whether the block\'s content sits in a card at all: `bare` drops the fill, the edge, the shadow and the padding together, which `border: "none"` cannot do because it removes the border style alone',
+  label:
+    'whether the block draws its own title as a label, composing with whatever the enclosing mode already decided rather than overriding it — `hidden` narrows that decision and can never widen it, and absence or `"show"` leaves it exactly as the mode set it. Never a default; see the identity leaves, which stacked without it read as a column of label-value pairs rather than one identity',
   heading:
     "how a NAMED container draws its name: `plain` floats it above the content, `bar` is a solid strip with the content squared off beneath, `gradient` that strip with a vertical sheen, `soft` that strip in a quieter tone derived from the accent",
   text_align:

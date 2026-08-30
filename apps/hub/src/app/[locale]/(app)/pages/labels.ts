@@ -229,11 +229,16 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  *
  * @returns the translated labels.
  *
- * It builds the style popup's `chrome`, `heading`, `heading_pad`, `text_align`,
- * `image_fit` and `radius` strings too — `heading` being four names now, since
- * a bar may be drawn in the accent, shaded, or in the quieter derived tone —
- * plus the bar's own picture, how that picture lies, the room under the name,
- * and one name per corner for the two corner pickers.
+ * It builds the style popup's `chrome`, `heading`, `heading_pad`,
+ * `text_align`, `image_fit` and `radius` strings too — `heading` being four
+ * names now, since a bar may be drawn in the accent, shaded, or in the
+ * quieter derived tone — plus the bar's own picture, how that picture lies,
+ * the room under the name, and one name per corner for the two corner
+ * pickers. It builds no `label` strings: gap 16's own key is real — a block
+ * may draw its own title as a label, apart from whatever the enclosing mode
+ * already decided — but it is set through the page source dock rather than
+ * this popup, which never offers it. See `domain/block-schema.ts`'s TSDoc on
+ * `label` for the full account.
  */
 export async function fursonaEditorLabels(
   title: string,

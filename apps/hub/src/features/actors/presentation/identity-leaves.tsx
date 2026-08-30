@@ -7,7 +7,10 @@ import type {
   LeafProps,
   LeafRenderer,
 } from "@/features/actors/presentation/block-contract";
-import { CORNER_CLASS } from "@/features/actors/presentation/block-contract";
+import {
+  CORNER_CLASS,
+  showsLabel,
+} from "@/features/actors/presentation/block-contract";
 import { FursonaCardList } from "@/features/actors/presentation/fursona-card-list";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -20,9 +23,13 @@ import { tid } from "@/shared/infrastructure/test-id";
  * rather than carrying a field that renders nowhere.
  *
  * Whether to show it at all is each caller's own ternary rather than an
- * argument here, matching how `PlainLeaf` reads `labelled` in `blocks.tsx`.
- * A boolean parameter selecting between two behaviours is what
+ * argument here, matching how `PlainLeaf` reads `labelled`. A boolean
+ * parameter selecting between two behaviours is what
  * `sonarjs/no-selector-parameter` is for, and it would be one here.
+ *
+ * **Each caller's ternary now reads `showsLabel`, not `labelled` alone** —
+ * see that function in `block-contract.ts` for how a block's own
+ * `style.label` composes with the enclosing mode's decision.
  *
  * @param props - the leaf and the locale to resolve its title in.
  * @returns the label.
@@ -69,13 +76,17 @@ function Label({ text }: { text: string }): ReactNode {
  * That case is not hypothetical: a 94x45 wordmark came through this circle as
  * two meaningless fragments.
  *
+ * **`style.label: "hidden"` empties the alt text**, through `showsLabel` —
+ * see that function for how it composes with an enclosing mode that has
+ * already suppressed the title.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the portrait.
  */
 export const AvatarLeaf: LeafRenderer = (props) => {
-  const { labelled, page } = props;
-  const alt = labelled ? labelOf(props) : "";
+  const { labelled, leaf, page } = props;
+  const alt = showsLabel(labelled, leaf.style) ? labelOf(props) : "";
   return page.avatarUrl ? (
     // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
     <img
@@ -114,6 +125,10 @@ export const AvatarLeaf: LeafRenderer = (props) => {
  * shape rather than import it, to avoid depending on the file that registers
  * it; the contract moved out of `blocks.tsx` instead.
  *
+ * **`style.label: "hidden"` drops the label above the value**, through
+ * `showsLabel` — see that function for how it composes with an enclosing
+ * mode that has already suppressed the title.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the handle or the address.
@@ -123,7 +138,9 @@ export const AvatarLeaf: LeafRenderer = (props) => {
  */
 export const HandleLeaf: LeafRenderer = (props) => (
   <span className="grid gap-1" {...tid("block-handle")}>
-    <Label text={props.labelled ? labelOf(props) : ""} />
+    <Label
+      text={showsLabel(props.labelled, props.leaf.style) ? labelOf(props) : ""}
+    />
     {/* **`public-actor-name` lives here, not on the display name.** It is the
         end-to-end suite's proxy for "this page loaded and names its actor",
         and it has to sit on the element that is always present: `handle` is
@@ -160,6 +177,10 @@ export const HandleLeaf: LeafRenderer = (props) => (
  * shape rather than import it, to avoid depending on the file that registers
  * it; the contract moved out of `blocks.tsx` instead.
  *
+ * **`style.label: "hidden"` drops the label above the value**, through
+ * `showsLabel` — see that function for how it composes with an enclosing
+ * mode that has already suppressed the title.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the name, or nothing.
@@ -167,7 +188,11 @@ export const HandleLeaf: LeafRenderer = (props) => (
 export const NameLeaf: LeafRenderer = (props) =>
   props.page.displayName ? (
     <span className="grid gap-1" {...tid("block-name")}>
-      <Label text={props.labelled ? labelOf(props) : ""} />
+      <Label
+        text={
+          showsLabel(props.labelled, props.leaf.style) ? labelOf(props) : ""
+        }
+      />
       <span className="font-display text-3xl font-extrabold tracking-tight wrap-break-word @sm:text-4xl">
         {props.page.displayName}
       </span>
@@ -208,6 +233,10 @@ export const NameLeaf: LeafRenderer = (props) =>
  * shape rather than import it, to avoid depending on the file that registers
  * it; the contract moved out of `blocks.tsx` instead.
  *
+ * **`style.label: "hidden"` drops the label above the address**, through
+ * `showsLabel` — see that function for how it composes with an enclosing
+ * mode that has already suppressed the title.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the link, or nothing when there is no owner.
@@ -221,12 +250,12 @@ export const NameLeaf: LeafRenderer = (props) =>
  * and its cards stop agreeing, which opens a window's join and fails nothing.
  */
 export const OwnerLeaf: LeafRenderer = (props) => {
-  const { labelled, page } = props;
+  const { labelled, leaf, page } = props;
   const owner = page.owner;
   if (!owner) return null;
   return (
     <span className="grid gap-1" {...tid("block-owner")}>
-      <Label text={labelled ? labelOf(props) : ""} />
+      <Label text={showsLabel(labelled, leaf.style) ? labelOf(props) : ""} />
       <Link
         href={`/${owner.address}`}
         className={`flex items-center gap-3 ${CORNER_CLASS} surface border-(--edge) bg-(--surface) p-4`}

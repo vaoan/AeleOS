@@ -142,9 +142,35 @@ const theme = (over) => ({
   ...over,
 });
 
+// GAP 16 OF THE PASTICHE FINDINGS: `style.label: "hidden"` applied below.
+//
+// **The rule: an identity label says what the thing is called on the site
+// being imitated, and is hidden where that site shows no label at all.**
+// Every page's `name` leaf carries the same word as `displayName` — nobody's
+// display name was ever captioned "Name:" on any of these eleven sites, so
+// `name` is hidden everywhere it appears. `owner` names a person behind the
+// fursona, a concept none of these sites had at all — MySpace, Messenger,
+// the board, Bluesky, Threads, hi5, Sonico, GeoCities and Fur Affinity never
+// showed an "owner" field, so it is hidden on all nine; Fotolog is the one
+// exception, because "Este Fotolog es de" is the site's own guestbook
+// convention rather than an invented app label, and it stays. `handle` is
+// judged per page against its own capture comment above: MySpace, hi5,
+// Sonico, GeoCities, Fur Affinity, Fotolog and Messenger each show enough of
+// a labelled-panel convention on their own captures to keep their word;
+// the board, Bluesky and Threads are live, unlabelled modern profiles and
+// Facebook's "Profile ID" names a fact the 2008 page never printed anywhere
+// on itself — those four are hidden. `avatar`'s title is never touched: it
+// is alt text, not a visible label, and this gap is about what renders.
+//
 // ---------------------------------------------------------------------------
 // 1 — MySpace, 2005. A tiled background, a two-column body, a Top 8, and a
 //     music player that is the whole reason anybody customised a page.
+//
+// **Gap 16: `handle` keeps its label.** The dense box-and-table convention
+// this whole page already leans on (the "Contacting Aeleos" table, the
+// stats) is a genuinely labelled UI, and "URL" is that convention's own
+// word for the field. `owner` is hidden — MySpace never showed anything
+// resembling an "owner" of a profile.
 // ---------------------------------------------------------------------------
 
 const myspace = [
@@ -206,7 +232,7 @@ const myspace = [
             ],
           ],
         }),
-        leaf("owner", "Owner"),
+        leaf("owner", "Owner", { style: { label: "hidden" } }),
       ]),
     ],
     {
@@ -414,6 +440,23 @@ const myspaceTheme = theme({
 // purpose — `aero` is the entire reason the page exists, and glass needs
 // something behind it to show through. The window shape above changes the
 // corners, not the ground.
+//
+// **Gap 16: `handle` keeps its label, `name` and `owner` are hidden.**
+// "Messenger ID" belongs to the same labelled-panel idiom this page's own
+// info card renders — a file-explorer-style properties view, not a Start
+// screen. `name` is hidden because the real window never captions the
+// display name itself with the word "Name"; `owner` is hidden because
+// Messenger never showed a concept of who controls the account beyond the
+// signed-in person.
+//
+// **Gap 16, the other half: the section heading duplicated the name leaf's
+// value, and the `name` leaf is what goes.** "Aeleos (Available)" atop this
+// section is a real Windows Live Messenger idiom — your own name and status
+// line in the window's own title bar — so it is the AUTHENTIC line and it
+// belongs where Messenger put it. The `name` leaf beneath it added nothing a
+// stranger could read that the title bar had not already said, so it is
+// removed outright: `name` is optional (see `REQUIRED_KINDS`), and the
+// section still carries `handle` for the block the page owes.
 // ---------------------------------------------------------------------------
 
 const messenger = [
@@ -427,7 +470,9 @@ const messenger = [
         }),
       ]),
       group("stack", [
-        leaf("name", "Aeleos"),
+        // No `name` leaf here — see gap 16's second half above: the window's
+        // own title bar already says "Aeleos", and this stack's job is
+        // everything the title bar does not carry.
         leaf("text", "Personal message", {
           description_en: "brb making coffee ☕ — (L) music on",
         }),
@@ -494,7 +539,7 @@ const messenger = [
       leaf("text", "Dani sent a nudge.", {
         description_en: "You have just sent a nudge.",
       }),
-      leaf("owner", "Owner"),
+      leaf("owner", "Owner", { style: { label: "hidden" } }),
     ],
     { style: { skin: "aero", radius: "soft", corners: "tl,tr" } },
   ),
@@ -560,21 +605,31 @@ const messengerTheme = theme({
 // page, so no archive anywhere holds the palette this page imitates. That is a
 // property of what an archive can see rather than a gap in coverage, and it
 // will still be true next time somebody looks.
+//
+// **Gap 16: `name`, `handle` and `owner` are all hidden.** A modern Twitter-
+// style profile shows a bold name and a grey `@handle` with no caption over
+// either, and it shows no concept of an "owner" separate from the account.
+//
+// **Gap 16, the other half: the identity section named itself "Aeleos", the
+// exact word `name` already draws.** A real profile like this has no caption
+// over its own header at all — no panel, no title bar, nothing this section
+// arrangement invented — so the section heading is the app's own furniture
+// and the `name` leaf is the real content. The heading is dropped (an
+// unnamed `group` in place of a named `section`) rather than the leaf.
 // ---------------------------------------------------------------------------
 
 const post = (when, text) => leaf("text", when, { description_en: text });
 
 const board = [
-  section(
-    "Aeleos",
+  group(
     "grid",
     [
       group("stack", [
         leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
       ]),
       group("stack", [
-        leaf("name", "Aeleos"),
-        leaf("handle", "@aeleos"),
+        leaf("name", "Aeleos", { style: { label: "hidden" } }),
+        leaf("handle", "@aeleos", { style: { label: "hidden" } }),
         leaf("text", "Bio", {
           description_en:
             "drawing bears · building the thing that lets you build the thing · he/él · Medellín",
@@ -619,7 +674,7 @@ const board = [
       leaf("social", "Bluesky", {
         link_url: "https://bsky.app/profile/bsky.app",
       }),
-      leaf("owner", "Owner"),
+      leaf("owner", "Owner", { style: { label: "hidden" } }),
     ],
     { spaces: 2, style: { chrome: "bare" } },
   ),
@@ -645,19 +700,29 @@ const boardTheme = theme({
 // 4 — The same shape in daylight. Deliberately near the one above, because
 //     "can two pastiches of near-identical products read differently" is a
 //     harder question than "can it do dark".
+//
+// **Gap 16: `name`, `handle` and `owner` are all hidden**, for the same
+// reason as the board above — a live Bluesky profile captions neither the
+// name nor the `@handle`, and shows no "owner" concept.
+//
+// **Gap 16, the other half: same fix as the board, same reason.** The
+// section named itself "Aeleos" over a `name` leaf reading the same word —
+// no panel or title bar exists on a real Bluesky profile to own that word,
+// so the heading is dropped and the leaf stands as the page's only mention.
 // ---------------------------------------------------------------------------
 
 const sky = [
-  section(
-    "Aeleos",
+  group(
     "grid",
     [
       group("stack", [
         leaf("avatar", "Aeleos", { style: { image_fit: "contain" } }),
       ]),
       group("stack", [
-        leaf("name", "Aeleos"),
-        leaf("handle", "@aeleos.furrycolombia.com"),
+        leaf("name", "Aeleos", { style: { label: "hidden" } }),
+        leaf("handle", "@aeleos.furrycolombia.com", {
+          style: { label: "hidden" },
+        }),
         leaf("text", "Bio", {
           description_en:
             "bears, blocks and boring infrastructure. mostly here for the skeets.",
@@ -695,7 +760,7 @@ const sky = [
     "grid",
     [
       leaf("link", "My site", { link_url: "https://me.furrycolombia.com" }),
-      leaf("owner", "Owner"),
+      leaf("owner", "Owner", { style: { label: "hidden" } }),
     ],
     { spaces: 2 },
   ),
@@ -763,16 +828,32 @@ const skyTheme = theme({
 // invented word, no label, and no repetition. `title_es` stays unset either
 // way: a handle needed no translation and neither does half a sentence
 // carried over from `description_en`.
+//
+// **Gap 16, closed here rather than merely described (2026-08-29):** the
+// three-repeats-of-"aeleos" problem the paragraph above worked around by
+// hand is now `style: { label: "hidden" }` on `name`, `handle` and `owner`
+// — a real Threads profile captions none of the three, so the mechanism
+// removes exactly the repetition that forced the bio rewrite above. `owner`
+// is hidden for the same reason: Threads has no such concept.
+//
+// **Gap 16, the other half — hiding the LABEL was not the whole fix.** The
+// section itself was still named "aeleos", the exact word the `name` leaf
+// draws as its value, so the rendered page still read "aeleos" (heading)
+// then "aeleos" (name) before ever reaching "threads" (handle) — two
+// adjacent lines saying the same thing, which is exactly what this gap is
+// about. A real Threads profile has no caption or panel over its own header
+// at all, so the section heading is the invented one; it is dropped (an
+// unnamed `group` in place of a named `section`) and the `name` leaf is
+// left standing as the page's one mention of it.
 // ---------------------------------------------------------------------------
 
 const threads = [
-  section(
-    "aeleos",
+  group(
     "grid",
     [
       group("stack", [
-        leaf("name", "Aeleos"),
-        leaf("handle", "aeleos"),
+        leaf("name", "Aeleos", { style: { label: "hidden" } }),
+        leaf("handle", "aeleos", { style: { label: "hidden" } }),
         leaf("text", "building in public", {
           description_en: "posting in private",
         }),
@@ -794,7 +875,7 @@ const threads = [
       ),
       post("aeleos", "a feed is just a stack with opinions about spacing"),
       post("aeleos", "if you can see a card edge here i have failed"),
-      leaf("owner", "Owner"),
+      leaf("owner", "Owner", { style: { label: "hidden" } }),
     ],
     { style: { chrome: "bare" } },
   ),
@@ -849,6 +930,20 @@ const threadsTheme = theme({
 // 6 — hi5. Blue, busy, widget-shaped. The yellow everybody remembers is the
 //     LOGO rather than the site; see the theme note below, which is where
 //     that correction was measured.
+//
+// **Gap 16: `handle` keeps its label, `name` and `owner` are hidden.** hi5's
+// widget-boxed panels are a genuinely labelled UI — "hi5 ID" is that
+// convention's word — but `name` restates `displayName` verbatim, which no
+// site captions with the word "Name", and `owner` names a concept hi5 never
+// had.
+//
+// **Gap 16, the other half: the panel's own title bar is "Aeleos", the same
+// word the `name` leaf drew beneath it.** Unlike the board or Bluesky, this
+// one keeps its heading — the sampled capture is genuinely a title bar over
+// a white body, the widget-panel convention this page's own comment already
+// credits — so the bar is the authentic line here, the way Messenger's
+// window title is. The `name` leaf is what goes: it is optional (see
+// `REQUIRED_KINDS`) and the section still carries `avatar` and `handle`.
 // ---------------------------------------------------------------------------
 
 const hi5 = [
@@ -861,7 +956,8 @@ const hi5 = [
         leaf("handle", "hi5 ID"),
       ]),
       group("stack", [
-        leaf("name", "Aeleos"),
+        // No `name` leaf here — see gap 16's second half above: the panel's
+        // own bar already reads "Aeleos".
         leaf("stat", "Mood", { description_en: "😎 chillin" }),
         leaf("stat", "Profile views", { description_en: "18,402" }),
         leaf("progress", "Profile completeness", { description_en: "80" }),
@@ -907,7 +1003,7 @@ const hi5 = [
       }),
       leaf("stat", "Days on hi5", { description_en: "1,204" }),
       leaf("picture", "Glitter", { image_url: photo("hi5-glitter", 400, 300) }),
-      leaf("owner", "Owner"),
+      leaf("owner", "Owner", { style: { label: "hidden" } }),
     ],
     {
       style: {
@@ -997,6 +1093,18 @@ const hi5Theme = theme({
 // **That `#003399` is the same navy MySpace carries is a real coincidence of
 // 2008 web design rather than a copy-paste**, and both are measured: it was a
 // web-safe value half the era reached for.
+//
+// **Gap 16: `handle` keeps its label, `name` and `owner` are hidden**, for
+// the same reasons as hi5 — Sonico's bar-and-panel UI genuinely labels its
+// fields, "Usuario" is that convention's own word, and `name`/`owner` are
+// hidden for being a bare repeat of the value and a concept the site never
+// had, respectively.
+//
+// **Gap 16, the other half: same call as hi5, for the same evidence.** This
+// page's own bar heading is the panel-title idiom the flat-colour sampling
+// above bases every section's style on, so it stays; the `name` leaf beneath
+// it restated the same word the bar already carries and is removed, leaving
+// `avatar` and `handle` as this stack's identity blocks.
 // ---------------------------------------------------------------------------
 
 const sonico = [
@@ -1009,7 +1117,8 @@ const sonico = [
         leaf("handle", "Usuario"),
       ]),
       group("stack", [
-        leaf("name", "Aeleos"),
+        // No `name` leaf here — see gap 16's second half above: the bar
+        // heading already reads "Aeleos".
         leaf("stat", "Ciudad", { description_en: "Medellín, Colombia" }),
         leaf("stat", "Amigos", { description_en: "412" }),
         leaf("stat", "Fotos", { description_en: "1,038" }),
@@ -1055,7 +1164,7 @@ const sonico = [
       }),
       leaf("picture", "Cumpleaños", { image_url: photo("album-2", 500, 340) }),
       leaf("picture", "El taller", { image_url: photo("album-3", 500, 340) }),
-      leaf("owner", "Owner"),
+      leaf("owner", "Owner", { style: { label: "hidden" } }),
     ],
     {
       style: {
@@ -1153,6 +1262,13 @@ const sonicoTheme = theme({
 // rounds nothing — added to all three sections below, matching the era-looks'
 // own flat desktops. No `corners` key: see the Fur Affinity note above this
 // one for why `radius: "square"` alone is the complete answer.
+//
+// **Gap 16: `handle` keeps its label, `owner` is hidden.** The STATS table
+// on this very page (Visitors / Last updated / Best viewed in / Sign my) is
+// the labelled-key-value convention a 1990s personal homepage actually
+// used, which "My handle" belongs to. `owner` is hidden — nothing in the
+// capture notes above describes a "maintained by" credit on any of the five
+// sampled pages, so there is no captured word to reach for.
 // ---------------------------------------------------------------------------
 
 const geocities = [
@@ -1199,7 +1315,7 @@ const geocities = [
       leaf("link", "<< PREVIOUS", { link_url: "https://me.furrycolombia.com" }),
       leaf("link", "RANDOM", { link_url: "https://me.furrycolombia.com" }),
       leaf("link", "NEXT >>", { link_url: "https://me.furrycolombia.com" }),
-      leaf("owner", "Owner"),
+      leaf("owner", "Owner", { style: { label: "hidden" } }),
     ],
     {
       spaces: 3,
@@ -1278,6 +1394,12 @@ const geocitiesTheme = theme({
 // since `radius: "square"` already zeroes `--skin-round` and every named
 // corner resolves through it to the same zero. Squared corners need only the
 // one key; a page with no rounding anywhere needs no ROUND ones singled out.
+//
+// **Gap 16: `handle` keeps its label, `owner` is hidden.** The "Stats" table
+// beside it (Views / Submissions / Favs / Comments / Registered, each with
+// its own icon and word) is the same labelled-row convention "Username"
+// belongs to. `owner` is hidden — Fur Affinity has no notion of who is
+// "behind" an account distinct from the account itself.
 // ---------------------------------------------------------------------------
 
 const furaffinity = [
@@ -1387,7 +1509,9 @@ const furaffinity = [
       .map(([who, said]) =>
         leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
       )
-      .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
+      .concat(
+        leaf("owner", "Owner", { style: { chrome: "bare", label: "hidden" } }),
+      ),
     {
       style: {
         heading: "bar",
@@ -1450,6 +1574,13 @@ const furaffinityTheme = theme({
 // a profile. So the arrangement below is the FEEL — one photograph and a
 // guestbook longer than the rest of the page — not a layout this capture
 // shows directly.
+//
+// **Gap 16: `name` is hidden, `handle` and `owner` keep theirs.** `name`'s
+// title is a bare repeat of `displayName` — the exact "printed 'aeleos'
+// three times" complaint the group comment below already names — so hiding
+// it removes one of those repeats outright rather than working around it.
+// `handle` ("fotolog") and `owner` ("Este Fotolog es de") are both this
+// page's own established Spanish voice, not invented app labels, and stay.
 // ---------------------------------------------------------------------------
 
 const fotolog = [
@@ -1470,7 +1601,7 @@ const fotolog = [
     "stack",
     [
       leaf("avatar", "Foto de perfil", { style: { image_fit: "contain" } }),
-      leaf("name", "aeleos"),
+      leaf("name", "aeleos", { style: { label: "hidden" } }),
       leaf("handle", "fotolog"),
     ],
     { style: { chrome: "bare", text_align: "center" } },
@@ -1563,7 +1694,12 @@ const fotologTheme = theme({
 // colour of theirs anybody would recognise on sight — and that capture added
 // a detail the model could not then express: the navy bar carries a LIGHTER
 // blue sub-bar beneath it. `heading: "soft"` is that second tone, and the
-// subordinate sections below wear it.
+// subordinate sections below wear it. **The navy tone itself no longer
+// reaches the page (gap 16, 2026-08-29)** — it was carried by the identity
+// section's own bar, which read the display name and so duplicated the
+// `name` leaf beneath it; see that section's own comment. The lighter
+// `"soft"` tone on Friends and the Wall is untouched, so the masthead's
+// second half still stands even though its first half does not.
 //
 // **The reference link this page shows is a SEPARATE, later capture: arquivo.pt
 // at February 2008, `20080215125110`** (`scripts/pastiche-references.mjs`,
@@ -1594,11 +1730,30 @@ const fotologTheme = theme({
 // barred section already welds to its content with no gap by default, so
 // `heading_gap: "none"` would be an equally silent no-op. Either would be a
 // dead letter reading like a change in the diff.
+//
+// **Gap 16: `name`, `handle` and `owner` are all hidden.** The "Information"
+// table proves this page's own labelled-row convention, but "Profile ID"
+// names a fact the real 2008 page never printed anywhere on itself — the
+// numeric id lived in the address bar alone, never as a captioned field —
+// so there is no captured label to keep. `name` restates the value and
+// `owner` has no Facebook equivalent, the same as every other page here.
+//
+// **Gap 16, the other half: unlike hi5 and Sonico, the bar here is the
+// invented one and the `name` leaf is the real content.** Neither capture
+// this page is built from shows a per-section title bar reading the
+// profile owner's name — the navy/lighter-blue two-tone is this design's
+// own blue-chrome styling, applied for its own sake the way `aero` is on
+// Messenger, not a captured panel convention like hi5's or Sonico's. A real
+// 2008 profile's name is bold text beside the photo, which is exactly what
+// `NameLeaf` already draws, so the section heading is dropped (an unnamed
+// `group` in place of a named `section`) rather than the leaf. `heading:
+// "bar"` is removed from its style along with it: that key draws nothing
+// without a name to fill it (`barred` needs both), so left in place it
+// would be a dead key describing a strip that no longer renders.
 // ---------------------------------------------------------------------------
 
 const facebook = [
-  section(
-    "Aeleos",
+  group(
     "grid",
     [
       group("stack", [
@@ -1619,21 +1774,21 @@ const facebook = [
         }),
       ]),
       group("stack", [
-        leaf("name", "Aeleos"),
+        leaf("name", "Aeleos", { style: { label: "hidden" } }),
         // **Was `"aeleos.facebook"`, a placeholder invented rather than
         // evidenced (task 7).** February 2008 Facebook had no vanity URLs at
         // all — those launched in June 2009 — so a profile's only address was
         // a numeric `profile.php?id=…`. "Profile ID" names that reality
         // instead of a handle format the site would not offer for another
         // year and a half.
-        leaf("handle", "Profile ID"),
+        leaf("handle", "Profile ID", { style: { label: "hidden" } }),
         leaf("text", "What's on your mind?", {
           description_en:
             "Aeleos is wondering why he spent four hours on a profile page instead of sleeping.",
         }),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { heading: "bar", radius: "square" } },
+    { spaces: 2, weights: [1, 2], style: { radius: "square" } },
   ),
 
   section(
@@ -1646,9 +1801,11 @@ const facebook = [
     ),
     // **The lighter blue strip under the navy one**, which is what the
     // capture actually shows and what one accent could not express. The
-    // identity section keeps the strong bar; everything subordinate to it
-    // takes the quieter tone. `radius: "square"` matches the sharp-cornered
-    // boxes the fresh capture shows throughout the front page (task 7).
+    // identity section carried the strong bar until gap 16 (2026-08-29)
+    // found it duplicated the `name` leaf and removed it; everything
+    // subordinate to it still takes the quieter tone. `radius: "square"`
+    // matches the sharp-cornered boxes the fresh capture shows throughout
+    // the front page (task 7).
     { spaces: 6, style: { heading: "soft", radius: "square" } },
   ),
 
@@ -1664,7 +1821,9 @@ const facebook = [
       .map(([who, said]) =>
         leaf("text", who, { description_en: said, style: { chrome: "bare" } }),
       )
-      .concat(leaf("owner", "Owner", { style: { chrome: "bare" } })),
+      .concat(
+        leaf("owner", "Owner", { style: { chrome: "bare", label: "hidden" } }),
+      ),
     { style: { heading: "soft", chrome: "bare", radius: "square" } },
   ),
 ];

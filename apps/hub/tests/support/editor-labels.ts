@@ -64,7 +64,8 @@ import type { BlockEditorLabels } from "@/features/actors/presentation/block-edi
  * `spacing`, and the leaf editor's `rowIcon`. `heading` is four names, the
  * fourth being the quieter bar tone; beside them sit the bar's own picture,
  * how that picture lies, the room under the name, and one name per corner for
- * the two corner pickers.
+ * the two corner pickers. It carries no `label` strings: gap 16's own key is
+ * real, but it is set through the page source dock rather than this popup.
  */
 export function blockEditorLabels(): BlockEditorLabels {
   return {

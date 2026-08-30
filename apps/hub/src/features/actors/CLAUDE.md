@@ -4438,6 +4438,88 @@ asserts the pattern MATCHED before comparing anything, then compares what the
 two accept rather than their characters — and it is sabotage-verified, after a
 first attempt whose `sed` silently failed to apply and proved nothing.
 
+### A block may hide its own title as a label (2026-08-29)
+
+`label` (`"show"` / `"hidden"`) on a block's style bag — gap 16 of
+`docs/superpowers/specs/2026-08-27-pastiche-findings.md`. `AvatarLeaf`,
+`HandleLeaf`, `NameLeaf` and `OwnerLeaf` each draw an optional label above
+their own value — the leaf's own `title_en` — and none of the four knows the
+other three exist. Stacked at the top of a page as the required-blocks shim
+arranges them, the result reads as a column of label-value pairs rather than
+one identity: the Threads pastiche is the example the gap names,
+_aeleos / Aeleos: aeleos / aeleos: threads_ before any content its author
+wrote. A real profile of that kind carries no label at all, and until this key
+a page could not say so — `title_en` is required non-empty, and the
+mode-derived suppression a `tabs` or `accordion` panel already applies was
+never something an author could choose.
+
+**`hidden` NARROWS what the enclosing mode already decided; it never
+WIDENS it.** `showsLabel` (`presentation/block-contract.ts`) is the one place
+the two compose: `labelled && style?.label !== "hidden"`. A mode that has
+already suppressed a leaf's title — `tabs`/`accordion` passing
+`labelled: false` — stays suppressed whatever the block's own key says, because
+there is nowhere left on the leaf to put a title the mode already drew
+elsewhere; `label: "show"` cannot undo that. `hidden` reaches the other
+direction, suppressing a title the mode would otherwise have shown, which is
+the whole reason the key exists. Absent (or `"show"`) behaves exactly as
+`labelled` alone always has, so a page that never sets the key renders
+byte-for-byte as it did before the key existed.
+
+**Reaches five call sites, all through the one function.** The four identity
+leaves and `PlainLeaf` (`text-leaves.tsx`, the `text` kind and the fallback
+every unrecognised kind lands on) read `showsLabel` in place of `labelled`
+alone. No other leaf kind reads it — `link`, `social`, the media leaves and
+the rest of `text-leaves.tsx` keep reading `labelled` unchanged, which is a
+deliberate scope limit rather than an oversight: the gap this key closes is
+specifically the identity leaves stacking their own labels, and `PlainLeaf`
+is the kind every unrecognised one falls back to.
+
+**A leaf with no words can now be reached a second way.** `PlainLeaf`'s
+"renders nothing at all" case used to be reachable only inside `tabs`/
+`accordion`; `style.label: "hidden"` with an empty description reaches it
+directly too, which its own TSDoc now says.
+
+Pinned like every other closed vocabulary written down twice:
+`block-limits-match-migration.test.ts` compares `BLOCK_STYLE_LIMITS.label`
+against `0009`'s own `elsif v_key = 'label'` branch, added beside `chrome`'s in
+`validate_block` in the exact same shape. `STYLE_KEY_MEANINGS` carries its
+meaning, gated the same way `heading_gap`'s omission was found and closed.
+
+**A review found the popup that carries this key shipped offering it on
+every container, and no container is among the five call sites above — and a
+second review, the same day, found the fix itself was still wrong
+(2026-08-30).** `SectionStylePopup` had no gate on the "Own title" select at
+all, so picking "Hide" on any section or nested container accepted a choice
+and changed nothing — worse than an inert control, because it looked like it
+worked. The first fix added `honoursLabel(kind)`
+(`presentation/block-contract.ts`) and a `honoursLabel` prop gating the
+select. **That gate was `false` by construction, not merely narrow.**
+`SectionStylePopup` only ever opens for a `ContainerBlock` — `block-card.tsx`
+is its only caller — and `ContainerBlock["kind"]` is always the literal
+`"container"`, never one of the five leaf kinds `showsLabel` composes with.
+So `honoursLabel(block.kind)` answered `false` at every call site there ever
+was, and the control went from _visibly doing nothing_ to _unreachable by
+construction_ — still wrong, just wrong in a way nobody could trigger by
+clicking around. Both the prop and the helper are gone now
+(`honoursLabel`, `LABEL_HONOURING_KINDS`), along with the select itself and
+its two catalogue strings (`styleLabel`/`styleLabelHint` and their three
+option siblings), in both `en.json` and `es.json`. The fix is not "open the
+popup for leaves" — leaf editing lives in `leaf-editor.tsx`, and reworking it
+is a product change nobody asked for.
+
+**`label` did not lose its only way in.** It is reachable through the page
+source dock (`page-document.ts`): an author pastes a document, the pasted
+`blocks` array runs through this same schema, and `label` is a plain optional
+enum in it like any other style key. What is gone is the ONE control that
+never worked, not the mechanism — `showsLabel`, the five renderers, the SQL
+validation and the seeded pages are all untouched. Be precise about which
+half of "is this reachable" is true here, because this repository has shipped
+the claim backwards before: `identity-leaves.tsx` once said a state was
+"unreachable through the editor" when the write half was true and the
+reachability half was false. Here the shape is the mirror image and the same
+discipline applies — the popup path is gone, the dock path was never touched,
+and neither sentence stands in for the other.
+
 ### A density that reaches OUTSIDE the card (2026-08-28)
 
 `spacing` set a card's padding and its type size and stopped there. The page

@@ -202,6 +202,7 @@ describe("the client's style limits", () => {
     ["card_size", BLOCK_STYLE_LIMITS.card_size],
     ["border", BLOCK_STYLE_LIMITS.border],
     ["chrome", BLOCK_STYLE_LIMITS.chrome],
+    ["label", BLOCK_STYLE_LIMITS.label],
     ["heading", BLOCK_STYLE_LIMITS.heading],
     ["text_align", BLOCK_STYLE_LIMITS.text_align],
     ["image_fit", BLOCK_STYLE_LIMITS.image_fit],

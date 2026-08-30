@@ -81,6 +81,17 @@ export type SectionStyle = BlockStyle;
  * rather than naming a value. `heading_pad` sits under the name-style select
  * and behind the same condition: both are offered on a NAMED block only.
  *
+ * **It does not offer `label`.** This popup only ever opens for a
+ * `ContainerBlock` — see {@link SectionStylePopupProps} — and a container's
+ * `kind` is always the literal `"container"`, never one of the five leaf
+ * kinds `showsLabel` composes with (`presentation/block-contract.ts`). An
+ * "Own title" control briefly lived here, gated behind a `honoursLabel` prop
+ * that was `false` by construction for every caller; removed 2026-08-30
+ * rather than reworked, because reaching leaves is `leaf-editor.tsx`'s job,
+ * not this popup's. `label` is still reachable — through the page source
+ * dock, which pastes a document validated by the block schema — see
+ * `domain/block-schema.ts`'s TSDoc on the key.
+ *
  * The name-style select carries a fourth option, `soft` — the same strip in a
  * quieter tone. It needs no label of its own beyond a name: the tone is
  * derived from the accent already chosen, so there is nothing further to pick.
@@ -228,8 +239,10 @@ export interface SectionStylePopupLabels {
  * offered: this component sees a style bag and never knows where its block
  * sits.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
- * an empty option that CLEARS the key rather than naming a value.
+ * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
+ * the border, each with an empty option that CLEARS the key rather than
+ * naming a value. It does not offer `label` — see this component's own
+ * TSDoc for why.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -429,8 +442,11 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  *
  * @returns the button and, while open, the popup.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside the border, each with
- * an empty option that CLEARS the key rather than naming a value.
+ * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
+ * the border, each with an empty option that CLEARS the key rather than
+ * naming a value. It does not offer `label` — see this component's own
+ * top-of-file TSDoc for why, and `domain/block-schema.ts`'s TSDoc on `label`
+ * for where the key is reachable instead.
  *
  * **The panel itself takes `--menu`, the one token declared opaque in both
  * modes**, where every select inside it already did. It took `--surface`,
