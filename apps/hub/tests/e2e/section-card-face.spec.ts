@@ -673,7 +673,17 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await page.getByTestId("leaf-title").first().fill("Item");
   await page.getByTestId("leaf-description").first().fill("A description");
 
-  await page.getByTestId("section-style-open").last().click();
+  // **Scoped to the SECTION's own header, not a page-wide `.last()`.** A
+  // leaf can open its own style popup now, and the content just added has
+  // one — so a bare `.last()` on `section-style-open` would reach past the
+  // section's own trigger to the leaf's, styling the wrong element. Only a
+  // depth-0 container's header carries `section-header`, so this is
+  // unambiguous whatever popups a leaf beneath it grows.
+  await page
+    .getByTestId("section-header")
+    .last()
+    .getByTestId("section-style-open")
+    .click();
   await page.getByTestId("section-style-background-url").fill(HOSTILE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
   await page.keyboard.press("Escape");

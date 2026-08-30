@@ -535,13 +535,16 @@ const CORNER_LIST = /^(tl|tr|br|bl)(,(tl|tr|br|bl))*$/;
  * shape as a whole.
  *
  * `label` (`"show" | "hidden"`) is gap 16's own key — see its own entry, which
- * as of 2026-08-30 also carries where the key is reachable from (the page
- * source dock) and where it no longer is (the section style popup).
+ * as of 2026-08-30 carries where the key is reachable from: a LEAF's own
+ * style popup (`leaf-editor.tsx`, gated by `honoursLabel`) and the page
+ * source dock, both.
  *
  * `portrait` (`"s" | "m" | "l"`) joined the same day — how large `AvatarLeaf`
  * draws an actor's portrait, absent and `"m"` both being `size-24`. See its
- * own entry for the measurement and for why it is read off the leaf's own
- * style rather than emitted as an inherited token the way `image_fit` is.
+ * own entry for the measurement, for why it is read off the leaf's own style
+ * rather than emitted as an inherited token the way `image_fit` is, and for
+ * where it is reachable — the same two paths `label` has, gated by
+ * `honoursPortrait`.
  */
 export const BLOCK_STYLE_LIMITS = {
   /** Characters in a skin's name. Not checked against a list — see the shape. */
@@ -593,26 +596,23 @@ export const BLOCK_STYLE_LIMITS = {
    * never sets this key renders byte-for-byte as it did before the key
    * existed — no stored page, template or author's page changes.
    *
-   * **Reachable through the page source dock, not through the section style
-   * popup (2026-08-30).** `SectionStylePopup` briefly offered an "Own title"
-   * select gated behind a `honoursLabel(kind)` check — but that popup only
-   * ever opens for a `ContainerBlock` (`presentation/block-card.tsx`), and a
-   * container's `kind` is always the literal `"container"`, never one of the
-   * five leaf kinds `showsLabel` composes with. So the gate was `false` by
-   * construction for every call site, the control was unreachable rather than
-   * merely mis-offered, and it was removed rather than reworked into
-   * something that opens for a leaf — that is `leaf-editor.tsx`'s job, not
-   * this popup's.
+   * **Reachable through a leaf's own style popup now, and through the page
+   * source dock (2026-08-30).** `SectionStylePopup` briefly offered an "Own
+   * title" select gated behind a `honoursLabel(kind)` check that answered
+   * `false` at every call site there was — that popup only ever opened for a
+   * `ContainerBlock` (`presentation/block-card.tsx`), and a container's
+   * `kind` is always the literal `"container"`, never one of the five leaf
+   * kinds `showsLabel` composes with — so it was removed as dead the same
+   * day it shipped. It is back, unchanged in meaning: `leaf-editor.tsx`
+   * mounts the same popup for a LEAF now, gated by
+   * `styleGatesFor`/`honoursLabel` in `presentation/block-contract.ts` off
+   * the leaf's own `kind`, which is exactly what the gate needed and a
+   * `ContainerBlock` could never supply.
    *
-   * The key is real and validated here regardless: an author reaches it by
-   * pasting a document into the page source dock (`page-document.ts`), which
-   * runs the pasted `blocks` array through this same schema before it is
-   * applied. That is the one path in, and it is a real one — do not read
-   * "the control was removed" as "the key is unreachable"; this repository
-   * has shipped that exact wrong claim in the other direction before (see
-   * `identity-leaves.tsx`'s corrected note on the phrase "unreachable
-   * through the editor", and `CLAUDE.md`'s rule on getting a reachability
-   * claim backwards).
+   * Pasting a document into the page source dock (`page-document.ts`) still
+   * reaches it too, running the pasted `blocks` array through this same
+   * schema before it is applied — a second path in, not a fallback standing
+   * in for a missing first one.
    */
   label: ["show", "hidden"],
   /**
@@ -683,18 +683,19 @@ export const BLOCK_STYLE_LIMITS = {
    * name would fight the row it was designed for rather than serve the
    * identity the row names.
    *
-   * **Unreachable through `SectionStylePopup`, and reachable only through the
-   * page source dock — the same shape `label`'s own note beside it
-   * carries.** A container-level control would only be meaningful for a key
-   * that INHERITS, the way `--img-fit` does; this key is read directly off
-   * the LEAF's own `style.portrait` instead (see this list's own opening
-   * paragraph for why), and `SectionStylePopup` only ever opens for a
-   * `ContainerBlock` — it has no leaf there to read `style` from.
-   * `leaf-editor.tsx` carries no style-bag control for any key today, so
-   * there is no editor surface offering this one either. An author reaches
-   * it exactly as `label` is reached: by pasting a document into the page
-   * source dock (`page-document.ts`), which runs the pasted `blocks` array
-   * through this same schema before it is applied.
+   * **Reachable through a leaf's own style popup now (2026-08-30), and
+   * through the page source dock — the same shape `label`'s own note beside
+   * it carries.** A container-level control would only be meaningful for a
+   * key that INHERITS, the way `--img-fit` does; this key is read directly
+   * off the LEAF's own `style.portrait` instead (see this list's own opening
+   * paragraph for why). `leaf-editor.tsx` mounts `SectionStylePopup` for
+   * exactly this reason now, gated by
+   * `styleGatesFor`/`honoursPortrait` in `presentation/block-contract.ts`
+   * off the leaf's own `kind` rather than off a `ContainerBlock`'s, which
+   * never had a leaf there to read `style` from. An author may still reach
+   * it by pasting a document into the page source dock (`page-document.ts`),
+   * which runs the pasted `blocks` array through this same schema before it
+   * is applied — a second path in, not the only one.
    */
   portrait: ["s", "m", "l"],
   /**

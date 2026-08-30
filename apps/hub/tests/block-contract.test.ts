@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { showsLabel } from "@/features/actors/presentation/block-contract";
+import {
+  honoursImageFit,
+  honoursLabel,
+  honoursPortrait,
+  showsLabel,
+  styleGatesFor,
+} from "@/features/actors/presentation/block-contract";
+import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import type { BlockStyle } from "@/features/actors/domain/block-schema";
 
 /**
@@ -51,5 +58,132 @@ describe("showsLabel", () => {
   it("ignores every other style key", () => {
     const style: BlockStyle = { chrome: "bare", radius: "square" };
     expect(showsLabel(true, style)).toBe(true);
+  });
+});
+
+/**
+ * `honoursLabel` is the set `showsLabel` composes with, reinstated
+ * 2026-08-30 so `SectionStylePopup` can gate its "Own title" select on a
+ * LEAF's own kind rather than on a `ContainerBlock`'s, which is always
+ * `"container"` and never one of these five.
+ */
+describe("honoursLabel", () => {
+  it.each(["text", "avatar", "handle", "name", "owner"])(
+    "is true for %s",
+    (kind) => {
+      expect(honoursLabel(kind)).toBe(true);
+    },
+  );
+
+  // `fursonas` is the one identity leaf that does NOT compose with
+  // `showsLabel` — its own title is never suppressible — so a purely
+  // positive sweep of "the four identity leaves" would miss it.
+  it.each(["fursonas", "stat", "quote", "progress", "table", "link", "social"])(
+    "is false for %s",
+    (kind) => {
+      expect(honoursLabel(kind)).toBe(false);
+    },
+  );
+
+  it("is false for a kind this build has never heard of", () => {
+    expect(honoursLabel("diagram")).toBe(false);
+  });
+});
+
+/**
+ * `honoursImageFit` names the leaf kinds whose own `<img>` reads
+ * `--img-fit` directly — `AvatarLeaf`, `OwnerLeaf`'s mini portrait, and
+ * `PictureLeaf`.
+ */
+describe("honoursImageFit", () => {
+  it.each(["avatar", "owner", "picture"])("is true for %s", (kind) => {
+    expect(honoursImageFit(kind)).toBe(true);
+  });
+
+  it.each(["handle", "name", "fursonas", "text", "link"])(
+    "is false for %s",
+    (kind) => {
+      expect(honoursImageFit(kind)).toBe(false);
+    },
+  );
+});
+
+/** `honoursPortrait` names `avatar` alone. */
+describe("honoursPortrait", () => {
+  it("is true for avatar", () => {
+    expect(honoursPortrait("avatar")).toBe(true);
+  });
+
+  // `owner`'s own mini avatar deliberately does not read `portrait` — see
+  // `block-schema.ts`'s TSDoc on the key — so it is the discriminating
+  // negative case rather than an arbitrary one.
+  it.each(["owner", "picture", "handle", "text"])("is false for %s", (kind) => {
+    expect(honoursPortrait(kind)).toBe(false);
+  });
+});
+
+/**
+ * `styleGatesFor` is the one place `SectionStylePopup`'s five controls are
+ * decided, from the block being edited rather than from separate booleans a
+ * caller computes by hand.
+ */
+describe("styleGatesFor", () => {
+  it("gates a container on its own name and depth, never on label/imageFit-by-kind/portrait", () => {
+    const named = { ...newContainer("grid", 2), name_en: "Gallery" };
+    expect(styleGatesFor(named, true)).toEqual({
+      heading: true,
+      atTop: true,
+      label: false,
+      imageFit: true,
+      portrait: false,
+    });
+  });
+
+  it("answers heading:false for an unnamed container, at any depth", () => {
+    const unnamed = newContainer("grid", 2);
+    expect(styleGatesFor(unnamed, false)).toEqual({
+      heading: false,
+      atTop: false,
+      label: false,
+      imageFit: true,
+      portrait: false,
+    });
+  });
+
+  // Blank strings and pure whitespace are not a name — `BlockCard`'s own
+  // check reads `name_en?.trim()`, and this function has to agree with it.
+  it("treats a whitespace-only name as no name at all", () => {
+    const blank = { ...newContainer("grid", 2), name_en: "   " };
+    expect(styleGatesFor(blank, true).heading).toBe(false);
+  });
+
+  // A NAME IN SPANISH ALONE STILL COUNTS. `BlockCard`'s check is an OR
+  // across both languages, and this function has to be too, or a section
+  // named only in Spanish would silently lose its heading controls.
+  it("honours a name written in Spanish alone", () => {
+    const spanishOnly = { ...newContainer("grid", 2), name_es: "Especie" };
+    expect(styleGatesFor(spanishOnly, true).heading).toBe(true);
+  });
+
+  it("ignores the `atTop` argument for a leaf — bleed/margins are a container-only concept", () => {
+    const leaf = newLeaf("text");
+    expect(styleGatesFor(leaf, true).atTop).toBe(false);
+  });
+
+  it("gates a leaf by its own kind, never by heading or atTop", () => {
+    expect(styleGatesFor(newLeaf("avatar"), true)).toEqual({
+      heading: false,
+      atTop: false,
+      label: true,
+      imageFit: true,
+      portrait: true,
+    });
+    expect(styleGatesFor(newLeaf("stat"), true)).toEqual({
+      heading: false,
+      atTop: false,
+      label: false,
+      imageFit: false,
+      portrait: false,
+    });
   });
 });

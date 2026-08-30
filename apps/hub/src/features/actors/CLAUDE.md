@@ -4565,13 +4565,89 @@ rather than serve the identity the row names, so it stays `size-10` whatever
 the enclosing page's `portrait` says — which it never sees anyway, since the
 key is never inherited.
 
-**Unreachable through `SectionStylePopup`, for the same reason as `label` —
-and reachable the same way.** A container-level control is only meaningful
-for a key that inherits, and this one deliberately does not; `leaf-editor.tsx`
-carries no style-bag control for any key today, so there is no editor surface
-that could offer it either way. An author reaches it exactly as `label` is
-reached — by pasting a document into the page source dock, which validates
-the pasted `blocks` array against the same schema before it is applied.
+**Reachable through a leaf's own style popup now (2026-08-30) — see "A leaf
+reaches its own style popup" below — and through the page source dock.** A
+container-level control is only meaningful for a key that inherits, and this
+one deliberately does not; it is gated on the leaf's own `kind` rather than
+offered unconditionally, since only `avatar` draws anything from it.
+
+### A leaf reaches its own style popup (2026-08-30)
+
+The owner asked for it directly, which is the circumstance the paragraph
+above this section's neighbour was written against: two days earlier,
+`SectionStylePopup` had briefly offered `label` behind a gate that was
+`false` by construction for every caller, because the popup only ever opened
+for a `ContainerBlock`. That control was removed as dead rather than
+reworked into something a leaf could open — "reaching leaves is
+`leaf-editor.tsx`'s job... and is a product change nobody asked for," as the
+note above still says, accurately, of that day. It is asked for now, and
+`leaf-editor.tsx` mounts `SectionStylePopup` exactly as `block-card.tsx`
+does.
+
+**Generalised from two ad-hoc booleans to one computed value, rather than
+adding a third boolean beside them.** `SectionStylePopup` used to take
+`named` and `atTop`, each worked out by its caller from the block by hand.
+A leaf needed a third dimension — `label`, `image_fit` and `portrait` are
+gated by the leaf's own `kind`, none of which `named`/`atTop` could express —
+so the two booleans became one object, `StyleGates`, computed once by
+`styleGatesFor(block, atTop)` in `presentation/block-contract.ts` from the
+block itself:
+
+- **`heading`** — the name-style controls. True for a NAMED container only;
+  a leaf has no name field to draw one from.
+- **`atTop`** — `bleed`/`margins`. True for a depth-0 CONTAINER only, and
+  `styleGatesFor` ignores its own `atTop` argument for a leaf — neither key
+  is read unless `isContainer` already agreed first, in both `bleeds()` and
+  the page box's own margin test in `blocks.tsx`, so offering either control
+  on a leaf would be the do-nothing control this feature keeps trimming. A
+  page MAY hold a bare leaf at depth 0 (`block-editor.tsx`'s own note says
+  so), which is why this needed spelling out rather than assumed away.
+- **`label`** — reinstated as `honoursLabel(kind)`, the exact set
+  `showsLabel` composes with (`text`, `avatar`, `handle`, `name`, `owner` —
+  **not** `fursonas`, whose own title is never suppressible). Its TSDoc says
+  it is back for a second time and why, so the next reader does not re-delete
+  it reading the removal note alone.
+- **`imageFit`** — always true for a container, because the token INHERITS
+  to whatever draws a picture beneath it; gated by `honoursImageFit(kind)`
+  for a leaf — `avatar`, `owner` (its own mini portrait) and `picture`, the
+  three kinds whose `<img>` reads `--img-fit` directly. `handle`, `name` and
+  `fursonas` draw no `<img>` of their own; `FursonaCardList`'s avatars are a
+  fixed `object-cover` rather than a read of the token.
+- **`portrait`** — `honoursPortrait(kind)`, `avatar` alone.
+
+**The popup mounts in the same header row as `block-card.tsx`'s, for the same
+idiom.** `leaf-editor.tsx` patches through `patchLeaf` where `block-card.tsx`
+patches through `patchContainer`; `LeafEditorLabels` gained a `style:
+SectionStylePopupLabels` field, built once in `pages/labels.ts` as
+`stylePopupLabels` and assigned to both the container's own `style` and the
+leaf's `leaf.style` — one popup, one bag of strings, rather than two that
+could quietly disagree.
+
+**A page-wide `.last()` on `section-style-open` stopped meaning "the newest
+SECTION's own popup" the moment a leaf could have one too**, and two e2e
+suites were measuring the wrong element as a result:
+`section-card-face.spec.ts`'s hostile-picture case and
+`border-style-cascade.spec.ts`'s empty-place case each add content to a
+section and then style it — via `.last()` — without collapsing the section
+first, so the leaf's own trigger, added to the DOM after the section's, is
+what `.last()` found. Both are scoped to `section-header` now, the one test
+id that belongs to a depth-0 CONTAINER's header and nothing a leaf renders,
+so it is unambiguous whatever popups a leaf beneath it grows. Every other
+`.last()`/`.first()` caller either collapses the section first (so the
+leaf's popup never mounts) or was already scoped to a card before any content
+existed — both checked by running the suites, not by reasoning about them.
+
+**A browser test is the only thing that can prove a leaf's choice actually
+paints**, matching `section-style-popup.spec.ts`'s own argument for why a
+unit suite is not enough: the popup writes to the form field the preview
+reads, live. `leaf-style-popup.spec.ts` drives `portrait` rather than
+`label`, deliberately — its effect is a measured SIZE (`AvatarLeaf` writes
+the same `size-*` class on its `<img>` and on its empty-state placeholder
+alike), which needs no text assertion at all. That mattered mechanically as
+well as by taste: this repo's lint config bans `toContainText`/`toHaveText`
+outright (`no-restricted-syntax`, "Do not assert translated text — use
+`toBeVisible()`"), and a first draft of this test asserting `label`'s effect
+through a title's text tripped it immediately.
 
 ### A density that reaches OUTSIDE the card (2026-08-28)
 

@@ -14,9 +14,11 @@
  */
 
 import type { ReactNode } from "react";
-import type {
-  BlockStyle,
-  LeafBlock,
+import {
+  isContainer,
+  type Block,
+  type BlockStyle,
+  type LeafBlock,
 } from "@/features/actors/domain/block-schema";
 import { contentFor } from "@/features/actors/domain/actor-content";
 import type { EmbedShape } from "@/features/actors/domain/embeds";
@@ -243,14 +245,15 @@ export function wordsOf(leaf: LeafBlock, locale: string) {
  * (`text-leaves.tsx`). Every other leaf kind — `stat`, `quote`, `progress`,
  * `table`, `link`, `social`, the media leaves — and every container
  * (`blocks.tsx`'s own name draws from `labelled` alone) ignore `style.label`
- * entirely. There used to be a `honoursLabel(kind)` helper here and a gate in
- * `section-style-popup.tsx` built on it, offering an "Own title" control only
- * for a kind in this list — removed 2026-08-30, because `SectionStylePopup`
- * only ever opens for a `ContainerBlock`, whose `kind` is always the literal
- * `"container"` and never one of these five, so the gate it fed was `false`
- * by construction and the control was unreachable rather than merely
- * mis-offered. See `domain/block-schema.ts`'s TSDoc on `label` for where the
- * key is reachable instead — the page source dock, not this popup.
+ * entirely. {@link honoursLabel} answers exactly this set, and it is doing so
+ * for the SECOND time. It briefly existed, gating an "Own title" select in
+ * `section-style-popup.tsx` — but that popup only ever opened for a
+ * `ContainerBlock`, whose `kind` is always the literal `"container"` and
+ * never one of these five, so the gate answered `false` at every call site
+ * there was, and it was removed as dead on 2026-08-30. It is back the same
+ * day: `leaf-editor.tsx` mounts the same popup for a LEAF now, gated through
+ * {@link styleGatesFor} off the leaf's own `kind` — exactly the value
+ * `honoursLabel` needed and a `ContainerBlock` could never supply.
  *
  * @param labelled - whether the enclosing mode has already shown this leaf's
  *   title, or has left that decision to the leaf.
@@ -262,6 +265,143 @@ export function showsLabel(
   style: BlockStyle | undefined,
 ): boolean {
   return labelled && style?.label !== "hidden";
+}
+
+/**
+ * The leaf kinds `showsLabel` composes with — see that function's own note on
+ * why this list exists twice for the same set.
+ *
+ * A `Set`, not a plain object: a leaf's `kind` is wider than {@link LeafKind}
+ * (the lenient read admits a name this build does not know), so this is
+ * indexed by text that came out of `jsonb` — the shape that put `__proto__`
+ * through `TIDAL_KINDS` once already. A `Set` has no inherited entries to
+ * find.
+ */
+const LABEL_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "avatar",
+  "handle",
+  "name",
+  "owner",
+]);
+
+/**
+ * Whether a leaf's own renderer reads `style.label` at all — the gate
+ * `SectionStylePopup`'s "Own title" select needs to offer the key only where
+ * it does something.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `style.label` changes anything this leaf draws.
+ */
+export function honoursLabel(kind: string): boolean {
+  return LABEL_KINDS.has(kind);
+}
+
+/**
+ * The leaf kinds that draw an `<img>` reading `--img-fit` directly —
+ * `AvatarLeaf`, `OwnerLeaf`'s own mini portrait, and `PictureLeaf`. `handle`,
+ * `name` and `fursonas` draw no `<img>` of their own; `FursonaCardList`'s
+ * avatars are a fixed `object-cover` rather than a read of this token.
+ *
+ * A container is never gated this way — the key is a token that INHERITS, so
+ * a container's own choice reaches whichever of these sits anywhere beneath
+ * it, whether or not the container itself draws a picture. Only a LEAF's own
+ * kind decides whether offering the field here would do anything.
+ */
+const IMAGE_FIT_KINDS: ReadonlySet<string> = new Set([
+  "avatar",
+  "owner",
+  "picture",
+]);
+
+/**
+ * Whether a leaf's own renderer reads `--img-fit` directly.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `image_fit` changes anything this leaf draws.
+ */
+export function honoursImageFit(kind: string): boolean {
+  return IMAGE_FIT_KINDS.has(kind);
+}
+
+/**
+ * Whether a leaf's own renderer reads `style.portrait` — `avatar` alone.
+ * `OwnerLeaf`'s own mini avatar deliberately does not, by its own key's
+ * TSDoc in `domain/block-schema.ts`.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `portrait` changes anything this leaf draws.
+ */
+export function honoursPortrait(kind: string): boolean {
+  return kind === "avatar";
+}
+
+/**
+ * Which of a block's own style controls apply — computed once from the block
+ * being edited, rather than by a caller working out separate booleans by
+ * hand and a popup that has to trust it got them right.
+ *
+ * **One place for this knowledge**, matching {@link showsLabel}: a leaf-kind
+ * list scattered across `block-card.tsx` and `leaf-editor.tsx` is two places
+ * to keep in step, and the gap this whole feature keeps finding is exactly
+ * that shape.
+ */
+export interface StyleGates {
+  /**
+   * Whether the name-style controls apply — the bar, its picture, its fit,
+   * the room under it and around it, and its own corner picker. A NAMED
+   * container only; a leaf has no name field to draw one from.
+   */
+  heading: boolean;
+  /**
+   * Whether `bleed` and `margins` apply. A depth-0 CONTAINER only — `bleeds`
+   * and the page box's own margin test in `blocks.tsx` both read
+   * `isContainer` before either key, so a leaf's own `style.bleed` or
+   * `style.margins` is stored, validated, and read by nothing. Offering the
+   * controls on one would be exactly the do-nothing control this feature
+   * keeps trimming.
+   */
+  atTop: boolean;
+  /** Whether the "Own title" select applies — see {@link honoursLabel}. */
+  label: boolean;
+  /**
+   * Whether the picture-fit select applies. Always true for a container,
+   * because the key inherits to whatever draws a picture beneath it; gated
+   * by kind for a leaf — see {@link honoursImageFit}.
+   */
+  imageFit: boolean;
+  /** Whether the portrait-size select applies — see {@link honoursPortrait}. */
+  portrait: boolean;
+}
+
+/**
+ * Computes {@link StyleGates} for the block `SectionStylePopup` is about to
+ * edit.
+ *
+ * @param block - the block being edited, a container or a leaf.
+ * @param atTop - whether this block sits at depth 0. Ignored for a leaf: a
+ *   leaf at the top level (a page may hold one — see `block-editor.tsx`)
+ *   still honours neither `bleed` nor `margins`, because both are read only
+ *   where {@link isContainer} already agreed before either key is asked.
+ * @returns which controls this particular block's popup should offer.
+ */
+export function styleGatesFor(block: Block, atTop: boolean): StyleGates {
+  if (isContainer(block)) {
+    return {
+      heading: Boolean(block.name_en?.trim() || block.name_es?.trim()),
+      atTop,
+      label: false,
+      imageFit: true,
+      portrait: false,
+    };
+  }
+  return {
+    heading: false,
+    atTop: false,
+    label: honoursLabel(block.kind),
+    imageFit: honoursImageFit(block.kind),
+    portrait: honoursPortrait(block.kind),
+  };
 }
 
 /**

@@ -230,20 +230,111 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * @returns the translated labels.
  *
  * It builds the style popup's `chrome`, `heading`, `heading_pad`,
- * `text_align`, `image_fit` and `radius` strings too — `heading` being four
- * names now, since a bar may be drawn in the accent, shaded, or in the
- * quieter derived tone — plus the bar's own picture, how that picture lies,
- * the room under the name, and one name per corner for the two corner
- * pickers. It builds no `label` strings: gap 16's own key is real — a block
- * may draw its own title as a label, apart from whatever the enclosing mode
- * already decided — but it is set through the page source dock rather than
- * this popup, which never offers it. See `domain/block-schema.ts`'s TSDoc on
- * `label` for the full account.
+ * `text_align`, `image_fit`, `radius`, `label` and `portrait` strings too —
+ * `heading` being four names now, since a bar may be drawn in the accent,
+ * shaded, or in the quieter derived tone — plus the bar's own picture, how
+ * that picture lies, the room under the name, and one name per corner for the
+ * two corner pickers. **Built once, as `stylePopupLabels`, and used twice**:
+ * `SectionStylePopup` opens for a container and for a leaf alike since
+ * 2026-08-30, so the bag is assigned to both `style` and `leaf.style` rather
+ * than built out twice — see the local const's own comment.
  */
 export async function fursonaEditorLabels(
   title: string,
 ): Promise<FursonaEditorLabels> {
   const t = await getTranslations("fursonas");
+  // **Built once and used twice.** `SectionStylePopup` opens for a container
+  // (`BlockCardLabels.style`, below) and for a leaf (`leaf.style`) alike
+  // since 2026-08-30 — one popup, one bag of strings, so there is one place
+  // to add a key rather than two copies free to drift apart.
+  const stylePopupLabels = {
+    open: t("sectionStyleOpen"),
+    title: t("sectionStyleTitle"),
+    skin: t("sectionStyleSkin"),
+    bleed: t("sectionStyleBleed"),
+    margins: t("sectionStyleMargins"),
+    skins: Object.fromEntries(
+      SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
+    ) as Record<SkinId, string>,
+    inheritSkin: t("sectionStyleInherit"),
+    backgroundUrl: t("sectionStyleBackgroundUrl"),
+    backgroundUrlHint: t("sectionStyleBackgroundUrlHint"),
+    fit: t("sectionStyleFit"),
+    fitDefault: t("sectionStyleFitDefault"),
+    fitCover: t("sectionStyleFitCover"),
+    fitTile: t("sectionStyleFitTile"),
+    border: t("sectionStyleBorder"),
+    borderHint: t("sectionStyleBorderHint"),
+    borderInherit: t("sectionStyleBorderInherit"),
+    borderNone: t("sectionStyleBorderNone"),
+    borderSolid: t("sectionStyleBorderSolid"),
+    borderDashed: t("sectionStyleBorderDashed"),
+    borderDotted: t("sectionStyleBorderDotted"),
+    chrome: t("styleChrome"),
+    chromeInherit: t("styleChromeInherit"),
+    chromeCard: t("styleChromeCard"),
+    chromeBare: t("styleChromeBare"),
+    chromeHint: t("styleChromeHint"),
+    heading: t("styleHeading"),
+    headingPlain: t("styleHeadingPlain"),
+    headingBar: t("styleHeadingBar"),
+    headingGradient: t("styleHeadingGradient"),
+    // The quieter bar tone. Its wording says how the strip READS rather than
+    // what it is made of — an author picks no colour for it, so naming a
+    // derivation would describe machinery they never meet.
+    headingSoft: t("styleHeadingSoft"),
+    headingGap: t("styleHeadingGap"),
+    headingGapDefault: t("styleHeadingGapDefault"),
+    headingGapNone: t("styleHeadingGapNone"),
+    headingGapSnug: t("styleHeadingGapSnug"),
+    headingGapRoomy: t("styleHeadingGapRoomy"),
+    headingImage: t("styleHeadingImage"),
+    headingImageHint: t("styleHeadingImageHint"),
+    headingFit: t("styleHeadingFit"),
+    headingFitCover: t("styleHeadingFitCover"),
+    headingFitTile: t("styleHeadingFitTile"),
+    corners: t("styleCorners"),
+    headingCorners: t("styleHeadingCorners"),
+    corner: {
+      tl: t("styleCornerTl"),
+      tr: t("styleCornerTr"),
+      br: t("styleCornerBr"),
+      bl: t("styleCornerBl"),
+    },
+    headingPad: t("styleHeadingPad"),
+    headingPadDefault: t("styleHeadingPadDefault"),
+    headingPadSnug: t("styleHeadingPadSnug"),
+    headingPadRoomy: t("styleHeadingPadRoomy"),
+    // `label` composes with `showsLabel`'s own set of leaf kinds — see
+    // `honoursLabel` in `presentation/block-contract.ts` for the gate this
+    // popup uses to decide when to offer it at all.
+    label: t("styleLabel"),
+    labelDefault: t("styleLabelDefault"),
+    labelShow: t("styleLabelShow"),
+    labelHidden: t("styleLabelHidden"),
+    labelHint: t("styleLabelHint"),
+    textAlign: t("styleTextAlign"),
+    textAlignInherit: t("styleTextAlignInherit"),
+    textAlignStart: t("styleTextAlignStart"),
+    textAlignCenter: t("styleTextAlignCenter"),
+    textAlignEnd: t("styleTextAlignEnd"),
+    imageFit: t("styleImageFit"),
+    imageFitInherit: t("styleImageFitInherit"),
+    imageFitCover: t("styleImageFitCover"),
+    imageFitContain: t("styleImageFitContain"),
+    // `avatar` only — see `honoursPortrait` in `presentation/block-contract.ts`.
+    portrait: t("stylePortrait"),
+    portraitDefault: t("stylePortraitDefault"),
+    portraitSmall: t("stylePortraitSmall"),
+    portraitMedium: t("stylePortraitMedium"),
+    portraitLarge: t("stylePortraitLarge"),
+    radius: t("styleRadius"),
+    radiusInherit: t("styleRadiusInherit"),
+    radiusSquare: t("styleRadiusSquare"),
+    radiusSoft: t("styleRadiusSoft"),
+    radiusRound: t("styleRadiusRound"),
+    borderDouble: t("sectionStyleBorderDouble"),
+  };
   return {
     title,
     save: t("save"),
@@ -304,81 +395,9 @@ export async function fursonaEditorLabels(
     collapse: t("collapseSection"),
     expand: t("expandSection"),
     // Nested, like `theme` below — the popup has a `title` of its own, and a
-    // flat bag would have it silently collide with this level's.
-    style: {
-      open: t("sectionStyleOpen"),
-      title: t("sectionStyleTitle"),
-      skin: t("sectionStyleSkin"),
-      bleed: t("sectionStyleBleed"),
-      margins: t("sectionStyleMargins"),
-      skins: Object.fromEntries(
-        SKINS.map((skin) => [skin, t(`skins.${skin}`)]),
-      ) as Record<SkinId, string>,
-      inheritSkin: t("sectionStyleInherit"),
-      backgroundUrl: t("sectionStyleBackgroundUrl"),
-      backgroundUrlHint: t("sectionStyleBackgroundUrlHint"),
-      fit: t("sectionStyleFit"),
-      fitDefault: t("sectionStyleFitDefault"),
-      fitCover: t("sectionStyleFitCover"),
-      fitTile: t("sectionStyleFitTile"),
-      border: t("sectionStyleBorder"),
-      borderHint: t("sectionStyleBorderHint"),
-      borderInherit: t("sectionStyleBorderInherit"),
-      borderNone: t("sectionStyleBorderNone"),
-      borderSolid: t("sectionStyleBorderSolid"),
-      borderDashed: t("sectionStyleBorderDashed"),
-      borderDotted: t("sectionStyleBorderDotted"),
-      chrome: t("styleChrome"),
-      chromeInherit: t("styleChromeInherit"),
-      chromeCard: t("styleChromeCard"),
-      chromeBare: t("styleChromeBare"),
-      chromeHint: t("styleChromeHint"),
-      heading: t("styleHeading"),
-      headingPlain: t("styleHeadingPlain"),
-      headingBar: t("styleHeadingBar"),
-      headingGradient: t("styleHeadingGradient"),
-      // The quieter bar tone. Its wording says how the strip READS rather than
-      // what it is made of — an author picks no colour for it, so naming a
-      // derivation would describe machinery they never meet.
-      headingSoft: t("styleHeadingSoft"),
-      headingGap: t("styleHeadingGap"),
-      headingGapDefault: t("styleHeadingGapDefault"),
-      headingGapNone: t("styleHeadingGapNone"),
-      headingGapSnug: t("styleHeadingGapSnug"),
-      headingGapRoomy: t("styleHeadingGapRoomy"),
-      headingImage: t("styleHeadingImage"),
-      headingImageHint: t("styleHeadingImageHint"),
-      headingFit: t("styleHeadingFit"),
-      headingFitCover: t("styleHeadingFitCover"),
-      headingFitTile: t("styleHeadingFitTile"),
-      corners: t("styleCorners"),
-      headingCorners: t("styleHeadingCorners"),
-      corner: {
-        tl: t("styleCornerTl"),
-        tr: t("styleCornerTr"),
-        br: t("styleCornerBr"),
-        bl: t("styleCornerBl"),
-      },
-      headingPad: t("styleHeadingPad"),
-      headingPadDefault: t("styleHeadingPadDefault"),
-      headingPadSnug: t("styleHeadingPadSnug"),
-      headingPadRoomy: t("styleHeadingPadRoomy"),
-      textAlign: t("styleTextAlign"),
-      textAlignInherit: t("styleTextAlignInherit"),
-      textAlignStart: t("styleTextAlignStart"),
-      textAlignCenter: t("styleTextAlignCenter"),
-      textAlignEnd: t("styleTextAlignEnd"),
-      imageFit: t("styleImageFit"),
-      imageFitInherit: t("styleImageFitInherit"),
-      imageFitCover: t("styleImageFitCover"),
-      imageFitContain: t("styleImageFitContain"),
-      radius: t("styleRadius"),
-      radiusInherit: t("styleRadiusInherit"),
-      radiusSquare: t("styleRadiusSquare"),
-      radiusSoft: t("styleRadiusSoft"),
-      radiusRound: t("styleRadiusRound"),
-      borderDouble: t("sectionStyleBorderDouble"),
-    },
+    // flat bag would have it silently collide with this level's. Built above
+    // rather than here, and shared with `leaf.style` below.
+    style: stylePopupLabels,
     // Nested rather than spread into the same bag as everything else. Both
     // the toolbar and the theme panel have a `title`, and flattening them would
     // have one silently win — which is the kind of collision a label bag makes
@@ -490,6 +509,10 @@ export async function fursonaEditorLabels(
       noIconsFound: t("noIconsFound"),
       clearIcon: t("clearIcon"),
       noIcon: t("noIcon"),
+      // The same object `style` above holds — one popup for a container and
+      // a leaf both, so one bag of strings rather than two copies free to
+      // drift apart.
+      style: stylePopupLabels,
     },
   };
 }

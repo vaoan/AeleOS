@@ -194,7 +194,15 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     expect(await borderStyleOf(painted)).toBe("solid");
     expect(await borderStyleOf(placeholder)).toBe("dashed");
 
-    await page.getByTestId("section-style-open").last().click();
+    // **Scoped to the SECTION's own header, not a page-wide `.last()`.** The
+    // content just added has its own style popup now too — only a depth-0
+    // container's header carries `section-header`, so this reaches the
+    // section's trigger whatever popups the leaf beneath it grows.
+    await page
+      .getByTestId("section-header")
+      .last()
+      .getByTestId("section-style-open")
+      .click();
     await page.getByTestId("section-style-border").selectOption("dotted");
     // The choice really did land on the scope, rather than on nothing:
     // `sectionStyle` routes custom properties to the preview scope, leaving

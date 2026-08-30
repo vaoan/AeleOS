@@ -8,6 +8,7 @@ import {
   CORNERS,
   type BlockStyle,
 } from "@/features/actors/domain/block-schema";
+import type { StyleGates } from "@/features/actors/presentation/block-contract";
 
 /**
  * One block's own look — `blockStyleShape`'s bag (see
@@ -81,16 +82,23 @@ export type SectionStyle = BlockStyle;
  * rather than naming a value. `heading_pad` sits under the name-style select
  * and behind the same condition: both are offered on a NAMED block only.
  *
- * **It does not offer `label`.** This popup only ever opens for a
- * `ContainerBlock` — see {@link SectionStylePopupProps} — and a container's
- * `kind` is always the literal `"container"`, never one of the five leaf
- * kinds `showsLabel` composes with (`presentation/block-contract.ts`). An
- * "Own title" control briefly lived here, gated behind a `honoursLabel` prop
- * that was `false` by construction for every caller; removed 2026-08-30
- * rather than reworked, because reaching leaves is `leaf-editor.tsx`'s job,
- * not this popup's. `label` is still reachable — through the page source
- * dock, which pastes a document validated by the block schema — see
- * `domain/block-schema.ts`'s TSDoc on the key.
+ * **It offers `label` and `portrait` now, and only where the block being
+ * edited honours them (2026-08-30).** This popup opens for a `ContainerBlock`
+ * (from `block-card.tsx`) and for a `LeafBlock` (from `leaf-editor.tsx`)
+ * both, and a container's `kind` is always the literal `"container"` — never
+ * one of the five leaf kinds `showsLabel` composes with, and never `avatar`
+ * — so those two controls are gated on {@link SectionStylePopupProps.gates},
+ * computed once by `styleGatesFor` (`presentation/block-contract.ts`) from
+ * the actual block rather than from a prop that was `false` for every caller
+ * there ever was. An "Own title" control briefly lived here behind exactly
+ * that dead gate, and was removed as dead on 2026-08-30 rather than reworked
+ * — reaching a leaf was `leaf-editor.tsx`'s job, and it does that now instead
+ * of this popup growing a second, leaf-shaped copy of itself.
+ *
+ * `label` and `portrait` are also reachable through the page source dock,
+ * which pastes a document validated by the same block schema — see
+ * `domain/block-schema.ts`'s TSDoc on each key. That is a second path in,
+ * not the only one.
  *
  * The name-style select carries a fourth option, `soft` — the same strip in a
  * quieter tone. It needs no label of its own beyond a name: the tone is
@@ -173,6 +181,24 @@ export interface SectionStylePopupLabels {
   headingPadSnug: string;
   /** A strip with room to breathe. */
   headingPadRoomy: string;
+  /**
+   * Field label for the "own title" select — offered only for a leaf whose
+   * kind honours `style.label`. See `honoursLabel` in
+   * `presentation/block-contract.ts`.
+   */
+  label: string;
+  /** The label select's option that clears `style.label`. */
+  labelDefault: string;
+  /** The label select's option for `"show"`. */
+  labelShow: string;
+  /** The label select's option for `"hidden"`. */
+  labelHidden: string;
+  /**
+   * Says what hiding a leaf's own title does and does not undo — it never
+   * brings back a title an enclosing `tabs` or `accordion` panel already
+   * suppressed. See `showsLabel` in `presentation/block-contract.ts`.
+   */
+  labelHint: string;
   /** Field label for the text-alignment select. */
   textAlign: string;
   /** The alignment option that clears `style.text_align`. */
@@ -191,6 +217,20 @@ export interface SectionStylePopupLabels {
   imageFitCover: string;
   /** A picture shown whole, letterboxed in its box. */
   imageFitContain: string;
+  /**
+   * Field label for the portrait-size select — offered only for an `avatar`
+   * leaf. See `honoursPortrait` in `presentation/block-contract.ts`.
+   */
+  portrait: string;
+  /** The portrait select's option that clears `style.portrait` — the same
+   * size as `"m"`, which is the whole point of offering it. */
+  portraitDefault: string;
+  /** The portrait select's option for `"s"`. */
+  portraitSmall: string;
+  /** The portrait select's option for `"m"`. */
+  portraitMedium: string;
+  /** The portrait select's option for `"l"`. */
+  portraitLarge: string;
   /** Field label for the corner select. */
   radius: string;
   /** The corner option that keeps whatever the skin chose. */
@@ -235,14 +275,20 @@ export interface SectionStylePopupLabels {
  * page in a single field and addresses a block by its position, so there is no
  * per-block form path for a `useController` to name.
  *
- * `atTop` is what decides whether the full-width and margins controls are
- * offered: this component sees a style bag and never knows where its block
- * sits.
+ * **`gates` replaced two ad-hoc booleans, `named` and `atTop`, on 2026-08-30.**
+ * This component sees a style bag and never knows what kind of block it
+ * belongs to or where it sits, so something has to tell it — and once a leaf
+ * could open this popup too, that "something" grew a third dimension
+ * (`label`, `imageFit`, `portrait`) that has nothing to do with `named` or
+ * `atTop` and everything to do with the leaf's own `kind`. Rather than adding
+ * a third boolean the caller computes by hand, `styleGatesFor`
+ * (`presentation/block-contract.ts`) computes all five from the block
+ * itself, in the one place that already held this knowledge for `label` —
+ * `showsLabel`.
  *
  * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
  * the border, each with an empty option that CLEARS the key rather than
- * naming a value. It does not offer `label` — see this component's own
- * TSDoc for why.
+ * naming a value.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -258,23 +304,10 @@ export interface SectionStylePopupProps {
   /** Already-translated strings. */
   labels: SectionStylePopupLabels;
   /**
-   * Whether this block carries a name.
-   *
-   * The name-style control is offered only where there is a name to draw: a
-   * bar with nothing in it accepts a choice and changes nothing, which is the
-   * shape this repo keeps trimming. It is a prop rather than `atTop` because a
-   * NESTED container may be named too, and the idiom applies to it just as
-   * well.
+   * Which of this block's own controls apply — see {@link StyleGates} for
+   * what each one gates and `styleGatesFor` for how it is computed.
    */
-  named: boolean;
-  /**
-   * Whether this block is a SECTION — a container at depth 0.
-   *
-   * Only a section may reach both edges of the window or drop page chrome, so
-   * only a section is offered those controls. Passed in rather than derived
-   * here: this component sees a style bag and never knows where its block sits.
-   */
-  atTop: boolean;
+  gates: StyleGates;
 }
 
 /** What {@link CornerPicker} needs to draw one set of corners. */
@@ -396,14 +429,20 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  * A paintbrush button and the popup it opens: one section's own skin,
  * background picture, card size and border, apart from its layout.
  *
- * **Every field it offers is one every block renders**, which is why nothing
- * here is gated. Skin, background and border are arrangement-agnostic:
- * `nestedSkinVars` sets tokens every `rounded-xl surface` element reads, a
- * background paints the wrapper visible under any mode, and
- * `--skin-border-style` is read by that same `surface` utility everywhere. The
- * card-size field was the one exception and is gone rather than gated — no
- * page reads `--card-size` at all now, so there was no arrangement left for
- * which the control did anything.
+ * **Most of what it offers is read by every block, which is why most of it is
+ * not gated.** Skin, background, chrome, radius, corners, border and
+ * text_align are arrangement- and kind-agnostic: `nestedSkinVars` sets tokens
+ * every `rounded-xl surface` element reads, a background paints the wrapper
+ * visible under any mode, and `--skin-border-style` is read by that same
+ * `surface` utility everywhere. `bleed`/`margins`, the `heading`-family keys,
+ * `label`, `image_fit` and `portrait` ARE gated — through `gates`
+ * ({@link StyleGates}, `presentation/block-contract.ts`) — because each
+ * reaches only some blocks: the first two only a depth-0 container, the
+ * heading keys only a named one, and the last three only particular LEAF
+ * kinds. The card-size field was the one exception that could not be gated
+ * into relevance at all and is gone rather than gated — no page reads
+ * `--card-size` at all now, so there was no arrangement left for which the
+ * control did anything.
  *
  * **It hands back the whole bag rather than one key**, because clearing a
  * field has to REMOVE that key from the object — see `setField` below. A
@@ -442,11 +481,10 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  *
  * @returns the button and, while open, the popup.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
- * the border, each with an empty option that CLEARS the key rather than
- * naming a value. It does not offer `label` — see this component's own
- * top-of-file TSDoc for why, and `domain/block-schema.ts`'s TSDoc on `label`
- * for where the key is reachable instead.
+ * It offers `chrome`, `heading`, `text_align`, `image_fit`, `radius`, `label`
+ * and `portrait` beside the border, each with an empty option that CLEARS the
+ * key rather than naming a value — the last three each behind their own gate
+ * in `gates`, see this component's own top-of-file TSDoc for why.
  *
  * **The panel itself takes `--menu`, the one token declared opaque in both
  * modes**, where every select inside it already did. It took `--surface`,
@@ -479,8 +517,7 @@ export function SectionStylePopup({
   value,
   onChange,
   labels,
-  atTop,
-  named,
+  gates,
 }: SectionStylePopupProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -653,7 +690,7 @@ export function SectionStylePopup({
               the failure this repository keeps catching, so the caller says
               whether this block is a section and the control appears only
               there. */}
-          {atTop ? (
+          {gates.atTop ? (
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 text-xs font-medium">
                 <input
@@ -719,7 +756,7 @@ export function SectionStylePopup({
           {/* **Offered only where there is a name to draw.** A bar with
               nothing in it is the control-that-does-nothing this repo keeps
               trimming, and the renderer already treats it as inert. */}
-          {named ? (
+          {gates.heading ? (
             <div className="grid gap-1.5">
               <label htmlFor={`${id}-heading`} className="text-xs font-medium">
                 {labels.heading}
@@ -860,6 +897,38 @@ export function SectionStylePopup({
             </div>
           ) : null}
 
+          {/* **Offered only where the leaf's own kind honours the key** — a
+              `text`, `avatar`, `handle`, `name` or `owner` leaf, the exact
+              set `showsLabel` composes with. A container never carries this,
+              since its `kind` is always the literal `"container"`. */}
+          {gates.label ? (
+            <div className="grid gap-1.5">
+              <label htmlFor={`${id}-label`} className="text-xs font-medium">
+                {labels.label}
+              </label>
+              <select
+                id={`${id}-label`}
+                value={style.label ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "label",
+                    event.target.value as SectionStyle["label"] | "",
+                  )
+                }
+                aria-describedby={`${id}-label-hint`}
+                {...tid("section-style-label")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.labelDefault}</option>
+                <option value="show">{labels.labelShow}</option>
+                <option value="hidden">{labels.labelHidden}</option>
+              </select>
+              <p id={`${id}-label-hint`} className="text-xs text-(--muted)">
+                {labels.labelHint}
+              </p>
+            </div>
+          ) : null}
+
           <div className="grid gap-1.5">
             <label htmlFor={`${id}-align`} className="text-xs font-medium">
               {labels.textAlign}
@@ -883,27 +952,65 @@ export function SectionStylePopup({
             </select>
           </div>
 
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-image-fit`} className="text-xs font-medium">
-              {labels.imageFit}
-            </label>
-            <select
-              id={`${id}-image-fit`}
-              value={style.image_fit ?? ""}
-              onChange={(event) =>
-                setField(
-                  "image_fit",
-                  event.target.value as SectionStyle["image_fit"] | "",
-                )
-              }
-              {...tid("section-style-image-fit")}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-            >
-              <option value="">{labels.imageFitInherit}</option>
-              <option value="cover">{labels.imageFitCover}</option>
-              <option value="contain">{labels.imageFitContain}</option>
-            </select>
-          </div>
+          {/* **Always offered on a container** — the key is a token that
+              INHERITS to whatever draws a picture beneath it, whether or not
+              the container itself has one. **Gated by kind on a leaf** — see
+              `honoursImageFit` in `presentation/block-contract.ts`. */}
+          {gates.imageFit ? (
+            <div className="grid gap-1.5">
+              <label
+                htmlFor={`${id}-image-fit`}
+                className="text-xs font-medium"
+              >
+                {labels.imageFit}
+              </label>
+              <select
+                id={`${id}-image-fit`}
+                value={style.image_fit ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "image_fit",
+                    event.target.value as SectionStyle["image_fit"] | "",
+                  )
+                }
+                {...tid("section-style-image-fit")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.imageFitInherit}</option>
+                <option value="cover">{labels.imageFitCover}</option>
+                <option value="contain">{labels.imageFitContain}</option>
+              </select>
+            </div>
+          ) : null}
+
+          {/* **`avatar` only** — `portrait` is read directly off the LEAF's
+              own style bag rather than emitted as an inheriting token, so a
+              container never carries this control. See `honoursPortrait` in
+              `presentation/block-contract.ts`. */}
+          {gates.portrait ? (
+            <div className="grid gap-1.5">
+              <label htmlFor={`${id}-portrait`} className="text-xs font-medium">
+                {labels.portrait}
+              </label>
+              <select
+                id={`${id}-portrait`}
+                value={style.portrait ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "portrait",
+                    event.target.value as SectionStyle["portrait"] | "",
+                  )
+                }
+                {...tid("section-style-portrait")}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                <option value="">{labels.portraitDefault}</option>
+                <option value="s">{labels.portraitSmall}</option>
+                <option value="m">{labels.portraitMedium}</option>
+                <option value="l">{labels.portraitLarge}</option>
+              </select>
+            </div>
+          ) : null}
 
           <div className="grid gap-1.5">
             <label htmlFor={`${id}-radius`} className="text-xs font-medium">

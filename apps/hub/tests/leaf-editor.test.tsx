@@ -440,4 +440,150 @@ describe("LeafEditor", () => {
       expect(screen.getByTestId("add-row")).toBeInTheDocument();
     });
   });
+
+  // A LEAF CAN REACH ITS OWN STYLE POPUP NOW — the same `SectionStylePopup`
+  // `BlockCard` mounts, gated by `styleGatesFor` off this leaf's own `kind`
+  // rather than off a `ContainerBlock`'s. `section-style-popup.test.tsx`
+  // already proves the popup's own mechanics (writing, clearing, the corner
+  // picker…) against a container; what is new here is the WIRING — that a
+  // leaf reaches the popup at all, that the three leaf-kind-gated controls
+  // (`label`, `image_fit`, `portrait`) appear only where the kind honours
+  // them, and that a choice lands on the LEAF's own `style` through
+  // `patchLeaf`.
+  describe("its own style popup", () => {
+    /** Opens the popup, which every kind offers. */
+    function openStyle() {
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.leaf.style.open }),
+      );
+    }
+
+    it("offers the skin, background and border fields on every kind", () => {
+      harness(newLeaf("stat"));
+      openStyle();
+      expect(screen.getByLabelText(labels.leaf.style.skin)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.backgroundUrl),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.border),
+      ).toBeInTheDocument();
+    });
+
+    // NEVER THE HEADING CONTROLS OR BLEED/MARGINS — a leaf has no name field
+    // to draw a bar from, and neither key is read unless `isContainer`
+    // already agreed before either is asked.
+    it("never offers the name-style or full-width controls, on any kind", () => {
+      harness(newLeaf("text"));
+      openStyle();
+      expect(screen.queryByLabelText(labels.leaf.style.heading)).toBeNull();
+      expect(screen.queryByLabelText(labels.leaf.style.bleed)).toBeNull();
+      expect(screen.queryByLabelText(labels.leaf.style.margins)).toBeNull();
+    });
+
+    // `label` COMPOSES WITH `showsLabel`, whose own set is `text` plus the
+    // four identity leaves that draw one — `avatar`, `handle`, `name` and
+    // `owner`. `fursonas` is NOT in that set: its own title is never
+    // suppressible. A kind outside all five must not offer the control
+    // either, which is the case a purely positive sweep would miss.
+    it.each(["text", "avatar", "handle", "name", "owner"] as const)(
+      "offers 'own title' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(
+          screen.getByLabelText(labels.leaf.style.label),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it.each([
+      "stat",
+      "quote",
+      "progress",
+      "link",
+      "picture",
+      "fursonas",
+    ] as const)("does not offer 'own title' for a %s leaf", (kind) => {
+      harness(newLeaf(kind));
+      openStyle();
+      expect(screen.queryByLabelText(labels.leaf.style.label)).toBeNull();
+    });
+
+    // `image_fit` REACHES EVERY KIND THAT DRAWS AN `<img>` READING IT —
+    // `avatar`, `owner` and `picture` — never a kind with no picture of its
+    // own.
+    it.each(["avatar", "owner", "picture"] as const)(
+      "offers 'pictures' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(
+          screen.getByLabelText(labels.leaf.style.imageFit),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it.each(["text", "handle", "name", "link", "stat"] as const)(
+      "does not offer 'pictures' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.imageFit)).toBeNull();
+      },
+    );
+
+    // `portrait` REACHES `avatar` ALONE — not even `owner`, whose own mini
+    // avatar deliberately does not read the key (see `block-schema.ts`'s
+    // TSDoc on `portrait`), and not `picture`, which draws no actor portrait
+    // at all.
+    it("offers 'portrait size' for an avatar leaf, and no other", () => {
+      harness(newLeaf("avatar"));
+      openStyle();
+      expect(
+        screen.getByLabelText(labels.leaf.style.portrait),
+      ).toBeInTheDocument();
+    });
+
+    it.each(["owner", "picture", "handle", "text"] as const)(
+      "does not offer 'portrait size' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.portrait)).toBeNull();
+      },
+    );
+
+    it("writes a chosen skin to this leaf's own style, through patchLeaf", () => {
+      const page = harness(newLeaf("text"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.skin), {
+        target: { value: "glass" },
+      });
+      expect(held(page())?.style).toEqual({ skin: "glass" });
+    });
+
+    it("writes 'hidden' to this leaf's own label, and clears it back", () => {
+      const page = harness(newLeaf("text"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.label), {
+        target: { value: "hidden" },
+      });
+      expect(held(page())?.style).toEqual({ label: "hidden" });
+
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.label), {
+        target: { value: "" },
+      });
+      expect(held(page())?.style).toBeUndefined();
+    });
+
+    it("writes a chosen portrait size to an avatar leaf's own style", () => {
+      const page = harness(newLeaf("avatar"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.portrait), {
+        target: { value: "l" },
+      });
+      expect(held(page())?.style).toEqual({ portrait: "l" });
+    });
+  });
 });
