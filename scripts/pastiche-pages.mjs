@@ -448,6 +448,15 @@ const myspaceTheme = theme({
 // display name itself with the word "Name"; `owner` is hidden because
 // Messenger never showed a concept of who controls the account beyond the
 // signed-in person.
+//
+// **Gap 16, the other half: the section heading duplicated the name leaf's
+// value, and the `name` leaf is what goes.** "Aeleos (Available)" atop this
+// section is a real Windows Live Messenger idiom — your own name and status
+// line in the window's own title bar — so it is the AUTHENTIC line and it
+// belongs where Messenger put it. The `name` leaf beneath it added nothing a
+// stranger could read that the title bar had not already said, so it is
+// removed outright: `name` is optional (see `REQUIRED_KINDS`), and the
+// section still carries `handle` for the block the page owes.
 // ---------------------------------------------------------------------------
 
 const messenger = [
@@ -461,7 +470,9 @@ const messenger = [
         }),
       ]),
       group("stack", [
-        leaf("name", "Aeleos", { style: { label: "hidden" } }),
+        // No `name` leaf here — see gap 16's second half above: the window's
+        // own title bar already says "Aeleos", and this stack's job is
+        // everything the title bar does not carry.
         leaf("text", "Personal message", {
           description_en: "brb making coffee ☕ — (L) music on",
         }),
@@ -598,13 +609,19 @@ const messengerTheme = theme({
 // **Gap 16: `name`, `handle` and `owner` are all hidden.** A modern Twitter-
 // style profile shows a bold name and a grey `@handle` with no caption over
 // either, and it shows no concept of an "owner" separate from the account.
+//
+// **Gap 16, the other half: the identity section named itself "Aeleos", the
+// exact word `name` already draws.** A real profile like this has no caption
+// over its own header at all — no panel, no title bar, nothing this section
+// arrangement invented — so the section heading is the app's own furniture
+// and the `name` leaf is the real content. The heading is dropped (an
+// unnamed `group` in place of a named `section`) rather than the leaf.
 // ---------------------------------------------------------------------------
 
 const post = (when, text) => leaf("text", when, { description_en: text });
 
 const board = [
-  section(
-    "Aeleos",
+  group(
     "grid",
     [
       group("stack", [
@@ -687,11 +704,15 @@ const boardTheme = theme({
 // **Gap 16: `name`, `handle` and `owner` are all hidden**, for the same
 // reason as the board above — a live Bluesky profile captions neither the
 // name nor the `@handle`, and shows no "owner" concept.
+//
+// **Gap 16, the other half: same fix as the board, same reason.** The
+// section named itself "Aeleos" over a `name` leaf reading the same word —
+// no panel or title bar exists on a real Bluesky profile to own that word,
+// so the heading is dropped and the leaf stands as the page's only mention.
 // ---------------------------------------------------------------------------
 
 const sky = [
-  section(
-    "Aeleos",
+  group(
     "grid",
     [
       group("stack", [
@@ -814,11 +835,20 @@ const skyTheme = theme({
 // — a real Threads profile captions none of the three, so the mechanism
 // removes exactly the repetition that forced the bio rewrite above. `owner`
 // is hidden for the same reason: Threads has no such concept.
+//
+// **Gap 16, the other half — hiding the LABEL was not the whole fix.** The
+// section itself was still named "aeleos", the exact word the `name` leaf
+// draws as its value, so the rendered page still read "aeleos" (heading)
+// then "aeleos" (name) before ever reaching "threads" (handle) — two
+// adjacent lines saying the same thing, which is exactly what this gap is
+// about. A real Threads profile has no caption or panel over its own header
+// at all, so the section heading is the invented one; it is dropped (an
+// unnamed `group` in place of a named `section`) and the `name` leaf is
+// left standing as the page's one mention of it.
 // ---------------------------------------------------------------------------
 
 const threads = [
-  section(
-    "aeleos",
+  group(
     "grid",
     [
       group("stack", [
@@ -906,6 +936,14 @@ const threadsTheme = theme({
 // convention's word — but `name` restates `displayName` verbatim, which no
 // site captions with the word "Name", and `owner` names a concept hi5 never
 // had.
+//
+// **Gap 16, the other half: the panel's own title bar is "Aeleos", the same
+// word the `name` leaf drew beneath it.** Unlike the board or Bluesky, this
+// one keeps its heading — the sampled capture is genuinely a title bar over
+// a white body, the widget-panel convention this page's own comment already
+// credits — so the bar is the authentic line here, the way Messenger's
+// window title is. The `name` leaf is what goes: it is optional (see
+// `REQUIRED_KINDS`) and the section still carries `avatar` and `handle`.
 // ---------------------------------------------------------------------------
 
 const hi5 = [
@@ -918,7 +956,8 @@ const hi5 = [
         leaf("handle", "hi5 ID"),
       ]),
       group("stack", [
-        leaf("name", "Aeleos", { style: { label: "hidden" } }),
+        // No `name` leaf here — see gap 16's second half above: the panel's
+        // own bar already reads "Aeleos".
         leaf("stat", "Mood", { description_en: "😎 chillin" }),
         leaf("stat", "Profile views", { description_en: "18,402" }),
         leaf("progress", "Profile completeness", { description_en: "80" }),
@@ -1060,6 +1099,12 @@ const hi5Theme = theme({
 // fields, "Usuario" is that convention's own word, and `name`/`owner` are
 // hidden for being a bare repeat of the value and a concept the site never
 // had, respectively.
+//
+// **Gap 16, the other half: same call as hi5, for the same evidence.** This
+// page's own bar heading is the panel-title idiom the flat-colour sampling
+// above bases every section's style on, so it stays; the `name` leaf beneath
+// it restated the same word the bar already carries and is removed, leaving
+// `avatar` and `handle` as this stack's identity blocks.
 // ---------------------------------------------------------------------------
 
 const sonico = [
@@ -1072,7 +1117,8 @@ const sonico = [
         leaf("handle", "Usuario"),
       ]),
       group("stack", [
-        leaf("name", "Aeleos", { style: { label: "hidden" } }),
+        // No `name` leaf here — see gap 16's second half above: the bar
+        // heading already reads "Aeleos".
         leaf("stat", "Ciudad", { description_en: "Medellín, Colombia" }),
         leaf("stat", "Amigos", { description_en: "412" }),
         leaf("stat", "Fotos", { description_en: "1,038" }),
@@ -1648,7 +1694,12 @@ const fotologTheme = theme({
 // colour of theirs anybody would recognise on sight — and that capture added
 // a detail the model could not then express: the navy bar carries a LIGHTER
 // blue sub-bar beneath it. `heading: "soft"` is that second tone, and the
-// subordinate sections below wear it.
+// subordinate sections below wear it. **The navy tone itself no longer
+// reaches the page (gap 16, 2026-08-29)** — it was carried by the identity
+// section's own bar, which read the display name and so duplicated the
+// `name` leaf beneath it; see that section's own comment. The lighter
+// `"soft"` tone on Friends and the Wall is untouched, so the masthead's
+// second half still stands even though its first half does not.
 //
 // **The reference link this page shows is a SEPARATE, later capture: arquivo.pt
 // at February 2008, `20080215125110`** (`scripts/pastiche-references.mjs`,
@@ -1686,11 +1737,23 @@ const fotologTheme = theme({
 // numeric id lived in the address bar alone, never as a captioned field —
 // so there is no captured label to keep. `name` restates the value and
 // `owner` has no Facebook equivalent, the same as every other page here.
+//
+// **Gap 16, the other half: unlike hi5 and Sonico, the bar here is the
+// invented one and the `name` leaf is the real content.** Neither capture
+// this page is built from shows a per-section title bar reading the
+// profile owner's name — the navy/lighter-blue two-tone is this design's
+// own blue-chrome styling, applied for its own sake the way `aero` is on
+// Messenger, not a captured panel convention like hi5's or Sonico's. A real
+// 2008 profile's name is bold text beside the photo, which is exactly what
+// `NameLeaf` already draws, so the section heading is dropped (an unnamed
+// `group` in place of a named `section`) rather than the leaf. `heading:
+// "bar"` is removed from its style along with it: that key draws nothing
+// without a name to fill it (`barred` needs both), so left in place it
+// would be a dead key describing a strip that no longer renders.
 // ---------------------------------------------------------------------------
 
 const facebook = [
-  section(
-    "Aeleos",
+  group(
     "grid",
     [
       group("stack", [
@@ -1725,7 +1788,7 @@ const facebook = [
         }),
       ]),
     ],
-    { spaces: 2, weights: [1, 2], style: { heading: "bar", radius: "square" } },
+    { spaces: 2, weights: [1, 2], style: { radius: "square" } },
   ),
 
   section(
@@ -1738,9 +1801,11 @@ const facebook = [
     ),
     // **The lighter blue strip under the navy one**, which is what the
     // capture actually shows and what one accent could not express. The
-    // identity section keeps the strong bar; everything subordinate to it
-    // takes the quieter tone. `radius: "square"` matches the sharp-cornered
-    // boxes the fresh capture shows throughout the front page (task 7).
+    // identity section carried the strong bar until gap 16 (2026-08-29)
+    // found it duplicated the `name` leaf and removed it; everything
+    // subordinate to it still takes the quieter tone. `radius: "square"`
+    // matches the sharp-cornered boxes the fresh capture shows throughout
+    // the front page (task 7).
     { spaces: 6, style: { heading: "soft", radius: "square" } },
   ),
 

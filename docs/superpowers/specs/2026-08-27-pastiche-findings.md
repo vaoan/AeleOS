@@ -251,19 +251,19 @@ the real sites were plain white-and-blue pages, so the decorative skins came
 off, and this summary went on describing the pages as they had been. It is
 built from the file now rather than from recall.
 
-| page                   | what actually carries it                                                                                                                                                                                                                                                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas — over `surface: "#f8f8f8"` and a `#193c74` accent, both measured off a real 8.0 screenshot. Every panel now carries the window shape too: `radius: "soft"` with matching `corners`/`heading_corners` on `"tl,tr"`. |
-| MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"`, and a real October 2008 profile's night-skyline photograph behind every box (task 5) — semi-transparency itself stays unreachable, gap 13 below.                                                          |
-| hi5                    | `heading: "gradient"` title bars over white content — a genuine ramp, sampled and kept — a `carousel` of widgets, `progress` as a profile-completeness meter, and the same window shape as Messenger's: `radius: "soft"` with `corners: "tl,tr"`.                                                                                     |
-| Sonico                 | Flat navy `#003399` bars on white with `#f3f3f3` panels, all measured off an October 2008 capture — `heading: "bar"` replaces the gradient this table used to name, on evidence the strip is flat rather than a ramp — plus `masonry` for a real photo wall, `carousel` for album strips, and hi5's own window shape.                 |
-| GeoCities              | `font: "serif"` and centred text — measured, five of five real pages are Times New Roman — a `stars` canvas, a tiled backdrop, a `table` of visitor stats, a `link` row as a webring, and `radius: "square"` panels, since no section had set one and the skin rounded.                                                               |
-| Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, `list` + `chrome: "bare"` for the shouts wall, and — confirmed by a second, December 2019 capture at a different archive — `heading: "bar"` welded flush to `radius: "square"` panels, no `corners` at all.                    |
-| Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                                                                                                                                                                 |
-| Facebook               | `heading: "bar"` in `#3b5998` over `heading: "soft"` beneath it, an information `table` with a mark on every row, a six-across friends strip, and a `list` wall.                                                                                                                                                                      |
-| Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test. Its palette is Twitter's ~2019 dark mode, not the 2012 it was filed under.                                                                                                            |
-| Bluesky                | Flat `#ffffff` and `#006aff`, measured live. The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`.                                                                                                                                                                              |
-| Threads                | `list` + `chrome: "bare"` on the live site's own `#0a0a0a`, with `surface: "#101010"` for the card. What defines it is what it removes.                                                                                                                                                                                               |
+| page                   | what actually carries it                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows Live Messenger | The only page still wearing a skin for its own sake: `aero` glass, `accordion` contact groups, a `bubbles` canvas — over `surface: "#f8f8f8"` and a `#193c74` accent, both measured off a real 8.0 screenshot. Every panel now carries the window shape too: `radius: "soft"` with matching `corners`/`heading_corners` on `"tl,tr"`.                                              |
+| MySpace                | The **Winamp jukebox chrome**, a `weights: [1, 2]` two-column body, a `table` contact box, a Top 8 grid, `font: "classic"`, and a real October 2008 profile's night-skyline photograph behind every box (task 5) — semi-transparency itself stays unreachable, gap 13 below.                                                                                                       |
+| hi5                    | `heading: "gradient"` title bars over white content — a genuine ramp, sampled and kept — a `carousel` of widgets, `progress` as a profile-completeness meter, and the same window shape as Messenger's: `radius: "soft"` with `corners: "tl,tr"`.                                                                                                                                  |
+| Sonico                 | Flat navy `#003399` bars on white with `#f3f3f3` panels, all measured off an October 2008 capture — `heading: "bar"` replaces the gradient this table used to name, on evidence the strip is flat rather than a ramp — plus `masonry` for a real photo wall, `carousel` for album strips, and hi5's own window shape.                                                              |
+| GeoCities              | `font: "serif"` and centred text — measured, five of five real pages are Times New Roman — a `stars` canvas, a tiled backdrop, a `table` of visitor stats, a `link` row as a webring, and `radius: "square"` panels, since no section had set one and the skin rounded.                                                                                                            |
+| Fur Affinity           | A `bleed` banner — the only one in the set — `weights: [1, 3]` for the stats rail, a submissions grid, `list` + `chrome: "bare"` for the shouts wall, and — confirmed by a second, December 2019 capture at a different archive — `heading: "bar"` welded flush to `radius: "square"` panels, no `corners` at all.                                                                 |
+| Fotolog                | One photograph at `measure: "narrow"` and a `list` guestbook under it. Structurally the opposite of every other page: not a grid of comparable boxes.                                                                                                                                                                                                                              |
+| Facebook               | A bold `name` headline beside an information `table` with a mark on every row, `heading: "soft"` in the lighter tone over the friends strip, a six-across grid, and a `list` wall. **The identity section's own `heading: "bar"` in `#3b5998` is gone (gap 16, 2026-08-29)** — it duplicated the `name` leaf beneath it, and the leaf is the real content; see gap 16's own entry. |
+| Microblog board        | `list` + `chrome: "bare"` rows, `stat` counts and `social` chips that resolve a brand — **not** `timeline`, which is what it was built to test. Its palette is Twitter's ~2019 dark mode, not the 2012 it was filed under.                                                                                                                                                         |
+| Bluesky                | Flat `#ffffff` and `#006aff`, measured live. The one page that sets no `spacing` at all, so it is roomy where every other modern page here is `compact`.                                                                                                                                                                                                                           |
+| Threads                | `list` + `chrome: "bare"` on the live site's own `#0a0a0a`, with `surface: "#101010"` for the card. What defines it is what it removes.                                                                                                                                                                                                                                            |
 
 **GeoCities is worth reading twice**: it reached for `terminal` first and got
 monospace, which reads as a developer's site rather than a personal homepage. A
@@ -483,9 +483,15 @@ accent has room in one direction or the other. `palette.test.ts` pins it with
 `#7f7f7f` in the list on purpose: a mid-grey has the least room to travel, so
 it is where a derivation that barely moves stops being visible first.
 
-It reaches the Facebook pastiche as the strong bar on the identity section and
-the quieter one on everything subordinate to it, which is the arrangement the
-capture shows.
+It reached the Facebook pastiche as the strong bar on the identity section and
+the quieter one on everything subordinate to it, which was the arrangement the
+capture showed. **The strong half is gone now (gap 16, 2026-08-29):** that bar
+read the display name, duplicating the `name` leaf beneath it, and the leaf is
+the real content on this page — see gap 16's own entry for the reasoning. The
+mechanism this gap closed is unaffected and still demonstrated: `heading:
+"soft"` still derives its quieter tone from `--accent` on Facebook's Friends
+and Wall sections, and on every other page that pairs a strong bar with a soft
+one.
 
 ### A rule the seeder stated and broke, for a fortnight
 
@@ -892,11 +898,11 @@ was chosen to fit its own subject and none is wrong on its own page — the
 gap is that there is no rule saying what this label is FOR, so eleven
 authors reaching for the same field reached eleven different ways.
 
-**Closed, partially (2026-08-29).** A block may now say `style: { label:
-"hidden" }`, composing with an enclosing mode's own `labelled` by narrowing
-it only — never widening it — and applied across all sixteen seeded pages:
-`AvatarLeaf`, `HandleLeaf`, `NameLeaf`, `OwnerLeaf` and `PlainLeaf` all read
-it through a shared `showsLabel()`.
+**Closed, in two halves, both landed 2026-08-29.** The first was the label. A
+block may now say `style: { label: "hidden" }`, composing with an enclosing
+mode's own `labelled` by narrowing it only — never widening it — and applied
+across all sixteen seeded pages: `AvatarLeaf`, `HandleLeaf`, `NameLeaf`,
+`OwnerLeaf` and `PlainLeaf` all read it through a shared `showsLabel()`.
 
 **The rule that settles which pages hide it: an identity label says what the
 thing is called on the site being imitated, and is hidden where that site
@@ -915,18 +921,35 @@ convention on their own captures to keep the word already chosen (`URL`,
 `hi5 ID`, `Usuario`, `My handle`, `Username`, `fotolog`, `Messenger ID`); the
 board, Bluesky and Threads are live, unlabelled modern profiles, and
 Facebook's `Profile ID` names a fact the real 2008 page never printed on
-itself at all — those four are hidden. The Threads page is the one this was
-found on: it read _aeleos / Aeleos: aeleos / aeleos: threads_ before, and now
-renders "aeleos" (the section heading), "aeleos" (the name, unlabelled) and
-"threads" (the handle, unlabelled) — three lines instead of a label over
-each repeating the word again.
+itself at all — those four are hidden.
+
+**The second half is the one hiding a LABEL cannot reach: a section's own
+HEADING can duplicate an identity leaf's VALUE, and that is a layer up from
+anything `label: "hidden"` touches.** The Threads page is where this was
+found: it read _aeleos / Aeleos: aeleos / aeleos: threads_ before the label
+fix, and _"aeleos" (the section heading) / "aeleos" (the name, unlabelled) /
+"threads" (the handle, unlabelled)_ after it — three lines, but the first two
+still say the same word, because the section itself was named "aeleos" and
+nothing about hiding a leaf's own caption touches a CONTAINER's `name_en`.
+Walking all sixteen pages found the same clash on seven: `messenger`,
+`board`, `sky`, `threads`, `hi5`, `sonico` and `facebook`. Each was resolved
+by deciding, per page and against its own capture note, which of the two —
+the section's heading or the leaf's value — is the authentic line, and
+dropping the other: Messenger, hi5 and Sonico keep a genuinely captured
+title-bar convention and lose the redundant `name` leaf (optional, per
+`REQUIRED_KINDS`); the board, Bluesky, Threads and Facebook have no such
+convention on their real subject, so the invented section heading goes and
+the leaf stands as the page's one mention. Threads now renders "aeleos"
+(the name, unlabelled), "threads" (the handle, unlabelled) — no two adjacent
+lines say the same word, on any of the seven.
 
 **What this does NOT settle, honestly.** Whether identity belongs in one
 composed block instead of four independent ones is untouched — the four
-leaves still know nothing of each other, and `label: "hidden"` only lets
-each one opt out of its own caption rather than making the four read as a
-single unit. And "what should a handle's title say" still has no shared
-convention across the sixteen; this closes the narrower question of whether
-that title is EVER shown, on a given page, not what it should say when it
-is. Both remain the product questions gap 13 and 14's method does not
-settle in passing.
+leaves still know nothing of each other, `label: "hidden"` only lets each one
+opt out of its own caption, and dropping a redundant section name or leaf is
+a per-page judgement call rather than a mechanism that would make the four
+compose on their own. And "what should a handle's title say" still has no
+shared convention across the sixteen; this closes the narrower question of
+whether that title is EVER shown, on a given page, not what it should say
+when it is. All three remain the product questions gap 13 and 14's method
+does not settle in passing.

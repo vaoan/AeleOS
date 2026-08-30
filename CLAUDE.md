@@ -2023,21 +2023,37 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   only have deleted a screen reader's one source for whose portrait this is,
   for no visual gain.
 
-  **The Threads page is gap 16's own worked example, closed rather than
-  merely described.** Its header comment already named the fault by hand —
-  "aeleos" appearing three times, the section name, the name leaf's value
-  and the handle leaf's label — and that comment is what the fix removes:
-  the page now renders "aeleos" (the section heading), "aeleos" (the name,
-  unlabelled) and "threads" (the handle, unlabelled), each word appearing
-  once rather than a label restating what the line beneath it already says.
+  **The Threads page is gap 16's own worked example, and hiding the label
+  was not the whole fix.** Its header comment already named the fault by
+  hand — "aeleos" appearing three times, the section name, the name leaf's
+  value and the handle leaf's label — and hiding the LABEL only silenced the
+  third repeat: the page still rendered "aeleos" (the section heading),
+  "aeleos" (the name, unlabelled) and "threads" (the handle, unlabelled),
+  and the first two are the same word, adjacent, because nothing about a
+  leaf's own caption touches a CONTAINER's `name_en`. That half is closed
+  now too (same day): the section's own heading duplicated an identity
+  leaf's value on seven of the sixteen pages — `messenger`, `board`, `sky`,
+  `threads`, `hi5`, `sonico` and `facebook` — found by deriving what each
+  page renders top to bottom rather than by reading the style bag. Each was
+  resolved per page, judged against its own capture note, by dropping
+  whichever of the two — the section's heading or the leaf's value — is not
+  the authentic line: Messenger, hi5 and Sonico keep a genuinely captured
+  title-bar convention and lose the redundant `name` leaf (`name` is
+  optional, never in `REQUIRED_KINDS`); the board, Bluesky, Threads and
+  Facebook have no such convention on their real subject, so the section's
+  invented heading goes (an unnamed `group` in place of a named `section`)
+  and the leaf is what a stranger reads. Threads now renders "aeleos" (the
+  name, unlabelled) then "threads" (the handle, unlabelled) — no two
+  adjacent lines say the same word.
 
   **What this does not settle, on purpose.** Whether the four identity
   leaves belong in one composed block rather than four independent ones is
-  untouched — hiding a caption is not the same as the four reading as a
-  single unit, and they still know nothing of each other. And "what should a
-  handle's title say" still has no shared convention across the sixteen;
-  this closes only whether a title is ever SHOWN on a given page, not what
-  it should read when it is. Findings:
+  untouched — hiding a caption, and choosing which of a section's heading or
+  a leaf's value survives, are both per-instance fixes rather than a
+  mechanism that makes the four read as a single unit, and they still know
+  nothing of each other. And "what should a handle's title say" still has no
+  shared convention across the sixteen; this closes only whether a title is
+  ever SHOWN on a given page, not what it should read when it is. Findings:
   `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, gap 16.
 
 ## The toolchain, and the rules it cost
