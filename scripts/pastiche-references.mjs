@@ -192,7 +192,7 @@ export const REFERENCES = {
     absent:
       "GeoCities was millions of personal pages, not one. The reference is a restored gallery of real archived ones rather than a single capture.",
     absent_es:
-      "GeoCities fueron millones de páginas personales, no una sola. La referencia es una galería restaurada de páginas realmente archivadas, en lugar de una única captura.",
+      "GeoCities era millones de páginas personales, no una sola. La referencia es una galería restaurada de páginas realmente archivadas, en lugar de una única captura.",
     title_en: "A GeoCities homepage",
     title_es: "Una página de inicio de GeoCities",
     link: "https://geocities.restorativland.org/Area51/",

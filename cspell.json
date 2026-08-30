@@ -63,6 +63,16 @@
     "inspiración",
     "existe",
     "captura",
+    // The Spanish quoted in rule 42, which records that `check:tools`'s
+    // cspell glob never opens the .mjs file those strings live in. The rule
+    // quotes the sentence it is about and the RAE example that made the form
+    // arguable, so the words must be spellable here even though the file they
+    // came from is checked by nothing.
+    "fueron",
+    "páginas",
+    "única",
+    "alegría",
+    "visitas",
     "picsum",
     "pixabay",
     "showcase",

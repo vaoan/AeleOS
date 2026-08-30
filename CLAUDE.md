@@ -3051,6 +3051,24 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     `expect.poll` can express. No third exemption should be added without the
     same kind of measurement behind it.
 
+42. **A CHECKER IS ONLY AS WIDE AS ITS GLOB, and the prose nobody checks is
+    the prose in somebody else's language.** `check:tools` runs cspell over
+    `**/*.{ts,tsx,md,json}`. `scripts/pastiche-references.mjs` is `.mjs`, and
+    it holds the bilingual strings sixteen seeded pages render — so the
+    Spanish an author reads is opened by no tool in the pipeline. Pointed at
+    that file by hand, cspell reports **86** unknown words; in CI it reports
+    nothing, because it never sees it. A clean `check:tools` is not evidence
+    about a file its glob excludes.
+
+    **The half worth carrying is what filled the gap instead.** A reviewer
+    flagged `GeoCities fueron millones de páginas personales` as a plural verb
+    on a singular subject. It was overruled on a real rule — Spanish copulas
+    may agree with a plural PREDICATE, `Mi única alegría son sus visitas` —
+    and left alone. The repository's owner, who speaks the language, read it
+    as wrong on sight. **A grammar rule that permits a form is not a
+    judgement that it reads well**, and where no checker runs, a native
+    reader is the check: escalate rather than adjudicate.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected
