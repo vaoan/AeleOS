@@ -3,11 +3,20 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
   type TestIdentity,
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
+
+// One sign-in for the "signed in" describe below: each of its cases drives
+// its own viewport against `/es/me`, `/es/pages` or a fresh `/es/pages/new`
+// draft, and none depends on what an earlier one left behind — so they share
+// one Clerk session rather than minting a ticket per viewport. See
+// `support/shared-session.ts`.
+const STATE_PATH = sharedStatePath("responsive");
 
 // WHAT THIS FILE IS FOR, AND THE SHORTCUT IT EXISTS TO FORBID.
 //
@@ -150,9 +159,10 @@ test.describe.configure({ mode: "serial" });
 
 let identity: TestIdentity | undefined;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
 });
 
 test.afterAll(async () => {
@@ -182,14 +192,15 @@ test.describe("every phone screen, signed out", () => {
 
 test.describe("every phone screen, signed in", () => {
   test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+  test.use({ storageState: STATE_PATH });
 
   for (const viewport of VIEWPORTS) {
-    // One session per viewport rather than one per page: signing in is the
-    // slow part, and what is being measured is layout, which does not care
-    // that three routes shared a session.
+    // **One session for the WHOLE describe now, not one per viewport.** What
+    // is being measured is layout, which does not care that every viewport
+    // and every route below shares a session — see `beforeAll`'s
+    // `establishSharedSession` call above.
     test(`the signed-in pages fit ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await signIn(page, await mintTicket(identity!.userId));
 
       for (const path of ["/es/me", "/es/pages"]) {
         await page.goto(path);
@@ -207,7 +218,6 @@ test.describe("every phone screen, signed in", () => {
       page,
     }) => {
       await page.setViewportSize(viewport);
-      await signIn(page, await mintTicket(identity!.userId));
 
       await page.goto("/es/pages/new");
       await page.getByTestId("theme-open").click();

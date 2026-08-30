@@ -3,10 +3,12 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
 import {
   chooseNewSectionSpaces,
   handleFor,
@@ -16,6 +18,12 @@ import {
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { isContainer } from "@/features/actors/domain/block-schema";
 import { missingRequiredKinds } from "@/features/actors/domain/required-blocks";
+
+// One sign-in for the whole file: every case below signs in as the same
+// shared identity to build its own fresh fursona, and none depends on what
+// an earlier case left behind, so they restore one saved session rather
+// than minting a fresh ticket each — see `support/shared-session.ts`.
+const STATE_PATH = sharedStatePath("editor-saves-page");
 
 // THE COVERAGE THAT WAS OWED, AND WHY IT IS OWED IN A BROWSER.
 //
@@ -64,9 +72,10 @@ test.describe.configure({ mode: "serial", timeout: 180_000 });
 
 let identity: TestIdentity | undefined;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
 });
 
 test.afterAll(async () => {
@@ -74,6 +83,7 @@ test.afterAll(async () => {
 });
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+test.use({ storageState: STATE_PATH });
 
 /** One section as the editor is holding it. */
 interface EditorSection {
@@ -227,8 +237,6 @@ for (const template of FURSONA_TEMPLATES) {
     page,
     browser,
   }) => {
-    await signIn(page, await mintTicket(identity!.userId));
-
     await page.goto("/es/me");
     const address = (await page.getByTestId("my-address").innerText()).trim();
     expect(address).not.toBe("");
@@ -310,7 +318,7 @@ for (const template of FURSONA_TEMPLATES) {
     // page. It must still be there afterwards.
     await saveAndLeave(page);
 
-    const stranger = await browser.newContext();
+    const stranger = await browser.newContext({ storageState: undefined });
     try {
       const anonymous = await stranger.newPage();
       const response = await anonymous.goto(`/es/${address}/${handle}`);
@@ -336,8 +344,6 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   page,
   browser,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
-
   await page.goto("/es/me");
   const address = (await page.getByTestId("my-address").innerText()).trim();
 
@@ -406,7 +412,7 @@ test("sections built by hand save, reopen and reach a stranger", async ({
       ),
   ).toEqual(["leaf-editor", "empty-place", "leaf-editor"]);
 
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext({ storageState: undefined });
   try {
     const anonymous = await stranger.newPage();
     const response = await anonymous.goto(`/es/${address}/${handle}`);
@@ -435,8 +441,6 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   page,
   browser,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
-
   await page.goto("/es/me");
   const address = (await page.getByTestId("my-address").innerText()).trim();
 
@@ -463,7 +467,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
     PERSON_FURSONAS,
   ]);
 
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext({ storageState: undefined });
   try {
     const anonymous = await stranger.newPage();
     const response = await anonymous.goto(`/es/${address}`);

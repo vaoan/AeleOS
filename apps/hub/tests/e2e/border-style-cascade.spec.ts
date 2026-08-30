@@ -3,12 +3,24 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
+  type TestIdentity,
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
 import { chooseNewSectionSpaces } from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
+
+// **One identity for the whole file now, not one per test.** Nothing below
+// saves a page through the browser — the public-page case seeds straight
+// into the database, and the other two build an unsaved `/pages/new` draft
+// that never persists — so nothing one case does is visible to another, and
+// there is no correctness reason to keep three separate throwaway users. The
+// two that DO sign in share one restored session rather than minting a
+// ticket each; see `support/shared-session.ts`.
+const STATE_PATH = sharedStatePath("border-style-cascade");
 
 // WHY THIS FILE EXISTS, AND WHY A MODEL IN skins.test.ts WAS NOT ENOUGH.
 //
@@ -57,6 +69,19 @@ import { apart, sampleColours, type Probe } from "./support/pixels";
 // `section-style-open` matches two buttons rather than one.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+test.use({ storageState: STATE_PATH });
+
+let identity: TestIdentity | undefined;
+
+test.beforeAll(async ({ browser }) => {
+  if (!hasClerk()) return;
+  identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
+});
+
+test.afterAll(async () => {
+  if (identity) await deleteTestIdentity(identity.userId);
+});
 
 /**
  * What a real engine resolved `border-style` to on one element.
@@ -74,132 +99,121 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
   test("a block's own border reaches the plain surfaces inside it, and no others", async ({
     page,
   }) => {
-    const identity = await createTestIdentity();
-    try {
-      // Two sections, the first choosing a border and the second choosing
-      // nothing. The second is the control: it makes "the block's own token
-      // reached this element" a different observation from "every surface on
-      // the page is dotted for some other reason", which a single section
-      // could not distinguish. It is also the scoping claim — sections are
-      // siblings, so one block's choice must not reach the next.
-      //
-      // Each holds one `text` leaf, whose card is a PLAIN `surface`: it names
-      // no border-style utility of its own, which is what makes it the
-      // element the token is supposed to govern.
-      const { address, handle } = await seedPage({
-        userId: identity.userId,
-        handlePrefix: "border",
-        displayName: "Border Cascade",
-        blocks: [
-          container({
-            name_en: "Chosen",
-            style: { border: "dotted" },
-            children: [leaf({ title_en: "An item" })],
-          }),
-          container({
-            name_en: "Untouched",
-            children: [leaf({ title_en: "An item" })],
-          }),
-        ],
-      });
+    // Two sections, the first choosing a border and the second choosing
+    // nothing. The second is the control: it makes "the block's own token
+    // reached this element" a different observation from "every surface on
+    // the page is dotted for some other reason", which a single section
+    // could not distinguish. It is also the scoping claim — sections are
+    // siblings, so one block's choice must not reach the next.
+    //
+    // Each holds one `text` leaf, whose card is a PLAIN `surface`: it names
+    // no border-style utility of its own, which is what makes it the
+    // element the token is supposed to govern.
+    const { address, handle } = await seedPage({
+      userId: identity!.userId,
+      handlePrefix: "border",
+      displayName: "Border Cascade",
+      blocks: [
+        container({
+          name_en: "Chosen",
+          style: { border: "dotted" },
+          children: [leaf({ title_en: "An item" })],
+        }),
+        container({
+          name_en: "Untouched",
+          children: [leaf({ title_en: "An item" })],
+        }),
+      ],
+    });
 
-      const response = await page.goto(`/es/${address}/${handle}`);
-      expect(response?.status()).toBe(200);
+    const response = await page.goto(`/es/${address}/${handle}`);
+    expect(response?.status()).toBe(200);
 
-      const cards = page.getByTestId("public-leaf").locator("> div");
-      await expect(cards).toHaveCount(2);
-      const chosen = cards.nth(0);
-      const untouched = cards.nth(1);
+    const cards = page.getByTestId("public-leaf").locator("> div");
+    await expect(cards).toHaveCount(2);
+    const chosen = cards.nth(0);
+    const untouched = cards.nth(1);
 
-      expect(await borderStyleOf(chosen)).toBe("dotted");
-      expect(await borderStyleOf(untouched)).toBe("solid");
-    } finally {
-      await deleteTestIdentity(identity.userId);
-    }
+    expect(await borderStyleOf(chosen)).toBe("dotted");
+    expect(await borderStyleOf(untouched)).toBe("solid");
   });
 
   test("the editor's border choice stays in the preview and cannot restyle an empty workbench place", async ({
     page,
   }) => {
-    const identity = await createTestIdentity();
-    try {
-      await signIn(page, await mintTicket(identity.userId));
-      await page.goto("/es/pages/new");
+    await page.goto("/es/pages/new");
 
-      // One place across, left empty: an empty place is the editor's own
-      // `surface border-dashed` placeholder — this app's "nothing here yet" —
-      // which is the whole point of this test. Built through the controls
-      // rather than written as data, so what is measured is the control that
-      // shipped.
-      //
-      // **Counted as `empty-place`, never as `.border-dashed`.** The identity
-      // section's empty avatar is also dashed, and a two-space add has two
-      // empty places. A class locator on the last card cannot tell those
-      // apart from the one placeholder this case is about — CI went red at
-      // count 2 for that reason, not because the cascade had changed.
-      // **TWO places, one filled.** The claim has two halves and each needs an
-      // element: a painted one in the preview to take the choice, and an empty
-      // one in the control card to refuse it. One place left empty gives the
-      // second and not the first — the section renders nothing at all, because
-      // a container whose every place is empty draws nothing.
-      await chooseNewSectionSpaces(page, "2");
-      await page.getByTestId("add-section").click();
-      await expect(page.getByTestId("section-card")).toHaveCount(2);
-      await page.getByTestId("add-content").last().click();
-      // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null when
-      // it has neither a title nor a description, so a freshly added content
-      // block draws no card at all — and the card is what paints the edge.
-      await page.getByTestId("leaf-title").last().fill("Bordered");
+    // One place across, left empty: an empty place is the editor's own
+    // `surface border-dashed` placeholder — this app's "nothing here yet" —
+    // which is the whole point of this test. Built through the controls
+    // rather than written as data, so what is measured is the control that
+    // shipped.
+    //
+    // **Counted as `empty-place`, never as `.border-dashed`.** The identity
+    // section's empty avatar is also dashed, and a two-space add has two
+    // empty places. A class locator on the last card cannot tell those
+    // apart from the one placeholder this case is about — CI went red at
+    // count 2 for that reason, not because the cascade had changed.
+    // **TWO places, one filled.** The claim has two halves and each needs an
+    // element: a painted one in the preview to take the choice, and an empty
+    // one in the control card to refuse it. One place left empty gives the
+    // second and not the first — the section renders nothing at all, because
+    // a container whose every place is empty draws nothing.
+    await chooseNewSectionSpaces(page, "2");
+    await page.getByTestId("add-section").click();
+    await expect(page.getByTestId("section-card")).toHaveCount(2);
+    await page.getByTestId("add-content").last().click();
+    // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null when
+    // it has neither a title nor a description, so a freshly added content
+    // block draws no card at all — and the card is what paints the edge.
+    await page.getByTestId("leaf-title").last().fill("Bordered");
 
-      const card = page.getByTestId("section-card").last();
-      // **The SECTION the renderer draws, which is what a visitor sees.** This
-      // used to read a `section-preview-face` — an element the preview tray
-      // painted on the author's behalf, so the picture could sit under the
-      // card's own corners. There is no face any more: the tray paints nothing
-      // and renders the real section, so the border resolves on the same
-      // element and in the same property a stranger's browser resolves it on.
-      const tray = page.getByTestId("block-preview").last();
-      const preview = tray.getByTestId("public-section");
-      // **The element that CONSUMES the property, not the one that sets it.**
-      // `--skin-border-style` is written on the section; what paints an edge
-      // from it is the `surface` card each leaf renders inside. Reading the
-      // section itself answers `solid` however the choice went, which is an
-      // assertion that cannot fail — measured, it did exactly that.
-      const painted = tray.getByTestId("public-leaf").locator("div").first();
-      const placeholder = card.getByTestId("empty-place");
-      await expect(placeholder).toHaveCount(1);
+    const card = page.getByTestId("section-card").last();
+    // **The SECTION the renderer draws, which is what a visitor sees.** This
+    // used to read a `section-preview-face` — an element the preview tray
+    // painted on the author's behalf, so the picture could sit under the
+    // card's own corners. There is no face any more: the tray paints nothing
+    // and renders the real section, so the border resolves on the same
+    // element and in the same property a stranger's browser resolves it on.
+    const tray = page.getByTestId("block-preview").last();
+    const preview = tray.getByTestId("public-section");
+    // **The element that CONSUMES the property, not the one that sets it.**
+    // `--skin-border-style` is written on the section; what paints an edge
+    // from it is the `surface` card each leaf renders inside. Reading the
+    // section itself answers `solid` however the choice went, which is an
+    // assertion that cannot fail — measured, it did exactly that.
+    const painted = tray.getByTestId("public-leaf").locator("div").first();
+    const placeholder = card.getByTestId("empty-place");
+    await expect(placeholder).toHaveCount(1);
 
-      // Before anything is chosen: the section falls through to the design's
-      // own solid edge, and the placeholder is dashed. Read first so the
-      // assertions after the choice measure a CHANGE rather than a state that
-      // was already there — without this, a section that is dotted for some
-      // unrelated reason would pass.
-      expect(await borderStyleOf(painted)).toBe("solid");
-      expect(await borderStyleOf(placeholder)).toBe("dashed");
+    // Before anything is chosen: the section falls through to the design's
+    // own solid edge, and the placeholder is dashed. Read first so the
+    // assertions after the choice measure a CHANGE rather than a state that
+    // was already there — without this, a section that is dotted for some
+    // unrelated reason would pass.
+    expect(await borderStyleOf(painted)).toBe("solid");
+    expect(await borderStyleOf(placeholder)).toBe("dashed");
 
-      await page.getByTestId("section-style-open").last().click();
-      await page.getByTestId("section-style-border").selectOption("dotted");
-      // The choice really did land on the scope, rather than on nothing:
-      // `sectionStyle` routes custom properties to the preview scope, leaving
-      // the controls stable while the real rendered section inherits them.
-      await expect
-        .poll(() =>
-          preview.evaluate((el) =>
-            el.style.getPropertyValue("--skin-border-style"),
-          ),
-        )
-        .toBe("dotted");
+    await page.getByTestId("section-style-open").last().click();
+    await page.getByTestId("section-style-border").selectOption("dotted");
+    // The choice really did land on the scope, rather than on nothing:
+    // `sectionStyle` routes custom properties to the preview scope, leaving
+    // the controls stable while the real rendered section inherits them.
+    await expect
+      .poll(() =>
+        preview.evaluate((el) =>
+          el.style.getPropertyValue("--skin-border-style"),
+        ),
+      )
+      .toBe("dotted");
 
-      // Half 1: the previewed section's own card takes the choice.
-      expect(await borderStyleOf(painted)).toBe("dotted");
-      // Half 2: the empty place stays dashed because it is in the AeleOS
-      // control card — a `CHROME_SCOPE` island, and a sibling of the preview
-      // rather than an ancestor of it. This fixture cannot discriminate
-      // Tailwind utility ordering and makes no claim about it.
-      expect(await borderStyleOf(placeholder)).toBe("dashed");
-    } finally {
-      await deleteTestIdentity(identity.userId);
-    }
+    // Half 1: the previewed section's own card takes the choice.
+    expect(await borderStyleOf(painted)).toBe("dotted");
+    // Half 2: the empty place stays dashed because it is in the AeleOS
+    // control card — a `CHROME_SCOPE` island, and a sibling of the preview
+    // rather than an ancestor of it. This fixture cannot discriminate
+    // Tailwind utility ordering and makes no claim about it.
+    expect(await borderStyleOf(placeholder)).toBe("dashed");
   });
 
   // **The third test measures PIXELS, and the other two cannot replace it.**
@@ -220,155 +234,149 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
   test("double paints two lines and a gap on a skin whose own edge is too narrow to have drawn one", async ({
     page,
   }) => {
-    const identity = await createTestIdentity();
-    try {
-      await signIn(page, await mintTicket(identity.userId));
-      // The nebula is a live canvas behind every page, so two screenshots of
-      // the same coordinates differ by whatever it moved. Reduced motion
-      // holds it still; the ratio assertion is because `boundingBox()` reports
-      // CSS pixels and `getImageData` indexes device ones.
-      await page.emulateMedia({ reducedMotion: "reduce" });
-      await page.setViewportSize({ width: 1280, height: 1400 });
-      expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
+    // The nebula is a live canvas behind every page, so two screenshots of
+    // the same coordinates differ by whatever it moved. Reduced motion
+    // holds it still; the ratio assertion is because `boundingBox()` reports
+    // CSS pixels and `getImageData` indexes device ones.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
 
-      await page.goto("/es/pages/new");
-      await chooseNewSectionSpaces(page, "2");
-      await page.getByTestId("add-section").click();
-      // Content, because an edge needs something to be drawn around: a leaf's
-      // own `surface` card is what consumes `--skin-border-style`, and a
-      // container whose every place is empty renders nothing at all.
-      await page.getByTestId("add-content").last().click();
-      // Titled, or `PlainLeaf` renders nothing and there is no card to sample.
-      await page.getByTestId("leaf-title").last().fill("Bordered");
-      await page.getByTestId("collapse-section").last().click();
+    await page.goto("/es/pages/new");
+    await chooseNewSectionSpaces(page, "2");
+    await page.getByTestId("add-section").click();
+    // Content, because an edge needs something to be drawn around: a leaf's
+    // own `surface` card is what consumes `--skin-border-style`, and a
+    // container whose every place is empty renders nothing at all.
+    await page.getByTestId("add-content").last().click();
+    // Titled, or `PlainLeaf` renders nothing and there is no card to sample.
+    await page.getByTestId("leaf-title").last().fill("Bordered");
+    await page.getByTestId("collapse-section").last().click();
 
-      const card = page
-        .getByTestId("block-preview")
-        .last()
-        .getByTestId("public-section");
-      // **The leaf's own card is what paints now.** There is no preview face —
-      // the tray renders the real renderer's element — and the section carries
-      // the custom property while the card beneath it draws the edge, so the
-      // pixels below are the ones a visitor's browser puts on the page.
-      const face = page
-        .getByTestId("block-preview")
-        .last()
-        .getByTestId("public-leaf")
-        .locator("div")
-        .first();
+    const card = page
+      .getByTestId("block-preview")
+      .last()
+      .getByTestId("public-section");
+    // **The leaf's own card is what paints now.** There is no preview face —
+    // the tray renders the real renderer's element — and the section carries
+    // the custom property while the card beneath it draws the edge, so the
+    // pixels below are the ones a visitor's browser puts on the page.
+    const face = page
+      .getByTestId("block-preview")
+      .last()
+      .getByTestId("public-leaf")
+      .locator("div")
+      .first();
 
-      /**
-       * The pixel run inward from the section's right edge, at mid-height.
-       *
-       * Mid-height because `rounded-xl` curves both corners and a probe inside
-       * that arc would be answering a question about the radius. Four pixels
-       * because a 3px `double` is line, gap, line, and the fourth is the
-       * surface beyond it — so the run distinguishes both shapes rather than
-       * only detecting a change.
-       *
-       * **The right edge is deliberate.** This spec runs against `next dev`,
-       * whose fixed development portal paints at the lower-left of the
-       * viewport. A legitimate editor-layout change moved this short collapsed
-       * face beneath that overlay: the left-edge probes then sampled the portal
-       * byte-for-byte for both choices even though the face itself resolved to
-       * 1px solid and 3px double. The opposite vertical edge measures the same
-       * border and remains outside that development-only paint.
-       */
-      const run = async (): Promise<number[][]> => {
-        // The identity section sits above this card, so the probe reads a
-        // screenshot whose coordinates only line up once the card is on
-        // screen. Scrolling first is what keeps the pixels the card's own.
-        await face.scrollIntoViewIfNeeded();
-        const box = (await face.boundingBox())!;
-        const y = Math.round(box.y + box.height / 2);
-        const probes: Probe[] = [0, 1, 2, 3].map((inset) => ({
-          name: `x${inset}`,
-          x: Math.round(box.x + box.width - 1) - inset,
-          y,
-        }));
-        const sampled = await sampleColours(page, probes);
-        return probes.map((probe) => sampled[probe.name]!);
-      };
+    /**
+     * The pixel run inward from the section's right edge, at mid-height.
+     *
+     * Mid-height because `rounded-xl` curves both corners and a probe inside
+     * that arc would be answering a question about the radius. Four pixels
+     * because a 3px `double` is line, gap, line, and the fourth is the
+     * surface beyond it — so the run distinguishes both shapes rather than
+     * only detecting a change.
+     *
+     * **The right edge is deliberate.** This spec runs against `next dev`,
+     * whose fixed development portal paints at the lower-left of the
+     * viewport. A legitimate editor-layout change moved this short collapsed
+     * face beneath that overlay: the left-edge probes then sampled the portal
+     * byte-for-byte for both choices even though the face itself resolved to
+     * 1px solid and 3px double. The opposite vertical edge measures the same
+     * border and remains outside that development-only paint.
+     */
+    const run = async (): Promise<number[][]> => {
+      // The identity section sits above this card, so the probe reads a
+      // screenshot whose coordinates only line up once the card is on
+      // screen. Scrolling first is what keeps the pixels the card's own.
+      await face.scrollIntoViewIfNeeded();
+      const box = (await face.boundingBox())!;
+      const y = Math.round(box.y + box.height / 2);
+      const probes: Probe[] = [0, 1, 2, 3].map((inset) => ({
+        name: `x${inset}`,
+        x: Math.round(box.x + box.width - 1) - inset,
+        y,
+      }));
+      const sampled = await sampleColours(page, probes);
+      return probes.map((probe) => sampled[probe.name]!);
+    };
 
-      /**
-       * Picks a border style and waits for the CHOICE to land, not for its
-       * consequence.
-       *
-       * Deliberately polls the custom property rather than the resolved
-       * `border-width`: waiting on the width would make this helper fail
-       * first under the very fault the pixels below are here to catch, and a
-       * test whose precondition breaks proves only that a precondition broke.
-       *
-       * @param border - the value to select.
-       * @returns nothing; waits.
-       */
-      const choose = async (border: string): Promise<void> => {
-        await page.getByTestId("section-style-open").last().click();
-        await page.getByTestId("section-style-border").selectOption(border);
-        await expect
-          .poll(() =>
-            card.evaluate((el) =>
-              el.style.getPropertyValue("--skin-border-style"),
-            ),
-          )
-          .toBe(border);
-        await page.keyboard.press("Escape");
-        await expect(page.getByTestId("section-style-panel")).toBeHidden();
-      };
+    /**
+     * Picks a border style and waits for the CHOICE to land, not for its
+     * consequence.
+     *
+     * Deliberately polls the custom property rather than the resolved
+     * `border-width`: waiting on the width would make this helper fail
+     * first under the very fault the pixels below are here to catch, and a
+     * test whose precondition breaks proves only that a precondition broke.
+     *
+     * @param border - the value to select.
+     * @returns nothing; waits.
+     */
+    const choose = async (border: string): Promise<void> => {
+      await page.getByTestId("section-style-open").last().click();
+      await page.getByTestId("section-style-border").selectOption(border);
+      await expect
+        .poll(() =>
+          card.evaluate((el) =>
+            el.style.getPropertyValue("--skin-border-style"),
+          ),
+        )
+        .toBe(border);
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("section-style-panel")).toBeHidden();
+    };
 
-      const widthOf = (): Promise<string> =>
-        face.evaluate((el) => getComputedStyle(el).borderTopWidth);
+    const widthOf = (): Promise<string> =>
+      face.evaluate((el) => getComputedStyle(el).borderTopWidth);
 
-      // `solid` first, as the control. Its floor is 1px, which is what the
-      // default skin already gave it — so this is the app's ordinary edge.
-      await choose("solid");
-      const solidWidth = await widthOf();
-      const solid = await run();
-      // `double` raises the floor to 3px, the narrowest width the style has
-      // room to exist at.
-      await choose("double");
-      const doubleWidth = await widthOf();
-      const doubled = await run();
+    // `solid` first, as the control. Its floor is 1px, which is what the
+    // default skin already gave it — so this is the app's ordinary edge.
+    await choose("solid");
+    const solidWidth = await widthOf();
+    const solid = await run();
+    // `double` raises the floor to 3px, the narrowest width the style has
+    // room to exist at.
+    await choose("double");
+    const doubleWidth = await widthOf();
+    const doubled = await run();
 
-      // Both are the same custom property on the same root, so the card has
-      // not moved between the two screenshots — if it had, every probe below
-      // would be reading a different element's pixels.
-      expect((await card.boundingBox())!.width).toBeGreaterThan(0);
+    // Both are the same custom property on the same root, so the card has
+    // not moved between the two screenshots — if it had, every probe below
+    // would be reading a different element's pixels.
+    expect((await card.boundingBox())!.width).toBeGreaterThan(0);
 
-      // The third pixel in is the discriminator. Under `solid` it is past a
-      // 1px edge and is the surface; under `double` it is the second line.
-      // So the two choices must disagree there…
-      expect(
-        apart(solid[2]!, doubled[2]!),
-        "the third pixel in differs between solid and double",
-      ).toBeGreaterThan(20);
+    // The third pixel in is the discriminator. Under `solid` it is past a
+    // 1px edge and is the surface; under `double` it is the second line.
+    // So the two choices must disagree there…
+    expect(
+      apart(solid[2]!, doubled[2]!),
+      "the third pixel in differs between solid and double",
+    ).toBeGreaterThan(20);
 
-      // …and, inside the `double` run alone, the middle pixel must be the GAP:
-      // unlike its neighbours on either side, and like the surface beyond
-      // them. This is the assertion a wider `solid` could not satisfy, which
-      // is what makes it a measurement of `double` rather than of the floor.
-      expect(
-        apart(doubled[0]!, doubled[1]!),
-        "double's first line and its gap differ",
-      ).toBeGreaterThan(20);
-      expect(
-        apart(doubled[1]!, doubled[2]!),
-        "double's gap and its second line differ",
-      ).toBeGreaterThan(20);
-      expect(
-        apart(doubled[1]!, doubled[3]!),
-        "double's gap is the surface showing through",
-      ).toBeLessThan(20);
+    // …and, inside the `double` run alone, the middle pixel must be the GAP:
+    // unlike its neighbours on either side, and like the surface beyond
+    // them. This is the assertion a wider `solid` could not satisfy, which
+    // is what makes it a measurement of `double` rather than of the floor.
+    expect(
+      apart(doubled[0]!, doubled[1]!),
+      "double's first line and its gap differ",
+    ).toBeGreaterThan(20);
+    expect(
+      apart(doubled[1]!, doubled[2]!),
+      "double's gap and its second line differ",
+    ).toBeGreaterThan(20);
+    expect(
+      apart(doubled[1]!, doubled[3]!),
+      "double's gap is the surface showing through",
+    ).toBeLessThan(20);
 
-      // The resolved widths last, as corroboration rather than as the proof.
-      // Read before the screenshots and asserted after them on purpose: a
-      // width assertion placed first would fail before a single pixel had
-      // been compared under exactly the fault this test exists for, and the
-      // pixel assertions above would never have been seen red at all.
-      expect(solidWidth, "solid keeps the design's own hairline").toBe("1px");
-      expect(doubleWidth, "double is floored at three pixels").toBe("3px");
-    } finally {
-      await deleteTestIdentity(identity.userId);
-    }
+    // The resolved widths last, as corroboration rather than as the proof.
+    // Read before the screenshots and asserted after them on purpose: a
+    // width assertion placed first would fail before a single pixel had
+    // been compared under exactly the fault this test exists for, and the
+    // pixel assertions above would never have been seen red at all.
+    expect(solidWidth, "solid keeps the design's own hairline").toBe("1px");
+    expect(doubleWidth, "double is floored at three pixels").toBe("3px");
   });
 });

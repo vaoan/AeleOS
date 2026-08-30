@@ -3,10 +3,12 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
 import {
   container,
   leaf,
@@ -16,6 +18,12 @@ import {
 import { tracksOf } from "./support/grid";
 import { DOCUMENT_VERSION } from "@/features/actors/domain/page-document";
 import enMessages from "@/shared/infrastructure/i18n/messages/en.json" with { type: "json" };
+
+// One sign-in for the whole file: every case below reads or extends the
+// same seeded page as the same shared identity, and none depends on what
+// an earlier case left behind, so they restore one saved session rather
+// than minting a fresh ticket each — see `support/shared-session.ts`.
+const STATE_PATH = sharedStatePath("page-source-dock");
 
 // THE PAGE-SOURCE DOCK, MOUNTED FOR THE FIRST TIME.
 //
@@ -47,13 +55,15 @@ import enMessages from "@/shared/infrastructure/i18n/messages/en.json" with { ty
 // below.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+test.use({ storageState: STATE_PATH });
 
 let identity: TestIdentity | undefined;
 let handle = "";
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
   ({ handle } = await seedPage({
     userId: identity.userId,
     handlePrefix: "sourcedock",
@@ -81,7 +91,6 @@ test("opens beside the page, reaching the right edge and the foot of the window"
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -133,7 +142,6 @@ test("reaches both edges of the window at a narrow viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 568 });
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -178,7 +186,6 @@ for (const width of [1280, 320]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    await signIn(page, await mintTicket(identity!.userId));
     await page.goto(`/en/pages/${handle}/edit`);
     await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -293,7 +300,6 @@ for (const width of [1280, 320]) {
 test("editing the box changes the page; breaking it leaves the page alone", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   const preview = page.getByTestId("block-preview").first();
   await expect(preview).toBeVisible();
@@ -360,7 +366,6 @@ test("the copy control works with the reference collapsed, its default state", a
   // expanded, or one that changes the page's clipboard permission state
   // rather than the system clipboard.
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -413,7 +418,6 @@ for (const width of [1440, 320]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    await signIn(page, await mintTicket(identity!.userId));
     await page.goto(`/en/pages/${handle}/edit`);
     await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -500,7 +504,6 @@ test("a page edit refreshes the box when it is not focused", async ({
   // Excludes: a dock that keeps showing a stale document after somebody
   // else's edit lands through the ordinary controls, while the box itself
   // was never the thing being typed into.
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -524,7 +527,6 @@ test("a page edit does not clobber a focused box, and shows the drift notice", a
   // Excludes: a dock that silently overwrites what somebody is mid-typing
   // the moment an unrelated control changes the page, destroying their
   // cursor position and their unsaved edit with no warning at all.
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -563,7 +565,6 @@ test("a round trip through copy and paste reproduces the page, weights included"
   // weights are [1, 3, 2] — not a palindrome, so a reversal bug in either
   // direction cannot pass by accident — and the second section nests a
   // container three deep, at the model's own depth cap.
-  await signIn(page, await mintTicket(identity!.userId));
 
   const weighted = container({
     name_en: "Ratio",
@@ -664,7 +665,6 @@ test("a hostile theme does not break the page", async ({ page }) => {
   // `MAX_CANVAS_COLOURS` regardless of how many arrive — both already true of
   // `parseTheme` for any stored theme, and this proves it holds for one that
   // walked in through a paste rather than through a colour picker.
-  await signIn(page, await mintTicket(identity!.userId));
   const { handle: hostileHandle } = await seedPage({
     userId: identity!.userId,
     handlePrefix: "hostiletheme",
@@ -735,7 +735,6 @@ test("an owner leaf pasted onto a person's page is refused before it ever reache
   // Excludes: a dock that applies a document naming a kind the destination
   // page refuses, which would let a pasted `owner` block silently land on a
   // person's page — the one leaf kind `REFUSED_KIND` exists to keep off it.
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/en/me/edit");
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -785,7 +784,6 @@ test("escape closes the dock and returns focus to the control that opened it", a
   // `PageSourceDock` itself does no focus management at all (see its own
   // TSDoc); this proves the native `<dialog>` element's own focusing steps
   // do it, which is why nothing in this codebase has to.
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
@@ -814,7 +812,6 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
   // appearance here for exactly that reason. What it does owe, and what this
   // proves, is that none of the three can widen the document or take any
   // other section down with it.
-  await signIn(page, await mintTicket(identity!.userId));
   const { handle: hostileHandle } = await seedPage({
     userId: identity!.userId,
     handlePrefix: "hostiletext",
@@ -929,7 +926,6 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
 test("expanding the reference leaves its summary on screen, and the block scrolls itself", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 

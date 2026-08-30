@@ -386,6 +386,41 @@ export default tseslint.config(
           message:
             "Use page.getByTestId('id') rather than a raw attribute selector.",
         },
+        {
+          // `playwright/no-wait-for-timeout` above already bans
+          // `page.waitForTimeout(ms)`. This bans the manual equivalent — an
+          // unconditional `setTimeout` wrapped in a `Promise` — which is the
+          // same guess about how slow a machine is, spelled out by hand
+          // instead of through the banned method. Wait for a real condition
+          // (`expect.poll`, `waitForFunction`, a support helper) instead. A
+          // genuinely justified exception — an ordering fix like
+          // `support/drag.ts`'s documented rAF-then-timer sequencing, or a
+          // measurement that paces itself to a wall-clock cadence — gets a
+          // targeted `eslint-disable-next-line` naming which and why, not a
+          // file excluded from this rule.
+          selector:
+            "NewExpression[callee.name='Promise'] CallExpression[callee.name='setTimeout']",
+          message:
+            "No unconditional setTimeout-based waits. Wait for a condition, or justify this exact line with eslint-disable-next-line and a comment.",
+        },
+      ],
+    },
+  },
+
+  // The retry module's own test is not under `e2e/`, but it is exactly the
+  // code the rule above exists for: a backoff sleep is the same guess about
+  // machine speed whether it lives in a spec or in the helper a spec imports.
+  {
+    files: ["apps/hub/tests/retry-fetch.test.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "NewExpression[callee.name='Promise'] CallExpression[callee.name='setTimeout']",
+          message:
+            "No unconditional setTimeout-based waits. Wait for a condition, or justify this exact line with eslint-disable-next-line and a comment.",
+        },
       ],
     },
   },

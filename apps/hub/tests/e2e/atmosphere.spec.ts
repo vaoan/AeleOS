@@ -3,11 +3,19 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
   type TestIdentity,
 } from "./support/clerk-session";
 import { apart, contrast, sampleColours, textColour } from "./support/pixels";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
+
+// **One sign-in for the whole file.** Both cases below drive `/es/pages/new`
+// on their own throwaway draft and neither depends on anything the other
+// left behind, so they share one Clerk session rather than minting a ticket
+// each — see `support/shared-session.ts` for why and how.
+const STATE_PATH = sharedStatePath("atmosphere");
 
 // WHY THIS FILE EXISTS.
 //
@@ -32,6 +40,7 @@ import { apart, contrast, sampleColours, textColour } from "./support/pixels";
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 test.setTimeout(60_000);
+test.use({ storageState: STATE_PATH });
 
 const VIEWPORT = { width: 1440, height: 1400 };
 const PICTURE = {
@@ -216,9 +225,10 @@ async function temporalCanvasDelta(
 
 let identity: TestIdentity | undefined;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
 });
 
 test.afterAll(async () => {
@@ -231,7 +241,6 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
   await page.route(`**${new URL(PICTURE.url).pathname}`, (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: PICTURE.body }),
   );
-  await signIn(page, await mintTicket(identity!.userId));
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
@@ -453,7 +462,6 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
 });
 
 test("the speed dial changes the animated canvas rate", async ({ page }) => {
-  await signIn(page, await mintTicket(identity!.userId));
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto("/es/pages/new");

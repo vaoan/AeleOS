@@ -3,10 +3,12 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
 import {
   apart,
   contrast,
@@ -15,6 +17,12 @@ import {
   type Probe,
 } from "./support/pixels";
 import { chooseNewSectionSpaces } from "./support/editor";
+
+// One sign-in for the whole file: every case below signs in as the
+// same shared identity and none depends on what an earlier case left
+// behind, so they restore one saved session rather than minting a
+// fresh ticket each — see `support/shared-session.ts`.
+const STATE_PATH = sharedStatePath("section-card-face");
 
 // WHY THIS FILE EXISTS.
 //
@@ -54,6 +62,7 @@ import { chooseNewSectionSpaces } from "./support/editor";
 // `section-style-open` matches two buttons rather than one.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+test.use({ storageState: STATE_PATH });
 
 /** Tall enough that a popup panel is never merely scrolled out of sight. */
 const VIEWPORT = { width: 1280, height: 1400 };
@@ -236,9 +245,10 @@ async function darkestPixel(page: Page, target: Locator): Promise<number[]> {
 
 let identity: TestIdentity | undefined;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
 });
 
 test.afterAll(async () => {
@@ -248,7 +258,6 @@ test.afterAll(async () => {
 test("author colours and skin change both real previews without restyling the workbench", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
   await page.setViewportSize(VIEWPORT);
   await page.goto("/es/pages/new");
   await page.getByTestId("editor-handle").fill("themeboundary");
@@ -362,8 +371,6 @@ test("author colours and skin change both real previews without restyling the wo
 test("cutout clips the real preview while AeleOS controls remain outside that scope", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
-
   // The nebula is a live canvas behind every page, and the halves below
   // compare screenshots separated in time. Reduced motion is the app's own way
   // of holding it still — the sister spec makes the same argument at length.
@@ -521,7 +528,6 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.route(`**${new URL(PICTURE.url).pathname}`, (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: PICTURE.body }),
   );
-  await signIn(page, await mintTicket(identity!.userId));
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize(VIEWPORT);
@@ -649,7 +655,6 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await page.route(`**${new URL(HOSTILE.url).pathname}`, (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: HOSTILE.body }),
   );
-  await signIn(page, await mintTicket(identity!.userId));
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize(VIEWPORT);
@@ -794,7 +799,6 @@ test("the three background fits are three different paints", async ({
   await page.route(`**${new URL(PICTURE.url).pathname}`, (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: PICTURE.body }),
   );
-  await signIn(page, await mintTicket(identity!.userId));
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
@@ -953,8 +957,6 @@ test("the three background fits are three different paints", async ({
 test("the face does not paint over the section's own writing", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
-
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);

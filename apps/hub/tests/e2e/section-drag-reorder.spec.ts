@@ -3,12 +3,20 @@ import {
   createTestIdentity,
   deleteTestIdentity,
   hasClerk,
-  mintTicket,
-  signIn,
   type TestIdentity,
 } from "./support/clerk-session";
 import { liftByKeyboard } from "./support/drag";
 import { chooseNewSectionSpaces } from "./support/editor";
+import {
+  establishSharedSession,
+  sharedStatePath,
+} from "./support/shared-session";
+
+// One sign-in for the whole file: both cases below drive their own fresh
+// `/es/pages/new` draft and neither depends on the other, so they share
+// one Clerk session rather than minting a ticket each — see
+// `support/shared-session.ts`.
+const STATE_PATH = sharedStatePath("section-drag-reorder");
 
 // THE ONE INTERACTION NOBODY WOULD NOTICE FROM A SCREENSHOT.
 //
@@ -53,12 +61,14 @@ import { chooseNewSectionSpaces } from "./support/editor";
 // identically-built cards.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
+test.use({ storageState: STATE_PATH });
 
 let identity: TestIdentity | undefined;
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
+  await establishSharedSession(browser, identity.userId, STATE_PATH);
 });
 
 test.afterAll(async () => {
@@ -68,7 +78,6 @@ test.afterAll(async () => {
 test("a section dragged by keyboard lands in its new position in the DOM", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
 
   // Two sections, built by hand — a template inserts sections as data without
@@ -144,7 +153,6 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
 test("a piece of content dragged by keyboard moves into another section's place", async ({
   page,
 }) => {
-  await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
 
   await chooseNewSectionSpaces(page, "2");
