@@ -159,7 +159,7 @@ const theme = (over) => ({
 // a labelled-panel convention on their own captures to keep their word;
 // the board, Bluesky and Threads are live, unlabelled modern profiles and
 // Facebook's "Profile ID" names a fact the 2008 page never printed anywhere
-// on itself — those three are hidden. `avatar`'s title is never touched: it
+// on itself — those four are hidden. `avatar`'s title is never touched: it
 // is alt text, not a visible label, and this gap is about what renders.
 //
 // ---------------------------------------------------------------------------

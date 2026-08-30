@@ -122,7 +122,7 @@
     "styleLabelInherit": "Seguir la disposición",
     "styleLabelShow": "Mostrar",
     "styleLabelHidden": "Ocultar",
-    "styleLabelHint": "Oculta el título propio de este bloque. Una disposición que ya lo muestra en otro lugar, como una pestaña, lo sigue mostrando de todos modos.",
+    "styleLabelHint": "Oculta el título propio de este bloque — en un retrato, esto es su texto alternativo y no un subtítulo visible. Una disposición que ya lo muestra en otro lugar, como una pestaña, lo sigue mostrando de todos modos.",
     "styleHeading": "Nombre",
     "styleHeadingPlain": "Encima del contenido",
     "styleHeadingBar": "Como una barra sobre él",

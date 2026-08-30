@@ -122,7 +122,7 @@
     "styleLabelInherit": "Follow the layout",
     "styleLabelShow": "Show",
     "styleLabelHidden": "Hide",
-    "styleLabelHint": "Hides this block's own title. A layout that already shows it elsewhere, such as a tab, keeps doing so either way.",
+    "styleLabelHint": "Hides this block's own title — on a portrait, this is its alt text rather than a visible caption. A layout that already shows it elsewhere, such as a tab, keeps doing so either way.",
     "styleHeading": "Name",
     "styleHeadingPlain": "Above the content",
     "styleHeadingBar": "As a bar on top of it",

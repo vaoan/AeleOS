@@ -39,6 +39,7 @@ import {
   type BlockProblem,
 } from "@/features/actors/domain/block-problems";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
+import { honoursLabel } from "@/features/actors/presentation/block-contract";
 import { BlockSlot } from "@/features/actors/presentation/block-slot";
 import {
   LeafEditor,
@@ -540,6 +541,15 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  *
  * It tells the style popup whether this block carries a name, because the
  * name-style control is offered only where there is a name to draw.
+ *
+ * **It also tells the style popup whether this block honours `style.label`
+ * (2026-08-30) — always `false` here.** `honoursLabel(block.kind)` answers
+ * off `block-contract.ts`'s own list, and a `ContainerBlock`'s `kind` is
+ * always the literal `"container"`, never one of the five leaf kinds that
+ * key composes with. So the "Own title" control this popup used to offer
+ * unconditionally is now correctly absent on every container this card
+ * renders — the control-that-did-nothing a review found, see the popup's
+ * own TSDoc and `honoursLabel`'s.
  */
 export function BlockCard({
   block,
@@ -834,6 +844,12 @@ export function BlockCard({
           // one between it and the page.
           atTop={depth === 0}
           named={Boolean(block.name_en?.trim() || block.name_es?.trim())}
+          // A container's `kind` is always `"container"`, so this is `false`
+          // for every call here — `honoursLabel` is what makes that a fact
+          // read off the one place it is decided, rather than a `false`
+          // written by hand that would go stale the moment a container ever
+          // did read `style.label`.
+          honoursLabel={honoursLabel(block.kind)}
         />
 
         <RemoveSectionButton

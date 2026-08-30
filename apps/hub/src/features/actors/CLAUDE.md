@@ -4485,6 +4485,26 @@ against `0009`'s own `elsif v_key = 'label'` branch, added beside `chrome`'s in
 `validate_block` in the exact same shape. `STYLE_KEY_MEANINGS` carries its
 meaning, gated the same way `heading_gap`'s omission was found and closed.
 
+**A review found the popup that carries this key shipped offering it on
+every container, and no container is among the five call sites above
+(2026-08-30).** `SectionStylePopup` had no gate on the "Own title" select at
+all, so picking "Hide" on any section or nested container accepted a choice
+and changed nothing — worse than an inert control, because it looked like it
+worked. `honoursLabel(kind)` (`presentation/block-contract.ts`, beside
+`showsLabel`) is the one place "does this kind read `style.label`" is
+answered now — the same five kinds as above, checked against a `Set` rather
+than repeated. `SectionStylePopup` takes a new `honoursLabel` prop, gating
+the select exactly the way `named` already gates `heading`; `block-card.tsx`
+computes it as `honoursLabel(block.kind)`, which is `false` for every call
+there, `ContainerBlock["kind"]` being the literal `"container"` — so the
+control is now correctly absent everywhere it is reachable through the
+editor today. The fix is the gate, not new readers: nothing about which
+kinds honour `style.label` changed, and the fix note the review pointed at
+directly — "This repository removed `card_size` from that same popup for
+less" — is the standing precedent for trimming a control that has no
+mechanism behind it, applied here to a control whose mechanism exists but
+was never reachable through the caller that offered it.
+
 ### A density that reaches OUTSIDE the card (2026-08-28)
 
 `spacing` set a card's padding and its type size and stopped there. The page

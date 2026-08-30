@@ -1988,9 +1988,11 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   change. See `apps/hub/src/features/actors/CLAUDE.md` for the account in
   full.
 
-  **Applied across the sixteen seeded pages the same day, and the rule is:
-  an identity label says what the thing is called on the site being
-  imitated, and is hidden where that site shows no label at all.** That
+  **Applied across the eleven seeded social pages the same day, and the rule
+  is: an identity label says what the thing is called on the site being
+  imitated, and is hidden where that site shows no label at all.** The five
+  era looks are generated picker templates and were correctly left alone —
+  they still render `handle="Handle"` and `owner="Owner"`. That
   turns "should this page show a label here" from taste into a question
   about the capture already sitting in `scripts/pastiche-pages.mjs`'s own
   comments. Three findings fell out, checked page by page rather than
@@ -2052,9 +2054,23 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   a leaf's value survives, are both per-instance fixes rather than a
   mechanism that makes the four read as a single unit, and they still know
   nothing of each other. And "what should a handle's title say" still has no
-  shared convention across the sixteen; this closes only whether a title is
+  shared convention across the eleven; this closes only whether a title is
   ever SHOWN on a given page, not what it should read when it is. Findings:
   `docs/superpowers/specs/2026-08-27-pastiche-findings.md`, gap 16.
+
+  **A blocking review defect, fixed the next day (2026-08-30): the "Own
+  title" select this key rides in on offered itself on every container,
+  whatever kind it held.** `showsLabel` composes `style.label` for exactly
+  five leaf kinds — the four identity leaves and `PlainLeaf` (`text`) — and
+  no container ever reads it (a container's own name draws from `labelled`
+  alone, `blocks.tsx`). `SectionStylePopup`'s new `honoursLabel` prop —
+  computed once, in `presentation/block-contract.ts`, next to `showsLabel`
+  itself — gates the control on whether the block it belongs to is one of
+  those five, so picking "Hide" where nothing reads it is no longer offered
+  at all. `block-card.tsx` is the only caller today, always a container, so
+  the control is now correctly absent everywhere it is reachable through the
+  editor; a leaf's own style popup, when one exists, gates the same way with
+  no new list to keep in step.
 
 ## The toolchain, and the rules it cost
 

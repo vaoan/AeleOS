@@ -892,7 +892,7 @@ before any content the page's own author wrote.
 
 **Its visible edge is the handle leaf's title**, because that is the one
 field every page sets and every page sets differently, with no shared
-convention across the sixteen: `URL`, `Messenger ID`, `@aeleos`, `aeleos`,
+convention across the eleven: `URL`, `Messenger ID`, `@aeleos`, `aeleos`,
 `hi5 ID`, `Usuario`, `My handle`, `fotolog`, `Username`, `Profile ID`. Each
 was chosen to fit its own subject and none is wrong on its own page — the
 gap is that there is no rule saying what this label is FOR, so eleven
@@ -901,8 +901,10 @@ authors reaching for the same field reached eleven different ways.
 **Closed, in two halves, both landed 2026-08-29.** The first was the label. A
 block may now say `style: { label: "hidden" }`, composing with an enclosing
 mode's own `labelled` by narrowing it only — never widening it — and applied
-across all sixteen seeded pages: `AvatarLeaf`, `HandleLeaf`, `NameLeaf`,
-`OwnerLeaf` and `PlainLeaf` all read it through a shared `showsLabel()`.
+across the eleven seeded social pages: `AvatarLeaf`, `HandleLeaf`, `NameLeaf`,
+`OwnerLeaf` and `PlainLeaf` all read it through a shared `showsLabel()`. The
+five era looks are generated picker templates and were correctly left
+alone — they still render `handle="Handle"` and `owner="Owner"`.
 
 **The rule that settles which pages hide it: an identity label says what the
 thing is called on the site being imitated, and is hidden where that site
@@ -931,7 +933,7 @@ fix, and _"aeleos" (the section heading) / "aeleos" (the name, unlabelled) /
 "threads" (the handle, unlabelled)_ after it — three lines, but the first two
 still say the same word, because the section itself was named "aeleos" and
 nothing about hiding a leaf's own caption touches a CONTAINER's `name_en`.
-Walking all sixteen pages found the same clash on seven: `messenger`,
+Walking all eleven pages found the same clash on seven: `messenger`,
 `board`, `sky`, `threads`, `hi5`, `sonico` and `facebook`. Each was resolved
 by deciding, per page and against its own capture note, which of the two —
 the section's heading or the leaf's value — is the authentic line, and
@@ -949,7 +951,7 @@ leaves still know nothing of each other, `label: "hidden"` only lets each one
 opt out of its own caption, and dropping a redundant section name or leaf is
 a per-page judgement call rather than a mechanism that would make the four
 compose on their own. And "what should a handle's title say" still has no
-shared convention across the sixteen; this closes the narrower question of
+shared convention across the eleven; this closes the narrower question of
 whether that title is EVER shown, on a given page, not what it should say
 when it is. All three remain the product questions gap 13 and 14's method
 does not settle in passing.

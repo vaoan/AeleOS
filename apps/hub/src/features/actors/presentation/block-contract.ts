@@ -251,6 +251,44 @@ export function showsLabel(
 }
 
 /**
+ * The kinds whose renderer actually reads {@link showsLabel} — every place
+ * `style.label` composes with `labelled` at all.
+ *
+ * **The one list, so a caller deciding whether to OFFER the "Own title"
+ * control never repeats it.** The four identity leaves
+ * (`identity-leaves.tsx`) and `PlainLeaf`, the `text` kind
+ * (`text-leaves.tsx`), are the five call sites; every other leaf kind —
+ * `stat`, `quote`, `progress`, `table`, `link`, `social`, the media leaves —
+ * and every container (`blocks.tsx`'s own name draws from `labelled` alone)
+ * ignore `style.label` entirely. Offering the control there is a choice that
+ * changes nothing, which this repository has removed controls for before —
+ * see `card_size` in `section-style-popup.tsx`.
+ */
+const LABEL_HONOURING_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "avatar",
+  "handle",
+  "name",
+  "owner",
+]);
+
+/**
+ * Whether a block of this `kind` ever reads `style.label` — see
+ * {@link showsLabel} and {@link LABEL_HONOURING_KINDS}.
+ *
+ * A container's `kind` is always `"container"`, never one of the five, so
+ * this answers `false` for every container: `blocks.tsx` draws a container's
+ * own name from `labelled` alone, with no `style.label` read at all.
+ *
+ * @param kind - the block's own `kind`, container or leaf.
+ * @returns whether offering the "Own title" control on this block would do
+ *   anything.
+ */
+export function honoursLabel(kind: string): boolean {
+  return LABEL_HONOURING_KINDS.has(kind);
+}
+
+/**
  * The frame classes for each {@link EmbedShape}.
  *
  * A `Record` rather than a chain of tests, and the type is the point: it fails
