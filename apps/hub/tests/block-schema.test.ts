@@ -692,6 +692,14 @@ describe("a block's own form", () => {
     expect(accepts(leaf({ style: { label: "muted" } }))).toBe(false);
   });
 
+  it.each(["s", "m", "l"])("accepts the %s portrait size", (portrait) => {
+    expect(accepts(leaf({ style: { portrait } }))).toBe(true);
+  });
+
+  it("refuses a portrait size it cannot render", () => {
+    expect(accepts(leaf({ style: { portrait: "xl" } }))).toBe(false);
+  });
+
   // Absent and `true` are one answer — the page's ordinary chrome — and
   // `false` is the only stored opt-out.
   it.each([true, false])(

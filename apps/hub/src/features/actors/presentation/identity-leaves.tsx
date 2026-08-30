@@ -48,6 +48,36 @@ function Label({ text }: { text: string }): ReactNode {
 }
 
 /**
+ * The Tailwind `size-*` class each `portrait` value draws, keyed by the
+ * stored string rather than by `BlockStyle["portrait"]` itself.
+ *
+ * **A `Map`, not a `Record`**, matching every other lookup in this feature
+ * indexed by a value that arrived from `jsonb` — `ROUNDNESS` and
+ * `CARD_SIZE_MIN` in `block-style.ts` are the same shape, for the same
+ * reason: a plain object indexed by untrusted text answers `__proto__` with
+ * an inherited, truthy value, which is the exact fault `TIDAL_KINDS` cost
+ * this codebase once already.
+ *
+ * **`m` is absent on purpose.** `PORTRAIT_SIZE.get(undefined ?? "")` and
+ * `PORTRAIT_SIZE.get("m")` both miss, so both fall to the same `"size-24"`
+ * default at the call site — the one thing `portrait` is required to
+ * guarantee: absence and `m` are byte-for-byte the same class.
+ *
+ * `s` is `size-12` (3rem, 48px), exactly half of the default and already the
+ * size a fursona's own avatar draws at elsewhere on the page, in the grid
+ * `FursonasLeaf` renders through `FursonaCardList`. `l` is `size-32` (8rem,
+ * 128px), the largest a portrait can be while still fitting `TRACK_FLOOR` —
+ * the narrowest place this model ever lays out (`block-tracks.ts`, `8rem`) —
+ * without guaranteeing horizontal overflow the moment a weighted grid floors
+ * a narrow side. See `BLOCK_STYLE_LIMITS.portrait` in `block-schema.ts` for
+ * the measurement in full.
+ */
+const PORTRAIT_SIZE = new Map<string, string>([
+  ["s", "size-12"],
+  ["l", "size-32"],
+]);
+
+/**
  * The actor's own portrait.
  *
  * **The leaf's title is the picture's ALT TEXT**, not a caption, and that is
@@ -80,6 +110,19 @@ function Label({ text }: { text: string }): ReactNode {
  * see that function for how it composes with an enclosing mode that has
  * already suppressed the title.
  *
+ * **`style.portrait` sizes the circle, absent and `"m"` both meaning
+ * `size-24` — byte-for-byte what every page already had.** `HandleLeaf` and
+ * `NameLeaf` beside this one are `em`-relative, so their type shrinks and
+ * grows with a page's own `spacing`; this stayed a fixed size regardless,
+ * which is the gap `portrait` closes rather than the fixed size itself —
+ * making the portrait `em`-relative would have changed what every existing
+ * page already looks like, where this key only ever adds an option on top of
+ * one. See {@link PORTRAIT_SIZE} and `BLOCK_STYLE_LIMITS.portrait` in
+ * `block-schema.ts` for why `s` and `l` are the two sizes either side. It is
+ * read on both the picture and the empty-state placeholder below, in the
+ * same expression, so a page with no portrait set never contradicts one with
+ * a portrait set.
+ *
  * @param props - the leaf, the locale, whether it still owes its title, and
  *   the page it renders from.
  * @returns the portrait.
@@ -87,17 +130,18 @@ function Label({ text }: { text: string }): ReactNode {
 export const AvatarLeaf: LeafRenderer = (props) => {
   const { labelled, leaf, page } = props;
   const alt = showsLabel(labelled, leaf.style) ? labelOf(props) : "";
+  const size = PORTRAIT_SIZE.get(leaf.style?.portrait ?? "") ?? "size-24";
   return page.avatarUrl ? (
     // eslint-disable-next-line @next/next/no-img-element -- the address is arbitrary and typed by hand, so next/image would try to optimise a host it has never been configured for.
     <img
       src={page.avatarUrl}
       alt={alt}
-      className="size-24 rounded-full surface border-(--edge) [object-fit:var(--img-fit)]"
+      className={`${size} rounded-full surface border-(--edge) [object-fit:var(--img-fit)]`}
       {...tid("block-avatar")}
     />
   ) : (
     <span
-      className="block size-24 rounded-full surface border-dashed border-(--edge)"
+      className={`block ${size} rounded-full surface border-dashed border-(--edge)`}
       {...tid("block-avatar")}
     />
   );
@@ -227,6 +271,16 @@ export const NameLeaf: LeafRenderer = (props) =>
  * The owner's small portrait reads `--img-fit` like every other picture here,
  * so a block asking for `contain` reaches this one too rather than only the
  * avatar beside it.
+ *
+ * **It does NOT read `style.portrait`, and that is a decision rather than an
+ * oversight.** `--img-fit` is safe to share because it only ever changes how
+ * a picture is CROPPED inside whatever box it is given; `portrait` changes
+ * the box itself, and this one is not the page's own portrait — it is a
+ * small mark beside a link, sized to sit in a `flex items-center gap-3` row
+ * next to the owner's name and address. Letting a fursona's `l` choice
+ * balloon that mark to 128px would fight the row it was built for rather
+ * than serve the identity the row names, so it stays `size-10` whatever the
+ * page around it asks for.
  *
  * Typed by the shared `LeafRenderer` from `block-contract.ts`, which is the
  * same contract every content kind speaks. This module used to restate that

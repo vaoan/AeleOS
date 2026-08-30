@@ -9,6 +9,8 @@ import {
   container,
   leaf,
   seedPage,
+  seedPersonPage,
+  seedProfile,
   SEEDED_IDENTITY_LEAVES,
   SEEDED_IDENTITY_SECTIONS,
   type SeedBlock,
@@ -1582,4 +1584,117 @@ test("rounds only the corners a block names, against the skin's own radius", asy
   expect(boxCorners.tr).toBe("0px");
   expect(Number.parseFloat(boxCorners.bl)).toBeGreaterThan(0);
   expect(Number.parseFloat(boxCorners.br)).toBeGreaterThan(0);
+});
+
+// **`portrait` — how large `AvatarLeaf` draws an actor's own picture,
+// measured as a COMPUTED dimension rather than a class name.** This
+// repository has already shipped a class that compiled to nothing
+// (`image_fit`, above) with every unit test green, because a class string can
+// be exactly what was intended and still resolve to no CSS at all. The
+// control — the middle avatar, carrying no `style` at all — is what makes
+// this discriminate: a lookup that always answers the same size, or one that
+// ignores the key entirely, would still pass a test that only checked `s`
+// and `l` differed from EACH OTHER.
+test("draws its portrait at the size its own block asks for", async ({
+  page,
+}) => {
+  const PORTRAIT =
+    "data:image/svg+xml;base64," +
+    Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8">' +
+        '<rect width="8" height="8" fill="#00c800"/></svg>',
+    ).toString("base64");
+
+  await seedProfile({
+    userId: identity!.userId,
+    displayName: "Portrait sizes",
+    avatarUrl: PORTRAIT,
+  });
+  const address = await seedPersonPage({
+    userId: identity!.userId,
+    blocks: [
+      container({
+        name_en: "Portraits",
+        mode: "grid",
+        spaces: 3,
+        children: [
+          leaf({
+            kind: "avatar",
+            title_en: "Small",
+            style: { portrait: "s" },
+          }),
+          // The control: absent, which must draw the same size as `"m"` and
+          // as every page that has never heard of this key.
+          leaf({ kind: "avatar", title_en: "Default" }),
+          leaf({
+            kind: "avatar",
+            title_en: "Large",
+            style: { portrait: "l" },
+          }),
+        ],
+      }),
+      leaf({ kind: "handle", title_en: "Handle" }),
+      leaf({ kind: "fursonas", title_en: "Fursonas" }),
+    ],
+  });
+
+  await page.setViewportSize(LAPTOP);
+  expect((await page.goto(`/es/${address}`))?.status()).toBe(200);
+
+  const widths = await page
+    .getByTestId("block-grid")
+    .first()
+    .evaluate((el) =>
+      [...el.querySelectorAll('[data-testid="block-avatar"]')].map(
+        (portrait) => portrait.getBoundingClientRect().width,
+      ),
+    );
+
+  // 48px (`size-12`), 96px (`size-24`, absent) and 128px (`size-32`).
+  expect(widths).toEqual([48, 96, 128]);
+});
+
+// **The same three sizes on the EMPTY-STATE placeholder**, seeded on a
+// fursona — `seedPage`'s own `create_fursona` call always writes a null
+// avatar, which is what makes this the placeholder branch rather than the
+// picture one. Without this, a page with no portrait set could silently
+// contradict one with a portrait set the moment its author added a picture.
+test("draws its empty-state placeholder at the size its own block asks for", async ({
+  page,
+}) => {
+  const { address, handle } = await seedPage({
+    userId: identity!.userId,
+    handlePrefix: "portrait",
+    displayName: "Portrait placeholder",
+    blocks: [
+      container({
+        name_en: "Portraits",
+        mode: "grid",
+        spaces: 2,
+        children: [
+          leaf({
+            kind: "avatar",
+            title_en: "Small",
+            style: { portrait: "s" },
+          }),
+          // The control, for the same reason as the picture test above.
+          leaf({ kind: "avatar", title_en: "Default" }),
+        ],
+      }),
+    ],
+  });
+
+  await page.setViewportSize(LAPTOP);
+  expect((await page.goto(`/es/${address}/${handle}`))?.status()).toBe(200);
+
+  const widths = await page
+    .getByTestId("block-grid")
+    .first()
+    .evaluate((el) =>
+      [...el.querySelectorAll('[data-testid="block-avatar"]')].map(
+        (portrait) => portrait.getBoundingClientRect().width,
+      ),
+    );
+
+  expect(widths).toEqual([48, 96]);
 });

@@ -4520,6 +4520,59 @@ reachability half was false. Here the shape is the mirror image and the same
 discipline applies — the popup path is gone, the dock path was never touched,
 and neither sentence stands in for the other.
 
+### A portrait's size, apart from the text beside it (2026-08-30)
+
+`portrait` (`"s" | "m" | "l"`) on `AvatarLeaf`'s own style bag. `HandleLeaf`
+and `NameLeaf` are `em`-relative, so their type shrinks and grows with a
+page's `spacing`; `AvatarLeaf` was a fixed `size-24` on both its `<img>` and
+its empty-state placeholder, so an author choosing `spacing: "compact"`
+changed the relationship between a page's identity text and its portrait
+without choosing to. This key is the way to ask for a different
+relationship. It deliberately does **not** make the portrait itself
+`em`-relative — that would be a default change on every existing page, where
+every key in this bag is an option added on top of one. Absent and `"m"` are
+the same size, `size-24`, by construction: `PORTRAIT_SIZE.get` misses on both
+and the caller falls back to the same literal either way.
+
+**It is read directly off the LEAF's own `style.portrait`, and that is a
+deliberate difference from `image_fit`, not an oversight.** `image_fit` is
+emitted as a token, `--img-fit`, which inherits — a container's own style bag
+can set it and every picture nested beneath, `AvatarLeaf` and `OwnerLeaf`'s
+own mini avatar alike, resolves it. A picture's CROP is safe to share that
+way; its SIZE is not, because a container setting a bigger portrait would
+silently resize any avatar nested anywhere beneath it, on a page that never
+touched that leaf. So `portrait` skips the token mechanism entirely and reads
+`leaf.style?.portrait` in the component, the same shape `showsLabel` already
+reads `leaf.style?.label` through.
+
+**`s` and `l` are measured against what a portrait actually sits beside, not
+picked for being round numbers.** `s` is `size-12` (3rem, 48px) — exactly
+half of `m`, and already the size a fursona's own avatar draws at elsewhere
+on the same page, in the grid `FursonasLeaf` renders through
+`FursonaCardList` — so choosing "small" does not invent a circle a visitor
+has not already seen there. `l` is `size-32` (8rem, 128px) — the largest a
+portrait can be while still fitting `TRACK_FLOOR` (`domain/block-tracks.ts`,
+`8rem`), the narrowest place this model ever lays out. Anything larger would
+guarantee horizontal overflow the moment a weighted grid floors a narrow
+side.
+
+**`OwnerLeaf`'s own inline avatar does not honour it, and that was a decision
+rather than a gap.** It is a small mark beside a link — whose page you would
+return to — never the page's own portrait, sized to sit in a
+`flex items-center gap-3` row beside that owner's name and address. Letting
+a fursona's `l` choice balloon that mark would fight the row it was built for
+rather than serve the identity the row names, so it stays `size-10` whatever
+the enclosing page's `portrait` says — which it never sees anyway, since the
+key is never inherited.
+
+**Unreachable through `SectionStylePopup`, for the same reason as `label` —
+and reachable the same way.** A container-level control is only meaningful
+for a key that inherits, and this one deliberately does not; `leaf-editor.tsx`
+carries no style-bag control for any key today, so there is no editor surface
+that could offer it either way. An author reaches it exactly as `label` is
+reached — by pasting a document into the page source dock, which validates
+the pasted `blocks` array against the same schema before it is applied.
+
 ### A density that reaches OUTSIDE the card (2026-08-28)
 
 `spacing` set a card's padding and its type size and stopped there. The page

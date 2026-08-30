@@ -2082,6 +2082,39 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   `domain/block-schema.ts`'s TSDoc on `label` for where the two paths — the
   one that's gone and the one that was never touched — are told apart.
 
+- **A portrait's size, apart from the text beside it (2026-08-30).** `portrait`
+  (`"s" | "m" | "l"`) on `AvatarLeaf`'s own style bag closes an asymmetry that
+  sat beside `label`'s the whole time: `HandleLeaf`/`NameLeaf` are
+  `em`-relative and scale with a page's `spacing`, where the portrait stayed a
+  fixed `size-24` regardless. Absent and `"m"` both render exactly `size-24`;
+  `s` is `size-12`, already the size a fursona's own avatar draws at
+  elsewhere on the same page; `l` is `size-32`, the largest that still fits
+  `TRACK_FLOOR` — the narrowest place the block model ever lays out — without
+  guaranteeing horizontal overflow.
+
+  **Read directly off the LEAF's own style, unlike `image_fit`, and that is a
+  deliberate difference rather than an inconsistency.** `image_fit` is
+  emitted as a token, `--img-fit`, which inherits — safe for a CROP, which a
+  container may reasonably want for every picture beneath it. A SIZE is not:
+  a container setting a bigger portrait would silently resize any avatar
+  nested anywhere beneath it, on a page that never touched that leaf. So
+  `portrait` skips the token mechanism and reads `leaf.style?.portrait`
+  directly, the same shape `showsLabel` already reads `leaf.style?.label`
+  through — which also settles reachability the same way `label`'s did:
+  unreachable through `SectionStylePopup` (a container-typed popup has no
+  leaf to read from) and through `leaf-editor.tsx` (no style-bag control
+  exists there for any key today), reachable only through the page source
+  dock. `OwnerLeaf`'s own inline avatar deliberately does not honour it — it
+  is a small mark beside a link, not the page's own portrait, and has no size
+  relationship to keep in step with one.
+
+  It edits `validate_block` and the `actor_profiles.sections` column comment
+  in `0009`, so it carries the same in-place-migration obligation every style
+  key here does: hand-apply the new `portrait` branch of `validate_block` and
+  the extended column comment to the live project, one pull request at a
+  time, immediately before merge. See `apps/hub/src/features/actors/CLAUDE.md`
+  for the account in full.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
