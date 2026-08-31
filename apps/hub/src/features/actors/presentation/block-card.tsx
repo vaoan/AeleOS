@@ -49,6 +49,7 @@ import {
   SectionStylePopup,
   type SectionStylePopupLabels,
 } from "@/features/actors/presentation/section-style-popup";
+import { styleGatesFor } from "@/features/actors/presentation/block-contract";
 import { tid } from "@/shared/infrastructure/test-id";
 import {
   CardKind,
@@ -515,8 +516,12 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * the same reasoning `atBlockLimit` already follows.
  *
  *
- * **The style popup is told whether this block is a SECTION.** Only a section
- * may reach the window's edges, so only a section is offered that control.
+ * **The style popup is handed `gates`, computed by `styleGatesFor` from this
+ * block rather than worked out here field by field (2026-08-30).** Only a
+ * section may reach the window's edges and only a NAMED block draws a bar, so
+ * `styleGatesFor(block, depth === 0)` is what tells the popup so — the same
+ * function `leaf-editor.tsx` calls from its own kind of block, which is what
+ * let a leaf reach the same popup without a second component.
  *
  * **It says what it is, in a rail and in a word.** `ContainerRail` runs down
  * the inside edge once per container at every depth, so nesting is countable
@@ -537,9 +542,6 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * may hold — see {@link BlockCardProps.kinds}.
  *
  * @returns the container's card.
- *
- * It tells the style popup whether this block carries a name, because the
- * name-style control is offered only where there is a name to draw.
  */
 export function BlockCard({
   block,
@@ -830,10 +832,10 @@ export function BlockCard({
             apply((blocks) => patchContainer(blocks, path, { style }))
           }
           labels={labels.style}
-          // Only a SECTION may reach the window's edges — a nested block has
-          // one between it and the page.
-          atTop={depth === 0}
-          named={Boolean(block.name_en?.trim() || block.name_es?.trim())}
+          // Computed from the block itself, in one place — see
+          // `styleGatesFor`'s own TSDoc for why this replaced two separate
+          // booleans this component used to work out by hand.
+          gates={styleGatesFor(block, depth === 0)}
         />
 
         <RemoveSectionButton

@@ -4565,13 +4565,213 @@ rather than serve the identity the row names, so it stays `size-10` whatever
 the enclosing page's `portrait` says — which it never sees anyway, since the
 key is never inherited.
 
-**Unreachable through `SectionStylePopup`, for the same reason as `label` —
-and reachable the same way.** A container-level control is only meaningful
-for a key that inherits, and this one deliberately does not; `leaf-editor.tsx`
-carries no style-bag control for any key today, so there is no editor surface
-that could offer it either way. An author reaches it exactly as `label` is
-reached — by pasting a document into the page source dock, which validates
-the pasted `blocks` array against the same schema before it is applied.
+**Reachable through a leaf's own style popup now (2026-08-30) — see "A leaf
+reaches its own style popup" below — and through the page source dock.** A
+container-level control is only meaningful for a key that inherits, and this
+one deliberately does not; it is gated on the leaf's own `kind` rather than
+offered unconditionally, since only `avatar` draws anything from it.
+
+### A leaf reaches its own style popup (2026-08-30)
+
+The owner asked for it directly, which is the circumstance the paragraph
+above this section's neighbour was written against: two days earlier,
+`SectionStylePopup` had briefly offered `label` behind a gate that was
+`false` by construction for every caller, because the popup only ever opened
+for a `ContainerBlock`. That control was removed as dead rather than
+reworked into something a leaf could open — "reaching leaves is
+`leaf-editor.tsx`'s job... and is a product change nobody asked for," as the
+note above still says, accurately, of that day. It is asked for now, and
+`leaf-editor.tsx` mounts `SectionStylePopup` exactly as `block-card.tsx`
+does.
+
+**Generalised from two ad-hoc booleans to one computed value, rather than
+adding a third boolean beside them.** `SectionStylePopup` used to take
+`named` and `atTop`, each worked out by its caller from the block by hand.
+A leaf needed a third dimension — `label`, `image_fit` and `portrait` are
+gated by the leaf's own `kind`, none of which `named`/`atTop` could express —
+so the two booleans became one object, `StyleGates`, computed once by
+`styleGatesFor(block, atTop)` in `presentation/block-contract.ts` from the
+block itself:
+
+- **`heading`** — the name-style controls. True for a NAMED container only;
+  a leaf has no name field to draw one from.
+- **`atTop`** — `bleed`/`margins`. True for a depth-0 CONTAINER only, and
+  `styleGatesFor` ignores its own `atTop` argument for a leaf — neither key
+  is read unless `isContainer` already agreed first, in both `bleeds()` and
+  the page box's own margin test in `blocks.tsx`, so offering either control
+  on a leaf would be the do-nothing control this feature keeps trimming. A
+  page MAY hold a bare leaf at depth 0 (`block-editor.tsx`'s own note says
+  so), which is why this needed spelling out rather than assumed away.
+- **`label`** — reinstated as `honoursLabel(kind)`, the exact set
+  `showsLabel` composes with (`text`, `avatar`, `handle`, `name`, `owner` —
+  **not** `fursonas`, whose own title is never suppressible). Its TSDoc says
+  it is back for a second time and why, so the next reader does not re-delete
+  it reading the removal note alone.
+- **`imageFit`** — always true for a container, because the token INHERITS
+  to whatever draws a picture beneath it; gated by `honoursImageFit(kind)`
+  for a leaf — `avatar`, `owner` (its own mini portrait) and `picture`, the
+  three kinds whose `<img>` reads `--img-fit` directly. `handle`, `name` and
+  `fursonas` draw no `<img>` of their own; `FursonaCardList`'s avatars are a
+  fixed `object-cover` rather than a read of the token.
+- **`portrait`** — `honoursPortrait(kind)`, `avatar` alone.
+- **`card`** — gates `skin`, `border` and `chrome`, all three read only
+  through `surface`. True for a container always; gated by `honoursCard(kind)`
+  for a leaf, asking whether anything the leaf renders carries `surface` —
+  not only its own box — since `surface`'s tokens are ordinary custom
+  properties and inherit: `text`, `link`, `picture`, `embed`, `social`,
+  `stat`, `quote`, `progress`, `table`, `avatar`, `owner` and `fursonas`
+  (12 of 16, `fursonas` through `FursonaCardList`'s own cards rather than
+  its own bare wrapper — see the third review below).
+- **`corners`** — gates `radius` and the `corners` style key, both read only
+  through `CORNER_CLASS`. NARROWER than `card`: `link`, `social`, `embed` and
+  `avatar` all have a `surface`-bearing box but a fixed `rounded-xl`/
+  `rounded-full` that never asks `--skin-round` anything, so `honoursCorners`
+  answers `text`, `stat`, `quote`, `progress`, `table`, `picture`, `owner`
+  alone (7 of 16) — the one dimension a container-only reading of "any
+  block" could not have found, and did not, the first time this shipped. See
+  the correction below.
+
+**The popup mounts in the same header row as `block-card.tsx`'s, for the same
+idiom.** `leaf-editor.tsx` patches through `patchLeaf` where `block-card.tsx`
+patches through `patchContainer`; `LeafEditorLabels` gained a `style:
+SectionStylePopupLabels` field, built once in `pages/labels.ts` as
+`stylePopupLabels` and assigned to both the container's own `style` and the
+leaf's `leaf.style` — one popup, one bag of strings, rather than two that
+could quietly disagree.
+
+**A page-wide `.last()` on `section-style-open` stopped meaning "the newest
+SECTION's own popup" the moment a leaf could have one too**, and two e2e
+suites were measuring the wrong element as a result:
+`section-card-face.spec.ts`'s hostile-picture case and
+`border-style-cascade.spec.ts`'s empty-place case each add content to a
+section and then style it — via `.last()` — without collapsing the section
+first, so the leaf's own trigger, added to the DOM after the section's, is
+what `.last()` found. Both are scoped to `section-header` now, the one test
+id that belongs to a depth-0 CONTAINER's header and nothing a leaf renders.
+
+**That was two instances found by reading. A review asked about the other
+eight `.last()`/`.first()` callers on this id across the same two files, and
+whether "the suite stayed green" was proof or luck — root rule 23's
+question asked of this exact shape.** Read one by one, each was ALREADY
+protected by a real mechanism, not by chance: two open no popup on a fresh
+`/pages/new` at all (`cutout clips…`'s first two calls, before either test
+adds any content anywhere); the other six collapse the section immediately
+after adding content and never re-expand it before the call, and
+`{collapsed ? null : (…)}` in `block-card.tsx` unmounts the ENTIRE places
+subtree when collapsed — the leaf and its popup included, not merely hidden
+by CSS. Both claims were checked against the running suite rather than
+believed from reading the code: `assertLastTriggerIsAContainers`
+(`support/editor.ts`) now asserts, at every one of the eight sites plus the
+two already scoped, that the resolved trigger sits inside a
+`section-header`/`nested-header` rather than a leaf's card — and a combined
+sabotage (reverting the id split below AND forcing `block-card.tsx` to
+render places while "collapsed") reddened it exactly where reverting both
+guards together should, restoring clean. Reverting the id split ALONE left
+every case green, because collapse alone was already sufficient for all
+eight — which is the honest report of a site protected by two independent
+guards, not a discriminating fixture for either one in isolation.
+
+**The id itself is split now too (2026-08-30), which is the fix that removes
+the whole class rather than auditing it one caller at a time.**
+`SectionStylePopupProps.triggerTestId` defaults to `section-style-open`
+(`block-card.tsx` never overrides it) and `leaf-editor.tsx` passes
+`"leaf-style-open"`, so the two controls can no longer share an id for a
+future caller to trust by accident. Two ids sharing a name is what turned a
+correct assumption into a silent one in the first place; a query for either
+can never resolve to the other now, which is stronger than any amount of
+per-site scoping.
+
+**A second review found the map handed down for this task was wrong about
+the half nobody was asked to verify, and it shipped once already
+(2026-08-30).** The brief named `skin`, `background_url`, `background_fit`,
+`border`, `chrome`, `radius`, `corners` and `text_align` as "any block" and
+asked only that the GATED keys (`label`, `image_fit`, `portrait`) be checked
+against the renderers. `background_url`, `background_fit` and `text_align`
+really are kind-agnostic — `blockStyle` writes them as an inline style on
+the wrapper `Block` itself renders, so they paint regardless of what a leaf
+draws inside it. `skin`, `border`, `chrome`, `radius` and the `corners` style
+key are not: each acts only through a per-kind renderer's OWN box (`surface`
+for the first three, `CORNER_CLASS` for the last two), and a leaf may draw
+neither. The popup offered the corner picker on 9 of 16 leaf kinds where it
+could not change a pixel — every kind but the seven `honoursCorners`
+answers — and offered `skin`/`border`/`chrome` on `handle`, `name`,
+`player` and `jukebox`, none of which renders a `surface` anywhere; `handle`
+and `name` draw no box whatsoever, a bare `@container min-w-0`. Exactly the
+defect this whole branch exists to remove, reintroduced through the half of
+the brief nobody had been asked to check. `card` and `corners`
+above are the fix, derived from the renderers rather than taken on a second
+telling — and `radius` landed in `corners`, not bundled with
+`skin`/`border`/`chrome` as the review's own first guess had it: `radius`
+shares NO mechanism with `surface` at all, only with `CORNER_CLASS`, which is
+why `CORNERS_KINDS` is a strict subset of `CARD_KINDS` rather than a third,
+independent list.
+
+**A THIRD review found the second review's own fix still had one kind
+backwards, and named the general rule the fix had missed (2026-08-30).**
+`honoursCard` asked "does this leaf's own box carry `surface`", which is
+narrower than the question the key actually needs answered: "does anything
+this leaf renders carry `surface`", because `surface`'s tokens are ordinary
+custom properties and INHERIT. `FursonasLeaf`'s own wrapper is bare — that
+much the second review had right, and is why it excluded the kind — but it
+renders `FursonaCardList`, whose cards ARE `rounded-xl surface
+border-(--edge) bg-(--surface)` (`fursona-card-list.tsx`). Choosing a skin,
+a border or `chrome` on a `fursonas` block reaches those cards exactly as it
+reaches any other leaf's own, through the SAME inherited-token mechanism
+`imageFit` and `portrait` already rely on elsewhere in this file — so the
+gate was withdrawing a control that worked, the identical shape of defect
+this whole branch exists to remove, running the other way. `fursonas` moved
+into `CARD_KINDS`; `CORNERS_KINDS` did not change, because
+`FursonaCardList`'s cards are a fixed `rounded-xl`/`rounded-full` that never
+reads `CORNER_CLASS` either — which makes `fursonas` the sharpest
+discriminator between the two gates the model has: `card` true and
+`corners` false on the very same underlying element, pinned as its own
+dedicated case in `leaf-editor.test.tsx` rather than folded into either
+group either finding already had. Re-deriving the whole set against the
+corrected question moved no OTHER kind: `player`/`jukebox` read only
+`--chrome-*` tokens nowhere near a skin (confirmed by reading
+`player-chrome.tsx` and `winamp-chrome.tsx` in full — neither file contains
+the word `surface`), and `handle`/`name` are bare `<span>`s with no
+descendants at all to carry anything.
+
+**The focus-on-open effect moved with it.** It used to focus a ref pinned to
+the skin select; `gates.card` can now remove that field entirely, which would
+have left an opened popup focusing nothing. It queries the panel for its
+first `input`/`select` instead, which `text_align` — offered on every kind
+— always supplies.
+
+**`assertLastTriggerIsAContainers` could not fail at any of its eight sites,
+and a review measured that rather than taking the corroborating framing on
+trust.** Reverting the id split alone left both audited specs green, 9
+cases passing — collapse was doing all of the real protecting, at every
+site the first pass had added the helper to. One site now discriminates
+for real: `border-style-cascade.spec.ts`'s second test adds content and
+never collapses, so its own leaf trigger is genuinely mounted, after the
+section's own, when the assertion runs. Reverting the id split alone reddens
+that ONE test and no other, sabotage-verified. The helper stays at the
+remaining sites as documentation of a checked, true fact — corroborating
+rather than discriminating, root rule 23's own distinction — and its own
+TSDoc says so plainly rather than implying every call is equally load-bearing.
+
+**Only the trigger id is split, and that is written down as the same trap
+one layer in rather than fixed pre-emptively.** The panel and every field
+inside it (`section-style-skin`, `section-style-border`, and the rest) stay
+`section-style-*` whichever kind of block opened the popup, so two popups
+open at once — nothing here prevents that — would make a query on any of
+those ids ambiguous again. Nothing exercises this today; `triggerTestId`'s
+own TSDoc names it so the next person who needs two popups open together
+does not rediscover the shape from scratch.
+
+**A browser test is the only thing that can prove a leaf's choice actually
+paints**, matching `section-style-popup.spec.ts`'s own argument for why a
+unit suite is not enough: the popup writes to the form field the preview
+reads, live. `leaf-style-popup.spec.ts` drives `portrait` rather than
+`label`, deliberately — its effect is a measured SIZE (`AvatarLeaf` writes
+the same `size-*` class on its `<img>` and on its empty-state placeholder
+alike), which needs no text assertion at all. That mattered mechanically as
+well as by taste: this repo's lint config bans `toContainText`/`toHaveText`
+outright (`no-restricted-syntax`, "Do not assert translated text — use
+`toBeVisible()`"), and a first draft of this test asserting `label`'s effect
+through a title's text tripped it immediately.
 
 ### A density that reaches OUTSIDE the card (2026-08-28)
 

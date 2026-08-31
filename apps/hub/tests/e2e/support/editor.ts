@@ -104,3 +104,57 @@ export async function saveAndLeave(page: Page): Promise<void> {
   expect(said, "the editor refused the save").toBe("");
   await page.waitForURL(/\/pages$/, { timeout: 60_000 });
 }
+
+/**
+ * Proves that `page.getByTestId(id).last()` — the locator every `.last()`
+ * call on a style-popup trigger in this suite trusts — currently resolves to
+ * a CONTAINER's own trigger rather than a leaf's, and asserts, rather than
+ * assuming it.
+ *
+ * **Why this needed proving at all.** `SectionStylePopup` mounts from both
+ * `block-card.tsx` (a container) and `leaf-editor.tsx` (a leaf) now, and a
+ * leaf's trigger renders inside its enclosing section's places — after that
+ * section's own header, in DOM order. A page-wide `.last()` written when
+ * only containers could answer this query silently started reaching a
+ * leaf's trigger instead the moment a section grew one, in two specs that
+ * predate this helper. The two ids are distinct now
+ * (`SectionStylePopupProps.triggerTestId`: a container's stays
+ * `section-style-open`, a leaf's is `leaf-style-open`), which makes the
+ * failure this guards against impossible by construction rather than merely
+ * unlikely — but the callers that survived the ambiguity by luck (an empty
+ * place, a collapsed section) are worth pinning explicitly rather than left
+ * to the id split alone to explain.
+ *
+ * **Only ONE of its callers can actually fail, and that was measured rather
+ * than assumed (2026-08-30).** A review reverted the id split with every
+ * call site left in place and found all nine passing — because collapsing a
+ * section unmounts the whole places subtree, leaf and trigger included,
+ * independent of whether the two ids collide, and every OTHER call site
+ * collapses (or adds no content at all) before reaching this assertion. The
+ * one exception is `border-style-cascade.spec.ts`'s second test, which adds
+ * content and never collapses; reverting the split there reddens this
+ * assertion, sabotage-verified. Calling it at the remaining sites is
+ * documentation of a real, checked fact — corroborating rather than
+ * discriminating, in root rule 23's terms — and is kept for that reason,
+ * not represented as a second proof.
+ *
+ * @param page - the editor page.
+ * @param id - the trigger's own test id — `section-style-open` for a
+ *   container, `leaf-style-open` for a leaf.
+ */
+export async function assertLastTriggerIsAContainers(
+  page: Page,
+  id: string,
+): Promise<void> {
+  const trigger = page.getByTestId(id).last();
+  const insideContainerHeader = await trigger.evaluate(
+    (el) =>
+      el.closest(
+        '[data-testid="section-header"], [data-testid="nested-header"]',
+      ) != null,
+  );
+  expect(
+    insideContainerHeader,
+    `the last '${id}' trigger sits inside a container's own header, not a leaf's`,
+  ).toBe(true);
+}

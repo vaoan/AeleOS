@@ -440,4 +440,286 @@ describe("LeafEditor", () => {
       expect(screen.getByTestId("add-row")).toBeInTheDocument();
     });
   });
+
+  // A LEAF CAN REACH ITS OWN STYLE POPUP NOW — the same `SectionStylePopup`
+  // `BlockCard` mounts, gated by `styleGatesFor` off this leaf's own `kind`
+  // rather than off a `ContainerBlock`'s. `section-style-popup.test.tsx`
+  // already proves the popup's own mechanics (writing, clearing, the corner
+  // picker…) against a container; what is new here is the WIRING — that a
+  // leaf reaches the popup at all, that the three leaf-kind-gated controls
+  // (`label`, `image_fit`, `portrait`) appear only where the kind honours
+  // them, and that a choice lands on the LEAF's own `style` through
+  // `patchLeaf`.
+  describe("its own style popup", () => {
+    /** Opens the popup, which every kind offers. */
+    function openStyle() {
+      fireEvent.click(
+        screen.getByRole("button", { name: labels.leaf.style.open }),
+      );
+    }
+
+    it("offers the skin, background and border fields on every kind", () => {
+      harness(newLeaf("stat"));
+      openStyle();
+      expect(screen.getByLabelText(labels.leaf.style.skin)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.backgroundUrl),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.border),
+      ).toBeInTheDocument();
+    });
+
+    // NEVER THE HEADING CONTROLS OR BLEED/MARGINS — a leaf has no name field
+    // to draw a bar from, and neither key is read unless `isContainer`
+    // already agreed before either is asked.
+    it("never offers the name-style or full-width controls, on any kind", () => {
+      harness(newLeaf("text"));
+      openStyle();
+      expect(screen.queryByLabelText(labels.leaf.style.heading)).toBeNull();
+      expect(screen.queryByLabelText(labels.leaf.style.bleed)).toBeNull();
+      expect(screen.queryByLabelText(labels.leaf.style.margins)).toBeNull();
+    });
+
+    // `label` COMPOSES WITH `showsLabel`, whose own set is `text` plus the
+    // four identity leaves that draw one — `avatar`, `handle`, `name` and
+    // `owner`. `fursonas` is NOT in that set: its own title is never
+    // suppressible. A kind outside all five must not offer the control
+    // either, which is the case a purely positive sweep would miss.
+    it.each(["text", "avatar", "handle", "name", "owner"] as const)(
+      "offers 'own title' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(
+          screen.getByLabelText(labels.leaf.style.label),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it.each([
+      "stat",
+      "quote",
+      "progress",
+      "link",
+      "picture",
+      "fursonas",
+    ] as const)("does not offer 'own title' for a %s leaf", (kind) => {
+      harness(newLeaf(kind));
+      openStyle();
+      expect(screen.queryByLabelText(labels.leaf.style.label)).toBeNull();
+    });
+
+    // `image_fit` REACHES EVERY KIND THAT DRAWS AN `<img>` READING IT —
+    // `avatar`, `owner` and `picture` — never a kind with no picture of its
+    // own.
+    it.each(["avatar", "owner", "picture"] as const)(
+      "offers 'pictures' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(
+          screen.getByLabelText(labels.leaf.style.imageFit),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it.each(["text", "handle", "name", "link", "stat"] as const)(
+      "does not offer 'pictures' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.imageFit)).toBeNull();
+      },
+    );
+
+    // `portrait` REACHES `avatar` ALONE — not even `owner`, whose own mini
+    // avatar deliberately does not read the key (see `block-schema.ts`'s
+    // TSDoc on `portrait`), and not `picture`, which draws no actor portrait
+    // at all.
+    it("offers 'portrait size' for an avatar leaf, and no other", () => {
+      harness(newLeaf("avatar"));
+      openStyle();
+      expect(
+        screen.getByLabelText(labels.leaf.style.portrait),
+      ).toBeInTheDocument();
+    });
+
+    it.each(["owner", "picture", "handle", "text"] as const)(
+      "does not offer 'portrait size' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.portrait)).toBeNull();
+      },
+    );
+
+    // `skin`, `chrome` and `border` all act through `surface`, which a
+    // leaf's own box, OR ANYTHING IT RENDERS, may or may not carry — see
+    // `honoursCard` in `presentation/block-contract.ts`. This is the
+    // review's own blocking finding: these three were offered UNGATED on
+    // every leaf kind until this, including `handle`/`name`/`player`/
+    // `jukebox`/`fursonas`. `fursonas` is in the POSITIVE list below despite
+    // its own wrapper being bare, because `FursonaCardList`'s cards — which
+    // it renders — carry `surface`, and that utility's tokens are ordinary
+    // custom properties that inherit from the wrapper `Block()` writes a
+    // leaf's own style onto. A first version of this gate asked the
+    // narrower "does this leaf's own box carry `surface`" question and
+    // excluded `fursonas` by mistake; see the dedicated case below this
+    // group for the discriminator that finding is pinned by.
+    it.each([
+      "text",
+      "link",
+      "picture",
+      "embed",
+      "social",
+      "stat",
+      "quote",
+      "progress",
+      "table",
+      "avatar",
+      "owner",
+      "fursonas",
+    ] as const)("offers 'style', 'card' and 'border' for a %s leaf", (kind) => {
+      harness(newLeaf(kind));
+      openStyle();
+      expect(screen.getByLabelText(labels.leaf.style.skin)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.chrome),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.border),
+      ).toBeInTheDocument();
+    });
+
+    it.each(["player", "jukebox", "handle", "name"] as const)(
+      "does not offer 'style', 'card' or 'border' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.skin)).toBeNull();
+        expect(screen.queryByLabelText(labels.leaf.style.chrome)).toBeNull();
+        expect(screen.queryByLabelText(labels.leaf.style.border)).toBeNull();
+      },
+    );
+
+    // **`fursonas` is the sharpest discriminator between the two gates,
+    // pinned on its own rather than folded into a group.** It offers the
+    // card keys (above) for a reason no OTHER kind in that list shares —
+    // through a descendant, not its own box — and it offers none of the
+    // corner keys, because `FursonaCardList`'s cards are a fixed
+    // `rounded-xl`/`rounded-full` that never reads `CORNER_CLASS` either.
+    // `card` true and `corners` false on the SAME kind, for the SAME
+    // underlying element, is exactly the case a review caught this gate
+    // getting wrong the first time.
+    it("offers the card keys and none of the corner keys for a fursonas leaf", () => {
+      harness(newLeaf("fursonas"));
+      openStyle();
+      expect(screen.getByLabelText(labels.leaf.style.skin)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.chrome),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.border),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText(labels.leaf.style.radius)).toBeNull();
+      expect(screen.queryByTestId("section-style-corner-tl")).toBeNull();
+    });
+
+    // `radius` and the `corners` picker act through `CORNER_CLASS` alone,
+    // which is NARROWER than `surface` — `link`, `social`, `embed` and
+    // `avatar` all pass the case above (they DO have a `surface`-bearing
+    // box) and must fail this one (a fixed `rounded-xl`/`rounded-full`
+    // never reads `--skin-round`), which is exactly the discriminating
+    // negative a purely positive sweep would miss.
+    it.each([
+      "text",
+      "stat",
+      "quote",
+      "progress",
+      "table",
+      "picture",
+      "owner",
+    ] as const)("offers 'corners' for a %s leaf", (kind) => {
+      harness(newLeaf(kind));
+      openStyle();
+      expect(
+        screen.getByLabelText(labels.leaf.style.radius),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId("section-style-corner-tl")).toBeInTheDocument();
+    });
+
+    it.each(["link", "social", "embed", "avatar"] as const)(
+      "does not offer 'corners' for a %s leaf, despite offering 'style'",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.radius)).toBeNull();
+        expect(screen.queryByTestId("section-style-corner-tl")).toBeNull();
+        // The discriminating half: `style` (surface) is still offered here,
+        // which is what makes this case about `corners` alone.
+        expect(
+          screen.getByLabelText(labels.leaf.style.skin),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it.each(["handle", "name", "player", "jukebox"] as const)(
+      "does not offer 'corners' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.radius)).toBeNull();
+        expect(screen.queryByTestId("section-style-corner-tl")).toBeNull();
+      },
+    );
+
+    it("writes a chosen border to a card-honouring leaf's own style", () => {
+      const page = harness(newLeaf("link"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.border), {
+        target: { value: "dashed" },
+      });
+      expect(held(page())?.style).toEqual({ border: "dashed" });
+    });
+
+    it("writes a chosen corner list to a corners-honouring leaf's own style", () => {
+      const page = harness(newLeaf("stat"));
+      openStyle();
+      fireEvent.click(screen.getByTestId("section-style-corner-bl"));
+      expect(held(page())?.style).toEqual({ corners: "tl,tr,br" });
+    });
+
+    it("writes a chosen skin to this leaf's own style, through patchLeaf", () => {
+      const page = harness(newLeaf("text"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.skin), {
+        target: { value: "glass" },
+      });
+      expect(held(page())?.style).toEqual({ skin: "glass" });
+    });
+
+    it("writes 'hidden' to this leaf's own label, and clears it back", () => {
+      const page = harness(newLeaf("text"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.label), {
+        target: { value: "hidden" },
+      });
+      expect(held(page())?.style).toEqual({ label: "hidden" });
+
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.label), {
+        target: { value: "" },
+      });
+      expect(held(page())?.style).toBeUndefined();
+    });
+
+    it("writes a chosen portrait size to an avatar leaf's own style", () => {
+      const page = harness(newLeaf("avatar"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.portrait), {
+        target: { value: "l" },
+      });
+      expect(held(page())?.style).toEqual({ portrait: "l" });
+    });
+  });
 });

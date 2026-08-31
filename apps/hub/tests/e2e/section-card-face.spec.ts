@@ -16,7 +16,10 @@ import {
   textColour,
   type Probe,
 } from "./support/pixels";
-import { chooseNewSectionSpaces } from "./support/editor";
+import {
+  assertLastTriggerIsAContainers,
+  chooseNewSectionSpaces,
+} from "./support/editor";
 
 // One sign-in for the whole file: every case below signs in as the
 // same shared identity and none depends on what an earlier case left
@@ -404,6 +407,7 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
     .last()
     .getByTestId("public-section");
 
+  await assertLastTriggerIsAContainers(page, "section-style-open");
   await page.getByTestId("section-style-open").last().click();
   await expect(panel).toBeVisible();
   await page.getByTestId("section-style-skin").selectOption("cutout");
@@ -494,6 +498,7 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   // confirms the negative-control half of the boundary still paints its ring.
   // It is corroboration: the computed `clip-path: none` assertion above is the
   // direct proof that the control card never entered the preview scope.
+  await assertLastTriggerIsAContainers(page, "section-style-open");
   await page.getByTestId("section-style-open").last().click();
   await expect(panel).toBeVisible();
   const input = page.getByTestId("section-style-background-url");
@@ -560,6 +565,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   // right colour, and the preview somebody is looking at while they choose
   // would simply stop answering. Pinned against `cutout`'s own `--skin-border`
   // in `skins.ts`, the same discipline the public renderer's tests use.
+  await assertLastTriggerIsAContainers(page, "section-style-open");
   await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-skin").selectOption("cutout");
   await expect
@@ -585,6 +591,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   // design's own radius first: `cutout` squares the card off, and the corner
   // bleed this guards against is only visible where the face is rounded and
   // the root is not.
+  await assertLastTriggerIsAContainers(page, "section-style-open");
   await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-skin").selectOption("");
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
@@ -621,6 +628,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   };
   const withPicture = await sampleColours(page, [spot]);
 
+  await assertLastTriggerIsAContainers(page, "section-style-open");
   await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill("");
   await expect
@@ -673,7 +681,20 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await page.getByTestId("leaf-title").first().fill("Item");
   await page.getByTestId("leaf-description").first().fill("A description");
 
-  await page.getByTestId("section-style-open").last().click();
+  // **Scoped to the SECTION's own header, not a page-wide `.last()`.** A
+  // leaf can open its own style popup now, and the content just added has
+  // one — so a bare `.last()` on `section-style-open` would have reached
+  // past the section's own trigger to the leaf's, styling the wrong element.
+  // `leaf-style-open` is that trigger's own, distinct id now — see
+  // `SectionStylePopupProps.triggerTestId` — so a leaf could no longer
+  // answer this query even with no scoping at all. Kept anyway, because it
+  // says which element this is reaching for rather than leaving that to be
+  // inferred from the id alone.
+  await page
+    .getByTestId("section-header")
+    .last()
+    .getByTestId("section-style-open")
+    .click();
   await page.getByTestId("section-style-background-url").fill(HOSTILE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
   await page.keyboard.press("Escape");
@@ -826,6 +847,7 @@ test("the three background fits are three different paints", async ({
   // finds no inline style at all, which is how this one failed.
   const face = tray.getByTestId("public-section");
 
+  await assertLastTriggerIsAContainers(page, "section-style-open");
   await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
   await expect
@@ -857,6 +879,7 @@ test("the three background fits are three different paints", async ({
       { name: "origin", x: Math.round(box.x) + 5, y: Math.round(box.y) + 5 },
       { name: "away", x: Math.round(box.x) + 40, y: Math.round(box.y) + 6 },
     ]);
+    await assertLastTriggerIsAContainers(page, "section-style-open");
     await page.getByTestId("section-style-open").last().click();
     return { origin: sampled.origin!, away: sampled.away! };
   };

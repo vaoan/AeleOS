@@ -14,9 +14,11 @@
  */
 
 import type { ReactNode } from "react";
-import type {
-  BlockStyle,
-  LeafBlock,
+import {
+  isContainer,
+  type Block,
+  type BlockStyle,
+  type LeafBlock,
 } from "@/features/actors/domain/block-schema";
 import { contentFor } from "@/features/actors/domain/actor-content";
 import type { EmbedShape } from "@/features/actors/domain/embeds";
@@ -243,14 +245,15 @@ export function wordsOf(leaf: LeafBlock, locale: string) {
  * (`text-leaves.tsx`). Every other leaf kind — `stat`, `quote`, `progress`,
  * `table`, `link`, `social`, the media leaves — and every container
  * (`blocks.tsx`'s own name draws from `labelled` alone) ignore `style.label`
- * entirely. There used to be a `honoursLabel(kind)` helper here and a gate in
- * `section-style-popup.tsx` built on it, offering an "Own title" control only
- * for a kind in this list — removed 2026-08-30, because `SectionStylePopup`
- * only ever opens for a `ContainerBlock`, whose `kind` is always the literal
- * `"container"` and never one of these five, so the gate it fed was `false`
- * by construction and the control was unreachable rather than merely
- * mis-offered. See `domain/block-schema.ts`'s TSDoc on `label` for where the
- * key is reachable instead — the page source dock, not this popup.
+ * entirely. {@link honoursLabel} answers exactly this set, and it is doing so
+ * for the SECOND time. It briefly existed, gating an "Own title" select in
+ * `section-style-popup.tsx` — but that popup only ever opened for a
+ * `ContainerBlock`, whose `kind` is always the literal `"container"` and
+ * never one of these five, so the gate answered `false` at every call site
+ * there was, and it was removed as dead on 2026-08-30. It is back the same
+ * day: `leaf-editor.tsx` mounts the same popup for a LEAF now, gated through
+ * {@link styleGatesFor} off the leaf's own `kind` — exactly the value
+ * `honoursLabel` needed and a `ContainerBlock` could never supply.
  *
  * @param labelled - whether the enclosing mode has already shown this leaf's
  *   title, or has left that decision to the leaf.
@@ -262,6 +265,298 @@ export function showsLabel(
   style: BlockStyle | undefined,
 ): boolean {
   return labelled && style?.label !== "hidden";
+}
+
+/**
+ * The leaf kinds `showsLabel` composes with — see that function's own note on
+ * why this list exists twice for the same set.
+ *
+ * A `Set`, not a plain object: a leaf's `kind` is wider than {@link LeafKind}
+ * (the lenient read admits a name this build does not know), so this is
+ * indexed by text that came out of `jsonb` — the shape that put `__proto__`
+ * through `TIDAL_KINDS` once already. A `Set` has no inherited entries to
+ * find.
+ */
+const LABEL_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "avatar",
+  "handle",
+  "name",
+  "owner",
+]);
+
+/**
+ * Whether a leaf's own renderer reads `style.label` at all — the gate
+ * `SectionStylePopup`'s "Own title" select needs to offer the key only where
+ * it does something.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `style.label` changes anything this leaf draws.
+ */
+export function honoursLabel(kind: string): boolean {
+  return LABEL_KINDS.has(kind);
+}
+
+/**
+ * The leaf kinds that draw an `<img>` reading `--img-fit` directly —
+ * `AvatarLeaf`, `OwnerLeaf`'s own mini portrait, and `PictureLeaf`. `handle`,
+ * `name` and `fursonas` draw no `<img>` of their own; `FursonaCardList`'s
+ * avatars are a fixed `object-cover` rather than a read of this token.
+ *
+ * A container is never gated this way — the key is a token that INHERITS, so
+ * a container's own choice reaches whichever of these sits anywhere beneath
+ * it, whether or not the container itself draws a picture. Only a LEAF's own
+ * kind decides whether offering the field here would do anything.
+ */
+const IMAGE_FIT_KINDS: ReadonlySet<string> = new Set([
+  "avatar",
+  "owner",
+  "picture",
+]);
+
+/**
+ * Whether a leaf's own renderer reads `--img-fit` directly.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `image_fit` changes anything this leaf draws.
+ */
+export function honoursImageFit(kind: string): boolean {
+  return IMAGE_FIT_KINDS.has(kind);
+}
+
+/**
+ * Whether a leaf's own renderer reads `style.portrait` — `avatar` alone.
+ * `OwnerLeaf`'s own mini avatar deliberately does not, by its own key's
+ * TSDoc in `domain/block-schema.ts`.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `portrait` changes anything this leaf draws.
+ */
+export function honoursPortrait(kind: string): boolean {
+  return kind === "avatar";
+}
+
+/**
+ * The leaf kinds whose own rendered box, OR ANY DESCENDANT of it, carries
+ * `CORNER_CLASS` — the ONLY mechanism `radius` and `corners` (the style key)
+ * ever reach through. `text`, `stat`, `progress` and `table` wear it via
+ * `MEASURE_CARD`/their own literal; `quote`, `picture` and `owner` name it
+ * directly. Every other kind either draws a fixed corner a class like
+ * `rounded-xl`/`rounded-full` never asks `--skin-round` about (`link`,
+ * `social` via `LEAF_CARD`; `embed` via `FRAME_SHAPE`; `avatar`; `fursonas`,
+ * whose cards are `FursonaCardList`'s own fixed `rounded-xl`/`rounded-full`),
+ * draws no box anywhere (`handle`, `name`), or reads neither token from
+ * anywhere (`player`, `jukebox`, whose chrome is `--chrome-*` tokens a skin
+ * never touches).
+ *
+ * **"Any descendant", not "its own box" — see `honoursCard`'s own note for
+ * why that distinction is the whole finding.** It happens to make no
+ * difference here: nothing in this repo nests a `CORNER_CLASS` box inside a
+ * kind whose own wrapper lacks one. `CARD_KINDS` is not so lucky.
+ *
+ * **Found by reading every renderer this file's own `LEAVES` registers, not
+ * by reasoning about the shape of the model** — see `honoursCard` for why
+ * that mattered here specifically: `surface` and `CORNER_CLASS` are two
+ * different CSS features that do not always travel together.
+ */
+const CORNERS_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "stat",
+  "quote",
+  "progress",
+  "table",
+  "picture",
+  "owner",
+]);
+
+/**
+ * Whether a leaf's own renderer reads `--skin-round`/`--corner-*` at all —
+ * the gate `radius` and `corners` (the style key) both need, since neither
+ * has a second mechanism.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `radius`/`corners` change anything this leaf draws.
+ */
+export function honoursCorners(kind: string): boolean {
+  return CORNERS_KINDS.has(kind);
+}
+
+/**
+ * The leaf kinds whose own rendered box, OR ANY DESCENDANT of it, carries
+ * `surface` — the utility `skin`, `border` and `chrome` all act through
+ * (border style and width, gloss, shadow, backdrop, clip; `chrome`'s
+ * `bare`/`card` toggle the same tokens `surface` already reads).
+ *
+ * **The question is "does anything this leaf renders read those tokens",
+ * never "does this leaf's own top-level box carry `surface`" — a first
+ * version of this set asked the narrower question and got `fursonas` wrong
+ * as a result (2026-08-30).** `surface` reads ORDINARY CUSTOM PROPERTIES —
+ * `--skin-border-style`, `--skin-border`, `--skin-gloss`, `--skin-shadow`,
+ * `--skin-backdrop`, `--skin-clip` — and `Block()` writes a block's own
+ * `skin`/`border`/`chrome` choice as an inline style on the wrapper it
+ * renders. Custom properties INHERIT, so any descendant reading them sees
+ * the same values whether or not it sits inside a `surface`-bearing box of
+ * its own. `FursonasLeaf`'s own wrapper is bare — a `<section>`/`<div>` with
+ * no `surface` anywhere on it — which is why the first version excluded it;
+ * but it renders `FursonaCardList`, whose cards ARE `surface` themselves
+ * (`rounded-xl surface border-(--edge) bg-(--surface)` —
+ * `fursona-card-list.tsx`). Choosing a skin, a border or `chrome` on a
+ * `fursonas` block repaints every fursona card, exactly as choosing one on
+ * `text` repaints that leaf's own — the gate excluding it was withdrawing a
+ * control that worked.
+ *
+ * **`CORNERS_KINDS` is a strict SUBSET of this one under the same corrected
+ * question, and stays a subset even with `fursonas` moved.** Every kind that
+ * reads `CORNER_CLASS` anywhere also reads `surface` there, but `link`,
+ * `social` (`LEAF_CARD`), `embed` (`FRAME_SHAPE`), `avatar` and now
+ * `fursonas` (`FursonaCardList`'s own cards) read `surface` on a box shaped
+ * by a literal `rounded-xl`/`rounded-full` instead — real for the first
+ * three keys, dead for `radius`/`corners`. `player`/`jukebox` (a bespoke
+ * `--chrome-*` chrome that shares no token with a skin, confirmed by reading
+ * `player-chrome.tsx` and `winamp-chrome.tsx` in full — neither contains the
+ * word `surface`) and `handle`/`name` (a bare `<span>`, no descendants at
+ * all) read neither token anywhere and stay out of both sets.
+ */
+const CARD_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "link",
+  "picture",
+  "embed",
+  "social",
+  "stat",
+  "quote",
+  "progress",
+  "table",
+  "avatar",
+  "owner",
+  "fursonas",
+]);
+
+/**
+ * Whether this leaf's own renderer, OR ANYTHING IT RENDERS, reads `surface`
+ * — the gate `skin`, `border` and `chrome` need.
+ *
+ * **The rule this function exists to state: ask whether anything a leaf
+ * renders reads the tokens, never whether the leaf's OWN top-level box
+ * does.** `surface`'s tokens are ordinary CSS custom properties, which
+ * inherit — so a leaf whose own wrapper is bare but which renders a
+ * `surface`-bearing element further down (`fursonas`, through
+ * `FursonaCardList`'s cards) still has something for a chosen skin, border
+ * or `chrome` to repaint. The narrower question — "does this leaf's own box
+ * carry `surface`" — answered `fursonas` wrong the first time this was
+ * written, withdrawing a control that worked. Apply the wider question to
+ * the next kind that joins this list, not the narrower one this docstring
+ * used to state.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `skin`/`border`/`chrome` change anything this leaf draws.
+ */
+export function honoursCard(kind: string): boolean {
+  return CARD_KINDS.has(kind);
+}
+
+/**
+ * Which of a block's own style controls apply — computed once from the block
+ * being edited, rather than by a caller working out separate booleans by
+ * hand and a popup that has to trust it got them right.
+ *
+ * **One place for this knowledge**, matching {@link showsLabel}: a leaf-kind
+ * list scattered across `block-card.tsx` and `leaf-editor.tsx` is two places
+ * to keep in step, and the gap this whole feature keeps finding is exactly
+ * that shape.
+ *
+ * **`background_url`, `background_fit` and `text_align` carry no gate of
+ * their own, and that is a finding rather than an oversight.** `blockStyle`
+ * writes all three as an INLINE style on the wrapper `Block` itself renders —
+ * `backgroundImage`/`backgroundRepeat`/`backgroundSize` paint that element
+ * directly, and `textAlign` is an ordinary inheriting CSS property no
+ * descendant text opts out of — so all three act on every block whatever it
+ * contains, container or leaf, with no per-kind renderer standing between
+ * the style bag and the paint. `skin`, `border`, `chrome`, `radius` and the
+ * `corners` style key are the opposite shape: each is read only by a
+ * per-kind renderer's OWN box (`surface`, `CORNER_CLASS`), which a leaf may
+ * or may not draw at all. That difference is `card`/`corners` below.
+ */
+export interface StyleGates {
+  /**
+   * Whether the name-style controls apply — the bar, its picture, its fit,
+   * the room under it and around it, and its own corner picker. A NAMED
+   * container only; a leaf has no name field to draw one from.
+   */
+  heading: boolean;
+  /**
+   * Whether `bleed` and `margins` apply. A depth-0 CONTAINER only — `bleeds`
+   * and the page box's own margin test in `blocks.tsx` both read
+   * `isContainer` before either key, so a leaf's own `style.bleed` or
+   * `style.margins` is stored, validated, and read by nothing. Offering the
+   * controls on one would be exactly the do-nothing control this feature
+   * keeps trimming.
+   */
+  atTop: boolean;
+  /** Whether the "Own title" select applies — see {@link honoursLabel}. */
+  label: boolean;
+  /**
+   * Whether the picture-fit select applies. Always true for a container,
+   * because the key inherits to whatever draws a picture beneath it; gated
+   * by kind for a leaf — see {@link honoursImageFit}.
+   */
+  imageFit: boolean;
+  /** Whether the portrait-size select applies — see {@link honoursPortrait}. */
+  portrait: boolean;
+  /**
+   * Whether `skin`, `border` and `chrome` apply. Always true for a
+   * container — every one of those keys sets tokens that cascade to
+   * whatever a container's children draw, so offering them is meaningful
+   * regardless of what is nested, the same reasoning `imageFit` already
+   * follows. Gated by kind for a leaf — see {@link honoursCard}.
+   */
+  card: boolean;
+  /**
+   * Whether `radius` and the `corners` style key apply. Always true for a
+   * container, for the same cascading reason `card` is. Gated by kind for a
+   * leaf, and NARROWER than `card` — see {@link honoursCorners} for why the
+   * two are not the same gate.
+   */
+  corners: boolean;
+}
+
+/**
+ * Computes {@link StyleGates} for the block `SectionStylePopup` is about to
+ * edit.
+ *
+ * **`card` and `corners` are unconditioned for a container and derived from
+ * the leaf's own `kind` for a leaf**, through {@link honoursCard} and
+ * {@link honoursCorners} — the same shape every other leaf-only gate here
+ * follows.
+ *
+ * @param block - the block being edited, a container or a leaf.
+ * @param atTop - whether this block sits at depth 0. Ignored for a leaf: a
+ *   leaf at the top level (a page may hold one — see `block-editor.tsx`)
+ *   still honours neither `bleed` nor `margins`, because both are read only
+ *   where {@link isContainer} already agreed before either key is asked.
+ * @returns which controls this particular block's popup should offer.
+ */
+export function styleGatesFor(block: Block, atTop: boolean): StyleGates {
+  if (isContainer(block)) {
+    return {
+      heading: Boolean(block.name_en?.trim() || block.name_es?.trim()),
+      atTop,
+      label: false,
+      imageFit: true,
+      portrait: false,
+      card: true,
+      corners: true,
+    };
+  }
+  return {
+    heading: false,
+    atTop: false,
+    label: honoursLabel(block.kind),
+    imageFit: honoursImageFit(block.kind),
+    portrait: honoursPortrait(block.kind),
+    card: honoursCard(block.kind),
+    corners: honoursCorners(block.kind),
+  };
 }
 
 /**

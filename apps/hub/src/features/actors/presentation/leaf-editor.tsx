@@ -32,6 +32,11 @@ import {
 } from "@/features/actors/presentation/icon-picker";
 import { tid } from "@/shared/infrastructure/test-id";
 import { CardKind } from "@/features/actors/presentation/card-kind";
+import { styleGatesFor } from "@/features/actors/presentation/block-contract";
+import {
+  SectionStylePopup,
+  type SectionStylePopupLabels,
+} from "@/features/actors/presentation/section-style-popup";
 
 /**
  * Translated strings {@link LeafEditor} renders.
@@ -77,6 +82,12 @@ import { CardKind } from "@/features/actors/presentation/card-kind";
  * `rowIcon` names a table row's own icon picker and has a POSITION appended by
  * the caller, because a page offering one per row would otherwise carry several
  * buttons a screen reader cannot tell apart.
+ *
+ * **`style` joined this bag on 2026-08-30**, the same `SectionStylePopupLabels`
+ * `BlockCardLabels.style` carries — one popup opens for a leaf now as well as
+ * a container, so it is one bag of strings built once in `pages/labels.ts`
+ * (`stylePopupLabels`) and assigned to both, rather than a second copy free
+ * to drift from the first.
  */
 export interface LeafEditorLabels extends IconPickerLabels {
   /**
@@ -146,6 +157,12 @@ export interface LeafEditorLabels extends IconPickerLabels {
    * produce, so naming each one would be words nobody reads.
    */
   problemGeneric: string;
+  /**
+   * The paintbrush popup's own strings, shared byte-for-byte with
+   * `BlockCardLabels.style` — one popup, one bag of strings, whichever kind
+   * of block it happens to be editing.
+   */
+  style: SectionStylePopupLabels;
 }
 
 /**
@@ -296,6 +313,25 @@ const INPUT =
  * the borders stack: no overflow at 320, 375, 568 or 640. See the feature
  * note for the survey those came from.
  *
+ * **It mounts `SectionStylePopup` now (2026-08-30), the same component
+ * `BlockCard` does.** A leaf may carry its own skin, border, corners and the
+ * rest exactly as a container does — `blockStyle` has applied to a leaf's
+ * wrapper `<div>` since the block model shipped — but until this, nothing in
+ * the editor could reach any of it for a leaf: the popup existed and opened
+ * for a `ContainerBlock` only. `styleGatesFor`
+ * (`presentation/block-contract.ts`) computes what this particular leaf's
+ * `kind` honours — `label` for a `text` or identity leaf, `image_fit` for one
+ * that draws a picture, `portrait` for `avatar` alone — and the popup writes
+ * through `patchLeaf` exactly as every other field here does.
+ *
+ * **Its trigger carries its OWN test id, `leaf-style-open`, not
+ * `section-style-open`.** The two popups are the same component and used to
+ * share one id; a leaf's trigger renders inside its section's places, after
+ * the section's own header in DOM order, so a page-wide `.last()` written
+ * against the container's popup silently started reaching a leaf's instead
+ * the moment content existed. Two e2e suites had exactly that shape before
+ * this — see the feature note.
+ *
  * @returns the leaf's fields.
  */
 export function LeafEditor({
@@ -315,6 +351,12 @@ export function LeafEditor({
   const kind = leaf.kind;
   const known = kinds.includes(kind as LeafKind);
   const fields = leafFields(kind);
+  // A leaf at the top level is legal — see `block-editor.tsx`'s own note on
+  // why — so `atTop` is computed the same way `BlockCard` computes it, even
+  // though `styleGatesFor` ignores it for a leaf: neither `bleed` nor
+  // `margins` is read unless `isContainer` already agreed, before either key
+  // is asked.
+  const gates = styleGatesFor(leaf, path.length - 1 === 0);
   // **What the save refused ON THIS LEAF.** Both halves are marked: the title,
   // which is the refusal somebody will actually meet, and anything else, so a
   // refusal on a field this component does not draw still shows up here rather
@@ -404,6 +446,24 @@ export function LeafEditor({
             ))}
           </select>
         </div>
+
+        <SectionStylePopup
+          value={leaf.style}
+          onChange={(style) =>
+            apply((blocks) => patchLeaf(blocks, path, { style }))
+          }
+          labels={labels.style}
+          // Computed from this leaf's own kind, the same function `BlockCard`
+          // calls from its own kind of block — see `styleGatesFor`.
+          gates={gates}
+          // **A distinct id from `BlockCard`'s popup (2026-08-30).** Both
+          // used to share `section-style-open`, and a leaf's trigger renders
+          // after its section's own in DOM order — so a page-wide `.last()`
+          // that meant "the section's own popup" silently started reaching a
+          // leaf's instead the moment content existed. See
+          // `SectionStylePopupProps.triggerTestId`'s own TSDoc.
+          triggerTestId="leaf-style-open"
+        />
 
         <button
           type="button"

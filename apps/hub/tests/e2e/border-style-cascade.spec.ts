@@ -6,7 +6,10 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
-import { chooseNewSectionSpaces } from "./support/editor";
+import {
+  assertLastTriggerIsAContainers,
+  chooseNewSectionSpaces,
+} from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 import {
   establishSharedSession,
@@ -194,7 +197,26 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     expect(await borderStyleOf(painted)).toBe("solid");
     expect(await borderStyleOf(placeholder)).toBe("dashed");
 
-    await page.getByTestId("section-style-open").last().click();
+    // **This is the ONE site in the suite where `assertLastTriggerIsAContainers`
+    // genuinely discriminates, not merely documents (2026-08-30).** Every
+    // other call to it collapses its section immediately after adding
+    // content, which unmounts the leaf's own trigger regardless of whether
+    // the two share an id — so reverting the id split alone left all of them
+    // green, a finding recorded where the helper is defined. This test never
+    // collapses: the leaf's own `leaf-style-open` trigger is genuinely
+    // mounted, after the section's own `section-style-open` one, when this
+    // assertion runs. Sabotage-verified: reverting `leaf-editor.tsx`'s
+    // `triggerTestId="leaf-style-open"` back to the shared id reddens this
+    // assertion here, and only here.
+    await assertLastTriggerIsAContainers(page, "section-style-open");
+    // **Scoped to the SECTION's own header as well, belt and braces.** The
+    // assertion above is the proof; this is what the rest of the test acts
+    // on.
+    await page
+      .getByTestId("section-header")
+      .last()
+      .getByTestId("section-style-open")
+      .click();
     await page.getByTestId("section-style-border").selectOption("dotted");
     // The choice really did land on the scope, rather than on nothing:
     // `sectionStyle` routes custom properties to the preview scope, leaving
@@ -314,6 +336,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
      * @returns nothing; waits.
      */
     const choose = async (border: string): Promise<void> => {
+      await assertLastTriggerIsAContainers(page, "section-style-open");
       await page.getByTestId("section-style-open").last().click();
       await page.getByTestId("section-style-border").selectOption(border);
       await expect

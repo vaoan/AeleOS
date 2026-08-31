@@ -8,6 +8,7 @@ import {
   CORNERS,
   type BlockStyle,
 } from "@/features/actors/domain/block-schema";
+import type { StyleGates } from "@/features/actors/presentation/block-contract";
 
 /**
  * One block's own look — `blockStyleShape`'s bag (see
@@ -81,16 +82,23 @@ export type SectionStyle = BlockStyle;
  * rather than naming a value. `heading_pad` sits under the name-style select
  * and behind the same condition: both are offered on a NAMED block only.
  *
- * **It does not offer `label`.** This popup only ever opens for a
- * `ContainerBlock` — see {@link SectionStylePopupProps} — and a container's
- * `kind` is always the literal `"container"`, never one of the five leaf
- * kinds `showsLabel` composes with (`presentation/block-contract.ts`). An
- * "Own title" control briefly lived here, gated behind a `honoursLabel` prop
- * that was `false` by construction for every caller; removed 2026-08-30
- * rather than reworked, because reaching leaves is `leaf-editor.tsx`'s job,
- * not this popup's. `label` is still reachable — through the page source
- * dock, which pastes a document validated by the block schema — see
- * `domain/block-schema.ts`'s TSDoc on the key.
+ * **It offers `label` and `portrait` now, and only where the block being
+ * edited honours them (2026-08-30).** This popup opens for a `ContainerBlock`
+ * (from `block-card.tsx`) and for a `LeafBlock` (from `leaf-editor.tsx`)
+ * both, and a container's `kind` is always the literal `"container"` — never
+ * one of the five leaf kinds `showsLabel` composes with, and never `avatar`
+ * — so those two controls are gated on {@link SectionStylePopupProps.gates},
+ * computed once by `styleGatesFor` (`presentation/block-contract.ts`) from
+ * the actual block rather than from a prop that was `false` for every caller
+ * there ever was. An "Own title" control briefly lived here behind exactly
+ * that dead gate, and was removed as dead on 2026-08-30 rather than reworked
+ * — reaching a leaf was `leaf-editor.tsx`'s job, and it does that now instead
+ * of this popup growing a second, leaf-shaped copy of itself.
+ *
+ * `label` and `portrait` are also reachable through the page source dock,
+ * which pastes a document validated by the same block schema — see
+ * `domain/block-schema.ts`'s TSDoc on each key. That is a second path in,
+ * not the only one.
  *
  * The name-style select carries a fourth option, `soft` — the same strip in a
  * quieter tone. It needs no label of its own beyond a name: the tone is
@@ -173,6 +181,24 @@ export interface SectionStylePopupLabels {
   headingPadSnug: string;
   /** A strip with room to breathe. */
   headingPadRoomy: string;
+  /**
+   * Field label for the "own title" select — offered only for a leaf whose
+   * kind honours `style.label`. See `honoursLabel` in
+   * `presentation/block-contract.ts`.
+   */
+  label: string;
+  /** The label select's option that clears `style.label`. */
+  labelDefault: string;
+  /** The label select's option for `"show"`. */
+  labelShow: string;
+  /** The label select's option for `"hidden"`. */
+  labelHidden: string;
+  /**
+   * Says what hiding a leaf's own title does and does not undo — it never
+   * brings back a title an enclosing `tabs` or `accordion` panel already
+   * suppressed. See `showsLabel` in `presentation/block-contract.ts`.
+   */
+  labelHint: string;
   /** Field label for the text-alignment select. */
   textAlign: string;
   /** The alignment option that clears `style.text_align`. */
@@ -191,6 +217,20 @@ export interface SectionStylePopupLabels {
   imageFitCover: string;
   /** A picture shown whole, letterboxed in its box. */
   imageFitContain: string;
+  /**
+   * Field label for the portrait-size select — offered only for an `avatar`
+   * leaf. See `honoursPortrait` in `presentation/block-contract.ts`.
+   */
+  portrait: string;
+  /** The portrait select's option that clears `style.portrait` — the same
+   * size as `"m"`, which is the whole point of offering it. */
+  portraitDefault: string;
+  /** The portrait select's option for `"s"`. */
+  portraitSmall: string;
+  /** The portrait select's option for `"m"`. */
+  portraitMedium: string;
+  /** The portrait select's option for `"l"`. */
+  portraitLarge: string;
   /** Field label for the corner select. */
   radius: string;
   /** The corner option that keeps whatever the skin chose. */
@@ -235,14 +275,37 @@ export interface SectionStylePopupLabels {
  * page in a single field and addresses a block by its position, so there is no
  * per-block form path for a `useController` to name.
  *
- * `atTop` is what decides whether the full-width and margins controls are
- * offered: this component sees a style bag and never knows where its block
- * sits.
+ * **`gates` replaced two ad-hoc booleans, `named` and `atTop`, on 2026-08-30.**
+ * This component sees a style bag and never knows what kind of block it
+ * belongs to or where it sits, so something has to tell it — and once a leaf
+ * could open this popup too, that "something" grew a third dimension
+ * (`label`, `imageFit`, `portrait`) that has nothing to do with `named` or
+ * `atTop` and everything to do with the leaf's own `kind`. Rather than adding
+ * a third boolean the caller computes by hand, `styleGatesFor`
+ * (`presentation/block-contract.ts`) computes it from the block itself, in
+ * the one place that already held this knowledge for `label` — `showsLabel`.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
- * the border, each with an empty option that CLEARS the key rather than
- * naming a value. It does not offer `label` — see this component's own
- * TSDoc for why.
+ * **`card` and `corners` joined the same object a review-round later, for
+ * the reason the other three did.** `gates` was believed to cover every
+ * leaf-only dimension once `label`/`imageFit`/`portrait` existed, and
+ * `skin`/`border`/`chrome`/`radius`/the `corners` style key went on being
+ * offered ungated — arrangement-agnostic for a CONTAINER, which is true, and
+ * assumed kind-agnostic for a LEAF without checking, which was not. See this
+ * file's own top-of-file TSDoc for the renderers that found it.
+ *
+ * It offers `skin`, `chrome`, `heading`, `text_align`, `image_fit`, `radius`
+ * and `border` beside the corner picker, each with an empty option that
+ * CLEARS the key rather than naming a value — `skin`, `chrome` and `border`
+ * behind `gates.card`, `radius` and the corner picker behind the narrower
+ * `gates.corners`, see this interface's own TSDoc for why the two differ.
+ *
+ * **`triggerTestId` joined the props on 2026-08-30, alongside `gates`.**
+ * `BlockCard` and `leaf-editor.tsx` both mount this component now, and the
+ * trigger button used to carry one hard-coded id regardless — which a
+ * page-wide `.last()` in two e2e suites had silently started reaching a
+ * LEAF's copy of instead of a section's, once a leaf could have one. See
+ * this prop's own entry for why a distinct id per caller, not more careful
+ * scoping, is the fix.
  */
 export interface SectionStylePopupProps {
   /** The block's own style bag, absent when it has none. */
@@ -258,23 +321,42 @@ export interface SectionStylePopupProps {
   /** Already-translated strings. */
   labels: SectionStylePopupLabels;
   /**
-   * Whether this block carries a name.
-   *
-   * The name-style control is offered only where there is a name to draw: a
-   * bar with nothing in it accepts a choice and changes nothing, which is the
-   * shape this repo keeps trimming. It is a prop rather than `atTop` because a
-   * NESTED container may be named too, and the idiom applies to it just as
-   * well.
+   * Which of this block's own controls apply — see {@link StyleGates} for
+   * what each one gates and `styleGatesFor` for how it is computed.
    */
-  named: boolean;
+  gates: StyleGates;
   /**
-   * Whether this block is a SECTION — a container at depth 0.
+   * The trigger button's own test id — `section-style-open` unless a caller
+   * says otherwise.
    *
-   * Only a section may reach both edges of the window or drop page chrome, so
-   * only a section is offered those controls. Passed in rather than derived
-   * here: this component sees a style bag and never knows where its block sits.
+   * **Distinct ids for a container's popup and a leaf's, on purpose
+   * (2026-08-30).** Both used to share this one name, and `SectionStylePopup`
+   * opening for a `LeafBlock` as well as a `ContainerBlock` turned that into a
+   * real ambiguity: a leaf's trigger renders inside its section's places,
+   * after the section's own header in DOM order, so a page-wide `.last()`
+   * that meant "the newest SECTION's own popup" silently started reaching the
+   * newest LEAF's instead the moment one existed. Two existing e2e suites
+   * were fixed by scoping to `section-header`, which still works — but a
+   * caller has to remember to do that, and one already forgot once. A
+   * distinct id removes the chance to forget: `block-card.tsx` never passes
+   * this prop, so its trigger stays `section-style-open`; `leaf-editor.tsx`
+   * passes `"leaf-style-open"`, so the two ids can never collide and a query
+   * for either can never resolve to the other.
+   *
+   * **Only the TRIGGER is split — the panel and every field inside it
+   * (`section-style-skin`, `section-style-border`, and the rest) are still
+   * `section-style-*` whichever kind of block opened them, and that is the
+   * same trap one layer in.** Two popups CAN be open at once — nothing in
+   * this component closes one when another opens — so a page with a
+   * section's popup and a leaf's popup both open has two elements answering
+   * `page.getByTestId("section-style-skin")`, ambiguous by construction in
+   * exactly the way the trigger used to be. Nothing exercises this today: no
+   * suite opens two popups at once. Noted here rather than split, because
+   * splitting every field id is a second migration this finding does not
+   * yet pay for — do that if a test ever needs two popups open together, not
+   * before.
    */
-  atTop: boolean;
+  triggerTestId?: string;
 }
 
 /** What {@link CornerPicker} needs to draw one set of corners. */
@@ -392,18 +474,732 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
   );
 }
 
+/** What every field gated on `gates.card` or `gates.corners` shares. */
+interface GatedFieldProps {
+  /** The popup's own id stem, so each field's own id stays unique. */
+  id: string;
+  /** Already-translated strings. */
+  labels: SectionStylePopupLabels;
+}
+
+/** What {@link SkinField} needs, beyond {@link GatedFieldProps}. */
+interface SkinFieldProps extends GatedFieldProps {
+  /** The stored skin, or absent to inherit. */
+  value: string | undefined;
+  /** Called with the new value, or `""` to clear it. */
+  onChange: (value: string) => void;
+}
+
+/**
+ * The skin select — offered only where `gates.card` is true, since a skin
+ * sets tokens `surface` consumes and a leaf with no `surface`-bearing box of
+ * its own has nowhere for any of that to land. Pulled out of
+ * {@link SectionStylePopup}'s own body so a fourth gated field did not push
+ * that function's cognitive complexity past this repo's limit.
+ *
+ * @param props - see {@link SkinFieldProps}.
+ * @returns the field.
+ */
+function SkinField(props: SkinFieldProps): ReactElement {
+  // Taken whole and unpacked here rather than in the signature, matching
+  // `CornerPicker`'s own comment on why: `jsdoc` wants a `@param` per
+  // destructured field and `tsdoc` refuses the `props.id` spelling that
+  // would name one, so the two rules only agree on a single parameter.
+  const { id, value, labels, onChange } = props;
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={`${id}-skin`} className="text-xs font-medium">
+        {labels.skin}
+      </label>
+      <select
+        id={`${id}-skin`}
+        value={value ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        {...tid("section-style-skin")}
+        className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+      >
+        <option value="">{labels.inheritSkin}</option>
+        {SKINS.map((skin) => (
+          <option key={skin} value={skin}>
+            {labels.skins[skin]}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** What {@link ChromeField} needs, beyond {@link GatedFieldProps}. */
+interface ChromeFieldProps extends GatedFieldProps {
+  /** The stored choice, or absent to inherit. */
+  value: SectionStyle["chrome"] | undefined;
+  /** Called with the new value, or `""` to clear it. */
+  onChange: (value: SectionStyle["chrome"] | "") => void;
+}
+
+/**
+ * The card/bare select — offered only where `gates.card` is true, the same
+ * reason {@link SkinField} is: `bare` zeroes tokens `surface` reads, which
+ * does nothing where a kind draws no `surface`-bearing box at all.
+ *
+ * @param props - see {@link ChromeFieldProps}.
+ * @returns the field.
+ */
+function ChromeField(props: ChromeFieldProps): ReactElement {
+  const { id, value, labels, onChange } = props;
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={`${id}-chrome`} className="text-xs font-medium">
+        {labels.chrome}
+      </label>
+      <select
+        id={`${id}-chrome`}
+        value={value ?? ""}
+        onChange={(event) =>
+          onChange(event.target.value as SectionStyle["chrome"] | "")
+        }
+        aria-describedby={`${id}-chrome-hint`}
+        {...tid("section-style-chrome")}
+        className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+      >
+        <option value="">{labels.chromeInherit}</option>
+        <option value="card">{labels.chromeCard}</option>
+        <option value="bare">{labels.chromeBare}</option>
+      </select>
+      <p id={`${id}-chrome-hint`} className="text-xs text-(--muted)">
+        {labels.chromeHint}
+      </p>
+    </div>
+  );
+}
+
+/** What {@link BorderField} needs, beyond {@link GatedFieldProps}. */
+interface BorderFieldProps extends GatedFieldProps {
+  /** The stored choice, or absent to inherit. */
+  value: SectionStyle["border"] | undefined;
+  /** Called with the new value, or `""` to clear it. */
+  onChange: (value: SectionStyle["border"] | "") => void;
+}
+
+/**
+ * The border select — offered only where `gates.card` is true, alongside
+ * {@link SkinField} and {@link ChromeField}: the same `surface` utility
+ * reads `--skin-border-style`/`--skin-border`.
+ *
+ * @param props - see {@link BorderFieldProps}.
+ * @returns the field.
+ */
+function BorderField(props: BorderFieldProps): ReactElement {
+  const { id, value, labels, onChange } = props;
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={`${id}-border`} className="text-xs font-medium">
+        {labels.border}
+      </label>
+      <select
+        id={`${id}-border`}
+        value={value ?? ""}
+        onChange={(event) =>
+          onChange(event.target.value as SectionStyle["border"] | "")
+        }
+        aria-describedby={`${id}-border-hint`}
+        {...tid("section-style-border")}
+        className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+      >
+        <option value="">{labels.borderInherit}</option>
+        <option value="solid">{labels.borderSolid}</option>
+        <option value="dashed">{labels.borderDashed}</option>
+        <option value="dotted">{labels.borderDotted}</option>
+        <option value="double">{labels.borderDouble}</option>
+        <option value="none">{labels.borderNone}</option>
+      </select>
+      <p id={`${id}-border-hint`} className="text-xs text-(--muted)">
+        {labels.borderHint}
+      </p>
+    </div>
+  );
+}
+
+/** What {@link RadiusAndCorners} needs, beyond {@link GatedFieldProps}. */
+interface RadiusAndCornersProps extends GatedFieldProps {
+  /** The stored roundness, or absent to inherit the skin's own. */
+  radiusValue: SectionStyle["radius"] | undefined;
+  /** Called with the new roundness, or `""` to clear it. */
+  onRadiusChange: (value: SectionStyle["radius"] | "") => void;
+  /** The stored corner list, or absent meaning every corner. */
+  cornersValue: string | undefined;
+  /** Called with the new list, or `""` to clear it. */
+  onCornersChange: (value: string) => void;
+}
+
+/**
+ * `radius` and the block's own {@link CornerPicker}, together — offered only
+ * where `gates.corners` is true. Both read `--skin-round`/`--corner-*`
+ * through `CORNER_CLASS` alone, which is narrower than `gates.card`: `link`,
+ * `social`, `embed` and `avatar` all have a `surface`-bearing box (so
+ * `SkinField`/`ChromeField`/`BorderField` still apply to them) but draw a
+ * fixed `rounded-xl`/`rounded-full` that never asks `--skin-round` anything.
+ *
+ * @param props - see {@link RadiusAndCornersProps}.
+ * @returns both fields.
+ */
+function RadiusAndCorners(props: RadiusAndCornersProps): ReactElement {
+  const {
+    id,
+    labels,
+    radiusValue,
+    onRadiusChange,
+    cornersValue,
+    onCornersChange,
+  } = props;
+  return (
+    <>
+      <div className="grid gap-1.5">
+        <label htmlFor={`${id}-radius`} className="text-xs font-medium">
+          {labels.radius}
+        </label>
+        <select
+          id={`${id}-radius`}
+          value={radiusValue ?? ""}
+          onChange={(event) =>
+            onRadiusChange(event.target.value as SectionStyle["radius"] | "")
+          }
+          {...tid("section-style-radius")}
+          className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+        >
+          <option value="">{labels.radiusInherit}</option>
+          <option value="square">{labels.radiusSquare}</option>
+          <option value="soft">{labels.radiusSoft}</option>
+          <option value="round">{labels.radiusRound}</option>
+        </select>
+      </div>
+
+      {/* Beside `radius` on purpose: that one says how much and this says
+          where, and reading them together is how somebody works out that
+          they compose. */}
+      <CornerPicker
+        id="section-style-corner"
+        label={labels.corners}
+        value={cornersValue}
+        labels={labels}
+        onChange={onCornersChange}
+      />
+    </>
+  );
+}
+
+/** What {@link ImageFitField} needs, beyond {@link GatedFieldProps}. */
+interface ImageFitFieldProps extends GatedFieldProps {
+  /** The stored fit, or absent to inherit. */
+  value: SectionStyle["image_fit"] | undefined;
+  /** Called with the new value, or `""` to clear it. */
+  onChange: (value: SectionStyle["image_fit"] | "") => void;
+}
+
+/**
+ * The picture-fit select — offered on a container unconditionally (the
+ * token inherits to whatever draws a picture beneath it) and gated by kind
+ * on a leaf, through `gates.imageFit` (`honoursImageFit`,
+ * `presentation/block-contract.ts`). Pulled out of {@link SectionStylePopup}
+ * alongside the other gated fields, for the same cognitive-complexity
+ * reason.
+ *
+ * @param props - see {@link ImageFitFieldProps}.
+ * @returns the field.
+ */
+function ImageFitField(props: ImageFitFieldProps): ReactElement {
+  const { id, value, labels, onChange } = props;
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={`${id}-image-fit`} className="text-xs font-medium">
+        {labels.imageFit}
+      </label>
+      <select
+        id={`${id}-image-fit`}
+        value={value ?? ""}
+        onChange={(event) =>
+          onChange(event.target.value as SectionStyle["image_fit"] | "")
+        }
+        {...tid("section-style-image-fit")}
+        className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+      >
+        <option value="">{labels.imageFitInherit}</option>
+        <option value="cover">{labels.imageFitCover}</option>
+        <option value="contain">{labels.imageFitContain}</option>
+      </select>
+    </div>
+  );
+}
+
+/** What {@link PortraitField} needs, beyond {@link GatedFieldProps}. */
+interface PortraitFieldProps extends GatedFieldProps {
+  /** The stored size, or absent meaning the same as `"m"`. */
+  value: SectionStyle["portrait"] | undefined;
+  /** Called with the new value, or `""` to clear it. */
+  onChange: (value: SectionStyle["portrait"] | "") => void;
+}
+
+/**
+ * The portrait-size select — offered only where `gates.portrait` is true,
+ * `avatar` alone (`honoursPortrait`, `presentation/block-contract.ts`): the
+ * key is read directly off the leaf's own style bag rather than emitted as
+ * an inheriting token, so a container never carries this control.
+ *
+ * @param props - see {@link PortraitFieldProps}.
+ * @returns the field.
+ */
+function PortraitField(props: PortraitFieldProps): ReactElement {
+  const { id, value, labels, onChange } = props;
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={`${id}-portrait`} className="text-xs font-medium">
+        {labels.portrait}
+      </label>
+      <select
+        id={`${id}-portrait`}
+        value={value ?? ""}
+        onChange={(event) =>
+          onChange(event.target.value as SectionStyle["portrait"] | "")
+        }
+        {...tid("section-style-portrait")}
+        className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+      >
+        <option value="">{labels.portraitDefault}</option>
+        <option value="s">{labels.portraitSmall}</option>
+        <option value="m">{labels.portraitMedium}</option>
+        <option value="l">{labels.portraitLarge}</option>
+      </select>
+    </div>
+  );
+}
+
+/** What {@link StylePopupFields} needs. */
+interface StylePopupFieldsProps {
+  /** The popup's own id stem. */
+  id: string;
+  /** Already-translated strings. */
+  labels: SectionStylePopupLabels;
+  /** Which of this block's own controls apply. */
+  gates: StyleGates;
+  /** The block's own style bag, defaulted to `{}` by the caller. */
+  style: SectionStyle;
+  /**
+   * Writes one key of the style bag, or removes it — see
+   * {@link SectionStylePopup}'s own `setField` for the contract.
+   */
+  setField: <K extends keyof SectionStyle>(
+    key: K,
+    value: SectionStyle[K] | "",
+  ) => void;
+}
+
+/**
+ * Every field the panel offers, gated or not — pulled out of
+ * {@link SectionStylePopup}'s own body so that function is left holding only
+ * the popup MECHANICS (open state, focus, Escape, outside-click). Splitting
+ * "which fields to show" from "how the popup behaves" is what brought
+ * `SectionStylePopup`'s own cognitive complexity back under this repo's
+ * limit once `card` and `corners` joined the four gates already there —
+ * extracting each field's own JSX (`SkinField` and the rest) trims line
+ * count but not branch count, since the ternary choosing whether to render
+ * one stays in whichever function holds it either way.
+ *
+ * @param props - see {@link StylePopupFieldsProps}.
+ * @returns every field in the panel, in the order an author sees them.
+ */
+function StylePopupFields(props: StylePopupFieldsProps): ReactElement {
+  const { id, labels, gates, style, setField } = props;
+  return (
+    <>
+      {/* **Offered only where the block's own box reads `surface` —
+              see `honoursCard` in `presentation/block-contract.ts`.** A skin
+              sets tokens `surface` consumes (border style/width, gloss,
+              shadow, backdrop, clip); a leaf with no `surface`-bearing box of
+              its own (`handle`, `name`, `player`, `jukebox`, `fursonas`) has
+              nowhere for any of that to land. */}
+      {gates.card ? (
+        <SkinField
+          id={id}
+          value={style.skin}
+          labels={labels}
+          onChange={(value) => setField("skin", value)}
+        />
+      ) : null}
+
+      <div className="grid gap-1.5">
+        <label htmlFor={`${id}-background`} className="text-xs font-medium">
+          {labels.backgroundUrl}
+        </label>
+        <input
+          id={`${id}-background`}
+          type="url"
+          inputMode="url"
+          value={style.background_url ?? ""}
+          onChange={(event) => setField("background_url", event.target.value)}
+          aria-describedby={`${id}-background-hint`}
+          {...tid("section-style-background-url")}
+          className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-1.5 text-sm"
+        />
+        <p id={`${id}-background-hint`} className="text-xs text-(--muted)">
+          {labels.backgroundUrlHint}
+        </p>
+      </div>
+
+      {style.background_url ? (
+        <div className="grid gap-1.5">
+          <label htmlFor={`${id}-fit`} className="text-xs font-medium">
+            {labels.fit}
+          </label>
+          <select
+            id={`${id}-fit`}
+            value={style.background_fit ?? ""}
+            onChange={(event) =>
+              setField(
+                "background_fit",
+                event.target.value as SectionStyle["background_fit"] | "",
+              )
+            }
+            {...tid("section-style-fit")}
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+          >
+            <option value="">{labels.fitDefault}</option>
+            <option value="cover">{labels.fitCover}</option>
+            <option value="tile">{labels.fitTile}</option>
+          </select>
+        </div>
+      ) : null}
+
+      {/* **Depth 0 only.** A section reaches both edges of the window; a
+              block nested inside one has a section between it and the page and
+              cannot escape it. Offering the control where it does nothing is
+              the failure this repository keeps catching, so the caller says
+              whether this block is a section and the control appears only
+              there. */}
+      {gates.atTop ? (
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={style.bleed === true}
+              onChange={(event) =>
+                // Absent rather than `false`, which is what `setField`'s
+                // empty string already means here: the bag's rule everywhere
+                // is that a key it does not carry means "inherit the page",
+                // and storing `false` would be a second way to say it.
+                setField("bleed", event.target.checked ? true : "")
+              }
+              {...tid("section-style-bleed")}
+              className="size-4 rounded-sm surface border-(--edge)/60"
+            />
+            {labels.bleed}
+          </label>
+          <label className="flex items-center gap-2 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={style.margins !== false}
+              onChange={(event) =>
+                setField("margins", event.target.checked ? "" : false)
+              }
+              {...tid("section-style-margins")}
+              className="size-4 rounded-sm surface border-(--edge)/60"
+            />
+            {labels.margins}
+          </label>
+        </div>
+      ) : null}
+
+      {/* **Three states, like the border below it.** The empty option
+              clears the key, which is inheritance; `card` and `bare` are both
+              explicit, because a block inside a bare section has to be able to
+              ask for its card back. **Gated on `gates.card` for the same
+              reason the skin select above is** — `bare` zeroes tokens
+              `surface` reads, which does nothing where a kind draws no
+              `surface`-bearing box at all. */}
+      {gates.card ? (
+        <ChromeField
+          id={id}
+          value={style.chrome}
+          labels={labels}
+          onChange={(value) => setField("chrome", value)}
+        />
+      ) : null}
+
+      {/* **Offered only where there is a name to draw.** A bar with
+              nothing in it is the control-that-does-nothing this repo keeps
+              trimming, and the renderer already treats it as inert. */}
+      {gates.heading ? (
+        <div className="grid gap-1.5">
+          <label htmlFor={`${id}-heading`} className="text-xs font-medium">
+            {labels.heading}
+          </label>
+          <select
+            id={`${id}-heading`}
+            value={style.heading ?? ""}
+            onChange={(event) =>
+              setField(
+                "heading",
+                event.target.value as SectionStyle["heading"] | "",
+              )
+            }
+            {...tid("section-style-heading")}
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+          >
+            <option value="">{labels.headingPlain}</option>
+            <option value="bar">{labels.headingBar}</option>
+            <option value="gradient">{labels.headingGradient}</option>
+            <option value="soft">{labels.headingSoft}</option>
+          </select>
+
+          {/* **Offered beside the name style, and only where a name
+                  exists** — the same condition the select above carries. A
+                  bar is the only heading that can be crowded: a plain name
+                  floats with the page's own spacing around it and has no edge
+                  to be pressed against. */}
+          <label htmlFor={`${id}-heading-pad`} className="text-xs font-medium">
+            {labels.headingPad}
+          </label>
+          <select
+            id={`${id}-heading-pad`}
+            value={style.heading_pad ?? ""}
+            onChange={(event) =>
+              setField(
+                "heading_pad",
+                event.target.value as SectionStyle["heading_pad"] | "",
+              )
+            }
+            {...tid("section-style-heading-pad")}
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+          >
+            <option value="">{labels.headingPadDefault}</option>
+            <option value="snug">{labels.headingPadSnug}</option>
+            <option value="roomy">{labels.headingPadRoomy}</option>
+          </select>
+
+          {/* **The room UNDER the name, which had no control at all.** A
+                  bar welds to its content and a plain name floats above it, so
+                  the empty option is not one value — it is whichever of those
+                  applies. Offered for a plain name as well as a bar, unlike
+                  the padding above: there is real space above the content
+                  either way, so pulling a floating name tight against what it
+                  names is a thing somebody can want. */}
+          <label htmlFor={`${id}-heading-gap`} className="text-xs font-medium">
+            {labels.headingGap}
+          </label>
+          <select
+            id={`${id}-heading-gap`}
+            value={style.heading_gap ?? ""}
+            onChange={(event) =>
+              setField(
+                "heading_gap",
+                event.target.value as SectionStyle["heading_gap"] | "",
+              )
+            }
+            {...tid("section-style-heading-gap")}
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+          >
+            <option value="">{labels.headingGapDefault}</option>
+            <option value="none">{labels.headingGapNone}</option>
+            <option value="snug">{labels.headingGapSnug}</option>
+            <option value="roomy">{labels.headingGapRoomy}</option>
+          </select>
+
+          {/* **A picture ON the bar.** Read only where a bar is drawn —
+                  there is no strip to paint on otherwise — so it sits inside
+                  the same condition rather than beside the section's own
+                  background field, which paints behind the CONTENT and is a
+                  different picture entirely. */}
+          <label
+            htmlFor={`${id}-heading-image`}
+            className="text-xs font-medium"
+          >
+            {labels.headingImage}
+          </label>
+          <input
+            id={`${id}-heading-image`}
+            type="url"
+            inputMode="url"
+            value={style.heading_image ?? ""}
+            onChange={(event) => setField("heading_image", event.target.value)}
+            placeholder="https://"
+            {...tid("section-style-heading-image")}
+            className="rounded-lg surface border-(--edge)/60 bg-(--surface) px-3 py-1.5 text-sm"
+          />
+          <p className="text-xs text-(--muted)">{labels.headingImageHint}</p>
+
+          <label htmlFor={`${id}-heading-fit`} className="text-xs font-medium">
+            {labels.headingFit}
+          </label>
+          <select
+            id={`${id}-heading-fit`}
+            value={style.heading_fit ?? ""}
+            onChange={(event) =>
+              setField(
+                "heading_fit",
+                event.target.value as SectionStyle["heading_fit"] | "",
+              )
+            }
+            {...tid("section-style-heading-fit")}
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+          >
+            <option value="">{labels.headingFitCover}</option>
+            <option value="tile">{labels.headingFitTile}</option>
+          </select>
+
+          <CornerPicker
+            id="section-style-heading-corner"
+            label={labels.headingCorners}
+            value={style.heading_corners}
+            labels={labels}
+            onChange={(next) => setField("heading_corners", next)}
+          />
+        </div>
+      ) : null}
+
+      {/* **Offered only where the leaf's own kind honours the key** — a
+              `text`, `avatar`, `handle`, `name` or `owner` leaf, the exact
+              set `showsLabel` composes with. A container never carries this,
+              since its `kind` is always the literal `"container"`. */}
+      {gates.label ? (
+        <div className="grid gap-1.5">
+          <label htmlFor={`${id}-label`} className="text-xs font-medium">
+            {labels.label}
+          </label>
+          <select
+            id={`${id}-label`}
+            value={style.label ?? ""}
+            onChange={(event) =>
+              setField(
+                "label",
+                event.target.value as SectionStyle["label"] | "",
+              )
+            }
+            aria-describedby={`${id}-label-hint`}
+            {...tid("section-style-label")}
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+          >
+            <option value="">{labels.labelDefault}</option>
+            <option value="show">{labels.labelShow}</option>
+            <option value="hidden">{labels.labelHidden}</option>
+          </select>
+          <p id={`${id}-label-hint`} className="text-xs text-(--muted)">
+            {labels.labelHint}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="grid gap-1.5">
+        <label htmlFor={`${id}-align`} className="text-xs font-medium">
+          {labels.textAlign}
+        </label>
+        <select
+          id={`${id}-align`}
+          value={style.text_align ?? ""}
+          onChange={(event) =>
+            setField(
+              "text_align",
+              event.target.value as SectionStyle["text_align"] | "",
+            )
+          }
+          {...tid("section-style-align")}
+          className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+        >
+          <option value="">{labels.textAlignInherit}</option>
+          <option value="start">{labels.textAlignStart}</option>
+          <option value="center">{labels.textAlignCenter}</option>
+          <option value="end">{labels.textAlignEnd}</option>
+        </select>
+      </div>
+
+      {/* **Always offered on a container** — the key is a token that
+              INHERITS to whatever draws a picture beneath it, whether or not
+              the container itself has one. **Gated by kind on a leaf** — see
+              `honoursImageFit` in `presentation/block-contract.ts`. */}
+      {gates.imageFit ? (
+        <ImageFitField
+          id={id}
+          value={style.image_fit}
+          labels={labels}
+          onChange={(value) => setField("image_fit", value)}
+        />
+      ) : null}
+
+      {/* **`avatar` only** — `portrait` is read directly off the LEAF's
+              own style bag rather than emitted as an inheriting token, so a
+              container never carries this control. See `honoursPortrait` in
+              `presentation/block-contract.ts`. */}
+      {gates.portrait ? (
+        <PortraitField
+          id={id}
+          value={style.portrait}
+          labels={labels}
+          onChange={(value) => setField("portrait", value)}
+        />
+      ) : null}
+
+      {/* **`radius` and the corner picker below it both read
+              `--skin-round`/`--corner-*` through `CORNER_CLASS` alone —
+              see `honoursCorners` in `presentation/block-contract.ts`.**
+              Narrower than `gates.card`: `link`, `social`, `embed` and
+              `avatar` all have a `surface`-bearing box (so `skin`/`border`/
+              `chrome` above still apply to them) but draw a fixed corner —
+              `rounded-xl`/`rounded-full` — that never asks `--skin-round`
+              anything, so offering either control there would be exactly the
+              do-nothing control this repo keeps trimming. */}
+      {gates.corners ? (
+        <RadiusAndCorners
+          id={id}
+          labels={labels}
+          radiusValue={style.radius}
+          onRadiusChange={(value) => setField("radius", value)}
+          cornersValue={style.corners}
+          onCornersChange={(value) => setField("corners", value)}
+        />
+      ) : null}
+
+      {/* **Offered wherever `gates.card` is, alongside `skin` and
+              `chrome`** — the same `surface` utility reads
+              `--skin-border-style`/`--skin-border`. */}
+      {gates.card ? (
+        <BorderField
+          id={id}
+          value={style.border}
+          labels={labels}
+          onChange={(value) => setField("border", value)}
+        />
+      ) : null}
+    </>
+  );
+}
+
 /**
  * A paintbrush button and the popup it opens: one section's own skin,
  * background picture, card size and border, apart from its layout.
  *
- * **Every field it offers is one every block renders**, which is why nothing
- * here is gated. Skin, background and border are arrangement-agnostic:
- * `nestedSkinVars` sets tokens every `rounded-xl surface` element reads, a
- * background paints the wrapper visible under any mode, and
- * `--skin-border-style` is read by that same `surface` utility everywhere. The
- * card-size field was the one exception and is gone rather than gated — no
- * page reads `--card-size` at all now, so there was no arrangement left for
- * which the control did anything.
+ * **Only `background_url`, `background_fit` and `text_align` are genuinely
+ * kind-agnostic, and a review found the rest were being claimed as such
+ * without having been checked against a LEAF's own renderer (2026-08-30).**
+ * Those three are written as an inline style on the wrapper `Block` itself
+ * renders — a background paints that element directly and `text_align` is an
+ * ordinary inheriting CSS property — so they act on every block whatever it
+ * contains. `skin`, `border` and `chrome` act through `surface`, which a leaf
+ * may or may not draw at all: `handle`, `name`, `player`, `jukebox` and
+ * `fursonas` render no `surface`-bearing box, so those three keys change
+ * nothing on them and are gated on `gates.card` ({@link StyleGates},
+ * `presentation/block-contract.ts`, computed by `honoursCard`). `radius` and
+ * the `corners` style key are narrower still — they act through
+ * `CORNER_CLASS` alone, which four more kinds (`link`, `social`, `embed`,
+ * `avatar`) do not carry even though they DO have a `surface`-bearing box —
+ * so those two are gated separately, on `gates.corners` (`honoursCorners`).
+ * A container never carries either gate as false: every one of these keys
+ * sets a token that cascades to whatever the container's children draw, so
+ * offering the control is meaningful regardless of what is nested, the same
+ * reasoning `image_fit` already followed. `bleed`/`margins` and the
+ * `heading`-family keys are gated too, for unrelated reasons — the first two
+ * only a depth-0 container, the heading keys only a named one — and `label`,
+ * `image_fit` and `portrait` only particular LEAF kinds. The card-size field
+ * was the one key that could not be gated into relevance at all and is gone
+ * rather than gated — no page reads `--card-size` at all now, so there was no
+ * arrangement left for which the control did anything.
  *
  * **It hands back the whole bag rather than one key**, because clearing a
  * field has to REMOVE that key from the object — see `setField` below. A
@@ -442,11 +1238,12 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  *
  * @returns the button and, while open, the popup.
  *
- * It offers `chrome`, `heading`, `text_align`, `image_fit` and `radius` beside
- * the border, each with an empty option that CLEARS the key rather than
- * naming a value. It does not offer `label` — see this component's own
- * top-of-file TSDoc for why, and `domain/block-schema.ts`'s TSDoc on `label`
- * for where the key is reachable instead.
+ * It offers `skin`, `chrome`, `heading`, `text_align`, `image_fit`, `radius`,
+ * `label`, `portrait` and `border` beside the corner picker, each with an
+ * empty option that CLEARS the key rather than naming a value — every one but
+ * `text_align` behind its own gate in `gates`, see this component's own
+ * top-of-file TSDoc for why `skin`/`chrome`/`border` and `radius`/corners are
+ * two different gates rather than one.
  *
  * **The panel itself takes `--menu`, the one token declared opaque in both
  * modes**, where every select inside it already did. It took `--surface`,
@@ -459,6 +1256,14 @@ function CornerPicker(props: CornerPickerProps): ReactElement {
  * `section-style-fit`, which the BACKGROUND fit above it already owns. The two
  * collided for one commit and four browser suites went red on it; nothing
  * short of a browser could have seen it.
+ *
+ * **The trigger's own id is `triggerTestId`, not a literal, since this popup
+ * opens for a leaf now as well as a container (2026-08-30).** It used to be
+ * one hard-coded string regardless of caller; two e2e suites' page-wide
+ * `.last()` calls on it silently started resolving to a leaf's copy instead
+ * of a section's the moment a leaf could open one too, and stayed green
+ * doing it — a distinct id per caller is what makes that impossible now
+ * rather than merely unlikely.
  *
  * **`heading_pad` is offered on a NAMED block only**, behind the same
  * condition as the name-style select it sits under — which is the honest
@@ -479,14 +1284,13 @@ export function SectionStylePopup({
   value,
   onChange,
   labels,
-  atTop,
-  named,
+  gates,
+  triggerTestId = "section-style-open",
 }: SectionStylePopupProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const skinFieldRef = useRef<HTMLSelectElement>(null);
   const style = value ?? {};
 
   // Escape and an outside click both close the popup; opening moves focus to
@@ -494,9 +1298,16 @@ export function SectionStylePopup({
   // itself — returns it to the trigger. The cleanup below is what returns
   // focus: it runs the moment `open` goes false however that happened,
   // rather than each closer calling a `close` helper of its own.
+  //
+  // **The first field is found by QUERY now, not by a ref pinned to the skin
+  // select (2026-08-30).** `gates.card` can be false for a leaf whose kind
+  // draws no `surface` (`handle`, `name`, `player`, `jukebox`, `fursonas`),
+  // which removes the skin select entirely — a ref that only ever pointed at
+  // that one field would then focus nothing at all on open. `text_align` is
+  // offered on every kind, so a query always finds something.
   useEffect(() => {
     if (!open) return;
-    skinFieldRef.current?.focus();
+    panelRef.current?.querySelector<HTMLElement>("input, select")?.focus();
 
     const onPointerDown = (event: MouseEvent): void => {
       const target = event.target as Node;
@@ -557,7 +1368,7 @@ export function SectionStylePopup({
         aria-label={labels.open}
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
-        {...tid("section-style-open")}
+        {...tid(triggerTestId)}
         className="rounded-lg p-1.5 text-(--muted)"
       >
         <Paintbrush className="size-4" />
@@ -580,393 +1391,13 @@ export function SectionStylePopup({
           className="absolute top-full right-0 z-20 mt-1 grid w-72 max-w-[calc(100vw-2rem-49px)] gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3 shadow-lg"
         >
           <span className="text-xs font-medium">{labels.title}</span>
-
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-skin`} className="text-xs font-medium">
-              {labels.skin}
-            </label>
-            <select
-              ref={skinFieldRef}
-              id={`${id}-skin`}
-              value={style.skin ?? ""}
-              onChange={(event) => setField("skin", event.target.value)}
-              {...tid("section-style-skin")}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-            >
-              <option value="">{labels.inheritSkin}</option>
-              {SKINS.map((skin) => (
-                <option key={skin} value={skin}>
-                  {labels.skins[skin]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-background`} className="text-xs font-medium">
-              {labels.backgroundUrl}
-            </label>
-            <input
-              id={`${id}-background`}
-              type="url"
-              inputMode="url"
-              value={style.background_url ?? ""}
-              onChange={(event) =>
-                setField("background_url", event.target.value)
-              }
-              aria-describedby={`${id}-background-hint`}
-              {...tid("section-style-background-url")}
-              className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-1.5 text-sm"
-            />
-            <p id={`${id}-background-hint`} className="text-xs text-(--muted)">
-              {labels.backgroundUrlHint}
-            </p>
-          </div>
-
-          {style.background_url ? (
-            <div className="grid gap-1.5">
-              <label htmlFor={`${id}-fit`} className="text-xs font-medium">
-                {labels.fit}
-              </label>
-              <select
-                id={`${id}-fit`}
-                value={style.background_fit ?? ""}
-                onChange={(event) =>
-                  setField(
-                    "background_fit",
-                    event.target.value as SectionStyle["background_fit"] | "",
-                  )
-                }
-                {...tid("section-style-fit")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                <option value="">{labels.fitDefault}</option>
-                <option value="cover">{labels.fitCover}</option>
-                <option value="tile">{labels.fitTile}</option>
-              </select>
-            </div>
-          ) : null}
-
-          {/* **Depth 0 only.** A section reaches both edges of the window; a
-              block nested inside one has a section between it and the page and
-              cannot escape it. Offering the control where it does nothing is
-              the failure this repository keeps catching, so the caller says
-              whether this block is a section and the control appears only
-              there. */}
-          {atTop ? (
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-xs font-medium">
-                <input
-                  type="checkbox"
-                  checked={style.bleed === true}
-                  onChange={(event) =>
-                    // Absent rather than `false`, which is what `setField`'s
-                    // empty string already means here: the bag's rule everywhere
-                    // is that a key it does not carry means "inherit the page",
-                    // and storing `false` would be a second way to say it.
-                    setField("bleed", event.target.checked ? true : "")
-                  }
-                  {...tid("section-style-bleed")}
-                  className="size-4 rounded-sm surface border-(--edge)/60"
-                />
-                {labels.bleed}
-              </label>
-              <label className="flex items-center gap-2 text-xs font-medium">
-                <input
-                  type="checkbox"
-                  checked={style.margins !== false}
-                  onChange={(event) =>
-                    setField("margins", event.target.checked ? "" : false)
-                  }
-                  {...tid("section-style-margins")}
-                  className="size-4 rounded-sm surface border-(--edge)/60"
-                />
-                {labels.margins}
-              </label>
-            </div>
-          ) : null}
-
-          {/* **Three states, like the border below it.** The empty option
-              clears the key, which is inheritance; `card` and `bare` are both
-              explicit, because a block inside a bare section has to be able to
-              ask for its card back. */}
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-chrome`} className="text-xs font-medium">
-              {labels.chrome}
-            </label>
-            <select
-              id={`${id}-chrome`}
-              value={style.chrome ?? ""}
-              onChange={(event) =>
-                setField(
-                  "chrome",
-                  event.target.value as SectionStyle["chrome"] | "",
-                )
-              }
-              aria-describedby={`${id}-chrome-hint`}
-              {...tid("section-style-chrome")}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-            >
-              <option value="">{labels.chromeInherit}</option>
-              <option value="card">{labels.chromeCard}</option>
-              <option value="bare">{labels.chromeBare}</option>
-            </select>
-            <p id={`${id}-chrome-hint`} className="text-xs text-(--muted)">
-              {labels.chromeHint}
-            </p>
-          </div>
-
-          {/* **Offered only where there is a name to draw.** A bar with
-              nothing in it is the control-that-does-nothing this repo keeps
-              trimming, and the renderer already treats it as inert. */}
-          {named ? (
-            <div className="grid gap-1.5">
-              <label htmlFor={`${id}-heading`} className="text-xs font-medium">
-                {labels.heading}
-              </label>
-              <select
-                id={`${id}-heading`}
-                value={style.heading ?? ""}
-                onChange={(event) =>
-                  setField(
-                    "heading",
-                    event.target.value as SectionStyle["heading"] | "",
-                  )
-                }
-                {...tid("section-style-heading")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                <option value="">{labels.headingPlain}</option>
-                <option value="bar">{labels.headingBar}</option>
-                <option value="gradient">{labels.headingGradient}</option>
-                <option value="soft">{labels.headingSoft}</option>
-              </select>
-
-              {/* **Offered beside the name style, and only where a name
-                  exists** — the same condition the select above carries. A
-                  bar is the only heading that can be crowded: a plain name
-                  floats with the page's own spacing around it and has no edge
-                  to be pressed against. */}
-              <label
-                htmlFor={`${id}-heading-pad`}
-                className="text-xs font-medium"
-              >
-                {labels.headingPad}
-              </label>
-              <select
-                id={`${id}-heading-pad`}
-                value={style.heading_pad ?? ""}
-                onChange={(event) =>
-                  setField(
-                    "heading_pad",
-                    event.target.value as SectionStyle["heading_pad"] | "",
-                  )
-                }
-                {...tid("section-style-heading-pad")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                <option value="">{labels.headingPadDefault}</option>
-                <option value="snug">{labels.headingPadSnug}</option>
-                <option value="roomy">{labels.headingPadRoomy}</option>
-              </select>
-
-              {/* **The room UNDER the name, which had no control at all.** A
-                  bar welds to its content and a plain name floats above it, so
-                  the empty option is not one value — it is whichever of those
-                  applies. Offered for a plain name as well as a bar, unlike
-                  the padding above: there is real space above the content
-                  either way, so pulling a floating name tight against what it
-                  names is a thing somebody can want. */}
-              <label
-                htmlFor={`${id}-heading-gap`}
-                className="text-xs font-medium"
-              >
-                {labels.headingGap}
-              </label>
-              <select
-                id={`${id}-heading-gap`}
-                value={style.heading_gap ?? ""}
-                onChange={(event) =>
-                  setField(
-                    "heading_gap",
-                    event.target.value as SectionStyle["heading_gap"] | "",
-                  )
-                }
-                {...tid("section-style-heading-gap")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                <option value="">{labels.headingGapDefault}</option>
-                <option value="none">{labels.headingGapNone}</option>
-                <option value="snug">{labels.headingGapSnug}</option>
-                <option value="roomy">{labels.headingGapRoomy}</option>
-              </select>
-
-              {/* **A picture ON the bar.** Read only where a bar is drawn —
-                  there is no strip to paint on otherwise — so it sits inside
-                  the same condition rather than beside the section's own
-                  background field, which paints behind the CONTENT and is a
-                  different picture entirely. */}
-              <label
-                htmlFor={`${id}-heading-image`}
-                className="text-xs font-medium"
-              >
-                {labels.headingImage}
-              </label>
-              <input
-                id={`${id}-heading-image`}
-                type="url"
-                inputMode="url"
-                value={style.heading_image ?? ""}
-                onChange={(event) =>
-                  setField("heading_image", event.target.value)
-                }
-                placeholder="https://"
-                {...tid("section-style-heading-image")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--surface) px-3 py-1.5 text-sm"
-              />
-              <p className="text-xs text-(--muted)">
-                {labels.headingImageHint}
-              </p>
-
-              <label
-                htmlFor={`${id}-heading-fit`}
-                className="text-xs font-medium"
-              >
-                {labels.headingFit}
-              </label>
-              <select
-                id={`${id}-heading-fit`}
-                value={style.heading_fit ?? ""}
-                onChange={(event) =>
-                  setField(
-                    "heading_fit",
-                    event.target.value as SectionStyle["heading_fit"] | "",
-                  )
-                }
-                {...tid("section-style-heading-fit")}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                <option value="">{labels.headingFitCover}</option>
-                <option value="tile">{labels.headingFitTile}</option>
-              </select>
-
-              <CornerPicker
-                id="section-style-heading-corner"
-                label={labels.headingCorners}
-                value={style.heading_corners}
-                labels={labels}
-                onChange={(next) => setField("heading_corners", next)}
-              />
-            </div>
-          ) : null}
-
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-align`} className="text-xs font-medium">
-              {labels.textAlign}
-            </label>
-            <select
-              id={`${id}-align`}
-              value={style.text_align ?? ""}
-              onChange={(event) =>
-                setField(
-                  "text_align",
-                  event.target.value as SectionStyle["text_align"] | "",
-                )
-              }
-              {...tid("section-style-align")}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-            >
-              <option value="">{labels.textAlignInherit}</option>
-              <option value="start">{labels.textAlignStart}</option>
-              <option value="center">{labels.textAlignCenter}</option>
-              <option value="end">{labels.textAlignEnd}</option>
-            </select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-image-fit`} className="text-xs font-medium">
-              {labels.imageFit}
-            </label>
-            <select
-              id={`${id}-image-fit`}
-              value={style.image_fit ?? ""}
-              onChange={(event) =>
-                setField(
-                  "image_fit",
-                  event.target.value as SectionStyle["image_fit"] | "",
-                )
-              }
-              {...tid("section-style-image-fit")}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-            >
-              <option value="">{labels.imageFitInherit}</option>
-              <option value="cover">{labels.imageFitCover}</option>
-              <option value="contain">{labels.imageFitContain}</option>
-            </select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-radius`} className="text-xs font-medium">
-              {labels.radius}
-            </label>
-            <select
-              id={`${id}-radius`}
-              value={style.radius ?? ""}
-              onChange={(event) =>
-                setField(
-                  "radius",
-                  event.target.value as SectionStyle["radius"] | "",
-                )
-              }
-              {...tid("section-style-radius")}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-            >
-              <option value="">{labels.radiusInherit}</option>
-              <option value="square">{labels.radiusSquare}</option>
-              <option value="soft">{labels.radiusSoft}</option>
-              <option value="round">{labels.radiusRound}</option>
-            </select>
-          </div>
-
-          {/* Beside `radius` on purpose: that one says how much and this says
-              where, and reading them together is how somebody works out that
-              they compose. */}
-          <CornerPicker
-            id="section-style-corner"
-            label={labels.corners}
-            value={style.corners}
+          <StylePopupFields
+            id={id}
             labels={labels}
-            onChange={(next) => setField("corners", next)}
+            gates={gates}
+            style={style}
+            setField={setField}
           />
-
-          <div className="grid gap-1.5">
-            <label htmlFor={`${id}-border`} className="text-xs font-medium">
-              {labels.border}
-            </label>
-            <select
-              id={`${id}-border`}
-              value={style.border ?? ""}
-              onChange={(event) =>
-                setField(
-                  "border",
-                  event.target.value as SectionStyle["border"] | "",
-                )
-              }
-              aria-describedby={`${id}-border-hint`}
-              {...tid("section-style-border")}
-              className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-            >
-              <option value="">{labels.borderInherit}</option>
-              <option value="solid">{labels.borderSolid}</option>
-              <option value="dashed">{labels.borderDashed}</option>
-              <option value="dotted">{labels.borderDotted}</option>
-              <option value="double">{labels.borderDouble}</option>
-              <option value="none">{labels.borderNone}</option>
-            </select>
-            <p id={`${id}-border-hint`} className="text-xs text-(--muted)">
-              {labels.borderHint}
-            </p>
-          </div>
         </div>
       ) : null}
     </div>
