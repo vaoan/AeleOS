@@ -555,11 +555,18 @@ describe("LeafEditor", () => {
     );
 
     // `skin`, `chrome` and `border` all act through `surface`, which a
-    // leaf's own box may or may not carry — see `honoursCard` in
-    // `presentation/block-contract.ts`. This is the review's own blocking
-    // finding: these three were offered UNGATED on every leaf kind until
-    // this, including `handle`/`name`/`player`/`jukebox`/`fursonas`, whose
-    // own renderer draws no `surface`-bearing box at all.
+    // leaf's own box, OR ANYTHING IT RENDERS, may or may not carry — see
+    // `honoursCard` in `presentation/block-contract.ts`. This is the
+    // review's own blocking finding: these three were offered UNGATED on
+    // every leaf kind until this, including `handle`/`name`/`player`/
+    // `jukebox`/`fursonas`. `fursonas` is in the POSITIVE list below despite
+    // its own wrapper being bare, because `FursonaCardList`'s cards — which
+    // it renders — carry `surface`, and that utility's tokens are ordinary
+    // custom properties that inherit from the wrapper `Block()` writes a
+    // leaf's own style onto. A first version of this gate asked the
+    // narrower "does this leaf's own box carry `surface`" question and
+    // excluded `fursonas` by mistake; see the dedicated case below this
+    // group for the discriminator that finding is pinned by.
     it.each([
       "text",
       "link",
@@ -572,6 +579,7 @@ describe("LeafEditor", () => {
       "table",
       "avatar",
       "owner",
+      "fursonas",
     ] as const)("offers 'style', 'card' and 'border' for a %s leaf", (kind) => {
       harness(newLeaf(kind));
       openStyle();
@@ -584,7 +592,7 @@ describe("LeafEditor", () => {
       ).toBeInTheDocument();
     });
 
-    it.each(["player", "jukebox", "handle", "name", "fursonas"] as const)(
+    it.each(["player", "jukebox", "handle", "name"] as const)(
       "does not offer 'style', 'card' or 'border' for a %s leaf",
       (kind) => {
         harness(newLeaf(kind));
@@ -594,6 +602,29 @@ describe("LeafEditor", () => {
         expect(screen.queryByLabelText(labels.leaf.style.border)).toBeNull();
       },
     );
+
+    // **`fursonas` is the sharpest discriminator between the two gates,
+    // pinned on its own rather than folded into a group.** It offers the
+    // card keys (above) for a reason no OTHER kind in that list shares —
+    // through a descendant, not its own box — and it offers none of the
+    // corner keys, because `FursonaCardList`'s cards are a fixed
+    // `rounded-xl`/`rounded-full` that never reads `CORNER_CLASS` either.
+    // `card` true and `corners` false on the SAME kind, for the SAME
+    // underlying element, is exactly the case a review caught this gate
+    // getting wrong the first time.
+    it("offers the card keys and none of the corner keys for a fursonas leaf", () => {
+      harness(newLeaf("fursonas"));
+      openStyle();
+      expect(screen.getByLabelText(labels.leaf.style.skin)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.chrome),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.border),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText(labels.leaf.style.radius)).toBeNull();
+      expect(screen.queryByTestId("section-style-corner-tl")).toBeNull();
+    });
 
     // `radius` and the `corners` picker act through `CORNER_CLASS` alone,
     // which is NARROWER than `surface` — `link`, `social`, `embed` and
@@ -633,7 +664,7 @@ describe("LeafEditor", () => {
       },
     );
 
-    it.each(["handle", "name", "player", "jukebox", "fursonas"] as const)(
+    it.each(["handle", "name", "player", "jukebox"] as const)(
       "does not offer 'corners' for a %s leaf",
       (kind) => {
         harness(newLeaf(kind));

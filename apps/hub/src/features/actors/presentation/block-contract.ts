@@ -337,16 +337,22 @@ export function honoursPortrait(kind: string): boolean {
 }
 
 /**
- * The leaf kinds whose own rendered box carries `CORNER_CLASS` — the ONLY
- * mechanism `radius` and `corners` (the style key) ever reach through.
- * `text`, `stat`, `progress` and `table` wear it via `MEASURE_CARD`/their own
- * literal; `quote`, `picture` and `owner` name it directly. Every other kind
- * either draws a fixed corner a class like `rounded-xl`/`rounded-full` never
- * asks `--skin-round` about (`link`, `social` via `LEAF_CARD`; `embed` via
- * `FRAME_SHAPE`; `avatar`), draws no box at all (`handle`, `name`), or reads
- * neither token from anywhere (`player`, `jukebox`, whose chrome is
- * `--chrome-*` tokens a skin never touches; `fursonas`, whose own wrapper is
- * a bare `<section>`/`<div>`).
+ * The leaf kinds whose own rendered box, OR ANY DESCENDANT of it, carries
+ * `CORNER_CLASS` — the ONLY mechanism `radius` and `corners` (the style key)
+ * ever reach through. `text`, `stat`, `progress` and `table` wear it via
+ * `MEASURE_CARD`/their own literal; `quote`, `picture` and `owner` name it
+ * directly. Every other kind either draws a fixed corner a class like
+ * `rounded-xl`/`rounded-full` never asks `--skin-round` about (`link`,
+ * `social` via `LEAF_CARD`; `embed` via `FRAME_SHAPE`; `avatar`; `fursonas`,
+ * whose cards are `FursonaCardList`'s own fixed `rounded-xl`/`rounded-full`),
+ * draws no box anywhere (`handle`, `name`), or reads neither token from
+ * anywhere (`player`, `jukebox`, whose chrome is `--chrome-*` tokens a skin
+ * never touches).
+ *
+ * **"Any descendant", not "its own box" — see `honoursCard`'s own note for
+ * why that distinction is the whole finding.** It happens to make no
+ * difference here: nothing in this repo nests a `CORNER_CLASS` box inside a
+ * kind whose own wrapper lacks one. `CARD_KINDS` is not so lucky.
  *
  * **Found by reading every renderer this file's own `LEAVES` registers, not
  * by reasoning about the shape of the model** — see `honoursCard` for why
@@ -376,17 +382,40 @@ export function honoursCorners(kind: string): boolean {
 }
 
 /**
- * The leaf kinds whose own rendered box carries `surface` — the utility
- * `skin`, `border` and `chrome` all act through (border style and width,
- * gloss, shadow, backdrop, clip; `chrome`'s `bare`/`card` toggle the same
- * tokens `surface` already reads). `CORNERS_KINDS` is a strict SUBSET of
- * this one: every kind that reads `CORNER_CLASS` also reads `surface` on the
- * same element, but `link`, `social` (`LEAF_CARD`), `embed` (`FRAME_SHAPE`)
- * and `avatar` read `surface` on a box shaped by a literal `rounded-xl` or
- * `rounded-full` instead — real for the first three keys, dead for the other
- * two. `player`/`jukebox` (a bespoke `--chrome-*` chrome that shares no token
- * with a skin), `handle`/`name` (a bare `<span>`, no box at all) and
- * `fursonas` (a bare `<section>`/`<div>`) read neither.
+ * The leaf kinds whose own rendered box, OR ANY DESCENDANT of it, carries
+ * `surface` — the utility `skin`, `border` and `chrome` all act through
+ * (border style and width, gloss, shadow, backdrop, clip; `chrome`'s
+ * `bare`/`card` toggle the same tokens `surface` already reads).
+ *
+ * **The question is "does anything this leaf renders read those tokens",
+ * never "does this leaf's own top-level box carry `surface`" — a first
+ * version of this set asked the narrower question and got `fursonas` wrong
+ * as a result (2026-08-30).** `surface` reads ORDINARY CUSTOM PROPERTIES —
+ * `--skin-border-style`, `--skin-border`, `--skin-gloss`, `--skin-shadow`,
+ * `--skin-backdrop`, `--skin-clip` — and `Block()` writes a block's own
+ * `skin`/`border`/`chrome` choice as an inline style on the wrapper it
+ * renders. Custom properties INHERIT, so any descendant reading them sees
+ * the same values whether or not it sits inside a `surface`-bearing box of
+ * its own. `FursonasLeaf`'s own wrapper is bare — a `<section>`/`<div>` with
+ * no `surface` anywhere on it — which is why the first version excluded it;
+ * but it renders `FursonaCardList`, whose cards ARE `surface` themselves
+ * (`rounded-xl surface border-(--edge) bg-(--surface)` —
+ * `fursona-card-list.tsx`). Choosing a skin, a border or `chrome` on a
+ * `fursonas` block repaints every fursona card, exactly as choosing one on
+ * `text` repaints that leaf's own — the gate excluding it was withdrawing a
+ * control that worked.
+ *
+ * **`CORNERS_KINDS` is a strict SUBSET of this one under the same corrected
+ * question, and stays a subset even with `fursonas` moved.** Every kind that
+ * reads `CORNER_CLASS` anywhere also reads `surface` there, but `link`,
+ * `social` (`LEAF_CARD`), `embed` (`FRAME_SHAPE`), `avatar` and now
+ * `fursonas` (`FursonaCardList`'s own cards) read `surface` on a box shaped
+ * by a literal `rounded-xl`/`rounded-full` instead — real for the first
+ * three keys, dead for `radius`/`corners`. `player`/`jukebox` (a bespoke
+ * `--chrome-*` chrome that shares no token with a skin, confirmed by reading
+ * `player-chrome.tsx` and `winamp-chrome.tsx` in full — neither contains the
+ * word `surface`) and `handle`/`name` (a bare `<span>`, no descendants at
+ * all) read neither token anywhere and stay out of both sets.
  */
 const CARD_KINDS: ReadonlySet<string> = new Set([
   "text",
@@ -400,11 +429,24 @@ const CARD_KINDS: ReadonlySet<string> = new Set([
   "table",
   "avatar",
   "owner",
+  "fursonas",
 ]);
 
 /**
- * Whether a leaf's own renderer reads `surface` at all — the gate `skin`,
- * `border` and `chrome` need.
+ * Whether this leaf's own renderer, OR ANYTHING IT RENDERS, reads `surface`
+ * — the gate `skin`, `border` and `chrome` need.
+ *
+ * **The rule this function exists to state: ask whether anything a leaf
+ * renders reads the tokens, never whether the leaf's OWN top-level box
+ * does.** `surface`'s tokens are ordinary CSS custom properties, which
+ * inherit — so a leaf whose own wrapper is bare but which renders a
+ * `surface`-bearing element further down (`fursonas`, through
+ * `FursonaCardList`'s cards) still has something for a chosen skin, border
+ * or `chrome` to repaint. The narrower question — "does this leaf's own box
+ * carry `surface`" — answered `fursonas` wrong the first time this was
+ * written, withdrawing a control that worked. Apply the wider question to
+ * the next kind that joins this list, not the narrower one this docstring
+ * used to state.
  *
  * @param kind - a leaf's own `kind`, known or not.
  * @returns whether `skin`/`border`/`chrome` change anything this leaf draws.

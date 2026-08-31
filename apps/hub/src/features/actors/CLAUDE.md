@@ -4616,8 +4616,12 @@ block itself:
 - **`portrait`** — `honoursPortrait(kind)`, `avatar` alone.
 - **`card`** — gates `skin`, `border` and `chrome`, all three read only
   through `surface`. True for a container always; gated by `honoursCard(kind)`
-  for a leaf — `text`, `link`, `picture`, `embed`, `social`, `stat`, `quote`,
-  `progress`, `table`, `avatar`, `owner` (11 of 16).
+  for a leaf, asking whether anything the leaf renders carries `surface` —
+  not only its own box — since `surface`'s tokens are ordinary custom
+  properties and inherit: `text`, `link`, `picture`, `embed`, `social`,
+  `stat`, `quote`, `progress`, `table`, `avatar`, `owner` and `fursonas`
+  (12 of 16, `fursonas` through `FursonaCardList`'s own cards rather than
+  its own bare wrapper — see the third review below).
 - **`corners`** — gates `radius` and the `corners` style key, both read only
   through `CORNER_CLASS`. NARROWER than `card`: `link`, `social`, `embed` and
   `avatar` all have a `surface`-bearing box but a fixed `rounded-xl`/
@@ -4691,16 +4695,43 @@ for the first three, `CORNER_CLASS` for the last two), and a leaf may draw
 neither. The popup offered the corner picker on 9 of 16 leaf kinds where it
 could not change a pixel — every kind but the seven `honoursCorners`
 answers — and offered `skin`/`border`/`chrome` on `handle`, `name`,
-`player`, `jukebox` and `fursonas`, none of which renders a `surface` at all;
-`handle` and `name` draw no box whatsoever, a bare `@container min-w-0`.
-Exactly the defect this whole branch exists to remove, reintroduced through
-the half of the brief nobody had been asked to check. `card` and `corners`
+`player` and `jukebox`, none of which renders a `surface` anywhere; `handle`
+and `name` draw no box whatsoever, a bare `@container min-w-0`. Exactly the
+defect this whole branch exists to remove, reintroduced through the half of
+the brief nobody had been asked to check. `card` and `corners`
 above are the fix, derived from the renderers rather than taken on a second
 telling — and `radius` landed in `corners`, not bundled with
 `skin`/`border`/`chrome` as the review's own first guess had it: `radius`
 shares NO mechanism with `surface` at all, only with `CORNER_CLASS`, which is
 why `CORNERS_KINDS` is a strict subset of `CARD_KINDS` rather than a third,
 independent list.
+
+**A THIRD review found the second review's own fix still had one kind
+backwards, and named the general rule the fix had missed (2026-08-30).**
+`honoursCard` asked "does this leaf's own box carry `surface`", which is
+narrower than the question the key actually needs answered: "does anything
+this leaf renders carry `surface`", because `surface`'s tokens are ordinary
+custom properties and INHERIT. `FursonasLeaf`'s own wrapper is bare — that
+much the second review had right, and is why it excluded the kind — but it
+renders `FursonaCardList`, whose cards ARE `rounded-xl surface
+border-(--edge) bg-(--surface)` (`fursona-card-list.tsx`). Choosing a skin,
+a border or `chrome` on a `fursonas` block reaches those cards exactly as it
+reaches any other leaf's own, through the SAME inherited-token mechanism
+`imageFit` and `portrait` already rely on elsewhere in this file — so the
+gate was withdrawing a control that worked, the identical shape of defect
+this whole branch exists to remove, running the other way. `fursonas` moved
+into `CARD_KINDS`; `CORNERS_KINDS` did not change, because
+`FursonaCardList`'s cards are a fixed `rounded-xl`/`rounded-full` that never
+reads `CORNER_CLASS` either — which makes `fursonas` the sharpest
+discriminator between the two gates the model has: `card` true and
+`corners` false on the very same underlying element, pinned as its own
+dedicated case in `leaf-editor.test.tsx` rather than folded into either
+group either finding already had. Re-deriving the whole set against the
+corrected question moved no OTHER kind: `player`/`jukebox` read only
+`--chrome-*` tokens nowhere near a skin (confirmed by reading
+`player-chrome.tsx` and `winamp-chrome.tsx` in full — neither file contains
+the word `surface`), and `handle`/`name` are bare `<span>`s with no
+descendants at all to carry anything.
 
 **The focus-on-open effect moved with it.** It used to focus a ref pinned to
 the skin select; `gates.card` can now remove that field entirely, which would

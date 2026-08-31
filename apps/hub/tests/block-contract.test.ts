@@ -271,10 +271,24 @@ describe("honoursCard", () => {
     expect(honoursCard(kind)).toBe(true);
   });
 
+  // `fursonas` is true for a DIFFERENT reason than the eleven above: its own
+  // wrapper is bare, and what makes this true is that `FursonaCardList`'s
+  // cards — which it renders, not which it IS — carry `surface`, and
+  // `surface`'s tokens are ordinary custom properties that inherit from the
+  // wrapper `Block()` writes a leaf's own skin/border/chrome onto. Named
+  // separately from the eleven above because a review found the FIRST
+  // version of this gate answered `fursonas` wrong by asking "does this
+  // leaf's own box carry `surface`" instead of "does anything it renders".
+  it("is true for fursonas, despite its own wrapper being bare", () => {
+    expect(honoursCard("fursonas")).toBe(true);
+  });
+
   // `player`/`jukebox` wear a bespoke `--chrome-*` chrome that shares no
-  // token with a skin; `handle`/`name`/`fursonas` draw no box at all. Each
-  // is a different reason to answer false, not the same one repeated.
-  it.each(["player", "jukebox", "handle", "name", "fursonas"])(
+  // token with a skin; `handle`/`name` draw no box anywhere, not even
+  // through a descendant. Each is a different reason to answer false, not
+  // the same one repeated — and neither is the `fursonas` shape, which is
+  // why that kind is asserted on its own above rather than folded in here.
+  it.each(["player", "jukebox", "handle", "name"])(
     "is false for %s",
     (kind) => {
       expect(honoursCard(kind)).toBe(false);
