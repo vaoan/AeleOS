@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  honoursCard,
+  honoursCorners,
   honoursImageFit,
   honoursLabel,
   honoursPortrait,
@@ -136,6 +138,8 @@ describe("styleGatesFor", () => {
       label: false,
       imageFit: true,
       portrait: false,
+      card: true,
+      corners: true,
     });
   });
 
@@ -147,6 +151,8 @@ describe("styleGatesFor", () => {
       label: false,
       imageFit: true,
       portrait: false,
+      card: true,
+      corners: true,
     });
   });
 
@@ -171,19 +177,111 @@ describe("styleGatesFor", () => {
   });
 
   it("gates a leaf by its own kind, never by heading or atTop", () => {
+    // `avatar` has a `surface`-bearing box (`rounded-full surface`) but no
+    // `CORNER_CLASS` — a fixed circle never asks `--skin-round` anything —
+    // so `card` and `corners` must disagree here, not agree.
     expect(styleGatesFor(newLeaf("avatar"), true)).toEqual({
       heading: false,
       atTop: false,
       label: true,
       imageFit: true,
       portrait: true,
+      card: true,
+      corners: false,
     });
+    // `stat` carries both `surface` and `CORNER_CLASS` (`MEASURE_CARD`), so
+    // this is the positive case `avatar` above is the discriminating
+    // negative for.
     expect(styleGatesFor(newLeaf("stat"), true)).toEqual({
       heading: false,
       atTop: false,
       label: false,
       imageFit: false,
       portrait: false,
+      card: true,
+      corners: true,
     });
+    // `handle` draws no box at all — a bare `<span>` — so both are false,
+    // the discriminating negative for `card` that `avatar` cannot be.
+    expect(styleGatesFor(newLeaf("handle"), true)).toEqual({
+      heading: false,
+      atTop: false,
+      label: true,
+      imageFit: false,
+      portrait: false,
+      card: false,
+      corners: false,
+    });
+  });
+});
+
+/**
+ * `honoursCorners` names the leaf kinds whose own box carries `CORNER_CLASS`
+ * — the only thing `radius` and the `corners` style key ever reach through.
+ */
+describe("honoursCorners", () => {
+  it.each(["text", "stat", "quote", "progress", "table", "picture", "owner"])(
+    "is true for %s",
+    (kind) => {
+      expect(honoursCorners(kind)).toBe(true);
+    },
+  );
+
+  // `link`/`social` (`LEAF_CARD`) and `embed` (`FRAME_SHAPE`) all have a
+  // `surface`-bearing box but a FIXED `rounded-xl`, never `--skin-round`;
+  // `avatar` the same with `rounded-full`. Each is the case that tells
+  // "has a box" apart from "the box reads this token".
+  it.each(["link", "social", "embed", "avatar"])(
+    "is false for %s, despite having a surface-bearing box",
+    (kind) => {
+      expect(honoursCorners(kind)).toBe(false);
+    },
+  );
+
+  it.each(["handle", "name", "fursonas", "player", "jukebox"])(
+    "is false for %s",
+    (kind) => {
+      expect(honoursCorners(kind)).toBe(false);
+    },
+  );
+
+  it("is false for a kind this build has never heard of", () => {
+    expect(honoursCorners("diagram")).toBe(false);
+  });
+});
+
+/**
+ * `honoursCard` names the leaf kinds whose own box carries `surface` — what
+ * `skin`, `border` and `chrome` all act through.
+ */
+describe("honoursCard", () => {
+  it.each([
+    "text",
+    "link",
+    "picture",
+    "embed",
+    "social",
+    "stat",
+    "quote",
+    "progress",
+    "table",
+    "avatar",
+    "owner",
+  ])("is true for %s", (kind) => {
+    expect(honoursCard(kind)).toBe(true);
+  });
+
+  // `player`/`jukebox` wear a bespoke `--chrome-*` chrome that shares no
+  // token with a skin; `handle`/`name`/`fursonas` draw no box at all. Each
+  // is a different reason to answer false, not the same one repeated.
+  it.each(["player", "jukebox", "handle", "name", "fursonas"])(
+    "is false for %s",
+    (kind) => {
+      expect(honoursCard(kind)).toBe(false);
+    },
+  );
+
+  it("is false for a kind this build has never heard of", () => {
+    expect(honoursCard("diagram")).toBe(false);
   });
 });

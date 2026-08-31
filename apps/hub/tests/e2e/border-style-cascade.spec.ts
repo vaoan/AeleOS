@@ -197,12 +197,21 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     expect(await borderStyleOf(painted)).toBe("solid");
     expect(await borderStyleOf(placeholder)).toBe("dashed");
 
-    // **Scoped to the SECTION's own header, not a page-wide `.last()`.** The
-    // content just added has its own style popup now too, on its own
-    // distinct id (`leaf-style-open` — see
-    // `SectionStylePopupProps.triggerTestId`), so `section-style-open` alone
-    // could no longer reach it even unscoped. Kept anyway, so this line says
-    // which element it is reaching for.
+    // **This is the ONE site in the suite where `assertLastTriggerIsAContainers`
+    // genuinely discriminates, not merely documents (2026-08-30).** Every
+    // other call to it collapses its section immediately after adding
+    // content, which unmounts the leaf's own trigger regardless of whether
+    // the two share an id — so reverting the id split alone left all of them
+    // green, a finding recorded where the helper is defined. This test never
+    // collapses: the leaf's own `leaf-style-open` trigger is genuinely
+    // mounted, after the section's own `section-style-open` one, when this
+    // assertion runs. Sabotage-verified: reverting `leaf-editor.tsx`'s
+    // `triggerTestId="leaf-style-open"` back to the shared id reddens this
+    // assertion here, and only here.
+    await assertLastTriggerIsAContainers(page, "section-style-open");
+    // **Scoped to the SECTION's own header as well, belt and braces.** The
+    // assertion above is the proof; this is what the rest of the test acts
+    // on.
     await page
       .getByTestId("section-header")
       .last()

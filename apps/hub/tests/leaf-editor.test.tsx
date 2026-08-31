@@ -554,6 +554,111 @@ describe("LeafEditor", () => {
       },
     );
 
+    // `skin`, `chrome` and `border` all act through `surface`, which a
+    // leaf's own box may or may not carry — see `honoursCard` in
+    // `presentation/block-contract.ts`. This is the review's own blocking
+    // finding: these three were offered UNGATED on every leaf kind until
+    // this, including `handle`/`name`/`player`/`jukebox`/`fursonas`, whose
+    // own renderer draws no `surface`-bearing box at all.
+    it.each([
+      "text",
+      "link",
+      "picture",
+      "embed",
+      "social",
+      "stat",
+      "quote",
+      "progress",
+      "table",
+      "avatar",
+      "owner",
+    ] as const)("offers 'style', 'card' and 'border' for a %s leaf", (kind) => {
+      harness(newLeaf(kind));
+      openStyle();
+      expect(screen.getByLabelText(labels.leaf.style.skin)).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.chrome),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(labels.leaf.style.border),
+      ).toBeInTheDocument();
+    });
+
+    it.each(["player", "jukebox", "handle", "name", "fursonas"] as const)(
+      "does not offer 'style', 'card' or 'border' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.skin)).toBeNull();
+        expect(screen.queryByLabelText(labels.leaf.style.chrome)).toBeNull();
+        expect(screen.queryByLabelText(labels.leaf.style.border)).toBeNull();
+      },
+    );
+
+    // `radius` and the `corners` picker act through `CORNER_CLASS` alone,
+    // which is NARROWER than `surface` — `link`, `social`, `embed` and
+    // `avatar` all pass the case above (they DO have a `surface`-bearing
+    // box) and must fail this one (a fixed `rounded-xl`/`rounded-full`
+    // never reads `--skin-round`), which is exactly the discriminating
+    // negative a purely positive sweep would miss.
+    it.each([
+      "text",
+      "stat",
+      "quote",
+      "progress",
+      "table",
+      "picture",
+      "owner",
+    ] as const)("offers 'corners' for a %s leaf", (kind) => {
+      harness(newLeaf(kind));
+      openStyle();
+      expect(
+        screen.getByLabelText(labels.leaf.style.radius),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId("section-style-corner-tl")).toBeInTheDocument();
+    });
+
+    it.each(["link", "social", "embed", "avatar"] as const)(
+      "does not offer 'corners' for a %s leaf, despite offering 'style'",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.radius)).toBeNull();
+        expect(screen.queryByTestId("section-style-corner-tl")).toBeNull();
+        // The discriminating half: `style` (surface) is still offered here,
+        // which is what makes this case about `corners` alone.
+        expect(
+          screen.getByLabelText(labels.leaf.style.skin),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it.each(["handle", "name", "player", "jukebox", "fursonas"] as const)(
+      "does not offer 'corners' for a %s leaf",
+      (kind) => {
+        harness(newLeaf(kind));
+        openStyle();
+        expect(screen.queryByLabelText(labels.leaf.style.radius)).toBeNull();
+        expect(screen.queryByTestId("section-style-corner-tl")).toBeNull();
+      },
+    );
+
+    it("writes a chosen border to a card-honouring leaf's own style", () => {
+      const page = harness(newLeaf("link"));
+      openStyle();
+      fireEvent.change(screen.getByLabelText(labels.leaf.style.border), {
+        target: { value: "dashed" },
+      });
+      expect(held(page())?.style).toEqual({ border: "dashed" });
+    });
+
+    it("writes a chosen corner list to a corners-honouring leaf's own style", () => {
+      const page = harness(newLeaf("stat"));
+      openStyle();
+      fireEvent.click(screen.getByTestId("section-style-corner-bl"));
+      expect(held(page())?.style).toEqual({ corners: "tl,tr,br" });
+    });
+
     it("writes a chosen skin to this leaf's own style, through patchLeaf", () => {
       const page = harness(newLeaf("text"));
       openStyle();

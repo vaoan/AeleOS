@@ -337,6 +337,83 @@ export function honoursPortrait(kind: string): boolean {
 }
 
 /**
+ * The leaf kinds whose own rendered box carries `CORNER_CLASS` — the ONLY
+ * mechanism `radius` and `corners` (the style key) ever reach through.
+ * `text`, `stat`, `progress` and `table` wear it via `MEASURE_CARD`/their own
+ * literal; `quote`, `picture` and `owner` name it directly. Every other kind
+ * either draws a fixed corner a class like `rounded-xl`/`rounded-full` never
+ * asks `--skin-round` about (`link`, `social` via `LEAF_CARD`; `embed` via
+ * `FRAME_SHAPE`; `avatar`), draws no box at all (`handle`, `name`), or reads
+ * neither token from anywhere (`player`, `jukebox`, whose chrome is
+ * `--chrome-*` tokens a skin never touches; `fursonas`, whose own wrapper is
+ * a bare `<section>`/`<div>`).
+ *
+ * **Found by reading every renderer this file's own `LEAVES` registers, not
+ * by reasoning about the shape of the model** — see `honoursCard` for why
+ * that mattered here specifically: `surface` and `CORNER_CLASS` are two
+ * different CSS features that do not always travel together.
+ */
+const CORNERS_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "stat",
+  "quote",
+  "progress",
+  "table",
+  "picture",
+  "owner",
+]);
+
+/**
+ * Whether a leaf's own renderer reads `--skin-round`/`--corner-*` at all —
+ * the gate `radius` and `corners` (the style key) both need, since neither
+ * has a second mechanism.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `radius`/`corners` change anything this leaf draws.
+ */
+export function honoursCorners(kind: string): boolean {
+  return CORNERS_KINDS.has(kind);
+}
+
+/**
+ * The leaf kinds whose own rendered box carries `surface` — the utility
+ * `skin`, `border` and `chrome` all act through (border style and width,
+ * gloss, shadow, backdrop, clip; `chrome`'s `bare`/`card` toggle the same
+ * tokens `surface` already reads). `CORNERS_KINDS` is a strict SUBSET of
+ * this one: every kind that reads `CORNER_CLASS` also reads `surface` on the
+ * same element, but `link`, `social` (`LEAF_CARD`), `embed` (`FRAME_SHAPE`)
+ * and `avatar` read `surface` on a box shaped by a literal `rounded-xl` or
+ * `rounded-full` instead — real for the first three keys, dead for the other
+ * two. `player`/`jukebox` (a bespoke `--chrome-*` chrome that shares no token
+ * with a skin), `handle`/`name` (a bare `<span>`, no box at all) and
+ * `fursonas` (a bare `<section>`/`<div>`) read neither.
+ */
+const CARD_KINDS: ReadonlySet<string> = new Set([
+  "text",
+  "link",
+  "picture",
+  "embed",
+  "social",
+  "stat",
+  "quote",
+  "progress",
+  "table",
+  "avatar",
+  "owner",
+]);
+
+/**
+ * Whether a leaf's own renderer reads `surface` at all — the gate `skin`,
+ * `border` and `chrome` need.
+ *
+ * @param kind - a leaf's own `kind`, known or not.
+ * @returns whether `skin`/`border`/`chrome` change anything this leaf draws.
+ */
+export function honoursCard(kind: string): boolean {
+  return CARD_KINDS.has(kind);
+}
+
+/**
  * Which of a block's own style controls apply — computed once from the block
  * being edited, rather than by a caller working out separate booleans by
  * hand and a popup that has to trust it got them right.
@@ -345,6 +422,18 @@ export function honoursPortrait(kind: string): boolean {
  * list scattered across `block-card.tsx` and `leaf-editor.tsx` is two places
  * to keep in step, and the gap this whole feature keeps finding is exactly
  * that shape.
+ *
+ * **`background_url`, `background_fit` and `text_align` carry no gate of
+ * their own, and that is a finding rather than an oversight.** `blockStyle`
+ * writes all three as an INLINE style on the wrapper `Block` itself renders —
+ * `backgroundImage`/`backgroundRepeat`/`backgroundSize` paint that element
+ * directly, and `textAlign` is an ordinary inheriting CSS property no
+ * descendant text opts out of — so all three act on every block whatever it
+ * contains, container or leaf, with no per-kind renderer standing between
+ * the style bag and the paint. `skin`, `border`, `chrome`, `radius` and the
+ * `corners` style key are the opposite shape: each is read only by a
+ * per-kind renderer's OWN box (`surface`, `CORNER_CLASS`), which a leaf may
+ * or may not draw at all. That difference is `card`/`corners` below.
  */
 export interface StyleGates {
   /**
@@ -372,11 +461,31 @@ export interface StyleGates {
   imageFit: boolean;
   /** Whether the portrait-size select applies — see {@link honoursPortrait}. */
   portrait: boolean;
+  /**
+   * Whether `skin`, `border` and `chrome` apply. Always true for a
+   * container — every one of those keys sets tokens that cascade to
+   * whatever a container's children draw, so offering them is meaningful
+   * regardless of what is nested, the same reasoning `imageFit` already
+   * follows. Gated by kind for a leaf — see {@link honoursCard}.
+   */
+  card: boolean;
+  /**
+   * Whether `radius` and the `corners` style key apply. Always true for a
+   * container, for the same cascading reason `card` is. Gated by kind for a
+   * leaf, and NARROWER than `card` — see {@link honoursCorners} for why the
+   * two are not the same gate.
+   */
+  corners: boolean;
 }
 
 /**
  * Computes {@link StyleGates} for the block `SectionStylePopup` is about to
  * edit.
+ *
+ * **`card` and `corners` are unconditioned for a container and derived from
+ * the leaf's own `kind` for a leaf**, through {@link honoursCard} and
+ * {@link honoursCorners} — the same shape every other leaf-only gate here
+ * follows.
  *
  * @param block - the block being edited, a container or a leaf.
  * @param atTop - whether this block sits at depth 0. Ignored for a leaf: a
@@ -393,6 +502,8 @@ export function styleGatesFor(block: Block, atTop: boolean): StyleGates {
       label: false,
       imageFit: true,
       portrait: false,
+      card: true,
+      corners: true,
     };
   }
   return {
@@ -401,6 +512,8 @@ export function styleGatesFor(block: Block, atTop: boolean): StyleGates {
     label: honoursLabel(block.kind),
     imageFit: honoursImageFit(block.kind),
     portrait: honoursPortrait(block.kind),
+    card: honoursCard(block.kind),
+    corners: honoursCorners(block.kind),
   };
 }
 

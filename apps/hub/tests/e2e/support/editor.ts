@@ -125,6 +125,19 @@ export async function saveAndLeave(page: Page): Promise<void> {
  * place, a collapsed section) are worth pinning explicitly rather than left
  * to the id split alone to explain.
  *
+ * **Only ONE of its callers can actually fail, and that was measured rather
+ * than assumed (2026-08-30).** A review reverted the id split with every
+ * call site left in place and found all nine passing — because collapsing a
+ * section unmounts the whole places subtree, leaf and trigger included,
+ * independent of whether the two ids collide, and every OTHER call site
+ * collapses (or adds no content at all) before reaching this assertion. The
+ * one exception is `border-style-cascade.spec.ts`'s second test, which adds
+ * content and never collapses; reverting the split there reddens this
+ * assertion, sabotage-verified. Calling it at the remaining sites is
+ * documentation of a real, checked fact — corroborating rather than
+ * discriminating, in root rule 23's terms — and is kept for that reason,
+ * not represented as a second proof.
+ *
  * @param page - the editor page.
  * @param id - the trigger's own test id — `section-style-open` for a
  *   container, `leaf-style-open` for a leaf.

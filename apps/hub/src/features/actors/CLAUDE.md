@@ -4614,6 +4614,18 @@ block itself:
   `fursonas` draw no `<img>` of their own; `FursonaCardList`'s avatars are a
   fixed `object-cover` rather than a read of the token.
 - **`portrait`** — `honoursPortrait(kind)`, `avatar` alone.
+- **`card`** — gates `skin`, `border` and `chrome`, all three read only
+  through `surface`. True for a container always; gated by `honoursCard(kind)`
+  for a leaf — `text`, `link`, `picture`, `embed`, `social`, `stat`, `quote`,
+  `progress`, `table`, `avatar`, `owner` (11 of 16).
+- **`corners`** — gates `radius` and the `corners` style key, both read only
+  through `CORNER_CLASS`. NARROWER than `card`: `link`, `social`, `embed` and
+  `avatar` all have a `surface`-bearing box but a fixed `rounded-xl`/
+  `rounded-full` that never asks `--skin-round` anything, so `honoursCorners`
+  answers `text`, `stat`, `quote`, `progress`, `table`, `picture`, `owner`
+  alone (7 of 16) — the one dimension a container-only reading of "any
+  block" could not have found, and did not, the first time this shipped. See
+  the correction below.
 
 **The popup mounts in the same header row as `block-card.tsx`'s, for the same
 idiom.** `leaf-editor.tsx` patches through `patchLeaf` where `block-card.tsx`
@@ -4664,6 +4676,59 @@ future caller to trust by accident. Two ids sharing a name is what turned a
 correct assumption into a silent one in the first place; a query for either
 can never resolve to the other now, which is stronger than any amount of
 per-site scoping.
+
+**A second review found the map handed down for this task was wrong about
+the half nobody was asked to verify, and it shipped once already
+(2026-08-30).** The brief named `skin`, `background_url`, `background_fit`,
+`border`, `chrome`, `radius`, `corners` and `text_align` as "any block" and
+asked only that the GATED keys (`label`, `image_fit`, `portrait`) be checked
+against the renderers. `background_url`, `background_fit` and `text_align`
+really are kind-agnostic — `blockStyle` writes them as an inline style on
+the wrapper `Block` itself renders, so they paint regardless of what a leaf
+draws inside it. `skin`, `border`, `chrome`, `radius` and the `corners` style
+key are not: each acts only through a per-kind renderer's OWN box (`surface`
+for the first three, `CORNER_CLASS` for the last two), and a leaf may draw
+neither. The popup offered the corner picker on 9 of 16 leaf kinds where it
+could not change a pixel — every kind but the seven `honoursCorners`
+answers — and offered `skin`/`border`/`chrome` on `handle`, `name`,
+`player`, `jukebox` and `fursonas`, none of which renders a `surface` at all;
+`handle` and `name` draw no box whatsoever, a bare `@container min-w-0`.
+Exactly the defect this whole branch exists to remove, reintroduced through
+the half of the brief nobody had been asked to check. `card` and `corners`
+above are the fix, derived from the renderers rather than taken on a second
+telling — and `radius` landed in `corners`, not bundled with
+`skin`/`border`/`chrome` as the review's own first guess had it: `radius`
+shares NO mechanism with `surface` at all, only with `CORNER_CLASS`, which is
+why `CORNERS_KINDS` is a strict subset of `CARD_KINDS` rather than a third,
+independent list.
+
+**The focus-on-open effect moved with it.** It used to focus a ref pinned to
+the skin select; `gates.card` can now remove that field entirely, which would
+have left an opened popup focusing nothing. It queries the panel for its
+first `input`/`select` instead, which `text_align` — offered on every kind
+— always supplies.
+
+**`assertLastTriggerIsAContainers` could not fail at any of its eight sites,
+and a review measured that rather than taking the corroborating framing on
+trust.** Reverting the id split alone left both audited specs green, 9
+cases passing — collapse was doing all of the real protecting, at every
+site the first pass had added the helper to. One site now discriminates
+for real: `border-style-cascade.spec.ts`'s second test adds content and
+never collapses, so its own leaf trigger is genuinely mounted, after the
+section's own, when the assertion runs. Reverting the id split alone reddens
+that ONE test and no other, sabotage-verified. The helper stays at the
+remaining sites as documentation of a checked, true fact — corroborating
+rather than discriminating, root rule 23's own distinction — and its own
+TSDoc says so plainly rather than implying every call is equally load-bearing.
+
+**Only the trigger id is split, and that is written down as the same trap
+one layer in rather than fixed pre-emptively.** The panel and every field
+inside it (`section-style-skin`, `section-style-border`, and the rest) stay
+`section-style-*` whichever kind of block opened the popup, so two popups
+open at once — nothing here prevents that — would make a query on any of
+those ids ambiguous again. Nothing exercises this today; `triggerTestId`'s
+own TSDoc names it so the next person who needs two popups open together
+does not rediscover the shape from scratch.
 
 **A browser test is the only thing that can prove a leaf's choice actually
 paints**, matching `section-style-popup.spec.ts`'s own argument for why a

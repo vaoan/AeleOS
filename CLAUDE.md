@@ -3054,7 +3054,10 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     429 looks identical from the status alone. Its coined vocabulary word,
     "unretried" — the throw that is rethrown on the first attempt rather
     than retried — is in `cspell.json`'s `words` list, next to "unweld" for
-    the same reason.
+    the same reason. "ungated" joined the same list on 2026-08-30, for
+    the same mechanical reason and no story of its own: a leaf's style
+    popup review needed the word in a TSDoc and a test name, and
+    `check:tools` does not know it.
 
     **There is no backoff any more, and there never should have been
     (2026-08-29).** The first version of `retryingFetch` waited between
