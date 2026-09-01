@@ -428,6 +428,11 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * `BlockSlot`, nested add, style controls and dnd-kit still mount once in the
  * Options pane. Selection changes where the inspector points and adds a light
  * canvas outline; it does not replace any document operation.
+ * Deselecting unmounts that one workbench rather than parking a second copy
+ * off screen, where browser automation and keyboard navigation could still
+ * discover controls that no viewport could reach. Escape is captured before
+ * an inspector popup can detach its focused field, so closing that popup does
+ * not accidentally deselect the page.
  *
  * Cards precede page fields inside Options so the controls that move and edit
  * nested blocks remain within the inspector's initial viewport. The inspector
@@ -621,7 +626,22 @@ export function BlockEditor<T extends FieldValues>({
   };
 
   /**
-   * Clears selection except when Escape is aimed at a field in the inspector.
+   * Deselects on an Escape the canvas itself owns, and no other.
+   *
+   * **The listener is on the CAPTURE phase, and that is the whole of why it
+   * works.** `SectionStylePopup` closes itself from a bubble-phase `document`
+   * listener; React had flushed that close before a bubble listener here ran,
+   * so `event.target` was already detached from the document and
+   * `target.closest(…)` answered null for a field that had genuinely been
+   * inside the inspector. Measured: focus read `section-style-skin` with
+   * `closest` finding the inspector immediately before the key, and the
+   * selection cleared anyway. Capture runs before anything can remove the
+   * target, so the question is asked of a node still in the tree.
+   *
+   * **The inspector and the source dock keep their own Escape.** Both hold
+   * controls that close themselves with it — the style popup, the icon
+   * picker, the dock's own dialog — and closing one of those must not also
+   * throw away what the author had selected.
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -629,14 +649,16 @@ export function BlockEditor<T extends FieldValues>({
       const target = event.target;
       if (
         target instanceof HTMLElement &&
-        target.closest('[data-testid="canvas-inspector"]')
+        target.closest(
+          '[data-testid="canvas-inspector"], [data-testid="page-source-dock"]',
+        )
       ) {
         return;
       }
       setSelection(null);
     };
-    globalThis.addEventListener("keydown", onKey);
-    return () => globalThis.removeEventListener("keydown", onKey);
+    globalThis.addEventListener("keydown", onKey, true);
+    return () => globalThis.removeEventListener("keydown", onKey, true);
   }, []);
 
   /**
@@ -1008,15 +1030,6 @@ export function BlockEditor<T extends FieldValues>({
           add={addPalette}
           options={optionsPane}
         />
-        {selection === null ? (
-          <div
-            aria-hidden
-            className="pointer-events-none fixed top-0 left-[-120vw] h-screen w-80 overflow-auto"
-          >
-            {optionsPane}
-          </div>
-        ) : null}
-
         <div className={CHROME_SCOPE}>
           {selectedAttr ? (
             <style>{`[data-editor-canvas] [data-block-path="${selectedAttr}"] { outline: 2px solid var(--accent); outline-offset: 4px; }`}</style>

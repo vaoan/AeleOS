@@ -63,6 +63,41 @@ test("Escape closes the inspector and leaves the live page", async ({
   await expect(page.getByTestId("select-page")).toBeVisible();
 });
 
+test("Escape aimed at a field inside the inspector keeps the selection", async ({
+  page,
+}) => {
+  // **A REGRESSION TEST, and the fault it reproduces was invisible to every
+  // assertion in this file.** `SectionStylePopup` closes itself from a
+  // bubble-phase `document` listener, and React had flushed that close before
+  // a bubble-phase listener in `BlockEditor` ran — so `event.target` was
+  // already detached and `target.closest('[data-testid="canvas-inspector"]')`
+  // answered null for a field that had genuinely been inside it. Closing the
+  // popup therefore deselected too, taking the whole workbench off screen.
+  // The listener is on the capture phase now, which asks the question before
+  // anything can remove the target.
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+  await openPageAdd(page);
+  await page.getByTestId("add-section").click();
+  await page.getByTestId("inspector-tab-options").click();
+
+  const card = page.getByTestId("section-card").last();
+  await card.getByTestId("section-style-open").click();
+  await expect(page.getByTestId("section-style-panel")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // The popup closed — so the Escape was delivered and acted on, which is
+  // what stops this passing on a build where the key reached nothing at all.
+  await expect(page.getByTestId("section-style-panel")).toBeHidden();
+  await expect(page.getByTestId("canvas-inspector")).toBeVisible();
+
+  // And the card is still where a person can use it. Asserting the card is
+  // merely attached would pass against the off-screen copy this replaced,
+  // which was laid out, `aria-hidden` and 1536px to the left of the viewport.
+  await card.getByTestId("add-content").first().click();
+  await expect(card.getByTestId("leaf-kind").first()).toBeVisible();
+});
+
 test("Preview still hides every chrome island, inspector included", async ({
   page,
 }) => {

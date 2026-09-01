@@ -452,49 +452,39 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   );
   expect(hit, "the panel is what is at its own centre").toBe(true);
 
-  // The popup also paints where it hit-tests. Sampled open and closed so a
-  // transparent or obscured panel cannot pass only by owning the hit target.
-  const probes: Probe[] = [
-    { name: "middle", ...centre },
-    {
-      name: "low",
-      x: centre.x,
-      y: Math.round(box.y + box.height) - 4,
-    },
-  ];
-  // **Both photographs anchored to the CARD, not to a scroll offset.**
-  // `sampleColours` screenshots the viewport, and the panel is in flow — so
-  // closing it makes the page shorter, the maximum scroll smaller, and a
-  // restored `scrollY` silently clamps to somewhere else. Measured: the open
-  // reading sat at 1052 and the closed one clamped to 1028, 24px apart, which
-  // is two readings of two different places wearing the same coordinates.
-  // The card exists in both states, so each probe is kept as an offset from
-  // its top-left corner and rebuilt after the close.
-  const anchor = (await card.boundingBox())!;
-  const offsets = probes.map((probe) => ({
-    name: probe.name,
-    dx: probe.x - anchor.x,
-    dy: probe.y - anchor.y,
-  }));
-  const open = await sampleColours(page, probes);
+  // The popup also paints, rather than merely owning the hit target.
+  //
+  // **This used to photograph the same points with the panel open and then
+  // closed, and that instrument stopped being able to discriminate when the
+  // workbench moved into the inspector (2026-09-01).** The popup used to
+  // float over the author's own page, so the two readings separated by far
+  // more than the threshold of 20. It opens over AeleOS chrome now: measured,
+  // its centre reads `lab(98.7771 2.58219 2.48066)` open, and closed the same
+  // point is the card's own `add-content` — `rgba(0, 0, 0, 0)` over the same
+  // near-white surface — which is `apart` of 1. Nothing regressed; the
+  // photograph simply has nothing left to see, and raising or lowering the
+  // threshold would only choose which lie to tell.
+  //
+  // The second probe went with it for a reason of its own, and it is the
+  // sharper one: the point four pixels above the panel's foot answered
+  // `elementFromPoint` with NOTHING in both states, because the panel is
+  // `position: absolute` inside the inspector's own scrollport and its foot
+  // can sit below it. A probe outside the viewport reads the same nothing
+  // whether the panel paints or not.
+  //
+  // What replaces them answers the fault the photograph was written for — a
+  // transparent panel passing on hit-testing alone — directly rather than by
+  // difference. It does not catch a PARTLY transparent panel, and the
+  // photograph could no longer catch one either.
+  const background = await panel.evaluate(
+    (el) => getComputedStyle(el).backgroundColor,
+  );
+  expect(background, "the panel paints a background of its own").not.toBe(
+    "rgba(0, 0, 0, 0)",
+  );
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
   await card.scrollIntoViewIfNeeded();
-  const settled = (await card.boundingBox())!;
-  const closed = await sampleColours(
-    page,
-    offsets.map((offset) => ({
-      name: offset.name,
-      x: Math.round(settled.x + offset.dx),
-      y: Math.round(settled.y + offset.dy),
-    })),
-  );
-  for (const probe of probes) {
-    expect(
-      apart(open[probe.name]!, closed[probe.name]!),
-      `the panel paints at ${probe.name}`,
-    ).toBeGreaterThan(20);
-  }
 
   // The popup remains ordinary AeleOS chrome outside the cutout scope. Reached
   // by Tab from the skin select so `:focus-visible` genuinely applies, this

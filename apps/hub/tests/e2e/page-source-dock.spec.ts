@@ -189,6 +189,15 @@ for (const width of [1280, 320]) {
     await page.goto(`/en/pages/${handle}/edit`);
     await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
+    // **Deselect first: the subject here is the DOCK.** The inspector opens
+    // with the page, and below `md` it is a `fixed` bottom sheet up to `70vh`
+    // tall — so at 320 it, and not the page, is what sits at the probe point
+    // once the dock collapses, and the reveal asserted below would be a
+    // reading of the wrong panel. Escape aimed at the body clears the
+    // selection; anything focused inside a control keeps its own Escape.
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
+
     await page.getByTestId("editor-open-source").click();
     const dock = page.getByTestId("page-source-dock");
     await expect(dock).toBeVisible();

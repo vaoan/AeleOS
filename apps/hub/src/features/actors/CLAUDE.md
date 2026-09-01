@@ -1295,10 +1295,22 @@ are on screen without an extra click. Switching to Add must not unmount
 Options — the inactive pane uses the native `hidden` attribute, preserving its
 component state while withdrawing its controls from layout and accessibility,
 and must be laid out again before a grip is offered. Empty canvas or Escape
-deselects; Preview is still hide-controls (`CHROME_SCOPE`). Do not
+deselects; an Escape aimed inside the inspector belongs to the inspector's own
+popup or field and leaves the selection intact. That distinction is made from a
+capture-phase listener: `SectionStylePopup` closes from a bubble-phase
+`document` listener, which detaches the focused field before a later bubble
+listener can ask whether it was inside the inspector. Preview is still
+hide-controls (`CHROME_SCOPE`). Do not
 `sr-only` or `aria-hidden` an actionable card to "focus" the selection: that
 kills mouse drag rectangles or leaves invisible nested editors in the
 accessibility tree.
+
+When nothing is selected the workbench is unmounted, not copied to a fixed box
+off the left edge. The copy preserved component geometry in theory and broke
+ordinary interaction in practice: Playwright saw its controls as visible and
+stable, then could never scroll x = -1536 into the viewport, so every click
+spent the full test timeout. One mounted workbench remains the invariant; a
+hidden duplicate is not a second way to preserve it.
 
 The desktop panel is `min(36rem, 40vw)`, with the canvas padded by that same
 expression, because the inherited nested card controls do not fit in 320px.

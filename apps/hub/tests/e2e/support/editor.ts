@@ -20,8 +20,8 @@ export const handleFor = (prefix: string): string =>
 
 /**
  * Opens the new-page editor through its Page selection, then fills the four
- * fields a public fursona needs. Selecting Page is idempotent and keeps this
- * helper valid after a prior canvas click closed the inspector.
+ * fields a public fursona needs. It asks {@link openInspector} to preserve an
+ * already-open phone sheet rather than pressing a Page control underneath it.
  *
  * @param page - the browser page.
  * @param handle - the fursona's handle.
@@ -33,7 +33,7 @@ export async function startFursona(
   displayName: string,
 ): Promise<void> {
   await page.goto("/es/pages/new");
-  await page.getByTestId("select-page").click();
+  await openInspector(page);
   await expect(page.getByTestId("editor-handle")).toBeVisible();
   await page.getByTestId("editor-handle").fill(handle);
   await page.getByTestId("editor-display-name").fill(displayName);
@@ -43,15 +43,36 @@ export async function startFursona(
 /**
  * Opens the page inspector on Add, where new sections are offered.
  *
- * Idempotent: if Add is already showing, it does nothing.
+ * Idempotent: if Add is already showing, it does nothing; if another inspector
+ * pane is showing, it changes only the tab.
  *
  * @param page - the editor page.
  */
 export async function openPageAdd(page: Page): Promise<void> {
   if (await page.getByTestId("add-section").isVisible()) return;
-  await page.getByTestId("select-page").click();
+  await openInspector(page);
   await page.getByTestId("inspector-tab-add").click();
   await expect(page.getByTestId("add-section")).toBeVisible();
+}
+
+/**
+ * Makes sure the inspector is showing, without pressing Page needlessly.
+ *
+ * **Pressing Page when the inspector is already open is not a no-op on a
+ * phone**, which is why this asks first. The inspector is a bottom sheet
+ * below `md`, `fixed` and up to `70vh` tall, so it covers the editor's own
+ * control row once the page is scrolled at all — measured at portrait 320,
+ * where `editor-identity-fields` inside the sheet intercepted every click
+ * aimed at `select-page` until the test timed out. The sheet is already
+ * open in that state, so there was nothing the press had to achieve.
+ *
+ * @param page - the editor page.
+ */
+export async function openInspector(page: Page): Promise<void> {
+  const inspector = page.getByTestId("canvas-inspector");
+  if (await inspector.isVisible()) return;
+  await page.getByTestId("select-page").click();
+  await expect(inspector).toBeVisible();
 }
 
 /**
@@ -65,6 +86,8 @@ export async function openPageAdd(page: Page): Promise<void> {
  * of two by the second. `border-style-cascade.spec.ts` then waited five
  * seconds for `"1"` on a control that would never move. Polling until the
  * value sticks is what makes the surviving mount the one that is set.
+ * {@link openInspector} makes the path safe at phone widths where an existing
+ * bottom sheet covers the Page control that originally opened it.
  *
  * @param page - the editor page.
  * @param spaces - the option value, as the select stores it.
@@ -73,7 +96,7 @@ export async function chooseNewSectionSpaces(
   page: Page,
   spaces: string,
 ): Promise<void> {
-  await page.getByTestId("select-page").click();
+  await openInspector(page);
   await page.getByTestId("inspector-tab-add").click();
   const select = page.getByTestId("new-section-spaces");
   await expect(select).toBeVisible();
