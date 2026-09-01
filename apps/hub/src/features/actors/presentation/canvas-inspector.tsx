@@ -53,11 +53,16 @@ export interface CanvasInspectorProps {
  * It is a sibling of the canvas, so its clicks never reach the canvas's
  * deselection handler.
  *
- * **Both panes stay mounted.** Switching to Add hides that pane with `hidden`
- * (display: none is fine for buttons). Options — the existing `BlockCard`
- * tree, grips, nested add — never unmounts while the inspector is open, so
- * drag geometry and `add-content` survive the tab change. The Add tab still
- * shows those cards underneath the palette.
+ * **Both panes stay mounted.** The inactive pane is hidden rather than
+ * removed, so switching tabs preserves the existing `BlockCard` tree and its
+ * local state. Options becomes laid out again before a grip can be used, which
+ * gives dnd-kit current rectangles without exposing two panes at once.
+ *
+ * On desktop the inspector sits below the toolbar in the stacking order and
+ * is wide enough for the existing nested card controls to wrap inside it.
+ * Neither property is decorative: covering the writing switch made the
+ * toolbar unreachable, and a 320px panel left nested controls outside its
+ * horizontal viewport.
  *
  * @returns the inspector, or nothing when deselected.
  */
@@ -74,7 +79,7 @@ export function CanvasInspector({
   return (
     <div
       {...tid("canvas-inspector")}
-      className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-30 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:inset-y-(--bar-top) md:right-auto md:bottom-0 md:left-0 md:max-h-none md:w-80 md:border-t-0 md:border-r`}
+      className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-10 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:inset-y-(--bar-top) md:right-auto md:bottom-0 md:left-0 md:max-h-none md:w-[min(36rem,40vw)] md:border-t-0 md:border-r`}
     >
       <div role="tablist" className="flex shrink-0 border-b border-(--edge)/40">
         <button
@@ -100,7 +105,7 @@ export function CanvasInspector({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         <div className={tab === "add" ? "grid gap-2" : "hidden"}>{add}</div>
-        <div className={tab === "options" ? "grid gap-2" : undefined}>
+        <div className={tab === "options" ? "grid gap-2" : "hidden"}>
           {options}
         </div>
       </div>

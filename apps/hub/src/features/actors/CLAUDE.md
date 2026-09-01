@@ -1292,10 +1292,17 @@ it (2026-08-31).** `BlockCard`, `LeafEditor`, `BlockSlot`, `add-content`,
 and presets are the same components they were. They live in
 `CanvasInspector`'s Options pane. The page starts selected so those controls
 are on screen without an extra click. Switching to Add must not unmount
-Options — drag geometry and nested add live on that tree. Empty canvas or
+Options — the inactive pane may be `display: none`, preserving its component
+state, and must be laid out again before a grip is offered. Empty canvas or
 Escape deselects; Preview is still hide-controls (`CHROME_SCOPE`). Do not
-`sr-only` or `aria-hidden` a card to "focus" the selection: that kills mouse
-drag rectangles and nested editors.
+`sr-only` or `aria-hidden` an actionable card to "focus" the selection: that
+kills mouse drag rectangles or leaves invisible nested editors in the
+accessibility tree.
+
+The desktop panel is `min(36rem, 40vw)`, with the canvas padded by that same
+expression, because the inherited nested card controls do not fit in 320px.
+It stacks below the sticky editor toolbar: a higher inspector covered the
+writing switch even though both controls independently rendered correctly.
 
 It used to be a card — a label, `p-3`, a rounded face carrying `--surface` at
 90% alpha, a border, and the author's `--field` on an in-flow box. All of that

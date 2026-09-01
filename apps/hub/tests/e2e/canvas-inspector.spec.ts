@@ -46,7 +46,8 @@ test("Add does not unmount nested add-content on a section that already exists",
   await expect(page.getByTestId("add-content").last()).toBeVisible();
   await page.getByTestId("inspector-tab-add").click();
   await expect(page.getByTestId("add-section")).toBeVisible();
-  await expect(page.getByTestId("add-content").last()).toBeVisible();
+  await expect(page.getByTestId("add-content").first()).toBeAttached();
+  await expect(page.getByTestId("add-content").first()).toBeHidden();
 });
 
 test("Escape closes the inspector and leaves the live page", async ({

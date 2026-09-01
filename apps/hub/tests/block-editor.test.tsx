@@ -477,7 +477,7 @@ describe("BlockEditor", () => {
 
   // THE ADD TAB MUST NOT UNMOUNT THE WORKBENCH. Nested add-content, mode,
   // spaces, and keyboard drag all live on the same `BlockCard` tree they
-  // always did. Switching to Add only reveals more entry points.
+  // always did. The tab hides that tree as one pane, preserving its state.
   it("keeps every section card mounted while the Add tab is showing", () => {
     harness([{ ...newContainer("stack", 1), name_en: "kept" }]);
     expect(screen.getByTestId("section-card")).toBeInTheDocument();
@@ -485,6 +485,7 @@ describe("BlockEditor", () => {
     openPageAdd();
     expect(screen.getByTestId("section-card")).toBeInTheDocument();
     expect(screen.getByTestId("add-content")).toBeInTheDocument();
+    expect(screen.getByTestId("add-content")).not.toBeVisible();
     expect(screen.getByTestId("add-section")).toBeInTheDocument();
   });
 

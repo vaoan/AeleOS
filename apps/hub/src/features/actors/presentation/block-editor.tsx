@@ -429,6 +429,11 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * Options pane. Selection changes where the inspector points and adds a light
  * canvas outline; it does not replace any document operation.
  *
+ * Cards precede page fields inside Options so the controls that move and edit
+ * nested blocks remain within the inspector's initial viewport. The inspector
+ * still contains the same single card tree; this ordering does not create a
+ * second renderer or field registration.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -908,7 +913,6 @@ export function BlockEditor<T extends FieldValues>({
 
   const optionsPane = (
     <>
-      {pageOptions}
       {seats.map((seat) => {
         const selectedHere =
           selectedPath?.length === 1 && selectedPath[0] === seat.position;
@@ -951,13 +955,14 @@ export function BlockEditor<T extends FieldValues>({
           </div>
         );
       })}
+      {pageOptions}
     </>
   );
 
   return (
     <section
       data-editor-stack
-      className={`mt-8 grid gap-4 ${selection ? "md:pl-80" : ""}`}
+      className={`mt-8 grid gap-4 ${selection ? "md:pl-[min(36rem,40vw)]" : ""}`}
     >
       <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
         <div className="flex flex-wrap items-center gap-2">

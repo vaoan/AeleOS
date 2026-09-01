@@ -316,7 +316,9 @@ const refusal = (page: Page): Promise<string> =>
     .evaluateAll((nodes) => nodes[0]?.textContent ?? "");
 
 /**
- * Opens a page in the editor, signed in, at a size nothing scrolls at.
+ * Opens a page in the editor, signed in, at a size nothing scrolls at, then
+ * selects its first canvas section so the existing grip tree is actionable in
+ * Options.
  *
  * @param page - the browser page.
  * @param which - the handle to open; the main fixture by default.
@@ -325,6 +327,9 @@ async function openEditor(page: Page, which = handle!): Promise<void> {
   await signIn(page, await mintTicket(identity!.userId));
   await page.setViewportSize(TALL);
   await page.goto(`/es/pages/${which}/edit`);
+  await page
+    .locator('[data-editor-canvas] [data-block-path="0"]')
+    .click({ position: { x: 2, y: 2 } });
   await expect(page.getByTestId("section-card").first()).toBeVisible();
 }
 
