@@ -238,6 +238,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * `SectionStylePopup` opens for a container and for a leaf alike since
  * 2026-08-30, so the bag is assigned to both `style` and `leaf.style` rather
  * than built out twice — see the local const's own comment.
+ *
+ * The same bag now names the canvas inspector's Page, Add and Options
+ * controls. These are translated here with the rest of the editor chrome;
+ * they are not labels stored in somebody's page document.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -352,6 +356,10 @@ export async function fursonaEditorLabels(
     addSection: t("addSection"),
     newSectionSpaces: t("newSectionSpaces"),
     addSectionFor: t("addSectionFor"),
+    selectPage: t("selectPage"),
+    inspectorAdd: t("inspectorAdd"),
+    inspectorOptions: t("inspectorOptions"),
+    wrapInLayout: t("wrapInLayout"),
     atLimit: t("sectionsAtLimit"),
     dragSection: t("dragSection"),
     dragBlock: t("dragBlock"),

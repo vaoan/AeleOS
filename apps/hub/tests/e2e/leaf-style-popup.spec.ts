@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { chooseNewSectionSpaces } from "./support/editor";
+import { chooseNewSectionSpaces, openPageAdd } from "./support/editor";
 
 // WHAT THIS FILE PROVES.
 //
@@ -61,6 +61,7 @@ test("a leaf's own portrait-size choice resizes its avatar in the live preview",
   // One section, one place, one piece of content — built by hand so what is
   // measured is the control that shipped, not a template's own data.
   await chooseNewSectionSpaces(page, "1");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").last().click();
   // **`avatar` only, and `portrait` is unreachable through any other kind's

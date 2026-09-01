@@ -19,6 +19,7 @@ import {
 import {
   assertLastTriggerIsAContainers,
   chooseNewSectionSpaces,
+  openPageAdd,
 } from "./support/editor";
 
 // One sign-in for the whole file: every case below signs in as the
@@ -266,6 +267,7 @@ test("author colours and skin change both real previews without restyling the wo
   await page.getByTestId("editor-handle").fill("themeboundary");
   await page.getByTestId("editor-display-name").fill("Theme boundary");
   await chooseNewSectionSpaces(page, "1");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Boundary");
   await page.getByTestId("add-content").last().click();
@@ -394,6 +396,7 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   // data without touching a single control, which would prove nothing about
   // the control under test.
   await chooseNewSectionSpaces(page, "2");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
 
   // Collapsed keeps the control card compact while its sibling preview stays
@@ -541,6 +544,7 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.getByTestId("editor-handle").fill("facecheck");
   await page.getByTestId("editor-display-name").fill("Face check");
   await chooseNewSectionSpaces(page, "2");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").last().click();
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
@@ -675,6 +679,7 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   // without touching one of these controls, so a template-built page would
   // measure the same pixels while proving nothing about the editor.
   await chooseNewSectionSpaces(page, "1");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").first().click();
   await page.getByTestId("section-name").last().fill("Section");
@@ -825,6 +830,7 @@ test("the three background fits are three different paints", async ({
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
   await chooseNewSectionSpaces(page, "2");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("add-content").last().click();
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
@@ -993,6 +999,7 @@ test("the face does not paint over the section's own writing", async ({
   await page.getByTestId("editor-handle").fill("veilcheck");
   await page.getByTestId("editor-display-name").fill("Veil check");
   await chooseNewSectionSpaces(page, "1");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Legible heading");
   await page.getByTestId("add-content").last().click();

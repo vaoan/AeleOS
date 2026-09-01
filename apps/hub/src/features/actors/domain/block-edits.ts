@@ -2,6 +2,7 @@ import {
   BLOCK_LIMITS,
   CONTAINER_KIND,
   MAX_DEPTH,
+  countBlocks,
   isContainer,
   type Block,
   type ContainerBlock,
@@ -15,8 +16,9 @@ import {
  *
  * `[2]` is the third section; `[2, 0]` is the first place of that section;
  * `[2, 0, 1]` is the second place of whatever sits there. The page itself is
- * the empty path, which no operation here accepts — there is no block at the
- * root, only the array.
+ * the empty path: {@link addContentAt} and {@link wrapLeafOnPage} use it to
+ * mean "onto the page", and every other operation here still refuses it —
+ * there is no block at the root, only the array.
  *
  * **A path is positions and nothing else**, which is what makes it usable as
  * an identifier as well as an address: nothing an author typed is in it, so it
@@ -177,6 +179,106 @@ export function setAt(
   next: Block,
 ): Block[] {
   return updateAt(blocks, path, () => next);
+}
+
+/**
+ * The block sitting at a path, or null when that place is empty or missing.
+ *
+ * The empty path is the page, which is an array rather than a block, so this
+ * answers null there rather than inventing a root container.
+ *
+ * @param blocks - the whole page.
+ * @param path - where to look.
+ * @returns the block, or null.
+ */
+export function blockAt(
+  blocks: readonly Block[],
+  path: BlockPath,
+): Block | null {
+  if (path.length === 0) return null;
+  let here: Block | null | undefined = blocks[path[0]!];
+  for (let index = 1; index < path.length; index += 1) {
+    if (!here || !isContainer(here)) return null;
+    here = here.children[path[index]!] ?? null;
+  }
+  return here ?? null;
+}
+
+/**
+ * A leaf dropped on the page, stored as an unnamed stack section.
+ *
+ * Depth 0 is still a container — the schema never grew top-level leaves as
+ * the authoring front door. Empty `name_en` is unnamed: the public renderer
+ * draws no heading. Two blocks are added (the wrapper and the leaf), so a
+ * page already at the cap comes back unchanged by identity.
+ *
+ * @param blocks - the whole page.
+ * @param leaf - the content.
+ * @returns the new page, or the one given when the cap would be crossed.
+ */
+export function wrapLeafOnPage(
+  blocks: readonly Block[],
+  leaf: LeafBlock,
+): Block[] {
+  if (countBlocks(blocks) + 2 > BLOCK_LIMITS.blocks) {
+    return blocks as Block[];
+  }
+  return [
+    ...blocks,
+    {
+      ...newContainer("stack", 1),
+      name_en: "",
+      children: [leaf],
+    },
+  ];
+}
+
+/**
+ * Puts content into a target: the page (empty path) or a block.
+ *
+ * A leaf on the page is {@link wrapLeafOnPage}. A container on the page is
+ * appended as a section. A container target fills its first empty place, or
+ * grows by one place when every place is filled. A leaf target is wrapped
+ * in a stack with the new block beside it, refused at the depth cap — same
+ * array identity, so a caller comparing by identity sees a no-op.
+ *
+ * @param blocks - the whole page.
+ * @param path - empty for the page, otherwise the target.
+ * @param block - what to put there.
+ * @returns the new page, or the one given where the write is refused.
+ */
+export function addContentAt(
+  blocks: readonly Block[],
+  path: BlockPath,
+  block: Block,
+): Block[] {
+  if (path.length === 0) {
+    if (!isContainer(block)) return wrapLeafOnPage(blocks, block);
+    if (countBlocks(blocks) >= BLOCK_LIMITS.blocks) return blocks as Block[];
+    return setAt(blocks, [blocks.length], block);
+  }
+  const target = blockAt(blocks, path);
+  if (!target) return blocks as Block[];
+  if (isContainer(target)) {
+    const empty = target.children.indexOf(null);
+    if (empty !== -1) return setAt(blocks, [...path, empty], block);
+    const grown = appendPlace(blocks, path);
+    const next = blockAt(grown, path);
+    if (
+      !next ||
+      !isContainer(next) ||
+      next.children.length === target.children.length
+    ) {
+      return blocks as Block[];
+    }
+    return setAt(grown, [...path, next.children.length - 1], block);
+  }
+  if (!mayNest(path)) return blocks as Block[];
+  return setAt(blocks, path, {
+    ...newContainer("stack", 1),
+    name_en: "",
+    children: [target, block],
+  });
 }
 
 /**

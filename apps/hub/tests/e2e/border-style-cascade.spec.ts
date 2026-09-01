@@ -9,6 +9,7 @@ import { container, leaf, seedPage } from "./support/blocks";
 import {
   assertLastTriggerIsAContainers,
   chooseNewSectionSpaces,
+  openPageAdd,
 } from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 import {
@@ -163,6 +164,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // second and not the first — the section renders nothing at all, because
     // a container whose every place is empty draws nothing.
     await chooseNewSectionSpaces(page, "2");
+    await openPageAdd(page);
     await page.getByTestId("add-section").click();
     await expect(page.getByTestId("section-card")).toHaveCount(2);
     await page.getByTestId("add-content").last().click();
@@ -266,6 +268,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
 
     await page.goto("/es/pages/new");
     await chooseNewSectionSpaces(page, "2");
+    await openPageAdd(page);
     await page.getByTestId("add-section").click();
     // Content, because an edge needs something to be drawn around: a leaf's
     // own `surface` card is what consumes `--skin-border-style`, and a

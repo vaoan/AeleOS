@@ -117,6 +117,12 @@ function harness(
   return () => form!.getValues().sections;
 }
 
+/** Opens the page inspector on Add, where section and template controls live. */
+const openPageAdd = (): void => {
+  fireEvent.click(screen.getByTestId("select-page"));
+  fireEvent.click(screen.getByTestId("inspector-tab-add"));
+};
+
 /** The section names of a page, in order. */
 const names = (page: Block[]) =>
   page.map((block) => isContainer(block) && block.name_en);
@@ -233,24 +239,10 @@ describe("BlockEditor", () => {
     expect(slot).not.toContainElement(tray);
     expect(within(tray).getByTestId("public-section")).toBeInTheDocument();
     expect(within(tray).getByText("Real renderer")).toBeInTheDocument();
-    expect(tray.parentElement).toHaveClass("gap-2");
-    expect(tray.parentElement?.parentElement).toHaveClass("gap-6");
 
-    // **THE PAGE BOX, which the tray never laid before.** A preview that does
-    // not is showing the author a section at the workbench's width: `bleed`
-    // does nothing, the first and last section's page spacing is absent, and
-    // every container query inside answers to a box no visitor has. These are
-    // the classes `pageBoxClass` composes for a lone section at the default
-    // `wider` measure — first and last at once, because there is one.
     expect(tray).toHaveClass("mx-auto", "w-full", "max-w-7xl", "px-4");
     expect(tray).toHaveClass("pt-(--page-edge)", "pb-(--page-edge)");
 
-    // **NOTHING of the editor's own is painted over the page.** The card face,
-    // the label, the padding and the author's `--field` on an in-flow box are
-    // all gone: the document carries the theme, so the field, the background
-    // picture and the nebula canvas are already behind this. The host that
-    // used to sit here also clipped on all four edges — see the tray's own
-    // TSDoc — so its absence is what lets a `neon` glow leave its box.
     expect(within(tray).queryByTestId("preview-theme-host")).toBeNull();
     expect(within(tray).queryByTestId("section-preview-face")).toBeNull();
     expect(tray.className).not.toContain("overflow");
@@ -266,6 +258,7 @@ describe("BlockEditor", () => {
   // card afterwards.
   it("offers every width the schema accepts, before a section exists", () => {
     harness();
+    openPageAdd();
     const options = within(screen.getByTestId("new-section-spaces"))
       .getAllByRole("option")
       .map((el) => (el as HTMLOptionElement).value);
@@ -274,6 +267,7 @@ describe("BlockEditor", () => {
 
   it("adds a section of the chosen shape, with a place for each space", () => {
     const page = harness();
+    openPageAdd();
     fireEvent.change(screen.getByTestId("new-section-spaces"), {
       target: { value: "4" },
     });
@@ -287,6 +281,7 @@ describe("BlockEditor", () => {
 
   it("appends rather than replacing what is already there", () => {
     const page = harness([newContainer("stack", 1)]);
+    openPageAdd();
     fireEvent.click(screen.getByTestId("add-section"));
     expect(page()).toHaveLength(2);
   });
@@ -305,6 +300,7 @@ describe("BlockEditor", () => {
   // assertion alone would pass on a shim that added the wrong blocks.
   it("applies a template as blocks, keeping the page complete", () => {
     const page = harness();
+    openPageAdd();
     fireEvent.click(screen.getByTestId("template-picker"));
     const [template] = FURSONA_TEMPLATES;
     fireEvent.click(screen.getByTestId(`template-${template!.id}`));
@@ -319,6 +315,7 @@ describe("BlockEditor", () => {
   // interchangeable when they are not.
   it("appends a brand preset already named and already holding its kind", () => {
     const page = harness();
+    openPageAdd();
     fireEvent.click(screen.getByTestId("section-presets"));
     const [preset] = SECTION_PRESETS;
     fireEvent.click(screen.getByTestId(`preset-${preset!.id}`));
@@ -430,6 +427,7 @@ describe("BlockEditor", () => {
       title_en: "x",
     }));
     harness(full);
+    openPageAdd();
     expect(screen.getByText(labels.atLimit)).toBeInTheDocument();
     expect(screen.queryByTestId("add-section")).toBeNull();
     expect(screen.queryByTestId("section-presets")).toBeNull();
@@ -439,6 +437,7 @@ describe("BlockEditor", () => {
   // of wide-open sections must not be refused for blocks it does not hold.
   it("counts an empty place against nothing", () => {
     harness([{ ...newContainer("grid", 6), children: Array(50).fill(null) }]);
+    openPageAdd();
     expect(screen.getByTestId("add-section")).toBeInTheDocument();
   });
 
@@ -462,16 +461,31 @@ describe("BlockEditor", () => {
   // at all or on one that filters nothing.
   it("offers era looks on a fursona's page and withholds them from a person's", () => {
     harness([], "fursona");
+    openPageAdd();
     fireEvent.click(screen.getByTestId("template-picker"));
     expect(screen.getByTestId("template-era-win98")).toBeInTheDocument();
     cleanup();
 
     harness([], "person");
+    openPageAdd();
     fireEvent.click(screen.getByTestId("template-picker"));
     expect(screen.queryByTestId("template-era-win98")).toBeNull();
     // And a starter is still offered there, so the filter narrowed rather
     // than emptied.
     expect(screen.getByTestId("template-reference-sheet")).toBeInTheDocument();
+  });
+
+  // THE ADD TAB MUST NOT UNMOUNT THE WORKBENCH. Nested add-content, mode,
+  // spaces, and keyboard drag all live on the same `BlockCard` tree they
+  // always did. Switching to Add only reveals more entry points.
+  it("keeps every section card mounted while the Add tab is showing", () => {
+    harness([{ ...newContainer("stack", 1), name_en: "kept" }]);
+    expect(screen.getByTestId("section-card")).toBeInTheDocument();
+    expect(screen.getByTestId("add-content")).toBeInTheDocument();
+    openPageAdd();
+    expect(screen.getByTestId("section-card")).toBeInTheDocument();
+    expect(screen.getByTestId("add-content")).toBeInTheDocument();
+    expect(screen.getByTestId("add-section")).toBeInTheDocument();
   });
 
   it("names every arrangement the schema knows, on a section's own control", () => {

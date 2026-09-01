@@ -12,6 +12,7 @@ import {
 import {
   chooseNewSectionSpaces,
   handleFor,
+  openPageAdd,
   saveAndLeave,
   startFursona,
 } from "./support/editor";
@@ -354,6 +355,7 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // on, so what travels through storage is something this test chose rather
   // than whatever happened to be the default.
   await chooseNewSectionSpaces(page, "3");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   // **The LAST card.** A page opens carrying the identity section the database
   // requires and `add-section` appends, so the one this test builds is at the

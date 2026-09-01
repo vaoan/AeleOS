@@ -408,6 +408,13 @@ describe("FursonaEditor", () => {
     expect(lastActorRef).toBe("ref-1");
   });
 
+  it("shows identity and theme on load, because the page starts selected", () => {
+    renderEditor();
+    expect(screen.getByTestId("editor-handle")).toBeInTheDocument();
+    expect(screen.getByTestId("theme-open")).toBeInTheDocument();
+    expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+  });
+
   it("saves what was typed", async () => {
     renderEditor();
     fireEvent.change(screen.getByLabelText("Handle"), {
@@ -714,8 +721,9 @@ describe("FursonaEditor", () => {
 
   it("leaves the theme panel above the sections it governs", () => {
     renderEditor();
+    fireEvent.click(screen.getByTestId("select-page"));
     const theme = screen.getByTestId("theme-open");
-    const sections = screen.getByTestId("add-section");
+    const sections = screen.getByTestId("section-card");
     expect(
       theme.compareDocumentPosition(sections) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -730,6 +738,7 @@ describe("FursonaEditor", () => {
   // after the shared pattern moved out from under it.
   it("gives the identity fields the same card as every other workbench group", () => {
     renderEditor();
+    fireEvent.click(screen.getByTestId("select-page"));
     const identity = screen.getByTestId("editor-identity-fields");
     const panel = screen.getByTestId("theme-open").closest("section");
 
@@ -753,6 +762,7 @@ describe("FursonaEditor", () => {
       },
     });
 
+    fireEvent.click(screen.getByTestId("select-page"));
     fireEvent.change(screen.getByLabelText("Handle"), {
       target: { value: "live-handle" },
     });

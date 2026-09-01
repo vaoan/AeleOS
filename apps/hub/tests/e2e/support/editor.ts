@@ -19,7 +19,9 @@ export const handleFor = (prefix: string): string =>
   `${prefix}${Date.now().toString().slice(-9)}`;
 
 /**
- * Fills the four fields a new public fursona needs.
+ * Opens the new-page editor through its Page selection, then fills the four
+ * fields a public fursona needs. Selecting Page is idempotent and keeps this
+ * helper valid after a prior canvas click closed the inspector.
  *
  * @param page - the browser page.
  * @param handle - the fursona's handle.
@@ -31,14 +33,30 @@ export async function startFursona(
   displayName: string,
 ): Promise<void> {
   await page.goto("/es/pages/new");
+  await page.getByTestId("select-page").click();
+  await expect(page.getByTestId("editor-handle")).toBeVisible();
   await page.getByTestId("editor-handle").fill(handle);
   await page.getByTestId("editor-display-name").fill(displayName);
   await page.getByTestId("editor-visibility").selectOption("public");
 }
 
 /**
- * Sets how many places a newly added section will lay across, and waits
- * until that choice is the select's value.
+ * Opens the page inspector on Add, where new sections are offered.
+ *
+ * Idempotent: if Add is already showing, it does nothing.
+ *
+ * @param page - the editor page.
+ */
+export async function openPageAdd(page: Page): Promise<void> {
+  if (await page.getByTestId("add-section").isVisible()) return;
+  await page.getByTestId("select-page").click();
+  await page.getByTestId("inspector-tab-add").click();
+  await expect(page.getByTestId("add-section")).toBeVisible();
+}
+
+/**
+ * Opens Page → Add, sets how many places a newly added section will lay
+ * across, and waits until that choice is the select's value.
  *
  * **Retries the assignment, because a single `selectOption` can land on a
  * mount React then throws away.** `BlockEditor` keeps this count in
@@ -55,6 +73,8 @@ export async function chooseNewSectionSpaces(
   page: Page,
   spaces: string,
 ): Promise<void> {
+  await page.getByTestId("select-page").click();
+  await page.getByTestId("inspector-tab-add").click();
   const select = page.getByTestId("new-section-spaces");
   await expect(select).toBeVisible();
   await expect

@@ -1183,8 +1183,11 @@ renderer already handles it.
 `block-editor.tsx` (the page: sections, the template picker, the brand presets,
 the top-level drag), `block-card.tsx` (one container — its name, arrangement,
 shape, style and places) and `leaf-editor.tsx` (one piece of content and only
-the fields its kind draws). `SectionPreviewTray`, a sibling owned by the block
-editor rather than the card, holds each top-level live preview.
+the fields its kind draws). The live page is `editor-canvas` in
+`block-editor.tsx` — each top-level seat rendered with `Block` inside
+`pageBoxClass`, the same pairing a public route uses. `SectionPreviewTray`
+still exists for tests that mount a single tray; the editor no longer uses it
+as a sibling of each card.
 `section-schema.ts` and
 `fursona-templates.ts` survive, because the shim and the templates still speak
 that vocabulary.
@@ -1282,6 +1285,17 @@ bleeds, and takes the same first/between/last spacing a public page gives it.
 Its container queries answer to the page's width rather than the workbench's,
 which is what `WidePageColumn` moving INSIDE `BlockEditor` buys: the control
 card is columned and the preview is full width.
+
+**The inspector is a new place for the same workbench, not a replacement of
+it (2026-08-31).** `BlockCard`, `LeafEditor`, `BlockSlot`, `add-content`,
+`add-nested`, mode/spaces/weights, the style popup, identity, theme, templates
+and presets are the same components they were. They live in
+`CanvasInspector`'s Options pane. The page starts selected so those controls
+are on screen without an extra click. Switching to Add must not unmount
+Options — drag geometry and nested add live on that tree. Empty canvas or
+Escape deselects; Preview is still hide-controls (`CHROME_SCOPE`). Do not
+`sr-only` or `aria-hidden` a card to "focus" the selection: that kills mouse
+drag rectangles and nested editors.
 
 It used to be a card — a label, `p-3`, a rounded face carrying `--surface` at
 90% alpha, a border, and the author's `--field` on an in-flow box. All of that
@@ -1532,12 +1546,13 @@ with the draft now, exactly as a public route does, so the page an author is
 building IS the document they are looking at. `frame-ancestors` closed back to
 `'none'` with it: the widening on 2026-08-26 had exactly one beneficiary.
 
-**The section previews use the REAL renderers.** `SectionPreviewTray` draws each
-top-level container with `Block` from `blocks.tsx` — the component both public
-pages are built from — handed the same tree the save will send, parsed by
-`lenientBlockSchema` because the editor's tree is mid-edit. A malformed
-in-progress section disappears from its own tray rather than taking down the
-editor or hiding its valid neighbours. A second renderer would have looked
+**The section previews use the REAL renderers.** The editor's `editor-canvas`
+draws each top-level seat with `Block` from `blocks.tsx` — the component both
+public pages are built from — handed the same tree the save will send, parsed
+by `lenientBlockSchema` because the editor's tree is mid-edit. A malformed
+in-progress section disappears from the canvas rather than taking down the
+editor or hiding its valid neighbours. `SectionPreviewTray` is the same pairing
+for tests that mount a tray alone. A second renderer would have looked
 identical the day it was written and drifted the first time either changed.
 
 **A tray restates `--ink`.** It is a control token, so it never reaches the
