@@ -719,15 +719,14 @@ describe("FursonaEditor", () => {
     expect(toolbar).toContainElement(screen.getByTestId("writing-in"));
   });
 
-  it("leaves the theme panel above the sections it governs", () => {
+  it("keeps the theme panel and sections in the same Options workbench", () => {
     renderEditor();
     fireEvent.click(screen.getByTestId("select-page"));
+    const inspector = screen.getByTestId("canvas-inspector");
     const theme = screen.getByTestId("theme-open");
     const sections = screen.getByTestId("section-card");
-    expect(
-      theme.compareDocumentPosition(sections) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(inspector).toContainElement(theme);
+    expect(inspector).toContainElement(sections);
   });
 
   // The identity fields carried their opaque backing with none of the chrome

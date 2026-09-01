@@ -1292,9 +1292,10 @@ it (2026-08-31).** `BlockCard`, `LeafEditor`, `BlockSlot`, `add-content`,
 and presets are the same components they were. They live in
 `CanvasInspector`'s Options pane. The page starts selected so those controls
 are on screen without an extra click. Switching to Add must not unmount
-Options — the inactive pane may be `display: none`, preserving its component
-state, and must be laid out again before a grip is offered. Empty canvas or
-Escape deselects; Preview is still hide-controls (`CHROME_SCOPE`). Do not
+Options — the inactive pane uses the native `hidden` attribute, preserving its
+component state while withdrawing its controls from layout and accessibility,
+and must be laid out again before a grip is offered. Empty canvas or Escape
+deselects; Preview is still hide-controls (`CHROME_SCOPE`). Do not
 `sr-only` or `aria-hidden` an actionable card to "focus" the selection: that
 kills mouse drag rectangles or leaves invisible nested editors in the
 accessibility tree.

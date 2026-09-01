@@ -53,10 +53,12 @@ export interface CanvasInspectorProps {
  * It is a sibling of the canvas, so its clicks never reach the canvas's
  * deselection handler.
  *
- * **Both panes stay mounted.** The inactive pane is hidden rather than
- * removed, so switching tabs preserves the existing `BlockCard` tree and its
- * local state. Options becomes laid out again before a grip can be used, which
- * gives dnd-kit current rectangles without exposing two panes at once.
+ * **Both panes stay mounted.** The inactive pane uses the native `hidden`
+ * attribute rather than being removed, so switching tabs preserves the
+ * existing `BlockCard` tree and its local state while also removing inactive
+ * controls from the accessibility tree. Options becomes laid out again before
+ * a grip can be used, which gives dnd-kit current rectangles without exposing
+ * two panes at once.
  *
  * On desktop the inspector sits below the toolbar in the stacking order and
  * is wide enough for the existing nested card controls to wrap inside it.
@@ -104,8 +106,10 @@ export function CanvasInspector({
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <div className={tab === "add" ? "grid gap-2" : "hidden"}>{add}</div>
-        <div className={tab === "options" ? "grid gap-2" : "hidden"}>
+        <div hidden={tab !== "add"} className="grid gap-2">
+          {add}
+        </div>
+        <div hidden={tab !== "options"} className="grid gap-2">
           {options}
         </div>
       </div>
