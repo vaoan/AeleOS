@@ -1856,6 +1856,25 @@ replace`, so the newest body of a function could sit in a file named after
   Spec: `docs/superpowers/specs/2026-08-27-the-editor-wears-the-page-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-the-editor-wears-the-page.md`.
 
+- **The editor is canvas-first (2026-08-31).** This is a UI migration over
+  the editor above, not a replacement for its functions or document. The live
+  page is the canvas; selecting it or one of its positional
+  `data-block-path`s opens a hideable Add/Options inspector. `BlockCard`,
+  `LeafEditor`, `BlockSlot`, `moveBlock`, nested add, style controls, identity,
+  theme, templates, presets, the JSON dock and hide-controls Preview remain
+  the same mechanisms.
+
+  The workbench tree mounts once in Options and remains mounted when Add is
+  shown. Hiding or duplicating cards to focus a selection breaks dnd-kit's
+  measured rectangles, nested editing, or both. A leaf added at page level is
+  wrapped in an unnamed one-place stack so depth 0 remains containers; no
+  stored schema changed.
+
+  Spec:
+  `docs/superpowers/specs/2026-08-31-canvas-inspector-builder-design.md`.
+  Plan:
+  `docs/superpowers/plans/2026-08-31-canvas-inspector-builder.md`.
+
 - **A page has a source (2026-08-28) — done.** The editor carries a live,
   two-way JSON dock: a page can be inspected, copied out, pasted
   in, and authored by a language model against a reference the dock publishes.

@@ -347,10 +347,10 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
   expect(contentBox).not.toBeNull();
   const outside = {
     name: "outside",
-    x: Math.max(2, Math.round(contentBox!.x / 2)),
-    // Viewport coordinates, unlike the document-height box: the controls above
-    // have scrolled the form, so a point derived from its current y can be
-    // negative and `getImageData` would honestly answer transparent black.
+    // The inspector now occupies the space left of the document. Probe the
+    // opposite viewport edge, still outside the centred content column, so
+    // this remains a reading of the body's atmosphere rather than chrome.
+    x: VIEWPORT.width - 2,
     y: Math.round(VIEWPORT.height / 2),
   };
   const openPaint = await sampleColours(page, [outside]);

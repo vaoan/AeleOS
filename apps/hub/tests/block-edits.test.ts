@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  addContentAt,
   addTableCell,
   addTableRow,
   addToPlace,
   appendPlace,
+  blockAt,
   clearAt,
   mayNest,
   moveSection,
@@ -20,11 +22,13 @@ import {
   setTableCell,
   setTableRowIcon,
   SPACE_CHOICES,
+  wrapLeafOnPage,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import {
   BLOCK_LIMITS,
   blocksSchema,
+  countBlocks,
   isContainer,
   MAX_DEPTH,
   type Block,
@@ -664,5 +668,126 @@ describe("a table leaf's rows", () => {
   it("changes nothing when the path names a container", () => {
     const page = withTable([[{ text_en: "a" }]]);
     expect(addTableRow(page, [0])).toEqual(page);
+  });
+});
+
+describe("blockAt", () => {
+  it("answers the block at a nested path and null when there is none", () => {
+    const page = gapped();
+    expect(blockAt(page, [0])?.kind).toBe("container");
+    expect(blockAt(page, [0, 0])).toEqual(leaf("a"));
+    expect(blockAt(page, [0, 1])).toBeNull();
+    expect(blockAt(page, [0, 9])).toBeNull();
+    expect(blockAt(page, [3])).toBeNull();
+    expect(blockAt(page, [])).toBeNull();
+  });
+
+  it("stops when a path walks through a leaf", () => {
+    const page = gapped();
+    expect(blockAt(page, [0, 0, 0])).toBeNull();
+  });
+});
+
+describe("wrapLeafOnPage", () => {
+  it("appends an unnamed stack section holding the leaf", () => {
+    const page = wrapLeafOnPage([], leaf("Hello"));
+    expect(page).toHaveLength(1);
+    const section = page[0];
+    expect(section && isContainer(section)).toBe(true);
+    if (!section || !isContainer(section)) throw new Error("expected section");
+    expect(section.mode).toBe("stack");
+    expect(section.spaces).toBe(1);
+    expect(section.name_en).toBe("");
+    expect(section.children).toEqual([leaf("Hello")]);
+  });
+
+  it("leaves a page at the block cap unchanged by identity", () => {
+    const full: Block[] = Array.from({ length: BLOCK_LIMITS.blocks }, () =>
+      leaf("x"),
+    );
+    expect(countBlocks(full)).toBe(BLOCK_LIMITS.blocks);
+    expect(wrapLeafOnPage(full, leaf("y"))).toBe(full);
+  });
+});
+
+describe("addContentAt", () => {
+  it("wraps a leaf dropped on the page", () => {
+    const page = addContentAt([], [], leaf("Picture"));
+    const section = page[0];
+    expect(section && isContainer(section) && section.mode).toBe("stack");
+  });
+
+  it("appends a container dropped on the page as a section", () => {
+    const section = newContainer("grid", 2);
+    const page = addContentAt([newContainer("stack", 1)], [], section);
+    expect(page).toHaveLength(2);
+    expect(page[1]).toEqual(section);
+  });
+
+  it("refuses a section on a page already at the block cap", () => {
+    const full: Block[] = Array.from({ length: BLOCK_LIMITS.blocks }, () =>
+      leaf("x"),
+    );
+    expect(addContentAt(full, [], newContainer("grid", 1))).toBe(full);
+  });
+
+  it("does not grow a section already at the children cap", () => {
+    const packed: Block[] = [
+      {
+        ...newContainer("stack", 1),
+        children: Array.from({ length: BLOCK_LIMITS.children }, (_, index) =>
+          leaf(String(index)),
+        ),
+      },
+    ];
+    expect(addContentAt(packed, [0], leaf("more"))).toBe(packed);
+  });
+
+  it("fills the first empty place of a section", () => {
+    const page = addContentAt(gapped(), [0], leaf("mid"));
+    expect(titlesOf(page[0])).toEqual(["a", "mid", "b"]);
+  });
+
+  it("appends a place when the section has no empty one", () => {
+    const packed: Block[] = [
+      {
+        ...newContainer("grid", 2),
+        children: [leaf("a"), leaf("b")],
+      },
+    ];
+    const page = addContentAt(packed, [0], leaf("c"));
+    expect(titlesOf(page[0])).toEqual(["a", "b", "c"]);
+  });
+
+  it("wraps a leaf target in a stack when nesting is allowed", () => {
+    const page = addContentAt(gapped(), [0, 0], leaf("beside"));
+    const at = blockAt(page, [0, 0]);
+    expect(at && isContainer(at) && at.mode).toBe("stack");
+    expect(at && isContainer(at) && titlesOf(at)).toEqual(["a", "beside"]);
+  });
+
+  it("does not wrap a leaf past the depth cap", () => {
+    const deep: Block[] = [
+      {
+        ...newContainer("stack", 1),
+        children: [
+          {
+            ...newContainer("stack", 1),
+            children: [
+              {
+                ...newContainer("stack", 1),
+                children: [leaf("bottom")],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    expect(addContentAt(deep, [0, 0, 0, 0], leaf("no"))).toEqual(deep);
+  });
+
+  it("changes nothing when the path names nothing", () => {
+    const page = gapped();
+    expect(addContentAt(page, [9], leaf("ghost"))).toBe(page);
   });
 });

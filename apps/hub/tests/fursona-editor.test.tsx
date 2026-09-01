@@ -408,6 +408,13 @@ describe("FursonaEditor", () => {
     expect(lastActorRef).toBe("ref-1");
   });
 
+  it("shows identity and theme on load, because the page starts selected", () => {
+    renderEditor();
+    expect(screen.getByTestId("editor-handle")).toBeInTheDocument();
+    expect(screen.getByTestId("theme-open")).toBeInTheDocument();
+    expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+  });
+
   it("saves what was typed", async () => {
     renderEditor();
     fireEvent.change(screen.getByLabelText("Handle"), {
@@ -712,14 +719,14 @@ describe("FursonaEditor", () => {
     expect(toolbar).toContainElement(screen.getByTestId("writing-in"));
   });
 
-  it("leaves the theme panel above the sections it governs", () => {
+  it("keeps the theme panel and sections in the same Options workbench", () => {
     renderEditor();
+    fireEvent.click(screen.getByTestId("select-page"));
+    const inspector = screen.getByTestId("canvas-inspector");
     const theme = screen.getByTestId("theme-open");
-    const sections = screen.getByTestId("add-section");
-    expect(
-      theme.compareDocumentPosition(sections) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    const sections = screen.getByTestId("section-card");
+    expect(inspector).toContainElement(theme);
+    expect(inspector).toContainElement(sections);
   });
 
   // The identity fields carried their opaque backing with none of the chrome
@@ -730,6 +737,7 @@ describe("FursonaEditor", () => {
   // after the shared pattern moved out from under it.
   it("gives the identity fields the same card as every other workbench group", () => {
     renderEditor();
+    fireEvent.click(screen.getByTestId("select-page"));
     const identity = screen.getByTestId("editor-identity-fields");
     const panel = screen.getByTestId("theme-open").closest("section");
 
@@ -753,6 +761,7 @@ describe("FursonaEditor", () => {
       },
     });
 
+    fireEvent.click(screen.getByTestId("select-page"));
     fireEvent.change(screen.getByLabelText("Handle"), {
       target: { value: "live-handle" },
     });

@@ -10,6 +10,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
+import { openPageAdd } from "./support/editor";
 
 // One sign-in for the "signed in" describe below: each of its cases drives
 // its own viewport against `/es/me`, `/es/pages` or a fresh `/es/pages/new`
@@ -221,8 +222,10 @@ test.describe("every phone screen, signed in", () => {
 
       await page.goto("/es/pages/new");
       await page.getByTestId("theme-open").click();
+      await openPageAdd(page);
       await page.getByTestId("template-picker").click();
       await page.getByTestId("template-reference-sheet").click();
+      await page.getByTestId("inspector-tab-options").click();
       await expect(page.getByTestId("section-name").first()).toBeVisible();
 
       await fits(page, `the editor at ${viewport.name}`);

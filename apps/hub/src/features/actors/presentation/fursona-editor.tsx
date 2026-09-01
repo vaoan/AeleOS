@@ -546,6 +546,11 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * stays mounted regardless of `sourceOpen`, so closing the dock keeps the
  * text and problems it was showing rather than throwing them away.
  *
+ * **Identity and theme are handed to `BlockEditor` as page Options.** This is
+ * a presentation move only: the same registered fields and
+ * `ThemeConfigurator` stay mounted, while `BlockEditor` owns inspector
+ * selection beside the section field it already controlled.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -785,135 +790,124 @@ export function FursonaEditor({
               errors={{ ...schemaErrors, ...fieldErrors }}
               labels={{ title: labels.bannerTitle, errors: labels.errors }}
             />
-
-            {/* Explicit htmlFor/id rather than wrapping each input in its label.
-          A wrapping label takes its whole text content as the field's
-          accessible name, so the handle's hint became part of the name and it
-          announced as "Handle 1-32 characters." The hint is attached with
-          aria-describedby instead, which is what it is for. */}
-            {/* **The same container every other workbench group gets.** This one
-          held the opaque backing without the chrome around it, so on a themed
-          page it read as a bare rectangle floating on the author's field while
-          the theme panel, the language toggle and every section below it were
-          rounded, bordered cards. The backing is unchanged — it is what keeps
-          these labels off a hostile field — and only the card's own shape has
-          been added to it. */}
-            <div
-              {...tid("editor-identity-fields")}
-              className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
-            >
-              {/* **A person has no handle field at all.** Theirs is the provisioned
-            `u-<actor_ref>`, which nobody picks and which appears in no
-            address — so there is nothing to edit and nothing worth showing.
-            Everything else on this form is identical for both. */}
-              {kind === "person" ? null : (
-                <div className="grid gap-1.5">
-                  <label htmlFor="handle" className="text-sm font-medium">
-                    {labels.handle}
-                  </label>
-                  {handleEditable ? (
-                    <>
-                      <input
-                        id="handle"
-                        {...tid("editor-handle")}
-                        {...register("handle")}
-                        maxLength={32}
-                        aria-invalid={Boolean(errors.handle)}
-                        aria-describedby="handle-hint"
-                        className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                      />
-                      <span id="handle-hint" className="text-xs text-(--muted)">
-                        {labels.handleHint}
-                      </span>
-                    </>
-                  ) : (
-                    // Read-only text rather than a disabled input: update_fursona takes
-                    // no handle at all, so an editable one would submit a value the
-                    // database ignores.
-                    <span className="px-3 py-2 font-mono text-sm text-(--muted)">
-                      @{initial?.handle}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="grid gap-1.5">
-                <label htmlFor="displayName" className="text-sm font-medium">
-                  {labels.displayName}
-                </label>
-                <input
-                  id="displayName"
-                  {...tid("editor-display-name")}
-                  {...register("displayName")}
-                  maxLength={64}
-                  aria-invalid={Boolean(errors.displayName)}
-                  className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                />
-              </div>
-
-              <div className="grid gap-1.5">
-                <label htmlFor="avatarUrl" className="text-sm font-medium">
-                  {labels.avatarUrl}
-                </label>
-                <input
-                  id="avatarUrl"
-                  {...register("avatarUrl")}
-                  type="url"
-                  aria-invalid={Boolean(errors.avatarUrl)}
-                  className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                />
-              </div>
-
-              <div className="grid gap-1.5">
-                <label htmlFor="visibility" className="text-sm font-medium">
-                  {labels.visibilityLabel}
-                </label>
-                <select
-                  id="visibility"
-                  {...tid("editor-visibility")}
-                  {...register("visibility")}
-                  aria-invalid={Boolean(errors.visibility)}
-                  className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
-                >
-                  {VISIBILITIES.map((value) => (
-                    <option key={value} value={value}>
-                      {labels.visibility[value]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Above the language strip and the sections, because it governs how
-          all of them look. The panel is collapsed until somebody opens it —
-          theming is a thing people do once and then leave alone, and an open
-          colour panel would push everything below it down the page for
-          everybody who never touches it. */}
-            <div className="mt-8">
-              <ThemeController
-                control={control}
-                labels={labels.theme}
-                profileTheme={profileTheme}
-              />
-            </div>
           </WidePageColumn>
 
           <BlockEditor
             control={control}
             lang={lang}
             labels={labels}
-            // The picker's choice takes the same path a pasted document does.
             onApplyDocument={(chosen) => applyDocumentTo(setValue, chosen)}
-            // **Asked about, never styled with.** It is what lets the picker
-            // warn somebody who has chosen colours and nothing else.
             theme={liveTheme as ActorTheme}
-            // **The LIVE form values, not the saved ones.** An identity leaf
-            // renders from the page context, and every section previews with the
-            // real renderer — so handing the context the route built would show
-            // somebody the portrait they had before they started editing, and the
-            // preview would quietly disagree with the form six inches above it.
             page={livePage}
             problems={problems}
+            pageOptions={
+              <>
+                <div
+                  {...tid("editor-identity-fields")}
+                  className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
+                >
+                  {/* **A person has no handle field at all.** Theirs is the provisioned
+            `u-<actor_ref>`, which nobody picks and which appears in no
+            address — so there is nothing to edit and nothing worth showing.
+            Everything else on this form is identical for both. */}
+                  {kind === "person" ? null : (
+                    <div className="grid gap-1.5">
+                      <label htmlFor="handle" className="text-sm font-medium">
+                        {labels.handle}
+                      </label>
+                      {handleEditable ? (
+                        <>
+                          <input
+                            id="handle"
+                            {...tid("editor-handle")}
+                            {...register("handle")}
+                            maxLength={32}
+                            aria-invalid={Boolean(errors.handle)}
+                            aria-describedby="handle-hint"
+                            className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                          />
+                          <span
+                            id="handle-hint"
+                            className="text-xs text-(--muted)"
+                          >
+                            {labels.handleHint}
+                          </span>
+                        </>
+                      ) : (
+                        // Read-only text rather than a disabled input: update_fursona takes
+                        // no handle at all, so an editable one would submit a value the
+                        // database ignores.
+                        <span className="px-3 py-2 font-mono text-sm text-(--muted)">
+                          @{initial?.handle}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid gap-1.5">
+                    <label
+                      htmlFor="displayName"
+                      className="text-sm font-medium"
+                    >
+                      {labels.displayName}
+                    </label>
+                    <input
+                      id="displayName"
+                      {...tid("editor-display-name")}
+                      {...register("displayName")}
+                      maxLength={64}
+                      aria-invalid={Boolean(errors.displayName)}
+                      className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label htmlFor="avatarUrl" className="text-sm font-medium">
+                      {labels.avatarUrl}
+                    </label>
+                    <input
+                      id="avatarUrl"
+                      {...register("avatarUrl")}
+                      type="url"
+                      aria-invalid={Boolean(errors.avatarUrl)}
+                      className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label htmlFor="visibility" className="text-sm font-medium">
+                      {labels.visibilityLabel}
+                    </label>
+                    <select
+                      id="visibility"
+                      {...tid("editor-visibility")}
+                      {...register("visibility")}
+                      aria-invalid={Boolean(errors.visibility)}
+                      className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
+                    >
+                      {VISIBILITIES.map((value) => (
+                        <option key={value} value={value}>
+                          {labels.visibility[value]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Above the language strip and the sections, because it governs how
+          all of them look. The panel is collapsed until somebody opens it —
+          theming is a thing people do once and then leave alone, and an open
+          colour panel would push everything below it down the page for
+          everybody who never touches it. */}
+                <div className="mt-8">
+                  <ThemeController
+                    control={control}
+                    labels={labels.theme}
+                    profileTheme={profileTheme}
+                  />
+                </div>
+              </>
+            }
           />
         </div>
 

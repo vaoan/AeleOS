@@ -6,7 +6,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { liftByKeyboard } from "./support/drag";
-import { chooseNewSectionSpaces } from "./support/editor";
+import { chooseNewSectionSpaces, openPageAdd } from "./support/editor";
 import {
   establishSharedSession,
   sharedStatePath,
@@ -83,10 +83,12 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   // Two sections, built by hand — a template inserts sections as data without
   // touching a grip at all, which would prove nothing here.
   await chooseNewSectionSpaces(page, "2");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("First");
 
   await chooseNewSectionSpaces(page, "3");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
   await page.getByTestId("section-name").last().fill("Second");
 
@@ -156,7 +158,9 @@ test("a piece of content dragged by keyboard moves into another section's place"
   await page.goto("/es/pages/new");
 
   await chooseNewSectionSpaces(page, "2");
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
+  await openPageAdd(page);
   await page.getByTestId("add-section").click();
 
   // **Scoped to the first section this test built, which is the SECOND card.**

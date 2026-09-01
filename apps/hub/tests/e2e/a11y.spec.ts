@@ -18,6 +18,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
+import { openPageAdd } from "./support/editor";
 
 // One sign-in for "the signed-in pages are accessible" below: both of its
 // cases read or extend the same shared identity's own pages, and neither
@@ -152,6 +153,7 @@ test.describe("a person's first visit ever is straight to /pages/new", () => {
     try {
       await signIn(page, await mintTicket(fresh.userId));
       await page.goto("/es/pages/new");
+      await openPageAdd(page);
       await expect(page.getByTestId("add-section")).toBeVisible();
 
       // The owner card's own link carries the address as its visible text —
@@ -210,7 +212,9 @@ test.describe("the signed-in pages are accessible", () => {
     // the one where a control without a name is most likely to appear, since
     // half of it is colour swatches and sliders.
     await page.goto("/es/pages/new");
+    await openPageAdd(page);
     await expect(page.getByTestId("add-section")).toBeVisible();
+    await page.getByTestId("inspector-tab-options").click();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
     // **A section of this test's own, and the assertions below depend on it.**
@@ -220,6 +224,7 @@ test.describe("the signed-in pages are accessible", () => {
     // `section-style-open` inside it resolves to two elements, its own and its
     // child's. Removing this line when the framed preview went is exactly the
     // fault it caused.
+    await openPageAdd(page);
     await page.getByTestId("add-section").click();
     await page.getByTestId("section-name").last().fill("A section of my own");
 
@@ -279,6 +284,7 @@ test.describe("the signed-in pages are accessible", () => {
   // rather than cherry-picked.
   test("the editor with the source dock open", async ({ page }) => {
     await page.goto("/es/pages/new");
+    await openPageAdd(page);
     await expect(page.getByTestId("add-section")).toBeVisible();
 
     await page.getByTestId("editor-open-source").click();

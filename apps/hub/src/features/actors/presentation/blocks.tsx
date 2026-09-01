@@ -1115,6 +1115,10 @@ function Leaf(props: LeafProps): ReactNode {
  * The page chrome it lays around a depth-0 section is `--page-edge` and
  * `--page-gap` rather than fixed classes, so a page's `spacing` reaches
  * BETWEEN its sections and not only inside their cards.
+ *
+ * Every rendered block also exposes its positional `data-block-path`. Public
+ * pages ignore that inert attribute; the editor canvas uses it to map a click
+ * back to the same array path the existing edit and drag functions consume.
  */
 export function Block({
   block,
@@ -1132,6 +1136,7 @@ export function Block({
         className="@container min-w-0"
         style={style}
         data-block-kind={block.kind}
+        data-block-path={path}
         {...tid("public-leaf")}
       >
         <Leaf leaf={block} locale={locale} labelled={labelled} page={page} />
@@ -1239,6 +1244,7 @@ export function Block({
     <section
       className={`@container grid min-w-0 grid-cols-[minmax(0,1fr)] ${HEADING_GAP.get(block.style?.heading_gap ?? "") ?? (barred ? "gap-0" : "gap-3")}`}
       style={style}
+      data-block-path={path}
       {...marker}
     >
       {name ? (

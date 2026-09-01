@@ -154,6 +154,15 @@ const stylePopupLabels = {
   radiusRound: "Round",
 };
 
+/**
+ * Supplies one stable English label bag for editor presentation tests.
+ *
+ * It includes the canvas inspector's Page, Add and Options words so tests use
+ * the same complete contract as the translated route rather than filling new
+ * controls with ad-hoc labels per fixture.
+ *
+ * @returns every label the block editor and its existing child controls need.
+ */
 export function blockEditorLabels(): BlockEditorLabels {
   return {
     sectionsTitle: "Sections",
@@ -161,6 +170,10 @@ export function blockEditorLabels(): BlockEditorLabels {
     addSection: "Add section",
     newSectionSpaces: "New section shape",
     addSectionFor: "Add a section for…",
+    selectPage: "Page",
+    inspectorAdd: "Add",
+    inspectorOptions: "Options",
+    wrapInLayout: "Wrap in a layout",
     atLimit: "At the limit.",
     dragSection: "Drag to reorder section",
     dragBlock: "Drag to move this",

@@ -127,14 +127,21 @@ test("the save bar stays pinned all the way down", async ({ page }) => {
   const height = await page.evaluate(
     () => document.documentElement.scrollHeight,
   );
-  // The fixture has to be long enough for the question to mean anything.
+  // The fixture has to extend well past the viewport for the question to mean
+  // anything. The canvas migration deliberately removed the duplicate
+  // workbench cards from document flow, so an absolute 3000px floor would
+  // measure the old UI rather than whether the bar can come unstuck.
   expect(height, "the seeded page is long enough to scroll").toBeGreaterThan(
-    3000,
+    1400,
   );
 
   const barTop = await barOffset(page, "--bar-top");
 
-  for (const to of [1200, 2400, height - 900]) {
+  for (const to of [
+    Math.round((height - 900) / 3),
+    Math.round(((height - 900) * 2) / 3),
+    height - 900,
+  ]) {
     await page.evaluate(
       (top) => window.scrollTo({ top, behavior: "instant" }),
       to,

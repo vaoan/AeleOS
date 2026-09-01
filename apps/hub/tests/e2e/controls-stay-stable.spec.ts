@@ -143,7 +143,7 @@ async function pageLooks(page: Page): Promise<string> {
 }
 
 /**
- * Opens the editor with the theme panel already showing.
+ * Opens Page Options with the theme panel already showing.
  *
  * @param page - the browser page.
  */
@@ -151,6 +151,8 @@ async function openEditor(page: Page): Promise<void> {
   await signIn(page, await mintTicket(identity!.userId));
   await page.setViewportSize({ width: 1400, height: 1000 });
   await page.goto(`/es/pages/${handle}/edit`);
+  await page.getByTestId("select-page").click();
+  await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("theme-open").click();
   await expect(page.getByTestId("theme-spacing")).toBeVisible();
 }

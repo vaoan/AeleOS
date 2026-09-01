@@ -20,6 +20,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
 } from "react";
 import {
   useController,
@@ -31,14 +34,26 @@ import {
   BLOCK_LIMITS,
   countBlocks,
   isContainer,
+  lenientBlockSchema,
   type Block,
+  type LeafKind,
 } from "@/features/actors/domain/block-schema";
 import {
+  addContentAt,
+  blockAt,
+  mayNest,
   newContainer,
+  newLeaf,
   setAt,
   SPACE_CHOICES,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
+import {
+  formatBlockPath,
+  parseBlockPath,
+  sameSelection,
+  type EditorSelection,
+} from "@/features/actors/domain/editor-selection";
 import {
   placeId,
   placeName,
@@ -72,6 +87,15 @@ import {
 } from "@/features/actors/presentation/block-card";
 import { BlockSlot } from "@/features/actors/presentation/block-slot";
 import {
+  CanvasInspector,
+  type InspectorTab,
+} from "@/features/actors/presentation/canvas-inspector";
+import {
+  Block as PublicBlock,
+  DEFAULT_PAGE_MEASURE,
+  pageBoxClass,
+} from "@/features/actors/presentation/blocks";
+import {
   dragAnnouncements,
   type DragAnnouncementLabels,
 } from "@/features/actors/presentation/drag-announcements";
@@ -80,7 +104,6 @@ import {
   SECTION_PRESETS,
   presetBlock,
 } from "@/features/actors/presentation/section-presets";
-import { SectionPreviewTray } from "@/features/actors/presentation/section-preview-tray";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { WidePageColumn } from "@/shared/presentation/page-shell";
 import {
@@ -118,8 +141,9 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * `drag` is nested for the same reason `style` and `theme` are: it has words
  * of its own that would collide flat.
  *
- * `previewTitle` lives here rather than in `BlockCardLabels` because this level
- * renders each top-level card and its sibling real-renderer tray together.
+ * The inspector words live here too: this level owns selection and decides
+ * whether Add or Options is shown, while each existing card remains
+ * responsible for its own editing labels.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -147,6 +171,14 @@ export interface BlockEditorLabels
    * catalogue for the whole preset control.
    */
   addSectionFor: string;
+  /** Selects the page itself, so the inspector can edit identity and theme. */
+  selectPage: string;
+  /** The inspector tab that places new content. */
+  inspectorAdd: string;
+  /** The inspector tab that edits the selection. */
+  inspectorOptions: string;
+  /** Wraps the selected content in a layout. */
+  wrapInLayout: string;
 }
 
 /**
@@ -171,12 +203,12 @@ export interface BlockEditorLabels
  * than applied here, and lands in the same `applyDocumentTo` a pasted document
  * goes through.
  *
- * **It takes a `PageContext` and reads none of it**, threading it to the preview
- * trays so the real renderer sees the live actor. It takes a `theme` only to
- * ASK about it: nothing here paints from one, because the DOCUMENT wears the
- * page being built and a section preview inherits the author's palette, skin
- * and field from `:root` the same way a stranger's browser will. What keeps that off the workbench is `CHROME_SCOPE` on each
- * control island, not a boundary around each preview.
+ * **It takes a `PageContext` for the canvas renderer**, so the same `Block`
+ * components a public route uses see the live actor. It takes a `theme` only
+ * to ASK about it: nothing here paints from one, because the DOCUMENT wears
+ * the page being built and the canvas inherits the author's palette, skin and
+ * field from `:root` the same way a stranger's browser will. What keeps that
+ * off the inspector workbench is `CHROME_SCOPE` on each control island.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -220,6 +252,14 @@ export interface BlockEditorProps<T extends FieldValues> {
    * confirmation, because the call site never told the predicate about them.
    */
   theme: ActorTheme | null;
+  /**
+   * Identity fields and the theme panel, always in Options.
+   *
+   * Owned above because they are form fields this component does not hold.
+   * Absent in unit tests that only exercise the page tree. They stay mounted
+   * with every `BlockCard` so switching to Add cannot hide someone's handle.
+   */
+  pageOptions?: ReactNode;
 }
 
 /** The shape a new section starts at, before anybody changes it. */
@@ -384,6 +424,21 @@ const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
  * which is the same reasoning that withdraws a refused kind from the leaf
  * select rather than letting the database explain it afterwards.
  *
+ * **The UI migration preserves the editor tree.** `BlockCard`, `LeafEditor`,
+ * `BlockSlot`, nested add, style controls and dnd-kit still mount once in the
+ * Options pane. Selection changes where the inspector points and adds a light
+ * canvas outline; it does not replace any document operation.
+ * Deselecting unmounts that one workbench rather than parking a second copy
+ * off screen, where browser automation and keyboard navigation could still
+ * discover controls that no viewport could reach. Escape is captured before
+ * an inspector popup can detach its focused field, so closing that popup does
+ * not accidentally deselect the page.
+ *
+ * Cards precede page fields inside Options so the controls that move and edit
+ * nested blocks remain within the inspector's initial viewport. The inspector
+ * still contains the same single card tree; this ordering does not create a
+ * second renderer or field registration.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -394,12 +449,15 @@ export function BlockEditor<T extends FieldValues>({
   problems,
   onApplyDocument,
   theme,
+  pageOptions,
 }: BlockEditorProps<T>) {
   const id = useId();
   const dndId = useId();
   const [spaces, setSpaces] = useState(NEW_SPACES);
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [refusal, setRefusal] = useState<MoveRefusal | null>(null);
+  const [selection, setSelection] = useState<EditorSelection>({ kind: "page" });
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("options");
 
   const field = useController({ control, name: "sections" as Path<T> });
   // Memoized so an unwritten field — which answers a fresh `[]` each time —
@@ -568,6 +626,113 @@ export function BlockEditor<T extends FieldValues>({
   };
 
   /**
+   * Deselects on an Escape the canvas itself owns, and no other.
+   *
+   * **The listener is on the CAPTURE phase, and that is the whole of why it
+   * works.** `SectionStylePopup` closes itself from a bubble-phase `document`
+   * listener; React had flushed that close before a bubble listener here ran,
+   * so `event.target` was already detached from the document and
+   * `target.closest(…)` answered null for a field that had genuinely been
+   * inside the inspector. Measured: focus read `section-style-skin` with
+   * `closest` finding the inspector immediately before the key, and the
+   * selection cleared anyway. Capture runs before anything can remove the
+   * target, so the question is asked of a node still in the tree.
+   *
+   * **The inspector and the source dock keep their own Escape.** Both hold
+   * controls that close themselves with it — the style popup, the icon
+   * picker, the dock's own dialog — and closing one of those must not also
+   * throw away what the author had selected.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest(
+          '[data-testid="canvas-inspector"], [data-testid="page-source-dock"]',
+        )
+      ) {
+        return;
+      }
+      setSelection(null);
+    };
+    globalThis.addEventListener("keydown", onKey, true);
+    return () => globalThis.removeEventListener("keydown", onKey, true);
+  }, []);
+
+  /**
+   * Chooses a block from a canvas click, or deselects on empty canvas.
+   *
+   * @param event - the click.
+   */
+  const onCanvasClick = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    const hit = (event.target as Element | null)?.closest("[data-block-path]");
+    if (hit instanceof HTMLElement && event.currentTarget.contains(hit)) {
+      const path = parseBlockPath(hit.dataset.blockPath ?? "");
+      if (path) {
+        const next: EditorSelection = { kind: "block", path };
+        if (!sameSelection(selection, next)) setSelection(next);
+        setInspectorTab("options");
+        return;
+      }
+    }
+    setSelection(null);
+  };
+
+  /**
+   * Places Add-tab content into the current selection, wrapping a leaf on
+   * the page.
+   *
+   * @param path - empty for the page.
+   * @param block - what to add.
+   */
+  const addAt = (path: BlockPath, block: Block): void => {
+    apply((current) => {
+      const next = addContentAt(current, path, block);
+      return next;
+    });
+  };
+
+  /**
+   * After a page-level add, select the new last section.
+   */
+  const addOnPage = (block: Block): void => {
+    apply((current) => addContentAt(current, [], block));
+    setSelection({ kind: "block", path: [blocks.length] });
+    setInspectorTab("options");
+  };
+
+  /**
+   * Reads an Add-tab drag payload.
+   *
+   * @param event - the drop.
+   * @returns the payload text, or nothing.
+   */
+  const droppedKind = (event: DragEvent): string | undefined => {
+    event.preventDefault();
+    return event.dataTransfer.getData("text/plain") || undefined;
+  };
+
+  /**
+   * Turns a drag payload into a block, or undefined when it is not ours.
+   *
+   * @param raw - `leaf:<kind>` or `section`.
+   * @returns the block.
+   */
+  const blockFromPayload = (raw: string): Block | undefined => {
+    if (raw === "section") return newContainer("grid", spaces);
+    if (raw === "layout") return newContainer("stack", 1);
+    if (raw.startsWith("leaf:")) {
+      const kind = raw.slice(5);
+      return kinds.includes(kind as LeafKind)
+        ? newLeaf(kind as LeafKind)
+        : undefined;
+    }
+    return undefined;
+  };
+
+  /**
    * What a drop should be ANNOUNCED as, when it is not an ordinary move.
    *
    * It asks `moveBlock` again rather than reading what `onDragEnd` decided out
@@ -620,71 +785,220 @@ export function BlockEditor<T extends FieldValues>({
     key: `seat-${position}`,
     position,
   }));
+  const selectedPath = selection?.kind === "block" ? selection.path : undefined;
+  const selectedBlock = selectedPath ? blockAt(blocks, selectedPath) : null;
+  const selectedAttr = selectedPath ? formatBlockPath(selectedPath) : "";
+  const measure = page.measure ?? DEFAULT_PAGE_MEASURE;
 
-  return (
-    // **The section is FULL WIDTH and its controls are columned, not the other
-    // way round.** Every depth-0 preview below has to be able to apply the
-    // author's own measure and to bleed to both browser edges, which it cannot
-    // do inside a `max-w-7xl` box — that is the same inversion the public
-    // routes already make, where the route asks the shell for a full-width
-    // `main` and each section centres itself.
-    <section data-editor-stack className="mt-8 grid gap-4">
-      <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
-        {/* **A workbench group PAINTS, because what is behind it is somebody
-            else's page.** These used to be bare text and a ghost button on the
-            app's own muted field. The document wears the author's theme now, so
-            the ground under every control is a colour they chose — and a
-            translucent control has no guaranteed contrast against a colour
-            somebody else picks. */}
-        <div className="grid gap-4 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4">
-          <h2 className="font-display text-lg font-bold tracking-tight">
-            {labels.sectionsTitle}
-          </h2>
-
-          {/* Replaces rather than appends: a template is a starting point, and
-          merging one onto what somebody already wrote produces a page nobody
-          asked for. The picker owns the confirmation that makes that safe. */}
+  const addPalette = (
+    <>
+      {atBlockLimit ? (
+        <p className="text-sm text-(--muted)">{labels.atLimit}</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="grid gap-1.5">
+              <label
+                htmlFor={`${id}-new-spaces`}
+                className="text-xs font-medium"
+              >
+                {labels.newSectionSpaces}
+              </label>
+              <select
+                id={`${id}-new-spaces`}
+                {...tid("new-section-spaces")}
+                value={String(spaces)}
+                onChange={(event) => setSpaces(Number(event.target.value))}
+                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+              >
+                {SPACE_CHOICES.map((count) => (
+                  <option key={count} value={count}>
+                    {count}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              draggable
+              onDragStart={(event) =>
+                event.dataTransfer.setData("text/plain", "section")
+              }
+              {...tid("add-section")}
+              onClick={() => addOnPage(newContainer("grid", spaces))}
+              className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+            >
+              <Plus className="size-4" />
+              {labels.addSection}
+            </button>
+          </div>
+          {kinds.map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              draggable
+              onDragStart={(event) =>
+                event.dataTransfer.setData("text/plain", `leaf:${kind}`)
+              }
+              {...tid(`add-leaf-${kind}`)}
+              onClick={() => addOnPage(newLeaf(kind))}
+              className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+            >
+              {labels.leaf.leafKinds[kind]}
+            </button>
+          ))}
+          <div className="grid gap-1.5">
+            <button
+              type="button"
+              aria-expanded={presetsOpen}
+              {...tid("section-presets")}
+              onClick={() => setPresetsOpen((was) => !was)}
+              className="flex w-fit items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+            >
+              <Sparkles className="size-4" />
+              {labels.addSectionFor}
+            </button>
+            {presetsOpen ? (
+              <div className="flex flex-wrap gap-1.5">
+                {SECTION_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    {...tid(`preset-${preset.id}`)}
+                    onClick={() => {
+                      addOnPage(presetBlock(preset));
+                      setPresetsOpen(false);
+                    }}
+                    className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <TemplatePicker
-            // **Has the AUTHOR written anything**, not "are there any sections".
-            // Every page now opens carrying its required blocks, so the plain
-            // count is true of a page nobody has touched — and the confirmation
-            // this drives would then warn somebody about losing work they had not
-            // done. See `holdsNothingAuthored`.
             hasSections={!holdsNothingAuthored(blocks, page.actorKind, theme)}
-            // **Only what could actually be applied here.** An era look is a
-            // FURSONA document — it names `owner`, which has nothing to render
-            // on somebody's own profile — so offering one at `/me/edit` would
-            // hand them a page that applies cleanly and then cannot be saved.
-            // The same reasoning withdraws a refused kind from the leaf select
-            // rather than letting the database explain it afterwards.
             templates={FURSONA_TEMPLATES.filter((template) =>
               fitsActorKind(template.blocks, page.actorKind),
             )}
             labels={labels}
-            // **The shim runs on the converted template.** A template ships
-            // structure in the flat vocabulary and names no identity block, and
-            // applying one REPLACES the page — so without this, choosing a
-            // template would silently strip somebody's portrait and handle and
-            // leave a page the write then refuses. The templates themselves are
-            // deliberately left alone: they are what the app suggests somebody
-            // write, and the identity blocks are not that.
-            // **`withRequiredBlocks` still runs, and for the reason above it
-            // always did**: a template names no identity block and applying one
-            // REPLACES the page, so without this a template would silently
-            // strip somebody's portrait and handle and leave a page the write
-            // then refuses. The theme rides up untouched — this component has
-            // no opinion about a look and no field to put one in.
-            onApply={({ blocks: chosen, theme }) =>
+            onApply={({ blocks: chosen, theme: nextTheme }) =>
               onApplyDocument({
                 blocks: withRequiredBlocks(chosen, page.actorKind),
-                theme,
+                theme: nextTheme,
               })
             }
           />
+          {selectedBlock && isContainer(selectedBlock)
+            ? kinds.map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  draggable
+                  onDragStart={(event) =>
+                    event.dataTransfer.setData("text/plain", `leaf:${kind}`)
+                  }
+                  {...tid(`add-into-${kind}`)}
+                  onClick={() => addAt(selectedPath!, newLeaf(kind))}
+                  className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+                >
+                  {labels.leaf.leafKinds[kind]}
+                </button>
+              ))
+            : null}
+          {selectedBlock &&
+          !isContainer(selectedBlock) &&
+          selectedPath &&
+          mayNest(selectedPath) ? (
+            <button
+              type="button"
+              {...tid("wrap-in-layout")}
+              onClick={() =>
+                apply((current) =>
+                  setAt(current, selectedPath, {
+                    ...newContainer("stack", 1),
+                    name_en: "",
+                    children: [selectedBlock],
+                  }),
+                )
+              }
+              className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+            >
+              {labels.wrapInLayout}
+            </button>
+          ) : null}
+        </>
+      )}
+    </>
+  );
 
-          {/* A refused drop, in words. `moveBlock` names three of them, and a
-          drag that quietly changed nothing would be indistinguishable from a
-          broken grip. */}
+  const optionsPane = (
+    <>
+      {seats.map((seat) => {
+        const selectedHere =
+          selectedPath?.length === 1 && selectedPath[0] === seat.position;
+        return (
+          <div
+            key={seat.key}
+            className={
+              selectedHere ? "rounded-xl ring-2 ring-(--accent)" : undefined
+            }
+          >
+            <BlockSlot path={[seat.position]} filled label={labels.dragSection}>
+              {(handle) =>
+                isContainer(seat.block) ? (
+                  <BlockCard
+                    block={seat.block}
+                    path={[seat.position]}
+                    apply={apply}
+                    lang={lang}
+                    labels={labels}
+                    atBlockLimit={atBlockLimit}
+                    locked={locked}
+                    problems={problems}
+                    dragHandle={handle}
+                    kinds={kinds}
+                  />
+                ) : (
+                  <LeafEditor
+                    leaf={seat.block}
+                    path={[seat.position]}
+                    apply={apply}
+                    lang={lang}
+                    labels={labels.leaf}
+                    problems={problems}
+                    dragHandle={handle}
+                    kinds={kinds}
+                  />
+                )
+              }
+            </BlockSlot>
+          </div>
+        );
+      })}
+      {pageOptions}
+    </>
+  );
+
+  return (
+    <section
+      data-editor-stack
+      className={`mt-8 grid gap-4 ${selection ? "md:pl-[min(36rem,40vw)]" : ""}`}
+    >
+      <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            {...tid("select-page")}
+            onClick={() => {
+              setSelection({ kind: "page" });
+              setInspectorTab("options");
+            }}
+            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+          >
+            {labels.selectPage}
+          </button>
           {refusal ? (
             <p
               role="status"
@@ -693,10 +1007,6 @@ export function BlockEditor<T extends FieldValues>({
             >
               {refusalText(refusal)}
             </p>
-          ) : null}
-
-          {blocks.length === 0 ? (
-            <p className="text-sm text-(--muted)">{labels.empty}</p>
           ) : null}
         </div>
       </WidePageColumn>
@@ -709,148 +1019,84 @@ export function BlockEditor<T extends FieldValues>({
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        <div data-editor-stack className="grid gap-6">
-          {seats.map((seat) => (
-            <div key={seat.key} data-editor-stack className="grid gap-2">
-              <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
-                <BlockSlot
-                  path={[seat.position]}
-                  filled
-                  label={labels.dragSection}
+        <CanvasInspector
+          selection={selection}
+          tab={inspectorTab}
+          onTab={setInspectorTab}
+          labels={{
+            add: labels.inspectorAdd,
+            options: labels.inspectorOptions,
+          }}
+          add={addPalette}
+          options={optionsPane}
+        />
+        <div className={CHROME_SCOPE}>
+          {selectedAttr ? (
+            <style>{`[data-editor-canvas] [data-block-path="${selectedAttr}"] { outline: 2px solid var(--accent); outline-offset: 4px; }`}</style>
+          ) : null}
+        </div>
+
+        {/* A canvas selection is deliberately pointer-only; Escape provides
+            the keyboard path for deselection, while Page in the toolbar
+            provides keyboard selection without turning this document tree
+            into one invalid, giant button. */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+        <div
+          {...tid("editor-canvas")}
+          data-editor-canvas=""
+          data-editor-stack
+          className="grid"
+          onClick={onCanvasClick}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            const raw = droppedKind(event);
+            if (!raw) return;
+            const hit = (event.target as Element | null)?.closest(
+              "[data-block-path]",
+            );
+            const path =
+              hit instanceof HTMLElement
+                ? (parseBlockPath(hit.dataset.blockPath ?? "") ?? [])
+                : [];
+            if (raw === "layout") return;
+            const next = blockFromPayload(raw);
+            if (!next) return;
+            if (path.length === 0) addOnPage(next);
+            else addAt(path, next);
+          }}
+        >
+          {blocks.length === 0 ? (
+            <p className={`${CHROME_SCOPE} px-4 py-8 text-sm text-(--muted)`}>
+              {labels.empty}
+            </p>
+          ) : null}
+          {seats.map((seat, position) => {
+            const parsed = lenientBlockSchema.safeParse(seat.block);
+            if (!parsed.success) return null;
+            return (
+              <div key={seat.key}>
+                <div
+                  {...tid("block-preview")}
+                  className={pageBoxClass(
+                    parsed.data,
+                    position,
+                    blocks.length,
+                    measure,
+                  )}
                 >
-                  {(handle) =>
-                    isContainer(seat.block) ? (
-                      <BlockCard
-                        block={seat.block}
-                        path={[seat.position]}
-                        apply={apply}
-                        lang={lang}
-                        labels={labels}
-                        atBlockLimit={atBlockLimit}
-                        locked={locked}
-                        problems={problems}
-                        dragHandle={handle}
-                        kinds={kinds}
-                      />
-                    ) : (
-                      // **A page may hold a leaf at the top level**, and one this
-                      // editor could not show would be content nobody can read or
-                      // remove while every save kept writing it back. Nothing here
-                      // builds one — the add control makes sections — but the
-                      // schema admits one, and a drag can now make one: a section
-                      // dropped into a place puts whatever was there at the top.
-                      <LeafEditor
-                        leaf={seat.block}
-                        path={[seat.position]}
-                        apply={apply}
-                        lang={lang}
-                        labels={labels.leaf}
-                        problems={problems}
-                        dragHandle={handle}
-                        kinds={kinds}
-                      />
-                    )
-                  }
-                </BlockSlot>
-              </WidePageColumn>
-              {isContainer(seat.block) ? (
-                <SectionPreviewTray
-                  block={seat.block}
-                  position={seat.position}
-                  count={blocks.length}
-                  lang={lang}
-                  page={page}
-                />
-              ) : null}
-            </div>
-          ))}
+                  <PublicBlock
+                    block={parsed.data}
+                    locale={lang}
+                    depth={0}
+                    path={String(seat.position)}
+                    page={page}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </DndContext>
-
-      <WidePageColumn className={`${CHROME_SCOPE} grid gap-4 py-0 sm:py-0`}>
-        {atBlockLimit ? (
-          <p className="text-sm text-(--muted)">{labels.atLimit}</p>
-        ) : (
-          <>
-            <div className="flex items-end gap-2">
-              <div className="grid gap-1.5">
-                <label
-                  htmlFor={`${id}-new-spaces`}
-                  className="text-xs font-medium"
-                >
-                  {labels.newSectionSpaces}
-                </label>
-                <select
-                  id={`${id}-new-spaces`}
-                  {...tid("new-section-spaces")}
-                  value={String(spaces)}
-                  onChange={(event) => setSpaces(Number(event.target.value))}
-                  className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-                >
-                  {SPACE_CHOICES.map((count) => (
-                    <option key={count} value={count}>
-                      {count}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                {...tid("add-section")}
-                onClick={() =>
-                  apply((current) =>
-                    setAt(
-                      current,
-                      [current.length],
-                      newContainer("grid", spaces),
-                    ),
-                  )
-                }
-                className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-              >
-                <Plus className="size-4" />
-                {labels.addSection}
-              </button>
-            </div>
-
-            {/* Brand presets append at once — there is nothing to lose by adding
-              a box, unlike the template picker's replace. */}
-            <div className="grid gap-1.5">
-              <button
-                type="button"
-                aria-expanded={presetsOpen}
-                {...tid("section-presets")}
-                onClick={() => setPresetsOpen((was) => !was)}
-                className="flex w-fit items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-              >
-                <Sparkles className="size-4" />
-                {labels.addSectionFor}
-              </button>
-
-              {presetsOpen ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {SECTION_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      {...tid(`preset-${preset.id}`)}
-                      onClick={() => {
-                        apply((current) =>
-                          setAt(current, [current.length], presetBlock(preset)),
-                        );
-                        setPresetsOpen(false);
-                      }}
-                      className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-                    >
-                      {preset.name}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </>
-        )}
-      </WidePageColumn>
     </section>
   );
 }
