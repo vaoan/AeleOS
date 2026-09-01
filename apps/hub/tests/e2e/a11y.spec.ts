@@ -214,6 +214,7 @@ test.describe("the signed-in pages are accessible", () => {
     await page.goto("/es/pages/new");
     await openPageAdd(page);
     await expect(page.getByTestId("add-section")).toBeVisible();
+    await page.getByTestId("inspector-tab-options").click();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
     // **A section of this test's own, and the assertions below depend on it.**

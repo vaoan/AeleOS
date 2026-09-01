@@ -1302,8 +1302,11 @@ accessibility tree.
 
 The desktop panel is `min(36rem, 40vw)`, with the canvas padded by that same
 expression, because the inherited nested card controls do not fit in 320px.
-It stacks below the sticky editor toolbar: a higher inspector covered the
-writing switch even though both controls independently rendered correctly.
+It starts `3.5rem` below the sticky editor toolbar: sharing the bar's own top
+offset covered the Add tab or the writing switch depending on which one won
+the z-index. Preview leaves selection intact, so the padding class remains;
+the hide-controls rule explicitly zeroes inline padding with the other editor
+furniture or a 1280px picture shifts by exactly 512px.
 
 It used to be a card — a label, `p-3`, a rounded face carrying `--surface` at
 90% alpha, a border, and the author's `--field` on an in-flow box. All of that

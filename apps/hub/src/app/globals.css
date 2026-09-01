@@ -907,4 +907,10 @@ body {
 [data-controls="hidden"] [data-editor-stack] {
   gap: 0;
   margin: 0;
+
+  /* The inspector's desktop width is reserved as inline padding while it is
+     open. Preview hides the inspector without clearing selection, so the
+     class remains; remove its reservation here with the rest of the editor
+     furniture or the photographed page shifts by exactly 40vw. */
+  padding-inline-start: 0;
 }

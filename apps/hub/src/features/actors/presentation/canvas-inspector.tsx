@@ -60,11 +60,11 @@ export interface CanvasInspectorProps {
  * a grip can be used, which gives dnd-kit current rectangles without exposing
  * two panes at once.
  *
- * On desktop the inspector sits below the toolbar in the stacking order and
- * is wide enough for the existing nested card controls to wrap inside it.
- * Neither property is decorative: covering the writing switch made the
- * toolbar unreachable, and a 320px panel left nested controls outside its
- * horizontal viewport.
+ * On desktop the inspector starts below the toolbar and is wide enough for
+ * the existing nested card controls to wrap inside it. Neither property is
+ * decorative: sharing the toolbar's top offset covered the Add tab or the
+ * writing switch depending on z-order, and a 320px panel left nested controls
+ * outside its horizontal viewport.
  *
  * @returns the inspector, or nothing when deselected.
  */
@@ -81,7 +81,7 @@ export function CanvasInspector({
   return (
     <div
       {...tid("canvas-inspector")}
-      className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-10 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:inset-y-(--bar-top) md:right-auto md:bottom-0 md:left-0 md:max-h-none md:w-[min(36rem,40vw)] md:border-t-0 md:border-r`}
+      className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-30 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:top-[calc(var(--bar-top)+3.5rem)] md:right-auto md:bottom-0 md:left-0 md:max-h-none md:w-[min(36rem,40vw)] md:border-t-0 md:border-r`}
     >
       <div role="tablist" className="flex shrink-0 border-b border-(--edge)/40">
         <button

@@ -264,6 +264,7 @@ for (const template of FURSONA_TEMPLATES) {
     // has been bitten by.
     const expectedAccent = template.theme?.accent ?? CHOSEN_ACCENT;
 
+    await openPageAdd(page);
     await page.getByTestId("template-picker").click();
     await page.getByTestId(`template-${template.id}`).click();
     // **A template that already carries its identity gets no header added**,
@@ -287,6 +288,7 @@ for (const template of FURSONA_TEMPLATES) {
     // silently found nothing would leave the template unapplied and fail
     // further down with a confusing message.
     await page.getByTestId("template-confirm-yes").click();
+    await page.getByTestId("inspector-tab-options").click();
     // Applied before anything is saved, so what the editor holds now is the
     // template itself — the state the round trip below is measured against.
     expect(await readEditor(page)).toEqual(expected);
@@ -456,6 +458,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   // the confirmation stay out of the way is `holdsNothingAuthored`, which asks
   // whether anything here is the AUTHOR's rather than whether anything is here.
   const [template] = FURSONA_TEMPLATES;
+  await openPageAdd(page);
   await page.getByTestId("template-picker").click();
   await page.getByTestId(`template-${template!.id}`).click();
 
