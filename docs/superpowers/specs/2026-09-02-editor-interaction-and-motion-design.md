@@ -173,7 +173,7 @@ Two constraints follow from that decision rather than from taste:
 
 Preview mounting is bounded. The picker mounts previews only while it is open,
 and the identity kinds it offers are the same set the scope already admits —
-`kinds` is forwarded, so `owner` remains unofferable on a person's own page,
+`kinds` is forwarded, so `owner` is still never offered on a person's own page,
 which is the constant the page source dock already needed.
 
 ### What does not change

@@ -3109,6 +3109,17 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     popup review needed the word in a TSDoc and a test name, and
     `check:tools` does not know it.
 
+    **The list is for a word the CODE needs, and prose does not qualify
+    (2026-09-02).** A spec written on `editor-interaction-motion` coined a
+    negated adjective for a leaf kind the picker does not offer, in one
+    sentence of prose, and reddened `conformance`. All three entries above
+    earned their place by naming something a reader meets in an identifier, a
+    TSDoc or a test name, where the word is the thing's name and rewording it
+    would rename the thing. A coined word used once in a sentence has no such
+    claim: it was reworded, because an entry in `words` is permanent and
+    lowers the checker's reach for everyone thereafter. Ask which of the two
+    it is before reaching for the dictionary.
+
     **There is no backoff any more, and there never should have been
     (2026-08-29).** The first version of `retryingFetch` waited between
     attempts — `BACKOFF_MS = [250, 1000]` — copied from a rate-limit retry
