@@ -4957,8 +4957,35 @@ page interactions enabled = controls hidden OR toolbar switch enabled
 Preview (hide-controls) is not a second renderer, so hidden controls always
 imply interaction; the toolbar switch is the only way to enable it while
 controls stay visible, and it is designed to reset to off whenever controls
-return. Nothing about the lock itself — the DOM boundary under
-`data-editor-canvas`, the toolbar switch, the wiring into `BlockEditor` — has
-landed yet; this section grows with the branch rather than describing a
-finished feature. See
+return.
+
+**The DOM boundary is `lockCanvasInteraction`
+(`presentation/canvas-interaction-lock.ts`), and it is the single enforcement
+point rather than a branch in every interactive leaf renderer.** It marks
+every {@link INTERACTIVE} descendant of an editor canvas `inert` — anchors,
+buttons, form controls, disclosures, controlled media, frames, editable
+content and an explicit tab stop — skipping anything inside `CHROME_SCOPE` so
+the inspector, Add and the toolbar keep working while the page beneath them
+does not. **It never marks the canvas element itself `inert`**: the click that
+selects a block is read off that same element, and an inert ancestor would
+swallow the click before it arrived.
+
+**It restores each element's own PRIOR `inert` state on unlock, never a bare
+"remove `inert` from everything it touched."** The public renderer may
+already have disabled an element on its own terms — a `video` with no
+`controls` sits outside {@link INTERACTIVE} entirely, but a future kind could
+render something already `inert` — and unlocking must not make that
+interactive again just because editing ended. A `Map<Element, boolean>`
+records the very first sighting of each element and nothing after, which is
+what a `MutationObserver` needs: **an already-locked element can be sighted a
+second time** — moved to a new position by a reorder, which fires a fresh
+`childList` mutation for the same node instance — and the second sighting
+must not overwrite the recorded PRE-lock state with "already inert," which is
+what the lock's own `setAttribute` just did to it a moment earlier. Getting
+this backwards would leave a relocated element permanently inert after
+unlock, silently, with no error and no failing type.
+
+Nothing about the toolbar switch or the wiring into `BlockEditor` has landed
+yet; this section grows with the branch rather than describing a finished
+feature. See
 `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
