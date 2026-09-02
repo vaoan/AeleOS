@@ -263,6 +263,58 @@ test("a pointer drag between sibling rows does not activate either row", async (
   await expect(page.getByTestId("leaf-title")).toHaveValue("Left");
 });
 
+// `block-drag.spec.ts` IS GONE, AND THIS IS WHERE ITS SURVIVING HALF LIVES.
+//
+// That file drove seventeen cases across levels — a leaf carried out of one
+// section into a nested place two deep inside another, a section dropped on
+// its own descendant, a drop one level past the cap. The recursive inspector
+// withdrew every one of those gestures by design
+// (`2026-09-01-recursive-inspector-drill-down-design.md`, §Dragging: "Cross-
+// level dragging is not offered in this inspector"), so those cases could not
+// be repaired by fixing selectors: there is no longer any input that expresses
+// what they were asserting. `moveSiblingBlock` refuses a non-sibling exchange
+// before `moveBlock` ever sees it, and `siblingTarget` discards a cross-level
+// candidate in pointer collision, keyboard collision and drop handling alike.
+//
+// Where each half went, so that nobody re-derives this by reading a diff:
+//
+//   swap on an occupied place ...... the nested-sibling case above, which keeps
+//                                    the non-adjacent fixture the trap needs
+//   section reorder ................ the first case above, on three sections
+//   pointer geometry against a REAL
+//     layout engine ................ the pointer case above; this is the only
+//                                    thing in the repository that asks
+//                                    Chromium for `placeUnderPointer`'s
+//                                    rectangles, so it must not be reduced to
+//                                    a keyboard drag
+//   cycle refusal .................. `block-moves.test.ts`, "refuses a section
+//                                    dropped into one of its own places" and
+//                                    "refuses a block dropped onto its own
+//                                    ancestor"
+//   depth-cap refusal .............. `block-moves.test.ts`, "refuses a subtree
+//                                    too tall for the place it was dropped in"
+//   carrying into a nested place ... `block-moves.test.ts`, "carries a block
+//                                    into a container nested inside a section"
+//   the plane rule ................. `block-drag.test.ts`, "never offers a
+//                                    section's own place to something dragged
+//                                    from inside one"
+//   the carried subtree's own
+//     places being withheld ........ `block-drag.test.ts`, "walks the places in
+//                                    the order they are drawn, without what is
+//                                    being carried"
+//
+// **Two things it proved are now proved NOWHERE IN A BROWSER, and saying so is
+// the point of writing this down.** `onDragCancel` — Escape abandoning a live
+// drag — is held by `drag-announcements.test.ts` at the unit level only. And
+// the collapsed-card walk, where `coordinateGetter` steps over places the DOM
+// is not showing, has only its unit coverage now; `siblingTarget` narrows that
+// walk further than it was narrowed when the fault was found, which makes the
+// original fault harder to reach and does not make it impossible. Neither is a
+// gap this branch created deliberately; both are gaps whose fixture depended
+// on a gesture that no longer exists, and a case rebuilt in sibling scope
+// would not discriminate the fault either way. Rule 27: an edge case still has
+// to be able to tell a right answer from a wrong one.
+
 // THE OTHER HALF OF THIS FILE IS GONE, AND THE FAULT IT GUARDED CANNOT
 // RECUR.
 //

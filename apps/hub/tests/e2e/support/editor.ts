@@ -62,6 +62,30 @@ export async function openPageAdd(page: Page): Promise<void> {
 }
 
 /**
+ * Opens Page → Options, where the identity fields and the theme panel live.
+ *
+ * **The page's own fields are no longer mounted by simply loading the
+ * editor.** The recursive inspector starts deselected, so `editor-handle`,
+ * `editor-display-name`, `editor-visibility` and `theme-open` exist only once
+ * the page itself is the selected target and Options is the showing pane. A
+ * spec that reaches for one of those without this helper waits on an element
+ * nothing is rendering, and reports a timeout naming the field rather than the
+ * selection it was missing.
+ *
+ * Idempotent in the same way {@link openPageAdd} is: it presses Page only when
+ * the inspector is closed, then names the page breadcrumb so a selection left
+ * deeper in the tree by an earlier step cannot decide which Options open.
+ *
+ * @param page - the editor page.
+ */
+export async function openPageOptions(page: Page): Promise<void> {
+  await openInspector(page);
+  await page.getByTestId("inspector-breadcrumb").first().click();
+  await page.getByTestId("inspector-tab-options").click();
+  await expect(page.getByTestId("theme-open")).toBeVisible();
+}
+
+/**
  * Makes sure the inspector is showing, without pressing Page needlessly.
  *
  * **Pressing Page when the inspector is already open is not a no-op on a

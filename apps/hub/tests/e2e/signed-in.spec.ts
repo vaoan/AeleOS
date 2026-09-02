@@ -7,6 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
+import { openPageOptions } from "./support/editor";
 import {
   establishSharedSession,
   sharedStatePath,
@@ -152,6 +153,7 @@ test.describe("signed in", () => {
 
       const handle = `e2e${Date.now().toString().slice(-9)}`;
       await page.goto("/es/pages/new");
+      await openPageOptions(page);
       await page.getByTestId("editor-handle").fill(handle);
       await page.getByTestId("editor-display-name").fill("End To End");
       await page.getByTestId("editor-visibility").selectOption("public");
@@ -223,6 +225,7 @@ test.describe("signed in", () => {
       await page.goto("/es/pages");
       await page.getByTestId("edit-my-profile").click();
       await page.waitForURL(/\/me\/edit$/, { timeout: 30_000 });
+      await openPageOptions(page);
       await page.getByTestId("editor-display-name").fill("A Real Person");
       await page.getByTestId("editor-visibility").selectOption("public");
       await page.getByTestId("theme-open").click();
@@ -248,6 +251,7 @@ test.describe("signed in", () => {
       // And it comes back into the editor, which is the half a write-only
       // control would still pass without.
       await page.goto("/es/me/edit");
+      await openPageOptions(page);
       await page.getByTestId("theme-open").click();
       await expect(page.getByTestId("theme-skin")).toHaveValue("candy");
       // A person has no handle to choose: theirs is the provisioned
@@ -329,6 +333,10 @@ test.describe("signed in", () => {
 
       const handle = `full${Date.now().toString().slice(-9)}`;
       await page.goto("/es/pages/new");
+      await page.addStyleTag({
+        content: "nextjs-portal{display:none!important}",
+      });
+      await openPageOptions(page);
       await page.getByTestId("editor-handle").fill(handle);
       await page.getByTestId("editor-display-name").fill("The Whole Journey");
       await page.getByTestId("editor-visibility").selectOption("public");
@@ -401,6 +409,10 @@ test.describe("signed in", () => {
       // that changes nothing, which is exactly the shape of the bug that once
       // deleted people's sections.
       await page.goto(`/es/pages/${handle}/edit`);
+      await page.addStyleTag({
+        content: "nextjs-portal{display:none!important}",
+      });
+      await openPageOptions(page);
       await expect(page.getByTestId("editor-display-name")).toHaveValue(
         "The Whole Journey",
       );

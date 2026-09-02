@@ -10,6 +10,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { liftByKeyboard } from "./support/drag";
+import { openPageOptions } from "./support/editor";
 
 // THE SAME FAULT AS section-drag-reorder.spec.ts, IN THE OTHER LIST.
 //
@@ -145,6 +146,7 @@ test("a fursona dragged by keyboard lands in its new position and survives a rel
   const handles = [`a${stamp}`, `b${stamp}`, `c${stamp}`];
   for (const handle of handles) {
     await page.goto("/es/pages/new");
+    await openPageOptions(page);
     await page.getByTestId("editor-handle").fill(handle);
     await page.getByTestId("editor-display-name").fill(handle);
     await page.getByTestId("editor-visibility").selectOption("public");
@@ -176,7 +178,7 @@ test("a fursona dragged by keyboard lands in its new position and survives a rel
   // `onDragEnd` splices the moved row out and back in, which is a SHIFT; moving
   // a row one step onto its neighbour reads `b a c` whether the code shifts or
   // swaps, so the obvious version of this test passed either way — the trap
-  // `block-drag.spec.ts:37-43` documents. Across two positions a shift reads
+  // rule 27 of the root `CLAUDE.md` documents. Across two positions a shift reads
   // `b c a` and a swap would read `c b a`. The splice was rewritten on this
   // branch, so this is the fixture that has to be able to tell.
   const announcement = page.locator('[id^="DndLiveRegion-"]');

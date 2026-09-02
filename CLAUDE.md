@@ -1611,6 +1611,10 @@ replace`, so the newest body of a function could sit in a file named after
   while proving the grip's following click did not enter either row. Broader
   cross-level, cycle, depth and plane semantics remain domain proofs for
   `moveBlock`; the recursive inspector no longer offers those gestures.
+  `block-drag.spec.ts`, whose browser cases all depended on those withdrawn
+  cross-level gestures, is deleted; its surviving browser-level pointer proof
+  lives in `section-drag-reorder.spec.ts`, while `block-moves.test.ts` and
+  `block-drag.test.ts` retain the domain semantics.
 
   **The drag fixtures are shaped by a trap rather than by taste.**
   They are the "a case that passed because both orderings landed identically"

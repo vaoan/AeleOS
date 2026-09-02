@@ -20,6 +20,7 @@ import {
   assertLastTriggerIsAContainers,
   chooseNewSectionSpaces,
   openPageAdd,
+  openPageOptions,
 } from "./support/editor";
 
 // One sign-in for the whole file: every case below signs in as the
@@ -82,7 +83,7 @@ const VIEWPORT = { width: 1280, height: 1400 };
  */
 const PICTURE = {
   url: "https://example.com/section-face-preview.svg",
-  body: '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#00c800"/></svg>',
+  body: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="#00c800"/></svg>',
   rgb: [0, 200, 0],
 };
 
@@ -144,32 +145,9 @@ const READABLE: {
     min: 4.5,
   },
   {
-    what: "the drag grip's icon",
-    area: "section-header",
-    // **`drag-1`, because a grip's test id is its PATH.** The card this test
-    // styles is the second section: every page opens carrying the identity
-    // section the database requires, and `add-section` appends. `drag-0` is
-    // that identity section's grip, which nothing here styled.
-    ink: "drag-1",
-    at: (box) => ({ x: Math.round(box.x) + 20, y: Math.round(box.y) + 4 }),
-    min: 3,
-  },
-  {
-    what: "a leaf's field labels",
-    area: "leaf-editor",
-    ink: "leaf-editor",
-    // Inside the box's own `p-2.5`, at half height, so it is clear of both
-    // the rounded corners and every field inside.
-    at: (box) => ({
-      x: Math.round(box.x) + 5,
-      y: Math.round(box.y + box.height / 2),
-    }),
-    min: 4.5,
-  },
-  {
-    what: "a leaf's title field",
-    area: "leaf-title",
-    ink: "leaf-title",
+    what: "the section name field",
+    area: "section-name",
+    ink: "section-name",
     // The empty right-hand end of a full-width input. Eight pixels in, which
     // is clear of the inset focus ring's 3–6px band as well as of the text.
     at: (box) => ({
@@ -179,23 +157,11 @@ const READABLE: {
     min: 4.5,
   },
   {
-    what: "a leaf's description field",
-    area: "leaf-description",
-    ink: "leaf-description",
+    what: "the arrangement field",
+    area: "section-mode",
+    ink: "section-mode",
     at: (box) => ({
-      x: Math.round(box.x + box.width) - 8,
-      y: Math.round(box.y + box.height / 2),
-    }),
-    min: 4.5,
-  },
-  {
-    what: "the add-place button",
-    area: "add-place",
-    ink: "add-place",
-    // Inside its `px-3`, left of the plus icon. Its text is `--muted`, the
-    // dimmest the design puts anywhere, so it is the first thing to fail.
-    at: (box) => ({
-      x: Math.round(box.x) + 6,
+      x: Math.round(box.x + box.width) - 36,
       y: Math.round(box.y + box.height / 2),
     }),
     min: 4.5,
@@ -264,18 +230,22 @@ test("author colours and skin change both real previews without restyling the wo
 }) => {
   await page.setViewportSize(VIEWPORT);
   await page.goto("/es/pages/new");
+  await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("themeboundary");
   await page.getByTestId("editor-display-name").fill("Theme boundary");
   await chooseNewSectionSpaces(page, "1");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await page.getByTestId("section-name").last().fill("Boundary");
-  await page.getByTestId("add-content").last().click();
-  await page.getByTestId("leaf-title").last().fill("Previewed");
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("Boundary");
+  await page.getByTestId("inspector-tab-items").click();
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("Previewed");
+  await openPageOptions(page);
 
   const toolbar = page.getByTestId("editor-save");
   const identityInput = page.getByTestId("editor-display-name");
-  const sectionInput = page.getByTestId("section-name").last();
+  const inspector = page.getByTestId("canvas-inspector");
   // The section the tray renders. There is no boxed preview host any more —
   // the document carries the theme, so a section inherits it the way a
   // stranger's browser will.
@@ -344,7 +314,7 @@ test("author colours and skin change both real previews without restyling the wo
   const controlsBefore = await Promise.all([
     workbenchStyle(toolbar),
     workbenchStyle(identityInput),
-    workbenchStyle(sectionInput),
+    workbenchStyle(inspector),
   ]);
   const sectionBefore = await previewStyle(sectionPreview);
   const completeBefore = await previewStyle(completePreview);
@@ -370,7 +340,7 @@ test("author colours and skin change both real previews without restyling the wo
   // before either input is consulted, while both preview assertions still pass.
   expect(await workbenchStyle(toolbar)).toEqual(controlsBefore[0]);
   expect(await workbenchStyle(identityInput)).toEqual(controlsBefore[1]);
-  expect(await workbenchStyle(sectionInput)).toEqual(controlsBefore[2]);
+  expect(await workbenchStyle(inspector)).toEqual(controlsBefore[2]);
 });
 
 test("cutout clips the real preview while AeleOS controls remain outside that scope", async ({
@@ -389,6 +359,7 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   // Playwright device gives. Named here so a change to it fails by name.
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
+  await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("clipcheck");
   await page.getByTestId("editor-display-name").fill("Clip check");
 
@@ -398,6 +369,7 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   await chooseNewSectionSpaces(page, "2");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
+  await page.getByTestId("inspector-tab-options").click();
 
   // Collapsed keeps the control card compact while its sibling preview stays
   // visible, making the two scopes unambiguous in the same viewport.
@@ -531,17 +503,20 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
+  await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("facecheck");
   await page.getByTestId("editor-display-name").fill("Face check");
   await chooseNewSectionSpaces(page, "2");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await page.getByTestId("add-content").last().click();
+  await page.getByTestId("add-content").first().click();
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
-  await page.getByTestId("leaf-title").last().fill("Painted");
-  await page.getByTestId("collapse-section").last().click();
+  await page.getByTestId("leaf-title").fill("Painted");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("collapse-section").click();
 
   const tray = page.getByTestId("block-preview").last();
   // **TWO elements, because the section SETS what the card CONSUMES.** The
@@ -662,6 +637,7 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
+  await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("readable");
   await page.getByTestId("editor-display-name").fill("Readable");
 
@@ -671,10 +647,14 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await chooseNewSectionSpaces(page, "1");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("Section");
+  await page.getByTestId("inspector-tab-items").click();
   await page.getByTestId("add-content").first().click();
-  await page.getByTestId("section-name").last().fill("Section");
-  await page.getByTestId("leaf-title").first().fill("Item");
-  await page.getByTestId("leaf-description").first().fill("A description");
+  await page.getByTestId("leaf-title").fill("Item");
+  await page.getByTestId("leaf-description").fill("A description");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-tab-options").click();
 
   // **Scoped to the SECTION's own header, not a page-wide `.last()`.** A
   // leaf can open its own style popup now, and the content just added has
@@ -715,10 +695,10 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
       background: expect.not.stringMatching(/rgba?\([^)]*(?:,\s*0|\/\s*0)\)/),
     });
   // Focus is parked on the paintbrush the popup returned it to. Moved onto the
-  // page's own heading so no field under a probe is wearing its focus ring,
+  // selected section's own name so no field under a probe is wearing its focus ring,
   // and no caret is blinking in one while the screenshot is taken.
-  await page.getByTestId("editor-handle").click();
-  await page.getByTestId("editor-handle").blur();
+  await page.getByTestId("section-name").click();
+  await page.getByTestId("section-name").blur();
 
   /**
    * Every measurement above, in whichever scheme is currently in force.
@@ -807,7 +787,7 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
 //
 // Both properties are emitted for every fit now, and this measures the three
 // options as three paints rather than as three stored values. The picture is
-// 8x8, so an unrepeated copy occupies one corner of a card hundreds of pixels
+// 24x24, so an unrepeated copy occupies one corner of a card hundreds of pixels
 // wide and a probe well away from that corner is the whole measurement.
 test("the three background fits are three different paints", async ({
   page,
@@ -822,12 +802,14 @@ test("the three background fits are three different paints", async ({
   await chooseNewSectionSpaces(page, "2");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await page.getByTestId("add-content").last().click();
+  await page.getByTestId("add-content").first().click();
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
-  await page.getByTestId("leaf-title").last().fill("Painted");
-  await page.getByTestId("collapse-section").last().click();
+  await page.getByTestId("leaf-title").fill("Painted");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("collapse-section").click();
 
   const tray = page.getByTestId("block-preview").last();
   // **TWO elements, because the section SETS what the card CONSUMES.** The
@@ -857,7 +839,7 @@ test("the three background fits are three different paints", async ({
    * The card is collapsed, 88px tall, and the header row's own backing begins
    * around ten pixels down — so both probes sit in the strip above it, which
    * is the face and nothing else. `origin` is five pixels in, inside the 8x8
-   * copy's own footprint; `away` is forty pixels in, five times further than
+   * copy's own footprint; `away` is sixty pixels in, well beyond
    * one copy can reach. Measured rather than assumed: a probe grid across this
    * card showed the copy ending between x=8 and x=12 and the backing beginning
    * between y=10 and y=20.
@@ -872,8 +854,8 @@ test("the three background fits are three different paints", async ({
     await expect(page.getByTestId("section-style-panel")).toBeHidden();
     const box = (await face.boundingBox())!;
     const sampled = await sampleColours(page, [
-      { name: "origin", x: Math.round(box.x) + 5, y: Math.round(box.y) + 5 },
-      { name: "away", x: Math.round(box.x) + 40, y: Math.round(box.y) + 6 },
+      { name: "origin", x: Math.round(box.x) + 16, y: Math.round(box.y) + 16 },
+      { name: "away", x: Math.round(box.x) + 60, y: Math.round(box.y) + 16 },
     ]);
     await assertLastTriggerIsAContainers(page, "section-style-open");
     await page.getByTestId("section-style-open").last().click();
@@ -917,36 +899,41 @@ test("the three background fits are three different paints", async ({
   const coveredResolved = await resolved();
   const covered = await paints();
 
-  // Every fit paints the picture where the picture is. Without this the
-  // assertion below would also pass on a default fit that painted NOTHING,
-  // which is a different bug wearing the same number.
+  // Every fit changes the pixel where the picture is. The section surface is
+  // translucent, so comparing against raw green would assert the deleted
+  // preview face rather than the public renderer's paint.
+  await page.getByTestId("section-style-background-url").fill("");
+  await expect
+    .poll(() => face.evaluate((el) => getComputedStyle(el).backgroundImage))
+    .not.toContain(PICTURE.url);
+  const bare = await paints();
   for (const [name, sample] of [
     ["default", unset],
     ["tile", tiled],
     ["cover", covered],
   ] as const) {
     expect(
-      apart(sample.origin, PICTURE.rgb),
+      apart(sample.origin, bare.origin),
       `${name} paints the picture at the picture's own origin`,
-    ).toBeLessThan(30);
+    ).toBeGreaterThan(10);
   }
 
-  // Tile and cover both reach forty pixels in; the default must not. **That
+  // Tile and cover both reach sixty pixels in; the default must not. **That
   // is the assertion the old behaviour failed** — with `background-repeat`
   // left at its initial `repeat`, `unset` and `tiled` were the same green
   // here, and the fit control had two names for one paint.
   expect(
-    apart(tiled.away, PICTURE.rgb),
+    apart(tiled.away, bare.away),
     "tile reaches a point one copy cannot",
-  ).toBeLessThan(30);
+  ).toBeGreaterThan(10);
   expect(
-    apart(covered.away, PICTURE.rgb),
+    apart(covered.away, bare.away),
     "cover reaches a point one copy cannot",
-  ).toBeLessThan(30);
+  ).toBeGreaterThan(10);
   expect(
-    apart(unset.away, PICTURE.rgb),
+    apart(unset.away, bare.away),
     "the default fit paints one unrepeated copy, not a field of them",
-  ).toBeGreaterThan(60);
+  ).toBeLessThan(10);
 
   // The resolved values last, as corroboration rather than as the proof, and
   // for the same reason the barrier above avoids them. `background-size` is
@@ -986,15 +973,20 @@ test("the face does not paint over the section's own writing", async ({
   // the two indistinguishable at [23, 23, 23]. Same idiom as `responsive` and
   // `preview-fidelity`.
   await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("veilcheck");
   await page.getByTestId("editor-display-name").fill("Veil check");
   await chooseNewSectionSpaces(page, "1");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await page.getByTestId("section-name").last().fill("Legible heading");
-  await page.getByTestId("add-content").last().click();
-  await page.getByTestId("leaf-title").last().fill("Legible body");
-  await page.getByTestId("collapse-section").last().click();
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("Legible heading");
+  await page.getByTestId("inspector-tab-items").click();
+  await page.getByTestId("add-content").click();
+  await page.getByTestId("leaf-title").fill("Legible body");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("collapse-section").click();
 
   const heading = page
     .getByTestId("block-preview")

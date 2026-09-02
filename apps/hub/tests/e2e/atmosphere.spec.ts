@@ -5,6 +5,7 @@ import {
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
+import { openPageOptions } from "./support/editor";
 import { apart, contrast, sampleColours, textColour } from "./support/pixels";
 import {
   establishSharedSession,
@@ -245,14 +246,15 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
+  await openPageOptions(page);
 
   const toolbar = page.getByTestId("editor-save");
   const input = page.getByTestId("editor-display-name");
-  const card = page.getByTestId("section-card").first();
+  const inspector = page.getByTestId("canvas-inspector");
   const controlsBefore = await Promise.all([
     controlStyle(toolbar),
     controlStyle(input),
-    controlStyle(card),
+    controlStyle(inspector),
   ]);
   const atmosphereBefore = await atmosphereStyle(page);
   let canvasBefore = await canvasBitmap(page);
@@ -361,7 +363,7 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
 
   expect(await controlStyle(toolbar)).toEqual(controlsBefore[0]);
   expect(await controlStyle(input)).toEqual(controlsBefore[1]);
-  expect(await controlStyle(card)).toEqual(controlsBefore[2]);
+  expect(await controlStyle(inspector)).toEqual(controlsBefore[2]);
 
   /**
    * Measures a bare identity label over the content column's own backing.
@@ -452,7 +454,7 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
   await expect.poll(() => atmosphereStyle(page)).toEqual(beforeClosing);
   expect(await controlStyle(toolbar)).toEqual(controlsBefore[0]);
   expect(await controlStyle(input)).toEqual(controlsBefore[1]);
-  expect(await controlStyle(card)).toEqual(controlsBefore[2]);
+  expect(await controlStyle(inspector)).toEqual(controlsBefore[2]);
 
   const closedPaint = await sampleColours(page, [outside]);
   expect(
@@ -465,6 +467,7 @@ test("the speed dial changes the animated canvas rate", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto("/es/pages/new");
+  await openPageOptions(page);
   await page.getByTestId("theme-open").click();
   await page.getByTestId("theme-canvas").selectOption("grid");
   await expect

@@ -4,7 +4,7 @@ import type { Locator, Page } from "@playwright/test";
 // RECURS.
 //
 // The yield below is a fix for a real lost key rather than a sleep, and it was
-// first written inline in `block-drag.spec.ts` — where it stayed, while the two
+// first written inline in one spec — where it stayed, while the two
 // specs the same phase ported kept the unprotected lift. That is the shape this
 // repository keeps paying for: a mechanism diagnosed in one place and applied
 // in one place. Every keyboard lift in the suite goes through here now, so the

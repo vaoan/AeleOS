@@ -9,6 +9,7 @@ import {
   signIn,
 } from "./support/clerk-session";
 import { identity } from "./support/blocks";
+import { openPageOptions } from "./support/editor";
 
 // WHAT THIS GUARDS, AND WHY IT IS NOT THE CANVAS SUITE.
 //
@@ -640,6 +641,7 @@ test.describe("what a heavily personalised page costs on a phone", () => {
 
       await signIn(page, await mintTicket(identity.userId));
       await page.goto(`/es/pages/${handle}/edit`);
+      await openPageOptions(page);
       await page.getByTestId("theme-open").click();
       const dial = page.getByTestId("theme-density");
       await dial.waitFor();

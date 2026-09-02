@@ -1824,8 +1824,9 @@ its first run. Ranking by path length is the same fact as "innermost" at any
 depth, which is why it holds at three where the spike's own detector was
 two-level-specific. It is proved at the cap in `block-drag.test.ts`, on four
 nested rectangles that all contain the same point, beside a fifth candidate off
-to the side that does not — and, since `tests/e2e/block-drag.spec.ts`, against
-rectangles a real layout engine measured. **The case that actually
+to the side that does not — and, in
+`tests/e2e/section-drag-reorder.spec.ts`'s pointer case, against rectangles a
+real layout engine measured. **The case that actually
 discriminates nearest-centre is not the flagship one**: at the point the
 flagship uses, nearest-centre happens to answer the innermost place as well.
 The case below it, where the parent's centre is nearer than the child's, is
@@ -1833,16 +1834,25 @@ the one that would redden.
 
 **That browser proof is newer than it looks, and the sentence it replaced was
 the misleading kind.** This paragraph used to end "and again in a browser",
-crediting `section-drag-reorder.spec.ts` — which drives the KEYBOARD, and the
-keyboard branch of `detectCollision` hands back the place the coordinate getter
-already chose without calling `placeUnderPointer` at all. So the collision
-geometry had never met a rectangle Chromium produced. `block-drag.spec.ts` runs
-FOUR of its cases by mouse and by keyboard both — the swap, the move in and out
-of a nested place, the section reorder and the refusal one level past the
-depth cap — and its pointer
-half asserts the `data-over` highlight BEFORE releasing — `useDroppable`'s own `isOver`, which is
-the collision's answer rendered. Swap the ranking for nearest-centre and the
-pointer case reddens at the highlight while the keyboard case stays green.
+crediting `section-drag-reorder.spec.ts` — which at the time drove only the
+KEYBOARD, and the keyboard branch of `detectCollision` hands back the place the
+coordinate getter already chose without calling `placeUnderPointer` at all. So
+the collision geometry had never met a rectangle Chromium produced.
+`block-drag.spec.ts` was written to close that, running four of its cases by
+mouse and by keyboard both.
+
+**It is gone (2026-09-01), and only one of its halves could be kept.** Every
+case it ran by mouse was a CROSS-LEVEL drag, and the recursive inspector
+withdrew that gesture by design — `siblingTarget` discards a non-sibling
+candidate in pointer collision, keyboard collision and drop handling alike, so
+there is no input left that expresses what those cases asserted. What survives
+is `section-drag-reorder.spec.ts`'s own pointer case, which exchanges two
+visible sibling places by mouse: it is now **the only thing in the repository
+that asks Chromium for `placeUnderPointer`'s rectangles**, so reducing it to a
+keyboard drag would silently return this paragraph to the state the sentence
+above describes. That spec's header carries the full account of where each of
+the seventeen deleted cases went, including the two — `onDragCancel` and the
+collapsed-card walk — that are now proved at the unit level only.
 
 **One sabotage of that ranking could not be made to fail, and it is written
 down rather than counted.** Replacing deepest-wins with "the first candidate
@@ -1878,11 +1888,11 @@ a right answer from a wrong one.
 where the first arrow key reaches nothing — a flake in one run of three, wearing
 the face of a slow machine. See rule 26 in the root `CLAUDE.md` for the general
 shape. **Every lift in the browser suite goes through
-`tests/e2e/support/drag.ts` now**, and that is not tidiness: the fix was
-written inline in `block-drag.spec.ts` and the two specs the same phase ported
-kept the unprotected lift, so the mechanism was diagnosed once and applied
-once. A helper is the only version of "written down" that the next spec cannot
-skip.
+`tests/e2e/support/drag.ts` now**, and that is not tidiness: the fix was first
+written inline in one spec while the two the same phase ported kept the
+unprotected lift, so the mechanism was diagnosed once and applied once. A
+helper is the only version of "written down" that the next spec cannot skip —
+and it is why deleting the spec that first carried it cost nothing.
 
 **The walk steps over places nothing is showing, and it did not.**
 `placeOrder` walks the whole STORED tree while a collapsed card renders none of
@@ -1893,10 +1903,16 @@ resolved to **null**, and the drag announced "it stayed where it was" while it
 was still running; a space bar pressed there dropped nothing, because
 `onDragEnd` returns early on a null `over`. `coordinateGetter` keeps stepping
 until it finds a place the library is measuring, so every place the keyboard
-can reach is one a drop can land on. The guard is
-`block-drag.spec.ts`'s collapsed-card walk, and its fixture collapses a card in
-the MIDDLE of the walk on purpose — collapse the last one instead and the fault
-looks like a walk that stopped, which is a legal answer at the end of a list.
+can reach is one a drop can land on.
+
+**Its browser guard went with `block-drag.spec.ts` (2026-09-01), and nothing
+replaced it.** That guard's fixture collapsed a card in the MIDDLE of a walk
+that crossed sections, which the recursive inspector no longer offers; rebuilt
+inside one Items scope it could not tell the fault from a correct walk, so it
+was reported rather than rewritten into something that looks like coverage.
+`siblingTarget` also narrows the walk further than it was narrowed when the
+fault was found, which makes the fault harder to reach and does not make it
+impossible. What holds it now is the unit level alone.
 
 **A refusal sentence is retired by the next EDIT, not by the next drag.** It
 used to be cleared only in `onDragStart`, so a refused drop left its line on
