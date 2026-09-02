@@ -2165,6 +2165,22 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   time, immediately before merge. See `apps/hub/src/features/actors/CLAUDE.md`
   for the account in full.
 
+- **Editor interaction lock, one Add picker, and Motion for editor chrome
+  (2026-09-02) — in progress.** The editor canvas is locked by default so a
+  click selects a block rather than following a real link, with a
+  session-only toolbar switch and Preview both able to make it interactive;
+  every scope that can hold a block offers one Add picker, drawn with the
+  real renderer over fixed sample content, replacing the flat add row and
+  the HTML5 drag-to-add path it carried (removed deliberately, and may
+  return later); and editor chrome — the inspector, its scope transitions,
+  new inspector rows — carries restrained Motion (`LazyMotion` + `m`,
+  `MotionConfig reducedMotion="user"`), never the public renderer, never a
+  `@dnd-kit` node. `motion` is a new dependency of `apps/hub` for this. See
+  `apps/hub/src/features/actors/CLAUDE.md` for the full account, including a
+  measured, pre-existing finding that Motion's own chunk currently reaches
+  public routes through this feature's barrel — not something this work
+  introduced, and left for that plan's own cost-verification task.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:

@@ -623,6 +623,14 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * carried are gone — see the actors feature note for why drag-to-add is a
  * deliberate removal rather than an oversight.
  *
+ * **Two of its five motion places live here as plain CSS, deliberately not
+ * Motion (2026-09-02).** The canvas's own `md:pl-[…]` accommodation
+ * transitions (`transition-[padding-left] duration-210 ease-out`) and the
+ * selection outline's colour (`outline-color 150ms ease-out`, over a static
+ * base rule so there is something to transition FROM) both stay CSS so
+ * `@dnd-kit` and the page's own boxes never receive an inline `transform`
+ * from an `m.*` ancestor — see `editor-motion.tsx` for the other three.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1194,7 +1202,12 @@ export function BlockEditor<T extends FieldValues>({
   return (
     <section
       data-editor-stack
-      className={`mt-8 grid gap-4 ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
+      // **Canvas accommodation transitions as plain CSS, never Motion** — the
+      // spec's third motion place, kept off `m.*` on purpose so `@dnd-kit`
+      // and the page's own boxes never receive an inline `transform` from
+      // this. The transition applies at every width; it only ever has
+      // something to animate from `md` up, where `pl-` itself is conditional.
+      className={`mt-8 grid gap-4 transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
     >
       <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
         <div className="flex flex-wrap items-center gap-2">
@@ -1251,8 +1264,18 @@ export function BlockEditor<T extends FieldValues>({
           options={optionsPane}
         />
         <div className={CHROME_SCOPE}>
+          {/* **The selection outline transitions its COLOUR, plain CSS rather
+              than Motion** — the spec's fourth motion place, and the one that
+              must not animate an author's own geometry or colours. A static
+              base rule gives every block a transparent outline at the same
+              offset the selected one uses, which is what lets the colour
+              change TRANSITION rather than pop: transitioning `outline-color`
+              alone needs the property already set to something, or there is
+              nothing for the browser to interpolate FROM. Only the selected
+              path's rule is conditional; the base rule always renders. */}
+          <style>{`[data-editor-canvas] [data-block-path] { outline: 2px solid transparent; outline-offset: 4px; transition: outline-color 150ms ease-out; }`}</style>
           {selectedAttr ? (
-            <style>{`[data-editor-canvas] [data-block-path="${selectedAttr}"] { outline: 2px solid var(--accent); outline-offset: 4px; }`}</style>
+            <style>{`[data-editor-canvas] [data-block-path="${selectedAttr}"] { outline-color: var(--accent); }`}</style>
           ) : null}
         </div>
 

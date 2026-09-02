@@ -5114,6 +5114,106 @@ Items scope's job. `block-card.test.tsx`'s cases that exercised the removed
 buttons were rewritten to test what remains rather than deleted outright,
 except where the assertion itself no longer had anything to discriminate.
 
-Nothing about Motion has landed yet; this section grows with the branch
-rather than describing a finished feature. See
+**Motion is wired for editor chrome (2026-09-02).** `presentation/editor-motion.tsx`
+exports `EditorMotion` (`LazyMotion` + `MotionConfig reducedMotion="user"`,
+mounted once at `FursonaEditor`'s own root) and re-exports `m` — every `m.*`
+usage in this feature imports it from there, never `motion` from
+`motion/react` directly, which is what keeps the always-loaded core small.
+`editor-motion.test.tsx`'s static grep enforces both: `"motion/react"` is
+imported from exactly one file under this feature (itself), and no `m.*`
+anywhere carries a `layout` prop.
+
+Five places carry it, matching the spec:
+
+1. **Inspector entry** (`canvas-inspector.tsx`) — the root becomes `m.div`,
+   fading and sliding in from the left on desktop or up from the bottom on a
+   phone. Which direction plays is read via `useSyncExternalStore` rather
+   than a lazy `useState` initializer, because this tree can render during
+   SSR where `window` does not exist and a `useState` initializer has no
+   SSR-safe equivalent; the client snapshot calls `matchMedia` directly,
+   unguarded, matching `nebula-canvas.tsx`'s own convention.
+2. **Scope transitions** — the Items/Options pane's inner content is wrapped
+   in an `m.div` keyed on `${tab}:${selection.kind}:${path}`, so entering a
+   different block or switching tabs both remount it and re-play a short
+   fade+translate. The `hidden` attribute deciding which PANE shows still
+   owns that; the key only ever plays inside the one already visible.
+3. **Canvas accommodation** — plain CSS
+   (`transition-[padding-left] duration-210 ease-out`) on `data-editor-stack`,
+   deliberately not Motion, so `@dnd-kit` and the page's own boxes never
+   receive an inline `transform` from this.
+4. **Selection outline** — plain CSS too: a static base rule gives every
+   block a transparent outline at the selected one's offset, and only the
+   colour transitions (`outline-color 150ms ease-out`). The base rule has to
+   be unconditional — transitioning a property FROM nothing is not a
+   transition, there is nothing to interpolate from.
+5. **New inspector rows** (`inspector-items.tsx`) — an occupied row's label
+   wrapper is `m.div` (opacity-only), kept a SIBLING of the drag handle
+   rather than its ancestor, since `BlockSlot`'s own outer element is the
+   actual `@dnd-kit` node and already writes its own `transform`; an empty
+   place's whole content is `m.div` since it carries no handle at all.
+
+**jsdom cannot run a Motion animation to completion, and that broke two
+pre-existing tests before it broke none of the new ones.** No real
+compositor means an `initial={{opacity:0}}` element never reaches
+`animate={{opacity:1}}` in a unit test — `toBeVisible()` (which jest-dom
+fails on `opacity:0`) on freshly-entered content stays red forever, not
+merely late; `waitFor` does not help because the animation never runs at
+all, only real time passing does nothing without real frames. The fix in
+`block-editor.test.tsx`'s two affected cases is `closest("[hidden]")`
+instead of `toBeVisible()` — the real invariant those cases care about is
+"in the active pane, not the one `hidden` is hiding," which is exactly what
+survives an animation this instrument cannot see. What Motion's animations
+actually LOOK like is proved in `tests/e2e/` in Task 7, against a real
+browser.
+
+**jsdom also implements no `window.matchMedia` at all**, unrelated to
+Motion but found by wiring the entrance direction — `tests/setup.ts` now
+stubs it to always answer "no match," matching the `ResizeObserver` stub
+beside it: constructed so the code under test can run, at the narrowest
+default, with the real answer proved in `tests/e2e/`.
+
+**A measured finding for whoever finishes the cost verification (Task 8):
+Motion's own chunk currently reaches the fully public, signed-out profile
+routes, and that is a PRE-EXISTING fact about this feature's barrel, not
+something this wiring introduced.** `@/features/actors/index.ts` re-exports
+`FursonaEditor` (which imports `EditorMotion`) from the same barrel
+`/[locale]/[person]/page.tsx` imports `PublicProfile` from — so Turbopack's
+per-route `firstLoadChunkPaths` already put the SAME shared bundle behind
+both an editor route and a public one before Motion ever entered the
+picture. Measured directly from `.next/diagnostics/route-bundle-stats.json`,
+before and after this task, in uncompressed bytes:
+
+| route (representative)                             |     before Motion | after Motion |    delta |
+| -------------------------------------------------- | ----------------: | -----------: | -------: |
+| `/[locale]/me` (+ 5 more editor routes, identical) |         1,841,658 |    1,950,514 | +108,856 |
+| `/[locale]/[person]` (+ `/[handle]`, identical)    |         1,833,981 |    1,942,837 | +108,856 |
+| `/[locale]/fursonas/[[...rest]]`                   |           778,889 |      778,889 |        0 |
+| `/[locale]/sign-in/[[...sign-in]]`                 |           749,122 |      749,122 |        0 |
+| `/[locale]` and `/_not-found`                      | 738,627 / 452,708 |    unchanged |        0 |
+
+The four routes NOT already sharing the barrel's bundle show a byte-for-byte
+**zero** change, which is what proves Motion's own import graph is properly
+scoped to `editor-motion.tsx` and its three callers — it never leaks into
+the true root-shared chunk on its own. Every route where it DOES appear
+already carried the identical shared bundle (react-hook-form, zod,
+`@dnd-kit`, the whole editor graph) before this task, at nearly the same
+size. Motion's marginal cost is the same **+108,856 bytes** on every route
+that has the barrel's bundle at all, editor or public — consistent, not
+pathological.
+
+**What this does not settle:** whether that pre-existing barrel coupling
+itself is acceptable is a question this task did not create and cannot
+answer by reverting Motion — a revert would leave `/[locale]/[person]`
+loading the same ~1.8MB either way. Untangling it means splitting
+`@/features/actors/index.ts` so editor-only exports (`FursonaEditor`,
+`BlockEditor`, `AddBlockPicker`, and everything they pull in) are not
+re-exported through the same barrel a public page's `PublicProfile` comes
+from — a real fix, and out of this task's scope. The `canvas` job's own
+throttled-page measurement is the number that actually decides whether
+Motion stays: unused JS sitting in a downloaded chunk costs bytes and parse
+time, not the runtime frame cost `canvas` measures, since no `m.*` component
+ever mounts on a route that does not render editor chrome.
+
+Nothing about Task 7's browser proof has landed yet; this section grows
+with the branch rather than describing a finished feature. See
 `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.

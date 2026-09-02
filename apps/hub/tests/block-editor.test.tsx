@@ -619,9 +619,14 @@ describe("recursive inspector drill-down", () => {
     expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
       3,
     );
-    expect(
-      within(inspector).getByTestId("inspector-empty-place"),
-    ).toBeVisible();
+    // `toBeVisible` would also fail on the row's own opacity-in entrance
+    // (`inspector-items.tsx`), which jsdom never actually animates to
+    // completion — no real compositor, no real frames. What this case is
+    // actually checking is that the row sits in the ACTIVE pane rather than
+    // one `hidden` is currently hiding, which `closest("[hidden]")`
+    // answers without depending on an animation jsdom cannot run.
+    const emptyPlace = within(inspector).getByTestId("inspector-empty-place");
+    expect(emptyPlace.closest("[hidden]")).toBeNull();
     expect(within(inspector).queryByText("Deep leaf")).toBeNull();
 
     fireEvent.click(
@@ -633,7 +638,11 @@ describe("recursive inspector drill-down", () => {
     fireEvent.click(within(inspector).getByTestId("inspector-item-open"));
 
     expect(within(inspector).queryByRole("tablist")).toBeNull();
-    expect(within(inspector).getByTestId("leaf-editor")).toBeVisible();
+    // Not `toBeVisible`, for the same reason as the empty place above: the
+    // Options pane's own entrance opacity never resolves in jsdom.
+    expect(
+      within(inspector).getByTestId("leaf-editor").closest("[hidden]"),
+    ).toBeNull();
     expect(within(inspector).queryByTestId("nested-card")).toBeNull();
   });
 
@@ -661,7 +670,13 @@ describe("recursive inspector drill-down", () => {
     fireEvent.click(screen.getAllByTestId("inspector-item-open")[1]!);
     fireEvent.click(screen.getByTestId("remove-block"));
 
-    expect(screen.getByTestId("canvas-inspector")).toBeVisible();
+    // Not `toBeVisible`: the inspector's own entrance opacity
+    // (`canvas-inspector.tsx`) never actually animates to completion in
+    // jsdom, which has no real compositor. `closest("[hidden]")` is the
+    // check that survives that — the inspector is mounted at all here,
+    // which is the real claim.
+    const inspector = screen.getByTestId("canvas-inspector");
+    expect(inspector.closest("[hidden]")).toBeNull();
     expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
     expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(2);
   });

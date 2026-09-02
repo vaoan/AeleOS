@@ -26,6 +26,7 @@ import { useFursonaEditor } from "@/features/actors/application/use-fursona-edit
 import type { ChosenPage } from "@/features/actors/domain/fursona-templates";
 import { WritingInToggle } from "@/features/actors/presentation/writing-in-toggle";
 import { pageInteractionsEnabled } from "@/features/actors/domain/page-interaction";
+import { EditorMotion } from "@/features/actors/presentation/editor-motion";
 import {
   EditorToolbar,
   type EditorToolbarLabels,
@@ -558,6 +559,11 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * the explicit switch back off; hiding them does not touch it, because
  * Preview already implies interaction through `controlsHidden` alone.
  *
+ * **It also mounts `EditorMotion` once, wrapping the whole returned tree**
+ * (2026-09-02) — safe because `LazyMotion`/`MotionConfig` render no DOM of
+ * their own, so wrapping here adds no element and changes nothing about the
+ * canvas's layout or the `DndContext` beneath it. See `editor-motion.tsx`.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -698,17 +704,27 @@ export function FursonaEditor({
   );
 
   return (
-    <form
-      {...tid("editor-content")}
-      onSubmit={handleSubmit(async (values) => {
-        // The RETURN VALUE decides, never `fieldErrors`. That variable is
-        // captured from the render that built this handler, so it is still
-        // empty when the save fails — and the editor used to navigate away on
-        // a refusal, hiding the reason and taking the person's typing with it.
-        if (await save(values)) router.push(LIST);
-      })}
-    >
-      {/* **The DOCUMENT wears the page being built.** The same component a
+    // **`EditorMotion` wraps the whole tree, once, at the editor's own
+    // root — and that is safe precisely because it renders no DOM of its
+    // own.** `LazyMotion` and `MotionConfig` are both pure context
+    // providers; wrapping here adds zero elements, so it changes nothing
+    // about the canvas's layout, the `DndContext` beneath it, or the public
+    // page's own boxes. What the boundary actually forbids — an `m.*`
+    // component as a `@dnd-kit` node or a `SKIN_SCOPE` descendant — is a
+    // rule about which COMPONENTS use `m`, not about where this provider
+    // sits; see `editor-motion.tsx` for the enforcement.
+    <EditorMotion>
+      <form
+        {...tid("editor-content")}
+        onSubmit={handleSubmit(async (values) => {
+          // The RETURN VALUE decides, never `fieldErrors`. That variable is
+          // captured from the render that built this handler, so it is still
+          // empty when the save fails — and the editor used to navigate away on
+          // a refusal, hiding the reason and taking the person's typing with it.
+          if (await save(values)) router.push(LIST);
+        })}
+      >
+        {/* **The DOCUMENT wears the page being built.** The same component a
           public route uses, handed the live draft rather than a stored theme —
           so `:root` carries the author's palette, `body` paints their field and
           background picture, and the canvas mounted in the root layout is
@@ -719,58 +735,58 @@ export function FursonaEditor({
           re-declares AeleOS's own tokens on itself. See `shared/domain/chrome.ts`
           for why that needs no cascade fight, and `section-card-face.spec.ts`
           for the guard. */}
-      <ThemeScope theme={liveTheme as ActorTheme}>
-        {/* **Everything the hide-controls rule reaches.** One CSS rule removes
+        <ThemeScope theme={liveTheme as ActorTheme}>
+          {/* **Everything the hide-controls rule reaches.** One CSS rule removes
             every `CHROME_SCOPE` island beneath this attribute, which is why
             hiding is by CLASS rather than by a list of components somebody has
             to keep in step — a control added tomorrow is hidden without anybody
             remembering. A second rule flattens the editor's own stacking, so
             the sections close up to exactly the spacing `pageBoxClass` gives
             them on a public page. */}
-        <div data-controls={controlsHidden ? "hidden" : "shown"}>
-          {/* **Both sticky bars are direct children of THIS box**, which spans
+          <div data-controls={controlsHidden ? "hidden" : "shown"}>
+            {/* **Both sticky bars are direct children of THIS box**, which spans
               the whole editor. A sticky element sticks only within its parent's
               box, and the control column below stops before the section
               previews — so a bar inside it comes unstuck a few hundred pixels
               down. See `editor-bars-stay-pinned.spec.ts`. */}
-          <EditorToolbar
-            title={labels.title}
-            labels={labels}
-            saving={saving}
-            cancelHref={LIST}
-            onHideControls={() => setControlsHidden(true)}
-            onOpenSource={() => {
-              setSourceMounted(true);
-              setSourceOpen(true);
-            }}
-            interactEnabled={interactEnabled}
-            onInteractEnabledChange={setInteractEnabled}
-            // **Gated on the LIVE theme, so it arrives with the first colour
-            // somebody picks and leaves when they reset.** Computed here rather
-            // than in the bar for the same reason the public routes compute it:
-            // the bar owns no domain concept, and `isCustomised` is one.
-            pageThemeSwitch={
-              isCustomised(liveTheme as ActorTheme) ? (
-                <PageThemeSwitch labels={{ author: labels.pageStyle }} />
-              ) : null
-            }
-            // **The switch that used to be a strip above the sections.** It is
-            // handed in as a node for the reason `pageThemeSwitch` is: the bar
-            // owns no domain concept, and which languages somebody may author
-            // in is one.
-            writingIn={
-              <WritingInToggle
-                lang={lang}
-                onSelect={select}
-                labels={{
-                  writingIn: labels.writingIn,
-                  writingInHint: labels.writingInHint,
-                }}
-              />
-            }
-          />
+            <EditorToolbar
+              title={labels.title}
+              labels={labels}
+              saving={saving}
+              cancelHref={LIST}
+              onHideControls={() => setControlsHidden(true)}
+              onOpenSource={() => {
+                setSourceMounted(true);
+                setSourceOpen(true);
+              }}
+              interactEnabled={interactEnabled}
+              onInteractEnabledChange={setInteractEnabled}
+              // **Gated on the LIVE theme, so it arrives with the first colour
+              // somebody picks and leaves when they reset.** Computed here rather
+              // than in the bar for the same reason the public routes compute it:
+              // the bar owns no domain concept, and `isCustomised` is one.
+              pageThemeSwitch={
+                isCustomised(liveTheme as ActorTheme) ? (
+                  <PageThemeSwitch labels={{ author: labels.pageStyle }} />
+                ) : null
+              }
+              // **The switch that used to be a strip above the sections.** It is
+              // handed in as a node for the reason `pageThemeSwitch` is: the bar
+              // owns no domain concept, and which languages somebody may author
+              // in is one.
+              writingIn={
+                <WritingInToggle
+                  lang={lang}
+                  onSelect={select}
+                  labels={{
+                    writingIn: labels.writingIn,
+                    writingInHint: labels.writingInHint,
+                  }}
+                />
+              }
+            />
 
-          {/* **Its own `sections` watch, isolated in its own component so it
+            {/* **Its own `sections` watch, isolated in its own component so it
               stays out of THIS render.** `BlockEditor` already keeps this
               component from re-rendering on every keystroke inside a block
               by holding its own `useController({ control, name: "sections"
@@ -791,149 +807,155 @@ export function FursonaEditor({
               mounted it stays mounted regardless of `open`, so closing the
               dock does not throw away the text or the problems it was
               showing. */}
-          {sourceMounted && (
-            <PageSourceField
+            {sourceMounted && (
+              <PageSourceField
+                control={control}
+                setValue={setValue}
+                theme={liveTheme as ActorTheme}
+                actorKind={kind}
+                open={sourceOpen}
+                onClose={() => setSourceOpen(false)}
+                reference={reference}
+                labels={labels.source}
+              />
+            )}
+
+            <WidePageColumn
+              className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
+            >
+              <FormErrorBanner
+                errors={{ ...schemaErrors, ...fieldErrors }}
+                labels={{ title: labels.bannerTitle, errors: labels.errors }}
+              />
+            </WidePageColumn>
+
+            <BlockEditor
               control={control}
-              setValue={setValue}
+              lang={lang}
+              labels={labels}
+              onApplyDocument={(chosen) => applyDocumentTo(setValue, chosen)}
               theme={liveTheme as ActorTheme}
-              actorKind={kind}
-              open={sourceOpen}
-              onClose={() => setSourceOpen(false)}
-              reference={reference}
-              labels={labels.source}
-            />
-          )}
-
-          <WidePageColumn
-            className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
-          >
-            <FormErrorBanner
-              errors={{ ...schemaErrors, ...fieldErrors }}
-              labels={{ title: labels.bannerTitle, errors: labels.errors }}
-            />
-          </WidePageColumn>
-
-          <BlockEditor
-            control={control}
-            lang={lang}
-            labels={labels}
-            onApplyDocument={(chosen) => applyDocumentTo(setValue, chosen)}
-            theme={liveTheme as ActorTheme}
-            page={livePage}
-            problems={problems}
-            pageInteractionsEnabled={interactionsEnabled}
-            pageOptions={
-              <>
-                <div
-                  {...tid("editor-identity-fields")}
-                  className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
-                >
-                  {/* **A person has no handle field at all.** Theirs is the provisioned
+              page={livePage}
+              problems={problems}
+              pageInteractionsEnabled={interactionsEnabled}
+              pageOptions={
+                <>
+                  <div
+                    {...tid("editor-identity-fields")}
+                    className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
+                  >
+                    {/* **A person has no handle field at all.** Theirs is the provisioned
             `u-<actor_ref>`, which nobody picks and which appears in no
             address — so there is nothing to edit and nothing worth showing.
             Everything else on this form is identical for both. */}
-                  {kind === "person" ? null : (
-                    <div className="grid gap-1.5">
-                      <label htmlFor="handle" className="text-sm font-medium">
-                        {labels.handle}
-                      </label>
-                      {handleEditable ? (
-                        <>
-                          <input
-                            id="handle"
-                            {...tid("editor-handle")}
-                            {...register("handle")}
-                            maxLength={32}
-                            aria-invalid={Boolean(errors.handle)}
-                            aria-describedby="handle-hint"
-                            className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                          />
-                          <span
-                            id="handle-hint"
-                            className="text-xs text-(--muted)"
-                          >
-                            {labels.handleHint}
+                    {kind === "person" ? null : (
+                      <div className="grid gap-1.5">
+                        <label htmlFor="handle" className="text-sm font-medium">
+                          {labels.handle}
+                        </label>
+                        {handleEditable ? (
+                          <>
+                            <input
+                              id="handle"
+                              {...tid("editor-handle")}
+                              {...register("handle")}
+                              maxLength={32}
+                              aria-invalid={Boolean(errors.handle)}
+                              aria-describedby="handle-hint"
+                              className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                            />
+                            <span
+                              id="handle-hint"
+                              className="text-xs text-(--muted)"
+                            >
+                              {labels.handleHint}
+                            </span>
+                          </>
+                        ) : (
+                          // Read-only text rather than a disabled input: update_fursona takes
+                          // no handle at all, so an editable one would submit a value the
+                          // database ignores.
+                          <span className="px-3 py-2 font-mono text-sm text-(--muted)">
+                            @{initial?.handle}
                           </span>
-                        </>
-                      ) : (
-                        // Read-only text rather than a disabled input: update_fursona takes
-                        // no handle at all, so an editable one would submit a value the
-                        // database ignores.
-                        <span className="px-3 py-2 font-mono text-sm text-(--muted)">
-                          @{initial?.handle}
-                        </span>
-                      )}
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid gap-1.5">
+                      <label
+                        htmlFor="displayName"
+                        className="text-sm font-medium"
+                      >
+                        {labels.displayName}
+                      </label>
+                      <input
+                        id="displayName"
+                        {...tid("editor-display-name")}
+                        {...register("displayName")}
+                        maxLength={64}
+                        aria-invalid={Boolean(errors.displayName)}
+                        className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                      />
                     </div>
-                  )}
 
-                  <div className="grid gap-1.5">
-                    <label
-                      htmlFor="displayName"
-                      className="text-sm font-medium"
-                    >
-                      {labels.displayName}
-                    </label>
-                    <input
-                      id="displayName"
-                      {...tid("editor-display-name")}
-                      {...register("displayName")}
-                      maxLength={64}
-                      aria-invalid={Boolean(errors.displayName)}
-                      className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                    />
+                    <div className="grid gap-1.5">
+                      <label
+                        htmlFor="avatarUrl"
+                        className="text-sm font-medium"
+                      >
+                        {labels.avatarUrl}
+                      </label>
+                      <input
+                        id="avatarUrl"
+                        {...register("avatarUrl")}
+                        type="url"
+                        aria-invalid={Boolean(errors.avatarUrl)}
+                        className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                      />
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <label
+                        htmlFor="visibility"
+                        className="text-sm font-medium"
+                      >
+                        {labels.visibilityLabel}
+                      </label>
+                      <select
+                        id="visibility"
+                        {...tid("editor-visibility")}
+                        {...register("visibility")}
+                        aria-invalid={Boolean(errors.visibility)}
+                        className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
+                      >
+                        {VISIBILITIES.map((value) => (
+                          <option key={value} value={value}>
+                            {labels.visibility[value]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  <div className="grid gap-1.5">
-                    <label htmlFor="avatarUrl" className="text-sm font-medium">
-                      {labels.avatarUrl}
-                    </label>
-                    <input
-                      id="avatarUrl"
-                      {...register("avatarUrl")}
-                      type="url"
-                      aria-invalid={Boolean(errors.avatarUrl)}
-                      className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                    />
-                  </div>
-
-                  <div className="grid gap-1.5">
-                    <label htmlFor="visibility" className="text-sm font-medium">
-                      {labels.visibilityLabel}
-                    </label>
-                    <select
-                      id="visibility"
-                      {...tid("editor-visibility")}
-                      {...register("visibility")}
-                      aria-invalid={Boolean(errors.visibility)}
-                      className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
-                    >
-                      {VISIBILITIES.map((value) => (
-                        <option key={value} value={value}>
-                          {labels.visibility[value]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Above the language strip and the sections, because it governs how
+                  {/* Above the language strip and the sections, because it governs how
           all of them look. The panel is collapsed until somebody opens it —
           theming is a thing people do once and then leave alone, and an open
           colour panel would push everything below it down the page for
           everybody who never touches it. */}
-                <div className="mt-8">
-                  <ThemeController
-                    control={control}
-                    labels={labels.theme}
-                    profileTheme={profileTheme}
-                  />
-                </div>
-              </>
-            }
-          />
-        </div>
+                  <div className="mt-8">
+                    <ThemeController
+                      control={control}
+                      labels={labels.theme}
+                      profileTheme={profileTheme}
+                    />
+                  </div>
+                </>
+              }
+            />
+          </div>
 
-        {/* **PORTALLED INTO THE HEADER, which is outside the element the rule
+          {/* **PORTALLED INTO THE HEADER, which is outside the element the rule
           arms** — so it needs no exception, cannot be part of what the fidelity
           comparison photographs, and cannot be hidden by the rule it exists to
           undo. It is the only thing on screen that is not the page.
@@ -949,36 +971,37 @@ export function FursonaEditor({
           light/dark toggles by 88% each, making both impossible to press. A control
           out of flow has no way to know what it lands on, so it sits in the
           header's own row now and displaces rather than covers. */}
-        {controlsHidden && escapeSlot
-          ? createPortal(
-              <button
-                type="button"
-                onClick={() => {
-                  setControlsHidden(false);
-                  // **Show controls always resets the switch, even though
-                  // Preview never touched it.** Preview gets interaction
-                  // through `controlsHidden` alone; the explicit switch is
-                  // what the spec calls a SESSION choice reset by returning
-                  // to safe editing, not a value Preview is allowed to leave
-                  // sitting on for the next time controls come back.
-                  setInteractEnabled(false);
-                }}
-                {...tid("show-controls")}
-                // **Still `CHROME_SCOPE` and still opaque.** The header wears
-                // the author's theme like the rest of the document, so a
-                // translucent control here has no guaranteed contrast against
-                // colours they chose. `--menu` is the one token declared
-                // opaque in both modes.
-                className={`${CHROME_SCOPE} flex items-center gap-1.5 rounded-lg bg-(--menu) px-3 py-1.5 text-sm font-medium [--chrome-text:0.875rem]`}
-              >
-                <EyeOff className="size-4" />
-                {labels.showControls}
-              </button>,
-              escapeSlot,
-            )
-          : null}
-      </ThemeScope>
-    </form>
+          {controlsHidden && escapeSlot
+            ? createPortal(
+                <button
+                  type="button"
+                  onClick={() => {
+                    setControlsHidden(false);
+                    // **Show controls always resets the switch, even though
+                    // Preview never touched it.** Preview gets interaction
+                    // through `controlsHidden` alone; the explicit switch is
+                    // what the spec calls a SESSION choice reset by returning
+                    // to safe editing, not a value Preview is allowed to leave
+                    // sitting on for the next time controls come back.
+                    setInteractEnabled(false);
+                  }}
+                  {...tid("show-controls")}
+                  // **Still `CHROME_SCOPE` and still opaque.** The header wears
+                  // the author's theme like the rest of the document, so a
+                  // translucent control here has no guaranteed contrast against
+                  // colours they chose. `--menu` is the one token declared
+                  // opaque in both modes.
+                  className={`${CHROME_SCOPE} flex items-center gap-1.5 rounded-lg bg-(--menu) px-3 py-1.5 text-sm font-medium [--chrome-text:0.875rem]`}
+                >
+                  <EyeOff className="size-4" />
+                  {labels.showControls}
+                </button>,
+                escapeSlot,
+              )
+            : null}
+        </ThemeScope>
+      </form>
+    </EditorMotion>
   );
 }
 
