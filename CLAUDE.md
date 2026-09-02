@@ -1865,19 +1865,41 @@ replace`, so the newest body of a function could sit in a file named after
   Plan:
   `docs/superpowers/plans/2026-08-31-canvas-inspector-builder.md`.
 
-- **Editor interaction and motion — DESIGNED, NOT BUILT (2026-09-02).**
-  Page links, players and embeds are real inside the canvas today, so a click
-  meant to select a block can act on its content. The approved design makes
-  interaction safe by default while controls show, adds an explicit
-  session-only **Interact with page** switch, makes hide-controls Preview
-  interactive, and resets to locked whenever controls return. The boundary is
-  editor-only and leaves the public renderer untouched.
+- **Editor interaction, adding and motion — DESIGNED, NOT BUILT
+  (2026-09-02).** Page links, players and embeds are real inside the canvas
+  today, so a click meant to select a block can act on its content. The
+  approved design makes interaction safe by default while controls show, adds
+  an explicit session-only **Interact with page** switch, makes hide-controls
+  Preview interactive, and resets to locked whenever controls return. The
+  boundary is editor-only and leaves the public renderer untouched.
 
-  The same phase gives editor state changes restrained native-CSS motion:
-  inspector and scope entry, canvas accommodation, selection feedback and
-  newly mounted editor content. It adds no animation dependency, changes no
-  authored page motion, and removes every new duration under reduced motion.
-  Spec:
+  **Adding becomes one control at every scope, and the premise that sent it
+  there was wrong in the instructive direction.** Nesting a section inside a
+  section was reported as removed by the recursive inspector and is not:
+  `add-nested` is offered on an EMPTY place and nowhere else, so a section
+  whose places are full has no route to it, which is indistinguishable from a
+  deleted feature. `mayNest` and `MAX_DEPTH` never moved. The fix is
+  uniformity — every scope that admits a block gets one Add button opening a
+  picker whose options are drawn by the REAL renderer with fixed sample
+  content, replacing the flat row of sixteen leaf-kind buttons that made an
+  author add a block to find out what it was.
+
+  **An animation library is adopted after all, and the first version of this
+  bullet said the opposite.** Motion for React (`motion`), as `LazyMotion`
+  plus `m`, with one `MotionConfig reducedMotion="user"` at the editor root.
+  What decided it against `@formkit/auto-animate`, which is smaller and
+  handles lists automatically, is that the list in question is `@dnd-kit`'s:
+  two libraries writing `transform` on one element is this repository's own
+  cascade fight arriving through a dependency. So the standing rule is that
+  Motion renders only inside `CHROME_SCOPE`, is never a dnd-kit draggable or
+  an ancestor writing its transform, and does not use layout animation —
+  because Motion writes INLINE styles, which beat every layered utility
+  unconditionally. There is no shadcn installation to be compatible with
+  (`components.json`, Radix, `class-variance-authority` and
+  `tailwindcss-animate` are all absent; the `cn` helper is the convention, not
+  the library), and Motion generates no classes, so nothing in Tailwind
+  contends with it. Its cost is measured against the build and the `canvas`
+  budget before it is kept. Spec:
   `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
 
 - **A page has a source (2026-08-28) — done.** The editor carries a live,
