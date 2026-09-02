@@ -220,14 +220,17 @@ describe("BlockCard", () => {
   });
 
   describe("an empty place", () => {
-    // It keeps its width, carries this app's own "nothing here yet" edge, and
-    // offers the two things that can go in it. Collapsing empty places would
-    // make a space count meaningless the moment a section were partly filled.
-    it("is drawn for each place, and offers what can fill it", () => {
+    // It keeps its width and carries this app's own "nothing here yet" edge.
+    // Filling one is the Add picker's job now, at the enclosing Items scope —
+    // `inspector-items.tsx` and `block-editor.tsx` — since this legacy
+    // `showChildren` rendering is reached by no production caller any more
+    // and offers only removal. Collapsing empty places would make a space
+    // count meaningless the moment a section were partly filled, which is
+    // still true and still why one is drawn for every place.
+    it("is drawn for each place, with its own way to remove it", () => {
       harness([newContainer("grid", 3)]);
       expect(screen.getAllByTestId("empty-place")).toHaveLength(3);
-      expect(screen.getAllByTestId("add-content")).toHaveLength(3);
-      expect(screen.getAllByTestId("add-nested")).toHaveLength(3);
+      expect(screen.getAllByTestId("remove-place")).toHaveLength(3);
     });
 
     it("is drawn between two filled ones, in its own position", () => {
@@ -240,29 +243,6 @@ describe("BlockCard", () => {
       const places = screen.getByTestId("places");
       expect(within(places).getAllByTestId("empty-place")).toHaveLength(1);
       expect(within(places).getAllByTestId("leaf-editor")).toHaveLength(2);
-    });
-
-    it("takes a piece of content, keeping every position", () => {
-      const page = harness([
-        {
-          ...newContainer("grid", 3),
-          children: [titled("a"), null, titled("b")],
-        },
-      ]);
-      fireEvent.click(screen.getByTestId("add-content"));
-      expect(
-        section(page()).children.map(
-          (child) => child && !isContainer(child) && child.title_en,
-        ),
-      ).toEqual(["a", "", "b"]);
-    });
-
-    it("takes a section, which arrives with places of its own", () => {
-      const page = harness([newContainer("grid", 1)]);
-      fireEvent.click(screen.getByTestId("add-nested"));
-      const [child] = section(page()).children;
-      expect(child && isContainer(child)).toBe(true);
-      expect(screen.getByTestId("nested-card")).toBeInTheDocument();
     });
 
     it("can be taken away entirely, which is not the same as emptying one", () => {
@@ -281,15 +261,12 @@ describe("BlockCard", () => {
 
     // AN EMPTY PLACE IS NOT A BLOCK. `countBlocks` excludes them and
     // `validate_block` counts them toward nothing, so adding one at the block
-    // cap is legal on both sides — where the two invitations INSIDE a place
-    // each add a block and are withdrawn. A control withdrawn at a number that
-    // is not its own is the same fault as one that silently does nothing,
-    // wearing an alibi.
+    // cap is legal — a place is never itself withdrawn by `atBlockLimit`,
+    // only the block-adding controls a scope enclosing it offers are (the
+    // Add picker at the Items level, tested in `block-editor.test.tsx`).
     it("can still be added at the block cap, where filling one cannot", () => {
       harness([newContainer("grid", 2)], [], true);
       expect(screen.getByTestId("add-place")).toBeInTheDocument();
-      expect(screen.queryByTestId("add-content")).toBeNull();
-      expect(screen.queryByTestId("add-nested")).toBeNull();
     });
 
     it("is withdrawn at the container's own cap on how much it may hold", () => {
@@ -362,16 +339,18 @@ describe("BlockCard", () => {
 
     // OFFERING A SECTION AND THEN REFUSING THE SAVE is the fault class this
     // repo already paid for once, when a missing `nuqs` adapter was reported
-    // as "we could not load your identity". So the deepest place offers
-    // content and no section, and says why.
-    it("offers content but no section in a place at the cap, and says why", () => {
+    // as "we could not load your identity". The deepest place offering
+    // content and no section, and saying why, is the Add picker's job now —
+    // `AddBlockPickerProps.mayAddLayout` and `labels.nestingAtLimit` cover it
+    // in `add-block-picker.test.tsx`. This legacy `showChildren` rendering
+    // offers no add control at any depth (see the describe block above), so
+    // the deepest place is a bare removable one like any other.
+    it("draws a bare empty place at the depth cap, with no add control of any kind", () => {
       harness(deep());
       const deepest = screen.getByTestId("empty-place");
-      expect(within(deepest).getByTestId("add-content")).toBeInTheDocument();
+      expect(within(deepest).queryByTestId("add-content")).toBeNull();
       expect(within(deepest).queryByTestId("add-nested")).toBeNull();
-      expect(within(deepest).getByTestId("nesting-at-limit")).toHaveTextContent(
-        labels.nestingAtLimit,
-      );
+      expect(within(deepest).getByTestId("remove-place")).toBeInTheDocument();
     });
 
     it("gives a nested container its own ids, so a section can still be counted", () => {

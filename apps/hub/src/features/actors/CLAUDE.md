@@ -5063,6 +5063,57 @@ requirement this repository has already paid for once.
 Renders nothing at all — no trigger, no dialog — at `BLOCK_LIMITS`, matching
 the page-level Add control's existing rule.
 
+**The picker is wired in everywhere now, and the two palettes it replaces are
+gone.** `inspector-items.tsx` mounts one `AddBlockPicker` per empty position,
+targeted at that exact path; `block-editor.tsx`'s `ItemsFooter` mounts one at
+a container's own next child position for a scope whose places are all
+filled; and the page-level `addPalette` mounts one targeted at `[]`. One
+`addPickerLabels` bag, built once in `BlockEditor`, is threaded to all three
+rather than each call site re-slicing `labels` its own way.
+
+**"The nesting looked deleted" bug is what this closes, and it is proven by a
+fixture the flat editor could not have discriminated with.** `add-nested`
+used to exist ONLY on an empty place, so a two-place container with both
+places filled offered no way to nest a section inside it at all — `mayNest`
+still admitted one, but the control to reach it did not exist.
+`block-editor.test.tsx`'s "still offers add-block from a full two-place
+container" fixture is built with BOTH places occupied from the start, which
+is the case a fixture with an empty place left over could never have caught.
+
+**Drag-to-add is gone, deliberately, and may return later.** The flat
+add row's buttons were `draggable`, with a matching HTML5 `onDragOver`/
+`onDrop` pair on the canvas (`droppedKind`, `blockFromPayload`) — both
+removed in the same change that removed the row, since the picker replaces
+the row entirely and nothing else in the editor used HTML5 drag (`block-slot.tsx`
+and `fursona-list.tsx` both use `@dnd-kit`, an unrelated mechanism with no
+`dataTransfer` involved). The owner's own words: "we can work with menus for
+now. We might think on drag to add later." Recording it here is what keeps a
+removed capability from being rediscovered as a bug — see root rule 33's
+neighbours on this exact shape.
+
+**The page-level width selector went with `add-section`, and that is a
+plan deviation worth naming.** The old flow let somebody choose a section's
+spaces (1–6) BEFORE adding it, through a `new-section-spaces` select paired
+with the `add-section` button. The picker's layout options all add
+`newContainer(mode, 2)` — a fixed starting shape, exactly like `add-nested`
+already did at every OTHER scope — so a section's width is chosen
+AFTERWARDS, through its own shape control, uniformly with how nesting has
+always worked. Keeping the select once its only button was gone would have
+left it a control that accepts a choice and changes nothing, the fault this
+whole repository refuses; it was removed along with the state (`spaces`/
+`setSpaces`) and the `id` (`useId`) that only it consumed. `addSection` and
+`newSectionSpaces` remain as unread catalogue strings in both languages,
+left rather than chased through every consumer for a rename this task did
+not ask for.
+
+**`BlockCard`'s own legacy `showChildren=true` rendering lost its add UI
+too**, per its own TSDoc's admission that no production caller reaches that
+mode any more ("standalone card tests default to the legacy complete card").
+An empty place there now offers only removal; filling one is the enclosing
+Items scope's job. `block-card.test.tsx`'s cases that exercised the removed
+buttons were rewritten to test what remains rather than deleted outright,
+except where the assertion itself no longer had anything to discriminate.
+
 Nothing about Motion has landed yet; this section grows with the branch
 rather than describing a finished feature. See
 `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.

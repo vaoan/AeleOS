@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  ChevronDown,
-  ChevronRight,
-  Layers,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { removalLocked } from "@/features/actors/domain/required-blocks";
 import { useId, useState, type ReactNode } from "react";
 import {
@@ -23,12 +16,9 @@ import {
   addToPlace,
   appendPlace,
   clearAt,
-  mayNest,
   newContainer,
-  newLeaf,
   patchContainer,
   removeAt,
-  setAt,
   setSpaces,
   SPACE_CHOICES,
   type BlockPath,
@@ -1096,37 +1086,14 @@ function PlaceContent({
       {...tid("empty-place")}
       className="flex flex-wrap items-center justify-center gap-1.5 rounded-lg surface border-dashed border-(--edge)/60 bg-(--surface) p-3"
     >
-      {atBlockLimit ? null : (
-        <button
-          type="button"
-          {...tid("add-content")}
-          onClick={() =>
-            apply((blocks) => setAt(blocks, path, newLeaf("text")))
-          }
-          className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm text-(--muted)"
-        >
-          <Plus className="size-4" />
-          {labels.addContent}
-        </button>
-      )}
-      {atBlockLimit || !mayNest(path) ? null : (
-        <button
-          type="button"
-          {...tid("add-nested")}
-          onClick={() =>
-            apply((blocks) => setAt(blocks, path, newContainer("grid", 2)))
-          }
-          className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm text-(--muted)"
-        >
-          <Layers className="size-4" />
-          {labels.addNested}
-        </button>
-      )}
-      {mayNest(path) ? null : (
-        <span className="text-xs text-(--muted)" {...tid("nesting-at-limit")}>
-          {labels.nestingAtLimit}
-        </span>
-      )}
+      {/* An empty place here is filled through the Add picker at the
+          Items scope enclosing it — `InspectorItems` and `ItemsFooter` in
+          `block-editor.tsx` — not from within this legacy `showChildren`
+          rendering, which no production caller reaches any more (see
+          `BlockCardProps.showChildren`'s own note). The flat `add-content`/
+          `add-nested` pair that used to live here is gone rather than
+          rebuilt against a picker this card has no `page`/`locale` to feed;
+          only removal stays possible for a place reached this way. */}
       <button
         type="button"
         aria-label={labels.removePlace}

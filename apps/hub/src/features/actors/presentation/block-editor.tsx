@@ -12,7 +12,7 @@ import {
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import type { PageContext } from "@/features/actors/presentation/blocks";
-import { Plus, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -20,7 +20,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
@@ -42,11 +41,9 @@ import {
   addContentAt,
   appendPlace,
   blockAt,
-  newContainer,
-  newLeaf,
+  mayNest,
   removeAt,
   setAt,
-  SPACE_CHOICES,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import {
@@ -105,6 +102,10 @@ import {
 import { LeafEditor } from "@/features/actors/presentation/leaf-editor";
 import { InspectorItems } from "@/features/actors/presentation/inspector-items";
 import { lockCanvasInteraction } from "@/features/actors/presentation/canvas-interaction-lock";
+import {
+  AddBlockPicker,
+  type AddBlockPickerProps,
+} from "@/features/actors/presentation/add-block-picker";
 import {
   SECTION_PRESETS,
   presetBlock,
@@ -308,9 +309,6 @@ export interface BlockEditorProps<T extends FieldValues> {
   pageInteractionsEnabled: boolean;
 }
 
-/** The shape a new section starts at, before anybody changes it. */
-const NEW_SPACES = 2;
-
 /** How far a pointer travels before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 8;
 
@@ -356,6 +354,12 @@ interface ItemsFooterProps {
   atBlockLimit: boolean;
   kinds: readonly LeafKind[];
   labels: BlockEditorLabels;
+  /** The Add picker's own label bag, built once above. */
+  pickerLabels: AddBlockPickerProps["labels"];
+  /** Threaded to the picker's previews, exactly as the canvas needs it. */
+  page: PageContext;
+  /** Which language the picker's previews read. */
+  locale: AuthoringLanguage;
   addAt: (path: BlockPath, block: Block) => void;
   apply: ApplyBlocks;
 }
@@ -366,21 +370,24 @@ function ItemsFooter(props: ItemsFooterProps): ReactNode {
   if (!props.container || !isContainer(props.container) || !props.path) {
     return <></>;
   }
+  // Where the picker's own choice lands: the container's next empty or
+  // appended place, exactly as `addAt` resolves it — asked here only so
+  // `mayAddLayout` answers for the place a choice will actually occupy.
+  const nextChildPath = [...props.path, nextChildPosition(props.container)];
   return (
     <>
-      {props.atBlockLimit
-        ? null
-        : props.kinds.map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              {...tid(`add-into-${kind}`)}
-              onClick={() => props.addAt(props.path!, newLeaf(kind))}
-              className="w-fit rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              {props.labels.leaf.leafKinds[kind]}
-            </button>
-          ))}
+      {props.atBlockLimit ? null : (
+        <AddBlockPicker
+          targetPath={nextChildPath}
+          kinds={props.kinds}
+          mayAddLayout={mayNest(nextChildPath)}
+          atBlockLimit={props.atBlockLimit}
+          labels={props.pickerLabels}
+          page={props.page}
+          locale={props.locale}
+          onAdd={(block) => props.addAt(props.path!, block)}
+        />
+      )}
       {props.container.children.length < BLOCK_LIMITS.children ? (
         <button
           type="button"
@@ -608,6 +615,14 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * visitor — and the interaction lock covering the canvas is released in the
  * same effect that watches this prop.
  *
+ * **One `AddBlockPicker` is the only way to add, at every scope.** The page
+ * palette, a container's `ItemsFooter`, and every empty place in
+ * `InspectorItems` each mount one, targeted at their own place, sharing one
+ * `addPickerLabels` bag built once here. The sixteen flat `add-leaf-*`
+ * buttons, `add-section`, `add-into-*` and the HTML5 drag-to-add path they
+ * carried are gone — see the actors feature note for why drag-to-add is a
+ * deliberate removal rather than an oversight.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -621,10 +636,8 @@ export function BlockEditor<T extends FieldValues>({
   pageOptions,
   pageInteractionsEnabled: interactionsEnabled,
 }: BlockEditorProps<T>) {
-  const id = useId();
   const dndId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [spaces, setSpaces] = useState(NEW_SPACES);
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [refusal, setRefusal] = useState<MoveRefusal | null>(null);
   const [selection, setSelection] = useState<EditorSelection>(null);
@@ -936,35 +949,6 @@ export function BlockEditor<T extends FieldValues>({
   };
 
   /**
-   * Reads an Add-tab drag payload.
-   *
-   * @param event - the drop.
-   * @returns the payload text, or nothing.
-   */
-  const droppedKind = (event: DragEvent): string | undefined => {
-    event.preventDefault();
-    return event.dataTransfer.getData("text/plain") || undefined;
-  };
-
-  /**
-   * Turns a drag payload into a block, or undefined when it is not ours.
-   *
-   * @param raw - `leaf:<kind>` or `section`.
-   * @returns the block.
-   */
-  const blockFromPayload = (raw: string): Block | undefined => {
-    if (raw === "section") return newContainer("grid", spaces);
-    if (raw === "layout") return newContainer("stack", 1);
-    if (raw.startsWith("leaf:")) {
-      const kind = raw.slice(5);
-      return kinds.includes(kind as LeafKind)
-        ? newLeaf(kind as LeafKind)
-        : undefined;
-    }
-    return undefined;
-  };
-
-  /**
    * What a drop should be ANNOUNCED as, when it is not an ordinary move.
    *
    * It asks `moveBlock` again rather than reading what `onDragEnd` decided out
@@ -1010,6 +994,20 @@ export function BlockEditor<T extends FieldValues>({
   // was a control that accepted a press and produced an unexplained failure
   // one save later.
   const kinds = offerableLeafKinds(page.actorKind);
+  // **One label bag for the Add picker, built once and passed to every
+  // instance of it** — the page, a container's footer, an empty place —
+  // rather than each call site re-slicing `labels` its own way, which is
+  // exactly the kind of duplication that drifts the moment a string is
+  // reworded in one place and not the others.
+  const addPickerLabels = {
+    add: labels.addBlock,
+    title: labels.addBlockTitle,
+    contentGroup: labels.addContentGroup,
+    layoutGroup: labels.addLayoutGroup,
+    nestingAtLimit: labels.nestingAtLimit,
+    leafKinds: labels.leaf.leafKinds,
+    modes: labels.modes,
+  };
   // Position named once, exactly as `PublicBlocks` does it and for the same
   // reason: a block has no identity but where it sits, and
   // `react/no-array-index-key` reads the map callback's index parameter.
@@ -1030,57 +1028,16 @@ export function BlockEditor<T extends FieldValues>({
         <p className="text-sm text-(--muted)">{labels.atLimit}</p>
       ) : (
         <>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="grid gap-1.5">
-              <label
-                htmlFor={`${id}-new-spaces`}
-                className="text-xs font-medium"
-              >
-                {labels.newSectionSpaces}
-              </label>
-              <select
-                id={`${id}-new-spaces`}
-                {...tid("new-section-spaces")}
-                value={String(spaces)}
-                onChange={(event) => setSpaces(Number(event.target.value))}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                {SPACE_CHOICES.map((count) => (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("text/plain", "section")
-              }
-              {...tid("add-section")}
-              onClick={() => addOnPage(newContainer("grid", spaces))}
-              className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              <Plus className="size-4" />
-              {labels.addSection}
-            </button>
-          </div>
-          {kinds.map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("text/plain", `leaf:${kind}`)
-              }
-              {...tid(`add-leaf-${kind}`)}
-              onClick={() => addOnPage(newLeaf(kind))}
-              className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              {labels.leaf.leafKinds[kind]}
-            </button>
-          ))}
+          <AddBlockPicker
+            targetPath={[]}
+            kinds={kinds}
+            mayAddLayout={mayNest([])}
+            atBlockLimit={atBlockLimit}
+            labels={addPickerLabels}
+            page={page}
+            locale={lang}
+            onAdd={addOnPage}
+          />
           <div className="grid gap-1.5">
             <button
               type="button"
@@ -1153,6 +1110,9 @@ export function BlockEditor<T extends FieldValues>({
       atBlockLimit={atBlockLimit}
       kinds={kinds}
       labels={labels}
+      pickerLabels={addPickerLabels}
+      page={page}
+      locale={lang}
       addAt={addAt}
       apply={apply}
     />
@@ -1172,6 +1132,10 @@ export function BlockEditor<T extends FieldValues>({
       }}
       onRemovePlace={(path) => apply((current) => removeAt(current, path))}
       atBlockLimit={atBlockLimit}
+      kinds={kinds}
+      page={page}
+      locale={lang}
+      pickerLabels={addPickerLabels}
       labels={labels}
       footer={itemsFooter}
     />
@@ -1304,23 +1268,6 @@ export function BlockEditor<T extends FieldValues>({
           data-editor-stack
           className="grid"
           onClick={onCanvasClick}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            const raw = droppedKind(event);
-            if (!raw) return;
-            const hit = (event.target as Element | null)?.closest(
-              "[data-block-path]",
-            );
-            const path =
-              hit instanceof HTMLElement
-                ? (parseBlockPath(hit.dataset.blockPath ?? "") ?? [])
-                : [];
-            if (raw === "layout") return;
-            const next = blockFromPayload(raw);
-            if (!next) return;
-            if (path.length === 0) addOnPage(next);
-            else addAt(path, next);
-          }}
         >
           {blocks.length === 0 ? (
             <p className={`${CHROME_SCOPE} px-4 py-8 text-sm text-(--muted)`}>
