@@ -1,6 +1,13 @@
 # Editor interaction, adding, and motion Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Single agent, whole plan.** Do not dispatch a subagent per task. One
+> implementer works Tasks 1–8 in order on this branch, with TDD and a commit
+> at the end of each task. Spec (invariants, not steps):
+> `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
+> PR for these docs: https://github.com/vaoan/AeleOS/pull/60
+> Branch: `editor-interaction-motion` from `origin/main`.
+>
+> Steps use checkbox (`- [ ]`) syntax for tracking. Mark them as you go.
 
 **Goal:** Lock page interaction while editor controls are visible (with a session-only override that resets whenever controls return), replace the two add palettes with one picker that uses the real renderer, and give editor chrome restrained Motion.
 

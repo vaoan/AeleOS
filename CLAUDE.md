@@ -1901,6 +1901,10 @@ replace`, so the newest body of a function could sit in a file named after
   contends with it. Its cost is measured against the build and the `canvas`
   budget before it is kept. Spec:
   `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
+  Plan:
+  `docs/superpowers/plans/2026-09-02-editor-interaction-and-motion.md`.
+  One agent runs that plan end to end on `editor-interaction-motion`; it is
+  not a queue of subagent tasks.
 
 - **A page has a source (2026-08-28) — done.** The editor carries a live,
   two-way JSON dock: a page can be inspected, copied out, pasted
