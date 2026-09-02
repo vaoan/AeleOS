@@ -3174,6 +3174,15 @@ kind pairs the flat editor of the day had no name for, so the route it measures
 opened empty; the editor port restored it and both halves run. That guard's own
 note is where rule 21 came from.
 
+**The recursive inspector changed the dial fixture's CONTROL count, not its
+page (2026-09-02).** Its shallow Options scope reduced the mounted document from
+10,946 nodes to 1,808 while every preview leaf remained. The guard now counts
+those leaves directly; a whole-DOM threshold was measuring the control tree the
+feature deliberately removed. The scrolling half also takes three samples and
+uses their median after one unchanged build read 80.8% once and 24.2% on the
+job's automatic retry. The 80% ceiling is unchanged: one scheduling spike no
+longer decides whether the page has sustained scroll cost.
+
 `schema-drift` runs `pnpm check:schema-drift`, and it exists because of the
 in-place-migration hazard above:
 it compares `supabase/migrations/` against the **live** project, which is the

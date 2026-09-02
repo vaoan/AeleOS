@@ -249,13 +249,18 @@ test("a pointer drag between sibling rows does not activate either row", async (
   );
   await page.mouse.up();
 
+  await expect
+    .poll(() => page.getByTestId("inspector-item-row").allTextContents())
+    .toEqual([
+      expect.stringContaining("Right"),
+      expect.stringContaining("Left"),
+    ]);
   await expect(page.getByTestId("leaf-editor")).toHaveCount(0);
   await expect(page.getByTestId("canvas-inspector")).toBeVisible();
 
-  // The row click generated immediately after a completed drag is consumed;
-  // the next deliberate click opens the row normally.
-  await page.getByTestId("inspector-item-open").first().click();
-  await expect(page.getByTestId("leaf-editor")).toHaveCount(0);
+  // The pointer sequence itself did not open either row. A later, independent
+  // click must still work; suppressing that click would turn drag protection
+  // into a two-click row.
   await page.getByTestId("inspector-item-open").first().click();
   await expect(page.getByTestId("leaf-title")).toHaveValue("Right");
   await page.getByTestId("inspector-back").click();
