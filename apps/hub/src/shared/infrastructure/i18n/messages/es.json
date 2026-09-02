@@ -484,6 +484,9 @@
     "sectionStyleMargins": "Márgenes",
     "hideControls": "Vista previa",
     "showControls": "Mostrar controles",
+    "interactWithPage": "Interactuar con la página",
+    "interactWithPageHintOff": "Los enlaces y controles de la página están bloqueados para que puedas seleccionar bloques.",
+    "interactWithPageHintOn": "Los enlaces y controles de la página funcionan como para quien la visita.",
     "font": "Tipografía",
     "fontDefault": "La del diseño",
     "fonts": {

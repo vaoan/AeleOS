@@ -1,7 +1,7 @@
 "use client";
 
-import { Braces, Check, Eye, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { Braces, Check, Eye, MousePointerClick, X } from "lucide-react";
+import { useId, type ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
@@ -21,6 +21,13 @@ import { CHROME_SCOPE } from "@/shared/domain/chrome";
  * `hideControls`, not nested. The panel it opens has its own, separate label
  * bag, `PageSourceDockLabels`, because that panel has words `openSource`
  * never needs to know about.
+ *
+ * `interactWithPage` names the switch; `interactWithPageHintOff`/`On` are its
+ * accessible description, which states the CONSEQUENCE of the current state
+ * rather than merely restating it — "page links and controls are locked" says
+ * more than "off" does. Both exist because the same control's description
+ * changes with its own pressed state, which is what
+ * {@link EditorToolbarProps.interactEnabled} selects between.
  */
 export interface EditorToolbarLabels {
   /** The save button when idle. */
@@ -35,6 +42,12 @@ export interface EditorToolbarLabels {
   showControls: string;
   /** Opens the panel showing the page as JSON. */
   openSource: string;
+  /** Names the switch: pressed or unpressed, page links and controls work. */
+  interactWithPage: string;
+  /** The switch's accessible description while it is unpressed. */
+  interactWithPageHintOff: string;
+  /** The switch's accessible description while it is pressed. */
+  interactWithPageHintOn: string;
 }
 
 /**
@@ -58,6 +71,10 @@ export interface EditorToolbarLabels {
  * 2026-08-28 when the editor's language strip became a control in this bar.
  * It differs from `pageThemeSwitch` in one way: it is NOT optional. Every page
  * is being written in some language, where not every page has a look to leave.
+ *
+ * **`interactEnabled`/`onInteractEnabledChange` are a boolean and a callback
+ * (2026-09-02), unlike those two nodes** — see the prop's own TSDoc for why
+ * this bar owns that one concept where it owns no other.
  */
 export interface EditorToolbarProps {
   /** What is being edited, shown on the left. */
@@ -94,6 +111,19 @@ export interface EditorToolbarProps {
    * language, where not every page has a look to leave.
    */
   writingIn: ReactNode;
+  /**
+   * Whether the session's own Interact-with-page switch is pressed.
+   *
+   * A callback and a boolean rather than a node, unlike `pageThemeSwitch`
+   * and `writingIn`: this bar owns no page-theme or language concept, but
+   * whether the CANVAS is locked is exactly what a bar full of ways to look
+   * at the page is for — Preview, beside it, already answers a version of
+   * the same question. `FursonaEditor` still owns the session state and the
+   * reset-on-Preview-exit rule; this prop only reflects it.
+   */
+  interactEnabled: boolean;
+  /** Presses or releases the Interact-with-page switch. */
+  onInteractEnabledChange: (next: boolean) => void;
   /** True while a save is in flight. */
   saving: boolean;
   /** Where leaving without saving goes. */
@@ -202,6 +232,14 @@ export interface EditorToolbarProps {
  * added to it breaks, and it broke under Linux font metrics in CI while one
  * developer machine read zero.
  *
+ * **It also carries Interact with page (2026-09-02), beside Preview.** Both
+ * change how the live page can be used, which is why they sit together
+ * rather than one being folded into the other: Preview implies interaction
+ * through hiding controls altogether, while this switch turns it on WITH
+ * controls still visible. Its `aria-describedby` names a visually-hidden
+ * sentence that swaps between the two hint strings on the switch's own
+ * pressed state, stating the consequence rather than merely the state.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -213,7 +251,10 @@ export function EditorToolbar({
   onOpenSource,
   pageThemeSwitch,
   writingIn,
+  interactEnabled,
+  onInteractEnabledChange,
 }: EditorToolbarProps) {
+  const interactHintId = useId();
   return (
     // **The bar spans the page and its ROW is columned, not the other way
     // round.** A `position: sticky` element sticks only within its parent's
@@ -288,6 +329,34 @@ export function EditorToolbar({
           >
             <Braces className="size-4" />
           </button>
+          {/* **Interact with page, beside Preview because both change how the
+              live page can be used.** A pressed/unpressed switch rather than a
+              node like `pageThemeSwitch`: this bar owns no theme or language
+              concept, but whether the canvas is locked is exactly what a row
+              of ways to look at the page is for. `aria-describedby` points at
+              a visually-hidden sentence stating the CONSEQUENCE rather than
+              merely the state, which swaps with the pressed state so a screen
+              reader hears what changed rather than only that something did.
+              Compact like Preview beside it: icon alone below `sm`, so this
+              row gains no new overflow band at 320. */}
+          <button
+            type="button"
+            aria-pressed={interactEnabled}
+            aria-describedby={interactHintId}
+            onClick={() => onInteractEnabledChange(!interactEnabled)}
+            {...tid("interact-with-page")}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted) aria-pressed:text-(--accent)"
+          >
+            <MousePointerClick className="size-4" />
+            <span className="sr-only sm:not-sr-only">
+              {labels.interactWithPage}
+            </span>
+          </button>
+          <span id={interactHintId} className="sr-only">
+            {interactEnabled
+              ? labels.interactWithPageHintOn
+              : labels.interactWithPageHintOff}
+          </span>
           <button
             type="button"
             onClick={onHideControls}

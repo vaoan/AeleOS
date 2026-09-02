@@ -244,6 +244,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * they are not labels stored in somebody's page document. Items is the
  * selected page or container's immediate-child list, not the old global Add
  * palette.
+ *
+ * **It also names the toolbar's Interact-with-page switch (2026-09-02)** —
+ * `interactWithPage` and its two accessible-description hints, `Off`/`On` —
+ * beside `hideControls`/`showControls`, which it already carried.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -349,6 +353,9 @@ export async function fursonaEditorLabels(
     hideControls: t("hideControls"),
     showControls: t("showControls"),
     openSource: t("source.open"),
+    interactWithPage: t("interactWithPage"),
+    interactWithPageHintOff: t("interactWithPageHintOff"),
+    interactWithPageHintOn: t("interactWithPageHintOn"),
     bannerTitle: t("bannerTitle"),
     pageStyle: t("pageStyle"),
     writingIn: t("writingIn"),

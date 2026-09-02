@@ -104,6 +104,7 @@ import {
 } from "@/features/actors/presentation/drag-announcements";
 import { LeafEditor } from "@/features/actors/presentation/leaf-editor";
 import { InspectorItems } from "@/features/actors/presentation/inspector-items";
+import { lockCanvasInteraction } from "@/features/actors/presentation/canvas-interaction-lock";
 import {
   SECTION_PRESETS,
   presetBlock,
@@ -219,6 +220,10 @@ export interface BlockEditorLabels
  * The inspector starts deselected and mounts only after a canvas or Page
  * selection. Page and container selections expose immediate children in
  * Items plus their own Options; a leaf opens Options directly.
+ *
+ * **It also owns the interaction lock (2026-09-02)**, mounted in an effect
+ * over the canvas element this component renders — see
+ * {@link BlockEditorProps.pageInteractionsEnabled}.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -270,6 +275,18 @@ export interface BlockEditorProps<T extends FieldValues> {
    * Page Options; block Options never duplicates those page fields.
    */
   pageOptions?: ReactNode;
+  /**
+   * Whether the live page is currently interactive.
+   *
+   * Computed above by {@link pageInteractionsEnabled} from Preview and the
+   * toolbar switch — this component only acts on the result. **When true,
+   * canvas clicks do not select or clear**: the click belongs to the page
+   * itself, exactly as it does for a visitor, and the interaction lock is
+   * released so a real link, button or frame can respond. When false, the
+   * canvas is locked by {@link lockCanvasInteraction} and a click instead
+   * chooses the nearest block.
+   */
+  pageInteractionsEnabled: boolean;
 }
 
 /** The shape a new section starts at, before anybody changes it. */
@@ -566,6 +583,12 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * their shared parent again, preserving `moveBlock` while withholding
  * cross-level gestures from this inspector.
  *
+ * **A canvas click selects a block only while `pageInteractionsEnabled` is
+ * false (2026-09-02).** While it is true, `onCanvasClick` returns
+ * immediately — the click belongs to the live page, exactly as it does for a
+ * visitor — and the interaction lock covering the canvas is released in the
+ * same effect that watches this prop.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -577,9 +600,11 @@ export function BlockEditor<T extends FieldValues>({
   onApplyDocument,
   theme,
   pageOptions,
+  pageInteractionsEnabled: interactionsEnabled,
 }: BlockEditorProps<T>) {
   const id = useId();
   const dndId = useId();
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [spaces, setSpaces] = useState(NEW_SPACES);
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [refusal, setRefusal] = useState<MoveRefusal | null>(null);
@@ -603,6 +628,19 @@ export function BlockEditor<T extends FieldValues>({
   useEffect(() => {
     pageRef.current = blocks;
   }, [blocks]);
+
+  // **Locks the canvas whenever page interaction is off, and releases it the
+  // instant it turns on.** `blocks` is in the dependency list so a block
+  // added or changed mid-session — a freshly authored link, a newly selected
+  // player — is caught by the lock's own initial sweep as well as by its
+  // `MutationObserver`, which is a courtesy against the observer running
+  // late rather than a substitute for it.
+  useEffect(() => {
+    if (interactionsEnabled) return;
+    const root = canvasRef.current;
+    if (!root) return;
+    return lockCanvasInteraction(root);
+  }, [interactionsEnabled, blocks]);
 
   useEffect(() => {
     const repaired = repairSelection(blocks, selection);
@@ -825,9 +863,16 @@ export function BlockEditor<T extends FieldValues>({
   /**
    * Chooses a block from a canvas click, or deselects on empty canvas.
    *
+   * **Does nothing at all while page interaction is on.** The click belongs
+   * to the page then — a real link, button or frame — and the interaction
+   * lock is what already keeps that click from also changing selection; this
+   * guard is what keeps it from changing selection through the OTHER path, a
+   * click that reaches an inert element's non-inert wrapper.
+   *
    * @param event - the click.
    */
   const onCanvasClick = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    if (interactionsEnabled) return;
     const hit = (event.target as Element | null)?.closest("[data-block-path]");
     if (hit instanceof HTMLElement && event.currentTarget.contains(hit)) {
       const path = parseBlockPath(hit.dataset.blockPath ?? "");
@@ -1235,6 +1280,7 @@ export function BlockEditor<T extends FieldValues>({
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
           {...tid("editor-canvas")}
+          ref={canvasRef}
           data-editor-canvas=""
           data-editor-stack
           className="grid"

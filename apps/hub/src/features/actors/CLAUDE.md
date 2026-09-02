@@ -4985,7 +4985,39 @@ what the lock's own `setAttribute` just did to it a moment earlier. Getting
 this backwards would leave a relocated element permanently inert after
 unlock, silently, with no error and no failing type.
 
-Nothing about the toolbar switch or the wiring into `BlockEditor` has landed
-yet; this section grows with the branch rather than describing a finished
-feature. See
+**The toolbar switch and the wiring into `BlockEditor` have landed.**
+`EditorToolbar` gained `interact-with-page` — a pressed/unpressed switch
+beside Preview, because both change how the live page can be used —
+`aria-describedby` pointing at a visually-hidden sentence that swaps between
+`interactWithPageHintOff`/`On`, stating the CONSEQUENCE rather than merely
+the state. `FursonaEditor` owns the session `interactEnabled` state beside
+`controlsHidden` and computes `pageInteractionsEnabled({ controlsHidden,
+switchEnabled: interactEnabled })` once, passing the result into `BlockEditor`
+as `pageInteractionsEnabled`.
+
+**Show controls resets the switch; hiding controls does not touch it.**
+`onHideControls` only sets `controlsHidden`, because Preview already implies
+interaction through the effective rule; the `show-controls` handler sets
+`controlsHidden(false)` AND `interactEnabled(false)` in the same click, which
+is the session reset the spec requires and the one case a sabotage on this
+branch actually caught — dropping the second call left the switch reading
+"on" the next time controls returned, silently, with the canvas genuinely
+unlocked to match.
+
+**`BlockEditor` mounts the lock itself, in an effect keyed on the prop and on
+`blocks`**, rather than `FursonaEditor` querying `data-editor-canvas` from
+outside — a `canvasRef` lives where the canvas element already does, so
+nothing here reaches for the restricted `document.querySelector` pattern.
+`onCanvasClick` returns immediately when interactions are enabled, which is
+the SECOND, independent layer against a click also changing selection: `inert`
+is what stops a real browser from ever dispatching the click to a locked
+element in the first place, and this guard is what stops the click from
+reaching selection through the canvas's own ancestor handler once interaction
+is genuinely on and the element is no longer inert. Both are needed —
+`canvas-interaction-lock.test.ts` proves the first, `fursona-editor.test.tsx`
+proves the second with a REAL `link` leaf and a real anchor click, since
+jsdom implements no `inert` behaviour and cannot itself distinguish the two.
+
+Nothing about the add picker or Motion has landed yet; this section grows
+with the branch rather than describing a finished feature. See
 `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.

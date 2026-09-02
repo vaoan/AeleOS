@@ -25,6 +25,7 @@ import { PageThemeSwitch } from "@/shared/presentation/page-theme-switch";
 import { useFursonaEditor } from "@/features/actors/application/use-fursona-editor";
 import type { ChosenPage } from "@/features/actors/domain/fursona-templates";
 import { WritingInToggle } from "@/features/actors/presentation/writing-in-toggle";
+import { pageInteractionsEnabled } from "@/features/actors/domain/page-interaction";
 import {
   EditorToolbar,
   type EditorToolbarLabels,
@@ -551,6 +552,12 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `ThemeConfigurator` stay mounted, while `BlockEditor` owns inspector
  * selection beside the section field it already controlled.
  *
+ * **It owns the session-only Interact-with-page state too (2026-09-02)**,
+ * beside `controlsHidden`, and computes the effective rule the two combine
+ * through — see `domain/page-interaction.ts`. Showing controls always resets
+ * the explicit switch back off; hiding them does not touch it, because
+ * Preview already implies interaction through `controlsHidden` alone.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -580,6 +587,18 @@ export function FursonaEditor({
   // remembered value would open the editor with no controls at all for whoever
   // did that once.
   const [controlsHidden, setControlsHidden] = useState(false);
+  // **The session-only interaction switch, and it is not a preference
+  // either.** Default off: the canvas is locked so a click selects a block
+  // rather than following a link. Pressing the toolbar switch turns it on
+  // WHILE CONTROLS STAY VISIBLE; showing controls again always resets it,
+  // which is why every place that turns controls back on also clears this —
+  // see `onShowControls` below and `pageInteractionsEnabled`, the pure rule
+  // the two combine through.
+  const [interactEnabled, setInteractEnabled] = useState(false);
+  const interactionsEnabled = pageInteractionsEnabled({
+    controlsHidden,
+    switchEnabled: interactEnabled,
+  });
   // **A way of LOOKING, not a preference either.** The dock is closed by
   // default and nothing persists whether it was open — opening it is
   // something somebody does to check or edit the raw page, not a standing
@@ -724,6 +743,8 @@ export function FursonaEditor({
               setSourceMounted(true);
               setSourceOpen(true);
             }}
+            interactEnabled={interactEnabled}
+            onInteractEnabledChange={setInteractEnabled}
             // **Gated on the LIVE theme, so it arrives with the first colour
             // somebody picks and leaves when they reset.** Computed here rather
             // than in the bar for the same reason the public routes compute it:
@@ -800,6 +821,7 @@ export function FursonaEditor({
             theme={liveTheme as ActorTheme}
             page={livePage}
             problems={problems}
+            pageInteractionsEnabled={interactionsEnabled}
             pageOptions={
               <>
                 <div
@@ -931,7 +953,16 @@ export function FursonaEditor({
           ? createPortal(
               <button
                 type="button"
-                onClick={() => setControlsHidden(false)}
+                onClick={() => {
+                  setControlsHidden(false);
+                  // **Show controls always resets the switch, even though
+                  // Preview never touched it.** Preview gets interaction
+                  // through `controlsHidden` alone; the explicit switch is
+                  // what the spec calls a SESSION choice reset by returning
+                  // to safe editing, not a value Preview is allowed to leave
+                  // sitting on for the next time controls come back.
+                  setInteractEnabled(false);
+                }}
                 {...tid("show-controls")}
                 // **Still `CHROME_SCOPE` and still opaque.** The header wears
                 // the author's theme like the rest of the document, so a

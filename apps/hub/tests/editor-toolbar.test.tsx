@@ -27,6 +27,10 @@ const labels = {
   hideControls: "Hide controls",
   showControls: "Show controls",
   openSource: "Page source",
+  interactWithPage: "Interact with page",
+  interactWithPageHintOff: "Page links and controls are locked.",
+  interactWithPageHintOn:
+    "Page links and controls work as they do for a visitor.",
 };
 
 /**
@@ -44,6 +48,8 @@ function renderToolbar(props: Record<string, unknown> = {}): void {
       cancelHref="/pages"
       onHideControls={() => {}}
       onOpenSource={() => {}}
+      interactEnabled={false}
+      onInteractEnabledChange={() => {}}
       // A stand-in, because this suite is about the BAR. The real control has
       // its own suite; what matters here is that the bar renders the node it
       // is handed, which a marker proves better than the real component would.
@@ -109,5 +115,53 @@ describe("EditorToolbar", () => {
     renderToolbar({ onOpenSource });
     fireEvent.click(screen.getByRole("button", { name: "Page source" }));
     expect(onOpenSource).toHaveBeenCalledOnce();
+  });
+
+  it("shows Interact with page unpressed, with the off hint, by default", () => {
+    renderToolbar();
+    const button = screen.getByRole("button", { name: "Interact with page" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByText("Page links and controls are locked."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Interact with page pressed, with the on hint, when enabled", () => {
+    renderToolbar({ interactEnabled: true });
+    const button = screen.getByRole("button", { name: "Interact with page" });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByText(
+        "Page links and controls work as they do for a visitor.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  // The hint has to be the description an assistive technology actually
+  // reads, not merely a sentence that happens to be on the page — a stray
+  // paragraph with the same words would pass a `getByText` case that never
+  // checked the wiring.
+  it("describes Interact with page by the hint the aria-describedby id names", () => {
+    renderToolbar();
+    const button = screen.getByRole("button", { name: "Interact with page" });
+    const describedBy = button.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)).toHaveTextContent(
+      "Page links and controls are locked.",
+    );
+  });
+
+  it("presses the switch on: calls onInteractEnabledChange(true) from off", () => {
+    const onInteractEnabledChange = vi.fn();
+    renderToolbar({ interactEnabled: false, onInteractEnabledChange });
+    fireEvent.click(screen.getByRole("button", { name: "Interact with page" }));
+    expect(onInteractEnabledChange).toHaveBeenCalledExactlyOnceWith(true);
+  });
+
+  it("presses the switch off: calls onInteractEnabledChange(false) from on", () => {
+    const onInteractEnabledChange = vi.fn();
+    renderToolbar({ interactEnabled: true, onInteractEnabledChange });
+    fireEvent.click(screen.getByRole("button", { name: "Interact with page" }));
+    expect(onInteractEnabledChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 });

@@ -118,6 +118,10 @@ function harness(
         // No look chosen, so the picker applies without confirming — which is
         // what every case in this file assumes.
         theme={null}
+        // Locked by default, matching the editor's own default: every case
+        // in this file exercises canvas selection, which only works while
+        // page interaction is off.
+        pageInteractionsEnabled={false}
       />
     );
   }
