@@ -1865,6 +1865,21 @@ replace`, so the newest body of a function could sit in a file named after
   Plan:
   `docs/superpowers/plans/2026-08-31-canvas-inspector-builder.md`.
 
+- **Editor interaction and motion — DESIGNED, NOT BUILT (2026-09-02).**
+  Page links, players and embeds are real inside the canvas today, so a click
+  meant to select a block can act on its content. The approved design makes
+  interaction safe by default while controls show, adds an explicit
+  session-only **Interact with page** switch, makes hide-controls Preview
+  interactive, and resets to locked whenever controls return. The boundary is
+  editor-only and leaves the public renderer untouched.
+
+  The same phase gives editor state changes restrained native-CSS motion:
+  inspector and scope entry, canvas accommodation, selection feedback and
+  newly mounted editor content. It adds no animation dependency, changes no
+  authored page motion, and removes every new duration under reduced motion.
+  Spec:
+  `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
+
 - **A page has a source (2026-08-28) — done.** The editor carries a live,
   two-way JSON dock: a page can be inspected, copied out, pasted
   in, and authored by a language model against a reference the dock publishes.
