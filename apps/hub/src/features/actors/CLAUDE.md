@@ -4941,3 +4941,24 @@ outside the per-task panic boundary … please report it` and `Aborting.` —
   to chase the individual failures as regressions — but confirm the panic
   line is actually there before assuming that; a real regression can still
   produce a wide failure spread for its own reasons.
+
+### Page interaction locks by default while editing (2026-09-02, in progress)
+
+The editor canvas renders the real page, real links and real embeds
+included, so a click meant to select a block could navigate away or start
+media. `domain/page-interaction.ts` is the first piece: `pageInteractionsEnabled`
+is a pure function of two session-only inputs, `controlsHidden` and a
+toolbar switch, taking neither from storage and writing neither back:
+
+```text
+page interactions enabled = controls hidden OR toolbar switch enabled
+```
+
+Preview (hide-controls) is not a second renderer, so hidden controls always
+imply interaction; the toolbar switch is the only way to enable it while
+controls stay visible, and it is designed to reset to off whenever controls
+return. Nothing about the lock itself — the DOM boundary under
+`data-editor-canvas`, the toolbar switch, the wiring into `BlockEditor` — has
+landed yet; this section grows with the branch rather than describing a
+finished feature. See
+`docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
