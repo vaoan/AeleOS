@@ -5018,6 +5018,51 @@ is genuinely on and the element is no longer inert. Both are needed —
 proves the second with a REAL `link` leaf and a real anchor click, since
 jsdom implements no `inert` behaviour and cannot itself distinguish the two.
 
-Nothing about the add picker or Motion has landed yet; this section grows
-with the branch rather than describing a finished feature. See
+**The Add picker exists now, `presentation/add-block-picker.tsx`, though
+nothing calls it yet — the flat add row and the drag-to-add path it replaces
+are both still live.** It is not wired into `inspector-items.tsx` or
+`block-editor.tsx` until the next task; this paragraph describes the
+component in isolation.
+
+`AddBlockPicker` is one control that draws its options with the REAL
+renderer — `Block` from `blocks.tsx` — over fixed sample content from the
+new `domain/add-samples.ts`, so a preview cannot disagree with the page the
+same way the section style popup's live preview cannot. **Most kinds take one
+generic English sample**; `table`, `progress`, `quote` and `stat` get a
+shaped one, because those four invert or structure the title/description
+pair and a generic sample would draw nothing at all for three of them
+(`ProgressLeaf`/`QuoteLeaf`/`StatLeaf` all fall back to `PlainLeaf` on an
+empty description). **The sample is never what gets added** — choosing an
+option still calls `newLeaf(kind)` or `newContainer(mode, 2)`, exactly as
+adding does today, and `add-samples.test.ts` pins that a sample's `title_en`
+never equals what `newLeaf` produces for the same kind, so the two cannot be
+silently confused.
+
+**`targetPath` carries no placement logic in the picker itself.** It is
+stamped onto the trigger as `data-target-path` (via `formatBlockPath`) so
+more than one picker on one screen — an empty place beside a container
+footer's — stays distinguishable to a test or to browser automation.
+Deciding WHERE a chosen block lands is entirely the caller's job, through
+`onAdd(block)`, which is why the picker's own discriminating test wires two
+independent instances to two independent `onAdd` mocks rather than trying to
+prove placement from inside a component that does not do any.
+
+**Previews render inside `CHROME_SCOPE`, never `SKIN_SCOPE`.** `Block` is
+mounted directly with no wrapping page-content element, so it inherits
+nothing from an author's theme — the picker shows what the KIND is, not what
+this page will make of it. Previews mount only while the dialog is open.
+
+**A picker with every leaf kind reaches `RetroPlayer`, which needs
+`NextIntlClientProvider`.** `player`/`jukebox` are two of the sixteen leaf
+kinds, and their sample renders that component exactly as a real page would
+— `add-block-picker.test.tsx` wraps every render in the real provider with
+the real English catalogue, matching `blocks.test.tsx`'s own convention,
+rather than mocking the dependency away and hiding the same setup
+requirement this repository has already paid for once.
+
+Renders nothing at all — no trigger, no dialog — at `BLOCK_LIMITS`, matching
+the page-level Add control's existing rule.
+
+Nothing about Motion has landed yet; this section grows with the branch
+rather than describing a finished feature. See
 `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.

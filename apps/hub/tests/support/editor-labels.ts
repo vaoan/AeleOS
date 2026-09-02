@@ -161,6 +161,11 @@ const stylePopupLabels = {
  * tests use the same complete contract as the translated route rather than
  * filling recursive navigation controls with ad-hoc labels per fixture.
  *
+ * **Carries the Add picker's four strings too (2026-09-02)** —
+ * `addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` — as real
+ * English, since `AddBlockPicker` is not part of the vocabulary-derived
+ * records above and a suite asserting its own words needs them spelled out.
+ *
  * @returns every label the block editor and its existing child controls need.
  */
 export function blockEditorLabels(): BlockEditorLabels {
@@ -170,6 +175,10 @@ export function blockEditorLabels(): BlockEditorLabels {
     addSection: "Add section",
     newSectionSpaces: "New section shape",
     addSectionFor: "Add a section for…",
+    addBlock: "Add",
+    addBlockTitle: "Add to this section",
+    addContentGroup: "Content",
+    addLayoutGroup: "Layout",
     selectPage: "Page",
     inspectorItems: "Items",
     inspectorOptions: "Options",

@@ -149,6 +149,11 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * The inspector words live here too: this level owns selection and decides
  * whether Items or Options is shown, while each existing card remains
  * responsible for its own editing labels.
+ *
+ * **`addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` are the Add
+ * picker's own strings (2026-09-02).** One control, one name, at every scope
+ * that offers one — the page, a container's footer, an empty place — so this
+ * bag carries one set of four rather than a copy per scope.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -186,6 +191,20 @@ export interface BlockEditorLabels
   inspectorBack: string;
   /** Wraps the selected content in a layout. */
   wrapInLayout: string;
+  /**
+   * Names the Add picker's trigger, at every scope that offers one.
+   *
+   * One name for every scope — the page, a container's footer, an empty
+   * place — because it is the same control everywhere; only its target
+   * differs, and that is never named in the trigger's own words.
+   */
+  addBlock: string;
+  /** The picker's own dialog heading. */
+  addBlockTitle: string;
+  /** Heading over the picker's content options. */
+  addContentGroup: string;
+  /** Heading over the picker's layout options. */
+  addLayoutGroup: string;
 }
 
 /**
