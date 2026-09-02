@@ -212,21 +212,17 @@ test.describe("the signed-in pages are accessible", () => {
     // the one where a control without a name is most likely to appear, since
     // half of it is colour swatches and sliders.
     await page.goto("/es/pages/new");
+    // The development-only error portal can cover the editor after the known
+    // Clerk server-render warning. Keep the warning in the run output while
+    // preventing its visual shell from intercepting the controls axe scans.
+    await page.addStyleTag({
+      content: "nextjs-portal{display:none!important}",
+    });
     await openPageAdd(page);
     await expect(page.getByTestId("add-section")).toBeVisible();
     await page.getByTestId("inspector-tab-options").click();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
-    // **A section of this test's own, and the assertions below depend on it.**
-    // Every page opens carrying the identity section the database requires, and
-    // that section is a two-place grid holding a NESTED container — so without
-    // a section added here, `section-card.last()` is the identity one and
-    // `section-style-open` inside it resolves to two elements, its own and its
-    // child's. Removing this line when the framed preview went is exactly the
-    // fault it caused.
-    await openPageAdd(page);
-    await page.getByTestId("add-section").click();
-    await page.getByTestId("section-name").last().fill("A section of my own");
 
     // **There is no framed preview to scan any more.** The editor themes its
     // own document and hides its controls to show the page, so what used to be
@@ -234,10 +230,16 @@ test.describe("the signed-in pages are accessible", () => {
     // editor draws is covered by the scan below like every other part of it,
     // and `editor-is-the-page.spec.ts` is what proves it matches the live page.
     await isAccessible(page, "the editor with the theme panel open");
-
-    // Close the theme panel before opening a section's own style popup, so
-    // axe reads one open overlay at a time rather than two stacked ones.
     await page.getByTestId("theme-open").click();
+
+    // **A section of this test's own, and the assertions below depend on it.**
+    // The recursive inspector exposes only the selected target, so this section
+    // gives the following scans one unambiguous container, leaf and nested
+    // container to enter in turn.
+    await page.getByTestId("inspector-tab-items").click();
+    await page.getByTestId("add-section").click();
+    await page.getByTestId("inspector-tab-options").click();
+    await page.getByTestId("section-name").fill("A section of my own");
 
     // A section's own paintbrush popup — an OVERLAY, unlike the theme panel
     // above and `IconPicker`'s inline one, so it is the one surface in this
@@ -245,17 +247,14 @@ test.describe("the signed-in pages are accessible", () => {
     // management rather than merely a name on every control. Never opened by
     // any e2e suite before this finding: a popup axe never sees is a popup it
     // cannot fail on, which is not the same as one that passes.
-    // **Scoped to the card this test adds, which is the LAST one.** Every page
-    // opens carrying the identity section the database requires, so a
-    // page-wide locator for a card's own control now matches two and resolves
-    // to neither.
-    const card = page.getByTestId("section-card").last();
+    // Options mounts exactly the card this test added, without descendants.
+    const card = page.getByTestId("section-card");
     await card.getByTestId("section-style-open").click();
     await expect(page.getByTestId("section-style-panel")).toBeVisible();
     await isAccessible(page, "the editor with a section's style popup open");
 
-    // **A PLACE WITH SOMETHING IN IT, which axe had never seen.** Adding a
-    // section shows the card and its style popup; it shows none of
+    // **A PLACE WITH SOMETHING IN IT, which axe had never seen.** Selecting a
+    // section shows its card and style popup; it shows none of
     // `LeafEditor`, which is the densest control surface in the editor — a
     // kind menu, a bilingual title and description, an address, an icon
     // picker, a picture field — nor a nested card. `table` is chosen because
@@ -263,15 +262,20 @@ test.describe("the signed-in pages are accessible", () => {
     // row would otherwise carry one shared accessible name.
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("section-style-panel")).toBeHidden();
-    await card.getByTestId("add-content").first().click();
-    await card.getByTestId("leaf-kind").first().selectOption("table");
-    await card.getByTestId("add-row").click();
-    await expect(card.getByTestId("table-cell").first()).toBeVisible();
+    await page.getByTestId("inspector-tab-items").click();
+    await page.getByTestId("add-content").first().click();
+    await page.getByTestId("leaf-kind").selectOption("table");
+    await page.getByTestId("add-row").click();
+    await expect(page.getByTestId("table-cell").first()).toBeVisible();
+    await isAccessible(page, "the editor with table content selected");
+
     // And a section inside a place, which is the other component no
     // accessibility check had ever reached.
-    await card.getByTestId("add-nested").first().click();
-    await expect(card.getByTestId("nested-card")).toBeVisible();
-    await isAccessible(page, "the editor with content and a nested section");
+    await page.getByTestId("inspector-back").click();
+    await page.getByTestId("add-nested").first().click();
+    await page.getByTestId("inspector-tab-options").click();
+    await expect(page.getByTestId("nested-card")).toBeVisible();
+    await isAccessible(page, "the editor with a nested section selected");
   });
 
   // **The page-source dock — a third overlay, never scanned before.** It is a

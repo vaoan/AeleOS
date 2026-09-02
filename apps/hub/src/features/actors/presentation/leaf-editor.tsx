@@ -168,8 +168,9 @@ export interface LeafEditorLabels extends IconPickerLabels {
 /**
  * What {@link LeafEditor} needs.
  *
- * `dragHandle` is the newest: a leaf is dragged like anything else, and the
- * grip arrives already wired rather than as props to spread.
+ * `dragHandle` arrives already wired when the leaf is shown in an Items row.
+ * Recursive inspector Options pass `null`, because reordering belongs to the
+ * visible sibling list rather than to the selected leaf's fields.
  *
  * `problems` is the whole page's, not this leaf's share, because the
  * components above pass one value down the tree; `problemFields` narrows it.
@@ -214,6 +215,8 @@ export interface LeafEditorProps {
    * exists to end.
    */
   kinds: readonly LeafKind[];
+  /** Runs after this leaf empties its place. */
+  onRemove?: () => void;
 }
 
 /** The class every text input in this editor wears. */
@@ -332,6 +335,9 @@ const INPUT =
  * the moment content existed. Two e2e suites had exactly that shape before
  * this — see the feature note.
  *
+ * `onRemove` lets the recursive inspector move selection to the parent after
+ * this leaf clears its place; standalone uses may omit it.
+ *
  * @returns the leaf's fields.
  */
 export function LeafEditor({
@@ -343,6 +349,7 @@ export function LeafEditor({
   problems,
   dragHandle,
   kinds,
+  onRemove,
 }: LeafEditorProps) {
   // Ids rather than wrapping labels: a wrapping label takes its whole text
   // content as the field's accessible name, which is how the fursona editor's
@@ -469,7 +476,10 @@ export function LeafEditor({
           type="button"
           aria-label={labels.removeBlock}
           {...tid("remove-block")}
-          onClick={() => apply((blocks) => clearAt(blocks, path))}
+          onClick={() => {
+            apply((blocks) => clearAt(blocks, path));
+            onRemove?.();
+          }}
           className="rounded-lg p-1.5 text-(--muted)"
         >
           <Trash2 className="size-4" />

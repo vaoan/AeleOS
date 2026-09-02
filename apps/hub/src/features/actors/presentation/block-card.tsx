@@ -188,10 +188,11 @@ export interface BlockCardLabels {
  * know about refusals BELOW it as well as on it, so that a collapsed card
  * holding one opens itself.
  *
- * `dragHandle` is the newest, and it is required rather than optional now:
- * every container has a grip, a nested one included, because `@dnd-kit`
- * expresses a drag between a parent and a child where the library it replaced
- * could not. *
+ * `dragHandle` is supplied by the immediate-child Items row when the card is
+ * rendered there. Recursive inspector Options pass `null` and
+ * `showChildren=false`: the selected container keeps its existing controls
+ * without mounting a second copy of its descendants.
+ *
  * **Two of these are facts about the WHOLE page, threaded down rather than
  * recomputed per card**: `atBlockLimit` and `locked`. One walk in
  * `BlockEditor` answers both, which is what makes every control in the editor
@@ -255,6 +256,16 @@ export interface BlockCardProps {
    * reads it.
    */
   kinds: readonly LeafKind[];
+  /**
+   * Whether to mount immediate places and their descendant editors.
+   *
+   * The recursive inspector passes `false` in Options so one selected
+   * container's controls never mount the subtree beneath it. Standalone card
+   * tests default to the legacy complete card.
+   */
+  showChildren?: boolean;
+  /** Runs after this container removes itself from the page. */
+  onRemove?: () => void;
 }
 
 /**
@@ -536,10 +547,10 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * else on the bag is a string this card draws itself. See
  * {@link BlockCardLabels.leaf}.
  *
- * **It forwards `kinds` and reads none of it (2026-08-27).** The prop passes
- * straight through to every `LeafEditor` this card renders, nested containers
- * included, so a leaf at any depth offers exactly what its page's actor kind
- * may hold — see {@link BlockCardProps.kinds}.
+ * **It forwards `kinds` and reads none of it (2026-08-27).** When
+ * `showChildren` is true, the prop passes straight through to every
+ * `LeafEditor` this card renders. Recursive inspector Options set that flag
+ * false and render only this container's controls.
  *
  * @returns the container's card.
  */
@@ -554,6 +565,8 @@ export function BlockCard({
   problems,
   dragHandle,
   kinds,
+  showChildren = true,
+  onRemove,
 }: BlockCardProps) {
   const id = useId();
   const [hidden, setHidden] = useState(false);
@@ -842,11 +855,12 @@ export function BlockCard({
           locked={cannotRemove}
           testId={ids.remove}
           labels={labels}
-          onRemove={() =>
+          onRemove={() => {
             apply((blocks) =>
               depth === 0 ? removeAt(blocks, path) : clearAt(blocks, path),
-            )
-          }
+            );
+            onRemove?.();
+          }}
         />
       </div>
 
@@ -929,7 +943,7 @@ export function BlockCard({
         </div>
       ) : null}
 
-      {collapsed ? null : (
+      {!showChildren || collapsed ? null : (
         <div className="relative grid gap-3">
           <div
             className={`grid grid-cols-1 gap-3 ${across}`}

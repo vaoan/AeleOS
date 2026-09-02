@@ -168,4 +168,18 @@ describe("BlockSlot", () => {
     expect(screen.queryByRole("button", { name: "lift this" })).toBeNull();
     expect(screen.getByTestId("place-0.1")).toBeInTheDocument();
   });
+
+  it("keeps the grip's following click from activating its row", () => {
+    const onRowClick = vi.fn();
+    render(
+      <DndContext id="t">
+        <BlockSlot path={[0]} filled label="lift this">
+          {(handle) => <div onClick={onRowClick}>{handle}</div>}
+        </BlockSlot>
+      </DndContext>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "lift this" }));
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
 });

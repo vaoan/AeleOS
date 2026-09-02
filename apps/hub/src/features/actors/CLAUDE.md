@@ -1286,36 +1286,36 @@ Its container queries answer to the page's width rather than the workbench's,
 which is what `WidePageColumn` moving INSIDE `BlockEditor` buys: the control
 card is columned and the preview is full width.
 
-**The inspector is a new place for the same workbench, not a replacement of
-it (2026-08-31).** `BlockCard`, `LeafEditor`, `BlockSlot`, `add-content`,
-`add-nested`, mode/spaces/weights, the style popup, identity, theme, templates
-and presets are the same components they were. They live in
-`CanvasInspector`'s Options pane. The page starts selected so those controls
-are on screen without an extra click. Switching to Add must not unmount
-Options — the inactive pane uses the native `hidden` attribute, preserving its
-component state while withdrawing its controls from layout and accessibility,
-and must be laid out again before a grip is offered. Empty canvas or Escape
-deselects; an Escape aimed inside the inspector belongs to the inspector's own
-popup or field and leaves the selection intact. That distinction is made from a
-capture-phase listener: `SectionStylePopup` closes from a bubble-phase
-`document` listener, which detaches the focused field before a later bubble
-listener can ask whether it was inside the inspector. Preview is still
-hide-controls (`CHROME_SCOPE`). Do not
-`sr-only` or `aria-hidden` an actionable card to "focus" the selection: that
-kills mouse drag rectangles or leaves invisible nested editors in the
-accessibility tree.
+**The inspector drills one level at a time (corrected 2026-09-01).**
+`BlockCard`, `LeafEditor`, `BlockSlot`, `add-content`, `add-nested`,
+mode/spaces/weights, the style popup, identity, theme, templates and presets
+remain the editing mechanisms. The page starts with no selection. Selecting
+Page or a container offers **Items** and **Options**: Items shows only that
+target's immediate positions, including empty ones, while Options mounts only
+that selected target's existing editor with descendants suppressed. Selecting
+a leaf opens its Options directly. `BlockPath` is the only selection identity;
+breadcrumbs and Back derive parents from it, and a removed target repairs to
+its closest surviving ancestor. That repair is persisted in state, so a later
+document import cannot resurrect a stale path merely by filling the same
+position again.
 
-When nothing is selected the workbench is unmounted, not copied to a fixed box
-off the left edge. The copy preserved component geometry in theory and broke
-ordinary interaction in practice: Playwright saw its controls as visible and
-stable, then could never scroll x = -1536 into the viewport, so every click
-spent the full test timeout. One mounted workbench remains the invariant; a
-hidden duplicate is not a second way to preserve it.
+Only the immediate siblings visible in one Items scope register drag handles.
+Pointer collision, keyboard navigation and the final drop boundary each reject
+a different parent before `moveBlock` is called. Cross-level movement remains
+expressible in the page-source document, but is deliberately not an inspector
+gesture.
+
+Empty canvas or Escape deselects; an Escape aimed inside the inspector belongs
+to its own popup or field and leaves selection intact. The capture-phase
+listener asks that question before `SectionStylePopup`'s bubble listener can
+detach the focused field. Preview is still hide-controls (`CHROME_SCOPE`).
+When nothing is selected the workbench is unmounted, never hidden or copied
+off-screen; one mounted workbench remains the invariant.
 
 The desktop panel is `min(36rem, 40vw)`, with the canvas padded by that same
 expression, because the inherited nested card controls do not fit in 320px.
 It starts `3.5rem` below the sticky editor toolbar: sharing the bar's own top
-offset covered the Add tab or the writing switch depending on which one won
+offset covered the Items tab or the writing switch depending on which one won
 the z-index. Preview leaves selection intact, so the padding class remains;
 the hide-controls rule explicitly zeroes inline padding with the other editor
 furniture or a 1280px picture shifts by exactly 512px.
@@ -1749,7 +1749,15 @@ rail on the outermost card and one rail per container are indistinguishable on a
 flat page, so the case nests to the cap; rendering the rail only at depth 0
 reddens that case and no other, which is the proof the fixture discriminates.
 
-### Dragging (2026-08-18) — anything, anywhere a place will hold it
+### Dragging (2026-08-18; inspector corrected 2026-09-01)
+
+> **Correction:** The domain account below remains the contract for
+> `moveBlock`, including cross-level exchanges and refusals. Its interaction
+> and browser-proof paragraphs describe the superseded full-tree editor. The
+> recursive inspector mounts only one level and offers only visible siblings;
+> pointer collision, keyboard navigation and final drop handling each enforce
+> that shared parent. The current browser proof is
+> `section-drag-reorder.spec.ts`; see the recursive-inspector paragraph above.
 
 `@hello-pangea/dnd` is **gone**. `@dnd-kit/core` and `@dnd-kit/sortable`
 replaced it, in the editor and in the fursona list both, because the old

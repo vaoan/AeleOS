@@ -78,6 +78,14 @@ const labels = blockEditorLabels();
 /** What the harness's form holds. */
 type FormValues = { sections: Block[] };
 
+/** A page reader that can also simulate a document import replacing blocks. */
+interface HarnessPage {
+  /** Reads the current form value. */
+  (): Block[];
+  /** Replaces the field from outside `BlockEditor`'s own edit boundary. */
+  replace: (blocks: Block[]) => void;
+}
+
 /**
  * The editor over a real form, so a test can read the page back.
  *
@@ -114,13 +122,14 @@ function harness(
     );
   }
   render(<Harness />);
-  return () => form!.getValues().sections;
+  const page = (() => form!.getValues().sections) as HarnessPage;
+  page.replace = (blocks) => form!.setValue("sections", blocks);
+  return page;
 }
 
-/** Opens the page inspector on Add, where section and template controls live. */
+/** Opens the page inspector on Items, where page additions live. */
 const openPageAdd = (): void => {
   fireEvent.click(screen.getByTestId("select-page"));
-  fireEvent.click(screen.getByTestId("inspector-tab-add"));
 };
 
 /** The section names of a page, in order. */
@@ -164,18 +173,6 @@ const deepest = (page: Block[]) => {
   return deep.children.map((child) =>
     child && "title_en" in child ? child.title_en : null,
   );
-};
-
-/**
- * The live region `@dnd-kit` manages itself, which is what a screen reader
- * hears.
- *
- * @returns the element.
- */
-const liveRegion = (): HTMLElement => {
-  const region = document.querySelector('[id^="DndLiveRegion-"]');
-  if (!region) throw new Error("no live region");
-  return region as HTMLElement;
 };
 
 /**
@@ -230,12 +227,15 @@ describe("BlockEditor", () => {
         children: [titled("Real renderer")],
       },
     ]);
+    fireEvent.click(screen.getByTestId("select-page"));
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    fireEvent.click(screen.getByTestId("inspector-tab-options"));
 
     const card = screen.getByTestId("section-card");
     const tray = screen.getByTestId("block-preview");
-    const slot = screen.getByTestId("place-0");
+    const slot = screen.getByTestId("place-0.0");
 
-    expect(slot).toContainElement(card);
+    expect(slot).not.toContainElement(card);
     expect(slot).not.toContainElement(tray);
     expect(within(tray).getByTestId("public-section")).toBeInTheDocument();
     expect(within(tray).getByText("Real renderer")).toBeInTheDocument();
@@ -276,7 +276,7 @@ describe("BlockEditor", () => {
     const block = firstContainer(page());
     expect(block.spaces).toBe(4);
     expect(block.children).toEqual([null, null, null, null]);
-    expect(screen.getAllByTestId("empty-place")).toHaveLength(4);
+    expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(4);
   });
 
   it("appends rather than replacing what is already there", () => {
@@ -334,6 +334,7 @@ describe("BlockEditor", () => {
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
     ]);
+    openPageAdd();
     await drag("drag-0", ["ArrowDown"]);
     expect(names(page())).toEqual(["two", "one"]);
   });
@@ -343,30 +344,20 @@ describe("BlockEditor", () => {
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
     ]);
+    openPageAdd();
     await drag("drag-0", []);
     expect(names(page())).toEqual(["one", "two"]);
   });
 
-  // MOVING CONTENT BETWEEN SECTIONS IS THE THING THE OLD LIBRARY COULD NOT DO
-  // AT ALL — its own README rules out dragging from a parent list into a child
-  // one. The leaf leaves its place empty, because a place is positional and
-  // must keep the width its author gave it.
-  it("moves a piece of content into an empty place in another section", async () => {
-    const page = harness([
+  it("offers only top-level siblings while Page Items is open", () => {
+    harness([
       { ...newContainer("grid", 2), children: [titled("moved"), null] },
       newContainer("grid", 2),
     ]);
-    // The places, in drawing order, are [0,0] [0,1] [1,0] [1,1]; the sections
-    // themselves are not offered, because a nested block dropped onto one
-    // would SWAP with the whole section rather than land in it.
-    await drag("drag-0.0", ["ArrowDown", "ArrowDown"]);
-
-    const [first, second] = page();
-    expect(isContainer(first) && first.children).toEqual([null, null]);
-    expect(
-      isContainer(second) &&
-        second.children.map((c) => c && "title_en" in c && c.title_en),
-    ).toEqual(["moved", null]);
+    openPageAdd();
+    expect(screen.getByTestId("drag-0")).toBeInTheDocument();
+    expect(screen.getByTestId("drag-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("drag-0.0")).toBeNull();
   });
 
   // DEPTH THREE, WHICH THE SPIKE DID NOT PROVE. A leaf at the deepest seat the
@@ -374,30 +365,24 @@ describe("BlockEditor", () => {
   // and nothing about the path length is special-cased anywhere.
   it("moves a leaf at the depth cap to the place beside it", async () => {
     const page = harness([deepPage()]);
+    openPageAdd();
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
     await drag("drag-0.0.0.0", ["ArrowDown"]);
     expect(deepest(page())).toEqual([null, "buried"]);
   });
 
-  // A REFUSAL IS SAID OUT LOUD. `moveBlock` answers why a drop did not happen,
-  // and a drag that quietly changed nothing would be indistinguishable from a
-  // broken grip — which is the fault this repository keeps paying for.
-  it("says why a drop one level too deep changed nothing", async () => {
-    const page = harness([deepPage(), newContainer("grid", 2)]);
-    // The section already reaches three levels of its own, so putting it in a
-    // place at depth one would land its leaf at depth four. The places, in
-    // order, are [0] [1] [1,0] [1,1] — everything inside the section being
-    // carried is left out, because a keyboard drag walks a list and a list can
-    // simply not offer them.
-    await drag("drag-0", ["ArrowDown", "ArrowDown"]);
-    expect(screen.getByTestId("drag-refusal")).toHaveTextContent(
-      labels.drag.tooDeep,
-    );
-    // And it is SAID, not only shown — the library's own live region is what a
-    // screen reader is listening to, and a refusal that reached the page but
-    // not that region would be silent to exactly the person dragging by
-    // keyboard.
-    expect(liveRegion()).toHaveTextContent(labels.drag.tooDeep);
-    expect(deepest(page())).toEqual(["buried", null]);
+  // A CROSS-LEVEL TARGET IS NEVER OFFERED. The final boundary repeats this
+  // rule for stale or synthetic ids, while the visible inspector simply keeps
+  // the unrelated level out of its dnd context.
+  it("does not offer a cross-level target one level too deep", () => {
+    harness([deepPage(), newContainer("grid", 2)]);
+    openPageAdd();
+    expect(screen.getByTestId("drag-0")).toBeInTheDocument();
+    expect(screen.getByTestId("drag-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("drag-1.0")).toBeNull();
+    expect(screen.queryByTestId("drag-refusal")).toBeNull();
   });
 
   // WITHDRAWN AT THE CAP, WITH A SENTENCE SAYING WHY. A button that silently
@@ -446,6 +431,8 @@ describe("BlockEditor", () => {
   // writing it back. Nothing here builds one; the schema admits one.
   it("shows a leaf sitting at the top of the page", () => {
     harness([{ ...newLeaf("text"), title_en: "Loose" }]);
+    openPageAdd();
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
     expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
     expect(screen.queryByTestId("section-card")).toBeNull();
   });
@@ -475,25 +462,149 @@ describe("BlockEditor", () => {
     expect(screen.getByTestId("template-reference-sheet")).toBeInTheDocument();
   });
 
-  // THE ADD TAB MUST NOT UNMOUNT THE WORKBENCH. Nested add-content, mode,
-  // spaces, and keyboard drag all live on the same `BlockCard` tree they
-  // always did. The tab hides that tree as one pane, preserving its state.
-  it("keeps every section card mounted while the Add tab is showing", () => {
+  it("mounts only the selected container's controls in Options", () => {
     harness([{ ...newContainer("stack", 1), name_en: "kept" }]);
-    expect(screen.getByTestId("section-card")).toBeInTheDocument();
-    expect(screen.getByTestId("add-content")).toBeInTheDocument();
     openPageAdd();
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    fireEvent.click(screen.getByTestId("inspector-tab-options"));
     expect(screen.getByTestId("section-card")).toBeInTheDocument();
-    expect(screen.getByTestId("add-content")).toBeInTheDocument();
-    expect(screen.getByTestId("add-content")).not.toBeVisible();
-    expect(screen.getByTestId("add-section")).toBeInTheDocument();
+    expect(screen.queryByTestId("empty-place")).toBeNull();
   });
 
   it("names every arrangement the schema knows, on a section's own control", () => {
     harness([newContainer("grid", 2)]);
+    openPageAdd();
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    fireEvent.click(screen.getByTestId("inspector-tab-options"));
     const options = within(screen.getByTestId("section-mode"))
       .getAllByRole("option")
       .map((el) => (el as HTMLOptionElement).value);
     expect(options).toEqual([...CONTAINER_MODES]);
+  });
+});
+
+describe("recursive inspector drill-down", () => {
+  const recursivePage = (): Block[] => [
+    {
+      ...newContainer("grid", 3),
+      name_en: "Outer",
+      children: [
+        {
+          ...newContainer("stack", 1),
+          name_en: "Inner",
+          children: [titled("Deep leaf")],
+        },
+        null,
+        titled("Sibling leaf"),
+      ],
+    },
+    { ...newContainer("stack", 1), name_en: "Second" },
+  ];
+
+  it("starts deselected with no inspector in the DOM", () => {
+    harness(recursivePage());
+    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+  });
+
+  it("drills Page to a container to a leaf, showing only immediate children", () => {
+    harness(recursivePage());
+
+    fireEvent.click(screen.getByTestId("select-page"));
+    const inspector = screen.getByTestId("canvas-inspector");
+    expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
+      2,
+    );
+    expect(within(inspector).queryByText("Deep leaf")).toBeNull();
+
+    fireEvent.click(
+      within(inspector).getAllByTestId("inspector-item-open")[0]!,
+    );
+    expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
+      3,
+    );
+    expect(
+      within(inspector).getByTestId("inspector-empty-place"),
+    ).toBeVisible();
+    expect(within(inspector).queryByText("Deep leaf")).toBeNull();
+
+    fireEvent.click(
+      within(inspector).getAllByTestId("inspector-item-open")[0]!,
+    );
+    expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
+      1,
+    );
+    fireEvent.click(within(inspector).getByTestId("inspector-item-open"));
+
+    expect(within(inspector).queryByRole("tablist")).toBeNull();
+    expect(within(inspector).getByTestId("leaf-editor")).toBeVisible();
+    expect(within(inspector).queryByTestId("nested-card")).toBeNull();
+  });
+
+  it("derives Back and breadcrumbs from the selected path", () => {
+    harness(recursivePage());
+    fireEvent.click(screen.getByTestId("select-page"));
+    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+
+    expect(screen.getAllByTestId("inspector-breadcrumb")).toHaveLength(3);
+    fireEvent.click(screen.getByTestId("inspector-back"));
+    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
+
+    fireEvent.click(screen.getAllByTestId("inspector-breadcrumb")[0]!);
+    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(2);
+
+    fireEvent.click(screen.getByTestId("inspector-back"));
+    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+  });
+
+  it("selects the parent when the selected leaf is deleted", () => {
+    harness(recursivePage());
+    fireEvent.click(screen.getByTestId("select-page"));
+    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+    fireEvent.click(screen.getAllByTestId("inspector-item-open")[1]!);
+    fireEvent.click(screen.getByTestId("remove-block"));
+
+    expect(screen.getByTestId("canvas-inspector")).toBeVisible();
+    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
+    expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(2);
+  });
+
+  it("persists repair after an external document replacement removes then reuses a path", async () => {
+    const page = harness(recursivePage());
+    fireEvent.click(screen.getByTestId("select-page"));
+    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+    fireEvent.click(screen.getByTestId("inspector-tab-options"));
+    expect(screen.getByTestId("section-name")).toHaveValue("Outer");
+
+    await act(async () => {
+      page.replace([]);
+      await Promise.resolve();
+    });
+    expect(screen.getAllByTestId("inspector-breadcrumb")).toHaveLength(1);
+
+    await act(async () => {
+      page.replace([{ ...newContainer("stack", 1), name_en: "Replacement" }]);
+      await Promise.resolve();
+    });
+    expect(screen.getAllByTestId("inspector-breadcrumb")).toHaveLength(1);
+    expect(screen.queryByTestId("section-name")).toBeNull();
+    expect(screen.getByTestId("inspector-item-open")).toHaveTextContent(
+      "Replacement",
+    );
+  });
+
+  it("keeps sibling drag within the visible Page rows and does not enter the moved row", async () => {
+    const page = harness([
+      { ...newContainer("stack", 1), name_en: "one" },
+      { ...newContainer("stack", 1), name_en: "two" },
+      { ...newContainer("stack", 1), name_en: "three" },
+    ]);
+    fireEvent.click(screen.getByTestId("select-page"));
+
+    await drag("drag-0", ["ArrowDown", "ArrowDown"]);
+
+    expect(names(page())).toEqual(["two", "three", "one"]);
+    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
+    expect(screen.queryByTestId("section-name")).toBeNull();
   });
 });

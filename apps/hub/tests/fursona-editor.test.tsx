@@ -334,6 +334,38 @@ function renderEditor(props: Record<string, unknown> = {}) {
   );
 }
 
+/** Selects Page and opens only its Options pane. */
+function openPageOptions(): void {
+  fireEvent.click(screen.getByTestId("select-page"));
+  fireEvent.click(screen.getByTestId("inspector-tab-options"));
+}
+
+/**
+ * Enters one top-level section and opens only that container's Options.
+ *
+ * @param position - the occupied Page row to enter.
+ */
+function openSectionOptions(position = 0): void {
+  fireEvent.click(screen.getByTestId("select-page"));
+  fireEvent.click(screen.getAllByTestId("inspector-item-open")[position]!);
+  fireEvent.click(screen.getByTestId("inspector-tab-options"));
+}
+
+/**
+ * Enters one top-level section and then one of its occupied children.
+ *
+ * A leaf opens directly on Options, so no tab press follows the second row
+ * activation.
+ *
+ * @param section - the occupied Page row to enter.
+ * @param child - the occupied row inside that section.
+ */
+function openLeafOptions(section = 0, child = 0): void {
+  fireEvent.click(screen.getByTestId("select-page"));
+  fireEvent.click(screen.getAllByTestId("inspector-item-open")[section]!);
+  fireEvent.click(screen.getAllByTestId("inspector-item-open")[child]!);
+}
+
 beforeEach(() => {
   save.mockReset();
   // true means "everything landed". The editor navigates on this value and
@@ -362,6 +394,7 @@ describe("FursonaEditor", () => {
 
   it("offers the four fields", () => {
     renderEditor();
+    openPageOptions();
     expect(screen.getByLabelText("Handle")).toBeInTheDocument();
     expect(screen.getByLabelText("Display name")).toBeInTheDocument();
     expect(screen.getByLabelText("Avatar")).toBeInTheDocument();
@@ -377,6 +410,7 @@ describe("FursonaEditor", () => {
         visibility: "public",
       },
     });
+    openPageOptions();
     expect(screen.getByLabelText("Display name")).toHaveValue("Sparky");
   });
 
@@ -408,8 +442,13 @@ describe("FursonaEditor", () => {
     expect(lastActorRef).toBe("ref-1");
   });
 
-  it("shows identity and theme on load, because the page starts selected", () => {
+  it("starts without inspector controls and exposes page options through Page", () => {
     renderEditor();
+    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.queryByTestId("editor-handle")).toBeNull();
+    expect(screen.queryByTestId("theme-open")).toBeNull();
+
+    openPageOptions();
     expect(screen.getByTestId("editor-handle")).toBeInTheDocument();
     expect(screen.getByTestId("theme-open")).toBeInTheDocument();
     expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
@@ -417,6 +456,7 @@ describe("FursonaEditor", () => {
 
   it("saves what was typed", async () => {
     renderEditor();
+    openPageOptions();
     fireEvent.change(screen.getByLabelText("Handle"), {
       target: { value: "blaze" },
     });
@@ -443,6 +483,7 @@ describe("FursonaEditor", () => {
   // it can ask is what the editor SENDS, which is where the fault actually was.
   it("starts a new page with the blocks the database requires", async () => {
     renderEditor();
+    openPageOptions();
     fireEvent.change(screen.getByLabelText("Handle"), {
       target: { value: "blaze" },
     });
@@ -470,6 +511,7 @@ describe("FursonaEditor", () => {
 
   it("goes back to the list once a save succeeds", async () => {
     renderEditor();
+    openPageOptions();
     fireEvent.change(screen.getByLabelText("Handle"), {
       target: { value: "blaze" },
     });
@@ -503,6 +545,7 @@ describe("FursonaEditor", () => {
       return false;
     });
     renderEditor();
+    openPageOptions();
     fireEvent.change(screen.getByLabelText("Handle"), {
       target: { value: "blaze" },
     });
@@ -516,6 +559,7 @@ describe("FursonaEditor", () => {
 
   it("refuses to submit a handle the schema rejects", async () => {
     renderEditor();
+    openPageOptions();
     fireEvent.change(screen.getByLabelText("Handle"), {
       target: { value: "not a valid handle!" },
     });
@@ -719,14 +763,19 @@ describe("FursonaEditor", () => {
     expect(toolbar).toContainElement(screen.getByTestId("writing-in"));
   });
 
-  it("keeps the theme panel and sections in the same Options workbench", () => {
+  it("keeps Page options separate from a section's options", () => {
     renderEditor();
     fireEvent.click(screen.getByTestId("select-page"));
     const inspector = screen.getByTestId("canvas-inspector");
+    expect(screen.getAllByTestId("inspector-item-row").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByTestId("theme-open")).not.toBeVisible();
+
+    fireEvent.click(screen.getByTestId("inspector-tab-options"));
     const theme = screen.getByTestId("theme-open");
-    const sections = screen.getByTestId("section-card");
     expect(inspector).toContainElement(theme);
-    expect(inspector).toContainElement(sections);
+    expect(screen.queryByTestId("section-card")).toBeNull();
   });
 
   // The identity fields carried their opaque backing with none of the chrome
@@ -807,6 +856,7 @@ describe("FursonaEditor", () => {
       ],
     });
 
+    openLeafOptions();
     fireEvent.change(screen.getByTestId("leaf-description"), {
       target: { value: "Unsaved page words" },
     });
@@ -833,6 +883,7 @@ describe("FursonaEditor", () => {
         },
       ],
     });
+    openLeafOptions();
     const before = toolbarRenders;
 
     fireEvent.change(screen.getByTestId("leaf-description"), {
@@ -962,6 +1013,7 @@ describe("the page-source dock's own mount and its theme guard", () => {
     // site never passed the theme, so the guard was unreachable and somebody
     // who had chosen colours got no warning at all. A tolerated absence is not
     // an assertion.
+    fireEvent.click(screen.getByTestId("select-page"));
     fireEvent.click(screen.getByTestId("template-picker"));
     const [template] = FURSONA_TEMPLATES;
     fireEvent.click(screen.getByTestId(`template-${template!.id}`));
@@ -969,7 +1021,9 @@ describe("the page-source dock's own mount and its theme guard", () => {
 
     // The page changed — anti-vacuity, because "the stylesheet is unchanged"
     // is also what a picker that did nothing at all would report.
-    expect(screen.getAllByTestId("section-card").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("inspector-item-row").length).toBeGreaterThan(
+      0,
+    );
 
     // And the look did not.
     expect(cssText()).toBe(before);
@@ -1147,6 +1201,7 @@ describe("a page the write schema refuses", () => {
   it("marks the piece of content that has no title", async () => {
     renderEditor({ initialSections: untitled() });
     await saveAndRefuse();
+    openLeafOptions();
 
     expect(screen.getByTestId("leaf-title")).toHaveAttribute(
       "aria-invalid",
@@ -1166,15 +1221,13 @@ describe("a page the write schema refuses", () => {
     );
   });
 
-  // A card holding a refusal shows its places whatever its collapse control
-  // says — otherwise the banner is telling somebody about a marking they
-  // cannot see.
-  it("opens a collapsed section that is hiding the refusal", async () => {
+  it("shows a refusal after drilling into the exact leaf that owns it", async () => {
     renderEditor({ initialSections: untitled() });
-    fireEvent.click(screen.getByTestId("collapse-section"));
     expect(screen.queryByTestId("leaf-title")).toBeNull();
 
     await saveAndRefuse();
+    expect(screen.queryByTestId("leaf-title")).toBeNull();
+    openLeafOptions();
 
     expect(screen.getByTestId("leaf-title")).toBeInTheDocument();
   });
@@ -1184,6 +1237,7 @@ describe("a page the write schema refuses", () => {
   it("clears the mark once a title is written", async () => {
     renderEditor({ initialSections: untitled() });
     await saveAndRefuse();
+    openLeafOptions();
 
     fireEvent.change(screen.getByTestId("leaf-title"), {
       target: { value: "About me" },
@@ -1201,6 +1255,7 @@ describe("a page the write schema refuses", () => {
   it("marks a section whose own name was refused", async () => {
     renderEditor({ initialSections: overlongName() });
     await saveAndRefuse();
+    openSectionOptions();
 
     expect(screen.getByTestId("section-name")).toHaveAttribute(
       "aria-invalid",
@@ -1230,6 +1285,7 @@ describe("a page the write schema refuses", () => {
   it("marks a section whose style was refused, on a field it does not draw", async () => {
     renderEditor({ initialSections: overlongBackground() });
     await saveAndRefuse();
+    openSectionOptions();
 
     expect(screen.getByTestId("section-problem")).toBeInTheDocument();
     expect(screen.getByTestId("editor-error-banner")).toHaveTextContent(

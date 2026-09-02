@@ -1,7 +1,17 @@
 # Canvas-first builder with a hideable inspector
 
+> **Superseded for inspector navigation (2026-09-01).**
+> The canvas-first shell remains current, but this document's selected startup,
+> Add/Options panes, fully mounted workbench tree and cross-level drag model do
+> not. The current interaction contract is
+> [`2026-09-01-recursive-inspector-drill-down-design.md`](2026-09-01-recursive-inspector-drill-down-design.md):
+> startup is deselected; Page and containers expose shallow Items plus Options;
+> leaves open Options directly; Back and breadcrumbs follow `BlockPath`; and
+> only visible siblings in one Items scope are draggable. The historical body
+> below is retained as delivered.
+
 - **Date:** 2026-08-31
-- **Status:** Designed
+- **Status:** Superseded for inspector navigation
 - **Scope:** The signed-in fursona and person editors. The stored page document
   does not change. Public pages change only by gaining inert `data-block-path`
   attributes used for editor selection.

@@ -32,10 +32,9 @@ import { chooseNewSectionSpaces, openPageAdd } from "./support/editor";
 // `border-style-cascade.spec.ts`, both of which seed a block tree directly and
 // are unaffected.
 
-// **A test's own card is the LAST one.** Every page opens carrying the identity
-// section the database requires, and `add-section` appends — so `.first()` here
-// would reach for the identity section's controls instead, and a page-wide
-// `section-style-open` matches two buttons rather than one.
+// The recursive inspector mounts only the selected card in Options, so the
+// popup locator below is singular even though the page carries required
+// identity blocks beside the section this test creates.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -62,7 +61,8 @@ test("a skin chosen in the popup paints the section preview at once", async ({
   await chooseNewSectionSpaces(page, "2");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await page.getByTestId("section-name").last().fill("Styled");
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("Styled");
 
   const tray = page.getByTestId("block-preview").last();
   // **One element, not two.** There used to be a `section-preview-face` here —
@@ -83,7 +83,7 @@ test("a skin chosen in the popup paints the section preview at once", async ({
     ),
   ).toBe("");
 
-  await page.getByTestId("section-style-open").last().click();
+  await page.getByTestId("section-style-open").click();
   await expect(page.getByTestId("section-style-panel")).toBeVisible();
 
   // A skin distinctive enough that no other could produce these values by
