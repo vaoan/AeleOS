@@ -166,14 +166,13 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     await chooseNewSectionSpaces(page, "2");
     await openPageAdd(page);
     await page.getByTestId("add-section").click();
-    await expect(page.getByTestId("section-card")).toHaveCount(2);
-    await page.getByTestId("add-content").last().click();
+    await page.getByTestId("add-content").first().click();
     // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null when
     // it has neither a title nor a description, so a freshly added content
     // block draws no card at all — and the card is what paints the edge.
-    await page.getByTestId("leaf-title").last().fill("Bordered");
+    await page.getByTestId("leaf-title").fill("Bordered");
+    await page.getByTestId("inspector-back").click();
 
-    const card = page.getByTestId("section-card").last();
     // **The SECTION the renderer draws, which is what a visitor sees.** This
     // used to read a `section-preview-face` — an element the preview tray
     // painted on the author's behalf, so the picture could sit under the
@@ -188,7 +187,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // section itself answers `solid` however the choice went, which is an
     // assertion that cannot fail — measured, it did exactly that.
     const painted = tray.getByTestId("public-leaf").locator("div").first();
-    const placeholder = card.getByTestId("empty-place");
+    const placeholder = page.getByTestId("inspector-empty-place");
     await expect(placeholder).toHaveCount(1);
 
     // Before anything is chosen: the section falls through to the design's
@@ -198,6 +197,8 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // unrelated reason would pass.
     expect(await borderStyleOf(painted)).toBe("solid");
     expect(await borderStyleOf(placeholder)).toBe("dashed");
+
+    await page.getByTestId("inspector-tab-options").click();
 
     // **This is the ONE site in the suite where `assertLastTriggerIsAContainers`
     // genuinely discriminates, not merely documents (2026-08-30).** Every
@@ -237,7 +238,10 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // control card — a `CHROME_SCOPE` island, and a sibling of the preview
     // rather than an ancestor of it. This fixture cannot discriminate
     // Tailwind utility ordering and makes no claim about it.
-    expect(await borderStyleOf(placeholder)).toBe("dashed");
+    await page.getByTestId("inspector-tab-items").click();
+    expect(await borderStyleOf(page.getByTestId("inspector-empty-place"))).toBe(
+      "dashed",
+    );
   });
 
   // **The third test measures PIXELS, and the other two cannot replace it.**
@@ -273,10 +277,12 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // Content, because an edge needs something to be drawn around: a leaf's
     // own `surface` card is what consumes `--skin-border-style`, and a
     // container whose every place is empty renders nothing at all.
-    await page.getByTestId("add-content").last().click();
+    await page.getByTestId("add-content").first().click();
     // Titled, or `PlainLeaf` renders nothing and there is no card to sample.
-    await page.getByTestId("leaf-title").last().fill("Bordered");
-    await page.getByTestId("collapse-section").last().click();
+    await page.getByTestId("leaf-title").fill("Bordered");
+    await page.getByTestId("inspector-back").click();
+    await page.getByTestId("inspector-tab-options").click();
+    await page.getByTestId("collapse-section").click();
 
     const card = page
       .getByTestId("block-preview")

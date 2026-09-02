@@ -695,7 +695,10 @@ test("every workbench group is opaque, whatever the page behind it", async ({
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
 
-  const card = page.getByTestId("section-card").last();
+  // Adding opens the new section on ITEMS; its own controls, the style
+  // trigger among them, are the other tab.
+  await page.getByTestId("inspector-tab-options").click();
+  const card = page.getByTestId("section-card");
   await card.getByTestId("section-style-open").click();
   const panel = page.getByTestId("section-style-panel");
   await expect(panel).toBeVisible();

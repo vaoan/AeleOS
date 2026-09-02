@@ -37,10 +37,12 @@ export interface BlockSlotProps {
  * `PublicBlocks` and `seatsOf` already say, so there is no generated key to
  * use instead.
  *
- * **The four things a drag needs are spread in one place, deliberately.**
+ * **The drag wiring is spread in one place, deliberately.**
  * `setNodeRef` on the element the library measures and moves, `listeners` and
  * `attributes` on the grip, and `setActivatorNodeRef` so focus returns to the
- * grip after a keyboard drop. Dropping `listeners` or the node ref kills the
+ * grip after a keyboard drop. The grip also stops its click so a completed or
+ * cancelled gesture cannot bubble into an inspector row and enter it.
+ * Dropping `listeners` or the node ref kills the
  * drag by mouse AND keyboard with no error at all; dropping `attributes`
  * kills only the keyboard. Every card in the editor gets its grip from here,
  * so there is one component to get right and one component to test — see
@@ -79,6 +81,7 @@ export function BlockSlot({ path, filled, label, children }: BlockSlotProps) {
       {...tid(`drag-${path.join(".")}`)}
       {...attributes}
       {...listeners}
+      onClick={(event) => event.stopPropagation()}
       className="cursor-grab touch-none rounded-lg p-1.5 text-(--muted)"
     >
       <GripVertical className="size-4" />

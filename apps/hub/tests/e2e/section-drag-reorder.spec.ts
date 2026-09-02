@@ -80,30 +80,39 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
 }) => {
   await page.goto("/es/pages/new");
 
-  // Two sections, built by hand — a template inserts sections as data without
+  // Three sections, built by hand — a template inserts sections as data without
   // touching a grip at all, which would prove nothing here.
   await chooseNewSectionSpaces(page, "2");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await page.getByTestId("section-name").last().fill("First");
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("First");
 
   await chooseNewSectionSpaces(page, "3");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await page.getByTestId("section-name").last().fill("Second");
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("Second");
 
-  const names = () =>
-    page
-      .getByTestId("section-name")
-      .evaluateAll((inputs) =>
-        inputs.map((input) => (input as HTMLInputElement).value),
-      );
+  await chooseNewSectionSpaces(page, "4");
+  await openPageAdd(page);
+  await page.getByTestId("add-section").click();
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("Third");
+  await openPageAdd(page);
 
-  // **The empty name is the identity section's**, which every page opens
-  // carrying because the database requires its blocks. It is first, so the two
-  // sections this test builds are the second and third — and the grip lifted
+  const names = () => page.getByTestId("inspector-item-open").allTextContents();
+
+  // The identity section is first, so the three sections this test builds are
+  // the second through fourth — and the grip lifted
   // below is `drag-1` rather than `drag-0` for the same reason.
-  await expect.poll(names).toEqual(["", "First", "Second"]);
+  await expect
+    .poll(async () => (await names()).slice(1))
+    .toEqual([
+      expect.stringContaining("First"),
+      expect.stringContaining("Second"),
+      expect.stringContaining("Third"),
+    ]);
 
   // Lift the first section's grip, move it down one, drop it. dnd-kit
   // announces each step to an `aria-live` region it manages itself; waiting on
@@ -129,90 +138,187 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   await expect
     .poll(() => announcement.textContent())
     .toMatch(/Movido sobre 3\.$/);
+  await page.keyboard.press("ArrowDown");
+  await expect
+    .poll(() => announcement.textContent())
+    .toMatch(/Movido sobre 4\.$/);
 
   await page.keyboard.press("Space");
 
   // The assertion the whole test exists for: the DOM order changed, read from
   // the inputs themselves — not a toast, not an internal state value.
   //
-  // **Two sections cannot tell a shift from a swap**, and this fixture is not
-  // asked to. Moving one of two by one step reads `Second First` whichever the
-  // code does, which is the trap `block-drag.spec.ts:37-43` documents; the
-  // three-section case that DOES discriminate lives there, on a page seeded for
-  // it. What this file proves is the chain — a real grip, a real sensor, a real
-  // browser, an order that changed — and that is worth having on its own.
-  await expect.poll(names).toEqual(["", "Second", "First"]);
+  // Three non-adjacent authored siblings distinguish a shift from a swap.
+  await expect
+    .poll(async () => (await names()).slice(1))
+    .toEqual([
+      expect.stringContaining("Second"),
+      expect.stringContaining("Third"),
+      expect.stringContaining("First"),
+    ]);
+  await expect(page.getByTestId("section-name")).toHaveCount(0);
 });
 
-// WHAT THE OLD LIBRARY COULD NOT DO AT ALL, PROVED IN A BROWSER.
-//
-// `@hello-pangea/dnd`'s own README rules out dragging an item from a parent
-// list into a child list, and rules out grids separately. This model is nested
-// grids and nothing else, which is why the library was replaced rather than
-// configured. So this half of the file is new rather than ported: it drags a
-// piece of content out of one section and into a place in another, which is
-// the capability the migration was for.
-test("a piece of content dragged by keyboard moves into another section's place", async ({
+// The recursive inspector offers one scope at a time. This replaces the old
+// cross-level drag with a non-adjacent sibling exchange that includes an empty
+// authored position and proves the grip never activates its row.
+test("a nested sibling drag swaps visible places without entering the row", async ({
   page,
 }) => {
   await page.goto("/es/pages/new");
 
-  await chooseNewSectionSpaces(page, "2");
+  await chooseNewSectionSpaces(page, "3");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("First");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("add-content").last().click();
+  await page.getByTestId("leaf-title").fill("Third");
+  await page.getByTestId("inspector-back").click();
 
-  // **Scoped to the first section this test built, which is the SECOND card.**
-  // Every page opens carrying the identity section the database requires, so
-  // the two sections here are at index 1 and 2 — and a page-wide `.first()`
-  // for a title would have typed into the identity section's portrait.
-  const built = page.getByTestId("section-card").nth(1);
-  await built.getByTestId("add-content").first().click();
-  await built.getByTestId("leaf-title").first().fill("Travelled");
-
-  // **Followed by its own words rather than by counting leaf editors.** The
-  // identity section holds four of those, so a positional list would be mostly
-  // blocks this test never placed; what it is actually about is where ONE
-  // piece of content ended up.
-  const placesHolding = () =>
-    page
-      .getByTestId("leaf-title")
-      .evaluateAll((nodes) =>
-        nodes
-          .filter((node) => (node as HTMLInputElement).value === "Travelled")
-          .map((node) =>
-            node
-              .closest("[data-testid^='place-']")
-              ?.getAttribute("data-testid"),
-          ),
-      );
-
-  await expect.poll(placesHolding).toEqual(["place-1.0"]);
+  const rows = () => page.getByTestId("inspector-item-row").allTextContents();
+  await expect
+    .poll(rows)
+    .toEqual([
+      expect.stringContaining("First"),
+      expect.any(String),
+      expect.stringContaining("Third"),
+    ]);
+  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
+  await expect(page.getByTestId("drag-1")).toHaveCount(0);
 
   const announcement = page.locator('[id^="DndLiveRegion-"]');
-
-  // The places this walk is offered, in drawing order, are 1.0 1.1 2.0 2.1 —
-  // the sections themselves are not, because a nested block dropped onto one
-  // would exchange with the whole section rather than land in it.
   await liftByKeyboard(page, page.getByTestId("drag-1.0"));
   await expect(announcement).not.toBeEmpty();
 
-  // Anchored on the end of the sentence: `1.2.` is a prefix of `1.2.3.`, and
-  // an unanchored match would report arrival two levels above the place asked
-  // for.
   await page.keyboard.press("ArrowDown");
   await expect.poll(() => announcement.textContent()).toMatch(/\s2\.2\.$/);
   await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s3\.1\.$/);
+  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.3\.$/);
 
   await page.keyboard.press("Space");
 
-  // It left its old place EMPTY rather than closing it up — a place is
-  // positional, and the width its author gave it is the model.
-  await expect.poll(placesHolding).toEqual(["place-2.0"]);
-  await expect(page.getByTestId("empty-place")).toHaveCount(3);
+  await expect
+    .poll(rows)
+    .toEqual([
+      expect.stringContaining("Third"),
+      expect.any(String),
+      expect.stringContaining("First"),
+    ]);
+  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
+  await expect(page.getByTestId("leaf-editor")).toHaveCount(0);
+
+  await page.getByTestId("inspector-item-open").last().click();
+  await expect(page.getByTestId("leaf-title")).toHaveValue("First");
 });
+
+test("a pointer drag between sibling rows does not activate either row", async ({
+  page,
+}) => {
+  await page.goto("/es/pages/new");
+  await chooseNewSectionSpaces(page, "2");
+  await openPageAdd(page);
+  await page.getByTestId("add-section").click();
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("Left");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("add-content").click();
+  await page.getByTestId("leaf-title").fill("Right");
+  await page.getByTestId("inspector-back").click();
+
+  const source = await page.getByTestId("drag-1.0").boundingBox();
+  const target = await page.getByTestId("place-1.1").boundingBox();
+  expect(source).not.toBeNull();
+  expect(target).not.toBeNull();
+  await page.mouse.move(
+    source!.x + source!.width / 2,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    source!.x + source!.width / 2 + 20,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.move(
+    target!.x + target!.width / 2,
+    target!.y + target!.height / 2,
+    {
+      steps: 8,
+    },
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(() => page.getByTestId("inspector-item-row").allTextContents())
+    .toEqual([
+      expect.stringContaining("Right"),
+      expect.stringContaining("Left"),
+    ]);
+  await expect(page.getByTestId("leaf-editor")).toHaveCount(0);
+  await expect(page.getByTestId("canvas-inspector")).toBeVisible();
+
+  // The pointer sequence itself did not open either row. A later, independent
+  // click must still work; suppressing that click would turn drag protection
+  // into a two-click row.
+  await page.getByTestId("inspector-item-open").first().click();
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Right");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-item-open").last().click();
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Left");
+});
+
+// `block-drag.spec.ts` IS GONE, AND THIS IS WHERE ITS SURVIVING HALF LIVES.
+//
+// That file drove seventeen cases across levels — a leaf carried out of one
+// section into a nested place two deep inside another, a section dropped on
+// its own descendant, a drop one level past the cap. The recursive inspector
+// withdrew every one of those gestures by design
+// (`2026-09-01-recursive-inspector-drill-down-design.md`, §Dragging: "Cross-
+// level dragging is not offered in this inspector"), so those cases could not
+// be repaired by fixing selectors: there is no longer any input that expresses
+// what they were asserting. `moveSiblingBlock` refuses a non-sibling exchange
+// before `moveBlock` ever sees it, and `siblingTarget` discards a cross-level
+// candidate in pointer collision, keyboard collision and drop handling alike.
+//
+// Where each half went, so that nobody re-derives this by reading a diff:
+//
+//   swap on an occupied place ...... the nested-sibling case above, which keeps
+//                                    the non-adjacent fixture the trap needs
+//   section reorder ................ the first case above, on three sections
+//   pointer geometry against a REAL
+//     layout engine ................ the pointer case above; this is the only
+//                                    thing in the repository that asks
+//                                    Chromium for `placeUnderPointer`'s
+//                                    rectangles, so it must not be reduced to
+//                                    a keyboard drag
+//   cycle refusal .................. `block-moves.test.ts`, "refuses a section
+//                                    dropped into one of its own places" and
+//                                    "refuses a block dropped onto its own
+//                                    ancestor"
+//   depth-cap refusal .............. `block-moves.test.ts`, "refuses a subtree
+//                                    too tall for the place it was dropped in"
+//   carrying into a nested place ... `block-moves.test.ts`, "carries a block
+//                                    into a container nested inside a section"
+//   the plane rule ................. `block-drag.test.ts`, "never offers a
+//                                    section's own place to something dragged
+//                                    from inside one"
+//   the carried subtree's own
+//     places being withheld ........ `block-drag.test.ts`, "walks the places in
+//                                    the order they are drawn, without what is
+//                                    being carried"
+//
+// **Two things it proved are now proved NOWHERE IN A BROWSER, and saying so is
+// the point of writing this down.** `onDragCancel` — Escape abandoning a live
+// drag — is held by `drag-announcements.test.ts` at the unit level only. And
+// the collapsed-card walk, where `coordinateGetter` steps over places the DOM
+// is not showing, has only its unit coverage now; `siblingTarget` narrows that
+// walk further than it was narrowed when the fault was found, which makes the
+// original fault harder to reach and does not make it impossible. Neither is a
+// gap this branch created deliberately; both are gaps whose fixture depended
+// on a gesture that no longer exists, and a case rebuilt in sibling scope
+// would not discriminate the fault either way. Rule 27: an edge case still has
+// to be able to tell a right answer from a wrong one.
 
 // THE OTHER HALF OF THIS FILE IS GONE, AND THE FAULT IT GUARDED CANNOT
 // RECUR.

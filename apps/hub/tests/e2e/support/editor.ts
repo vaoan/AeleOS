@@ -22,6 +22,9 @@ export const handleFor = (prefix: string): string =>
  * Opens the new-page editor through its Page selection, then fills the four
  * fields a public fursona needs. It asks {@link openInspector} to preserve an
  * already-open phone sheet rather than pressing a Page control underneath it.
+ * The explicit breadcrumb and Options presses mirror the recursive
+ * inspector's deselected startup instead of depending on page fields mounting
+ * eagerly.
  *
  * @param page - the browser page.
  * @param handle - the fursona's handle.
@@ -34,6 +37,8 @@ export async function startFursona(
 ): Promise<void> {
   await page.goto("/es/pages/new");
   await openInspector(page);
+  await page.getByTestId("inspector-breadcrumb").first().click();
+  await page.getByTestId("inspector-tab-options").click();
   await expect(page.getByTestId("editor-handle")).toBeVisible();
   await page.getByTestId("editor-handle").fill(handle);
   await page.getByTestId("editor-display-name").fill(displayName);
@@ -41,9 +46,9 @@ export async function startFursona(
 }
 
 /**
- * Opens the page inspector on Add, where new sections are offered.
+ * Opens the page inspector on Items, where new sections are offered.
  *
- * Idempotent: if Add is already showing, it does nothing; if another inspector
+ * Idempotent: if Items is already showing, it does nothing; if another inspector
  * pane is showing, it changes only the tab.
  *
  * @param page - the editor page.
@@ -51,8 +56,33 @@ export async function startFursona(
 export async function openPageAdd(page: Page): Promise<void> {
   if (await page.getByTestId("add-section").isVisible()) return;
   await openInspector(page);
-  await page.getByTestId("inspector-tab-add").click();
+  await page.getByTestId("inspector-breadcrumb").first().click();
+  await page.getByTestId("inspector-tab-items").click();
   await expect(page.getByTestId("add-section")).toBeVisible();
+}
+
+/**
+ * Opens Page → Options, where the identity fields and the theme panel live.
+ *
+ * **The page's own fields are no longer mounted by simply loading the
+ * editor.** The recursive inspector starts deselected, so `editor-handle`,
+ * `editor-display-name`, `editor-visibility` and `theme-open` exist only once
+ * the page itself is the selected target and Options is the showing pane. A
+ * spec that reaches for one of those without this helper waits on an element
+ * nothing is rendering, and reports a timeout naming the field rather than the
+ * selection it was missing.
+ *
+ * Idempotent in the same way {@link openPageAdd} is: it presses Page only when
+ * the inspector is closed, then names the page breadcrumb so a selection left
+ * deeper in the tree by an earlier step cannot decide which Options open.
+ *
+ * @param page - the editor page.
+ */
+export async function openPageOptions(page: Page): Promise<void> {
+  await openInspector(page);
+  await page.getByTestId("inspector-breadcrumb").first().click();
+  await page.getByTestId("inspector-tab-options").click();
+  await expect(page.getByTestId("theme-open")).toBeVisible();
 }
 
 /**
@@ -76,7 +106,7 @@ export async function openInspector(page: Page): Promise<void> {
 }
 
 /**
- * Opens Page → Add, sets how many places a newly added section will lay
+ * Opens Page → Items, sets how many places a newly added section will lay
  * across, and waits until that choice is the select's value.
  *
  * **Retries the assignment, because a single `selectOption` can land on a
@@ -96,8 +126,7 @@ export async function chooseNewSectionSpaces(
   page: Page,
   spaces: string,
 ): Promise<void> {
-  await openInspector(page);
-  await page.getByTestId("inspector-tab-add").click();
+  await openPageAdd(page);
   const select = page.getByTestId("new-section-spaces");
   await expect(select).toBeVisible();
   await expect

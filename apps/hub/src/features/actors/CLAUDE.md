@@ -1286,36 +1286,36 @@ Its container queries answer to the page's width rather than the workbench's,
 which is what `WidePageColumn` moving INSIDE `BlockEditor` buys: the control
 card is columned and the preview is full width.
 
-**The inspector is a new place for the same workbench, not a replacement of
-it (2026-08-31).** `BlockCard`, `LeafEditor`, `BlockSlot`, `add-content`,
-`add-nested`, mode/spaces/weights, the style popup, identity, theme, templates
-and presets are the same components they were. They live in
-`CanvasInspector`'s Options pane. The page starts selected so those controls
-are on screen without an extra click. Switching to Add must not unmount
-Options — the inactive pane uses the native `hidden` attribute, preserving its
-component state while withdrawing its controls from layout and accessibility,
-and must be laid out again before a grip is offered. Empty canvas or Escape
-deselects; an Escape aimed inside the inspector belongs to the inspector's own
-popup or field and leaves the selection intact. That distinction is made from a
-capture-phase listener: `SectionStylePopup` closes from a bubble-phase
-`document` listener, which detaches the focused field before a later bubble
-listener can ask whether it was inside the inspector. Preview is still
-hide-controls (`CHROME_SCOPE`). Do not
-`sr-only` or `aria-hidden` an actionable card to "focus" the selection: that
-kills mouse drag rectangles or leaves invisible nested editors in the
-accessibility tree.
+**The inspector drills one level at a time (corrected 2026-09-01).**
+`BlockCard`, `LeafEditor`, `BlockSlot`, `add-content`, `add-nested`,
+mode/spaces/weights, the style popup, identity, theme, templates and presets
+remain the editing mechanisms. The page starts with no selection. Selecting
+Page or a container offers **Items** and **Options**: Items shows only that
+target's immediate positions, including empty ones, while Options mounts only
+that selected target's existing editor with descendants suppressed. Selecting
+a leaf opens its Options directly. `BlockPath` is the only selection identity;
+breadcrumbs and Back derive parents from it, and a removed target repairs to
+its closest surviving ancestor. That repair is persisted in state, so a later
+document import cannot resurrect a stale path merely by filling the same
+position again.
 
-When nothing is selected the workbench is unmounted, not copied to a fixed box
-off the left edge. The copy preserved component geometry in theory and broke
-ordinary interaction in practice: Playwright saw its controls as visible and
-stable, then could never scroll x = -1536 into the viewport, so every click
-spent the full test timeout. One mounted workbench remains the invariant; a
-hidden duplicate is not a second way to preserve it.
+Only the immediate siblings visible in one Items scope register drag handles.
+Pointer collision, keyboard navigation and the final drop boundary each reject
+a different parent before `moveBlock` is called. Cross-level movement remains
+expressible in the page-source document, but is deliberately not an inspector
+gesture.
+
+Empty canvas or Escape deselects; an Escape aimed inside the inspector belongs
+to its own popup or field and leaves selection intact. The capture-phase
+listener asks that question before `SectionStylePopup`'s bubble listener can
+detach the focused field. Preview is still hide-controls (`CHROME_SCOPE`).
+When nothing is selected the workbench is unmounted, never hidden or copied
+off-screen; one mounted workbench remains the invariant.
 
 The desktop panel is `min(36rem, 40vw)`, with the canvas padded by that same
 expression, because the inherited nested card controls do not fit in 320px.
 It starts `3.5rem` below the sticky editor toolbar: sharing the bar's own top
-offset covered the Add tab or the writing switch depending on which one won
+offset covered the Items tab or the writing switch depending on which one won
 the z-index. Preview leaves selection intact, so the padding class remains;
 the hide-controls rule explicitly zeroes inline padding with the other editor
 furniture or a 1280px picture shifts by exactly 512px.
@@ -1749,7 +1749,15 @@ rail on the outermost card and one rail per container are indistinguishable on a
 flat page, so the case nests to the cap; rendering the rail only at depth 0
 reddens that case and no other, which is the proof the fixture discriminates.
 
-### Dragging (2026-08-18) — anything, anywhere a place will hold it
+### Dragging (2026-08-18; inspector corrected 2026-09-01)
+
+> **Correction:** The domain account below remains the contract for
+> `moveBlock`, including cross-level exchanges and refusals. Its interaction
+> and browser-proof paragraphs describe the superseded full-tree editor. The
+> recursive inspector mounts only one level and offers only visible siblings;
+> pointer collision, keyboard navigation and final drop handling each enforce
+> that shared parent. The current browser proof is
+> `section-drag-reorder.spec.ts`; see the recursive-inspector paragraph above.
 
 `@hello-pangea/dnd` is **gone**. `@dnd-kit/core` and `@dnd-kit/sortable`
 replaced it, in the editor and in the fursona list both, because the old
@@ -1816,8 +1824,9 @@ its first run. Ranking by path length is the same fact as "innermost" at any
 depth, which is why it holds at three where the spike's own detector was
 two-level-specific. It is proved at the cap in `block-drag.test.ts`, on four
 nested rectangles that all contain the same point, beside a fifth candidate off
-to the side that does not — and, since `tests/e2e/block-drag.spec.ts`, against
-rectangles a real layout engine measured. **The case that actually
+to the side that does not — and, in
+`tests/e2e/section-drag-reorder.spec.ts`'s pointer case, against rectangles a
+real layout engine measured. **The case that actually
 discriminates nearest-centre is not the flagship one**: at the point the
 flagship uses, nearest-centre happens to answer the innermost place as well.
 The case below it, where the parent's centre is nearer than the child's, is
@@ -1825,16 +1834,25 @@ the one that would redden.
 
 **That browser proof is newer than it looks, and the sentence it replaced was
 the misleading kind.** This paragraph used to end "and again in a browser",
-crediting `section-drag-reorder.spec.ts` — which drives the KEYBOARD, and the
-keyboard branch of `detectCollision` hands back the place the coordinate getter
-already chose without calling `placeUnderPointer` at all. So the collision
-geometry had never met a rectangle Chromium produced. `block-drag.spec.ts` runs
-FOUR of its cases by mouse and by keyboard both — the swap, the move in and out
-of a nested place, the section reorder and the refusal one level past the
-depth cap — and its pointer
-half asserts the `data-over` highlight BEFORE releasing — `useDroppable`'s own `isOver`, which is
-the collision's answer rendered. Swap the ranking for nearest-centre and the
-pointer case reddens at the highlight while the keyboard case stays green.
+crediting `section-drag-reorder.spec.ts` — which at the time drove only the
+KEYBOARD, and the keyboard branch of `detectCollision` hands back the place the
+coordinate getter already chose without calling `placeUnderPointer` at all. So
+the collision geometry had never met a rectangle Chromium produced.
+`block-drag.spec.ts` was written to close that, running four of its cases by
+mouse and by keyboard both.
+
+**It is gone (2026-09-01), and only one of its halves could be kept.** Every
+case it ran by mouse was a CROSS-LEVEL drag, and the recursive inspector
+withdrew that gesture by design — `siblingTarget` discards a non-sibling
+candidate in pointer collision, keyboard collision and drop handling alike, so
+there is no input left that expresses what those cases asserted. What survives
+is `section-drag-reorder.spec.ts`'s own pointer case, which exchanges two
+visible sibling places by mouse: it is now **the only thing in the repository
+that asks Chromium for `placeUnderPointer`'s rectangles**, so reducing it to a
+keyboard drag would silently return this paragraph to the state the sentence
+above describes. That spec's header carries the full account of where each of
+the seventeen deleted cases went, including the two — `onDragCancel` and the
+collapsed-card walk — that are now proved at the unit level only.
 
 **One sabotage of that ranking could not be made to fail, and it is written
 down rather than counted.** Replacing deepest-wins with "the first candidate
@@ -1870,11 +1888,11 @@ a right answer from a wrong one.
 where the first arrow key reaches nothing — a flake in one run of three, wearing
 the face of a slow machine. See rule 26 in the root `CLAUDE.md` for the general
 shape. **Every lift in the browser suite goes through
-`tests/e2e/support/drag.ts` now**, and that is not tidiness: the fix was
-written inline in `block-drag.spec.ts` and the two specs the same phase ported
-kept the unprotected lift, so the mechanism was diagnosed once and applied
-once. A helper is the only version of "written down" that the next spec cannot
-skip.
+`tests/e2e/support/drag.ts` now**, and that is not tidiness: the fix was first
+written inline in one spec while the two the same phase ported kept the
+unprotected lift, so the mechanism was diagnosed once and applied once. A
+helper is the only version of "written down" that the next spec cannot skip —
+and it is why deleting the spec that first carried it cost nothing.
 
 **The walk steps over places nothing is showing, and it did not.**
 `placeOrder` walks the whole STORED tree while a collapsed card renders none of
@@ -1885,10 +1903,16 @@ resolved to **null**, and the drag announced "it stayed where it was" while it
 was still running; a space bar pressed there dropped nothing, because
 `onDragEnd` returns early on a null `over`. `coordinateGetter` keeps stepping
 until it finds a place the library is measuring, so every place the keyboard
-can reach is one a drop can land on. The guard is
-`block-drag.spec.ts`'s collapsed-card walk, and its fixture collapses a card in
-the MIDDLE of the walk on purpose — collapse the last one instead and the fault
-looks like a walk that stopped, which is a legal answer at the end of a list.
+can reach is one a drop can land on.
+
+**Its browser guard went with `block-drag.spec.ts` (2026-09-01), and nothing
+replaced it.** That guard's fixture collapsed a card in the MIDDLE of a walk
+that crossed sections, which the recursive inspector no longer offers; rebuilt
+inside one Items scope it could not tell the fault from a correct walk, so it
+was reported rather than rewritten into something that looks like coverage.
+`siblingTarget` also narrows the walk further than it was narrowed when the
+fault was found, which makes the fault harder to reach and does not make it
+impossible. What holds it now is the unit level alone.
 
 **A refusal sentence is retired by the next EDIT, not by the next drag.** It
 used to be cleared only in `onDragStart`, so a refused drop left its line on

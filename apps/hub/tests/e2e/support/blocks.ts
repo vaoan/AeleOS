@@ -116,24 +116,6 @@ export const SEEDED_IDENTITY_SECTIONS = 1;
 export const SEEDED_IDENTITY_LEAVES = 3;
 
 /**
- * How {@link identity} reads in the editor's own arrangement dump.
- *
- * `block-drag.spec.ts` asserts the WHOLE page as an exact array — which is the
- * point of it, since a drag that moved something it should not have is only
- * visible against the whole — so the trailing section has to be spelled out
- * there rather than counted.
- *
- * @param at - the top-level index the identity section sits at.
- * @returns its entries, in the form `arrangement` builds.
- */
-export const identityArrangement = (at: number): string[] => [
-  `${at}=section-card:Identity`,
-  `${at}.0=leaf-editor:Portrait`,
-  `${at}.1=leaf-editor:Handle`,
-  `${at}.2=leaf-editor:Owner`,
-];
-
-/**
  * What {@link seedPage} needs.
  *
  * `appendIdentity` defaults on so a fixture that only names its subject still

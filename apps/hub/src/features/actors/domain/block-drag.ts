@@ -88,11 +88,13 @@ export function placeName(path: BlockPath): string {
  * `getBoundingClientRect` and reports `pointerCoordinates` in client
  * coordinates, so both sides of {@link contains} are viewport-relative and it
  * is correct precisely because it mirrors the library's own
- * `isPointWithinRect`. The distinction is not academic: it is what
- * `block-drag.spec.ts` reasons about when it chooses a
- * viewport tall enough that nothing scrolls, and a drag on a page longer than
- * the viewport — where dnd-kit's own auto-scroll moves the document under
- * rectangles measured before it — is still covered by nothing.
+ * `isPointWithinRect`. The distinction is not academic, and a drag on a page
+ * longer than the viewport — where dnd-kit's own auto-scroll moves the document
+ * under rectangles measured before it — is covered by nothing. The suite that
+ * used to keep that question out of scope by choosing a viewport tall enough
+ * for its whole fixture is gone; the recursive inspector shows one scope at a
+ * time, so a sibling list is short enough that the question has not arisen
+ * rather than answered.
  */
 interface PlaceRect {
   /** Distance from the top of the viewport. */

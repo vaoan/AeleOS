@@ -212,21 +212,24 @@ test.describe("every phone screen, signed in", () => {
 
     // The editor with EVERYTHING open, which is the state the fault was
     // reported in and the widest this app ever gets: the theme panel's colour
-    // rows, and a template's sections with their layout menus and their
-    // per-item fields. Checking the empty editor would have passed while the
-    // page a person actually builds was still cut in half.
+    // rows, and one template section's full Options controls. Checking the
+    // empty editor or Page Items alone would have passed while the inspector a
+    // person actually edits in was still cut in half.
     test(`the editor fits ${viewport.name} with the panel and a template open`, async ({
       page,
     }) => {
       await page.setViewportSize(viewport);
 
       await page.goto("/es/pages/new");
-      await page.getByTestId("theme-open").click();
       await openPageAdd(page);
+      await page.getByTestId("inspector-tab-options").click();
+      await page.getByTestId("theme-open").click();
+      await page.getByTestId("inspector-tab-items").click();
       await page.getByTestId("template-picker").click();
       await page.getByTestId("template-reference-sheet").click();
+      await page.getByTestId("inspector-item-open").first().click();
       await page.getByTestId("inspector-tab-options").click();
-      await expect(page.getByTestId("section-name").first()).toBeVisible();
+      await expect(page.getByTestId("section-name")).toBeVisible();
 
       await fits(page, `the editor at ${viewport.name}`);
 
@@ -257,7 +260,7 @@ test.describe("every phone screen, signed in", () => {
       // panel (skin, background, fit, border) has carried that gap
       // since the popup shipped; checking it here closes it for all of them,
       // not only the border select this task added.
-      await page.getByTestId("section-style-open").first().click();
+      await page.getByTestId("section-style-open").click();
       await expect(page.getByTestId("section-style-panel")).toBeVisible();
       await fits(
         page,

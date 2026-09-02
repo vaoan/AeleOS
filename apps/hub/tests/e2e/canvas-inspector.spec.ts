@@ -9,8 +9,8 @@ import {
 } from "./support/clerk-session";
 import { openPageAdd } from "./support/editor";
 
-// THE INSPECTOR OPENS WITH THE PAGE AND CLOSES WITHOUT DROPPING THE WORKBENCH
-// TREE. Preview is still hide-controls. Empty canvas and Escape deselect.
+// THE INSPECTOR STARTS CLOSED AND DRILLS THROUGH ONE LEVEL AT A TIME.
+// Preview is still hide-controls. Empty canvas and Escape deselect.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -25,29 +25,85 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
-test("the page inspector is open on load, with identity still reachable", async ({
+test("the page inspector starts closed, then Page exposes identity in Options", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
+  await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
+  await page.getByTestId("select-page").click();
   await expect(page.getByTestId("canvas-inspector")).toBeVisible();
+  await page.getByTestId("inspector-tab-options").click();
   await expect(page.getByTestId("editor-handle")).toBeVisible();
   await expect(page.getByTestId("theme-open")).toBeVisible();
-  await expect(page.getByTestId("section-card")).toBeVisible();
 });
 
-test("Add does not unmount nested add-content on a section that already exists", async ({
+test("Items enters one section without mounting its descendants in Options", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await openPageAdd(page);
   await page.getByTestId("add-section").click();
-  await expect(page.getByTestId("add-content").last()).toBeVisible();
-  await page.getByTestId("inspector-tab-add").click();
-  await expect(page.getByTestId("add-section")).toBeVisible();
-  await expect(page.getByTestId("add-content").first()).toBeAttached();
-  await expect(page.getByTestId("add-content").first()).toBeHidden();
+  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(2);
+  await page.getByTestId("inspector-tab-options").click();
+  await expect(page.getByTestId("section-card")).toBeVisible();
+  await expect(page.getByTestId("empty-place")).toHaveCount(0);
+});
+
+test("Page, nested containers, Back, breadcrumbs, and leaf Options form one path", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+  await openPageAdd(page);
+  await page.getByTestId("add-section").click();
+
+  await page.getByTestId("add-nested").first().click();
+  await expect(page.getByTestId("inspector-breadcrumb")).toHaveCount(3);
+  await page.getByTestId("inspector-back").click();
+  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
+
+  await page.getByTestId("add-content").click();
+  await expect(page.getByTestId("leaf-kind")).toBeVisible();
+  await expect(page.getByTestId("inspector-tab-items")).toHaveCount(0);
+  await expect(page.getByTestId("inspector-tab-options")).toHaveCount(0);
+
+  await page.getByTestId("inspector-breadcrumb").first().click();
+  expect(await page.getByTestId("inspector-item-row").count()).toBeGreaterThan(
+    1,
+  );
+});
+
+test("an empty positional place remains visible and can be filled", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+  await openPageAdd(page);
+  await page.getByTestId("add-section").click();
+  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(2);
+
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("Filled");
+  await page.getByTestId("inspector-back").click();
+
+  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
+  await expect(page.getByTestId("inspector-item-row")).toHaveCount(2);
+});
+
+test("a click owned by the empty canvas dismisses the inspector", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+  await page.getByTestId("select-page").click();
+  await expect(page.getByTestId("canvas-inspector")).toBeVisible();
+
+  await page
+    .getByTestId("editor-canvas")
+    .evaluate((canvas) => (canvas as HTMLElement).click());
+  await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
 });
 
 test("Escape closes the inspector and leaves the live page", async ({
@@ -81,7 +137,7 @@ test("Escape aimed at a field inside the inspector keeps the selection", async (
   await page.getByTestId("add-section").click();
   await page.getByTestId("inspector-tab-options").click();
 
-  const card = page.getByTestId("section-card").last();
+  const card = page.getByTestId("section-card");
   await card.getByTestId("section-style-open").click();
   await expect(page.getByTestId("section-style-panel")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -94,8 +150,9 @@ test("Escape aimed at a field inside the inspector keeps the selection", async (
   // And the card is still where a person can use it. Asserting the card is
   // merely attached would pass against the off-screen copy this replaced,
   // which was laid out, `aria-hidden` and 1536px to the left of the viewport.
-  await card.getByTestId("add-content").first().click();
-  await expect(card.getByTestId("leaf-kind").first()).toBeVisible();
+  await page.getByTestId("inspector-tab-items").click();
+  await page.getByTestId("add-content").first().click();
+  await expect(page.getByTestId("leaf-kind")).toBeVisible();
 });
 
 test("Preview still hides every chrome island, inspector included", async ({
@@ -103,6 +160,7 @@ test("Preview still hides every chrome island, inspector included", async ({
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
+  await page.getByTestId("select-page").click();
   await expect(page.getByTestId("canvas-inspector")).toBeVisible();
   await page.getByTestId("hide-controls").click();
   await expect(page.getByTestId("canvas-inspector")).toBeHidden();

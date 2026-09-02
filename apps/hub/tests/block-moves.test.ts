@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   moveBlock,
+  moveSiblingBlock,
   type MoveRefusal,
 } from "@/features/actors/domain/block-moves";
 import {
@@ -81,6 +82,24 @@ const refusal = (
     throw new Error(`not refused: ${JSON.stringify(page(result.blocks))}`);
   return result.refusal;
 };
+
+describe("inspector sibling boundary", () => {
+  it("moves siblings through the existing semantics", () => {
+    const blocks = [box("A", [leaf("one"), null, leaf("two")])];
+    const result = moveSiblingBlock(blocks, [0, 0], [0, 2]);
+    expect(result?.ok).toBe(true);
+    expect(result?.ok && page(result.blocks)).toEqual([
+      ["A", ["two", null, "one"]],
+    ]);
+  });
+
+  it("ignores synthetic cross-level final over targets before moveBlock can exchange them", () => {
+    const blocks = [box("A", [leaf("one"), box("N", [null])])];
+    expect(moveSiblingBlock(blocks, [0, 0], [0, 1, 0])).toBeNull();
+    expect(moveSiblingBlock(blocks, [0], [0, 0])).toBeNull();
+    expect(page(blocks)).toEqual([["A", ["one", ["N", [null]]]]]);
+  });
+});
 
 describe("moving onto an empty place", () => {
   it("leaves the place it came from empty, and keeps its position", () => {

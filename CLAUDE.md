@@ -1575,10 +1575,11 @@ replace`, so the newest body of a function could sit in a file named after
   removes what is there, and sees the section drawn by the renderer a
   stranger's page uses rather than by a preview that could drift from it.
 
-  **Dragging is written, and `@hello-pangea/dnd` is gone (2026-08-18).**
-  Anything may be dragged anywhere a place will hold it — content between
-  sections, a section into a place, at the depth cap — by mouse and by
-  keyboard. `@dnd-kit/core` + `@dnd-kit/sortable` replaced it because the old
+  **Dragging is written, and `@hello-pangea/dnd` is gone (corrected
+  2026-09-01).** `moveBlock` can exchange anything with any place the model
+  admits, but the recursive inspector deliberately offers only the visible
+  siblings in its current Items scope, by mouse and by keyboard.
+  `@dnd-kit/core` + `@dnd-kit/sortable` replaced the old library because the old
   library's own README rules out dragging from a parent list into a child one
   and rules out grids separately, and this model is nested grids and nothing
   else. Measured on what each is actually imported for: 13.9 kB min+gzip
@@ -1597,44 +1598,31 @@ replace`, so the newest body of a function could sit in a file named after
   a ruling rather than a change to the model — the positions are stored either
   way.
 
-  Two things carry the design and neither is in a component. `moveBlock`
-  (`domain/block-moves.ts`) decides what a drop MEANS, with no library in
-  sight; `domain/block-drag.ts` decides which two places a gesture NAMED, and
-  that is where the phase's one real unknown was. **The collision resolves to
-  the deepest place under the pointer** — places nest, so every enclosing place
-  contains the pointer too, and a distance-to-centre ranking answers a leaf
-  inside the container somebody is hovering, silently, one level in.
-  "Innermost" and "longest path" are the same fact at any depth, which is what
-  makes it hold at three rather than being the two-level special case the spike
-  had. **A keyboard drag walks a list instead**, deliberately: a pointer cannot
-  avoid the places inside the block it is carrying and a list can simply leave
-  them out.
+  Two domain boundaries carry the current design. `moveBlock`
+  (`domain/block-moves.ts`) still decides what any valid exchange MEANS, with
+  no library in sight; `moveSiblingBlock` admits that operation only when both
+  paths share one parent. The inspector applies that sibling rule in pointer
+  collision, keyboard navigation and final drop handling, so a stale synthetic
+  target cannot recover the withdrawn cross-level gesture.
 
-  **A pointer drag has now been driven in a browser, and it agrees with the
-  unit fixtures.** Until `tests/e2e/block-drag.spec.ts` every browser-level
-  proof was by KEYBOARD, which exercises a different branch: the keyboard side
-  of `detectCollision` hands back the place the coordinate getter already chose
-  and never calls `placeUnderPointer` at all, so the geometry was proved only
-  against rectangles a unit test wrote for itself. **Four** of that spec's cases
-  run by mouse AND by keyboard against a real layout — a swap inside one
-  section, a move into a place at the depth cap and back out, a section reorder,
-  and the refusal one level past the cap. The rest are single-gesture BY DESIGN,
-  and this bullet claimed otherwise for a while: the cycle refusal and the plane
-  rule have no keyboard gesture that expresses them, because the walk never
-  offers those targets; the descendant-exclusion case IS the keyboard proof of
-  that; and the save-and-reload, the abandoned drag and the collapsed-card walk
-  each drive the one gesture their subject has. Its
-  pointer half asserts the `data-over` highlight BEFORE it releases, which is
-  `placeUnderPointer` ranking rectangles Chromium measured. Replacing
-  deepest-wins with nearest-centre reddens it at the highlight and leaves the
-  keyboard half green, which is the two paths being different said out loud.
+  **Sibling dragging is driven both ways in a browser.**
+  `section-drag-reorder.spec.ts` reorders top-level siblings by keyboard,
+  exchanges nested sibling places by keyboard, and exchanges them by pointer
+  while proving the grip's following click did not enter either row. Broader
+  cross-level, cycle, depth and plane semantics remain domain proofs for
+  `moveBlock`; the recursive inspector no longer offers those gestures.
+  `block-drag.spec.ts`, whose browser cases all depended on those withdrawn
+  cross-level gestures, is deleted; its surviving browser-level pointer proof
+  lives in `section-drag-reorder.spec.ts`, while `block-moves.test.ts` and
+  `block-drag.test.ts` retain the domain semantics.
 
-  **Two of its fixtures are shaped by a trap rather than by taste**, and both
-  are the "a case that passed because both orderings landed identically" shape.
+  **The drag fixtures are shaped by a trap rather than by taste.**
+  They are the "a case that passed because both orderings landed identically"
+  shape.
   A swap and an insert-and-shift leave two ADJACENT places reading the same
   thing, so the swap is asserted across a place that is not adjacent to its
   source; and a shift and a swap leave the same page when there are only two
-  sections, so the reorder gets a page of three. Each was verified by making
+  authored sections, so the reorder gets three. Each was verified by making
   the code do the other thing and watching it go red. Rule 27 is that trap
   written out, along with the third instance the same phase found and the one
   case where no fixture could have discriminated at all.
@@ -1856,22 +1844,24 @@ replace`, so the newest body of a function could sit in a file named after
   Spec: `docs/superpowers/specs/2026-08-27-the-editor-wears-the-page-design.md`.
   Plan: `docs/superpowers/plans/2026-08-27-the-editor-wears-the-page.md`.
 
-- **The editor is canvas-first (2026-08-31).** This is a UI migration over
+- **The editor is canvas-first (corrected 2026-09-01).** This is a UI migration over
   the editor above, not a replacement for its functions or document. The live
   page is the canvas; selecting it or one of its positional
-  `data-block-path`s opens a hideable Add/Options inspector. `BlockCard`,
+  `data-block-path`s opens a hideable recursive inspector. `BlockCard`,
   `LeafEditor`, `BlockSlot`, `moveBlock`, nested add, style controls, identity,
   theme, templates, presets, the JSON dock and hide-controls Preview remain
   the same mechanisms.
 
-  The workbench tree mounts once in Options and remains mounted when Add is
-  shown. Hiding or duplicating cards to focus a selection breaks dnd-kit's
-  measured rectangles, nested editing, or both. A leaf added at page level is
-  wrapped in an unnamed one-place stack so depth 0 remains containers; no
-  stored schema changed.
+  Nothing starts selected. Page and containers offer Items and Options; Items
+  lists only immediate positions, including empty ones, and Options mounts only
+  the selected target. A leaf opens Options directly. Back and breadcrumbs
+  derive from `BlockPath`, deleted selections persistently repair to the nearest
+  surviving ancestor, and only the visible siblings in one Items scope may be
+  dragged. A leaf added at page level is wrapped in an unnamed one-place stack
+  so depth 0 remains containers; no stored schema changed.
 
   Spec:
-  `docs/superpowers/specs/2026-08-31-canvas-inspector-builder-design.md`.
+  `docs/superpowers/specs/2026-09-01-recursive-inspector-drill-down-design.md`.
   Plan:
   `docs/superpowers/plans/2026-08-31-canvas-inspector-builder.md`.
 
@@ -3183,6 +3173,15 @@ block model's first phases landed, because the fixture is built from mode and
 kind pairs the flat editor of the day had no name for, so the route it measures
 opened empty; the editor port restored it and both halves run. That guard's own
 note is where rule 21 came from.
+
+**The recursive inspector changed the dial fixture's CONTROL count, not its
+page (2026-09-02).** Its shallow Options scope reduced the mounted document from
+10,946 nodes to 1,808 while every preview leaf remained. The guard now counts
+those leaves directly; a whole-DOM threshold was measuring the control tree the
+feature deliberately removed. The scrolling half also takes three samples and
+uses their median after one unchanged build read 80.8% once and 24.2% on the
+job's automatic retry. The 80% ceiling is unchanged: one scheduling spike no
+longer decides whether the page has sustained scroll cost.
 
 `schema-drift` runs `pnpm check:schema-drift`, and it exists because of the
 in-place-migration hazard above:

@@ -9,6 +9,7 @@ import {
   isContainer,
   type Block,
 } from "@/features/actors/domain/block-schema";
+import { areSiblingPaths } from "@/features/actors/domain/editor-selection";
 
 /**
  * Why a move did not happen.
@@ -266,4 +267,25 @@ export function moveBlock(
       ? writePlace(writePlace(blocks, from, target.held), to, source.held)
       : writePlace(writePlace(blocks, to, source.held), from, target.held),
   };
+}
+
+/**
+ * Applies {@link moveBlock} only within one inspector Items scope.
+ *
+ * The recursive inspector deliberately withholds cross-level dragging. This
+ * boundary repeats that rule after collision detection, so a stale keyboard
+ * coordinate or synthetic `over` id cannot reach `moveBlock` and exchange
+ * blocks from different parents.
+ *
+ * @param blocks - the whole page.
+ * @param from - the visible sibling being carried.
+ * @param to - the visible sibling target.
+ * @returns the ordinary move result, or null when the paths cross scopes.
+ */
+export function moveSiblingBlock(
+  blocks: readonly Block[],
+  from: BlockPath,
+  to: BlockPath,
+): BlockMove | null {
+  return areSiblingPaths(from, to) ? moveBlock(blocks, from, to) : null;
 }

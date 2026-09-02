@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -89,27 +89,6 @@ const GAP = 16;
 /** How many places across the section is built with. */
 const ACROSS = 3;
 
-/**
- * What is IN each place of a container's places row, in order.
- *
- * A place is addressed by POSITION and by nothing else — the same claim
- * `BlockPath` makes — so the assertions below name the first, second and third
- * child of the row rather than looking for what they expect to find in it.
- * That is what lets "the empty one is still third" be a failure rather than a
- * different query.
- *
- * **Two levels, because a place is its own element now.** Each direct child of
- * the row is the `BlockSlot` wrapper — the thing the drag library measures,
- * carrying `place-<path>` — and its one child is the card, the leaf editor or
- * the empty-place invitation. The wrapper is a grid item exactly where the
- * content used to be one, so nothing about the ORDER changed; only the depth
- * did.
- *
- * @param places - the element carrying the `places` test id.
- * @returns a locator over what fills its places, in the order they are laid.
- */
-const eachPlace = (places: Locator): Locator => places.locator("> * > *");
-
 test("a section inside a section is built by hand, saved, reopened and read by a stranger", async ({
   page,
   browser,
@@ -130,55 +109,43 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   await chooseNewSectionSpaces(page, String(ACROSS));
   await page.getByTestId("add-section").click();
 
-  // **The LAST card, not the first.** Every page now opens carrying the
-  // identity section the database requires, and `add-section` appends — so the
-  // section this test is building is the one at the end. Taking the first
-  // silently measured the identity section instead, which has two places where
-  // this one has three.
-  const card = page.getByTestId("section-card").last();
-  await card.getByTestId("section-name").fill("Un mundo");
-  await card.getByTestId("section-mode").selectOption("grid");
-
-  // The section's own row of places, not a nested one's: a nested container
-  // carries a `places` row too, and it is deeper in the document.
-  const places = card.getByTestId("places").first();
-  await expect(eachPlace(places)).toHaveCount(ACROSS);
+  // Adding selects the new section. Options edits that section; Items exposes
+  // only its three immediate places.
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("Un mundo");
+  await page.getByTestId("section-mode").selectOption("grid");
+  await page.getByTestId("inspector-tab-items").click();
+  await expect(page.getByTestId("inspector-item-row")).toHaveCount(ACROSS);
 
   // A PIECE OF CONTENT IN THE FIRST PLACE.
-  await eachPlace(places).nth(0).getByTestId("add-content").click();
-  await eachPlace(places).nth(0).getByTestId("leaf-title").fill("Primera cosa");
-  await eachPlace(places)
-    .nth(0)
-    .getByTestId("leaf-description")
-    .fill("La primera.");
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("Primera cosa");
+  await page.getByTestId("leaf-description").fill("La primera.");
+  await page.getByTestId("inspector-back").click();
 
   // A SECTION IN THE SECOND, which is the act no editor could perform before
   // this phase — and then something inside THAT, so the tree is genuinely two
   // levels rather than one level with a container sitting empty in it.
-  await eachPlace(places).nth(1).getByTestId("add-nested").click();
-  // Scoped to this card: the identity section holds a nested stack of its own,
-  // so a page-wide `nested-card` locator matches two.
-  const nested = card.getByTestId("nested-card");
-  await expect(nested).toHaveCount(1);
-  await nested.getByTestId("nested-name").fill("Dentro");
+  await page.getByTestId("add-nested").first().click();
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("nested-name").fill("Dentro");
   // An arrangement of its own, and deliberately not the one it was placed
   // with: a nested container that kept its parent's `grid` would round-trip
   // identically whether or not its own mode was ever stored.
-  await nested.getByTestId("nested-mode").selectOption("timeline");
-
-  const inside = nested.getByTestId("places");
-  await expect(eachPlace(inside)).toHaveCount(2);
-  await eachPlace(inside).nth(0).getByTestId("add-content").click();
-  await eachPlace(inside).nth(0).getByTestId("leaf-title").fill("Cosa anidada");
-  await eachPlace(inside).nth(1).getByTestId("add-content").click();
-  await eachPlace(inside)
-    .nth(1)
-    .getByTestId("leaf-title")
-    .fill("Segunda anidada");
+  await page.getByTestId("nested-mode").selectOption("timeline");
+  await page.getByTestId("inspector-tab-items").click();
+  await expect(page.getByTestId("inspector-item-row")).toHaveCount(2);
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("Cosa anidada");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("Segunda anidada");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-back").click();
 
   // AND THE THIRD PLACE IS LEFT EMPTY, on purpose. It is the one the public
   // page has to keep a column for.
-  await expect(card.getByTestId("empty-place")).toHaveCount(1);
+  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
 
   await saveAndLeave(page);
 
@@ -186,50 +153,50 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   // shape, its arrangements, its words, and the position of the place holding
   // nothing.
   await page.goto(`/es/pages/${handle}/edit`);
-  await expect(page.getByTestId("section-card").first()).toBeVisible();
+  await page.getByTestId("select-page").click();
+  await page.getByTestId("inspector-item-open").last().click();
+  await page.getByTestId("inspector-tab-options").click();
+  await expect(page.getByTestId("section-name")).toHaveValue("Un mundo");
+  await expect(page.getByTestId("section-mode")).toHaveValue("grid");
+  await expect(page.getByTestId("section-spaces")).toHaveValue(String(ACROSS));
+  await page.getByTestId("inspector-tab-items").click();
 
-  const reopened = page.getByTestId("section-card").last();
-  await expect(reopened.getByTestId("section-name")).toHaveValue("Un mundo");
-  await expect(reopened.getByTestId("section-mode")).toHaveValue("grid");
-  await expect(reopened.getByTestId("section-spaces")).toHaveValue(
-    String(ACROSS),
-  );
-
-  const rePlaces = reopened.getByTestId("places").first();
-  await expect(eachPlace(rePlaces)).toHaveCount(ACROSS);
-  await expect(
-    eachPlace(rePlaces).nth(0).getByTestId("leaf-title"),
-  ).toHaveValue("Primera cosa");
-  await expect(
-    eachPlace(rePlaces).nth(0).getByTestId("leaf-description"),
-  ).toHaveValue("La primera.");
+  await page.getByTestId("inspector-item-open").first().click();
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Primera cosa");
+  await expect(page.getByTestId("leaf-description")).toHaveValue("La primera.");
+  await page.getByTestId("inspector-back").click();
 
   // THE SECOND PLACE IS STILL A SECTION rather than a piece of content, which
   // is what a conversion that flattened on the way through would have lost.
-  await expect(eachPlace(rePlaces).nth(1)).toHaveAttribute(
-    "data-testid",
-    "nested-card",
-  );
-  const reNested = reopened.getByTestId("nested-card");
-  await expect(reNested.getByTestId("nested-name")).toHaveValue("Dentro");
-  await expect(reNested.getByTestId("nested-mode")).toHaveValue("timeline");
-  await expect(reNested.getByTestId("nested-spaces")).toHaveValue("2");
-  await expect(reNested.getByTestId("leaf-title").nth(0)).toHaveValue(
-    "Cosa anidada",
-  );
-  await expect(reNested.getByTestId("leaf-title").nth(1)).toHaveValue(
-    "Segunda anidada",
-  );
+  await page.getByTestId("inspector-item-open").nth(1).click();
+  await page.getByTestId("inspector-tab-options").click();
+  await expect(page.getByTestId("nested-name")).toHaveValue("Dentro");
+  await expect(page.getByTestId("nested-mode")).toHaveValue("timeline");
+  await expect(page.getByTestId("nested-spaces")).toHaveValue("2");
+  await page.getByTestId("inspector-tab-items").click();
+  await page.getByTestId("inspector-item-open").first().click();
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Cosa anidada");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-item-open").nth(1).click();
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Segunda anidada");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("inspector-back").click();
 
   // THE EMPTY PLACE CAME BACK EMPTY AND CAME BACK THIRD. Position is the
   // model: a tidy that dropped the null would leave a two-place section, and
   // one that closed the gap would leave the section at three with the empty
   // one somewhere else.
-  await expect(eachPlace(rePlaces).nth(2)).toHaveAttribute(
-    "data-testid",
-    "empty-place",
-  );
-  await expect(page.getByTestId("empty-place")).toHaveCount(1);
+  expect(
+    await page
+      .getByTestId("inspector-item-row")
+      .evaluateAll((rows) =>
+        rows.map((row) =>
+          row.querySelector('[data-testid="inspector-empty-place"]')
+            ? "empty"
+            : "occupied",
+        ),
+      ),
+  ).toEqual(["occupied", "occupied", "empty"]);
 
   // A second save over what was just reopened: the shape of the bug that once
   // wrote an empty page over somebody's sections.

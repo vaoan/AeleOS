@@ -7,6 +7,32 @@ measurement in this document turned out to be wrong, the paragraph says so
 rather than being quietly corrected. What is still owed is at the end.
 **Follows:** `2026-08-18-sections-of-spaces-design.md`, delivered in `#159`.
 
+> **NARROWED 2026-09-01 by
+> `2026-09-01-recursive-inspector-drill-down-design.md`. Read this banner
+> before anything under it.**
+>
+> Everything below about what a move MEANS still holds: `moveBlock` is
+> untouched, an exchange is still an exchange, an empty place still keeps its
+> width, and the refusals still say what they said. What changed is which of
+> those moves a person can still ASK for. The recursive inspector offers one
+> scope at a time, so **only siblings visible in the current Items list may be
+> dragged**; `moveSiblingBlock` and `siblingTarget` refuse everything else
+> before `moveBlock` is consulted.
+>
+> So the cross-level gestures this document describes — carrying a leaf into
+> another section, dropping a section on its own descendant, a drop one level
+> past the cap — are unreachable by any input. They remain fully proved in
+> `block-moves.test.ts` and `block-drag.test.ts`, because the model still
+> admits them and the day the interface offers them again it must still be
+> right.
+>
+> **`block-drag.spec.ts` is deleted**, and this document names it three times
+> below. Its surviving half is `section-drag-reorder.spec.ts`'s pointer case,
+> which is now the only place in the repository where `placeUnderPointer` meets
+> a rectangle Chromium measured; that spec's header records where each deleted
+> case went, and names the two — `onDragCancel` and the collapsed-card walk —
+> that are left with unit coverage alone.
+
 ## Why this exists
 
 A person can build a page: choose a section's shape, fill a place with content

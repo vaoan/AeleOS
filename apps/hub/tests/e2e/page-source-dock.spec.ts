@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -466,6 +466,24 @@ for (const width of [1440, 320]) {
 }
 
 /**
+ * Selects the seeded `About` section and opens its own controls.
+ *
+ * The two cases below drive `section-name` as "an ordinary control somebody
+ * else changed", and the recursive inspector mounts that control only while
+ * the section owning it is the selected target on Options. `About` is the
+ * first block of the seeded page — `seedPage` APPENDS its identity section —
+ * so the first row of the page's Items is the one to enter.
+ *
+ * @param page - the browser page, sitting on the seeded editor.
+ */
+async function selectAboutOptions(page: Page): Promise<void> {
+  await page.getByTestId("select-page").click();
+  await page.getByTestId("inspector-item-open").first().click();
+  await page.getByTestId("inspector-tab-options").click();
+  await expect(page.getByTestId("section-name")).toBeVisible();
+}
+
+/**
  * Types into an input WITHOUT taking focus away from whatever already has it.
  *
  * Playwright's own `fill`/`click`/`type` all focus their target first, which
@@ -516,6 +534,13 @@ test("a page edit refreshes the box when it is not focused", async ({
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
+  // **The ordinary control has to be REACHED first**, and that is the whole of
+  // what changed here: the recursive inspector mounts one scope at a time, so
+  // `section-name` exists only while its own section is the selected target
+  // and Options is the showing pane. Selecting it BEFORE the dock opens keeps
+  // this case about the dock refreshing rather than about the two panels.
+  await selectAboutOptions(page);
+
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
   await expect(textarea).toBeVisible();
@@ -523,7 +548,7 @@ test("a page edit refreshes the box when it is not focused", async ({
   // The textarea was never clicked — it is not focused — so the ordinary
   // control below is the "click away and change a title" of the brief's own
   // wording: reaching for it is itself the click elsewhere.
-  await page.getByTestId("section-name").first().fill("Refreshed via control");
+  await page.getByTestId("section-name").fill("Refreshed via control");
 
   await expect
     .poll(async () => textarea.inputValue())
@@ -538,6 +563,9 @@ test("a page edit does not clobber a focused box, and shows the drift notice", a
   // cursor position and their unsaved edit with no warning at all.
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  // Reached before the dock opens, for the reason the case above gives.
+  await selectAboutOptions(page);
 
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
@@ -558,10 +586,7 @@ test("a page edit does not clobber a focused box, and shows the drift notice", a
   // The ordinary control, changed through a real native event that never
   // focuses it — see `editWithoutFocusing` — so the textarea's own focus is
   // never disturbed by driving this "somebody else's edit".
-  await editWithoutFocusing(
-    page.getByTestId("section-name").first(),
-    "External edit",
-  );
+  await editWithoutFocusing(page.getByTestId("section-name"), "External edit");
 
   await expect(resync).toBeVisible();
   await expect(textarea).toHaveValue(typed);

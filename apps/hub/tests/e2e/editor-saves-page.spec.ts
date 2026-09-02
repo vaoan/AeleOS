@@ -13,6 +13,7 @@ import {
   chooseNewSectionSpaces,
   handleFor,
   openPageAdd,
+  openPageOptions,
   saveAndLeave,
   startFursona,
 } from "./support/editor";
@@ -99,37 +100,90 @@ interface EditorSection {
 }
 
 /**
- * Reads back what the editor currently holds.
+ * Reads back what the editor currently holds, through the page source dock.
  *
- * **Reads the CONTROLS rather than the props**, because what is being proved
- * is that a page survived a round trip through storage: written as a tree of
- * blocks and read back. A component test with the page handed to it as a prop
- * asserts nothing about any of that.
+ * **It read the section CARDS until 2026-09-01, and could not any more.** The
+ * recursive inspector mounts one selected scope at a time, so at most one
+ * `section-card` exists at any moment and it renders none of its descendants.
+ * A walk over every card on the page therefore stopped being a reading of the
+ * page and became a reading of whatever happened to be selected — which would
+ * not have failed loudly, since an editor holding nothing selected answers an
+ * empty list, and an empty list is a legal page shape for this helper to
+ * report.
+ *
+ * The dock is the editor's own live document — `{ aeleos, theme, blocks }`,
+ * the two `jsonb` columns as `PageSourceField` serialises them from the same
+ * `blocks` state every card renders from. So this is still a reading of what
+ * the editor HOLDS rather than of the props it was handed, which is the whole
+ * point of this suite: a page written as a tree of blocks and read back.
+ *
+ * The three scalars are lifted the way the controls compute them —
+ * `block.name_en ?? ""`, `block.mode`, `String(block.spaces)` — so an
+ * expectation written against the old card walk needs no adjusting.
+ *
+ * **`titles` is FLATTENED, and that is copied behaviour rather than a
+ * simplification.** The card walk collected every `leaf-title` inside a
+ * section, nested ones included and empty places contributing nothing, which
+ * is why {@link IDENTITY_SECTION} spells out four titles for a two-place grid.
+ * A depth-first walk that skips nulls and recurses through containers is the
+ * same list.
  *
  * The authoring language starts as English, so `name` and `titles` are the
  * `*_en` halves — see `useLanguageToggle`.
  *
+ * It leaves the dock closed, because every caller carries on driving the
+ * editor underneath it.
+ *
  * @param page - the browser page, sitting on an editor.
- * @returns one entry per section, in the order the editor shows them.
+ * @returns one entry per section, in the order the editor holds them.
  */
 async function readEditor(page: Page): Promise<EditorSection[]> {
-  const cards = page.getByTestId("section-card");
-  const sections: EditorSection[] = [];
-  for (let index = 0; index < (await cards.count()); index += 1) {
-    const card = cards.nth(index);
-    const titles = card.getByTestId("leaf-title");
-    const values: string[] = [];
-    for (let item = 0; item < (await titles.count()); item += 1) {
-      values.push(await titles.nth(item).inputValue());
+  await page.getByTestId("editor-open-source").click();
+  const dock = page.getByTestId("page-source-dock");
+  await expect(dock).toBeVisible();
+  const source = await page.getByTestId("page-source-textarea").inputValue();
+  await page.getByTestId("page-source-close").click();
+  await expect(dock).toBeHidden();
+
+  const document: unknown = JSON.parse(source);
+  const blocks = (document as { blocks?: unknown }).blocks;
+  if (!Array.isArray(blocks)) throw new Error("the dock published no blocks");
+
+  /**
+   * Every leaf title beneath one place, in the order the page draws them.
+   *
+   * @param block - what is in the place, which may be nothing.
+   * @returns the titles, with empty places contributing none.
+   */
+  const titlesOf = (block: unknown): string[] => {
+    if (!block || typeof block !== "object") return [];
+    const node = block as {
+      kind?: unknown;
+      title_en?: unknown;
+      children?: unknown;
+    };
+    if (node.kind !== "container") {
+      return [typeof node.title_en === "string" ? node.title_en : ""];
     }
-    sections.push({
-      name: await card.getByTestId("section-name").inputValue(),
-      mode: await card.getByTestId("section-mode").inputValue(),
-      spaces: await card.getByTestId("section-spaces").inputValue(),
-      titles: values,
-    });
-  }
-  return sections;
+    return Array.isArray(node.children) ? node.children.flatMap(titlesOf) : [];
+  };
+
+  return blocks.map((block) => {
+    const node = block as {
+      name_en?: unknown;
+      mode?: unknown;
+      spaces?: unknown;
+      children?: unknown;
+    };
+    return {
+      name: typeof node.name_en === "string" ? node.name_en : "",
+      mode: String(node.mode),
+      spaces: String(node.spaces),
+      titles: Array.isArray(node.children)
+        ? node.children.flatMap(titlesOf)
+        : [],
+    };
+  });
 }
 
 /**
@@ -138,8 +192,8 @@ async function readEditor(page: Page): Promise<EditorSection[]> {
  * **A template names no identity block, so the shim supplies one and puts it
  * FIRST** — the composed `defaultIdentitySection`, a two-place grid holding the
  * portrait beside a stack of the name, the handle and the owner. `readEditor`
- * collects every `leaf-title` inside a section card, nested ones included, so
- * the stack's three arrive flattened after the portrait.
+ * flattens every leaf beneath a section, nested ones included, so the stack's
+ * three arrive after the portrait.
  *
  * Written out rather than derived from `defaultIdentitySection`. Deriving it
  * would need this file to reproduce that flattening, and an expectation built
@@ -244,6 +298,9 @@ for (const template of FURSONA_TEMPLATES) {
 
     const handle = handleFor(`tpl${template.id.slice(0, 3)}`);
     await startFursona(page, handle, `Template ${template.id}`);
+    await page.addStyleTag({
+      content: "nextjs-portal{display:none!important}",
+    });
 
     // **A colour chosen BEFORE the template, so applying one has something of
     // theirs to lose.** A template carries a `theme` now — null for every
@@ -308,11 +365,19 @@ for (const template of FURSONA_TEMPLATES) {
     // what went in, layout by layout and item by item. This is the assertion a
     // one-way conversion passes and a wrong one does not.
     await page.goto(`/es/pages/${handle}/edit`);
-    await expect(page.getByTestId("section-card").first()).toBeVisible();
+    await page.addStyleTag({
+      content: "nextjs-portal{display:none!important}",
+    });
+    // **The canvas rather than a section card.** Nothing is selected on load,
+    // so no card is mounted; the page itself is what the editor draws, and
+    // waiting on its first block is what proves the reopened editor has
+    // something before the dock is asked what that something is.
+    await expect(page.getByTestId("block-preview").first()).toBeVisible();
     expect(await readEditor(page)).toEqual(expected);
 
     // And whatever the template decided about the palette survived the round
     // trip through the database — which a unit test structurally cannot check.
+    await openPageOptions(page);
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-accent")).toHaveValue(expectedAccent);
 
@@ -358,13 +423,18 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // than whatever happened to be the default.
   await chooseNewSectionSpaces(page, "3");
   await openPageAdd(page);
+  // **Adding selects what was added**, so the section this test builds is the
+  // one the inspector is now showing and there is no card to pick out of a
+  // list. The old version reached for `section-card` LAST, because a page
+  // opens carrying the identity section the database requires and
+  // `add-section` appends; one scope at a time makes that arithmetic
+  // unnecessary rather than merely easier.
   await page.getByTestId("add-section").click();
-  // **The LAST card.** A page opens carrying the identity section the database
-  // requires and `add-section` appends, so the one this test builds is at the
-  // end. Taking the first would have filled the identity section's fields in.
-  const card = page.getByTestId("section-card").last();
-  await card.getByTestId("section-name").fill("A history");
-  await card.getByTestId("section-mode").selectOption("timeline");
+  await page.getByTestId("inspector-tab-options").click();
+  await page.getByTestId("section-name").fill("A history");
+  await page.getByTestId("section-mode").selectOption("timeline");
+  await page.getByTestId("inspector-tab-items").click();
+
   // **The FIRST and the THIRD place of three, leaving the MIDDLE empty**, and
   // the position of the gap is the whole point rather than the count of gaps.
   // A trailing empty survives anything that merely appends; a middle one is
@@ -372,19 +442,25 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // it is the one shape a flat item list could not express at all. Every other
   // proof of it is either seeded straight into the database or asserted in
   // jsdom; this is the round trip through the real controls and real storage.
-  await card.getByTestId("add-content").nth(0).click();
-  await card.getByTestId("leaf-title").first().fill("The first day");
-  await card.getByTestId("leaf-description").first().fill("It began.");
-  // `nth(1)` of what is left: the first place now holds a leaf, so the two
-  // remaining invitations are the second and the third.
-  await card.getByTestId("add-content").nth(1).click();
-  await card.getByTestId("leaf-title").last().fill("Much later");
-  await card.getByTestId("leaf-description").last().fill("It went on.");
+  //
+  // `first()` and `last()` rather than `nth(0)` and `nth(1)`: filling the first
+  // place removes its invitation, so the two remaining ones are the second and
+  // the third and the LAST of them is the place this test wants. Counting
+  // survivors was what the flat editor needed; naming the end of the row says
+  // what is meant.
+  await page.getByTestId("add-content").first().click();
+  await page.getByTestId("leaf-title").fill("The first day");
+  await page.getByTestId("leaf-description").fill("It began.");
+  await page.getByTestId("inspector-back").click();
+  await page.getByTestId("add-content").last().click();
+  await page.getByTestId("leaf-title").fill("Much later");
+  await page.getByTestId("leaf-description").fill("It went on.");
+  await page.getByTestId("inspector-back").click();
 
   await saveAndLeave(page);
 
   await page.goto(`/es/pages/${handle}/edit`);
-  await expect(page.getByTestId("section-card").first()).toBeVisible();
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
   expect(await readEditor(page)).toEqual([
     IDENTITY_SECTION,
     {
@@ -400,19 +476,22 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // above and fail this one, which is exactly the shift a "tidy the nulls
   // away" change produces.
   //
-  // Two levels down, because a place is its own element now: each direct child
-  // of the row is the `BlockSlot` wrapper the drag library measures, and its
-  // one child is the leaf editor or the empty-place invitation. The wrapper is
-  // a grid item exactly where the content used to be one, so nothing about the
-  // order changed; only the depth did.
+  // Read off the inspector's Items list, which is where a page's places are
+  // shown one scope at a time. Every place is a row; an EMPTY one carries the
+  // add invitations instead of a way in, so asking each row which of the two it
+  // holds is the same reading the old `places` walk made against the flat
+  // editor's grid.
+  await page.getByTestId("select-page").click();
+  await page.getByTestId("inspector-item-open").last().click();
   expect(
     await page
-      .getByTestId("section-card")
-      .last()
-      .getByTestId("places")
-      .locator("> * > *")
+      .getByTestId("inspector-item-row")
       .evaluateAll((nodes) =>
-        nodes.map((node) => node.getAttribute("data-testid")),
+        nodes.map((node) =>
+          node.querySelector('[data-testid="inspector-empty-place"]')
+            ? "empty-place"
+            : "leaf-editor",
+        ),
       ),
   ).toEqual(["leaf-editor", "empty-place", "leaf-editor"]);
 
@@ -449,6 +528,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   const address = (await page.getByTestId("my-address").innerText()).trim();
 
   await page.goto("/es/me/edit");
+  await openPageOptions(page);
   await page.getByTestId("editor-display-name").fill("A Real Person");
   await page.getByTestId("editor-visibility").selectOption("public");
 
@@ -465,7 +545,7 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   await saveAndLeave(page);
 
   await page.goto("/es/me/edit");
-  await expect(page.getByTestId("section-card").first()).toBeVisible();
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
   expect(await readEditor(page)).toEqual([
     PERSON_HEADER,
     ...expectedFrom(template!.blocks, []),
