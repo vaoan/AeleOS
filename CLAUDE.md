@@ -2218,6 +2218,20 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   reading this file's own toolchain section already treats as healthy) —
   the number that decides whether Motion stays, and it says keep it.
 
+- **Preview clears selection and edit mode scrolls only its canvas
+  (2026-09-03) — done.** Hide controls unmounts the inspector before paint and
+  clears its `BlockEditor`-owned selection, so Show controls cannot resurrect
+  one; the inspector also has a direct Close at every depth, separate from
+  parent-selecting Back. While controls show, the form fills the viewport below
+  the app header and `editor-canvas` is the sole vertical scroller — toolbar,
+  Page control and the independently scrolling inspector stay put. Preview
+  removes that bound and returns scrolling to the document, the same owner the
+  public page uses, with both transitions reset to the top. The renderer and
+  page document remain one mechanism in both modes. A browser guard drives both
+  `window` and the canvas at 1280 and 320 so “neither scrolls” cannot pass as
+  canvas ownership. Spec:
+  `docs/superpowers/specs/2026-09-03-editor-preview-selection-and-canvas-scroll-design.md`.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:

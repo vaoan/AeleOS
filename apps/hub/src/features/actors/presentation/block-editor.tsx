@@ -17,11 +17,14 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import {
   useController,
@@ -149,7 +152,9 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  *
  * The inspector words live here too: this level owns selection and decides
  * whether Items or Options is shown, while each existing card remains
- * responsible for its own editing labels.
+ * responsible for its own editing labels. `inspectorClose` is the panel's
+ * own way out at any depth — distinct from `inspectorBack`, which selects
+ * the parent.
  *
  * **`addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` are the Add
  * picker's own strings (2026-09-02).** One control, one name, at every scope
@@ -190,6 +195,8 @@ export interface BlockEditorLabels
   inspectorOptions: string;
   /** Selects the inspector's immediate parent. */
   inspectorBack: string;
+  /** Clears the current selection and closes the inspector. */
+  inspectorClose: string;
   /** Wraps the selected content in a layout. */
   wrapInLayout: string;
   /**
@@ -244,6 +251,12 @@ export interface BlockEditorLabels
  * **It also owns the interaction lock (2026-09-02)**, mounted in an effect
  * over the canvas element this component renders — see
  * {@link BlockEditorProps.pageInteractionsEnabled}.
+ *
+ * **Preview is a reset, not a pause (2026-09-03).**
+ * {@link BlockEditorProps.controlsHidden} derives no visible selection, and
+ * {@link BlockEditorProps.selectionResetKey} invalidates the stored one in
+ * the same update that opens Preview, so Show controls cannot resurrect it.
+ * While controls show, this component's canvas is the only vertical scroller.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -307,6 +320,21 @@ export interface BlockEditorProps<T extends FieldValues> {
    * chooses the nearest block.
    */
   pageInteractionsEnabled: boolean;
+  /**
+   * Whether Preview has removed the editing controls.
+   *
+   * Preview is not a paused inspector: while true no selection is rendered,
+   * and the stored selection is cleared before controls can return.
+   */
+  controlsHidden: boolean;
+  /**
+   * Monotonic command that invalidates any selection made before it.
+   *
+   * The parent increments this in the same event that opens Preview. It owns
+   * only the reset signal; the selected value and every selection transition
+   * remain local to this component.
+   */
+  selectionResetKey: number;
 }
 
 /** How far a pointer travels before a press becomes a drag rather than a click. */
@@ -317,6 +345,30 @@ const FORWARD_KEYS = new Set(["ArrowDown", "ArrowRight"]);
 
 /** Which arrow keys step back towards its start. */
 const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
+
+function useResettableSelection(
+  resetKey: number,
+): [EditorSelection, Dispatch<SetStateAction<EditorSelection>>] {
+  const [stored, setStored] = useState<{
+    resetKey: number;
+    value: EditorSelection;
+  }>({ resetKey, value: null });
+  const selection = stored.resetKey === resetKey ? stored.value : null;
+  const setSelection = useCallback(
+    (next: SetStateAction<EditorSelection>) => {
+      setStored((current) => {
+        const currentValue =
+          current.resetKey === resetKey ? current.value : null;
+        return {
+          resetKey,
+          value: typeof next === "function" ? next(currentValue) : next,
+        };
+      });
+    },
+    [resetKey],
+  );
+  return [selection, setSelection];
+}
 
 /**
  * Where a container will put its next appended child.
@@ -631,6 +683,11 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * `@dnd-kit` and the page's own boxes never receive an inline `transform`
  * from an `m.*` ancestor — see `editor-motion.tsx` for the other three.
  *
+ * **While controls show, only `editor-canvas` scrolls (2026-09-03).** The
+ * toolbar, Page control and inspector stay put; Preview removes that bound
+ * and returns scrolling to the document. Close on the inspector clears
+ * selection without walking Back.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -643,12 +700,14 @@ export function BlockEditor<T extends FieldValues>({
   theme,
   pageOptions,
   pageInteractionsEnabled: interactionsEnabled,
+  controlsHidden,
+  selectionResetKey,
 }: BlockEditorProps<T>) {
   const dndId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [refusal, setRefusal] = useState<MoveRefusal | null>(null);
-  const [selection, setSelection] = useState<EditorSelection>(null);
+  const [selection, setSelection] = useResettableSelection(selectionResetKey);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("items");
 
   const field = useController({ control, name: "sections" as Path<T> });
@@ -656,7 +715,21 @@ export function BlockEditor<T extends FieldValues>({
   // does not give every effect below a new dependency on every render.
   const value: unknown = field.field.value;
   const blocks = useMemo(() => (value ?? []) as Block[], [value]);
-  const currentSelection = repairSelection(blocks, selection);
+  const currentSelection = controlsHidden
+    ? null
+    : repairSelection(blocks, selection);
+
+  // Preview is the page, not a suspended editor. Deriving `currentSelection`
+  // above removes the inspector in the same render; `selectionResetKey`
+  // invalidates the stored value in that same update, so Show controls cannot
+  // resurrect it. The layout effect resets both possible scroll owners: edit
+  // mode starts at the canvas top and Preview starts at the document top.
+  useLayoutEffect(() => {
+    if (canvasRef.current) canvasRef.current.scrollTop = 0;
+    if (globalThis.scrollY !== 0) {
+      globalThis.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [controlsHidden]);
 
   // Read by the two callbacks the sensors hold across a whole drag. They are
   // memoized so the sensor is not rebuilt on every keystroke, which means they
@@ -692,7 +765,7 @@ export function BlockEditor<T extends FieldValues>({
     return () => {
       active = false;
     };
-  }, [blocks, selection]);
+  }, [blocks, selection, setSelection]);
 
   // Where a KEYBOARD drag is now. There is no pointer to infer it from, and a
   // rectangle synthesised from the last arrow key would be a second answer to
@@ -898,7 +971,7 @@ export function BlockEditor<T extends FieldValues>({
     };
     globalThis.addEventListener("keydown", onKey, true);
     return () => globalThis.removeEventListener("keydown", onKey, true);
-  }, []);
+  }, [setSelection]);
 
   /**
    * Chooses a block from a canvas click, or deselects on empty canvas.
@@ -1207,9 +1280,9 @@ export function BlockEditor<T extends FieldValues>({
       // and the page's own boxes never receive an inline `transform` from
       // this. The transition applies at every width; it only ever has
       // something to animate from `md` up, where `pl-` itself is conditional.
-      className={`mt-8 grid gap-4 transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
+      className={`${controlsHidden ? "mt-8 grid gap-4" : "mt-8 flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
     >
-      <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
+      <WidePageColumn className={`${CHROME_SCOPE} flex-none py-0 sm:py-0`}>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -1249,6 +1322,7 @@ export function BlockEditor<T extends FieldValues>({
             items: labels.inspectorItems,
             options: labels.inspectorOptions,
             back: labels.inspectorBack,
+            close: labels.inspectorClose,
           }}
           breadcrumbs={breadcrumbs}
           onBack={() => {
@@ -1257,6 +1331,7 @@ export function BlockEditor<T extends FieldValues>({
             if (parent) enterSelection(parent);
             else setSelection(null);
           }}
+          onClose={() => setSelection(null)}
           hasItems={
             currentSelection?.kind === "page" || Boolean(selectedContainer)
           }
@@ -1289,7 +1364,11 @@ export function BlockEditor<T extends FieldValues>({
           ref={canvasRef}
           data-editor-canvas=""
           data-editor-stack
-          className="grid"
+          className={
+            controlsHidden
+              ? "grid"
+              : "grid min-h-0 flex-1 overflow-x-clip overflow-y-auto"
+          }
           onClick={onCanvasClick}
         >
           {blocks.length === 0 ? (

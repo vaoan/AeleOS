@@ -95,6 +95,7 @@
     "inspectorItems": "Elementos",
     "inspectorOptions": "Opciones",
     "inspectorBack": "Atrás",
+    "inspectorClose": "Cerrar",
     "wrapInLayout": "Envolver en una disposición",
     "sectionsAtLimit": "Has alcanzado el máximo que esta página puede contener.",
     "dragSection": "Arrastra para reordenar la sección",

@@ -678,6 +678,8 @@ describe("FursonaEditor", () => {
         container
           .querySelector("[data-controls]")!
           .getAttribute("data-controls");
+      const form = screen.getByTestId("editor-content");
+      const controls = container.querySelector("[data-controls]")!;
 
       // Opened BEFORE hiding controls, so the dock's own `CHROME_SCOPE`
       // island exists for the containment loop below to find. Counted
@@ -695,9 +697,23 @@ describe("FursonaEditor", () => {
 
       expect(armed()).toBe("shown");
       expect(screen.queryByTestId("show-controls")).toBeNull();
+      expect(form).toHaveClass(
+        "h-[calc(100dvh-var(--bar-h))]",
+        "min-h-0",
+        "overflow-hidden",
+      );
+      expect(controls).toHaveClass("flex", "min-h-0", "flex-1", "flex-col");
 
+      fireEvent.click(screen.getByTestId("select-page"));
+      expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
       fireEvent.click(screen.getByTestId("hide-controls"));
       expect(armed()).toBe("hidden");
+      expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+      expect(form).not.toHaveClass(
+        "h-[calc(100dvh-var(--bar-h))]",
+        "overflow-hidden",
+      );
+      expect(controls).not.toHaveClass("flex-1", "min-h-0");
 
       // Every island is INSIDE the armed element, or the rule cannot reach it.
       const region = container.querySelector("[data-controls]")!;
@@ -724,6 +740,7 @@ describe("FursonaEditor", () => {
       fireEvent.click(restore);
       expect(armed()).toBe("shown");
       expect(screen.queryByTestId("show-controls")).toBeNull();
+      expect(screen.queryByTestId("canvas-inspector")).toBeNull();
     } finally {
       Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
       Reflect.deleteProperty(HTMLDialogElement.prototype, "close");

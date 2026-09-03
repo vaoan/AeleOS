@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import type { EditorSelection } from "@/features/actors/domain/editor-selection";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -10,7 +10,8 @@ import { m } from "@/features/actors/presentation/editor-motion";
 /**
  * Already-translated strings {@link CanvasInspector} renders.
  *
- * Ordinary language: Items and Options, not container and leaf.
+ * Ordinary language: Items and Options, not container and leaf. Close is
+ * this panel's own way out; Back is still the parent.
  */
 export interface CanvasInspectorLabels {
   /** The tab listing the current scope's immediate children. */
@@ -19,6 +20,8 @@ export interface CanvasInspectorLabels {
   options: string;
   /** Selects the immediate parent, or closes the Page inspector. */
   back: string;
+  /** Clears selection and closes the inspector from any depth. */
+  close: string;
 }
 
 /**
@@ -33,9 +36,11 @@ export type InspectorTab = "items" | "options";
  * What {@link CanvasInspector} needs.
  *
  * It is chrome: hide-controls removes it with every other `CHROME_SCOPE`
- * island. It does not render when nothing is selected. Breadcrumbs and Back
- * are supplied by the selection owner so this component never interprets a
- * block path itself.
+ * island. It does not render when nothing is selected. Breadcrumbs, Back and
+ * Close are supplied by the selection owner so this component never
+ * interprets a block path itself. Close clears selection at any depth;
+ * Preview unmounts this panel by clearing that selection rather than hiding
+ * it.
  */
 export interface CanvasInspectorProps {
   /** What is selected. `null` means do not render. */
@@ -50,6 +55,8 @@ export interface CanvasInspectorProps {
   breadcrumbs: ReactNode;
   /** Selects the current target's parent. */
   onBack: () => void;
+  /** Clears the current selection without walking through its parents. */
+  onClose: () => void;
   /** Whether the current target can contain children. */
   hasItems: boolean;
   /** The immediate-child pane. */
@@ -61,9 +68,11 @@ export interface CanvasInspectorProps {
 /**
  * The hideable inspector: navigation and the panes its selection can use.
  *
- * A left column from `md` up, a bottom sheet on a phone. Empty canvas and
- * Escape close it by clearing selection in the parent — this component does
- * not listen for those itself, so a field inside it can still use Escape.
+ * A left column from `md` up, a bottom sheet on a phone. Empty canvas,
+ * Escape and the header's Close control close it by clearing selection in
+ * the parent — this component does not listen for those itself, so a field
+ * inside it can still use Escape. Close is not Back: it does not walk
+ * parents.
  *
  * It is a sibling of the canvas, so its clicks never reach the canvas's
  * deselection handler.
@@ -110,6 +119,7 @@ export function CanvasInspector({
   labels,
   breadcrumbs,
   onBack,
+  onClose,
   hasItems,
   items,
   options,
@@ -155,6 +165,15 @@ export function CanvasInspector({
         <nav aria-label={labels.back} className="flex min-w-0 flex-wrap gap-1">
           {breadcrumbs}
         </nav>
+        <button
+          type="button"
+          {...tid("inspector-close")}
+          aria-label={labels.close}
+          onClick={onClose}
+          className="ml-auto rounded-lg surface border-(--edge)/60 px-2 py-1 text-sm"
+        >
+          <X className="size-4" />
+        </button>
       </div>
       {hasItems ? (
         <div

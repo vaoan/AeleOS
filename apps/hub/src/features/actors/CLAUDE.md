@@ -1308,31 +1308,57 @@ gesture.
 Empty canvas or Escape deselects; an Escape aimed inside the inspector belongs
 to its own popup or field and leaves selection intact. The capture-phase
 listener asks that question before `SectionStylePopup`'s bubble listener can
-detach the focused field. Preview is still hide-controls (`CHROME_SCOPE`).
-When nothing is selected the workbench is unmounted, never hidden or copied
-off-screen; one mounted workbench remains the invariant.
+detach the focused field. The panel also carries a dedicated Close button:
+Back derives and selects the parent, while Close clears selection at any depth.
+Preview is still hide-controls (`CHROME_SCOPE`), and it clears selection before
+paint rather than pausing the inspector. Show controls therefore returns to a
+canvas with no selection. When nothing is selected the workbench is unmounted,
+never hidden or copied off-screen; one mounted workbench remains the invariant.
 
 The desktop panel is `min(36rem, 40vw)`, with the canvas padded by that same
 expression, because the inherited nested card controls do not fit in 320px.
 It starts `3.5rem` below the sticky editor toolbar: sharing the bar's own top
 offset covered the Items tab or the writing switch depending on which one won
-the z-index. Preview leaves selection intact, so the padding class remains;
-the hide-controls rule explicitly zeroes inline padding with the other editor
-furniture or a 1280px picture shifts by exactly 512px.
+the z-index. That padding is conditional on the live selection, so clearing
+selection for Preview removes it at its source; there is no hide-controls CSS
+exception for inspector width.
+
+**Only the canvas scrolls while controls show (2026-09-03).** The form fills
+the viewport below the app header through one `min-h-0` flex chain; the toolbar,
+Page control and error banner sit outside `editor-canvas`, and that canvas owns
+`overflow-y-auto`. A class name alone cannot establish this: the browser guard
+proves the document has at most 2px of vertical overflow while the canvas is
+hundreds of pixels taller than its own client box, then drives both candidates
+and watches only the canvas move. The inspector's pane keeps its independent
+scroll.
+
+Preview removes the bounded flex chain and the canvas overflow, resets both
+possible offsets to the top, and gives scrolling back to the document — the
+same owner a public route has. Show controls bounds it again, still at the top
+and with no selection. This is a route toward view and edit sharing the same
+document: the renderer never changes, only which outer box owns scrolling.
+
+At 320×720 the existing bottom sheet begins at y=216 while the canvas begins at
+y=297 below the workbench. No canvas content can be made visible above a panel
+whose top is already above the canvas itself; changing that would mean
+redesigning the mobile inspector, not adding scroll padding. Phone canvas
+scroll ownership is covered here, while that separate composition stays as-is.
 
 It used to be a card — a label, `p-3`, a rounded face carrying `--surface` at
 90% alpha, a border, and the author's `--field` on an in-flow box. All of that
 was furniture between the author and their page, and the field in particular
 covered the canvas outright.
 
-**`overflow` is not set on it, and must not be.** The host carried
+**`overflow` is not set on each tray, and must not be.** The host carried
 `overflow-x-auto`, and a `visible` axis paired with a non-visible one computes
 to `auto` — so the box clipped on all four edges. Ink overflow is not scrollable
 overflow, so nothing scrolled and no scrollbar appeared: every `neon` glow and
 `comic` shadow in a tray was simply gone. `responsive.spec.ts` had pinned that
 property BY NAME, which is root rule 30's shape one level down — the suite was
-asserting the fault. The document scrolls instead, exactly as it does for a
-stranger on an over-wide page.
+asserting the fault. Ink remains free across each block and tray. Its outermost
+viewport is now the editor canvas while controls show, and the document in
+Preview and on a public route; clipping at that viewport edge is the browser's
+ordinary page boundary, not an intermediate card cutting off its child.
 
 **Three faults the browser suite found after the inversion, and each is a
 different shape.**

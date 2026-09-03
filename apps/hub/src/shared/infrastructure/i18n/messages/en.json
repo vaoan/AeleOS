@@ -95,6 +95,7 @@
     "inspectorItems": "Items",
     "inspectorOptions": "Options",
     "inspectorBack": "Back",
+    "inspectorClose": "Close",
     "wrapInLayout": "Wrap in a layout",
     "sectionsAtLimit": "You have reached the maximum this page can hold.",
     "dragSection": "Drag to reorder section",
