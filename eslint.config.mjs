@@ -591,7 +591,15 @@ export default tseslint.config(
         {
           type: "feature-barrel",
           mode: "file",
-          pattern: "apps/hub/src/features/*/index.ts",
+          // Two barrels per feature, not one: `index.ts` is the whole
+          // feature and `public.ts` is the narrow surface a signed-out
+          // route may render. Both are barrels to the graph — a route may
+          // import either and neither may be reached past — because
+          // `boundaries` has no way to say "these routes get the narrow
+          // one". That distinction is held by
+          // `apps/hub/tests/public-route-imports.test.ts` instead, which
+          // fails when a public route reaches for the wide barrel.
+          pattern: "apps/hub/src/features/*/{index,public}.ts",
           capture: ["feature"],
         },
         {

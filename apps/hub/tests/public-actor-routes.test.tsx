@@ -16,7 +16,14 @@ const notFound = vi.fn(() => {
 // shape — a value accepted, forwarded, and never checked.
 const publicProfile = vi.fn();
 
-vi.mock("@/features/actors", () => ({
+// **The NARROW barrel, and the path is load-bearing.** These routes import
+// `@/features/actors/public` rather than the wide `index.ts`, so a mock
+// aimed at the wide one is simply not consulted: the real graph loads and
+// this file fails at import time on `next/navigation` missing `redirect`,
+// which reads like a mock that forgot a key rather than a mock pointed at
+// the wrong module. The six keys below are exactly what `public.ts`
+// exports; adding a symbol there without adding it here fails the same way.
+vi.mock("@/features/actors/public", () => ({
   readPublicPerson: (...a: unknown[]) => readPublicPerson(...a),
   readPublicFursona: (...a: unknown[]) => readPublicFursona(...a),
   // **The REAL one, deliberately.** Naming is the thing under test in the

@@ -1306,7 +1306,16 @@ still open.
   the chrome (nebula, toggles, page shell) owns no domain concept and so lives
   in `shared/presentation`. Each feature exposes an `index.ts` barrel and
   grows `domain` / `application` / `infrastructure` / `presentation` layers
-  only as it earns them. Rules in `eslint.config.mjs` keep the shape honest
+  only as it earns them. **`actors` exposes a SECOND barrel, `public.ts`**,
+  holding the six symbols the two signed-out routes render — because
+  `index.ts` re-exports `FursonaEditor`, and a public route importing
+  `PublicProfile` from it pulled the whole editor graph into that route's
+  chunk: 1,943,136 bytes against 1,008,803 once split, measured. The graph
+  types `features/*/{index,public}.ts` alike, so **`boundaries` cannot tell
+  the two apart and does not hold this** — a route is free to import either.
+  `apps/hub/tests/public-route-imports.test.ts` is what does, and
+  `apps/hub/src/features/actors/CLAUDE.md` carries the account. Rules in
+  `eslint.config.mjs` keep the rest of the shape honest
   rather than aspirational: a feature is reached through its barrel, no
   feature imports another, no `../` chains, `shared/` never depends on a
   feature, layers point inward only, and `packages/identity` must not import

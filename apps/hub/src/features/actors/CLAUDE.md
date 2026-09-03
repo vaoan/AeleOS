@@ -5240,10 +5240,11 @@ it did not carry Motion until this feature imported it. "The coupling is
 old, the bytes are new" is the accurate sentence; a review caught an
 earlier draft of this note collapsing both into "not something this wiring
 introduced," which is false about the second half. The owner's own
-decision on what follows: **merge as-is, split the barrel in a follow-up**
-— untangling `@/features/actors/index.ts` so editor-only exports are not
-re-exported through the same barrel a public page's `PublicProfile` comes
-from is deliberately out of THIS branch's scope, not forgotten. Measured
+decision on what followed: **merge as-is, split the barrel in a
+follow-up** — and that follow-up has landed, so the table below is the
+BASELINE it was measured against rather than a description of the app
+today. See "The public routes have their own barrel" at the end of this
+file for what the split actually cost. Measured
 directly from `.next/diagnostics/route-bundle-stats.json`, before and
 after this task, in uncompressed bytes — the baseline the follow-up
 inherits:
@@ -5278,17 +5279,15 @@ evidence this table already carried: Motion's import graph stayed scoped
 to the barrel it was always going to share, and nothing Task 7 fixed moved
 that boundary.
 
-**What this does not settle, by the owner's own ruling rather than by
-default:** whether that pre-existing barrel coupling itself is acceptable
-is a question this task did not create and cannot answer by reverting
-Motion — a revert would leave `/[locale]/[person]` loading the same
-~1.8MB either way. Untangling it means splitting `@/features/actors/index.ts`
-so editor-only exports (`FursonaEditor`, `BlockEditor`, `AddBlockPicker`,
-and everything they pull in) are not re-exported through the same barrel a
-public page's `PublicProfile` comes from — a real fix, and the owner's own
-decision is to merge this branch as-is and do that splitting in a
-follow-up, with the measured numbers above as its baseline, rather than
-block this feature on an unrelated pre-existing coupling. The `canvas` job's own
+**What this task did not settle, and what has settled it since:** whether
+that pre-existing barrel coupling itself is acceptable is a question this
+task did not create and could not have answered by reverting Motion — a
+revert would have left `/[locale]/[person]` loading the same ~1.8MB either
+way. The owner's ruling was to merge as-is and split
+`@/features/actors/index.ts` in a follow-up, with the numbers above as its
+baseline. **That follow-up is done** — `public.ts` is the narrow barrel and
+both public routes import it; the section at the end of this file carries
+the measurement. The `canvas` job's own
 throttled-page measurement is the number that actually decides whether
 Motion stays: unused JS sitting in a downloaded chunk costs bytes and parse
 time, not the runtime frame cost `canvas` measures, since no `m.*` component
@@ -5433,3 +5432,58 @@ say, and what changed was a TEST's assumption, not shipped code — see the
 account above.
 
 See `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
+
+### The public routes have their own barrel (2026-09-03)
+
+`public.ts` is a second barrel over this feature, holding the six symbols
+`/[locale]/[person]` and `/[locale]/[person]/[handle]` render and nothing
+else — `PublicProfile`, `ThemeScope`, `publicName`, `isCustomised`,
+`readPublicPerson`, `readPublicFursona`. Both public routes import it;
+everything else keeps importing `index.ts`.
+
+**It closes the coupling the Motion note above recorded and could not fix in
+its own branch.** `index.ts` re-exports `FursonaEditor`, so a route reaching
+for `PublicProfile` pulled the whole editor graph — react-hook-form, zod,
+`@dnd-kit`, Motion — into its own chunk. Motion is what made that visible
+(+109,155 bytes onto two signed-out pages) and was never the whole of it.
+
+**Measured, uncompressed first-load JS from
+`.next/diagnostics/route-bundle-stats.json`:**
+
+| route                                      |    before |     after |    delta |
+| ------------------------------------------ | --------: | --------: | -------: |
+| `/[locale]/[person]` (+ `/[handle]`)       | 1,943,136 | 1,008,803 | −934,333 |
+| the six editor routes                      | 1,950,813 | 1,950,989 |     +176 |
+| `fursonas` / `sign-in` / `/[locale]` / 404 | unchanged | unchanged |        0 |
+
+Four chunks as well as those bytes: a public route carries 18 where it
+carried 22, and now sits three chunks beyond the shared `/[locale]` set
+where an editor route sits seven. The +176 on the editor routes is this
+file's own bytes. The four unrelated routes read 778,889 / 749,122 /
+738,627 / 452,708 exactly as they always have, which is what says nothing
+moved except what was meant to.
+
+**Do not confirm the absence by grepping a chunk.** `LazyMotion`,
+`hook-form` and `dnd-kit` are all minified out of every chunk on every
+route, public and editor alike — probed, on this build, and the answer is
+"absent" everywhere whether or not the library is there. The byte total and
+the chunk SET are the readings that discriminate.
+
+**Nothing in the boundary graph can hold this.** `eslint.config.mjs` types
+`features/*/{index,public}.ts` as `feature-barrel` — both files, because
+`boundaries` has no way to say "these two routes get the narrow one", and
+leaving `public.ts` untyped would fail `no-unknown-files` instead.
+`apps/hub/tests/public-route-imports.test.ts` is the guard: it reads the two
+route sources and fails when one reaches `@/features/actors`, when either
+deep-imports past a barrel, or when `public.ts` itself re-exports from the
+wide barrel or names an editor module. Its anti-vacuity case asserts the
+route list is two entries long and that each one imports something at all,
+since every other case is about the contents of that list.
+
+**That guard reads STRINGS and a required check is what covers the rest.**
+It cannot tell whether a module named in the barrel exports the symbol
+claimed from it: the first draft named `infrastructure/actor-page` for
+`readPublicPerson`/`readPublicFursona`, which live in
+`infrastructure/public-actors`, and all ten cases were green — `next build`
+is what refused it, `pnpm typecheck` would have too. Root rule 40's shape,
+on a re-export rather than a test file.

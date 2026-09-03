@@ -10,7 +10,7 @@ import {
   ThemeScope,
   isCustomised,
   readPublicPerson,
-} from "@/features/actors";
+} from "@/features/actors/public";
 
 /**
  * Metadata for a person's public profile.
