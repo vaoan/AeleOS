@@ -10,7 +10,7 @@ import {
   ThemeScope,
   isCustomised,
   readPublicFursona,
-} from "@/features/actors";
+} from "@/features/actors/public";
 
 /**
  * Metadata for one fursona's page.
