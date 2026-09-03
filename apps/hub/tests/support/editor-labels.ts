@@ -157,9 +157,10 @@ const stylePopupLabels = {
 /**
  * Supplies one stable English label bag for editor presentation tests.
  *
- * It includes the canvas inspector's Page, Items, Options and Back words so
- * tests use the same complete contract as the translated route rather than
- * filling recursive navigation controls with ad-hoc labels per fixture.
+ * It includes the canvas inspector's Page, Items, Options, Back and Close
+ * words so tests use the same complete contract as the translated route
+ * rather than filling recursive navigation controls with ad-hoc labels per
+ * fixture.
  *
  * **Carries the Add picker's four strings too (2026-09-02)** —
  * `addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` — as real
@@ -183,6 +184,7 @@ export function blockEditorLabels(): BlockEditorLabels {
     inspectorItems: "Items",
     inspectorOptions: "Options",
     inspectorBack: "Back",
+    inspectorClose: "Close",
     wrapInLayout: "Wrap in a layout",
     atLimit: "At the limit.",
     dragSection: "Drag to reorder section",

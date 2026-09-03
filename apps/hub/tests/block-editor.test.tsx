@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type React from "react";
+import React, { useState } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
 import {
@@ -89,6 +89,8 @@ interface HarnessPage {
   (): Block[];
   /** Replaces the field from outside `BlockEditor`'s own edit boundary. */
   replace: (blocks: Block[]) => void;
+  /** Enters or leaves Preview without moving selection ownership upward. */
+  setControlsHidden: (hidden: boolean) => void;
 }
 
 /**
@@ -101,6 +103,9 @@ function harness(
   actorKind: "person" | "fursona" = "fursona",
 ) {
   let form: UseFormReturn<FormValues> | undefined;
+  let setControlsHidden:
+    React.Dispatch<React.SetStateAction<boolean>> | undefined;
+  let resetSelection: (() => void) | undefined;
   /**
    * The editor, capturing the form it is bound to.
    *
@@ -108,26 +113,34 @@ function harness(
    */
   function Harness() {
     form = useForm<FormValues>({ defaultValues: { sections } });
+    const [controlsHidden, setHidden] = useState(false);
+    const [selectionResetKey, setSelectionResetKey] = useState(0);
+    setControlsHidden = setHidden;
+    resetSelection = () => setSelectionResetKey((current) => current + 1);
     return (
-      <BlockEditor
-        control={form.control}
-        lang="en"
-        labels={labels}
-        page={pageContext({ parentHost: "", actorKind })}
-        problems={[]}
-        // **The harness stands in for `FursonaEditor`, which owns the form.**
-        // `BlockEditor` forwards a picked template upward rather than applying
-        // it, because a look is a second field this component cannot reach —
-        // so the harness writes it, exactly as the real editor does.
-        onApplyDocument={({ blocks }) => form?.setValue("sections", blocks)}
-        // No look chosen, so the picker applies without confirming — which is
-        // what every case in this file assumes.
-        theme={null}
-        // Locked by default, matching the editor's own default: every case
-        // in this file exercises canvas selection, which only works while
-        // page interaction is off.
-        pageInteractionsEnabled={false}
-      />
+      <form data-testid="block-editor-form">
+        <BlockEditor
+          control={form.control}
+          lang="en"
+          labels={labels}
+          page={pageContext({ parentHost: "", actorKind })}
+          problems={[]}
+          // **The harness stands in for `FursonaEditor`, which owns the form.**
+          // `BlockEditor` forwards a picked template upward rather than applying
+          // it, because a look is a second field this component cannot reach —
+          // so the harness writes it, exactly as the real editor does.
+          onApplyDocument={({ blocks }) => form?.setValue("sections", blocks)}
+          // No look chosen, so the picker applies without confirming — which is
+          // what every case in this file assumes.
+          theme={null}
+          // Locked by default, matching the editor's own default: every case
+          // in this file exercises canvas selection, which only works while
+          // page interaction is off.
+          pageInteractionsEnabled={false}
+          controlsHidden={controlsHidden}
+          selectionResetKey={selectionResetKey}
+        />
+      </form>
     );
   }
   // The Add picker's previews reach `useTranslations` through `RetroPlayer`
@@ -143,6 +156,12 @@ function harness(
   );
   const page = (() => form!.getValues().sections) as HarnessPage;
   page.replace = (blocks) => form!.setValue("sections", blocks);
+  page.setControlsHidden = (hidden) => {
+    act(() => {
+      if (hidden) resetSelection!();
+      setControlsHidden!(hidden);
+    });
+  };
   return page;
 }
 
@@ -603,6 +622,24 @@ describe("recursive inspector drill-down", () => {
     expect(screen.queryByTestId("canvas-inspector")).toBeNull();
   });
 
+  it("makes only the canvas an inner scroller while controls show", () => {
+    const page = harness(recursivePage());
+    const canvas = screen.getByTestId("editor-canvas");
+    const editor = canvas.closest("section[data-editor-stack]");
+
+    expect(editor).toHaveClass("flex", "min-h-0", "flex-1");
+    expect(canvas).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-y-auto",
+      "overflow-x-clip",
+    );
+
+    page.setControlsHidden(true);
+    expect(editor).not.toHaveClass("flex-1", "min-h-0");
+    expect(canvas).not.toHaveClass("overflow-y-auto", "overflow-x-clip");
+  });
+
   it("drills Page to a container to a leaf, showing only immediate children", () => {
     harness(recursivePage());
 
@@ -661,6 +698,52 @@ describe("recursive inspector drill-down", () => {
 
     fireEvent.click(screen.getByTestId("inspector-back"));
     expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+  });
+
+  it("clears a nested selection for Preview and does not restore it afterwards", () => {
+    const page = harness(recursivePage());
+    fireEvent.click(screen.getByTestId("select-page"));
+    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
+
+    page.setControlsHidden(true);
+    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+
+    page.setControlsHidden(false);
+    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+  });
+
+  it.each([
+    ["Page", () => undefined],
+    [
+      "a container",
+      () => fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!),
+    ],
+    [
+      "a leaf",
+      () => {
+        fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+        fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
+        fireEvent.click(screen.getByTestId("inspector-item-open"));
+      },
+    ],
+  ])("closes the inspector directly from %s without submitting", (_, enter) => {
+    harness(recursivePage());
+    const submitted = vi.fn((event: SubmitEvent) => event.preventDefault());
+    screen
+      .getByTestId("block-editor-form")
+      .addEventListener("submit", submitted);
+    fireEvent.click(screen.getByTestId("select-page"));
+    enter();
+
+    fireEvent.click(screen.getByTestId("inspector-close"));
+
+    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.getByTestId("editor-canvas")).toBeInTheDocument();
+    expect(screen.getByTestId("select-page")).toBeInTheDocument();
+    expect(submitted).not.toHaveBeenCalled();
   });
 
   it("selects the parent when the selected leaf is deleted", () => {

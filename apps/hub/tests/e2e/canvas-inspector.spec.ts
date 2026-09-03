@@ -161,7 +161,7 @@ test("Escape aimed at a field inside the inspector keeps the selection", async (
   await expect(page.getByTestId("leaf-kind")).toBeVisible();
 });
 
-test("Preview still hides every chrome island, inspector included", async ({
+test("Preview clears the selected inspector instead of pausing it", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
@@ -169,7 +169,30 @@ test("Preview still hides every chrome island, inspector included", async ({
   await page.getByTestId("select-page").click();
   await expect(page.getByTestId("canvas-inspector")).toBeVisible();
   await page.getByTestId("hide-controls").click();
-  await expect(page.getByTestId("canvas-inspector")).toBeHidden();
+  await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
   await expect(page.getByTestId("select-page")).toBeHidden();
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  await page.getByTestId("show-controls").click();
+  await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
+  await expect(page.getByTestId("select-page")).toBeVisible();
+});
+
+test("the inspector closes itself directly from a nested leaf", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+  await openPageAdd(page);
+  await addBlock(page, { mode: "grid" });
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
+  await expect(page.getByTestId("leaf-kind")).toBeVisible();
+
+  await page.getByTestId("inspector-close").click();
+
+  await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
+  await expect(page.getByTestId("editor-save")).toBeVisible();
+  await expect(page.getByTestId("editor-canvas")).toBeVisible();
 });

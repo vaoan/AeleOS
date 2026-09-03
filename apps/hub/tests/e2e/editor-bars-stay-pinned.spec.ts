@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -9,13 +9,13 @@ import {
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
 
-// THE EDITOR'S BAR STAYS PINNED FOR THE WHOLE PAGE.
+// THE EDITOR'S BAR STAYS PINNED WHILE THE CANVAS SCROLLS.
 //
-// **A `position: sticky` element sticks only within its PARENT's box.** When
-// that box ends, the element scrolls away with it — silently, with no error and
-// nothing in any computed style to read: `position` still says `sticky` and the
-// offset still says what it always said. The only way to see it is to scroll a
-// real page and look at where the bar ended up.
+// Controls-visible editing no longer scrolls the document. The canvas is the
+// only scroll owner, which is stronger than relying on `position: sticky`
+// inside a long page: the toolbar is outside the scrolling box altogether.
+// This guard drives the canvas, because driving `window` now moves nothing and
+// would leave Save in place even if the canvas itself were wired incorrectly.
 //
 // That is what happened on 2026-08-27. Moving `BlockEditor` out of the control
 // column so section previews could own the page's full width shortened that
@@ -89,33 +89,9 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
-/**
- * How far down the viewport a named bar offset resolves to, in pixels.
- *
- * Read from the document rather than written down here, because `--bar-top` is
- * composed in `globals.css` out of the bar height — and a copy of that
- * arithmetic in a test is a second source of truth that drifts the first time
- * a bar changes height.
- *
- * @param page - the editor page.
- * @param name - the custom property to resolve.
- * @returns the offset in pixels.
- */
-async function barOffset(page: Page, name: string): Promise<number> {
-  return page.evaluate((property) => {
-    const probe = document.createElement("div");
-    probe.style.position = "absolute";
-    probe.style.top = `var(${property})`;
-    document.body.append(probe);
-    const top =
-      probe.getBoundingClientRect().top -
-      document.body.getBoundingClientRect().top;
-    probe.remove();
-    return top;
-  }, name);
-}
-
-test("the save bar stays pinned all the way down", async ({ page }) => {
+test("the save bar stays pinned while the canvas scrolls all the way down", async ({
+  page,
+}) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   await signIn(page, await mintTicket(identity!.userId));
@@ -123,47 +99,43 @@ test("the save bar stays pinned all the way down", async ({ page }) => {
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
   const toolbar = page.getByTestId("editor-save");
+  const canvas = page.getByTestId("editor-canvas");
+  const initialSave = (await toolbar.boundingBox())!;
+  expect(initialSave.y).toBeGreaterThanOrEqual(0);
+  expect(initialSave.y).toBeLessThan(900);
 
-  const height = await page.evaluate(
-    () => document.documentElement.scrollHeight,
-  );
+  const { height, viewport } = await canvas.evaluate((node) => ({
+    height: node.scrollHeight,
+    viewport: node.clientHeight,
+  }));
   // The fixture has to extend well past the viewport for the question to mean
-  // anything. The canvas migration deliberately removed the duplicate
-  // workbench cards from document flow, so an absolute 3000px floor would
-  // measure the old UI rather than whether the bar can come unstuck.
-  expect(height, "the seeded page is long enough to scroll").toBeGreaterThan(
-    1400,
-  );
-
-  const barTop = await barOffset(page, "--bar-top");
+  // anything. Comparing the canvas's own two dimensions also prevents a
+  // document-scrolled page from passing on a tall fixture whose canvas simply
+  // expanded to fit its content.
+  expect(
+    height - viewport,
+    "the seeded page is long enough to scroll inside the canvas",
+  ).toBeGreaterThan(500);
 
   for (const to of [
-    Math.round((height - 900) / 3),
-    Math.round(((height - 900) * 2) / 3),
-    height - 900,
+    Math.round((height - viewport) / 3),
+    Math.round(((height - viewport) * 2) / 3),
+    height - viewport,
   ]) {
-    await page.evaluate(
-      (top) => window.scrollTo({ top, behavior: "instant" }),
+    await canvas.evaluate(
+      (node, top) => node.scrollTo({ top, behavior: "instant" }),
       to,
     );
-    await page.evaluate(
-      () => new Promise((resolve) => requestAnimationFrame(resolve)),
-    );
+    await expect.poll(() => canvas.evaluate((node) => node.scrollTop)).toBe(to);
 
     const save = (await toolbar.boundingBox())!;
 
-    // **Still on screen, and still where the offset puts it.** A bar that has
-    // come unstuck is not merely misplaced: it is above the viewport entirely,
-    // so its `y` goes negative and keeps going. The tolerance is the bar's own
-    // padding, since this probe is on a control inside the bar rather than on
-    // the bar element.
+    // **Still at the exact place it began.** The toolbar is outside the canvas
+    // scroller now, so its contract is stronger than the old sticky-offset
+    // range: canvas movement must not move Save by even one CSS pixel.
     expect(
       save.y,
-      `Save is still pinned after scrolling to ${to}`,
-    ).toBeGreaterThanOrEqual(barTop - 1);
-    expect(
-      save.y,
-      `Save has not drifted down after scrolling to ${to}`,
-    ).toBeLessThan(barTop + 60);
+      `Save is still pinned after canvas scroll ${to}`,
+    ).toBeCloseTo(initialSave.y, 0);
   }
 });

@@ -495,7 +495,10 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * up to the spacing `pageBoxClass` gives them on a public page. Nothing
  * persists the choice — it is a way of looking, not a preference. The control
  * that brings the workbench back is rendered OUTSIDE the armed element, or the
- * rule would hide the only way out of the state it created.
+ * rule would hide the only way out of the state it created. Hiding controls
+ * also invalidates inspector selection in the same event, so Show controls
+ * cannot resurrect a paused panel. While controls show, the form is bounded
+ * below the app header and only the canvas scrolls.
  *
  * **Both sticky bars are direct children of the element carrying
  * `data-controls`**, which spans the whole editor, and each puts a
@@ -593,6 +596,11 @@ export function FursonaEditor({
   // remembered value would open the editor with no controls at all for whoever
   // did that once.
   const [controlsHidden, setControlsHidden] = useState(false);
+  // **A command version, not selection lifted into this component.**
+  // `BlockEditor` still owns the selected value and every way it changes.
+  // Incrementing here in the same event that enters Preview invalidates that
+  // local value without an effect-driven state update or a remount.
+  const [selectionResetKey, setSelectionResetKey] = useState(0);
   // **The session-only interaction switch, and it is not a preference
   // either.** Default off: the canvas is locked so a click selects a block
   // rather than following a link. Pressing the toolbar switch turns it on
@@ -716,6 +724,11 @@ export function FursonaEditor({
     <EditorMotion>
       <form
         {...tid("editor-content")}
+        className={
+          controlsHidden
+            ? ""
+            : "flex h-[calc(100dvh-var(--bar-h))] min-h-0 flex-col overflow-hidden"
+        }
         onSubmit={handleSubmit(async (values) => {
           // The RETURN VALUE decides, never `fieldErrors`. That variable is
           // captured from the render that built this handler, so it is still
@@ -743,7 +756,10 @@ export function FursonaEditor({
             remembering. A second rule flattens the editor's own stacking, so
             the sections close up to exactly the spacing `pageBoxClass` gives
             them on a public page. */}
-          <div data-controls={controlsHidden ? "hidden" : "shown"}>
+          <div
+            data-controls={controlsHidden ? "hidden" : "shown"}
+            className={controlsHidden ? "" : "flex min-h-0 flex-1 flex-col"}
+          >
             {/* **Both sticky bars are direct children of THIS box**, which spans
               the whole editor. A sticky element sticks only within its parent's
               box, and the control column below stops before the section
@@ -754,7 +770,10 @@ export function FursonaEditor({
               labels={labels}
               saving={saving}
               cancelHref={LIST}
-              onHideControls={() => setControlsHidden(true)}
+              onHideControls={() => {
+                setSelectionResetKey((current) => current + 1);
+                setControlsHidden(true);
+              }}
               onOpenSource={() => {
                 setSourceMounted(true);
                 setSourceOpen(true);
@@ -821,7 +840,7 @@ export function FursonaEditor({
             )}
 
             <WidePageColumn
-              className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
+              className={`${CHROME_SCOPE} flex-none py-0 pt-6 sm:py-0 sm:pt-10`}
             >
               <FormErrorBanner
                 errors={{ ...schemaErrors, ...fieldErrors }}
@@ -838,6 +857,8 @@ export function FursonaEditor({
               page={livePage}
               problems={problems}
               pageInteractionsEnabled={interactionsEnabled}
+              controlsHidden={controlsHidden}
+              selectionResetKey={selectionResetKey}
               pageOptions={
                 <>
                   <div

@@ -1,11 +1,17 @@
 # Recursive inspector drill-down
 
 - **Date:** 2026-09-01
-- **Status:** Approved
+- **Status:** Delivered
 - **Scope:** The signed-in person and fursona page editors. The stored page
   document, public renderer, block depth, and move semantics do not change.
 - **Supersedes:** The inspector navigation and initial-selection portions of
   `2026-08-31-canvas-inspector-builder-design.md`.
+
+> **Correction — 2026-09-03:** Preview no longer merely hides a selected
+> inspector. It clears selection before paint, and Show controls returns with
+> no inspector. The inspector also has a direct Close control at every depth.
+> The current behavior and its scroll boundary are specified in
+> `2026-09-03-editor-preview-selection-and-canvas-scroll-design.md`.
 
 ## Problem
 
@@ -25,8 +31,8 @@ directly to that scope.
 - The inspector is visible only while editing controls are visible and a page
   or block is selected.
 - Empty canvas and an unclaimed Escape clear selection.
-- Preview keeps using hide-controls and hides the inspector with every other
-  `CHROME_SCOPE` island.
+- Preview keeps using hide-controls, clears selection, and unmounts the
+  inspector before the next paint.
 - A `BlockPath` remains the sole identity of a selected block. No stored id or
   second navigation stack is introduced.
 - The page document, schemas, `moveBlock`, depth cap, public rendering, source
