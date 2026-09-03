@@ -8,7 +8,8 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import {
-  chooseNewSectionSpaces,
+  addBlock,
+  addSection,
   handleFor,
   saveAndLeave,
   startFursona,
@@ -103,22 +104,32 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   const handle = handleFor("nest");
   await startFursona(page, handle, "Nested by hand");
 
-  // THE SHAPE, CHOSEN BEFORE THERE IS ANYTHING TO PUT IN IT. Three across
-  // rather than the two the control starts on, so what travels through storage
-  // is a number this test picked.
-  await chooseNewSectionSpaces(page, String(ACROSS));
-  await page.getByTestId("add-section").click();
+  // THE SHAPE, CHOSEN AFTER THE SECTION EXISTS — the picker's own layout
+  // options always start a section at two places, matching how nesting
+  // already worked; `addSection` reshapes it to three across through its own
+  // Options control, so what travels through storage is still a number this
+  // test picked rather than the default.
+  await addSection(page, String(ACROSS));
 
-  // Adding selects the new section. Options edits that section; Items exposes
-  // only its three immediate places.
-  await page.getByTestId("inspector-tab-options").click();
+  // Adding selects the new section, and `addSection` leaves it on Options —
+  // where the fields below already live.
   await page.getByTestId("section-name").fill("Un mundo");
   await page.getByTestId("section-mode").selectOption("grid");
   await page.getByTestId("inspector-tab-items").click();
+  // **A width is not a capacity.** `section-spaces` (set inside `addSection`)
+  // only reshapes how many places lay ACROSS — the container's own
+  // `children` stays at the picker's default of two until something actually
+  // grows it. `add-place` appends the third, explicitly empty place this
+  // test's own three-across shape needs; this comment used to claim Items
+  // "exposes only its three immediate places" already, which was false the
+  // moment it was written.
+  await page.getByTestId("add-place").click();
   await expect(page.getByTestId("inspector-item-row")).toHaveCount(ACROSS);
 
   // A PIECE OF CONTENT IN THE FIRST PLACE.
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Primera cosa");
   await page.getByTestId("leaf-description").fill("La primera.");
   await page.getByTestId("inspector-back").click();
@@ -126,7 +137,9 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   // A SECTION IN THE SECOND, which is the act no editor could perform before
   // this phase — and then something inside THAT, so the tree is genuinely two
   // levels rather than one level with a container sitting empty in it.
-  await page.getByTestId("add-nested").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    mode: "grid",
+  });
   await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("nested-name").fill("Dentro");
   // An arrangement of its own, and deliberately not the one it was placed
@@ -135,10 +148,14 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   await page.getByTestId("nested-mode").selectOption("timeline");
   await page.getByTestId("inspector-tab-items").click();
   await expect(page.getByTestId("inspector-item-row")).toHaveCount(2);
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Cosa anidada");
   await page.getByTestId("inspector-back").click();
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Segunda anidada");
   await page.getByTestId("inspector-back").click();
   await page.getByTestId("inspector-back").click();

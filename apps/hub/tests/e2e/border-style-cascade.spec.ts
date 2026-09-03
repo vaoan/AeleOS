@@ -8,8 +8,8 @@ import {
 import { container, leaf, seedPage } from "./support/blocks";
 import {
   assertLastTriggerIsAContainers,
-  chooseNewSectionSpaces,
-  openPageAdd,
+  addBlock,
+  addSection,
 } from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 import {
@@ -163,10 +163,13 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // one in the control card to refuse it. One place left empty gives the
     // second and not the first — the section renders nothing at all, because
     // a container whose every place is empty draws nothing.
-    await chooseNewSectionSpaces(page, "2");
-    await openPageAdd(page);
-    await page.getByTestId("add-section").click();
-    await page.getByTestId("add-content").first().click();
+    await addSection(page, "2");
+    // `addSection` leaves the pane on Options — its own TSDoc says so — so
+    // the section's empty places are not showing until Items is pressed.
+    await page.getByTestId("inspector-tab-items").click();
+    await addBlock(page.getByTestId("inspector-empty-place").first(), {
+      kind: "text",
+    });
     // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null when
     // it has neither a title nor a description, so a freshly added content
     // block draws no card at all — and the card is what paints the edge.
@@ -271,13 +274,16 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
 
     await page.goto("/es/pages/new");
-    await chooseNewSectionSpaces(page, "2");
-    await openPageAdd(page);
-    await page.getByTestId("add-section").click();
+    await addSection(page, "2");
+    // `addSection` leaves the pane on Options, so Items must be pressed
+    // before the section's empty places show.
+    await page.getByTestId("inspector-tab-items").click();
     // Content, because an edge needs something to be drawn around: a leaf's
     // own `surface` card is what consumes `--skin-border-style`, and a
     // container whose every place is empty renders nothing at all.
-    await page.getByTestId("add-content").first().click();
+    await addBlock(page.getByTestId("inspector-empty-place").first(), {
+      kind: "text",
+    });
     // Titled, or `PlainLeaf` renders nothing and there is no card to sample.
     await page.getByTestId("leaf-title").fill("Bordered");
     await page.getByTestId("inspector-back").click();

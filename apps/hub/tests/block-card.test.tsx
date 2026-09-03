@@ -731,12 +731,19 @@ describe("BlockCard", () => {
       expect(section.className).not.toContain("border-4");
     });
 
-    it("sets each eyebrow in its own bar's colour", () => {
+    it("sets each eyebrow in its own tone", () => {
       // **Colour is the second channel and length is the first.** Asserting
       // only that both eyebrows exist passes whether or not they are
       // distinguishable, which is what the case above this one used to be the
       // whole of. The two classes must DIFFER; naming both is what makes a
       // sabotage that sets them to one token redden.
+      //
+      // **`text-(--ink)`, not `text-(--accent)` (2026-09-02).** The word is
+      // real text and the rail beside it is decorative — `--accent` is safe
+      // on the rail and was not safe here: a real `a11y.spec.ts` scan caught
+      // a `color-contrast` failure on this exact eyebrow, because the author's
+      // theme accent has no guaranteed contrast against `.aeleos-chrome`'s
+      // fixed background. See `card-kind.tsx`'s own `TONES` comment.
       harness([{ ...newContainer("grid", 1), children: [newLeaf("text")] }]);
 
       const [sectionEyebrow] = screen.getAllByTestId("card-kind");
@@ -744,7 +751,7 @@ describe("BlockCard", () => {
         "card-kind",
       );
 
-      expect(sectionEyebrow).toHaveClass("text-(--accent)");
+      expect(sectionEyebrow).toHaveClass("text-(--ink)");
       expect(leafEyebrow).toHaveClass("text-(--muted)");
       expect(sectionEyebrow?.className).not.toBe(leafEyebrow.className);
     });

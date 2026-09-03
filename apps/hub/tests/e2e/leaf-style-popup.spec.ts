@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { chooseNewSectionSpaces, openPageAdd } from "./support/editor";
+import { addBlock, addSection } from "./support/editor";
 
 // WHAT THIS FILE PROVES.
 //
@@ -60,10 +60,13 @@ test("a leaf's own portrait-size choice resizes its avatar in the live preview",
 
   // One section, one place, one piece of content — built by hand so what is
   // measured is the control that shipped, not a template's own data.
-  await chooseNewSectionSpaces(page, "1");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
-  await page.getByTestId("add-content").last().click();
+  await addSection(page, "1");
+  // `addSection` leaves the pane on Options — its own TSDoc says so — so
+  // the section's empty place is not showing until Items is pressed.
+  await page.getByTestId("inspector-tab-items").click();
+  await addBlock(page.getByTestId("inspector-empty-place").last(), {
+    kind: "text",
+  });
   // **`avatar` only, and `portrait` is unreachable through any other kind's
   // select.** Choosable here because `offerableLeafKinds` refuses only the
   // ONE kind a page's actor kind has no use for (`owner` on a person page) —

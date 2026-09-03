@@ -240,6 +240,15 @@ export interface EditorToolbarProps {
  * sentence that swaps between the two hint strings on the switch's own
  * pressed state, stating the consequence rather than merely the state.
  *
+ * **Its own label arrives at `md`, not `sm` (corrected the same day it
+ * shipped).** The first version put it at `sm`, matching Hide controls and
+ * Cancel beside it, and measured its own overflow claim only at 320 —
+ * exactly the discontinuity-band miss rule 38 already names. Landscape 667
+ * is inside the same `sm` band the writing switch's endonyms already
+ * crowd, and `responsive.spec.ts` measured the row 61px past that viewport
+ * with this label joining there too. Staggering it to `md` is what gives
+ * the row its slack back without shaving anything else in it.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -337,8 +346,20 @@ export function EditorToolbar({
               a visually-hidden sentence stating the CONSEQUENCE rather than
               merely the state, which swaps with the pressed state so a screen
               reader hears what changed rather than only that something did.
-              Compact like Preview beside it: icon alone below `sm`, so this
-              row gains no new overflow band at 320. */}
+              Compact below 320: icon alone, so this control adds no overflow
+              band there.
+
+              **Its own LABEL arrives at `md`, not `sm` (2026-09-02, corrected
+              from a claim measured only at 320).** `sm` is also where
+              `writingIn`'s own endonyms and every OTHER label in this row
+              (Hide controls, Cancel) already arrive at once — rule 38's own
+              band, a discontinuity a check at 320 and at desktop both miss
+              entirely. Landscape 667 is inside that band: `responsive.spec.ts`
+              measured the row 61px past the viewport there with this label
+              joining at `sm`, the exact "adding a control right where several
+              others already arrive" shape the rule warns about. Staggering
+              this one arrival to `md` is what gives the row its slack back at
+              `sm` without shaving anything else. */}
           <button
             type="button"
             aria-pressed={interactEnabled}
@@ -348,7 +369,7 @@ export function EditorToolbar({
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted) aria-pressed:text-(--accent)"
           >
             <MousePointerClick className="size-4" />
-            <span className="sr-only sm:not-sr-only">
+            <span className="sr-only md:not-sr-only">
               {labels.interactWithPage}
             </span>
           </button>

@@ -18,7 +18,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { openPageAdd } from "./support/editor";
+import { addBlock, openPageAdd } from "./support/editor";
 
 // One sign-in for "the signed-in pages are accessible" below: both of its
 // cases read or extend the same shared identity's own pages, and neither
@@ -104,6 +104,24 @@ async function isAccessible(
   disabled: string[] = [],
   exclude: string[] = [],
 ): Promise<void> {
+  // **Waits out Motion's own scope-transition fade, diagnosed rather than
+  // guessed.** Entering a fresh selection remounts `canvas-inspector.tsx`'s
+  // keyed `m.div` (`initial:{opacity:0,y:6}`, 150ms), and axe's
+  // `color-contrast` samples the actually RENDERED pixels — so a scan that
+  // lands mid-fade sees the whole card, text and background alike, blended
+  // toward whatever is BEHIND the editor at a shared partial opacity, which
+  // measurably lowers the contrast between them. Caught directly: one run of
+  // "the editor with a nested section selected" found 15 real-looking
+  // `color-contrast` violations sharing the exact page's own background as
+  // their measured foreground and background colours; a second scan of the
+  // identical, unchanged page moments later found none. `nested-card` (and
+  // every card like it) being `toBeVisible()` only proves opacity is
+  // non-zero, never that the fade has REACHED 1 — the gap this closes.
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- measured Motion transition duration (150ms) plus margin, not a guess about machine speed; see comment above.
+    () => new Promise((done) => setTimeout(done, 250)),
+  );
+
   const builder = new AxeBuilder({ page })
     .withTags(TAGS)
     .disableRules(disabled);
@@ -154,7 +172,7 @@ test.describe("a person's first visit ever is straight to /pages/new", () => {
       await signIn(page, await mintTicket(fresh.userId));
       await page.goto("/es/pages/new");
       await openPageAdd(page);
-      await expect(page.getByTestId("add-section")).toBeVisible();
+      await expect(page.getByTestId("add-block")).toBeVisible();
 
       // The owner card's own link carries the address as its visible text —
       // asserted as non-empty rather than compared to a specific value,
@@ -219,7 +237,7 @@ test.describe("the signed-in pages are accessible", () => {
       content: "nextjs-portal{display:none!important}",
     });
     await openPageAdd(page);
-    await expect(page.getByTestId("add-section")).toBeVisible();
+    await expect(page.getByTestId("add-block")).toBeVisible();
     await page.getByTestId("inspector-tab-options").click();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
@@ -237,7 +255,7 @@ test.describe("the signed-in pages are accessible", () => {
     // gives the following scans one unambiguous container, leaf and nested
     // container to enter in turn.
     await page.getByTestId("inspector-tab-items").click();
-    await page.getByTestId("add-section").click();
+    await addBlock(page, { mode: "grid" });
     await page.getByTestId("inspector-tab-options").click();
     await page.getByTestId("section-name").fill("A section of my own");
 
@@ -263,7 +281,25 @@ test.describe("the signed-in pages are accessible", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("section-style-panel")).toBeHidden();
     await page.getByTestId("inspector-tab-items").click();
-    await page.getByTestId("add-content").first().click();
+
+    // **The Add-block picker — a THIRD overlay, never scanned before.** Its
+    // own previews draw the real renderer over real sample content, which is
+    // exactly the surface most likely to carry a name or contrast fault a
+    // hand-written illustration never would. Opened from an empty place's own
+    // trigger, which every content-holding scope in this editor offers.
+    await page
+      .getByTestId("inspector-empty-place")
+      .first()
+      .getByTestId("add-block")
+      .click();
+    await expect(page.getByTestId("add-block-picker")).toBeVisible();
+    await isAccessible(page, "the editor with the Add-block picker open");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("add-block-picker")).toBeHidden();
+
+    await addBlock(page.getByTestId("inspector-empty-place").first(), {
+      kind: "text",
+    });
     await page.getByTestId("leaf-kind").selectOption("table");
     await page.getByTestId("add-row").click();
     await expect(page.getByTestId("table-cell").first()).toBeVisible();
@@ -272,7 +308,9 @@ test.describe("the signed-in pages are accessible", () => {
     // And a section inside a place, which is the other component no
     // accessibility check had ever reached.
     await page.getByTestId("inspector-back").click();
-    await page.getByTestId("add-nested").first().click();
+    await addBlock(page.getByTestId("inspector-empty-place").first(), {
+      mode: "grid",
+    });
     await page.getByTestId("inspector-tab-options").click();
     await expect(page.getByTestId("nested-card")).toBeVisible();
     await isAccessible(page, "the editor with a nested section selected");
@@ -289,7 +327,7 @@ test.describe("the signed-in pages are accessible", () => {
   test("the editor with the source dock open", async ({ page }) => {
     await page.goto("/es/pages/new");
     await openPageAdd(page);
-    await expect(page.getByTestId("add-section")).toBeVisible();
+    await expect(page.getByTestId("add-block")).toBeVisible();
 
     await page.getByTestId("editor-open-source").click();
     await expect(page.getByTestId("page-source-dock")).toBeVisible();

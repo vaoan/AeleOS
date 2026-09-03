@@ -109,10 +109,13 @@ export interface CanvasInspectorProps {
  * It is a sibling of the canvas, so its clicks never reach the canvas's
  * deselection handler.
  *
- * **Container panes stay mounted.** The inactive pane uses the native
- * `hidden` attribute, preserving local state while removing inactive controls
- * from layout and accessibility. A leaf has no Items tab or misleading
- * tablist; its Options render directly.
+ * **Container panes stay mounted, genuinely (corrected 2026-09-02).** The
+ * inactive pane uses the native `hidden` attribute, which is what removes
+ * inactive controls from layout and accessibility — but the entrance
+ * `m.div`'s own `key` used to also carry `tab`, and since both panes computed
+ * the identical string from it, a tab flip alone remounted BOTH, hidden one
+ * included, discarding whatever local state it held. A leaf has no Items tab
+ * or misleading tablist; its Options render directly.
  *
  * On desktop the inspector starts below the toolbar and is wide enough for
  * the existing nested card controls to wrap inside it. Neither property is
@@ -122,10 +125,12 @@ export interface CanvasInspectorProps {
  *
  * **The root is `m.div` now (2026-09-02), fading and sliding in** — from
  * the left on desktop, up from the bottom on a phone — and the Items/Options
- * inner content is a second `m.div`, keyed on the tab and the selected
- * path, so entering a different block or switching tabs both read as
- * navigation. See `editor-motion.tsx` for the import boundary this and
- * every other `m.*` usage here answers to.
+ * inner content is a second `m.div`, keyed on the SELECTED PATH ONLY (not
+ * `tab` — see the fault above), so entering a different block reads as
+ * navigation and replays the fade; switching tabs with the same selection no
+ * longer does, which is what keeps a pane's own local state alive across a
+ * tab flip. See `editor-motion.tsx` for the import boundary this and every
+ * other `m.*` usage here answers to.
  *
  * @returns the inspector, or nothing when deselected.
  */
@@ -152,10 +157,21 @@ export function CanvasInspector({
 
   if (selection === null) return null;
 
-  // Names the current scope AND pane, so entering a different block or
-  // switching Items/Options both read as navigation — a fresh mount of the
-  // inner wrap below, which is what lets it re-play its entrance.
-  const scopeKey = `${tab}:${selection.kind}:${
+  // **Names the SELECTED SCOPE only, never the tab (corrected 2026-09-02).**
+  // It used to also carry `tab`, on the stated idea that switching Items and
+  // Options should replay the fade the way entering a different block does —
+  // but a `key` given to one `m.div` and read by the OTHER, un-related one
+  // has no way to change for just the pane becoming visible: both panes
+  // compute the SAME string, so a tab flip alone changed BOTH keys and
+  // remounted BOTH panes, hidden one included. Found in a real browser: a
+  // template-save spec opened the theme panel, switched to Items for the
+  // template picker, applied one, switched back to Options, and the panel
+  // had silently closed — `ThemeConfigurator`'s own `open` state is a plain
+  // `useState`, reset to its initial `false` by the very remount this key
+  // caused. Selection changing is still what "entering a different block"
+  // means, and dropping `tab` costs only the tab-switch replay — a smaller
+  // loss than a control silently forgetting what it was doing.
+  const scopeKey = `${selection.kind}:${
     selection.kind === "block" ? selection.path.join("-") : ""
   }`;
 
@@ -209,12 +225,15 @@ export function CanvasInspector({
         </div>
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {/* **Scope transitions are keyed on `tab` and the selected path**, so
-            entering a different block or switching Items/Options both remount
-            this inner wrap and re-play its short fade+translate — "a new
-            scope reads as navigation rather than replacement." The `hidden`
-            attribute above still owns which PANE is visible; this key only
-            ever plays inside the one that already is. */}
+        {/* **Scope transitions are keyed on the selected path alone**, so
+            entering a different block remounts this inner wrap and re-plays
+            its short fade+translate — "a new scope reads as navigation
+            rather than replacement." The `hidden` attribute above still owns
+            which PANE is visible; switching Items/Options with the SAME
+            selection no longer remounts either one, which is what keeps a
+            pane's own local state — the theme panel's open/closed flag among
+            it — alive across a tab flip. See `scopeKey`'s own comment for
+            the fault dropping `tab` from it closed. */}
         {hasItems ? (
           <div hidden={tab !== "items"} className="grid gap-2">
             <m.div

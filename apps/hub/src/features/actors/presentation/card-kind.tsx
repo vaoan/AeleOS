@@ -20,21 +20,31 @@ const MARKS = {
 } as const satisfies Record<CardKindName, unknown>;
 
 /**
- * The colour each kind's word is set in, paired with the colour of its bar.
+ * The colour each kind's word is set in.
  *
  * **The two eyebrows were byte-identical before this**, both `--muted`, so the
  * only thing separating them at a glance was a 14px glyph — and the glyphs are
  * a stack of sheets against a filled tile, which is a distinction you have to
- * look at rather than one you notice. Setting each word in its own bar's
- * colour means the word and the bar say the same thing twice, so either one
- * answers "which of these am I looking at" on its own.
+ * look at rather than one you notice. Setting each word in its own colour
+ * gives either one a second way to answer "which of these am I looking at".
  *
- * **The pairing is the point, not the accent.** Whoever changes a bar's colour
- * changes the word's here in the same edit, or the card starts telling a reader
- * two different things about itself.
+ * **A container's word does NOT match its rail's `--accent` any more
+ * (2026-09-02), and that is a correction rather than the original design.**
+ * The rail (`ContainerRail`) is `aria-hidden` and decorative, so it may
+ * safely wear the author's own theme accent — an arbitrary, per-page colour
+ * with no contrast guarantee against `.aeleos-chrome`'s fixed background.
+ * The WORD is real text, not decoration, and a real `a11y.spec.ts` scan
+ * caught exactly this: `label[for="…-name"]` and this eyebrow both failed
+ * `color-contrast` the first time an axe scan actually reached a NESTED
+ * section's own card, because that page's own accent happened to be one
+ * `.aeleos-chrome` never redeclares (see `globals.css`'s `.aeleos-chrome`
+ * block — it fixes `--ink`/`--ink-2`/`--muted`, never `--accent`). `--ink` is
+ * a token that block already guarantees legible in both colour schemes, so
+ * container and content are still two different, both SAFE tones rather
+ * than one safe and one that only sometimes is.
  */
 const TONES = {
-  container: "text-(--accent)",
+  container: "text-(--ink)",
   content: "text-(--muted)",
 } as const satisfies Record<CardKindName, string>;
 
@@ -68,12 +78,14 @@ export interface CardKindProps {
  * The mark is hidden from assistive technology because the word beside it says
  * the same thing.
  *
- * **Each kind's word is set in its own bar's colour** — see {@link TONES}. Both
- * were `--muted` until 2026-08-28, byte-identical, so the glyph was the only
- * thing separating them and a reader had to compare two 14px marks to answer
- * which card they were looking at. The word and the bar now say it twice, so
- * either answers alone. The tone comes from the same `kind` the glyph does, so
- * a third kind is still an edit in this file and nowhere else.
+ * **Each kind's word is set in its own tone** — see {@link TONES}. Both were
+ * `--muted` until 2026-08-28, byte-identical, so the glyph was the only thing
+ * separating them and a reader had to compare two 14px marks to answer which
+ * card they were looking at. The tone comes from the same `kind` the glyph
+ * does, so a third kind is still an edit in this file and nowhere else.
+ * {@link TONES}'s own comment carries the 2026-09-02 correction: a
+ * container's word no longer matches its rail's `--accent`, because the rail
+ * is decorative and the word is not.
  *
  * **It belongs on the LABEL's line, never in the row holding the control.**
  * Measured at 320px in Spanish: put beside the leaf's kind select it pushed a

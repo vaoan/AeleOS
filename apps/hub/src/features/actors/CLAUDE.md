@@ -5133,10 +5133,25 @@ Five places carry it, matching the spec:
    SSR-safe equivalent; the client snapshot calls `matchMedia` directly,
    unguarded, matching `nebula-canvas.tsx`'s own convention.
 2. **Scope transitions** — the Items/Options pane's inner content is wrapped
-   in an `m.div` keyed on `${tab}:${selection.kind}:${path}`, so entering a
-   different block or switching tabs both remount it and re-play a short
-   fade+translate. The `hidden` attribute deciding which PANE shows still
-   owns that; the key only ever plays inside the one already visible.
+   in an `m.div` keyed on `${selection.kind}:${path}` (2026-09-02; the key was
+   `${tab}:${selection.kind}:${path}` and that was a bug, not a broader
+   feature — see below), so entering a different block remounts it and
+   re-plays a short fade+translate. The `hidden` attribute deciding which
+   PANE shows still owns that.
+
+   **The `tab`-inclusive key remounted BOTH panes on every tab flip, hidden
+   one included, and a real browser caught it losing state.** Both panes'
+   `m.div`s computed the identical string from the same `tab` value, so
+   switching Items↔Options with no selection change still changed both
+   keys — a "switching tabs also replays" nicety, but it meant the pane you
+   just LEFT remounted too, discarding any local `useState` inside it.
+   `theme-configurator.tsx`'s own open/closed flag is exactly that kind of
+   state, and `editor-saves-page.spec.ts`'s template round-trip opens the
+   theme panel, switches to Items for the template picker, applies one, and
+   switches back — landing squarely in the window this closed. Selection
+   changing is still what "entering a different block" means, so dropping
+   `tab` costs only the tab-switch replay.
+
 3. **Canvas accommodation** — plain CSS
    (`transition-[padding-left] duration-210 ease-out`) on `data-editor-stack`,
    deliberately not Motion, so `@dnd-kit` and the page's own boxes never
@@ -5171,6 +5186,21 @@ Motion but found by wiring the entrance direction — `tests/setup.ts` now
 stubs it to always answer "no match," matching the `ResizeObserver` stub
 beside it: constructed so the code under test can run, at the narrowest
 default, with the real answer proved in `tests/e2e/`.
+
+**`reducedMotion="user"` does not make an opacity fade instant, and a Task 7
+test's first draft believed it did.** Motion's own docs are explicit —
+`reducedMotion` "automatically disables transform and layout animations...
+while preserving non-motion properties like opacity and backgroundColor" —
+and a real Chromium run under `page.emulateMedia({reducedMotion: "reduce"})`
+confirms it exactly: `canvas-inspector.tsx`'s entrance samples `transform` as
+`none` on every one of twenty consecutive animation frames, where `opacity`
+climbs from about 0.22 to 1 over the same ~200ms the ordinary-mode entrance
+takes. So reduced motion removes the SLIDE and leaves the FADE untouched, on
+purpose — this is root rule 1 (a newly adopted tool believed only once shown
+to fail) landing on a config option's NAME rather than on the tool itself.
+`editor-interaction.spec.ts`'s reduced-motion case asserts `transform` at
+rest with no poll — the genuinely instant half — and polls `opacity` to `1`
+exactly as the ordinary-mode case beside it does.
 
 **A measured finding for whoever finishes the cost verification (Task 8):
 Motion's own chunk currently reaches the fully public, signed-out profile
@@ -5214,6 +5244,74 @@ Motion stays: unused JS sitting in a downloaded chunk costs bytes and parse
 time, not the runtime frame cost `canvas` measures, since no `m.*` component
 ever mounts on a route that does not render editor chrome.
 
-Nothing about Task 7's browser proof has landed yet; this section grows
-with the branch rather than describing a finished feature. See
-`docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
+**Task 7's browser proof landed (2026-09-02), and it found five real defects
+none of the earlier tasks' unit suites could have — every one of them a
+mechanism jsdom does not implement or a timing window only a real compositor
+has.** Two new specs, `editor-interaction.spec.ts` and
+`add-block-picker.spec.ts`, plus the mechanical `add-content`/`add-nested`/
+`add-section` substitution across ten existing ones (this feature note's own
+list of what changed, above). What running them for real found:
+
+- **The Add-block picker's own preview nested a real `<button>` inside its
+  option's `<button>`** — `player`/`jukebox` render real transport controls
+  through the same renderer a public page uses, and a `<button>` may not
+  contain interactive content at all. React warned on every open; axe then
+  refused it as `nested-interactive` even after the option became a
+  `role="button"` `<div>`, because the rule is about interactive content
+  nesting, not about which tag is outermost. The preview is `inert` now —
+  removed from the accessibility tree, from focus, and from hit-testing, so a
+  click anywhere inside it (a transport button included) falls through to the
+  option behind it, the same mechanism `canvas-interaction-lock.ts` already
+  relies on for the editor canvas.
+- **The picker's own dialog never moved focus into itself**, so Escape — sent
+  to whatever still held focus, the trigger BUTTON outside the dialog —
+  never reached the `onKeyDown` listening for it. A `useEffect` focusing the
+  dialog (`tabIndex={-1}`) on open is what makes "closes through Escape once
+  focus is inside" — a sentence the component's own comment already
+  asserted — actually true.
+- **A container's own `CardKind` eyebrow, and the whole card around it,
+  painted with tokens no fixed background pairing ever promised.**
+  `text-(--accent)` is the author's own arbitrary theme colour with no
+  contrast guarantee against `.aeleos-chrome`'s fixed surfaces; `block-card.tsx`
+  had never been wrapped in `CHROME_SCOPE` at all, so `--ink`/`--muted` read
+  the PAGE's derived palette while the card's own `--surface-solid`
+  background compounded its 90%-alpha translucency with every level of
+  nesting, letting more of the page's own background bleed through than any
+  single-layer check accounts for. Both are fixed now — `CHROME_SCOPE` on the
+  card, `--menu` (genuinely opaque, no alpha) in place of `--surface-solid`,
+  `--ink` in place of `--accent` on the eyebrow — and a real axe scan found
+  the difference: 15 `color-contrast` violations on a nested card, sharing
+  the same fixed background as their own measured foreground, down to zero.
+- **`reducedMotion="user"` does not make an opacity fade instant**, which the
+  library's own docs say plainly and this branch's first draft did not
+  believe until a real `prefers-reduced-motion: reduce` run measured it: the
+  entrance's `transform` reads `none` from the first frame, its `opacity`
+  climbs over the same ~200ms ordinary mode takes. See the account above,
+  under the Motion bullet.
+- **Switching Items↔Options remounted BOTH panes, not only the one becoming
+  visible**, because `canvas-inspector.tsx`'s scope-transition key carried
+  `tab` and both panes computed the identical string from it — so a tab flip
+  alone, with no selection change, destroyed and recreated the pane you just
+  LEFT along with the one you were headed to. `theme-configurator.tsx`'s own
+  `open` flag is exactly the kind of local state that remount threw away, and
+  `editor-saves-page.spec.ts`'s template round-trip (open the theme panel,
+  switch to Items for the template picker, apply one, switch back) landed
+  squarely in the window. The key no longer carries `tab`; entering a
+  different block is still what triggers the replay.
+
+Two more were test-side rather than app-side, and are recorded here because
+each is a small instance of a rule this file already states: `addSection`
+narrows or widens a container's WIDTH through `section-spaces`, never its
+CAPACITY — the picker's own layout options always start at two children
+(`PICKER_SPACES` in `add-block-picker.tsx`) — so a test wanting a genuine
+third, explicitly empty place needs its own `add-place` press; several
+specs, including one pre-existing test, assumed spaces and children were the
+same number. And a raw pointer drag in `section-drag-reorder.spec.ts` raced
+`@dnd-kit/core@6.3.1`'s own `PointerSensor.detach()`, which keeps a
+document-level capturing `click` listener alive for exactly 50ms after a
+drop specifically to swallow the synthetic click a mouseup-after-drag
+produces — a genuinely independent click landing in that window is silently
+lost too, whoever it targets. Both are documented at their call sites rather
+than only here.
+
+See `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.
