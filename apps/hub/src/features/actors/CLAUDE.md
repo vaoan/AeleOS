@@ -4966,7 +4966,13 @@ every {@link INTERACTIVE} descendant of an editor canvas `inert` — anchors,
 buttons, form controls, disclosures, controlled media, frames, editable
 content and an explicit tab stop — skipping anything inside `CHROME_SCOPE` so
 the inspector, Add and the toolbar keep working while the page beneath them
-does not. **It never marks the canvas element itself `inert`**: the click that
+does not. **The standing rule this makes possible: no leaf or container
+renderer in `blocks.tsx` may grow an `editing`/`isEditor` branch of its own
+to decide whether a link navigates or a player plays.** Every renderer stays
+the one thing that draws both a stranger's page and the editor's canvas —
+`INTERACTIVE`'s own selector list is the one place that changes when a new
+kind needs locking, not a conditional threaded through every leaf that
+already exists. **It never marks the canvas element itself `inert`**: the click that
 selects a block is read off that same element, and an inert ancestor would
 swallow the click before it arrived.
 
@@ -5167,6 +5173,20 @@ Five places carry it, matching the spec:
    actual `@dnd-kit` node and already writes its own `transform`; an empty
    place's whole content is `m.div` since it carries no handle at all.
 
+**The standing rule for a SIXTH place, and every one after it: Motion
+renders only inside `CHROME_SCOPE`, and never on a `@dnd-kit` node.** Both
+halves are load-bearing and for different reasons. `CHROME_SCOPE` is what
+keeps an author's own page — its skinned content, its own animations if a
+skin ever grows one — untouched by this feature's chrome; an `m.*` wrapping
+real page content would be authored-content motion wearing this feature's
+name. And `@dnd-kit` already writes its own inline `transform` on the
+element it measures and moves (`BlockSlot`'s outer element, every drag
+target), so a SECOND `transform` source on the same element — Motion's own,
+from an `x`/`y`/`scale` animation — is two systems fighting over one CSS
+property; item 3 and item 5 above are both this rule applied, not two
+separate carve-outs. A new `m.*` usage that cannot honestly satisfy both
+halves does not belong in this feature.
+
 **jsdom cannot run a Motion animation to completion, and that broke two
 pre-existing tests before it broke none of the new ones.** No real
 compositor means an `initial={{opacity:0}}` element never reaches
@@ -5231,6 +5251,18 @@ size. Motion's marginal cost is the same **+108,856 bytes** on every route
 that has the barrel's bundle at all, editor or public — consistent, not
 pathological.
 
+**Re-measured after Task 7's own fixes (2026-09-02):** editor routes read
+1,950,813 bytes, `/[locale]/[person]` (+`/[handle]`) reads 1,943,136 —
++109,155 over the SAME pre-Motion baseline this table's own "before Motion"
+column recorded, a further +299 bytes from this task's own code (the
+`inert` attributes, the `role="button"` conversion, `CHROME_SCOPE` on
+`block-card.tsx`). The four unrelated routes read the identical
+778,889 / 749,122 / 738,627 / 452,708 they always have — **byte-for-byte
+zero change, confirmed again** — which is the explicit form of the same
+evidence this table already carried: Motion's import graph stayed scoped
+to the barrel it was always going to share, and nothing Task 7 fixed moved
+that boundary.
+
 **What this does not settle:** whether that pre-existing barrel coupling
 itself is acceptable is a question this task did not create and cannot
 answer by reverting Motion — a revert would leave `/[locale]/[person]`
@@ -5243,6 +5275,26 @@ throttled-page measurement is the number that actually decides whether
 Motion stays: unused JS sitting in a downloaded chunk costs bytes and parse
 time, not the runtime frame cost `canvas` measures, since no `m.*` component
 ever mounts on a route that does not render editor chrome.
+
+**Task 8 ran that measurement, with the editor mounted, and Motion did not
+move it — kept, on the numbers, not because it was already wired.** The
+gate in the spec is TWO-PART: which chunk Motion lands in (settled above —
+it never reaches a route that renders no editor chrome, the shared/barrel
+routes excepted, which already carried that bundle before Motion existed)
+and whether the throttled-page frame cost moves. `personalised-page-cost.spec.ts`'s
+"dragging a theme dial in its editor" case, against the same 20-heavy-section
+seeded page the spec was written against, on a real Chromium throttled to a
+phone: **`theme commits: 1 over 175 delivered movements (0.006 each)`** —
+the identical healthy ratio root rule 14 already documents (`0.006` fixed,
+`1.000` sabotaged), measured with the full Task 1–7 stack — the interaction
+lock, the Add picker and Motion's own five entrance animations — all
+mounted and live. Style recalc read 23.3ms per input event across 20 events
+and 183 preview leaves, in the same run. Both are the same order of
+magnitude the spec's own reference numbers already carry. Every canvas's
+own frame cost, checked in the same `canvas` job run, also cleared its
+budget — `hexagons` highest at 53.0ms against the "order of magnitude"
+threshold, nothing new about that list. **Verdict: keep Motion.** All 6
+cases in the `canvas` project passed.
 
 **Task 7's browser proof landed (2026-09-02), and it found five real defects
 none of the earlier tasks' unit suites could have — every one of them a
@@ -5313,5 +5365,46 @@ drop specifically to swallow the synthetic click a mouseup-after-drag
 produces — a genuinely independent click landing in that window is silently
 lost too, whoever it targets. Both are documented at their call sites rather
 than only here.
+
+### The five real defects, sorted by whose fault they were (2026-09-02)
+
+The paragraph above lists what Task 7 found; it does not say which of them
+were bugs IN this feature and which were bugs this feature's own testing
+happened to uncover somewhere else. That distinction matters to a future
+reader deciding whether a fix is protecting old, shipped behaviour or new
+behaviour this branch is still shaping — so it is checked against `git log`
+rather than asserted:
+
+- **Pre-existing, shipped, unrelated to this branch.** `block-card.tsx`
+  (`#159`, "Sections of spaces") and `card-kind.tsx` (`#24`) both predate
+  `editor-interaction-motion` entirely. Neither had ever been driven by a
+  real accessibility scan reaching a NESTED card before Task 7's — the
+  card's own `bg-(--surface-solid)` translucency compounding with nesting
+  depth, and `CardKind`'s container eyebrow reading the author's own
+  `--accent` with no contrast guarantee against a fixed background, are
+  defects that have been live in production-shaped code since those two
+  pull requests, not artefacts of anything this branch designed. Fixed here
+  because Task 7's own new coverage is what finally exercised the state
+  that exposes them, not because they were ever this feature's to begin
+  with.
+- **New to this branch, but not to Task 7 — introduced by Task 6.**
+  `canvas-inspector.tsx` itself predates this branch (`#58`), but the
+  `tab`-inclusive scope key that remounted both inspector panes on every
+  tab flip was written by this branch's OWN Motion commit (`2ae8c5a`),
+  three tasks before the browser run that caught it. It is a real bug this
+  branch shipped internally between tasks, not a design Task 7 is
+  correcting after the fact — Task 6's own commit is where "correct" ends
+  and "buggy" begins.
+- **New to this branch, and to the same task that wrote the buggy code.**
+  `add-block-picker.tsx` did not exist before this branch's own Task 4
+  commit (`e7bf9f3`); the nested `<button>` and the dialog never moving
+  focus into itself are defects in code that was new and unexercised in a
+  real browser from the moment it was written, found by the first task
+  that actually opened it in one.
+
+The `reducedMotion="user"` opacity finding is not on this list: nothing in
+the app was ever wrong there, `MotionConfig` behaves exactly as its own docs
+say, and what changed was a TEST's assumption, not shipped code — see the
+account above.
 
 See `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.

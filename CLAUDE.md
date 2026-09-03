@@ -1168,14 +1168,31 @@ list --state open` returning nothing else.
 
   **Post it on the PR. Do not commit it.** Temporary Playwright specs,
   `shot-*.png`, and crop files stay out of git; delete them after the comment
-  is up. Uploading the images and posting the comment are `git`/`gh` actions
-  like any other: they use the PAT in `.secrets` (`GH_TOKEN`) and the
-  procedure in [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md) —
-  never `git config --global`, never a stored osxkeychain login, never
-  `gh auth login` as somebody else, never a drag-drop in the browser as a
-  different account. Confirm `gh api user` first, then `gh pr comment` with
-  markdown that embeds the uploaded files. A picture that landed as a
-  different GitHub user is not posted.
+  is up.
+
+  **`gh pr comment` cannot upload a file, and believing it can was wrong for a
+  while.** It posts Markdown only — GitHub's own drag-drop attachment upload
+  needs a browser session, which a PAT cannot drive, so there is no `gh`
+  equivalent of dropping a PNG into the comment box. The image has to be
+  hosted somewhere a raw URL can point at, and the mechanism that works,
+  verified on PR #52: a **private gist**, holding nothing but the picture,
+  created and pushed to with the same PAT identity as every other action here.
+
+  ```bash
+  gh api gists -X POST -f 'description=…' -F 'public=false' -f 'files[README.md][content]=placeholder'
+  git clone <git_push_url>   # the gist's own clone URL, from the response
+  # copy the PNG in, commit, push
+  # reference https://gist.githubusercontent.com/<user>/<id>/raw/<file>.png
+  # in the PR comment body
+  ```
+
+  Confirmed: the raw URL serves `200` with `Content-Type: image/png`, so it
+  renders inline in the comment the same way a native upload would. Confirm
+  `gh api user` first — never `git config --global`, never a stored
+  osxkeychain login, never `gh auth login` as somebody else, never a
+  drag-drop in the browser as a different account. A picture that landed as a
+  different GitHub user, or that never left a gist nobody can reach, is not
+  posted.
 
   **Photograph the branch, never `main` by accident.** `PLAYWRIGHT_BASE_URL`
   still pointing at production from an earlier live check is how a comment

@@ -2,9 +2,16 @@
 
 This is the procedure for every `git` and `gh` operation in AeleOS: push,
 fetch, pull, PR, review, merge, GitHub API, **and posting picture proof on a
-PR** (upload the images, then `gh pr comment`). It is for anyone (human or
-agent) acting on `vaoan/AeleOS`. Do not copy a name, email, login, or token
-from memory, from `git config --global`, or from a previous session.
+PR**. It is for anyone (human or agent) acting on `vaoan/AeleOS`. Do not copy
+a name, email, login, or token from memory, from `git config --global`, or
+from a previous session.
+
+Picture proof is the one operation here that is not a single `gh` command.
+`gh pr comment` posts Markdown only — there is no `gh` subcommand that
+uploads an attachment, because GitHub's own drag-drop upload needs a browser
+session a PAT cannot drive. See "Picture proof on an open PR" below for the
+mechanism that actually gets a PNG onto a comment: a private gist, pushed to
+with this same PAT identity, referenced by its raw URL.
 
 Authentication and commit identity both come from the PAT in `.secrets`, via
 GitHub's own API. The PAT is the account that owns this repository. The
@@ -104,20 +111,36 @@ git -c credential.helper= -c credential.helper="!gh auth git-credential" push -u
 After the steps above, use ordinary commands. They authenticate as `gh api user`’s
 `login`.
 
-| Task                  | Command                                    |
-| --------------------- | ------------------------------------------ |
-| Status / diff / log   | `git status`, `git diff`, `git log`        |
-| Branch from `main`    | `git checkout -b <name> origin/main`       |
-| Commit                | `git commit` (local `user.*` already set)  |
-| Push                  | `git push -u origin HEAD`                  |
-| Open a PR             | `gh pr create`                             |
-| Picture proof         | upload with this PAT, then `gh pr comment` |
-| Checks, review, merge | `gh pr checks`, `gh api`, `gh pr merge`    |
+| Task                  | Command                                       |
+| --------------------- | --------------------------------------------- |
+| Status / diff / log   | `git status`, `git diff`, `git log`           |
+| Branch from `main`    | `git checkout -b <name> origin/main`          |
+| Commit                | `git commit` (local `user.*` already set)     |
+| Push                  | `git push -u origin HEAD`                     |
+| Open a PR             | `gh pr create`                                |
+| Picture proof         | gist push with this PAT, then `gh pr comment` |
+| Checks, review, merge | `gh pr checks`, `gh api`, `gh pr merge`       |
 
-Picture proof on an open PR is the same actor as the push. Load `GH_TOKEN`,
-confirm `gh api user`, then upload and comment. A screenshot posted through
-the website, a stored osxkeychain login, or `gh auth login` as another
-account is a different person on the thread and does not count.
+**Picture proof on an open PR is the same actor as the push, and it is not a
+single command.** `gh pr comment` cannot upload a file — it posts Markdown
+only, and GitHub's own attachment upload needs a browser session no PAT can
+drive. The mechanism that works, verified on PR #52:
+
+```bash
+gh api gists -X POST -f 'description=…' -F 'public=false' -f 'files[README.md][content]=placeholder'
+git clone <git_push_url>   # the gist's own clone URL, from the response above
+# copy the PNG in, commit, push — same PAT identity as every other action
+# reference https://gist.githubusercontent.com/<user>/<id>/raw/<file>.png
+# in the PR comment body passed to `gh pr comment`
+```
+
+The raw URL serves `200` with `Content-Type: image/png`, so it renders
+inline in the comment exactly as a native upload would, and nothing enters
+the repository itself. Load `GH_TOKEN`, confirm `gh api user`, then push to
+the gist and comment. A screenshot posted through the website, a stored
+osxkeychain login, `gh auth login` as another account, or a gist nobody but
+its author can reach is a different person on the thread and does not
+count.
 
 Still follow `CLAUDE.md`: branch from `origin/main` by name, do not commit
 unless asked, do not commit secrets, do not skip hooks.
