@@ -4942,7 +4942,7 @@ outside the per-task panic boundary … please report it` and `Aborting.` —
   line is actually there before assuming that; a real regression can still
   produce a wide failure spread for its own reasons.
 
-### Page interaction locks by default while editing (2026-09-02, in progress)
+### Page interaction locks by default while editing (2026-09-02) — done
 
 The editor canvas renders the real page, real links and real embeds
 included, so a click meant to select a block could navigate away or start
@@ -5024,11 +5024,13 @@ is genuinely on and the element is no longer inert. Both are needed —
 proves the second with a REAL `link` leaf and a real anchor click, since
 jsdom implements no `inert` behaviour and cannot itself distinguish the two.
 
-**The Add picker exists now, `presentation/add-block-picker.tsx`, though
-nothing calls it yet — the flat add row and the drag-to-add path it replaces
-are both still live.** It is not wired into `inspector-items.tsx` or
-`block-editor.tsx` until the next task; this paragraph describes the
-component in isolation.
+**The Add picker is wired in, `presentation/add-block-picker.tsx` reached
+from both `inspector-items.tsx` and `block-editor.tsx`'s own Items footer —
+the sentence that used to stand here said "nothing calls it yet" and named
+Task 4's own moment, not the branch's finished one.** The flat add row
+(`add-content`/`add-nested`) and the drag-to-add HTML5 path it replaced are
+both gone, removed in the task that did the wiring — see the drag-to-add
+removal note below for what that took with it.
 
 `AddBlockPicker` is one control that draws its options with the REAL
 renderer — `Block` from `blocks.tsx` — over fixed sample content from the
@@ -5222,16 +5224,29 @@ to fail) landing on a config option's NAME rather than on the tool itself.
 rest with no poll — the genuinely instant half — and polls `opacity` to `1`
 exactly as the ordinary-mode case beside it does.
 
-**A measured finding for whoever finishes the cost verification (Task 8):
-Motion's own chunk currently reaches the fully public, signed-out profile
-routes, and that is a PRE-EXISTING fact about this feature's barrel, not
-something this wiring introduced.** `@/features/actors/index.ts` re-exports
-`FursonaEditor` (which imports `EditorMotion`) from the same barrel
-`/[locale]/[person]/page.tsx` imports `PublicProfile` from — so Turbopack's
-per-route `firstLoadChunkPaths` already put the SAME shared bundle behind
-both an editor route and a public one before Motion ever entered the
-picture. Measured directly from `.next/diagnostics/route-bundle-stats.json`,
-before and after this task, in uncompressed bytes:
+**A measured finding, closed out at Task 8 (2026-09-02): Motion's own
+chunk reaches the fully public, signed-out profile and fursona-page
+routes, and that sentence has TWO halves that must not be collapsed into
+one.** The COUPLING is pre-existing: `@/features/actors/index.ts`
+re-exports `FursonaEditor` (which imports `EditorMotion`) from the same
+barrel `/[locale]/[person]/page.tsx` imports `PublicProfile` from, so
+Turbopack's per-route `firstLoadChunkPaths` already put the SAME shared
+bundle behind both an editor route and a public one before Motion ever
+entered the picture — this branch did not create that barrel. The PAYLOAD
+is not pre-existing: **+109,155 bytes of Motion itself now ship on
+`/[locale]/[person]`, `/[locale]/[person]/[handle]` and every editor
+route, added by this branch**, because whatever the barrel already carried,
+it did not carry Motion until this feature imported it. "The coupling is
+old, the bytes are new" is the accurate sentence; a review caught an
+earlier draft of this note collapsing both into "not something this wiring
+introduced," which is false about the second half. The owner's own
+decision on what follows: **merge as-is, split the barrel in a follow-up**
+— untangling `@/features/actors/index.ts` so editor-only exports are not
+re-exported through the same barrel a public page's `PublicProfile` comes
+from is deliberately out of THIS branch's scope, not forgotten. Measured
+directly from `.next/diagnostics/route-bundle-stats.json`, before and
+after this task, in uncompressed bytes — the baseline the follow-up
+inherits:
 
 | route (representative)                             |     before Motion | after Motion |    delta |
 | -------------------------------------------------- | ----------------: | -----------: | -------: |
@@ -5263,14 +5278,17 @@ evidence this table already carried: Motion's import graph stayed scoped
 to the barrel it was always going to share, and nothing Task 7 fixed moved
 that boundary.
 
-**What this does not settle:** whether that pre-existing barrel coupling
-itself is acceptable is a question this task did not create and cannot
-answer by reverting Motion — a revert would leave `/[locale]/[person]`
-loading the same ~1.8MB either way. Untangling it means splitting
-`@/features/actors/index.ts` so editor-only exports (`FursonaEditor`,
-`BlockEditor`, `AddBlockPicker`, and everything they pull in) are not
-re-exported through the same barrel a public page's `PublicProfile` comes
-from — a real fix, and out of this task's scope. The `canvas` job's own
+**What this does not settle, by the owner's own ruling rather than by
+default:** whether that pre-existing barrel coupling itself is acceptable
+is a question this task did not create and cannot answer by reverting
+Motion — a revert would leave `/[locale]/[person]` loading the same
+~1.8MB either way. Untangling it means splitting `@/features/actors/index.ts`
+so editor-only exports (`FursonaEditor`, `BlockEditor`, `AddBlockPicker`,
+and everything they pull in) are not re-exported through the same barrel a
+public page's `PublicProfile` comes from — a real fix, and the owner's own
+decision is to merge this branch as-is and do that splitting in a
+follow-up, with the measured numbers above as its baseline, rather than
+block this feature on an unrelated pre-existing coupling. The `canvas` job's own
 throttled-page measurement is the number that actually decides whether
 Motion stays: unused JS sitting in a downloaded chunk costs bytes and parse
 time, not the runtime frame cost `canvas` measures, since no `m.*` component
@@ -5376,12 +5394,19 @@ behaviour this branch is still shaping — so it is checked against `git log`
 rather than asserted:
 
 - **Pre-existing, shipped, unrelated to this branch.** `block-card.tsx`
-  (`#159`, "Sections of spaces") and `card-kind.tsx` (`#24`) both predate
-  `editor-interaction-motion` entirely. Neither had ever been driven by a
-  real accessibility scan reaching a NESTED card before Task 7's — the
-  card's own `bg-(--surface-solid)` translucency compounding with nesting
-  depth, and `CardKind`'s container eyebrow reading the author's own
-  `--accent` with no contrast guarantee against a fixed background, are
+  (`#159`, "Sections of spaces") predates `editor-interaction-motion`
+  entirely, and so does `card-kind.tsx` — created in `#24`, though the
+  specific `text-(--accent)` tone on its container eyebrow is a day
+  younger than that: `git log -S` places it in `#34`, the pull request
+  that first told the two eyebrows apart by colour rather than glyph
+  alone. Both dates are pre-branch either way, which is the fact that
+  matters here — the credit is corrected because a review checked it, not
+  because it changes which list this belongs on. Neither file had ever
+  been driven by a real accessibility scan reaching a NESTED card before
+  Task 7's — the card's own `bg-(--surface-solid)` translucency compounding
+  with nesting depth, and `CardKind`'s container eyebrow reading the
+  author's own `--accent` with no contrast guarantee against a fixed
+  background, are
   defects that have been live in production-shaped code since those two
   pull requests, not artefacts of anything this branch designed. Fixed here
   because Task 7's own new coverage is what finally exercised the state

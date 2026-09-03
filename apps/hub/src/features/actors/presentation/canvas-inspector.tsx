@@ -1,52 +1,11 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import type { EditorSelection } from "@/features/actors/domain/editor-selection";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
 import { m } from "@/features/actors/presentation/editor-motion";
-
-/**
- * Matches Tailwind's own `md` breakpoint, which is where this component's
- * own layout switches from a bottom sheet to a left column.
- */
-const DESKTOP_QUERY = "(min-width: 768px)";
-
-/**
- * No live subscription — this direction is read once, not tracked, so a
- * resize mid-entrance is not worth reacting to for a ~210ms one-shot
- * animation. `useSyncExternalStore` is used anyway, in place of a lazy
- * `useState` initializer, purely for its `getServerSnapshot` half: this
- * component's tree can render during SSR, where `window` does not exist,
- * and a `useState` initializer has no SSR-safe equivalent.
- *
- * @returns an unsubscribe that does nothing.
- */
-function noSubscription(): () => void {
-  return doNothing;
-}
-
-/** The unsubscribe {@link noSubscription} hands back — nothing to undo. */
-function doNothing(): void {}
-
-/**
- * Whether the viewport is at or above {@link DESKTOP_QUERY} right now.
- *
- * @returns true at the desktop breakpoint.
- */
-function isDesktopViewport(): boolean {
-  return globalThis.matchMedia(DESKTOP_QUERY).matches;
-}
-
-/**
- * The SSR-safe answer: no viewport to ask, so the mobile entrance plays.
- *
- * @returns false.
- */
-function assumeMobileOnServer(): boolean {
-  return false;
-}
 
 /**
  * Already-translated strings {@link CanvasInspector} renders.
@@ -123,14 +82,24 @@ export interface CanvasInspectorProps {
  * writing switch depending on z-order, and a 320px panel left nested controls
  * outside its horizontal viewport.
  *
- * **The root is `m.div` now (2026-09-02), fading and sliding in** — from
- * the left on desktop, up from the bottom on a phone — and the Items/Options
- * inner content is a second `m.div`, keyed on the SELECTED PATH ONLY (not
- * `tab` — see the fault above), so entering a different block reads as
- * navigation and replays the fade; switching tabs with the same selection no
- * longer does, which is what keeps a pane's own local state alive across a
- * tab flip. See `editor-motion.tsx` for the import boundary this and every
- * other `m.*` usage here answers to.
+ * **The root is `m.div` now (2026-09-02), OPACITY-ONLY, and it used to slide
+ * too until a review found that a lie by construction (2026-09-02).** It
+ * fades in — no `x`/`y` — because it is an ANCESTOR of the ITEMS prop, which
+ * renders `InspectorItems` and, inside that, `BlockSlot`, the real
+ * `@dnd-kit` draggable/droppable. A slide would have written this element's
+ * own `transform` on the way to `x: 0`/`y: 0`, on the very box `@dnd-kit`
+ * measures and moves beneath it — the ancestor-transform hazard
+ * `editor-motion.tsx` states as a rule. The Items pane's own inner `m.div`
+ * is opacity-only for the identical reason, one level closer to the
+ * draggable it encloses; the Options pane's inner `m.div` still fades AND
+ * slides (`y: 6` → `0`), because Options never renders a `@dnd-kit` node —
+ * `SelectedOptions` draws fields, not draggable rows. Both inner panes are
+ * keyed on the SELECTED PATH ONLY (not `tab` — see the fault above), so
+ * entering a different block reads as navigation and replays the entrance;
+ * switching tabs with the same selection no longer does, which is what
+ * keeps a pane's own local state alive across a tab flip. See
+ * `editor-motion.tsx` for the import boundary this and every other `m.*`
+ * usage here answers to.
  *
  * @returns the inspector, or nothing when deselected.
  */
@@ -145,16 +114,6 @@ export function CanvasInspector({
   items,
   options,
 }: CanvasInspectorProps): ReactNode {
-  // Hooks run before the early return below on purpose — this one still has
-  // to fire on the render that mounts the inspector, and conditioning a hook
-  // on `selection` would violate the rules of hooks the moment selection
-  // changes.
-  const desktop = useSyncExternalStore(
-    noSubscription,
-    isDesktopViewport,
-    assumeMobileOnServer,
-  );
-
   if (selection === null) return null;
 
   // **Names the SELECTED SCOPE only, never the tab (corrected 2026-09-02).**
@@ -178,8 +137,8 @@ export function CanvasInspector({
   return (
     <m.div
       {...tid("canvas-inspector")}
-      initial={desktop ? { opacity: 0, x: -12 } : { opacity: 0, y: 12 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.21, ease: "easeOut" }}
       className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-30 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:top-[calc(var(--bar-top)+3.5rem)] md:right-auto md:bottom-0 md:left-0 md:max-h-none md:w-[min(36rem,40vw)] md:border-t-0 md:border-r`}
     >
@@ -227,19 +186,30 @@ export function CanvasInspector({
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {/* **Scope transitions are keyed on the selected path alone**, so
             entering a different block remounts this inner wrap and re-plays
-            its short fade+translate — "a new scope reads as navigation
-            rather than replacement." The `hidden` attribute above still owns
-            which PANE is visible; switching Items/Options with the SAME
-            selection no longer remounts either one, which is what keeps a
-            pane's own local state — the theme panel's open/closed flag among
-            it — alive across a tab flip. See `scopeKey`'s own comment for
-            the fault dropping `tab` from it closed. */}
+            its short entrance — "a new scope reads as navigation rather than
+            replacement." The `hidden` attribute above still owns which PANE
+            is visible; switching Items/Options with the SAME selection no
+            longer remounts either one, which is what keeps a pane's own
+            local state — the theme panel's open/closed flag among it —
+            alive across a tab flip. See `scopeKey`'s own comment for the
+            fault dropping `tab` from it closed.
+
+            **Items is opacity-only; Options still fades AND slides
+            (`y: 6` → `0`) — an intentional asymmetry, not a leftover.**
+            The ITEMS prop renders `InspectorItems` and, inside that, `BlockSlot`,
+            the real `@dnd-kit` draggable/droppable — an ancestor `m.div`
+            writing `y` would write `transform` on the box `@dnd-kit`
+            measures and moves. The OPTIONS prop renders `SelectedOptions`, which
+            draws fields and never a draggable row, so the slide is safe
+            there and stays for the fuller entrance it gives a freshly
+            selected block's own form. */}
         {hasItems ? (
           <div hidden={tab !== "items"} className="grid gap-2">
             <m.div
               key={scopeKey}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
+              {...tid("inspector-pane-entrance")}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
               className="grid gap-2"
             >
@@ -250,6 +220,7 @@ export function CanvasInspector({
         <div hidden={hasItems && tab !== "options"} className="grid gap-2">
           <m.div
             key={scopeKey}
+            {...tid("inspector-pane-entrance")}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, ease: "easeOut" }}

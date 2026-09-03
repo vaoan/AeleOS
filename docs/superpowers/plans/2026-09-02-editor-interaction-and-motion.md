@@ -15,6 +15,44 @@
 
 **Tech Stack:** Next.js hub, React 19, Tailwind v4 + `cn()`, `@dnd-kit` (unchanged), Motion for React (`motion` package, `motion/react` imports), Vitest, Playwright.
 
+> **Amendments, dispatched before Task 1 began — four owner decisions
+> overriding this plan's own text, none discovered by running it.** The
+> plan body below is left as delivered; read these first.
+>
+> - **Drag-to-add is removed, not merely superseded.** Wherever this plan
+>   describes the flat add row's `draggable` buttons and the canvas's
+>   matching HTML5 `onDragOver`/`onDrop` pair (`droppedKind`,
+>   `blockFromPayload`) as something the Add picker replaces, read that as
+>   DELETED rather than left dormant beside the picker — the owner's own
+>   words: "we can work with menus for now. We might think on drag to add
+>   later." Recorded in `apps/hub/src/features/actors/CLAUDE.md` as
+>   deliberate and reversible, not as a gap.
+> - **Sample content is generic, except four kinds that cannot be.** Where
+>   this plan implies every leaf kind gets a bespoke sample for the Add
+>   picker's preview, only `table`, `progress`, `quote` and `stat` do —
+>   because those four invert or structure the title/description pair and a
+>   generic sample renders nothing at all for three of them
+>   (`ProgressLeaf`/`QuoteLeaf`/`StatLeaf` fall back to `PlainLeaf` on an
+>   empty description). Every other kind takes one shared, generic sample.
+> - **Picture-proof uses a private gist, not a `gh pr comment` upload.**
+>   This plan's own picture-proof step, wherever it assumes `gh pr comment`
+>   can attach an image, is wrong about the mechanism: it posts Markdown
+>   only, and GitHub's attachment upload needs a browser session no PAT can
+>   drive. The working mechanism, verified on PR #52 and now the standing
+>   procedure in `docs/git-with-gh-token.md`: `gh api gists -X POST` to
+>   create a private gist, `git clone`/push the PNG into it with the same
+>   PAT identity as every other action, then reference its raw
+>   `gist.githubusercontent.com` URL in the PR comment body.
+> - **The Motion cost gate is which CHUNK, not how many bytes.** Wherever
+>   this plan frames "measure Motion against the `hub` build size" as a
+>   byte-count budget, the actual gate the owner set is architectural:
+>   Motion appearing in the shared/first-load chunk on a route that renders
+>   no editor chrome is a failure of the `LazyMotion` pattern regardless of
+>   size, and the revert decision is tied specifically to whether the
+>   `canvas` job's own throttled-page measurement moves — an animation
+>   library that moves that number is reverted with the numbers rather than
+>   kept because it is already wired.
+
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.

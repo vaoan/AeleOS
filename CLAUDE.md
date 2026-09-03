@@ -2183,7 +2183,7 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   for the account in full.
 
 - **Editor interaction lock, one Add picker, and Motion for editor chrome
-  (2026-09-02) — in progress.** The editor canvas is locked by default so a
+  (2026-09-02) — done.** The editor canvas is locked by default so a
   click selects a block rather than following a real link, with a
   session-only toolbar switch and Preview both able to make it interactive;
   every scope that can hold a block offers one Add picker, drawn with the
@@ -2192,11 +2192,22 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   return later); and editor chrome — the inspector, its scope transitions,
   new inspector rows — carries restrained Motion (`LazyMotion` + `m`,
   `MotionConfig reducedMotion="user"`), never the public renderer, never a
-  `@dnd-kit` node. `motion` is a new dependency of `apps/hub` for this. See
-  `apps/hub/src/features/actors/CLAUDE.md` for the full account, including a
-  measured, pre-existing finding that Motion's own chunk currently reaches
-  public routes through this feature's barrel — not something this work
-  introduced, and left for that plan's own cost-verification task.
+  `@dnd-kit` node — a real review found the last of those three actually
+  breached (the inspector's own root and Items-pane entrances wrote `x`/`y`
+  while ancestors of the real draggable), fixed to opacity-only and pinned
+  by a named regression case rather than left as a claim nothing checked.
+  `motion` is a new dependency of `apps/hub` for this. See
+  `apps/hub/src/features/actors/CLAUDE.md` for the full account, including
+  the closed-out cost verification: the barrel COUPLING that carries Motion
+  onto `/[locale]/[person]` and its fursona-page sibling is pre-existing,
+  from before this work, but the +109KB of Motion itself on those routes is
+  new, added by this branch — both true, neither collapsing into the other —
+  and the owner's own ruling is to merge as-is with the barrel split
+  deferred to a follow-up, the measured numbers left as its baseline. The
+  `canvas` job's own throttled-page measurement, run with the full stack
+  mounted, did not move (0.006 commits per delivered movement, the same
+  reading this file's own toolchain section already treats as healthy) —
+  the number that decides whether Motion stays, and it says keep it.
 
 ## The toolchain, and the rules it cost
 

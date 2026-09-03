@@ -104,23 +104,38 @@ async function isAccessible(
   disabled: string[] = [],
   exclude: string[] = [],
 ): Promise<void> {
-  // **Waits out Motion's own scope-transition fade, diagnosed rather than
-  // guessed.** Entering a fresh selection remounts `canvas-inspector.tsx`'s
-  // keyed `m.div` (`initial:{opacity:0,y:6}`, 150ms), and axe's
-  // `color-contrast` samples the actually RENDERED pixels — so a scan that
-  // lands mid-fade sees the whole card, text and background alike, blended
-  // toward whatever is BEHIND the editor at a shared partial opacity, which
-  // measurably lowers the contrast between them. Caught directly: one run of
-  // "the editor with a nested section selected" found 15 real-looking
-  // `color-contrast` violations sharing the exact page's own background as
-  // their measured foreground and background colours; a second scan of the
-  // identical, unchanged page moments later found none. `nested-card` (and
-  // every card like it) being `toBeVisible()` only proves opacity is
-  // non-zero, never that the fade has REACHED 1 — the gap this closes.
-  await page.evaluate(
-    // eslint-disable-next-line no-restricted-syntax -- measured Motion transition duration (150ms) plus margin, not a guess about machine speed; see comment above.
-    () => new Promise((done) => setTimeout(done, 250)),
-  );
+  // **Waits out Motion's own scope-transition fade — by POLLING it, not by
+  // guessing its duration (corrected 2026-09-02).** Entering a fresh
+  // selection remounts `canvas-inspector.tsx`'s keyed `m.div`
+  // (`inspector-pane-entrance`, 150ms), and axe's `color-contrast` samples
+  // the actually RENDERED pixels — so a scan that lands mid-fade sees the
+  // whole card, text and background alike, blended toward whatever is
+  // BEHIND the editor at a shared partial opacity, which measurably lowers
+  // the contrast between them. Caught directly: one run of "the editor with
+  // a nested section selected" found 15 real-looking `color-contrast`
+  // violations sharing the exact page's own background as their measured
+  // foreground and background colours; a second scan of the identical,
+  // unchanged page moments later found none. `nested-card` (and every card
+  // like it) being `toBeVisible()` only proves opacity is non-zero, never
+  // that the fade has REACHED 1 — the gap this closes.
+  //
+  // A fixed sleep matching the measured 150ms plus margin was tried first
+  // and reverted: `editor-interaction.spec.ts`'s reduced-motion case already
+  // establishes the better idiom for this exact library on this exact
+  // component, polling the computed style rather than betting a duration
+  // against however loaded the runner is. This element is absent on the
+  // signed-out pages this same function scans, so the wait is conditional
+  // on it existing at all — nothing to settle where there is no editor.
+  const pane = page
+    .getByTestId("inspector-pane-entrance")
+    .and(page.locator(":visible"));
+  if (await pane.count()) {
+    await expect
+      .poll(async () => pane.evaluate((el) => getComputedStyle(el).opacity), {
+        timeout: 2000,
+      })
+      .toBe("1");
+  }
 
   const builder = new AxeBuilder({ page })
     .withTags(TAGS)
