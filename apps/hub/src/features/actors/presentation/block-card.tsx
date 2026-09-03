@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  ChevronDown,
-  ChevronRight,
-  Layers,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { removalLocked } from "@/features/actors/domain/required-blocks";
 import { useId, useState, type ReactNode } from "react";
 import {
@@ -23,12 +16,9 @@ import {
   addToPlace,
   appendPlace,
   clearAt,
-  mayNest,
   newContainer,
-  newLeaf,
   patchContainer,
   removeAt,
-  setAt,
   setSpaces,
   SPACE_CHOICES,
   type BlockPath,
@@ -55,6 +45,7 @@ import {
   CardKind,
   ContainerRail,
 } from "@/features/actors/presentation/card-kind";
+import { CHROME_SCOPE } from "@/shared/domain/chrome";
 
 /**
  * Already-translated strings a card renders.
@@ -552,6 +543,16 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  * `LeafEditor` this card renders. Recursive inspector Options set that flag
  * false and render only this container's controls.
  *
+ * **The root now carries `CHROME_SCOPE` (2026-09-02), and its own background
+ * moved off `--surface-solid` onto the genuinely opaque `--menu`.** This card
+ * is the inspector's own editing form — its production caller always passes
+ * `showChildren={false}`, so nothing skin-scoped ever renders inside it — but
+ * every label, hint, input and select in it used to read `--ink`/`--muted`
+ * from the author's own page palette while sitting on a background whose
+ * 90%-alpha COMPOUNDS with every level of nesting. A real `a11y.spec.ts` run
+ * caught 15 `color-contrast` failures on a nested card sharing the page's
+ * own bled-through colour as both its measured foreground and background.
+ *
  * @returns the container's card.
  */
 export function BlockCard({
@@ -646,7 +647,38 @@ export function BlockCard({
     // correctly.
     <div
       {...tid(ids.card)}
-      className="@container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3"
+      // **`CHROME_SCOPE`, added 2026-09-02.** This card is the INSPECTOR's
+      // own editing form for a container — its production call site always
+      // passes `showChildren={false}` (`SelectedOptions` in
+      // `block-editor.tsx`), so nothing skin-scoped ever renders inside it;
+      // the actual page a stranger sees is `blocks.tsx`'s renderer, reached
+      // through the separate preview tray. Every label, hint, input and
+      // select here previously read `--ink`/`--muted` from whatever
+      // enclosing scope happened to supply them — the author's own page
+      // theme, since nothing broke the cascade — while this element's own
+      // background is `--surface-solid`, which `.aeleos-chrome` fixes to an
+      // always-legible pair. A real `a11y.spec.ts` scan caught the mismatch
+      // on its first run reaching a NESTED card: 15 elements failing
+      // `color-contrast` at once, all sharing the same fixed background and
+      // a page-derived ink `.aeleos-chrome` never promised was legible
+      // against it. `CHROME_SCOPE` re-declares both ends of that pairing on
+      // this element, which is what makes them agree again.
+      // **`bg-(--menu)`, not `bg-(--surface-solid)` (2026-09-02).**
+      // `--surface-solid` carries a 90%-alpha channel — legitimate for
+      // author CONTENT, which composes over a picture, but a hazard for a
+      // CHROME_SCOPE'd editing card: a nested container's own card sits
+      // inside its parent's, so the translucency COMPOUNDS with depth
+      // (0.9×0.9 for two levels), letting more of the page's own background
+      // bleed through than `check:contrast`'s single-layer approximation
+      // ever accounts for. Measured directly: a nested card's own background
+      // sampled `rgb(222,192,182)` — a warm tan the page's own gradient
+      // supplies — not the near-white `check:contrast` assumes, and
+      // `--muted` on it read 3.59:1 against the 4.5:1 floor. `--menu` is
+      // fully opaque already (`globals.css` says so in its own words: "it
+      // must be OPAQUE"), so every card at every depth paints a solid floor
+      // under whatever nests inside it, and nesting stops compounding
+      // anything.
+      className={`${CHROME_SCOPE} @container relative grid gap-3 rounded-xl surface border-(--edge) bg-(--menu) p-3`}
     >
       <ContainerRail />
 
@@ -1096,37 +1128,14 @@ function PlaceContent({
       {...tid("empty-place")}
       className="flex flex-wrap items-center justify-center gap-1.5 rounded-lg surface border-dashed border-(--edge)/60 bg-(--surface) p-3"
     >
-      {atBlockLimit ? null : (
-        <button
-          type="button"
-          {...tid("add-content")}
-          onClick={() =>
-            apply((blocks) => setAt(blocks, path, newLeaf("text")))
-          }
-          className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm text-(--muted)"
-        >
-          <Plus className="size-4" />
-          {labels.addContent}
-        </button>
-      )}
-      {atBlockLimit || !mayNest(path) ? null : (
-        <button
-          type="button"
-          {...tid("add-nested")}
-          onClick={() =>
-            apply((blocks) => setAt(blocks, path, newContainer("grid", 2)))
-          }
-          className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm text-(--muted)"
-        >
-          <Layers className="size-4" />
-          {labels.addNested}
-        </button>
-      )}
-      {mayNest(path) ? null : (
-        <span className="text-xs text-(--muted)" {...tid("nesting-at-limit")}>
-          {labels.nestingAtLimit}
-        </span>
-      )}
+      {/* An empty place here is filled through the Add picker at the
+          Items scope enclosing it — `InspectorItems` and `ItemsFooter` in
+          `block-editor.tsx` — not from within this legacy `showChildren`
+          rendering, which no production caller reaches any more (see
+          `BlockCardProps.showChildren`'s own note). The flat `add-content`/
+          `add-nested` pair that used to live here is gone rather than
+          rebuilt against a picker this card has no `page`/`locale` to feed;
+          only removal stays possible for a place reached this way. */}
       <button
         type="button"
         aria-label={labels.removePlace}

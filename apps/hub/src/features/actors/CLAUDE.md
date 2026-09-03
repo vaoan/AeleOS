@@ -4941,3 +4941,495 @@ outside the per-task panic boundary … please report it` and `Aborting.` —
   to chase the individual failures as regressions — but confirm the panic
   line is actually there before assuming that; a real regression can still
   produce a wide failure spread for its own reasons.
+
+### Page interaction locks by default while editing (2026-09-02) — done
+
+The editor canvas renders the real page, real links and real embeds
+included, so a click meant to select a block could navigate away or start
+media. `domain/page-interaction.ts` is the first piece: `pageInteractionsEnabled`
+is a pure function of two session-only inputs, `controlsHidden` and a
+toolbar switch, taking neither from storage and writing neither back:
+
+```text
+page interactions enabled = controls hidden OR toolbar switch enabled
+```
+
+Preview (hide-controls) is not a second renderer, so hidden controls always
+imply interaction; the toolbar switch is the only way to enable it while
+controls stay visible, and it is designed to reset to off whenever controls
+return.
+
+**The DOM boundary is `lockCanvasInteraction`
+(`presentation/canvas-interaction-lock.ts`), and it is the single enforcement
+point rather than a branch in every interactive leaf renderer.** It marks
+every {@link INTERACTIVE} descendant of an editor canvas `inert` — anchors,
+buttons, form controls, disclosures, controlled media, frames, editable
+content and an explicit tab stop — skipping anything inside `CHROME_SCOPE` so
+the inspector, Add and the toolbar keep working while the page beneath them
+does not. **The standing rule this makes possible: no leaf or container
+renderer in `blocks.tsx` may grow an `editing`/`isEditor` branch of its own
+to decide whether a link navigates or a player plays.** Every renderer stays
+the one thing that draws both a stranger's page and the editor's canvas —
+`INTERACTIVE`'s own selector list is the one place that changes when a new
+kind needs locking, not a conditional threaded through every leaf that
+already exists. **It never marks the canvas element itself `inert`**: the click that
+selects a block is read off that same element, and an inert ancestor would
+swallow the click before it arrived.
+
+**It restores each element's own PRIOR `inert` state on unlock, never a bare
+"remove `inert` from everything it touched."** The public renderer may
+already have disabled an element on its own terms — a `video` with no
+`controls` sits outside {@link INTERACTIVE} entirely, but a future kind could
+render something already `inert` — and unlocking must not make that
+interactive again just because editing ended. A `Map<Element, boolean>`
+records the very first sighting of each element and nothing after, which is
+what a `MutationObserver` needs: **an already-locked element can be sighted a
+second time** — moved to a new position by a reorder, which fires a fresh
+`childList` mutation for the same node instance — and the second sighting
+must not overwrite the recorded PRE-lock state with "already inert," which is
+what the lock's own `setAttribute` just did to it a moment earlier. Getting
+this backwards would leave a relocated element permanently inert after
+unlock, silently, with no error and no failing type.
+
+**The toolbar switch and the wiring into `BlockEditor` have landed.**
+`EditorToolbar` gained `interact-with-page` — a pressed/unpressed switch
+beside Preview, because both change how the live page can be used —
+`aria-describedby` pointing at a visually-hidden sentence that swaps between
+`interactWithPageHintOff`/`On`, stating the CONSEQUENCE rather than merely
+the state. `FursonaEditor` owns the session `interactEnabled` state beside
+`controlsHidden` and computes `pageInteractionsEnabled({ controlsHidden,
+switchEnabled: interactEnabled })` once, passing the result into `BlockEditor`
+as `pageInteractionsEnabled`.
+
+**Show controls resets the switch; hiding controls does not touch it.**
+`onHideControls` only sets `controlsHidden`, because Preview already implies
+interaction through the effective rule; the `show-controls` handler sets
+`controlsHidden(false)` AND `interactEnabled(false)` in the same click, which
+is the session reset the spec requires and the one case a sabotage on this
+branch actually caught — dropping the second call left the switch reading
+"on" the next time controls returned, silently, with the canvas genuinely
+unlocked to match.
+
+**`BlockEditor` mounts the lock itself, in an effect keyed on the prop and on
+`blocks`**, rather than `FursonaEditor` querying `data-editor-canvas` from
+outside — a `canvasRef` lives where the canvas element already does, so
+nothing here reaches for the restricted `document.querySelector` pattern.
+`onCanvasClick` returns immediately when interactions are enabled, which is
+the SECOND, independent layer against a click also changing selection: `inert`
+is what stops a real browser from ever dispatching the click to a locked
+element in the first place, and this guard is what stops the click from
+reaching selection through the canvas's own ancestor handler once interaction
+is genuinely on and the element is no longer inert. Both are needed —
+`canvas-interaction-lock.test.ts` proves the first, `fursona-editor.test.tsx`
+proves the second with a REAL `link` leaf and a real anchor click, since
+jsdom implements no `inert` behaviour and cannot itself distinguish the two.
+
+**The Add picker is wired in, `presentation/add-block-picker.tsx` reached
+from both `inspector-items.tsx` and `block-editor.tsx`'s own Items footer —
+the sentence that used to stand here said "nothing calls it yet" and named
+Task 4's own moment, not the branch's finished one.** The flat add row
+(`add-content`/`add-nested`) and the drag-to-add HTML5 path it replaced are
+both gone, removed in the task that did the wiring — see the drag-to-add
+removal note below for what that took with it.
+
+`AddBlockPicker` is one control that draws its options with the REAL
+renderer — `Block` from `blocks.tsx` — over fixed sample content from the
+new `domain/add-samples.ts`, so a preview cannot disagree with the page the
+same way the section style popup's live preview cannot. **Most kinds take one
+generic English sample**; `table`, `progress`, `quote` and `stat` get a
+shaped one, because those four invert or structure the title/description
+pair and a generic sample would draw nothing at all for three of them
+(`ProgressLeaf`/`QuoteLeaf`/`StatLeaf` all fall back to `PlainLeaf` on an
+empty description). **The sample is never what gets added** — choosing an
+option still calls `newLeaf(kind)` or `newContainer(mode, 2)`, exactly as
+adding does today, and `add-samples.test.ts` pins that a sample's `title_en`
+never equals what `newLeaf` produces for the same kind, so the two cannot be
+silently confused.
+
+**`targetPath` carries no placement logic in the picker itself.** It is
+stamped onto the trigger as `data-target-path` (via `formatBlockPath`) so
+more than one picker on one screen — an empty place beside a container
+footer's — stays distinguishable to a test or to browser automation.
+Deciding WHERE a chosen block lands is entirely the caller's job, through
+`onAdd(block)`, which is why the picker's own discriminating test wires two
+independent instances to two independent `onAdd` mocks rather than trying to
+prove placement from inside a component that does not do any.
+
+**Previews render inside `CHROME_SCOPE`, never `SKIN_SCOPE`.** `Block` is
+mounted directly with no wrapping page-content element, so it inherits
+nothing from an author's theme — the picker shows what the KIND is, not what
+this page will make of it. Previews mount only while the dialog is open.
+
+**A picker with every leaf kind reaches `RetroPlayer`, which needs
+`NextIntlClientProvider`.** `player`/`jukebox` are two of the sixteen leaf
+kinds, and their sample renders that component exactly as a real page would
+— `add-block-picker.test.tsx` wraps every render in the real provider with
+the real English catalogue, matching `blocks.test.tsx`'s own convention,
+rather than mocking the dependency away and hiding the same setup
+requirement this repository has already paid for once.
+
+Renders nothing at all — no trigger, no dialog — at `BLOCK_LIMITS`, matching
+the page-level Add control's existing rule.
+
+**The picker is wired in everywhere now, and the two palettes it replaces are
+gone.** `inspector-items.tsx` mounts one `AddBlockPicker` per empty position,
+targeted at that exact path; `block-editor.tsx`'s `ItemsFooter` mounts one at
+a container's own next child position for a scope whose places are all
+filled; and the page-level `addPalette` mounts one targeted at `[]`. One
+`addPickerLabels` bag, built once in `BlockEditor`, is threaded to all three
+rather than each call site re-slicing `labels` its own way.
+
+**"The nesting looked deleted" bug is what this closes, and it is proven by a
+fixture the flat editor could not have discriminated with.** `add-nested`
+used to exist ONLY on an empty place, so a two-place container with both
+places filled offered no way to nest a section inside it at all — `mayNest`
+still admitted one, but the control to reach it did not exist.
+`block-editor.test.tsx`'s "still offers add-block from a full two-place
+container" fixture is built with BOTH places occupied from the start, which
+is the case a fixture with an empty place left over could never have caught.
+
+**Drag-to-add is gone, deliberately, and may return later.** The flat
+add row's buttons were `draggable`, with a matching HTML5 `onDragOver`/
+`onDrop` pair on the canvas (`droppedKind`, `blockFromPayload`) — both
+removed in the same change that removed the row, since the picker replaces
+the row entirely and nothing else in the editor used HTML5 drag (`block-slot.tsx`
+and `fursona-list.tsx` both use `@dnd-kit`, an unrelated mechanism with no
+`dataTransfer` involved). The owner's own words: "we can work with menus for
+now. We might think on drag to add later." Recording it here is what keeps a
+removed capability from being rediscovered as a bug — see root rule 33's
+neighbours on this exact shape.
+
+**The page-level width selector went with `add-section`, and that is a
+plan deviation worth naming.** The old flow let somebody choose a section's
+spaces (1–6) BEFORE adding it, through a `new-section-spaces` select paired
+with the `add-section` button. The picker's layout options all add
+`newContainer(mode, 2)` — a fixed starting shape, exactly like `add-nested`
+already did at every OTHER scope — so a section's width is chosen
+AFTERWARDS, through its own shape control, uniformly with how nesting has
+always worked. Keeping the select once its only button was gone would have
+left it a control that accepts a choice and changes nothing, the fault this
+whole repository refuses; it was removed along with the state (`spaces`/
+`setSpaces`) and the `id` (`useId`) that only it consumed. `addSection` and
+`newSectionSpaces` remain as unread catalogue strings in both languages,
+left rather than chased through every consumer for a rename this task did
+not ask for.
+
+**`BlockCard`'s own legacy `showChildren=true` rendering lost its add UI
+too**, per its own TSDoc's admission that no production caller reaches that
+mode any more ("standalone card tests default to the legacy complete card").
+An empty place there now offers only removal; filling one is the enclosing
+Items scope's job. `block-card.test.tsx`'s cases that exercised the removed
+buttons were rewritten to test what remains rather than deleted outright,
+except where the assertion itself no longer had anything to discriminate.
+
+**Motion is wired for editor chrome (2026-09-02).** `presentation/editor-motion.tsx`
+exports `EditorMotion` (`LazyMotion` + `MotionConfig reducedMotion="user"`,
+mounted once at `FursonaEditor`'s own root) and re-exports `m` — every `m.*`
+usage in this feature imports it from there, never `motion` from
+`motion/react` directly, which is what keeps the always-loaded core small.
+`editor-motion.test.tsx`'s static grep enforces both: `"motion/react"` is
+imported from exactly one file under this feature (itself), and no `m.*`
+anywhere carries a `layout` prop.
+
+Five places carry it, matching the spec:
+
+1. **Inspector entry** (`canvas-inspector.tsx`) — the root becomes `m.div`,
+   fading and sliding in from the left on desktop or up from the bottom on a
+   phone. Which direction plays is read via `useSyncExternalStore` rather
+   than a lazy `useState` initializer, because this tree can render during
+   SSR where `window` does not exist and a `useState` initializer has no
+   SSR-safe equivalent; the client snapshot calls `matchMedia` directly,
+   unguarded, matching `nebula-canvas.tsx`'s own convention.
+2. **Scope transitions** — the Items/Options pane's inner content is wrapped
+   in an `m.div` keyed on `${selection.kind}:${path}` (2026-09-02; the key was
+   `${tab}:${selection.kind}:${path}` and that was a bug, not a broader
+   feature — see below), so entering a different block remounts it and
+   re-plays a short fade+translate. The `hidden` attribute deciding which
+   PANE shows still owns that.
+
+   **The `tab`-inclusive key remounted BOTH panes on every tab flip, hidden
+   one included, and a real browser caught it losing state.** Both panes'
+   `m.div`s computed the identical string from the same `tab` value, so
+   switching Items↔Options with no selection change still changed both
+   keys — a "switching tabs also replays" nicety, but it meant the pane you
+   just LEFT remounted too, discarding any local `useState` inside it.
+   `theme-configurator.tsx`'s own open/closed flag is exactly that kind of
+   state, and `editor-saves-page.spec.ts`'s template round-trip opens the
+   theme panel, switches to Items for the template picker, applies one, and
+   switches back — landing squarely in the window this closed. Selection
+   changing is still what "entering a different block" means, so dropping
+   `tab` costs only the tab-switch replay.
+
+3. **Canvas accommodation** — plain CSS
+   (`transition-[padding-left] duration-210 ease-out`) on `data-editor-stack`,
+   deliberately not Motion, so `@dnd-kit` and the page's own boxes never
+   receive an inline `transform` from this.
+4. **Selection outline** — plain CSS too: a static base rule gives every
+   block a transparent outline at the selected one's offset, and only the
+   colour transitions (`outline-color 150ms ease-out`). The base rule has to
+   be unconditional — transitioning a property FROM nothing is not a
+   transition, there is nothing to interpolate from.
+5. **New inspector rows** (`inspector-items.tsx`) — an occupied row's label
+   wrapper is `m.div` (opacity-only), kept a SIBLING of the drag handle
+   rather than its ancestor, since `BlockSlot`'s own outer element is the
+   actual `@dnd-kit` node and already writes its own `transform`; an empty
+   place's whole content is `m.div` since it carries no handle at all.
+
+**The standing rule for a SIXTH place, and every one after it: Motion
+renders only inside `CHROME_SCOPE`, and never on a `@dnd-kit` node.** Both
+halves are load-bearing and for different reasons. `CHROME_SCOPE` is what
+keeps an author's own page — its skinned content, its own animations if a
+skin ever grows one — untouched by this feature's chrome; an `m.*` wrapping
+real page content would be authored-content motion wearing this feature's
+name. And `@dnd-kit` already writes its own inline `transform` on the
+element it measures and moves (`BlockSlot`'s outer element, every drag
+target), so a SECOND `transform` source on the same element — Motion's own,
+from an `x`/`y`/`scale` animation — is two systems fighting over one CSS
+property; item 3 and item 5 above are both this rule applied, not two
+separate carve-outs. A new `m.*` usage that cannot honestly satisfy both
+halves does not belong in this feature.
+
+**jsdom cannot run a Motion animation to completion, and that broke two
+pre-existing tests before it broke none of the new ones.** No real
+compositor means an `initial={{opacity:0}}` element never reaches
+`animate={{opacity:1}}` in a unit test — `toBeVisible()` (which jest-dom
+fails on `opacity:0`) on freshly-entered content stays red forever, not
+merely late; `waitFor` does not help because the animation never runs at
+all, only real time passing does nothing without real frames. The fix in
+`block-editor.test.tsx`'s two affected cases is `closest("[hidden]")`
+instead of `toBeVisible()` — the real invariant those cases care about is
+"in the active pane, not the one `hidden` is hiding," which is exactly what
+survives an animation this instrument cannot see. What Motion's animations
+actually LOOK like is proved in `tests/e2e/` in Task 7, against a real
+browser.
+
+**jsdom also implements no `window.matchMedia` at all**, unrelated to
+Motion but found by wiring the entrance direction — `tests/setup.ts` now
+stubs it to always answer "no match," matching the `ResizeObserver` stub
+beside it: constructed so the code under test can run, at the narrowest
+default, with the real answer proved in `tests/e2e/`.
+
+**`reducedMotion="user"` does not make an opacity fade instant, and a Task 7
+test's first draft believed it did.** Motion's own docs are explicit —
+`reducedMotion` "automatically disables transform and layout animations...
+while preserving non-motion properties like opacity and backgroundColor" —
+and a real Chromium run under `page.emulateMedia({reducedMotion: "reduce"})`
+confirms it exactly: `canvas-inspector.tsx`'s entrance samples `transform` as
+`none` on every one of twenty consecutive animation frames, where `opacity`
+climbs from about 0.22 to 1 over the same ~200ms the ordinary-mode entrance
+takes. So reduced motion removes the SLIDE and leaves the FADE untouched, on
+purpose — this is root rule 1 (a newly adopted tool believed only once shown
+to fail) landing on a config option's NAME rather than on the tool itself.
+`editor-interaction.spec.ts`'s reduced-motion case asserts `transform` at
+rest with no poll — the genuinely instant half — and polls `opacity` to `1`
+exactly as the ordinary-mode case beside it does.
+
+**A measured finding, closed out at Task 8 (2026-09-02): Motion's own
+chunk reaches the fully public, signed-out profile and fursona-page
+routes, and that sentence has TWO halves that must not be collapsed into
+one.** The COUPLING is pre-existing: `@/features/actors/index.ts`
+re-exports `FursonaEditor` (which imports `EditorMotion`) from the same
+barrel `/[locale]/[person]/page.tsx` imports `PublicProfile` from, so
+Turbopack's per-route `firstLoadChunkPaths` already put the SAME shared
+bundle behind both an editor route and a public one before Motion ever
+entered the picture — this branch did not create that barrel. The PAYLOAD
+is not pre-existing: **+109,155 bytes of Motion itself now ship on
+`/[locale]/[person]`, `/[locale]/[person]/[handle]` and every editor
+route, added by this branch**, because whatever the barrel already carried,
+it did not carry Motion until this feature imported it. "The coupling is
+old, the bytes are new" is the accurate sentence; a review caught an
+earlier draft of this note collapsing both into "not something this wiring
+introduced," which is false about the second half. The owner's own
+decision on what follows: **merge as-is, split the barrel in a follow-up**
+— untangling `@/features/actors/index.ts` so editor-only exports are not
+re-exported through the same barrel a public page's `PublicProfile` comes
+from is deliberately out of THIS branch's scope, not forgotten. Measured
+directly from `.next/diagnostics/route-bundle-stats.json`, before and
+after this task, in uncompressed bytes — the baseline the follow-up
+inherits:
+
+| route (representative)                             |     before Motion | after Motion |    delta |
+| -------------------------------------------------- | ----------------: | -----------: | -------: |
+| `/[locale]/me` (+ 5 more editor routes, identical) |         1,841,658 |    1,950,514 | +108,856 |
+| `/[locale]/[person]` (+ `/[handle]`, identical)    |         1,833,981 |    1,942,837 | +108,856 |
+| `/[locale]/fursonas/[[...rest]]`                   |           778,889 |      778,889 |        0 |
+| `/[locale]/sign-in/[[...sign-in]]`                 |           749,122 |      749,122 |        0 |
+| `/[locale]` and `/_not-found`                      | 738,627 / 452,708 |    unchanged |        0 |
+
+The four routes NOT already sharing the barrel's bundle show a byte-for-byte
+**zero** change, which is what proves Motion's own import graph is properly
+scoped to `editor-motion.tsx` and its three callers — it never leaks into
+the true root-shared chunk on its own. Every route where it DOES appear
+already carried the identical shared bundle (react-hook-form, zod,
+`@dnd-kit`, the whole editor graph) before this task, at nearly the same
+size. Motion's marginal cost is the same **+108,856 bytes** on every route
+that has the barrel's bundle at all, editor or public — consistent, not
+pathological.
+
+**Re-measured after Task 7's own fixes (2026-09-02):** editor routes read
+1,950,813 bytes, `/[locale]/[person]` (+`/[handle]`) reads 1,943,136 —
++109,155 over the SAME pre-Motion baseline this table's own "before Motion"
+column recorded, a further +299 bytes from this task's own code (the
+`inert` attributes, the `role="button"` conversion, `CHROME_SCOPE` on
+`block-card.tsx`). The four unrelated routes read the identical
+778,889 / 749,122 / 738,627 / 452,708 they always have — **byte-for-byte
+zero change, confirmed again** — which is the explicit form of the same
+evidence this table already carried: Motion's import graph stayed scoped
+to the barrel it was always going to share, and nothing Task 7 fixed moved
+that boundary.
+
+**What this does not settle, by the owner's own ruling rather than by
+default:** whether that pre-existing barrel coupling itself is acceptable
+is a question this task did not create and cannot answer by reverting
+Motion — a revert would leave `/[locale]/[person]` loading the same
+~1.8MB either way. Untangling it means splitting `@/features/actors/index.ts`
+so editor-only exports (`FursonaEditor`, `BlockEditor`, `AddBlockPicker`,
+and everything they pull in) are not re-exported through the same barrel a
+public page's `PublicProfile` comes from — a real fix, and the owner's own
+decision is to merge this branch as-is and do that splitting in a
+follow-up, with the measured numbers above as its baseline, rather than
+block this feature on an unrelated pre-existing coupling. The `canvas` job's own
+throttled-page measurement is the number that actually decides whether
+Motion stays: unused JS sitting in a downloaded chunk costs bytes and parse
+time, not the runtime frame cost `canvas` measures, since no `m.*` component
+ever mounts on a route that does not render editor chrome.
+
+**Task 8 ran that measurement, with the editor mounted, and Motion did not
+move it — kept, on the numbers, not because it was already wired.** The
+gate in the spec is TWO-PART: which chunk Motion lands in (settled above —
+it never reaches a route that renders no editor chrome, the shared/barrel
+routes excepted, which already carried that bundle before Motion existed)
+and whether the throttled-page frame cost moves. `personalised-page-cost.spec.ts`'s
+"dragging a theme dial in its editor" case, against the same 20-heavy-section
+seeded page the spec was written against, on a real Chromium throttled to a
+phone: **`theme commits: 1 over 175 delivered movements (0.006 each)`** —
+the identical healthy ratio root rule 14 already documents (`0.006` fixed,
+`1.000` sabotaged), measured with the full Task 1–7 stack — the interaction
+lock, the Add picker and Motion's own five entrance animations — all
+mounted and live. Style recalc read 23.3ms per input event across 20 events
+and 183 preview leaves, in the same run. Both are the same order of
+magnitude the spec's own reference numbers already carry. Every canvas's
+own frame cost, checked in the same `canvas` job run, also cleared its
+budget — `hexagons` highest at 53.0ms against the "order of magnitude"
+threshold, nothing new about that list. **Verdict: keep Motion.** All 6
+cases in the `canvas` project passed.
+
+**Task 7's browser proof landed (2026-09-02), and it found five real defects
+none of the earlier tasks' unit suites could have — every one of them a
+mechanism jsdom does not implement or a timing window only a real compositor
+has.** Two new specs, `editor-interaction.spec.ts` and
+`add-block-picker.spec.ts`, plus the mechanical `add-content`/`add-nested`/
+`add-section` substitution across ten existing ones (this feature note's own
+list of what changed, above). What running them for real found:
+
+- **The Add-block picker's own preview nested a real `<button>` inside its
+  option's `<button>`** — `player`/`jukebox` render real transport controls
+  through the same renderer a public page uses, and a `<button>` may not
+  contain interactive content at all. React warned on every open; axe then
+  refused it as `nested-interactive` even after the option became a
+  `role="button"` `<div>`, because the rule is about interactive content
+  nesting, not about which tag is outermost. The preview is `inert` now —
+  removed from the accessibility tree, from focus, and from hit-testing, so a
+  click anywhere inside it (a transport button included) falls through to the
+  option behind it, the same mechanism `canvas-interaction-lock.ts` already
+  relies on for the editor canvas.
+- **The picker's own dialog never moved focus into itself**, so Escape — sent
+  to whatever still held focus, the trigger BUTTON outside the dialog —
+  never reached the `onKeyDown` listening for it. A `useEffect` focusing the
+  dialog (`tabIndex={-1}`) on open is what makes "closes through Escape once
+  focus is inside" — a sentence the component's own comment already
+  asserted — actually true.
+- **A container's own `CardKind` eyebrow, and the whole card around it,
+  painted with tokens no fixed background pairing ever promised.**
+  `text-(--accent)` is the author's own arbitrary theme colour with no
+  contrast guarantee against `.aeleos-chrome`'s fixed surfaces; `block-card.tsx`
+  had never been wrapped in `CHROME_SCOPE` at all, so `--ink`/`--muted` read
+  the PAGE's derived palette while the card's own `--surface-solid`
+  background compounded its 90%-alpha translucency with every level of
+  nesting, letting more of the page's own background bleed through than any
+  single-layer check accounts for. Both are fixed now — `CHROME_SCOPE` on the
+  card, `--menu` (genuinely opaque, no alpha) in place of `--surface-solid`,
+  `--ink` in place of `--accent` on the eyebrow — and a real axe scan found
+  the difference: 15 `color-contrast` violations on a nested card, sharing
+  the same fixed background as their own measured foreground, down to zero.
+- **`reducedMotion="user"` does not make an opacity fade instant**, which the
+  library's own docs say plainly and this branch's first draft did not
+  believe until a real `prefers-reduced-motion: reduce` run measured it: the
+  entrance's `transform` reads `none` from the first frame, its `opacity`
+  climbs over the same ~200ms ordinary mode takes. See the account above,
+  under the Motion bullet.
+- **Switching Items↔Options remounted BOTH panes, not only the one becoming
+  visible**, because `canvas-inspector.tsx`'s scope-transition key carried
+  `tab` and both panes computed the identical string from it — so a tab flip
+  alone, with no selection change, destroyed and recreated the pane you just
+  LEFT along with the one you were headed to. `theme-configurator.tsx`'s own
+  `open` flag is exactly the kind of local state that remount threw away, and
+  `editor-saves-page.spec.ts`'s template round-trip (open the theme panel,
+  switch to Items for the template picker, apply one, switch back) landed
+  squarely in the window. The key no longer carries `tab`; entering a
+  different block is still what triggers the replay.
+
+Two more were test-side rather than app-side, and are recorded here because
+each is a small instance of a rule this file already states: `addSection`
+narrows or widens a container's WIDTH through `section-spaces`, never its
+CAPACITY — the picker's own layout options always start at two children
+(`PICKER_SPACES` in `add-block-picker.tsx`) — so a test wanting a genuine
+third, explicitly empty place needs its own `add-place` press; several
+specs, including one pre-existing test, assumed spaces and children were the
+same number. And a raw pointer drag in `section-drag-reorder.spec.ts` raced
+`@dnd-kit/core@6.3.1`'s own `PointerSensor.detach()`, which keeps a
+document-level capturing `click` listener alive for exactly 50ms after a
+drop specifically to swallow the synthetic click a mouseup-after-drag
+produces — a genuinely independent click landing in that window is silently
+lost too, whoever it targets. Both are documented at their call sites rather
+than only here.
+
+### The five real defects, sorted by whose fault they were (2026-09-02)
+
+The paragraph above lists what Task 7 found; it does not say which of them
+were bugs IN this feature and which were bugs this feature's own testing
+happened to uncover somewhere else. That distinction matters to a future
+reader deciding whether a fix is protecting old, shipped behaviour or new
+behaviour this branch is still shaping — so it is checked against `git log`
+rather than asserted:
+
+- **Pre-existing, shipped, unrelated to this branch.** `block-card.tsx`
+  (`#159`, "Sections of spaces") predates `editor-interaction-motion`
+  entirely, and so does `card-kind.tsx` — created in `#24`, though the
+  specific `text-(--accent)` tone on its container eyebrow is a day
+  younger than that: `git log -S` places it in `#34`, the pull request
+  that first told the two eyebrows apart by colour rather than glyph
+  alone. Both dates are pre-branch either way, which is the fact that
+  matters here — the credit is corrected because a review checked it, not
+  because it changes which list this belongs on. Neither file had ever
+  been driven by a real accessibility scan reaching a NESTED card before
+  Task 7's — the card's own `bg-(--surface-solid)` translucency compounding
+  with nesting depth, and `CardKind`'s container eyebrow reading the
+  author's own `--accent` with no contrast guarantee against a fixed
+  background, are
+  defects that have been live in production-shaped code since those two
+  pull requests, not artefacts of anything this branch designed. Fixed here
+  because Task 7's own new coverage is what finally exercised the state
+  that exposes them, not because they were ever this feature's to begin
+  with.
+- **New to this branch, but not to Task 7 — introduced by Task 6.**
+  `canvas-inspector.tsx` itself predates this branch (`#58`), but the
+  `tab`-inclusive scope key that remounted both inspector panes on every
+  tab flip was written by this branch's OWN Motion commit (`2ae8c5a`),
+  three tasks before the browser run that caught it. It is a real bug this
+  branch shipped internally between tasks, not a design Task 7 is
+  correcting after the fact — Task 6's own commit is where "correct" ends
+  and "buggy" begins.
+- **New to this branch, and to the same task that wrote the buggy code.**
+  `add-block-picker.tsx` did not exist before this branch's own Task 4
+  commit (`e7bf9f3`); the nested `<button>` and the dialog never moving
+  focus into itself are defects in code that was new and unexercised in a
+  real browser from the moment it was written, found by the first task
+  that actually opened it in one.
+
+The `reducedMotion="user"` opacity finding is not on this list: nothing in
+the app was ever wrong there, `MotionConfig` behaves exactly as its own docs
+say, and what changed was a TEST's assumption, not shipped code — see the
+account above.
+
+See `docs/superpowers/specs/2026-09-02-editor-interaction-and-motion-design.md`.

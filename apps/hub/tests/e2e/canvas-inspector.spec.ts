@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { openPageAdd } from "./support/editor";
+import { addBlock, openPageAdd } from "./support/editor";
 
 // THE INSPECTOR STARTS CLOSED AND DRILLS THROUGH ONE LEVEL AT A TIME.
 // Preview is still hide-controls. Empty canvas and Escape deselect.
@@ -44,7 +44,7 @@ test("Items enters one section without mounting its descendants in Options", asy
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addBlock(page, { mode: "grid" });
   await expect(page.getByTestId("inspector-empty-place")).toHaveCount(2);
   await page.getByTestId("inspector-tab-options").click();
   await expect(page.getByTestId("section-card")).toBeVisible();
@@ -57,14 +57,16 @@ test("Page, nested containers, Back, breadcrumbs, and leaf Options form one path
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addBlock(page, { mode: "grid" });
 
-  await page.getByTestId("add-nested").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    mode: "grid",
+  });
   await expect(page.getByTestId("inspector-breadcrumb")).toHaveCount(3);
   await page.getByTestId("inspector-back").click();
   await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
 
-  await page.getByTestId("add-content").click();
+  await addBlock(page.getByTestId("inspector-empty-place"), { kind: "text" });
   await expect(page.getByTestId("leaf-kind")).toBeVisible();
   await expect(page.getByTestId("inspector-tab-items")).toHaveCount(0);
   await expect(page.getByTestId("inspector-tab-options")).toHaveCount(0);
@@ -81,10 +83,12 @@ test("an empty positional place remains visible and can be filled", async ({
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addBlock(page, { mode: "grid" });
   await expect(page.getByTestId("inspector-empty-place")).toHaveCount(2);
 
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Filled");
   await page.getByTestId("inspector-back").click();
 
@@ -134,7 +138,7 @@ test("Escape aimed at a field inside the inspector keeps the selection", async (
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addBlock(page, { mode: "grid" });
   await page.getByTestId("inspector-tab-options").click();
 
   const card = page.getByTestId("section-card");
@@ -151,7 +155,9 @@ test("Escape aimed at a field inside the inspector keeps the selection", async (
   // merely attached would pass against the off-screen copy this replaced,
   // which was laid out, `aria-hidden` and 1536px to the left of the viewport.
   await page.getByTestId("inspector-tab-items").click();
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await expect(page.getByTestId("leaf-kind")).toBeVisible();
 });
 

@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 // THE STEPS EVERY EDITOR SPEC REPEATS, AND WHY THEY LIVE TOGETHER.
 //
@@ -46,19 +46,91 @@ export async function startFursona(
 }
 
 /**
- * Opens the page inspector on Items, where new sections are offered.
+ * Opens the page inspector on Items, where the page-level Add picker and the
+ * brand presets live.
  *
  * Idempotent: if Items is already showing, it does nothing; if another inspector
  * pane is showing, it changes only the tab.
  *
+ * **Checks `section-presets`, not `add-block` (2026-09-02).** `add-block` is
+ * the same test id at every scope that offers one — a container's own
+ * footer and every empty place carry it too — so it cannot tell "Page Items
+ * is open" from "some OTHER scope's Items is open, and it also has an Add
+ * control." `section-presets` renders only from the page-level palette.
+ *
  * @param page - the editor page.
  */
 export async function openPageAdd(page: Page): Promise<void> {
-  if (await page.getByTestId("add-section").isVisible()) return;
+  if (await page.getByTestId("section-presets").isVisible()) return;
   await openInspector(page);
   await page.getByTestId("inspector-breadcrumb").first().click();
   await page.getByTestId("inspector-tab-items").click();
-  await expect(page.getByTestId("add-section")).toBeVisible();
+  await expect(page.getByTestId("section-presets")).toBeVisible();
+}
+
+/**
+ * Opens the Add picker nearest `scope`, chooses one option, and waits for the
+ * dialog to close.
+ *
+ * **One control adds, at every scope that can hold a block** — the page, a
+ * container's own Items footer, or one empty place — so this is the single
+ * helper every e2e spec drives it through. `scope` is a `Page` for the page
+ * palette or a container's footer once that scope's Items pane is showing,
+ * or a `Locator` (an `inspector-empty-place` row, most often) to disambiguate
+ * one specific empty place among several. The dialog is not portalled — it
+ * renders as a sibling of the trigger it opened from — so `scope`'s own
+ * `getByTestId` finds it either way.
+ *
+ * @param scope - the page, or a locator scoping which `add-block` trigger.
+ * @param choice - a content kind (`data-add-kind`) or a layout mode
+ *   (`data-add-mode`), exactly as the picker's own options carry them.
+ */
+export async function addBlock(
+  scope: Page | Locator,
+  choice: { kind: string } | { mode: string },
+): Promise<void> {
+  await scope.getByTestId("add-block").click();
+  const dialog = scope.getByTestId("add-block-picker");
+  await expect(dialog).toBeVisible();
+  const option =
+    "kind" in choice
+      ? dialog.locator(`[data-add-kind="${choice.kind}"]`)
+      : dialog.locator(`[data-add-mode="${choice.mode}"]`);
+  await option.click();
+  await expect(dialog).toBeHidden();
+}
+
+/**
+ * Adds a new top-level section from the page-level Add picker, in `grid`
+ * mode, then sets its own width through its Options pane.
+ *
+ * **The width moved from before adding to after (2026-09-02)**, matching how
+ * nesting already worked: the picker's layout options all add
+ * `newContainer(mode, 2)`, a fixed starting shape, and a section's own
+ * `section-spaces` control is what reshapes it afterwards. Leaves the new
+ * section selected on Options — where `section-name` and every other field
+ * a caller reaches for next already live — exactly as `add-section` used to.
+ *
+ * @param page - the editor page.
+ * @param spaces - how many places across, as the select stores it.
+ */
+export async function addSection(page: Page, spaces: string): Promise<void> {
+  await openPageAdd(page);
+  await addBlock(page, { mode: "grid" });
+  await page.getByTestId("inspector-tab-options").click();
+  const select = page.getByTestId("section-spaces");
+  await expect(select).toBeVisible();
+  // **Retries the assignment**, for the same reason `chooseNewSectionSpaces`
+  // used to: CI's e2e job runs `next dev`, whose Strict Mode can remount the
+  // editor once, and a change landing on a mount that gets thrown away is
+  // reset to whatever the surviving mount started with. Polling until the
+  // value sticks is what makes the surviving mount the one that is set.
+  await expect
+    .poll(async () => {
+      await select.selectOption(spaces);
+      return select.inputValue();
+    })
+    .toBe(spaces);
 }
 
 /**
@@ -103,38 +175,6 @@ export async function openInspector(page: Page): Promise<void> {
   if (await inspector.isVisible()) return;
   await page.getByTestId("select-page").click();
   await expect(inspector).toBeVisible();
-}
-
-/**
- * Opens Page → Items, sets how many places a newly added section will lay
- * across, and waits until that choice is the select's value.
- *
- * **Retries the assignment, because a single `selectOption` can land on a
- * mount React then throws away.** `BlockEditor` keeps this count in
- * `useState`. CI's e2e job runs `next dev`, which Strict-Mode remounts the
- * editor once; a change that fires on the first mount is reset to the default
- * of two by the second. `border-style-cascade.spec.ts` then waited five
- * seconds for `"1"` on a control that would never move. Polling until the
- * value sticks is what makes the surviving mount the one that is set.
- * {@link openInspector} makes the path safe at phone widths where an existing
- * bottom sheet covers the Page control that originally opened it.
- *
- * @param page - the editor page.
- * @param spaces - the option value, as the select stores it.
- */
-export async function chooseNewSectionSpaces(
-  page: Page,
-  spaces: string,
-): Promise<void> {
-  await openPageAdd(page);
-  const select = page.getByTestId("new-section-spaces");
-  await expect(select).toBeVisible();
-  await expect
-    .poll(async () => {
-      await select.selectOption(spaces);
-      return select.inputValue();
-    })
-    .toBe(spaces);
 }
 
 /**

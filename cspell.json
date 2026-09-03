@@ -209,6 +209,9 @@
     "migra",
     "monorepo",
     "moonfest",
+    // The DOM's own event name, prose-only — code files already carry a
+    // dictionary that knows it.
+    "mouseup",
     "mstdn",
     "nebulae",
     "neobrutalism",

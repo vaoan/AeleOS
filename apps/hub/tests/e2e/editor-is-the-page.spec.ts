@@ -11,7 +11,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { openPageAdd } from "./support/editor";
+import { addBlock, openPageAdd } from "./support/editor";
 
 // One sign-in for the whole file: every case below reads the same seeded
 // page and none depends on what an earlier case left behind, so they
@@ -691,9 +691,9 @@ test("every workbench group is opaque, whatever the page behind it", async ({
 }) => {
   await page.goto("/es/pages/new");
   await openPageAdd(page);
-  await expect(page.getByTestId("add-section")).toBeVisible();
+  await expect(page.getByTestId("add-block")).toBeVisible();
   await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addBlock(page, { mode: "grid" });
 
   // Adding opens the new section on ITEMS; its own controls, the style
   // trigger among them, are the other tab.

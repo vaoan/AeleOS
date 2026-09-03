@@ -41,3 +41,28 @@ HTMLMediaElement.prototype.play = function play() {
   return Promise.resolve();
 };
 HTMLMediaElement.prototype.pause = function pause() {};
+
+// jsdom implements no `window.matchMedia` at all — calling it throws
+// "matchMedia is not a function" — so any test that merely renders a
+// component asking a breakpoint (`CanvasInspector`'s desktop-vs-phone
+// entrance direction, among others) dies on a mechanism it was not testing.
+//
+// **It always answers "no match", on purpose.** jsdom lays nothing out and
+// has no real viewport, so a faithful implementation has no width to compare
+// a query against and could only ever answer one way regardless — which
+// would be a measurement no browser produces. This stub exists so the code
+// under test can be CONSTRUCTED at the narrowest, safest default; what a real
+// breakpoint does is proved in `tests/e2e/`, against a real viewport, and any
+// unit test that cares about the "matches" branch supplies its own mock.
+globalThis.matchMedia ??= function matchMedia(query: string): MediaQueryList {
+  return {
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  } as MediaQueryList;
+};

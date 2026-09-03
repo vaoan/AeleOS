@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import type { EditorSelection } from "@/features/actors/domain/editor-selection";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
+import { m } from "@/features/actors/presentation/editor-motion";
 
 /**
  * Already-translated strings {@link CanvasInspector} renders.
@@ -67,16 +68,38 @@ export interface CanvasInspectorProps {
  * It is a sibling of the canvas, so its clicks never reach the canvas's
  * deselection handler.
  *
- * **Container panes stay mounted.** The inactive pane uses the native
- * `hidden` attribute, preserving local state while removing inactive controls
- * from layout and accessibility. A leaf has no Items tab or misleading
- * tablist; its Options render directly.
+ * **Container panes stay mounted, genuinely (corrected 2026-09-02).** The
+ * inactive pane uses the native `hidden` attribute, which is what removes
+ * inactive controls from layout and accessibility — but the entrance
+ * `m.div`'s own `key` used to also carry `tab`, and since both panes computed
+ * the identical string from it, a tab flip alone remounted BOTH, hidden one
+ * included, discarding whatever local state it held. A leaf has no Items tab
+ * or misleading tablist; its Options render directly.
  *
  * On desktop the inspector starts below the toolbar and is wide enough for
  * the existing nested card controls to wrap inside it. Neither property is
  * decorative: sharing the toolbar's top offset covered the Items tab or the
  * writing switch depending on z-order, and a 320px panel left nested controls
  * outside its horizontal viewport.
+ *
+ * **The root is `m.div` now (2026-09-02), OPACITY-ONLY, and it used to slide
+ * too until a review found that a lie by construction (2026-09-02).** It
+ * fades in — no `x`/`y` — because it is an ANCESTOR of the ITEMS prop, which
+ * renders `InspectorItems` and, inside that, `BlockSlot`, the real
+ * `@dnd-kit` draggable/droppable. A slide would have written this element's
+ * own `transform` on the way to `x: 0`/`y: 0`, on the very box `@dnd-kit`
+ * measures and moves beneath it — the ancestor-transform hazard
+ * `editor-motion.tsx` states as a rule. The Items pane's own inner `m.div`
+ * is opacity-only for the identical reason, one level closer to the
+ * draggable it encloses; the Options pane's inner `m.div` still fades AND
+ * slides (`y: 6` → `0`), because Options never renders a `@dnd-kit` node —
+ * `SelectedOptions` draws fields, not draggable rows. Both inner panes are
+ * keyed on the SELECTED PATH ONLY (not `tab` — see the fault above), so
+ * entering a different block reads as navigation and replays the entrance;
+ * switching tabs with the same selection no longer does, which is what
+ * keeps a pane's own local state alive across a tab flip. See
+ * `editor-motion.tsx` for the import boundary this and every other `m.*`
+ * usage here answers to.
  *
  * @returns the inspector, or nothing when deselected.
  */
@@ -93,9 +116,30 @@ export function CanvasInspector({
 }: CanvasInspectorProps): ReactNode {
   if (selection === null) return null;
 
+  // **Names the SELECTED SCOPE only, never the tab (corrected 2026-09-02).**
+  // It used to also carry `tab`, on the stated idea that switching Items and
+  // Options should replay the fade the way entering a different block does —
+  // but a `key` given to one `m.div` and read by the OTHER, un-related one
+  // has no way to change for just the pane becoming visible: both panes
+  // compute the SAME string, so a tab flip alone changed BOTH keys and
+  // remounted BOTH panes, hidden one included. Found in a real browser: a
+  // template-save spec opened the theme panel, switched to Items for the
+  // template picker, applied one, switched back to Options, and the panel
+  // had silently closed — `ThemeConfigurator`'s own `open` state is a plain
+  // `useState`, reset to its initial `false` by the very remount this key
+  // caused. Selection changing is still what "entering a different block"
+  // means, and dropping `tab` costs only the tab-switch replay — a smaller
+  // loss than a control silently forgetting what it was doing.
+  const scopeKey = `${selection.kind}:${
+    selection.kind === "block" ? selection.path.join("-") : ""
+  }`;
+
   return (
-    <div
+    <m.div
       {...tid("canvas-inspector")}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.21, ease: "easeOut" }}
       className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-30 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:top-[calc(var(--bar-top)+3.5rem)] md:right-auto md:bottom-0 md:left-0 md:max-h-none md:w-[min(36rem,40vw)] md:border-t-0 md:border-r`}
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-(--edge)/40 p-2">
@@ -140,15 +184,52 @@ export function CanvasInspector({
         </div>
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {/* **Scope transitions are keyed on the selected path alone**, so
+            entering a different block remounts this inner wrap and re-plays
+            its short entrance — "a new scope reads as navigation rather than
+            replacement." The `hidden` attribute above still owns which PANE
+            is visible; switching Items/Options with the SAME selection no
+            longer remounts either one, which is what keeps a pane's own
+            local state — the theme panel's open/closed flag among it —
+            alive across a tab flip. See `scopeKey`'s own comment for the
+            fault dropping `tab` from it closed.
+
+            **Items is opacity-only; Options still fades AND slides
+            (`y: 6` → `0`) — an intentional asymmetry, not a leftover.**
+            The ITEMS prop renders `InspectorItems` and, inside that, `BlockSlot`,
+            the real `@dnd-kit` draggable/droppable — an ancestor `m.div`
+            writing `y` would write `transform` on the box `@dnd-kit`
+            measures and moves. The OPTIONS prop renders `SelectedOptions`, which
+            draws fields and never a draggable row, so the slide is safe
+            there and stays for the fuller entrance it gives a freshly
+            selected block's own form. */}
         {hasItems ? (
           <div hidden={tab !== "items"} className="grid gap-2">
-            {items}
+            <m.div
+              key={scopeKey}
+              {...tid("inspector-pane-entrance")}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="grid gap-2"
+            >
+              {items}
+            </m.div>
           </div>
         ) : null}
         <div hidden={hasItems && tab !== "options"} className="grid gap-2">
-          {options}
+          <m.div
+            key={scopeKey}
+            {...tid("inspector-pane-entrance")}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="grid gap-2"
+          >
+            {options}
+          </m.div>
         </div>
       </div>
-    </div>
+    </m.div>
   );
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type React from "react";
-import { missingRequiredKinds } from "@/features/actors/domain/required-blocks";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "@/shared/infrastructure/i18n/messages/en.json";
+import {
+  missingRequiredKinds,
+  offerableLeafKinds,
+} from "@/features/actors/domain/required-blocks";
 import { pageContext } from "./helpers/page-context";
 import {
   act,
@@ -118,10 +123,24 @@ function harness(
         // No look chosen, so the picker applies without confirming — which is
         // what every case in this file assumes.
         theme={null}
+        // Locked by default, matching the editor's own default: every case
+        // in this file exercises canvas selection, which only works while
+        // page interaction is off.
+        pageInteractionsEnabled={false}
       />
     );
   }
-  render(<Harness />);
+  // The Add picker's previews reach `useTranslations` through `RetroPlayer`
+  // for `player`/`jukebox` — exactly as `blocks.test.tsx` and
+  // `add-block-picker.test.tsx` document — and the picker is reachable from
+  // every scope now, so every render here needs the real provider with the
+  // real catalogue rather than a stub that would measure a different
+  // program.
+  render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <Harness />
+    </NextIntlClientProvider>,
+  );
   const page = (() => form!.getValues().sections) as HarnessPage;
   page.replace = (blocks) => form!.setValue("sections", blocks);
   return page;
@@ -253,37 +272,115 @@ describe("BlockEditor", () => {
     expect(screen.getByText(labels.empty)).toBeInTheDocument();
   });
 
-  // CHOOSING A SHAPE IS THE FIRST THING SOMEBODY DOES, so the control that
-  // does it sits beside the one that adds the section rather than only on the
-  // card afterwards.
-  it("offers every width the schema accepts, before a section exists", () => {
+  // ONE ADD CONTROL, not the sixteen flat `add-leaf-*` buttons plus
+  // `add-section` this replaced. Presets and `add-place` are unrelated
+  // controls and stay exactly where they were.
+  it("offers exactly one add-block in Page Items, alongside presets", () => {
     harness();
     openPageAdd();
-    const options = within(screen.getByTestId("new-section-spaces"))
-      .getAllByRole("option")
-      .map((el) => (el as HTMLOptionElement).value);
-    expect(options).toEqual(["1", "2", "3", "4", "5", "6"]);
+    expect(screen.getAllByTestId("add-block")).toHaveLength(1);
+    expect(screen.getByTestId("section-presets")).toBeInTheDocument();
+    for (const kind of offerableLeafKinds("fursona")) {
+      expect(screen.queryByTestId(`add-leaf-${kind}`)).toBeNull();
+    }
   });
 
-  it("adds a section of the chosen shape, with a place for each space", () => {
+  // A SECTION NOW STARTS AT A FIXED SHAPE AND IS RESHAPED AFTERWARDS, which is
+  // what every nested container already did — `add-nested` never let anybody
+  // choose a width before adding either. Choosing a width up front was the
+  // one thing the page level did differently, and the picker makes every
+  // scope work the same way: `add-block` adds `newContainer(mode, 2)`, and
+  // the section's own shape control (`block-card.test.tsx`) is where its
+  // width is chosen afterwards.
+  it("adds a section from the picker, with two places to start", () => {
     const page = harness();
     openPageAdd();
-    fireEvent.change(screen.getByTestId("new-section-spaces"), {
-      target: { value: "4" },
-    });
-    fireEvent.click(screen.getByTestId("add-section"));
+    fireEvent.click(screen.getByTestId("add-block"));
+    fireEvent.click(
+      screen
+        .getAllByTestId("add-block-option")
+        .find((option) => option.getAttribute("data-add-mode") === "grid")!,
+    );
 
     const block = firstContainer(page());
-    expect(block.spaces).toBe(4);
-    expect(block.children).toEqual([null, null, null, null]);
-    expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(4);
+    expect(block.spaces).toBe(2);
+    expect(block.children).toEqual([null, null]);
+    expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(2);
   });
 
   it("appends rather than replacing what is already there", () => {
     const page = harness([newContainer("stack", 1)]);
     openPageAdd();
-    fireEvent.click(screen.getByTestId("add-section"));
+    fireEvent.click(screen.getByTestId("add-block"));
+    fireEvent.click(
+      screen
+        .getAllByTestId("add-block-option")
+        .find((option) => option.getAttribute("data-add-mode") === "grid")!,
+    );
     expect(page()).toHaveLength(2);
+  });
+
+  // THE "NESTING LOOKED DELETED" BUG this replaces the flat add row to fix:
+  // `add-nested` used to exist only on an EMPTY place, so a section whose
+  // places were all filled offered no way to add a section inside it at all.
+  // `mayNest` still admits one up to `MAX_DEPTH` — the picker just has to be
+  // reachable from a full scope's own Items footer, not only from a place
+  // that happens to be empty.
+  it("still offers add-block from a full two-place container, and adds a nested container inside it", () => {
+    const page = harness([
+      {
+        ...newContainer("grid", 2),
+        children: [titled("a"), titled("b")],
+      },
+    ]);
+    fireEvent.click(screen.getByTestId("select-page"));
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+
+    expect(screen.getByTestId("add-block")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("add-block"));
+    fireEvent.click(
+      screen
+        .getAllByTestId("add-block-option")
+        .find((option) => option.getAttribute("data-add-mode") === "grid")!,
+    );
+
+    const outer = firstContainer(page());
+    expect(outer.children).toHaveLength(3);
+    const nested = outer.children[2];
+    expect(nested && isContainer(nested)).toBe(true);
+  });
+
+  // The deepest CONTAINER `mayNest` still admits sits at depth two — a
+  // section, a container inside it, a container inside that — where a
+  // fourth level would exceed `MAX_DEPTH`. The picker's layout group must be
+  // absent from that container's own Items footer, matching what an empty
+  // place at the same depth already refuses.
+  it("offers no layout group from a container's Items footer at the depth cap", () => {
+    harness([
+      {
+        ...newContainer("stack", 1),
+        children: [
+          {
+            ...newContainer("stack", 1),
+            children: [
+              { ...newContainer("stack", 1), children: [titled("deep")] },
+            ],
+          },
+        ],
+      },
+    ]);
+    fireEvent.click(screen.getByTestId("select-page"));
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    fireEvent.click(screen.getByTestId("inspector-item-open"));
+
+    fireEvent.click(screen.getByTestId("add-block"));
+    expect(
+      screen
+        .getAllByTestId("add-block-option")
+        .every((option) => !option.hasAttribute("data-add-mode")),
+    ).toBe(true);
+    expect(screen.getByTestId("nesting-at-limit")).toBeInTheDocument();
   });
 
   // A TEMPLATE REPLACES, which is why the picker confirms first when there is
@@ -414,7 +511,7 @@ describe("BlockEditor", () => {
     harness(full);
     openPageAdd();
     expect(screen.getByText(labels.atLimit)).toBeInTheDocument();
-    expect(screen.queryByTestId("add-section")).toBeNull();
+    expect(screen.queryByTestId("add-block")).toBeNull();
     expect(screen.queryByTestId("section-presets")).toBeNull();
   }, 20_000);
 
@@ -423,7 +520,7 @@ describe("BlockEditor", () => {
   it("counts an empty place against nothing", () => {
     harness([{ ...newContainer("grid", 6), children: Array(50).fill(null) }]);
     openPageAdd();
-    expect(screen.getByTestId("add-section")).toBeInTheDocument();
+    expect(screen.getByTestId("add-block")).toBeInTheDocument();
   });
 
   // A PAGE MAY HOLD A LEAF AT THE TOP LEVEL, and one this editor could not
@@ -522,9 +619,14 @@ describe("recursive inspector drill-down", () => {
     expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
       3,
     );
-    expect(
-      within(inspector).getByTestId("inspector-empty-place"),
-    ).toBeVisible();
+    // `toBeVisible` would also fail on the row's own opacity-in entrance
+    // (`inspector-items.tsx`), which jsdom never actually animates to
+    // completion — no real compositor, no real frames. What this case is
+    // actually checking is that the row sits in the ACTIVE pane rather than
+    // one `hidden` is currently hiding, which `closest("[hidden]")`
+    // answers without depending on an animation jsdom cannot run.
+    const emptyPlace = within(inspector).getByTestId("inspector-empty-place");
+    expect(emptyPlace.closest("[hidden]")).toBeNull();
     expect(within(inspector).queryByText("Deep leaf")).toBeNull();
 
     fireEvent.click(
@@ -536,7 +638,11 @@ describe("recursive inspector drill-down", () => {
     fireEvent.click(within(inspector).getByTestId("inspector-item-open"));
 
     expect(within(inspector).queryByRole("tablist")).toBeNull();
-    expect(within(inspector).getByTestId("leaf-editor")).toBeVisible();
+    // Not `toBeVisible`, for the same reason as the empty place above: the
+    // Options pane's own entrance opacity never resolves in jsdom.
+    expect(
+      within(inspector).getByTestId("leaf-editor").closest("[hidden]"),
+    ).toBeNull();
     expect(within(inspector).queryByTestId("nested-card")).toBeNull();
   });
 
@@ -564,7 +670,13 @@ describe("recursive inspector drill-down", () => {
     fireEvent.click(screen.getAllByTestId("inspector-item-open")[1]!);
     fireEvent.click(screen.getByTestId("remove-block"));
 
-    expect(screen.getByTestId("canvas-inspector")).toBeVisible();
+    // Not `toBeVisible`: the inspector's own entrance opacity
+    // (`canvas-inspector.tsx`) never actually animates to completion in
+    // jsdom, which has no real compositor. `closest("[hidden]")` is the
+    // check that survives that — the inspector is mounted at all here,
+    // which is the real claim.
+    const inspector = screen.getByTestId("canvas-inspector");
+    expect(inspector.closest("[hidden]")).toBeNull();
     expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
     expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(2);
   });

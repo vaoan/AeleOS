@@ -1168,14 +1168,31 @@ list --state open` returning nothing else.
 
   **Post it on the PR. Do not commit it.** Temporary Playwright specs,
   `shot-*.png`, and crop files stay out of git; delete them after the comment
-  is up. Uploading the images and posting the comment are `git`/`gh` actions
-  like any other: they use the PAT in `.secrets` (`GH_TOKEN`) and the
-  procedure in [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md) —
-  never `git config --global`, never a stored osxkeychain login, never
-  `gh auth login` as somebody else, never a drag-drop in the browser as a
-  different account. Confirm `gh api user` first, then `gh pr comment` with
-  markdown that embeds the uploaded files. A picture that landed as a
-  different GitHub user is not posted.
+  is up.
+
+  **`gh pr comment` cannot upload a file, and believing it can was wrong for a
+  while.** It posts Markdown only — GitHub's own drag-drop attachment upload
+  needs a browser session, which a PAT cannot drive, so there is no `gh`
+  equivalent of dropping a PNG into the comment box. The image has to be
+  hosted somewhere a raw URL can point at, and the mechanism that works,
+  verified on PR #52: a **private gist**, holding nothing but the picture,
+  created and pushed to with the same PAT identity as every other action here.
+
+  ```bash
+  gh api gists -X POST -f 'description=…' -F 'public=false' -f 'files[README.md][content]=placeholder'
+  git clone <git_push_url>   # the gist's own clone URL, from the response
+  # copy the PNG in, commit, push
+  # reference https://gist.githubusercontent.com/<user>/<id>/raw/<file>.png
+  # in the PR comment body
+  ```
+
+  Confirmed: the raw URL serves `200` with `Content-Type: image/png`, so it
+  renders inline in the comment the same way a native upload would. Confirm
+  `gh api user` first — never `git config --global`, never a stored
+  osxkeychain login, never `gh auth login` as somebody else, never a
+  drag-drop in the browser as a different account. A picture that landed as a
+  different GitHub user, or that never left a gist nobody can reach, is not
+  posted.
 
   **Photograph the branch, never `main` by accident.** `PLAYWRIGHT_BASE_URL`
   still pointing at production from an earlier live check is how a comment
@@ -2164,6 +2181,33 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   the extended column comment to the live project, one pull request at a
   time, immediately before merge. See `apps/hub/src/features/actors/CLAUDE.md`
   for the account in full.
+
+- **Editor interaction lock, one Add picker, and Motion for editor chrome
+  (2026-09-02) — done.** The editor canvas is locked by default so a
+  click selects a block rather than following a real link, with a
+  session-only toolbar switch and Preview both able to make it interactive;
+  every scope that can hold a block offers one Add picker, drawn with the
+  real renderer over fixed sample content, replacing the flat add row and
+  the HTML5 drag-to-add path it carried (removed deliberately, and may
+  return later); and editor chrome — the inspector, its scope transitions,
+  new inspector rows — carries restrained Motion (`LazyMotion` + `m`,
+  `MotionConfig reducedMotion="user"`), never the public renderer, never a
+  `@dnd-kit` node — a real review found the last of those three actually
+  breached (the inspector's own root and Items-pane entrances wrote `x`/`y`
+  while ancestors of the real draggable), fixed to opacity-only and pinned
+  by a named regression case rather than left as a claim nothing checked.
+  `motion` is a new dependency of `apps/hub` for this. See
+  `apps/hub/src/features/actors/CLAUDE.md` for the full account, including
+  the closed-out cost verification: the barrel COUPLING that carries Motion
+  onto `/[locale]/[person]` and its fursona-page sibling is pre-existing,
+  from before this work, but the +109KB of Motion itself on those routes is
+  new, added by this branch — both true, neither collapsing into the other —
+  and the owner's own ruling is to merge as-is with the barrel split
+  deferred to a follow-up, the measured numbers left as its baseline. The
+  `canvas` job's own throttled-page measurement, run with the full stack
+  mounted, did not move (0.006 commits per delivered movement, the same
+  reading this file's own toolchain section already treats as healthy) —
+  the number that decides whether Motion stays, and it says keep it.
 
 ## The toolchain, and the rules it cost
 

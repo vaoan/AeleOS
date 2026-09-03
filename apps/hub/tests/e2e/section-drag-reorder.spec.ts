@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -6,11 +6,49 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { liftByKeyboard } from "./support/drag";
-import { chooseNewSectionSpaces, openPageAdd } from "./support/editor";
+import { addBlock, addSection, openPageAdd } from "./support/editor";
 import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
+
+/**
+ * Clicks an `inspector-item-open` button and reads `leaf-title` back,
+ * retrying the click until the value sticks.
+ *
+ * **Diagnosed, not guessed** — this is the same `next dev` Strict Mode
+ * remount hazard `addSection` already documents for `section-spaces`: a
+ * click that Playwright reports as successful can still land on a mount
+ * about to be discarded, so the `selection` state it just set is thrown
+ * away while the drag's own reorder (held outside that local state) survives
+ * untouched. Observed directly, isolated from every other suspect —
+ * `readonly` DOM state after the click showed the inspector fallen back to
+ * its page-level view, `leaf-title` absent entirely — on about one run in
+ * three; the same click driven with a fresh, non-shared sign-in session
+ * never reproduced it, and repeating it against the file's own shared
+ * session reproduced it three runs in three. Retrying the click until the
+ * surviving mount is the one holding the selection is the established fix
+ * for exactly this class of race, not a wider timeout or a blind wait.
+ *
+ * @param page - the editor page.
+ * @param open - the `inspector-item-open` locator to click.
+ * @param expected - the value `leaf-title` should read once entry sticks.
+ */
+async function enterAndReadTitle(
+  page: Page,
+  open: Locator,
+  expected: string,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      await open.click();
+      return page
+        .getByTestId("leaf-title")
+        .inputValue()
+        .catch(() => null);
+    })
+    .toBe(expected);
+}
 
 // One sign-in for the whole file: both cases below drive their own fresh
 // `/es/pages/new` draft and neither depends on the other, so they share
@@ -82,21 +120,15 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
 
   // Three sections, built by hand — a template inserts sections as data without
   // touching a grip at all, which would prove nothing here.
-  await chooseNewSectionSpaces(page, "2");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addSection(page, "2");
   await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("First");
 
-  await chooseNewSectionSpaces(page, "3");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addSection(page, "3");
   await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Second");
 
-  await chooseNewSectionSpaces(page, "4");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addSection(page, "4");
   await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Third");
   await openPageAdd(page);
@@ -167,13 +199,28 @@ test("a nested sibling drag swaps visible places without entering the row", asyn
 }) => {
   await page.goto("/es/pages/new");
 
-  await chooseNewSectionSpaces(page, "3");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
-  await page.getByTestId("add-content").first().click();
+  await addSection(page, "3");
+  // `addSection` leaves the pane on Options — its own TSDoc says so — so
+  // the section's empty places are not showing until Items is pressed.
+  await page.getByTestId("inspector-tab-items").click();
+  // **A width is not a capacity.** The picker's own layout options always
+  // start a container at two children (`PICKER_SPACES` in
+  // `add-block-picker.tsx`), and `section-spaces` reshapes only how many
+  // places lay ACROSS — `setSpaces` never touches `children`. So a genuine
+  // third, explicitly EMPTY place needs its own `add-place` press before
+  // anything is filled, or this section would have only two rows to drag
+  // between rather than the three — First, empty, Third — this test is
+  // actually named for.
+  await page.getByTestId("add-place").click();
+  await expect(page.getByTestId("inspector-item-row")).toHaveCount(3);
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("First");
   await page.getByTestId("inspector-back").click();
-  await page.getByTestId("add-content").last().click();
+  await addBlock(page.getByTestId("inspector-empty-place").last(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Third");
   await page.getByTestId("inspector-back").click();
 
@@ -209,21 +256,26 @@ test("a nested sibling drag swaps visible places without entering the row", asyn
   await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
   await expect(page.getByTestId("leaf-editor")).toHaveCount(0);
 
-  await page.getByTestId("inspector-item-open").last().click();
-  await expect(page.getByTestId("leaf-title")).toHaveValue("First");
+  await enterAndReadTitle(
+    page,
+    page.getByTestId("inspector-item-open").last(),
+    "First",
+  );
 });
 
 test("a pointer drag between sibling rows does not activate either row", async ({
   page,
 }) => {
   await page.goto("/es/pages/new");
-  await chooseNewSectionSpaces(page, "2");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
-  await page.getByTestId("add-content").first().click();
+  await addSection(page, "2");
+  // Same as above: Items must be pressed before an empty place shows.
+  await page.getByTestId("inspector-tab-items").click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Left");
   await page.getByTestId("inspector-back").click();
-  await page.getByTestId("add-content").click();
+  await addBlock(page.getByTestId("inspector-empty-place"), { kind: "text" });
   await page.getByTestId("leaf-title").fill("Right");
   await page.getByTestId("inspector-back").click();
 
@@ -249,6 +301,27 @@ test("a pointer drag between sibling rows does not activate either row", async (
   );
   await page.mouse.up();
 
+  // **A third instance of rule 41's measured exemption class, diagnosed
+  // rather than guessed.** `PointerSensor.detach()` in `@dnd-kit/core@6.3.1`
+  // keeps a document-level, CAPTURING `click` listener alive for exactly
+  // 50ms after a drag ends (`setTimeout(this.documentListeners.removeAll,
+  // 50)`), on purpose: it calls `stopPropagation()` to swallow the synthetic
+  // click that a mouseup-after-drag produces, so the drop does not also
+  // activate whatever sits under the pointer. A capture-phase
+  // `stopPropagation()` on `document` stops the event before ANY element's
+  // own listener runs — so a genuinely independent click landing inside that
+  // window is silently lost too, whoever it targets. That is exactly what
+  // this test's own `inspector-item-open` clicks below were racing:
+  // diagnosed by isolating every other suspect (a fresh, non-shared sign-in
+  // reproduced nothing; retrying the click itself still failed inside a
+  // 5-second poll on some runs, which a one-shot swallow could not explain
+  // on its own). Waiting past dnd-kit's own constant, margin included, is not
+  // a guess about machine speed.
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- see comment above.
+    () => new Promise((done) => setTimeout(done, 100)),
+  );
+
   await expect
     .poll(() => page.getByTestId("inspector-item-row").allTextContents())
     .toEqual([
@@ -261,11 +334,17 @@ test("a pointer drag between sibling rows does not activate either row", async (
   // The pointer sequence itself did not open either row. A later, independent
   // click must still work; suppressing that click would turn drag protection
   // into a two-click row.
-  await page.getByTestId("inspector-item-open").first().click();
-  await expect(page.getByTestId("leaf-title")).toHaveValue("Right");
+  await enterAndReadTitle(
+    page,
+    page.getByTestId("inspector-item-open").first(),
+    "Right",
+  );
   await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-item-open").last().click();
-  await expect(page.getByTestId("leaf-title")).toHaveValue("Left");
+  await enterAndReadTitle(
+    page,
+    page.getByTestId("inspector-item-open").last(),
+    "Left",
+  );
 });
 
 // `block-drag.spec.ts` IS GONE, AND THIS IS WHERE ITS SURVIVING HALF LIVES.

@@ -221,6 +221,15 @@ test.describe("every phone screen, signed in", () => {
       await page.setViewportSize(viewport);
 
       await page.goto("/es/pages/new");
+      // The development-only error portal can cover the editor after the
+      // known Clerk server-render warning — the same fault
+      // `a11y.spec.ts`'s own comment names, reached here for the first time
+      // because this is the one spec that touches this many controls in one
+      // page load. Hiding its visual shell, not the warning: nothing this
+      // test asserts is about it.
+      await page.addStyleTag({
+        content: "nextjs-portal{display:none!important}",
+      });
       await openPageAdd(page);
       await page.getByTestId("inspector-tab-options").click();
       await page.getByTestId("theme-open").click();

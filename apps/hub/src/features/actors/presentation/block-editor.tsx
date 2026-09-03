@@ -12,7 +12,7 @@ import {
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import type { PageContext } from "@/features/actors/presentation/blocks";
-import { Plus, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -20,7 +20,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
@@ -42,11 +41,9 @@ import {
   addContentAt,
   appendPlace,
   blockAt,
-  newContainer,
-  newLeaf,
+  mayNest,
   removeAt,
   setAt,
-  SPACE_CHOICES,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import {
@@ -104,6 +101,11 @@ import {
 } from "@/features/actors/presentation/drag-announcements";
 import { LeafEditor } from "@/features/actors/presentation/leaf-editor";
 import { InspectorItems } from "@/features/actors/presentation/inspector-items";
+import { lockCanvasInteraction } from "@/features/actors/presentation/canvas-interaction-lock";
+import {
+  AddBlockPicker,
+  type AddBlockPickerProps,
+} from "@/features/actors/presentation/add-block-picker";
 import {
   SECTION_PRESETS,
   presetBlock,
@@ -148,6 +150,11 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * The inspector words live here too: this level owns selection and decides
  * whether Items or Options is shown, while each existing card remains
  * responsible for its own editing labels.
+ *
+ * **`addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` are the Add
+ * picker's own strings (2026-09-02).** One control, one name, at every scope
+ * that offers one — the page, a container's footer, an empty place — so this
+ * bag carries one set of four rather than a copy per scope.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -185,6 +192,20 @@ export interface BlockEditorLabels
   inspectorBack: string;
   /** Wraps the selected content in a layout. */
   wrapInLayout: string;
+  /**
+   * Names the Add picker's trigger, at every scope that offers one.
+   *
+   * One name for every scope — the page, a container's footer, an empty
+   * place — because it is the same control everywhere; only its target
+   * differs, and that is never named in the trigger's own words.
+   */
+  addBlock: string;
+  /** The picker's own dialog heading. */
+  addBlockTitle: string;
+  /** Heading over the picker's content options. */
+  addContentGroup: string;
+  /** Heading over the picker's layout options. */
+  addLayoutGroup: string;
 }
 
 /**
@@ -219,6 +240,10 @@ export interface BlockEditorLabels
  * The inspector starts deselected and mounts only after a canvas or Page
  * selection. Page and container selections expose immediate children in
  * Items plus their own Options; a leaf opens Options directly.
+ *
+ * **It also owns the interaction lock (2026-09-02)**, mounted in an effect
+ * over the canvas element this component renders — see
+ * {@link BlockEditorProps.pageInteractionsEnabled}.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -270,10 +295,19 @@ export interface BlockEditorProps<T extends FieldValues> {
    * Page Options; block Options never duplicates those page fields.
    */
   pageOptions?: ReactNode;
+  /**
+   * Whether the live page is currently interactive.
+   *
+   * Computed above by {@link pageInteractionsEnabled} from Preview and the
+   * toolbar switch — this component only acts on the result. **When true,
+   * canvas clicks do not select or clear**: the click belongs to the page
+   * itself, exactly as it does for a visitor, and the interaction lock is
+   * released so a real link, button or frame can respond. When false, the
+   * canvas is locked by {@link lockCanvasInteraction} and a click instead
+   * chooses the nearest block.
+   */
+  pageInteractionsEnabled: boolean;
 }
-
-/** The shape a new section starts at, before anybody changes it. */
-const NEW_SPACES = 2;
 
 /** How far a pointer travels before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 8;
@@ -320,6 +354,12 @@ interface ItemsFooterProps {
   atBlockLimit: boolean;
   kinds: readonly LeafKind[];
   labels: BlockEditorLabels;
+  /** The Add picker's own label bag, built once above. */
+  pickerLabels: AddBlockPickerProps["labels"];
+  /** Threaded to the picker's previews, exactly as the canvas needs it. */
+  page: PageContext;
+  /** Which language the picker's previews read. */
+  locale: AuthoringLanguage;
   addAt: (path: BlockPath, block: Block) => void;
   apply: ApplyBlocks;
 }
@@ -330,21 +370,24 @@ function ItemsFooter(props: ItemsFooterProps): ReactNode {
   if (!props.container || !isContainer(props.container) || !props.path) {
     return <></>;
   }
+  // Where the picker's own choice lands: the container's next empty or
+  // appended place, exactly as `addAt` resolves it — asked here only so
+  // `mayAddLayout` answers for the place a choice will actually occupy.
+  const nextChildPath = [...props.path, nextChildPosition(props.container)];
   return (
     <>
-      {props.atBlockLimit
-        ? null
-        : props.kinds.map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              {...tid(`add-into-${kind}`)}
-              onClick={() => props.addAt(props.path!, newLeaf(kind))}
-              className="w-fit rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              {props.labels.leaf.leafKinds[kind]}
-            </button>
-          ))}
+      {props.atBlockLimit ? null : (
+        <AddBlockPicker
+          targetPath={nextChildPath}
+          kinds={props.kinds}
+          mayAddLayout={mayNest(nextChildPath)}
+          atBlockLimit={props.atBlockLimit}
+          labels={props.pickerLabels}
+          page={props.page}
+          locale={props.locale}
+          onAdd={(block) => props.addAt(props.path!, block)}
+        />
+      )}
       {props.container.children.length < BLOCK_LIMITS.children ? (
         <button
           type="button"
@@ -566,6 +609,28 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * their shared parent again, preserving `moveBlock` while withholding
  * cross-level gestures from this inspector.
  *
+ * **A canvas click selects a block only while `pageInteractionsEnabled` is
+ * false (2026-09-02).** While it is true, `onCanvasClick` returns
+ * immediately — the click belongs to the live page, exactly as it does for a
+ * visitor — and the interaction lock covering the canvas is released in the
+ * same effect that watches this prop.
+ *
+ * **One `AddBlockPicker` is the only way to add, at every scope.** The page
+ * palette, a container's `ItemsFooter`, and every empty place in
+ * `InspectorItems` each mount one, targeted at their own place, sharing one
+ * `addPickerLabels` bag built once here. The sixteen flat `add-leaf-*`
+ * buttons, `add-section`, `add-into-*` and the HTML5 drag-to-add path they
+ * carried are gone — see the actors feature note for why drag-to-add is a
+ * deliberate removal rather than an oversight.
+ *
+ * **Two of its five motion places live here as plain CSS, deliberately not
+ * Motion (2026-09-02).** The canvas's own `md:pl-[…]` accommodation
+ * transitions (`transition-[padding-left] duration-210 ease-out`) and the
+ * selection outline's colour (`outline-color 150ms ease-out`, over a static
+ * base rule so there is something to transition FROM) both stay CSS so
+ * `@dnd-kit` and the page's own boxes never receive an inline `transform`
+ * from an `m.*` ancestor — see `editor-motion.tsx` for the other three.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -577,10 +642,10 @@ export function BlockEditor<T extends FieldValues>({
   onApplyDocument,
   theme,
   pageOptions,
+  pageInteractionsEnabled: interactionsEnabled,
 }: BlockEditorProps<T>) {
-  const id = useId();
   const dndId = useId();
-  const [spaces, setSpaces] = useState(NEW_SPACES);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [refusal, setRefusal] = useState<MoveRefusal | null>(null);
   const [selection, setSelection] = useState<EditorSelection>(null);
@@ -603,6 +668,19 @@ export function BlockEditor<T extends FieldValues>({
   useEffect(() => {
     pageRef.current = blocks;
   }, [blocks]);
+
+  // **Locks the canvas whenever page interaction is off, and releases it the
+  // instant it turns on.** `blocks` is in the dependency list so a block
+  // added or changed mid-session — a freshly authored link, a newly selected
+  // player — is caught by the lock's own initial sweep as well as by its
+  // `MutationObserver`, which is a courtesy against the observer running
+  // late rather than a substitute for it.
+  useEffect(() => {
+    if (interactionsEnabled) return;
+    const root = canvasRef.current;
+    if (!root) return;
+    return lockCanvasInteraction(root);
+  }, [interactionsEnabled, blocks]);
 
   useEffect(() => {
     const repaired = repairSelection(blocks, selection);
@@ -825,9 +903,16 @@ export function BlockEditor<T extends FieldValues>({
   /**
    * Chooses a block from a canvas click, or deselects on empty canvas.
    *
+   * **Does nothing at all while page interaction is on.** The click belongs
+   * to the page then — a real link, button or frame — and the interaction
+   * lock is what already keeps that click from also changing selection; this
+   * guard is what keeps it from changing selection through the OTHER path, a
+   * click that reaches an inert element's non-inert wrapper.
+   *
    * @param event - the click.
    */
   const onCanvasClick = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    if (interactionsEnabled) return;
     const hit = (event.target as Element | null)?.closest("[data-block-path]");
     if (hit instanceof HTMLElement && event.currentTarget.contains(hit)) {
       const path = parseBlockPath(hit.dataset.blockPath ?? "");
@@ -869,35 +954,6 @@ export function BlockEditor<T extends FieldValues>({
     const path = isContainer(block) ? [blocks.length] : [blocks.length, 0];
     setSelection({ kind: "block", path });
     setInspectorTab(isContainer(block) ? "items" : "options");
-  };
-
-  /**
-   * Reads an Add-tab drag payload.
-   *
-   * @param event - the drop.
-   * @returns the payload text, or nothing.
-   */
-  const droppedKind = (event: DragEvent): string | undefined => {
-    event.preventDefault();
-    return event.dataTransfer.getData("text/plain") || undefined;
-  };
-
-  /**
-   * Turns a drag payload into a block, or undefined when it is not ours.
-   *
-   * @param raw - `leaf:<kind>` or `section`.
-   * @returns the block.
-   */
-  const blockFromPayload = (raw: string): Block | undefined => {
-    if (raw === "section") return newContainer("grid", spaces);
-    if (raw === "layout") return newContainer("stack", 1);
-    if (raw.startsWith("leaf:")) {
-      const kind = raw.slice(5);
-      return kinds.includes(kind as LeafKind)
-        ? newLeaf(kind as LeafKind)
-        : undefined;
-    }
-    return undefined;
   };
 
   /**
@@ -946,6 +1002,20 @@ export function BlockEditor<T extends FieldValues>({
   // was a control that accepted a press and produced an unexplained failure
   // one save later.
   const kinds = offerableLeafKinds(page.actorKind);
+  // **One label bag for the Add picker, built once and passed to every
+  // instance of it** — the page, a container's footer, an empty place —
+  // rather than each call site re-slicing `labels` its own way, which is
+  // exactly the kind of duplication that drifts the moment a string is
+  // reworded in one place and not the others.
+  const addPickerLabels = {
+    add: labels.addBlock,
+    title: labels.addBlockTitle,
+    contentGroup: labels.addContentGroup,
+    layoutGroup: labels.addLayoutGroup,
+    nestingAtLimit: labels.nestingAtLimit,
+    leafKinds: labels.leaf.leafKinds,
+    modes: labels.modes,
+  };
   // Position named once, exactly as `PublicBlocks` does it and for the same
   // reason: a block has no identity but where it sits, and
   // `react/no-array-index-key` reads the map callback's index parameter.
@@ -966,57 +1036,16 @@ export function BlockEditor<T extends FieldValues>({
         <p className="text-sm text-(--muted)">{labels.atLimit}</p>
       ) : (
         <>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="grid gap-1.5">
-              <label
-                htmlFor={`${id}-new-spaces`}
-                className="text-xs font-medium"
-              >
-                {labels.newSectionSpaces}
-              </label>
-              <select
-                id={`${id}-new-spaces`}
-                {...tid("new-section-spaces")}
-                value={String(spaces)}
-                onChange={(event) => setSpaces(Number(event.target.value))}
-                className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-              >
-                {SPACE_CHOICES.map((count) => (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("text/plain", "section")
-              }
-              {...tid("add-section")}
-              onClick={() => addOnPage(newContainer("grid", spaces))}
-              className="flex items-center gap-1.5 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              <Plus className="size-4" />
-              {labels.addSection}
-            </button>
-          </div>
-          {kinds.map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              draggable
-              onDragStart={(event) =>
-                event.dataTransfer.setData("text/plain", `leaf:${kind}`)
-              }
-              {...tid(`add-leaf-${kind}`)}
-              onClick={() => addOnPage(newLeaf(kind))}
-              className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
-            >
-              {labels.leaf.leafKinds[kind]}
-            </button>
-          ))}
+          <AddBlockPicker
+            targetPath={[]}
+            kinds={kinds}
+            mayAddLayout={mayNest([])}
+            atBlockLimit={atBlockLimit}
+            labels={addPickerLabels}
+            page={page}
+            locale={lang}
+            onAdd={addOnPage}
+          />
           <div className="grid gap-1.5">
             <button
               type="button"
@@ -1089,6 +1118,9 @@ export function BlockEditor<T extends FieldValues>({
       atBlockLimit={atBlockLimit}
       kinds={kinds}
       labels={labels}
+      pickerLabels={addPickerLabels}
+      page={page}
+      locale={lang}
       addAt={addAt}
       apply={apply}
     />
@@ -1108,6 +1140,10 @@ export function BlockEditor<T extends FieldValues>({
       }}
       onRemovePlace={(path) => apply((current) => removeAt(current, path))}
       atBlockLimit={atBlockLimit}
+      kinds={kinds}
+      page={page}
+      locale={lang}
+      pickerLabels={addPickerLabels}
       labels={labels}
       footer={itemsFooter}
     />
@@ -1166,7 +1202,12 @@ export function BlockEditor<T extends FieldValues>({
   return (
     <section
       data-editor-stack
-      className={`mt-8 grid gap-4 ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
+      // **Canvas accommodation transitions as plain CSS, never Motion** — the
+      // spec's third motion place, kept off `m.*` on purpose so `@dnd-kit`
+      // and the page's own boxes never receive an inline `transform` from
+      // this. The transition applies at every width; it only ever has
+      // something to animate from `md` up, where `pl-` itself is conditional.
+      className={`mt-8 grid gap-4 transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
     >
       <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
         <div className="flex flex-wrap items-center gap-2">
@@ -1223,8 +1264,18 @@ export function BlockEditor<T extends FieldValues>({
           options={optionsPane}
         />
         <div className={CHROME_SCOPE}>
+          {/* **The selection outline transitions its COLOUR, plain CSS rather
+              than Motion** — the spec's fourth motion place, and the one that
+              must not animate an author's own geometry or colours. A static
+              base rule gives every block a transparent outline at the same
+              offset the selected one uses, which is what lets the colour
+              change TRANSITION rather than pop: transitioning `outline-color`
+              alone needs the property already set to something, or there is
+              nothing for the browser to interpolate FROM. Only the selected
+              path's rule is conditional; the base rule always renders. */}
+          <style>{`[data-editor-canvas] [data-block-path] { outline: 2px solid transparent; outline-offset: 4px; transition: outline-color 150ms ease-out; }`}</style>
           {selectedAttr ? (
-            <style>{`[data-editor-canvas] [data-block-path="${selectedAttr}"] { outline: 2px solid var(--accent); outline-offset: 4px; }`}</style>
+            <style>{`[data-editor-canvas] [data-block-path="${selectedAttr}"] { outline-color: var(--accent); }`}</style>
           ) : null}
         </div>
 
@@ -1235,27 +1286,11 @@ export function BlockEditor<T extends FieldValues>({
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
           {...tid("editor-canvas")}
+          ref={canvasRef}
           data-editor-canvas=""
           data-editor-stack
           className="grid"
           onClick={onCanvasClick}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            const raw = droppedKind(event);
-            if (!raw) return;
-            const hit = (event.target as Element | null)?.closest(
-              "[data-block-path]",
-            );
-            const path =
-              hit instanceof HTMLElement
-                ? (parseBlockPath(hit.dataset.blockPath ?? "") ?? [])
-                : [];
-            if (raw === "layout") return;
-            const next = blockFromPayload(raw);
-            if (!next) return;
-            if (path.length === 0) addOnPage(next);
-            else addAt(path, next);
-          }}
         >
           {blocks.length === 0 ? (
             <p className={`${CHROME_SCOPE} px-4 py-8 text-sm text-(--muted)`}>

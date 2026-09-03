@@ -18,8 +18,8 @@ import {
 } from "./support/pixels";
 import {
   assertLastTriggerIsAContainers,
-  chooseNewSectionSpaces,
-  openPageAdd,
+  addBlock,
+  addSection,
   openPageOptions,
 } from "./support/editor";
 
@@ -233,13 +233,13 @@ test("author colours and skin change both real previews without restyling the wo
   await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("themeboundary");
   await page.getByTestId("editor-display-name").fill("Theme boundary");
-  await chooseNewSectionSpaces(page, "1");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addSection(page, "1");
   await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Boundary");
   await page.getByTestId("inspector-tab-items").click();
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Previewed");
   await openPageOptions(page);
 
@@ -366,9 +366,7 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   // Built by hand rather than from a template: a template inserts sections as
   // data without touching a single control, which would prove nothing about
   // the control under test.
-  await chooseNewSectionSpaces(page, "2");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addSection(page, "2");
   await page.getByTestId("inspector-tab-options").click();
 
   // Collapsed keeps the control card compact while its sibling preview stays
@@ -506,10 +504,13 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("facecheck");
   await page.getByTestId("editor-display-name").fill("Face check");
-  await chooseNewSectionSpaces(page, "2");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
-  await page.getByTestId("add-content").first().click();
+  await addSection(page, "2");
+  // `addSection` leaves the pane on Options — its own TSDoc says so — so
+  // the section's empty places are not showing until Items is pressed.
+  await page.getByTestId("inspector-tab-items").click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
@@ -644,13 +645,13 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   // Composed by hand, content and all: a template inserts its sections as data
   // without touching one of these controls, so a template-built page would
   // measure the same pixels while proving nothing about the editor.
-  await chooseNewSectionSpaces(page, "1");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addSection(page, "1");
   await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Section");
   await page.getByTestId("inspector-tab-items").click();
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Item");
   await page.getByTestId("leaf-description").fill("A description");
   await page.getByTestId("inspector-back").click();
@@ -799,10 +800,13 @@ test("the three background fits are three different paints", async ({
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
-  await chooseNewSectionSpaces(page, "2");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
-  await page.getByTestId("add-content").first().click();
+  await addSection(page, "2");
+  // `addSection` leaves the pane on Options — its own TSDoc says so — so
+  // the section's empty places are not showing until Items is pressed.
+  await page.getByTestId("inspector-tab-items").click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
@@ -976,13 +980,17 @@ test("the face does not paint over the section's own writing", async ({
   await openPageOptions(page);
   await page.getByTestId("editor-handle").fill("veilcheck");
   await page.getByTestId("editor-display-name").fill("Veil check");
-  await chooseNewSectionSpaces(page, "1");
-  await openPageAdd(page);
-  await page.getByTestId("add-section").click();
+  await addSection(page, "1");
   await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Legible heading");
   await page.getByTestId("inspector-tab-items").click();
-  await page.getByTestId("add-content").click();
+  // **Two places, not one.** `addSection(page, "1")` still starts the
+  // container at the picker's own default of two children — narrowing to
+  // one place is a WIDTH, never a capacity — so both empty places exist at
+  // once here and the bare locator would be ambiguous.
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Legible body");
   await page.getByTestId("inspector-back").click();
   await page.getByTestId("inspector-tab-options").click();

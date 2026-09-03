@@ -124,6 +124,10 @@ const labels = {
   hideControls: "Hide controls",
   showControls: "Show controls",
   openSource: "Page source",
+  interactWithPage: "Interact with page",
+  interactWithPageHintOff: "Page links and controls are locked.",
+  interactWithPageHintOn:
+    "Page links and controls work as they do for a visitor.",
   source: {
     title: "Page source",
     close: "Close the page source",
@@ -724,6 +728,125 @@ describe("FursonaEditor", () => {
       Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
       Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
     }
+  });
+
+  // A page carrying one real `link` leaf, so the interaction lock has
+  // something on the canvas to act on. The real renderer, not a mock — the
+  // lock's whole job is a real anchor, and a mocked one would remove the
+  // setup requirement this feature exists to enforce.
+  const linkPage = () => [
+    {
+      kind: "container",
+      mode: "stack",
+      spaces: 1,
+      name_en: "Section",
+      children: [
+        {
+          kind: "link",
+          title_en: "A link",
+          description_en: "",
+          link_url: "https://example.com",
+        },
+      ],
+    },
+  ];
+
+  /** The canvas's own link, or nothing if the page has none. */
+  const canvasLink = (): HTMLAnchorElement | null =>
+    document.querySelector('[data-testid="editor-canvas"] a[href]');
+
+  describe("Interact with page", () => {
+    it("locks the canvas and shows the switch unpressed by default", () => {
+      renderEditor({ initialSections: linkPage() });
+      expect(canvasLink()?.hasAttribute("inert")).toBe(true);
+      expect(screen.getByTestId("interact-with-page")).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    it("unlocks the canvas when the switch is pressed, with controls still visible", () => {
+      const { container } = renderEditor({ initialSections: linkPage() });
+      fireEvent.click(screen.getByTestId("interact-with-page"));
+
+      expect(canvasLink()?.hasAttribute("inert")).toBe(false);
+      expect(screen.getByTestId("interact-with-page")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      // Turning interaction on with the switch is not the same as Preview —
+      // the workbench stays visible.
+      expect(
+        container
+          .querySelector("[data-controls]")!
+          .getAttribute("data-controls"),
+      ).toBe("shown");
+    });
+
+    it("hiding controls makes the canvas interactive regardless of the switch", () => {
+      renderEditor({ initialSections: linkPage() });
+      expect(canvasLink()?.hasAttribute("inert")).toBe(true);
+
+      fireEvent.click(screen.getByTestId("hide-controls"));
+      expect(canvasLink()?.hasAttribute("inert")).toBe(false);
+    });
+
+    it("resets the switch to off when controls return, even if it was pressed before Preview", () => {
+      renderEditor({ initialSections: linkPage() });
+      fireEvent.click(screen.getByTestId("interact-with-page"));
+      expect(screen.getByTestId("interact-with-page")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+
+      fireEvent.click(screen.getByTestId("hide-controls"));
+      fireEvent.click(screen.getByTestId("show-controls"));
+
+      expect(screen.getByTestId("interact-with-page")).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+      // And the reset actually re-locks the canvas — the switch reading
+      // "off" would be cosmetic on its own if the lock disagreed with it.
+      expect(canvasLink()?.hasAttribute("inert")).toBe(true);
+    });
+
+    it("pressing the switch does not hide controls and does not clear a Page selection", () => {
+      const { container } = renderEditor();
+      fireEvent.click(screen.getByTestId("select-page"));
+      expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId("interact-with-page"));
+
+      expect(
+        container
+          .querySelector("[data-controls]")!
+          .getAttribute("data-controls"),
+      ).toBe("shown");
+      expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+    });
+
+    // The two mechanisms are independent layers: `inert` is what stops a
+    // real click from reaching the link's own handler in a browser, and this
+    // is the second one — `onCanvasClick` itself declining to act — which is
+    // what a click reaching the canvas's ANCESTOR handler (bubbling past an
+    // element jsdom does not actually block, since jsdom implements no
+    // `inert` behaviour) must still be refused by.
+    it("selects a block from a canvas click only while locked", () => {
+      renderEditor({ initialSections: linkPage() });
+      expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+
+      fireEvent.click(canvasLink()!);
+      expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+    });
+
+    it("does not select a block from a canvas click while page interaction is on", () => {
+      renderEditor({ initialSections: linkPage() });
+      fireEvent.click(screen.getByTestId("interact-with-page"));
+
+      fireEvent.click(canvasLink()!);
+      expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    });
   });
 
   // **Not a submit.** Every button inside a `<form>` submits by default, so an

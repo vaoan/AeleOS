@@ -10,7 +10,8 @@ import {
   sharedStatePath,
 } from "./support/shared-session";
 import {
-  chooseNewSectionSpaces,
+  addBlock,
+  addSection,
   handleFor,
   openPageAdd,
   openPageOptions,
@@ -420,20 +421,29 @@ test("sections built by hand save, reopen and reach a stranger", async ({
 
   // A shape and an arrangement that are NOT the ones the add control starts
   // on, so what travels through storage is something this test chose rather
-  // than whatever happened to be the default.
-  await chooseNewSectionSpaces(page, "3");
-  await openPageAdd(page);
+  // than whatever happened to be the default. `addSection` adds at the
+  // picker's own fixed starting shape and reshapes it afterward, through the
+  // section's own `section-spaces` control — the width moved from before
+  // adding to after, matching how nesting already worked.
+  //
   // **Adding selects what was added**, so the section this test builds is the
   // one the inspector is now showing and there is no card to pick out of a
   // list. The old version reached for `section-card` LAST, because a page
   // opens carrying the identity section the database requires and
-  // `add-section` appends; one scope at a time makes that arithmetic
-  // unnecessary rather than merely easier.
-  await page.getByTestId("add-section").click();
-  await page.getByTestId("inspector-tab-options").click();
+  // `add-section` appended; one scope at a time makes that arithmetic
+  // unnecessary rather than merely easier. `addSection` already leaves the
+  // new section selected on Options, where the fields below live.
+  await addSection(page, "3");
   await page.getByTestId("section-name").fill("A history");
   await page.getByTestId("section-mode").selectOption("timeline");
   await page.getByTestId("inspector-tab-items").click();
+  // **A width is not a capacity.** The picker's own layout options always
+  // start a container at two children — `section-spaces` above only reshapes
+  // how many places lay ACROSS, never `children` — so a genuine third place
+  // needs its own `add-place` press before this test's middle gap can exist
+  // at all: without it, filling `.first()` then `.last()` fills BOTH of the
+  // only two places there are, leaving no gap whatsoever.
+  await page.getByTestId("add-place").click();
 
   // **The FIRST and the THIRD place of three, leaving the MIDDLE empty**, and
   // the position of the gap is the whole point rather than the count of gaps.
@@ -448,11 +458,15 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // the third and the LAST of them is the place this test wants. Counting
   // survivors was what the flat editor needed; naming the end of the row says
   // what is meant.
-  await page.getByTestId("add-content").first().click();
+  await addBlock(page.getByTestId("inspector-empty-place").first(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("The first day");
   await page.getByTestId("leaf-description").fill("It began.");
   await page.getByTestId("inspector-back").click();
-  await page.getByTestId("add-content").last().click();
+  await addBlock(page.getByTestId("inspector-empty-place").last(), {
+    kind: "text",
+  });
   await page.getByTestId("leaf-title").fill("Much later");
   await page.getByTestId("leaf-description").fill("It went on.");
   await page.getByTestId("inspector-back").click();
