@@ -108,6 +108,7 @@
     "dragRefusedIntoItself": "Eso pondría una sección dentro de sí misma, así que no se movió nada.",
     "dragRefusedTooDeep": "Eso está un nivel más adentro de lo que una página admite, así que no se movió nada.",
     "dragRefusedNoSuchPlace": "Ese lugar ya no está, así que no se movió nada.",
+    "dragRefusedTooMany": "Esa lista no admite otro bloque, así que no se movió nada.",
     "sectionEyebrow": "Sección",
     "sectionName": "Nombre",
     "removeSection": "Eliminar sección",

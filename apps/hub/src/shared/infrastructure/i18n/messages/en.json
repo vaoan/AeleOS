@@ -108,6 +108,7 @@
     "dragRefusedIntoItself": "That would put a section inside itself, so nothing moved.",
     "dragRefusedTooDeep": "That is one level deeper than a page can go, so nothing moved.",
     "dragRefusedNoSuchPlace": "That place is no longer there, so nothing moved.",
+    "dragRefusedTooMany": "That list cannot hold another block, so nothing moved.",
     "sectionEyebrow": "Section",
     "sectionName": "Name",
     "removeSection": "Remove section",

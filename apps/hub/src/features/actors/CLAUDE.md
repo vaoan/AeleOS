@@ -1299,11 +1299,37 @@ its closest surviving ancestor. That repair is persisted in state, so a later
 document import cannot resurrect a stale path merely by filling the same
 position again.
 
-Only the immediate siblings visible in one Items scope register drag handles.
-Pointer collision, keyboard navigation and the final drop boundary each reject
-a different parent before `moveBlock` is called. Cross-level movement remains
-expressible in the page-source document, but is deliberately not an inspector
-gesture.
+**The live renderer is directly draggable now (2026-09-04).** `Block` accepts
+optional editor instrumentation and threads it through the same recursion the
+public route renders. When absent — every public route, Preview, and the
+session's Interact-with-page mode — it emits no wrapper, grip, listener, or
+feedback at all. When present, `EditableBlockFrame` wraps every rendered block
+and empty place: a mouse press may lift the rendered block itself, while touch
+and keyboard listeners live only on the selected block's accessible grip so a
+finger can still scroll the canvas without accidentally starting a drag.
+
+The wrapper is the dnd-kit node and may write its own transform; Motion remains
+inside `CHROME_SCOPE` and never wraps it or an ancestor. The grip and
+insertion bars are also `CHROME_SCOPE`, so hiding controls removes the entire
+editing seam before Preview paints.
+
+**Linear parents insert-and-shift; positional parents still exchange.**
+`applyDrop` in `domain/block-drops.ts` is the planner: `before` / `after` on
+the page, `stack`, `list` and `timeline`; `place` is still `moveBlock` on
+`grid`, `masonry`, `carousel`, `tabs` and `accordion`. Pointer collision ranks
+the nested renderer rectangles deepest first and turns the pointer's upper or
+lower half into an insertion bar for a linear parent. Keyboard navigation
+walks rendered places in drawing order. Both paths call `applyDrop` before
+advertising a destination, so cycles, stale places, depth overflow and child
+overflow never light up; the final call remains authoritative. A successful
+result selects the exact destination path the planner returned.
+
+The recursive inspector remains in this canvas-only task; replacing it with
+the compact menu and focused Properties panel is deliberately deferred. Its
+old sibling grips temporarily coexist under a separate dnd-kit id prefix, so
+an inspector registration cannot replace a renderer registration for the same
+path. Inspector drags remain sibling-only, while the canvas admits
+domain-valid cross-container drops.
 
 Empty canvas or Escape deselects; an Escape aimed inside the inspector belongs
 to its own popup or field and leaves selection intact. The capture-phase

@@ -255,6 +255,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * `addLayoutGroup` the two option groups inside it. The picker reuses
  * `nestingAtLimit`, already resolved above, rather than a fifth string that
  * would say the identical thing.
+ *
+ * The drag refusal bag also distinguishes a valid linear destination whose
+ * parent is already at the child cap. That `tooMany` outcome is ordinary
+ * feedback from the drop planner, not a save error.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -396,6 +400,7 @@ export async function fursonaEditorLabels(
       intoItself: t("dragRefusedIntoItself"),
       tooDeep: t("dragRefusedTooDeep"),
       noSuchPlace: t("dragRefusedNoSuchPlace"),
+      tooMany: t("dragRefusedTooMany"),
     },
     sectionEyebrow: t("sectionEyebrow"),
     sectionName: t("sectionName"),

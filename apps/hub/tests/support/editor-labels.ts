@@ -167,6 +167,10 @@ const stylePopupLabels = {
  * English, since `AddBlockPicker` is not part of the vocabulary-derived
  * records above and a suite asserting its own words needs them spelled out.
  *
+ * The drag bag includes the linear-list capacity refusal as a distinct string,
+ * so presentation tests cannot accidentally collapse it into a stale-place
+ * failure.
+ *
  * @returns every label the block editor and its existing child controls need.
  */
 export function blockEditorLabels(): BlockEditorLabels {
@@ -198,6 +202,7 @@ export function blockEditorLabels(): BlockEditorLabels {
       intoItself: "That would put a section inside itself.",
       tooDeep: "That is one level too deep.",
       noSuchPlace: "That place is no longer there.",
+      tooMany: "That list cannot hold another block.",
     },
     sectionEyebrow: "Section",
     sectionName: "Name",

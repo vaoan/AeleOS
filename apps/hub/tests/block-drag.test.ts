@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  canvasPlaceId,
+  canvasPlacePath,
   placeId,
   placeName,
   placeOrder,
@@ -91,6 +93,24 @@ describe("placeId and placePath", () => {
   it("reads a dot as a separator and never as a decimal point", () => {
     expect(placePath("place:1.5")).toEqual([1, 5]);
     expect(placeId([1, 5])).toBe("place:1.5");
+  });
+});
+
+describe("canvasPlaceId and canvasPlacePath", () => {
+  it("keeps a canvas node distinct and reads its path back", () => {
+    expect(canvasPlaceId([0, 1, 2])).toBe("canvas-place:0.1.2");
+    expect(canvasPlacePath(canvasPlaceId([0, 1, 2]))).toEqual([0, 1, 2]);
+    expect(placePath(canvasPlaceId([0, 1, 2]))).toBeUndefined();
+  });
+
+  it.each([
+    "place:0.1",
+    "canvas-place:",
+    "canvas-place:-1",
+    "canvas-place:0.",
+    "canvas-place:a",
+  ])("refuses a non-canvas place %s", (id) => {
+    expect(canvasPlacePath(id)).toBeUndefined();
   });
 });
 

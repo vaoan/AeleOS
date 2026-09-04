@@ -663,6 +663,124 @@ describe("recursive inspector drill-down", () => {
     expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
   });
 
+  it("instruments the live renderer and gives only the selected block an accessible canvas grip", () => {
+    harness(recursivePage());
+
+    const canvas = screen.getByTestId("editor-canvas");
+    expect(within(canvas).getAllByTestId("canvas-drag-node")).toHaveLength(7);
+    expect(
+      within(canvas).queryByRole("button", { name: labels.dragBlock }),
+    ).toBeNull();
+
+    fireEvent.click(within(canvas).getByText("Deep leaf"));
+
+    expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("canvas-drag-0.0.0")).toHaveAccessibleName(
+      labels.dragBlock,
+    );
+    expect(
+      within(canvas).getAllByRole("button", { name: labels.dragBlock }),
+    ).toHaveLength(1);
+  });
+
+  it.each(["tabs", "accordion"] as const)(
+    "keeps an empty %s place available as a positional canvas destination",
+    (mode) => {
+      harness([
+        {
+          ...newContainer(mode, 2),
+          children: [titled("filled"), null],
+        },
+      ]);
+
+      expect(
+        screen
+          .getByTestId("editor-canvas")
+          .querySelector('[data-canvas-path="0-1"]'),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("moves a rendered stack child by its canvas grip and follows its returned destination", async () => {
+    const page = harness([
+      {
+        ...newContainer("stack", 1),
+        children: [titled("A"), titled("B"), titled("C")],
+      },
+    ]);
+    const canvas = screen.getByTestId("editor-canvas");
+    fireEvent.click(within(canvas).getByText("A"));
+
+    await drag("canvas-drag-0.0", ["ArrowDown", "ArrowDown"]);
+
+    expect(
+      firstContainer(page()).children.map((child) =>
+        child && !isContainer(child) ? child.title_en : null,
+      ),
+    ).toEqual(["B", "C", "A"]);
+    expect(screen.getByTestId("leaf-title")).toHaveValue("A");
+    expect(screen.getByTestId("canvas-drag-0.2")).toBeInTheDocument();
+  });
+
+  it("shows an insertion bar for a linear canvas target and clears it on cancel", async () => {
+    harness([
+      {
+        ...newContainer("stack", 1),
+        children: [titled("A"), titled("B")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+    fireEvent.keyDown(document, { code: "ArrowDown" });
+    await settle();
+
+    expect(screen.getByTestId("canvas-drop-after")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await settle();
+    expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+  });
+
+  it("highlights an empty positional place without turning it into an insertion bar", async () => {
+    harness([
+      {
+        ...newContainer("grid", 3),
+        children: [titled("A"), null, titled("C")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+    fireEvent.keyDown(document, { code: "ArrowDown" });
+    await settle();
+
+    expect(
+      screen
+        .getByTestId("editor-canvas")
+        .querySelector('[data-canvas-path="0-1"]'),
+    ).toHaveAttribute("data-canvas-drop", "place");
+    expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+  });
+
+  it("keeps canvas drag instrumentation and feedback out of Preview", () => {
+    const page = harness(recursivePage());
+    fireEvent.click(screen.getByText("Deep leaf"));
+    expect(screen.getAllByTestId("canvas-drag-node")).not.toHaveLength(0);
+
+    page.setControlsHidden(true);
+
+    expect(screen.queryByTestId("canvas-drag-node")).toBeNull();
+    expect(screen.queryByTestId(/canvas-drop-/)).toBeNull();
+  });
+
   it("still clears the selection for a click on the page itself", () => {
     harness(recursivePage());
     fireEvent.click(screen.getByTestId("select-page"));
@@ -824,7 +942,7 @@ describe("recursive inspector drill-down", () => {
     );
   });
 
-  it("keeps sibling drag within the visible Page rows and does not enter the moved row", async () => {
+  it("keeps an inspector sibling drag within Page and selects its returned destination", async () => {
     const page = harness([
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
@@ -835,7 +953,8 @@ describe("recursive inspector drill-down", () => {
     await drag("drag-0", ["ArrowDown", "ArrowDown"]);
 
     expect(names(page())).toEqual(["two", "three", "one"]);
-    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
-    expect(screen.queryByTestId("section-name")).toBeNull();
+    expect(screen.getByTestId("canvas-drag-2")).toBeInTheDocument();
+    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(1);
+    expect(screen.getByTestId("section-name")).toHaveValue("one");
   });
 });

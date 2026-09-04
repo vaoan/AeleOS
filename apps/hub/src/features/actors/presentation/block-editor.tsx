@@ -59,18 +59,21 @@ import {
   type EditorSelection,
 } from "@/features/actors/domain/editor-selection";
 import {
+  canvasPlaceId,
+  canvasPlacePath,
   placeId,
   placeName,
   placeOrder,
   placePath,
-  placeUnderPointer,
   stepPlace,
-  type PlaceCandidate,
 } from "@/features/actors/domain/block-drag";
 import {
-  moveSiblingBlock,
-  type MoveRefusal,
-} from "@/features/actors/domain/block-moves";
+  applyDrop,
+  applySiblingDrop,
+  isLinearScope,
+  type DropRefusal,
+  type DropTarget,
+} from "@/features/actors/domain/block-drops";
 import type { BlockProblem } from "@/features/actors/domain/block-problems";
 import {
   FURSONA_TEMPLATES,
@@ -122,9 +125,9 @@ import {
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
- * What a drag says, plus the three ways a drop can be refused.
+ * What a drag says, plus the ways a drop can be refused.
  *
- * **The refusals are `MoveRefusal` in words.** `moveBlock` answers why a drop
+ * **The refusals are `DropRefusal` in words.** `applyDrop` answers why a drop
  * did not happen, and until this bag existed there was nowhere for it to be
  * said — a refused drag was a drag that silently did nothing, which is the
  * fault this repository keeps catching.
@@ -136,6 +139,8 @@ interface BlockDragLabels extends DragAnnouncementLabels {
   tooDeep: string;
   /** Says the place a drop named is no longer there. */
   noSuchPlace: string;
+  /** Says a linear insert would grow a list past {@link BLOCK_LIMITS.children}. */
+  tooMany: string;
 }
 
 /**
@@ -370,6 +375,48 @@ const FORWARD_KEYS = new Set(["ArrowDown", "ArrowRight"]);
 /** Which arrow keys step back towards its start. */
 const BACK_KEYS = new Set(["ArrowUp", "ArrowLeft"]);
 
+/**
+ * The target kind a destination path offers for its parent arrangement.
+ *
+ * @param blocks - the current page.
+ * @param path - the candidate place.
+ * @param edge - which insertion edge a linear destination advertises.
+ * @returns an insertion bar for a sequence, otherwise a positional place.
+ */
+function targetAt(
+  blocks: readonly Block[],
+  path: BlockPath,
+  edge: "before" | "after",
+): DropTarget {
+  return isLinearScope(blocks, path.slice(0, -1))
+    ? { kind: edge, path }
+    : { kind: "place", path };
+}
+
+/**
+ * A keyboard step translated through the active drag surface.
+ *
+ * Inspector grips remain sibling-only during the transition; canvas grips
+ * admit any domain-valid cross-container destination.
+ *
+ * @param blocks - the current page.
+ * @param source - the lifted place.
+ * @param next - the next rendered place in drawing order.
+ * @param canvasDrag - whether the lift began on the live renderer.
+ * @param edge - the insertion edge implied by the arrow direction.
+ * @returns the candidate target, or none outside an inspector sibling scope.
+ */
+function keyboardDropTarget(
+  blocks: readonly Block[],
+  source: BlockPath,
+  next: BlockPath,
+  canvasDrag: boolean,
+  edge: "before" | "after",
+): DropTarget | null {
+  const destination = canvasDrag ? next : siblingTarget(source, next);
+  return destination ? targetAt(blocks, destination, edge) : null;
+}
+
 function useResettableSelection(
   resetKey: number,
 ): [EditorSelection, Dispatch<SetStateAction<EditorSelection>>] {
@@ -550,16 +597,22 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * does — the fault the flat editor documented at length and which produced a
  * delete landing on the wrong row.
  *
- * **Visible siblings may exchange places inside the current Items scope.**
- * `@dnd-kit` supplies the pointer and keyboard sensors, while `moveBlock`
- * continues to define what that sibling drop means. What a drop
- * MEANS is `moveBlock`'s, computed with no library in sight; this component
- * decides only which two places a gesture named.
+ * **The live renderer is the drag surface.** Every rendered block and empty
+ * place is instrumented by `EditableBlockFrame` only while edit controls are
+ * active and page interaction is locked. A mouse may lift the rendered block
+ * directly; touch and keyboard lift the selected block through its accessible
+ * grip so a touch scroll is never captured by an unselected block.
  *
- * **Pointer and keyboard targets come from the same mounted sibling rows.**
- * Pointer collision ranks their measured rectangles; keyboard navigation
- * walks their drawing order. Both filter by shared parent, and the final drop
- * boundary repeats that check so a stale or synthetic target cannot bypass it.
+ * **Pointer collision ranks the live renderer's nested rectangles deepest
+ * first; keyboard navigation walks their drawing order.** Both ask
+ * `applyDrop` before advertising a destination, then call it again at the
+ * final boundary. Linear parents show before/after insertion bars and shift;
+ * positional parents highlight a place and preserve swap/move semantics.
+ * The returned destination path becomes the selection after every success.
+ *
+ * Inspector grips remain sibling-only during the transition away from Items.
+ * Their ids use a separate namespace so a mounted inspector row cannot replace
+ * the corresponding live-renderer registration inside dnd-kit.
  * **The walk steps over any place nothing is showing** — a collapsed card
  * registers no drop target for its places, and stopping on one announced that
  * the drag had ended while it was still running.
@@ -671,7 +724,8 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * which is the same reasoning that withdraws a refused kind from the leaf
  * select rather than letting the database explain it afterwards.
  *
- * **The inspector is recursive and shallow.** Page and containers list only
+ * **The inspector remains recursive and shallow for this canvas-only step.**
+ * Page and containers list only
  * their immediate positions in Items; a selected container or leaf mounts one
  * existing `BlockCard` or `LeafEditor` in Options. Descendants never mount
  * there, and `BlockPath` alone derives parents and breadcrumbs.
@@ -681,9 +735,9 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * an inspector popup can detach its focused field, so closing that popup does
  * not accidentally deselect the page.
  *
- * Only visible siblings register with dnd-kit. The collision boundary checks
- * their shared parent again, preserving `moveBlock` while withholding
- * cross-level gestures from this inspector.
+ * Inspector rows register only visible siblings. The canvas independently
+ * registers the rendered tree and admits cross-level destinations only when
+ * `applyDrop` accepts their cycle, depth, capacity, and place constraints.
  *
  * **A canvas click selects a block only while `pageInteractionsEnabled` is
  * false (2026-09-02).** While it is true, `onCanvasClick` returns
@@ -758,7 +812,10 @@ export function BlockEditor<T extends FieldValues>({
   const dndId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [presetsOpen, setPresetsOpen] = useState(false);
-  const [refusal, setRefusal] = useState<MoveRefusal | null>(null);
+  const [refusal, setRefusal] = useState<DropRefusal | null>(null);
+  const [advertisedTarget, setAdvertisedTarget] = useState<DropTarget | null>(
+    null,
+  );
   const [selection, setSelection] = useResettableSelection(selectionResetKey);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("items");
 
@@ -823,6 +880,8 @@ export function BlockEditor<T extends FieldValues>({
   // rectangle synthesised from the last arrow key would be a second answer to
   // a question the coordinate getter already answered exactly.
   const keyboardAt = useRef<BlockPath | undefined>(undefined);
+  const keyboardTarget = useRef<DropTarget | null>(null);
+  const pointerTarget = useRef<DropTarget | null>(null);
 
   /**
    * Hands the form a whole new page.
@@ -851,28 +910,53 @@ export function BlockEditor<T extends FieldValues>({
    * @param args - what the library is measuring, and where the pointer is.
    * @returns the one place a drop would land on, or none.
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- collision admission must parse the matching id space, contain the pointer, validate the domain drop, and rank the deepest nested destination in one pass
   const detectCollision = useCallback<CollisionDetection>((args) => {
-    const from = placePath(String(args.active.id));
+    const activeId = String(args.active.id);
+    const canvasDrag = Boolean(canvasPlacePath(activeId));
+    const from = canvasPlacePath(activeId) ?? placePath(activeId);
     if (!from) return [];
     if (!args.pointerCoordinates) {
-      const target = siblingTarget(from, keyboardAt.current);
-      return target ? [{ id: placeId(target) }] : [];
+      const target = keyboardTarget.current;
+      return target
+        ? [
+            {
+              id: canvasDrag
+                ? canvasPlaceId(target.path)
+                : placeId(target.path),
+            },
+          ]
+        : [];
     }
-    const candidates: PlaceCandidate[] = [];
+
+    let best:
+      | {
+          readonly id: string;
+          readonly path: BlockPath;
+          readonly depth: number;
+        }
+      | undefined;
+    pointerTarget.current = null;
     for (const container of args.droppableContainers) {
-      const path = siblingTarget(from, placePath(String(container.id)));
+      const candidateId = String(container.id);
+      const path = canvasDrag
+        ? canvasPlacePath(candidateId)
+        : placePath(candidateId);
       const rect = args.droppableRects.get(container.id);
-      if (path && rect) {
-        candidates.push({ id: String(container.id), path, rect });
+      if (!path || !rect) continue;
+      const { x, y } = args.pointerCoordinates;
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        continue;
+      }
+      const edge = y < rect.top + rect.height / 2 ? "before" : "after";
+      const target = targetAt(pageRef.current, path, edge);
+      if (!applyDrop(pageRef.current, from, target).ok) continue;
+      if (!best || path.length > best.depth) {
+        best = { id: String(container.id), path, depth: path.length };
+        pointerTarget.current = target;
       }
     }
-    const hit = placeUnderPointer(
-      candidates,
-      args.pointerCoordinates.x,
-      args.pointerCoordinates.y,
-      from,
-    );
-    return hit ? [{ id: hit.id }] : [];
+    return best ? [{ id: best.id }] : [];
   }, []);
 
   /**
@@ -912,14 +996,24 @@ export function BlockEditor<T extends FieldValues>({
       const forward = FORWARD_KEYS.has(event.code);
       if (!forward && !BACK_KEYS.has(event.code)) return;
       const from = placePath(String(args.active));
-      if (!from) return;
-      const order = placeOrder(pageRef.current, from);
-      let next = stepPlace(order, keyboardAt.current ?? from, forward);
+      const canvasFrom = canvasPlacePath(String(args.active));
+      const source = canvasFrom ?? from;
+      if (!source) return;
+      const order = placeOrder(pageRef.current, source);
+      let next = stepPlace(order, keyboardAt.current ?? source, forward);
       while (next) {
-        const rect = args.context.droppableRects.get(placeId(next));
-        const target = siblingTarget(from, next);
-        if (rect && target) {
-          keyboardAt.current = target;
+        const id = canvasFrom ? canvasPlaceId(next) : placeId(next);
+        const rect = args.context.droppableRects.get(id);
+        const target = keyboardDropTarget(
+          pageRef.current,
+          source,
+          next,
+          Boolean(canvasFrom),
+          forward ? "after" : "before",
+        );
+        if (rect && target && applyDrop(pageRef.current, source, target).ok) {
+          keyboardAt.current = next;
+          keyboardTarget.current = target;
           return { x: rect.left, y: rect.top };
         }
         next = stepPlace(order, next, forward);
@@ -945,9 +1039,10 @@ export function BlockEditor<T extends FieldValues>({
    * @param why - the refusal `moveBlock` answered.
    * @returns the sentence.
    */
-  const refusalText = (why: MoveRefusal): string => {
+  const refusalText = (why: DropRefusal): string => {
     if (why === "into itself") return labels.drag.intoItself;
     if (why === "too deep") return labels.drag.tooDeep;
+    if (why === "too many") return labels.drag.tooMany;
     return labels.drag.noSuchPlace;
   };
 
@@ -957,36 +1052,62 @@ export function BlockEditor<T extends FieldValues>({
    * @param event - the lift.
    */
   const onDragStart = (event: DragStartEvent): void => {
-    keyboardAt.current = placePath(String(event.active.id));
+    keyboardAt.current =
+      canvasPlacePath(String(event.active.id)) ??
+      placePath(String(event.active.id));
+    keyboardTarget.current = null;
+    pointerTarget.current = null;
+    setAdvertisedTarget(null);
     setRefusal(null);
   };
 
+  /** Mirrors dnd-kit's resolved target into editor-only renderer feedback. */
+  const onDragOver = (): void => {
+    setAdvertisedTarget(keyboardTarget.current ?? pointerTarget.current);
+  };
+
+  /** Clears transient destination chrome when a lift is cancelled. */
+  const onDragCancel = (): void => {
+    keyboardAt.current = undefined;
+    keyboardTarget.current = null;
+    pointerTarget.current = null;
+    setAdvertisedTarget(null);
+  };
+
   /**
-   * Exchanges the two places a drag named, or says why it did not.
+   * Lands the lifted block on the sibling it was over, or says why it did not.
    *
-   * A block carries no `sort_order` — the array IS the order, at every depth —
-   * so there is nothing to renumber afterwards and nothing a save can send
-   * stale. A no-op comes back as the very array it was given, which is why the
-   * write is skipped by identity rather than by comparing trees.
+   * Linear parents insert-and-shift; positional parents still exchange. See
+   * {@link applySiblingDrop}. A no-op comes back as the very array it was
+   * given, which is why the write is skipped by identity rather than by
+   * comparing trees.
    *
    * @param event - what was lifted, and what it was over.
    */
   const onDragEnd = (event: DragEndEvent): void => {
     keyboardAt.current = undefined;
-    const from = placePath(String(event.active.id));
-    if (!from) return;
-    const to = siblingTarget(
-      from,
-      event.over ? placePath(String(event.over.id)) : undefined,
-    );
-    if (!to) return;
-    const result = moveSiblingBlock(blocks, from, to);
-    if (!result) return;
+    const from =
+      canvasPlacePath(String(event.active.id)) ??
+      placePath(String(event.active.id));
+    const target = keyboardTarget.current ?? pointerTarget.current;
+    keyboardTarget.current = null;
+    pointerTarget.current = null;
+    setAdvertisedTarget(null);
+    if (!from || !target || !event.over) return;
+    const movedBlock = blockAt(blocks, from);
+    const result = applyDrop(blocks, from, target);
     if (!result.ok) {
       setRefusal(result.refusal);
       return;
     }
-    if (result.blocks !== blocks) apply(() => result.blocks);
+    if (result.blocks !== blocks) {
+      setRefusal(null);
+      field.field.onChange(result.blocks);
+    }
+    setSelection({ kind: "block", path: result.path });
+    setInspectorTab(
+      movedBlock && !isContainer(movedBlock) ? "options" : "items",
+    );
   };
 
   /**
@@ -1094,12 +1215,12 @@ export function BlockEditor<T extends FieldValues>({
   /**
    * What a drop should be ANNOUNCED as, when it is not an ordinary move.
    *
-   * It asks `moveBlock` again rather than reading what `onDragEnd` decided out
-   * of a mutable box. That is not a second decision: the same pure function on
-   * the same page answers the same thing, and there is no moment at which the
-   * two could disagree — `@dnd-kit` dispatches to the accessibility monitor
-   * inside the same batched update as the handler above, so `blocks` here is
-   * still the page the drop was computed against.
+   * It asks `applySiblingDrop` again rather than reading what `onDragEnd`
+   * decided out of a mutable box. That is not a second decision: the same
+   * pure function on the same page answers the same thing, and there is no
+   * moment at which the two could disagree — `@dnd-kit` dispatches to the
+   * accessibility monitor inside the same batched update as the handler
+   * above, so `blocks` here is still the page the drop was computed against.
    *
    * @param activeId - the drag id of what was lifted.
    * @param overId - the drag id of what it was dropped on.
@@ -1109,7 +1230,7 @@ export function BlockEditor<T extends FieldValues>({
     const from = placePath(activeId);
     const to = placePath(overId);
     if (!from || !to) return;
-    const result = moveSiblingBlock(blocks, from, to);
+    const result = applySiblingDrop(blocks, from, to);
     if (!result) return;
     return result.ok ? undefined : refusalText(result.refusal);
   };
@@ -1355,6 +1476,8 @@ export function BlockEditor<T extends FieldValues>({
         collisionDetection={detectCollision}
         accessibility={accessibility}
         onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragCancel={onDragCancel}
         onDragEnd={onDragEnd}
       >
         <CanvasInspector
@@ -1491,6 +1614,15 @@ export function BlockEditor<T extends FieldValues>({
                     depth={0}
                     path={String(seat.position)}
                     page={page}
+                    editor={
+                      controlsHidden || interactionsEnabled
+                        ? undefined
+                        : {
+                            selectedPath: selectedAttr || undefined,
+                            activeTarget: advertisedTarget,
+                            dragLabel: labels.dragBlock,
+                          }
+                    }
                   />
                 </div>
               </div>

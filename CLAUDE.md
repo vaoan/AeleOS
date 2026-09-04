@@ -1891,6 +1891,20 @@ replace`, so the newest body of a function could sit in a file named after
   Plan:
   `docs/superpowers/plans/2026-08-31-canvas-inspector-builder.md`.
 
+- **Carrd-style builder migration — PARTIAL CHECKPOINT (2026-09-04).** The
+  approved design supersedes the recursive Items list and sibling-only drag
+  surface while preserving the stored document and public renderer. The first
+  slice is implemented: the live renderer accepts editor-only instrumentation,
+  selected blocks expose accessible grips, and direct canvas drops insert in
+  `stack`/`list`/`timeline` while positional layouts keep place semantics.
+  Public pages, Preview and interact mode omit the instrumentation.
+
+  The compact builder menu, focused Properties panel, unified Add placement,
+  removal of superseded inspector paths and full browser/picture proof are
+  deliberately NOT complete in this checkpoint. Continue from
+  `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`;
+  `apps/hub/src/features/actors/CLAUDE.md` owns the implementation details.
+
 - **Editor interaction, adding and motion — DESIGNED, NOT BUILT
   (2026-09-02).** Page links, players and embeds are real inside the canvas
   today, so a click meant to select a block can act on its content. The

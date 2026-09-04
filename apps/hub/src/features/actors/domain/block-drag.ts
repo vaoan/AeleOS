@@ -13,6 +13,15 @@ import { isContainer, type Block } from "@/features/actors/domain/block-schema";
 const PLACE_PREFIX = "place:";
 
 /**
+ * Prefix for direct-manipulation nodes rendered on the editor canvas.
+ *
+ * Kept distinct from inspector place ids so both surfaces may be mounted
+ * during the transition away from recursive Items without registering two
+ * draggable nodes under one dnd-kit id.
+ */
+const CANVAS_PLACE_PREFIX = "canvas-place:";
+
+/**
  * What one segment of a path may be: digits, and nothing else.
  *
  * So a sign, whitespace and an empty segment all refuse. **Not a decimal
@@ -40,6 +49,16 @@ export function placeId(path: BlockPath): string {
 }
 
 /**
+ * The drag id for a live-renderer block or empty place on the editor canvas.
+ *
+ * @param path - the rendered place.
+ * @returns an id that cannot collide with an inspector place.
+ */
+export function canvasPlaceId(path: BlockPath): string {
+  return CANVAS_PLACE_PREFIX + path.join(".");
+}
+
+/**
  * The place a drag id names, or nothing when it names none.
  *
  * **It refuses rather than repairs**, for the reason `placeAt` in
@@ -60,6 +79,19 @@ export function placeId(path: BlockPath): string {
 export function placePath(id: string): BlockPath | undefined {
   if (!id.startsWith(PLACE_PREFIX)) return undefined;
   const parts = id.slice(PLACE_PREFIX.length).split(".");
+  if (!parts.every((part) => INDEX.test(part))) return undefined;
+  return parts.map(Number);
+}
+
+/**
+ * The canvas place named by a drag id, or nothing for any other id.
+ *
+ * @param id - the candidate canvas drag id.
+ * @returns its path when every segment is a non-negative integer.
+ */
+export function canvasPlacePath(id: string): BlockPath | undefined {
+  if (!id.startsWith(CANVAS_PLACE_PREFIX)) return undefined;
+  const parts = id.slice(CANVAS_PLACE_PREFIX.length).split(".");
   if (!parts.every((part) => INDEX.test(part))) return undefined;
   return parts.map(Number);
 }
