@@ -490,6 +490,7 @@
     "sectionStyleMargins": "Margins",
     "hideControls": "Preview",
     "showControls": "Show controls",
+    "more": "More",
     "interactWithPage": "Interact with page",
     "interactWithPageHintOff": "Page links and controls are locked so you can select blocks.",
     "interactWithPageHintOn": "Page links and controls work as they do for a visitor.",

@@ -123,6 +123,7 @@ const labels = {
   cancel: "Cancel",
   hideControls: "Hide controls",
   showControls: "Show controls",
+  more: "More",
   openSource: "Page source",
   interactWithPage: "Interact with page",
   interactWithPageHintOff: "Page links and controls are locked.",

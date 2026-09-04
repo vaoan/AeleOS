@@ -5858,3 +5858,31 @@ uses, opened `/es/me/edit`, selected a section's own container through the
 breadcrumb, and counted `data-testid="add-block"` elements: two, with
 `data-target-path` of `0` and `0-2` respectively, before this fix — one,
 `0`, after it. The identity was deleted again in the same run.
+
+**The row's remaining shape — Add, the page-theme switch, Preview, Save,
+More — landed the same day.** The spec names "Add, desktop/mobile canvas
+width, Preview, Save, More"; Phase 2 builds no canvas-width control, so that
+stop is simply absent rather than stubbed with a placeholder comment that
+controls nothing. `More` is a native `<details>`/`<summary>` disclosure —
+matching this codebase's own convention (`page-source-dock.tsx`'s reference
+panel) rather than introducing a third idiom — grouping the source-JSON
+trigger, Interact with page and Cancel, none of which is reached often
+enough to earn a permanent seat in a row that already wraps at `sm`.
+`pageThemeSwitch` keeps its place beside Add: the spec's own list does not
+name it, and moving a control the spec never mentioned was not this task's
+job.
+
+**jsdom applies none of `<details>`'s native open/closed behaviour, which
+`page-source-dock.tsx`'s own account already names for a different
+component — this is the same gap on a second one.** Every existing unit
+case asserting on the controls now inside `More` (`getByRole("button", {
+name: "Page source" })`, and the rest) kept passing completely unmodified,
+because jsdom neither hides a closed `<details>`'s non-`<summary>` children
+from the DOM nor from `getComputedStyle` — there is no CSS engine to apply
+the browser's own default stylesheet rule. So the new case this task added,
+"groups source JSON, Interact with page and Cancel under More", cannot
+assert VISIBILITY the way a browser could; it asserts CONTAINMENT instead —
+all three sit inside the same `<details>` the `More` trigger owns — which is
+the fact a browser's hiding rests on. Sabotage-verified: moving Cancel to a
+sibling of `</details>` reddens exactly that one case and none of the
+others, proving the fixture discriminates rather than merely existing.

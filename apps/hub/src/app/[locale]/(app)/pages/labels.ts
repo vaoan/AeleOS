@@ -196,6 +196,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * that steps the workbench aside and the one that brings it back are rendered
  * in different places and never both exist at once.
  *
+ * `more` names the disclosure grouping source JSON, Interact with page and
+ * Cancel (2026-09-04) — one word for the trigger, since what it opens names
+ * itself.
+ *
  * `sectionEyebrow` and `contentEyebrow` are the nouns the two card kinds wear,
  * and each is separate from the field label beside it — `sectionName` and
  * `leafKind` label fields, these two say what the card IS. One string doing
@@ -363,6 +367,7 @@ export async function fursonaEditorLabels(
     cancel: t("cancel"),
     hideControls: t("hideControls"),
     showControls: t("showControls"),
+    more: t("more"),
     openSource: t("source.open"),
     interactWithPage: t("interactWithPage"),
     interactWithPageHintOff: t("interactWithPageHintOff"),

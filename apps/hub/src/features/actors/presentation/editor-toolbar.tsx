@@ -1,6 +1,13 @@
 "use client";
 
-import { Braces, Check, Eye, MousePointerClick, X } from "lucide-react";
+import {
+  Braces,
+  Check,
+  EllipsisVertical,
+  Eye,
+  MousePointerClick,
+  X,
+} from "lucide-react";
 import { useId, type ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
@@ -29,6 +36,10 @@ import { AddSlotTarget } from "@/features/actors/presentation/add-slot";
  * more than "off" does. Both exist because the same control's description
  * changes with its own pressed state, which is what
  * {@link EditorToolbarProps.interactEnabled} selects between.
+ *
+ * `more` names the disclosure grouping source JSON, Interact with page and
+ * Cancel (2026-09-04) — one word for the trigger, since what it opens names
+ * itself.
  */
 export interface EditorToolbarLabels {
   /** The save button when idle. */
@@ -41,6 +52,8 @@ export interface EditorToolbarLabels {
   hideControls: string;
   /** Brings the workbench back. */
   showControls: string;
+  /** Names the disclosure holding source JSON, Interact with page and Cancel. */
+  more: string;
   /** Opens the panel showing the page as JSON. */
   openSource: string;
   /** Names the switch: pressed or unpressed, page links and controls work. */
@@ -269,6 +282,25 @@ export interface EditorToolbarProps {
  * why it takes `pageThemeSwitch`/`writingIn` as ready-made nodes rather than
  * the theme or the language themselves. See `add-slot.tsx`.
  *
+ * **The row is Add, the page-theme switch, Preview, Save, More
+ * (2026-09-04).** The spec names "Add, desktop/mobile canvas width, Preview,
+ * Save, More" — Phase 2 builds no canvas-width control, so that stop is
+ * simply absent rather than stubbed; a placeholder comment controls nothing
+ * and reads as a feature that silently does not work. `More` is a native
+ * `<details>`/`<summary>` disclosure, matching this codebase's own
+ * convention (`page-source-dock.tsx`'s reference panel) rather than a third
+ * one: opening the page-source dock, Interact with page, and Cancel all move
+ * inside it, because none of the three is reached often enough to earn a
+ * permanent seat in a row that already wraps at `sm`. `pageThemeSwitch`
+ * keeps its place beside Add rather than joining `More` — the spec's own
+ * list does not mention it, and moving a control the spec never named is a
+ * change this task was not asked to make.
+ *
+ * **`<summary>` is styled to look like the other icon buttons in this row,
+ * and its default marker is hidden.** A disclosure triangle reads as
+ * decoration nowhere else in this bar, and `More`'s own chevron-free
+ * siblings (`Braces`, `Eye`) already carry no such affordance either.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -359,14 +391,6 @@ export function EditorToolbar({
             action. */}
         {writingIn}
         <span className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-          {/* **A link, not a button that pushes.** Cancel goes to one known
-            place, so a link is the right element on its own merits: a middle
-            click or a modified click opens it in a new tab, which a button
-            silently refuses.
-            It is also what restores the loading bar. `RouteProgress` starts on
-            a click that lands on an `<a>` and on a form submission — Save is
-            covered by the submit, and Cancel was covered by neither, so
-            leaving the editor changed the route with nothing on screen. */}
           {/* **`type="button"`, and that is not a formality.** Every button
             inside a `<form>` submits by default, so an unspecified type here
             would SAVE the page on the way to looking at it. */}
@@ -381,56 +405,6 @@ export function EditorToolbar({
           {pageThemeSwitch}
           <button
             type="button"
-            onClick={onOpenSource}
-            aria-label={labels.openSource}
-            title={labels.openSource}
-            {...tid("editor-open-source")}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
-          >
-            <Braces className="size-4" />
-          </button>
-          {/* **Interact with page, beside Preview because both change how the
-              live page can be used.** A pressed/unpressed switch rather than a
-              node like `pageThemeSwitch`: this bar owns no theme or language
-              concept, but whether the canvas is locked is exactly what a row
-              of ways to look at the page is for. `aria-describedby` points at
-              a visually-hidden sentence stating the CONSEQUENCE rather than
-              merely the state, which swaps with the pressed state so a screen
-              reader hears what changed rather than only that something did.
-              Compact below 320: icon alone, so this control adds no overflow
-              band there.
-
-              **Its own LABEL arrives at `md`, not `sm` (2026-09-02, corrected
-              from a claim measured only at 320).** `sm` is also where
-              `writingIn`'s own endonyms and every OTHER label in this row
-              (Hide controls, Cancel) already arrive at once — rule 38's own
-              band, a discontinuity a check at 320 and at desktop both miss
-              entirely. Landscape 667 is inside that band: `responsive.spec.ts`
-              measured the row 61px past the viewport there with this label
-              joining at `sm`, the exact "adding a control right where several
-              others already arrive" shape the rule warns about. Staggering
-              this one arrival to `md` is what gives the row its slack back at
-              `sm` without shaving anything else. */}
-          <button
-            type="button"
-            aria-pressed={interactEnabled}
-            aria-describedby={interactHintId}
-            onClick={() => onInteractEnabledChange(!interactEnabled)}
-            {...tid("interact-with-page")}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted) aria-pressed:text-(--accent)"
-          >
-            <MousePointerClick className="size-4" />
-            <span className="sr-only md:not-sr-only">
-              {labels.interactWithPage}
-            </span>
-          </button>
-          <span id={interactHintId} className="sr-only">
-            {interactEnabled
-              ? labels.interactWithPageHintOn
-              : labels.interactWithPageHintOff}
-          </span>
-          <button
-            type="button"
             onClick={onHideControls}
             {...tid("hide-controls")}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
@@ -440,21 +414,6 @@ export function EditorToolbar({
               {labels.hideControls}
             </span>
           </button>
-          <Link
-            href={cancelHref}
-            {...tid("editor-cancel")}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted)"
-          >
-            <X className="size-4" />
-            {/* **Collapsed to its icon on a phone, exactly as Hide controls
-                beside it already is.** Measured at 320px with the page-theme
-                switch present: the control group needed 258px in English and
-                293px in Spanish against a 320px bar whose title had already
-                been truncated to nothing — no slack at all, which is how CI
-                found the editor 12px wider than the phone while this machine
-                read zero. A row with no slack is one the next control breaks. */}
-            <span className="sr-only sm:not-sr-only">{labels.cancel}</span>
-          </Link>
           <button
             type="submit"
             {...tid("editor-save")}
@@ -464,6 +423,74 @@ export function EditorToolbar({
             <Check className="size-4" />
             {saving ? labels.saving : labels.save}
           </button>
+          {/* **`More` groups the source-JSON trigger, Interact with page and
+              Cancel (2026-09-04).** A native `<details>`/`<summary>` rather
+              than a third disclosure idiom, matching `page-source-dock.tsx`'s
+              own reference panel — `relative` on the `<details>` so the panel
+              can sit `absolute` under the trigger without pushing the row.
+              None of the three is reached often enough to keep a permanent
+              seat in a row that already wraps at `sm`. */}
+          <details className="relative">
+            <summary
+              {...tid("editor-more")}
+              aria-label={labels.more}
+              title={labels.more}
+              className="flex list-none items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-(--muted) [&::-webkit-details-marker]:hidden"
+            >
+              <EllipsisVertical className="size-4" />
+            </summary>
+            <div className="absolute top-full right-0 z-10 mt-1 flex w-max flex-col gap-1 rounded-lg surface border-(--edge)/60 bg-(--menu) p-1.5">
+              <button
+                type="button"
+                onClick={onOpenSource}
+                {...tid("editor-open-source")}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-left text-sm text-(--muted)"
+              >
+                <Braces className="size-4" />
+                {labels.openSource}
+              </button>
+              {/* **Interact with page, still beside Preview in MEANING even
+                  though it no longer sits beside it in the row** — both
+                  change how the live page can be used. `aria-describedby`
+                  points at a visually-hidden sentence stating the
+                  CONSEQUENCE rather than merely the state, swapping with the
+                  pressed state so a screen reader hears what changed rather
+                  than only that something did. Its label is never collapsed
+                  to an icon here, unlike its old seat in the row: every
+                  control inside `More` already has room, since the panel is
+                  `w-max` rather than sharing the bar's own width budget. */}
+              <button
+                type="button"
+                aria-pressed={interactEnabled}
+                aria-describedby={interactHintId}
+                onClick={() => onInteractEnabledChange(!interactEnabled)}
+                {...tid("interact-with-page")}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-left text-sm text-(--muted) aria-pressed:text-(--accent)"
+              >
+                <MousePointerClick className="size-4" />
+                {labels.interactWithPage}
+              </button>
+              <span id={interactHintId} className="sr-only">
+                {interactEnabled
+                  ? labels.interactWithPageHintOn
+                  : labels.interactWithPageHintOff}
+              </span>
+              {/* **A link, not a button that pushes.** Cancel goes to one
+                  known place, so a link is the right element on its own
+                  merits: a middle click or a modified click opens it in a
+                  new tab, which a button silently refuses. It is also what
+                  restores the loading bar — `RouteProgress` starts on a
+                  click that lands on an `<a>` and on a form submission. */}
+              <Link
+                href={cancelHref}
+                {...tid("editor-cancel")}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-left text-sm text-(--muted)"
+              >
+                <X className="size-4" />
+                {labels.cancel}
+              </Link>
+            </div>
+          </details>
         </span>
       </div>
     </div>
