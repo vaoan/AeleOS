@@ -1328,6 +1328,55 @@ the viewport below the app header through one `min-h-0` flex chain; the toolbar
 and the error banner sit outside `editor-canvas`, and that canvas owns
 `overflow-y-auto`.
 
+**TWO MORE THINGS BOUNDING THE CANVAS MADE PERMANENT, both found by looking at
+the top 340px of the editor rather than by any check (2026-09-03).** This is the
+third and fourth instance of the same lesson on one branch, after the sticky
+band and the Page control: **a decision that was invisible while the document
+scrolled becomes furniture once a box is bounded.**
+
+Measured at 1280×900, the bar ended at y=115 and the first section began at
+y=229 — and **80 of those 114px were reserved for things that rendered
+nothing**: a `WidePageColumn` at y=139..179 carrying `pt-6 sm:pt-10` for a
+`FormErrorBanner` that returns null when there is nothing wrong, and a
+zero-height `div` holding two `<style>` elements that still cost the section's
+`gap-4`. The gap is 58px now and every pixel of it is the bar's own `mb-6`.
+
+- **The column moved INSIDE the banner**, so one null check governs both. It
+  could not be gated at the call site: the banner's rule is stricter than
+  "there are errors" — a code whose message is missing counts as nothing to
+  say — so `Object.keys(errors).length` is a second answer, wrong in exactly
+  the case the component was careful about.
+- **The stylesheet holder is `display: contents`.** As an ordinary flex child
+  it generated no box and still drew a gap on both sides. Its children are
+  `<style>`, which lay out nothing, so the gap has nothing to apply to.
+
+**And photographing that fix found a worse fault it was sitting next to: the
+save-refusal summary was BEHIND the inspector.** The panel is `fixed` from `md`
+up and the canvas section pads itself by `md:pl-[min(36rem,40vw)]` to make room;
+the banner was a SIBLING of that section, so it got no padding and the panel
+sat on top of it. At 1280 its heading was at x=41 with the panel's right edge at
+x=512, and `elementFromPoint` over the heading answered
+`editor-identity-fields`. The inspector is open exactly when somebody presses
+Save, so the message explaining why nothing happened was unreadable in the
+normal case. It is handed to `BlockEditor` as `banner` now and renders inside
+the padded section — still outside `editor-canvas`, because a summary that
+scrolls away solves nothing.
+
+**A rect comparison would have passed.** Two boxes overlapping is not the
+claim; which one a person can read is, and only `elementFromPoint` answers
+that — no unit test can, which is why all 3661 passed through the whole fault.
+The guard asserts the banner has text BEFORE hit-testing it, because a hit test
+over an element that never rendered reports "not covered" for the worst reason.
+Sabotage-verified by cancelling the accommodation with a negative margin, which
+reddens it with the panel named.
+
+**The restore step in that verification is what rule 34 exists for, and it
+caught nobody: `git checkout -- fursona-editor.tsx` reverted four uncommitted
+edits in the middle of the sabotage**, and the run that followed reddened for
+absence rather than occlusion — a red that looks like proof. Copy the file,
+restore from the copy, and check the number the sabotage claims to have
+changed.
+
 **The Page control rides INSIDE the canvas**, which is a reversal of this
 section's first version and the same lesson as the sticky band below it: a
 placement that was invisible while the document scrolled becomes permanent

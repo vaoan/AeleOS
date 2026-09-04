@@ -53,7 +53,30 @@
 >
 >    That put it inside `onCanvasClick`'s subtree, so the handler exempts
 >    `CHROME_SCOPE` — without it the press opened the inspector and the same
->    click closed it. The error banner's half of the sentence still holds.
+>    click closed it.
+>
+> 3. **The error banner's half of that sentence does NOT hold either, and for
+>    a second reason on top of the first.** It stays out of the scrolling
+>    page, which was the right call — a summary that scrolls away solves
+>    nothing. But it was a SIBLING of the canvas section, and that section is
+>    what carries `md:pl-[min(36rem,40vw)]` to make room for the fixed
+>    inspector, so the panel sat on top of the banner: at 1280 its heading was
+>    at x=41 with the panel's right edge at x=512, and `elementFromPoint` over
+>    the heading answered the inspector's own fields. The inspector is open
+>    exactly when somebody presses Save. It is handed to `BlockEditor` and
+>    renders inside the padded section now.
+>
+>    Its column moved too. `FormErrorBanner` returns null when there is
+>    nothing to say, but the column wrapping it did not — so a form with
+>    nothing wrong reserved 40px of the author's backdrop above their first
+>    section, permanently, once this document made the canvas the scroller.
+>    Measured: 80 of the 114px between the bar and the first section were
+>    reserved for things that rendered nothing, the other 16 being a
+>    zero-height `<style>` holder still drawing its parent's `gap-4`.
+>
+>    **A rect comparison would have passed the occlusion case**, and no unit
+>    test could see it at all — 3661 passed through it. Two boxes overlapping
+>    is not the claim; which one a person can read is.
 
 ## Problem
 

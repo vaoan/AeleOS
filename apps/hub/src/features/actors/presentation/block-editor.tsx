@@ -257,6 +257,11 @@ export interface BlockEditorLabels
  * {@link BlockEditorProps.selectionResetKey} invalidates the stored one in
  * the same update that opens Preview, so Show controls cannot resurrect it.
  * While controls show, this component's canvas is the only vertical scroller.
+ *
+ * **It takes the save-refusal summary as a node too**, for the same reason it
+ * takes `pageOptions`: the editor above owns the errors, and the padding that
+ * keeps the fixed inspector from covering the summary is here. See
+ * {@link BlockEditorProps.banner}.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -308,6 +313,25 @@ export interface BlockEditorProps<T extends FieldValues> {
    * Page Options; block Options never duplicates those page fields.
    */
   pageOptions?: ReactNode;
+  /**
+   * The save-refusal summary, rendered above the canvas.
+   *
+   * **It is passed in rather than rendered by the editor above, because the
+   * inspector's accommodation is here (2026-09-03).** A selection pads THIS
+   * component's section by `md:pl-[min(36rem,40vw)]` so the fixed inspector
+   * has somewhere to sit; a banner rendered as a sibling of that section got
+   * no such padding, and the inspector — open exactly when somebody presses
+   * Save — covered its heading and every message under it. Measured at 1280:
+   * the heading sat at x=41 with the panel's right edge at x=512, and
+   * `elementFromPoint` over the heading answered the inspector's own fields.
+   *
+   * It stays OUTSIDE `editor-canvas` on purpose. The summary exists because a
+   * field's own message can be scrolled out of view, so a summary that scrolls
+   * away with the page would solve nothing.
+   *
+   * Absent in unit tests that only exercise the page tree.
+   */
+  banner?: ReactNode;
   /**
    * Whether the live page is currently interactive.
    *
@@ -688,6 +712,13 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * scrolling to the document. Close on the inspector clears selection without
  * walking Back.
  *
+ * **The refusal summary sits inside this component's section but outside the
+ * canvas.** Inside, because the section is what pads itself for the fixed
+ * inspector and a sibling of it was covered by the panel; outside the canvas,
+ * because a summary that scrolls away from the person who just pressed Save
+ * solves nothing. The `<style>` holder beside it is `display: contents`, so
+ * two stylesheets stop costing the section's `gap-4`.
+ *
  * **The Page control is INSIDE that scroller and rides the page with it.**
  * Bounding the canvas would otherwise have made its old placement above the
  * canvas permanent — one pill holding a band of the author's backdrop at
@@ -713,6 +744,7 @@ export function BlockEditor<T extends FieldValues>({
   onApplyDocument,
   theme,
   pageOptions,
+  banner,
   pageInteractionsEnabled: interactionsEnabled,
   controlsHidden,
   selectionResetKey,
@@ -1306,6 +1338,11 @@ export function BlockEditor<T extends FieldValues>({
       // something to animate from `md` up, where `pl-` itself is conditional.
       className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
     >
+      {/* Inside the section, so the inspector's own accommodation padding
+          moves it clear of the panel; outside the canvas, so it cannot
+          scroll away from the person who just pressed Save. */}
+      {banner}
+
       <DndContext
         id={dndId}
         sensors={sensors}
@@ -1338,7 +1375,15 @@ export function BlockEditor<T extends FieldValues>({
           items={itemsPane}
           options={optionsPane}
         />
-        <div className={CHROME_SCOPE}>
+        {/* **`contents`, because this holds only stylesheets.** As an ordinary
+            flex child it generated no box and still cost the section's own
+            `gap-4` — 16px of the author's backdrop spent on two `<style>`
+            elements. `display: contents` takes it out of flex layout
+            altogether; its children are `<style>`, which lay out nothing, so
+            the gap has nothing to apply to. The class stays for the
+            hide-controls rule to find, though a `<style>` needs no hiding: it
+            draws nothing either way. */}
+        <div className={`${CHROME_SCOPE} contents`}>
           {/* **The selection outline transitions its COLOUR, plain CSS rather
               than Motion** — the spec's fourth motion place, and the one that
               must not animate an author's own geometry or colours. A static
