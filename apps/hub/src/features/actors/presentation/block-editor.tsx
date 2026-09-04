@@ -637,6 +637,17 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * fault this repository keeps paying for. It is spoken to the live region and
  * shown beside the heading.
  *
+ * **`refusalOf` and the announcements' own `name` callback both resolve a
+ * drag id with `canvasPlacePath(id) ?? placePath(id)` (2026-09-04)**, matching
+ * every other canvas-aware call in this component — `placePath` alone
+ * understands only the inspector's `"place:"` prefix, so a canvas grip's id
+ * resolved to nothing and announced an empty place name with no refusal ever
+ * spoken. `applySiblingDrop` only ever calls `applyLinearDrop` with
+ * `sameParent: true`, though, so this fix's `refusalOf` half has no
+ * discriminating case: `"too many"` needs `!sameParent` and cannot fire
+ * through a sibling drop, and `"into itself"`/`"too deep"` both need a depth
+ * change a same-parent target cannot produce from an already-valid tree.
+ *
  * **The add controls are withdrawn at the block cap, with a sentence saying
  * why.** A button that silently does nothing reads as broken, and the cap is
  * not a fault on the person's part — it is a number `blocksSchema` and
@@ -1247,7 +1258,7 @@ export function BlockEditor<T extends FieldValues>({
   const accessibility = {
     announcements: dragAnnouncements(
       labels.drag,
-      (id) => placeName(placePath(id) ?? []),
+      (id) => placeName(canvasPlacePath(id) ?? placePath(id) ?? []),
       refusalOf,
     ),
     screenReaderInstructions: { draggable: labels.drag.instructions },

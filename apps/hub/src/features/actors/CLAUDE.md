@@ -1328,6 +1328,33 @@ inside `CHROME_SCOPE` and never wraps it or an ancestor. The grip and
 insertion bars are also `CHROME_SCOPE`, so hiding controls removes the entire
 editing seam before Preview paints.
 
+**Two more call sites had to learn the canvas prefix too (2026-09-04).**
+`refusalOf` and the `announcements` object's own `name` callback both
+resolved a drag id with bare `placePath`, which understands only the
+inspector's `"place:"` prefix — every OTHER canvas-aware site in this file
+(`onDragStart`, `onDragEnd`, `coordinateGetter`, `detectCollision`) already
+tried `canvasPlacePath(id) ?? placePath(id)` first. So a canvas lift
+announced `"Picked up ."` — `placeName([])`, an empty designation — and a
+refused canvas drop never spoke, silently, on every canvas drag since the
+live renderer became draggable. Both now match the pattern the rest of the
+file already used.
+
+**`refusalOf`'s half of the fix has no reachable discriminating test, and
+that is recorded rather than concealed.** `dropTargetForSibling` requires
+`areSiblingPaths(from, to)`, which by definition makes every call
+`applySiblingDrop` makes into `applyLinearDrop` have `sameParent: true` — so
+the `"too many"` refusal (gated on `!sameParent`) can never fire through
+this path, and `"into itself"`/`"too deep"` both need a depth change a
+same-parent before/after target cannot produce from an already-valid tree.
+The one refusal left, `"no such place"`, needs a target gone stale between
+the keyboard's last step and the drop; a test forcing exactly that (mutating
+the page mid-drag, then dropping onto the removed place) did not redden,
+and sabotaging `refusalOf` alone back to bare `placePath` — leaving the
+`name` fix in place — left the whole file's suite green, 41/41. The fix is
+still correct, for consistency with every other site in the file and against
+a refusal type or a stale-target path this file's own tests could not
+construct rather than one proven impossible.
+
 **Linear parents insert-and-shift; positional parents still exchange.**
 `applyDrop` in `domain/block-drops.ts` is the planner: `before` / `after` on
 the page, `stack`, `list` and `timeline`; `place` is still `moveBlock` on

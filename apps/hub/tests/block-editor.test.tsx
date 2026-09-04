@@ -722,6 +722,59 @@ describe("recursive inspector drill-down", () => {
     expect(screen.getByTestId("canvas-drag-0.2")).toBeInTheDocument();
   });
 
+  // `refusalOf` and the announcements' own `name` callback both used to
+  // resolve a drag id with bare `placePath`, which understands only the
+  // recursive inspector's `"place:"` prefix and answers `undefined` for a
+  // canvas grip's `"canvas-place:"` id — so a canvas lift announced "Picked
+  // up ." with no position at all, silently, on every canvas drag. Both
+  // sites now try `canvasPlacePath(id) ?? placePath(id)`.
+  it("announces a canvas lift by the place's own name, not by an empty string", async () => {
+    harness([
+      {
+        ...newContainer("stack", 1),
+        children: [titled("A"), titled("B")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+
+    const announcement = document.querySelector('[id^="DndLiveRegion-"]');
+    expect(announcement).not.toBeNull();
+    expect(announcement!.textContent).toBe(`${labels.drag.lifted} 1.1.`);
+  });
+
+  // `refusalOf` reads the same two ids through `applySiblingDrop`, which
+  // `dropTargetForSibling` restricts to true siblings — the same parent,
+  // by construction. That forces `applyLinearDrop`'s own `sameParent` true
+  // on every call this makes, so its "too many" refusal (gated on
+  // `!sameParent`) can never fire here; "into itself" and "too deep" both
+  // require a depth change, and a same-parent before/after target always
+  // computes a destination path the same length as the source's, which an
+  // already-valid tree already satisfies at that depth. The one refusal
+  // left reachable, "no such place", needs a target that has gone stale
+  // between the keyboard's last step and the drop — attempted directly
+  // (mutate the page mid-drag via `page.replace`, then drop onto the
+  // now-missing place) and it did not redden: the stale mutation did not
+  // survive to the drop's own read of the page, for reasons this task did
+  // not chase further given that `applySiblingDrop` already cannot reach
+  // the other three refusals at all. Sabotaging `refusalOf`
+  // alone back to bare `placePath` — leaving the `name` fix above in
+  // place — confirmed the negative empirically: the whole file stayed
+  // green, 41/41, with no case anywhere noticing the difference. Per this
+  // repository's own rule against writing a fixture that only looks like
+  // it discriminates (root `CLAUDE.md` rule 27), this is recorded rather
+  // than manufactured: `refusalOf`'s half of this fix has no reachable
+  // canvas-drag scenario to redden against, given `applySiblingDrop`'s
+  // sibling-only domain. The fix is still correct — it makes `refusalOf`
+  // resolve the SAME two ids the `name` callback beside it now resolves,
+  // for consistency, and because a future refusal type or a genuine
+  // stale-target path is not provably impossible, only unreachable through
+  // every case this file could construct.
+
   it("shows an insertion bar for a linear canvas target and clears it on cancel", async () => {
     harness([
       {
