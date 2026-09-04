@@ -1324,9 +1324,32 @@ selection for Preview removes it at its source; there is no hide-controls CSS
 exception for inspector width.
 
 **Only the canvas scrolls while controls show (2026-09-03).** The form fills
-the viewport below the app header through one `min-h-0` flex chain; the toolbar,
-Page control and error banner sit outside `editor-canvas`, and that canvas owns
-`overflow-y-auto`. A class name alone cannot establish this: the browser guard
+the viewport below the app header through one `min-h-0` flex chain; the toolbar
+and the error banner sit outside `editor-canvas`, and that canvas owns
+`overflow-y-auto`.
+
+**The Page control rides INSIDE the canvas**, which is a reversal of this
+section's first version and the same lesson as the sticky band below it: a
+placement that was invisible while the document scrolled becomes permanent
+furniture once a box is bounded. Above the canvas it scrolled away with the
+sections like anything else on the page; above a bounded canvas it is one pill
+holding a band of the author's backdrop at every offset. So it sits in the
+scroller with the page it names, still chrome and still gone in Preview. What
+that costs is reach — scroll far enough and it is out of view, exactly as
+before — and the inspector's Page breadcrumb is the route back from a
+selection rather than from nothing.
+
+**Being in the canvas puts it inside `onCanvasClick`, and that needed a
+guard.** The handler selects the nearest `data-block-path` and clears the
+selection when it finds none, so the press that opens the inspector bubbled up
+and closed it in the same click — a button that visibly does nothing. It
+exempts `CHROME_SCOPE` rather than that one button, so a control placed in the
+canvas tomorrow does not re-open it. Both directions are pinned, because one
+assertion cannot see both: removing the exemption reddens "the Page control
+still opens the inspector", and widening it to every click reddens "a click on
+the page itself still clears the selection". Containment alone discriminates
+nothing here — the control is in the right box in the working and the broken
+version alike. A class name alone cannot establish this: the browser guard
 proves the document has at most 2px of vertical overflow while the canvas is
 hundreds of pixels taller than its own client box, then drives both candidates
 and watches only the canvas move. The inspector's pane keeps its independent
@@ -1337,6 +1360,37 @@ possible offsets to the top, and gives scrolling back to the document — the
 same owner a public route has. Show controls bounds it again, still at the top
 and with no selection. This is a route toward view and edit sharing the same
 document: the renderer never changes, only which outer box owns scrolling.
+
+**A NEW SCROLL CONTAINER CHANGES WHAT EVERY STICKY OFFSET INSIDE IT MEANS, and
+that shipped a 56px band of somebody's page between the two bars (fixed the
+same day).** A sticky offset is measured from the SCROLLPORT, never from the
+viewport. `EditorToolbar` had `top: var(--bar-top)` — correct for years, since
+its scrollport was the document, whose top edge is the header's top and whose
+first 56px the header occupies. Bounding the form made the form the bar's
+nearest scrollport, and that box already begins BELOW the header, so the same
+declaration counted the header a second time: measured at 1280×900, header
+0–56, bar 112–171, canvas top 277. The bar is `top-0` now — bar 56–115, canvas
+top 245 — and `--bar-top` belongs to the two controls whose offsets really are
+viewport-measured, the inspector and the source dock, both `fixed`.
+
+**Its own guard passed through the whole fault, and that is rule 27 rather than
+an oversight.** `editor-bars-stay-pinned.spec.ts` reads Save's starting offset
+and asserts canvas scrolling never moves it — equally true of a bar resting
+under the header and of one resting 56px lower, since both sit outside the
+scroller and neither moves. Pinned and in the right place are two claims, and
+only the second one was missing. The case that asks it compares the bar's top
+against the header's foot in both directions, and it needs a TALL viewport:
+`--bar-top` is `0px` under `@media (height <= 600px)`, so the faulty offset
+resolves to zero on a phone in landscape and the band never appears there.
+Sabotage-verified — restoring `--bar-top` reddens the new case and leaves the
+pinning case green.
+
+The stack's own `mt-8` came off in edit mode with it. It was written for a
+document that scrolled, where 32px above the first section scrolls away; above
+a bounded canvas it is permanent furniture, doubled with the bar's own `mb-6`.
+Preview keeps it and is byte-identical, because
+`[data-controls="hidden"] [data-editor-stack]` already zeroes every margin
+there.
 
 At 320×720 the existing bottom sheet begins at y=216 while the canvas begins at
 y=297 below the workbench. No canvas content can be made visible above a panel
@@ -1458,9 +1512,11 @@ Save at `y = -511` after scrolling 1200, and `-1132` once the toolbar was
 nested one level deeper.
 
 **Nothing in any computed style says so**, which is why it needs a browser and a
-scroll: `position` still reads `sticky` and the offset still reads
-`--bar-top`. Only `getBoundingClientRect` after scrolling can tell you the bar
-is above the viewport.
+scroll: `position` still reads `sticky` and the offset still reads whatever was
+declared. Only `getBoundingClientRect` after scrolling can tell you the bar is
+above the viewport. (That offset is `0` rather than `--bar-top` since the canvas
+became the scroller — see the scroll-ownership section above for why, and for
+the band it left when it did not.)
 
 Both bars are direct children of the element carrying `data-controls`, which
 spans the whole editor, and each puts a `WidePageColumn` INSIDE itself rather

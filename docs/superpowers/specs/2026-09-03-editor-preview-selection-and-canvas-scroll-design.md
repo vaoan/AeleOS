@@ -13,6 +13,48 @@
   the canvas still reserves the inspector's desktop width while controls are
   hidden, and why `globals.css` has to zero that padding by name.
 
+> **CORRECTIONS, from building it and then looking at it (2026-09-03).** Two of
+> this document's own statements about the workbench turned out to be wrong in
+> the same way, and it is the way worth carrying: **bounding a box changes what
+> every placement and every offset inside it means**, so a decision that was
+> invisible while the document scrolled can become the most visible thing on
+> the screen.
+>
+> 1. **A sticky offset is measured from the SCROLLPORT, which this document
+>    never asked about.** The editor toolbar's `top: var(--bar-top)` was right
+>    for as long as its scrollport was the document, whose first 56px the app
+>    header occupies. Bounding the form made the FORM that scrollport, and it
+>    already begins below the header — so the declaration counted the header
+>    twice. Measured at 1280×900: header 0–56, bar **112–171**, canvas top 277.
+>    A 56px band of the author's own page sat between the two bars with
+>    everything below pushed down. The bar is `top-0` now (56–115, canvas top
+>    245). `--bar-top` still belongs to the inspector and the source dock,
+>    whose offsets really are viewport-measured because both are `fixed`.
+>
+>    Its guard passed through the whole fault. `editor-bars-stay-pinned.spec.ts`
+>    asserts canvas scrolling never moves Save — equally true under the header
+>    and 56px below it, since both are outside the scroller. **Pinned and in
+>    the right place are two claims**, and confining the scroll made the first
+>    nearly free while breaking the second. The case that asks it must run
+>    TALL: `--bar-top` is `0px` under `@media (height <= 600px)`, so the faulty
+>    offset resolves to zero in phone landscape and the band cannot appear
+>    there.
+>
+> 2. **"The Page control and the error banner stay with the workbench, not
+>    inside the scrolling page" is reversed for the Page control**, by the
+>    owner's own ruling after seeing it. The reasoning below is sound about
+>    what a workbench is and wrong about what this placement costs: above the
+>    canvas, the control scrolled away with the sections like anything else on
+>    the page, and bounding the canvas made that same placement permanent — one
+>    pill holding a band of the author's backdrop at every offset. It rides
+>    inside the canvas now, still `CHROME_SCOPE` and still absent in Preview.
+>    The cost is reach, and it is the cost it always had: scroll far enough and
+>    it is out of view.
+>
+>    That put it inside `onCanvasClick`'s subtree, so the handler exempts
+>    `CHROME_SCOPE` — without it the press opened the inspector and the same
+>    click closed it. The error banner's half of the sentence still holds.
+
 ## Problem
 
 Three workbench behaviours fight the goal that edit and view should become the

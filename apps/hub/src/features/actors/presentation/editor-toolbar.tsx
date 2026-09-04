@@ -249,6 +249,12 @@ export interface EditorToolbarProps {
  * with this label joining there too. Staggering it to `md` is what gives
  * the row its slack back without shaving anything else in it.
  *
+ * **It sticks to `0`, not to `--bar-top` (2026-09-03).** Its scrollport is
+ * the editor's own bounded form now rather than the document, and that box
+ * already begins below the app header — so the header's height belongs to
+ * neither offset twice. See the comment on the bar itself for the band this
+ * left when it did.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -282,8 +288,20 @@ export function EditorToolbar({
     // wrapper the height of one bar pins it for the height of one bar. Its
     // parent has to be the element spanning the whole editor, so the class has
     // to be on the bar.
+    //
+    // **The offset is `0` rather than `--bar-top`, and that changed when the
+    // canvas became the scroller (2026-09-03).** A sticky offset is measured
+    // from the SCROLLPORT, not from the viewport. While controls show, this
+    // bar's nearest scrollport is the editor's own form, which already begins
+    // below the header — so `--bar-top` counted the header a second time and
+    // parked the bar 56px lower than its own resting place, leaving a band of
+    // the author's page between the two bars and pushing the whole canvas
+    // down with it. Measured at 1280x900: the header ends at y=56 and the bar
+    // began at y=112. `--bar-top` still belongs to the two controls whose
+    // offsets ARE measured from the viewport, the inspector and the source
+    // dock, both of which are `fixed`.
     <div
-      className={`${CHROME_SCOPE} sticky top-(--bar-top) z-20 mb-6 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
+      className={`${CHROME_SCOPE} sticky top-0 z-20 mb-6 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
     >
       {/* **It WRAPS below `sm`, and that is arithmetic rather than taste.**
           Measured at 320px in Spanish with the writing switch added: the
