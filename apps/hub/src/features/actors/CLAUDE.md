@@ -1324,9 +1324,32 @@ selection for Preview removes it at its source; there is no hide-controls CSS
 exception for inspector width.
 
 **Only the canvas scrolls while controls show (2026-09-03).** The form fills
-the viewport below the app header through one `min-h-0` flex chain; the toolbar,
-Page control and error banner sit outside `editor-canvas`, and that canvas owns
-`overflow-y-auto`. A class name alone cannot establish this: the browser guard
+the viewport below the app header through one `min-h-0` flex chain; the toolbar
+and the error banner sit outside `editor-canvas`, and that canvas owns
+`overflow-y-auto`.
+
+**The Page control rides INSIDE the canvas**, which is a reversal of this
+section's first version and the same lesson as the sticky band below it: a
+placement that was invisible while the document scrolled becomes permanent
+furniture once a box is bounded. Above the canvas it scrolled away with the
+sections like anything else on the page; above a bounded canvas it is one pill
+holding a band of the author's backdrop at every offset. So it sits in the
+scroller with the page it names, still chrome and still gone in Preview. What
+that costs is reach — scroll far enough and it is out of view, exactly as
+before — and the inspector's Page breadcrumb is the route back from a
+selection rather than from nothing.
+
+**Being in the canvas puts it inside `onCanvasClick`, and that needed a
+guard.** The handler selects the nearest `data-block-path` and clears the
+selection when it finds none, so the press that opens the inspector bubbled up
+and closed it in the same click — a button that visibly does nothing. It
+exempts `CHROME_SCOPE` rather than that one button, so a control placed in the
+canvas tomorrow does not re-open it. Both directions are pinned, because one
+assertion cannot see both: removing the exemption reddens "the Page control
+still opens the inspector", and widening it to every click reddens "a click on
+the page itself still clears the selection". Containment alone discriminates
+nothing here — the control is in the right box in the working and the broken
+version alike. A class name alone cannot establish this: the browser guard
 proves the document has at most 2px of vertical overflow while the canvas is
 hundreds of pixels taller than its own client box, then drives both candidates
 and watches only the canvas move. The inspector's pane keeps its independent

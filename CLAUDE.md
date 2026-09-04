@@ -2223,8 +2223,9 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   clears its `BlockEditor`-owned selection, so Show controls cannot resurrect
   one; the inspector also has a direct Close at every depth, separate from
   parent-selecting Back. While controls show, the form fills the viewport below
-  the app header and `editor-canvas` is the sole vertical scroller — toolbar,
-  Page control and the independently scrolling inspector stay put. Preview
+  the app header and `editor-canvas` is the sole vertical scroller — the
+  toolbar and the independently scrolling inspector stay put, while the Page
+  control rides inside the canvas with the page it names. Preview
   removes that bound and returns scrolling to the document, the same owner the
   public page uses, with both transitions reset to the top. The renderer and
   page document remain one mechanism in both modes. A browser guard drives both

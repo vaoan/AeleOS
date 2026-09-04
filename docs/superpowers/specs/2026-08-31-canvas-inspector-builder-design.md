@@ -100,9 +100,12 @@ column is.”
 - A **block** is selected by clicking the nearest ancestor that carries
   `data-block-path` (the public renderer’s own wrappers). Innermost wins
   because `closest` walks up from the event target.
-- The **page** is selected by the toolbar Page control, not by clicking empty
+- The **page** is selected by the Page control, not by clicking empty
   canvas — empty canvas deselects. That split is load-bearing: one click must
   not mean both “I want page options” and “I want the inspector gone.”
+  (That control was never in the toolbar, as this line used to say; it sat
+  above the canvas, and since 2026-09-03 it rides inside it, which is why
+  `onCanvasClick` exempts `CHROME_SCOPE`.)
 - Escape deselects, except when the event target is a field inside the
   inspector (a colour input must not steal Escape from its own dismiss).
 - Preview does not need to clear selection: hide-controls removes

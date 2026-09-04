@@ -640,6 +640,42 @@ describe("recursive inspector drill-down", () => {
     expect(canvas).not.toHaveClass("overflow-y-auto", "overflow-x-clip");
   });
 
+  // THE PAGE CONTROL RIDES THE PAGE, AND ITS OWN CLICK MUST SURVIVE THE RIDE.
+  //
+  // Two claims, and the second exists because the first creates it. Putting
+  // the control inside `editor-canvas` puts it inside the canvas's own click
+  // handler — which selects the nearest `data-block-path` and, finding none,
+  // clears the selection. So the press that opens the inspector would close
+  // it again on the way up, and the button would visibly do nothing.
+  //
+  // Containment alone cannot catch that: the control is in the right box in
+  // both the working and the broken version. The selection is what tells them
+  // apart, which is why both are asserted here rather than only the placement.
+  it("puts the Page control inside the canvas and still opens the inspector", () => {
+    harness(recursivePage());
+    const canvas = screen.getByTestId("editor-canvas");
+    const control = screen.getByTestId("select-page");
+
+    expect(canvas).toContainElement(control);
+
+    fireEvent.click(control);
+
+    expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+  });
+
+  it("still clears the selection for a click on the page itself", () => {
+    harness(recursivePage());
+    fireEvent.click(screen.getByTestId("select-page"));
+    expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+
+    // The canvas outside any block and outside any control island: the one
+    // click that still means "the inspector should go". Exempting chrome must
+    // not have exempted the page.
+    fireEvent.click(screen.getByTestId("editor-canvas"));
+
+    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+  });
+
   it("drills Page to a container to a leaf, showing only immediate children", () => {
     harness(recursivePage());
 
