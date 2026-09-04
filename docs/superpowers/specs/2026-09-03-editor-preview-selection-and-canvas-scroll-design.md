@@ -77,6 +77,37 @@
 >    **A rect comparison would have passed the occlusion case**, and no unit
 >    test could see it at all — 3661 passed through it. Two boxes overlapping
 >    is not the claim; which one a person can read is.
+>
+> 4. **A fourth instance, and it is the bar's own `mb-6` (2026-09-04).** With
+>    the column and the `<style>` holder gone, the remaining 24px between the
+>    bar and the canvas was that margin — outside the scroller by
+>    construction, so it held a strip of the author's backdrop under the chrome
+>    at every offset. The canvas begins exactly at the bar's foot now, both 115
+>    at 1280×900, and content passes under an opaque bar rather than emerging
+>    from behind a gap. The breath above the Page pill is that column's own
+>    `pt-3` INSIDE the scroller: 12px that travels with the pill and is gone as
+>    soon as anybody scrolls.
+>
+>    **The same guard admitted this one too**, and the mechanism is worth more
+>    than the pixels: its canvas assertion was a 160px WINDOW (`> barBottom`,
+>    `< barBottom + 160`), which passes on a flush canvas, on the 24px margin
+>    and on the 56px band alike. Rule 27 usually lands on a fixture; here it
+>    landed on a tolerance. It is equality now, which is honest only because
+>    nothing lives between the two boxes any more.
+>
+> 5. **The occlusion guard in (3) was RACY from the day it was written, and
+>    removing that margin is what exposed it.** The room the section makes is
+>    animated — `transition-[padding-left] duration-210` — so a hit test fired
+>    the instant the banner appears asks about a banner still travelling out
+>    from under the panel: the pad read 440.553px and 218.792px of its settled
+>    512 in two runs of the file. **Passing alone and failing in the file is
+>    the signature of a question asked too early**, not of a slow machine, and
+>    no timeout is long enough for that — rule 26's lesson with a CSS
+>    transition in place of a deferred listener. The case waits for the pad to
+>    equal the panel's own width (both `min(36rem,40vw)`, one `pl-` and one
+>    `w-`) rather than for 512, and it was re-sabotaged after the wait was
+>    added, because a wait that turns a red green is the first thing to suspect
+>    of making it vacuous.
 
 ## Problem
 

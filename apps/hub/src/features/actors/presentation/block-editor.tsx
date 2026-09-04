@@ -727,6 +727,12 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * subtree, which is why that handler exempts `CHROME_SCOPE`: without it the
  * press would open the inspector and the same click would close it again.
  *
+ * **Its column owns the breath under the bar, and the bar owns none of it
+ * (2026-09-04).** The toolbar's `mb-6` was outside this scroller, so it held
+ * 24px of the author's backdrop under the chrome at every offset; this
+ * column's `pt-3` is the first thing inside the scroller and scrolls away
+ * with the pill it belongs to. The canvas begins exactly at the bar's foot.
+ *
  * The stack's own top margin is edit-mode-free for the same reason: 32px
  * above the first section scrolls away on a document that scrolls and is
  * permanent furniture above a bounded canvas. Preview keeps the margin class
@@ -1430,7 +1436,14 @@ export function BlockEditor<T extends FieldValues>({
               it was before the canvas owned the scroll. The inspector's own
               Page breadcrumb is the route back from a selection; from no
               selection at all it is a scroll up. */}
-          <WidePageColumn className={`${CHROME_SCOPE} py-0 sm:py-0`}>
+          {/* Its breath above is `pt-3` HERE rather than a margin on the bar.
+              The bar's own `mb-6` sat outside this scroller, so it held 24px
+              of the author's backdrop under the chrome at every offset; this
+              padding is the first thing in the scroller and scrolls away with
+              the pill it belongs to. */}
+          <WidePageColumn
+            className={`${CHROME_SCOPE} py-0 pt-3 sm:py-0 sm:pt-3`}
+          >
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"

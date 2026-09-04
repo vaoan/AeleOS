@@ -140,10 +140,23 @@ test("the bar rests flush under the app header, with no band of page between the
     `the bar rests ${rest.barTop - rest.headerBottom}px from the header's foot`,
   ).toBeCloseTo(0, 0);
 
-  // And the canvas follows the bar rather than the old offset: anything at or
-  // past 277 is this fault's own measurement surviving somewhere else.
-  expect(rest.canvasTop).toBeGreaterThan(rest.barBottom);
-  expect(rest.canvasTop).toBeLessThan(rest.barBottom + 160);
+  // **The canvas begins exactly AT the bar's foot (2026-09-04).** This used
+  // to be a 160px window — `> barBottom` and `< barBottom + 160` — which was
+  // wide enough to admit the bar's own `mb-6` and, before that, the 56px band
+  // as well. A window that admits the thing it is meant to refuse is rule 27's
+  // fixture problem in an assertion: it passed on every version of this
+  // layout, faulty or not.
+  //
+  // Equality is the honest claim, and it is now true because the bar carries
+  // no bottom margin: any spacing above the Page pill lives INSIDE the
+  // scroller as that column's own `pt-3`, so it scrolls away with the pill
+  // instead of holding a strip of the author's backdrop under the chrome
+  // forever. `canvasTop` cannot see that padding, which is what makes this a
+  // measurement of the two boxes' relationship rather than of a style.
+  expect(
+    rest.canvasTop,
+    `the canvas begins ${rest.canvasTop - rest.barBottom}px below the bar's foot`,
+  ).toBeCloseTo(rest.barBottom, 0);
 });
 
 test("the save bar stays pinned while the canvas scrolls all the way down", async ({

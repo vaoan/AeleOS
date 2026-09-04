@@ -208,6 +208,35 @@ test("the save-refusal summary is readable while the inspector is open", async (
   await expect(banner).toBeVisible();
   expect((await banner.innerText()).trim().length).toBeGreaterThan(0);
 
+  // **THE ROOM THE SECTION MAKES IS ANIMATED, so a hit test fired the moment
+  // the banner appears catches the banner still travelling out from under the
+  // panel (2026-09-04).** The section carries `transition-[padding-left]
+  // duration-210`, and this case read the pad mid-slide at **440.553px** and
+  // **218.792px** of its settled 512 in two runs — so the panel was genuinely
+  // on top of the heading at the instant asked, and the answer was about
+  // WHEN rather than about the layout. It passed alone and failed in the file
+  // for that reason alone, which is a race rather than a machine being slow:
+  // no timeout is long enough for a question asked too early.
+  //
+  // The wait is stated as the relationship instead of as 512, because both
+  // boxes come from one expression — the panel is `md:w-[min(36rem,40vw)]`
+  // and the pad is `md:pl-[min(36rem,40vw)]`. Should those ever diverge, this
+  // poll is what says so rather than silently comparing a stale constant.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const pad = Number.parseFloat(
+          getComputedStyle(document.querySelector("[data-editor-stack]")!)
+            .paddingLeft,
+        );
+        const panel = document
+          .querySelector('[data-testid="canvas-inspector"]')!
+          .getBoundingClientRect().width;
+        return Math.round(pad - panel);
+      }),
+    )
+    .toBe(0);
+
   const reading = await page.evaluate(() => {
     const heading = document.querySelector(
       '[data-testid="editor-error-banner"] p',
