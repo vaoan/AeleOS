@@ -5796,3 +5796,44 @@ claimed from it: the first draft named `infrastructure/actor-page` for
 `infrastructure/public-actors`, and all ten cases were green — `next build`
 is what refused it, `pnpm typecheck` would have too. Root rule 40's shape,
 on a re-export rather than a test file.
+
+### The compact builder menu, and one Add for one selection (2026-09-04, in progress)
+
+The Carrd-style page builder's Phase 2
+(`docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-2-compact-menu-and-add.md`)
+replaces the editor's three separate `AddBlockPicker` mounts — the page-level
+palette, a container's own Items footer, and every empty place in
+`InspectorItems` — with the spec's single global Add, driven by exactly one
+selection.
+
+`domain/add-target.ts`'s `addTargetFor(blocks, selection)` is the first piece,
+landed and unwired: it answers where the ONE Add control's next choice would
+be added — the page root for nothing selected or Page, a container's own path
+for a container selection, and a leaf's PARENT for a leaf selection, since
+"after" has no positional meaning for a grid/masonry/tabs/etc. place. **It asks
+`mayNest` of the position a new CHILD of the target would occupy, one segment
+longer than the target itself** — not of the target's own path — because the
+depth cap is a fact about the new block's own depth, not about the block
+already selected. Getting this backwards (`mayNest(targetPath)` rather than
+`mayNest([...targetPath, 0])`) answers `true` one level too late: selecting
+the innermost of three nested containers — a section, a container inside it,
+a container inside that, the deepest a container may sit — has a `targetPath`
+whose own length (3) still clears `MAX_DEPTH`, so the wrong formula would
+still offer a layout there, where a fourth container is exactly what the cap
+refuses.
+
+**Wiring it into the toolbar is not a straightforward prop, and the reason is
+worth recording before the next task assumes it is.** `EditorToolbar` is
+mounted by `FursonaEditor` as a SIBLING of `BlockEditor`, and `BlockEditor`
+alone owns `blocks` and `selection` — deliberately: `FursonaEditor` does not
+watch `sections` at all, because doing so would re-render `EditorToolbar` on
+every keystroke in a leaf, which is exactly what `PageSourceField`'s own
+isolated `useWatch` exists to avoid one level over. So the toolbar's Add
+control cannot be built by handing `addTargetFor`'s output up through
+`FursonaEditor` as data — that would reintroduce the render-count fault
+`fursona-editor.test.tsx` already guards against. The next task's job is to
+give `BlockEditor` a way to render its own `AddBlockPicker` INTO a slot
+`EditorToolbar` exposes, the same shape `EscapeSlotProvider`/`EscapeSlotTarget`
+already use for the "show controls" button — a context-and-portal pair scoped
+to this feature, not a prop threaded through a component that must not learn
+what a selection is.
