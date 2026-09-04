@@ -26,6 +26,10 @@ import {
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { SECTION_PRESETS } from "@/features/actors/presentation/section-presets";
+import {
+  AddSlotProvider,
+  AddSlotTarget,
+} from "@/features/actors/presentation/add-slot";
 import { blockEditorLabels } from "./support/editor-labels";
 
 // PRESENTATION IS COVERAGE-EXCLUDED, so a named test is the only thing that
@@ -152,9 +156,17 @@ function harness(
   // every scope now, so every render here needs the real provider with the
   // real catalogue rather than a stub that would measure a different
   // program.
+  //
+  // **`AddSlotProvider`/`AddSlotTarget` stand in for `EditorToolbar`.** The
+  // single global Add is portalled out of `BlockEditor` into a slot the real
+  // toolbar renders; this harness renders only `BlockEditor`, so it has to
+  // supply that slot itself for `add-block` to be reachable at all.
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <Harness />
+      <AddSlotProvider>
+        <AddSlotTarget />
+        <Harness />
+      </AddSlotProvider>
     </NextIntlClientProvider>,
   );
   const page = (() => form!.getValues().sections) as HarnessPage;

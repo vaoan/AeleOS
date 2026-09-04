@@ -5,6 +5,7 @@ import { useId, type ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
+import { AddSlotTarget } from "@/features/actors/presentation/add-slot";
 
 /**
  * Translated strings {@link EditorToolbar} renders.
@@ -260,6 +261,14 @@ export interface EditorToolbarProps {
  * under the chrome permanently; spacing belongs to the first thing inside the
  * scroller instead.
  *
+ * **It carries the single global Add control too, and NOT as a prop
+ * (2026-09-04).** `AddSlotTarget` renders an empty place, first among the
+ * action controls; `BlockEditor` — the only component that owns `blocks` and
+ * the current selection — portals its own `AddBlockPicker` into that place.
+ * This bar takes no `add` prop and learns nothing about a selection, matching
+ * why it takes `pageThemeSwitch`/`writingIn` as ready-made nodes rather than
+ * the theme or the language themselves. See `add-slot.tsx`.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -361,6 +370,14 @@ export function EditorToolbar({
           {/* **`type="button"`, and that is not a formality.** Every button
             inside a `<form>` submits by default, so an unspecified type here
             would SAVE the page on the way to looking at it. */}
+          {/* **The Add control lives here, first among the action controls,
+              matching the spec's own ordering — but is not RENDERED here.**
+              `BlockEditor` alone owns `blocks` and the selection an Add
+              target is computed from, so this slot is what its own
+              `AddBlockPicker` portals into rather than a prop this bar would
+              otherwise need to build from data it must never hold. See
+              `add-slot.tsx`. */}
+          <AddSlotTarget />
           {pageThemeSwitch}
           <button
             type="button"

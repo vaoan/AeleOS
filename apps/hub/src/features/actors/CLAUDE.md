@@ -5797,43 +5797,64 @@ claimed from it: the first draft named `infrastructure/actor-page` for
 is what refused it, `pnpm typecheck` would have too. Root rule 40's shape,
 on a re-export rather than a test file.
 
-### The compact builder menu, and one Add for one selection (2026-09-04, in progress)
+### The compact builder menu, and one Add for one selection (2026-09-04)
 
 The Carrd-style page builder's Phase 2
 (`docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-2-compact-menu-and-add.md`)
-replaces the editor's three separate `AddBlockPicker` mounts — the page-level
+replaced the editor's separate `AddBlockPicker` mounts — the page-level
 palette, a container's own Items footer, and every empty place in
-`InspectorItems` — with the spec's single global Add, driven by exactly one
+`InspectorItems` — with one global Add in the toolbar, driven by exactly one
 selection.
 
-`domain/add-target.ts`'s `addTargetFor(blocks, selection)` is the first piece,
-landed and unwired: it answers where the ONE Add control's next choice would
-be added — the page root for nothing selected or Page, a container's own path
-for a container selection, and a leaf's PARENT for a leaf selection, since
-"after" has no positional meaning for a grid/masonry/tabs/etc. place. **It asks
-`mayNest` of the position a new CHILD of the target would occupy, one segment
-longer than the target itself** — not of the target's own path — because the
-depth cap is a fact about the new block's own depth, not about the block
-already selected. Getting this backwards (`mayNest(targetPath)` rather than
-`mayNest([...targetPath, 0])`) answers `true` one level too late: selecting
-the innermost of three nested containers — a section, a container inside it,
-a container inside that, the deepest a container may sit — has a `targetPath`
-whose own length (3) still clears `MAX_DEPTH`, so the wrong formula would
-still offer a layout there, where a fourth container is exactly what the cap
-refuses.
+`domain/add-target.ts`'s `addTargetFor(blocks, selection)` answers where the
+ONE Add control's next choice would be added — the page root for nothing
+selected or Page, a container's own path for a container selection, and a
+leaf's PARENT for a leaf selection, since "after" has no positional meaning
+for a grid/masonry/tabs/etc. place. **It asks `mayNest` of the position a new
+CHILD of the target would occupy, one segment longer than the target itself**
+— not of the target's own path — because the depth cap is a fact about the
+new block's own depth, not about the block already selected. Getting this
+backwards (`mayNest(targetPath)` rather than `mayNest([...targetPath, 0])`)
+answers `true` one level too late: selecting the innermost of three nested
+containers — a section, a container inside it, a container inside that, the
+deepest a container may sit — has a `targetPath` whose own length (3) still
+clears `MAX_DEPTH`, so the wrong formula would still offer a layout there,
+where a fourth container is exactly what the cap refuses.
 
 **Wiring it into the toolbar is not a straightforward prop, and the reason is
-worth recording before the next task assumes it is.** `EditorToolbar` is
-mounted by `FursonaEditor` as a SIBLING of `BlockEditor`, and `BlockEditor`
-alone owns `blocks` and `selection` — deliberately: `FursonaEditor` does not
-watch `sections` at all, because doing so would re-render `EditorToolbar` on
-every keystroke in a leaf, which is exactly what `PageSourceField`'s own
-isolated `useWatch` exists to avoid one level over. So the toolbar's Add
-control cannot be built by handing `addTargetFor`'s output up through
-`FursonaEditor` as data — that would reintroduce the render-count fault
-`fursona-editor.test.tsx` already guards against. The next task's job is to
-give `BlockEditor` a way to render its own `AddBlockPicker` INTO a slot
-`EditorToolbar` exposes, the same shape `EscapeSlotProvider`/`EscapeSlotTarget`
-already use for the "show controls" button — a context-and-portal pair scoped
-to this feature, not a prop threaded through a component that must not learn
-what a selection is.
+worth keeping.** `EditorToolbar` is mounted by `FursonaEditor` as a SIBLING of
+`BlockEditor`, and `BlockEditor` alone owns `blocks` and `selection` —
+deliberately: `FursonaEditor` does not watch `sections` at all, because doing
+so would re-render `EditorToolbar` on every keystroke in a leaf, which is
+exactly what `PageSourceField`'s own isolated `useWatch` exists to avoid one
+level over. So the toolbar's Add control could not be built by handing
+`addTargetFor`'s output up through `FursonaEditor` as data — that would
+reintroduce the render-count fault `fursona-editor.test.tsx` already guards
+against. `presentation/add-slot.tsx` is the fix: an `AddSlotProvider` wraps
+the whole `data-controls` element in `FursonaEditor`, `AddSlotTarget` renders
+an empty portal-host `<div>` inside `EditorToolbar`'s own action group, and
+`BlockEditor` computes `addTargetFor`'s result itself and portals a single
+`AddBlockPicker` into that host — the same context-and-portal shape
+`EscapeSlotProvider`/`EscapeSlotTarget` already use for the "show controls"
+button, scoped to this feature rather than shared with it, because the two
+slots serve unrelated controls.
+
+**Manual verification (Task 4) found a real, visible duplication, and it was
+checked against a genuinely signed-in browser rather than assumed from
+reading the code.** Before this branch, selecting a container and opening its
+Items tab showed TWO Add buttons at once, both labelled identically in
+Spanish — the toolbar's own, `data-target-path` equal to the container's own
+path, and `ItemsFooter`'s own mount one segment longer, both resolving to the
+identical `addAt` call.
+`ItemsFooter` carries no `AddBlockPicker` of its own now; only its `add-place`
+button remains, because appending an empty POSITION is a different operation
+from adding a block and the toolbar's Add has no way to ask for it.
+
+**The check that found this was a real Clerk-authenticated `next dev` session,
+not a static read.** A throwaway script (deleted after use, never committed)
+created a real Clerk test identity via the Management API, signed in through
+the same `@clerk/testing/playwright` ticket mechanism `tests/e2e/support/clerk-session.ts`
+uses, opened `/es/me/edit`, selected a section's own container through the
+breadcrumb, and counted `data-testid="add-block"` elements: two, with
+`data-target-path` of `0` and `0-2` respectively, before this fix — one,
+`0`, after it. The identity was deleted again in the same run.

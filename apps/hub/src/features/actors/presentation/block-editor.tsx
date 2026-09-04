@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import {
   DndContext,
   KeyboardSensor,
@@ -44,9 +45,7 @@ import {
   addContentAt,
   appendPlace,
   blockAt,
-  mayNest,
   removeAt,
-  setAt,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
 import {
@@ -114,6 +113,8 @@ import {
   AddBlockPicker,
   type AddBlockPickerProps,
 } from "@/features/actors/presentation/add-block-picker";
+import { addTargetFor } from "@/features/actors/domain/add-target";
+import { useAddSlot } from "@/features/actors/presentation/add-slot";
 import {
   SECTION_PRESETS,
   presetBlock,
@@ -164,9 +165,10 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * the parent.
  *
  * **`addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` are the Add
- * picker's own strings (2026-09-02).** One control, one name, at every scope
- * that offers one — the page, a container's footer, an empty place — so this
- * bag carries one set of four rather than a copy per scope.
+ * picker's own strings.** One control, one name — the compact builder menu's
+ * single global Add (2026-09-04), portalled into `EditorToolbar` from
+ * whichever scope is selected, replacing the page-level, container-footer
+ * and per-empty-place mounts this bag used to feed separately.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -207,11 +209,12 @@ export interface BlockEditorLabels
   /** Wraps the selected content in a layout. */
   wrapInLayout: string;
   /**
-   * Names the Add picker's trigger, at every scope that offers one.
+   * Names the single global Add control's trigger, in the toolbar.
    *
-   * One name for every scope — the page, a container's footer, an empty
-   * place — because it is the same control everywhere; only its target
-   * differs, and that is never named in the trigger's own words.
+   * One name whatever the current selection targets — the page root, a
+   * selected container, or the parent of a selected leaf — because it is the
+   * same control everywhere; only its target differs, and that is never
+   * named in the trigger's own words.
    */
   addBlock: string;
   /** The picker's own dialog heading. */
@@ -456,6 +459,25 @@ function nextChildPosition(block: Block | null): number {
 }
 
 /**
+ * The one global Add, portalled into `EditorToolbar`'s slot.
+ *
+ * A tiny function of its own rather than an inline ternary in
+ * {@link BlockEditor}'s own JSX — pulled out purely to keep that component's
+ * cognitive complexity under the project's own gate, not because the logic
+ * is complex on its own terms.
+ *
+ * @param slot - where to portal to, or null before it mounts.
+ * @param props - what {@link AddBlockPicker} needs.
+ * @returns the portalled picker, or nothing while there is no slot.
+ */
+function addSlotPortal(
+  slot: HTMLElement | null,
+  props: AddBlockPickerProps,
+): ReactNode {
+  return slot ? createPortal(<AddBlockPicker {...props} />, slot) : null;
+}
+
+/**
  * The useful authored name an inspector row shows.
  *
  * @param block - the immediate child.
@@ -476,43 +498,32 @@ interface ItemsFooterProps {
   container: Block | null;
   path: BlockPath | undefined;
   pageAdditions: ReactNode;
-  atBlockLimit: boolean;
-  kinds: readonly LeafKind[];
   labels: BlockEditorLabels;
-  /** The Add picker's own label bag, built once above. */
-  pickerLabels: AddBlockPickerProps["labels"];
-  /** Threaded to the picker's previews, exactly as the canvas needs it. */
-  page: PageContext;
-  /** Which language the picker's previews read. */
-  locale: AuthoringLanguage;
-  addAt: (path: BlockPath, block: Block) => void;
   apply: ApplyBlocks;
 }
 
-/** Scope-specific additions beneath one shallow Items list. */
+/**
+ * Scope-specific additions beneath one shallow Items list.
+ *
+ * **Carries no `AddBlockPicker` of its own (2026-09-04).** It mounted one at
+ * the container's next child position until Task 4 of the compact-menu plan
+ * checked, in a real signed-in browser, whether that mount still earned its
+ * place once the toolbar's single global Add existed. It did not: selecting
+ * a container showed two Add controls at once, both labelled identically —
+ * the toolbar's own, `data-target-path` equal to the container's path, and
+ * this one, one segment longer — both resolving to the identical `addAt`
+ * call. The
+ * `add-place` button survives because it is a different operation entirely:
+ * it appends an empty POSITION, which `addTargetFor` never does and the
+ * toolbar's Add has no way to ask for.
+ */
 function ItemsFooter(props: ItemsFooterProps): ReactNode {
   if (props.selection?.kind === "page") return <>{props.pageAdditions}</>;
   if (!props.container || !isContainer(props.container) || !props.path) {
     return <></>;
   }
-  // Where the picker's own choice lands: the container's next empty or
-  // appended place, exactly as `addAt` resolves it — asked here only so
-  // `mayAddLayout` answers for the place a choice will actually occupy.
-  const nextChildPath = [...props.path, nextChildPosition(props.container)];
   return (
     <>
-      {props.atBlockLimit ? null : (
-        <AddBlockPicker
-          targetPath={nextChildPath}
-          kinds={props.kinds}
-          mayAddLayout={mayNest(nextChildPath)}
-          atBlockLimit={props.atBlockLimit}
-          labels={props.pickerLabels}
-          page={props.page}
-          locale={props.locale}
-          onAdd={(block) => props.addAt(props.path!, block)}
-        />
-      )}
       {props.container.children.length < BLOCK_LIMITS.children ? (
         <button
           type="button"
@@ -761,13 +772,18 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * visitor — and the interaction lock covering the canvas is released in the
  * same effect that watches this prop.
  *
- * **One `AddBlockPicker` is the only way to add, at every scope.** The page
- * palette, a container's `ItemsFooter`, and every empty place in
- * `InspectorItems` each mount one, targeted at their own place, sharing one
- * `addPickerLabels` bag built once here. The sixteen flat `add-leaf-*`
- * buttons, `add-section`, `add-into-*` and the HTML5 drag-to-add path they
- * carried are gone — see the actors feature note for why drag-to-add is a
- * deliberate removal rather than an oversight.
+ * **One `AddBlockPicker` is the only way to add, and it is mounted ONCE
+ * (2026-09-04), portalled into `EditorToolbar`'s own slot rather than
+ * mounted separately at the page, a container's footer, and every empty
+ * place — see `add-target.ts` and `add-slot.tsx`.** A real signed-in browser
+ * check (Task 4 of the compact-menu plan) found the container-footer mount
+ * genuinely redundant once the toolbar's global Add existed — see the
+ * actors feature note for the account — so `ItemsFooter` carries no
+ * `AddBlockPicker` of its own any more; only its `add-place` button, which
+ * appends an empty position rather than a block, remains. The sixteen flat
+ * `add-leaf-*` buttons, `add-section`, `add-into-*` and the HTML5
+ * drag-to-add path they carried are gone — see the actors feature note for
+ * why drag-to-add is a deliberate removal rather than an oversight.
  *
  * **Two of its five motion places live here as plain CSS, deliberately not
  * Motion (2026-09-02).** The canvas's own `md:pl-[…]` accommodation
@@ -827,6 +843,12 @@ export function BlockEditor<T extends FieldValues>({
 }: BlockEditorProps<T>) {
   const dndId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
+  // **Where this component's own Add control portals to, if anywhere.**
+  // `EditorToolbar` renders the target slot; a test that mounts this
+  // component alone, with no provider above it, gets null here and the
+  // portal below renders nothing — the same "absent is an ordinary answer"
+  // shape `useEscapeSlot` already follows.
+  const addSlot = useAddSlot();
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [refusal, setRefusal] = useState<DropRefusal | null>(null);
   const [advertisedTarget, setAdvertisedTarget] = useState<DropTarget | null>(
@@ -1198,34 +1220,41 @@ export function BlockEditor<T extends FieldValues>({
   };
 
   /**
-   * Places Add-tab content into the current selection, wrapping a leaf on
-   * the page.
+   * Places Add content at a target, selecting what was added.
    *
-   * @param path - empty for the page.
+   * **The empty path is the page root, not a container**, so it cannot ask
+   * `blockAt` for a target to append inside — `blockAt(blocks, [])` answers
+   * null by design, the page being an array rather than a block. The new
+   * block's own position is `blocks.length` either way, computed from THIS
+   * render's closure over `blocks` before `apply` schedules the next one, and
+   * a leaf added there lands wrapped in an unnamed one-place stack, at
+   * `[position, 0]`, so depth 0 stays containers.
+   *
+   * This is the one function every Add mount calls — the toolbar's global
+   * control included — so a target computed by `addTargetFor` and one built
+   * by hand from an Items scope's own path both select what they added the
+   * same way.
+   *
+   * @param path - where to add — a container's own path to append inside it,
+   * or the empty path for the page root.
    * @param block - what to add.
    */
   const addAt = (path: BlockPath, block: Block): void => {
     const target = blockAt(blocks, path);
-    const position = nextChildPosition(target);
-    apply((current) => {
-      const next = addContentAt(current, path, block);
-      return next;
-    });
+    const position =
+      path.length === 0 ? blocks.length : nextChildPosition(target);
+    apply((current) => addContentAt(current, path, block));
+    if (path.length === 0) {
+      const childPath = isContainer(block) ? [position] : [position, 0];
+      setSelection({ kind: "block", path: childPath });
+      setInspectorTab(isContainer(block) ? "items" : "options");
+      return;
+    }
     if (target && isContainer(target)) {
       const childPath = [...path, position];
       setSelection({ kind: "block", path: childPath });
       setInspectorTab(isContainer(block) ? "items" : "options");
     }
-  };
-
-  /**
-   * After a page-level add, select the new last section.
-   */
-  const addOnPage = (block: Block): void => {
-    apply((current) => addContentAt(current, [], block));
-    const path = isContainer(block) ? [blocks.length] : [blocks.length, 0];
-    setSelection({ kind: "block", path });
-    setInspectorTab(isContainer(block) ? "items" : "options");
   };
 
   /**
@@ -1275,10 +1304,10 @@ export function BlockEditor<T extends FieldValues>({
   // one save later.
   const kinds = offerableLeafKinds(page.actorKind);
   // **One label bag for the Add picker, built once and passed to every
-  // instance of it** — the page, a container's footer, an empty place —
-  // rather than each call site re-slicing `labels` its own way, which is
-  // exactly the kind of duplication that drifts the moment a string is
-  // reworded in one place and not the others.
+  // instance of it** — the toolbar's global control and (pending Task 4)
+  // a container's own footer — rather than each call site re-slicing
+  // `labels` its own way, which is exactly the kind of duplication that
+  // drifts the moment a string is reworded in one place and not the others.
   const addPickerLabels = {
     add: labels.addBlock,
     title: labels.addBlockTitle,
@@ -1287,6 +1316,23 @@ export function BlockEditor<T extends FieldValues>({
     nestingAtLimit: labels.nestingAtLimit,
     leafKinds: labels.leaf.leafKinds,
     modes: labels.modes,
+  };
+  // **The one global Add, portalled into the toolbar's slot (2026-09-04).**
+  // `addTargetFor` reads the current selection — Page or nothing targets the
+  // root, a container targets itself, a leaf targets its own parent — and
+  // `addAt` is the same function every OTHER Add mount in this file already
+  // calls, so a choice made through the toolbar selects what it added
+  // exactly as one made from a container's own footer does.
+  const addTarget = addTargetFor(blocks, currentSelection);
+  const addProps: AddBlockPickerProps = {
+    targetPath: addTarget.targetPath,
+    kinds,
+    mayAddLayout: addTarget.mayAddLayout,
+    atBlockLimit,
+    labels: addPickerLabels,
+    page,
+    locale: lang,
+    onAdd: (block) => addAt(addTarget.targetPath, block),
   };
   // Position named once, exactly as `PublicBlocks` does it and for the same
   // reason: a block has no identity but where it sits, and
@@ -1308,16 +1354,6 @@ export function BlockEditor<T extends FieldValues>({
         <p className="text-sm text-(--muted)">{labels.atLimit}</p>
       ) : (
         <>
-          <AddBlockPicker
-            targetPath={[]}
-            kinds={kinds}
-            mayAddLayout={mayNest([])}
-            atBlockLimit={atBlockLimit}
-            labels={addPickerLabels}
-            page={page}
-            locale={lang}
-            onAdd={addOnPage}
-          />
           <div className="grid gap-1.5">
             <button
               type="button"
@@ -1337,7 +1373,7 @@ export function BlockEditor<T extends FieldValues>({
                     type="button"
                     {...tid(`preset-${preset.id}`)}
                     onClick={() => {
-                      addOnPage(presetBlock(preset));
+                      addAt([], presetBlock(preset));
                       setPresetsOpen(false);
                     }}
                     className="rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
@@ -1376,24 +1412,13 @@ export function BlockEditor<T extends FieldValues>({
   if (currentSelection?.kind === "page") scopeChildren = blocks;
   else if (selectedContainer) scopeChildren = selectedContainer.children;
 
-  const selectAddedPlace = (path: BlockPath, block: Block): void => {
-    setSelection({ kind: "block", path });
-    setInspectorTab(isContainer(block) ? "items" : "options");
-  };
-
   const itemsFooter = (
     <ItemsFooter
       selection={currentSelection}
       container={selectedContainer}
       path={selectedPath}
       pageAdditions={addPalette}
-      atBlockLimit={atBlockLimit}
-      kinds={kinds}
       labels={labels}
-      pickerLabels={addPickerLabels}
-      page={page}
-      locale={lang}
-      addAt={addAt}
       apply={apply}
     />
   );
@@ -1406,16 +1431,7 @@ export function BlockEditor<T extends FieldValues>({
       dragLabel={scopePath.length === 0 ? labels.dragSection : labels.dragBlock}
       itemLabel={(block) => blockItemLabel(block, labels)}
       onEnter={(path) => enterSelection({ kind: "block", path })}
-      onAdd={(path, block) => {
-        apply((current) => setAt(current, path, block));
-        selectAddedPlace(path, block);
-      }}
       onRemovePlace={(path) => apply((current) => removeAt(current, path))}
-      atBlockLimit={atBlockLimit}
-      kinds={kinds}
-      page={page}
-      locale={lang}
-      pickerLabels={addPickerLabels}
       labels={labels}
       footer={itemsFooter}
     />
@@ -1485,6 +1501,12 @@ export function BlockEditor<T extends FieldValues>({
           moves it clear of the panel; outside the canvas, so it cannot
           scroll away from the person who just pressed Save. */}
       {banner}
+
+      {/* **The one global Add, portalled into `EditorToolbar`'s slot.** Null
+          until the slot mounts — see `useAddSlot`'s own note — which is the
+          ordinary state in a test that renders this component with no
+          provider above it. */}
+      {addSlotPortal(addSlot, addProps)}
 
       <DndContext
         id={dndId}

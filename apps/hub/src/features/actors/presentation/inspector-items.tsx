@@ -2,25 +2,19 @@
 
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import { mayNest, type BlockPath } from "@/features/actors/domain/block-edits";
-import type { Block, LeafKind } from "@/features/actors/domain/block-schema";
+import type { BlockPath } from "@/features/actors/domain/block-edits";
+import type { Block } from "@/features/actors/domain/block-schema";
 import { BlockSlot } from "@/features/actors/presentation/block-slot";
 import { m } from "@/features/actors/presentation/editor-motion";
-import {
-  AddBlockPicker,
-  type AddBlockPickerProps,
-} from "@/features/actors/presentation/add-block-picker";
-import type { PageContext } from "@/features/actors/presentation/blocks";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
  * What the shallow recursive-inspector list needs.
  *
- * **`kinds`/`page`/`locale`/`pickerLabels` feed every empty place's own
- * `AddBlockPicker` (2026-09-02)**, replacing the flat `addContent`/
- * `addNested`/`nestingAtLimit` strings this component used to read directly
- * — `labels` now names only `removePlace`, the one action left that is not
- * the picker's.
+ * **An empty place offers only removal now (2026-09-04)**, not its own Add
+ * picker — the compact builder menu's single global Add, in `EditorToolbar`,
+ * is the only way to add a block anywhere, so an empty place's picker here
+ * would have been a second route to the identical operation.
  */
 export interface InspectorItemsProps {
   /** Immediate positions in the selected scope, empty positions included. */
@@ -35,20 +29,8 @@ export interface InspectorItemsProps {
   itemLabel: (block: Block) => string;
   /** Enters an occupied child. */
   onEnter: (path: BlockPath) => void;
-  /** Fills one exact empty position and selects what was added. */
-  onAdd: (path: BlockPath, block: Block) => void;
   /** Removes one empty positional place. */
   onRemovePlace: (path: BlockPath) => void;
-  /** Whether another block may be added. */
-  atBlockLimit: boolean;
-  /** Which leaf kinds this scope may hold, already narrowed by the caller. */
-  kinds: readonly LeafKind[];
-  /** Threaded to every empty place's Add picker, for its previews. */
-  page: PageContext;
-  /** Which language the pickers' previews read. */
-  locale: string;
-  /** The Add picker's own label bag, shared by every empty place here. */
-  pickerLabels: AddBlockPickerProps["labels"];
   /** Existing words for the one action left on an empty place. */
   labels: {
     readonly removePlace: string;
@@ -61,11 +43,12 @@ export interface InspectorItemsProps {
  * One scope's immediate children, never their descendants.
  *
  * Occupied positions are independently focusable rows and grips. **An empty
- * position offers the same Add picker every other scope does, targeted at
- * that exact place** — one control at every scope that can hold a block,
- * rather than the flat `add-content`/`add-nested` pair this replaced. An
- * authored gap stays in the list and stays editable; collapsing it would
- * make a space count meaningless the moment a section were partly filled.
+ * position offers only removal now (2026-09-04)** — the compact builder
+ * menu's single global Add is the only route to filling any place, so a
+ * second picker here would have been a second way to do the identical
+ * thing. An authored gap still stays in the list and stays visible;
+ * collapsing it would make a space count meaningless the moment a section
+ * were partly filled.
  *
  * **Every row's own content is `m.div` now, opacity-only (2026-09-02).**
  * An occupied row's label wrapper stays a SIBLING of the drag handle rather
@@ -133,16 +116,6 @@ export function InspectorItems(props: InspectorItemsProps): ReactNode {
                       transition={{ duration: 0.16, ease: "easeOut" }}
                       className="flex flex-wrap items-center gap-1.5 rounded-lg surface border-dashed border-(--edge)/60 bg-(--surface) p-2"
                     >
-                      <AddBlockPicker
-                        targetPath={path}
-                        kinds={props.kinds}
-                        mayAddLayout={mayNest(path)}
-                        atBlockLimit={props.atBlockLimit}
-                        labels={props.pickerLabels}
-                        page={props.page}
-                        locale={props.locale}
-                        onAdd={(block) => props.onAdd(path, block)}
-                      />
                       <button
                         type="button"
                         {...tid("remove-place")}
