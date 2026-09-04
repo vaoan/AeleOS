@@ -130,6 +130,10 @@
     "AeleOS",
     "alice",
     "Angarita",
+    // The home-directory basename on the machine these plans were written
+    // on, baked into several already-committed `cd /Users/…` example
+    // commands across this feature's seven phase plans. Not a coinage.
+    "angaritamaldonado",
     "anthro",
     "IPIP",
     "attname",
@@ -154,6 +158,10 @@
     "CandyStore",
     "candystore",
     "Carina",
+    // The page builder everybody's own product is named after (Carrd.co),
+    // this design's own namesake throughout TSDoc, a test file's own header
+    // comment, and the feature's living documentation — not a one-off typo.
+    "Carrd",
     "Carrusel",
     "chromosphere",
     "citext",

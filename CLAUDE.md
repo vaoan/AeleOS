@@ -3349,6 +3349,20 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     judgement that it reads well**, and where no checker runs, a native
     reader is the check: escalate rather than adjudicate.
 
+    **The two rulings this rule and rule 41 make together were both used the
+    same day, on the same commit (2026-09-04).** `Carrd` — the product this
+    branch's own design is named after, recurring in TSDoc, a test file's own
+    header comment and the feature's living documentation — earned a
+    dictionary entry under rule 41's "a word the CODE needs" standard; a
+    stray negated-adjective coinage in a sibling phase plan's prose, used
+    once and only there to describe a control nothing had audited yet, was
+    reworded instead, under the same rule's other half. And `angaritamaldonado` — the machine-specific home-directory
+    basename baked into several already-committed `cd /Users/...` example
+    commands across this feature's seven phase plans — went in beside the
+    existing `Heiner`/`Angarita` entries for the same person, the identical
+    reasoning that already justified `vaoan` and `rmellis` sitting in this
+    same list: a real, recurring token rather than a coinage.
+
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It
 found Clerk's warning that middleware path-matching "can leave protected

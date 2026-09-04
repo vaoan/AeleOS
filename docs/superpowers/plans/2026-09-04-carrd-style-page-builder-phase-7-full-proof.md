@@ -62,7 +62,7 @@ pnpm test:e2e --grep "carrd-style-builder"
 
 - Extend: `apps/hub/tests/e2e/a11y.spec.ts` (the existing suite, per its own established pattern of one case per newly-reachable state — see the actors `CLAUDE.md`'s account of the page-source dock's own axe cases for the exact idiom to follow)
 
-- [ ] **Step 1: Add a case scanning the Properties panel open on a leaf selection, on a container selection, and on Page selection** (three states, three axe runs — a leaf's Content+Appearance tabs may reach different controls than a container's Layout+Appearance, and Page's Theme tab mounts `ThemeConfigurator`, which may have its own reachable-but-unscanned controls now that it lives inside a panel tab rather than wherever it was mounted before this plan's Phase 3).
+- [ ] **Step 1: Add a case scanning the Properties panel open on a leaf selection, on a container selection, and on Page selection** (three states, three axe runs — a leaf's Content+Appearance tabs may reach different controls than a container's Layout+Appearance, and Page's Theme tab mounts `ThemeConfigurator`, which may have its own reachable controls nothing has scanned yet, now that it lives inside a panel tab rather than wherever it was mounted before this plan's Phase 3).
 
 - [ ] **Step 2: Add a case scanning the compact menu's More disclosure open.**
 
