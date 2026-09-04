@@ -1624,6 +1624,16 @@ replace`, so the newest body of a function could sit in a file named after
   a ruling rather than a change to the model — the positions are stored either
   way.
 
+  **Corrected 2026-09-04: that refusal held everywhere until the Carrd-style
+  page builder, and now holds only for POSITIONAL modes.** `stack`, `list`
+  and `timeline` insert-and-shift now, through `domain/block-drops.ts`'s
+  `applyLinearDrop` and `LINEAR_MODES` — see
+  `apps/hub/src/features/actors/CLAUDE.md`'s dragging section for the
+  mechanism. The reasoning above is unchanged and still current for `grid`,
+  `masonry`, `carousel`, `tabs` and `accordion`, where a place is still
+  positional and shifting one would still move a shape somebody deliberately
+  left.
+
   Two domain boundaries carry the current design. `moveBlock`
   (`domain/block-moves.ts`) still decides what any valid exchange MEANS, with
   no library in sight; `moveSiblingBlock` admits that operation only when both

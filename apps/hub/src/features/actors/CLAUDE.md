@@ -2036,8 +2036,19 @@ one would have. Sabotaging the early check alone did not redden
 the early check costs nothing observable and removing it is a refactor this
 task did not ask for, not a fix.
 
-**A drop is an EXCHANGE, and insert-and-shift was refused rather than
-overlooked.** The flow semantics a list would give you — insert here, and
+**A drop was an EXCHANGE everywhere, and insert-and-shift was refused
+rather than overlooked — until 2026-09-04, and only for POSITIONAL modes
+now.** The Carrd-style page builder
+(`docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`)
+gave `stack`, `list` and `timeline` exactly the insert-and-shift model this
+paragraph used to say was refused everywhere — see `domain/block-drops.ts`'s
+`applyLinearDrop` and `LINEAR_MODES`, and "Linear parents insert-and-shift;
+positional parents still exchange" above. What follows is still the correct
+and current account for `grid`, `masonry`, `carousel`, `tabs` and
+`accordion`, where a place is still positional and the argument below (an
+empty place keeps its width; shifting one would move a shape somebody
+deliberately left) still holds exactly as written. The flow semantics a
+list would give you — insert here, and
 everything after it slides along — assume the gaps between things carry no
 meaning, and here they carry the author's. A place is positional: place three
 is place three whether or not anything sits in it, and an empty place keeps its
