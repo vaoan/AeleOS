@@ -2232,6 +2232,34 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   canvas ownership. Spec:
   `docs/superpowers/specs/2026-09-03-editor-preview-selection-and-canvas-scroll-design.md`.
 
+  **It shipped a visible fault, and the lesson generalises past this editor: a
+  NEW SCROLL CONTAINER RE-BASES EVERY STICKY OFFSET INSIDE IT.** A sticky
+  offset is measured from the scrollport, not from the viewport. The editor's
+  toolbar had `top: var(--bar-top)` — right for as long as its scrollport was
+  the document, whose first 56px the header occupies. Bounding the form made
+  the FORM that scrollport, and the form already begins below the header, so
+  the declaration counted the header twice: measured at 1280×900, header 0–56,
+  bar 112–171, canvas top 277 — a 56px strip of the author's own page between
+  the two bars, with everything below pushed down by the same amount. The bar
+  is `top-0` now (bar 56–115, canvas top 245), and `--bar-top` is left to the
+  inspector and the source dock, whose offsets are genuinely viewport-measured
+  because both are `fixed`. The general question to ask when confining a
+  scroll: **which boxes inside the new container declared an offset against
+  the old one?**
+
+  **The guard for that bar passed through the whole fault, which is rule 27
+  and not an oversight.** `editor-bars-stay-pinned.spec.ts` reads Save's own
+  starting offset and asserts canvas scrolling never moves it — true of a bar
+  under the header and equally true of one 56px lower, since both are outside
+  the scroller and neither moves. **Pinned and in the right place are two
+  claims**, and confining the scroll made the first one nearly free while
+  silently breaking the second. The case that asks it compares the bar's top
+  against the header's foot in both directions, and it must run TALL:
+  `--bar-top` is `0px` under `@media (height <= 600px)`, so the faulty offset
+  resolves to zero on a phone in landscape and the band cannot appear there —
+  a short fixture would have passed against the exact code it exists to
+  refuse.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:

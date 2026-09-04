@@ -688,6 +688,12 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * and returns scrolling to the document. Close on the inspector clears
  * selection without walking Back.
  *
+ * The stack's own top margin is edit-mode-free for the same reason: 32px
+ * above the first section scrolls away on a document that scrolls and is
+ * permanent furniture above a bounded canvas. Preview keeps the margin class
+ * and renders identically, since `[data-controls="hidden"]` already zeroes
+ * every `[data-editor-stack]` margin in CSS.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1280,7 +1286,7 @@ export function BlockEditor<T extends FieldValues>({
       // and the page's own boxes never receive an inline `transform` from
       // this. The transition applies at every width; it only ever has
       // something to animate from `md` up, where `pl-` itself is conditional.
-      className={`${controlsHidden ? "mt-8 grid gap-4" : "mt-8 flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
+      className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
     >
       <WidePageColumn className={`${CHROME_SCOPE} flex-none py-0 sm:py-0`}>
         <div className="flex flex-wrap items-center gap-2">

@@ -89,6 +89,63 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
+// **PINNED IS NOT THE SAME CLAIM AS IN THE RIGHT PLACE, and the case below
+// this one could not tell them apart (2026-09-03).** It reads Save's own
+// starting offset and asserts canvas scrolling never moves it — true of a bar
+// resting under the header and equally true of one resting 56px lower, since
+// both are outside the scroller and neither moves. So the band this editor
+// actually shipped passed it.
+//
+// A sticky offset is measured from the SCROLLPORT. Confining the scroll to the
+// canvas made the bar's nearest scrollport the editor's form, which already
+// begins below the header — so `top: var(--bar-top)` counted the header twice
+// and left a 56px strip of the author's page between the two bars, with the
+// canvas pushed down by the same amount. Measured at 1280x900 before the fix:
+// header 0-56, bar 112-171, canvas top 277. After: bar 56-115, canvas top 245.
+//
+// **The viewport has to be TALL for this to discriminate.** `--bar-top` is
+// `0px` under `@media (height <= 600px)`, so the faulty offset resolves to
+// zero on a short screen and the band never appears there — a phone-landscape
+// fixture would have passed against the very code this case exists to refuse.
+test("the bar rests flush under the app header, with no band of page between them", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto(`/en/pages/${handle}/edit`);
+  await expect(page.getByTestId("block-preview").first()).toBeVisible();
+
+  const rest = await page.evaluate(() => {
+    const header = document.querySelector("header")!.getBoundingClientRect();
+    const bar = document
+      .querySelector('[data-testid="editor-save"]')!
+      .closest("div.sticky")!
+      .getBoundingClientRect();
+    const canvas = document
+      .querySelector("[data-editor-canvas]")!
+      .getBoundingClientRect();
+    return {
+      headerBottom: header.bottom,
+      barTop: bar.top,
+      barBottom: bar.bottom,
+      canvasTop: canvas.top,
+    };
+  });
+
+  // Both directions, because the two faults are mirrored: a positive gap is
+  // the band, and a negative one is the bar parking ON the header — which is
+  // the fault `--bar-top` was introduced for in the first place.
+  expect(
+    rest.barTop - rest.headerBottom,
+    `the bar rests ${rest.barTop - rest.headerBottom}px from the header's foot`,
+  ).toBeCloseTo(0, 0);
+
+  // And the canvas follows the bar rather than the old offset: anything at or
+  // past 277 is this fault's own measurement surviving somewhere else.
+  expect(rest.canvasTop).toBeGreaterThan(rest.barBottom);
+  expect(rest.canvasTop).toBeLessThan(rest.barBottom + 160);
+});
+
 test("the save bar stays pinned while the canvas scrolls all the way down", async ({
   page,
 }) => {
