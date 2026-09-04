@@ -1300,13 +1300,28 @@ document import cannot resurrect a stale path merely by filling the same
 position again.
 
 **The live renderer is directly draggable now (2026-09-04).** `Block` accepts
-optional editor instrumentation and threads it through the same recursion the
+an optional `editor` prop and threads it through the same recursion the
 public route renders. When absent — every public route, Preview, and the
 session's Interact-with-page mode — it emits no wrapper, grip, listener, or
-feedback at all. When present, `EditableBlockFrame` wraps every rendered block
-and empty place: a mouse press may lift the rendered block itself, while touch
-and keyboard listeners live only on the selected block's accessible grip so a
-finger can still scroll the canvas without accidentally starting a drag.
+feedback at all.
+
+**Corrected the same day: `editor` is a render-prop
+(`EditorRenderHook`), not a data object `blocks.tsx` interprets itself.**
+The checkpoint version had `blocks.tsx` import `EditableBlockFrame` directly
+and construct it from the instrumentation data — which, because `blocks.tsx`
+is imported by both public routes and the editor, pulled `@dnd-kit` into
+every public route's bundle whether or not any instrumentation ever mounted.
+Measured: `/[locale]/[person]` (+ `[handle]`) dropped from 1,342,756 to
+1,008,869 bytes once fixed — the exact shape the "public routes have their
+own barrel" account below already fixed once for Motion, this time on
+dnd-kit. `blocks.tsx` calls `editor.wrap({ path, filled, children })` on
+every rendered block and empty place and never imports
+`editable-block-frame.tsx`; `block-editor.tsx` — the file that already only
+exists on editor routes — is the one place in the app allowed to import it,
+and builds the hook that wraps with `EditableBlockFrame`: a mouse press may
+lift the rendered block itself, while touch and keyboard listeners live only
+on the selected block's accessible grip so a finger can still scroll the
+canvas without accidentally starting a drag.
 
 The wrapper is the dnd-kit node and may write its own transform; Motion remains
 inside `CHROME_SCOPE` and never wraps it or an ancestor. The grip and

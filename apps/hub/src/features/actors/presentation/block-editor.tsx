@@ -100,7 +100,9 @@ import {
   Block as PublicBlock,
   DEFAULT_PAGE_MEASURE,
   pageBoxClass,
+  type EditorRenderHook,
 } from "@/features/actors/presentation/blocks";
+import { EditableBlockFrame } from "@/features/actors/presentation/editable-block-frame";
 import {
   dragAnnouncements,
   type DragAnnouncementLabels,
@@ -597,11 +599,14 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * does — the fault the flat editor documented at length and which produced a
  * delete landing on the wrong row.
  *
- * **The live renderer is the drag surface.** Every rendered block and empty
- * place is instrumented by `EditableBlockFrame` only while edit controls are
- * active and page interaction is locked. A mouse may lift the rendered block
- * directly; touch and keyboard lift the selected block through its accessible
- * grip so a touch scroll is never captured by an unselected block.
+ * **The live renderer is the drag surface.** This component is the one place
+ * in the app allowed to import `EditableBlockFrame` — `blocks.tsx` renders
+ * public routes too and never names it — and builds the `EditorRenderHook`
+ * `blocks.tsx` calls on every rendered block and empty place, only while
+ * edit controls are active and page interaction is locked. A mouse may lift
+ * the rendered block directly; touch and keyboard lift the selected block
+ * through its accessible grip so a touch scroll is never captured by an
+ * unselected block.
  *
  * **Pointer collision ranks the live renderer's nested rectangles deepest
  * first; keyboard navigation walks their drawing order.** Both ask
@@ -1617,11 +1622,21 @@ export function BlockEditor<T extends FieldValues>({
                     editor={
                       controlsHidden || interactionsEnabled
                         ? undefined
-                        : {
-                            selectedPath: selectedAttr || undefined,
-                            activeTarget: advertisedTarget,
-                            dragLabel: labels.dragBlock,
-                          }
+                        : ({
+                            wrap: ({ path, filled, children }) => (
+                              <EditableBlockFrame
+                                path={path}
+                                filled={filled}
+                                editor={{
+                                  selectedPath: selectedAttr || undefined,
+                                  activeTarget: advertisedTarget,
+                                  dragLabel: labels.dragBlock,
+                                }}
+                              >
+                                {children}
+                              </EditableBlockFrame>
+                            ),
+                          } satisfies EditorRenderHook)
                     }
                   />
                 </div>

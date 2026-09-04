@@ -16,10 +16,6 @@ import {
   blockStyle,
   squareOffCorners,
 } from "@/features/actors/presentation/block-style";
-import {
-  EditableBlockFrame,
-  type EditableBlockInstrumentation,
-} from "@/features/actors/presentation/editable-block-frame";
 import { tid } from "@/shared/infrastructure/test-id";
 import {
   AvatarLeaf,
@@ -62,6 +58,37 @@ import { CORNER_CLASS } from "@/features/actors/presentation/block-contract";
 export type { PageContext } from "@/features/actors/presentation/block-contract";
 
 /**
+ * Editor-owned wrapping around one rendered block or empty place.
+ *
+ * **This file never imports the module that builds one.** `blocks.tsx`
+ * renders every public route as well as the editor canvas, so a static
+ * import of the editor's own drag wrapper here would pull `@dnd-kit` into
+ * every public route's bundle whether or not any instrumentation ever
+ * mounts — exactly the fault the "public routes have their own barrel"
+ * account in `apps/hub/src/features/actors/CLAUDE.md` already fixed once
+ * for Motion. `wrap` is constructed by `block-editor.tsx`, the file that
+ * already only exists on editor routes, and handed down through the same
+ * `editor` prop that already threads through this recursion.
+ */
+export interface EditorRenderHook {
+  /**
+   * Wraps one rendered block or empty positional place.
+   *
+   * Takes the renderer path (`""` for the page itself), whether a block
+   * currently fills that place, and the unmodified rendered node.
+   *
+   * @returns the node, optionally wrapped with editor-only chrome. The
+   * caller is responsible for any `key` a surrounding `.map()` needs — this
+   * function's own return value is not itself a list item.
+   */
+  wrap(args: {
+    readonly path: string;
+    readonly filled: boolean;
+    readonly children: ReactNode;
+  }): ReactNode;
+}
+
+/**
  * What one block needs to render itself and everything beneath it.
  *
  * **`path` and `labelled` are both about the PARENT**, which is what makes the
@@ -84,8 +111,9 @@ export type { PageContext } from "@/features/actors/presentation/block-contract"
  * leaves that read it. It shares the recursion rather than the meaning.
  *
  * **`editor` is the other exception and changes no page content.** When
- * present, it wraps the same rendered nodes with direct-manipulation chrome;
- * public routes omit it and retain the ordinary renderer markup.
+ * present, it is an {@link EditorRenderHook} this file calls but never
+ * constructs, so public routes — which omit it — never name the module that
+ * builds one and retain the ordinary renderer markup.
  */
 export interface BlockProps {
   /** The block to render, as parsed. */
@@ -143,12 +171,12 @@ export interface BlockProps {
    */
   labelled?: boolean;
   /**
-   * Editor-only instrumentation for direct manipulation of this rendered tree.
+   * Editor-owned wrapping for direct manipulation of this rendered tree.
    *
    * Absent on public routes, where the renderer emits exactly its ordinary
-   * markup without drag wrappers, grips, or destination feedback.
+   * markup with no wrapping at all. See {@link EditorRenderHook}.
    */
-  editor?: EditableBlockInstrumentation;
+  editor?: EditorRenderHook;
 }
 
 /** What every entry in {@link MODES} is handed. */
@@ -164,7 +192,7 @@ interface ModeProps {
   /** Threaded to the children — see {@link BlockProps.page}. */
   page: PageContext;
   /** Threaded only while the live renderer is acting as the editor canvas. */
-  editor?: EditableBlockInstrumentation;
+  editor?: EditorRenderHook;
 }
 
 /** One arrangement, as a component over {@link ModeProps}. */
@@ -509,14 +537,9 @@ function placeIn(props: ModeProps, seat: Seat, labelled = true): ReactNode {
   if (!seat.block) {
     const space = <div {...tid("public-space")} />;
     return props.editor ? (
-      <EditableBlockFrame
-        key={seat.path}
-        path={seat.path}
-        filled={false}
-        editor={props.editor}
-      >
-        {space}
-      </EditableBlockFrame>
+      <Fragment key={seat.path}>
+        {props.editor.wrap({ path: seat.path, filled: false, children: space })}
+      </Fragment>
     ) : (
       <div key={seat.path} {...tid("public-space")} />
     );
@@ -1174,9 +1197,11 @@ function Leaf(props: LeafProps): ReactNode {
  * Every rendered block also exposes its positional `data-block-path`. Public
  * pages ignore that inert attribute; the editor canvas uses it to map a click
  * back to the same array path the existing edit and drag functions consume.
- * When editor instrumentation is supplied, that same recursion wraps filled
- * blocks and otherwise-invisible empty places with selection and drop affordances;
- * public rendering remains on the unwrapped branch.
+ * When an {@link EditorRenderHook} is supplied, this function calls its
+ * `wrap` on every filled block and otherwise-invisible empty place rather
+ * than constructing the wrapper itself — see {@link BlockProps.editor} for
+ * why this file never imports the module that builds one. Public rendering
+ * remains on the unwrapped branch.
  */
 export function Block({
   block,
@@ -1201,13 +1226,9 @@ export function Block({
         <Leaf leaf={block} locale={locale} labelled={labelled} page={page} />
       </div>
     );
-    return editor ? (
-      <EditableBlockFrame path={path} filled editor={editor}>
-        {rendered}
-      </EditableBlockFrame>
-    ) : (
-      rendered
-    );
+    return editor
+      ? editor.wrap({ path, filled: true, children: rendered })
+      : rendered;
   }
 
   // A mode is a render FUNCTION and is called as one, never mounted as
@@ -1328,13 +1349,9 @@ export function Block({
       })}
     </section>
   );
-  return editor ? (
-    <EditableBlockFrame path={path} filled editor={editor}>
-      {rendered}
-    </EditableBlockFrame>
-  ) : (
-    rendered
-  );
+  return editor
+    ? editor.wrap({ path, filled: true, children: rendered })
+    : rendered;
 }
 
 /**

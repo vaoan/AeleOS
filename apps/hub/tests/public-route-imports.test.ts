@@ -128,3 +128,18 @@ describe("the narrow barrel", () => {
     }
   });
 });
+
+describe("the shared block renderer", () => {
+  it("keeps the shared block renderer free of the editor's own drag wrapper", () => {
+    // `blocks.tsx` is imported by both barrels above -- the narrow one the two
+    // public routes use, and the wide one `block-editor.tsx` uses. A static
+    // import of `editable-block-frame` here would pull `@dnd-kit` into every
+    // public route's bundle whether or not any instrumentation ever mounts,
+    // the exact fault the barrel split above already fixed once for Motion.
+    const source = readFileSync(
+      resolve(ROOT, "apps/hub/src/features/actors/presentation/blocks.tsx"),
+      "utf8",
+    );
+    expect(source).not.toMatch(/editable-block-frame/);
+  });
+});
