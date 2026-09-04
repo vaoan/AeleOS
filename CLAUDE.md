@@ -2248,6 +2248,30 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   scroll: **which boxes inside the new container declared an offset against
   the old one?**
 
+  **It happened twice more, and the general question is wider than offsets:
+  which decisions inside the new container were only invisible because it
+  scrolled?** Measured at 1280×900, 80 of the 114px between the bar and the
+  first section were reserved for things that rendered nothing — a page column
+  holding `pt-6 sm:pt-10` for an error banner that returns null when there is
+  nothing wrong, and a zero-height `div` of `<style>` elements that still cost
+  its parent's `gap-4`. Both had scrolled away for as long as the document was
+  the scroller. The column moved inside the banner so one null check governs
+  both (it could not be gated at the call site: the banner's own rule is
+  stricter than "there are errors"), and the stylesheet holder is
+  `display: contents` so it is not a flex item at all.
+
+  **Photographing that fix found the fault it was sitting beside, and it was
+  the worse one: the save-refusal summary was BEHIND the inspector.** The
+  panel is `fixed` and the canvas section pads itself to make room; the banner
+  was a sibling of that section, so at 1280 its heading sat at x=41 with the
+  panel's right edge at x=512 — unreadable in the normal case, since the
+  inspector is open exactly when somebody presses Save. **A rect comparison
+  would have passed**, because two boxes overlapping is not the claim and
+  which one a person can read is; `elementFromPoint` is the only instrument
+  that answers it, and no unit test can, which is why 3661 of them passed
+  through it. This is rule 30's shape again — the guard has to consult the
+  system that decides, and here that system is the compositor.
+
   **The guard for that bar passed through the whole fault, which is rule 27
   and not an oversight.** `editor-bars-stay-pinned.spec.ts` reads Save's own
   starting offset and asserts canvas scrolling never moves it — true of a bar

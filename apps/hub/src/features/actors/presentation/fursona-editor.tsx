@@ -17,7 +17,6 @@ import {
 } from "react-hook-form";
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
-import { WidePageColumn } from "@/shared/presentation/page-shell";
 import { useEscapeSlot } from "@/shared/presentation/escape-slot";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { ThemeScope } from "@/features/actors/presentation/theme-scope";
@@ -510,7 +509,11 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `COLUMN.wide` is `py-6 sm:py-10`, and tailwind-merge treats a responsive
  * variant as its own group — a bare `py-0` overrides the base and leaves the
  * `sm:` one standing, which is 40px nobody asked for at every width above
- * `sm`.
+ * `sm`. That spelling lives in `FormErrorBanner` now, and the banner itself
+ * is handed to `BlockEditor` rather than rendered here (2026-09-03): a
+ * column at this level reserved 40px of the author's backdrop on every form
+ * with nothing wrong, and a banner at this level sat outside the inspector's
+ * accommodation padding and was covered by the panel.
  *
  * **The way out of the author's own look is in the bar.** Since the document
  * wears the draft, a busy theme is worn by the workbench too; the editor hands
@@ -839,15 +842,6 @@ export function FursonaEditor({
               />
             )}
 
-            <WidePageColumn
-              className={`${CHROME_SCOPE} flex-none py-0 pt-6 sm:py-0 sm:pt-10`}
-            >
-              <FormErrorBanner
-                errors={{ ...schemaErrors, ...fieldErrors }}
-                labels={{ title: labels.bannerTitle, errors: labels.errors }}
-              />
-            </WidePageColumn>
-
             <BlockEditor
               control={control}
               lang={lang}
@@ -859,6 +853,22 @@ export function FursonaEditor({
               pageInteractionsEnabled={interactionsEnabled}
               controlsHidden={controlsHidden}
               selectionResetKey={selectionResetKey}
+              // **Handed DOWN rather than rendered here, and it carries its
+              // own page column.** Both are the same lesson from the same
+              // day: a banner rendered at this level sat outside the
+              // inspector's accommodation padding and was covered by the
+              // panel, and a column rendered at this level reserved 40px of
+              // the author's backdrop on every form with nothing wrong. See
+              // `BlockEditorProps.banner` and `FormErrorBanner`.
+              banner={
+                <FormErrorBanner
+                  errors={{ ...schemaErrors, ...fieldErrors }}
+                  labels={{
+                    title: labels.bannerTitle,
+                    errors: labels.errors,
+                  }}
+                />
+              }
               pageOptions={
                 <>
                   <div

@@ -178,6 +178,61 @@ test("Preview clears the selected inspector instead of pausing it", async ({
   await expect(page.getByTestId("select-page")).toBeVisible();
 });
 
+// THE REFUSAL SUMMARY MUST NOT BE BEHIND THE PANEL.
+//
+// The inspector is a `fixed` left column from `md` up, and the canvas section
+// pads itself by `md:pl-[min(36rem,40vw)]` to make room. The banner was a
+// SIBLING of that section, so it got no such padding and the panel simply sat
+// on top of it — at 1280 its heading was at x=41 with the panel's right edge
+// at x=512. It is a child of the padded section now.
+//
+// **A rect comparison is the wrong instrument and would have passed.** Two
+// boxes overlapping is not the claim; which one a person can read is, and
+// only `elementFromPoint` answers that. The banner is asserted to have text
+// first, because a hit test over an element that never rendered would report
+// "not covered by the inspector" for the worst possible reason.
+test("the save-refusal summary is readable while the inspector is open", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  await page.getByTestId("select-page").click();
+  await expect(page.getByTestId("canvas-inspector")).toBeVisible();
+
+  // A new fursona has no handle, which the write schema refuses — so Save
+  // produces the banner rather than navigating away.
+  await page.getByTestId("editor-save").click();
+  const banner = page.getByTestId("editor-error-banner");
+  await expect(banner).toBeVisible();
+  expect((await banner.innerText()).trim().length).toBeGreaterThan(0);
+
+  const reading = await page.evaluate(() => {
+    const heading = document.querySelector(
+      '[data-testid="editor-error-banner"] p',
+    )!;
+    const box = heading.getBoundingClientRect();
+    const topmost = document.elementFromPoint(box.left + 8, box.top + 8);
+    const inspector = document.querySelector(
+      '[data-testid="canvas-inspector"]',
+    )!;
+    return {
+      headingLeft: box.left,
+      inspectorRight: inspector.getBoundingClientRect().right,
+      coveredByInspector: Boolean(topmost && inspector.contains(topmost)),
+      topmost: topmost?.tagName ?? "none",
+    };
+  });
+
+  expect(
+    reading.coveredByInspector,
+    `the inspector is on top of the banner's heading (${reading.topmost})`,
+  ).toBe(false);
+  // And it is clear of the panel rather than merely un-hit by one pixel.
+  expect(reading.headingLeft).toBeGreaterThanOrEqual(reading.inspectorRight);
+});
+
 test("the inspector closes itself directly from a nested leaf", async ({
   page,
 }) => {
