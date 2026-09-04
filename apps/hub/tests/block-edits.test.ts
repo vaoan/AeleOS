@@ -832,4 +832,13 @@ describe("insertAt edge contracts", () => {
       "c",
     ]);
   });
+
+  // Every case above uses a single-segment path. `insertEntry`'s recursive
+  // step (`next[head!] ?? null`) is what a NESTED path exercises, and
+  // nothing here reached its nullish branch — an out-of-range intermediate
+  // index — before this case.
+  it("changes nothing when a nested path runs through an out-of-range index", () => {
+    const blocks = [leaf("a")];
+    expect(insertAt(blocks, [5, 0], leaf("ghost"))).toEqual(blocks);
+  });
 });

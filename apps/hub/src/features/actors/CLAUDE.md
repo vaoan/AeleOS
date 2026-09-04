@@ -2017,11 +2017,12 @@ gesture NAMED. `block-editor.tsx` only wires the library to those two.
 
 **`insertAt`'s own three edges are pinned now (2026-09-04), and the "too
 many" cross-container guard in `applyLinearDrop` turned out to carry a
-redundant early check.** An empty path drops the block silently rather than
-inserting it, a top-level index one past the last entry appends, and a
-negative top-level index reaches `Array.prototype.splice` unchanged — which
-inserts before the LAST entry, not the first. None of the three is a rule
-this domain chose; each is `insertEntry`'s own body, now pinned in
+redundant early check — REMOVED, not left as-is, once `pnpm --filter hub
+test:coverage` forced the question.** An empty path drops the block silently
+rather than inserting it, a top-level index one past the last entry appends,
+and a negative top-level index reaches `Array.prototype.splice` unchanged —
+which inserts before the LAST entry, not the first. None of the three is a
+rule this domain chose; each is `insertEntry`'s own body, now pinned in
 `block-edits.test.ts` and named in `insertAt`'s own TSDoc rather than left to
 be rediscovered. Sabotage-verifying the "too many" refusal on a
 cross-container linear insert found that `applyLinearDrop`'s EARLY exit
@@ -2032,9 +2033,47 @@ source from an unrelated subtree never changes the destination container's
 own child count, so `nextLength` always equals `destLength` for a
 cross-parent drop and the later check always refuses whatever the earlier
 one would have. Sabotaging the early check alone did not redden
-`block-drops.test.ts`'s new case; sabotaging both together did. Left as-is —
-the early check costs nothing observable and removing it is a refactor this
-task did not ask for, not a fix.
+`block-drops.test.ts`'s new case; sabotaging both together did.
+
+**A first pass called that "left as-is", reasoning removing it was a
+refactor nobody asked for — and a coverage run on the very next task proved
+that reasoning wrong.** A dead branch is not neutral: it is a statement and a
+branch nothing can ever exercise, so `pnpm --filter hub test:coverage`
+refuses it exactly as it refuses an untested live one, with no way to tell
+the two apart from the report alone. The redundant early check and its
+companion dead `else if` (`from.length === 1 && parent.length === 0 &&
+fromIndex < insert`) are both gone now, folded into one ternary computing
+`parent`'s own first-segment adjustment directly.
+
+**The same coverage run then found a SECOND instance of the identical shape
+one function over, in `listLength` — proof that the first one was not a
+one-off.** `listLength`'s `!parent || !isContainer(parent)` branch, and
+`applyLinearDrop`'s own `destLength === undefined` check that consumed it,
+were both dead for the same underlying reason: `listLength`'s only caller
+reaches it after `placeExists(blocks, target.path)` has already confirmed
+`destParent` (`target.path`'s own parent) is a valid container whenever
+`destParent.length > 0` — `placeExists` cannot answer `true` for a
+`target.path` of more than one segment without `blockAt` on its parent
+already resolving to a container. `listLength` returns a plain `number` now,
+asserting rather than re-checking what its caller already proved.
+
+**Six more coverage lines came from genuine gaps rather than dead code, and
+all six are drawn from paths this domain's own callers never happen to
+construct rather than from paths it refuses.** `dropTargetForSibling` and
+`applySiblingDrop` both repeat `areSiblingPaths` defensively — every real
+caller already checks it at the sensor — so nothing had called either
+directly with two paths that cross parents; both now have a case that does.
+`placeExists` guards `applyLinearDrop` at both `from` and `target.path`, and
+three of its own arms had never been reached through a raw literal: an empty
+path, a negative top-level index, and a path walking through a leaf as
+though it were a container. A fourth gap was `applyDrop`'s own `place`-kind
+hand-off to `moveBlock` — every existing `place` case in `block-drops.test.ts`
+succeeds, so nothing had exercised `!moved.ok` returning straight through.
+And the last was dragging FROM an empty place under a linear target:
+`placeExists` reports an occupied INDEX as existing whether or not anything
+sits there, so `applyLinearDrop` still has to notice, after fetching `held`
+with `blockAt`, that what it fetched is `null` before treating it as the
+block being moved.
 
 **A drop was an EXCHANGE everywhere, and insert-and-shift was refused
 rather than overlooked — until 2026-09-04, and only for POSITIONAL modes

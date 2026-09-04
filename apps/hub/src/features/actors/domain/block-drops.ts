@@ -15,6 +15,7 @@ import {
   MAX_DEPTH,
   isContainer,
   type Block,
+  type ContainerBlock,
   type ContainerMode,
 } from "@/features/actors/domain/block-schema";
 
@@ -215,18 +216,25 @@ function placeExists(blocks: readonly Block[], path: BlockPath): boolean {
 /**
  * The number of entries in a linear (or page) list.
  *
+ * **Its only caller, {@link applyLinearDrop}, reaches this after
+ * `placeExists` has already confirmed `parentPath` is a valid container
+ * whenever `parentPath.length > 0`** — `parentPath` there is always
+ * `target.path`'s own parent, and `placeExists(blocks, target.path)` cannot
+ * have returned `true` for a `target.path` longer than one segment unless
+ * `blockAt(blocks, parentPath)` is already a container. A second
+ * `!parent || !isContainer(parent)` branch here was tried and could never be
+ * exercised independently of that earlier check — see
+ * `block-drops.test.ts`'s own account of the same shape one function up, for
+ * the destination-length guard that turned out to be the identical fact
+ * spelled twice.
+ *
  * @param blocks - the whole page.
  * @param parentPath - the container, or empty for the page.
- * @returns the length, or nothing when the parent is missing.
+ * @returns the length.
  */
-function listLength(
-  blocks: readonly Block[],
-  parentPath: BlockPath,
-): number | undefined {
+function listLength(blocks: readonly Block[], parentPath: BlockPath): number {
   if (parentPath.length === 0) return blocks.length;
-  const parent = blockAt(blocks, parentPath);
-  if (!parent || !isContainer(parent)) return undefined;
-  return parent.children.length;
+  return (blockAt(blocks, parentPath) as ContainerBlock).children.length;
 }
 
 /**
@@ -268,7 +276,6 @@ export function applyDrop(
  * @param target - the insertion bar.
  * @returns the shifted page and destination, or a refusal.
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity -- linear movement necessarily validates source, destination, ancestry, depth, capacity, same-parent indexing, and cross-parent index repair in one ordered transaction
 function applyLinearDrop(
   blocks: readonly Block[],
   from: BlockPath,
@@ -306,7 +313,6 @@ function applyLinearDrop(
   }
 
   const destLength = listLength(blocks, destParent);
-  if (destLength === undefined) return { ok: false, refusal: "no such place" };
 
   if (
     !sameParent &&
@@ -331,23 +337,29 @@ function applyLinearDrop(
       ? removeAt(blocks, from)
       : clearAt(blocks, from);
 
-  let parent = destParent;
-  let nextIndex = insert;
-  if (from.length === 1 && parent.length > 0 && fromIndex < parent[0]!) {
-    parent = [parent[0]! - 1, ...parent.slice(1)];
-  } else if (from.length === 1 && parent.length === 0 && fromIndex < insert) {
-    nextIndex = insert - 1;
-  }
-
-  const nextLength = listLength(taken, parent);
-  if (nextLength === undefined) return { ok: false, refusal: "no such place" };
-  if (parent.length > 0 && nextLength >= BLOCK_LIMITS.children) {
-    return { ok: false, refusal: "too many" };
-  }
+  // `parent` only ever moves its OWN first segment, and only when `from` is
+  // a top-level entry ahead of it — removing that entry shifts every later
+  // top-level index down by one, including the one this path's first segment
+  // names. There is no companion branch for `parent.length === 0`: when
+  // `from.length === 1`, `fromParent` is `[]`, so `sameParent` above is
+  // exactly `destParent.length === 0` — meaning `!sameParent` (already
+  // established by reaching this line) forces `destParent.length > 0`
+  // whenever `from.length === 1`. A branch guarded on `parent.length === 0`
+  // in that combination could never run, and neither could a second `too
+  // many` check here: the container `destParent` names is untouched by
+  // removing an entry from an unrelated subtree, so its child count after
+  // the move is `destLength`, unchanged — the same value the check above
+  // this one already tested. Both were tried and neither could be made to
+  // redden independently of the checks that already precede them; see
+  // `block-drops.test.ts`'s own comment on the discovery.
+  const parent =
+    from.length === 1 && destParent.length > 0 && fromIndex < destParent[0]!
+      ? [destParent[0]! - 1, ...destParent.slice(1)]
+      : destParent;
 
   return {
     ok: true,
-    blocks: insertAt(taken, [...parent, nextIndex], held),
-    path: [...parent, nextIndex],
+    blocks: insertAt(taken, [...parent, insert], held),
+    path: [...parent, insert],
   };
 }

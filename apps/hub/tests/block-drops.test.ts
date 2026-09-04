@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyDrop,
+  applySiblingDrop,
   dropTargetForSibling,
   isLinearScope,
   type DropRefusal,
@@ -231,19 +232,23 @@ describe("refusals", () => {
   // is a case `dropped`/`refusal` can build directly through `applyDrop`
   // but a canvas or inspector sibling drag can never reach.
   //
-  // SABOTAGE-VERIFIED, and it found the early check
-  // (`!sameParent && destParent.length > 0 && destLength + 1 >
-  // BLOCK_LIMITS.children`) is fully subsumed by the later one
-  // (`parent.length > 0 && nextLength >= BLOCK_LIMITS.children`): removing
-  // the source from an unrelated subtree never changes the destination
-  // container's own child count, so `nextLength` always equals `destLength`
-  // for a cross-parent drop and the later check always refuses whatever the
-  // earlier one would have. Sabotaging the early check alone (widening its
-  // threshold by one) did not redden this case; sabotaging both together
-  // did. The early check is therefore a genuine early exit rather than a
-  // second, independent guard — recorded here rather than "fixed", since
-  // removing it changes no observable behaviour and this task's job is
-  // coverage, not a refactor.
+  // SABOTAGE-VERIFIED, and it found `applyLinearDrop` carried a SECOND
+  // "too many" check (`parent.length > 0 && nextLength >= BLOCK_LIMITS.children`)
+  // that was fully subsumed by this one (`!sameParent && destParent.length >
+  // 0 && destLength + 1 > BLOCK_LIMITS.children`): removing the source from
+  // an unrelated subtree never changes the destination container's own
+  // child count, so `nextLength` always equalled `destLength` for a
+  // cross-parent drop and the two conditions were the same predicate spelled
+  // two ways. Sabotaging the early check alone did not redden this case —
+  // the later, unreachable one caught it anyway — which is what proved the
+  // second check dead rather than merely redundant with a different fixture.
+  // A companion branch reachable only when `from.length === 1 && parent.length
+  // === 0` was dead for the same underlying reason: that combination implies
+  // `sameParent`, which is already excluded by the time either branch runs.
+  // Both were removed from `applyLinearDrop` (they had no test able to
+  // discriminate them, and `pnpm --filter hub test:coverage` is what forced
+  // the question) rather than left in place — see the feature note's account
+  // for the full proof.
   it("refuses a cross-container insert that would overflow the destination's children cap", () => {
     const full = box(
       "Full",
@@ -257,6 +262,55 @@ describe("refusals", () => {
         path: [0, BLOCK_LIMITS.children - 1],
       }),
     ).toBe("too many");
+  });
+
+  // `placeExists` guards `applyLinearDrop` at both ends (`from` and
+  // `target.path`), and nothing in this file had reached its empty-path,
+  // negative-index or non-container-parent arms before these three — every
+  // other fixture here builds a path from a real selection, never a raw
+  // literal.
+  it("refuses an empty path, naming neither the page nor any place in it", () => {
+    const blocks = [box("S", [leaf("A")])];
+    expect(refusal(blocks, [], { kind: "after", path: [0, 0] })).toBe(
+      "no such place",
+    );
+  });
+
+  it("refuses a negative top-level index", () => {
+    const blocks = [box("S", [leaf("A")])];
+    expect(refusal(blocks, [-1], { kind: "after", path: [0, 0] })).toBe(
+      "no such place",
+    );
+  });
+
+  it("refuses a target path that walks through a leaf as though it were a container", () => {
+    const blocks = [leaf("A")];
+    expect(refusal(blocks, [0], { kind: "after", path: [0, 0] })).toBe(
+      "no such place",
+    );
+  });
+
+  // `placeExists` reports an EMPTY place as existing — the index is in the
+  // array whatever it holds — so `applyLinearDrop` still has to notice that
+  // what it fetched with `blockAt` is `null` before treating it as the
+  // block being moved. Nothing here had dragged FROM an empty place before
+  // this case.
+  it("refuses moving an empty place, rather than moving nothing", () => {
+    const blocks = [box("S", [null, leaf("B")])];
+    expect(refusal(blocks, [0, 0], { kind: "after", path: [0, 1] })).toBe(
+      "no such place",
+    );
+  });
+
+  // `applyDrop`'s `place` branch hands off to `moveBlock` and returns its
+  // refusal unchanged — every other case in this file drives a `place`
+  // drop that SUCCEEDS, so this is the first to exercise that hand-off
+  // failing.
+  it("passes a positional refusal straight through applyDrop", () => {
+    const blocks = [box("S", [leaf("A"), box("N", [leaf("x")])])];
+    expect(refusal(blocks, [0], { kind: "place", path: [0, 1] })).toBe(
+      "into itself",
+    );
   });
 });
 
@@ -277,5 +331,28 @@ describe("sibling hover conversion", () => {
       kind: "place",
       path: [0, 2],
     });
+  });
+
+  // The case above only ever hovers a LATER sibling (`fromIndex < toIndex`),
+  // which is the "after" arm. Hovering an EARLIER one is the "before" arm,
+  // and nothing in this file exercised it before this case.
+  it("turns an earlier stack sibling into a before-bar", () => {
+    const blocks = [box("S", [leaf("A"), leaf("B"), leaf("C")])];
+    expect(dropTargetForSibling(blocks, [0, 2], [0, 0])).toEqual({
+      kind: "before",
+      path: [0, 0],
+    });
+  });
+
+  // Every caller in this app already checks `areSiblingPaths` at the sensor
+  // before ever reaching `dropTargetForSibling`, so its own repeat of that
+  // check — and `applySiblingDrop`'s `null` answer when it fails — had no
+  // case built directly against it: every fixture elsewhere in this file
+  // passes two genuine siblings. Called directly with paths that cross
+  // parents, both answer null rather than inventing a target.
+  it("answers null for two paths that are not siblings", () => {
+    const blocks = [box("S", [leaf("A")]), box("T", [leaf("B")])];
+    expect(dropTargetForSibling(blocks, [0, 0], [1, 0])).toBeNull();
+    expect(applySiblingDrop(blocks, [0, 0], [1, 0])).toBeNull();
   });
 });
