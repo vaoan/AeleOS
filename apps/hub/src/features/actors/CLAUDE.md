@@ -1339,7 +1339,26 @@ y=229 — and **80 of those 114px were reserved for things that rendered
 nothing**: a `WidePageColumn` at y=139..179 carrying `pt-6 sm:pt-10` for a
 `FormErrorBanner` that returns null when there is nothing wrong, and a
 zero-height `div` holding two `<style>` elements that still cost the section's
-`gap-4`. The gap is 58px now and every pixel of it is the bar's own `mb-6`.
+`gap-4`. The gap was 58px after that, and every pixel of it was the bar's own
+`mb-6`.
+
+**That margin came off too (2026-09-04), and it is the same lesson one element
+further up.** A margin on the bar is outside the scroller by construction, so
+it held 24px of the author's backdrop under the chrome at every scroll offset —
+furniture, not spacing. The canvas begins exactly AT the bar's foot now, both
+115 at 1280×900, and content passes under an opaque bar instead of emerging
+from behind a strip of page. The breath above the Page pill is that column's
+own `pt-3` INSIDE the scroller: 12px that travels with the pill it belongs to
+and is gone the moment anybody scrolls, which is the whole distinction this
+section keeps paying to learn.
+
+**Its guard was a 160px WINDOW, and a window that admits the fault it refuses
+proves nothing.** `editor-bars-stay-pinned.spec.ts` asked for a canvas
+`> barBottom` and `< barBottom + 160` — true of a flush canvas, true of the
+24px margin, and true of the 56px band as well, so it went green on all three.
+It asserts equality now, which is honest only because no spacing lives between
+the two boxes any more. Sabotage-verified: restoring `mb-6` reddens it with
+`the canvas begins 24px below the bar's foot`.
 
 - **The column moved INSIDE the banner**, so one null check governs both. It
   could not be gated at the call site: the banner's rule is stricter than
@@ -1376,6 +1395,25 @@ edits in the middle of the sabotage**, and the run that followed reddened for
 absence rather than occlusion — a red that looks like proof. Copy the file,
 restore from the copy, and check the number the sabotage claims to have
 changed.
+
+**That guard was also RACY from the day it was written, and taking the bar's
+margin off is what exposed it (2026-09-04).** The room the section makes is
+ANIMATED — `transition-[padding-left] duration-210` — so a hit test fired the
+instant the banner appears asks about a banner still travelling out from under
+the panel. Measured while chasing it, the pad read **440.553px** and
+**218.792px** of its settled 512 in two runs of this file, and the panel
+genuinely was on top of the heading at the moment asked. It passed alone and
+failed in the file, which is the giveaway for a question asked too early rather
+than for a slow machine: no timeout is long enough for that. It waits for the
+pad to equal the PANEL'S OWN WIDTH now — both are `min(36rem,40vw)`, one as
+`pl-` and one as `w-`, so the wait states the relationship instead of copying
+512, and a divergence between the two is something the poll reports rather than
+hides. Re-sabotaged afterwards, because a wait that makes a case pass is the
+first thing to suspect of making it vacuous.
+
+The general form is worth more than the fix: **a hit test against a
+transitioning layout measures a moment, not a layout**, and in this editor
+there is an animated pad between every geometry question and its answer.
 
 **The Page control rides INSIDE the canvas**, which is a reversal of this
 section's first version and the same lesson as the sticky band below it: a
@@ -1436,7 +1474,8 @@ pinning case green.
 
 The stack's own `mt-8` came off in edit mode with it. It was written for a
 document that scrolled, where 32px above the first section scrolls away; above
-a bounded canvas it is permanent furniture, doubled with the bar's own `mb-6`.
+a bounded canvas it is permanent furniture, and it was doubled by the bar's own
+`mb-6` until that came off the next day as well.
 Preview keeps it and is byte-identical, because
 `[data-controls="hidden"] [data-editor-stack]` already zeroes every margin
 there.

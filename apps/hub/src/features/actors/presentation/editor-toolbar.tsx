@@ -255,6 +255,11 @@ export interface EditorToolbarProps {
  * neither offset twice. See the comment on the bar itself for the band this
  * left when it did.
  *
+ * **It also carries no bottom margin (2026-09-04).** A margin here sits
+ * outside the canvas that scrolls, so it holds a strip of the author's page
+ * under the chrome permanently; spacing belongs to the first thing inside the
+ * scroller instead.
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -300,8 +305,19 @@ export function EditorToolbar({
     // began at y=112. `--bar-top` still belongs to the two controls whose
     // offsets ARE measured from the viewport, the inspector and the source
     // dock, both of which are `fixed`.
+    //
+    // **AND IT CARRIES NO BOTTOM MARGIN (2026-09-04).** It had `mb-6`, which
+    // is outside the scroller by construction — so it held 24px of the
+    // author's own backdrop under the chrome at every scroll offset rather
+    // than spacing anything. Whatever breath the first thing in the canvas
+    // wants is that thing's own padding, INSIDE the scroller, where it
+    // travels with what it belongs to; see the Page control's column in
+    // `block-editor.tsx`. The canvas now begins exactly at this bar's foot,
+    // and `editor-bars-stay-pinned.spec.ts` asserts that as equality rather
+    // than as the 160px window that used to admit both this margin and the
+    // 56px band above.
     <div
-      className={`${CHROME_SCOPE} sticky top-0 z-20 mb-6 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
+      className={`${CHROME_SCOPE} sticky top-0 z-20 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
     >
       {/* **It WRAPS below `sm`, and that is arithmetic rather than taste.**
           Measured at 320px in Spanish with the writing switch added: the

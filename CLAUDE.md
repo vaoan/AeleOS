@@ -2285,6 +2285,31 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   a short fixture would have passed against the exact code it exists to
   refuse.
 
+  **A fourth instance closed it (2026-09-04), and it was the bar's own
+  `mb-6`.** A margin on the bar is outside the scroller by construction, so
+  24px of the author's backdrop sat under the chrome at every offset. The
+  canvas begins exactly at the bar's foot now — both 115 at 1280×900 — and the
+  breath above the Page pill is that column's own `pt-3` INSIDE the scroller,
+  which travels with the pill and is gone the moment anybody scrolls. **The
+  same guard admitted it**: its canvas assertion was a 160px window
+  (`> barBottom`, `< barBottom + 160`), wide enough to pass on a flush canvas,
+  on the 24px margin and on the 56px band alike — rule 27 landing on an
+  assertion's TOLERANCE rather than on a fixture, and the reason it is
+  equality now.
+
+  **And the occlusion guard above was racy from the day it was written, which
+  removing that margin exposed.** The room the section makes for the panel is
+  animated (`transition-[padding-left] duration-210`), so a hit test fired the
+  instant the banner appears asks about a banner still travelling out from
+  under the panel: the pad read 440.553px and 218.792px of its settled 512 in
+  two runs. It passed alone and failed in the file, and **that pairing is the
+  signature of a question asked too early rather than of a slow machine** —
+  rule 26's lesson with a CSS transition in place of a deferred listener, and
+  no timeout is long enough for either. The wait is stated as the relationship
+  (the pad equals the panel's own width, both being `min(36rem,40vw)`) rather
+  than as 512, and the case was re-sabotaged after it, because a wait that
+  turns a red green is the first thing to suspect of making it vacuous.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
