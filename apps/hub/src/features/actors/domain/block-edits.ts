@@ -408,6 +408,14 @@ export function removeAt(blocks: readonly Block[], path: BlockPath): Block[] {
  * occupied index would swap, and swapping is the positional rule, not the
  * stack/list rule. See `domain/block-drops.ts`.
  *
+ * **A negative top-level index is not defended against**, because every
+ * current caller (`domain/block-drops.ts`'s `applyLinearDrop`) derives its
+ * path from a validated place, never a raw literal — so a negative index
+ * reaches `Array.prototype.splice` unchanged, which inserts before the LAST
+ * entry rather than refusing or prepending. Do not pass a raw index here
+ * without re-checking this note; `block-edits.test.ts`'s "insertAt edge
+ * contracts" pins the behaviour as-is rather than a rule this domain chose.
+ *
  * @param blocks - the whole page.
  * @param path - where the block should sit afterwards.
  * @param block - what to put there.

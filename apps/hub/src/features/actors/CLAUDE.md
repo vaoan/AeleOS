@@ -2015,6 +2015,27 @@ and between two top-level entries a shift — and refuses a cycle, a drop past
 the cap and a stale path by name. `block-drag.ts` decides which two places a
 gesture NAMED. `block-editor.tsx` only wires the library to those two.
 
+**`insertAt`'s own three edges are pinned now (2026-09-04), and the "too
+many" cross-container guard in `applyLinearDrop` turned out to carry a
+redundant early check.** An empty path drops the block silently rather than
+inserting it, a top-level index one past the last entry appends, and a
+negative top-level index reaches `Array.prototype.splice` unchanged — which
+inserts before the LAST entry, not the first. None of the three is a rule
+this domain chose; each is `insertEntry`'s own body, now pinned in
+`block-edits.test.ts` and named in `insertAt`'s own TSDoc rather than left to
+be rediscovered. Sabotage-verifying the "too many" refusal on a
+cross-container linear insert found that `applyLinearDrop`'s EARLY exit
+(`!sameParent && destParent.length > 0 && destLength + 1 >
+BLOCK_LIMITS.children`) is fully subsumed by its later one
+(`parent.length > 0 && nextLength >= BLOCK_LIMITS.children`): removing the
+source from an unrelated subtree never changes the destination container's
+own child count, so `nextLength` always equals `destLength` for a
+cross-parent drop and the later check always refuses whatever the earlier
+one would have. Sabotaging the early check alone did not redden
+`block-drops.test.ts`'s new case; sabotaging both together did. Left as-is —
+the early check costs nothing observable and removing it is a refactor this
+task did not ask for, not a fix.
+
 **A drop is an EXCHANGE, and insert-and-shift was refused rather than
 overlooked.** The flow semantics a list would give you — insert here, and
 everything after it slides along — assume the gaps between things carry no

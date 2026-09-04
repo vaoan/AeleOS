@@ -101,6 +101,7 @@ interface HarnessPage {
 function harness(
   sections: Block[] = [],
   actorKind: "person" | "fursona" = "fursona",
+  pageInteractionsEnabled = false,
 ) {
   let form: UseFormReturn<FormValues> | undefined;
   let setControlsHidden:
@@ -135,8 +136,10 @@ function harness(
           theme={null}
           // Locked by default, matching the editor's own default: every case
           // in this file exercises canvas selection, which only works while
-          // page interaction is off.
-          pageInteractionsEnabled={false}
+          // page interaction is off. The one exception passes `true`
+          // directly — the real toolbar switch that flips this lives in
+          // `EditorToolbar`, which `BlockEditor` itself never mounts.
+          pageInteractionsEnabled={pageInteractionsEnabled}
           controlsHidden={controlsHidden}
           selectionResetKey={selectionResetKey}
         />
@@ -832,6 +835,18 @@ describe("recursive inspector drill-down", () => {
 
     expect(screen.queryByTestId("canvas-drag-node")).toBeNull();
     expect(screen.queryByTestId(/canvas-drop-/)).toBeNull();
+  });
+
+  // `Preview` is one of the two inputs `pageInteractionsEnabled` composes
+  // (root feature note, "page interactions enabled = controls hidden OR
+  // toolbar switch enabled") — the case above pins the `controlsHidden`
+  // half; this pins the toolbar-switch half directly, since `BlockEditor`
+  // itself never mounts `EditorToolbar` and has no switch of its own to
+  // click.
+  it("renders no canvas drag wrappers while page interaction is enabled", () => {
+    harness(recursivePage(), "fursona", true);
+    expect(screen.queryByTestId("canvas-drag-node")).toBeNull();
+    expect(screen.queryByTestId(/^canvas-drag-/)).toBeNull();
   });
 
   it("still clears the selection for a click on the page itself", () => {

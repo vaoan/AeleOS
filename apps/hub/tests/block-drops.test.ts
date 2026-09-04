@@ -224,6 +224,40 @@ describe("refusals", () => {
       refusal([tall, nest], [0], { kind: "before", path: [1, 0, 0] }),
     ).toBe("too deep");
   });
+
+  // Reachable only cross-parent: `sameParent` is what gates this refusal in
+  // `applyLinearDrop`, and a SIBLING drop — the only kind `applySiblingDrop`
+  // ever constructs — always has `sameParent` true by construction, so this
+  // is a case `dropped`/`refusal` can build directly through `applyDrop`
+  // but a canvas or inspector sibling drag can never reach.
+  //
+  // SABOTAGE-VERIFIED, and it found the early check
+  // (`!sameParent && destParent.length > 0 && destLength + 1 >
+  // BLOCK_LIMITS.children`) is fully subsumed by the later one
+  // (`parent.length > 0 && nextLength >= BLOCK_LIMITS.children`): removing
+  // the source from an unrelated subtree never changes the destination
+  // container's own child count, so `nextLength` always equals `destLength`
+  // for a cross-parent drop and the later check always refuses whatever the
+  // earlier one would have. Sabotaging the early check alone (widening its
+  // threshold by one) did not redden this case; sabotaging both together
+  // did. The early check is therefore a genuine early exit rather than a
+  // second, independent guard — recorded here rather than "fixed", since
+  // removing it changes no observable behaviour and this task's job is
+  // coverage, not a refactor.
+  it("refuses a cross-container insert that would overflow the destination's children cap", () => {
+    const full = box(
+      "Full",
+      Array.from({ length: BLOCK_LIMITS.children }, (_, i) => leaf(`t${i}`)),
+    );
+    const source = box("Source", [leaf("mover")]);
+    const blocks = [full, source];
+    expect(
+      refusal(blocks, [1, 0], {
+        kind: "after",
+        path: [0, BLOCK_LIMITS.children - 1],
+      }),
+    ).toBe("too many");
+  });
 });
 
 describe("sibling hover conversion", () => {
