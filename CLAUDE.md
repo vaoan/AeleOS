@@ -2358,6 +2358,14 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   entry will go stale the moment a phase lands and is not the record to
   trust past that point.
 
+  **Phase 1 (closing the checkpoint's own merge blockers) landed on this
+  branch 2026-09-04** — `conformance` and `hub` both `SUCCESS` on PR #67,
+  `e2e` red on exactly the four pre-existing cases that phase's own plan
+  named and did not scope to fix. Its plan file's own "Phase 1 status"
+  section carries the measured bundle deltas and the four failures
+  verbatim — read that rather than this sentence, which is exactly the kind
+  of claim the paragraph above warns will go stale.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:

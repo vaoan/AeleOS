@@ -886,7 +886,7 @@ this paragraph makes is still correct and is now scoped to say so."
 
 ## Task 7: Full local verification, matching what CI runs
 
-- [ ] **Step 1: Run every check `conformance` and `hub` run, in order**
+- [x] **Step 1: Run every check `conformance` and `hub` run, in order**
 
 ```bash
 cd /Users/heiner_angaritamaldonado/Documents/AeleOS
@@ -901,9 +901,9 @@ pnpm --filter hub build
 
 Expected: every command exits 0.
 
-- [ ] **Step 2: If any command fails, do not proceed to Phase 2** — return to the task above that owns the failing check and fix it there rather than patching around it in this task.
+- [x] **Step 2: If any command fails, do not proceed to Phase 2** — return to the task above that owns the failing check and fix it there rather than patching around it in this task.
 
-- [ ] **Step 3: Push and confirm CI is green on the real PR**
+- [x] **Step 3: Push and confirm CI is green on the real PR**
 
 ```bash
 git push origin carrd-style-builder
@@ -918,6 +918,95 @@ gh pr view 67 --json statusCheckRollup --jq '.statusCheckRollup[] | {name, concl
 
 Expected, once the run completes: `conformance` and `hub` both `SUCCESS`. `e2e` may still be red — Task 1's diagnosis found four pre-existing-or-regressed failures there (`section-card-face.spec.ts`'s "light: the picture still previews at full strength" case, and three `section-drag-reorder.spec.ts` cases each failing a deep-equality assertion) that this phase does not scope to fix; they are Phase 5's or Phase 6's concern once the canvas and inspector drag mechanisms stop coexisting under separate id prefixes. Do not treat `e2e` failures as blocking Phase 1's own definition of done, but do record their exact names in the Phase 1 → Phase 2 handoff so nobody re-diagnoses them from scratch.
 
-- [ ] **Step 4: Write the phase's own completion note into this plan file**
+- [x] **Step 4: Write the phase's own completion note into this plan file**
 
 Append a short "Phase 1 status" section at the foot of this file (not a new file) recording: the exact `before`/`after` bundle byte counts measured in Task 3 Step 11, and the four `e2e` failures observed in Step 3 above, verbatim, so Phase 2's implementer does not need to re-run CI to learn what is already known.
+
+---
+
+## Phase 1 status (2026-09-04) — done
+
+All seven tasks landed. `conformance` and `hub` are both `SUCCESS` on PR #67
+at commit `baa7376` (`gh pr view 67 --json headRefOid` confirms that commit
+is what CI evaluated); `canvas`, `schema-drift` and `idp-cloud` are `SUCCESS`
+too. `e2e` is `FAILURE`, on exactly the four cases Task 1's diagnosis
+predicted and named above — none new, none this phase's to fix.
+
+**Task 7 itself found a gap the plan did not anticipate**, worth recording
+because it cost real work between "the plan's own tasks are done" and "the
+gate is green": `pnpm --filter hub test:coverage` failed after Task 6's own
+"redundant check, left as-is" ruling on `applyLinearDrop`'s early "too many"
+exit — a dead branch is untestable by construction, and this repo's 100%
+gate refuses that exactly like an untested live one. Fixing it surfaced a
+second, previously-hidden dead branch one function over (`listLength`'s own
+`undefined`-returning arm, and `applyLinearDrop`'s consumption of it) and six
+genuine coverage gaps in `dropTargetForSibling`/`applySiblingDrop`'s
+non-sibling paths, three arms of `placeExists`, `applyDrop`'s `place`-kind
+refusal hand-off, and dragging from an empty place under a linear target.
+All landed as their own commit, `baa7376`, "Close the coverage gaps
+test:coverage found one task later" — see that commit and the feature note's
+own dated paragraph in `apps/hub/src/features/actors/CLAUDE.md` for the
+account and the reachability proofs.
+
+**Bundle byte counts, measured twice.** The barrel split itself (Task 3 Step
+11, already recorded in `apps/hub/src/features/actors/CLAUDE.md` under "The
+public routes have their own barrel"):
+
+| route                                |    before |     after |    delta |
+| ------------------------------------ | --------: | --------: | -------: |
+| `/[locale]/[person]` (+ `/[handle]`) | 1,943,136 | 1,008,803 | −934,333 |
+| the six editor routes                | 1,950,813 | 1,950,989 |     +176 |
+
+A fresh `pnpm --filter hub build` at the end of Task 7 — after the coverage
+fix's own small edit to `block-drops.ts` — reads `firstLoadUncompressedJsBytes`
+of **1,957,333** for the six editor routes and **1,008,869** for
+`/[locale]/[person]` (+ `/[handle]`) from
+`apps/hub/.next/diagnostics/route-bundle-stats.json`. Both numbers moved a
+few hundred bytes from the table above, which is Task 7's own code (a few
+lines removed from `applyLinearDrop`, a few added elsewhere) rather than a
+regression in the barrel split — the split's own delta, −934,333 bytes on
+the two public routes, is unaffected by anything this task changed, since
+Task 7 touched no import graph.
+
+**The four `e2e` failures, verbatim, so Phase 2 does not re-diagnose them:**
+
+1. `[chromium] › tests/e2e/section-card-face.spec.ts:630:1 › AeleOS controls stay readable beside a hostile full-strength tray picture`
+   ```
+   Error: light: the picture still previews at full strength
+   expect(received).toBeLessThan(expected)
+   Expected: < 30
+   Received:   127
+   ```
+2. `[chromium] › tests/e2e/section-drag-reorder.spec.ts:116:1 › a section dragged by keyboard lands in its new position in the DOM`
+   ```
+   Error: expect(received).toEqual(expected) // deep equality
+   - Expected  - 5
+   + Received  + 1
+   - Array [
+   -   StringContaining "Second",
+   -   StringContaining "Third",
+   -   StringContaining "First",
+   - ]
+   + Array []
+   Call Log:
+   - Timeout 5000ms exceeded while waiting on the predicate
+   ```
+3. `[chromium] › tests/e2e/section-drag-reorder.spec.ts:197:1 › a nested sibling drag swaps visible places without entering the row`
+   (same deep-equality/timeout shape as #2, different fixture)
+4. `[chromium] › tests/e2e/section-drag-reorder.spec.ts:266:1 › a pointer drag between sibling rows does not activate either row`
+   ```
+   Error: expect(received).toEqual(expected) // deep equality
+   - Expected  - 4
+   + Received  + 1
+   - Array [
+   -   StringContaining "Right",
+   -   StringContaining "Left",
+   - ]
+   + Array []
+   Call Log:
+   - Timeout 5000ms exceeded while waiting on the predicate
+   ```
+
+202 other `e2e` cases passed. Phase 2 (or whichever phase retires the
+separate canvas/inspector drag id prefixes) is where these four get
+re-diagnosed, per Task 1's own note above.
