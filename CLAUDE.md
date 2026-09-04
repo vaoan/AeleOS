@@ -2324,6 +2324,30 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   than as 512, and the case was re-sabotaged after it, because a wait that
   turns a red green is the first thing to suspect of making it vacuous.
 
+- **The carrd-style page builder (2026-09-04) — DESIGNED and CHECKPOINTED,
+  not built.** `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`
+  supersedes the recursive Items/Options inspector: click the rendered block
+  to select it, one focused Properties panel per selection, a single global
+  Add, and dragging directly on the live canvas rather than through the
+  inspector's own sibling-only grips. PR #67 (`carrd-style-builder`) landed
+  the first working slice — direct dragging on the live renderer via
+  `EditableBlockFrame`, linear-insertion drop planning in `block-drops.ts`
+  for `stack`/`list`/`timeline` alongside `moveBlock`'s existing positional
+  swap for the grid-shaped modes — as a deliberate, documented checkpoint
+  with known merge blockers rather than a finished feature. The remaining
+  work is planned in seven phase documents,
+  `docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-{1..7}-*.md`:
+  closing the checkpoint's own merge blockers (the public-route bundle leak,
+  `canvas-place` ids not reaching the drag announcements, missing
+  discriminating coverage), the compact builder menu and unified Add, the
+  focused Properties panel itself, a drop-semantics audit against the
+  spec's full table, completing interaction (including a desktop/mobile
+  canvas-width simulation distinct from Preview), retiring the superseded
+  inspector paths, and full browser/accessibility/responsive proof. **Read
+  the phase plans, not this bullet, for the state of the work** — this
+  entry will go stale the moment a phase lands and is not the record to
+  trust past that point.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
