@@ -18,7 +18,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { addBlock, openPageAdd } from "./support/editor";
+import { addBlock, openMore, openPageAdd } from "./support/editor";
 
 // One sign-in for "the signed-in pages are accessible" below: both of its
 // cases read or extend the same shared identity's own pages, and neither
@@ -336,6 +336,9 @@ test.describe("the signed-in pages are accessible", () => {
     await openPageAdd(page);
     await expect(page.getByTestId("add-block")).toBeVisible();
 
+    // `editor-open-source` lives behind the toolbar's "More" disclosure now
+    // (2026-09-04) — see `support/editor.ts`'s own account.
+    await openMore(page);
     await page.getByTestId("editor-open-source").click();
     await expect(page.getByTestId("page-source-dock")).toBeVisible();
     await isAccessible(page, "the editor with the source dock open");

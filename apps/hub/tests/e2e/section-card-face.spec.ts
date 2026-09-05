@@ -16,7 +16,12 @@ import {
   textColour,
   type Probe,
 } from "./support/pixels";
-import { addBlock, addSection, openPageOptions } from "./support/editor";
+import {
+  addBlock,
+  addSection,
+  openPageOptions,
+  selectBlock,
+} from "./support/editor";
 
 // One sign-in for the whole file: every case below signs in as the
 // same shared identity and none depends on what an earlier case left
@@ -63,8 +68,10 @@ const STATE_PATH = sharedStatePath("section-card-face");
 // exactly one selection's fields on screen at a time, so there is no
 // `.last()`/`assertLastTriggerIsAContainers` ambiguity left to guard against —
 // reaching a different block's fields means reselecting that block first,
-// through its own `section-header` click, which always resets the panel to
-// its primary (Layout) tab.
+// through its own `[data-block-path]` click (the canvas draws no
+// `section-header` of its own; that test id now belongs to `BlockCard`
+// inside the panel), which always resets the panel to its primary (Layout)
+// tab.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 test.use({ storageState: STATE_PATH });
@@ -490,6 +497,11 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await nameThePage(page, "facecheck", "Face check");
   await addSection(page, "2");
   const tray = page.getByTestId("block-preview").last();
+  // Named while the section is still empty, so its own heading — rather than
+  // its first child's card — occupies the corner `selectBlock` clicks below.
+  // An unnamed section's child fills that pixel exactly, which resolves the
+  // click to the leaf instead of the container.
+  await page.getByTestId("section-name").fill("Painted section");
   // The section is selected on its own Layout tab; the single global Add
   // targets it directly, filling its first empty place.
   await addBlock(page, { kind: "text" });
@@ -508,8 +520,12 @@ test("the face paints the skin, and a section's picture at full strength inside 
 
   // Adding the leaf selected it; reselect the section itself, then collapse
   // it and switch to its Appearance tab — no popup, no trigger, and nothing
-  // deselects it between here and the end of the test.
-  await tray.getByTestId("section-header").click();
+  // deselects it between here and the end of the test. The canvas has no
+  // `section-header` of its own, so this goes through `[data-block-path]`.
+  await selectBlock(page, "1");
+  // The name was only ever a click target — clear it before any pixel is
+  // sampled, so the heading it drew cannot land inside a probe.
+  await page.getByTestId("section-name").fill("");
   await page.getByTestId("collapse-section").click();
   await page.getByTestId("panel-tab-secondary").click();
 
@@ -616,8 +632,10 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await page.getByTestId("leaf-description").fill("A description");
 
   // Adding the leaf selected it; reselect the section to style IT rather
-  // than the leaf just added.
-  await tray.getByTestId("section-header").click();
+  // than the leaf just added. No `section-header` on the canvas — see the
+  // neighbouring test above for the account — so this goes through
+  // `[data-block-path]` instead.
+  await selectBlock(page, "1");
   await page.getByTestId("panel-tab-secondary").click();
   await page.getByTestId("section-style-background-url").fill(HOSTILE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
@@ -749,6 +767,9 @@ test("the three background fits are three different paints", async ({
   await page.goto("/es/pages/new");
   await addSection(page, "2");
   const tray = page.getByTestId("block-preview").last();
+  // Named while the section is still empty, so its own heading — rather than
+  // its first child's card — occupies the corner `selectBlock` clicks below.
+  await page.getByTestId("section-name").fill("Fitted section");
   await addBlock(page, { kind: "text" });
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
@@ -763,8 +784,13 @@ test("the three background fits are three different paints", async ({
   const face = tray.getByTestId("public-section");
 
   // Adding the leaf selected it; reselect the section itself, collapse it and
-  // switch to its Appearance tab.
-  await tray.getByTestId("section-header").click();
+  // switch to its Appearance tab. No `section-header` on the canvas, so this
+  // goes through `[data-block-path]` instead.
+  await selectBlock(page, "1");
+  // The name was only ever a click target — clear it before any pixel is
+  // sampled off the section's own background, so its heading cannot land
+  // inside either probe below.
+  await page.getByTestId("section-name").fill("");
   await page.getByTestId("collapse-section").click();
   await page.getByTestId("panel-tab-secondary").click();
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
@@ -921,8 +947,10 @@ test("the face does not paint over the section's own writing", async ({
   await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Legible body");
 
-  // Adding the leaf selected it; reselect the section and collapse it.
-  await tray.getByTestId("section-header").click();
+  // Adding the leaf selected it; reselect the section and collapse it. No
+  // `section-header` on the canvas, so this goes through `[data-block-path]`
+  // instead.
+  await selectBlock(page, "1");
   await page.getByTestId("collapse-section").click();
 
   const heading = tray.getByTestId("public-section").locator("h2").first();

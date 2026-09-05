@@ -6,7 +6,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
-import { addBlock, addSection } from "./support/editor";
+import { addBlock, addSection, selectBlock } from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 import {
   establishSharedSession,
@@ -163,6 +163,11 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // second and not the first — the section renders nothing at all, because
     // a container whose every place is empty draws nothing.
     await addSection(page, "2");
+    // Named while the section is still empty, so its own heading — rather
+    // than its first child's card — occupies the corner `selectBlock` below
+    // clicks. An unnamed section's child fills that pixel exactly, which
+    // resolves the click to the leaf rather than the container.
+    await page.getByTestId("section-name").fill("Bordered section");
     // `addSection` leaves the new section selected on its Layout tab, with
     // its two empty places already there — no tab switch is needed to add
     // the leaf below.
@@ -206,8 +211,15 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // Selecting the section (rather than the leaf still selected from
     // adding it) is what reaches ITS OWN Appearance tab — there is no
     // trigger and no popup to open any more, and no ambiguity to
-    // disambiguate: only one thing is ever selected at a time.
-    await tray.getByTestId("section-header").click();
+    // disambiguate: only one thing is ever selected at a time. The canvas
+    // has no `section-header` of its own to click — that test id belongs to
+    // `BlockCard`, mounted only inside the Properties panel's Layout tab —
+    // so selection goes through the same `[data-block-path]` click every
+    // other spec uses.
+    await selectBlock(page, "1");
+    // The name was only ever a click target — clear it now that the section
+    // is selected.
+    await page.getByTestId("section-name").fill("");
     await page.getByTestId("panel-tab-secondary").click();
     await page.getByTestId("section-style-border").selectOption("dotted");
     // The choice really did land on the scope, rather than on nothing:
@@ -260,6 +272,10 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
 
     await page.goto("/es/pages/new");
     await addSection(page, "2");
+    // Named while the section is still empty, so its own heading — rather
+    // than its first child's card — occupies the corner `selectBlock` below
+    // clicks.
+    await page.getByTestId("section-name").fill("Bordered section");
     // Content, because an edge needs something to be drawn around: a leaf's
     // own `surface` card is what consumes `--skin-border-style`, and a
     // container whose every place is empty renders nothing at all.
@@ -270,8 +286,13 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     const tray = page.getByTestId("block-preview").last();
     // Reselecting the section (the leaf is what adding left selected) is
     // what puts its own Layout tab — `collapse-section` among its fields —
-    // in front, with no tab switch needed since selecting resets to it.
-    await tray.getByTestId("section-header").click();
+    // in front, with no tab switch needed since selecting resets to it. The
+    // canvas has no `section-header` of its own — see the neighbouring test
+    // above for the account — so this goes through `[data-block-path]` too.
+    await selectBlock(page, "1");
+    // The name was only ever a click target — clear it before any pixel is
+    // sampled off the leaf's own card below.
+    await page.getByTestId("section-name").fill("");
     await page.getByTestId("collapse-section").click();
     // The border select lives on the Appearance tab, reached once — there is
     // no trigger and no popup to reopen between the two choices below.
