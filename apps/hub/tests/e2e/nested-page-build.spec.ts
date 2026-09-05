@@ -12,6 +12,7 @@ import {
   addSection,
   handleFor,
   saveAndLeave,
+  selectBlock,
   startFursona,
 } from "./support/editor";
 import { placesOf, tracksOf } from "./support/grid";
@@ -104,116 +105,106 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   const handle = handleFor("nest");
   await startFursona(page, handle, "Nested by hand");
 
+  // **A fresh fursona already carries one section — the identity header,
+  // path `"0"`.** `withRequiredBlocks` composes it the moment the form
+  // opens (`fursona-editor.tsx`'s own default), so the section this test
+  // builds by hand is the SECOND top-level one, path `"1"`. The stranger
+  // read at the end of this test already accounts for this: two sections,
+  // and the identity header's four leaves alongside this test's own three.
+  //
   // THE SHAPE, CHOSEN AFTER THE SECTION EXISTS — the picker's own layout
   // options always start a section at two places, matching how nesting
   // already worked; `addSection` reshapes it to three across through its own
-  // Options control, so what travels through storage is still a number this
+  // Layout tab, so what travels through storage is still a number this
   // test picked rather than the default.
   await addSection(page, String(ACROSS));
 
-  // Adding selects the new section, and `addSection` leaves it on Options —
-  // where the fields below already live.
+  // Adding selects the new section on its own Layout tab, where its name,
+  // mode, spaces and `add-place` all already live together — no tab switch
+  // is needed between any of them.
   await page.getByTestId("section-name").fill("Un mundo");
   await page.getByTestId("section-mode").selectOption("grid");
-  await page.getByTestId("inspector-tab-items").click();
   // **A width is not a capacity.** `section-spaces` (set inside `addSection`)
   // only reshapes how many places lay ACROSS — the container's own
   // `children` stays at the picker's default of two until something actually
   // grows it. `add-place` appends the third, explicitly empty place this
-  // test's own three-across shape needs; this comment used to claim Items
-  // "exposes only its three immediate places" already, which was false the
-  // moment it was written.
+  // test's own three-across shape needs.
   await page.getByTestId("add-place").click();
-  await expect(page.getByTestId("inspector-item-row")).toHaveCount(ACROSS);
+  await expect(page.locator('[data-canvas-path^="1-"]')).toHaveCount(ACROSS);
 
-  // A PIECE OF CONTENT IN THE FIRST PLACE.
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  // A PIECE OF CONTENT IN THE FIRST PLACE. The section is still selected —
+  // appending a place does not change selection — so the single global Add
+  // targets it directly; there is no per-place trigger to reach for.
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Primera cosa");
   await page.getByTestId("leaf-description").fill("La primera.");
-  await page.getByTestId("inspector-back").click();
 
   // A SECTION IN THE SECOND, which is the act no editor could perform before
   // this phase — and then something inside THAT, so the tree is genuinely two
   // levels rather than one level with a container sitting empty in it.
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    mode: "grid",
-  });
-  await page.getByTestId("inspector-tab-options").click();
+  // Adding always selects what it just added; a LEAF's own Add target is its
+  // PARENT, so this still lands beside "Primera cosa" with no reselection.
+  await addBlock(page, { mode: "grid" });
   await page.getByTestId("nested-name").fill("Dentro");
   // An arrangement of its own, and deliberately not the one it was placed
   // with: a nested container that kept its parent's `grid` would round-trip
   // identically whether or not its own mode was ever stored.
   await page.getByTestId("nested-mode").selectOption("timeline");
-  await page.getByTestId("inspector-tab-items").click();
-  await expect(page.getByTestId("inspector-item-row")).toHaveCount(2);
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  await expect(page.locator('[data-canvas-path^="1-1-"]')).toHaveCount(2);
+
+  // Adding a CONTAINER selects IT, so these two adds target the nested
+  // container itself rather than the outer section.
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Cosa anidada");
-  await page.getByTestId("inspector-back").click();
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  // The just-added leaf is selected; its own parent is the nested container,
+  // so this lands beside it, in order.
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Segunda anidada");
-  await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-back").click();
 
   // AND THE THIRD PLACE IS LEFT EMPTY, on purpose. It is the one the public
-  // page has to keep a column for.
-  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
+  // page has to keep a column for. An empty place carries no `data-block-path`
+  // at all — only the wrapping `data-canvas-path` — which is what makes it
+  // categorically unselectable rather than merely unaddressed by a helper.
+  await expect(
+    page.locator('[data-canvas-path="1-2"]').getByTestId("public-space"),
+  ).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-2"]')).toHaveCount(0);
 
   await saveAndLeave(page);
 
   // THE ROUND TRIP. Written as a tree, read back, and the same tree — its
   // shape, its arrangements, its words, and the position of the place holding
-  // nothing.
+  // nothing. Selecting a block directly by its own canvas path replaces the
+  // old breadcrumb-and-Items drill-down entirely.
   await page.goto(`/es/pages/${handle}/edit`);
-  await page.getByTestId("select-page").click();
-  await page.getByTestId("inspector-item-open").last().click();
-  await page.getByTestId("inspector-tab-options").click();
+  await selectBlock(page, "1");
   await expect(page.getByTestId("section-name")).toHaveValue("Un mundo");
   await expect(page.getByTestId("section-mode")).toHaveValue("grid");
   await expect(page.getByTestId("section-spaces")).toHaveValue(String(ACROSS));
-  await page.getByTestId("inspector-tab-items").click();
 
-  await page.getByTestId("inspector-item-open").first().click();
+  await selectBlock(page, "1-0");
   await expect(page.getByTestId("leaf-title")).toHaveValue("Primera cosa");
   await expect(page.getByTestId("leaf-description")).toHaveValue("La primera.");
-  await page.getByTestId("inspector-back").click();
 
   // THE SECOND PLACE IS STILL A SECTION rather than a piece of content, which
   // is what a conversion that flattened on the way through would have lost.
-  await page.getByTestId("inspector-item-open").nth(1).click();
-  await page.getByTestId("inspector-tab-options").click();
+  await selectBlock(page, "1-1");
   await expect(page.getByTestId("nested-name")).toHaveValue("Dentro");
   await expect(page.getByTestId("nested-mode")).toHaveValue("timeline");
   await expect(page.getByTestId("nested-spaces")).toHaveValue("2");
-  await page.getByTestId("inspector-tab-items").click();
-  await page.getByTestId("inspector-item-open").first().click();
+  await selectBlock(page, "1-1-0");
   await expect(page.getByTestId("leaf-title")).toHaveValue("Cosa anidada");
-  await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-item-open").nth(1).click();
+  await selectBlock(page, "1-1-1");
   await expect(page.getByTestId("leaf-title")).toHaveValue("Segunda anidada");
-  await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-back").click();
 
   // THE EMPTY PLACE CAME BACK EMPTY AND CAME BACK THIRD. Position is the
   // model: a tidy that dropped the null would leave a two-place section, and
   // one that closed the gap would leave the section at three with the empty
   // one somewhere else.
-  expect(
-    await page
-      .getByTestId("inspector-item-row")
-      .evaluateAll((rows) =>
-        rows.map((row) =>
-          row.querySelector('[data-testid="inspector-empty-place"]')
-            ? "empty"
-            : "occupied",
-        ),
-      ),
-  ).toEqual(["occupied", "occupied", "empty"]);
+  await expect(
+    page.locator('[data-canvas-path="1-2"]').getByTestId("public-space"),
+  ).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-2"]')).toHaveCount(0);
 
   // A second save over what was just reopened: the shape of the bug that once
   // wrote an empty page over somebody's sections.
