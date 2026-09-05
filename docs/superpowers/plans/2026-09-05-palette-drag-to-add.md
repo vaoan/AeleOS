@@ -571,7 +571,8 @@ PropertiesActiveTab`, updating every existing caller in `block-editor.tsx`.
       version renders each thumbnail SHRUNK (a fixed small `max-h`/`overflow-hidden`
       wrapper is enough for now — Task 5 makes the thumbnail itself the drag
       source and does not need to revisit the shrinking). No `useDraggable` yet;
-      each thumbnail is a plain, unfocusable `<div>` for this task (a later task
+      each thumbnail is a plain `<div>` that cannot take focus, for this task
+      (a later task
       makes it a real draggable and gives it a role).
 
 ```ts

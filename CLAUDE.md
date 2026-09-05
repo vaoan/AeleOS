@@ -2403,6 +2403,12 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   absent — the exact shape `wrap` already proves safe for public routes),
   the keyboard equivalent, removing the superseded modal, and a closing
   browser/accessibility/picture-proof pass. Nothing in it is built yet.
+  Two of its own sentences hit `check:tools`' cspell gate on the first push
+  — a coined adjective for "cannot take focus" (reworded, prose used once)
+  and `args.droppableRects`, a real dnd-kit property this plan's code will
+  reference (added to `cspell.json`) — the same class of
+  coined-word-vs-real-identifier judgement rule 41/42
+  already describe, still holding here.
 
 ## The toolchain, and the rules it cost
 
