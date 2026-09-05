@@ -142,11 +142,21 @@ export async function openPageOptions(page: Page): Promise<void> {
  * `onCanvasClick` never reads), so this cannot select an empty place; there is
  * no way to do that any more; see this module's own header comment.
  *
+ * **Clicks near the element's own top-left corner, not its centre.** A
+ * populated container's bounding box is mostly covered by its own children,
+ * each carrying its OWN `data-block-path` — a centred click would very often
+ * land inside one of them, and `closest()` would resolve to the CHILD rather
+ * than the container this call asked for. The corner is the container's own
+ * padding or heading, never a descendant's.
+ *
  * @param page - the editor page.
  * @param path - the block's hyphen-joined path, e.g. `"0"` or `"0-1"`.
  */
 export async function selectBlock(page: Page, path: string): Promise<void> {
-  await page.locator(`[data-block-path="${path}"]`).first().click();
+  await page
+    .locator(`[data-block-path="${path}"]`)
+    .first()
+    .click({ position: { x: 4, y: 4 } });
   await expect(
     page.getByTestId("properties-panel"),
     `selecting the block at "${path}" did not open the Properties panel`,
