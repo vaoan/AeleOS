@@ -6085,3 +6085,48 @@ both panes are meant to stay mounted throughout, switched by the `hidden`
 attribute rather than remounted, which should have left local state alone.
 Not fixed on this pass; recorded here rather than left to be rediscovered
 as a mystery next time somebody runs this spec.
+
+### Every valid drop target for a palette drag (2026-09-05) — Task 1 of 9, domain only
+
+`domain/palette-targets.ts` is the first slice of "drag-to-add from a
+palette tab" — a new way to add blocks by dragging a leaf kind or a
+container mode straight off a persistent palette, rather than through the
+Add picker's dialog. This task ships no UI: `PaletteItem` (a leaf kind or a
+container mode, deliberately never an already-built `Block`, since what
+lands where must not depend on what content the dragged item would end up
+carrying) and `insertTargetsFor`, which answers every splice index a
+dragged item may legally land on, computed as one depth-first walk of the
+page.
+
+**Every top-level splice index is offered whatever the item is, and inside
+an existing container every splice index is offered for a LEAF
+unconditionally and for a CONTAINER only when `mayNest` admits one level
+DEEPER than the container's own path** — the same convention
+`domain/add-target.ts` already uses: the depth cap is a fact about the new
+block's own depth, never about the depth of the container already there.
+Getting this backwards — asking `mayNest` of the container's own path
+rather than one segment longer — answers `true` one level too late, and is
+exactly what this module's own sabotage-verification reddens. **The walk
+still descends past a container the cap refuses to nest another container
+in**, because the cap only ever gates a CONTAINER fitting at a path, never
+a leaf — a container sitting at the cap may still have room for leaves
+inside an even-deeper container that already exists there from before the
+cap was reached.
+
+**The brief this task was built from undercounted its own algorithm for "N+1
+top-level indices," and the shipped test is corrected rather than copied
+wrong.** Each top-level section is itself a container, so it ALSO offers its
+own append slot for its children array — even an empty one, since `0` to
+`children.length` inclusive is always at least `{0}`. A worked example
+asserting the FULL target list is only `[[0], [1], [2]]` for two empty
+sections is inconsistent with the very algorithm it hands down alongside
+that example, which the grid fixture one case over (given, and correct)
+already confirms behaves this way. `palette-targets.test.ts` asserts the
+top-level slice specifically, which is what the case's own name claims,
+rather than a full-list equality the algorithm cannot satisfy.
+
+Nothing calls `insertTargetsFor` yet — no palette tab, no drag, no drop
+handler. Those are later tasks in the same feature; this one is the pure
+function and its own test suite, sabotage-verified against the two
+off-by-ones its own mechanism invites: `mayNest` asked of the wrong path,
+and the append slot's `<=` narrowed to `<`.
