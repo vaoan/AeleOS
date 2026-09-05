@@ -6130,3 +6130,42 @@ handler. Those are later tasks in the same feature; this one is the pure
 function and its own test suite, sabotage-verified against the two
 off-by-ones its own mechanism invites: `mayNest` asked of the wrong path,
 and the append slot's `<=` narrowed to `<`.
+
+### Inserting a freshly-built block at a target (2026-09-05) — Task 2 of 9, domain only
+
+`domain/palette-insert.ts` is the sibling `insertTargetsFor` needs: once a
+palette drag names WHERE it may land, `insertBlockAt` is what actually puts
+the freshly built leaf or container there. `InsertResult` matches every
+other domain edit's shape here — `{ ok: true, blocks, path }` or `{ ok:
+false, reason }` — and `InsertRefusal` (`"too deep" | "too many"`) mirrors
+`domain/block-drops.ts`'s `DropRefusal` and `domain/block-clone.ts`'s
+`CloneRefusal` beside it.
+
+**The one case `cloneAt` never has to face: a leaf landing at a top-level
+index.** `cloneAt`'s source is always whatever already sits on the page,
+which is always a container — depth 0 holds containers only. A palette drag
+names a bare KIND, never a block already on the page, so a leaf CAN target
+the page root, and it is wrapped in a new one-place `stack` first, mirroring
+`wrapLeafOnPage`'s own wrap but at an arbitrary splice index rather than
+always appended. `fitsAt` is asked with `path` directly rather than a
+translated destination, unlike `cloneAt` — a palette drop's target path IS
+the destination, with no separate "where the source sits" to translate
+from.
+
+**This refuses independently of whatever `insertTargetsFor` already
+offered**, rather than trusting a target computed a moment earlier: a stale
+target survives an intervening edit just fine as a value, and only asking
+the caps again here catches the page having changed underneath it.
+
+Sabotage-verified against the two off-by-ones the brief named, each
+excluding a real wrong behaviour rather than a hypothetical one: dropping
+the `parentPath.length === 0` half of the wrap condition reddens exactly
+"inserts a leaf directly into an existing container's own place, unwrapped"
+— a leaf nested inside an existing container got wrapped too — and no
+other case; omitting the wrapper's own `+1` from `addedBlocks` reddens
+exactly "refuses when a page-root insert would cross `BLOCK_LIMITS.blocks`,
+counting the wrap" — the insert lands one block under the cap where it
+should have been refused — and no other case.
+
+Nothing calls `insertBlockAt` yet either — no palette tab, no pointer
+wiring, no drop handler. Those are later tasks in the same feature.
