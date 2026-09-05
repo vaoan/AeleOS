@@ -355,4 +355,19 @@ describe("sibling hover conversion", () => {
     expect(dropTargetForSibling(blocks, [0, 0], [1, 0])).toBeNull();
     expect(applySiblingDrop(blocks, [0, 0], [1, 0])).toBeNull();
   });
+
+  // Every other case in this file drives a genuine sibling hover through
+  // `dropTargetForSibling` and `applyDrop` as two separate calls — nothing
+  // called `applySiblingDrop` itself with two paths that ARE siblings, so its
+  // own hand-off (`target ? applyDrop(...) : null`) had no case reaching the
+  // `target` arm. This is that case: it asserts `applySiblingDrop` answers
+  // exactly what the two-call form does, for the same from/to pair the first
+  // case in this describe block already uses.
+  it("hands a genuine sibling hover through to applyDrop", () => {
+    const blocks = [box("S", [leaf("A"), leaf("B"), leaf("C")])];
+    const target = dropTargetForSibling(blocks, [0, 0], [0, 2]);
+    expect(applySiblingDrop(blocks, [0, 0], [0, 2])).toEqual(
+      applyDrop(blocks, [0, 0], target!),
+    );
+  });
 });
