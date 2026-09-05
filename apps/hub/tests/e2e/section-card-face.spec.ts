@@ -710,16 +710,24 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
 
     await face.scrollIntoViewIfNeeded();
     const faceBox = (await face.boundingBox())!;
-    // **Clear of the heading's GLYPHS.** The section's name sits along the top
-    // of its box, so a probe six pixels in from the left lands on antialiased
-    // text over the picture and reads a blend — measured, 35 channels off a
-    // flat mid-grey, which is a near miss that looks exactly like a real
-    // fault. The right-hand end of that same row is bare picture.
+    // **Clear of the heading's GLYPHS and of the canvas's own drag grip
+    // (2026-09-05).** The section's name sits along the top of its box, so a
+    // probe six pixels in from the left lands on antialiased text over the
+    // picture and reads a blend — measured, 35 channels off a flat mid-grey,
+    // which is a near miss that looks exactly like a real fault. The
+    // right-hand end of that same row USED to be bare picture, and stopped
+    // being so once the live renderer became directly draggable: `selectBlock`
+    // above leaves this section selected, so its own `canvas-drag-<path>` grip
+    // — `absolute top-1 right-1`, opaque `bg-(--menu)` — now sits exactly
+    // there. Measured: the top-right probe read `[255, 250, 247]`, the
+    // grip's own near-white surface, not the picture. The bottom-right corner
+    // has no such chrome and measures the hostile grey verbatim in both
+    // schemes.
     const picture = await sampleColours(page, [
       {
         name: "picture",
         x: Math.round(faceBox.x + faceBox.width) - 10,
-        y: Math.round(faceBox.y) + 6,
+        y: Math.round(faceBox.y + faceBox.height) - 6,
       },
     ]);
     expect(

@@ -138,10 +138,29 @@ interface EditorSection {
  * It leaves the dock closed, because every caller carries on driving the
  * editor underneath it.
  *
+ * **And it leaves `More` exactly as it found it (2026-09-05).** `openMore`
+ * opens that disclosure to reach `editor-open-source` and has no matching
+ * close — a native `<details>` closes only through its own `<summary>`, and
+ * nothing here pressed it again. That was harmless while the toolbar sat
+ * BELOW the Properties panel (`z-20` against the panel's `z-30`): a `More`
+ * left open behind the panel was covered and unclickable. The toolbar moved
+ * to `z-40` the same day, to fix `More`'s own items being unreachable while
+ * the panel is open — and the reverse fault immediately became reachable:
+ * `readEditor`, called mid-test with the panel open, left `More` open on top
+ * of it, and the very next `panel-tab-secondary` click landed on `More`'s own
+ * `interact-with-page` instead — a real, 100%-reproducing failure this
+ * comment is what explains. `readEditor` now closes `More` again when IT was
+ * the one that opened it, and leaves an already-open `More` exactly as it
+ * found it — the same idempotent shape `openMore` itself already uses.
+ *
  * @param page - the browser page, sitting on an editor.
  * @returns one entry per section, in the order the editor holds them.
  */
 async function readEditor(page: Page): Promise<EditorSection[]> {
+  const more = page.getByTestId("editor-more");
+  const wasOpen = await more.evaluate(
+    (el) => (el.parentElement as HTMLDetailsElement).open,
+  );
   await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const dock = page.getByTestId("page-source-dock");
@@ -149,6 +168,13 @@ async function readEditor(page: Page): Promise<EditorSection[]> {
   const source = await page.getByTestId("page-source-textarea").inputValue();
   await page.getByTestId("page-source-close").click();
   await expect(dock).toBeHidden();
+  if (!wasOpen) {
+    await more.click();
+    const stillOpen = await more.evaluate(
+      (el) => (el.parentElement as HTMLDetailsElement).open,
+    );
+    expect(stillOpen).toBe(false);
+  }
 
   const document: unknown = JSON.parse(source);
   const blocks = (document as { blocks?: unknown }).blocks;
@@ -363,6 +389,17 @@ for (const template of FURSONA_TEMPLATES) {
     // Applied before anything is saved, so what the editor holds now is the
     // template itself — the state the round trip below is measured against.
     expect(await readEditor(page)).toEqual(expected);
+
+    // **`theme-open` has to be pressed again here, and that is not a
+    // duplicate of line 321.** `openPageAdd` above found the panel already on
+    // this SECONDARY tab (Page's add palette lives on the PRIMARY one) and
+    // fell through to `selectPage`'s close-then-reopen path to get there —
+    // which unmounts `ThemeConfigurator` along with the rest of the panel,
+    // same as any other full close. Its `open` accordion state is local and
+    // does not survive that, exactly as it does not survive the page reload
+    // at line 395 below. The panel being back on the secondary tab proves
+    // nothing about the accordion inside it.
+    await page.getByTestId("theme-open").click();
 
     // **What a template does to a palette depends on whether it HAS one**, and
     // both branches run here rather than one being assumed. A starter carries
