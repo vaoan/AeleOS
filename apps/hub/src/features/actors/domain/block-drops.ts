@@ -149,10 +149,14 @@ export function applySiblingDrop(
  * Same rule as `reach` in `block-moves.ts`: a container counts itself even
  * when every place is empty, so the deepest level still refuses a container.
  *
+ * **Exported (2026-09-04) for `domain/block-clone.ts`** to reuse rather than
+ * duplicate — a second copy of this arithmetic is a second place to get the
+ * depth cap wrong.
+ *
  * @param block - the subtree.
  * @returns the levels it needs.
  */
-function reach(block: Block): number {
+export function reach(block: Block): number {
   if (!isContainer(block)) return 0;
   return (
     1 +
@@ -163,11 +167,13 @@ function reach(block: Block): number {
 /**
  * Whether the subtree fits at this destination path.
  *
+ * **Exported (2026-09-04) alongside {@link reach}**, for the same reason.
+ *
  * @param held - what is being put there.
  * @param path - where it would sit.
  * @returns true when every block in it stays within {@link MAX_DEPTH}.
  */
-function fitsAt(held: Block, path: BlockPath): boolean {
+export function fitsAt(held: Block, path: BlockPath): boolean {
   return path.length - 1 + reach(held) <= MAX_DEPTH;
 }
 

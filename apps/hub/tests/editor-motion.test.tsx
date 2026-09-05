@@ -96,72 +96,40 @@ describe("the @dnd-kit ancestry boundary", () => {
   // `@dnd-kit` node; they say nothing about whether a Motion component that
   // legitimately shares a file with one is positioned as its ANCESTOR. The
   // spec forbids exactly that — "no Motion ancestor of a `@dnd-kit`
-  // draggable/droppable" — and nothing checked it: a real review found
-  // `canvas-inspector.tsx`'s root `m.div` and its Items-pane `m.div` both
-  // writing `x`/`y` while wrapping `{items}`, which resolves through
-  // `InspectorItems` to `BlockSlot`, the real draggable/droppable. Both are
-  // opacity-only now (canvas-inspector.tsx's own TSDoc carries the account).
-  // This is what keeps that a fact the suite checks rather than a fact
-  // someone remembers.
-  const CANVAS_INSPECTOR = resolve(ACTORS, "presentation/canvas-inspector.tsx");
-  const source = readFileSync(CANVAS_INSPECTOR, "utf8");
+  // draggable/droppable" — and a real review once found `canvas-inspector.tsx`'s
+  // root `m.div` and its Items-pane `m.div` both writing `x`/`y` while
+  // wrapping `{items}`, which resolved through `InspectorItems` to
+  // `BlockSlot`, the real draggable/droppable.
+  //
+  // **`properties-panel.tsx` (2026-09-04) removed the hazard by removing the
+  // mechanism, not by fixing the two positions above a second time.** It is
+  // `CanvasInspector` renamed with the whole Items/Options split gone: its
+  // two panes are `primary`/`secondary`, built by `block-editor.tsx` from
+  // `BlockCard`, `LeafEditor` and `StyleFields` — forms, never a `@dnd-kit`
+  // draggable row — so there is no ancestor position left in this file that
+  // could ever enclose one. The check that follows asserts that absence
+  // structurally, by import, rather than repeating the position-by-position
+  // reading above against a file with nothing left for it to find.
+  const PROPERTIES_PANEL = resolve(ACTORS, "presentation/properties-panel.tsx");
+  const source = readFileSync(PROPERTIES_PANEL, "utf8");
 
-  /**
-   * One JSX tag's own attribute text, given where the tag's own name
-   * starts — up to its first unescaped `>`, which every attribute this
-   * component's `m.div`s carry (`initial=`, `animate=`, `transition=`,
-   * `className=`, a spread `tid()` call) closes before, the same
-   * up-to-first-`>` reading the `layout` prop check above already relies
-   * on.
-   *
-   * @param tagStart - index of the tag's own `"<m.div"`.
-   * @returns that tag's own attributes, none of its children.
-   */
-  function ownAttributes(tagStart: number): string {
-    expect(tagStart, "<m.div not found").toBeGreaterThan(-1);
-    const end = source.indexOf(">", tagStart);
-    return source.slice(tagStart, end);
-  }
-
-  const TRANSFORM_KEY = /\b(?:x|y|scale)\s*:/;
-
-  const rootTagStart = source.indexOf("<m.div");
-  const itemsMarker = source.indexOf("{items}");
-  const itemsTagStart = source.lastIndexOf("<m.div", itemsMarker);
-  const optionsMarker = source.indexOf("{options}");
-  const optionsTagStart = source.lastIndexOf("<m.div", optionsMarker);
-  // The outermost element closes LAST — proving `rootTagStart`'s own
-  // `m.div` really does enclose both panes, rather than merely being
-  // whichever tag happens to appear first in the file.
-  const lastClose = source.lastIndexOf("</m.div>");
-
-  it("finds the root, Items-pane and Options-pane m.div in the shape this check assumes", () => {
-    // Anti-vacuity: every position resolved, and the root genuinely
-    // encloses both `{items}` and `{options}` — before the ancestry claims
-    // below are trusted.
-    expect(rootTagStart).toBeGreaterThan(-1);
-    expect(itemsTagStart).toBeGreaterThan(rootTagStart);
-    expect(optionsTagStart).toBeGreaterThan(itemsTagStart);
-    expect(itemsMarker).toBeLessThan(lastClose);
-    expect(optionsMarker).toBeLessThan(lastClose);
+  it("imports no @dnd-kit module and no BlockSlot at all", () => {
+    // Anti-vacuity: the file is read and is non-trivial, before its absence
+    // of these imports is trusted as meaningful rather than as an empty file
+    // passing for free. The pattern looks for an actual `import … from`
+    // statement rather than any occurrence of the words — this file's own
+    // TSDoc names both while explaining why neither is imported any more.
+    expect(source.length).toBeGreaterThan(500);
+    expect(source).not.toMatch(/from ["'].*@dnd-kit/);
+    expect(source).not.toMatch(/from ["'].*block-slot/);
   });
 
-  it("the root m.div — an ancestor of both panes — writes no x, y or scale", () => {
-    expect(ownAttributes(rootTagStart)).not.toMatch(TRANSFORM_KEY);
-  });
-
-  it("the Items pane's own m.div — an ancestor of BlockSlot — writes no x, y or scale", () => {
-    expect(ownAttributes(itemsTagStart)).not.toMatch(TRANSFORM_KEY);
-  });
-
-  it("the Options pane's own m.div still writes y — the discriminating case", () => {
-    // **This is the case that proves the two checks above could actually
-    // fail.** Options renders `SelectedOptions` — fields, never a `@dnd-kit`
-    // draggable — so it is allowed to keep its slide, and it still has one.
-    // A version of this test that flagged every `m.div` in the file
-    // regardless of position would pass here for the wrong reason; reading
-    // it as still-transformed is what tells the two `not.toMatch` cases
-    // above apart from a check that could never fail.
-    expect(ownAttributes(optionsTagStart)).toMatch(TRANSFORM_KEY);
+  it("both panes' own m.div still carry a slide, since neither can be a @dnd-kit ancestor", () => {
+    // The discriminating half: a version of this file that went back to
+    // opacity-only "to be safe" would still pass the import check above,
+    // which is why this asserts the slide is PRESENT rather than merely
+    // that nothing forbidden is imported.
+    const transforms = source.match(/y:\s*6/g) ?? [];
+    expect(transforms.length).toBe(2);
   });
 });

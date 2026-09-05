@@ -243,11 +243,13 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * 2026-08-30, so the bag is assigned to both `style` and `leaf.style` rather
  * than built out twice — see the local const's own comment.
  *
- * The same bag now names the canvas inspector's Page, Items, Options, Back
- * and Close controls. These are translated here with the rest of the editor
- * chrome; they are not labels stored in somebody's page document. Items is the
- * selected page or container's immediate-child list, not the old global Add
- * palette. Close clears selection at any depth; Back still selects the parent.
+ * The same bag now names the Properties panel's Page-select and Close
+ * controls (2026-09-04). These are translated here with the rest of the
+ * editor chrome; they are not labels stored in somebody's page document.
+ * There is no Items tab, no Options tab and no Back any more — the panel
+ * has exactly two fixed tabs per selection kind, built by `panelContentFor`
+ * from strings this bag already carries elsewhere, and Close is the only
+ * way out at any depth.
  *
  * **It also names the toolbar's Interact-with-page switch (2026-09-02)** —
  * `interactWithPage` and its two accessible-description hints, `Off`/`On` —
@@ -385,10 +387,12 @@ export async function fursonaEditorLabels(
     addBlockTitle: t("addBlockTitle"),
     addContentGroup: t("addContentGroup"),
     addLayoutGroup: t("addLayoutGroup"),
+    panelTabAppearance: t("panelTabAppearance"),
+    panelTabTheme: t("panelTabTheme"),
+    cloneBlock: t("cloneBlock"),
+    cloneRefusedTooDeep: t("cloneRefusedTooDeep"),
+    cloneRefusedTooMany: t("cloneRefusedTooMany"),
     selectPage: t("selectPage"),
-    inspectorItems: t("inspectorItems"),
-    inspectorOptions: t("inspectorOptions"),
-    inspectorBack: t("inspectorBack"),
     inspectorClose: t("inspectorClose"),
     wrapInLayout: t("wrapInLayout"),
     atLimit: t("sectionsAtLimit"),

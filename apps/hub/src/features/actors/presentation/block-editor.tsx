@@ -25,6 +25,7 @@ import {
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  type RefObject,
   type SetStateAction,
 } from "react";
 import {
@@ -39,15 +40,24 @@ import {
   isContainer,
   lenientBlockSchema,
   type Block,
+  type ContainerBlock,
+  type LeafBlock,
   type LeafKind,
 } from "@/features/actors/domain/block-schema";
 import {
   addContentAt,
   appendPlace,
   blockAt,
+  clearAt,
+  patchContainer,
+  patchLeaf,
   removeAt,
   type BlockPath,
 } from "@/features/actors/domain/block-edits";
+import {
+  cloneAt,
+  type CloneRefusal,
+} from "@/features/actors/domain/block-clone";
 import {
   formatBlockPath,
   parentSelection,
@@ -84,6 +94,7 @@ import {
   holdsNothingAuthored,
   lockedKinds,
   offerableLeafKinds,
+  removalLocked,
   withRequiredBlocks,
 } from "@/features/actors/domain/required-blocks";
 import type { AuthoringLanguage } from "@/features/actors/application/use-language-toggle";
@@ -92,9 +103,10 @@ import {
   type BlockCardLabels,
 } from "@/features/actors/presentation/block-card";
 import {
-  CanvasInspector,
-  type InspectorTab,
-} from "@/features/actors/presentation/canvas-inspector";
+  PropertiesPanel,
+  type PropertiesPanelLabels,
+  type PropertiesTab,
+} from "@/features/actors/presentation/properties-panel";
 import {
   Block as PublicBlock,
   DEFAULT_PAGE_MEASURE,
@@ -107,7 +119,11 @@ import {
   type DragAnnouncementLabels,
 } from "@/features/actors/presentation/drag-announcements";
 import { LeafEditor } from "@/features/actors/presentation/leaf-editor";
-import { InspectorItems } from "@/features/actors/presentation/inspector-items";
+import { StyleFields } from "@/features/actors/presentation/section-style-popup";
+import {
+  styleGatesFor,
+  type StyleGates,
+} from "@/features/actors/presentation/block-contract";
 import { lockCanvasInteraction } from "@/features/actors/presentation/canvas-interaction-lock";
 import {
   AddBlockPicker,
@@ -158,11 +174,11 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * `drag` is nested for the same reason `style` and `theme` are: it has words
  * of its own that would collide flat.
  *
- * The inspector words live here too: this level owns selection and decides
- * whether Items or Options is shown, while each existing card remains
- * responsible for its own editing labels. `inspectorClose` is the panel's
- * own way out at any depth — distinct from `inspectorBack`, which selects
- * the parent.
+ * The Properties panel's own words live here too (2026-09-04): this level
+ * owns selection and builds each pane's tab labels from strings it already
+ * has elsewhere in the bag — see `panelContentFor`. `inspectorClose` is the
+ * panel's own way out at any depth; there is no Back or breadcrumb any
+ * more, since there is no tree left to navigate.
  *
  * **`addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` are the Add
  * picker's own strings.** One control, one name — the compact builder menu's
@@ -196,15 +212,13 @@ export interface BlockEditorLabels
    * catalogue for the whole preset control.
    */
   addSectionFor: string;
-  /** Selects the page itself, so the inspector can edit identity and theme. */
+  /**
+   * Selects the page itself, so the Properties panel can edit identity and
+   * theme. Reused as the Page pane's own `primaryTab` label — see
+   * `panelContentFor`.
+   */
   selectPage: string;
-  /** The inspector tab that lists and adds immediate children. */
-  inspectorItems: string;
-  /** The inspector tab that edits the selection. */
-  inspectorOptions: string;
-  /** Selects the inspector's immediate parent. */
-  inspectorBack: string;
-  /** Clears the current selection and closes the inspector. */
+  /** Clears the current selection and closes the Properties panel. */
   inspectorClose: string;
   /** Wraps the selected content in a layout. */
   wrapInLayout: string;
@@ -223,6 +237,19 @@ export interface BlockEditorLabels
   addContentGroup: string;
   /** Heading over the picker's layout options. */
   addLayoutGroup: string;
+  /**
+   * The Properties panel's Appearance tab — a container's and a leaf's
+   * second tab alike (2026-09-04).
+   */
+  panelTabAppearance: string;
+  /** The Properties panel's Theme tab, Page's second tab. */
+  panelTabTheme: string;
+  /** Clones the selected block, at the panel's foot. */
+  cloneBlock: string;
+  /** Says a clone would nest one level past the depth cap. */
+  cloneRefusedTooDeep: string;
+  /** Says a clone would grow a list past what it may hold. */
+  cloneRefusedTooMany: string;
 }
 
 /**
@@ -252,11 +279,14 @@ export interface BlockEditorLabels
  * to ASK about it: nothing here paints from one, because the DOCUMENT wears
  * the page being built and the canvas inherits the author's palette, skin and
  * field from `:root` the same way a stranger's browser will. What keeps that
- * off the inspector workbench is `CHROME_SCOPE` on each control island.
+ * off the Properties panel workbench is `CHROME_SCOPE` on each control
+ * island.
  *
- * The inspector starts deselected and mounts only after a canvas or Page
- * selection. Page and container selections expose immediate children in
- * Items plus their own Options; a leaf opens Options directly.
+ * The Properties panel starts deselected and mounts only after a canvas or
+ * Page selection (2026-09-04). There is no Items tab and no tree navigation
+ * any more — click-to-select on the canvas is the only way in. Every
+ * selection kind gets exactly two fixed tabs: Page/Theme, Layout/Appearance
+ * or Content/Appearance — see `panelContentFor`.
  *
  * **It also owns the interaction lock (2026-09-02)**, mounted in an effect
  * over the canvas element this component renders — see
@@ -269,9 +299,9 @@ export interface BlockEditorLabels
  * While controls show, this component's canvas is the only vertical scroller.
  *
  * **It takes the save-refusal summary as a node too**, for the same reason it
- * takes `pageOptions`: the editor above owns the errors, and the padding that
- * keeps the fixed inspector from covering the summary is here. See
- * {@link BlockEditorProps.banner}.
+ * takes `pageFields`/`pageTheme`: the editor above owns the errors, and the
+ * padding that keeps the fixed Properties panel from covering the summary is
+ * here. See {@link BlockEditorProps.banner}.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -316,13 +346,23 @@ export interface BlockEditorProps<T extends FieldValues> {
    */
   theme: ActorTheme | null;
   /**
-   * Identity fields and the theme panel, always in Options.
+   * The identity fields — handle, display name, avatar, visibility — shown
+   * in the Page selection's own Page tab (2026-09-04).
    *
    * Owned above because they are form fields this component does not hold.
-   * Absent in unit tests that only exercise the page tree. They mount only for
-   * Page Options; block Options never duplicates those page fields.
+   * Absent in unit tests that only exercise the page tree. Split from the
+   * theme panel below because the two-tab Properties panel routes them to
+   * different tabs: one combined `pageOptions` node could not be handed to
+   * both without this component's own opinion about which half is which.
    */
-  pageOptions?: ReactNode;
+  pageFields?: ReactNode;
+  /**
+   * The theme panel, shown in the Page selection's own Theme tab.
+   *
+   * Split from {@link pageFields} for the same reason — see that prop's own
+   * note.
+   */
+  pageTheme?: ReactNode;
   /**
    * The save-refusal summary, rendered above the canvas.
    *
@@ -422,6 +462,132 @@ function keyboardDropTarget(
   return destination ? targetAt(blocks, destination, edge) : null;
 }
 
+/**
+ * The place under the pointer, or the one a keyboard drag has stepped to.
+ *
+ * A plain function — called from an inline `useCallback` body in
+ * {@link BlockEditor} rather than defined there directly — so its own
+ * considerable branching (parsing the matching id space, containing the
+ * pointer, validating the domain drop, and ranking the deepest nested
+ * destination in one pass) is counted against ITS OWN cognitive-complexity
+ * budget rather than against {@link BlockEditor}'s, which would otherwise
+ * absorb the complexity of every closure defined inside it. The refs are
+ * taken as plain parameters, read only once this runs — never during
+ * render — which is also what the ref-during-render lint rule requires of
+ * whatever calls this.
+ *
+ * @param args - what the library is measuring, and where the pointer is.
+ * @param pageRef - the current page, read fresh on every collision check.
+ * @param keyboardTarget - written with the winning target, for `onDragOver`.
+ * @param pointerTarget - written with the winning target, for `onDragOver`.
+ * @returns the one place a drop would land on, or none.
+ */
+// eslint-disable-next-line sonarjs/cognitive-complexity -- collision admission must parse the matching id space, contain the pointer, validate the domain drop, and rank the deepest nested destination in one pass
+function detectCollisionAt(
+  args: Parameters<CollisionDetection>[0],
+  pageRef: RefObject<Block[]>,
+  keyboardTarget: RefObject<DropTarget | null>,
+  pointerTarget: RefObject<DropTarget | null>,
+): ReturnType<CollisionDetection> {
+  const activeId = String(args.active.id);
+  const canvasDrag = Boolean(canvasPlacePath(activeId));
+  const from = canvasPlacePath(activeId) ?? placePath(activeId);
+  if (!from) return [];
+  if (!args.pointerCoordinates) {
+    const target = keyboardTarget.current;
+    return target
+      ? [{ id: canvasDrag ? canvasPlaceId(target.path) : placeId(target.path) }]
+      : [];
+  }
+
+  let best:
+    | { readonly id: string; readonly path: BlockPath; readonly depth: number }
+    | undefined;
+  pointerTarget.current = null;
+  for (const container of args.droppableContainers) {
+    const candidateId = String(container.id);
+    const path = canvasDrag
+      ? canvasPlacePath(candidateId)
+      : placePath(candidateId);
+    const rect = args.droppableRects.get(container.id);
+    if (!path || !rect) continue;
+    const { x, y } = args.pointerCoordinates;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      continue;
+    }
+    const edge = y < rect.top + rect.height / 2 ? "before" : "after";
+    const target = targetAt(pageRef.current, path, edge);
+    if (!applyDrop(pageRef.current, from, target).ok) continue;
+    if (!best || path.length > best.depth) {
+      best = { id: String(container.id), path, depth: path.length };
+      pointerTarget.current = target;
+    }
+  }
+  return best ? [{ id: best.id }] : [];
+}
+
+/**
+ * Where an arrow key moves a keyboard drag to.
+ *
+ * A plain function for the same reason {@link detectCollisionAt} is one —
+ * its own branching (walking rendered places until one is on screen, and
+ * refusing a candidate the domain itself would refuse) is counted against a
+ * budget of its own rather than against {@link BlockEditor}'s.
+ *
+ * **It steps over any place nothing is showing**, and that is a fix rather
+ * than a refinement. `placeOrder` walks the whole stored tree, while a
+ * COLLAPSED card renders none of its places — so those places register no
+ * droppable and the library has no rectangle for them. Landing on one used to
+ * keep the new path anyway and fall back to the current coordinates, after
+ * which the collision named an id nothing had registered, dnd-kit resolved
+ * `over` to null, and the drag announced "it stayed where it was" while it
+ * was still running; a space bar pressed there dropped nothing at all,
+ * because `onDragEnd` returns early on a null `over`. So the walk keeps
+ * stepping until it finds a place the library is actually measuring, which
+ * makes every place the keyboard can reach one a drop can land on.
+ *
+ * @param event - the key.
+ * @param args - the drag, and where it is now.
+ * @param pageRef - the current page, read fresh on every step.
+ * @param keyboardAt - written with the place a step lands on.
+ * @param keyboardTarget - written with the target a step resolves to.
+ * @returns the coordinates of the place it steps to, or nothing when the walk
+ * runs out of places that are on screen.
+ */
+function coordinateGetterAt(
+  event: Parameters<KeyboardCoordinateGetter>[0],
+  args: Parameters<KeyboardCoordinateGetter>[1],
+  pageRef: RefObject<Block[]>,
+  keyboardAt: RefObject<BlockPath | undefined>,
+  keyboardTarget: RefObject<DropTarget | null>,
+): ReturnType<KeyboardCoordinateGetter> {
+  const forward = FORWARD_KEYS.has(event.code);
+  if (!forward && !BACK_KEYS.has(event.code)) return;
+  const from = placePath(String(args.active));
+  const canvasFrom = canvasPlacePath(String(args.active));
+  const source = canvasFrom ?? from;
+  if (!source) return;
+  const order = placeOrder(pageRef.current, source);
+  let next = stepPlace(order, keyboardAt.current ?? source, forward);
+  while (next) {
+    const id = canvasFrom ? canvasPlaceId(next) : placeId(next);
+    const rect = args.context.droppableRects.get(id);
+    const target = keyboardDropTarget(
+      pageRef.current,
+      source,
+      next,
+      Boolean(canvasFrom),
+      forward ? "after" : "before",
+    );
+    if (rect && target && applyDrop(pageRef.current, source, target).ok) {
+      keyboardAt.current = next;
+      keyboardTarget.current = target;
+      return { x: rect.left, y: rect.top };
+    }
+    next = stepPlace(order, next, forward);
+  }
+}
+
 function useResettableSelection(
   resetKey: number,
 ): [EditorSelection, Dispatch<SetStateAction<EditorSelection>>] {
@@ -477,118 +643,273 @@ function addSlotPortal(
   return slot ? createPortal(<AddBlockPicker {...props} />, slot) : null;
 }
 
-/**
- * The useful authored name an inspector row shows.
- *
- * @param block - the immediate child.
- * @param labels - existing editor vocabulary.
- * @returns an authored name or the ordinary-language kind.
- */
-function blockItemLabel(block: Block, labels: BlockEditorLabels): string {
-  if (isContainer(block)) {
-    return block.name_en || labels.sectionEyebrow;
-  }
-  return block.title_en || labels.leaf.leafKinds[block.kind] || block.kind;
-}
-
-type ApplyBlocks = (edit: (blocks: Block[]) => Block[]) => void;
-
-interface ItemsFooterProps {
-  selection: EditorSelection;
-  container: Block | null;
-  path: BlockPath | undefined;
-  pageAdditions: ReactNode;
+/** What {@link panelContentFor} needs to build one selection kind's panes. */
+interface PanelContentInputs {
+  /** The repaired, current selection — `null`, Page, or a block. */
+  currentSelection: EditorSelection | null;
+  /** The Page tab's identity fields, unrelated to its theme. */
+  pageFields: ReactNode;
+  /** The section-adding controls, shown only alongside the Page fields. */
+  addPalette: ReactNode;
+  /** The Page tab's theme controls, in the second pane. */
+  pageTheme: ReactNode;
+  /** The selection, narrowed to a container, or `null`. */
+  selectedContainer: ContainerBlock | null;
+  /** The selection, narrowed to a leaf, or `null`. */
+  selectedLeaf: LeafBlock | null;
+  /** Where the selected block sits, when there is one. */
+  selectedPath: BlockPath | undefined;
+  /** The selected block's own style-bag gates, or `null` with no selection. */
+  selectedStyleGates: StyleGates | null;
+  /** Applies an edit to the whole page. */
+  apply: (edit: (blocks: Block[]) => Block[]) => void;
+  /** Which language's fields to bind to. */
+  lang: AuthoringLanguage;
+  /** Already-translated strings for the whole editor. */
   labels: BlockEditorLabels;
-  apply: ApplyBlocks;
+  /** Whether the page already holds as many blocks as it may. */
+  atBlockLimit: boolean;
+  /** The required kinds this page holds exactly one of. */
+  locked: ReadonlySet<string>;
+  /** What the save schema refused, and where. */
+  problems: readonly BlockProblem[];
+  /** The leaf kinds this page may hold. */
+  kinds: readonly LeafKind[];
 }
 
 /**
- * Scope-specific additions beneath one shallow Items list.
+ * Builds the Properties panel's two panes and its tab labels for the current
+ * selection kind.
  *
- * **Carries no `AddBlockPicker` of its own (2026-09-04).** It mounted one at
- * the container's next child position until Task 4 of the compact-menu plan
- * checked, in a real signed-in browser, whether that mount still earned its
- * place once the toolbar's single global Add existed. It did not: selecting
- * a container showed two Add controls at once, both labelled identically —
- * the toolbar's own, `data-target-path` equal to the container's path, and
- * this one, one segment longer — both resolving to the identical `addAt`
- * call. The
- * `add-place` button survives because it is a different operation entirely:
- * it appends an empty POSITION, which `addTargetFor` never does and the
- * toolbar's Add has no way to ask for.
+ * Pulled out of {@link BlockEditor} purely to keep that component's cognitive
+ * complexity under the project's own gate — the three selection kinds
+ * (Page, a container, a leaf) are mutually exclusive branches with no
+ * meaningful shared logic, so this is a dispatch rather than an algorithm.
+ *
+ * @returns the primary and secondary pane content, and the panel's tab
+ * labels for whichever kind is selected — Page's own labels when nothing
+ * matches, since the panel renders nothing without a selection anyway.
  */
-function ItemsFooter(props: ItemsFooterProps): ReactNode {
-  if (props.selection?.kind === "page") return <>{props.pageAdditions}</>;
-  if (!props.container || !isContainer(props.container) || !props.path) {
-    return <></>;
+function panelContentFor({
+  currentSelection,
+  pageFields,
+  addPalette,
+  pageTheme,
+  selectedContainer,
+  selectedLeaf,
+  selectedPath,
+  selectedStyleGates,
+  apply,
+  lang,
+  labels,
+  atBlockLimit,
+  locked,
+  problems,
+  kinds,
+}: PanelContentInputs): {
+  primary: ReactNode;
+  secondary: ReactNode;
+  panelLabels: PropertiesPanelLabels;
+} {
+  const defaultLabels: PropertiesPanelLabels = {
+    close: labels.inspectorClose,
+    primaryTab: labels.selectPage,
+    secondaryTab: labels.panelTabTheme,
+  };
+
+  if (currentSelection?.kind === "page") {
+    return {
+      primary: (
+        <>
+          {pageFields}
+          {addPalette}
+        </>
+      ),
+      secondary: pageTheme,
+      panelLabels: defaultLabels,
+    };
   }
+
+  if (selectedContainer && selectedPath) {
+    return {
+      primary: (
+        <>
+          <BlockCard
+            block={selectedContainer}
+            path={selectedPath}
+            apply={apply}
+            lang={lang}
+            labels={labels}
+            atBlockLimit={atBlockLimit}
+            locked={locked}
+            problems={problems}
+            dragHandle={null}
+            kinds={kinds}
+            showChildren={false}
+            hideStylePopup
+            hideRemove
+          />
+          {selectedContainer.children.length < BLOCK_LIMITS.children ? (
+            <button
+              type="button"
+              {...tid("add-place")}
+              onClick={() =>
+                apply((current) => appendPlace(current, selectedPath))
+              }
+              className="w-fit rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+            >
+              {labels.addPlace}
+            </button>
+          ) : null}
+        </>
+      ),
+      secondary: selectedStyleGates ? (
+        <StyleFields
+          value={selectedContainer.style}
+          onChange={(style) =>
+            apply((current) => patchContainer(current, selectedPath, { style }))
+          }
+          labels={labels.style}
+          gates={selectedStyleGates}
+        />
+      ) : null,
+      panelLabels: {
+        close: labels.inspectorClose,
+        primaryTab: labels.addLayoutGroup,
+        secondaryTab: labels.panelTabAppearance,
+      },
+    };
+  }
+
+  if (selectedLeaf && selectedPath) {
+    return {
+      primary: (
+        <LeafEditor
+          leaf={selectedLeaf}
+          path={selectedPath}
+          apply={apply}
+          lang={lang}
+          labels={labels.leaf}
+          problems={problems}
+          dragHandle={null}
+          kinds={kinds}
+          hideStylePopup
+          hideRemove
+        />
+      ),
+      secondary: selectedStyleGates ? (
+        <StyleFields
+          value={selectedLeaf.style}
+          onChange={(style) =>
+            apply((current) => patchLeaf(current, selectedPath, { style }))
+          }
+          labels={labels.leaf.style}
+          gates={selectedStyleGates}
+        />
+      ) : null,
+      panelLabels: {
+        close: labels.inspectorClose,
+        primaryTab: labels.addContentGroup,
+        secondaryTab: labels.panelTabAppearance,
+      },
+    };
+  }
+
+  return { primary: null, secondary: null, panelLabels: defaultLabels };
+}
+
+/** What {@link panelFootFor} needs. */
+interface PanelFootInputs {
+  /** The repaired, current selection — `null`, Page, or a block. */
+  currentSelection: EditorSelection | null;
+  /** The selection, resolved to a block, when there is one. */
+  selectedBlock: Block | null;
+  /** Where the selected block sits, when there is one. */
+  selectedPath: BlockPath | undefined;
+  /** Whether the selected block is itself a named container. */
+  selectedContainer: ContainerBlock | null;
+  /** Why the last clone attempt was refused, or `null`. */
+  cloneRefusal: CloneRefusal | null;
+  /** The required kinds this page holds exactly one of. */
+  locked: ReadonlySet<string>;
+  /** Already-translated strings for the whole editor. */
+  labels: BlockEditorLabels;
+  /** Clones the current selection. */
+  cloneSelected: () => void;
+  /** Deletes the current selection. */
+  deleteSelected: () => void;
+}
+
+/**
+ * The Properties panel's foot: Clone and Delete, or nothing when nothing
+ * selected is a block.
+ *
+ * Pulled out of {@link BlockEditor} for the same reason {@link
+ * panelContentFor} is — a JSX value assigned to a `const` is not a function
+ * boundary, so every ternary in it is counted directly against whichever
+ * function it sits in, and this one nests three deep (selected-a-block, then
+ * a clone refusal, then a locked delete) before it draws anything.
+ *
+ * @returns Clone and Delete, or nothing when the current selection is Page,
+ * nothing, or unresolved.
+ */
+function panelFootFor({
+  currentSelection,
+  selectedBlock,
+  selectedPath,
+  selectedContainer,
+  cloneRefusal,
+  locked,
+  labels,
+  cloneSelected,
+  deleteSelected,
+}: PanelFootInputs): ReactNode {
+  if (currentSelection?.kind !== "block" || !selectedBlock || !selectedPath) {
+    return null;
+  }
+
+  const cannotDeleteSelected = removalLocked(selectedBlock, locked);
+  const cloneRefusalMessage =
+    cloneRefusal === "too deep"
+      ? labels.cloneRefusedTooDeep
+      : labels.cloneRefusedTooMany;
+  const deleteTestId = selectedContainer ? "remove-section" : "remove-block";
+  const deleteLabel = selectedContainer
+    ? labels.removeSection
+    : labels.leaf.removeBlock;
+
   return (
-    <>
-      {props.container.children.length < BLOCK_LIMITS.children ? (
+    <div className="grid gap-2">
+      {cloneRefusal ? (
+        <p
+          role="status"
+          {...tid("clone-refusal")}
+          className="text-sm text-(--accent)"
+        >
+          {cloneRefusalMessage}
+        </p>
+      ) : null}
+      <div className="flex gap-2">
         <button
           type="button"
-          {...tid("add-place")}
-          onClick={() =>
-            props.apply((current) => appendPlace(current, props.path!))
-          }
-          className="w-fit rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
+          {...tid("clone-block")}
+          onClick={cloneSelected}
+          className="flex-1 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm"
         >
-          {props.labels.addPlace}
+          {labels.cloneBlock}
         </button>
-      ) : null}
-    </>
-  );
-}
-
-interface SelectedOptionsProps {
-  selection: EditorSelection;
-  block: Block | null;
-  path: BlockPath | undefined;
-  pageOptions: ReactNode;
-  apply: ApplyBlocks;
-  lang: AuthoringLanguage;
-  labels: BlockEditorLabels;
-  atBlockLimit: boolean;
-  locked: ReadonlySet<string>;
-  problems: readonly BlockProblem[];
-  kinds: readonly LeafKind[];
-  onRemove: () => void;
-}
-
-/** Controls for exactly the selected page, container, or leaf. */
-function SelectedOptions(props: SelectedOptionsProps): ReactNode {
-  if (props.selection?.kind === "page") return <>{props.pageOptions}</>;
-  if (!props.block || !props.path) return <></>;
-  if (isContainer(props.block)) {
-    return (
-      <BlockCard
-        block={props.block}
-        path={props.path}
-        apply={props.apply}
-        lang={props.lang}
-        labels={props.labels}
-        atBlockLimit={props.atBlockLimit}
-        locked={props.locked}
-        problems={props.problems}
-        dragHandle={null}
-        kinds={props.kinds}
-        showChildren={false}
-        onRemove={props.onRemove}
-      />
-    );
-  }
-  return (
-    <LeafEditor
-      leaf={props.block}
-      path={props.path}
-      apply={props.apply}
-      lang={props.lang}
-      labels={props.labels.leaf}
-      problems={props.problems}
-      dragHandle={null}
-      kinds={props.kinds}
-      onRemove={props.onRemove}
-    />
+        <button
+          type="button"
+          {...tid(deleteTestId)}
+          disabled={cannotDeleteSelected}
+          title={cannotDeleteSelected ? labels.removeLocked : undefined}
+          onClick={deleteSelected}
+          className="flex-1 rounded-lg surface border-(--edge)/60 px-3 py-1.5 text-sm disabled:opacity-40"
+        >
+          {deleteLabel}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -778,12 +1099,16 @@ function SelectedOptions(props: SelectedOptionsProps): ReactNode {
  * place — see `add-target.ts` and `add-slot.tsx`.** A real signed-in browser
  * check (Task 4 of the compact-menu plan) found the container-footer mount
  * genuinely redundant once the toolbar's global Add existed — see the
- * actors feature note for the account — so `ItemsFooter` carries no
- * `AddBlockPicker` of its own any more; only its `add-place` button, which
- * appends an empty position rather than a block, remains. The sixteen flat
+ * actors feature note for the account — so the container's own footer
+ * (`BlockCard`'s `add-place` button, which appends an empty position rather
+ * than a block) is the only add-adjacent control left inside a container's
+ * own Layout tab. The Items scope this used to live in
+ * (`inspector-items.tsx`, since deleted — see "The Properties panel
+ * replaces the recursive inspector" in the actors feature note) is gone
+ * entirely now, one task after this comment was written. The sixteen flat
  * `add-leaf-*` buttons, `add-section`, `add-into-*` and the HTML5
- * drag-to-add path they carried are gone — see the actors feature note for
- * why drag-to-add is a deliberate removal rather than an oversight.
+ * drag-to-add path they carried are gone too — see the actors feature note
+ * for why drag-to-add is a deliberate removal rather than an oversight.
  *
  * **Two of its five motion places live here as plain CSS, deliberately not
  * Motion (2026-09-02).** The canvas's own `md:pl-[…]` accommodation
@@ -835,7 +1160,8 @@ export function BlockEditor<T extends FieldValues>({
   problems,
   onApplyDocument,
   theme,
-  pageOptions,
+  pageFields,
+  pageTheme,
   banner,
   pageInteractionsEnabled: interactionsEnabled,
   controlsHidden,
@@ -855,7 +1181,8 @@ export function BlockEditor<T extends FieldValues>({
     null,
   );
   const [selection, setSelection] = useResettableSelection(selectionResetKey);
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("items");
+  const [tab, setTab] = useState<PropertiesTab>("primary");
+  const [cloneRefusal, setCloneRefusal] = useState<CloneRefusal | null>(null);
 
   const field = useController({ control, name: "sections" as Path<T> });
   // Memoized so an unwritten field — which answers a fresh `[]` each time —
@@ -937,76 +1264,34 @@ export function BlockEditor<T extends FieldValues>({
    */
   const apply = (edit: (current: Block[]) => Block[]): void => {
     setRefusal(null);
+    setCloneRefusal(null);
     const next = edit(blocks);
     setSelection((current) => repairSelection(next, current));
     field.field.onChange(next);
   };
 
+  // See `detectCollisionAt`'s own TSDoc for what this does and why the
+  // branching lives in a plain function rather than in this closure — the
+  // inline arrow here is trivial so nothing here reads a ref during render.
+  const detectCollision = useCallback<CollisionDetection>(
+    (args) => detectCollisionAt(args, pageRef, keyboardTarget, pointerTarget),
+    [],
+  );
+
   /**
-   * The place under the pointer, or the one a keyboard drag has stepped to.
+   * Enters one target, resetting the Properties panel to its first tab.
    *
-   * @param args - what the library is measuring, and where the pointer is.
-   * @returns the one place a drop would land on, or none.
-   */
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- collision admission must parse the matching id space, contain the pointer, validate the domain drop, and rank the deepest nested destination in one pass
-  const detectCollision = useCallback<CollisionDetection>((args) => {
-    const activeId = String(args.active.id);
-    const canvasDrag = Boolean(canvasPlacePath(activeId));
-    const from = canvasPlacePath(activeId) ?? placePath(activeId);
-    if (!from) return [];
-    if (!args.pointerCoordinates) {
-      const target = keyboardTarget.current;
-      return target
-        ? [
-            {
-              id: canvasDrag
-                ? canvasPlaceId(target.path)
-                : placeId(target.path),
-            },
-          ]
-        : [];
-    }
-
-    let best:
-      | {
-          readonly id: string;
-          readonly path: BlockPath;
-          readonly depth: number;
-        }
-      | undefined;
-    pointerTarget.current = null;
-    for (const container of args.droppableContainers) {
-      const candidateId = String(container.id);
-      const path = canvasDrag
-        ? canvasPlacePath(candidateId)
-        : placePath(candidateId);
-      const rect = args.droppableRects.get(container.id);
-      if (!path || !rect) continue;
-      const { x, y } = args.pointerCoordinates;
-      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-        continue;
-      }
-      const edge = y < rect.top + rect.height / 2 ? "before" : "after";
-      const target = targetAt(pageRef.current, path, edge);
-      if (!applyDrop(pageRef.current, from, target).ok) continue;
-      if (!best || path.length > best.depth) {
-        best = { id: String(container.id), path, depth: path.length };
-        pointerTarget.current = target;
-      }
-    }
-    return best ? [{ id: best.id }] : [];
-  }, []);
-
-  /**
-   * Enters one target and chooses the pane that target can use.
+   * **Always "primary", whatever the selection's own kind.** The old
+   * Items/Options split picked a pane by whether the target could hold
+   * children; the two-tab panel has no such asymmetry — every kind's own
+   * pair (Content/Appearance, Layout/Appearance, Page/Theme) opens on its
+   * first name.
    *
    * @param next - Page or a resolving block selection.
    */
   const enterSelection = (next: Exclude<EditorSelection, null>): void => {
     setSelection(next);
-    const target =
-      next.kind === "block" ? blockAt(blocks, next.path) : undefined;
-    setInspectorTab(target && !isContainer(target) ? "options" : "items");
+    setTab("primary");
   };
 
   /**
@@ -1029,34 +1314,11 @@ export function BlockEditor<T extends FieldValues>({
    * @returns the coordinates of the place it steps to, or nothing when the walk
    * runs out of places that are on screen.
    */
+  // See `coordinateGetterAt`'s own TSDoc for what this does and why the
+  // branching lives in a plain function rather than in this closure.
   const coordinateGetter = useCallback<KeyboardCoordinateGetter>(
-    (event, args) => {
-      const forward = FORWARD_KEYS.has(event.code);
-      if (!forward && !BACK_KEYS.has(event.code)) return;
-      const from = placePath(String(args.active));
-      const canvasFrom = canvasPlacePath(String(args.active));
-      const source = canvasFrom ?? from;
-      if (!source) return;
-      const order = placeOrder(pageRef.current, source);
-      let next = stepPlace(order, keyboardAt.current ?? source, forward);
-      while (next) {
-        const id = canvasFrom ? canvasPlaceId(next) : placeId(next);
-        const rect = args.context.droppableRects.get(id);
-        const target = keyboardDropTarget(
-          pageRef.current,
-          source,
-          next,
-          Boolean(canvasFrom),
-          forward ? "after" : "before",
-        );
-        if (rect && target && applyDrop(pageRef.current, source, target).ok) {
-          keyboardAt.current = next;
-          keyboardTarget.current = target;
-          return { x: rect.left, y: rect.top };
-        }
-        next = stepPlace(order, next, forward);
-      }
-    },
+    (event, args) =>
+      coordinateGetterAt(event, args, pageRef, keyboardAt, keyboardTarget),
     [],
   );
 
@@ -1132,7 +1394,6 @@ export function BlockEditor<T extends FieldValues>({
     pointerTarget.current = null;
     setAdvertisedTarget(null);
     if (!from || !target || !event.over) return;
-    const movedBlock = blockAt(blocks, from);
     const result = applyDrop(blocks, from, target);
     if (!result.ok) {
       setRefusal(result.refusal);
@@ -1143,9 +1404,7 @@ export function BlockEditor<T extends FieldValues>({
       field.field.onChange(result.blocks);
     }
     setSelection({ kind: "block", path: result.path });
-    setInspectorTab(
-      movedBlock && !isContainer(movedBlock) ? "options" : "items",
-    );
+    setTab("primary");
   };
 
   /**
@@ -1173,7 +1432,7 @@ export function BlockEditor<T extends FieldValues>({
       if (
         target instanceof HTMLElement &&
         target.closest(
-          '[data-testid="canvas-inspector"], [data-testid="page-source-dock"]',
+          '[data-testid="properties-panel"], [data-testid="page-source-dock"]',
         )
       ) {
         return;
@@ -1231,9 +1490,8 @@ export function BlockEditor<T extends FieldValues>({
    * `[position, 0]`, so depth 0 stays containers.
    *
    * This is the one function every Add mount calls — the toolbar's global
-   * control included — so a target computed by `addTargetFor` and one built
-   * by hand from an Items scope's own path both select what they added the
-   * same way.
+   * control is now the only one — so a target computed by `addTargetFor` and
+   * a container's own path both select what they added the same way.
    *
    * @param path - where to add — a container's own path to append inside it,
    * or the empty path for the page root.
@@ -1247,13 +1505,13 @@ export function BlockEditor<T extends FieldValues>({
     if (path.length === 0) {
       const childPath = isContainer(block) ? [position] : [position, 0];
       setSelection({ kind: "block", path: childPath });
-      setInspectorTab(isContainer(block) ? "items" : "options");
+      setTab("primary");
       return;
     }
     if (target && isContainer(target)) {
       const childPath = [...path, position];
       setSelection({ kind: "block", path: childPath });
-      setInspectorTab(isContainer(block) ? "items" : "options");
+      setTab("primary");
     }
   };
 
@@ -1404,88 +1662,101 @@ export function BlockEditor<T extends FieldValues>({
 
   const selectedContainer =
     selectedBlock && isContainer(selectedBlock) ? selectedBlock : null;
-  const scopePath =
-    currentSelection?.kind === "block" && selectedContainer
-      ? selectedPath!
-      : [];
-  let scopeChildren: readonly (Block | null)[] = [];
-  if (currentSelection?.kind === "page") scopeChildren = blocks;
-  else if (selectedContainer) scopeChildren = selectedContainer.children;
+  const selectedLeaf =
+    selectedBlock && !isContainer(selectedBlock) ? selectedBlock : null;
 
-  const itemsFooter = (
-    <ItemsFooter
-      selection={currentSelection}
-      container={selectedContainer}
-      path={selectedPath}
-      pageAdditions={addPalette}
-      labels={labels}
-      apply={apply}
-    />
-  );
-
-  const itemsPane = (
-    <InspectorItems
-      items={scopeChildren}
-      parentPath={scopePath}
-      listLabel={labels.sectionsTitle}
-      dragLabel={scopePath.length === 0 ? labels.dragSection : labels.dragBlock}
-      itemLabel={(block) => blockItemLabel(block, labels)}
-      onEnter={(path) => enterSelection({ kind: "block", path })}
-      onRemovePlace={(path) => apply((current) => removeAt(current, path))}
-      labels={labels}
-      footer={itemsFooter}
-    />
-  );
-
-  const removeSelected = (): void => {
-    if (!currentSelection) return;
-    setSelection(parentSelection(currentSelection));
-    setInspectorTab("items");
+  /**
+   * Clones the current selection, or records why it was refused.
+   *
+   * Selects the copy on success, matching every other successful edit's own
+   * convention. `cloneAt`'s no-op-by-identity return (a missing block) never
+   * reaches here, because a selection that no longer resolves cannot be
+   * selected in the first place — `repairSelection` sees to that on every
+   * render.
+   */
+  const cloneSelected = (): void => {
+    if (!selectedPath) return;
+    const result = cloneAt(blocks, selectedPath);
+    if (!result.ok) {
+      setCloneRefusal(result.reason);
+      return;
+    }
+    setCloneRefusal(null);
+    if (result.blocks !== blocks) field.field.onChange(result.blocks);
+    setSelection({ kind: "block", path: result.path });
+    setTab("primary");
   };
 
-  const optionsPane = (
-    <SelectedOptions
-      selection={currentSelection}
-      block={selectedBlock}
-      path={selectedPath}
-      pageOptions={pageOptions}
-      apply={apply}
-      lang={lang}
-      labels={labels}
-      atBlockLimit={atBlockLimit}
-      locked={locked}
-      problems={problems}
-      kinds={kinds}
-      onRemove={removeSelected}
-    />
-  );
+  /**
+   * Removes the current selection and selects its parent.
+   *
+   * **Depth 0 shrinks the array; anything nested clears its place**, the
+   * same split `BlockCard`'s own remove button already makes — the page's
+   * own list has no empty entries and cannot hold one. Applied uniformly to
+   * a leaf as well as a container, which corrects a narrower case
+   * `LeafEditor`'s own inline button never had to handle: a leaf sitting
+   * alone at depth 0 would otherwise be `clearAt`, leaving a `null` the
+   * page's own array has no shape for.
+   */
+  const deleteSelected = (): void => {
+    if (!currentSelection || !selectedPath || !selectedBlock) return;
+    const depth = selectedPath.length - 1;
+    apply((current) =>
+      depth === 0
+        ? removeAt(current, selectedPath)
+        : clearAt(current, selectedPath),
+    );
+    setSelection(parentSelection(currentSelection));
+    setTab("primary");
+  };
 
-  const breadcrumbs = [
-    <button
-      key="page"
-      type="button"
-      {...tid("inspector-breadcrumb")}
-      onClick={() => enterSelection({ kind: "page" })}
-      className="truncate rounded-sm px-1 text-sm"
-    >
-      {labels.selectPage}
-    </button>,
-    ...(selectedPath ?? []).map((_, index) => {
-      const path = selectedPath!.slice(0, index + 1);
-      const block = blockAt(blocks, path);
-      return (
-        <button
-          key={formatBlockPath(path)}
-          type="button"
-          {...tid("inspector-breadcrumb")}
-          onClick={() => enterSelection({ kind: "block", path })}
-          className="truncate rounded-sm px-1 text-sm"
-        >
-          {block ? blockItemLabel(block, labels) : index + 1}
-        </button>
-      );
-    }),
-  ];
+  // **Clone and Delete, or nothing — the page selection has neither.** See
+  // `panelFootFor`'s own TSDoc for why this is a function call rather than a
+  // `const` built from JSX inline: a JSX value is not a function boundary,
+  // so every ternary in it would otherwise count directly against this
+  // component.
+  const panelFoot = panelFootFor({
+    currentSelection,
+    selectedBlock,
+    selectedPath,
+    selectedContainer,
+    cloneRefusal,
+    locked,
+    labels,
+    cloneSelected,
+    deleteSelected,
+  });
+
+  // **The style bag's own gates, computed exactly as `BlockCard`/`LeafEditor`
+  // already compute them for their own (now-hidden) style popup.** `atTop`
+  // is a fact about DEPTH, never about the block's own kind — a container or
+  // a leaf sitting directly on the page (path length 1) gets `bleed`/
+  // `margins` and `label`/`imageFit`/`portrait` gated by kind either way.
+  const selectedStyleGates = selectedBlock
+    ? styleGatesFor(selectedBlock, (selectedPath?.length ?? 0) === 1)
+    : null;
+
+  const {
+    primary: primaryContent,
+    secondary: secondaryContent,
+    panelLabels,
+  } = panelContentFor({
+    currentSelection,
+    pageFields,
+    addPalette,
+    pageTheme,
+    selectedContainer,
+    selectedLeaf,
+    selectedPath,
+    selectedStyleGates,
+    apply,
+    lang,
+    labels,
+    atBlockLimit,
+    locked,
+    problems,
+    kinds,
+  });
 
   return (
     <section
@@ -1494,8 +1765,10 @@ export function BlockEditor<T extends FieldValues>({
       // spec's third motion place, kept off `m.*` on purpose so `@dnd-kit`
       // and the page's own boxes never receive an inline `transform` from
       // this. The transition applies at every width; it only ever has
-      // something to animate from `md` up, where `pl-` itself is conditional.
-      className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-left] duration-210 ease-out ${currentSelection ? "md:pl-[min(36rem,40vw)]" : ""}`}
+      // something to animate from `md` up, where `pr-` itself is conditional.
+      // **`pr-`, not `pl-` (2026-09-04)**: the Properties panel moved to the
+      // desktop-right, so the canvas makes room on the right now.
+      className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-right] duration-210 ease-out ${currentSelection ? "md:pr-[min(36rem,40vw)]" : ""}`}
     >
       {/* Inside the section, so the inspector's own accommodation padding
           moves it clear of the panel; outside the canvas, so it cannot
@@ -1518,29 +1791,15 @@ export function BlockEditor<T extends FieldValues>({
         onDragCancel={onDragCancel}
         onDragEnd={onDragEnd}
       >
-        <CanvasInspector
+        <PropertiesPanel
           selection={currentSelection}
-          tab={inspectorTab}
-          onTab={setInspectorTab}
-          labels={{
-            items: labels.inspectorItems,
-            options: labels.inspectorOptions,
-            back: labels.inspectorBack,
-            close: labels.inspectorClose,
-          }}
-          breadcrumbs={breadcrumbs}
-          onBack={() => {
-            if (!currentSelection) return;
-            const parent = parentSelection(currentSelection);
-            if (parent) enterSelection(parent);
-            else setSelection(null);
-          }}
+          tab={tab}
+          onTab={setTab}
+          labels={panelLabels}
           onClose={() => setSelection(null)}
-          hasItems={
-            currentSelection?.kind === "page" || Boolean(selectedContainer)
-          }
-          items={itemsPane}
-          options={optionsPane}
+          primary={primaryContent}
+          secondary={secondaryContent}
+          foot={panelFoot}
         />
         {/* **`contents`, because this holds only stylesheets.** As an ordinary
             flex child it generated no box and still cost the section's own

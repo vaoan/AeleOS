@@ -179,10 +179,12 @@ export interface BlockCardLabels {
  * know about refusals BELOW it as well as on it, so that a collapsed card
  * holding one opens itself.
  *
- * `dragHandle` is supplied by the immediate-child Items row when the card is
- * rendered there. Recursive inspector Options pass `null` and
- * `showChildren=false`: the selected container keeps its existing controls
- * without mounting a second copy of its descendants.
+ * `dragHandle` is `null` from the Properties panel's Layout tab
+ * (2026-09-04): a sibling drag is driven from the canvas's own accessible
+ * grip on the selected block (see `EditableBlockFrame`), not from a second
+ * grip inside the panel. `showChildren=false` accompanies it, so the
+ * selected container keeps its existing controls without mounting a second
+ * copy of its descendants.
  *
  * **Two of these are facts about the WHOLE page, threaded down rather than
  * recomputed per card**: `atBlockLimit` and `locked`. One walk in
@@ -250,11 +252,33 @@ export interface BlockCardProps {
   /**
    * Whether to mount immediate places and their descendant editors.
    *
-   * The recursive inspector passes `false` in Options so one selected
-   * container's controls never mount the subtree beneath it. Standalone card
-   * tests default to the legacy complete card.
+   * The Properties panel's Layout tab (2026-09-04) passes `false` so one
+   * selected container's controls never mount the subtree beneath it.
+   * Standalone card tests default to the legacy complete card.
    */
   showChildren?: boolean;
+  /**
+   * Suppresses this card's own `SectionStylePopup` mount (2026-09-04).
+   *
+   * The Properties panel builds a container's Appearance tab from
+   * `StyleFields` directly, fed the same `value`/`onChange`/`gates` this
+   * card already computes for its own popup — so its production call site
+   * passes `true` here to avoid mounting the identical fields twice, once
+   * inline in Layout and once behind a paintbrush trigger nobody opens.
+   * Defaults to `false` so every existing standalone test, which still
+   * exercises the trigger-and-popup mount, is unaffected.
+   */
+  hideStylePopup?: boolean;
+  /**
+   * Suppresses this card's own {@link RemoveSectionButton} mount (2026-09-04).
+   *
+   * The Properties panel's foot carries one Delete for the whole selection,
+   * gated by `removalLocked` exactly as this card's own button already is —
+   * so its production call site passes `true` here rather than mounting a
+   * second, redundant bin. Defaults to `false` so every existing standalone
+   * test is unaffected.
+   */
+  hideRemove?: boolean;
   /** Runs after this container removes itself from the page. */
   onRemove?: () => void;
 }
@@ -540,13 +564,15 @@ function RemoveSectionButton(props: RemoveSectionButtonProps): ReactNode {
  *
  * **It forwards `kinds` and reads none of it (2026-08-27).** When
  * `showChildren` is true, the prop passes straight through to every
- * `LeafEditor` this card renders. Recursive inspector Options set that flag
- * false and render only this container's controls.
+ * `LeafEditor` this card renders. The Properties panel's Layout tab
+ * (2026-09-04) sets that flag false and renders only this container's
+ * controls.
  *
  * **The root now carries `CHROME_SCOPE` (2026-09-02), and its own background
  * moved off `--surface-solid` onto the genuinely opaque `--menu`.** This card
- * is the inspector's own editing form — its production caller always passes
- * `showChildren={false}`, so nothing skin-scoped ever renders inside it — but
+ * is the Properties panel's own editing form — its production caller always
+ * passes `showChildren={false}`, so nothing skin-scoped ever renders inside
+ * it — but
  * every label, hint, input and select in it used to read `--ink`/`--muted`
  * from the author's own page palette while sitting on a background whose
  * 90%-alpha COMPOUNDS with every level of nesting. A real `a11y.spec.ts` run
@@ -567,6 +593,8 @@ export function BlockCard({
   dragHandle,
   kinds,
   showChildren = true,
+  hideStylePopup = false,
+  hideRemove = false,
   onRemove,
 }: BlockCardProps) {
   const id = useId();
@@ -871,29 +899,33 @@ export function BlockCard({
           </div>
         ) : null}
 
-        <SectionStylePopup
-          value={block.style}
-          onChange={(style) =>
-            apply((blocks) => patchContainer(blocks, path, { style }))
-          }
-          labels={labels.style}
-          // Computed from the block itself, in one place — see
-          // `styleGatesFor`'s own TSDoc for why this replaced two separate
-          // booleans this component used to work out by hand.
-          gates={styleGatesFor(block, depth === 0)}
-        />
+        {hideStylePopup ? null : (
+          <SectionStylePopup
+            value={block.style}
+            onChange={(style) =>
+              apply((blocks) => patchContainer(blocks, path, { style }))
+            }
+            labels={labels.style}
+            // Computed from the block itself, in one place — see
+            // `styleGatesFor`'s own TSDoc for why this replaced two separate
+            // booleans this component used to work out by hand.
+            gates={styleGatesFor(block, depth === 0)}
+          />
+        )}
 
-        <RemoveSectionButton
-          locked={cannotRemove}
-          testId={ids.remove}
-          labels={labels}
-          onRemove={() => {
-            apply((blocks) =>
-              depth === 0 ? removeAt(blocks, path) : clearAt(blocks, path),
-            );
-            onRemove?.();
-          }}
-        />
+        {hideRemove ? null : (
+          <RemoveSectionButton
+            locked={cannotRemove}
+            testId={ids.remove}
+            labels={labels}
+            onRemove={() => {
+              apply((blocks) =>
+                depth === 0 ? removeAt(blocks, path) : clearAt(blocks, path),
+              );
+              onRemove?.();
+            }}
+          />
+        )}
       </div>
 
       {/* A refusal on a field this card does not draw — an arrangement or a
@@ -1128,11 +1160,14 @@ function PlaceContent({
       {...tid("empty-place")}
       className="flex flex-wrap items-center justify-center gap-1.5 rounded-lg surface border-dashed border-(--edge)/60 bg-(--surface) p-3"
     >
-      {/* An empty place here is filled through the Add picker at the
-          Items scope enclosing it — `InspectorItems` and `ItemsFooter` in
-          `block-editor.tsx` — not from within this legacy `showChildren`
-          rendering, which no production caller reaches any more (see
-          `BlockCardProps.showChildren`'s own note). The flat `add-content`/
+      {/* An empty place here is filled through the ONE global Add picker,
+          portalled into the toolbar (`add-slot.tsx`, `add-target.ts`) —
+          never from within this legacy `showChildren` rendering, which no
+          production caller reaches any more (see
+          `BlockCardProps.showChildren`'s own note). The Items-scope
+          inspector this comment used to name (`inspector-items.tsx`) is
+          deleted; see "The Properties panel replaces the recursive
+          inspector" in the actors feature note. The flat `add-content`/
           `add-nested` pair that used to live here is gone rather than
           rebuilt against a picker this card has no `page`/`locale` to feed;
           only removal stays possible for a place reached this way. */}

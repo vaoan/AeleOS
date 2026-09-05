@@ -496,8 +496,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * persists the choice — it is a way of looking, not a preference. The control
  * that brings the workbench back is rendered OUTSIDE the armed element, or the
  * rule would hide the only way out of the state it created. Hiding controls
- * also invalidates inspector selection in the same event, so Show controls
- * cannot resurrect a paused panel. While controls show, the form is bounded
+ * also invalidates the Properties panel's selection in the same event, so Show
+ * controls cannot resurrect a paused panel. While controls show, the form is bounded
  * below the app header and only the canvas scrolls.
  *
  * **Both sticky bars are direct children of the element carrying
@@ -513,8 +513,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `sm`. That spelling lives in `FormErrorBanner` now, and the banner itself
  * is handed to `BlockEditor` rather than rendered here (2026-09-03): a
  * column at this level reserved 40px of the author's backdrop on every form
- * with nothing wrong, and a banner at this level sat outside the inspector's
- * accommodation padding and was covered by the panel.
+ * with nothing wrong, and a banner at this level sat outside the Properties
+ * panel's accommodation padding and was covered by it.
  *
  * **The way out of the author's own look is in the bar.** Since the document
  * wears the draft, a busy theme is worn by the workbench too; the editor hands
@@ -887,7 +887,7 @@ export function FursonaEditor({
                     }}
                   />
                 }
-                pageOptions={
+                pageFields={
                   <>
                     <div
                       {...tid("editor-identity-fields")}
@@ -989,20 +989,22 @@ export function FursonaEditor({
                         </select>
                       </div>
                     </div>
-
-                    {/* Above the language strip and the sections, because it governs how
-          all of them look. The panel is collapsed until somebody opens it —
-          theming is a thing people do once and then leave alone, and an open
-          colour panel would push everything below it down the page for
-          everybody who never touches it. */}
-                    <div className="mt-8">
-                      <ThemeController
-                        control={control}
-                        labels={labels.theme}
-                        profileTheme={profileTheme}
-                      />
-                    </div>
                   </>
+                }
+                // **Its own tab now, not a `mt-8` sibling of the identity
+                // fields (2026-09-04).** The Properties panel's Page
+                // selection routes this to Theme, its OWN pane — the two-tab
+                // split this component's own `mt-8` margin existed to fake
+                // by spacing, on a page where both used to share one Options
+                // pane. The panel's own `gap-2` between tab content is
+                // spacing enough; a margin meant for a sibling would be
+                // furniture at the top of a pane with nothing above it.
+                pageTheme={
+                  <ThemeController
+                    control={control}
+                    labels={labels.theme}
+                    profileTheme={profileTheme}
+                  />
                 }
               />
             </div>

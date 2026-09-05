@@ -157,10 +157,11 @@ const stylePopupLabels = {
 /**
  * Supplies one stable English label bag for editor presentation tests.
  *
- * It includes the canvas inspector's Page, Items, Options, Back and Close
- * words so tests use the same complete contract as the translated route
- * rather than filling recursive navigation controls with ad-hoc labels per
- * fixture.
+ * It includes the Properties panel's Page-select and Close words so tests
+ * use the same complete contract as the translated route rather than
+ * filling the panel's controls with ad-hoc labels per fixture. There is no
+ * Items, Options or Back any more (2026-09-04): the panel has exactly two
+ * fixed tabs per selection kind, and Close is its only way out.
  *
  * **Carries the Add picker's four strings too (2026-09-02)** —
  * `addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` — as real
@@ -184,10 +185,12 @@ export function blockEditorLabels(): BlockEditorLabels {
     addBlockTitle: "Add to this section",
     addContentGroup: "Content",
     addLayoutGroup: "Layout",
+    panelTabAppearance: "Appearance",
+    panelTabTheme: "Theme",
+    cloneBlock: "Clone",
+    cloneRefusedTooDeep: "That would nest one level too deep.",
+    cloneRefusedTooMany: "That list cannot hold another block.",
     selectPage: "Page",
-    inspectorItems: "Items",
-    inspectorOptions: "Options",
-    inspectorBack: "Back",
     inspectorClose: "Close",
     wrapInLayout: "Wrap in a layout",
     atLimit: "At the limit.",
