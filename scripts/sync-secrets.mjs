@@ -33,6 +33,18 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
 const secretsPath = resolve(rootDir, ".secrets");
+const hubEnvLocalPath = resolve(rootDir, "apps/hub/.env.local");
+const hubEnvExamplePath = resolve(rootDir, "apps/hub/.env.example");
+
+// Which `apps/hub/.env.local` key each `.secrets` key becomes. The names
+// genuinely differ — see `buildHubEnvLocal`'s own TSDoc for why — so this is
+// the one place that mapping is written down.
+const HUB_ENV_KEY_MAPPING = [
+  ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_PUBLISHABLE_KEY"],
+  ["CLERK_SECRET_KEY", "CLERK_SECRET_KEY"],
+  ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"],
+  ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY"],
+];
 
 const WORKFLOW_FILE = "sync-secrets.yml";
 const ARTIFACT_NAME = "secrets-encrypted";
@@ -198,6 +210,115 @@ async function waitForRun(knownRunIds) {
   );
 }
 
+// ── apps/hub/.env.local generation ───────────────────────────────────────────
+//
+// WHY THIS EXISTS. `.secrets` and `apps/hub/.env.local` are two different
+// files for two different consumers: `.secrets` is read by CLI tools and by
+// this script's own callers (its bare `CLERK_PUBLISHABLE_KEY` etc. is what a
+// Node process calling Clerk's Management API wants), while the *running app*
+// (`next dev`) only ever reads `apps/hub/.env.local` — via Next's own dotenv
+// loader — and it wants different, `NEXT_PUBLIC_`-prefixed names for anything
+// that must reach the browser bundle. `apps/hub/.env.example`'s own header
+// already documents the fix as a one-time manual step: copy the example, then
+// paste the four values from `.secrets`. That step is easy to skip on a fresh
+// clone, and skipping it is not loud: `next dev` falls back to Clerk's own
+// "keyless" auto-provisioning (a fresh random `*.clerk.accounts.dev` instance
+// every boot) rather than refusing to start, so the failure downstream — a
+// session token minted against the real instance can never match a random
+// one's JWKS — reads like a Clerk outage rather than a missing file. See root
+// `CLAUDE.md`'s toolchain rule 43 for the incident this was found from.
+
+/**
+ * Parses a `.secrets`- or `.env`-shaped text into a flat key/value map.
+ *
+ * Blank lines and lines starting with `#` are skipped. A line is split on its
+ * FIRST `=` only, so a base64 value carrying its own `=` padding survives
+ * intact. A key repeated later in the text overrides its earlier value, the
+ * same behaviour `source`/dotenv give a file with a duplicate assignment.
+ *
+ * @param text - the file's contents.
+ * @returns every assignment found.
+ */
+export function parseEnvAssignments(text) {
+  /** @type {Record<string, string>} */
+  const result = {};
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    if (!key) continue;
+    result[key] = line.slice(eq + 1).trim();
+  }
+  return result;
+}
+
+/**
+ * Builds `apps/hub/.env.local`'s text from `.env.example`'s own template,
+ * with the four Clerk/Supabase values `.secrets` holds substituted in.
+ *
+ * Only the four mapped keys (`HUB_ENV_KEY_MAPPING`) are ever touched — every
+ * comment, blank line and other key (`AELEOS_ALLOWED_RETURN_ORIGINS`,
+ * `NEXT_PUBLIC_HUB_HOST`) passes through from the example verbatim, so this
+ * can never clobber a deliberate override such as the example's own
+ * documented "local stack instead" values. A mapped key absent from
+ * `secrets` is left as the example's own placeholder line, so a partial
+ * `.secrets` still produces a file that names exactly what is missing rather
+ * than a half-written line.
+ *
+ * @param exampleText - `apps/hub/.env.example`'s own contents.
+ * @param secrets - parsed `.secrets` content, from {@link parseEnvAssignments}.
+ * @returns the full `.env.local` text.
+ */
+export function buildHubEnvLocal(exampleText, secrets) {
+  const targetToSource = new Map(HUB_ENV_KEY_MAPPING);
+  return exampleText
+    .split("\n")
+    .map((line) => {
+      const eq = line.indexOf("=");
+      if (eq === -1) return line;
+      const sourceKey = targetToSource.get(line.slice(0, eq));
+      if (sourceKey === undefined) return line;
+      const value = secrets[sourceKey];
+      return value === undefined ? line : `${line.slice(0, eq)}=${value}`;
+    })
+    .join("\n");
+}
+
+/**
+ * Creates `apps/hub/.env.local` from the just-synced `.secrets`, but only
+ * when it does not already exist.
+ *
+ * Never overwrites an existing file — a developer's local-Supabase-stack
+ * override, or any other hand edit, is left exactly as they made it. This is
+ * a convenience on top of `.secrets` syncing, not the thing this script
+ * exists to guarantee, so a failure here is reported and swallowed rather
+ * than failing the whole run.
+ *
+ * @param secretsText - the `.secrets` content just written to disk.
+ */
+function syncHubEnvLocal(secretsText) {
+  if (existsSync(hubEnvLocalPath)) {
+    log("apps/hub/.env.local already exists — left untouched.");
+    return;
+  }
+  if (!existsSync(hubEnvExamplePath)) {
+    log("apps/hub/.env.example not found — skipping .env.local generation.");
+    return;
+  }
+  try {
+    const secrets = parseEnvAssignments(secretsText);
+    const exampleText = readFileSync(hubEnvExamplePath, "utf-8");
+    writeFileSync(hubEnvLocalPath, buildHubEnvLocal(exampleText, secrets));
+    log(
+      "Created apps/hub/.env.local from .secrets (Clerk + Supabase filled in).",
+    );
+  } catch (err) {
+    log(`Could not generate apps/hub/.env.local: ${err.message}`);
+  }
+}
+
 // ── Download and decrypt ─────────────────────────────────────────────────────
 
 function downloadArtifact(runId) {
@@ -291,12 +412,16 @@ async function main() {
 
   const { encryptedPath, downloadDir } = downloadArtifact(runId);
   const secretCount = decryptAndWrite(encryptedPath, passphrase, downloadDir);
+  syncHubEnvLocal(readFileSync(secretsPath, "utf-8"));
 
   console.log("");
   log(`Done — synced ${secretCount} secrets to .secrets`);
 }
 
-main().catch((err) => {
-  console.error(`[sync-secrets] ${err.message}`);
-  process.exit(1);
-});
+// Only runs as a CLI, so the tests can import the pure functions above.
+if (process.argv[1]?.endsWith("sync-secrets.mjs")) {
+  main().catch((err) => {
+    console.error(`[sync-secrets] ${err.message}`);
+    process.exit(1);
+  });
+}
