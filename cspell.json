@@ -88,6 +88,9 @@
     // the identity header gets next. "welded" and "unwelded" are already this
     // repo's idiom and both are real words; only the bare verb is coined.
     "unweld",
+    // dnd-kit's own collision-detection argument, `args.droppableRects` — a
+    // real property name the palette drag-to-add plan's code will reference.
+    "Rects",
     "chrome",
     "chromes",
     "Sonique",
