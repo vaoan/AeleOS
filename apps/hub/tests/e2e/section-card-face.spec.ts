@@ -16,12 +16,7 @@ import {
   textColour,
   type Probe,
 } from "./support/pixels";
-import {
-  assertLastTriggerIsAContainers,
-  addBlock,
-  addSection,
-  openPageOptions,
-} from "./support/editor";
+import { addBlock, addSection, openPageOptions } from "./support/editor";
 
 // One sign-in for the whole file: every case below signs in as the
 // same shared identity and none depends on what an earlier case left
@@ -61,15 +56,20 @@ const STATE_PATH = sharedStatePath("section-card-face");
 // this is the file that photographs this element. Two of the three options
 // painted the same picture and the third read the SKIN's texture tile.
 //
-// **A test's own card is the LAST one.** Every page opens carrying the identity
-// section the database requires, and `add-section` appends — so `.first()` here
-// would reach for the identity section's controls instead, and a page-wide
-// `section-style-open` matches two buttons rather than one.
+// **The style controls are the Properties panel's own Appearance tab now
+// (2026-09-04), not a floating popup with its own trigger.** `SectionStylePopup`'s
+// trigger and panel are suppressed wherever the panel mounts `BlockCard`; the
+// identical fields render inline on `panel-tab-secondary` instead. There is
+// exactly one selection's fields on screen at a time, so there is no
+// `.last()`/`assertLastTriggerIsAContainers` ambiguity left to guard against —
+// reaching a different block's fields means reselecting that block first,
+// through its own `section-header` click, which always resets the panel to
+// its primary (Layout) tab.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 test.use({ storageState: STATE_PATH });
 
-/** Tall enough that a popup panel is never merely scrolled out of sight. */
+/** Tall enough that the panel is never merely scrolled out of sight. */
 const VIEWPORT = { width: 1280, height: 1400 };
 
 /**
@@ -213,6 +213,26 @@ async function darkestPixel(page: Page, target: Locator): Promise<number[]> {
   }, shot);
 }
 
+/**
+ * Selects the page and fills its identity fields, with no tab click needed:
+ * `panelContentFor`'s Page branch puts them on the PRIMARY tab, which
+ * `enterSelection` always resets to on selection.
+ *
+ * @param page - the editor page.
+ * @param handle - the fursona's handle.
+ * @param displayName - what to show.
+ */
+async function nameThePage(
+  page: Page,
+  handle: string,
+  displayName: string,
+): Promise<void> {
+  await page.getByTestId("select-page").click();
+  await expect(page.getByTestId("editor-handle")).toBeVisible();
+  await page.getByTestId("editor-handle").fill(handle);
+  await page.getByTestId("editor-display-name").fill(displayName);
+}
+
 let identity: TestIdentity | undefined;
 
 test.beforeAll(async ({ browser }) => {
@@ -230,22 +250,18 @@ test("author colours and skin change both real previews without restyling the wo
 }) => {
   await page.setViewportSize(VIEWPORT);
   await page.goto("/es/pages/new");
-  await openPageOptions(page);
-  await page.getByTestId("editor-handle").fill("themeboundary");
-  await page.getByTestId("editor-display-name").fill("Theme boundary");
+  await nameThePage(page, "themeboundary", "Theme boundary");
   await addSection(page, "1");
-  await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Boundary");
-  await page.getByTestId("inspector-tab-items").click();
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Previewed");
+  // `openPageOptions` selects Page and switches to its Theme (secondary) tab
+  // — unchanged in meaning, since Page's pairing has always been Page/Theme.
   await openPageOptions(page);
 
   const toolbar = page.getByTestId("editor-save");
   const identityInput = page.getByTestId("editor-display-name");
-  const inspector = page.getByTestId("canvas-inspector");
+  const inspector = page.getByTestId("properties-panel");
   // The section the tray renders. There is no boxed preview host any more —
   // the document carries the theme, so a section inherits it the way a
   // stranger's browser will.
@@ -359,30 +375,30 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   // Playwright device gives. Named here so a change to it fails by name.
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
-  await openPageOptions(page);
-  await page.getByTestId("editor-handle").fill("clipcheck");
-  await page.getByTestId("editor-display-name").fill("Clip check");
+  await nameThePage(page, "clipcheck", "Clip check");
 
   // Built by hand rather than from a template: a template inserts sections as
   // data without touching a single control, which would prove nothing about
   // the control under test.
   await addSection(page, "2");
-  await page.getByTestId("inspector-tab-options").click();
-
   // Collapsed keeps the control card compact while its sibling preview stays
-  // visible, making the two scopes unambiguous in the same viewport.
-  await page.getByTestId("collapse-section").last().click();
+  // visible, making the two scopes unambiguous in the same viewport. The
+  // section is already selected on its own Layout tab, where
+  // `collapse-section` already lives.
+  await page.getByTestId("collapse-section").click();
 
-  const panel = page.getByTestId("section-style-panel");
-  const card = page.getByTestId("section-card").last();
+  // **The Properties panel itself is the negative control now.** There is no
+  // separate floating popup any more — its own opaque background and its
+  // clip-path exemption are exactly the panel's, since the Appearance fields
+  // render inline inside it.
+  const panel = page.getByTestId("properties-panel");
+  const card = page.getByTestId("section-card");
   const preview = page
     .getByTestId("block-preview")
     .last()
     .getByTestId("public-section");
 
-  await assertLastTriggerIsAContainers(page, "section-style-open");
-  await page.getByTestId("section-style-open").last().click();
-  await expect(panel).toBeVisible();
+  await page.getByTestId("panel-tab-secondary").click();
   await page.getByTestId("section-style-skin").selectOption("cutout");
 
   // The choice really did land — otherwise everything below would be
@@ -396,9 +412,8 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
     "none",
   );
 
-  // The identity section can put the panel below the fold, where
-  // `elementFromPoint` answers null. Bring it on screen before using it as
-  // corroboration that the outside-scope controls remain operational.
+  // The panel is `fixed` on this viewport, so it needs no scrolling into
+  // view — kept anyway as a no-op safeguard against a narrower run.
   await panel.scrollIntoViewIfNeeded();
   const box = (await panel.boundingBox())!;
   const centre = {
@@ -410,60 +425,31 @@ test("cutout clips the real preview while AeleOS controls remain outside that sc
   // the negative control after the direct `clip-path: none` assertion above.
   //
   // Asked as "is the panel what is here" rather than "which test id is
-  // nearest": the second answer changes the day a field is added to the popup
+  // nearest": the second answer changes the day a field is added to the panel
   // and the centre lands on one, turning a passing test red about the wrong
   // thing.
   const hit = await page.evaluate(
     ({ x, y }) =>
       document
         .elementFromPoint(x, y)
-        ?.closest('[data-testid="section-style-panel"]') != null,
+        ?.closest('[data-testid="properties-panel"]') != null,
     centre,
   );
   expect(hit, "the panel is what is at its own centre").toBe(true);
 
-  // The popup also paints, rather than merely owning the hit target.
-  //
-  // **This used to photograph the same points with the panel open and then
-  // closed, and that instrument stopped being able to discriminate when the
-  // workbench moved into the inspector (2026-09-01).** The popup used to
-  // float over the author's own page, so the two readings separated by far
-  // more than the threshold of 20. It opens over AeleOS chrome now: measured,
-  // its centre reads `lab(98.7771 2.58219 2.48066)` open, and closed the same
-  // point is the card's own `add-content` — `rgba(0, 0, 0, 0)` over the same
-  // near-white surface — which is `apart` of 1. Nothing regressed; the
-  // photograph simply has nothing left to see, and raising or lowering the
-  // threshold would only choose which lie to tell.
-  //
-  // The second probe went with it for a reason of its own, and it is the
-  // sharper one: the point four pixels above the panel's foot answered
-  // `elementFromPoint` with NOTHING in both states, because the panel is
-  // `position: absolute` inside the inspector's own scrollport and its foot
-  // can sit below it. A probe outside the viewport reads the same nothing
-  // whether the panel paints or not.
-  //
-  // What replaces them answers the fault the photograph was written for — a
-  // transparent panel passing on hit-testing alone — directly rather than by
-  // difference. It does not catch a PARTLY transparent panel, and the
-  // photograph could no longer catch one either.
+  // The panel also paints, rather than merely owning the hit target.
   const background = await panel.evaluate(
     (el) => getComputedStyle(el).backgroundColor,
   );
   expect(background, "the panel paints a background of its own").not.toBe(
     "rgba(0, 0, 0, 0)",
   );
-  await page.keyboard.press("Escape");
-  await expect(panel).toBeHidden();
-  await card.scrollIntoViewIfNeeded();
 
-  // The popup remains ordinary AeleOS chrome outside the cutout scope. Reached
-  // by Tab from the skin select so `:focus-visible` genuinely applies, this
-  // confirms the negative-control half of the boundary still paints its ring.
-  // It is corroboration: the computed `clip-path: none` assertion above is the
-  // direct proof that the control card never entered the preview scope.
-  await assertLastTriggerIsAContainers(page, "section-style-open");
-  await page.getByTestId("section-style-open").last().click();
-  await expect(panel).toBeVisible();
+  // **The AeleOS focus ring outside the cutout scope, reached by Tab.** There
+  // is no popup to close and reopen any more — the skin select is still the
+  // last thing this test interacted with, so focusing it and tabbing forward
+  // is the whole of "reached by Tab from the skin select" now.
+  await page.getByTestId("section-style-skin").focus();
   const input = page.getByTestId("section-style-background-url");
   await page.keyboard.press("Tab");
   await expect(input).toBeFocused();
@@ -501,33 +487,31 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
-  await openPageOptions(page);
-  await page.getByTestId("editor-handle").fill("facecheck");
-  await page.getByTestId("editor-display-name").fill("Face check");
+  await nameThePage(page, "facecheck", "Face check");
   await addSection(page, "2");
-  // `addSection` leaves the pane on Options — its own TSDoc says so — so
-  // the section's empty places are not showing until Items is pressed.
-  await page.getByTestId("inspector-tab-items").click();
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  const tray = page.getByTestId("block-preview").last();
+  // The section is selected on its own Layout tab; the single global Add
+  // targets it directly, filling its first empty place.
+  await addBlock(page, { kind: "text" });
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
   await page.getByTestId("leaf-title").fill("Painted");
-  await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-tab-options").click();
-  await page.getByTestId("collapse-section").click();
 
-  const tray = page.getByTestId("block-preview").last();
   // **TWO elements, because the section SETS what the card CONSUMES.** The
   // skin's form arrives as custom properties on the section and is drawn by
   // each leaf's own `surface` card; the background picture is painted by the
   // section itself. The deleted face carried both at once, which is why this
-  // spec used to need one locator and now needs two. Reading the border off
-  // the section answers `0px` however the choice went — measured, it did.
+  // spec used to need one locator and now needs two.
   const section = tray.getByTestId("public-section");
   const face = tray.getByTestId("public-leaf").locator("div").first();
+
+  // Adding the leaf selected it; reselect the section itself, then collapse
+  // it and switch to its Appearance tab — no popup, no trigger, and nothing
+  // deselects it between here and the end of the test.
+  await tray.getByTestId("section-header").click();
+  await page.getByTestId("collapse-section").click();
+  await page.getByTestId("panel-tab-secondary").click();
 
   // **The skin's form, on the layer that paints it.** Delete `surface` from
   // that layer and the border is Preflight's `0`, which no other test in the
@@ -535,8 +519,6 @@ test("the face paints the skin, and a section's picture at full strength inside 
   // right colour, and the preview somebody is looking at while they choose
   // would simply stop answering. Pinned against `cutout`'s own `--skin-border`
   // in `skins.ts`, the same discipline the public renderer's tests use.
-  await assertLastTriggerIsAContainers(page, "section-style-open");
-  await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-skin").selectOption("cutout");
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).borderTopWidth))
@@ -544,33 +526,20 @@ test("the face paints the skin, and a section's picture at full strength inside 
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).clipPath))
     .toMatch(/^polygon\(/);
-  // **There is no face any more, and `face` here names the SECTION.** The tray
-  // used to paint an absolute backing beneath the real `Block`, so a viewport
-  // probe read the renderer above it rather than the backing — measured, colour
-  // distance was 5 whether or not the polygon was there, which is why this
-  // reads the computed clip rather than pixels. The tray paints nothing now and
-  // renders the real section, so what is asserted below is the element a
-  // visitor's browser resolves, and the first test checks the rendered
-  // boundary.
-  await page.keyboard.press("Escape");
-  await face.scrollIntoViewIfNeeded();
 
+  await face.scrollIntoViewIfNeeded();
   let box = (await face.boundingBox())!;
 
   // **The picture, at full strength and inside the corners.** Back to the
   // design's own radius first: `cutout` squares the card off, and the corner
   // bleed this guards against is only visible where the face is rounded and
   // the root is not.
-  await assertLastTriggerIsAContainers(page, "section-style-open");
-  await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-skin").selectOption("");
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
   await expect
     .poll(() => section.evaluate((el) => getComputedStyle(el).backgroundImage))
     .toContain(PICTURE.url);
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("section-style-panel")).toBeHidden();
   await face.scrollIntoViewIfNeeded();
 
   box = (await section.boundingBox())!;
@@ -598,14 +567,10 @@ test("the face paints the skin, and a section's picture at full strength inside 
   };
   const withPicture = await sampleColours(page, [spot]);
 
-  await assertLastTriggerIsAContainers(page, "section-style-open");
-  await page.getByTestId("section-style-open").last().click();
   await page.getByTestId("section-style-background-url").fill("");
   await expect
     .poll(() => section.evaluate((el) => getComputedStyle(el).backgroundImage))
     .not.toContain(PICTURE.url);
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("section-style-panel")).toBeHidden();
   const withoutPicture = await sampleColours(page, [spot]);
 
   expect(
@@ -638,49 +603,27 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await page.setViewportSize(VIEWPORT);
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
-  await openPageOptions(page);
-  await page.getByTestId("editor-handle").fill("readable");
-  await page.getByTestId("editor-display-name").fill("Readable");
+  await nameThePage(page, "readable", "Readable");
 
   // Composed by hand, content and all: a template inserts its sections as data
   // without touching one of these controls, so a template-built page would
   // measure the same pixels while proving nothing about the editor.
   await addSection(page, "1");
-  await page.getByTestId("inspector-tab-options").click();
+  const tray = page.getByTestId("block-preview").last();
   await page.getByTestId("section-name").fill("Section");
-  await page.getByTestId("inspector-tab-items").click();
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Item");
   await page.getByTestId("leaf-description").fill("A description");
-  await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-tab-options").click();
 
-  // **Scoped to the SECTION's own header, not a page-wide `.last()`.** A
-  // leaf can open its own style popup now, and the content just added has
-  // one — so a bare `.last()` on `section-style-open` would have reached
-  // past the section's own trigger to the leaf's, styling the wrong element.
-  // `leaf-style-open` is that trigger's own, distinct id now — see
-  // `SectionStylePopupProps.triggerTestId` — so a leaf could no longer
-  // answer this query even with no scoping at all. Kept anyway, because it
-  // says which element this is reaching for rather than leaving that to be
-  // inferred from the id alone.
-  await page
-    .getByTestId("section-header")
-    .last()
-    .getByTestId("section-style-open")
-    .click();
+  // Adding the leaf selected it; reselect the section to style IT rather
+  // than the leaf just added.
+  await tray.getByTestId("section-header").click();
+  await page.getByTestId("panel-tab-secondary").click();
   await page.getByTestId("section-style-background-url").fill(HOSTILE.url);
   await page.getByTestId("section-style-fit").selectOption("cover");
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("section-style-panel")).toBeHidden();
 
-  const card = page.getByTestId("section-card").last();
-  const face = page
-    .getByTestId("block-preview")
-    .last()
-    .getByTestId("public-section");
+  const card = page.getByTestId("section-card");
+  const face = tray.getByTestId("public-section");
   await expect
     .poll(() =>
       card.evaluate((el) => {
@@ -695,9 +638,13 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
       inline: "",
       background: expect.not.stringMatching(/rgba?\([^)]*(?:,\s*0|\/\s*0)\)/),
     });
-  // Focus is parked on the paintbrush the popup returned it to. Moved onto the
-  // selected section's own name so no field under a probe is wearing its focus ring,
-  // and no caret is blinking in one while the screenshot is taken.
+
+  // **Back to the Layout tab**, where `section-header`/`section-name`/
+  // `section-mode` live — the fields this test's own contrast probes measure.
+  await page.getByTestId("panel-tab-primary").click();
+  // Focus is parked on the section's own name so no field under a probe is
+  // wearing its focus ring, and no caret is blinking in one while the
+  // screenshot is taken.
   await page.getByTestId("section-name").click();
   await page.getByTestId("section-name").blur();
 
@@ -801,27 +748,13 @@ test("the three background fits are three different paints", async ({
   expect(await page.evaluate(() => devicePixelRatio)).toBe(1);
   await page.goto("/es/pages/new");
   await addSection(page, "2");
-  // `addSection` leaves the pane on Options — its own TSDoc says so — so
-  // the section's empty places are not showing until Items is pressed.
-  await page.getByTestId("inspector-tab-items").click();
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  const tray = page.getByTestId("block-preview").last();
+  await addBlock(page, { kind: "text" });
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
   await page.getByTestId("leaf-title").fill("Painted");
-  await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-tab-options").click();
-  await page.getByTestId("collapse-section").click();
 
-  const tray = page.getByTestId("block-preview").last();
-  // **TWO elements, because the section SETS what the card CONSUMES.** The
-  // skin's form arrives as custom properties on the section and is drawn by
-  // each leaf's own `surface` card; the background picture is painted by the
-  // section itself. The deleted face carried both at once, which is why this
-  // spec used to need one locator and now needs two. Reading the border off
-  // the section answers `0px` however the choice went — measured, it did.
   // **The SECTION, because the subject here is the picture.** A background
   // picture is painted by the section; a skin's edge is drawn by each leaf's
   // own card. The deleted face carried both, which is why this spec's two
@@ -829,8 +762,11 @@ test("the three background fits are three different paints", async ({
   // finds no inline style at all, which is how this one failed.
   const face = tray.getByTestId("public-section");
 
-  await assertLastTriggerIsAContainers(page, "section-style-open");
-  await page.getByTestId("section-style-open").last().click();
+  // Adding the leaf selected it; reselect the section itself, collapse it and
+  // switch to its Appearance tab.
+  await tray.getByTestId("section-header").click();
+  await page.getByTestId("collapse-section").click();
+  await page.getByTestId("panel-tab-secondary").click();
   await page.getByTestId("section-style-background-url").fill(PICTURE.url);
   await expect
     .poll(() => face.evaluate((el) => getComputedStyle(el).backgroundImage))
@@ -848,22 +784,18 @@ test("the three background fits are three different paints", async ({
    * card showed the copy ending between x=8 and x=12 and the backing beginning
    * between y=10 and y=20.
    *
-   * Taken with the panel closed, because the panel is a descendant of the card
-   * and would be the thing photographed instead.
+   * **No panel to close first.** The Appearance tab's fields render inline
+   * now rather than in a popup floating over the card, so there is nothing
+   * left occluding the probe points.
    *
    * @returns the two sampled colours.
    */
   const paints = async (): Promise<{ origin: number[]; away: number[] }> => {
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("section-style-panel")).toBeHidden();
     const box = (await face.boundingBox())!;
-    const sampled = await sampleColours(page, [
+    return (await sampleColours(page, [
       { name: "origin", x: Math.round(box.x) + 16, y: Math.round(box.y) + 16 },
       { name: "away", x: Math.round(box.x) + 60, y: Math.round(box.y) + 16 },
-    ]);
-    await assertLastTriggerIsAContainers(page, "section-style-open");
-    await page.getByTestId("section-style-open").last().click();
-    return { origin: sampled.origin!, away: sampled.away! };
+    ])) as { origin: number[]; away: number[] };
   };
 
   /**
@@ -977,31 +909,23 @@ test("the face does not paint over the section's own writing", async ({
   // the two indistinguishable at [23, 23, 23]. Same idiom as `responsive` and
   // `preview-fidelity`.
   await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
-  await openPageOptions(page);
-  await page.getByTestId("editor-handle").fill("veilcheck");
-  await page.getByTestId("editor-display-name").fill("Veil check");
+  await nameThePage(page, "veilcheck", "Veil check");
   await addSection(page, "1");
-  await page.getByTestId("inspector-tab-options").click();
+  const tray = page.getByTestId("block-preview").last();
   await page.getByTestId("section-name").fill("Legible heading");
-  await page.getByTestId("inspector-tab-items").click();
-  // **Two places, not one.** `addSection(page, "1")` still starts the
-  // container at the picker's own default of two children — narrowing to
-  // one place is a WIDTH, never a capacity — so both empty places exist at
-  // once here and the bare locator would be ambiguous.
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  // **`addSection(page, "1")` still starts the container at the picker's own
+  // default of two children — narrowing to one place is a WIDTH, never a
+  // capacity — so the second place stays empty and untouched.** The single
+  // global Add targets the selected section directly and fills its FIRST
+  // empty place, with no locator ambiguity left to guard against.
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Legible body");
-  await page.getByTestId("inspector-back").click();
-  await page.getByTestId("inspector-tab-options").click();
+
+  // Adding the leaf selected it; reselect the section and collapse it.
+  await tray.getByTestId("section-header").click();
   await page.getByTestId("collapse-section").click();
 
-  const heading = page
-    .getByTestId("block-preview")
-    .last()
-    .getByTestId("public-section")
-    .locator("h2")
-    .first();
+  const heading = tray.getByTestId("public-section").locator("h2").first();
   await expect(heading).toBeVisible();
 
   // What the section says its ink is, and what reached the glass.
@@ -1016,9 +940,7 @@ test("the face does not paint over the section's own writing", async ({
   // And the same claim one level in, because a leaf's writing sits deeper in
   // the tree than the section name and could be occluded by a layer the
   // heading escapes.
-  const leaf = page
-    .getByTestId("block-preview")
-    .last()
+  const leaf = tray
     .getByTestId("public-section")
     .getByTestId("public-leaf")
     .first();

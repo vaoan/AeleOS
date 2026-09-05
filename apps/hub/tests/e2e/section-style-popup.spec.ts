@@ -32,9 +32,9 @@ import { addSection } from "./support/editor";
 // `border-style-cascade.spec.ts`, both of which seed a block tree directly and
 // are unaffected.
 
-// The recursive inspector mounts only the selected card in Options, so the
-// popup locator below is singular even though the page carries required
-// identity blocks beside the section this test creates.
+// The Properties panel shows only the selected block's own fields, so the
+// locators below are singular even though the page carries required identity
+// blocks beside the section this test creates.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -59,7 +59,6 @@ test("a skin chosen in the popup paints the section preview at once", async ({
   // One section, built by hand — a template inserts sections as data without
   // touching a single control, which would prove nothing here.
   await addSection(page, "2");
-  await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Styled");
 
   const tray = page.getByTestId("block-preview").last();
@@ -81,8 +80,10 @@ test("a skin chosen in the popup paints the section preview at once", async ({
     ),
   ).toBe("");
 
-  await page.getByTestId("section-style-open").click();
-  await expect(page.getByTestId("section-style-panel")).toBeVisible();
+  // No trigger and no popup any more — the Appearance tab renders the same
+  // fields inline; switching to it is the whole of "opening" them now.
+  await page.getByTestId("panel-tab-secondary").click();
+  await expect(page.getByTestId("section-style-skin")).toBeVisible();
 
   // A skin distinctive enough that no other could produce these values by
   // coincidence, pinned against `skins.ts`'s own table for `neobrutalism`
