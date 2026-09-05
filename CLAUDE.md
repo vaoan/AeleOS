@@ -2391,6 +2391,19 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   next slice starting only once the previous one has actually merged —
   intermediate states may be incomplete but must never be broken.
 
+  **The implementation plan is written:**
+  `docs/superpowers/plans/2026-09-05-palette-drag-to-add.md`, nine tasks —
+  two domain functions (every valid insertion target for a palette item;
+  inserting a fresh block at one, wrapping a page-root leaf exactly as
+  `wrapLeafOnPage` already does), a keyboard-ordering pair mirroring
+  `block-drag.ts`'s own `placeOrder`/`stepPlace`, the Palette tab itself,
+  pointer wiring as a second `@dnd-kit` draggable kind in the SAME
+  `DndContext`, the virtual append-slot (a new optional `appendSlot` method
+  on `EditorRenderHook`, threaded through `blocks.tsx` at zero cost when
+  absent — the exact shape `wrap` already proves safe for public routes),
+  the keyboard equivalent, removing the superseded modal, and a closing
+  browser/accessibility/picture-proof pass. Nothing in it is built yet.
+
 ## The toolchain, and the rules it cost
 
 Full account, with every measurement:
