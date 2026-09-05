@@ -15,6 +15,7 @@ import {
   seedPage,
   SEEDED_IDENTITY_SECTIONS,
 } from "./support/blocks";
+import { selectBlock } from "./support/editor";
 import { tracksOf } from "./support/grid";
 import { DOCUMENT_VERSION } from "@/features/actors/domain/page-document";
 import enMessages from "@/shared/infrastructure/i18n/messages/en.json" with { type: "json" };
@@ -189,14 +190,15 @@ for (const width of [1280, 320]) {
     await page.goto(`/en/pages/${handle}/edit`);
     await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
-    // **Deselect first: the subject here is the DOCK.** The inspector opens
-    // with the page, and below `md` it is a `fixed` bottom sheet up to `70vh`
-    // tall — so at 320 it, and not the page, is what sits at the probe point
-    // once the dock collapses, and the reveal asserted below would be a
-    // reading of the wrong panel. Escape aimed at the body clears the
-    // selection; anything focused inside a control keeps its own Escape.
+    // **Deselect first: the subject here is the DOCK.** Nothing starts
+    // selected, but a page load can leave a selection from an earlier
+    // navigation; below `md` the Properties panel is a `fixed` bottom sheet
+    // up to `70vh` tall — so at 320 it, and not the page, is what sits at the
+    // probe point once the dock collapses, and the reveal asserted below
+    // would be a reading of the wrong panel. Escape aimed at the body clears
+    // the selection; anything focused inside a control keeps its own Escape.
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
+    await expect(page.getByTestId("properties-panel")).toHaveCount(0);
 
     await page.getByTestId("editor-open-source").click();
     const dock = page.getByTestId("page-source-dock");
@@ -469,17 +471,15 @@ for (const width of [1440, 320]) {
  * Selects the seeded `About` section and opens its own controls.
  *
  * The two cases below drive `section-name` as "an ordinary control somebody
- * else changed", and the recursive inspector mounts that control only while
- * the section owning it is the selected target on Options. `About` is the
- * first block of the seeded page — `seedPage` APPENDS its identity section —
- * so the first row of the page's Items is the one to enter.
+ * else changed". `About` is the first top-level block of the seeded page —
+ * `seedPage` APPENDS its identity section, so `About` sits at path `"0"` —
+ * and selecting a container opens the Properties panel directly on its
+ * Layout tab, where `section-name` already lives with no further tab click.
  *
  * @param page - the browser page, sitting on the seeded editor.
  */
 async function selectAboutOptions(page: Page): Promise<void> {
-  await page.getByTestId("select-page").click();
-  await page.getByTestId("inspector-item-open").first().click();
-  await page.getByTestId("inspector-tab-options").click();
+  await selectBlock(page, "0");
   await expect(page.getByTestId("section-name")).toBeVisible();
 }
 
