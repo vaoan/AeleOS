@@ -143,7 +143,7 @@ interface EditorSection {
  * close — a native `<details>` closes only through its own `<summary>`, and
  * nothing here pressed it again. That was harmless while the toolbar sat
  * BELOW the Properties panel (`z-20` against the panel's `z-30`): a `More`
- * left open behind the panel was covered and unclickable. The toolbar moved
+ * left open behind the panel was covered and could not be clicked. The toolbar moved
  * to `z-40` the same day, to fix `More`'s own items being unreachable while
  * the panel is open — and the reverse fault immediately became reachable:
  * `readEditor`, called mid-test with the panel open, left `More` open on top
