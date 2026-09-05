@@ -2345,37 +2345,51 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   than as 512, and the case was re-sabotaged after it, because a wait that
   turns a red green is the first thing to suspect of making it vacuous.
 
-- **The carrd-style page builder (2026-09-04) — DESIGNED and CHECKPOINTED,
-  not built.** `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`
+- **The carrd-style page builder (2026-09-04) — PARTIALLY BUILT.**
+  `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`
   supersedes the recursive Items/Options inspector: click the rendered block
   to select it, one focused Properties panel per selection, a single global
   Add, and dragging directly on the live canvas rather than through the
-  inspector's own sibling-only grips. PR #67 (`carrd-style-builder`) landed
-  the first working slice — direct dragging on the live renderer via
-  `EditableBlockFrame`, linear-insertion drop planning in `block-drops.ts`
-  for `stack`/`list`/`timeline` alongside `moveBlock`'s existing positional
-  swap for the grid-shaped modes — as a deliberate, documented checkpoint
-  with known merge blockers rather than a finished feature. The remaining
-  work is planned in seven phase documents,
-  `docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-{1..7}-*.md`:
-  closing the checkpoint's own merge blockers (the public-route bundle leak,
-  `canvas-place` ids not reaching the drag announcements, missing
-  discriminating coverage), the compact builder menu and unified Add, the
-  focused Properties panel itself, a drop-semantics audit against the
-  spec's full table, completing interaction (including a desktop/mobile
-  canvas-width simulation distinct from Preview), retiring the superseded
-  inspector paths, and full browser/accessibility/responsive proof. **Read
-  the phase plans, not this bullet, for the state of the work** — this
-  entry will go stale the moment a phase lands and is not the record to
-  trust past that point.
+  inspector's own sibling-only grips. **PR #67 (`carrd-style-builder`)
+  merged to `main` on 2026-09-05**, all six required checks green — direct
+  dragging on the live renderer via `EditableBlockFrame`, linear-insertion
+  drop planning in `block-drops.ts` for `stack`/`list`/`timeline` alongside
+  `moveBlock`'s existing positional swap for the grid-shaped modes, the
+  focused Properties panel (two fixed tabs per selection kind), and the
+  single global `AddBlockPicker` modal. The four `e2e` failures this bullet
+  once named as still-red on that PR are fixed and merged with it — read
+  `docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-1-checkpoint-blockers.md`'s
+  own "Phase 1 status" section for that account rather than trusting this
+  sentence past today, per rule 18 below. The remaining phase documents
+  (compact builder menu, drop-semantics audit against the spec's full table,
+  completing interaction, retiring superseded inspector paths, full
+  browser/accessibility/responsive proof) are unstarted; **the modal Add
+  path phase 2 would have replaced is itself now superseded** — see the next
+  bullet — so phase 2 as written no longer describes the plan.
 
-  **Phase 1 (closing the checkpoint's own merge blockers) landed on this
-  branch 2026-09-04** — `conformance` and `hub` both `SUCCESS` on PR #67,
-  `e2e` red on exactly the four pre-existing cases that phase's own plan
-  named and did not scope to fix. Its plan file's own "Phase 1 status"
-  section carries the measured bundle deltas and the four failures
-  verbatim — read that rather than this sentence, which is exactly the kind
-  of claim the paragraph above warns will go stale.
+- **Drag-to-add from a palette tab (2026-09-05) — DESIGNED, not built.**
+  `docs/superpowers/specs/2026-09-05-palette-drag-to-add-design.md`
+  supersedes the single global `AddBlockPicker` modal above: adding content
+  moves to a persistent **Palette tab** in the Properties panel (always
+  present, not a content tab but a mode switch — clicking it clears
+  selection), listing the same `add-samples.ts` templates as compact
+  mini-preview thumbnails you drag from. Picking one up highlights **every**
+  valid drop target on the whole page at once — every empty place, every
+  occupied place (which now accepts a drop everywhere by push-and-shift, not
+  only in the linear containers that already shift on reorder), and a
+  virtual append-a-new-row spot at the foot of every container, filtered by
+  `mayNest`/the depth cap for section-kind drags. Drop auto-selects the new
+  block and switches the panel to its own tabs. A keyboard path (Enter/Space
+  to pick up, arrows between targets, Tab to skip a section, Enter/Space to
+  drop, Escape to cancel) is required, not optional, since this replaces the
+  modal entirely rather than sitting beside it. `AddBlockPicker`,
+  `add-slot.tsx` and `add-target.ts` are slated for removal once this lands.
+  Dragging an **already-placed** block by its own grip is untouched — this
+  is a second, additive kind of drag for content that does not exist on the
+  page yet, sharing the same `DndContext`. Rollout is unattended: each slice
+  is its own branch, PR, full required-check run and auto-merge, with the
+  next slice starting only once the previous one has actually merged —
+  intermediate states may be incomplete but must never be broken.
 
 ## The toolchain, and the rules it cost
 
