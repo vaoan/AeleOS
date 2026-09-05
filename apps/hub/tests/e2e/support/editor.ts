@@ -156,6 +156,15 @@ export async function openPageOptions(page: Page): Promise<void> {
  * called would otherwise leave the sheet sitting over the very element the
  * click is aimed at, on a phone-width viewport.
  *
+ * **Waits for the canvas's own panel-accommodation transition to settle
+ * before returning ({@link waitForCanvasAccommodation}).** A caller reading
+ * a block's geometry (a grip's `boundingBox()`, for a drag) immediately
+ * after this resolves would otherwise race `block-editor.tsx`'s 210ms
+ * `padding-right` transition — the canvas's grid columns are laid out
+ * against whatever width the padding has reached at that instant, so a
+ * coordinate captured mid-transition can land on the wrong sibling once the
+ * layout finishes settling a moment later.
+ *
  * @param page - the editor page.
  * @param path - the block's hyphen-joined path, e.g. `"0"` or `"0-1"`.
  */
@@ -173,6 +182,54 @@ export async function selectBlock(page: Page, path: string): Promise<void> {
     panel,
     `selecting the block at "${path}" did not open the Properties panel`,
   ).toBeVisible();
+  await waitForCanvasAccommodation(page);
+}
+
+/**
+ * Waits for `[data-editor-stack]`'s own `padding-right` transition
+ * (`block-editor.tsx`, 210ms) to finish accommodating the Properties panel.
+ *
+ * **Every geometry read taken right after a selection races this
+ * transition, and the race is real rather than theoretical.** The canvas's
+ * grid columns are laid out against whatever width `padding-right` has
+ * reached at the instant something calls `boundingBox()`, so a coordinate
+ * captured mid-transition can land a click on the wrong sibling once the
+ * layout finishes settling a moment later — measured directly: the same
+ * click that resolves to the correct grip once this settles resolves to the
+ * NEIGHBOURING place, or to the section itself, while the padding is still
+ * animating. This mirrors `editor-bars-stay-pinned.spec.ts`'s own fix for
+ * the identical shape (the room a Save banner needs from the panel), and
+ * for the same reason: the wait states the RELATIONSHIP — the pad equals the
+ * panel's own width — rather than a copied pixel value, so it holds however
+ * the two widths are computed.
+ *
+ * **Below `md` this is a no-op**, checked from the viewport's own width
+ * rather than from the DOM: `md:pr-[...]` never applies there, so
+ * `padding-right` reads `0px` from the instant the panel mounts rather than
+ * animating toward it — reading that `0` as "settled" would resolve on
+ * every poll immediately, including the very first one on a desktop
+ * viewport before the transition has moved at all. The viewport width is
+ * known synchronously and is not itself racing anything.
+ *
+ * @param page - the editor page.
+ */
+async function waitForCanvasAccommodation(page: Page): Promise<void> {
+  const viewport = page.viewportSize();
+  if (!viewport || viewport.width < 768) return;
+  const panel = page.getByTestId("properties-panel");
+  await expect
+    .poll(async () => {
+      const [padRight, panelWidth] = await Promise.all([
+        page
+          .locator("section[data-editor-stack]")
+          .evaluate((el) => getComputedStyle(el).paddingRight),
+        panel.evaluate((el) => el.getBoundingClientRect().width),
+      ]);
+      return Math.round(parseFloat(padRight)) === Math.round(panelWidth)
+        ? "settled"
+        : `${padRight} vs ${panelWidth}`;
+    })
+    .toBe("settled");
 }
 
 /**

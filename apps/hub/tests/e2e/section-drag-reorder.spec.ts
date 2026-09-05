@@ -142,6 +142,21 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   await expect
     .poll(() => announcement.textContent())
     .toMatch(/Movido sobre 3\.$/);
+
+  // **The walk descends into a sibling's own empty places before moving to
+  // the next top-level position, by design — `keyboardDropTarget` offers
+  // every place the coordinate getter visits, and "Second" (now at
+  // top-level position 3) has two empty child places of its own from the
+  // picker's default two-child layout.** So reaching "Third" (top-level
+  // position 4) takes two more presses, through "3.1." and "3.2.", not one.
+  await page.keyboard.press("ArrowDown");
+  await expect
+    .poll(() => announcement.textContent())
+    .toMatch(/Movido sobre 3\.1\.$/);
+  await page.keyboard.press("ArrowDown");
+  await expect
+    .poll(() => announcement.textContent())
+    .toMatch(/Movido sobre 3\.2\.$/);
   await page.keyboard.press("ArrowDown");
   await expect
     .poll(() => announcement.textContent())
@@ -259,7 +274,14 @@ test("a nested sibling drag swaps visible places without disturbing the empty on
   await liftByKeyboard(page, page.getByTestId("canvas-drag-1.1"));
   await expect(announcement).not.toBeEmpty();
   await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s3\.$/);
+  // **Qualified with the section's own top-level position (2026-09-05).**
+  // The identity section that opens every fresh draft occupies top-level
+  // position "1", so this test's own section — the only one it adds — is
+  // "2", and every announcement for a place NESTED inside it carries that
+  // parent ordinal too: `<parent>.<child>.`, per this feature's own
+  // `CLAUDE.md`. An unqualified `\s3\.$` matched only before the identity
+  // section existed to shift the numbering.
+  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.3\.$/);
   await page.keyboard.press("Space");
 
   await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
@@ -283,10 +305,14 @@ test("a nested sibling drag swaps visible places without disturbing the empty on
   await liftByKeyboard(page, page.getByTestId("canvas-drag-1.2"));
   await expect.poll(() => announcement.textContent()).toMatch(/^Levantaste/);
 
+  // Qualified the same way as the setup move above: this section is
+  // top-level position "2", so its own places announce as "2.2." and
+  // "2.1." rather than the unqualified "2." and "1." an earlier draft of
+  // this test expected before the identity section shifted the numbering.
   await page.keyboard.press("ArrowUp");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.$/);
+  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.2\.$/);
   await page.keyboard.press("ArrowUp");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s1\.$/);
+  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.1\.$/);
 
   await page.keyboard.press("Space");
 
