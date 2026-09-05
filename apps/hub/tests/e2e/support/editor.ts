@@ -149,16 +149,28 @@ export async function openPageOptions(page: Page): Promise<void> {
  * than the container this call asked for. The corner is the container's own
  * padding or heading, never a descendant's.
  *
+ * **Closes an already-open panel first, exactly as {@link selectPage} does.**
+ * Below `md` the panel is a bottom sheet that can cover the canvas outright —
+ * `selectPage`'s own TSDoc carries the measurement — and the block this
+ * selects lives in that same canvas. A selection already open when this is
+ * called would otherwise leave the sheet sitting over the very element the
+ * click is aimed at, on a phone-width viewport.
+ *
  * @param page - the editor page.
  * @param path - the block's hyphen-joined path, e.g. `"0"` or `"0-1"`.
  */
 export async function selectBlock(page: Page, path: string): Promise<void> {
+  const panel = page.getByTestId("properties-panel");
+  if (await panel.isVisible()) {
+    await page.getByTestId("panel-close").click();
+    await expect(panel).toBeHidden();
+  }
   await page
     .locator(`[data-block-path="${path}"]`)
     .first()
     .click({ position: { x: 4, y: 4 } });
   await expect(
-    page.getByTestId("properties-panel"),
+    panel,
     `selecting the block at "${path}" did not open the Properties panel`,
   ).toBeVisible();
 }

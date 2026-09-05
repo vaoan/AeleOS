@@ -5,7 +5,12 @@ import {
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
-import { container, leaf, seedPage } from "./support/blocks";
+import {
+  container,
+  leaf,
+  seedPage,
+  SEEDED_IDENTITY_SECTIONS,
+} from "./support/blocks";
 import {
   establishSharedSession,
   sharedStatePath,
@@ -239,10 +244,13 @@ test.describe("every phone screen, signed in", () => {
       await page.getByTestId("panel-tab-primary").click();
       await page.getByTestId("template-picker").click();
       await page.getByTestId("template-reference-sheet").click();
-      // Applying a template does not itself change the selection; the first
-      // top-level section it wrote is selected directly on the canvas now,
-      // which lands on its own Layout tab with no further tab click needed.
-      await selectBlock(page, "0");
+      // Applying a template does not itself change the selection, and it
+      // does not replace the identity header either: `withRequiredBlocks`
+      // still prepends it at path "0" — the reference-sheet template's own
+      // first section, "The basics", lands at path "1"
+      // ({@link SEEDED_IDENTITY_SECTIONS}). Selecting it lands directly on
+      // its own Layout tab with no further tab click needed.
+      await selectBlock(page, String(SEEDED_IDENTITY_SECTIONS));
       await expect(page.getByTestId("section-name")).toBeVisible();
 
       await fits(page, `the editor at ${viewport.name}`);

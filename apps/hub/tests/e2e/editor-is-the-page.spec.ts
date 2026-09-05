@@ -702,6 +702,17 @@ test("every workbench group is opaque, whatever the page behind it", async ({
   const panel = page.getByTestId("properties-panel");
   await expect(panel.getByTestId("section-style-skin")).toBeVisible();
 
+  // The panel's own root is an `m.div` with an opacity entrance — see
+  // `editor-interaction.spec.ts`'s "entrance settles to its final state" —
+  // and a bare synchronous read races that fade exactly the way rule 26 of
+  // the root `CLAUDE.md` warns about. Measured once: `0.974665` rather than
+  // `1`, on a run reaching this test early enough that the panel's own open
+  // (from `addBlock` selecting the new section) had not yet settled. Poll
+  // until the fade is done before reading the rest.
+  await expect
+    .poll(() => panel.evaluate((el) => getComputedStyle(el).opacity))
+    .toBe("1");
+
   const seen = await panel.evaluate((el) => {
     const style = getComputedStyle(el);
     return {

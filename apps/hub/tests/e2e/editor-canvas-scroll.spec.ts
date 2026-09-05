@@ -123,6 +123,15 @@ test("the Properties panel and canvas scroll independently", async ({
   await page.setViewportSize({ width: 1280, height: 600 });
   const canvas = await openEditor(page);
   await page.getByTestId("select-page").click();
+  // Page's PRIMARY tab (identity fields plus the Add palette) is not tall
+  // enough on its own to overflow a 600px-high panel. The SECONDARY (Theme)
+  // tab's own colour, canvas and dial rows are — but only once `theme-open`
+  // expands that collapsed disclosure; the tab alone shows just its own
+  // trigger. Both are what give this case a pane genuinely taller than its
+  // own box, which is what the test needs to exercise independent scrolling
+  // at all.
+  await page.getByTestId("panel-tab-secondary").click();
+  await page.getByTestId("theme-open").click();
   const pane = page
     .getByTestId("properties-panel")
     .locator(".overflow-y-auto")
