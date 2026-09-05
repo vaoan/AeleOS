@@ -172,6 +172,10 @@ const stylePopupLabels = {
  * so presentation tests cannot accidentally collapse it into a stale-place
  * failure.
  *
+ * **Carries `panelTabPalette` too (2026-09-05)** — the Properties panel's
+ * persistent third tab, present whether or not anything is selected, unlike
+ * `panelTabAppearance`/`panelTabTheme` beside it.
+ *
  * @returns every label the block editor and its existing child controls need.
  */
 export function blockEditorLabels(): BlockEditorLabels {
@@ -187,6 +191,7 @@ export function blockEditorLabels(): BlockEditorLabels {
     addLayoutGroup: "Layout",
     panelTabAppearance: "Appearance",
     panelTabTheme: "Theme",
+    panelTabPalette: "Palette",
     cloneBlock: "Clone",
     cloneRefusedTooDeep: "That would nest one level too deep.",
     cloneRefusedTooMany: "That list cannot hold another block.",

@@ -194,13 +194,17 @@ for (const width of [1280, 320]) {
 
     // **Deselect first: the subject here is the DOCK.** Nothing starts
     // selected, but a page load can leave a selection from an earlier
-    // navigation; below `md` the Properties panel is a `fixed` bottom sheet
-    // up to `70vh` tall — so at 320 it, and not the page, is what sits at the
-    // probe point once the dock collapses, and the reveal asserted below
-    // would be a reading of the wrong panel. Escape aimed at the body clears
-    // the selection; anything focused inside a control keeps its own Escape.
+    // navigation. Escape aimed at the body clears the selection; anything
+    // focused inside a control keeps its own Escape.
+    //
+    // **The panel itself no longer disappears when deselected (2026-09-05)**
+    // — it renders unconditionally for its own persistent Palette tab, see
+    // `properties-panel.tsx`'s own TSDoc — so what proves the selection is
+    // clear is `panel-tab-primary` going `hidden`, not the panel's absence.
+    // The dock is `z-40` against the panel's `z-30`, so it still sits above
+    // the panel whatever the panel is showing.
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+    await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
 
     await openMore(page);
     await page.getByTestId("editor-open-source").click();

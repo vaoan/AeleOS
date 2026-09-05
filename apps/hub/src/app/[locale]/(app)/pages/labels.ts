@@ -265,6 +265,12 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * The drag refusal bag also distinguishes a valid linear destination whose
  * parent is already at the child cap. That `tooMany` outcome is ordinary
  * feedback from the drop planner, not a save error.
+ *
+ * **`panelTabPalette` names the Properties panel's persistent third tab
+ * (2026-09-05).** Unlike every other panel string above, it names nothing
+ * selection-dependent — the Palette tab reads the same whether Page, a
+ * container, a leaf or nothing at all is selected — so it is one fixed
+ * string rather than a set built per selection kind.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -389,6 +395,7 @@ export async function fursonaEditorLabels(
     addLayoutGroup: t("addLayoutGroup"),
     panelTabAppearance: t("panelTabAppearance"),
     panelTabTheme: t("panelTabTheme"),
+    panelTabPalette: t("panelTabPalette"),
     cloneBlock: t("cloneBlock"),
     cloneRefusedTooDeep: t("cloneRefusedTooDeep"),
     cloneRefusedTooMany: t("cloneRefusedTooMany"),

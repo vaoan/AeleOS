@@ -441,9 +441,13 @@ describe("FursonaEditor", () => {
     expect(lastActorRef).toBe("ref-1");
   });
 
-  it("starts without a properties panel and exposes page options through Page", () => {
+  // The panel renders unconditionally now (2026-09-05), for its own
+  // persistent Palette tab — see `properties-panel.tsx`'s own TSDoc. What
+  // "starts without" means here is that Page's own fields are absent and
+  // the Page/Theme tabs are `hidden`, not that the panel itself is gone.
+  it("starts without Page's own fields, and exposes them through Page", () => {
     renderEditor();
-    expect(screen.queryByTestId("properties-panel")).toBeNull();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
     expect(screen.queryByTestId("editor-handle")).toBeNull();
     expect(screen.queryByTestId("theme-open")).toBeNull();
 
@@ -451,6 +455,9 @@ describe("FursonaEditor", () => {
     expect(screen.getByTestId("editor-handle")).toBeInTheDocument();
     expect(screen.getByTestId("theme-open")).toBeInTheDocument();
     expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+      "hidden",
+    );
   });
 
   it("saves what was typed", async () => {
@@ -700,10 +707,17 @@ describe("FursonaEditor", () => {
       expect(controls).toHaveClass("flex", "min-h-0", "flex-1", "flex-col");
 
       fireEvent.click(screen.getByTestId("select-page"));
-      expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+      expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+        "hidden",
+      );
       fireEvent.click(screen.getByTestId("hide-controls"));
       expect(armed()).toBe("hidden");
-      expect(screen.queryByTestId("properties-panel")).toBeNull();
+      // The panel itself stays mounted through Preview now (its own
+      // `CHROME_SCOPE` root is exactly what the hide-controls rule removes
+      // by CSS in a real browser) — the selection-dependent tab going
+      // `hidden` again is what proves the selection was cleared here, in an
+      // isolated harness with no stylesheet to apply that rule.
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
       expect(form).not.toHaveClass(
         "h-[calc(100dvh-var(--bar-h))]",
         "overflow-hidden",
@@ -735,7 +749,7 @@ describe("FursonaEditor", () => {
       fireEvent.click(restore);
       expect(armed()).toBe("shown");
       expect(screen.queryByTestId("show-controls")).toBeNull();
-      expect(screen.queryByTestId("properties-panel")).toBeNull();
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
     } finally {
       Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
       Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
@@ -846,10 +860,12 @@ describe("FursonaEditor", () => {
     // `inert` behaviour) must still be refused by.
     it("selects a block from a canvas click only while locked", () => {
       renderEditor({ initialSections: linkPage() });
-      expect(screen.queryByTestId("properties-panel")).toBeNull();
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
 
       fireEvent.click(canvasLink()!);
-      expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+      expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+        "hidden",
+      );
     });
 
     it("does not select a block from a canvas click while page interaction is on", () => {
@@ -857,7 +873,7 @@ describe("FursonaEditor", () => {
       fireEvent.click(screen.getByTestId("interact-with-page"));
 
       fireEvent.click(canvasLink()!);
-      expect(screen.queryByTestId("properties-panel")).toBeNull();
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
     });
   });
 

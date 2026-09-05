@@ -6226,3 +6226,132 @@ given tests for this function are all forward-direction with a defined
 
 Nothing calls any of the three yet — still no palette tab, no drag, no
 keyboard handler. Those remain later tasks in the same feature.
+
+### A third, persistent Properties panel tab — visible, not yet draggable (2026-09-05) — Task 4 of 9, presentation
+
+`presentation/add-palette.tsx` ships `AddPalette`: the first user-visible
+piece of the Palette tab itself, a grouped list of compact thumbnails — one
+per `LeafKind`, one per `ContainerMode` — drawn by the REAL renderer
+(`Block` from `blocks.tsx`) over `domain/add-samples.ts`'s fixed sample
+content, mirroring `AddBlockPicker`'s own preview mechanism exactly, `inert`
+wrap included. **It is a deliberately incomplete-but-not-broken increment:
+nothing here is draggable yet.** Each thumbnail is a plain, unfocusable
+`<div>`; the modal `AddBlockPicker` remains the only way to actually add a
+block until a later task in this same feature wires a real
+`useDraggable`.
+
+**The brief's own `AddPaletteProps` omitted `page`/`locale`, and that was a
+real gap rather than a stylistic choice — closed rather than reproduced**,
+per root rule 24. The real renderer's own signature needs a `PageContext`
+and a locale to resolve an owner link, a fursona list and every other
+actor-aware leaf a sample might draw; both are threaded exactly as
+`AddBlockPickerProps` already threads them, and `AddPalette`'s own TSDoc
+says so explicitly rather than leaving the deviation implicit.
+
+**`PropertiesPanel` renders unconditionally now.** It used to return `null`
+outright with nothing selected; `PropertiesActiveTab` (`"primary" |
+"secondary" | "palette"`) replaces `PropertiesTab`, and the panel's three
+regions are ALWAYS mounted, switched by the native `hidden` attribute — the
+existing "hidden, never omitted" convention its two selection panes already
+used, extended to the panel itself. With nothing selected, the two
+selection-dependent tab BUTTONS carry `hidden`, never removed, while the
+Palette tab's own button stays reachable. `PropertiesPanelProps` gained
+`palette: ReactNode`, built once by the caller and shown whatever is or is
+not selected.
+
+**A real, pre-existing naming collision was resolved rather than left to
+collide further.** `block-editor.tsx` already had a lowercase local
+`addPalette` — JSX for the section-presets button and `TemplatePicker`,
+shown only alongside Page's own fields, a wholly different thing from the
+new `AddPalette` component. It is `pageStartOptions` now, throughout
+(`PanelContentInputs`'s field, `panelContentFor`'s parameter, and the local
+const), with its own TSDoc explaining exactly why the rename was necessary
+rather than cosmetic.
+
+**A real deferred-mount trap was found and closed, not hypothesised.**
+`AddPalette` is a persistent tab's content, not a dialog's — there is no
+`open` state to gate its previews behind the way `AddBlockPicker` gates its
+own. Passing it to `PropertiesPanel`'s `palette` prop unconditionally would
+mount all sixteen leaf-kind and eight container-mode previews, through the
+real renderer, on every render of `BlockEditor`, `player`/`jukebox` included
+— both of which reach `useTranslations` through `RetroPlayer` and crash
+outright without a real `NextIntlClientProvider`. This is exactly what
+happened first: every one of `fursona-editor.test.tsx`'s 46 cases crashed,
+because that file's `renderEditor()` harness — unlike `block-editor.test.tsx`'s
+own — does not wrap with the provider. `paletteOpened`, set once the
+Palette tab is first asked for and never reset, is the fix — the identical
+shape `PageSourceField`'s own `sourceMounted` guard already uses for the
+source dock, cited by name in both the state's own inline comment and
+`BlockEditor`'s function-level TSDoc.
+
+**The canvas accommodation padding needed retying, and this is the kind of
+consequence that is easy to miss when a component that "does not render
+without a selection" starts rendering unconditionally.** It was
+`currentSelection ? "md:pr-[...]" : ""`; left that way, the panel would cover
+the canvas's own right edge, unaccommodated, the instant nothing is
+selected — because the panel itself no longer agrees with that condition. It
+is tied to `controlsHidden` alone now, matching the CSS hide-controls rule
+that actually removes the panel (both are `CHROME_SCOPE`), with the
+reasoning stated inline at the class list and in the function's own TSDoc.
+
+**A real jsdom/Motion trap, already documented elsewhere in this feature,
+recurred here rather than being a new discovery — worth a second citation
+because it cost real debugging time before the existing note was found.**
+`toBeVisible()` cannot be used on anything under `PropertiesPanel`'s root:
+its `initial={{opacity:0}}` never animates to 1 in jsdom, so jest-dom reads
+every descendant as invisible via the "parent is also visible" check
+regardless of the `hidden` attribute a case actually cares about. Every new
+and modified test in `properties-panel.test.tsx`, `block-editor.test.tsx`
+and `fursona-editor.test.tsx` reads `.toHaveAttribute("hidden")` /
+`.not.toHaveAttribute("hidden")` directly instead.
+
+**Cascading test breakage across two files was fixed by discriminating
+harder, not by weakening assertions.** Both `block-editor.test.tsx` (6
+cases) and `fursona-editor.test.tsx` (4 cases, once the crash above was
+fixed) had asserted `queryByTestId("properties-panel")` was `null` as proof
+of "nothing selected" — now false unconditionally. Each was rewritten to
+assert what actually changed: `panel-tab-primary`'s `hidden` attribute, or
+selection-specific content (`leaf-editor` presence) — never the panel's own
+presence, which no longer discriminates anything.
+
+**The three standing questions, answered explicitly and separately, as this
+file's own opening rule requires:**
+
+1. **Is anything now false?** Yes, and it was corrected in the code's own
+   TSDoc in the same change rather than left for this note to flag from the
+   outside. `properties-panel.tsx`'s prior TSDoc said the component "does not
+   render when nothing is selected" and returned `@returns the panel, or
+nothing when deselected" — both rewritten. `block-editor.tsx`'s
+`BlockEditor`-level TSDoc said "The Properties panel starts deselected and
+   mounts only after a canvas or Page selection (2026-09-04)" — rewritten to
+   say it renders unconditionally and starts deselected showing only the
+   Palette tab.
+2. **Is anything still true but no longer quite how we work?** The claim "the
+   tablist always renders exactly two tabs, never a variable number" is now
+   imprecise rather than false: it is still exactly two SELECTION tabs per
+   selection kind, but the tablist itself always renders three buttons, the
+   third being the persistent, selection-independent Palette tab.
+   `properties-panel.tsx`'s own TSDoc now says "two SELECTION tabs... the
+   Palette tab is a third, fixed one beside them" rather than leaving the
+   older, now-imprecise sentence to stand alone.
+3. **Did this establish something the next person needs?** Three things,
+   none obvious from the code alone: first, a component whose previous
+   contract was "absent without a selection" can have that inverted to
+   "always present, selectively hidden" without every caller needing new
+   logic — `hidden` on the tab BUTTON and on the pane both already existed
+   as the pattern, and extending "unconditional" to the panel's own root
+   was the one remaining piece. Second, a persistent tab's content —
+   anything with no dialog `open` state to gate behind — needs its OWN
+   deferred-mount flag if mounting it unconditionally would be expensive or
+   would need setup (a provider, a real backend) a caller might not supply;
+   `paletteOpened` is that flag, and the next persistent-tab content this
+   feature grows should ask the same question before assuming
+   `PropertiesPanel`'s "hidden, never omitted" convention is free. Third,
+   changing what a component renders when its own gating condition (here,
+   `currentSelection`) is null is not contained to that component — anything
+   ELSE in the same file keyed to the same condition (here, the canvas's own
+   accommodation padding) needs re-examining in the same change, not
+   assumed to still agree.
+
+This tab renders and is reachable; dragging a thumbnail onto the canvas
+does nothing yet. That remains a later task in this same feature.
