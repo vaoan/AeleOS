@@ -187,12 +187,25 @@ export function stepInsertTarget(
  * **An absent `current` steps to the first entry going forward, or the
  * last going backward**, matching {@link stepInsertTarget}.
  *
+ * **Backward is not forward's mirror across three or more top-level
+ * sections.** `order.find` always scans from the start of the array
+ * regardless of direction, so forward correctly lands on the very next
+ * section (the smallest top-level index exceeding `current`'s can only
+ * belong to `current + 1`) — but backward lands on the SMALLEST top-level
+ * index less than `current`'s, which is section 0 whenever `current`'s own
+ * index is 2 or greater, not the immediately preceding section. Tab and
+ * Shift+Tab are therefore not exact inverses on a page of three or more
+ * sections. No caller exists yet; whoever wires the keyboard gesture this
+ * function is for should decide whether that asymmetry is acceptable or
+ * needs a corrected backward search before shipping it.
+ *
  * @param order - the targets, from {@link orderedInsertTargets}.
  * @param current - the target the drag is on now, or nothing if none is
  * highlighted yet.
  * @param forward - whether the step is towards the end of `order`.
- * @returns the first target of the next/previous section, or nothing when
- * there is none.
+ * @returns the first target of the next section going forward; the
+ * smallest-top-level-index target before `current` going backward, which is
+ * only always the previous section when there are at most two sections.
  */
 export function stepInsertSection(
   order: readonly InsertTarget[],

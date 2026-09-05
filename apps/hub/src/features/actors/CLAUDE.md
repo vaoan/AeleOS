@@ -6204,7 +6204,12 @@ coincides with "the immediately preceding section" when there are exactly
 two sections; every test written against this task uses either two sections
 or the boundary/page-root cases, so backward stepping through three or more
 sections is untested and its exact feel is for whichever task wires the
-actual Tab-back gesture to judge.
+actual Tab-back gesture to judge. **Review caught this note carrying the
+only account of it** — `stepInsertSection`'s own TSDoc still asserted
+unconditional adjacency in both directions, which is exactly the "confident,
+wrong instruction" shape this file warns about elsewhere. The export's own
+doc comment states the same caveat now, since a constraint on code that
+already exists belongs there rather than only here.
 
 Sabotage-verified: the brief's own named sabotage for `stepInsertSection`
 (strict `>`/`<` weakened to `>=`/`<=`) reddens exactly the three
