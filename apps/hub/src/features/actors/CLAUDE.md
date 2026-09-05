@@ -6068,7 +6068,10 @@ on a suite left alone.
   The two checks are reordered: `data-block-path` first, `CHROME_SCOPE`
   only once that has failed. The Page-control case this guard exists for is
   unaffected, because the pill is not nested inside any block's own
-  `data-block-path` subtree.
+  `data-block-path` subtree. Both live in `onCanvasClick`, and
+  `BlockEditor`'s own TSDoc carries a matching line — `check:docs` compares
+  a symbol against its own code and would have refused a fix landing here
+  without one.
 
 **A fifth failure in the same sweep, `editor-saves-page.spec.ts`'s template
 round trip, is a DIFFERENT and still-open bug — confirmed pre-existing by

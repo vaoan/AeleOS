@@ -1150,6 +1150,18 @@ function panelFootFor({
  * and renders identically, since `[data-controls="hidden"]` already zeroes
  * every `[data-editor-stack]` margin in CSS.
  *
+ * **`onCanvasClick` asks `data-block-path` before `CHROME_SCOPE`
+ * (2026-09-05).** An empty place's own wrapper carries `CHROME_SCOPE` too —
+ * see `EditableBlockFrame` — so checking that exemption first silently
+ * swallowed a click meant to select the enclosing container. The canvas's
+ * own capture-phase Escape-deselect handler also exempts
+ * `add-block-picker` now, alongside the panel and the source dock, for the
+ * same class of fault: the picker is portalled to `document.body` rather
+ * than nested inside either, so closing it with Escape cleared the
+ * selection the picker's own target depended on. See the actors feature
+ * note's account for both, found by this component's own e2e suite run for
+ * the first time against real Clerk credentials.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1420,10 +1432,18 @@ export function BlockEditor<T extends FieldValues>({
    * selection cleared anyway. Capture runs before anything can remove the
    * target, so the question is asked of a node still in the tree.
    *
-   * **The inspector and the source dock keep their own Escape.** Both hold
-   * controls that close themselves with it — the style popup, the icon
-   * picker, the dock's own dialog — and closing one of those must not also
-   * throw away what the author had selected.
+   * **The inspector, the source dock and the Add picker keep their own
+   * Escape.** All three hold controls that close themselves with it — the
+   * style popup, the icon picker, the dock's own dialog, `AddBlockPicker`'s
+   * own dialog — and closing one of those must not also throw away what the
+   * author had selected. `AddBlockPicker` is portalled to `document.body`
+   * rather than rendered inside the panel, which is exactly why it needs
+   * naming here rather than being reached through `properties-panel`'s own
+   * selector: it was left off this list once, and pressing Escape to close
+   * it silently cleared the current selection, retargeting the next Add at
+   * the page root instead of the container the author had open — found by a
+   * real depth-cap test failing with 8 layout options offered where the cap
+   * should have refused all of them.
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -1432,7 +1452,7 @@ export function BlockEditor<T extends FieldValues>({
       if (
         target instanceof HTMLElement &&
         target.closest(
-          '[data-testid="properties-panel"], [data-testid="page-source-dock"]',
+          '[data-testid="properties-panel"], [data-testid="page-source-dock"], [data-testid="add-block-picker"]',
         )
       ) {
         return;
@@ -1458,14 +1478,21 @@ export function BlockEditor<T extends FieldValues>({
     if (interactionsEnabled) return;
     const target = event.target as Element | null;
 
-    // **A CONTROL INSIDE THE CANVAS IS NOT THE PAGE.** The Page control rides
-    // the page now, which puts it inside this handler's own subtree: its click
-    // reaches here, matches no `data-block-path`, and would clear the very
-    // selection the press had just made — a button that visibly does nothing.
-    // The question is asked of `CHROME_SCOPE` rather than of that one button
-    // so the next control placed in the canvas does not re-open it.
-    if (target?.closest(`.${CHROME_SCOPE}`)) return;
-
+    // **`data-block-path` is asked FIRST, `CHROME_SCOPE` only once that has
+    // failed — reversed from an earlier version, and reversed for a real
+    // fault.** `EditableBlockFrame`'s own empty-place wrapper carries
+    // `CHROME_SCOPE` too, so Preview can hide its dashed placeholder box the
+    // same way it hides every other editor-only island — so a click landing
+    // on an EMPTY place (never itself carrying `data-block-path`, only
+    // `data-canvas-path`) matched `CHROME_SCOPE` on itself and returned
+    // before `closest("[data-block-path]")` ever ran, silently refusing to
+    // select the enclosing container. Checking `data-block-path` first fixes
+    // that without weakening the Page-control case this guard exists for:
+    // the Page control rides the page, inside this handler's own subtree,
+    // but is not nested inside any block's own `data-block-path` subtree, so
+    // it still falls through to the `CHROME_SCOPE` check below and is
+    // correctly ignored rather than clearing the selection a press had just
+    // made.
     const hit = target?.closest("[data-block-path]");
     if (hit instanceof HTMLElement && event.currentTarget.contains(hit)) {
       const path = parseBlockPath(hit.dataset.blockPath ?? "");
@@ -1475,6 +1502,7 @@ export function BlockEditor<T extends FieldValues>({
         return;
       }
     }
+    if (target?.closest(`.${CHROME_SCOPE}`)) return;
     setSelection(null);
   };
 

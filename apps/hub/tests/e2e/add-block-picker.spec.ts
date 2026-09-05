@@ -71,7 +71,17 @@ test("still adds a nested container to a full two-place section", async ({
   // the second call still lands in the section's next empty place with no
   // reselection needed.
   await addBlock(page, { kind: "text" });
+  // `newLeaf` starts a leaf's `title_en` empty, and `PlainLeaf` renders
+  // NOTHING for an empty title — the model's own rule, not a fault. Left
+  // untitled, both leaves below would render nothing at all and their
+  // enclosing section would collapse to zero height, which is un-clickable
+  // by construction rather than merely hard to find. The panel is already
+  // open on the leaf this add just selected, so give it real text before
+  // moving on, exactly as an author typing into the picker's own selection
+  // would.
+  await page.getByTestId("leaf-title").fill("One");
   await addBlock(page, { kind: "text" });
+  await page.getByTestId("leaf-title").fill("Two");
 
   // Both places are filled now — the exact shape that used to offer no way
   // in at all, since `add-nested` lived only on an empty place.
@@ -82,19 +92,37 @@ test("still adds a nested container to a full two-place section", async ({
   // Reselect the section itself — the leaf just added is what is currently
   // selected — so the Add targets the section rather than that leaf's
   // parent (which happens to be the same section, but the point is to
-  // exercise selecting the CONTAINER directly).
-  const tray = page.getByTestId("block-preview").last();
-  await tray.getByTestId("section-header").click();
-  const childrenBefore = await page.locator('[data-canvas-path^="1-"]').count();
+  // exercise selecting the CONTAINER directly). The canvas has no
+  // `section-header` of its own to click — that test id belongs to
+  // `BlockCard`, which only mounts inside the Properties panel's Layout
+  // tab — so selection goes through the same `[data-block-path]` click
+  // every other spec in this suite uses.
+  await selectBlock(page, "1");
+  // `^="1-"` alone would also match every place NESTED inside a child of
+  // "1" — the grid container this test adds two lines down starts with two
+  // empty places of its own, "1-2-0" and "1-2-1", both of which also begin
+  // with "1-". Counting only DIRECT children — exactly one more segment
+  // than "1" itself — is what tells "a third place appeared" apart from "a
+  // container with places of its own appeared".
+  const directChildPlaces = () =>
+    page
+      .locator("[data-canvas-path]")
+      .evaluateAll(
+        (els) =>
+          els.filter(
+            (el) =>
+              el.getAttribute("data-canvas-path")?.split("-").length === 2 &&
+              el.getAttribute("data-canvas-path")?.startsWith("1-"),
+          ).length,
+      );
+  const childrenBefore = await directChildPlaces();
   await addBlock(page, { mode: "grid" });
   // Adding a CONTAINER selects it — this is the third, newly appended place,
   // proving a full container still admits one more.
   await expect(page.locator('[data-block-path="1-2"]')).toBeVisible();
 
-  await tray.getByTestId("section-header").click();
-  await expect(page.locator('[data-canvas-path^="1-"]')).toHaveCount(
-    childrenBefore + 1,
-  );
+  await selectBlock(page, "1");
+  await expect.poll(directChildPlaces).toBe(childrenBefore + 1);
 
   await selectBlock(page, "1-2");
   // The new place is a CONTAINER's own card, not a leaf's — proof that what
