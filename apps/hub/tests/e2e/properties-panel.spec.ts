@@ -82,13 +82,18 @@ test("a sibling place stays empty and rendered once one place is filled", async 
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
+  // **A fresh fursona already carries one section — the identity header, at
+  // path `"0"`** (`withRequiredBlocks` composes it the moment the form
+  // opens; see `support/blocks.ts`'s `SEEDED_IDENTITY_SECTIONS`). The
+  // section this test adds through the page-level palette is therefore the
+  // SECOND top-level one, path `"1"`, not `"0"`.
   await openPageAdd(page);
   await addBlock(page, { mode: "grid" });
   // A freshly added section starts at two places, both empty, each
   // rendering `public-space` inside its own `data-canvas-path` wrapper —
   // present for every place, filled or not, in the editor as much as on a
   // public page.
-  await expect(page.locator('[data-canvas-path^="0-"]')).toHaveCount(2);
+  await expect(page.locator('[data-canvas-path^="1-"]')).toHaveCount(2);
 
   // The section itself is already selected, on its own primary tab, so the
   // one global Add targets it directly.
@@ -98,10 +103,10 @@ test("a sibling place stays empty and rendered once one place is filled", async 
   // The first place is now a real block, addressable by `data-block-path`;
   // the second is still an empty place, which — unlike a filled one — never
   // carries `data-block-path` at all.
-  await expect(page.locator('[data-block-path="0-0"]')).toHaveCount(1);
-  await expect(page.locator('[data-block-path="0-1"]')).toHaveCount(0);
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-1"]')).toHaveCount(0);
   await expect(
-    page.locator('[data-canvas-path="0-1"]').getByTestId("public-space"),
+    page.locator('[data-canvas-path="1-1"]').getByTestId("public-space"),
   ).toHaveCount(1);
 });
 
@@ -258,8 +263,8 @@ test("the save-refusal summary is readable while the panel is open", async ({
     const topmost = document.elementFromPoint(box.left + 8, box.top + 8);
     const panel = document.querySelector('[data-testid="properties-panel"]')!;
     return {
-      headingLeft: box.left,
-      panelRight: panel.getBoundingClientRect().right,
+      headingRight: box.right,
+      panelLeft: panel.getBoundingClientRect().left,
       coveredByPanel: Boolean(topmost && panel.contains(topmost)),
       topmost: topmost?.tagName ?? "none",
     };
@@ -270,7 +275,11 @@ test("the save-refusal summary is readable while the panel is open", async ({
     `the panel is on top of the banner's heading (${reading.topmost})`,
   ).toBe(false);
   // And it is clear of the panel rather than merely un-hit by one pixel.
-  expect(reading.headingLeft).toBeGreaterThanOrEqual(reading.panelRight);
+  // **The panel sits on the desktop RIGHT (2026-09-04), not the left** — see
+  // this test's own header comment — so clearing it means the heading's
+  // RIGHT edge stays at or before the panel's LEFT edge, the mirror of the
+  // original left-panel assertion this test was ported from.
+  expect(reading.headingRight).toBeLessThanOrEqual(reading.panelLeft);
 });
 
 test("the panel closes itself directly from a nested leaf", async ({

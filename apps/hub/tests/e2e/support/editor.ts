@@ -46,7 +46,7 @@ export const handleFor = (prefix: string): string =>
  *
  * @param page - the editor page.
  */
-async function selectPage(page: Page): Promise<void> {
+export async function selectPage(page: Page): Promise<void> {
   const panel = page.getByTestId("properties-panel");
   if (await panel.isVisible()) {
     await page.getByTestId("panel-close").click();
@@ -245,6 +245,38 @@ export async function addSection(page: Page, spaces: string): Promise<void> {
  */
 export async function openStyleFields(page: Page): Promise<void> {
   await page.getByTestId("panel-tab-secondary").click();
+}
+
+/**
+ * Opens the toolbar's "More" disclosure, if it is not already open.
+ *
+ * **Since 2026-09-04's "Group source JSON, Interact with page and Cancel
+ * under More"**, the page-source trigger (`editor-open-source`), the
+ * Interact-with-page switch (`interact-with-page`) and Cancel
+ * (`editor-cancel`) all live inside a native `<details>`/`<summary>`
+ * disclosure — `EditorToolbar` no longer renders any of the three as a
+ * flat, always-visible button. A closed `<details>` hides its non-`summary`
+ * children through the browser's own user-agent stylesheet, so a click
+ * aimed at one of them times out as "not visible" until the disclosure is
+ * opened first.
+ *
+ * Checks the `<details>` element's own `open` property rather than the
+ * summary's visibility or a class, because that property is the single
+ * source of truth the browser itself toggles — and checking it, rather
+ * than clicking the summary unconditionally, is what keeps this callable
+ * more than once in the same test without accidentally closing the
+ * disclosure back up on a second call.
+ *
+ * @param page - the editor page.
+ */
+export async function openMore(page: Page): Promise<void> {
+  const summary = page.getByTestId("editor-more");
+  const isOpen = await summary.evaluate(
+    (el) => (el.parentElement as HTMLDetailsElement).open,
+  );
+  if (!isOpen) {
+    await summary.click();
+  }
 }
 
 /**

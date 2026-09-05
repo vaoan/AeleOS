@@ -15,7 +15,7 @@ import {
   seedPage,
   SEEDED_IDENTITY_SECTIONS,
 } from "./support/blocks";
-import { selectBlock } from "./support/editor";
+import { openMore, selectBlock } from "./support/editor";
 import { tracksOf } from "./support/grid";
 import { DOCUMENT_VERSION } from "@/features/actors/domain/page-document";
 import enMessages from "@/shared/infrastructure/i18n/messages/en.json" with { type: "json" };
@@ -102,6 +102,7 @@ test("opens beside the page, reaching the right edge and the foot of the window"
   // `toBeVisible()` failure at this line is the display-none regression.
   await expect(dock).toBeHidden();
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   await expect(dock).toBeVisible();
 
@@ -146,6 +147,7 @@ test("reaches both edges of the window at a narrow viewport", async ({
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const dock = page.getByTestId("page-source-dock");
   await expect(dock).toBeVisible();
@@ -200,6 +202,7 @@ for (const width of [1280, 320]) {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("properties-panel")).toHaveCount(0);
 
+    await openMore(page);
     await page.getByTestId("editor-open-source").click();
     const dock = page.getByTestId("page-source-dock");
     await expect(dock).toBeVisible();
@@ -320,6 +323,7 @@ test("editing the box changes the page; breaking it leaves the page alone", asyn
   // so every text check in this file goes through `.innerText()` instead.
   expect(await preview.innerText()).toContain("Original words.");
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
   await expect(textarea).toBeVisible();
@@ -380,6 +384,7 @@ test("the copy control works with the reference collapsed, its default state", a
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const dock = page.getByTestId("page-source-dock");
   await expect(dock).toBeVisible();
@@ -432,6 +437,7 @@ for (const width of [1440, 320]) {
     await page.goto(`/en/pages/${handle}/edit`);
     await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
+    await openMore(page);
     await page.getByTestId("editor-open-source").click();
     const dock = page.getByTestId("page-source-dock");
     await expect(dock).toBeVisible();
@@ -541,6 +547,7 @@ test("a page edit refreshes the box when it is not focused", async ({
   // this case about the dock refreshing rather than about the two panels.
   await selectAboutOptions(page);
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
   await expect(textarea).toBeVisible();
@@ -567,6 +574,7 @@ test("a page edit does not clobber a focused box, and shows the drift notice", a
   // Reached before the dock opens, for the reason the case above gives.
   await selectAboutOptions(page);
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
   await expect(textarea).toBeVisible();
@@ -633,6 +641,7 @@ test("a round trip through copy and paste reproduces the page, weights included"
 
   await page.goto(`/en/pages/${sourceHandle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const sourceTextarea = page.getByTestId("page-source-textarea");
   await expect(sourceTextarea).toBeVisible();
@@ -648,6 +657,7 @@ test("a round trip through copy and paste reproduces the page, weights included"
 
   await page.goto(`/en/pages/${targetHandle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const targetTextarea = page.getByTestId("page-source-textarea");
   await expect(targetTextarea).toBeVisible();
@@ -714,6 +724,7 @@ test("a hostile theme does not break the page", async ({ page }) => {
 
   await page.goto(`/en/pages/${hostileHandle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
   await expect(textarea).toBeVisible();
@@ -772,6 +783,7 @@ test("an owner leaf pasted onto a person's page is refused before it ever reache
   await page.goto("/en/me/edit");
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
   await expect(textarea).toBeVisible();
@@ -822,6 +834,7 @@ test("escape closes the dock and returns focus to the control that opened it", a
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
   const opener = page.getByTestId("editor-open-source");
+  await openMore(page);
   await opener.click();
   const dock = page.getByTestId("page-source-dock");
   await expect(dock).toBeVisible();
@@ -855,6 +868,7 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
 
   await page.goto(`/en/pages/${hostileHandle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const textarea = page.getByTestId("page-source-textarea");
   await expect(textarea).toBeVisible();
@@ -963,6 +977,7 @@ test("expanding the reference leaves its summary on screen, and the block scroll
   await page.goto(`/en/pages/${handle}/edit`);
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const dock = page.getByTestId("page-source-dock");
   await expect(dock).toBeVisible();

@@ -13,10 +13,12 @@ import {
   addBlock,
   addSection,
   handleFor,
+  openMore,
   openPageAdd,
   openPageOptions,
   saveAndLeave,
   selectBlock,
+  selectPage,
   startFursona,
 } from "./support/editor";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
@@ -140,6 +142,7 @@ interface EditorSection {
  * @returns one entry per section, in the order the editor holds them.
  */
 async function readEditor(page: Page): Promise<EditorSection[]> {
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const dock = page.getByTestId("page-source-dock");
   await expect(dock).toBeVisible();
@@ -547,7 +550,9 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   const address = (await page.getByTestId("my-address").innerText()).trim();
 
   await page.goto("/es/me/edit");
-  await openPageOptions(page);
+  // Identity fields are on Page's primary tab; `openPageOptions` would land
+  // on the secondary (theme) tab instead.
+  await selectPage(page);
   await page.getByTestId("editor-display-name").fill("A Real Person");
   await page.getByTestId("editor-visibility").selectOption("public");
 

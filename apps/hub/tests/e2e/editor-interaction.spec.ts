@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { addBlock, addSection } from "./support/editor";
+import { addBlock, addSection, openMore } from "./support/editor";
 
 // WHAT THIS FILE PROVES.
 //
@@ -94,6 +94,7 @@ test("the toolbar switch makes that same link work while controls remain visible
   await signIn(page, await mintTicket(identity!.userId));
   await buildLinkPage(page);
 
+  await openMore(page);
   await page.getByTestId("interact-with-page").click();
   await expect(page.getByTestId("interact-with-page")).toHaveAttribute(
     "aria-pressed",
@@ -127,6 +128,7 @@ test("keyboard focus skips the locked link and reaches it once interaction is en
     "an inert link must not be focusable",
   ).toBe(false);
 
+  await openMore(page);
   await page.getByTestId("interact-with-page").click();
   await link.evaluate((el: HTMLElement) => el.focus());
   expect(

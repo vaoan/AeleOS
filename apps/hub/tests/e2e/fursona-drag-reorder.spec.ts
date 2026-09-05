@@ -10,7 +10,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { liftByKeyboard } from "./support/drag";
-import { openPageOptions } from "./support/editor";
+import { selectPage } from "./support/editor";
 
 // THE SAME FAULT AS section-drag-reorder.spec.ts, IN THE OTHER LIST.
 //
@@ -146,7 +146,9 @@ test("a fursona dragged by keyboard lands in its new position and survives a rel
   const handles = [`a${stamp}`, `b${stamp}`, `c${stamp}`];
   for (const handle of handles) {
     await page.goto("/es/pages/new");
-    await openPageOptions(page);
+    // Identity fields sit on Page's primary tab now, not behind
+    // `openPageOptions`'s secondary/theme tab.
+    await selectPage(page);
     await page.getByTestId("editor-handle").fill(handle);
     await page.getByTestId("editor-display-name").fill(handle);
     await page.getByTestId("editor-visibility").selectOption("public");

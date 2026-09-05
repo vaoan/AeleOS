@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { openPageOptions } from "./support/editor";
+import { openPageOptions, selectPage } from "./support/editor";
 import {
   establishSharedSession,
   sharedStatePath,
@@ -153,7 +153,10 @@ test.describe("signed in", () => {
 
       const handle = `e2e${Date.now().toString().slice(-9)}`;
       await page.goto("/es/pages/new");
-      await openPageOptions(page);
+      // Identity fields (`editor-handle`/`editor-display-name`/
+      // `editor-visibility`) are on Page's PRIMARY tab now, not behind
+      // `openPageOptions`'s secondary/theme tab.
+      await selectPage(page);
       await page.getByTestId("editor-handle").fill(handle);
       await page.getByTestId("editor-display-name").fill("End To End");
       await page.getByTestId("editor-visibility").selectOption("public");
@@ -225,9 +228,12 @@ test.describe("signed in", () => {
       await page.goto("/es/pages");
       await page.getByTestId("edit-my-profile").click();
       await page.waitForURL(/\/me\/edit$/, { timeout: 30_000 });
-      await openPageOptions(page);
+      // Identity fields first, on Page's primary tab, then switch to the
+      // secondary tab for the theme controls below.
+      await selectPage(page);
       await page.getByTestId("editor-display-name").fill("A Real Person");
       await page.getByTestId("editor-visibility").selectOption("public");
+      await page.getByTestId("panel-tab-secondary").click();
       await page.getByTestId("theme-open").click();
       await page.getByTestId("theme-skin").selectOption("candy");
       await page.getByTestId("editor-save").click();
@@ -336,7 +342,7 @@ test.describe("signed in", () => {
       await page.addStyleTag({
         content: "nextjs-portal{display:none!important}",
       });
-      await openPageOptions(page);
+      await selectPage(page);
       await page.getByTestId("editor-handle").fill(handle);
       await page.getByTestId("editor-display-name").fill("The Whole Journey");
       await page.getByTestId("editor-visibility").selectOption("public");
@@ -352,6 +358,7 @@ test.describe("signed in", () => {
       // default, and a skin. Every one of these travels a different route into
       // the page — and the skin travels a route none of the colours do, since it
       // is stored as a name and resolved into properties when the page renders.
+      await page.getByTestId("panel-tab-secondary").click();
       await page.getByTestId("theme-open").click();
       // **Copied FIRST, because a copy is a starting point.** The profile this
       // suite published earlier is themed, so the panel offers to take its look;
@@ -412,10 +419,11 @@ test.describe("signed in", () => {
       await page.addStyleTag({
         content: "nextjs-portal{display:none!important}",
       });
-      await openPageOptions(page);
+      await selectPage(page);
       await expect(page.getByTestId("editor-display-name")).toHaveValue(
         "The Whole Journey",
       );
+      await page.getByTestId("panel-tab-secondary").click();
       await page.getByTestId("theme-open").click();
       await expect(page.getByTestId("theme-skin")).toHaveValue("neobrutalism");
       await page.getByTestId("editor-save").click();
