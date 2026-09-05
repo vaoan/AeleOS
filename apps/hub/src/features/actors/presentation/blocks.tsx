@@ -58,6 +58,37 @@ import { CORNER_CLASS } from "@/features/actors/presentation/block-contract";
 export type { PageContext } from "@/features/actors/presentation/block-contract";
 
 /**
+ * Editor-owned wrapping around one rendered block or empty place.
+ *
+ * **This file never imports the module that builds one.** `blocks.tsx`
+ * renders every public route as well as the editor canvas, so a static
+ * import of the editor's own drag wrapper here would pull `@dnd-kit` into
+ * every public route's bundle whether or not any instrumentation ever
+ * mounts — exactly the fault the "public routes have their own barrel"
+ * account in `apps/hub/src/features/actors/CLAUDE.md` already fixed once
+ * for Motion. `wrap` is constructed by `block-editor.tsx`, the file that
+ * already only exists on editor routes, and handed down through the same
+ * `editor` prop that already threads through this recursion.
+ */
+export interface EditorRenderHook {
+  /**
+   * Wraps one rendered block or empty positional place.
+   *
+   * Takes the renderer path (`""` for the page itself), whether a block
+   * currently fills that place, and the unmodified rendered node.
+   *
+   * @returns the node, optionally wrapped with editor-only chrome. The
+   * caller is responsible for any `key` a surrounding `.map()` needs — this
+   * function's own return value is not itself a list item.
+   */
+  wrap(args: {
+    readonly path: string;
+    readonly filled: boolean;
+    readonly children: ReactNode;
+  }): ReactNode;
+}
+
+/**
  * What one block needs to render itself and everything beneath it.
  *
  * **`path` and `labelled` are both about the PARENT**, which is what makes the
@@ -78,6 +109,11 @@ export type { PageContext } from "@/features/actors/presentation/block-contract"
  * {@link PageContext}. It is the deployment's and the actor's own data,
  * resolved by the route and threaded unchanged the whole way down to the
  * leaves that read it. It shares the recursion rather than the meaning.
+ *
+ * **`editor` is the other exception and changes no page content.** When
+ * present, it is an {@link EditorRenderHook} this file calls but never
+ * constructs, so public routes — which omit it — never name the module that
+ * builds one and retain the ordinary renderer markup.
  */
 export interface BlockProps {
   /** The block to render, as parsed. */
@@ -134,6 +170,13 @@ export interface BlockProps {
    * first render rather than silent.
    */
   labelled?: boolean;
+  /**
+   * Editor-owned wrapping for direct manipulation of this rendered tree.
+   *
+   * Absent on public routes, where the renderer emits exactly its ordinary
+   * markup with no wrapping at all. See {@link EditorRenderHook}.
+   */
+  editor?: EditorRenderHook;
 }
 
 /** What every entry in {@link MODES} is handed. */
@@ -148,6 +191,8 @@ interface ModeProps {
   path: string;
   /** Threaded to the children — see {@link BlockProps.page}. */
   page: PageContext;
+  /** Threaded only while the live renderer is acting as the editor canvas. */
+  editor?: EditorRenderHook;
 }
 
 /** One arrangement, as a component over {@link ModeProps}. */
@@ -456,6 +501,18 @@ function filledSeatsOf(props: ModeProps): FilledSeat[] {
 }
 
 /**
+ * Empty positional places that public tabs and disclosures normally omit.
+ *
+ * @param props - the mode and optional editor instrumentation.
+ * @returns empty seats only while the renderer is an editable canvas.
+ */
+function editableEmptySeats(props: ModeProps): Seat[] {
+  return props.editor
+    ? seatsOf(props).filter((seat) => seat.block === null)
+    : [];
+}
+
+/**
  * One place of a container: what is in it, or the room it keeps for nothing.
  *
  * **An empty place renders an element that occupies its position and draws
@@ -477,7 +534,16 @@ function filledSeatsOf(props: ModeProps): FilledSeat[] {
  * @returns the child, or the empty place, keyed by its path.
  */
 function placeIn(props: ModeProps, seat: Seat, labelled = true): ReactNode {
-  if (!seat.block) return <div key={seat.path} {...tid("public-space")} />;
+  if (!seat.block) {
+    const space = <div {...tid("public-space")} />;
+    return props.editor ? (
+      <Fragment key={seat.path}>
+        {props.editor.wrap({ path: seat.path, filled: false, children: space })}
+      </Fragment>
+    ) : (
+      <div key={seat.path} {...tid("public-space")} />
+    );
+  }
   return (
     <Block
       key={seat.path}
@@ -487,6 +553,7 @@ function placeIn(props: ModeProps, seat: Seat, labelled = true): ReactNode {
       path={seat.path}
       page={props.page}
       labelled={labelled}
+      editor={props.editor}
     />
   );
 }
@@ -766,6 +833,11 @@ function Tabs(props: ModeProps): ReactNode {
           </Fragment>
         );
       })}
+      {editableEmptySeats(props).map((seat) => (
+        <div key={seat.path} className="order-2 mt-2 w-full">
+          {placeIn(props, seat)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -802,7 +874,8 @@ function Tabs(props: ModeProps): ReactNode {
  */
 function Accordion(props: ModeProps): ReactNode {
   const seats = filledSeatsOf(props);
-  if (seats.length === 0) return null;
+  const emptySeats = editableEmptySeats(props);
+  if (seats.length === 0 && emptySeats.length === 0) return null;
   return (
     <div
       className={`overflow-hidden ${CORNER_CLASS} surface border-(--edge) bg-(--surface)`}
@@ -821,6 +894,11 @@ function Accordion(props: ModeProps): ReactNode {
             {placeIn(props, seat, false)}
           </div>
         </details>
+      ))}
+      {emptySeats.map((seat) => (
+        <div key={seat.path} className="p-2">
+          {placeIn(props, seat)}
+        </div>
       ))}
     </div>
   );
@@ -1119,6 +1197,11 @@ function Leaf(props: LeafProps): ReactNode {
  * Every rendered block also exposes its positional `data-block-path`. Public
  * pages ignore that inert attribute; the editor canvas uses it to map a click
  * back to the same array path the existing edit and drag functions consume.
+ * When an {@link EditorRenderHook} is supplied, this function calls its
+ * `wrap` on every filled block and otherwise-invisible empty place rather
+ * than constructing the wrapper itself — see {@link BlockProps.editor} for
+ * why this file never imports the module that builds one. Public rendering
+ * remains on the unwrapped branch.
  */
 export function Block({
   block,
@@ -1127,11 +1210,12 @@ export function Block({
   path,
   page,
   labelled = true,
+  editor,
 }: BlockProps): ReactNode {
   const style = blockStyle(block.style);
 
   if (!isContainer(block)) {
-    return (
+    const rendered = (
       <div
         className="@container min-w-0"
         style={style}
@@ -1142,6 +1226,9 @@ export function Block({
         <Leaf leaf={block} locale={locale} labelled={labelled} page={page} />
       </div>
     );
+    return editor
+      ? editor.wrap({ path, filled: true, children: rendered })
+      : rendered;
   }
 
   // A mode is a render FUNCTION and is called as one, never mounted as
@@ -1240,7 +1327,7 @@ export function Block({
   // out at the point of use.
   const headingMarker = barred ? tid("heading-bar") : {};
 
-  return (
+  const rendered = (
     <section
       className={`@container grid min-w-0 grid-cols-[minmax(0,1fr)] ${HEADING_GAP.get(block.style?.heading_gap ?? "") ?? (barred ? "gap-0" : "gap-3")}`}
       style={style}
@@ -1258,9 +1345,13 @@ export function Block({
         depth,
         path,
         page,
+        editor,
       })}
     </section>
   );
+  return editor
+    ? editor.wrap({ path, filled: true, children: rendered })
+    : rendered;
 }
 
 /**

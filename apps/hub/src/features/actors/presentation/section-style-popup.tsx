@@ -1172,6 +1172,62 @@ function StylePopupFields(props: StylePopupFieldsProps): ReactElement {
 }
 
 /**
+ * What {@link StyleFields} needs — the same shape as
+ * {@link SectionStylePopupProps} minus `triggerTestId`, which names nothing
+ * once there is no trigger to open.
+ */
+export type StyleFieldsProps = Omit<SectionStylePopupProps, "triggerTestId">;
+
+/**
+ * Every field a block's own style bag offers, gated by {@link StyleGates},
+ * with no trigger and no popup shell around it.
+ *
+ * **The Properties panel's Appearance tab (2026-09-04).** This is the same
+ * form `SectionStylePopup` has always opened behind a paintbrush button —
+ * `StylePopupFields` below, unexported and unchanged — mounted inline
+ * instead: `id`/`style`/`setField` are computed here exactly as
+ * `SectionStylePopup` computes them for itself, and nothing about the
+ * gating, the fields, or what `onChange` is handed differs. `BlockCard` and
+ * `leaf-editor.tsx` still mount `SectionStylePopup` for their own
+ * `showChildren`-legacy and unit-test call sites; the panel's own Appearance
+ * tab is built from this export instead, fed the identical `value`/
+ * `onChange`/`gates` those two components already compute for their own
+ * `SectionStylePopup` mount.
+ *
+ * @returns every field the block's own style bag offers, ungated fields
+ * included.
+ */
+export function StyleFields({
+  value,
+  onChange,
+  labels,
+  gates,
+}: StyleFieldsProps): ReactElement {
+  const id = useId();
+  const style = value ?? {};
+
+  const setField = <K extends keyof SectionStyle>(
+    key: K,
+    fieldValue: SectionStyle[K] | "",
+  ) => {
+    const next: SectionStyle = { ...style };
+    if (fieldValue === "") delete next[key];
+    else next[key] = fieldValue;
+    onChange(Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  return (
+    <StylePopupFields
+      id={id}
+      labels={labels}
+      gates={gates}
+      style={style}
+      setField={setField}
+    />
+  );
+}
+
+/**
  * A paintbrush button and the popup it opens: one section's own skin,
  * background picture, card size and border, apart from its layout.
  *

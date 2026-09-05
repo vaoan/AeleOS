@@ -1151,6 +1151,17 @@ list --state open` returning nothing else.
   identity from `gh api user` — never from `git config --global` and never
   from a hardcoded name or email. The procedure is
   [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md).
+
+  **This was skipped on `carrd-style-builder` (2026-09-05): several commits
+  fell through to the machine's own global identity — a real work account,
+  correct for that machine's other repositories — instead of `--local` set
+  from `gh api user`, leaking it onto the PR.** Fixed by rewriting only the
+  affected commits' author/committer and force-pushing; the global identity
+  was left exactly as found. **Never touch the global identity to fix
+  this** — set `--local` in this repo from `gh api user` before the first
+  commit of the session, every session. See `docs/git-with-gh-token.md`'s
+  own troubleshooting entry for the full account.
+
 - **Picture proof on the PR is part of the work, not a follow-up.** Opening a
   pull request, and every later commit that lands on a branch that already has
   one open, ends with photographs posted **as a comment on that PR** — so a
@@ -1624,6 +1635,16 @@ replace`, so the newest body of a function could sit in a file named after
   a ruling rather than a change to the model — the positions are stored either
   way.
 
+  **Corrected 2026-09-04: that refusal held everywhere until the Carrd-style
+  page builder, and now holds only for POSITIONAL modes.** `stack`, `list`
+  and `timeline` insert-and-shift now, through `domain/block-drops.ts`'s
+  `applyLinearDrop` and `LINEAR_MODES` — see
+  `apps/hub/src/features/actors/CLAUDE.md`'s dragging section for the
+  mechanism. The reasoning above is unchanged and still current for `grid`,
+  `masonry`, `carousel`, `tabs` and `accordion`, where a place is still
+  positional and shifting one would still move a shape somebody deliberately
+  left.
+
   Two domain boundaries carry the current design. `moveBlock`
   (`domain/block-moves.ts`) still decides what any valid exchange MEANS, with
   no library in sight; `moveSiblingBlock` admits that operation only when both
@@ -1890,6 +1911,20 @@ replace`, so the newest body of a function could sit in a file named after
   `docs/superpowers/specs/2026-09-01-recursive-inspector-drill-down-design.md`.
   Plan:
   `docs/superpowers/plans/2026-08-31-canvas-inspector-builder.md`.
+
+- **Carrd-style builder migration — PARTIAL CHECKPOINT (2026-09-04).** The
+  approved design supersedes the recursive Items list and sibling-only drag
+  surface while preserving the stored document and public renderer. The first
+  slice is implemented: the live renderer accepts editor-only instrumentation,
+  selected blocks expose accessible grips, and direct canvas drops insert in
+  `stack`/`list`/`timeline` while positional layouts keep place semantics.
+  Public pages, Preview and interact mode omit the instrumentation.
+
+  The compact builder menu, focused Properties panel, unified Add placement,
+  removal of superseded inspector paths and full browser/picture proof are
+  deliberately NOT complete in this checkpoint. Continue from
+  `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`;
+  `apps/hub/src/features/actors/CLAUDE.md` owns the implementation details.
 
 - **Editor interaction, adding and motion — DESIGNED, NOT BUILT
   (2026-09-02).** Page links, players and embeds are real inside the canvas
@@ -2309,6 +2344,38 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   (the pad equals the panel's own width, both being `min(36rem,40vw)`) rather
   than as 512, and the case was re-sabotaged after it, because a wait that
   turns a red green is the first thing to suspect of making it vacuous.
+
+- **The carrd-style page builder (2026-09-04) — DESIGNED and CHECKPOINTED,
+  not built.** `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`
+  supersedes the recursive Items/Options inspector: click the rendered block
+  to select it, one focused Properties panel per selection, a single global
+  Add, and dragging directly on the live canvas rather than through the
+  inspector's own sibling-only grips. PR #67 (`carrd-style-builder`) landed
+  the first working slice — direct dragging on the live renderer via
+  `EditableBlockFrame`, linear-insertion drop planning in `block-drops.ts`
+  for `stack`/`list`/`timeline` alongside `moveBlock`'s existing positional
+  swap for the grid-shaped modes — as a deliberate, documented checkpoint
+  with known merge blockers rather than a finished feature. The remaining
+  work is planned in seven phase documents,
+  `docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-{1..7}-*.md`:
+  closing the checkpoint's own merge blockers (the public-route bundle leak,
+  `canvas-place` ids not reaching the drag announcements, missing
+  discriminating coverage), the compact builder menu and unified Add, the
+  focused Properties panel itself, a drop-semantics audit against the
+  spec's full table, completing interaction (including a desktop/mobile
+  canvas-width simulation distinct from Preview), retiring the superseded
+  inspector paths, and full browser/accessibility/responsive proof. **Read
+  the phase plans, not this bullet, for the state of the work** — this
+  entry will go stale the moment a phase lands and is not the record to
+  trust past that point.
+
+  **Phase 1 (closing the checkpoint's own merge blockers) landed on this
+  branch 2026-09-04** — `conformance` and `hub` both `SUCCESS` on PR #67,
+  `e2e` red on exactly the four pre-existing cases that phase's own plan
+  named and did not scope to fix. Its plan file's own "Phase 1 status"
+  section carries the measured bundle deltas and the four failures
+  verbatim — read that rather than this sentence, which is exactly the kind
+  of claim the paragraph above warns will go stale.
 
 ## The toolchain, and the rules it cost
 
@@ -3310,6 +3377,48 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     as wrong on sight. **A grammar rule that permits a form is not a
     judgement that it reads well**, and where no checker runs, a native
     reader is the check: escalate rather than adjudicate.
+
+    **The two rulings this rule and rule 41 make together were both used the
+    same day, on the same commit (2026-09-04).** `Carrd` — the product this
+    branch's own design is named after, recurring in TSDoc, a test file's own
+    header comment and the feature's living documentation — earned a
+    dictionary entry under rule 41's "a word the CODE needs" standard; a
+    stray negated-adjective coinage in a sibling phase plan's prose, used
+    once and only there to describe a control nothing had audited yet, was
+    reworded instead, under the same rule's other half. And `angaritamaldonado` — the machine-specific home-directory
+    basename baked into several already-committed `cd /Users/...` example
+    commands across this feature's seven phase plans — went in beside the
+    existing `Heiner`/`Angarita` entries for the same person, the identical
+    reasoning that already justified `vaoan` and `rmellis` sitting in this
+    same list: a real, recurring token rather than a coinage.
+
+43. **A completely ABSENT `apps/hub/.env.local` fails silently rather than
+    loudly, and the resulting error is unrecognizable as a config problem.**
+    `next dev` reads `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` from that file via
+    its own dotenv loader; find it missing and `@clerk/nextjs` does not
+    refuse to start — it auto-provisions a throwaway "keyless" instance under
+    a fresh random `*.clerk.accounts.dev` domain on every boot, writing its
+    own debug state to `apps/hub/.clerk/.tmp.stale-*`. A Clerk session token
+    minted against the REAL instance (`.secrets`' `CLERK_SECRET_KEY`, which
+    every e2e case uses) can never validate against that random instance's
+    JWKS, so every signed-in `e2e` case fails on a `kid` mismatch — a signature
+    that reads exactly like a Clerk outage or a race between concurrent test
+    runs, not like a missing file, and cost real time chasing both wrong
+    theories first (2026-09-04).
+
+    The fix was the one-time, per-machine step `.env.example`'s own header
+    already names — `cp apps/hub/.env.example apps/hub/.env.local`, then
+    paste the four values from `.secrets` — which had simply never been done
+    on that machine; `.secrets` being populated says nothing about whether
+    this separate, differently-named-keys file exists. `pnpm sync-secrets`
+    now creates `apps/hub/.env.local` automatically when it is absent
+    (`syncHubEnvLocal` in `scripts/sync-secrets.mjs`), and never touches one
+    that already exists — so a deliberate local-Docker-stack override
+    (`.env.example`'s own documented alternate path) is never at risk, and a
+    fresh clone cannot land in this state at all. The diagnostic habit for
+    everyone else: when a signed-in `e2e` case fails on a JWKS/`kid`
+    mismatch, check whether `apps/hub/.env.local` exists before suspecting
+    Clerk itself or a concurrent run.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

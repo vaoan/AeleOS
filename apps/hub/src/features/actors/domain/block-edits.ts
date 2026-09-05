@@ -396,6 +396,71 @@ export function removeAt(blocks: readonly Block[], path: BlockPath): Block[] {
 }
 
 /**
+ * The same list with a block spliced in at the named index, shifting later
+ * entries up.
+ *
+ * **The path is the destination index, which may be one past the last entry**
+ * — that is an append, the same write {@link setAt} already does at the page
+ * root. A path that runs through a leaf or an empty place leaves the page
+ * unchanged, matching {@link updateAt}.
+ *
+ * Linear Carrd-style drops use this rather than {@link setAt}: writing over an
+ * occupied index would swap, and swapping is the positional rule, not the
+ * stack/list rule. See `domain/block-drops.ts`.
+ *
+ * **A negative top-level index is not defended against**, because every
+ * current caller (`domain/block-drops.ts`'s `applyLinearDrop`) derives its
+ * path from a validated place, never a raw literal — so a negative index
+ * reaches `Array.prototype.splice` unchanged, which inserts before the LAST
+ * entry rather than refusing or prepending. Do not pass a raw index here
+ * without re-checking this note; `block-edits.test.ts`'s "insertAt edge
+ * contracts" pins the behaviour as-is rather than a rule this domain chose.
+ *
+ * @param blocks - the whole page.
+ * @param path - where the block should sit afterwards.
+ * @param block - what to put there.
+ * @returns the new page.
+ */
+export function insertAt(
+  blocks: readonly Block[],
+  path: BlockPath,
+  block: Block,
+): Block[] {
+  return insertEntry(blocks, path, block) as Block[];
+}
+
+/**
+ * The same list with one entry spliced in.
+ *
+ * @param entries - the places to edit.
+ * @param path - where to insert, relative to these entries.
+ * @param block - what to insert.
+ * @returns the list with that entry added.
+ */
+function insertEntry(
+  entries: readonly (Block | null)[],
+  path: BlockPath,
+  block: Block,
+): (Block | null)[] {
+  const [head, ...rest] = path;
+  if (path.length === 0) return [...entries];
+  if (rest.length === 0) {
+    const next = [...entries];
+    next.splice(head!, 0, block);
+    return next;
+  }
+  const next = [...entries];
+  const here = next[head!] ?? null;
+  if (here && isContainer(here)) {
+    next[head!] = {
+      ...here,
+      children: insertEntry(here.children, rest, block),
+    };
+  }
+  return next;
+}
+
+/**
  * The page with one more empty place at the end of a container.
  *
  * `path` names the CONTAINER, not a place inside it. A place beyond the

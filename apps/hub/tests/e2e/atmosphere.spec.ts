@@ -250,7 +250,7 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
 
   const toolbar = page.getByTestId("editor-save");
   const input = page.getByTestId("editor-display-name");
-  const inspector = page.getByTestId("canvas-inspector");
+  const inspector = page.getByTestId("properties-panel");
   const controlsBefore = await Promise.all([
     controlStyle(toolbar),
     controlStyle(input),
@@ -349,10 +349,14 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
   expect(contentBox).not.toBeNull();
   const outside = {
     name: "outside",
-    // The inspector now occupies the space left of the document. Probe the
-    // opposite viewport edge, still outside the centred content column, so
-    // this remains a reading of the body's atmosphere rather than chrome.
-    x: VIEWPORT.width - 2,
+    // The Properties panel sits on the desktop RIGHT now (2026-09-04, see
+    // `apps/hub/src/features/actors/CLAUDE.md`'s "The Properties panel
+    // replaces the recursive inspector"), a reversal from the recursive
+    // inspector this file was written against. Probe the opposite viewport
+    // edge — the LEFT, clear of both the panel and the centred content
+    // column — so this remains a reading of the body's atmosphere rather
+    // than of the panel's own opaque paint.
+    x: 2,
     y: Math.round(VIEWPORT.height / 2),
   };
   const openPaint = await sampleColours(page, [outside]);
@@ -390,6 +394,13 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
       .poll(() => atmosphereStyle(page))
       .toMatchObject({ field: expect.stringContaining(hostile) });
 
+    // `editor-identity-fields` is Page's own `pageFields`, rendered on the
+    // PRIMARY tab alongside the Add palette — the `gradient-stop` fields
+    // just used are on the SECONDARY (Theme) tab, so the label this reads is
+    // hidden until the panel switches back. Restored to secondary before
+    // returning, since every call here (and the next one) opens by clicking
+    // `gradient-stop-0`/`gradient-stop-1`, which are that tab's own fields.
+    await page.getByTestId("panel-tab-primary").click();
     const content = page.getByTestId("editor-identity-fields");
     const label = content.locator('label[for="displayName"]');
     await label.scrollIntoViewIfNeeded();
@@ -404,7 +415,9 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
         y: Math.round(labelBox!.y + labelBox!.height / 2),
       },
     ]);
-    return contrast(painted[scheme]!, await textColour(label));
+    const measured = contrast(painted[scheme]!, await textColour(label));
+    await page.getByTestId("panel-tab-secondary").click();
+    return measured;
   };
 
   const lightContrast = await editorContrast("light", "#050505");

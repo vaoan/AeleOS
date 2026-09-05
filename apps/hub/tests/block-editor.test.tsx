@@ -26,6 +26,10 @@ import {
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { SECTION_PRESETS } from "@/features/actors/presentation/section-presets";
+import {
+  AddSlotProvider,
+  AddSlotTarget,
+} from "@/features/actors/presentation/add-slot";
 import { blockEditorLabels } from "./support/editor-labels";
 
 // PRESENTATION IS COVERAGE-EXCLUDED, so a named test is the only thing that
@@ -101,6 +105,7 @@ interface HarnessPage {
 function harness(
   sections: Block[] = [],
   actorKind: "person" | "fursona" = "fursona",
+  pageInteractionsEnabled = false,
 ) {
   let form: UseFormReturn<FormValues> | undefined;
   let setControlsHidden:
@@ -135,8 +140,10 @@ function harness(
           theme={null}
           // Locked by default, matching the editor's own default: every case
           // in this file exercises canvas selection, which only works while
-          // page interaction is off.
-          pageInteractionsEnabled={false}
+          // page interaction is off. The one exception passes `true`
+          // directly — the real toolbar switch that flips this lives in
+          // `EditorToolbar`, which `BlockEditor` itself never mounts.
+          pageInteractionsEnabled={pageInteractionsEnabled}
           controlsHidden={controlsHidden}
           selectionResetKey={selectionResetKey}
         />
@@ -149,9 +156,17 @@ function harness(
   // every scope now, so every render here needs the real provider with the
   // real catalogue rather than a stub that would measure a different
   // program.
+  //
+  // **`AddSlotProvider`/`AddSlotTarget` stand in for `EditorToolbar`.** The
+  // single global Add is portalled out of `BlockEditor` into a slot the real
+  // toolbar renders; this harness renders only `BlockEditor`, so it has to
+  // supply that slot itself for `add-block` to be reachable at all.
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <Harness />
+      <AddSlotProvider>
+        <AddSlotTarget />
+        <Harness />
+      </AddSlotProvider>
     </NextIntlClientProvider>,
   );
   const page = (() => form!.getValues().sections) as HarnessPage;
@@ -165,10 +180,37 @@ function harness(
   return page;
 }
 
-/** Opens the page inspector on Items, where page additions live. */
+/** Opens the panel on Page, where the section-adding controls live. */
 const openPageAdd = (): void => {
   fireEvent.click(screen.getByTestId("select-page"));
 };
+
+/**
+ * Selects the block at a canvas path by clicking it directly, exactly as a
+ * real click on the live renderer does — there is no drill-down list to
+ * open a row from any more (2026-09-04).
+ *
+ * @param path - a hyphen-joined `data-block-path`, e.g. `"0-1"`.
+ */
+const selectPath = (path: string): void => {
+  const element = screen
+    .getByTestId("editor-canvas")
+    .querySelector(`[data-block-path="${path}"]`);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`no block rendered at path ${path}`);
+  }
+  fireEvent.click(element);
+};
+
+/**
+ * The selected block's own canvas grip test id, for {@link drag}.
+ *
+ * @param path - a hyphen-joined `data-block-path`, matching {@link selectPath}.
+ * @returns the dot-joined `canvas-drag-*` id `EditableBlockFrame` renders for
+ * whichever block is currently selected.
+ */
+const canvasGrip = (path: string): string =>
+  `canvas-drag-${path.replaceAll("-", ".")}`;
 
 /** The section names of a page, in order. */
 const names = (page: Block[]) =>
@@ -256,7 +298,12 @@ const firstContainer = (page: Block[]): ContainerBlock => {
 };
 
 describe("BlockEditor", () => {
-  it("draws the live section in the page's own box, outside the droppable", () => {
+  // **The panel's own card is a control, never a second renderer.** Clicking
+  // a section on the canvas opens its card in the Properties panel directly
+  // — there is no Items/Options split to navigate through any more — and
+  // that card must never duplicate the live rendering the canvas already
+  // draws, which is the fault a second implementation would eventually grow.
+  it("shows a selected section's card in the panel, distinct from its live canvas rendering", () => {
     harness([
       {
         ...newContainer("grid", 1),
@@ -265,25 +312,19 @@ describe("BlockEditor", () => {
         children: [titled("Real renderer")],
       },
     ]);
-    fireEvent.click(screen.getByTestId("select-page"));
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    fireEvent.click(screen.getByTestId("inspector-tab-options"));
+    fireEvent.click(screen.getByText("Styled"));
 
     const card = screen.getByTestId("section-card");
     const tray = screen.getByTestId("block-preview");
-    const slot = screen.getByTestId("place-0.0");
 
-    expect(slot).not.toContainElement(card);
-    expect(slot).not.toContainElement(tray);
+    expect(card).not.toContainElement(tray);
+    expect(tray).not.toContainElement(card);
     expect(within(tray).getByTestId("public-section")).toBeInTheDocument();
     expect(within(tray).getByText("Real renderer")).toBeInTheDocument();
+    expect(within(card).queryByText("Real renderer")).toBeNull();
 
     expect(tray).toHaveClass("mx-auto", "w-full", "max-w-7xl", "px-4");
     expect(tray).toHaveClass("pt-(--page-edge)", "pb-(--page-edge)");
-
-    expect(within(tray).queryByTestId("preview-theme-host")).toBeNull();
-    expect(within(tray).queryByTestId("section-preview-face")).toBeNull();
-    expect(tray.className).not.toContain("overflow");
   });
 
   it("says so when there is nothing on the page", () => {
@@ -324,7 +365,11 @@ describe("BlockEditor", () => {
     const block = firstContainer(page());
     expect(block.spaces).toBe(2);
     expect(block.children).toEqual([null, null]);
-    expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(2);
+    expect(
+      screen
+        .getByTestId("editor-canvas")
+        .querySelectorAll('[data-canvas-path="0-0"], [data-canvas-path="0-1"]'),
+    ).toHaveLength(2);
   });
 
   it("appends rather than replacing what is already there", () => {
@@ -352,8 +397,7 @@ describe("BlockEditor", () => {
         children: [titled("a"), titled("b")],
       },
     ]);
-    fireEvent.click(screen.getByTestId("select-page"));
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    selectPath("0");
 
     expect(screen.getByTestId("add-block")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("add-block"));
@@ -374,7 +418,7 @@ describe("BlockEditor", () => {
   // fourth level would exceed `MAX_DEPTH`. The picker's layout group must be
   // absent from that container's own Items footer, matching what an empty
   // place at the same depth already refuses.
-  it("offers no layout group from a container's Items footer at the depth cap", () => {
+  it("offers no layout option from the panel's Add at the depth cap", () => {
     harness([
       {
         ...newContainer("stack", 1),
@@ -388,10 +432,10 @@ describe("BlockEditor", () => {
         ],
       },
     ]);
-    fireEvent.click(screen.getByTestId("select-page"));
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    // The innermost container — a section, a container inside it, a
+    // container inside that — is the deepest a container may sit; nesting
+    // one more there would put a fourth container at the cap.
+    selectPath("0-0-0");
 
     fireEvent.click(screen.getByTestId("add-block"));
     expect(
@@ -450,8 +494,8 @@ describe("BlockEditor", () => {
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
     ]);
-    openPageAdd();
-    await drag("drag-0", ["ArrowDown"]);
+    selectPath("0");
+    await drag(canvasGrip("0"), ["ArrowDown"]);
     expect(names(page())).toEqual(["two", "one"]);
   });
 
@@ -460,20 +504,24 @@ describe("BlockEditor", () => {
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
     ]);
-    openPageAdd();
-    await drag("drag-0", []);
+    selectPath("0");
+    await drag(canvasGrip("0"), []);
     expect(names(page())).toEqual(["one", "two"]);
   });
 
-  it("offers only top-level siblings while Page Items is open", () => {
+  // Only the SELECTED block carries an accessible grip (2026-09-04) — there
+  // is no Items list rendering every sibling's grip at once any more, which
+  // is what made a nested child's grip unreachable alongside its parent's
+  // the old test named. Selecting the top-level container still gives only
+  // that one a grip, and never its own child's at the same time.
+  it("gives the selected top-level container its own grip and no nested one alongside it", () => {
     harness([
       { ...newContainer("grid", 2), children: [titled("moved"), null] },
       newContainer("grid", 2),
     ]);
-    openPageAdd();
-    expect(screen.getByTestId("drag-0")).toBeInTheDocument();
-    expect(screen.getByTestId("drag-1")).toBeInTheDocument();
-    expect(screen.queryByTestId("drag-0.0")).toBeNull();
+    selectPath("0");
+    expect(screen.getByTestId("canvas-drag-0")).toBeInTheDocument();
+    expect(screen.queryByTestId("canvas-drag-0.0")).toBeNull();
   });
 
   // DEPTH THREE, WHICH THE SPIKE DID NOT PROVE. A leaf at the deepest seat the
@@ -481,25 +529,20 @@ describe("BlockEditor", () => {
   // and nothing about the path length is special-cased anywhere.
   it("moves a leaf at the depth cap to the place beside it", async () => {
     const page = harness([deepPage()]);
-    openPageAdd();
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    await drag("drag-0.0.0.0", ["ArrowDown"]);
+    selectPath("0-0-0-0");
+    await drag(canvasGrip("0-0-0-0"), ["ArrowDown"]);
     expect(deepest(page())).toEqual([null, "buried"]);
   });
 
-  // A CROSS-LEVEL TARGET IS NEVER OFFERED. The final boundary repeats this
-  // rule for stale or synthetic ids, while the visible inspector simply keeps
-  // the unrelated level out of its dnd context.
-  it("does not offer a cross-level target one level too deep", () => {
-    harness([deepPage(), newContainer("grid", 2)]);
-    openPageAdd();
-    expect(screen.getByTestId("drag-0")).toBeInTheDocument();
-    expect(screen.getByTestId("drag-1")).toBeInTheDocument();
-    expect(screen.queryByTestId("drag-1.0")).toBeNull();
-    expect(screen.queryByTestId("drag-refusal")).toBeNull();
-  });
+  // **"a cross-level target is never offered" no longer holds for the
+  // canvas, and that is by design (2026-09-04).** Canvas grips admit any
+  // domain-valid cross-container destination — see the feature note's
+  // "Linear parents insert-and-shift; positional parents still exchange" and
+  // the recursive-inspector correction above it — where the OLD sibling-only
+  // restriction this test named belonged to the recursive inspector alone,
+  // which is gone. What still refuses a bad drop is `moveBlock`/`applyDrop`
+  // themselves, covered in `block-moves.test.ts`/`block-drops.test.ts` and
+  // driven end to end in `section-drag-reorder.spec.ts`.
 
   // WITHDRAWN AT THE CAP, WITH A SENTENCE SAYING WHY. A button that silently
   // does nothing reads as broken, and the cap is not a fault on the person's
@@ -547,8 +590,7 @@ describe("BlockEditor", () => {
   // writing it back. Nothing here builds one; the schema admits one.
   it("shows a leaf sitting at the top of the page", () => {
     harness([{ ...newLeaf("text"), title_en: "Loose" }]);
-    openPageAdd();
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    selectPath("0");
     expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
     expect(screen.queryByTestId("section-card")).toBeNull();
   });
@@ -578,20 +620,16 @@ describe("BlockEditor", () => {
     expect(screen.getByTestId("template-reference-sheet")).toBeInTheDocument();
   });
 
-  it("mounts only the selected container's controls in Options", () => {
+  it("shows only the selected container's own card, with children collapsed", () => {
     harness([{ ...newContainer("stack", 1), name_en: "kept" }]);
-    openPageAdd();
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    fireEvent.click(screen.getByTestId("inspector-tab-options"));
+    fireEvent.click(screen.getByText("kept"));
     expect(screen.getByTestId("section-card")).toBeInTheDocument();
     expect(screen.queryByTestId("empty-place")).toBeNull();
   });
 
   it("names every arrangement the schema knows, on a section's own control", () => {
     harness([newContainer("grid", 2)]);
-    openPageAdd();
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
-    fireEvent.click(screen.getByTestId("inspector-tab-options"));
+    selectPath("0");
     const options = within(screen.getByTestId("section-mode"))
       .getAllByRole("option")
       .map((el) => (el as HTMLOptionElement).value);
@@ -599,7 +637,7 @@ describe("BlockEditor", () => {
   });
 });
 
-describe("recursive inspector drill-down", () => {
+describe("the Properties panel", () => {
   const recursivePage = (): Block[] => [
     {
       ...newContainer("grid", 3),
@@ -617,9 +655,9 @@ describe("recursive inspector drill-down", () => {
     { ...newContainer("stack", 1), name_en: "Second" },
   ];
 
-  it("starts deselected with no inspector in the DOM", () => {
+  it("starts deselected with no properties panel in the DOM", () => {
     harness(recursivePage());
-    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.queryByTestId("properties-panel")).toBeNull();
   });
 
   it("makes only the canvas an inner scroller while controls show", () => {
@@ -651,7 +689,7 @@ describe("recursive inspector drill-down", () => {
   // Containment alone cannot catch that: the control is in the right box in
   // both the working and the broken version. The selection is what tells them
   // apart, which is why both are asserted here rather than only the placement.
-  it("puts the Page control inside the canvas and still opens the inspector", () => {
+  it("puts the Page control inside the canvas and still opens the properties panel", () => {
     harness(recursivePage());
     const canvas = screen.getByTestId("editor-canvas");
     const control = screen.getByTestId("select-page");
@@ -660,123 +698,240 @@ describe("recursive inspector drill-down", () => {
 
     fireEvent.click(control);
 
-    expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+  });
+
+  it("instruments the live renderer and gives only the selected block an accessible canvas grip", () => {
+    harness(recursivePage());
+
+    const canvas = screen.getByTestId("editor-canvas");
+    expect(within(canvas).getAllByTestId("canvas-drag-node")).toHaveLength(7);
+    expect(
+      within(canvas).queryByRole("button", { name: labels.dragBlock }),
+    ).toBeNull();
+
+    fireEvent.click(within(canvas).getByText("Deep leaf"));
+
+    expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
+    expect(screen.getByTestId("canvas-drag-0.0.0")).toHaveAccessibleName(
+      labels.dragBlock,
+    );
+    expect(
+      within(canvas).getAllByRole("button", { name: labels.dragBlock }),
+    ).toHaveLength(1);
+  });
+
+  it.each(["tabs", "accordion"] as const)(
+    "keeps an empty %s place available as a positional canvas destination",
+    (mode) => {
+      harness([
+        {
+          ...newContainer(mode, 2),
+          children: [titled("filled"), null],
+        },
+      ]);
+
+      expect(
+        screen
+          .getByTestId("editor-canvas")
+          .querySelector('[data-canvas-path="0-1"]'),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("moves a rendered stack child by its canvas grip and follows its returned destination", async () => {
+    const page = harness([
+      {
+        ...newContainer("stack", 1),
+        children: [titled("A"), titled("B"), titled("C")],
+      },
+    ]);
+    const canvas = screen.getByTestId("editor-canvas");
+    fireEvent.click(within(canvas).getByText("A"));
+
+    await drag("canvas-drag-0.0", ["ArrowDown", "ArrowDown"]);
+
+    expect(
+      firstContainer(page()).children.map((child) =>
+        child && !isContainer(child) ? child.title_en : null,
+      ),
+    ).toEqual(["B", "C", "A"]);
+    expect(screen.getByTestId("leaf-title")).toHaveValue("A");
+    expect(screen.getByTestId("canvas-drag-0.2")).toBeInTheDocument();
+  });
+
+  // `refusalOf` and the announcements' own `name` callback both used to
+  // resolve a drag id with bare `placePath`, which understands only the
+  // recursive inspector's `"place:"` prefix and answers `undefined` for a
+  // canvas grip's `"canvas-place:"` id — so a canvas lift announced "Picked
+  // up ." with no position at all, silently, on every canvas drag. Both
+  // sites now try `canvasPlacePath(id) ?? placePath(id)`.
+  it("announces a canvas lift by the place's own name, not by an empty string", async () => {
+    harness([
+      {
+        ...newContainer("stack", 1),
+        children: [titled("A"), titled("B")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+
+    const announcement = document.querySelector('[id^="DndLiveRegion-"]');
+    expect(announcement).not.toBeNull();
+    expect(announcement!.textContent).toBe(`${labels.drag.lifted} 1.1.`);
+  });
+
+  // `refusalOf` reads the same two ids through `applySiblingDrop`, which
+  // `dropTargetForSibling` restricts to true siblings — the same parent,
+  // by construction. That forces `applyLinearDrop`'s own `sameParent` true
+  // on every call this makes, so its "too many" refusal (gated on
+  // `!sameParent`) can never fire here; "into itself" and "too deep" both
+  // require a depth change, and a same-parent before/after target always
+  // computes a destination path the same length as the source's, which an
+  // already-valid tree already satisfies at that depth. The one refusal
+  // left reachable, "no such place", needs a target that has gone stale
+  // between the keyboard's last step and the drop — attempted directly
+  // (mutate the page mid-drag via `page.replace`, then drop onto the
+  // now-missing place) and it did not redden: the stale mutation did not
+  // survive to the drop's own read of the page, for reasons this task did
+  // not chase further given that `applySiblingDrop` already cannot reach
+  // the other three refusals at all. Sabotaging `refusalOf`
+  // alone back to bare `placePath` — leaving the `name` fix above in
+  // place — confirmed the negative empirically: the whole file stayed
+  // green, 41/41, with no case anywhere noticing the difference. Per this
+  // repository's own rule against writing a fixture that only looks like
+  // it discriminates (root `CLAUDE.md` rule 27), this is recorded rather
+  // than manufactured: `refusalOf`'s half of this fix has no reachable
+  // canvas-drag scenario to redden against, given `applySiblingDrop`'s
+  // sibling-only domain. The fix is still correct — it makes `refusalOf`
+  // resolve the SAME two ids the `name` callback beside it now resolves,
+  // for consistency, and because a future refusal type or a genuine
+  // stale-target path is not provably impossible, only unreachable through
+  // every case this file could construct.
+
+  it("shows an insertion bar for a linear canvas target and clears it on cancel", async () => {
+    harness([
+      {
+        ...newContainer("stack", 1),
+        children: [titled("A"), titled("B")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+    fireEvent.keyDown(document, { code: "ArrowDown" });
+    await settle();
+
+    expect(screen.getByTestId("canvas-drop-after")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await settle();
+    expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+  });
+
+  it("highlights an empty positional place without turning it into an insertion bar", async () => {
+    harness([
+      {
+        ...newContainer("grid", 3),
+        children: [titled("A"), null, titled("C")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+    fireEvent.keyDown(document, { code: "ArrowDown" });
+    await settle();
+
+    expect(
+      screen
+        .getByTestId("editor-canvas")
+        .querySelector('[data-canvas-path="0-1"]'),
+    ).toHaveAttribute("data-canvas-drop", "place");
+    expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+  });
+
+  it("keeps canvas drag instrumentation and feedback out of Preview", () => {
+    const page = harness(recursivePage());
+    fireEvent.click(screen.getByText("Deep leaf"));
+    expect(screen.getAllByTestId("canvas-drag-node")).not.toHaveLength(0);
+
+    page.setControlsHidden(true);
+
+    expect(screen.queryByTestId("canvas-drag-node")).toBeNull();
+    expect(screen.queryByTestId(/canvas-drop-/)).toBeNull();
+  });
+
+  // `Preview` is one of the two inputs `pageInteractionsEnabled` composes
+  // (root feature note, "page interactions enabled = controls hidden OR
+  // toolbar switch enabled") — the case above pins the `controlsHidden`
+  // half; this pins the toolbar-switch half directly, since `BlockEditor`
+  // itself never mounts `EditorToolbar` and has no switch of its own to
+  // click.
+  it("renders no canvas drag wrappers while page interaction is enabled", () => {
+    harness(recursivePage(), "fursona", true);
+    expect(screen.queryByTestId("canvas-drag-node")).toBeNull();
+    expect(screen.queryByTestId(/^canvas-drag-/)).toBeNull();
   });
 
   it("still clears the selection for a click on the page itself", () => {
     harness(recursivePage());
     fireEvent.click(screen.getByTestId("select-page"));
-    expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
 
     // The canvas outside any block and outside any control island: the one
-    // click that still means "the inspector should go". Exempting chrome must
+    // click that still means "the panel should go". Exempting chrome must
     // not have exempted the page.
     fireEvent.click(screen.getByTestId("editor-canvas"));
 
-    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.queryByTestId("properties-panel")).toBeNull();
   });
 
-  it("drills Page to a container to a leaf, showing only immediate children", () => {
-    harness(recursivePage());
-
-    fireEvent.click(screen.getByTestId("select-page"));
-    const inspector = screen.getByTestId("canvas-inspector");
-    expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
-      2,
-    );
-    expect(within(inspector).queryByText("Deep leaf")).toBeNull();
-
-    fireEvent.click(
-      within(inspector).getAllByTestId("inspector-item-open")[0]!,
-    );
-    expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
-      3,
-    );
-    // `toBeVisible` would also fail on the row's own opacity-in entrance
-    // (`inspector-items.tsx`), which jsdom never actually animates to
-    // completion — no real compositor, no real frames. What this case is
-    // actually checking is that the row sits in the ACTIVE pane rather than
-    // one `hidden` is currently hiding, which `closest("[hidden]")`
-    // answers without depending on an animation jsdom cannot run.
-    const emptyPlace = within(inspector).getByTestId("inspector-empty-place");
-    expect(emptyPlace.closest("[hidden]")).toBeNull();
-    expect(within(inspector).queryByText("Deep leaf")).toBeNull();
-
-    fireEvent.click(
-      within(inspector).getAllByTestId("inspector-item-open")[0]!,
-    );
-    expect(within(inspector).getAllByTestId("inspector-item-row")).toHaveLength(
-      1,
-    );
-    fireEvent.click(within(inspector).getByTestId("inspector-item-open"));
-
-    expect(within(inspector).queryByRole("tablist")).toBeNull();
-    // Not `toBeVisible`, for the same reason as the empty place above: the
-    // Options pane's own entrance opacity never resolves in jsdom.
-    expect(
-      within(inspector).getByTestId("leaf-editor").closest("[hidden]"),
-    ).toBeNull();
-    expect(within(inspector).queryByTestId("nested-card")).toBeNull();
-  });
-
-  it("derives Back and breadcrumbs from the selected path", () => {
-    harness(recursivePage());
-    fireEvent.click(screen.getByTestId("select-page"));
-    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-
-    expect(screen.getAllByTestId("inspector-breadcrumb")).toHaveLength(3);
-    fireEvent.click(screen.getByTestId("inspector-back"));
-    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
-
-    fireEvent.click(screen.getAllByTestId("inspector-breadcrumb")[0]!);
-    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(2);
-
-    fireEvent.click(screen.getByTestId("inspector-back"));
-    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
-  });
+  // There is no drill-down and no tree navigation any more (2026-09-04): the
+  // Properties panel shows exactly two tabs for whatever is directly
+  // selected on the canvas, and selecting a deeper block is a fresh click on
+  // the canvas rather than a step through an Items list. The equivalent
+  // domain coverage — which block a click or a keyboard drag resolves to at
+  // any depth — lives in `block-moves.test.ts`, `block-drops.test.ts` and
+  // `section-drag-reorder.spec.ts`.
 
   it("clears a nested selection for Preview and does not restore it afterwards", () => {
     const page = harness(recursivePage());
-    fireEvent.click(screen.getByTestId("select-page"));
-    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-    fireEvent.click(screen.getByTestId("inspector-item-open"));
+    selectPath("0-0-0");
     expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
 
     page.setControlsHidden(true);
-    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.queryByTestId("properties-panel")).toBeNull();
 
     page.setControlsHidden(false);
-    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.queryByTestId("properties-panel")).toBeNull();
   });
 
   it.each([
-    ["Page", () => undefined],
-    [
-      "a container",
-      () => fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!),
-    ],
-    [
-      "a leaf",
-      () => {
-        fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-        fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-        fireEvent.click(screen.getByTestId("inspector-item-open"));
-      },
-    ],
-  ])("closes the inspector directly from %s without submitting", (_, enter) => {
+    ["Page", () => fireEvent.click(screen.getByTestId("select-page"))],
+    ["a container", () => selectPath("0")],
+    ["a leaf", () => selectPath("0-0-0")],
+  ])("closes the panel directly from %s without submitting", (_, enter) => {
     harness(recursivePage());
     const submitted = vi.fn((event: SubmitEvent) => event.preventDefault());
     screen
       .getByTestId("block-editor-form")
       .addEventListener("submit", submitted);
-    fireEvent.click(screen.getByTestId("select-page"));
     enter();
 
-    fireEvent.click(screen.getByTestId("inspector-close"));
+    fireEvent.click(screen.getByTestId("panel-close"));
 
-    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.queryByTestId("properties-panel")).toBeNull();
     expect(screen.getByTestId("editor-canvas")).toBeInTheDocument();
     expect(screen.getByTestId("select-page")).toBeInTheDocument();
     expect(submitted).not.toHaveBeenCalled();
@@ -784,58 +939,60 @@ describe("recursive inspector drill-down", () => {
 
   it("selects the parent when the selected leaf is deleted", () => {
     harness(recursivePage());
-    fireEvent.click(screen.getByTestId("select-page"));
-    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-    fireEvent.click(screen.getAllByTestId("inspector-item-open")[1]!);
+    // "Deep leaf" sits at 0-0-0, inside "Inner" (a nested container at
+    // 0-0). Deleting it should leave "Inner" — not "Outer" and not Page —
+    // selected.
+    selectPath("0-0-0");
     fireEvent.click(screen.getByTestId("remove-block"));
 
-    // Not `toBeVisible`: the inspector's own entrance opacity
-    // (`canvas-inspector.tsx`) never actually animates to completion in
-    // jsdom, which has no real compositor. `closest("[hidden]")` is the
-    // check that survives that — the inspector is mounted at all here,
-    // which is the real claim.
-    const inspector = screen.getByTestId("canvas-inspector");
-    expect(inspector.closest("[hidden]")).toBeNull();
-    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
-    expect(screen.getAllByTestId("inspector-empty-place")).toHaveLength(2);
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("nested-card")).toBeInTheDocument();
   });
 
   it("persists repair after an external document replacement removes then reuses a path", async () => {
     const page = harness(recursivePage());
-    fireEvent.click(screen.getByTestId("select-page"));
-    fireEvent.click(screen.getAllByTestId("inspector-item-open")[0]!);
-    fireEvent.click(screen.getByTestId("inspector-tab-options"));
+    selectPath("0");
     expect(screen.getByTestId("section-name")).toHaveValue("Outer");
 
     await act(async () => {
       page.replace([]);
       await Promise.resolve();
     });
-    expect(screen.getAllByTestId("inspector-breadcrumb")).toHaveLength(1);
+    // Repaired to Page: the selected path is gone and nothing survives above
+    // it, so the panel now shows Page's own fields rather than disappearing.
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("section-name")).toBeNull();
 
     await act(async () => {
       page.replace([{ ...newContainer("stack", 1), name_en: "Replacement" }]);
       await Promise.resolve();
     });
-    expect(screen.getAllByTestId("inspector-breadcrumb")).toHaveLength(1);
+    // The repair is persisted: a new block filling the same numeric path
+    // must not resurrect the stale selection.
     expect(screen.queryByTestId("section-name")).toBeNull();
-    expect(screen.getByTestId("inspector-item-open")).toHaveTextContent(
-      "Replacement",
-    );
   });
 
-  it("keeps sibling drag within the visible Page rows and does not enter the moved row", async () => {
+  it("keeps a sibling drag within Page and selects its returned destination", async () => {
+    // A single hop, not two: with a canvas grip, each of these sections'
+    // own empty place (`newContainer("stack", 1)`, one child) sits in the
+    // keyboard walk order right after the section itself — canvas grips
+    // admit any domain-valid cross-container destination, unlike the old
+    // sibling-only inspector grip. A second ArrowDown here lands INSIDE
+    // "two"'s own place rather than skipping past it to "three", which is
+    // correct nesting behaviour and not a sibling reorder at all. One hop
+    // stays within Page's own top-level list, which is what this case is
+    // for.
     const page = harness([
       { ...newContainer("stack", 1), name_en: "one" },
       { ...newContainer("stack", 1), name_en: "two" },
       { ...newContainer("stack", 1), name_en: "three" },
     ]);
-    fireEvent.click(screen.getByTestId("select-page"));
+    selectPath("0");
 
-    await drag("drag-0", ["ArrowDown", "ArrowDown"]);
+    await drag(canvasGrip("0"), ["ArrowDown"]);
 
-    expect(names(page())).toEqual(["two", "three", "one"]);
-    expect(screen.getAllByTestId("inspector-item-row")).toHaveLength(3);
-    expect(screen.queryByTestId("section-name")).toBeNull();
+    expect(names(page())).toEqual(["two", "one", "three"]);
+    expect(screen.getByTestId("canvas-drag-1")).toBeInTheDocument();
+    expect(screen.getByTestId("section-name")).toHaveValue("one");
   });
 });

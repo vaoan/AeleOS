@@ -1299,11 +1299,79 @@ its closest surviving ancestor. That repair is persisted in state, so a later
 document import cannot resurrect a stale path merely by filling the same
 position again.
 
-Only the immediate siblings visible in one Items scope register drag handles.
-Pointer collision, keyboard navigation and the final drop boundary each reject
-a different parent before `moveBlock` is called. Cross-level movement remains
-expressible in the page-source document, but is deliberately not an inspector
-gesture.
+**The live renderer is directly draggable now (2026-09-04).** `Block` accepts
+an optional `editor` prop and threads it through the same recursion the
+public route renders. When absent — every public route, Preview, and the
+session's Interact-with-page mode — it emits no wrapper, grip, listener, or
+feedback at all.
+
+**Corrected the same day: `editor` is a render-prop
+(`EditorRenderHook`), not a data object `blocks.tsx` interprets itself.**
+The checkpoint version had `blocks.tsx` import `EditableBlockFrame` directly
+and construct it from the instrumentation data — which, because `blocks.tsx`
+is imported by both public routes and the editor, pulled `@dnd-kit` into
+every public route's bundle whether or not any instrumentation ever mounted.
+Measured: `/[locale]/[person]` (+ `[handle]`) dropped from 1,342,756 to
+1,008,869 bytes once fixed — the exact shape the "public routes have their
+own barrel" account below already fixed once for Motion, this time on
+dnd-kit. `blocks.tsx` calls `editor.wrap({ path, filled, children })` on
+every rendered block and empty place and never imports
+`editable-block-frame.tsx`; `block-editor.tsx` — the file that already only
+exists on editor routes — is the one place in the app allowed to import it,
+and builds the hook that wraps with `EditableBlockFrame`: a mouse press may
+lift the rendered block itself, while touch and keyboard listeners live only
+on the selected block's accessible grip so a finger can still scroll the
+canvas without accidentally starting a drag.
+
+The wrapper is the dnd-kit node and may write its own transform; Motion remains
+inside `CHROME_SCOPE` and never wraps it or an ancestor. The grip and
+insertion bars are also `CHROME_SCOPE`, so hiding controls removes the entire
+editing seam before Preview paints.
+
+**Two more call sites had to learn the canvas prefix too (2026-09-04).**
+`refusalOf` and the `announcements` object's own `name` callback both
+resolved a drag id with bare `placePath`, which understands only the
+inspector's `"place:"` prefix — every OTHER canvas-aware site in this file
+(`onDragStart`, `onDragEnd`, `coordinateGetter`, `detectCollision`) already
+tried `canvasPlacePath(id) ?? placePath(id)` first. So a canvas lift
+announced `"Picked up ."` — `placeName([])`, an empty designation — and a
+refused canvas drop never spoke, silently, on every canvas drag since the
+live renderer became draggable. Both now match the pattern the rest of the
+file already used.
+
+**`refusalOf`'s half of the fix has no reachable discriminating test, and
+that is recorded rather than concealed.** `dropTargetForSibling` requires
+`areSiblingPaths(from, to)`, which by definition makes every call
+`applySiblingDrop` makes into `applyLinearDrop` have `sameParent: true` — so
+the `"too many"` refusal (gated on `!sameParent`) can never fire through
+this path, and `"into itself"`/`"too deep"` both need a depth change a
+same-parent before/after target cannot produce from an already-valid tree.
+The one refusal left, `"no such place"`, needs a target gone stale between
+the keyboard's last step and the drop; a test forcing exactly that (mutating
+the page mid-drag, then dropping onto the removed place) did not redden,
+and sabotaging `refusalOf` alone back to bare `placePath` — leaving the
+`name` fix in place — left the whole file's suite green, 41/41. The fix is
+still correct, for consistency with every other site in the file and against
+a refusal type or a stale-target path this file's own tests could not
+construct rather than one proven impossible.
+
+**Linear parents insert-and-shift; positional parents still exchange.**
+`applyDrop` in `domain/block-drops.ts` is the planner: `before` / `after` on
+the page, `stack`, `list` and `timeline`; `place` is still `moveBlock` on
+`grid`, `masonry`, `carousel`, `tabs` and `accordion`. Pointer collision ranks
+the nested renderer rectangles deepest first and turns the pointer's upper or
+lower half into an insertion bar for a linear parent. Keyboard navigation
+walks rendered places in drawing order. Both paths call `applyDrop` before
+advertising a destination, so cycles, stale places, depth overflow and child
+overflow never light up; the final call remains authoritative. A successful
+result selects the exact destination path the planner returned.
+
+The recursive inspector remains in this canvas-only task; replacing it with
+the compact menu and focused Properties panel is deliberately deferred. Its
+old sibling grips temporarily coexist under a separate dnd-kit id prefix, so
+an inspector registration cannot replace a renderer registration for the same
+path. Inspector drags remain sibling-only, while the canvas admits
+domain-valid cross-container drops.
 
 Empty canvas or Escape deselects; an Escape aimed inside the inspector belongs
 to its own popup or field and leaves selection intact. The capture-phase
@@ -1947,8 +2015,79 @@ and between two top-level entries a shift — and refuses a cycle, a drop past
 the cap and a stale path by name. `block-drag.ts` decides which two places a
 gesture NAMED. `block-editor.tsx` only wires the library to those two.
 
-**A drop is an EXCHANGE, and insert-and-shift was refused rather than
-overlooked.** The flow semantics a list would give you — insert here, and
+**`insertAt`'s own three edges are pinned now (2026-09-04), and the "too
+many" cross-container guard in `applyLinearDrop` turned out to carry a
+redundant early check — REMOVED, not left as-is, once `pnpm --filter hub
+test:coverage` forced the question.** An empty path drops the block silently
+rather than inserting it, a top-level index one past the last entry appends,
+and a negative top-level index reaches `Array.prototype.splice` unchanged —
+which inserts before the LAST entry, not the first. None of the three is a
+rule this domain chose; each is `insertEntry`'s own body, now pinned in
+`block-edits.test.ts` and named in `insertAt`'s own TSDoc rather than left to
+be rediscovered. Sabotage-verifying the "too many" refusal on a
+cross-container linear insert found that `applyLinearDrop`'s EARLY exit
+(`!sameParent && destParent.length > 0 && destLength + 1 >
+BLOCK_LIMITS.children`) is fully subsumed by its later one
+(`parent.length > 0 && nextLength >= BLOCK_LIMITS.children`): removing the
+source from an unrelated subtree never changes the destination container's
+own child count, so `nextLength` always equals `destLength` for a
+cross-parent drop and the later check always refuses whatever the earlier
+one would have. Sabotaging the early check alone did not redden
+`block-drops.test.ts`'s new case; sabotaging both together did.
+
+**A first pass called that "left as-is", reasoning removing it was a
+refactor nobody asked for — and a coverage run on the very next task proved
+that reasoning wrong.** A dead branch is not neutral: it is a statement and a
+branch nothing can ever exercise, so `pnpm --filter hub test:coverage`
+refuses it exactly as it refuses an untested live one, with no way to tell
+the two apart from the report alone. The redundant early check and its
+companion dead `else if` (`from.length === 1 && parent.length === 0 &&
+fromIndex < insert`) are both gone now, folded into one ternary computing
+`parent`'s own first-segment adjustment directly.
+
+**The same coverage run then found a SECOND instance of the identical shape
+one function over, in `listLength` — proof that the first one was not a
+one-off.** `listLength`'s `!parent || !isContainer(parent)` branch, and
+`applyLinearDrop`'s own `destLength === undefined` check that consumed it,
+were both dead for the same underlying reason: `listLength`'s only caller
+reaches it after `placeExists(blocks, target.path)` has already confirmed
+`destParent` (`target.path`'s own parent) is a valid container whenever
+`destParent.length > 0` — `placeExists` cannot answer `true` for a
+`target.path` of more than one segment without `blockAt` on its parent
+already resolving to a container. `listLength` returns a plain `number` now,
+asserting rather than re-checking what its caller already proved.
+
+**Six more coverage lines came from genuine gaps rather than dead code, and
+all six are drawn from paths this domain's own callers never happen to
+construct rather than from paths it refuses.** `dropTargetForSibling` and
+`applySiblingDrop` both repeat `areSiblingPaths` defensively — every real
+caller already checks it at the sensor — so nothing had called either
+directly with two paths that cross parents; both now have a case that does.
+`placeExists` guards `applyLinearDrop` at both `from` and `target.path`, and
+three of its own arms had never been reached through a raw literal: an empty
+path, a negative top-level index, and a path walking through a leaf as
+though it were a container. A fourth gap was `applyDrop`'s own `place`-kind
+hand-off to `moveBlock` — every existing `place` case in `block-drops.test.ts`
+succeeds, so nothing had exercised `!moved.ok` returning straight through.
+And the last was dragging FROM an empty place under a linear target:
+`placeExists` reports an occupied INDEX as existing whether or not anything
+sits there, so `applyLinearDrop` still has to notice, after fetching `held`
+with `blockAt`, that what it fetched is `null` before treating it as the
+block being moved.
+
+**A drop was an EXCHANGE everywhere, and insert-and-shift was refused
+rather than overlooked — until 2026-09-04, and only for POSITIONAL modes
+now.** The Carrd-style page builder
+(`docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`)
+gave `stack`, `list` and `timeline` exactly the insert-and-shift model this
+paragraph used to say was refused everywhere — see `domain/block-drops.ts`'s
+`applyLinearDrop` and `LINEAR_MODES`, and "Linear parents insert-and-shift;
+positional parents still exchange" above. What follows is still the correct
+and current account for `grid`, `masonry`, `carousel`, `tabs` and
+`accordion`, where a place is still positional and the argument below (an
+empty place keeps its width; shifting one would move a shape somebody
+deliberately left) still holds exactly as written. The flow semantics a
+list would give you — insert here, and
 everything after it slides along — assume the gaps between things carry no
 meaning, and here they carry the author's. A place is positional: place three
 is place three whether or not anything sits in it, and an empty place keeps its
@@ -5241,13 +5380,21 @@ requirement this repository has already paid for once.
 Renders nothing at all — no trigger, no dialog — at `BLOCK_LIMITS`, matching
 the page-level Add control's existing rule.
 
-**The picker is wired in everywhere now, and the two palettes it replaces are
-gone.** `inspector-items.tsx` mounts one `AddBlockPicker` per empty position,
-targeted at that exact path; `block-editor.tsx`'s `ItemsFooter` mounts one at
-a container's own next child position for a scope whose places are all
-filled; and the page-level `addPalette` mounts one targeted at `[]`. One
-`addPickerLabels` bag, built once in `BlockEditor`, is threaded to all three
-rather than each call site re-slicing `labels` its own way.
+**The picker was wired in everywhere as of this task, and the two palettes it
+replaced were gone even then.** `inspector-items.tsx` mounted one
+`AddBlockPicker` per empty position, targeted at that exact path;
+`block-editor.tsx`'s `ItemsFooter` mounted one at a container's own next
+child position for a scope whose places were all filled; and the page-level
+`addPalette` mounted one targeted at `[]`. One `addPickerLabels` bag, built
+once in `BlockEditor`, was threaded to all three rather than each call site
+re-slicing `labels` its own way. **One task later, in the same day, "The
+Properties panel replaces the recursive inspector" removed `inspector-items.tsx`
+and `ItemsFooter` outright, along with every OTHER mount site this picker
+had but one** — see that section, further down this file, for the current
+shape: a single `AddBlockPicker`, portalled once into the toolbar, is the
+only way to add a BLOCK now. `BlockCard`'s own `add-place` button — appends
+an empty POSITION, never a block — is the one container-footer control that
+survived, unchanged in meaning, inside the panel's Layout tab.
 
 **"The nesting looked deleted" bug is what this closes, and it is proven by a
 fixture the flat editor could not have discriminated with.** `add-nested`
@@ -5301,21 +5448,33 @@ usage in this feature imports it from there, never `motion` from
 imported from exactly one file under this feature (itself), and no `m.*`
 anywhere carries a `layout` prop.
 
-Five places carry it, matching the spec:
+Five places carried it, matching the spec, and four still do (2026-09-04:
+item 5 retired without a replacement — see its own entry below). **Two of
+the five named
+`canvas-inspector.tsx`/`inspector-items.tsx` as their home, and both files
+are deleted now — see "The Properties panel replaces the recursive
+inspector" above.** The mechanisms did not go with them; they carried
+forward into whatever replaced each file, which is what the corrections
+below each item say.
 
-1. **Inspector entry** (`canvas-inspector.tsx`) — the root becomes `m.div`,
-   fading and sliding in from the left on desktop or up from the bottom on a
-   phone. Which direction plays is read via `useSyncExternalStore` rather
-   than a lazy `useState` initializer, because this tree can render during
-   SSR where `window` does not exist and a `useState` initializer has no
-   SSR-safe equivalent; the client snapshot calls `matchMedia` directly,
-   unguarded, matching `nebula-canvas.tsx`'s own convention.
-2. **Scope transitions** — the Items/Options pane's inner content is wrapped
-   in an `m.div` keyed on `${selection.kind}:${path}` (2026-09-02; the key was
+1. **Panel entry** (`properties-panel.tsx`, was `canvas-inspector.tsx`) — the
+   root becomes `m.div`, fading and sliding in from the left on desktop or up
+   from the bottom on a phone. Which direction plays is read via
+   `useSyncExternalStore` rather than a lazy `useState` initializer, because
+   this tree can render during SSR where `window` does not exist and a
+   `useState` initializer has no SSR-safe equivalent; the client snapshot
+   calls `matchMedia` directly, unguarded, matching `nebula-canvas.tsx`'s own
+   convention.
+2. **Scope transitions** — each pane's inner content is wrapped in an
+   `m.div` keyed on `${selection.kind}:${path}` (2026-09-02; the key was
    `${tab}:${selection.kind}:${path}` and that was a bug, not a broader
    feature — see below), so entering a different block remounts it and
    re-plays a short fade+translate. The `hidden` attribute deciding which
-   PANE shows still owns that.
+   PANE shows still owns that. **This described the recursive inspector's
+   Items/Options pair when it was written; `properties-panel.tsx` carries
+   the identical fixed key forward for its own two tabs**, which is why the
+   fix below survived the file being deleted and rewritten rather than
+   needing to be rediscovered.
 
    **The `tab`-inclusive key remounted BOTH panes on every tab flip, hidden
    one included, and a real browser caught it losing state.** Both panes'
@@ -5325,7 +5484,7 @@ Five places carry it, matching the spec:
    just LEFT remounted too, discarding any local `useState` inside it.
    `theme-configurator.tsx`'s own open/closed flag is exactly that kind of
    state, and `editor-saves-page.spec.ts`'s template round-trip opens the
-   theme panel, switches to Items for the template picker, applies one, and
+   theme panel, switches tabs for the template picker, applies one, and
    switches back — landing squarely in the window this closed. Selection
    changing is still what "entering a different block" means, so dropping
    `tab` costs only the tab-switch replay.
@@ -5339,11 +5498,12 @@ Five places carry it, matching the spec:
    colour transitions (`outline-color 150ms ease-out`). The base rule has to
    be unconditional — transitioning a property FROM nothing is not a
    transition, there is nothing to interpolate from.
-5. **New inspector rows** (`inspector-items.tsx`) — an occupied row's label
-   wrapper is `m.div` (opacity-only), kept a SIBLING of the drag handle
-   rather than its ancestor, since `BlockSlot`'s own outer element is the
-   actual `@dnd-kit` node and already writes its own `transform`; an empty
-   place's whole content is `m.div` since it carries no handle at all.
+5. **Occupied-row labels and empty places** — this named `inspector-items.tsx`
+   when it was written, and that file no longer exists: there is no Items
+   list at all any more, so this place is GONE rather than moved, and no
+   replacement owes it. It is left in the numbered list rather than
+   renumbered away, so a reader checking "five places" against the code does
+   not conclude a place was silently added back uncredited.
 
 **The standing rule for a SIXTH place, and every one after it: Motion
 renders only inside `CHROME_SCOPE`, and never on a `@dnd-kit` node.** Both
@@ -5657,3 +5817,271 @@ claimed from it: the first draft named `infrastructure/actor-page` for
 `infrastructure/public-actors`, and all ten cases were green — `next build`
 is what refused it, `pnpm typecheck` would have too. Root rule 40's shape,
 on a re-export rather than a test file.
+
+### The compact builder menu, and one Add for one selection (2026-09-04)
+
+The Carrd-style page builder's Phase 2
+(`docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-2-compact-menu-and-add.md`)
+replaced the editor's separate `AddBlockPicker` mounts — the page-level
+palette, a container's own Items footer, and every empty place in
+`InspectorItems` — with one global Add in the toolbar, driven by exactly one
+selection.
+
+`domain/add-target.ts`'s `addTargetFor(blocks, selection)` answers where the
+ONE Add control's next choice would be added — the page root for nothing
+selected or Page, a container's own path for a container selection, and a
+leaf's PARENT for a leaf selection, since "after" has no positional meaning
+for a grid/masonry/tabs/etc. place. **It asks `mayNest` of the position a new
+CHILD of the target would occupy, one segment longer than the target itself**
+— not of the target's own path — because the depth cap is a fact about the
+new block's own depth, not about the block already selected. Getting this
+backwards (`mayNest(targetPath)` rather than `mayNest([...targetPath, 0])`)
+answers `true` one level too late: selecting the innermost of three nested
+containers — a section, a container inside it, a container inside that, the
+deepest a container may sit — has a `targetPath` whose own length (3) still
+clears `MAX_DEPTH`, so the wrong formula would still offer a layout there,
+where a fourth container is exactly what the cap refuses.
+
+**Wiring it into the toolbar is not a straightforward prop, and the reason is
+worth keeping.** `EditorToolbar` is mounted by `FursonaEditor` as a SIBLING of
+`BlockEditor`, and `BlockEditor` alone owns `blocks` and `selection` —
+deliberately: `FursonaEditor` does not watch `sections` at all, because doing
+so would re-render `EditorToolbar` on every keystroke in a leaf, which is
+exactly what `PageSourceField`'s own isolated `useWatch` exists to avoid one
+level over. So the toolbar's Add control could not be built by handing
+`addTargetFor`'s output up through `FursonaEditor` as data — that would
+reintroduce the render-count fault `fursona-editor.test.tsx` already guards
+against. `presentation/add-slot.tsx` is the fix: an `AddSlotProvider` wraps
+the whole `data-controls` element in `FursonaEditor`, `AddSlotTarget` renders
+an empty portal-host `<div>` inside `EditorToolbar`'s own action group, and
+`BlockEditor` computes `addTargetFor`'s result itself and portals a single
+`AddBlockPicker` into that host — the same context-and-portal shape
+`EscapeSlotProvider`/`EscapeSlotTarget` already use for the "show controls"
+button, scoped to this feature rather than shared with it, because the two
+slots serve unrelated controls.
+
+**Manual verification (Task 4) found a real, visible duplication, and it was
+checked against a genuinely signed-in browser rather than assumed from
+reading the code.** Before this branch, selecting a container and opening its
+Items tab showed TWO Add buttons at once, both labelled identically in
+Spanish — the toolbar's own, `data-target-path` equal to the container's own
+path, and `ItemsFooter`'s own mount one segment longer, both resolving to the
+identical `addAt` call.
+`ItemsFooter` carried no `AddBlockPicker` of its own as of this task; only
+its `add-place` button remained, because appending an empty POSITION is a
+different operation from adding a block and the toolbar's Add has no way to
+ask for it. **`ItemsFooter` itself, and the Items tab this paragraph
+describes opening, are both gone one task later** — see "The Properties
+panel replaces the recursive inspector," further down this file; the
+surviving `add-place` button now lives inside `BlockCard`, reached through
+the panel's Layout tab rather than through Items.
+
+**The check that found this was a real Clerk-authenticated `next dev` session,
+not a static read.** A throwaway script (deleted after use, never committed)
+created a real Clerk test identity via the Management API, signed in through
+the same `@clerk/testing/playwright` ticket mechanism `tests/e2e/support/clerk-session.ts`
+uses, opened `/es/me/edit`, selected a section's own container through the
+breadcrumb, and counted `data-testid="add-block"` elements: two, with
+`data-target-path` of `0` and `0-2` respectively, before this fix — one,
+`0`, after it. The identity was deleted again in the same run.
+
+**The row's remaining shape — Add, the page-theme switch, Preview, Save,
+More — landed the same day.** The spec names "Add, desktop/mobile canvas
+width, Preview, Save, More"; Phase 2 builds no canvas-width control, so that
+stop is simply absent rather than stubbed with a placeholder comment that
+controls nothing. `More` is a native `<details>`/`<summary>` disclosure —
+matching this codebase's own convention (`page-source-dock.tsx`'s reference
+panel) rather than introducing a third idiom — grouping the source-JSON
+trigger, Interact with page and Cancel, none of which is reached often
+enough to earn a permanent seat in a row that already wraps at `sm`.
+`pageThemeSwitch` keeps its place beside Add: the spec's own list does not
+name it, and moving a control the spec never mentioned was not this task's
+job.
+
+**jsdom applies none of `<details>`'s native open/closed behaviour, which
+`page-source-dock.tsx`'s own account already names for a different
+component — this is the same gap on a second one.** Every existing unit
+case asserting on the controls now inside `More` (`getByRole("button", {
+name: "Page source" })`, and the rest) kept passing completely unmodified,
+because jsdom neither hides a closed `<details>`'s non-`<summary>` children
+from the DOM nor from `getComputedStyle` — there is no CSS engine to apply
+the browser's own default stylesheet rule. So the new case this task added,
+"groups source JSON, Interact with page and Cancel under More", cannot
+assert VISIBILITY the way a browser could; it asserts CONTAINMENT instead —
+all three sit inside the same `<details>` the `More` trigger owns — which is
+the fact a browser's hiding rests on. Sabotage-verified: moving Cancel to a
+sibling of `</details>` reddens exactly that one case and none of the
+others, proving the fixture discriminates rather than merely existing.
+
+### The Properties panel replaces the recursive inspector (2026-09-04)
+
+Phase 3 of the Carrd-style page builder
+(`docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-3-properties-panel.md`,
+design in `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`)
+removes the recursive Items/Options inspector entirely.
+`presentation/canvas-inspector.tsx` and `presentation/inspector-items.tsx` are
+both **deleted**; `presentation/properties-panel.tsx` (`PropertiesPanel`) is
+what replaced them. There is no Items tab, no tree navigation, no
+breadcrumbs and no Back any more — click-to-select on the live canvas
+(`onCanvasClick`, unchanged from the prior phase) is now the ONLY way into a
+block, because there is no Items list left to also drill through it.
+
+**Exactly two tabs, fixed per selection kind, never a variable number.** A
+leaf's pair is Content/Appearance, a container's is Layout/Appearance,
+Page's is Page/Theme. `panelContentFor` and `panelFootFor` — top-level
+functions in `block-editor.tsx`, pulled out of `BlockEditor`'s own body for
+the same cognitive-complexity-budget reason `detectCollisionAt` and
+`coordinateGetterAt` already were — build the `{ primary, secondary,
+panelLabels }` triple and the Clone/Delete foot from the current selection.
+A container's Layout tab is `BlockCard` with `showChildren={false}`; its
+Appearance tab is `StyleFields` fed the same `value`/`gates` the card already
+computed for its own (now suppressed) popup. A leaf's Content tab is
+`LeafEditor`; its Appearance tab is the same `StyleFields`. Both `BlockCard`
+and `LeafEditor` gained `hideStylePopup`/`hideRemove` props (default
+`false`, so every standalone test of either component is unaffected) so the
+panel's production call sites can suppress the now-redundant inline trigger
+and bin — the panel's own foot carries the one Delete, and the Appearance
+tab carries the fields the popup would have shown, inline rather than
+behind a second control nobody would open.
+
+**Both panes stay mounted, switched by the native `hidden` attribute — never
+by conditional rendering — so a tab flip does not remount the pane just
+left.** The scope key that re-triggers each pane's own entrance animation is
+`${selection.kind}:${path.join("-") || ""}` and **deliberately excludes the
+tab**: an earlier phase's inspector shipped a key that included it, which
+remounted BOTH panes (the hidden one included) on every tab flip and cost a
+mounted `<details>`/`useState` its own open/closed state — see the account
+above this section, under the Motion bullet, for the full incident.
+`properties-panel.tsx` carries the fixed shape forward verbatim rather than
+reintroducing the bug in a new file.
+
+**Clone is new; Delete moved.** `domain/block-clone.ts`'s `cloneAt`
+duplicates the selected block and inserts the copy immediately after it, in
+the same parent — never a different depth, since a sibling insert shares its
+source's path length — refusing by name rather than silently: `too deep`
+reuses `block-drops.ts`'s own `reach`/`fitsAt`, now exported for exactly
+this so the depth arithmetic exists in one place, and `too many` is
+`BLOCK_LIMITS.children` for a clone landing inside a container or
+`BLOCK_LIMITS.blocks` for one landing at the page root — the two caps a real
+subtree can actually cross. Delete is the same removal `BlockCard`'s own
+`RemoveSectionButton` and `LeafEditor`'s own bin always did, gated by the
+identical `removalLocked` check, just relocated to the panel's foot so there
+is one Delete for the whole selection rather than one per component that
+happened to render it.
+
+**The panel sits on the desktop RIGHT now, a phone bottom sheet below
+`md`** — `min(36rem, 40vw)` wide, `3.5rem` below the sticky toolbar,
+`max-h-[70vh]` as a sheet. This is a reversal of where the recursive
+inspector sat; the canvas's own accommodating right-padding
+(`md:pl-[min(36rem,40vw)]`, already documented above under "The desktop
+panel is...") is unchanged in mechanism — it is still keyed to the exact
+same width expression, just now padding the side the panel actually
+occupies.
+
+**Test ids changed and some have no replacement at all, because the thing
+they named no longer exists.** `canvas-inspector` → `properties-panel`;
+`inspector-close` → `panel-close`; `inspector-tab-items` /
+`inspector-tab-options` → `panel-tab-primary` / `panel-tab-secondary`.
+`inspector-item-row`, `inspector-item-open`, `inspector-empty-place`,
+`inspector-breadcrumb` and `inspector-back` are simply gone — there is no
+Items list, no breadcrumb and no Back to name any more. A canvas grip's own
+id is untouched by any of this: `canvas-drag-<dot.joined.path>`, still
+rendered only for the currently selected block.
+
+**A block whose own fields fail even `lenientBlockSchema` is now
+UNSELECTABLE, and this is a real gap rather than a hypothetical one.** The
+canvas's own per-seat `lenientBlockSchema.safeParse(seat.block)`
+(`block-editor.tsx`) answers a failure for such a block and renders nothing
+for it at all — no `data-block-path`, nothing to click. The Items-based
+inspector this phase removed did not have this gap: its rows read the RAW
+form tree directly, never the canvas's own parsed render, so a person could
+always drill into a malformed section to fix it even while its live preview
+showed nothing beside it. Found while updating
+`fursona-editor.test.tsx`'s "marks a section whose own name was refused" and
+"...whose style was refused, on a field it does not draw": both fixtures
+loaded a section already past a cap (`name_en` past `BLOCK_LIMITS.text`, a
+style address past `BLOCK_STYLE_LIMITS.background_url`) — the exact same
+cap the STRICT write refuses on, since strict and lenient share one
+`z.string().max(...)` per field — so the container could never render and
+`selectPath` had nothing to find. Both were rewritten to select the
+container **while it was still valid** and then drive the refusing field
+live through the panel, which happens to be the more faithful shape anyway:
+the strict write already refuses this exact tree, so a page can never be
+_loaded_ already past either cap, only typed into that state while its
+author is still editing it with the block already selected. The underlying
+reachability gap is real independent of that rewrite, though, and is
+recorded here rather than patched, because closing it is a product
+question — does Delete need to reach a block the canvas cannot render at
+all, does the error banner need its own click-to-select affordance
+independent of the canvas — and not a test-fitting exercise. A page saved by
+an older build and reopened by a newer one with a tightened cap is the
+ordinary way this could occur outside a test.
+
+### Two stacking bugs and two selection bugs, closed by running the checkpoint's own e2e suite for real (2026-09-05)
+
+None of these four were caught locally before this pass, because the
+checkpoint's `hub`/`canvas` gates run no browser and the e2e-repair task
+that rewrote most of `tests/e2e/` for the Properties panel never actually
+ran the rewritten specs against real Clerk credentials — root rule 31's
+exact shape, on a suite this branch itself had just rewritten rather than
+on a suite left alone.
+
+- **The Add picker's dialog resolved `fixed inset-0` against the toolbar,
+  not the viewport.** `EditorToolbar`'s sticky bar carries
+  `backdrop-blur-md`, and `backdrop-filter` other than `none` establishes a
+  containing block for `position: fixed` descendants exactly as `filter`
+  and `transform` do — invisible to every unit test, since jsdom does no
+  layout. `AddBlockPicker`'s dialog is portalled to `document.body` now; the
+  trigger stays where its caller mounts it.
+- **The toolbar's own stacking context sat below the Properties panel's.**
+  `sticky` plus a `z-index` makes an element its own stacking context, so
+  the "More" disclosure's `absolute` panel only ever competed within the
+  bar's `z-20`, and the bar as a whole painted behind the panel's `z-30`
+  whenever both were open, however high the disclosure's own `z-index` was
+  set. The bar is `z-40` now, matching `page-source-dock.tsx` and the Add
+  picker's own dialog.
+- **Escape closing the Add picker silently cleared the current selection.**
+  The capture-phase, canvas-owned Escape-deselect handler in
+  `block-editor.tsx` (see "Dragging" above for its own account of WHY it is
+  capture-phase) exempted `properties-panel` and `page-source-dock` but not
+  `add-block-picker` — which is portalled to `document.body` rather than
+  nested inside the panel, so it needed naming rather than being reached
+  through the panel's own selector. Closing the picker with Escape cleared
+  `selection` before the picker's own bubble-phase handler ever closed the
+  dialog, retargeting the next Add at the page root instead of the
+  container that had been open — found by a depth-cap browser test failing
+  with 8 layout options offered where the cap should have refused all of
+  them. `add-block-picker` joined the exemption list.
+- **`onCanvasClick`'s `CHROME_SCOPE` exemption also matched an EMPTY
+  place's own wrapper, swallowing a click meant for its enclosing
+  container.** The exemption exists for a genuine chrome control with no
+  block underneath it — the Page pill, which rides inside the canvas — and
+  it was checked BEFORE the `data-block-path` lookup. `EditableBlockFrame`'s
+  empty-place wrapper also carries `CHROME_SCOPE`, so Preview can hide its
+  dashed placeholder box the same way every other editor-only island is
+  hidden; an empty place has no `data-block-path` of its own, only
+  `data-canvas-path`. So a click landing on an empty place — reachable
+  simply by clicking near the top-left corner of a container that has one,
+  which is exactly where `selectBlock`'s own convention aims — matched
+  `CHROME_SCOPE` on itself and returned before `closest("[data-block-path]")`
+  ever ran, never walking up to find the container a few ancestors above.
+  The two checks are reordered: `data-block-path` first, `CHROME_SCOPE`
+  only once that has failed. The Page-control case this guard exists for is
+  unaffected, because the pill is not nested inside any block's own
+  `data-block-path` subtree. Both live in `onCanvasClick`, and
+  `BlockEditor`'s own TSDoc carries a matching line — `check:docs` compares
+  a symbol against its own code and would have refused a fix landing here
+  without one.
+
+**A fifth failure in the same sweep, `editor-saves-page.spec.ts`'s template
+round trip, is a DIFFERENT and still-open bug — confirmed pre-existing by
+running it against the branch before any of the four fixes above, where it
+fails earlier for an unrelated reason (the toolbar fix above is what let it
+progress far enough to reach this one).** Applying a template, then
+switching the Properties panel from its primary tab back to Theme without
+reselecting Page, finds `theme-accent` gone — `ThemeConfigurator`'s own
+`open` state did not survive the round trip, though nothing here found why:
+both panes are meant to stay mounted throughout, switched by the `hidden`
+attribute rather than remounted, which should have left local state alone.
+Not fixed on this pass; recorded here rather than left to be rediscovered
+as a mystery next time somebody runs this spec.

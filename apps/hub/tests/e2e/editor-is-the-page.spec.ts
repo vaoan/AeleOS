@@ -692,16 +692,26 @@ test("every workbench group is opaque, whatever the page behind it", async ({
   await page.goto("/es/pages/new");
   await openPageAdd(page);
   await expect(page.getByTestId("add-block")).toBeVisible();
-  await openPageAdd(page);
   await addBlock(page, { mode: "grid" });
 
-  // Adding opens the new section on ITEMS; its own controls, the style
-  // trigger among them, are the other tab.
-  await page.getByTestId("inspector-tab-options").click();
-  const card = page.getByTestId("section-card");
-  await card.getByTestId("section-style-open").click();
-  const panel = page.getByTestId("section-style-panel");
-  await expect(panel).toBeVisible();
+  // Adding selects the new section on its Layout tab; Appearance is the
+  // other one. There is no popup or separate panel element any more — the
+  // Properties panel's own Appearance tab renders `StyleFields` inline, so
+  // the workbench group under test is the panel itself.
+  await page.getByTestId("panel-tab-secondary").click();
+  const panel = page.getByTestId("properties-panel");
+  await expect(panel.getByTestId("section-style-skin")).toBeVisible();
+
+  // The panel's own root is an `m.div` with an opacity entrance — see
+  // `editor-interaction.spec.ts`'s "entrance settles to its final state" —
+  // and a bare synchronous read races that fade exactly the way rule 26 of
+  // the root `CLAUDE.md` warns about. Measured once: `0.974665` rather than
+  // `1`, on a run reaching this test early enough that the panel's own open
+  // (from `addBlock` selecting the new section) had not yet settled. Poll
+  // until the fade is done before reading the rest.
+  await expect
+    .poll(() => panel.evaluate((el) => getComputedStyle(el).opacity))
+    .toBe("1");
 
   const seen = await panel.evaluate((el) => {
     const style = getComputedStyle(el);

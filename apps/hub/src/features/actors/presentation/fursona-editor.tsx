@@ -26,6 +26,7 @@ import type { ChosenPage } from "@/features/actors/domain/fursona-templates";
 import { WritingInToggle } from "@/features/actors/presentation/writing-in-toggle";
 import { pageInteractionsEnabled } from "@/features/actors/domain/page-interaction";
 import { EditorMotion } from "@/features/actors/presentation/editor-motion";
+import { AddSlotProvider } from "@/features/actors/presentation/add-slot";
 import {
   EditorToolbar,
   type EditorToolbarLabels,
@@ -495,8 +496,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * persists the choice — it is a way of looking, not a preference. The control
  * that brings the workbench back is rendered OUTSIDE the armed element, or the
  * rule would hide the only way out of the state it created. Hiding controls
- * also invalidates inspector selection in the same event, so Show controls
- * cannot resurrect a paused panel. While controls show, the form is bounded
+ * also invalidates the Properties panel's selection in the same event, so Show
+ * controls cannot resurrect a paused panel. While controls show, the form is bounded
  * below the app header and only the canvas scrolls.
  *
  * **Both sticky bars are direct children of the element carrying
@@ -512,8 +513,8 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `sm`. That spelling lives in `FormErrorBanner` now, and the banner itself
  * is handed to `BlockEditor` rather than rendered here (2026-09-03): a
  * column at this level reserved 40px of the author's backdrop on every form
- * with nothing wrong, and a banner at this level sat outside the inspector's
- * accommodation padding and was covered by the panel.
+ * with nothing wrong, and a banner at this level sat outside the Properties
+ * panel's accommodation padding and was covered by it.
  *
  * **The way out of the author's own look is in the bar.** Since the document
  * wears the draft, a busy theme is worn by the workbench too; the editor hands
@@ -569,6 +570,16 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * (2026-09-02) — safe because `LazyMotion`/`MotionConfig` render no DOM of
  * their own, so wrapping here adds no element and changes nothing about the
  * canvas's layout or the `DndContext` beneath it. See `editor-motion.tsx`.
+ *
+ * **It wraps the whole `data-controls` element in `AddSlotProvider`
+ * (2026-09-04),** the compact builder menu's single global Add. `BlockEditor`
+ * alone owns `blocks`/`selection`, so it computes `addTargetFor`'s result
+ * itself and portals one `AddBlockPicker` into the host `AddSlotTarget`
+ * renders inside `EditorToolbar` — the same context-and-portal shape
+ * `useEscapeSlot` already uses for the "show controls" button, scoped to
+ * this feature rather than shared with it. See `add-slot.tsx` and the actors
+ * feature note for why a prop threaded down from here would reintroduce the
+ * toolbar-render-count fault this file already guards against.
  *
  * @returns the editor.
  */
@@ -759,56 +770,63 @@ export function FursonaEditor({
             remembering. A second rule flattens the editor's own stacking, so
             the sections close up to exactly the spacing `pageBoxClass` gives
             them on a public page. */}
-          <div
-            data-controls={controlsHidden ? "hidden" : "shown"}
-            className={controlsHidden ? "" : "flex min-h-0 flex-1 flex-col"}
-          >
-            {/* **Both sticky bars are direct children of THIS box**, which spans
+          {/* **`AddSlotProvider` wraps both bars, and nothing outside them.**
+              `EditorToolbar` renders the empty slot; `BlockEditor` — the only
+              component here that owns `blocks` and the current selection —
+              portals its own `AddBlockPicker` into it. Neither the provider
+              nor the slot renders any DOM of its own, so wrapping this div is
+              the same as wrapping only its children. See `add-slot.tsx`. */}
+          <AddSlotProvider>
+            <div
+              data-controls={controlsHidden ? "hidden" : "shown"}
+              className={controlsHidden ? "" : "flex min-h-0 flex-1 flex-col"}
+            >
+              {/* **Both sticky bars are direct children of THIS box**, which spans
               the whole editor. A sticky element sticks only within its parent's
               box, and the control column below stops before the section
               previews — so a bar inside it comes unstuck a few hundred pixels
               down. See `editor-bars-stay-pinned.spec.ts`. */}
-            <EditorToolbar
-              title={labels.title}
-              labels={labels}
-              saving={saving}
-              cancelHref={LIST}
-              onHideControls={() => {
-                setSelectionResetKey((current) => current + 1);
-                setControlsHidden(true);
-              }}
-              onOpenSource={() => {
-                setSourceMounted(true);
-                setSourceOpen(true);
-              }}
-              interactEnabled={interactEnabled}
-              onInteractEnabledChange={setInteractEnabled}
-              // **Gated on the LIVE theme, so it arrives with the first colour
-              // somebody picks and leaves when they reset.** Computed here rather
-              // than in the bar for the same reason the public routes compute it:
-              // the bar owns no domain concept, and `isCustomised` is one.
-              pageThemeSwitch={
-                isCustomised(liveTheme as ActorTheme) ? (
-                  <PageThemeSwitch labels={{ author: labels.pageStyle }} />
-                ) : null
-              }
-              // **The switch that used to be a strip above the sections.** It is
-              // handed in as a node for the reason `pageThemeSwitch` is: the bar
-              // owns no domain concept, and which languages somebody may author
-              // in is one.
-              writingIn={
-                <WritingInToggle
-                  lang={lang}
-                  onSelect={select}
-                  labels={{
-                    writingIn: labels.writingIn,
-                    writingInHint: labels.writingInHint,
-                  }}
-                />
-              }
-            />
+              <EditorToolbar
+                title={labels.title}
+                labels={labels}
+                saving={saving}
+                cancelHref={LIST}
+                onHideControls={() => {
+                  setSelectionResetKey((current) => current + 1);
+                  setControlsHidden(true);
+                }}
+                onOpenSource={() => {
+                  setSourceMounted(true);
+                  setSourceOpen(true);
+                }}
+                interactEnabled={interactEnabled}
+                onInteractEnabledChange={setInteractEnabled}
+                // **Gated on the LIVE theme, so it arrives with the first colour
+                // somebody picks and leaves when they reset.** Computed here rather
+                // than in the bar for the same reason the public routes compute it:
+                // the bar owns no domain concept, and `isCustomised` is one.
+                pageThemeSwitch={
+                  isCustomised(liveTheme as ActorTheme) ? (
+                    <PageThemeSwitch labels={{ author: labels.pageStyle }} />
+                  ) : null
+                }
+                // **The switch that used to be a strip above the sections.** It is
+                // handed in as a node for the reason `pageThemeSwitch` is: the bar
+                // owns no domain concept, and which languages somebody may author
+                // in is one.
+                writingIn={
+                  <WritingInToggle
+                    lang={lang}
+                    onSelect={select}
+                    labels={{
+                      writingIn: labels.writingIn,
+                      writingInHint: labels.writingInHint,
+                    }}
+                  />
+                }
+              />
 
-            {/* **Its own `sections` watch, isolated in its own component so it
+              {/* **Its own `sections` watch, isolated in its own component so it
               stays out of THIS render.** `BlockEditor` already keeps this
               component from re-rendering on every keystroke inside a block
               by holding its own `useController({ control, name: "sections"
@@ -829,162 +847,168 @@ export function FursonaEditor({
               mounted it stays mounted regardless of `open`, so closing the
               dock does not throw away the text or the problems it was
               showing. */}
-            {sourceMounted && (
-              <PageSourceField
-                control={control}
-                setValue={setValue}
-                theme={liveTheme as ActorTheme}
-                actorKind={kind}
-                open={sourceOpen}
-                onClose={() => setSourceOpen(false)}
-                reference={reference}
-                labels={labels.source}
-              />
-            )}
-
-            <BlockEditor
-              control={control}
-              lang={lang}
-              labels={labels}
-              onApplyDocument={(chosen) => applyDocumentTo(setValue, chosen)}
-              theme={liveTheme as ActorTheme}
-              page={livePage}
-              problems={problems}
-              pageInteractionsEnabled={interactionsEnabled}
-              controlsHidden={controlsHidden}
-              selectionResetKey={selectionResetKey}
-              // **Handed DOWN rather than rendered here, and it carries its
-              // own page column.** Both are the same lesson from the same
-              // day: a banner rendered at this level sat outside the
-              // inspector's accommodation padding and was covered by the
-              // panel, and a column rendered at this level reserved 40px of
-              // the author's backdrop on every form with nothing wrong. See
-              // `BlockEditorProps.banner` and `FormErrorBanner`.
-              banner={
-                <FormErrorBanner
-                  errors={{ ...schemaErrors, ...fieldErrors }}
-                  labels={{
-                    title: labels.bannerTitle,
-                    errors: labels.errors,
-                  }}
+              {sourceMounted && (
+                <PageSourceField
+                  control={control}
+                  setValue={setValue}
+                  theme={liveTheme as ActorTheme}
+                  actorKind={kind}
+                  open={sourceOpen}
+                  onClose={() => setSourceOpen(false)}
+                  reference={reference}
+                  labels={labels.source}
                 />
-              }
-              pageOptions={
-                <>
-                  <div
-                    {...tid("editor-identity-fields")}
-                    className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
-                  >
-                    {/* **A person has no handle field at all.** Theirs is the provisioned
+              )}
+
+              <BlockEditor
+                control={control}
+                lang={lang}
+                labels={labels}
+                onApplyDocument={(chosen) => applyDocumentTo(setValue, chosen)}
+                theme={liveTheme as ActorTheme}
+                page={livePage}
+                problems={problems}
+                pageInteractionsEnabled={interactionsEnabled}
+                controlsHidden={controlsHidden}
+                selectionResetKey={selectionResetKey}
+                // **Handed DOWN rather than rendered here, and it carries its
+                // own page column.** Both are the same lesson from the same
+                // day: a banner rendered at this level sat outside the
+                // inspector's accommodation padding and was covered by the
+                // panel, and a column rendered at this level reserved 40px of
+                // the author's backdrop on every form with nothing wrong. See
+                // `BlockEditorProps.banner` and `FormErrorBanner`.
+                banner={
+                  <FormErrorBanner
+                    errors={{ ...schemaErrors, ...fieldErrors }}
+                    labels={{
+                      title: labels.bannerTitle,
+                      errors: labels.errors,
+                    }}
+                  />
+                }
+                pageFields={
+                  <>
+                    <div
+                      {...tid("editor-identity-fields")}
+                      className="grid gap-6 rounded-xl surface border-(--edge) bg-(--surface-solid) p-3 sm:p-4"
+                    >
+                      {/* **A person has no handle field at all.** Theirs is the provisioned
             `u-<actor_ref>`, which nobody picks and which appears in no
             address — so there is nothing to edit and nothing worth showing.
             Everything else on this form is identical for both. */}
-                    {kind === "person" ? null : (
-                      <div className="grid gap-1.5">
-                        <label htmlFor="handle" className="text-sm font-medium">
-                          {labels.handle}
-                        </label>
-                        {handleEditable ? (
-                          <>
-                            <input
-                              id="handle"
-                              {...tid("editor-handle")}
-                              {...register("handle")}
-                              maxLength={32}
-                              aria-invalid={Boolean(errors.handle)}
-                              aria-describedby="handle-hint"
-                              className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                            />
-                            <span
-                              id="handle-hint"
-                              className="text-xs text-(--muted)"
-                            >
-                              {labels.handleHint}
+                      {kind === "person" ? null : (
+                        <div className="grid gap-1.5">
+                          <label
+                            htmlFor="handle"
+                            className="text-sm font-medium"
+                          >
+                            {labels.handle}
+                          </label>
+                          {handleEditable ? (
+                            <>
+                              <input
+                                id="handle"
+                                {...tid("editor-handle")}
+                                {...register("handle")}
+                                maxLength={32}
+                                aria-invalid={Boolean(errors.handle)}
+                                aria-describedby="handle-hint"
+                                className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                              />
+                              <span
+                                id="handle-hint"
+                                className="text-xs text-(--muted)"
+                              >
+                                {labels.handleHint}
+                              </span>
+                            </>
+                          ) : (
+                            // Read-only text rather than a disabled input: update_fursona takes
+                            // no handle at all, so an editable one would submit a value the
+                            // database ignores.
+                            <span className="px-3 py-2 font-mono text-sm text-(--muted)">
+                              @{initial?.handle}
                             </span>
-                          </>
-                        ) : (
-                          // Read-only text rather than a disabled input: update_fursona takes
-                          // no handle at all, so an editable one would submit a value the
-                          // database ignores.
-                          <span className="px-3 py-2 font-mono text-sm text-(--muted)">
-                            @{initial?.handle}
-                          </span>
-                        )}
+                          )}
+                        </div>
+                      )}
+
+                      <div className="grid gap-1.5">
+                        <label
+                          htmlFor="displayName"
+                          className="text-sm font-medium"
+                        >
+                          {labels.displayName}
+                        </label>
+                        <input
+                          id="displayName"
+                          {...tid("editor-display-name")}
+                          {...register("displayName")}
+                          maxLength={64}
+                          aria-invalid={Boolean(errors.displayName)}
+                          className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                        />
                       </div>
-                    )}
 
-                    <div className="grid gap-1.5">
-                      <label
-                        htmlFor="displayName"
-                        className="text-sm font-medium"
-                      >
-                        {labels.displayName}
-                      </label>
-                      <input
-                        id="displayName"
-                        {...tid("editor-display-name")}
-                        {...register("displayName")}
-                        maxLength={64}
-                        aria-invalid={Boolean(errors.displayName)}
-                        className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                      />
+                      <div className="grid gap-1.5">
+                        <label
+                          htmlFor="avatarUrl"
+                          className="text-sm font-medium"
+                        >
+                          {labels.avatarUrl}
+                        </label>
+                        <input
+                          id="avatarUrl"
+                          {...register("avatarUrl")}
+                          type="url"
+                          aria-invalid={Boolean(errors.avatarUrl)}
+                          className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
+                        />
+                      </div>
+
+                      <div className="grid gap-1.5">
+                        <label
+                          htmlFor="visibility"
+                          className="text-sm font-medium"
+                        >
+                          {labels.visibilityLabel}
+                        </label>
+                        <select
+                          id="visibility"
+                          {...tid("editor-visibility")}
+                          {...register("visibility")}
+                          aria-invalid={Boolean(errors.visibility)}
+                          className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
+                        >
+                          {VISIBILITIES.map((value) => (
+                            <option key={value} value={value}>
+                              {labels.visibility[value]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-
-                    <div className="grid gap-1.5">
-                      <label
-                        htmlFor="avatarUrl"
-                        className="text-sm font-medium"
-                      >
-                        {labels.avatarUrl}
-                      </label>
-                      <input
-                        id="avatarUrl"
-                        {...register("avatarUrl")}
-                        type="url"
-                        aria-invalid={Boolean(errors.avatarUrl)}
-                        className="rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-2"
-                      />
-                    </div>
-
-                    <div className="grid gap-1.5">
-                      <label
-                        htmlFor="visibility"
-                        className="text-sm font-medium"
-                      >
-                        {labels.visibilityLabel}
-                      </label>
-                      <select
-                        id="visibility"
-                        {...tid("editor-visibility")}
-                        {...register("visibility")}
-                        aria-invalid={Boolean(errors.visibility)}
-                        className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-2"
-                      >
-                        {VISIBILITIES.map((value) => (
-                          <option key={value} value={value}>
-                            {labels.visibility[value]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Above the language strip and the sections, because it governs how
-          all of them look. The panel is collapsed until somebody opens it —
-          theming is a thing people do once and then leave alone, and an open
-          colour panel would push everything below it down the page for
-          everybody who never touches it. */}
-                  <div className="mt-8">
-                    <ThemeController
-                      control={control}
-                      labels={labels.theme}
-                      profileTheme={profileTheme}
-                    />
-                  </div>
-                </>
-              }
-            />
-          </div>
+                  </>
+                }
+                // **Its own tab now, not a `mt-8` sibling of the identity
+                // fields (2026-09-04).** The Properties panel's Page
+                // selection routes this to Theme, its OWN pane — the two-tab
+                // split this component's own `mt-8` margin existed to fake
+                // by spacing, on a page where both used to share one Options
+                // pane. The panel's own `gap-2` between tab content is
+                // spacing enough; a margin meant for a sibling would be
+                // furniture at the top of a pane with nothing above it.
+                pageTheme={
+                  <ThemeController
+                    control={control}
+                    labels={labels.theme}
+                    profileTheme={profileTheme}
+                  />
+                }
+              />
+            </div>
+          </AddSlotProvider>
 
           {/* **PORTALLED INTO THE HEADER, which is outside the element the rule
           arms** — so it needs no exception, cannot be part of what the fidelity

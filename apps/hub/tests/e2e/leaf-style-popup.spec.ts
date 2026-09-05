@@ -30,13 +30,13 @@ import { addBlock, addSection } from "./support/editor";
 // than `label` would have been here — no title has to be typed for the
 // preview to show anything at all.
 //
-// **The trigger this file clicks carries its own test id, `leaf-style-open`,
-// not `section-style-open`.** The two popups are the same component and
-// briefly shared one id, which is what let two OTHER suites'
-// `.last()` calls silently start reaching a leaf's trigger instead of a
-// section's the moment a leaf grew one — see
-// `SectionStylePopupProps.triggerTestId` for the fix and the feature note
-// for the account of finding it.
+// **There is no trigger and no popup any more (2026-09-04).** The Properties
+// panel suppresses `SectionStylePopup`'s own inline trigger everywhere it
+// mounts `BlockCard`/`LeafEditor` (`hideStylePopup`), and renders the
+// identical `StyleFields` inline on its Appearance tab instead — reached by
+// selecting the leaf and switching tabs, with no `section-style-open`/
+// `leaf-style-open` id left to collide over, since only one thing is ever
+// selected at a time.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -61,18 +61,16 @@ test("a leaf's own portrait-size choice resizes its avatar in the live preview",
   // One section, one place, one piece of content — built by hand so what is
   // measured is the control that shipped, not a template's own data.
   await addSection(page, "1");
-  // `addSection` leaves the pane on Options — its own TSDoc says so — so
-  // the section's empty place is not showing until Items is pressed.
-  await page.getByTestId("inspector-tab-items").click();
-  await addBlock(page.getByTestId("inspector-empty-place").last(), {
-    kind: "text",
-  });
+  // `addSection` leaves the new section selected on its Layout tab, with its
+  // one empty place already there — no tab switch needed to reach it.
+  await addBlock(page, { kind: "text" });
   // **`avatar` only, and `portrait` is unreachable through any other kind's
   // select.** Choosable here because `offerableLeafKinds` refuses only the
   // ONE kind a page's actor kind has no use for (`owner` on a person page) —
   // `avatar` is never that kind, so a second avatar leaf is an ordinary
-  // choice the select offers.
-  await page.getByTestId("leaf-kind").last().selectOption("avatar");
+  // choice the select offers. Adding selected this leaf, so there is exactly
+  // one `leaf-kind` select showing.
+  await page.getByTestId("leaf-kind").selectOption("avatar");
 
   // **`block-avatar` matches TWO elements without this scoping**, because the
   // identity section this page already carries has one of its own. `.last()`
@@ -91,15 +89,11 @@ test("a leaf's own portrait-size choice resizes its avatar in the live preview",
     .poll(async () => (await avatar.boundingBox())?.width)
     .toBeCloseTo(96, 0);
 
-  // **`leaf-style-open`, not `section-style-open`.** A leaf's own trigger
-  // carries a distinct test id from a container's now — see
-  // `SectionStylePopupProps.triggerTestId` — precisely so a query for one can
-  // never resolve to the other. `.last()` is still needed: the identity
-  // section's own required leaves (`avatar`, `handle`, `name`) each have one
-  // too, and this leaf's is simply the most recently added.
-  await page.getByTestId("leaf-style-open").last().click();
-  const panel = page.getByTestId("section-style-panel");
-  await expect(panel).toBeVisible();
+  // No trigger to disambiguate any more — the leaf just added is the only
+  // thing selected, so its own Appearance tab is the only `StyleFields`
+  // mounted anywhere.
+  await page.getByTestId("panel-tab-secondary").click();
+  await expect(page.getByTestId("section-style-portrait")).toBeVisible();
 
   await page.getByTestId("section-style-portrait").selectOption("l");
   // `size-32` is 8rem.

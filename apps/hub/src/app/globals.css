@@ -709,6 +709,29 @@ option {
 }
 
 /*
+ * **The editor's own bounded canvas never lets the header scroll away, so
+ * the short-height override above is wrong there (2026-09-05).** `0px`
+ * assumes the header "yields its place" by scrolling out of the viewport —
+ * true of an ordinary page, where the whole document scrolls, but false the
+ * moment controls are showing: `editor-canvas` is the sole scroller then
+ * (see the account in this feature's own `CLAUDE.md`, "Only the canvas
+ * scrolls while controls show"), the window itself never moves, and the
+ * header sits at the top of the viewport permanently. `properties-panel.tsx`
+ * and `page-source-dock.tsx` both position themselves from `--bar-top`
+ * assuming it names that permanent height, and a `0` there put the panel's
+ * own top edge — and its `panel-close` button with it — directly over the
+ * toolbar's own row on a short landscape phone, intercepting every click
+ * aimed at either. Re-declared here, after the override above, so it wins
+ * at the same media query rather than merely restoring the unqueried
+ * default.
+ */
+@media (height <= 600px) {
+  [data-controls="shown"] {
+    --bar-top: var(--bar-h);
+  }
+}
+
+/*
  * **The page's top and bottom edge grows on a real screen**, which is what
  * `pt-6 sm:pt-10` said before this was a token. Written as a media query on
  * `:root` rather than as a responsive utility because the value is now a token

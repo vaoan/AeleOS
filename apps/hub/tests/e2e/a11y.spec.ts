@@ -18,7 +18,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { addBlock, openPageAdd } from "./support/editor";
+import { addBlock, openMore, openPageAdd } from "./support/editor";
 
 // One sign-in for "the signed-in pages are accessible" below: both of its
 // cases read or extend the same shared identity's own pages, and neither
@@ -106,8 +106,8 @@ async function isAccessible(
 ): Promise<void> {
   // **Waits out Motion's own scope-transition fade — by POLLING it, not by
   // guessing its duration (corrected 2026-09-02).** Entering a fresh
-  // selection remounts `canvas-inspector.tsx`'s keyed `m.div`
-  // (`inspector-pane-entrance`, 150ms), and axe's `color-contrast` samples
+  // selection remounts `properties-panel.tsx`'s keyed `m.div`
+  // (`panel-pane-entrance`, 150ms), and axe's `color-contrast` samples
   // the actually RENDERED pixels — so a scan that lands mid-fade sees the
   // whole card, text and background alike, blended toward whatever is
   // BEHIND the editor at a shared partial opacity, which measurably lowers
@@ -127,7 +127,7 @@ async function isAccessible(
   // signed-out pages this same function scans, so the wait is conditional
   // on it existing at all — nothing to settle where there is no editor.
   const pane = page
-    .getByTestId("inspector-pane-entrance")
+    .getByTestId("panel-pane-entrance")
     .and(page.locator(":visible"));
   if (await pane.count()) {
     await expect
@@ -253,7 +253,7 @@ test.describe("the signed-in pages are accessible", () => {
     });
     await openPageAdd(page);
     await expect(page.getByTestId("add-block")).toBeVisible();
-    await page.getByTestId("inspector-tab-options").click();
+    await page.getByTestId("panel-tab-secondary").click();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
 
@@ -266,67 +266,59 @@ test.describe("the signed-in pages are accessible", () => {
     await page.getByTestId("theme-open").click();
 
     // **A section of this test's own, and the assertions below depend on it.**
-    // The recursive inspector exposes only the selected target, so this section
+    // The Properties panel shows only the selected target, so this section
     // gives the following scans one unambiguous container, leaf and nested
-    // container to enter in turn.
-    await page.getByTestId("inspector-tab-items").click();
+    // container to enter in turn. `add-block` is the single global trigger
+    // now, mounted in the toolbar regardless of tab, so no tab click is
+    // needed before it — Page is still the selection here.
     await addBlock(page, { mode: "grid" });
-    await page.getByTestId("inspector-tab-options").click();
+    // Adding selects the new section and resets to its Layout tab, where
+    // `section-name` already lives.
     await page.getByTestId("section-name").fill("A section of my own");
 
-    // A section's own paintbrush popup — an OVERLAY, unlike the theme panel
-    // above and `IconPicker`'s inline one, so it is the one surface in this
-    // screen that owes Escape, an outside-click close, and its own focus
-    // management rather than merely a name on every control. Never opened by
-    // any e2e suite before this finding: a popup axe never sees is a popup it
-    // cannot fail on, which is not the same as one that passes.
-    // Options mounts exactly the card this test added, without descendants.
-    const card = page.getByTestId("section-card");
-    await card.getByTestId("section-style-open").click();
-    await expect(page.getByTestId("section-style-panel")).toBeVisible();
-    await isAccessible(page, "the editor with a section's style popup open");
+    // The style fields — skin, background, fit, border and the rest — used
+    // to live behind a paintbrush popup, an OVERLAY never opened by any e2e
+    // suite before this finding: a popup axe never sees is a popup it cannot
+    // fail on, which is not the same as one that passes. They render inline
+    // on the panel's own Appearance tab now, with no popup and no separate
+    // panel element to wait for.
+    await page.getByTestId("panel-tab-secondary").click();
+    await expect(page.getByTestId("section-style-skin")).toBeVisible();
+    await isAccessible(page, "the editor with a section's Appearance tab open");
 
     // **A PLACE WITH SOMETHING IN IT, which axe had never seen.** Selecting a
-    // section shows its card and style popup; it shows none of
+    // section shows its card and Appearance tab; it shows none of
     // `LeafEditor`, which is the densest control surface in the editor — a
     // kind menu, a bilingual title and description, an address, an icon
     // picker, a picture field — nor a nested card. `table` is chosen because
     // it is the widest: it adds the row-and-cell grid, where every input in a
     // row would otherwise carry one shared accessible name.
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("section-style-panel")).toBeHidden();
-    await page.getByTestId("inspector-tab-items").click();
-
-    // **The Add-block picker — a THIRD overlay, never scanned before.** Its
+    //
+    // **The Add-block picker — a second overlay, never scanned before.** Its
     // own previews draw the real renderer over real sample content, which is
     // exactly the surface most likely to carry a name or contrast fault a
-    // hand-written illustration never would. Opened from an empty place's own
-    // trigger, which every content-holding scope in this editor offers.
-    await page
-      .getByTestId("inspector-empty-place")
-      .first()
-      .getByTestId("add-block")
-      .click();
+    // hand-written illustration never would. Opened from the one global
+    // trigger, with the section still selected from above.
+    await page.getByTestId("add-block").click();
     await expect(page.getByTestId("add-block-picker")).toBeVisible();
     await isAccessible(page, "the editor with the Add-block picker open");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("add-block-picker")).toBeHidden();
 
-    await addBlock(page.getByTestId("inspector-empty-place").first(), {
-      kind: "text",
-    });
+    await addBlock(page, { kind: "text" });
+    // Adding a leaf selects it and resets to its Content tab, where
+    // `leaf-kind` already lives.
     await page.getByTestId("leaf-kind").selectOption("table");
     await page.getByTestId("add-row").click();
     await expect(page.getByTestId("table-cell").first()).toBeVisible();
     await isAccessible(page, "the editor with table content selected");
 
     // And a section inside a place, which is the other component no
-    // accessibility check had ever reached.
-    await page.getByTestId("inspector-back").click();
-    await addBlock(page.getByTestId("inspector-empty-place").first(), {
-      mode: "grid",
-    });
-    await page.getByTestId("inspector-tab-options").click();
+    // accessibility check had ever reached. The table leaf just filled is
+    // still selected, and a leaf's own Add target is its PARENT — the same
+    // outer section — so this lands as its second child with no reselection
+    // needed.
+    await addBlock(page, { mode: "grid" });
     await expect(page.getByTestId("nested-card")).toBeVisible();
     await isAccessible(page, "the editor with a nested section selected");
   });
@@ -344,6 +336,9 @@ test.describe("the signed-in pages are accessible", () => {
     await openPageAdd(page);
     await expect(page.getByTestId("add-block")).toBeVisible();
 
+    // `editor-open-source` lives behind the toolbar's "More" disclosure now
+    // (2026-09-04) — see `support/editor.ts`'s own account.
+    await openMore(page);
     await page.getByTestId("editor-open-source").click();
     await expect(page.getByTestId("page-source-dock")).toBeVisible();
     await isAccessible(page, "the editor with the source dock open");

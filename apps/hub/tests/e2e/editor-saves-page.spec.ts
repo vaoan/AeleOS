@@ -13,9 +13,12 @@ import {
   addBlock,
   addSection,
   handleFor,
+  openMore,
   openPageAdd,
   openPageOptions,
   saveAndLeave,
+  selectBlock,
+  selectPage,
   startFursona,
 } from "./support/editor";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
@@ -135,16 +138,43 @@ interface EditorSection {
  * It leaves the dock closed, because every caller carries on driving the
  * editor underneath it.
  *
+ * **And it leaves `More` exactly as it found it (2026-09-05).** `openMore`
+ * opens that disclosure to reach `editor-open-source` and has no matching
+ * close — a native `<details>` closes only through its own `<summary>`, and
+ * nothing here pressed it again. That was harmless while the toolbar sat
+ * BELOW the Properties panel (`z-20` against the panel's `z-30`): a `More`
+ * left open behind the panel was covered and could not be clicked. The toolbar moved
+ * to `z-40` the same day, to fix `More`'s own items being unreachable while
+ * the panel is open — and the reverse fault immediately became reachable:
+ * `readEditor`, called mid-test with the panel open, left `More` open on top
+ * of it, and the very next `panel-tab-secondary` click landed on `More`'s own
+ * `interact-with-page` instead — a real, 100%-reproducing failure this
+ * comment is what explains. `readEditor` now closes `More` again when IT was
+ * the one that opened it, and leaves an already-open `More` exactly as it
+ * found it — the same idempotent shape `openMore` itself already uses.
+ *
  * @param page - the browser page, sitting on an editor.
  * @returns one entry per section, in the order the editor holds them.
  */
 async function readEditor(page: Page): Promise<EditorSection[]> {
+  const more = page.getByTestId("editor-more");
+  const wasOpen = await more.evaluate(
+    (el) => (el.parentElement as HTMLDetailsElement).open,
+  );
+  await openMore(page);
   await page.getByTestId("editor-open-source").click();
   const dock = page.getByTestId("page-source-dock");
   await expect(dock).toBeVisible();
   const source = await page.getByTestId("page-source-textarea").inputValue();
   await page.getByTestId("page-source-close").click();
   await expect(dock).toBeHidden();
+  if (!wasOpen) {
+    await more.click();
+    const stillOpen = await more.evaluate(
+      (el) => (el.parentElement as HTMLDetailsElement).open,
+    );
+    expect(stillOpen).toBe(false);
+  }
 
   const document: unknown = JSON.parse(source);
   const blocks = (document as { blocks?: unknown }).blocks;
@@ -309,6 +339,11 @@ for (const template of FURSONA_TEMPLATES) {
     // way to prove that survives a real save is to have chosen a colour first.
     // A unit test cannot see a database; this is the same guarantee at the
     // level where the save actually happens.
+    //
+    // `startFursona` leaves Page selected on its PRIMARY tab (identity fields
+    // and the add palette); the theme panel is on the SECONDARY tab now, so
+    // it has to be switched to before `theme-open` is reachable.
+    await openPageOptions(page);
     await page.getByTestId("theme-open").click();
     await page.getByTestId("theme-accent").fill(CHOSEN_ACCENT);
     await expect(page.getByTestId("theme-accent")).toHaveValue(CHOSEN_ACCENT);
@@ -346,10 +381,25 @@ for (const template of FURSONA_TEMPLATES) {
     // silently found nothing would leave the template unapplied and fail
     // further down with a confusing message.
     await page.getByTestId("template-confirm-yes").click();
-    await page.getByTestId("inspector-tab-options").click();
+    // Applying a template does not change WHICH selection is current — Page
+    // stays selected throughout — so the scope key that would remount a pane
+    // never fires and the SECONDARY tab is reached by a plain tab click
+    // rather than by reselecting Page.
+    await page.getByTestId("panel-tab-secondary").click();
     // Applied before anything is saved, so what the editor holds now is the
     // template itself — the state the round trip below is measured against.
     expect(await readEditor(page)).toEqual(expected);
+
+    // **`theme-open` has to be pressed again here, and that is not a
+    // duplicate of line 321.** `openPageAdd` above found the panel already on
+    // this SECONDARY tab (Page's add palette lives on the PRIMARY one) and
+    // fell through to `selectPage`'s close-then-reopen path to get there —
+    // which unmounts `ThemeConfigurator` along with the rest of the panel,
+    // same as any other full close. Its `open` accordion state is local and
+    // does not survive that, exactly as it does not survive the page reload
+    // at line 395 below. The panel being back on the secondary tab proves
+    // nothing about the accordion inside it.
+    await page.getByTestId("theme-open").click();
 
     // **What a template does to a palette depends on whether it HAS one**, and
     // both branches run here rather than one being assumed. A starter carries
@@ -426,50 +476,49 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   // section's own `section-spaces` control — the width moved from before
   // adding to after, matching how nesting already worked.
   //
-  // **Adding selects what was added**, so the section this test builds is the
-  // one the inspector is now showing and there is no card to pick out of a
-  // list. The old version reached for `section-card` LAST, because a page
-  // opens carrying the identity section the database requires and
-  // `add-section` appended; one scope at a time makes that arithmetic
-  // unnecessary rather than merely easier. `addSection` already leaves the
-  // new section selected on Options, where the fields below live.
+  // **Adding selects what was added**, so the section this test builds is
+  // already showing on its own Layout tab, where its name, mode, spaces and
+  // `add-place` all live together — no tab click needed between any of them.
   await addSection(page, "3");
   await page.getByTestId("section-name").fill("A history");
   await page.getByTestId("section-mode").selectOption("timeline");
-  await page.getByTestId("inspector-tab-items").click();
   // **A width is not a capacity.** The picker's own layout options always
   // start a container at two children — `section-spaces` above only reshapes
   // how many places lay ACROSS, never `children` — so a genuine third place
   // needs its own `add-place` press before this test's middle gap can exist
-  // at all: without it, filling `.first()` then `.last()` fills BOTH of the
-  // only two places there are, leaving no gap whatsoever.
+  // at all.
   await page.getByTestId("add-place").click();
 
   // **The FIRST and the THIRD place of three, leaving the MIDDLE empty**, and
   // the position of the gap is the whole point rather than the count of gaps.
   // A trailing empty survives anything that merely appends; a middle one is
   // the case a tidy would close, moving everything after it up a place — and
-  // it is the one shape a flat item list could not express at all. Every other
-  // proof of it is either seeded straight into the database or asserted in
-  // jsdom; this is the round trip through the real controls and real storage.
+  // it is the one shape a flat item list could not express at all.
   //
-  // `first()` and `last()` rather than `nth(0)` and `nth(1)`: filling the first
-  // place removes its invitation, so the two remaining ones are the second and
-  // the third and the LAST of them is the place this test wants. Counting
-  // survivors was what the flat editor needed; naming the end of the row says
-  // what is meant.
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
+  // **There is exactly one global Add now, and it always fills the parent's
+  // FIRST empty place — there is no way to target the third place directly
+  // while leaving the second one alone.** So all three places are filled in
+  // order and the middle one is emptied again afterwards, through Delete —
+  // which, on a place nested inside a container, clears it (`clearAt`) rather
+  // than removing it, exactly the "empty, not gone" state this test wants.
+  // The section is still selected after `add-place`, so the first Add lands
+  // in it directly; each Add after that selects what it just added, whose own
+  // target is its PARENT — the same section — so the run of three lands in
+  // order with no reselection.
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("The first day");
   await page.getByTestId("leaf-description").fill("It began.");
-  await page.getByTestId("inspector-back").click();
-  await addBlock(page.getByTestId("inspector-empty-place").last(), {
-    kind: "text",
-  });
+
+  await addBlock(page, { kind: "text" });
+  await page.getByTestId("leaf-title").fill("To be cleared");
+
+  await addBlock(page, { kind: "text" });
   await page.getByTestId("leaf-title").fill("Much later");
   await page.getByTestId("leaf-description").fill("It went on.");
-  await page.getByTestId("inspector-back").click();
+
+  // Select the middle leaf directly by its own canvas path and clear it.
+  await selectBlock(page, "1-1");
+  await page.getByTestId("remove-block").click();
 
   await saveAndLeave(page);
 
@@ -484,30 +533,26 @@ test("sections built by hand save, reopen and reach a stranger", async ({
       titles: ["The first day", "Much later"],
     },
   ]);
-  // THE GAP CAME BACK IN ITS OWN POSITION. Read as the ORDER of the places
-  // rather than as a count of empty ones: a conversion that closed the gap and
-  // appended an empty place at the end would satisfy every count assertion
-  // above and fail this one, which is exactly the shift a "tidy the nulls
-  // away" change produces.
+  // THE GAP CAME BACK IN ITS OWN POSITION. `readEditor`'s own titles flatten
+  // every leaf beneath a section and skip nulls entirely, so the assertion
+  // above cannot by itself tell "first and third filled, middle empty" apart
+  // from "first and second filled, third empty" — both flatten to the same
+  // two titles in the same order. This is the assertion that discriminates:
+  // read by POSITION rather than by content. A conversion that closed the gap
+  // and appended an empty place at the end would satisfy every count and
+  // title assertion above and fail this one.
   //
-  // Read off the inspector's Items list, which is where a page's places are
-  // shown one scope at a time. Every place is a row; an EMPTY one carries the
-  // add invitations instead of a way in, so asking each row which of the two it
-  // holds is the same reading the old `places` walk made against the flat
-  // editor's grid.
-  await page.getByTestId("select-page").click();
-  await page.getByTestId("inspector-item-open").last().click();
-  expect(
-    await page
-      .getByTestId("inspector-item-row")
-      .evaluateAll((nodes) =>
-        nodes.map((node) =>
-          node.querySelector('[data-testid="inspector-empty-place"]')
-            ? "empty-place"
-            : "leaf-editor",
-        ),
-      ),
-  ).toEqual(["leaf-editor", "empty-place", "leaf-editor"]);
+  // Only a filled place carries `data-block-path` at all; an empty one keeps
+  // its own `data-canvas-path` wrapper and renders `public-space` inside it —
+  // the same pair `nested-page-build.spec.ts` and `properties-panel.spec.ts`
+  // both read the identical way, and it needs no selection first: these
+  // attributes come from the renderer itself, not from editor state.
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+  await expect(
+    page.locator('[data-canvas-path="1-1"]').getByTestId("public-space"),
+  ).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-1"]')).toHaveCount(0);
+  await expect(page.locator('[data-block-path="1-2"]')).toHaveCount(1);
 
   const stranger = await browser.newContext({ storageState: undefined });
   try {
@@ -542,7 +587,9 @@ test("a person's own page saves sections, reopens and reaches a stranger", async
   const address = (await page.getByTestId("my-address").innerText()).trim();
 
   await page.goto("/es/me/edit");
-  await openPageOptions(page);
+  // Identity fields are on Page's primary tab; `openPageOptions` would land
+  // on the secondary (theme) tab instead.
+  await selectPage(page);
   await page.getByTestId("editor-display-name").fill("A Real Person");
   await page.getByTestId("editor-visibility").selectOption("public");
 

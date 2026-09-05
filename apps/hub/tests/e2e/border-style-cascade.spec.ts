@@ -6,11 +6,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { container, leaf, seedPage } from "./support/blocks";
-import {
-  assertLastTriggerIsAContainers,
-  addBlock,
-  addSection,
-} from "./support/editor";
+import { addBlock, addSection, selectBlock } from "./support/editor";
 import { apart, sampleColours, type Probe } from "./support/pixels";
 import {
   establishSharedSession,
@@ -69,8 +65,9 @@ const STATE_PATH = sharedStatePath("border-style-cascade");
 
 // **A test's own card is the LAST one.** Every page opens carrying the identity
 // section the database requires, and `add-section` appends — so `.first()` here
-// would reach for the identity section's controls instead, and a page-wide
-// `section-style-open` matches two buttons rather than one.
+// would reach for the identity section's controls instead. There is no
+// page-wide trigger to collide over any more: the Properties panel shows only
+// the selected block's own fields.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 test.use({ storageState: STATE_PATH });
@@ -153,28 +150,32 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // rather than written as data, so what is measured is the control that
     // shipped.
     //
-    // **Counted as `empty-place`, never as `.border-dashed`.** The identity
-    // section's empty avatar is also dashed, and a two-space add has two
-    // empty places. A class locator on the last card cannot tell those
-    // apart from the one placeholder this case is about — CI went red at
-    // count 2 for that reason, not because the cascade had changed.
+    // **`.border-dashed` scoped to THIS section's own tray, never page-wide.**
+    // The identity section's own empty avatar is dashed too, and a two-space
+    // add has two empty places — a page-wide class locator cannot tell those
+    // apart from the one placeholder this case is about. There is no Items
+    // list any more to count an `empty-place` row through instead, so the
+    // canvas's own placeholder, scoped to the section that owns it, is what
+    // this case reads.
     // **TWO places, one filled.** The claim has two halves and each needs an
     // element: a painted one in the preview to take the choice, and an empty
     // one in the control card to refuse it. One place left empty gives the
     // second and not the first — the section renders nothing at all, because
     // a container whose every place is empty draws nothing.
     await addSection(page, "2");
-    // `addSection` leaves the pane on Options — its own TSDoc says so — so
-    // the section's empty places are not showing until Items is pressed.
-    await page.getByTestId("inspector-tab-items").click();
-    await addBlock(page.getByTestId("inspector-empty-place").first(), {
-      kind: "text",
-    });
+    // Named while the section is still empty, so its own heading — rather
+    // than its first child's card — occupies the corner `selectBlock` below
+    // clicks. An unnamed section's child fills that pixel exactly, which
+    // resolves the click to the leaf rather than the container.
+    await page.getByTestId("section-name").fill("Bordered section");
+    // `addSection` leaves the new section selected on its Layout tab, with
+    // its two empty places already there — no tab switch is needed to add
+    // the leaf below.
+    await addBlock(page, { kind: "text" });
     // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null when
     // it has neither a title nor a description, so a freshly added content
     // block draws no card at all — and the card is what paints the edge.
     await page.getByTestId("leaf-title").fill("Bordered");
-    await page.getByTestId("inspector-back").click();
 
     // **The SECTION the renderer draws, which is what a visitor sees.** This
     // used to read a `section-preview-face` — an element the preview tray
@@ -190,7 +191,13 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // section itself answers `solid` however the choice went, which is an
     // assertion that cannot fail — measured, it did exactly that.
     const painted = tray.getByTestId("public-leaf").locator("div").first();
-    const placeholder = page.getByTestId("inspector-empty-place");
+    // **The editor's own placeholder for the second, still-empty place —
+    // `EditableBlockFrame`'s own dashed border, scoped to this section's own
+    // tray.** There is no Items list any more, so this is the workbench's
+    // "nothing here yet" affordance rendered directly on the canvas rather
+    // than in a separate row; scoping to `tray` is what keeps it from also
+    // matching the identity section's own empty places.
+    const placeholder = tray.locator(".border-dashed");
     await expect(placeholder).toHaveCount(1);
 
     // Before anything is chosen: the section falls through to the design's
@@ -201,28 +208,19 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     expect(await borderStyleOf(painted)).toBe("solid");
     expect(await borderStyleOf(placeholder)).toBe("dashed");
 
-    await page.getByTestId("inspector-tab-options").click();
-
-    // **This is the ONE site in the suite where `assertLastTriggerIsAContainers`
-    // genuinely discriminates, not merely documents (2026-08-30).** Every
-    // other call to it collapses its section immediately after adding
-    // content, which unmounts the leaf's own trigger regardless of whether
-    // the two share an id — so reverting the id split alone left all of them
-    // green, a finding recorded where the helper is defined. This test never
-    // collapses: the leaf's own `leaf-style-open` trigger is genuinely
-    // mounted, after the section's own `section-style-open` one, when this
-    // assertion runs. Sabotage-verified: reverting `leaf-editor.tsx`'s
-    // `triggerTestId="leaf-style-open"` back to the shared id reddens this
-    // assertion here, and only here.
-    await assertLastTriggerIsAContainers(page, "section-style-open");
-    // **Scoped to the SECTION's own header as well, belt and braces.** The
-    // assertion above is the proof; this is what the rest of the test acts
-    // on.
-    await page
-      .getByTestId("section-header")
-      .last()
-      .getByTestId("section-style-open")
-      .click();
+    // Selecting the section (rather than the leaf still selected from
+    // adding it) is what reaches ITS OWN Appearance tab — there is no
+    // trigger and no popup to open any more, and no ambiguity to
+    // disambiguate: only one thing is ever selected at a time. The canvas
+    // has no `section-header` of its own to click — that test id belongs to
+    // `BlockCard`, mounted only inside the Properties panel's Layout tab —
+    // so selection goes through the same `[data-block-path]` click every
+    // other spec uses.
+    await selectBlock(page, "1");
+    // The name was only ever a click target — clear it now that the section
+    // is selected.
+    await page.getByTestId("section-name").fill("");
+    await page.getByTestId("panel-tab-secondary").click();
     await page.getByTestId("section-style-border").selectOption("dotted");
     // The choice really did land on the scope, rather than on nothing:
     // `sectionStyle` routes custom properties to the preview scope, leaving
@@ -240,11 +238,10 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // Half 2: the empty place stays dashed because it is in the AeleOS
     // control card — a `CHROME_SCOPE` island, and a sibling of the preview
     // rather than an ancestor of it. This fixture cannot discriminate
-    // Tailwind utility ordering and makes no claim about it.
-    await page.getByTestId("inspector-tab-items").click();
-    expect(await borderStyleOf(page.getByTestId("inspector-empty-place"))).toBe(
-      "dashed",
-    );
+    // Tailwind utility ordering and makes no claim about it. `placeholder`
+    // is the live canvas element itself, so re-reading it needs no
+    // navigation back to any pane.
+    expect(await borderStyleOf(placeholder)).toBe("dashed");
   });
 
   // **The third test measures PIXELS, and the other two cannot replace it.**
@@ -275,35 +272,39 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
 
     await page.goto("/es/pages/new");
     await addSection(page, "2");
-    // `addSection` leaves the pane on Options, so Items must be pressed
-    // before the section's empty places show.
-    await page.getByTestId("inspector-tab-items").click();
+    // Named while the section is still empty, so its own heading — rather
+    // than its first child's card — occupies the corner `selectBlock` below
+    // clicks.
+    await page.getByTestId("section-name").fill("Bordered section");
     // Content, because an edge needs something to be drawn around: a leaf's
     // own `surface` card is what consumes `--skin-border-style`, and a
     // container whose every place is empty renders nothing at all.
-    await addBlock(page.getByTestId("inspector-empty-place").first(), {
-      kind: "text",
-    });
+    await addBlock(page, { kind: "text" });
     // Titled, or `PlainLeaf` renders nothing and there is no card to sample.
     await page.getByTestId("leaf-title").fill("Bordered");
-    await page.getByTestId("inspector-back").click();
-    await page.getByTestId("inspector-tab-options").click();
-    await page.getByTestId("collapse-section").click();
 
-    const card = page
-      .getByTestId("block-preview")
-      .last()
-      .getByTestId("public-section");
+    const tray = page.getByTestId("block-preview").last();
+    // Reselecting the section (the leaf is what adding left selected) is
+    // what puts its own Layout tab — `collapse-section` among its fields —
+    // in front, with no tab switch needed since selecting resets to it. The
+    // canvas has no `section-header` of its own — see the neighbouring test
+    // above for the account — so this goes through `[data-block-path]` too.
+    await selectBlock(page, "1");
+    // The name was only ever a click target — clear it before any pixel is
+    // sampled off the leaf's own card below.
+    await page.getByTestId("section-name").fill("");
+    await page.getByTestId("collapse-section").click();
+    // The border select lives on the Appearance tab, reached once — there is
+    // no trigger and no popup to reopen between the two choices below.
+    await page.getByTestId("panel-tab-secondary").click();
+    await expect(page.getByTestId("section-style-border")).toBeVisible();
+
+    const card = tray.getByTestId("public-section");
     // **The leaf's own card is what paints now.** There is no preview face —
     // the tray renders the real renderer's element — and the section carries
     // the custom property while the card beneath it draws the edge, so the
     // pixels below are the ones a visitor's browser puts on the page.
-    const face = page
-      .getByTestId("block-preview")
-      .last()
-      .getByTestId("public-leaf")
-      .locator("div")
-      .first();
+    const face = tray.getByTestId("public-leaf").locator("div").first();
 
     /**
      * The pixel run inward from the section's right edge, at mid-height.
@@ -351,8 +352,10 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
      * @returns nothing; waits.
      */
     const choose = async (border: string): Promise<void> => {
-      await assertLastTriggerIsAContainers(page, "section-style-open");
-      await page.getByTestId("section-style-open").last().click();
+      // The section is already selected (and stays selected across calls —
+      // Properties panel selection survives a collapse), so this only needs
+      // to reach its Appearance tab, idempotently.
+      await page.getByTestId("panel-tab-secondary").click();
       await page.getByTestId("section-style-border").selectOption(border);
       await expect
         .poll(() =>
@@ -361,8 +364,6 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
           ),
         )
         .toBe(border);
-      await page.keyboard.press("Escape");
-      await expect(page.getByTestId("section-style-panel")).toBeHidden();
     };
 
     const widthOf = (): Promise<string> =>

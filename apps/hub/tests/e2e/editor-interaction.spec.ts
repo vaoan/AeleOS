@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { addBlock, addSection } from "./support/editor";
+import { addBlock, addSection, openMore } from "./support/editor";
 
 // WHAT THIS FILE PROVES.
 //
@@ -47,13 +47,9 @@ async function buildLinkPage(
 ): Promise<void> {
   await page.goto("/es/pages/new");
   await addSection(page, "1");
-  // `addSection` deliberately leaves the pane on Options — see its own
-  // TSDoc — so the empty place this helper targets next is not showing
-  // until Items is pressed explicitly.
-  await page.getByTestId("inspector-tab-items").click();
-  await addBlock(page.getByTestId("inspector-empty-place").last(), {
-    kind: "link",
-  });
+  // The section is selected on its own Layout tab; the single global Add
+  // targets it directly and fills its first empty place.
+  await addBlock(page, { kind: "link" });
   await page.getByTestId("leaf-title").fill("A real link");
   await page.getByTestId("leaf-link").fill("https://example.com");
 }
@@ -98,6 +94,7 @@ test("the toolbar switch makes that same link work while controls remain visible
   await signIn(page, await mintTicket(identity!.userId));
   await buildLinkPage(page);
 
+  await openMore(page);
   await page.getByTestId("interact-with-page").click();
   await expect(page.getByTestId("interact-with-page")).toHaveAttribute(
     "aria-pressed",
@@ -131,6 +128,7 @@ test("keyboard focus skips the locked link and reaches it once interaction is en
     "an inert link must not be focusable",
   ).toBe(false);
 
+  await openMore(page);
   await page.getByTestId("interact-with-page").click();
   await link.evaluate((el: HTMLElement) => el.focus());
   expect(
@@ -187,7 +185,7 @@ test("the inspector's entrance settles to its final state in ordinary mode", asy
   await page.goto("/es/pages/new");
 
   await page.getByTestId("select-page").click();
-  const inspector = page.getByTestId("canvas-inspector");
+  const inspector = page.getByTestId("properties-panel");
   // Not a claim about the FIRST frame — that half is a race no fixed
   // deadline can make honest. What must hold, on any machine, is that the
   // entrance actually reaches its end state.
@@ -219,7 +217,7 @@ test("the inspector's entrance never slides under prefers-reduced-motion: reduce
   await page.goto("/es/pages/new");
 
   await page.getByTestId("select-page").click();
-  const inspector = page.getByTestId("canvas-inspector");
+  const inspector = page.getByTestId("properties-panel");
   await expect(inspector).toBeVisible();
   // No poll: the transform is at rest from the first frame, or it never was.
   const transform = await inspector.evaluate(

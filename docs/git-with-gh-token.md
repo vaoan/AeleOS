@@ -172,6 +172,23 @@ and the commit has not been pushed; otherwise a new commit. Reset local
 GitHub secrets needs the `workflow` scope. That is a token setting on GitHub,
 not something to work around with another login.
 
+**An agent committed as `heiner.angaritamaldonado@ext.airbnb.com` (GitHub
+account `heinerangaritamaldonado-cyber`) on `carrd-style-builder`,
+2026-09-05.** This is the machine's real, personal/work GLOBAL git identity
+— it is correct for that agent's other repositories and MUST NOT be changed.
+The fault was skipping the "Set commit identity from that response" step
+above and letting several commits fall through to whatever global
+`user.name`/`user.email` already was, instead of setting `--local` for this
+repo from `gh api user`. Fixed by `git filter-branch --env-filter` rewriting
+just the affected commits' author/committer to `gh api user`'s identity for
+`vaoan` (`Heiner Angarita <heinerangarita@gmail.com>`), then
+`push --force-with-lease` to `carrd-style-builder`. **The global identity was
+left exactly as found — do not "fix" it, ever.** The one and only thing that
+must be set is `--local`, in THIS repo, from `gh api user`, before the first
+commit of the session. If you find a commit here whose email is not
+`heinerangarita@gmail.com` or the `vaoan` noreply address, that is this same
+fault recurring — rewrite the commit's identity, never the global config.
+
 ## See also
 
 - `.secrets.example` — why the variable is `GH_TOKEN`

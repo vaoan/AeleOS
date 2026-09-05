@@ -1,11 +1,16 @@
 # Recursive inspector drill-down
 
 - **Date:** 2026-09-01
-- **Status:** Delivered
+- **Status:** Delivered, then superseded in part
 - **Scope:** The signed-in person and fursona page editors. The stored page
   document, public renderer, block depth, and move semantics do not change.
 - **Supersedes:** The inspector navigation and initial-selection portions of
   `2026-08-31-canvas-inspector-builder-design.md`.
+- **Superseded in part by:** `2026-09-04-carrd-style-page-builder-design.md`,
+  which replaces Items/Options drill-down, sibling-only inspector dragging, and
+  the Items list as the add/reorder surface. `BlockPath` selection, closest-
+  surviving repair, Preview clearing selection, and shallow Options editors
+  remain.
 
 > **Correction — 2026-09-03:** Preview no longer merely hides a selected
 > inspector. It clears selection before paint, and Show controls returns with

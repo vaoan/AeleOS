@@ -2670,6 +2670,14 @@ describe("PublicBlocks", () => {
     expect(screen.getAllByTestId("public-section")).toHaveLength(2);
   });
 
+  it("emits no editor drag wrappers or feedback when instrumentation is absent", () => {
+    const { container: root } = renderPage([
+      container({ children: [leaf(), null] }),
+    ]);
+    expect(root.querySelector("[data-canvas-path]")).toBeNull();
+    expect(root.querySelector('[data-testid^="canvas-drop-"]')).toBeNull();
+  });
+
   // **The array IS the order.** The flat sections this replaces carried a
   // `sort_order` and had to be sorted on every read; a block has no order of
   // its own, so a renderer that sorted would be inventing a key the model

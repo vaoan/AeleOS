@@ -7,6 +7,7 @@ import {
   appendPlace,
   blockAt,
   clearAt,
+  insertAt,
   mayNest,
   moveSection,
   newContainer,
@@ -789,5 +790,55 @@ describe("addContentAt", () => {
   it("changes nothing when the path names nothing", () => {
     const page = gapped();
     expect(addContentAt(page, [9], leaf("ghost"))).toBe(page);
+  });
+});
+
+// insertAt's own contract has three edges nothing pinned before this: an
+// empty path is a safe no-op, dropping the block silently rather than
+// throwing; a top-level index one past the last entry appends; and a
+// negative top-level index is handed straight to `Array.prototype.splice`,
+// whose own semantics (count from the end) insert before the last existing
+// entry rather than refusing or prepending. None of these is a rule this
+// domain invented — they are `insertEntry`'s own body, read and pinned
+// rather than assumed.
+describe("insertAt edge contracts", () => {
+  it("is a safe no-op on an empty path, and drops nothing else", () => {
+    const blocks = [leaf("a"), leaf("b")];
+    expect(insertAt(blocks, [], leaf("new"))).toEqual(blocks);
+  });
+
+  it("appends when the top-level index is exactly one past the last entry", () => {
+    const blocks = [leaf("a"), leaf("b")];
+    const result = insertAt(blocks, [2], leaf("new"));
+    expect(result.map((b) => (b as LeafBlock).title_en)).toEqual([
+      "a",
+      "b",
+      "new",
+    ]);
+  });
+
+  it("documents that a negative top-level index inserts from the end, not the start", () => {
+    const blocks = [leaf("a"), leaf("b"), leaf("c")];
+    const result = insertAt(blocks, [-1], leaf("new"));
+    // JS splice(-1, 0, x) inserts before the LAST element — this is the
+    // native array semantics insertAt inherits, not a domain rule. If this
+    // assertion ever fails because insertAt starts clamping negative
+    // indices, that is a deliberate behaviour change and this test's
+    // expectation must change with it, not silently.
+    expect(result.map((b) => (b as LeafBlock).title_en)).toEqual([
+      "a",
+      "b",
+      "new",
+      "c",
+    ]);
+  });
+
+  // Every case above uses a single-segment path. `insertEntry`'s recursive
+  // step (`next[head!] ?? null`) is what a NESTED path exercises, and
+  // nothing here reached its nullish branch — an out-of-range intermediate
+  // index — before this case.
+  it("changes nothing when a nested path runs through an out-of-range index", () => {
+    const blocks = [leaf("a")];
+    expect(insertAt(blocks, [5, 0], leaf("ghost"))).toEqual(blocks);
   });
 });

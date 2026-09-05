@@ -5,12 +5,17 @@ import {
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
-import { container, leaf, seedPage } from "./support/blocks";
+import {
+  container,
+  leaf,
+  seedPage,
+  SEEDED_IDENTITY_SECTIONS,
+} from "./support/blocks";
 import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { openPageAdd } from "./support/editor";
+import { openPageAdd, selectBlock } from "./support/editor";
 
 // One sign-in for the "signed in" describe below: each of its cases drives
 // its own viewport against `/es/me`, `/es/pages` or a fresh `/es/pages/new`
@@ -212,9 +217,9 @@ test.describe("every phone screen, signed in", () => {
 
     // The editor with EVERYTHING open, which is the state the fault was
     // reported in and the widest this app ever gets: the theme panel's colour
-    // rows, and one template section's full Options controls. Checking the
-    // empty editor or Page Items alone would have passed while the inspector a
-    // person actually edits in was still cut in half.
+    // rows, and one template section's full Layout controls. Checking the
+    // empty editor or Page's own primary tab alone would have passed while
+    // the Properties panel a person actually edits in was still cut in half.
     test(`the editor fits ${viewport.name} with the panel and a template open`, async ({
       page,
     }) => {
@@ -231,13 +236,21 @@ test.describe("every phone screen, signed in", () => {
         content: "nextjs-portal{display:none!important}",
       });
       await openPageAdd(page);
-      await page.getByTestId("inspector-tab-options").click();
+      await page.getByTestId("panel-tab-secondary").click();
       await page.getByTestId("theme-open").click();
-      await page.getByTestId("inspector-tab-items").click();
+      // Page's own primary tab holds the identity fields AND the add
+      // palette together now — the template picker lives there, not behind
+      // a separate Items tab.
+      await page.getByTestId("panel-tab-primary").click();
       await page.getByTestId("template-picker").click();
       await page.getByTestId("template-reference-sheet").click();
-      await page.getByTestId("inspector-item-open").first().click();
-      await page.getByTestId("inspector-tab-options").click();
+      // Applying a template does not itself change the selection, and it
+      // does not replace the identity header either: `withRequiredBlocks`
+      // still prepends it at path "0" — the reference-sheet template's own
+      // first section, "The basics", lands at path "1"
+      // ({@link SEEDED_IDENTITY_SECTIONS}). Selecting it lands directly on
+      // its own Layout tab with no further tab click needed.
+      await selectBlock(page, String(SEEDED_IDENTITY_SECTIONS));
       await expect(page.getByTestId("section-name")).toBeVisible();
 
       await fits(page, `the editor at ${viewport.name}`);
@@ -262,21 +275,20 @@ test.describe("every phone screen, signed in", () => {
       // draws against the live one at seven widths — including three below the
       // stops this file walks.
 
-      // The style popup is a real overlay — `position: absolute`, `w-72`,
-      // anchored off a section card's own right edge — so the `fits` call
-      // above, taken before opening it, proves the PAGE'S OWN layout fits; it
-      // says nothing about the popup itself once open. Every field in this
-      // panel (skin, background, fit, border) has carried that gap
-      // since the popup shipped; checking it here closes it for all of them,
-      // not only the border select this task added.
-      await page.getByTestId("section-style-open").click();
-      await expect(page.getByTestId("section-style-panel")).toBeVisible();
+      // The Appearance tab used to be a real overlay — `position: absolute`,
+      // `w-72`, anchored off a section card's own right edge — so the `fits`
+      // call above, taken before opening it, proved the PAGE'S OWN layout
+      // fits and said nothing about the popup itself once open. It renders
+      // inline in the Properties panel now, but the same gap applies to it:
+      // every field in it (skin, background, fit, border) has to be checked
+      // with the panel actually showing them, not only the panel's own
+      // Layout tab this test already exercised above.
+      await page.getByTestId("panel-tab-secondary").click();
+      await expect(page.getByTestId("section-style-skin")).toBeVisible();
       await fits(
         page,
-        `the editor at ${viewport.name} with the style popup open`,
+        `the editor at ${viewport.name} with the Appearance tab open`,
       );
-      await page.keyboard.press("Escape");
-      await expect(page.getByTestId("section-style-panel")).toBeHidden();
 
       // And scrolled, because the sticky bars only stack once somebody moves:
       // three of them pinned at the top is what made this "chopped" rather

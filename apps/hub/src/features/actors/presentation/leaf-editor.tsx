@@ -168,9 +168,10 @@ export interface LeafEditorLabels extends IconPickerLabels {
 /**
  * What {@link LeafEditor} needs.
  *
- * `dragHandle` arrives already wired when the leaf is shown in an Items row.
- * Recursive inspector Options pass `null`, because reordering belongs to the
- * visible sibling list rather than to the selected leaf's fields.
+ * `dragHandle` is `null` from the Properties panel's Content tab
+ * (2026-09-04): reordering a leaf is a canvas gesture, driven from the
+ * selected block's own accessible grip (see `EditableBlockFrame`), not a
+ * control inside the panel.
  *
  * `problems` is the whole page's, not this leaf's share, because the
  * components above pass one value down the tree; `problemFields` narrows it.
@@ -215,6 +216,27 @@ export interface LeafEditorProps {
    * exists to end.
    */
   kinds: readonly LeafKind[];
+  /**
+   * Suppresses this leaf's own `SectionStylePopup` mount (2026-09-04).
+   *
+   * The Properties panel builds a leaf's Appearance tab from `StyleFields`
+   * directly, fed the same `value`/`onChange`/`gates` this component already
+   * computes for its own popup — so its production call site passes `true`
+   * here to avoid mounting the identical fields twice. Defaults to `false`
+   * so every existing standalone test, which still exercises the
+   * trigger-and-popup mount, is unaffected.
+   */
+  hideStylePopup?: boolean;
+  /**
+   * Suppresses this leaf's own inline remove control (2026-09-04).
+   *
+   * The Properties panel's foot carries one Delete for the whole selection,
+   * gated by `removalLocked` — a check this inline button never made. Set
+   * when the panel is the caller so the two controls do not duplicate, and
+   * do not disagree about whether removal is allowed. Defaults to `false`
+   * so every existing standalone test is unaffected.
+   */
+  hideRemove?: boolean;
   /** Runs after this leaf empties its place. */
   onRemove?: () => void;
 }
@@ -222,6 +244,154 @@ export interface LeafEditorProps {
 /** The class every text input in this editor wears. */
 const INPUT =
   "rounded-lg surface border-(--edge)/60 bg-transparent px-3 py-1.5 text-sm";
+
+/** What {@link RemoveLeafButton} needs. */
+interface RemoveLeafButtonProps {
+  /** The accessible name and icon-only button's label. */
+  label: string;
+  /** What to do when it is pressed. */
+  onRemove: () => void;
+}
+
+/**
+ * The bin that clears this leaf's own place.
+ *
+ * Its own component because {@link LeafEditor} sits at the project's
+ * cognitive-complexity ceiling, and a button with nothing left to decide is a
+ * self-contained thing — the same reasoning `block-card.tsx`'s
+ * `RemoveSectionButton` already carries.
+ */
+function RemoveLeafButton({
+  label,
+  onRemove,
+}: RemoveLeafButtonProps): ReactNode {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      {...tid("remove-block")}
+      onClick={onRemove}
+      className="rounded-lg p-1.5 text-(--muted)"
+    >
+      <Trash2 className="size-4" />
+    </button>
+  );
+}
+
+/** What {@link LeafEditorHeader} needs. */
+interface LeafEditorHeaderProps {
+  /** A generated id root, shared with the fields below the header. */
+  id: string;
+  /** The grip that lifts this piece of content, already wired. */
+  dragHandle: ReactNode;
+  /** This leaf's own kind. */
+  kind: string;
+  /** Whether this build has a name for {@link LeafEditorHeaderProps.kind}. */
+  known: boolean;
+  /** The leaf kinds this page may hold, already narrowed to its actor kind. */
+  kinds: readonly LeafKind[];
+  /** Already-translated strings. */
+  labels: LeafEditorLabels;
+  /** This leaf's own style bag, or absent for "inherit". */
+  style: LeafBlock["style"];
+  /** Which style-bag fields this leaf's own kind honours. */
+  gates: ReturnType<typeof styleGatesFor>;
+  /** Changes this leaf's kind. */
+  onKindChange: (kind: LeafKind) => void;
+  /** Writes this leaf's style bag. */
+  onStyleChange: (style: LeafBlock["style"]) => void;
+  /** Suppresses the style popup — see {@link LeafEditorProps.hideStylePopup}. */
+  hideStylePopup: boolean;
+  /** Suppresses the remove control — see {@link LeafEditorProps.hideRemove}. */
+  hideRemove: boolean;
+  /** Clears this leaf's own place. */
+  onRemove: () => void;
+}
+
+/**
+ * The row above a leaf's own fields: its grip, its kind select, its style
+ * popup trigger, and its remove control.
+ *
+ * Its own component because {@link LeafEditor} sits at the project's
+ * cognitive-complexity ceiling. Three of this row's four controls are each
+ * individually optional — the kind select's own unknown-kind option, the
+ * style popup, and remove — and each is a conditional {@link LeafEditor}'s
+ * own body does not need to carry once this row is a single call.
+ */
+function LeafEditorHeader({
+  id,
+  dragHandle,
+  kind,
+  known,
+  kinds,
+  labels,
+  style,
+  gates,
+  onKindChange,
+  onStyleChange,
+  hideStylePopup,
+  hideRemove,
+  onRemove,
+}: LeafEditorHeaderProps): ReactNode {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      {dragHandle}
+
+      <div className="grid min-w-0 flex-1 gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <CardKind kind="content">{labels.contentEyebrow}</CardKind>
+          <label htmlFor={`${id}-kind`} className="text-xs font-medium">
+            {labels.leafKind}
+          </label>
+        </div>
+        <select
+          id={`${id}-kind`}
+          {...tid("leaf-kind")}
+          value={kind}
+          onChange={(event) => onKindChange(event.target.value as LeafKind)}
+          className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
+        >
+          {/* A kind this build has no name for still has to be shown, or the
+              select would render blank and the first change would retype
+              somebody's block without them asking. Disabled, because
+              choosing it back is not something this build can offer. */}
+          {known ? null : (
+            <option value={kind} disabled>
+              {kind}
+            </option>
+          )}
+          {kinds.map((one) => (
+            <option key={one} value={one}>
+              {labels.leafKinds[one]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {hideStylePopup ? null : (
+        <SectionStylePopup
+          value={style}
+          onChange={onStyleChange}
+          labels={labels.style}
+          // Computed from this leaf's own kind, the same function `BlockCard`
+          // calls from its own kind of block — see `styleGatesFor`.
+          gates={gates}
+          // **A distinct id from `BlockCard`'s popup (2026-08-30).** Both
+          // used to share `section-style-open`, and a leaf's trigger renders
+          // after its section's own in DOM order — so a page-wide `.last()`
+          // that meant "the section's own popup" silently started reaching a
+          // leaf's instead the moment content existed. See
+          // `SectionStylePopupProps.triggerTestId`'s own TSDoc.
+          triggerTestId="leaf-style-open"
+        />
+      )}
+
+      {hideRemove ? null : (
+        <RemoveLeafButton label={labels.removeBlock} onRemove={onRemove} />
+      )}
+    </div>
+  );
+}
 
 /**
  * One piece of content: what it is, and only the fields it will draw.
@@ -335,7 +505,7 @@ const INPUT =
  * the moment content existed. Two e2e suites had exactly that shape before
  * this — see the feature note.
  *
- * `onRemove` lets the recursive inspector move selection to the parent after
+ * `onRemove` lets the Properties panel move selection to the parent after
  * this leaf clears its place; standalone uses may omit it.
  *
  * @returns the leaf's fields.
@@ -349,6 +519,8 @@ export function LeafEditor({
   problems,
   dragHandle,
   kinds,
+  hideStylePopup = false,
+  hideRemove = false,
   onRemove,
 }: LeafEditorProps) {
   // Ids rather than wrapping labels: a wrapping label takes its whole text
@@ -416,75 +588,28 @@ export function LeafEditor({
       data-leaf-kind={kind}
       className="relative grid gap-2 rounded-lg surface border-4 border-(--edge) bg-(--surface) p-2.5"
     >
-      <div className="flex flex-wrap items-end gap-2">
-        {dragHandle}
-
-        <div className="grid min-w-0 flex-1 gap-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <CardKind kind="content">{labels.contentEyebrow}</CardKind>
-            <label htmlFor={`${id}-kind`} className="text-xs font-medium">
-              {labels.leafKind}
-            </label>
-          </div>
-          <select
-            id={`${id}-kind`}
-            {...tid("leaf-kind")}
-            value={kind}
-            onChange={(event) =>
-              apply((blocks) =>
-                setLeafKind(blocks, path, event.target.value as LeafKind),
-              )
-            }
-            className="rounded-lg surface border-(--edge)/60 bg-(--menu) px-3 py-1.5 text-sm"
-          >
-            {/* A kind this build has no name for still has to be shown, or the
-                select would render blank and the first change would retype
-                somebody's block without them asking. Disabled, because
-                choosing it back is not something this build can offer. */}
-            {known ? null : (
-              <option value={kind} disabled>
-                {kind}
-              </option>
-            )}
-            {kinds.map((one) => (
-              <option key={one} value={one}>
-                {labels.leafKinds[one]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <SectionStylePopup
-          value={leaf.style}
-          onChange={(style) =>
-            apply((blocks) => patchLeaf(blocks, path, { style }))
-          }
-          labels={labels.style}
-          // Computed from this leaf's own kind, the same function `BlockCard`
-          // calls from its own kind of block — see `styleGatesFor`.
-          gates={gates}
-          // **A distinct id from `BlockCard`'s popup (2026-08-30).** Both
-          // used to share `section-style-open`, and a leaf's trigger renders
-          // after its section's own in DOM order — so a page-wide `.last()`
-          // that meant "the section's own popup" silently started reaching a
-          // leaf's instead the moment content existed. See
-          // `SectionStylePopupProps.triggerTestId`'s own TSDoc.
-          triggerTestId="leaf-style-open"
-        />
-
-        <button
-          type="button"
-          aria-label={labels.removeBlock}
-          {...tid("remove-block")}
-          onClick={() => {
-            apply((blocks) => clearAt(blocks, path));
-            onRemove?.();
-          }}
-          className="rounded-lg p-1.5 text-(--muted)"
-        >
-          <Trash2 className="size-4" />
-        </button>
-      </div>
+      <LeafEditorHeader
+        id={id}
+        dragHandle={dragHandle}
+        kind={kind}
+        known={known}
+        kinds={kinds}
+        labels={labels}
+        style={leaf.style}
+        gates={gates}
+        onKindChange={(nextKind) =>
+          apply((blocks) => setLeafKind(blocks, path, nextKind))
+        }
+        onStyleChange={(style) =>
+          apply((blocks) => patchLeaf(blocks, path, { style }))
+        }
+        hideStylePopup={hideStylePopup}
+        hideRemove={hideRemove}
+        onRemove={() => {
+          apply((blocks) => clearAt(blocks, path));
+          onRemove?.();
+        }}
+      />
 
       {/* A refusal on a field this component does not draw. Without it the
           banner would promise a marking that nothing made — which is the
