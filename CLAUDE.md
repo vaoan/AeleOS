@@ -2363,7 +2363,7 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   sentence past today, per rule 18 below. The remaining phase documents
   (compact builder menu, drop-semantics audit against the spec's full table,
   completing interaction, retiring superseded inspector paths, full
-  browser/accessibility/responsive proof) are unstarted; **the modal Add
+  browser/accessibility/responsive proof) have not started; **the modal Add
   path phase 2 would have replaced is itself now superseded** — see the next
   bullet — so phase 2 as written no longer describes the plan.
 
