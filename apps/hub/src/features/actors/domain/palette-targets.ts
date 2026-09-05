@@ -96,3 +96,112 @@ export function insertTargetsFor(
   walk(blocks, []);
   return targets;
 }
+
+/**
+ * {@link insertTargetsFor}'s own output, stated under a name that says it
+ * is already in drawing order rather than requiring a caller to re-derive
+ * that fact.
+ *
+ * This is a thin, documented alias rather than a second traversal:
+ * {@link insertTargetsFor}'s walk is depth-first over `blocks`/`children` in
+ * array order, which already IS drawing order — the same guarantee
+ * `placeOrder` (`domain/block-drag.ts`) states for its own walk. Calling
+ * {@link insertTargetsFor} a second time under a second name would invite a
+ * future reader to wonder whether the two could ever disagree; this makes
+ * plain that they cannot, because they are the same call.
+ *
+ * @param blocks - the whole page, read only.
+ * @param item - what is being dragged from the palette.
+ * @returns every valid {@link InsertTarget}, in the order a depth-first walk
+ * visits them — see {@link insertTargetsFor}.
+ */
+export function orderedInsertTargets(
+  blocks: readonly Block[],
+  item: PaletteItem,
+): InsertTarget[] {
+  return insertTargetsFor(blocks, item);
+}
+
+/**
+ * Whether two block paths name the exact same position.
+ *
+ * @param a - one path.
+ * @param b - the other path.
+ * @returns true when every element of `a` equals the element of `b` at the
+ * same index, and the two are the same length.
+ */
+function samePath(a: BlockPath, b: BlockPath): boolean {
+  return (
+    a.length === b.length && a.every((segment, index) => segment === b[index])
+  );
+}
+
+/**
+ * The target one step along from where a keyboard drag is now, stepping
+ * linearly through `order` by array position.
+ *
+ * **It stops at the ends rather than wrapping**, mirroring `stepPlace`
+ * (`domain/block-drag.ts`): a person who presses the arrow key once too
+ * many should not be sent back to the far end, which reads as the drag
+ * having jumped somewhere on its own.
+ *
+ * **An absent `current` steps to the first entry going forward, or the
+ * last going backward** — so the very first arrow press, before anything
+ * is highlighted, always lands somewhere in `order` rather than nowhere.
+ *
+ * Targets are compared by exact `path` equality (every element equal, the
+ * same length) rather than by the prefix-containment `stepPlace` uses
+ * through `within`. That comparison exists there to resolve an ambiguity
+ * that cannot arise here: every target in `order` is one of the exact
+ * positions {@link insertTargetsFor} computed, never a sub-path of one.
+ *
+ * @param order - the targets, from {@link orderedInsertTargets}.
+ * @param current - the target the drag is on now, or nothing if none is
+ * highlighted yet.
+ * @param forward - whether the step is towards the end of `order`.
+ * @returns the next target, or nothing when there is none.
+ */
+export function stepInsertTarget(
+  order: readonly InsertTarget[],
+  current: InsertTarget | undefined,
+  forward: boolean,
+): InsertTarget | undefined {
+  if (!current) return forward ? order[0] : order.at(-1);
+  const at = order.findIndex((target) => samePath(target.path, current.path));
+  return order[at + (forward ? 1 : -1)];
+}
+
+/**
+ * Steps to the first target belonging to the next (or previous) TOP-LEVEL
+ * section, skipping every target nested inside the current one — the
+ * palette's "Tab skips a whole section" gesture.
+ *
+ * Given the current target's own top-level index (`current.path[0]`), this
+ * finds the first entry in `order` whose own top-level index is strictly
+ * greater (`forward`) or strictly less (`!forward`) than that. Because
+ * {@link insertTargetsFor}'s own splice loop emits one entry per top-level
+ * index, in ascending order, before its recursive walk ever runs, that
+ * match is always a bucket's own top-level splice — never a target nested
+ * inside it, whichever direction is stepped.
+ *
+ * **An absent `current` steps to the first entry going forward, or the
+ * last going backward**, matching {@link stepInsertTarget}.
+ *
+ * @param order - the targets, from {@link orderedInsertTargets}.
+ * @param current - the target the drag is on now, or nothing if none is
+ * highlighted yet.
+ * @param forward - whether the step is towards the end of `order`.
+ * @returns the first target of the next/previous section, or nothing when
+ * there is none.
+ */
+export function stepInsertSection(
+  order: readonly InsertTarget[],
+  current: InsertTarget | undefined,
+  forward: boolean,
+): InsertTarget | undefined {
+  if (!current) return forward ? order[0] : order.at(-1);
+  const index = current.path[0];
+  return order.find((target) =>
+    forward ? target.path[0] > index : target.path[0] < index,
+  );
+}

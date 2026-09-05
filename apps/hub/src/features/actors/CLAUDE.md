@@ -6169,3 +6169,55 @@ should have been refused — and no other case.
 
 Nothing calls `insertBlockAt` yet either — no palette tab, no pointer
 wiring, no drop handler. Those are later tasks in the same feature.
+
+### Ordering insertion targets for keyboard stepping (2026-09-05) — Task 3 of 9, domain only
+
+`domain/palette-targets.ts` gains three more exports, all still pure
+domain — no palette tab, no pointer wiring, no keyboard handler wired to any
+of it yet. `orderedInsertTargets` is a thin, documented alias of
+`insertTargetsFor`: Task 1's own walk is already depth-first in drawing
+order, the same guarantee `placeOrder` (`domain/block-drag.ts`) states for
+its own walk, so naming that fact under a second export is cheaper than
+inviting a future reader to wonder whether the two could ever disagree.
+`stepInsertTarget` mirrors `stepPlace` exactly — linear step through the
+ordered array, no wraparound at either end, an absent `current` stepping to
+the first entry forward or the last backward — except that it compares
+targets by exact `path` equality rather than `stepPlace`'s prefix-containing
+`within`: every target in `order` IS one of the exact positions
+`insertTargetsFor` computed, never a sub-path of one, so the ambiguity
+`within` exists to resolve cannot arise here.
+
+`stepInsertSection` is the new mechanism: given `current.path[0]`, it finds
+the first entry in `order` whose own top-level index is strictly greater
+(forward) or strictly less (backward). Because `insertTargetsFor`'s own
+splice loop emits one entry per top-level index, in ascending order, before
+its recursive walk ever runs, that match is always a bucket's own top-level
+splice — never a target nested inside it, whichever direction is stepped.
+Worth knowing before wiring a keyboard handler to this: because that ascending
+splice block sits at the front of the WHOLE `order` array rather than being
+interleaved per-section, stepping forward always lands on the immediately
+following section's own splice (the smallest greater index is always
+current-plus-one), but stepping backward from inside section N finds the
+FIRST entry in `order` — scanning from the array's own start — with a
+smaller index, which is section 0 whenever N is not already 0. That only
+coincides with "the immediately preceding section" when there are exactly
+two sections; every test written against this task uses either two sections
+or the boundary/page-root cases, so backward stepping through three or more
+sections is untested and its exact feel is for whichever task wires the
+actual Tab-back gesture to judge.
+
+Sabotage-verified: the brief's own named sabotage for `stepInsertSection`
+(strict `>`/`<` weakened to `>=`/`<=`) reddens exactly the three
+forward-direction cases built against it and none of the others. Two more
+sabotages were needed for `stepInsertTarget`'s own branches, neither named
+in the brief: wrapping the step with a modulo reddens exactly the two
+no-wraparound cases; collapsing the undefined-input ternary to always answer
+`order[0]` regardless of direction reddens exactly the "steps to the last
+entry going backward" case. A fourth, unnamed sabotage on
+`stepInsertSection`'s own mirrored undefined-input ternary reddens the
+equivalent case there, and only that one — needed because the brief's three
+given tests for this function are all forward-direction with a defined
+`current`, which alone would have left that branch pair uncovered.
+
+Nothing calls any of the three yet — still no palette tab, no drag, no
+keyboard handler. Those remain later tasks in the same feature.
