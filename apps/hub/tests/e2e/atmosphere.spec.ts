@@ -250,7 +250,7 @@ test("the document wears the draft's atmosphere without restyling editor chrome"
 
   const toolbar = page.getByTestId("editor-save");
   const input = page.getByTestId("editor-display-name");
-  const inspector = page.getByTestId("canvas-inspector");
+  const inspector = page.getByTestId("properties-panel");
   const controlsBefore = await Promise.all([
     controlStyle(toolbar),
     controlStyle(input),

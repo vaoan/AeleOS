@@ -117,12 +117,14 @@ for (const viewport of [
   });
 }
 
-test("the inspector and canvas scroll independently", async ({ page }) => {
+test("the Properties panel and canvas scroll independently", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 600 });
   const canvas = await openEditor(page);
   await page.getByTestId("select-page").click();
   const pane = page
-    .getByTestId("canvas-inspector")
+    .getByTestId("properties-panel")
     .locator(".overflow-y-auto")
     .first();
 
@@ -154,7 +156,7 @@ test("Preview clears both offsets and returns scrolling to the document", async 
   await expect.poll(() => canvas.evaluate((node) => node.scrollTop)).toBe(500);
 
   await page.getByTestId("hide-controls").click();
-  await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
+  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
 
   const preview = await scrollGeometry(page, canvas);
   expect(preview.canvasTop).toBe(0);
@@ -166,7 +168,7 @@ test("Preview clears both offsets and returns scrolling to the document", async 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(400);
 
   await page.getByTestId("show-controls").click();
-  await expect(page.getByTestId("canvas-inspector")).toHaveCount(0);
+  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
   await expect
     .poll(async () => (await scrollGeometry(page, canvas)).documentPast)
     .toBeLessThanOrEqual(2);
