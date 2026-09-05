@@ -1151,6 +1151,17 @@ list --state open` returning nothing else.
   identity from `gh api user` — never from `git config --global` and never
   from a hardcoded name or email. The procedure is
   [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md).
+
+  **This was skipped on `carrd-style-builder` (2026-09-05): several commits
+  fell through to the machine's own global identity — a real work account,
+  correct for that machine's other repositories — instead of `--local` set
+  from `gh api user`, leaking it onto the PR.** Fixed by rewriting only the
+  affected commits' author/committer and force-pushing; the global identity
+  was left exactly as found. **Never touch the global identity to fix
+  this** — set `--local` in this repo from `gh api user` before the first
+  commit of the session, every session. See `docs/git-with-gh-token.md`'s
+  own troubleshooting entry for the full account.
+
 - **Picture proof on the PR is part of the work, not a follow-up.** Opening a
   pull request, and every later commit that lands on a branch that already has
   one open, ends with photographs posted **as a comment on that PR** — so a

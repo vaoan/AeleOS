@@ -274,8 +274,14 @@ test("a nested sibling drag swaps visible places without disturbing the empty on
   // the two OCCUPIED, non-adjacent places while the empty one between them
   // is never targeted by either arrow — a swap and an insert-and-shift
   // would leave the same page on ADJACENT places, root rule 27's own trap.
+  //
+  // **`not.toBeEmpty()` would be vacuous here**, root rule 26's own warning:
+  // the region already carries the setup move's own "Soltado en" text, so
+  // "not empty" is true before this lift does anything. Polling for the
+  // "dragLifted" wording (`dragLifted`, es.json — "Levantaste") instead
+  // waits for a CHANGE from what was already there.
   await liftByKeyboard(page, page.getByTestId("canvas-drag-1.2"));
-  await expect(announcement).not.toBeEmpty();
+  await expect.poll(() => announcement.textContent()).toMatch(/^Levantaste/);
 
   await page.keyboard.press("ArrowUp");
   await expect.poll(() => announcement.textContent()).toMatch(/\s2\.$/);
