@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -6,49 +6,11 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { liftByKeyboard } from "./support/drag";
-import { addBlock, addSection, openPageAdd } from "./support/editor";
+import { addBlock, addSection, selectBlock } from "./support/editor";
 import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-
-/**
- * Clicks an `inspector-item-open` button and reads `leaf-title` back,
- * retrying the click until the value sticks.
- *
- * **Diagnosed, not guessed** — this is the same `next dev` Strict Mode
- * remount hazard `addSection` already documents for `section-spaces`: a
- * click that Playwright reports as successful can still land on a mount
- * about to be discarded, so the `selection` state it just set is thrown
- * away while the drag's own reorder (held outside that local state) survives
- * untouched. Observed directly, isolated from every other suspect —
- * `readonly` DOM state after the click showed the inspector fallen back to
- * its page-level view, `leaf-title` absent entirely — on about one run in
- * three; the same click driven with a fresh, non-shared sign-in session
- * never reproduced it, and repeating it against the file's own shared
- * session reproduced it three runs in three. Retrying the click until the
- * surviving mount is the one holding the selection is the established fix
- * for exactly this class of race, not a wider timeout or a blind wait.
- *
- * @param page - the editor page.
- * @param open - the `inspector-item-open` locator to click.
- * @param expected - the value `leaf-title` should read once entry sticks.
- */
-async function enterAndReadTitle(
-  page: Page,
-  open: Locator,
-  expected: string,
-): Promise<void> {
-  await expect
-    .poll(async () => {
-      await open.click();
-      return page
-        .getByTestId("leaf-title")
-        .inputValue()
-        .catch(() => null);
-    })
-    .toBe(expected);
-}
 
 // One sign-in for the whole file: both cases below drive their own fresh
 // `/es/pages/new` draft and neither depends on the other, so they share
@@ -59,9 +21,10 @@ const STATE_PATH = sharedStatePath("section-drag-reorder");
 // THE ONE INTERACTION NOBODY WOULD NOTICE FROM A SCREENSHOT.
 //
 // This file is the PORT of the `@hello-pangea/dnd` spec that preceded it, not
-// a rewrite: what it asserted is what it asserts, and only the announcement
-// selectors are re-derived from `@dnd-kit`'s own output. The reason it exists
-// has not changed either.
+// a rewrite: what it asserted is what it asserts, and only the selection and
+// grip mechanics are re-derived for the Properties panel
+// (2026-09-04) — see this feature's own `CLAUDE.md`, "The Properties panel
+// replaces the recursive inspector", for the model this file now drives.
 //
 // It drives a REAL drag, by KEYBOARD — focus the grip, Space to lift, an arrow
 // to move, Space to drop — and that path is both more reliable in Playwright
@@ -69,25 +32,19 @@ const STATE_PATH = sharedStatePath("section-drag-reorder");
 // `block-slot.test.tsx` it is the proof that the grips in this editor are
 // reachable and operable without a mouse.
 //
-// It found a real defect on its first run under the old library, before any
-// threading was broken on purpose: the grip is a `<button>`, and
-// `@hello-pangea/dnd` refused to start a drag whose source event targeted a
-// tag it treats as interactive, so lifting a section did nothing at all,
-// silently, for every input method. `@dnd-kit` has no such rule — a grip is
-// whatever element carries `listeners` — so the prop that fixed it is gone
-// along with the library, and what could break now is the threading itself.
-// That is `block-slot.test.tsx`'s subject, driven through the real hook; this
-// is the proof in a real browser, with real layout, that the whole chain works
-// end to end.
+// **The grip's own test id and where a drag is initiated both changed with
+// the panel, and the underlying mechanism did not.** A grip renders only for
+// the SELECTED block, on the live canvas itself, as `canvas-drag-<dot.joined.path>`
+// (`editable-block-frame.tsx`) — dot-joined, unlike `data-block-path`'s
+// hyphen-joined form. `moveBlock`/`moveSiblingBlock` (`domain/`) still decide
+// what a drop means; nothing about that domain layer moved.
 //
-// **The selectors changed and the assertions did not.** The grip's test id is
-// its PATH — `drag-0` is the first section, `drag-0.1` the second place of it —
-// because a block has no identity but where it sits, and a path-shaped id is
-// what lets a spec name a grip three levels down without counting. The
-// announcement is `@dnd-kit`'s own live region, `[id^="DndLiveRegion-"]`, and
-// the wording is OURS rather than the library's: its defaults are hard-coded
-// English built out of raw drag ids, so `dragAnnouncements` says "Movido sobre
-// 2." instead, where the number is the place's one-based designation.
+// **The recursive inspector's own Items list — where the old file drove a
+// drag between two ROWS rather than on the canvas — is gone entirely.** There
+// is no "row" to enter as a side effect of a drag any more, because there is
+// no row: selection happens only by clicking a rendered block on the canvas.
+// The two tests this cost, and what replaced each, are recorded at each case
+// below rather than only here.
 //
 // No save happens here. `BlockEditor` rearranges the tree it is holding
 // entirely on the client, so the assertion — read the order back from the
@@ -113,51 +70,66 @@ test.afterAll(async () => {
   if (identity) await deleteTestIdentity(identity.userId);
 });
 
+/**
+ * Reads every top-level section's own name, in canvas order, by selecting
+ * each one in turn through {@link selectBlock}.
+ *
+ * The identity section that opens every fresh draft is path `"0"`; the
+ * sections a test builds by hand start at `"1"`. Reading by POSITION rather
+ * than through any list is what proves the DOM order changed — path `"1"`
+ * after a drag names whichever section is now first, not whichever section
+ * was originally built first.
+ *
+ * @param page - the editor page.
+ * @param count - how many authored sections to read, after the identity one.
+ * @returns each section's `section-name` value, in canvas order.
+ */
+async function topLevelNames(page: Page, count: number): Promise<string[]> {
+  const names: string[] = [];
+  for (let index = 1; index <= count; index += 1) {
+    await selectBlock(page, String(index));
+    names.push(await page.getByTestId("section-name").inputValue());
+  }
+  return names;
+}
+
 test("a section dragged by keyboard lands in its new position in the DOM", async ({
   page,
 }) => {
   await page.goto("/es/pages/new");
 
   // Three sections, built by hand — a template inserts sections as data without
-  // touching a grip at all, which would prove nothing here.
+  // touching a grip at all, which would prove nothing here. Adding selects the
+  // new section on its own Layout tab, where `section-name` already lives, so
+  // no tab click is needed between building one and naming it.
   await addSection(page, "2");
-  await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("First");
 
   await addSection(page, "3");
-  await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Second");
 
   await addSection(page, "4");
-  await page.getByTestId("inspector-tab-options").click();
   await page.getByTestId("section-name").fill("Third");
-  await openPageAdd(page);
 
-  const names = () => page.getByTestId("inspector-item-open").allTextContents();
-
-  // The identity section is first, so the three sections this test builds are
-  // the second through fourth — and the grip lifted
-  // below is `drag-1` rather than `drag-0` for the same reason.
   await expect
-    .poll(async () => (await names()).slice(1))
-    .toEqual([
-      expect.stringContaining("First"),
-      expect.stringContaining("Second"),
-      expect.stringContaining("Third"),
-    ]);
+    .poll(() => topLevelNames(page, 3))
+    .toEqual(["First", "Second", "Third"]);
 
   // Lift the first section's grip, move it down one, drop it. dnd-kit
   // announces each step to an `aria-live` region it manages itself; waiting on
   // that text — rather than a blind timeout — is what lets each key wait for
   // the previous one's state update and re-render to land before the next one
-  // fires.
+  // fires. The grip renders only for the selected block, so the third section
+  // — still selected from the loop above — is re-selected back to the first
+  // before lifting it.
+  await selectBlock(page, "1");
   const announcement = page.locator('[id^="DndLiveRegion-"]');
 
   // `liftByKeyboard` rather than a bare Space: the sensor's own keydown
   // listener arrives a macrotask after the drag starts, and the arrow pressed
   // inside that window is lost silently. `support/drag.ts` carries the whole
   // account.
-  await liftByKeyboard(page, page.getByTestId("drag-1"));
+  await liftByKeyboard(page, page.getByTestId("canvas-drag-1"));
   await expect(announcement).not.toBeEmpty();
 
   await page.keyboard.press("ArrowDown");
@@ -182,169 +154,8 @@ test("a section dragged by keyboard lands in its new position in the DOM", async
   //
   // Three non-adjacent authored siblings distinguish a shift from a swap.
   await expect
-    .poll(async () => (await names()).slice(1))
-    .toEqual([
-      expect.stringContaining("Second"),
-      expect.stringContaining("Third"),
-      expect.stringContaining("First"),
-    ]);
-  await expect(page.getByTestId("section-name")).toHaveCount(0);
-});
-
-// The recursive inspector offers one scope at a time. This replaces the old
-// cross-level drag with a non-adjacent sibling exchange that includes an empty
-// authored position and proves the grip never activates its row.
-test("a nested sibling drag swaps visible places without entering the row", async ({
-  page,
-}) => {
-  await page.goto("/es/pages/new");
-
-  await addSection(page, "3");
-  // `addSection` leaves the pane on Options — its own TSDoc says so — so
-  // the section's empty places are not showing until Items is pressed.
-  await page.getByTestId("inspector-tab-items").click();
-  // **A width is not a capacity.** The picker's own layout options always
-  // start a container at two children (`PICKER_SPACES` in
-  // `add-block-picker.tsx`), and `section-spaces` reshapes only how many
-  // places lay ACROSS — `setSpaces` never touches `children`. So a genuine
-  // third, explicitly EMPTY place needs its own `add-place` press before
-  // anything is filled, or this section would have only two rows to drag
-  // between rather than the three — First, empty, Third — this test is
-  // actually named for.
-  await page.getByTestId("add-place").click();
-  await expect(page.getByTestId("inspector-item-row")).toHaveCount(3);
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
-  await page.getByTestId("leaf-title").fill("First");
-  await page.getByTestId("inspector-back").click();
-  await addBlock(page.getByTestId("inspector-empty-place").last(), {
-    kind: "text",
-  });
-  await page.getByTestId("leaf-title").fill("Third");
-  await page.getByTestId("inspector-back").click();
-
-  const rows = () => page.getByTestId("inspector-item-row").allTextContents();
-  await expect
-    .poll(rows)
-    .toEqual([
-      expect.stringContaining("First"),
-      expect.any(String),
-      expect.stringContaining("Third"),
-    ]);
-  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
-  await expect(page.getByTestId("drag-1")).toHaveCount(0);
-
-  const announcement = page.locator('[id^="DndLiveRegion-"]');
-  await liftByKeyboard(page, page.getByTestId("drag-1.0"));
-  await expect(announcement).not.toBeEmpty();
-
-  await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.2\.$/);
-  await page.keyboard.press("ArrowDown");
-  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.3\.$/);
-
-  await page.keyboard.press("Space");
-
-  await expect
-    .poll(rows)
-    .toEqual([
-      expect.stringContaining("Third"),
-      expect.any(String),
-      expect.stringContaining("First"),
-    ]);
-  await expect(page.getByTestId("inspector-empty-place")).toHaveCount(1);
-  await expect(page.getByTestId("leaf-editor")).toHaveCount(0);
-
-  await enterAndReadTitle(
-    page,
-    page.getByTestId("inspector-item-open").last(),
-    "First",
-  );
-});
-
-test("a pointer drag between sibling rows does not activate either row", async ({
-  page,
-}) => {
-  await page.goto("/es/pages/new");
-  await addSection(page, "2");
-  // Same as above: Items must be pressed before an empty place shows.
-  await page.getByTestId("inspector-tab-items").click();
-  await addBlock(page.getByTestId("inspector-empty-place").first(), {
-    kind: "text",
-  });
-  await page.getByTestId("leaf-title").fill("Left");
-  await page.getByTestId("inspector-back").click();
-  await addBlock(page.getByTestId("inspector-empty-place"), { kind: "text" });
-  await page.getByTestId("leaf-title").fill("Right");
-  await page.getByTestId("inspector-back").click();
-
-  const source = await page.getByTestId("drag-1.0").boundingBox();
-  const target = await page.getByTestId("place-1.1").boundingBox();
-  expect(source).not.toBeNull();
-  expect(target).not.toBeNull();
-  await page.mouse.move(
-    source!.x + source!.width / 2,
-    source!.y + source!.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    source!.x + source!.width / 2 + 20,
-    source!.y + source!.height / 2,
-  );
-  await page.mouse.move(
-    target!.x + target!.width / 2,
-    target!.y + target!.height / 2,
-    {
-      steps: 8,
-    },
-  );
-  await page.mouse.up();
-
-  // **A third instance of rule 41's measured exemption class, diagnosed
-  // rather than guessed.** `PointerSensor.detach()` in `@dnd-kit/core@6.3.1`
-  // keeps a document-level, CAPTURING `click` listener alive for exactly
-  // 50ms after a drag ends (`setTimeout(this.documentListeners.removeAll,
-  // 50)`), on purpose: it calls `stopPropagation()` to swallow the synthetic
-  // click that a mouseup-after-drag produces, so the drop does not also
-  // activate whatever sits under the pointer. A capture-phase
-  // `stopPropagation()` on `document` stops the event before ANY element's
-  // own listener runs — so a genuinely independent click landing inside that
-  // window is silently lost too, whoever it targets. That is exactly what
-  // this test's own `inspector-item-open` clicks below were racing:
-  // diagnosed by isolating every other suspect (a fresh, non-shared sign-in
-  // reproduced nothing; retrying the click itself still failed inside a
-  // 5-second poll on some runs, which a one-shot swallow could not explain
-  // on its own). Waiting past dnd-kit's own constant, margin included, is not
-  // a guess about machine speed.
-  await page.evaluate(
-    // eslint-disable-next-line no-restricted-syntax -- see comment above.
-    () => new Promise((done) => setTimeout(done, 100)),
-  );
-
-  await expect
-    .poll(() => page.getByTestId("inspector-item-row").allTextContents())
-    .toEqual([
-      expect.stringContaining("Right"),
-      expect.stringContaining("Left"),
-    ]);
-  await expect(page.getByTestId("leaf-editor")).toHaveCount(0);
-  await expect(page.getByTestId("canvas-inspector")).toBeVisible();
-
-  // The pointer sequence itself did not open either row. A later, independent
-  // click must still work; suppressing that click would turn drag protection
-  // into a two-click row.
-  await enterAndReadTitle(
-    page,
-    page.getByTestId("inspector-item-open").first(),
-    "Right",
-  );
-  await page.getByTestId("inspector-back").click();
-  await enterAndReadTitle(
-    page,
-    page.getByTestId("inspector-item-open").last(),
-    "Left",
-  );
+    .poll(() => topLevelNames(page, 3))
+    .toEqual(["Second", "Third", "First"]);
 });
 
 // `block-drag.spec.ts` IS GONE, AND THIS IS WHERE ITS SURVIVING HALF LIVES.
@@ -362,11 +173,11 @@ test("a pointer drag between sibling rows does not activate either row", async (
 //
 // Where each half went, so that nobody re-derives this by reading a diff:
 //
-//   swap on an occupied place ...... the nested-sibling case above, which keeps
+//   swap on an occupied place ...... the nested-sibling case below, which keeps
 //                                    the non-adjacent fixture the trap needs
 //   section reorder ................ the first case above, on three sections
 //   pointer geometry against a REAL
-//     layout engine ................ the pointer case above; this is the only
+//     layout engine ................ the pointer case below; this is the only
 //                                    thing in the repository that asks
 //                                    Chromium for `placeUnderPointer`'s
 //                                    rectangles, so it must not be reduced to
@@ -398,6 +209,158 @@ test("a pointer drag between sibling rows does not activate either row", async (
 // on a gesture that no longer exists, and a case rebuilt in sibling scope
 // would not discriminate the fault either way. Rule 27: an edge case still has
 // to be able to tell a right answer from a wrong one.
+
+test("a nested sibling drag swaps visible places without disturbing the empty one between them", async ({
+  page,
+}) => {
+  await page.goto("/es/pages/new");
+
+  await addSection(page, "3");
+  // **A width is not a capacity.** The picker's own layout options always
+  // start a container at two children (`PICKER_SPACES` in
+  // `add-block-picker.tsx`), and `section-spaces` (set inside `addSection`)
+  // reshapes only how many places lay ACROSS — `setSpaces` never touches
+  // `children`. So a genuine third, explicitly EMPTY place needs its own
+  // `add-place` press before anything is filled, or this section would have
+  // only two rows to drag between rather than the three — First, empty,
+  // Third — this test is actually named for. The section is already
+  // selected, on its own Layout tab, where `add-place` already lives.
+  await page.getByTestId("add-place").click();
+  await expect(page.locator('[data-canvas-path^="1-"]')).toHaveCount(3);
+
+  // The section is still selected; the single global Add targets it
+  // directly, and `nextChildPosition` always fills the FIRST empty place —
+  // never the one a caller has in mind — so both adds land at 0 and 1
+  // rather than at 0 and 2. There is no control that targets a specific
+  // empty place any more (see this file's own header on what the recursive
+  // inspector's Items list took with it), so reaching "First, empty, Third"
+  // needs a real move first: fill the first two places, then drag the
+  // second leaf onto the third, still-empty one. That move is SETUP, not
+  // the gesture this test is named for — it drops onto an EMPTY place, which
+  // is an ordinary move rather than the swap the assertions below exist to
+  // prove.
+  await addBlock(page, { kind: "text" });
+  await page.getByTestId("leaf-title").fill("First");
+
+  await addBlock(page, { kind: "text" });
+  await page.getByTestId("leaf-title").fill("Third");
+
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-1"]')).toHaveCount(1);
+  await expect(
+    page.locator('[data-canvas-path="1-2"]').getByTestId("public-space"),
+  ).toHaveCount(1);
+
+  const announcement = page.locator('[id^="DndLiveRegion-"]');
+  // "Third" is still selected at 1-1 from the add above; move it onto the
+  // empty third place. A drop onto an empty place is a MOVE — the source
+  // place is simply left empty — so this leaves 1-1 empty and 1-2 holding
+  // "Third", which is the starting shape the swap below needs.
+  await liftByKeyboard(page, page.getByTestId("canvas-drag-1.1"));
+  await expect(announcement).not.toBeEmpty();
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(() => announcement.textContent()).toMatch(/\s3\.$/);
+  await page.keyboard.press("Space");
+
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+  await expect(
+    page.locator('[data-canvas-path="1-1"]').getByTestId("public-space"),
+  ).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-2"]')).toHaveCount(1);
+
+  // NOW the gesture this test is named for: "Third" (moved to 1-2 above,
+  // and selected there — "a successful result selects the exact
+  // destination path the planner returned") swaps with "First", exchanging
+  // the two OCCUPIED, non-adjacent places while the empty one between them
+  // is never targeted by either arrow — a swap and an insert-and-shift
+  // would leave the same page on ADJACENT places, root rule 27's own trap.
+  await liftByKeyboard(page, page.getByTestId("canvas-drag-1.2"));
+  await expect(announcement).not.toBeEmpty();
+
+  await page.keyboard.press("ArrowUp");
+  await expect.poll(() => announcement.textContent()).toMatch(/\s2\.$/);
+  await page.keyboard.press("ArrowUp");
+  await expect.poll(() => announcement.textContent()).toMatch(/\s1\.$/);
+
+  await page.keyboard.press("Space");
+
+  // The swap happened, and the middle place — never touched by either
+  // arrow — is still empty and still second.
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+  await expect(
+    page.locator('[data-canvas-path="1-1"]').getByTestId("public-space"),
+  ).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-2"]')).toHaveCount(1);
+
+  await selectBlock(page, "1-0");
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Third");
+  await selectBlock(page, "1-2");
+  await expect(page.getByTestId("leaf-title")).toHaveValue("First");
+});
+
+test("a pointer drag between sibling places does not select either one", async ({
+  page,
+}) => {
+  await page.goto("/es/pages/new");
+  await addSection(page, "2");
+  await addBlock(page, { kind: "text" });
+  await page.getByTestId("leaf-title").fill("Left");
+  await addBlock(page, { kind: "text" });
+  await page.getByTestId("leaf-title").fill("Right");
+
+  // The just-added "Right" leaf is selected; reselect "Left" so its grip is
+  // the one rendered before the drag begins.
+  await selectBlock(page, "1-0");
+
+  const source = await page.getByTestId("canvas-drag-1.0").boundingBox();
+  const target = await page.locator('[data-canvas-path="1-1"]').boundingBox();
+  expect(source).not.toBeNull();
+  expect(target).not.toBeNull();
+  await page.mouse.move(
+    source!.x + source!.width / 2,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    source!.x + source!.width / 2 + 20,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.move(
+    target!.x + target!.width / 2,
+    target!.y + target!.height / 2,
+    {
+      steps: 8,
+    },
+  );
+  await page.mouse.up();
+
+  // **A third instance of rule 41's measured exemption class, diagnosed
+  // rather than guessed.** `PointerSensor.detach()` in `@dnd-kit/core@6.3.1`
+  // keeps a document-level, CAPTURING `click` listener alive for exactly
+  // 50ms after a drag ends (`setTimeout(this.documentListeners.removeAll,
+  // 50)`), on purpose: it calls `stopPropagation()` to swallow the synthetic
+  // click that a mouseup-after-drag produces, so the drop does not also
+  // activate whatever sits under the pointer. A capture-phase
+  // `stopPropagation()` on `document` stops the event before ANY element's
+  // own listener runs — so a genuinely independent click landing inside that
+  // window is silently lost too, whoever it targets. Waiting past dnd-kit's
+  // own constant, margin included, is not a guess about machine speed.
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- see comment above.
+    () => new Promise((done) => setTimeout(done, 100)),
+  );
+
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-1"]')).toHaveCount(1);
+  await selectBlock(page, "1-0");
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Right");
+  await selectBlock(page, "1-1");
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Left");
+
+  // The pointer sequence itself did not open a stray selection anywhere: the
+  // panel is showing exactly the block just selected above, and nothing else.
+  await expect(page.getByTestId("properties-panel")).toBeVisible();
+});
 
 // THE OTHER HALF OF THIS FILE IS GONE, AND THE FAULT IT GUARDED CANNOT
 // RECUR.
