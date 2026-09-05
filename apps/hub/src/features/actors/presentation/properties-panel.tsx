@@ -156,6 +156,14 @@ function scopeKeyFor(selection: EditorSelection): string {
  * content does not depend on selection, so it never needs to replay an
  * entrance on a selection change.
  *
+ * **The desktop width is a shared token now (2026-09-05), not a literal this
+ * component alone owns.** `md:w-(--properties-panel-width)` reads
+ * `--properties-panel-width` (`globals.css`, `min(36rem, 40vw)`), the same
+ * token `block-editor.tsx`'s canvas accommodation and `page-source-dock.tsx`'s
+ * own `panelOpen`-gated positioning both read — so all three agree on the
+ * panel's width by construction rather than by three literals kept in step
+ * by hand.
+ *
  * @returns the panel.
  */
 export function PropertiesPanel({
@@ -177,7 +185,7 @@ export function PropertiesPanel({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.21, ease: "easeOut" }}
-      className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-30 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:top-[calc(var(--bar-top)+3.5rem)] md:right-0 md:bottom-0 md:left-auto md:max-h-none md:w-[min(36rem,40vw)] md:border-t-0 md:border-l`}
+      className={`${CHROME_SCOPE} fixed inset-x-0 bottom-0 z-30 flex max-h-[70vh] flex-col border-t border-(--edge) bg-(--menu) md:top-[calc(var(--bar-top)+3.5rem)] md:right-0 md:bottom-0 md:left-auto md:max-h-none md:w-(--properties-panel-width) md:border-t-0 md:border-l`}
     >
       <div className="flex shrink-0 items-center justify-end gap-2 border-b border-(--edge)/40 p-2">
         <button

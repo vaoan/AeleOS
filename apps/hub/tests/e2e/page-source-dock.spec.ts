@@ -109,16 +109,41 @@ test("opens beside the page, reaching the right edge and the foot of the window"
   const box = (await dock.boundingBox())!;
   const viewport = page.viewportSize()!;
 
-  // **At the RIGHT edge, not the left.** The pre-fix version put `box.x` at
-  // 0 — the over-constrained `left`/`right` bug — so this pins it against
-  // the viewport's right edge with the panel's own measured width.
+  // **At the Properties panel's own left edge, not the window's — and that
+  // is a real change from what this assertion checked before, not a
+  // relaxation of it.** The Properties panel now renders unconditionally
+  // (2026-09-05, "A third, persistent Properties panel tab"), showing at
+  // least its Palette tab whenever controls are visible even with nothing
+  // selected — which is exactly the case here, since this test selects
+  // nothing before opening the dock. So the dock's own `panelOpen` prop
+  // (`FursonaEditor`'s `!controlsHidden`) is true throughout this test, and
+  // the dock's `right-0` is shifted left by the panel's own reserved width,
+  // `min(36rem, 40vw)` — 512px at this 1280px viewport, since `40vw` (512)
+  // is narrower than `36rem` (576) here. The pre-fix version put `box.x` at
+  // 0 — the over-constrained `left`/`right` bug — so this still pins the
+  // dock away from the left edge; it no longer claims the dock reaches the
+  // window's OWN right edge, because the panel now permanently occupies
+  // that space.
+  const panelWidth = Math.min(576, viewport.width * 0.4);
+  const reservedEdge = viewport.width - panelWidth;
   expect(
     box.x + box.width,
-    "the dock's right edge sits at the viewport's right edge",
-  ).toBeGreaterThan(viewport.width - 2);
-  expect(box.x, "the dock is not pinned to the left edge").toBeGreaterThan(
-    viewport.width / 2,
-  );
+    "the dock's right edge sits at the Properties panel's own left edge",
+  ).toBeGreaterThan(reservedEdge - 2);
+  expect(
+    box.x + box.width,
+    "the dock does not overlap the Properties panel",
+  ).toBeLessThan(reservedEdge + 2);
+  // **Not a fraction of the viewport's own width any more.** The dock's
+  // default width (420px) sits entirely inside the panel's own 512px
+  // reservation at this viewport, so `box.x` (348) no longer clears
+  // `viewport.width / 2` (640) the way it did before the panel became
+  // permanent — that comparison would fail on the correct, panel-aware
+  // position. A small, viewport-independent margin is what actually
+  // discriminates "not pinned to the left edge" (the over-constrained
+  // `left`/`right` bug this test guards, `box.x === 0`) from the real
+  // position.
+  expect(box.x, "the dock is not pinned to the left edge").toBeGreaterThan(100);
 
   // **Reaching the foot of the window, not sized to its own content.** The
   // pre-fix version stopped a few hundred pixels down — the `fit-content`

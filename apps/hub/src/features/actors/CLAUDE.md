@@ -6355,3 +6355,51 @@ nothing when deselected" — both rewritten. `block-editor.tsx`'s
 
 This tab renders and is reachable; dragging a thumbnail onto the canvas
 does nothing yet. That remains a later task in this same feature.
+
+### The page-source dock shares the Properties panel's own width token (2026-09-05)
+
+Making the Properties panel render unconditionally, above, had a direct
+consequence its own task report first left open rather than fixed: the panel
+now occupies the page's right edge WHENEVER controls show, selection or not,
+which is exactly the situation `page-source-dock.tsx`'s fixed positioning had
+never had to share space with before. The dock's own default width (420px)
+sat entirely inside the panel's `min(36rem, 40vw)` reservation at 1280px wide
+(the dock's box at `x=[860,1280]`, inside the panel's `x=[768,1280]`), so the
+dock no longer reached any real page content at that viewport at all.
+
+**`--properties-panel-width` is the fix, declared once in `globals.css` as
+`min(36rem, 40vw)` rather than repeated as a literal in three files.**
+`properties-panel.tsx`'s own `md:w-[...]` and `block-editor.tsx`'s canvas
+accommodation (`md:pr-[...]`) both read it now, in place of the
+`min(36rem,40vw)` literal each used to carry independently; `page-source-dock.tsx`
+gained a new required prop, `panelOpen: boolean`, and shifts its own
+`right-0` left by the same token at `md` and up when it is true —
+`panelOpen ? "md:right-(--properties-panel-width)" : ""`. `FursonaEditor`
+threads `panelOpen={!controlsHidden}` into `PageSourceDock` through
+`PageSourceField`, the same condition `BlockEditor`'s own accommodation is
+already keyed to, so the two can never disagree about whether the panel is
+showing.
+
+**A stale test assertion, not a design question, is what running the fix
+actually found.** `page-source-dock.spec.ts`'s "opens beside the page,
+reaching the right edge and the foot of the window" asserted the dock
+reaches the WINDOW's own right edge with nothing selected — a premise this
+same task's own unconditional-panel change had already made false on its own
+terms, fix or no fix, since the panel is now always present too. The
+assertion was rewritten to check the dock's right edge against the panel's
+own left edge (`viewport.width - panelWidth`) rather than the window's, and
+its companion "not pinned to the left edge" check — which compared `box.x`
+against `viewport.width / 2`, a comparison that stopped discriminating
+anything once the dock's box moved left of that midpoint — was replaced with
+a small viewport-independent margin that still isolates the fault it exists
+to catch (the over-constrained `left`/`right` bug, `box.x === 0`).
+Sabotage-verified both ways: reverting `left-auto` reddens the rewritten
+assertion exactly as it reddened the original, and removing the `panelOpen`
+class conditional reddens the "sits at the panel's own left edge" assertion
+while leaving every other case in the file green.
+
+Fixing this also closed the OTHER e2e finding the same task report had
+recorded — "collapsing shrinks the dock... at 1280," left failing
+deliberately pending this exact decision — without touching that spec at
+all: the dock's box moving out from inside the panel's reserved region is
+the same geometry fix either assertion needed.

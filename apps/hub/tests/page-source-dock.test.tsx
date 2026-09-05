@@ -173,6 +173,12 @@ interface RenderDockOverrides {
   onClose?: () => void;
   source?: PageSourceState;
   reference?: string;
+  /**
+   * Defaults to `false` — every pre-existing case here is about the panel
+   * absent, and `false` is what keeps this dock's own `right-0` unchanged
+   * from before this prop existed.
+   */
+  panelOpen?: boolean;
 }
 
 /**
@@ -199,6 +205,7 @@ function renderDock(props: RenderDockOverrides = {}): {
       source={source}
       reference={reference}
       labels={labels}
+      panelOpen={props.panelOpen ?? false}
     />,
   );
   const rerender = (next: RenderDockOverrides = {}) => {
@@ -209,6 +216,7 @@ function renderDock(props: RenderDockOverrides = {}): {
         source={next.source ?? source}
         reference={next.reference ?? reference}
         labels={labels}
+        panelOpen={next.panelOpen ?? props.panelOpen ?? false}
       />,
     );
   };
@@ -495,6 +503,20 @@ describe("PageSourceDock", () => {
   it("wears CHROME_SCOPE on its root element", () => {
     renderDock();
     expect(screen.getByRole("dialog").className).toContain("aeleos-chrome");
+  });
+
+  it("shifts right-0 by the Properties panel's own width when panelOpen is true", () => {
+    renderDock({ panelOpen: true });
+    expect(screen.getByRole("dialog").className).toContain(
+      "md:right-(--properties-panel-width)",
+    );
+  });
+
+  it("leaves right-0 alone when panelOpen is false", () => {
+    renderDock({ panelOpen: false });
+    expect(screen.getByRole("dialog").className).not.toContain(
+      "md:right-(--properties-panel-width)",
+    );
   });
 
   it("carries a keyboard-reachable resize grip", () => {
