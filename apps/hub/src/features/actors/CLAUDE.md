@@ -6016,3 +6016,69 @@ all, does the error banner need its own click-to-select affordance
 independent of the canvas — and not a test-fitting exercise. A page saved by
 an older build and reopened by a newer one with a tightened cap is the
 ordinary way this could occur outside a test.
+
+### Two stacking bugs and two selection bugs, closed by running the checkpoint's own e2e suite for real (2026-09-05)
+
+None of these four were caught locally before this pass, because the
+checkpoint's `hub`/`canvas` gates run no browser and the e2e-repair task
+that rewrote most of `tests/e2e/` for the Properties panel never actually
+ran the rewritten specs against real Clerk credentials — root rule 31's
+exact shape, on a suite this branch itself had just rewritten rather than
+on a suite left alone.
+
+- **The Add picker's dialog resolved `fixed inset-0` against the toolbar,
+  not the viewport.** `EditorToolbar`'s sticky bar carries
+  `backdrop-blur-md`, and `backdrop-filter` other than `none` establishes a
+  containing block for `position: fixed` descendants exactly as `filter`
+  and `transform` do — invisible to every unit test, since jsdom does no
+  layout. `AddBlockPicker`'s dialog is portalled to `document.body` now; the
+  trigger stays where its caller mounts it.
+- **The toolbar's own stacking context sat below the Properties panel's.**
+  `sticky` plus a `z-index` makes an element its own stacking context, so
+  the "More" disclosure's `absolute` panel only ever competed within the
+  bar's `z-20`, and the bar as a whole painted behind the panel's `z-30`
+  whenever both were open, however high the disclosure's own `z-index` was
+  set. The bar is `z-40` now, matching `page-source-dock.tsx` and the Add
+  picker's own dialog.
+- **Escape closing the Add picker silently cleared the current selection.**
+  The capture-phase, canvas-owned Escape-deselect handler in
+  `block-editor.tsx` (see "Dragging" above for its own account of WHY it is
+  capture-phase) exempted `properties-panel` and `page-source-dock` but not
+  `add-block-picker` — which is portalled to `document.body` rather than
+  nested inside the panel, so it needed naming rather than being reached
+  through the panel's own selector. Closing the picker with Escape cleared
+  `selection` before the picker's own bubble-phase handler ever closed the
+  dialog, retargeting the next Add at the page root instead of the
+  container that had been open — found by a depth-cap browser test failing
+  with 8 layout options offered where the cap should have refused all of
+  them. `add-block-picker` joined the exemption list.
+- **`onCanvasClick`'s `CHROME_SCOPE` exemption also matched an EMPTY
+  place's own wrapper, swallowing a click meant for its enclosing
+  container.** The exemption exists for a genuine chrome control with no
+  block underneath it — the Page pill, which rides inside the canvas — and
+  it was checked BEFORE the `data-block-path` lookup. `EditableBlockFrame`'s
+  empty-place wrapper also carries `CHROME_SCOPE`, so Preview can hide its
+  dashed placeholder box the same way every other editor-only island is
+  hidden; an empty place has no `data-block-path` of its own, only
+  `data-canvas-path`. So a click landing on an empty place — reachable
+  simply by clicking near the top-left corner of a container that has one,
+  which is exactly where `selectBlock`'s own convention aims — matched
+  `CHROME_SCOPE` on itself and returned before `closest("[data-block-path]")`
+  ever ran, never walking up to find the container a few ancestors above.
+  The two checks are reordered: `data-block-path` first, `CHROME_SCOPE`
+  only once that has failed. The Page-control case this guard exists for is
+  unaffected, because the pill is not nested inside any block's own
+  `data-block-path` subtree.
+
+**A fifth failure in the same sweep, `editor-saves-page.spec.ts`'s template
+round trip, is a DIFFERENT and still-open bug — confirmed pre-existing by
+running it against the branch before any of the four fixes above, where it
+fails earlier for an unrelated reason (the toolbar fix above is what let it
+progress far enough to reach this one).** Applying a template, then
+switching the Properties panel from its primary tab back to Theme without
+reselecting Page, finds `theme-accent` gone — `ThemeConfigurator`'s own
+`open` state did not survive the round trip, though nothing here found why:
+both panes are meant to stay mounted throughout, switched by the `hidden`
+attribute rather than remounted, which should have left local state alone.
+Not fixed on this pass; recorded here rather than left to be rediscovered
+as a mystery next time somebody runs this spec.

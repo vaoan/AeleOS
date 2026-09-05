@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   CONTAINER_MODES,
   type Block,
@@ -128,6 +129,13 @@ const PICKER_SPACES = 2;
  * (and every option's own keyboard activation) actually work — see the
  * `useEffect` and `onOptionKeyDown` below for both mechanisms.
  *
+ * **The dialog is portalled to `document.body` (2026-09-05), not rendered
+ * inline.** The trigger stays wherever its caller mounts it; the dialog
+ * does not, because `EditorToolbar`'s sticky bar carries `backdrop-blur-md`,
+ * and `backdrop-filter` other than `none` establishes a containing block for
+ * `position: fixed` descendants — see the `createPortal` call below for the
+ * account in full.
+ *
  * @param props - see {@link AddBlockPickerProps}.
  * @returns the trigger, and the popup while it is open.
  */
@@ -195,51 +203,64 @@ export function AddBlockPicker(props: AddBlockPickerProps): ReactNode {
         <Plus className="size-4" />
         {props.labels.add}
       </button>
-      {open ? (
-        // The backdrop's own click and Escape are the dialog's dismissal,
-        // not a control somebody tabs to — a keyboard user closes through
-        // an option or Escape once focus is inside, which the effect above
-        // is what actually puts there.
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          tabIndex={-1}
-          {...tid("add-block-picker")}
-          className={`${CHROME_SCOPE} fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 outline-none`}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setOpen(false);
-          }}
-          onKeyDown={onDialogKeyDown}
-        >
-          <div className="grid max-h-[80vh] w-full max-w-2xl gap-4 overflow-y-auto rounded-xl surface border-(--edge) bg-(--menu) p-4">
-            <h2 id={titleId} className="font-display text-base font-bold">
-              {props.labels.title}
-            </h2>
-            <div className="grid gap-2">
-              <p className="text-xs font-medium text-(--muted)">
-                {props.labels.contentGroup}
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {props.kinds.map((kind) => (
-                  <div
-                    key={kind}
-                    role="button"
-                    tabIndex={0}
-                    {...tid("add-block-option")}
-                    data-add-kind={kind}
-                    onClick={() => choose(newLeaf(kind))}
-                    onKeyDown={(event) =>
-                      onOptionKeyDown(event, () => choose(newLeaf(kind)))
-                    }
-                    className="grid cursor-pointer gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
-                  >
-                    <span className="text-xs font-medium text-(--muted)">
-                      {props.labels.leafKinds[kind]}
-                    </span>
-                    {/* **`inert`, not merely non-`<button>` (2026-09-02).**
+      {open
+        ? createPortal(
+            // The backdrop's own click and Escape are the dialog's
+            // dismissal, not a control somebody tabs to — a keyboard user
+            // closes through an option or Escape once focus is inside,
+            // which the effect above is what actually puts there.
+            //
+            // **Portalled to `document.body` (2026-09-05), not rendered
+            // inline.** The trigger button above stays wherever its caller
+            // mounts it — inside the toolbar's own `AddSlotTarget` — but
+            // `EditorToolbar`'s sticky bar carries `backdrop-blur-md`, and
+            // `backdrop-filter` other than `none` establishes a containing
+            // block for `position: fixed` descendants exactly as `filter`
+            // and `transform` do. Rendered inline, this dialog's
+            // `fixed inset-0` resolved against the TOOLBAR's own small box
+            // rather than the viewport — invisible in every unit test,
+            // since jsdom does no layout, and caught only by a real
+            // browser failing to find the dialog's own options on screen.
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+            <div
+              ref={dialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              tabIndex={-1}
+              {...tid("add-block-picker")}
+              className={`${CHROME_SCOPE} fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 outline-none`}
+              onClick={(event) => {
+                if (event.target === event.currentTarget) setOpen(false);
+              }}
+              onKeyDown={onDialogKeyDown}
+            >
+              <div className="grid max-h-[80vh] w-full max-w-2xl gap-4 overflow-y-auto rounded-xl surface border-(--edge) bg-(--menu) p-4">
+                <h2 id={titleId} className="font-display text-base font-bold">
+                  {props.labels.title}
+                </h2>
+                <div className="grid gap-2">
+                  <p className="text-xs font-medium text-(--muted)">
+                    {props.labels.contentGroup}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {props.kinds.map((kind) => (
+                      <div
+                        key={kind}
+                        role="button"
+                        tabIndex={0}
+                        {...tid("add-block-option")}
+                        data-add-kind={kind}
+                        onClick={() => choose(newLeaf(kind))}
+                        onKeyDown={(event) =>
+                          onOptionKeyDown(event, () => choose(newLeaf(kind)))
+                        }
+                        className="grid cursor-pointer gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
+                      >
+                        <span className="text-xs font-medium text-(--muted)">
+                          {props.labels.leafKinds[kind]}
+                        </span>
+                        {/* **`inert`, not merely non-`<button>` (2026-09-02).**
                         Swapping the option's own tag to a `<div>` fixed the
                         HTML-validity warning, and axe still refused it:
                         `nested-interactive` — a `role="button"` containing
@@ -254,67 +275,71 @@ export function AddBlockPicker(props: AddBlockPickerProps): ReactNode {
                         option `<div>` behind it, the same mechanism
                         `canvas-interaction-lock.ts` already relies on for
                         the editor canvas. */}
-                    <div className={CHROME_SCOPE} inert>
-                      <PublicBlock
-                        block={sampleLeaf(kind)}
-                        locale={props.locale}
-                        depth={1}
-                        path="preview"
-                        page={props.page}
-                      />
+                        <div className={CHROME_SCOPE} inert>
+                          <PublicBlock
+                            block={sampleLeaf(kind)}
+                            locale={props.locale}
+                            depth={1}
+                            path="preview"
+                            page={props.page}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {props.mayAddLayout ? (
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium text-(--muted)">
+                      {props.labels.layoutGroup}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {CONTAINER_MODES.map((mode) => (
+                        <div
+                          key={mode}
+                          role="button"
+                          tabIndex={0}
+                          {...tid("add-block-option")}
+                          data-add-mode={mode}
+                          onClick={() =>
+                            choose(newContainer(mode, PICKER_SPACES))
+                          }
+                          onKeyDown={(event) =>
+                            onOptionKeyDown(event, () =>
+                              choose(newContainer(mode, PICKER_SPACES)),
+                            )
+                          }
+                          className="grid cursor-pointer gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
+                        >
+                          <span className="text-xs font-medium text-(--muted)">
+                            {props.labels.modes[mode]}
+                          </span>
+                          <div className={CHROME_SCOPE} inert>
+                            <PublicBlock
+                              block={sampleContainer(mode)}
+                              locale={props.locale}
+                              depth={1}
+                              path="preview"
+                              page={props.page}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <p
+                    {...tid("nesting-at-limit")}
+                    className="text-xs text-(--muted)"
+                  >
+                    {props.labels.nestingAtLimit}
+                  </p>
+                )}
               </div>
-            </div>
-            {props.mayAddLayout ? (
-              <div className="grid gap-2">
-                <p className="text-xs font-medium text-(--muted)">
-                  {props.labels.layoutGroup}
-                </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {CONTAINER_MODES.map((mode) => (
-                    <div
-                      key={mode}
-                      role="button"
-                      tabIndex={0}
-                      {...tid("add-block-option")}
-                      data-add-mode={mode}
-                      onClick={() => choose(newContainer(mode, PICKER_SPACES))}
-                      onKeyDown={(event) =>
-                        onOptionKeyDown(event, () =>
-                          choose(newContainer(mode, PICKER_SPACES)),
-                        )
-                      }
-                      className="grid cursor-pointer gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
-                    >
-                      <span className="text-xs font-medium text-(--muted)">
-                        {props.labels.modes[mode]}
-                      </span>
-                      <div className={CHROME_SCOPE} inert>
-                        <PublicBlock
-                          block={sampleContainer(mode)}
-                          locale={props.locale}
-                          depth={1}
-                          path="preview"
-                          page={props.page}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p
-                {...tid("nesting-at-limit")}
-                className="text-xs text-(--muted)"
-              >
-                {props.labels.nestingAtLimit}
-              </p>
-            )}
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

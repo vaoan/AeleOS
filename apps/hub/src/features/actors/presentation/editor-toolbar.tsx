@@ -301,6 +301,14 @@ export interface EditorToolbarProps {
  * decoration nowhere else in this bar, and `More`'s own chevron-free
  * siblings (`Braces`, `Eye`) already carry no such affordance either.
  *
+ * **The bar's own sticky element is `z-40`, not `z-20` (2026-09-05).** A
+ * `sticky` element with a `z-index` is its own stacking context, so the
+ * `More` disclosure's `absolute` panel — however high ITS OWN `z-index` is
+ * set — only ever competed within that context, and the whole bar painted
+ * below the Properties panel's `z-30` whenever both were open. `z-40`
+ * matches the tier `page-source-dock.tsx` and the Add picker's own dialog
+ * already use for "above the Properties panel."
+ *
  * @returns the toolbar.
  */
 export function EditorToolbar({
@@ -358,8 +366,19 @@ export function EditorToolbar({
     // than as the 160px window that used to admit both this margin and the
     // 56px band above.
     <div
-      className={`${CHROME_SCOPE} sticky top-0 z-20 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
+      className={`${CHROME_SCOPE} sticky top-0 z-40 border-b border-(--edge)/40 bg-(--menu) backdrop-blur-md`}
     >
+      {/* **`z-40`, not `z-20` (2026-09-05).** The "More" disclosure below
+          opens an `absolute` panel inside this bar, and `position: sticky`
+          plus a `z-index` here makes this bar its own stacking context —
+          so the disclosure's `z-10` only ever competes with siblings
+          INSIDE that context, and the bar as a whole was painting behind
+          `PropertiesPanel`'s `z-30` whenever both were open, however high
+          the disclosure's own z-index went. `z-40` matches the tier
+          `page-source-dock.tsx` and `add-block-picker.tsx` already use for
+          "above the Properties panel." Invisible to every unit test —
+          jsdom does no compositing — and caught only by a real browser
+          failing to click a "More" item with the panel open. */}
       {/* **It WRAPS below `sm`, and that is arithmetic rather than taste.**
           Measured at 320px in Spanish with the writing switch added: the
           controls want 345.1px against a 288px content box, and the title had
