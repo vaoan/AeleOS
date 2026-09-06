@@ -1,7 +1,11 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from "react";
 import {
   CONTAINER_MODES,
   LEAF_KINDS,
@@ -74,14 +78,22 @@ interface PaletteThumbnailProps {
 /**
  * One draggable palette thumbnail: a caption over a real-renderer preview.
  *
- * **A real `useDraggable` source (2026-09-05), wired exactly as
- * `EditableBlockFrame` demonstrates for the mouse case.** `onPointerDown`
- * calls `listeners.onPointerDown` only for `event.pointerType === "mouse"`;
- * touch and keyboard reach it in a later task, so `{...listeners}` is
- * deliberately not spread wholesale onto this element — that would also
- * wire its `onKeyDown`, starting a keyboard drag from a thumbnail that has
- * no coordinate getter to answer one yet. A thumbnail is always "filled" —
- * unlike an empty canvas place, there is no `disabled` condition to add.
+ * **A real `useDraggable` source, wired exactly as `EditableBlockFrame`
+ * demonstrates for the mouse case (2026-09-05), and by keyboard too
+ * (2026-09-05, this task).** `onPointerDown` calls `listeners.onPointerDown`
+ * only for `event.pointerType === "mouse"` — touch reaches it in a later
+ * task, still deliberately excluded — while `onKeyDown` calls
+ * `listeners.onKeyDown` UNCONDITIONALLY: `KeyboardSensor`'s own activator
+ * only reacts to `keyboardCodes.start` (Space and Enter by default), so
+ * wiring it costs nothing on every other keypress and lets `attributes`'
+ * own `tabIndex={0}` make the thumbnail a genuine Tab stop before any drag
+ * begins. **A second, explicit `tabIndex={0}` sits beside the spread**
+ * (2026-09-05, this task) — `attributes` already carries the same value, so
+ * this changes nothing at runtime, but `eslint-plugin-jsx-a11y`'s
+ * `interactive-supports-focus` cannot see through a spread to confirm a
+ * `role="button"` element is focusable, and refuses the file without an
+ * attribute it can read directly. A thumbnail is always "filled" — unlike
+ * an empty canvas place, there is no `disabled` condition to add.
  *
  * `role="button"` and `aria-label` name the item explicitly rather than
  * relying on the preview's own text content, matching `AddBlockPicker`'s own
@@ -111,15 +123,23 @@ function PaletteThumbnail(props: PaletteThumbnailProps): ReactNode {
     listeners?.onPointerDown?.(event);
   };
 
+  const beginKeyboardDrag = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ): void => {
+    listeners?.onKeyDown?.(event);
+  };
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
+      tabIndex={0}
       role="button"
       aria-label={caption}
       {...tid("palette-item")}
       {...dataAttr}
       onPointerDown={beginDesktopDrag}
+      onKeyDown={beginKeyboardDrag}
       className="grid gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
     >
       <span className="text-xs font-medium text-(--muted)">{caption}</span>
@@ -147,13 +167,14 @@ function PaletteThumbnail(props: PaletteThumbnailProps): ReactNode {
  * thumbnails, one per leaf kind and one per container mode, drawn by the
  * real renderer over fixed sample content.
  *
- * **Real drag sources by pointer, checkpointed at that (2026-09-05).** Each
+ * **Real drag sources by pointer AND by keyboard (2026-09-05).** Each
  * thumbnail is a real `useDraggable` — see {@link PaletteThumbnail} — that
- * begins a drag from a mouse press, mirroring `EditableBlockFrame`'s own
- * mouse-only wiring. Touch and keyboard are a later task in this same
- * feature: `attributes` is spread for its aria attributes, but `listeners`
- * is read only inside the mouse-gated handler rather than spread wholesale,
- * so nothing here yet answers a keyboard lift.
+ * begins a drag from a mouse press or from Space/Enter on a focused
+ * thumbnail, mirroring `EditableBlockFrame`'s own mouse-only wiring for the
+ * pointer half and `block-editor.tsx`'s `paletteCoordinateAt` for the
+ * keyboard half: arrow keys step through the palette's own ordered targets,
+ * Tab and Shift+Tab skip to the next or previous top-level section. Touch is
+ * still a later task in this same feature.
  *
  * **The sample is never what gets added.** `sampleLeaf`/`sampleContainer`
  * exist only to draw a thumbnail — see their own TSDoc — and choosing what a

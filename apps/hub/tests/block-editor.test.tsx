@@ -1209,5 +1209,135 @@ describe("the Properties panel", () => {
       expect(page()).toEqual([]);
       expect(screen.queryByTestId("drag-refusal")).toBeNull();
     });
+
+    // **The keyboard equivalent (2026-09-05).** Unlike the pointer cases
+    // above, this environment's degenerate `{0,0,0,0}` rects never decide
+    // anything here — `paletteCoordinateAt` (`block-editor.tsx`) resolves a
+    // step purely from `stepInsertTarget`/`stepInsertSection`'s own ordered
+    // list, so these two cases drive the real sensor over real domain
+    // ordering rather than over jsdom's fake geometry.
+    describe("dragging from the persistent Palette tab by keyboard", () => {
+      /**
+       * Drives a real keyboard drag of a palette thumbnail: lift, step,
+       * drop — mirroring the top-level `drag` helper's own shape for a
+       * canvas grip, but locating the source by its accessible name rather
+       * than a `canvas-drag-*` test id, since a palette thumbnail carries no
+       * `BlockPath` of its own to address it by.
+       *
+       * @param caption - the thumbnail's accessible name.
+       * @param steps - the keys to press between the lift and the drop —
+       * `"ArrowDown"`/`"ArrowRight"` to step forward, `"ArrowUp"`/
+       * `"ArrowLeft"` to step back, or `"Tab"` to skip to the next section.
+       */
+      const paletteKeyboardDrag = async (
+        caption: string,
+        steps: string[],
+      ): Promise<void> => {
+        fireEvent.keyDown(screen.getByRole("button", { name: caption }), {
+          code: "Space",
+          key: " ",
+        });
+        await settle();
+        for (const code of steps) {
+          fireEvent.keyDown(document, { code });
+          await settle();
+        }
+        fireEvent.keyDown(document, { code: "Space", key: " " });
+        await settle();
+      };
+
+      it("drops a leaf onto an empty place by keyboard, adding and selecting it", async () => {
+        const page = harness([
+          { ...newContainer("grid", 1), name_en: "Section", children: [null] },
+        ]);
+        await openPalette();
+
+        // `insertTargetsFor`'s own order is every page-root splice FIRST
+        // ([0], before this one section; [1], one past it — the page's own
+        // trailing append slot), then the section's own places ([0,0], the
+        // existing empty one; [0,1], one past it). Press 1 lands on [0] —
+        // the section's own rendered wrap. Press 2 asks for [1] next, but
+        // the page's own trailing append slot renders no marker at all (a
+        // real, accepted gap named in `block-editor.tsx`'s own feature
+        // note), so the walk keeps stepping past it within the SAME key
+        // press and lands on [0,0] instead — the section's own empty place,
+        // which IS rendered. Two presses, not three.
+        await paletteKeyboardDrag(labels.leaf.leafKinds.text, [
+          "ArrowDown",
+          "ArrowDown",
+        ]);
+
+        const section = firstContainer(page());
+        expect(section.children).toHaveLength(2);
+        expect(section.children[0]?.kind).toBe("text");
+        expect(section.children[1]).toBeNull();
+        expect(screen.getByTestId("properties-panel")).toContainElement(
+          screen.getByTestId("leaf-editor"),
+        );
+        expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+      });
+
+      // **The discriminating fixture from `palette-targets.test.ts`'s own
+      // "jumps past every target nested inside the current section" case
+      // (Task 3), driven through the real sensor rather than the pure
+      // function directly.** Two 2-space grids; four ArrowDown presses walk
+      // [0] (before grid one, rendered) → [1] (grid two's own rendered
+      // wrap, itself a valid top-level target — dropping ON it means
+      // "insert before it") → [0,0] (skipping [2], the page's own trailing
+      // append slot, which renders no marker at all) → [0,1] — landing
+      // inside the FIRST grid's own places before Tab is pressed. Which
+      // exact place inside grid one does not matter for what this case
+      // discriminates; only that it IS inside grid one.
+      it("steps to the boundary between sections on Tab, skipping every target nested inside the current one", async () => {
+        const page = harness([
+          {
+            ...newContainer("grid", 2),
+            name_en: "one",
+            children: [titled("a"), titled("b")],
+          },
+          {
+            ...newContainer("grid", 2),
+            name_en: "two",
+            children: [titled("c"), titled("d")],
+          },
+        ]);
+        await openPalette();
+
+        await paletteKeyboardDrag(labels.leaf.leafKinds.text, [
+          "ArrowDown",
+          "ArrowDown",
+          "ArrowDown",
+          "ArrowDown",
+          "Tab",
+        ]);
+
+        // Tab lands on the page-root splice BETWEEN the two sections
+        // (`{ path: [1] }`), never on a place still inside section one
+        // (`[0,1]`/`[0,2]`) and never on section two's own first place
+        // (`[1,0]`) either — `stepInsertSection`'s own walk always finds the
+        // boundary splice first, since `insertTargetsFor` emits every
+        // top-level splice before any container's own places. A leaf
+        // landing at a top-level path is wrapped in a new one-place stack,
+        // so the page grows from two sections to three and NEITHER existing
+        // section gains a child.
+        expect(page()).toHaveLength(3);
+        const sectionOne = firstContainer(page());
+        expect(sectionOne.children).toHaveLength(2);
+        const sectionTwo = page()[2];
+        if (!sectionTwo || !isContainer(sectionTwo)) {
+          throw new Error("not a container");
+        }
+        expect(sectionTwo.children).toHaveLength(2);
+        const inserted = page()[1];
+        if (!inserted || !isContainer(inserted)) {
+          throw new Error("not a container");
+        }
+        expect(inserted.children).toHaveLength(1);
+        expect(inserted.children[0]?.kind).toBe("text");
+      });
+    });
   });
 });

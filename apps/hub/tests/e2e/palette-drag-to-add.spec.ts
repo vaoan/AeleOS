@@ -8,6 +8,7 @@ import {
   type TestIdentity,
 } from "./support/clerk-session";
 import { addSection, selectBlock } from "./support/editor";
+import { liftByKeyboard } from "./support/drag";
 
 // WHAT THIS FILE PROVES.
 //
@@ -28,6 +29,18 @@ import { addSection, selectBlock } from "./support/editor";
 // show is that the thumbnail's `useDraggable` wiring, `EditableBlockFrame`'s
 // `useDroppable` registration, and `@dnd-kit`'s own pointer sensor agree
 // about where a real pointer is, end to end.
+//
+// **The keyboard equivalent is the same argument, one input method over
+// (2026-09-05).** `block-editor.test.tsx`'s own keyboard suite already
+// proves `paletteCoordinateAt`'s stepping, `stepInsertSection`'s Tab-skip,
+// and the sabotage that would break either — all against jsdom's degenerate
+// rects, where a target's rectangle existing or not is a fact about which
+// ids are REGISTERED rather than about real geometry. The last test in this
+// file is the one keyboard case that lifts a thumbnail with a real Space
+// bar, steps with real arrow keys across a layout Chromium actually
+// measured, and drops it — plus Escape reaching `KeyboardSensor`'s own
+// document-level listener rather than something else on the page swallowing
+// it first, which no jsdom test can observe at all.
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -189,4 +202,77 @@ test("drags a leaf thumbnail onto a fully occupied container's own append slot, 
   // another.
   await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
   await expect(page.locator('[data-block-path="1-1"]')).toHaveCount(1);
+});
+
+// **The keyboard equivalent (2026-09-05).** `block-editor.test.tsx`'s own
+// "dragging from the persistent Palette tab by keyboard" suite already
+// proves `paletteCoordinateAt`'s stepping and Tab's section-skip against
+// jsdom's degenerate rects — this is the one case that lifts a real palette
+// thumbnail by a real Space bar, steps with real arrow keys, and drops it
+// onto a real registered droppable Chromium measured, plus the one gesture
+// only a browser can honestly prove: Escape reaching `KeyboardSensor`'s own
+// document-level listener rather than being swallowed by something else on
+// the page.
+test("adds a leaf thumbnail by keyboard, and Escape cancels a drag without adding anything", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  // A section with no filled children of its own, matching the pointer
+  // test's own naming: the identity section is path "0", this one is "1".
+  // `addSection` picks the `grid` layout from the Add picker, which always
+  // starts a fresh container at `PICKER_SPACES` (two places) regardless of
+  // the width chosen afterward through `section-spaces` — width narrows how
+  // many places sit ACROSS, never how many children exist — so this section
+  // opens with two empty places rather than one. Every locator below matches
+  // any FILLED child of it (`^="1-"`), not one exact position, for exactly
+  // that reason: which of its several real, rendered targets a keyboard step
+  // lands on is this mechanism's own business, not a shape this test should
+  // pin.
+  await addSection(page, "1");
+  await selectBlock(page, "1");
+  await page.getByTestId("panel-tab-palette").click();
+  const thumbnail = page.locator('[data-palette-kind="text"]');
+  await expect(thumbnail).toBeVisible();
+  const addedToSection = page.locator('[data-block-path^="1-"]');
+  await expect(addedToSection).toHaveCount(0);
+
+  // Escape mid-drag: lifts, steps once, cancels. Nothing lands — every place
+  // in the section stays empty.
+  await liftByKeyboard(page, thumbnail);
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Escape");
+  await expect(addedToSection).toHaveCount(0);
+
+  // The real thing: lift the same thumbnail again, step onto one of the
+  // section's own empty places, and drop.
+  //
+  // **Backward, not forward, and that is deliberate rather than
+  // interchangeable.** `/pages/new` seeds a REAL identity section at path
+  // "0" first (`ensurePersonActor`'s own required blocks), so stepping
+  // FORWARD from a fresh lift walks `insertTargetsFor`'s page-root splices
+  // (none rendered) and then straight into the IDENTITY section's own
+  // rendered targets, landing the leaf there rather than in the section
+  // this test just added — this draft's own first attempt did exactly that
+  // and found nothing at any `1-*` path afterward. Stepping BACKWARD is
+  // reliable regardless of how much the identity section renders, because
+  // `insertTargetsFor`'s depth-first walk visits this section — the LAST
+  // top-level entry on the page — last, so every one of its own targets
+  // sits at the very end of the whole order, however many of them there
+  // are. Two `ArrowUp` presses are what it took here, measured against a
+  // real Chromium rather than assumed: the first opens the sensor's own
+  // listener-attach window (root rule 26) with nothing yet to land on, and
+  // the second lands inside this section.
+  await liftByKeyboard(page, thumbnail);
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Space");
+
+  await expect(addedToSection).toHaveCount(1);
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByTestId("leaf-editor")).toBeVisible();
 });

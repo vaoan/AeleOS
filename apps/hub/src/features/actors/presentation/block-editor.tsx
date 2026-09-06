@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import {
   DndContext,
+  KeyboardCode,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -81,6 +82,8 @@ import {
 } from "@/features/actors/domain/block-drag";
 import {
   insertTargetsFor,
+  stepInsertSection,
+  stepInsertTarget,
   type InsertTarget,
 } from "@/features/actors/domain/palette-targets";
 import { insertBlockAt } from "@/features/actors/domain/palette-insert";
@@ -520,6 +523,10 @@ function keyboardDropTarget(
  * @param pointerTarget - written with the winning target, for `onDragOver`.
  * @param insertTargetsRef - every place a palette-origin drag in progress
  * may land on, computed once at `onDragStart` — read here, never written.
+ * @param paletteKeyboardTarget - the palette target a keyboard step last
+ * resolved to, written by {@link paletteCoordinateAt} — read here, never
+ * written, mirroring how `keyboardTarget` is read rather than written by the
+ * canvas-move branch below.
  * @returns the one place a drop would land on, or none.
  */
 // eslint-disable-next-line sonarjs/cognitive-complexity -- collision admission must parse the matching id space, contain the pointer, validate the domain drop, and rank the deepest nested destination in one pass
@@ -529,6 +536,7 @@ function detectCollisionAt(
   keyboardTarget: RefObject<DropTarget | null>,
   pointerTarget: RefObject<DropTarget | null>,
   insertTargetsRef: RefObject<readonly InsertTarget[] | null>,
+  paletteKeyboardTarget: RefObject<InsertTarget | null>,
 ): ReturnType<CollisionDetection> {
   const activeId = String(args.active.id);
 
@@ -537,13 +545,17 @@ function detectCollisionAt(
   // the move planner — and it is decided purely by whether the pointer is
   // over any of the ids `insertTargetsFor` already offered at `onDragStart`,
   // ranked deepest-first exactly as the pointer branch below already ranks
-  // canvas-move candidates. With no pointer position at all (a keyboard
-  // drag, not wired for the palette until a later task in this feature)
-  // there is nothing to test containment against, so this answers no
-  // collision rather than guessing one.
+  // canvas-move candidates. **A keyboard drag reads `paletteKeyboardTarget`
+  // instead (2026-09-05, closing what was "not wired for the palette until a
+  // later task")** — mirroring the canvas-move branch's own
+  // `keyboardTarget.current` read below, since `paletteCoordinateAt` already
+  // resolved and wrote the winning target for this exact key press.
   const paletteItem = palettePayload(activeId);
   if (paletteItem) {
-    if (!args.pointerCoordinates) return [];
+    if (!args.pointerCoordinates) {
+      const target = paletteKeyboardTarget.current;
+      return target ? [{ id: canvasPlaceId(target.path) }] : [];
+    }
     let bestInsert: { readonly id: string; readonly depth: number } | undefined;
     for (const target of insertTargetsRef.current ?? []) {
       const id = canvasPlaceId(target.path);
@@ -597,12 +609,96 @@ function detectCollisionAt(
 }
 
 /**
+ * Where a palette-origin keyboard drag steps to.
+ *
+ * A plain function for the same reason {@link detectCollisionAt} and
+ * {@link coordinateGetterAt} are ones — its own branching (recognising which
+ * key it reads, choosing which stepper answers it, and walking rendered
+ * targets until one is on screen) is counted against a budget of its own
+ * rather than against {@link coordinateGetterAt}'s, which would otherwise
+ * absorb it on every canvas-move drag too.
+ *
+ * **Arrow keys read `stepInsertTarget`; Tab and Shift+Tab read
+ * `stepInsertSection`.** Forward is `ArrowDown`/`ArrowRight` exactly as the
+ * canvas-move branch defines it, or `Tab` without the shift key; backward is
+ * `ArrowUp`/`ArrowLeft`, or `Tab` WITH the shift key — the same convention
+ * `stepInsertSection`'s own TSDoc assumes when it says "Tab and Shift+Tab are
+ * therefore not exact inverses on a page of three or more sections." That
+ * asymmetry is `stepInsertSection`'s own, accepted rather than corrected
+ * here — see its TSDoc for the reason, and for why no test in this file
+ * asserts exact backward/forward symmetry across three or more sections.
+ *
+ * **Reads `insertTargetsRef.current` rather than recomputing
+ * `orderedInsertTargets(pageRef.current, item)` on every key press** — a
+ * deliberate departure from this task's own brief. `insertTargetsRef` is
+ * computed exactly once, at `onDragStart`, and {@link detectCollisionAt}'s
+ * palette branch and `onDragEnd`'s already read that SAME computation rather
+ * than recomputing it, specifically so a page edited mid-drag cannot make the
+ * pointer branch and the keyboard branch disagree about which targets exist.
+ * Recomputing here only for the keyboard case would reopen exactly that
+ * disagreement — the ranked pointer highlight (`insertTargets` on
+ * `EditableBlockFrame`) and the keyboard step could point at two different
+ * sets of targets during the same drag.
+ *
+ * **It keeps stepping until a rendered rectangle exists**, mirroring
+ * {@link coordinateGetterAt}'s own loop for the identical reason: a target
+ * `insertTargetsFor` names is real in the domain sense the moment the drag
+ * begins, but nothing guarantees every one of them has a mounted, measured
+ * droppable at the instant a key is pressed.
+ *
+ * @param event - the key.
+ * @param args - the drag, and where it is now.
+ * @param insertTargetsRef - every place this drag may land on, computed once
+ * at `onDragStart` — read here, never written.
+ * @param paletteKeyboardTarget - written with the target a step resolves to.
+ * @returns the coordinates of the target it steps to, or nothing when the key
+ * is not one this drag reads, or the walk runs out of targets that are on
+ * screen.
+ */
+function paletteCoordinateAt(
+  event: Parameters<KeyboardCoordinateGetter>[0],
+  args: Parameters<KeyboardCoordinateGetter>[1],
+  insertTargetsRef: RefObject<readonly InsertTarget[] | null>,
+  paletteKeyboardTarget: RefObject<InsertTarget | null>,
+): ReturnType<KeyboardCoordinateGetter> {
+  const forward = FORWARD_KEYS.has(event.code);
+  const back = BACK_KEYS.has(event.code);
+  const tab = event.code === "Tab";
+  if (!forward && !back && !tab) return;
+  const goingForward = tab ? !event.shiftKey : forward;
+  const step = tab ? stepInsertSection : stepInsertTarget;
+  const order = insertTargetsRef.current ?? [];
+  let next = step(
+    order,
+    paletteKeyboardTarget.current ?? undefined,
+    goingForward,
+  );
+  while (next) {
+    const rect = args.context.droppableRects.get(canvasPlaceId(next.path));
+    if (rect) {
+      paletteKeyboardTarget.current = next;
+      return { x: rect.left, y: rect.top };
+    }
+    next = step(order, next, goingForward);
+  }
+}
+
+/**
  * Where an arrow key moves a keyboard drag to.
  *
  * A plain function for the same reason {@link detectCollisionAt} is one —
  * its own branching (walking rendered places until one is on screen, and
  * refusing a candidate the domain itself would refuse) is counted against a
  * budget of its own rather than against {@link BlockEditor}'s.
+ *
+ * **A palette-origin drag is checked FIRST and delegates to
+ * {@link paletteCoordinateAt} entirely** — mirroring `onDragStart`'s own
+ * palette branch — because arrow-key stepping through
+ * `orderedInsertTargets` and Tab's own section-skip have nothing in common
+ * with `placeOrder`/`stepPlace` below beyond both answering a
+ * `KeyboardCoordinateGetter`. The two are mutually exclusive per drag, the
+ * same way `onDragStart`, `detectCollisionAt` and `onDragEnd` already keep
+ * their own two branches apart.
  *
  * **It steps over any place nothing is showing**, and that is a fix rather
  * than a refinement. `placeOrder` walks the whole stored tree, while a
@@ -621,6 +717,11 @@ function detectCollisionAt(
  * @param pageRef - the current page, read fresh on every step.
  * @param keyboardAt - written with the place a step lands on.
  * @param keyboardTarget - written with the target a step resolves to.
+ * @param insertTargetsRef - every place a palette-origin drag in progress
+ * may land on, computed once at `onDragStart` — forwarded to
+ * {@link paletteCoordinateAt} untouched.
+ * @param paletteKeyboardTarget - forwarded to {@link paletteCoordinateAt}
+ * untouched; never read or written on the canvas-move path below.
  * @returns the coordinates of the place it steps to, or nothing when the walk
  * runs out of places that are on screen.
  */
@@ -630,7 +731,17 @@ function coordinateGetterAt(
   pageRef: RefObject<Block[]>,
   keyboardAt: RefObject<BlockPath | undefined>,
   keyboardTarget: RefObject<DropTarget | null>,
+  insertTargetsRef: RefObject<readonly InsertTarget[] | null>,
+  paletteKeyboardTarget: RefObject<InsertTarget | null>,
 ): ReturnType<KeyboardCoordinateGetter> {
+  if (palettePayload(String(args.active))) {
+    return paletteCoordinateAt(
+      event,
+      args,
+      insertTargetsRef,
+      paletteKeyboardTarget,
+    );
+  }
   const forward = FORWARD_KEYS.has(event.code);
   if (!forward && !BACK_KEYS.has(event.code)) return;
   const from = placePath(String(args.active));
@@ -1278,6 +1389,20 @@ function panelFootFor({
  * success, and sets the same `refusal` state the canvas-move branch already
  * renders through `drag-refusal` on failure.
  *
+ * **A palette thumbnail lifts by keyboard now too (2026-09-05).** Enter or
+ * Space on a focused thumbnail starts the drag, the arrow keys step through
+ * `orderedInsertTargets` via `paletteCoordinateAt`, and Tab/Shift+Tab skip a
+ * whole top-level section via `stepInsertSection` — the same
+ * `coordinateGetterAt` mechanism the canvas-move drag already used, branched
+ * on `palettePayload` first exactly as `onDragStart` and `detectCollisionAt`
+ * already branch. The shared `KeyboardSensor`'s own `keyboardCodes.end`
+ * drops Tab (dnd-kit's default includes it, which would otherwise end ANY
+ * keyboard drag on that key before a coordinate getter ever ran) — settled
+ * by reading the installed `@dnd-kit/core` rather than by adding a second,
+ * competing `onKeyDown` listener. `paletteKeyboardTarget`, parallel to
+ * `keyboardTarget`, holds the step's own current position and is cleared
+ * everywhere that ref already is.
+ *
  * **Every container's own append slot — one past its current children — is
  * a real, always-mounted droppable now (2026-09-05).** `PublicBlock`'s
  * `editor` prop supplies `appendSlot`, the `EditorRenderHook` member
@@ -1411,6 +1536,13 @@ export function BlockEditor<T extends FieldValues>({
   // on its own that the drag's own `onDragOver`-driven state updates do not
   // already cause.
   const insertTargetsRef = useRef<readonly InsertTarget[] | null>(null);
+  // **Where a palette-origin KEYBOARD drag is now — parallel to
+  // `keyboardTarget`, and read by nothing on the canvas-move path.**
+  // `keyboardTarget` and `keyboardAt` above are the canvas-move drag's own
+  // "where is this now" pair; a palette drag has no `BlockPath` of its own
+  // to move FROM, only a target to land ON, which is why this needs no
+  // `paletteKeyboardAt` counterpart to `keyboardAt`.
+  const paletteKeyboardTarget = useRef<InsertTarget | null>(null);
 
   /**
    * Hands the form a whole new page.
@@ -1445,6 +1577,7 @@ export function BlockEditor<T extends FieldValues>({
         keyboardTarget,
         pointerTarget,
         insertTargetsRef,
+        paletteKeyboardTarget,
       ),
     [],
   );
@@ -1489,12 +1622,47 @@ export function BlockEditor<T extends FieldValues>({
   // branching lives in a plain function rather than in this closure.
   const coordinateGetter = useCallback<KeyboardCoordinateGetter>(
     (event, args) =>
-      coordinateGetterAt(event, args, pageRef, keyboardAt, keyboardTarget),
+      coordinateGetterAt(
+        event,
+        args,
+        pageRef,
+        keyboardAt,
+        keyboardTarget,
+        insertTargetsRef,
+        paletteKeyboardTarget,
+      ),
     [],
   );
 
+  // **`end` deliberately drops `Tab` from dnd-kit's own default.** The
+  // installed `@dnd-kit/core@6.3.1` has no way to declare Tab a "step" key —
+  // `KeyboardSensorOptions.keyboardCodes` offers exactly three buckets
+  // (`start`/`cancel`/`end`), never a fourth for an arbitrary coordinate-
+  // changing key — and its DEFAULT `end` bucket already contains `Tab`
+  // alongside Space and Enter. `KeyboardSensor.handleKeyDown` checks
+  // `keyboardCodes.end` BEFORE ever calling the coordinate getter, so with
+  // the default left in place, pressing Tab during ANY drag — palette or
+  // canvas-move — ends it outright and `paletteCoordinateAt` never sees the
+  // key at all. Removing Tab from `end` here is what lets it fall through
+  // to the coordinate getter instead, which is the only configuration this
+  // library supports for what Step 1 of this task's own brief asked to
+  // confirm.
+  //
+  // **This is a single sensor shared by both branches, so the change is
+  // shared too** — a canvas-move drag loses Tab as a redundant, undocumented
+  // way to END a drag (Space and Enter already do that, and still do), and
+  // gains nothing from it, since `coordinateGetterAt`'s own `FORWARD_KEYS`/
+  // `BACK_KEYS` never included Tab. No code and no test in this file relied
+  // on Tab ending a canvas-move drag before this change.
   const keyboardOptions = useMemo(
-    () => ({ coordinateGetter }),
+    () => ({
+      coordinateGetter,
+      keyboardCodes: {
+        start: [KeyboardCode.Space, KeyboardCode.Enter],
+        cancel: [KeyboardCode.Esc],
+        end: [KeyboardCode.Space, KeyboardCode.Enter],
+      },
+    }),
     [coordinateGetter],
   );
   const sensors = useSensors(
@@ -1525,11 +1693,11 @@ export function BlockEditor<T extends FieldValues>({
    * value for an id `paletteId` built, which no canvas grip or inspector
    * row ever produces, so the two branches cannot both fire for one lift.
    * `insertTargetsFor` is computed exactly once here, against the
-   * page as it stood the moment the drag began — `detectCollisionAt` and
-   * `onDragEnd` both read this same computation rather than recomputing it,
-   * which is what makes a page edited mid-drag able to go stale under a
-   * target the drag is still carrying (see `insertBlockAt`'s own
-   * independent re-check).
+   * page as it stood the moment the drag began — `detectCollisionAt`,
+   * `paletteCoordinateAt` (the keyboard equivalent) and `onDragEnd` all read
+   * this same computation rather than recomputing it, which is what makes a
+   * page edited mid-drag able to go stale under a target the drag is still
+   * carrying (see `insertBlockAt`'s own independent re-check).
    *
    * @param event - the lift.
    */
@@ -1538,6 +1706,7 @@ export function BlockEditor<T extends FieldValues>({
     const paletteItem = palettePayload(activeId);
     if (paletteItem) {
       insertTargetsRef.current = insertTargetsFor(blocks, paletteItem);
+      paletteKeyboardTarget.current = null;
       keyboardAt.current = undefined;
       keyboardTarget.current = null;
       pointerTarget.current = null;
@@ -1546,6 +1715,7 @@ export function BlockEditor<T extends FieldValues>({
       return;
     }
     insertTargetsRef.current = null;
+    paletteKeyboardTarget.current = null;
     keyboardAt.current = canvasPlacePath(activeId) ?? placePath(activeId);
     keyboardTarget.current = null;
     pointerTarget.current = null;
@@ -1561,6 +1731,7 @@ export function BlockEditor<T extends FieldValues>({
   /** Clears transient destination chrome when a lift is cancelled. */
   const onDragCancel = (): void => {
     insertTargetsRef.current = null;
+    paletteKeyboardTarget.current = null;
     keyboardAt.current = undefined;
     keyboardTarget.current = null;
     pointerTarget.current = null;
@@ -1592,6 +1763,7 @@ export function BlockEditor<T extends FieldValues>({
     const paletteItem = palettePayload(activeId);
     if (paletteItem) {
       insertTargetsRef.current = null;
+      paletteKeyboardTarget.current = null;
       setAdvertisedTarget(null);
       const overId = event.over ? String(event.over.id) : undefined;
       const targetPath = overId ? canvasPlacePath(overId) : undefined;

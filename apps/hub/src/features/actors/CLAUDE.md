@@ -6502,6 +6502,123 @@ is only ever invoked from inside that function. Every top-level SECTION's
 own append slot (its own children, one past the last) is rendered exactly
 like any nested container's, since a section is a container at depth 0.
 
+### A palette drag also lifts by keyboard now (2026-09-05) — Task 7 of 9, presentation
+
+Task 5's own header above ended "what is still not built... touch and
+keyboard lifts from a thumbnail." The keyboard half is built now: Enter or
+Space on a focused thumbnail lifts it, the arrow keys step through
+`orderedInsertTargets`, Tab and Shift+Tab skip a whole top-level section, and
+Enter/Space drops — the identical gesture set `coordinateGetterAt` already
+gives a canvas-move drag, on a second kind of drag entirely.
+
+**Step 1's own genuine unknown, settled by reading the installed
+`@dnd-kit/core@6.3.1` rather than guessing: `KeyboardSensorOptions.keyboardCodes`
+has exactly three buckets (`start`/`cancel`/`end`), no fourth "step" bucket
+exists, and the library's own DEFAULT `end` bucket already includes Tab**
+(`[Space, Enter, Tab]`) — so a bare `KeyboardSensor` would end ANY keyboard
+drag, canvas-move included, the moment somebody presses Tab, before the
+sensor ever calls a `coordinateGetter` at all. The fix is a plain
+`keyboardCodes` override on the sensor — `end: [Space, Enter]`, Tab dropped —
+which is fully within supported configuration and needs no fallback
+`onKeyDown` listener racing the sensor's own. Confirmed safe for the
+canvas-move branch beside it: `FORWARD_KEYS`/`BACK_KEYS` never named Tab, and
+nothing in this file or its tests relies on Tab ending a canvas-move drag.
+
+**`paletteCoordinateAt` is the new function, and `paletteKeyboardTarget` is
+its own ref, parallel to `keyboardTarget` and cleared everywhere that one
+is.** It branches on `palettePayload(activeId)` first inside
+`coordinateGetterAt` — the same mutually-exclusive-per-drag shape
+`onDragStart`, `detectCollisionAt` and `onDragEnd` already keep between a
+palette-origin drag and a canvas-move one. Arrow keys call
+`stepInsertTarget`, Tab calls `stepInsertSection`, and it keeps stepping
+within the SAME keydown until it finds a target with a registered droppable
+rect — the identical "skip what nothing is showing" loop
+`coordinateGetterAt` already runs for `placeOrder`, for the identical
+reason: a target `insertTargetsFor` names is real in the domain sense from
+the moment the drag begins, but nothing guarantees a mounted, measured
+droppable at the instant a key is pressed. `detectCollisionAt`'s own
+keyboard branch reads `paletteKeyboardTarget.current` for a palette-origin
+drag, mirroring how it already read `keyboardTarget.current` for a
+canvas-move one.
+
+**A deliberate, documented departure from the brief's own wording (root rule
+24): it reads `insertTargetsRef.current` rather than recomputing
+`orderedInsertTargets(pageRef.current, item)` on every key press.** That ref
+is computed exactly once, at `onDragStart`, and `detectCollisionAt`'s palette
+branch and `onDragEnd`'s already read that same, frozen computation —
+recomputing only for the keyboard path would let a page edited mid-drag make
+the pointer-highlighted target set and the keyboard-stepped one silently
+disagree about which targets exist.
+
+**`AddPalette`'s thumbnails wire `onKeyDown` UNCONDITIONALLY, unlike
+`onPointerDown`'s mouse-only gate.** `KeyboardSensor`'s own activator only
+reacts to `keyboardCodes.start` (Space and Enter), so spreading
+`listeners.onKeyDown` costs nothing on every other keypress — a thumbnail
+still types nothing, navigates nothing, and does nothing on Tab, Escape or
+any letter key pressed while focused and not yet lifted. `attributes`
+already carries `tabIndex={0}`, from the day the pointer wiring shipped; a
+SECOND, explicit `tabIndex={0}` sits beside the spread now, changing nothing
+at runtime, because `eslint-plugin-jsx-a11y`'s `interactive-supports-focus`
+cannot see through a spread to confirm a `role="button"` element is
+focusable and refuses the file without an attribute it can read directly.
+
+**The unit fixture's own off-by-one is worth carrying past this task,
+because the underlying gap is more general than the paragraph above (still
+above this section) states it.** That paragraph names ONE unrendered gap —
+"the page's own root append slot, one past the last top-level section." The
+truth, confirmed by tracing `paletteCoordinateAt`'s own stepping against a
+real fixture: **every top-level splice `insertTargetsFor` offers is
+unrendered**, not only the trailing one — `PublicBlocks`/`BlockEditor`'s
+top-level seat list is never itself wrapped in a call to `Block()`, so
+`appendSlot` is never invoked for the page's own root at ANY position, before
+the first section, between two sections, or after the last. A keyboard step
+walking FORWARD from a fresh lift on a page of `N` sections therefore skips
+past all `N + 1` top-level splices in the very first successful key press,
+landing inside the FIRST section's own rendered targets — never on a
+top-level splice itself.
+
+**That single fact is what broke this task's own first e2e draft, and the
+fix generalises past this one test.** `/pages/new` seeds a REAL identity
+section at path `"0"` (`ensurePersonActor`'s own required blocks) before any
+section a test adds, so a test that adds ITS OWN section second and steps
+FORWARD from a fresh lift lands inside the identity section's targets first —
+however many arrow presses are counted, because the identity section's own
+content is walked, and rendered, before the test's section ever is. Stepping
+BACKWARD is the robust fix, not a coincidence of this fixture:
+`insertTargetsFor`'s depth-first walk visits the LAST top-level section
+LAST, so that section's own targets — however many it has — sit at the
+absolute end of the whole `order` array regardless of what came before it on
+the page. `ArrowUp`/`ArrowLeft` (`BACK_KEYS`) from a fresh lift lands
+`order.at(-1)` first, which is always inside whichever section is added
+last, never inside a section added earlier.
+
+**Two `ArrowUp` presses were needed in the browser, not one, and the first
+carries no announced change — recognisable as the SAME "sensor hasn't
+attached yet" window root rule 26 already names, on a palette-origin drag
+rather than a canvas-move one.** `liftByKeyboard`'s rAF-then-setTimeout
+sequencing closes that window reliably for the LIFT itself; what was not
+obvious ahead of running this in a real Chromium is that the window can
+still cost the very first ARROW press its effect even after the lift
+sequencing is correct — this task did not diagnose exactly which of dnd-kit's
+own internal timings (rect measurement, sensor attach) accounts for the
+first press producing no `onDragOver` announcement, only that it is
+reproducible and that the SECOND press always succeeds. **The test does not
+pin an exact press count or an exact landing place for this reason — it
+asserts a block lands somewhere under the section it targeted
+(`[data-block-path^="1-"]`), never at one hard-coded position**, which is
+also immune to `PICKER_SPACES` ever changing how many places a freshly added
+section opens with.
+
+**`stepInsertSection`'s WIRING was sabotage-verified, not the pure function
+again** (Task 3 already sabotage-verified that). Swapping the Tab branch's
+`step` from `stepInsertSection` to `stepInsertTarget` in `paletteCoordinateAt`
+reddened exactly one of 44 cases in `block-editor.test.tsx` — "steps to the
+boundary between sections on Tab, skipping every target nested inside the
+current one" — and none of the other 43, including the two other new
+keyboard cases beside it. Restored by copying the file before mutating and
+copying it back (root rule 34), confirmed byte-identical to the pre-sabotage
+version, and re-run clean.
+
 ### The page-source dock shares the Properties panel's own width token (2026-09-05)
 
 Making the Properties panel render unconditionally, above, had a direct
