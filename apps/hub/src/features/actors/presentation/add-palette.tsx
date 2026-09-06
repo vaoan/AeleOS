@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useDraggable } from "@dnd-kit/core";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import {
   CONTAINER_MODES,
   LEAF_KINDS,
@@ -11,6 +12,8 @@ import {
   sampleContainer,
   sampleLeaf,
 } from "@/features/actors/domain/add-samples";
+import { paletteId } from "@/features/actors/domain/block-drag";
+import type { PaletteItem } from "@/features/actors/domain/palette-targets";
 import {
   Block as PublicBlock,
   type PageContext,
@@ -56,39 +59,106 @@ export interface AddPaletteProps {
   readonly locale: string;
 }
 
+/** What one {@link PaletteThumbnail} needs. */
+interface PaletteThumbnailProps {
+  /** What this thumbnail offers — a leaf kind or a container mode. */
+  readonly item: PaletteItem;
+  /** The already-translated caption shown above the preview. */
+  readonly caption: string;
+  /** Threaded to the preview, exactly as the canvas renderer needs it. */
+  readonly page: PageContext;
+  /** Which language's fields the preview reads. */
+  readonly locale: string;
+}
+
+/**
+ * One draggable palette thumbnail: a caption over a real-renderer preview.
+ *
+ * **A real `useDraggable` source (2026-09-05), wired exactly as
+ * `EditableBlockFrame` demonstrates for the mouse case.** `onPointerDown`
+ * calls `listeners.onPointerDown` only for `event.pointerType === "mouse"`;
+ * touch and keyboard reach it in a later task, so `{...listeners}` is
+ * deliberately not spread wholesale onto this element — that would also
+ * wire its `onKeyDown`, starting a keyboard drag from a thumbnail that has
+ * no coordinate getter to answer one yet. A thumbnail is always "filled" —
+ * unlike an empty canvas place, there is no `disabled` condition to add.
+ *
+ * `role="button"` and `aria-label` name the item explicitly rather than
+ * relying on the preview's own text content, matching `AddBlockPicker`'s own
+ * `role="button"` convention for a non-native-button interactive element
+ * that must not itself be a `<button>` — a `player`/`jukebox` preview draws
+ * real transport controls, which a `<button>` may not contain at all.
+ *
+ * @param props - see {@link PaletteThumbnailProps}.
+ * @returns the thumbnail.
+ */
+function PaletteThumbnail(props: PaletteThumbnailProps): ReactNode {
+  const { item, caption, page, locale } = props;
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: paletteId(item),
+  });
+  const block =
+    item.kind === "leaf"
+      ? sampleLeaf(item.leafKind)
+      : sampleContainer(item.mode);
+  const dataAttr =
+    item.kind === "leaf"
+      ? { "data-palette-kind": item.leafKind }
+      : { "data-palette-mode": item.mode };
+
+  const beginDesktopDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    if (event.pointerType !== "mouse") return;
+    listeners?.onPointerDown?.(event);
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      role="button"
+      aria-label={caption}
+      {...tid("palette-item")}
+      {...dataAttr}
+      onPointerDown={beginDesktopDrag}
+      className="grid gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
+    >
+      <span className="text-xs font-medium text-(--muted)">{caption}</span>
+      {/* `inert`, mirroring `AddBlockPicker`'s own preview: a `player`/
+          `jukebox` sample renders real transport buttons through the same
+          renderer, so the preview is removed from the accessibility tree,
+          from focus and from hit-testing — a click or a drag anywhere on
+          the thumbnail reaches this component rather than a control inside
+          its own preview. */}
+      <div className={`${CHROME_SCOPE} max-h-24 overflow-hidden`} inert>
+        <PublicBlock
+          block={block}
+          locale={locale}
+          depth={1}
+          path="preview"
+          page={page}
+        />
+      </div>
+    </div>
+  );
+}
+
 /**
  * The persistent Palette tab's content: a grouped list of compact
  * thumbnails, one per leaf kind and one per container mode, drawn by the
  * real renderer over fixed sample content.
  *
- * **Static and non-interactive for now (2026-09-05) — a checkpoint, not the
- * finished feature.** Each thumbnail is a plain `<div>` that cannot take
- * focus and starts no drag: this ships the FIRST user-visible piece of
- * "drag-to-add from a palette tab," the thumbnails themselves and their
- * captions, while the modal `AddBlockPicker` remains the only way to
- * actually add a block. A later task makes a thumbnail a real
- * `useDraggable` source and gives it a role; this one does not, on purpose,
- * so there is nothing here yet that looks interactive and is not.
- *
- * **Mirrors `AddBlockPicker`'s own preview mechanism exactly**, down to the
- * `inert` wrap: `player`/`jukebox` samples render real transport `<button>`s
- * through the same renderer, and a clickable ancestor may not contain
- * interactive content at all (`nested-interactive`, an axe rule) — `inert`
- * removes the whole preview from the accessibility tree, from focus, and
- * from hit-testing, which is what will let a future drag start from
- * anywhere on the thumbnail without a transport button underneath it
- * swallowing the gesture.
- *
- * **Every thumbnail is SHRUNK by its own wrapper**, `max-h-24 overflow-hidden`,
- * rather than by anything the renderer itself knows about — the same renderer
- * draws a full-size preview in `AddBlockPicker`'s
- * dialog, and clipping it here is purely a matter of how much room a
- * persistent tab can spend on one caption.
+ * **Real drag sources by pointer, checkpointed at that (2026-09-05).** Each
+ * thumbnail is a real `useDraggable` — see {@link PaletteThumbnail} — that
+ * begins a drag from a mouse press, mirroring `EditableBlockFrame`'s own
+ * mouse-only wiring. Touch and keyboard are a later task in this same
+ * feature: `attributes` is spread for its aria attributes, but `listeners`
+ * is read only inside the mouse-gated handler rather than spread wholesale,
+ * so nothing here yet answers a keyboard lift.
  *
  * **The sample is never what gets added.** `sampleLeaf`/`sampleContainer`
- * exist only to draw a thumbnail — see their own TSDoc — and nothing here
- * hands their output anywhere a save could reach it, since this component
- * has no `onAdd` of any kind yet.
+ * exist only to draw a thumbnail — see their own TSDoc — and choosing what a
+ * dropped thumbnail actually adds is `BlockEditor`'s own job, built from the
+ * dragged {@link PaletteItem} rather than from this preview's content.
  *
  * Rendered inside `CHROME_SCOPE`, never `SKIN_SCOPE`: this shows what a KIND
  * or a MODE is, not what an author's own page will make of it.
@@ -106,25 +176,13 @@ export function AddPalette(props: AddPaletteProps): ReactNode {
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {LEAF_KINDS.map((kind) => (
-            <div
+            <PaletteThumbnail
               key={kind}
-              {...tid("palette-item")}
-              data-palette-kind={kind}
-              className="grid gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
-            >
-              <span className="text-xs font-medium text-(--muted)">
-                {labels.kindNames[kind]}
-              </span>
-              <div className={`${CHROME_SCOPE} max-h-24 overflow-hidden`} inert>
-                <PublicBlock
-                  block={sampleLeaf(kind)}
-                  locale={locale}
-                  depth={1}
-                  path="preview"
-                  page={page}
-                />
-              </div>
-            </div>
+              item={{ kind: "leaf", leafKind: kind }}
+              caption={labels.kindNames[kind]}
+              page={page}
+              locale={locale}
+            />
           ))}
         </div>
       </div>
@@ -134,25 +192,13 @@ export function AddPalette(props: AddPaletteProps): ReactNode {
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {CONTAINER_MODES.map((mode) => (
-            <div
+            <PaletteThumbnail
               key={mode}
-              {...tid("palette-item")}
-              data-palette-mode={mode}
-              className="grid gap-1.5 rounded-lg surface border-(--edge)/60 p-2 text-left text-sm"
-            >
-              <span className="text-xs font-medium text-(--muted)">
-                {labels.modeNames[mode]}
-              </span>
-              <div className={`${CHROME_SCOPE} max-h-24 overflow-hidden`} inert>
-                <PublicBlock
-                  block={sampleContainer(mode)}
-                  locale={locale}
-                  depth={1}
-                  path="preview"
-                  page={page}
-                />
-              </div>
-            </div>
+              item={{ kind: "container", mode }}
+              caption={labels.modeNames[mode]}
+              page={page}
+              locale={locale}
+            />
           ))}
         </div>
       </div>

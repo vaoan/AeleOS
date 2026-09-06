@@ -49,6 +49,8 @@ import {
   appendPlace,
   blockAt,
   clearAt,
+  newContainer,
+  newLeaf,
   patchContainer,
   patchLeaf,
   removeAt,
@@ -70,12 +72,18 @@ import {
 import {
   canvasPlaceId,
   canvasPlacePath,
+  palettePayload,
   placeId,
   placeName,
   placeOrder,
   placePath,
   stepPlace,
 } from "@/features/actors/domain/block-drag";
+import {
+  insertTargetsFor,
+  type InsertTarget,
+} from "@/features/actors/domain/palette-targets";
+import { insertBlockAt } from "@/features/actors/domain/palette-insert";
 import {
   applyDrop,
   applySiblingDrop,
@@ -128,6 +136,7 @@ import {
 import { lockCanvasInteraction } from "@/features/actors/presentation/canvas-interaction-lock";
 import {
   AddBlockPicker,
+  PICKER_SPACES,
   type AddBlockPickerProps,
 } from "@/features/actors/presentation/add-block-picker";
 import { addTargetFor } from "@/features/actors/domain/add-target";
@@ -506,6 +515,8 @@ function keyboardDropTarget(
  * @param pageRef - the current page, read fresh on every collision check.
  * @param keyboardTarget - written with the winning target, for `onDragOver`.
  * @param pointerTarget - written with the winning target, for `onDragOver`.
+ * @param insertTargetsRef - every place a palette-origin drag in progress
+ * may land on, computed once at `onDragStart` — read here, never written.
  * @returns the one place a drop would land on, or none.
  */
 // eslint-disable-next-line sonarjs/cognitive-complexity -- collision admission must parse the matching id space, contain the pointer, validate the domain drop, and rank the deepest nested destination in one pass
@@ -514,8 +525,38 @@ function detectCollisionAt(
   pageRef: RefObject<Block[]>,
   keyboardTarget: RefObject<DropTarget | null>,
   pointerTarget: RefObject<DropTarget | null>,
+  insertTargetsRef: RefObject<readonly InsertTarget[] | null>,
 ): ReturnType<CollisionDetection> {
   const activeId = String(args.active.id);
+
+  // **A palette-origin drag is an EARLY, mutually exclusive branch.** It
+  // never calls `applyDrop` — `insertBlockAt` is what validates a drop, not
+  // the move planner — and it is decided purely by whether the pointer is
+  // over any of the ids `insertTargetsFor` already offered at `onDragStart`,
+  // ranked deepest-first exactly as the pointer branch below already ranks
+  // canvas-move candidates. With no pointer position at all (a keyboard
+  // drag, not wired for the palette until a later task in this feature)
+  // there is nothing to test containment against, so this answers no
+  // collision rather than guessing one.
+  const paletteItem = palettePayload(activeId);
+  if (paletteItem) {
+    if (!args.pointerCoordinates) return [];
+    let bestInsert: { readonly id: string; readonly depth: number } | undefined;
+    for (const target of insertTargetsRef.current ?? []) {
+      const id = canvasPlaceId(target.path);
+      const rect = args.droppableRects.get(id);
+      if (!rect) continue;
+      const { x, y } = args.pointerCoordinates;
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        continue;
+      }
+      if (!bestInsert || target.path.length > bestInsert.depth) {
+        bestInsert = { id, depth: target.path.length };
+      }
+    }
+    return bestInsert ? [{ id: bestInsert.id }] : [];
+  }
+
   const canvasDrag = Boolean(canvasPlacePath(activeId));
   const from = canvasPlacePath(activeId) ?? placePath(activeId);
   if (!from) return [];
@@ -1223,6 +1264,20 @@ function panelFootFor({
  * `RetroPlayer`, which crashes outright in any harness that does not wrap
  * this component in `NextIntlClientProvider`.
  *
+ * **A palette thumbnail is a real drag source onto the canvas now
+ * (2026-09-05).** `onDragStart` branches on `palettePayload` first and
+ * never falls through to the canvas-move logic below it; the winning branch
+ * computes `insertTargetsFor` once and stores it on `insertTargetsRef`,
+ * which `detectCollisionAt`'s own early palette branch ranks
+ * deepest-path-first against real registered droppable rects.
+ * `onDragEnd`'s matching branch calls `insertBlockAt` — never `applyDrop`,
+ * since inserting fresh content is not a move — selects the result on
+ * success, and sets the same `refusal` state the canvas-move branch already
+ * renders through `drag-refusal` on failure. See the actors feature note's
+ * own account of what this pipeline can and cannot yet reach (the append
+ * slot past a container's current children has no rendered droppable to
+ * land on).
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1335,6 +1390,15 @@ export function BlockEditor<T extends FieldValues>({
   const keyboardAt = useRef<BlockPath | undefined>(undefined);
   const keyboardTarget = useRef<DropTarget | null>(null);
   const pointerTarget = useRef<DropTarget | null>(null);
+  // **Every place a palette-origin drag in progress may land on, computed
+  // once at `onDragStart` and read by `detectCollisionAt` on every pointer
+  // move.** A ref rather than state: recomputing this is `insertTargetsFor`
+  // walking the whole page, and nothing reads it during render except
+  // through the `editor` object literal below, which itself is rebuilt on
+  // every render regardless — so there is no render this needs to trigger
+  // on its own that the drag's own `onDragOver`-driven state updates do not
+  // already cause.
+  const insertTargetsRef = useRef<readonly InsertTarget[] | null>(null);
 
   /**
    * Hands the form a whole new page.
@@ -1362,7 +1426,14 @@ export function BlockEditor<T extends FieldValues>({
   // branching lives in a plain function rather than in this closure — the
   // inline arrow here is trivial so nothing here reads a ref during render.
   const detectCollision = useCallback<CollisionDetection>(
-    (args) => detectCollisionAt(args, pageRef, keyboardTarget, pointerTarget),
+    (args) =>
+      detectCollisionAt(
+        args,
+        pageRef,
+        keyboardTarget,
+        pointerTarget,
+        insertTargetsRef,
+      ),
     [],
   );
 
@@ -1437,12 +1508,33 @@ export function BlockEditor<T extends FieldValues>({
   /**
    * Remembers where a keyboard drag begins, and clears the last refusal.
    *
+   * **A palette-origin drag is checked FIRST and never falls through to the
+   * canvas-move branch below.** `palettePayload` only ever answers a real
+   * value for an id `paletteId` built, which no canvas grip or inspector
+   * row ever produces, so the two branches cannot both fire for one lift.
+   * `insertTargetsFor` is computed exactly once here, against the
+   * page as it stood the moment the drag began — `detectCollisionAt` and
+   * `onDragEnd` both read this same computation rather than recomputing it,
+   * which is what makes a page edited mid-drag able to go stale under a
+   * target the drag is still carrying (see `insertBlockAt`'s own
+   * independent re-check).
+   *
    * @param event - the lift.
    */
   const onDragStart = (event: DragStartEvent): void => {
-    keyboardAt.current =
-      canvasPlacePath(String(event.active.id)) ??
-      placePath(String(event.active.id));
+    const activeId = String(event.active.id);
+    const paletteItem = palettePayload(activeId);
+    if (paletteItem) {
+      insertTargetsRef.current = insertTargetsFor(blocks, paletteItem);
+      keyboardAt.current = undefined;
+      keyboardTarget.current = null;
+      pointerTarget.current = null;
+      setAdvertisedTarget(null);
+      setRefusal(null);
+      return;
+    }
+    insertTargetsRef.current = null;
+    keyboardAt.current = canvasPlacePath(activeId) ?? placePath(activeId);
     keyboardTarget.current = null;
     pointerTarget.current = null;
     setAdvertisedTarget(null);
@@ -1456,6 +1548,7 @@ export function BlockEditor<T extends FieldValues>({
 
   /** Clears transient destination chrome when a lift is cancelled. */
   const onDragCancel = (): void => {
+    insertTargetsRef.current = null;
     keyboardAt.current = undefined;
     keyboardTarget.current = null;
     pointerTarget.current = null;
@@ -1465,6 +1558,16 @@ export function BlockEditor<T extends FieldValues>({
   /**
    * Lands the lifted block on the sibling it was over, or says why it did not.
    *
+   * **A palette-origin drag is checked FIRST, and it never calls
+   * `applyDrop`.** `insertBlockAt` is what validates a palette drop —
+   * inserting a freshly built leaf or container is not a move, so the move
+   * planner has nothing to say about it. It re-checks the depth and count
+   * caps independently of whatever `insertTargetsFor` offered at
+   * `onDragStart`, which is what catches a target gone stale from an edit
+   * made mid-drag. A drop with no `over` at all — the pointer never crossed
+   * a valid target — does nothing, matching the canvas-move branch's own
+   * `!event.over` guard below.
+   *
    * Linear parents insert-and-shift; positional parents still exchange. See
    * {@link applySiblingDrop}. A no-op comes back as the very array it was
    * given, which is why the write is skipped by identity rather than by
@@ -1473,10 +1576,31 @@ export function BlockEditor<T extends FieldValues>({
    * @param event - what was lifted, and what it was over.
    */
   const onDragEnd = (event: DragEndEvent): void => {
+    const activeId = String(event.active.id);
+    const paletteItem = palettePayload(activeId);
+    if (paletteItem) {
+      insertTargetsRef.current = null;
+      setAdvertisedTarget(null);
+      const overId = event.over ? String(event.over.id) : undefined;
+      const targetPath = overId ? canvasPlacePath(overId) : undefined;
+      if (!targetPath) return;
+      const block =
+        paletteItem.kind === "leaf"
+          ? newLeaf(paletteItem.leafKind)
+          : newContainer(paletteItem.mode, PICKER_SPACES);
+      const result = insertBlockAt(blocks, targetPath, block);
+      if (!result.ok) {
+        setRefusal(result.reason);
+        return;
+      }
+      setRefusal(null);
+      field.field.onChange(result.blocks);
+      setSelection({ kind: "block", path: result.path });
+      setTab("primary");
+      return;
+    }
     keyboardAt.current = undefined;
-    const from =
-      canvasPlacePath(String(event.active.id)) ??
-      placePath(String(event.active.id));
+    const from = canvasPlacePath(activeId) ?? placePath(activeId);
     const target = keyboardTarget.current ?? pointerTarget.current;
     keyboardTarget.current = null;
     pointerTarget.current = null;
@@ -1768,9 +1892,19 @@ export function BlockEditor<T extends FieldValues>({
   // the exact same catalogue values `addPickerLabels` above already reused
   // from `pages/labels.ts` — no new translation keys for the group headings
   // or the per-kind/per-mode names, matching the reuse rule that bag's own
-  // comment states. `AddPalette` renders static, non-draggable thumbnails
-  // only; the modal `AddBlockPicker` above remains the only way to actually
-  // add a block until a later task wires this tab to a real drag.
+  // comment states. Each thumbnail is now a real `useDraggable` source by
+  // mouse (`AddPalette`'s own TSDoc), and `insertTargetsRef`/
+  // `detectCollisionAt`'s palette branch/`onDragEnd`'s palette branch above
+  // are what land a drop. `insertTargetsFor` already offers the append slot
+  // — one past a container's last child, one past the page's own last
+  // section — as a valid target; what it lacks is a RENDERED place to drop
+  // onto, since `blocks.tsx` draws no DOM element past a container's actual
+  // `children.length`. `detectCollisionAt`'s loop skips any target whose id
+  // has no registered droppable rect, so that target is simply unreachable
+  // by pointer today rather than offered and mishandled — a later task in
+  // this feature is what renders it. The modal `AddBlockPicker` remains the
+  // only way to add there until it does. Touch and keyboard are not wired to
+  // this thumbnail either.
   const palettePane = (
     <AddPalette
       labels={{
@@ -2059,6 +2193,7 @@ export function BlockEditor<T extends FieldValues>({
                                   selectedPath: selectedAttr || undefined,
                                   activeTarget: advertisedTarget,
                                   dragLabel: labels.dragBlock,
+                                  insertTargets: insertTargetsRef.current,
                                 }}
                               >
                                 {children}

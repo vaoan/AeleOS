@@ -6353,8 +6353,111 @@ nothing when deselected" — both rewritten. `block-editor.tsx`'s
    accommodation padding) needs re-examining in the same change, not
    assumed to still agree.
 
-This tab renders and is reachable; dragging a thumbnail onto the canvas
-does nothing yet. That remains a later task in this same feature.
+This tab renders and is reachable. Dragging a thumbnail onto the canvas is
+Task 5, immediately below.
+
+### Palette thumbnails are real pointer drag sources onto the canvas (2026-09-05) — Task 5 of 9, presentation
+
+The header above this one — "visible, not yet draggable" — is corrected by
+this section rather than left standing: every thumbnail is a real
+`useDraggable` source now, mouse-only, wired exactly as
+`EditableBlockFrame`'s own `beginDesktopDrag` demonstrates
+(`event.pointerType !== "mouse"` returns early rather than spreading
+`{...listeners}` wholesale, which would also wire a keyboard lift this
+checkpoint does not support). `role="button"` and `aria-label` name each
+item, matching `AddBlockPicker`'s own non-native-button convention.
+
+**`onDragStart` branches on `palettePayload` first, and a palette id never
+falls through to the canvas-move logic below it.** The branch computes
+`insertTargetsFor(blocks, paletteItem)` once and stores it on a new ref,
+`insertTargetsRef` — recomputing it on every pointer move would be
+`insertTargetsFor` walking the whole page on every frame, and nothing reads
+it during render, so a ref rather than state is the right shape.
+`onDragCancel` clears the same ref, and `onDragEnd`'s palette branch clears
+it before anything else, mirroring the canvas-move branches' own
+housekeeping.
+
+**`detectCollisionAt` gained an early, mutually exclusive palette branch,
+proven to be genuinely mutually exclusive and not merely written to look
+that way.** It ranks every `insertTargetsRef` entry whose registered
+droppable rect contains the pointer, deepest-path-first — the identical
+"innermost place wins" rule the canvas-move branch below it already uses for
+nested containers, because a place nested inside another place is nested
+inside its own rectangle too, and any ranking by rectangle proximity would
+answer the wrong depth silently. It calls `insertBlockAt`, never `applyDrop`:
+inserting a freshly built leaf or container is not a move, and the move
+planner has nothing to say about content that does not exist on the page
+yet.
+
+**`onDragEnd`'s palette branch builds the fresh block and calls
+`insertBlockAt` itself, independently of whatever `insertTargetsFor` offered
+a moment earlier at `onDragStart`.** That is not redundant: a target can go
+stale between the two calls (an intervening edit, or — see the append-slot
+account in Task 4's own section above — a target `insertTargetsFor` names
+that has no rendered droppable to have been dragged onto in the first place,
+which `detectCollisionAt`'s own `if (!rect) continue` already filters
+before a drop is ever attempted). Success selects the new block and switches
+the panel to its primary tab; a refusal sets the same `refusal` state the
+canvas-move branch already renders through `drag-refusal`, so a palette
+drop and a canvas-move refusal share one feedback mechanism rather than two.
+A drop with no `over` at all — the pointer never crossed a registered
+target — returns without writing anything, matching the canvas-move
+branch's own `!event.over` guard.
+
+**The brief asked for a "container past the depth cap refuses" case, and
+that shape is unreachable through this pipeline — found rather than
+silently substituted.** `fitsAt` (`domain/block-drops.ts`), which
+`insertBlockAt` calls, is a function of the TARGET PATH'S LENGTH alone; a
+container target that would be too deep can never reach the real collision
+pipeline at all, because `insertTargetsFor` already filters every container
+target through the identical `mayNest` check before ever offering it as
+draggable-onto — the same fact Task 1's own TSDoc states about the domain
+layer, now confirmed true of the wired pipeline as well. The reachable
+refusal through this exact path is `BLOCK_LIMITS.children` ("too many"),
+which exercises the identical `onDragEnd` branch and the identical
+`drag-refusal` feedback the depth-cap case would have. Per root rule 24,
+this is said here rather than worked around silently: the test named
+"refuses a drop onto a container already at its child cap" is the
+`BLOCK_LIMITS.children` case, not the depth cap the brief's own wording
+named.
+
+**`PALETTE_PREFIX` (`domain/block-drag.ts`) stayed private, a deliberate
+deviation from the brief's literal `export const`.** It matches the sibling
+constants already in that file (`PLACE_PREFIX`, `CANVAS_PLACE_PREFIX`, both
+private too), and nothing outside that module needs it — every caller reads
+`paletteId`/`palettePayload`, never the prefix itself. Exporting a constant
+nothing imports is the "control that does nothing" shape this repository
+already refuses elsewhere, just on a constant rather than a UI control.
+
+**Both new component tests were sabotage-verified, and each reddens exactly
+what it names.** Ranking: comparing `target.path.length <` rather than `>`
+reddens the two cases that resolve to a real nested target ("drops a leaf
+onto an empty place" and "refuses a drop onto a container already at its
+child cap") and leaves "does nothing when a palette drag ends over no
+target" green, since that case's pointer never lands on any target at all —
+ranking has nothing to rank. Refusal-swallowing: disabling the `if
+(!result.ok)` branch in `onDragEnd`'s palette case reddens only "refuses a
+drop onto a container already at its child cap, and shows the message,"
+which is the one case built specifically to watch for that message.
+
+**`AddPalette`'s own click-swallow trap is `@dnd-kit/core`'s documented
+50ms post-drop window, met here at the unit level for the first time.**
+`PointerSensor.detach()` keeps a document-level capturing `click` listener
+alive for exactly 50ms after any drop, to swallow the synthetic click a
+mouseup-after-drag produces — root rule 41 already names this for a browser
+suite, and it recurs here because jsdom shares one global `document` across
+cases in a file: a prior case's completed drag leaves that listener
+live into the very next case, silently eating the click that opens the
+Palette tab. `openPalette()` in `block-editor.test.tsx` awaits a real 60ms
+timer before firing that click, past `no-restricted-syntax`'s ban on a
+hand-rolled sleep — that ban is scoped to `**/e2e/**` in
+`eslint.config.mjs`, not to this unit test file.
+
+This closes the checkpoint the header above opened: a palette thumbnail is a
+real drag source and a real drop lands a real block. What is still not
+built, for a later task in this same feature: touch and keyboard lifts from
+a thumbnail, and a rendered, draggable-onto append slot past a container's
+current children.
 
 ### The page-source dock shares the Properties panel's own width token (2026-09-05)
 

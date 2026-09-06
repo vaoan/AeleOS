@@ -1026,4 +1026,188 @@ describe("the Properties panel", () => {
     expect(screen.getByTestId("canvas-drag-1")).toBeInTheDocument();
     expect(screen.getByTestId("section-name")).toHaveValue("one");
   });
+
+  // **Palette-origin dragging (2026-09-05) — the real pointer pipeline, not
+  // a hand-called `onDragEnd`.** These drive `@dnd-kit`'s own `PointerSensor`
+  // exactly as `add-palette.test.tsx` validated: jsdom implements no
+  // `PointerEvent` constructor at all, so `fireEvent.pointerDown` falls back
+  // to a bare `Event` the sensor's own activator refuses
+  // (`!event.isPrimary || event.button !== 0`). A plain `MouseEvent`
+  // dispatched under the `"pointerdown"`/`"pointermove"`/`"pointerup"` type
+  // strings reaches the same handlers a real `PointerEvent` would, with
+  // `isPrimary`/`pointerType`/`pointerId` added by hand since `MouseEvent`'s
+  // own constructor accepts none of them.
+  //
+  // **jsdom's `getBoundingClientRect` answers an all-zero rect for every
+  // element**, so a pointer sitting at exactly `(0, 0)` is "inside" every
+  // registered droppable's rectangle at once — `detectCollisionAt`'s palette
+  // branch then picks the DEEPEST one, which is what makes these drags land
+  // on a specific nested place rather than nowhere. The first move has to
+  // clear `DRAG_THRESHOLD` (8px) before the sensor activates at all, so every
+  // drag below moves away from `(0, 0)` once to start it and back to it once
+  // to land.
+  describe("dragging from the persistent Palette tab", () => {
+    /**
+     * Opens the Properties panel's Palette tab, mounting `AddPalette` for
+     * the first time — `paletteOpened` in `block-editor.tsx` is set exactly
+     * once, on this click, and never reset.
+     *
+     * **Waits past `@dnd-kit/core`'s own post-drop click-swallow window
+     * first.** `PointerSensor.detach()` keeps a document-level CAPTURING
+     * `click` listener alive for exactly 50ms after a drop, specifically to
+     * swallow the synthetic click a mouseup-after-drag produces — named in
+     * this repository's own root note on `section-drag-reorder.spec.ts`,
+     * which found the identical mechanism in a browser. That listener is a
+     * raw `document.addEventListener` a prior test's drag leaves behind; it
+     * is not tied to this component's React lifecycle, so unmounting
+     * between tests does not remove it early, and it swallows ANY click
+     * landing in its window — this one included, whoever it targets — with
+     * no error at all. Measured here without the wait: the second and third
+     * cases in this `describe` failed at this exact click, silently, only
+     * when run after a case that completed a real drop.
+     */
+    const openPalette = async (): Promise<void> => {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+      fireEvent.click(screen.getByTestId("panel-tab-palette"));
+    };
+
+    /**
+     * Dispatches a pointer-typed event a real `PointerSensor` activates on.
+     *
+     * @param target - the element (`"pointerdown"`) or `document` (every
+     * later event in the same drag, matching where `PointerSensor` itself
+     * listens).
+     * @param type - the event type.
+     * @param x - `clientX` and `clientY` both, since every rect in this
+     * environment is degenerate and only `(0, 0)` — or a value the test
+     * chooses to clear the activation threshold — ever matters.
+     */
+    const firePointerEvent = (
+      target: Element | Document,
+      type: "pointerdown" | "pointermove" | "pointerup",
+      x: number,
+    ): void => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: x,
+        button: 0,
+      });
+      Object.defineProperty(event, "isPrimary", {
+        value: true,
+        configurable: true,
+      });
+      Object.defineProperty(event, "pointerType", {
+        value: "mouse",
+        configurable: true,
+      });
+      Object.defineProperty(event, "pointerId", {
+        value: 1,
+        configurable: true,
+      });
+      target.dispatchEvent(event);
+    };
+
+    /**
+     * Drags a palette thumbnail from pick-up to drop, landing wherever
+     * `detectCollisionAt`'s palette branch resolves the pointer's final
+     * `(0, 0)` position to.
+     *
+     * @param caption - the thumbnail's accessible name (its raw kind or
+     * mode string, not a translated label — see `blockEditorLabels`).
+     */
+    const paletteDrag = async (caption: string): Promise<void> => {
+      const item = screen.getByRole("button", { name: caption });
+      await act(async () => {
+        firePointerEvent(item, "pointerdown", 0);
+      });
+      // Clears `DRAG_THRESHOLD` so the sensor actually activates.
+      await act(async () => {
+        firePointerEvent(document, "pointermove", 40);
+      });
+      // Back to the one point every degenerate rect in this environment
+      // contains, so the collision function has something to resolve.
+      await act(async () => {
+        firePointerEvent(document, "pointermove", 0);
+      });
+      await act(async () => {
+        firePointerEvent(document, "pointerup", 0);
+      });
+    };
+
+    it("drops a leaf onto an empty place, adding and selecting it", async () => {
+      const page = harness([
+        { ...newContainer("grid", 1), name_en: "Section", children: [null] },
+      ]);
+      await openPalette();
+
+      await paletteDrag(labels.leaf.leafKinds.text);
+
+      const section = firstContainer(page());
+      expect(section.children).toHaveLength(2);
+      // **A leaf's `kind` field IS its leaf kind** — `"text"`, here — never a
+      // generic `"leaf"` literal; only a container's `kind` is the constant
+      // `CONTAINER_KIND` (`"container"`). There is no separate `leafKind`
+      // property on a stored `Block` at all — that name belongs only to
+      // `PaletteItem`, the thing being dragged before it becomes one.
+      expect(section.children[0]?.kind).toBe("text");
+      expect(section.children[1]).toBeNull();
+      // The new leaf is SELECTED, which opens its Content tab in the
+      // Properties panel — `LeafEditor` lives there, never on the canvas
+      // itself, which only ever shows the live-renderer preview.
+      expect(screen.getByTestId("properties-panel")).toContainElement(
+        screen.getByTestId("leaf-editor"),
+      );
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+
+    // **The brief asked for "a container past the depth cap", and the depth
+    // cap turns out to be unreachable through this pipeline — a genuine
+    // finding, not a workaround.** `fitsAt` (`domain/block-drops.ts`) is
+    // `path.length - 1 + reach(held) <= MAX_DEPTH`, a function of the
+    // TARGET PATH'S LENGTH alone; no page mutation can change an already-
+    // chosen path's length, and `insertTargetsFor` already filters every
+    // container target through the identical `mayNest` check before the
+    // drag ever offers it — so a too-deep container target can never reach
+    // the real collision pipeline at all, matching `refusalOf`'s own
+    // documented "no reachable discriminating test" precedent elsewhere in
+    // this file's feature note. `BLOCK_LIMITS.children` (50) is the refusal
+    // this pipeline CAN reach, through the exact same `onDragEnd` branch and
+    // the exact same `drag-refusal` feedback — see the report for the full
+    // account.
+    it("refuses a drop onto a container already at its child cap, and shows the message", async () => {
+      const page = harness([
+        {
+          ...newContainer("grid", 2),
+          name_en: "Full",
+          children: Array.from({ length: BLOCK_LIMITS.children }, () => null),
+        },
+      ]);
+      await openPalette();
+
+      await paletteDrag(labels.modes.grid);
+
+      const section = firstContainer(page());
+      expect(section.children).toHaveLength(BLOCK_LIMITS.children);
+      expect(screen.getByTestId("drag-refusal")).toHaveTextContent(
+        labels.drag.tooMany,
+      );
+    });
+
+    it("does nothing when a palette drag ends over no target", async () => {
+      const page = harness();
+      await openPalette();
+
+      await paletteDrag(labels.leaf.leafKinds.text);
+
+      expect(page()).toEqual([]);
+      expect(screen.queryByTestId("drag-refusal")).toBeNull();
+    });
+  });
 });

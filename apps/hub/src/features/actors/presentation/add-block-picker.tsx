@@ -96,8 +96,13 @@ export interface AddBlockPickerProps {
  * Matches the page-level Add-section control's own default
  * (`NEW_SPACES` in `block-editor.tsx`), so a layout chosen through either
  * route starts the same shape.
+ *
+ * **Exported (2026-09-05) so a palette-origin drag starts a container the
+ * same width** — `onDragEnd`'s palette branch in `block-editor.tsx` calls
+ * `newContainer(item.mode, PICKER_SPACES)`, reusing this constant rather
+ * than inventing a second default that could drift from it.
  */
-const PICKER_SPACES = 2;
+export const PICKER_SPACES = 2;
 
 /**
  * One popup offering every content kind and, where nesting still admits one,

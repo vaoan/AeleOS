@@ -10,6 +10,7 @@ import {
   parseBlockPath,
 } from "@/features/actors/domain/editor-selection";
 import { canvasPlaceId } from "@/features/actors/domain/block-drag";
+import type { InsertTarget } from "@/features/actors/domain/palette-targets";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
 
@@ -19,6 +20,11 @@ import { tid } from "@/shared/infrastructure/test-id";
  * Absence is the public-route contract: no drag nodes, grips, feedback, refs,
  * listeners, or extra wrappers are emitted. The renderer still owns all page
  * markup; this value only asks it to instrument that markup while editing.
+ *
+ * **Carries `insertTargets` (2026-09-05)**, non-null only while a
+ * palette-origin drag is in progress — see that field's own TSDoc for what
+ * it highlights and why every matching place lights up at once rather than
+ * one at a time.
  */
 export interface EditableBlockInstrumentation {
   /** The selected block, in the renderer's hyphenated path form. */
@@ -27,6 +33,16 @@ export interface EditableBlockInstrumentation {
   readonly activeTarget: DropTarget | null;
   /** Accessible name for the selected block's touch and keyboard grip. */
   readonly dragLabel: string;
+  /**
+   * Every insertion target a palette-origin drag currently in progress would
+   * accept — non-null only while such a drag is active. Highlighted
+   * identically to {@link activeTarget}'s existing "place" highlight, but for
+   * EVERY entry at once rather than only the one currently under the
+   * pointer — a palette drop can land on any of them, so all of them light
+   * up together the moment the drag begins, not one at a time as the pointer
+   * happens to cross each in turn.
+   */
+  readonly insertTargets: readonly InsertTarget[] | null;
 }
 
 /** What {@link EditableBlockFrame} needs. */
@@ -49,6 +65,15 @@ export interface EditableBlockFrameProps {
  * distance threshold. Touch and keyboard listeners live only on the selected
  * grip, so a finger may still scroll anywhere else on the page. The wrapper
  * is editor-only and is never mounted by a public route.
+ *
+ * **It also highlights every palette insertion target at once (2026-09-05).**
+ * `editor.insertTargets` is non-null only while a palette-origin drag is in
+ * progress; every place named in it gets the same outline `activeTarget`'s
+ * single "place" highlight already draws, rather than lighting up one at a
+ * time as the pointer happens to cross each candidate — a palette drop can
+ * land on any of them, and the whole point of this feature over the existing
+ * canvas-move highlight is that a person sees every valid target before
+ * choosing one.
  *
  * @param props - see {@link EditableBlockFrameProps}.
  * @returns the instrumented renderer node and editor-only feedback.
@@ -73,6 +98,15 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
     formatBlockPath(editor.activeTarget.path) === encodedPath
       ? editor.activeTarget.kind
       : undefined;
+  // **Every valid palette target lights up at once, not only the one under
+  // the pointer.** A palette drop is never a "before/after" linear insert —
+  // it targets the place itself — so this reuses the SAME `data-canvas-drop`
+  // value the pointer-driven "place" highlight already uses, rather than a
+  // second class list to keep in step with it.
+  const isInsertTarget =
+    editor.insertTargets?.some(
+      (insertTarget) => formatBlockPath(insertTarget.path) === encodedPath,
+    ) ?? false;
   const selected = editor.selectedPath === encodedPath;
   const emptyPlaceClass = filled
     ? ""
@@ -91,7 +125,9 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
       }}
       {...tid("canvas-drag-node")}
       data-canvas-path={encodedPath}
-      data-canvas-drop={target === "place" && isOver ? "place" : undefined}
+      data-canvas-drop={
+        (target === "place" && isOver) || isInsertTarget ? "place" : undefined
+      }
       onPointerDown={filled ? beginDesktopDrag : undefined}
       style={{
         transform: CSS.Translate.toString(transform),

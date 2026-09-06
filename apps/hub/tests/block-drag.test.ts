@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   canvasPlaceId,
   canvasPlacePath,
+  paletteId,
+  palettePayload,
   placeId,
   placeName,
   placeOrder,
@@ -11,7 +13,12 @@ import {
   type PlaceCandidate,
 } from "@/features/actors/domain/block-drag";
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
-import type { Block } from "@/features/actors/domain/block-schema";
+import {
+  CONTAINER_MODES,
+  LEAF_KINDS,
+  type Block,
+} from "@/features/actors/domain/block-schema";
+import type { PaletteItem } from "@/features/actors/domain/palette-targets";
 
 // WHERE THE DRAG'S ONE REAL UNKNOWN LIVES.
 //
@@ -111,6 +118,40 @@ describe("canvasPlaceId and canvasPlacePath", () => {
     "canvas-place:a",
   ])("refuses a non-canvas place %s", (id) => {
     expect(canvasPlacePath(id)).toBeUndefined();
+  });
+});
+
+describe("paletteId and palettePayload", () => {
+  it("round-trips every leaf kind", () => {
+    for (const leafKind of LEAF_KINDS) {
+      const item: PaletteItem = { kind: "leaf", leafKind };
+      expect(paletteId(item)).toBe(`palette:leaf:${leafKind}`);
+      expect(palettePayload(paletteId(item))).toEqual(item);
+    }
+  });
+
+  it("round-trips every container mode", () => {
+    for (const mode of CONTAINER_MODES) {
+      const item: PaletteItem = { kind: "container", mode };
+      expect(paletteId(item)).toBe(`palette:container:${mode}`);
+      expect(palettePayload(paletteId(item))).toEqual(item);
+    }
+  });
+
+  // AN ID THAT IS NEARLY A PALETTE ID IS AN ID FROM SOMEWHERE ELSE. Guessing
+  // an item from it would start a drag offering content nobody chose, which
+  // is the same reasoning `placePath` refuses a nearly-valid path on.
+  it.each([
+    ["another library's id", "Droppable-3"],
+    ["a canvas place id", canvasPlaceId([0])],
+    ["an inspector place id", placeId([0])],
+    ["no category at all", "palette:text"],
+    ["an unknown category", "palette:widget:text"],
+    ["a leaf kind that does not exist", "palette:leaf:not-a-kind"],
+    ["a container mode that does not exist", "palette:container:not-a-mode"],
+    ["an empty leaf kind", "palette:leaf:"],
+  ])("refuses %s", (_why, id) => {
+    expect(palettePayload(id)).toBeUndefined();
   });
 });
 
