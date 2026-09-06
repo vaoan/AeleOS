@@ -260,21 +260,22 @@ test("a nested sibling drag swaps visible places without disturbing the empty on
     );
   expect(realPlaceCount).toBe(3);
 
-  // The section is still selected; the single global Add targets it
-  // directly, and `nextChildPosition` always fills the FIRST empty place —
-  // never the one a caller has in mind — so both adds land at 0 and 1
-  // rather than at 0 and 2. There is no control that targets a specific
-  // empty place any more (see this file's own header on what the recursive
-  // inspector's Items list took with it), so reaching "First, empty, Third"
-  // needs a real move first: fill the first two places, then drag the
-  // second leaf onto the third, still-empty one. That move is SETUP, not
-  // the gesture this test is named for — it drops onto an EMPTY place, which
-  // is an ordinary move rather than the swap the assertions below exist to
-  // prove.
-  await addBlock(page, { kind: "text" });
+  // The persistent Palette tab's own `firstOpenPlace` helper (see
+  // `support/editor.ts`) always targets the FIRST still-empty existing
+  // place — never the one a caller has in mind — so both adds land at 0
+  // and 1 rather than at 0 and 2, each insertion leaving the remaining
+  // nulls shifted one place later rather than replaced. There is no
+  // control that targets a specific empty place any more (see this file's
+  // own header on what the recursive inspector's Items list took with it),
+  // so reaching "First, empty, Third" needs a real move first: fill the
+  // first two places, then drag the second leaf onto the third, still-empty
+  // one. That move is SETUP, not the gesture this test is named for — it
+  // drops onto an EMPTY place, which is an ordinary move rather than the
+  // swap the assertions below exist to prove.
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("First");
 
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Third");
 
   await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
@@ -352,9 +353,9 @@ test("a pointer drag between sibling places does not select either one", async (
 }) => {
   await page.goto("/es/pages/new");
   await addSection(page, "2");
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Left");
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Right");
 
   // The just-added "Right" leaf is selected; reselect "Left" so its grip is

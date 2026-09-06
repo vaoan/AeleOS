@@ -93,17 +93,18 @@ export async function startFursona(
 }
 
 /**
- * Opens the page's own Add palette — the brand presets and the template
- * picker — which now lives on Page's PRIMARY tab alongside the identity
- * fields, rather than behind a dedicated Items pane.
+ * Opens the page's own brand-preset and template-picker controls, which
+ * live on Page's PRIMARY tab alongside the identity fields, rather than
+ * behind a dedicated Items pane.
  *
- * Idempotent: if the palette is already showing, it does nothing.
+ * Idempotent: if the presets are already showing, it does nothing.
  *
- * **Still checks `section-presets`, not `add-block` (2026-09-02, unchanged
- * reasoning).** `add-block` is the single global Add trigger now — there is
- * only ever one on the page — but selecting it alone does not prove Page is
- * the current target, where `section-presets` renders only from the page's
- * own palette.
+ * **Unrelated to adding a block (2026-09-06).** Naming this `openPageAdd`
+ * predates the persistent Palette tab and reads as if it opened an add
+ * control — it opens Page's own PRIMARY tab, where `section-presets`
+ * (whole-page templates, not a single block) happens to live. Adding a
+ * single block is {@link addBlock}'s job now, and neither function calls
+ * the other.
  *
  * @param page - the editor page.
  */
@@ -243,55 +244,212 @@ async function waitForCanvasAccommodation(page: Page): Promise<void> {
 }
 
 /**
- * Opens the Add picker, chooses one option, and waits for the dialog to
- * close.
+ * Drags a leaf kind or a container mode from the persistent Palette tab
+ * onto an exact canvas position, by real pointer.
  *
- * **There is exactly one `add-block` trigger now, portalled into the editor
- * toolbar (2026-09-04)** — the page-level palette, a container's own Items
- * footer, and every empty place each used to mount their own; all three are
- * gone. Which block the choice lands beside is decided entirely by the
- * CURRENT SELECTION, through `domain/add-target.ts`'s `addTargetFor`: nothing
- * selected or Page selected targets the page root, a selected container
- * targets itself, and a selected leaf targets its own parent. So a caller
- * wanting to add inside a specific container selects that container (or one
- * of its own children) first, through {@link selectBlock}, rather than
- * passing a locator to this function — there is only ever one trigger to find.
+ * **The one mechanism left for adding a block, since `AddBlockPicker`,
+ * `add-target.ts` and `add-slot.tsx` are deleted (2026-09-06).** There is no
+ * "current target" any selection implies any more — the palette is a drag
+ * source reachable from anywhere, onto anywhere `insertTargetsFor`
+ * (`domain/palette-targets.ts`) names as valid, so a caller states the exact
+ * `data-canvas-path` to land on rather than relying on an implicit target
+ * derived from selection.
+ *
+ * **This always GROWS the target by one, and never replaces an existing
+ * empty place in place.** `onDragEnd`'s palette branch calls
+ * `insertBlockAt`, whose only write is `insertAt` — a pure splice-insert
+ * (`domain/block-edits.ts`) — so dropping onto an existing null inserts
+ * BEFORE it rather than consuming it: the null survives, shifted one
+ * position later. The deleted `AddBlockPicker` used a different mechanism
+ * (`nextChildPosition`, now dead code with no live caller reaching it) that
+ * genuinely replaced a container's first empty child in place with no
+ * growth at all — a capability this palette-only mechanism does not have.
+ * See {@link firstOpenPlace} for the closest available approximation, and
+ * `apps/hub/src/features/actors/CLAUDE.md`'s account of Task 8 of the
+ * palette drag-to-add feature for the full record of what this cost.
+ *
+ * Opens the Palette tab itself — it renders unconditionally and needs no
+ * selection (`properties-panel.tsx`) — so no prior {@link selectBlock} is
+ * needed before calling this.
  *
  * @param page - the editor page.
- * @param choice - a content kind (`data-add-kind`) or a layout mode
- *   (`data-add-mode`), exactly as the picker's own options carry them.
+ * @param choice - a content kind (`data-palette-kind`) or a layout mode
+ *   (`data-palette-mode`), exactly as the palette's own thumbnails carry
+ *   them.
+ * @param targetCanvasPath - the exact `data-canvas-path` to drop onto — an
+ *   existing place (empty or filled) or a container's own append slot, one
+ *   past its last child, or `""` for the page root's own append slot when
+ *   there is nothing at that exact top-level index yet.
+ */
+export async function dragPaletteOnto(
+  page: Page,
+  choice: { kind: string } | { mode: string },
+  targetCanvasPath: string,
+): Promise<void> {
+  await page.getByTestId("panel-tab-palette").click();
+  const thumbnail =
+    "kind" in choice
+      ? page.locator(`[data-palette-kind="${choice.kind}"]`)
+      : page.locator(`[data-palette-mode="${choice.mode}"]`);
+  await expect(thumbnail).toBeVisible();
+  // **Both ends are scrolled into view before their geometry is read, and
+  // this is load-bearing rather than tidy.** The Palette tab lists all
+  // sixteen leaf kinds and eight container modes in one scrollable pane —
+  // a container mode thumbnail sits well below the fold on an ordinary
+  // viewport — and `boundingBox()` answers the element's LAID-OUT position
+  // whether or not it is currently within the visible scrollport. Moving
+  // the mouse to that position without scrolling first targets a point
+  // outside the viewport the real browser never dispatches a pointer event
+  // to, so the drag silently never begins — no error, no thrown assertion,
+  // just a drop that lands nowhere. Confirmed by direct reproduction: the
+  // identical drag against the identical target succeeds once each
+  // locator is scrolled into view first and fails, silently, without it.
+  const targetLocator = page.locator(
+    `[data-canvas-path="${targetCanvasPath}"]`,
+  );
+  await thumbnail.scrollIntoViewIfNeeded();
+  const source = await thumbnail.boundingBox();
+  await targetLocator.scrollIntoViewIfNeeded();
+  const target = await targetLocator.boundingBox();
+  expect(
+    source,
+    `no palette thumbnail for ${JSON.stringify(choice)}`,
+  ).not.toBeNull();
+  expect(target, `no canvas position at "${targetCanvasPath}"`).not.toBeNull();
+  // Clears `DRAG_THRESHOLD` (8px) before crossing to the target, matching
+  // `palette-drag-to-add.spec.ts`'s own shape: a single big jump risks the
+  // sensor never registering the intermediate move that proves a real drag —
+  // rather than a click — is under way.
+  await page.mouse.move(
+    source!.x + source!.width / 2,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    source!.x + source!.width / 2 + 20,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.move(
+    target!.x + target!.width / 2,
+    target!.y + target!.height / 2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  // Past `@dnd-kit/core`'s own post-drop click-swallow window —
+  // `PointerSensor.detach()` keeps a document-level capturing `click`
+  // listener alive for exactly 50ms after a drop (root rule 41's measured
+  // exemption class).
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- see comment above.
+    () => new Promise((done) => setTimeout(done, 100)),
+  );
+}
+
+/**
+ * Finds the first empty existing place inside a container, or its own
+ * append slot when every place is filled or none exist yet.
+ *
+ * **The closest available approximation of the deleted `AddBlockPicker`'s
+ * "always fills the parent's first empty place" contract — approximation,
+ * not equivalence.** Landing a drop on the path this returns still GROWS
+ * the container by one whenever the returned path names an existing null
+ * (see {@link dragPaletteOnto}'s own account), so a page built through this
+ * helper carries one extra empty place for every existing null it lands
+ * ahead of — where the deleted mechanism carried none. What it preserves is
+ * ORDER: content added through repeated calls lands at increasing indices,
+ * the same left-to-right sequence the deleted mechanism produced, even
+ * though the total count now differs.
+ *
+ * @param page - the editor page.
+ * @param containerPath - the container's own hyphen-joined path, or `""`
+ *   for the page root.
+ * @returns the `data-canvas-path` to drop onto.
+ */
+async function firstOpenPlace(
+  page: Page,
+  containerPath: string,
+): Promise<string> {
+  const depth = containerPath === "" ? 1 : containerPath.split("-").length + 1;
+  const prefix = containerPath === "" ? "" : `${containerPath}-`;
+  const locator = prefix
+    ? page.locator(`[data-canvas-path^="${prefix}"]`)
+    : page.locator("[data-canvas-path]");
+  const found = await locator.evaluateAll((elements, wantedDepth) => {
+    type Candidate = { path: string; isAppend: boolean; hasBlock: boolean };
+    const direct: Candidate[] = [];
+    for (const element of elements) {
+      const path = element.getAttribute("data-canvas-path");
+      if (!path || path.split("-").length !== wantedDepth) continue;
+      direct.push({
+        path,
+        isAppend: element.getAttribute("data-testid") === "canvas-append-slot",
+        hasBlock:
+          document.querySelector(`[data-block-path="${path}"]`) !== null,
+      });
+    }
+    direct.sort(
+      (a, b) =>
+        Number(a.path.split("-").at(-1)) - Number(b.path.split("-").at(-1)),
+    );
+    const open = direct.find((entry) => !entry.isAppend && !entry.hasBlock);
+    if (open) return open.path;
+    const append = direct.find((entry) => entry.isAppend);
+    return append ? append.path : null;
+  }, depth);
+  if (!found) {
+    throw new Error(
+      `no open place or append slot found under "${containerPath}"`,
+    );
+  }
+  return found;
+}
+
+/**
+ * Drags a leaf kind or a container mode onto the first open place inside a
+ * container, through the persistent Palette tab.
+ *
+ * **Replaces the deleted `AddBlockPicker`'s single global Add
+ * (2026-09-06).** That mechanism read the CURRENT SELECTION to decide where
+ * a choice landed; this reads the container's own path instead, since the
+ * palette implies no target of its own — a caller wanting to add beside
+ * something already selected passes that block's own container path
+ * directly, the same path {@link selectBlock} would have used to select it.
+ *
+ * @param page - the editor page.
+ * @param choice - a content kind (`data-palette-kind`) or a layout mode
+ *   (`data-palette-mode`).
+ * @param containerPath - the container to add into — its own hyphen-joined
+ *   path, or `""` for the page root.
  */
 export async function addBlock(
   page: Page,
   choice: { kind: string } | { mode: string },
+  containerPath: string,
 ): Promise<void> {
-  await page.getByTestId("add-block").click();
-  const dialog = page.getByTestId("add-block-picker");
-  await expect(dialog).toBeVisible();
-  const option =
-    "kind" in choice
-      ? dialog.locator(`[data-add-kind="${choice.kind}"]`)
-      : dialog.locator(`[data-add-mode="${choice.mode}"]`);
-  await option.click();
-  await expect(dialog).toBeHidden();
+  const target = await firstOpenPlace(page, containerPath);
+  await dragPaletteOnto(page, choice, target);
 }
 
 /**
- * Adds a new top-level section from the page-level Add picker, in `grid`
+ * Adds a new top-level section from the persistent Palette tab, in `grid`
  * mode, then sets its own width through its Layout tab.
  *
- * **No tab click is needed to reach `section-spaces` (2026-09-04).**
- * `addAt` (`block-editor.tsx`) selects whatever it just added and resets the
- * panel to its PRIMARY tab — which, for a freshly added container, is Layout:
- * `BlockCard` with the mode/spaces/weights controls, mounted alongside this
- * function's own polling target with no navigation in between.
+ * **Always lands at the page's own append slot (2026-09-06).** No top-level
+ * entry is ever `null` — every one is a real section — so
+ * {@link firstOpenPlace} for the page root always resolves to the append
+ * slot, exactly as the deleted `AddBlockPicker`'s page-root add always did.
+ *
+ * **No tab click is needed to reach `section-spaces`.** A successful drop
+ * selects what it just added and switches the panel to its PRIMARY tab —
+ * which, for a freshly added container, is Layout: `BlockCard` with the
+ * mode/spaces/weights controls, mounted alongside this function's own
+ * polling target with no navigation in between.
  *
  * @param page - the editor page.
  * @param spaces - how many places across, as the select stores it.
  */
 export async function addSection(page: Page, spaces: string): Promise<void> {
-  await openPageAdd(page);
-  await addBlock(page, { mode: "grid" });
+  await addBlock(page, { mode: "grid" }, "");
   const select = page.getByTestId("section-spaces");
   await expect(select).toBeVisible();
   // **Retries the assignment**, for the same reason `chooseNewSectionSpaces`

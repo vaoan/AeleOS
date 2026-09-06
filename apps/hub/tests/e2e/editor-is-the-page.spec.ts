@@ -11,7 +11,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { addBlock, openPageAdd } from "./support/editor";
+import { addBlock } from "./support/editor";
 
 // One sign-in for the whole file: every case below reads the same seeded
 // page and none depends on what an earlier case left behind, so they
@@ -712,9 +712,7 @@ test("every workbench group is opaque, whatever the page behind it", async ({
   page,
 }) => {
   await page.goto("/es/pages/new");
-  await openPageAdd(page);
-  await expect(page.getByTestId("add-block")).toBeVisible();
-  await addBlock(page, { mode: "grid" });
+  await addBlock(page, { mode: "grid" }, "");
 
   // Adding selects the new section on its Layout tab; Appearance is the
   // other one. There is no popup or separate panel element any more — the

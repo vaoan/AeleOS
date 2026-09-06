@@ -34,8 +34,7 @@ function editor(
  *
  * A named interface rather than an inline literal, so `jsdoc/check-param-names`
  * does not expand it into dotted `@param` entries `tsdoc/syntax` then refuses
- * as invalid identifiers — the same shape `AddBlockPickerProps` already keeps
- * `addSlotPortal`'s own single `@param props` clean.
+ * as invalid identifiers.
  */
 interface RenderFrameProps {
   /** The encoded block path to render at. */

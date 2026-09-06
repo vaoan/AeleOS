@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { addBlock, openPageAdd } from "./support/editor";
+import { addBlock } from "./support/editor";
 
 // THE PROPERTIES PANEL, RENAMED FROM `canvas-inspector.spec.ts` (2026-09-04).
 //
@@ -93,8 +93,7 @@ test("a sibling place stays empty and rendered once one place is filled", async 
   // opens; see `support/blocks.ts`'s `SEEDED_IDENTITY_SECTIONS`). The
   // section this test adds through the page-level palette is therefore the
   // SECOND top-level one, path `"1"`, not `"0"`.
-  await openPageAdd(page);
-  await addBlock(page, { mode: "grid" });
+  await addBlock(page, { mode: "grid" }, "");
   // A freshly added section starts at two places, both empty, each
   // rendering `public-space` inside its own `data-canvas-path` wrapper —
   // present for every place, filled or not, in the editor as much as on a
@@ -116,14 +115,16 @@ test("a sibling place stays empty and rendered once one place is filled", async 
     );
   expect(realPlaceCount).toBe(2);
 
-  // The section itself is already selected, on its own primary tab, so the
-  // one global Add targets it directly.
-  await addBlock(page, { kind: "text" });
+  // Dragged onto the section's own first open place ("1-0") through the
+  // persistent Palette tab — `firstOpenPlace` finds it directly, since that
+  // is the container's own first still-empty child.
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Filled");
 
   // The first place is now a real block, addressable by `data-block-path`;
-  // the second is still an empty place, which — unlike a filled one — never
-  // carries `data-block-path` at all.
+  // the second — the container's ORIGINAL second null, shifted one position
+  // later by the insert rather than replaced — is still an empty place,
+  // which unlike a filled one never carries `data-block-path` at all.
   await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
   await expect(page.locator('[data-block-path="1-1"]')).toHaveCount(0);
   await expect(
@@ -184,8 +185,7 @@ test("Escape aimed at a field inside the panel keeps the selection", async ({
   // by construction, exactly like the fault this test was written for.
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
-  await openPageAdd(page);
-  await addBlock(page, { kind: "link" });
+  await addBlock(page, { kind: "link" }, "");
   await expect(page.getByTestId("leaf-kind")).toHaveValue("link");
 
   const trigger = page
@@ -328,9 +328,10 @@ test("the panel closes itself directly from a nested leaf", async ({
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
-  await openPageAdd(page);
-  await addBlock(page, { mode: "grid" });
-  await addBlock(page, { kind: "text" });
+  // The identity section occupies top-level path "0", so this freshly added
+  // one is "1"; the leaf is dragged into it directly.
+  await addBlock(page, { mode: "grid" }, "");
+  await addBlock(page, { kind: "text" }, "1");
   await expect(page.getByTestId("leaf-kind")).toBeVisible();
 
   await page.getByTestId("panel-close").click();

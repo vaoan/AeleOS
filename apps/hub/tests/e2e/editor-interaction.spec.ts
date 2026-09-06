@@ -47,9 +47,10 @@ async function buildLinkPage(
 ): Promise<void> {
   await page.goto("/es/pages/new");
   await addSection(page, "1");
-  // The section is selected on its own Layout tab; the single global Add
-  // targets it directly and fills its first empty place.
-  await addBlock(page, { kind: "link" });
+  // The identity section occupies top-level path "0", so this freshly added
+  // one is "1" — dragged onto its own first open place through the
+  // persistent Palette tab.
+  await addBlock(page, { kind: "link" }, "1");
   await page.getByTestId("leaf-title").fill("A real link");
   await page.getByTestId("leaf-link").fill("https://example.com");
 }

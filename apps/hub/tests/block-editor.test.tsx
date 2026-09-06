@@ -26,10 +26,6 @@ import {
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import { FURSONA_TEMPLATES } from "@/features/actors/domain/fursona-templates";
 import { SECTION_PRESETS } from "@/features/actors/presentation/section-presets";
-import {
-  AddSlotProvider,
-  AddSlotTarget,
-} from "@/features/actors/presentation/add-slot";
 import { blockEditorLabels } from "./support/editor-labels";
 
 // PRESENTATION IS COVERAGE-EXCLUDED, so a named test is the only thing that
@@ -150,23 +146,20 @@ function harness(
       </form>
     );
   }
-  // The Add picker's previews reach `useTranslations` through `RetroPlayer`
-  // for `player`/`jukebox` — exactly as `blocks.test.tsx` and
-  // `add-block-picker.test.tsx` document — and the picker is reachable from
-  // every scope now, so every render here needs the real provider with the
-  // real catalogue rather than a stub that would measure a different
-  // program.
+  // The Palette tab's previews reach `useTranslations` through `RetroPlayer`
+  // for `player`/`jukebox` — exactly as `blocks.test.tsx` documents — and the
+  // Palette tab is reachable from every scope, so every render here needs the
+  // real provider with the real catalogue rather than a stub that would
+  // measure a different program.
   //
-  // **`AddSlotProvider`/`AddSlotTarget` stand in for `EditorToolbar`.** The
-  // single global Add is portalled out of `BlockEditor` into a slot the real
-  // toolbar renders; this harness renders only `BlockEditor`, so it has to
-  // supply that slot itself for `add-block` to be reachable at all.
+  // **No Add slot to supply any more (2026-09-06).** `AddSlotProvider`/
+  // `AddSlotTarget` used to stand in for `EditorToolbar`, portalling the old
+  // `AddBlockPicker` out of `BlockEditor` into a slot only the real toolbar
+  // rendered. `AddPalette` is rendered directly by `BlockEditor` itself now,
+  // with no portal and nothing for this harness to wire.
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <AddSlotProvider>
-        <AddSlotTarget />
-        <Harness />
-      </AddSlotProvider>
+      <Harness />
     </NextIntlClientProvider>,
   );
   const page = (() => form!.getValues().sections) as HarnessPage;
@@ -297,6 +290,68 @@ const firstContainer = (page: Block[]): ContainerBlock => {
   return block;
 };
 
+/**
+ * Opens the Properties panel's Palette tab, mounting `AddPalette` for the
+ * first time — `paletteOpened` in `block-editor.tsx` is set exactly once, on
+ * this click, and never reset.
+ *
+ * **Waits past `@dnd-kit/core`'s own post-drop click-swallow window first.**
+ * `PointerSensor.detach()` keeps a document-level CAPTURING `click` listener
+ * alive for exactly 50ms after a drop, specifically to swallow the synthetic
+ * click a mouseup-after-drag produces — named in this repository's own root
+ * note on `section-drag-reorder.spec.ts`, which found the identical
+ * mechanism in a browser. That listener is a raw `document.addEventListener`
+ * a prior test's drag leaves behind; it is not tied to this component's
+ * React lifecycle, so unmounting between tests does not remove it early, and
+ * it swallows ANY click landing in its window — this one included, whoever
+ * it targets — with no error at all. Measured here without the wait: cases
+ * calling this after an earlier test in the same file completed a real drop
+ * failed at this exact click, silently.
+ *
+ * Hoisted to module scope (2026-09-06) rather than declared inside the
+ * "dragging from the persistent Palette tab" `describe` alone: several
+ * `BlockEditor`-level cases now use the palette as their only way to add a
+ * block, since `AddBlockPicker` is deleted.
+ */
+const openPalette = async (): Promise<void> => {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  });
+  fireEvent.click(screen.getByTestId("panel-tab-palette"));
+};
+
+/**
+ * Drives a real keyboard drag of a palette thumbnail: lift, step, drop —
+ * mirroring the top-level `drag` helper's own shape for a canvas grip, but
+ * locating the source by its accessible name rather than a `canvas-drag-*`
+ * test id, since a palette thumbnail carries no `BlockPath` of its own to
+ * address it by.
+ *
+ * Hoisted to module scope (2026-09-06) alongside {@link openPalette}, for the
+ * same reason.
+ *
+ * @param caption - the thumbnail's accessible name.
+ * @param steps - the keys to press between the lift and the drop —
+ * `"ArrowDown"`/`"ArrowRight"` to step forward, `"ArrowUp"`/`"ArrowLeft"` to
+ * step back, or `"Tab"` to skip to the next section.
+ */
+const paletteKeyboardDrag = async (
+  caption: string,
+  steps: string[],
+): Promise<void> => {
+  fireEvent.keyDown(screen.getByRole("button", { name: caption }), {
+    code: "Space",
+    key: " ",
+  });
+  await settle();
+  for (const code of steps) {
+    fireEvent.keyDown(document, { code });
+    await settle();
+  }
+  fireEvent.keyDown(document, { code: "Space", key: " " });
+  await settle();
+};
+
 describe("BlockEditor", () => {
   // **The panel's own card is a control, never a second renderer.** Clicking
   // a section on the canvas opens its card in the Properties panel directly
@@ -332,35 +387,40 @@ describe("BlockEditor", () => {
     expect(screen.getByText(labels.empty)).toBeInTheDocument();
   });
 
-  // ONE ADD CONTROL, not the sixteen flat `add-leaf-*` buttons plus
-  // `add-section` this replaced. Presets and `add-place` are unrelated
-  // controls and stay exactly where they were.
-  it("offers exactly one add-block in Page Items, alongside presets", () => {
+  // ONE ADD MECHANISM (2026-09-06), not the sixteen flat `add-leaf-*`
+  // buttons plus `add-section` this feature replaced, nor the `AddBlockPicker`
+  // modal that superseded those and is itself superseded now: adding a block
+  // is a drag from the persistent Palette tab. Presets and `add-place` are
+  // unrelated controls and stay exactly where they were.
+  it("offers the Palette tab in Page Items, alongside presets", () => {
     harness();
     openPageAdd();
-    expect(screen.getAllByTestId("add-block")).toHaveLength(1);
+    expect(screen.getByTestId("panel-tab-palette")).toBeInTheDocument();
     expect(screen.getByTestId("section-presets")).toBeInTheDocument();
     for (const kind of offerableLeafKinds("fursona")) {
       expect(screen.queryByTestId(`add-leaf-${kind}`)).toBeNull();
     }
   });
 
-  // A SECTION NOW STARTS AT A FIXED SHAPE AND IS RESHAPED AFTERWARDS, which is
+  // A SECTION STARTS AT A FIXED SHAPE AND IS RESHAPED AFTERWARDS, which is
   // what every nested container already did — `add-nested` never let anybody
   // choose a width before adding either. Choosing a width up front was the
-  // one thing the page level did differently, and the picker makes every
-  // scope work the same way: `add-block` adds `newContainer(mode, 2)`, and
-  // the section's own shape control (`block-card.test.tsx`) is where its
-  // width is chosen afterwards.
-  it("adds a section from the picker, with two places to start", () => {
+  // one thing the page level did differently, and both the picker before it
+  // and the palette now make every scope work the same way: a dragged
+  // container thumbnail adds `newContainer(mode, 2)`, and the section's own
+  // shape control (`block-card.test.tsx`) is where its width is chosen
+  // afterwards. Dropped by KEYBOARD rather than by pointer: jsdom gives every
+  // rect the same degenerate `{0,0,0,0}` box, so a pointer drop resolves to
+  // whichever registered target is DEEPEST rather than to the page root this
+  // case needs — the keyboard path steps through `insertTargetsFor`'s own
+  // domain order instead, which is exact regardless of geometry.
+  it("adds a section from the palette, with two places to start", async () => {
     const page = harness();
-    openPageAdd();
-    fireEvent.click(screen.getByTestId("add-block"));
-    fireEvent.click(
-      screen
-        .getAllByTestId("add-block-option")
-        .find((option) => option.getAttribute("data-add-mode") === "grid")!,
-    );
+    await openPalette();
+    // The page starts empty, so `insertTargetsFor` names exactly the page's
+    // own trailing append slot, `[0]`, as its only target — one press lands
+    // there directly.
+    await paletteKeyboardDrag(labels.modes.grid, ["ArrowDown"]);
 
     const block = firstContainer(page());
     expect(block.spaces).toBe(2);
@@ -372,25 +432,24 @@ describe("BlockEditor", () => {
     ).toHaveLength(2);
   });
 
-  it("appends rather than replacing what is already there", () => {
+  it("appends rather than replacing what is already there", async () => {
     const page = harness([newContainer("stack", 1)]);
-    openPageAdd();
-    fireEvent.click(screen.getByTestId("add-block"));
-    fireEvent.click(
-      screen
-        .getAllByTestId("add-block-option")
-        .find((option) => option.getAttribute("data-add-mode") === "grid")!,
-    );
+    await openPalette();
+    // `insertTargetsFor` orders every top-level splice before any existing
+    // container's own places — `[0]` (before the existing section), then
+    // `[1]` (its own trailing append slot) — so one press past the first
+    // lands on the page's own append slot rather than inside the section.
+    await paletteKeyboardDrag(labels.modes.grid, ["ArrowDown", "ArrowDown"]);
     expect(page()).toHaveLength(2);
   });
 
-  // THE "NESTING LOOKED DELETED" BUG this replaces the flat add row to fix:
+  // THE "NESTING LOOKED DELETED" BUG this whole mechanism exists to fix:
   // `add-nested` used to exist only on an EMPTY place, so a section whose
-  // places were all filled offered no way to add a section inside it at all.
-  // `mayNest` still admits one up to `MAX_DEPTH` — the picker just has to be
-  // reachable from a full scope's own Items footer, not only from a place
-  // that happens to be empty.
-  it("still offers add-block from a full two-place container, and adds a nested container inside it", () => {
+  // places were all filled offered no way to add a section inside it at
+  // all. `mayNest` still admits one up to `MAX_DEPTH` — the palette just has
+  // to offer a container target one level deeper than a full container's own
+  // path, not only from a place that happens to be empty.
+  it("drags a container thumbnail into a full two-place container, adding a nested container inside it", async () => {
     const page = harness([
       {
         ...newContainer("grid", 2),
@@ -398,14 +457,20 @@ describe("BlockEditor", () => {
       },
     ]);
     selectPath("0");
-
-    expect(screen.getByTestId("add-block")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("add-block"));
-    fireEvent.click(
-      screen
-        .getAllByTestId("add-block-option")
-        .find((option) => option.getAttribute("data-add-mode") === "grid")!,
-    );
+    await openPalette();
+    // `insertTargetsFor`'s order is `[0]`, `[1]` (the page's own two
+    // splices, before and after the one section), then `[0,0]`, `[0,1]`
+    // (the section's two already-filled places, each a splice to insert
+    // BEFORE) and finally `[0,2]` — the section's own trailing append
+    // slot, which is the one that appends rather than displacing either
+    // existing child. Five presses reaches it.
+    await paletteKeyboardDrag(labels.modes.grid, [
+      "ArrowDown",
+      "ArrowDown",
+      "ArrowDown",
+      "ArrowDown",
+      "ArrowDown",
+    ]);
 
     const outer = firstContainer(page());
     expect(outer.children).toHaveLength(3);
@@ -415,37 +480,14 @@ describe("BlockEditor", () => {
 
   // The deepest CONTAINER `mayNest` still admits sits at depth two — a
   // section, a container inside it, a container inside that — where a
-  // fourth level would exceed `MAX_DEPTH`. The picker's layout group must be
-  // absent from that container's own Items footer, matching what an empty
-  // place at the same depth already refuses.
-  it("offers no layout option from the panel's Add at the depth cap", () => {
-    harness([
-      {
-        ...newContainer("stack", 1),
-        children: [
-          {
-            ...newContainer("stack", 1),
-            children: [
-              { ...newContainer("stack", 1), children: [titled("deep")] },
-            ],
-          },
-        ],
-      },
-    ]);
-    // The innermost container — a section, a container inside it, a
-    // container inside that — is the deepest a container may sit; nesting
-    // one more there would put a fourth container at the cap.
-    selectPath("0-0-0");
-
-    fireEvent.click(screen.getByTestId("add-block"));
-    expect(
-      screen
-        .getAllByTestId("add-block-option")
-        .every((option) => !option.hasAttribute("data-add-mode")),
-    ).toBe(true);
-    expect(screen.getByTestId("nesting-at-limit")).toBeInTheDocument();
-  });
-
+  // fourth level would exceed `MAX_DEPTH`. `insertTargetsFor` filters a
+  // container target through `mayNest` before ever offering it as
+  // draggable-onto, so a too-deep container target never reaches this
+  // component's own collision pipeline at all — the same "no reachable
+  // discriminating test at this level" finding `palette-targets.test.ts`
+  // already carries for the pure function. That domain suite is where this
+  // refusal is pinned now.
+  //
   // A TEMPLATE REPLACES, which is why the picker confirms first when there is
   // anything to lose. Templates are still written in the flat vocabulary, so
   // what arrives is the conversion — the same one that opens every page
@@ -565,7 +607,7 @@ describe("BlockEditor", () => {
   // 20s is chosen so a runner four times slower than the one that failed still
   // reaches the assertions. If it ever times out again, that is a real
   // rendering regression and not a number to raise.
-  it("withdraws every add control at the block cap and says why", () => {
+  it("withdraws the brand presets at the block cap and says why", () => {
     const full: Block[] = Array.from({ length: BLOCK_LIMITS.blocks }, () => ({
       ...newLeaf("text"),
       title_en: "x",
@@ -573,7 +615,6 @@ describe("BlockEditor", () => {
     harness(full);
     openPageAdd();
     expect(screen.getByText(labels.atLimit)).toBeInTheDocument();
-    expect(screen.queryByTestId("add-block")).toBeNull();
     expect(screen.queryByTestId("section-presets")).toBeNull();
   }, 20_000);
 
@@ -582,7 +623,8 @@ describe("BlockEditor", () => {
   it("counts an empty place against nothing", () => {
     harness([{ ...newContainer("grid", 6), children: Array(50).fill(null) }]);
     openPageAdd();
-    expect(screen.getByTestId("add-block")).toBeInTheDocument();
+    expect(screen.getByText(labels.addSectionFor)).toBeInTheDocument();
+    expect(screen.queryByText(labels.atLimit)).toBeNull();
   });
 
   // A PAGE MAY HOLD A LEAF AT THE TOP LEVEL, and one this editor could not
@@ -1047,31 +1089,10 @@ describe("the Properties panel", () => {
   // drag below moves away from `(0, 0)` once to start it and back to it once
   // to land.
   describe("dragging from the persistent Palette tab", () => {
-    /**
-     * Opens the Properties panel's Palette tab, mounting `AddPalette` for
-     * the first time — `paletteOpened` in `block-editor.tsx` is set exactly
-     * once, on this click, and never reset.
-     *
-     * **Waits past `@dnd-kit/core`'s own post-drop click-swallow window
-     * first.** `PointerSensor.detach()` keeps a document-level CAPTURING
-     * `click` listener alive for exactly 50ms after a drop, specifically to
-     * swallow the synthetic click a mouseup-after-drag produces — named in
-     * this repository's own root note on `section-drag-reorder.spec.ts`,
-     * which found the identical mechanism in a browser. That listener is a
-     * raw `document.addEventListener` a prior test's drag leaves behind; it
-     * is not tied to this component's React lifecycle, so unmounting
-     * between tests does not remove it early, and it swallows ANY click
-     * landing in its window — this one included, whoever it targets — with
-     * no error at all. Measured here without the wait: the second and third
-     * cases in this `describe` failed at this exact click, silently, only
-     * when run after a case that completed a real drop.
-     */
-    const openPalette = async (): Promise<void> => {
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 60));
-      });
-      fireEvent.click(screen.getByTestId("panel-tab-palette"));
-    };
+    // `openPalette` is a module-scope helper now (2026-09-06) — several
+    // `BlockEditor`-level cases outside this `describe` use it too, since
+    // the palette is the only way to add a block once `AddBlockPicker` is
+    // deleted.
 
     /**
      * Dispatches a pointer-typed event a real `PointerSensor` activates on.
@@ -1200,11 +1221,37 @@ describe("the Properties panel", () => {
       );
     });
 
+    // **Ends far from `(0, 0)` rather than returning to it (2026-09-06).**
+    // A completely empty page used to have no registered droppable at all,
+    // so returning to the one point every degenerate rect contained still
+    // found nothing — but the page's own root append slot renders now (this
+    // task closes that gap; see `block-editor.tsx`'s own append-slot TSDoc),
+    // so an empty page HAS a real target there and a drag returning to
+    // `(0, 0)` would land on it. Ending well away from the origin instead —
+    // measured, `(40, 40)` alone was not far enough to clear whatever
+    // dnd-kit still measured from the drag's start; `(9999, 9999)` is —
+    // means no rect, the page's own trailing slot included, ever contains
+    // the pointer, which is the genuine "no target" case regardless of what
+    // the page renders.
     it("does nothing when a palette drag ends over no target", async () => {
       const page = harness();
       await openPalette();
 
-      await paletteDrag(labels.leaf.leafKinds.text);
+      const item = screen.getByRole("button", {
+        name: labels.leaf.leafKinds.text,
+      });
+      await act(async () => {
+        firePointerEvent(item, "pointerdown", 0);
+      });
+      await act(async () => {
+        firePointerEvent(document, "pointermove", 40);
+      });
+      await act(async () => {
+        firePointerEvent(document, "pointermove", 9999);
+      });
+      await act(async () => {
+        firePointerEvent(document, "pointerup", 9999);
+      });
 
       expect(page()).toEqual([]);
       expect(screen.queryByTestId("drag-refusal")).toBeNull();
@@ -1217,34 +1264,9 @@ describe("the Properties panel", () => {
     // list, so these two cases drive the real sensor over real domain
     // ordering rather than over jsdom's fake geometry.
     describe("dragging from the persistent Palette tab by keyboard", () => {
-      /**
-       * Drives a real keyboard drag of a palette thumbnail: lift, step,
-       * drop — mirroring the top-level `drag` helper's own shape for a
-       * canvas grip, but locating the source by its accessible name rather
-       * than a `canvas-drag-*` test id, since a palette thumbnail carries no
-       * `BlockPath` of its own to address it by.
-       *
-       * @param caption - the thumbnail's accessible name.
-       * @param steps - the keys to press between the lift and the drop —
-       * `"ArrowDown"`/`"ArrowRight"` to step forward, `"ArrowUp"`/
-       * `"ArrowLeft"` to step back, or `"Tab"` to skip to the next section.
-       */
-      const paletteKeyboardDrag = async (
-        caption: string,
-        steps: string[],
-      ): Promise<void> => {
-        fireEvent.keyDown(screen.getByRole("button", { name: caption }), {
-          code: "Space",
-          key: " ",
-        });
-        await settle();
-        for (const code of steps) {
-          fireEvent.keyDown(document, { code });
-          await settle();
-        }
-        fireEvent.keyDown(document, { code: "Space", key: " " });
-        await settle();
-      };
+      // `paletteKeyboardDrag` is a module-scope helper now (2026-09-06),
+      // used by several `BlockEditor`-level cases outside this `describe`
+      // too — see its own doc comment near the top of this file.
 
       it("drops a leaf onto an empty place by keyboard, adding and selecting it", async () => {
         const page = harness([
@@ -1256,13 +1278,14 @@ describe("the Properties panel", () => {
         // ([0], before this one section; [1], one past it — the page's own
         // trailing append slot), then the section's own places ([0,0], the
         // existing empty one; [0,1], one past it). Press 1 lands on [0] —
-        // the section's own rendered wrap. Press 2 asks for [1] next, but
-        // the page's own trailing append slot renders no marker at all (a
-        // real, accepted gap named in `block-editor.tsx`'s own feature
-        // note), so the walk keeps stepping past it within the SAME key
-        // press and lands on [0,0] instead — the section's own empty place,
-        // which IS rendered. Two presses, not three.
+        // the section's own rendered wrap. Press 2 lands on [1] itself:
+        // the page's own trailing append slot renders a real marker now
+        // (2026-09-06, this task — see `block-editor.tsx`'s own append-slot
+        // TSDoc), where it used to render none and be skipped within the
+        // same key press. Press 3 reaches [0,0], the section's own empty
+        // place.
         await paletteKeyboardDrag(labels.leaf.leafKinds.text, [
+          "ArrowDown",
           "ArrowDown",
           "ArrowDown",
         ]);
