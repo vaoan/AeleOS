@@ -1206,6 +1206,17 @@ function panelFootFor({
  * through a sibling drop, and `"into itself"`/`"too deep"` both need a depth
  * change a same-parent target cannot produce from an already-valid tree.
  *
+ * **A palette-origin lift needed the identical fix a second time
+ * (2026-09-06), on a THIRD id space neither `canvasPlacePath` nor
+ * `placePath` was ever going to understand.** `active.id` at the start of
+ * such a drag is a `paletteId(...)` string naming a leaf kind or a
+ * container mode, not a place — so the `name` callback fell through to
+ * `placeName([])` and announced "Picked up ." with the item unnamed, on
+ * every palette lift, silently. `dragItemName` checks `palettePayload`
+ * first and names the item itself; `over.id` never needs the same
+ * treatment, because a palette item is only ever a draggable SOURCE and
+ * every `over` during its drag is a real, already-rendered canvas place.
+ *
  * **The add controls are withdrawn at the block cap, with a sentence saying
  * why.** A button that silently does nothing reads as broken, and the cap is
  * not a fault on the person's part — it is a number `blocksSchema` and
@@ -1481,6 +1492,31 @@ export function BlockEditor<T extends FieldValues>({
   const [advertisedTarget, setAdvertisedTarget] = useState<DropTarget | null>(
     null,
   );
+  // **Forces exactly one re-render at the start and end of a palette-origin
+  // drag, found missing by a real browser rather than assumed present
+  // (2026-09-06).** `insertTargetsRef` below is a ref precisely because its
+  // own comment says "the drag's own `onDragOver`-driven state updates"
+  // already cause whatever render this needs — which is true for a
+  // canvas-move drag, whose `onDragOver` calls `setAdvertisedTarget` with a
+  // value that changes as the pointer crosses targets, and false for a
+  // palette-origin one: `pointerTarget`/`keyboardTarget` are written only by
+  // the canvas-move branches of `onDragStart`/`detectCollisionAt`, so a
+  // palette drag's `onDragOver` computes `null ?? null` for its entire
+  // course and React bails out of every one of those `setAdvertisedTarget`
+  // calls as a no-op state update. Nothing else in this component re-renders
+  // during that window, so `insertTargetsRef.current` — set at
+  // `onDragStart` — was captured stale (still `null`, from before the drag)
+  // in every `EditableBlockFrame`/`AppendSlot` the tree renders, and
+  // `data-canvas-drop="place"` never appeared for a real pointer-driven
+  // palette drag. `palette-drag-to-add.spec.ts`'s own depth-cap case and
+  // `a11y.spec.ts`'s drag-in-progress scan both caught this the first time
+  // either asked a real browser rather than jsdom's degenerate rects. This
+  // state's only job is to differ from itself across that boundary — `true`
+  // at the start of a palette drag, `false` at its end or cancellation —
+  // which is enough: `insertTargetsFor`'s own membership answer is constant
+  // for the whole drag, so nothing here needs to change on every pointer
+  // move the way `advertisedTarget` genuinely does for a canvas-move one.
+  const [, setPaletteDragActive] = useState(false);
   const [selection, setSelection] = useResettableSelection(selectionResetKey);
   const [tab, setTab] = useState<PropertiesActiveTab>("primary");
   // **`AddPalette` does not mount until the Palette tab is opened once, and
@@ -1568,9 +1604,11 @@ export function BlockEditor<T extends FieldValues>({
   // move.** A ref rather than state: recomputing this is `insertTargetsFor`
   // walking the whole page, and nothing reads it during render except
   // through the `editor` object literal below, which itself is rebuilt on
-  // every render regardless — so there is no render this needs to trigger
-  // on its own that the drag's own `onDragOver`-driven state updates do not
-  // already cause.
+  // every render regardless. **A render still has to be TRIGGERED for that
+  // fresh read to reach the DOM, and this file used to claim the drag's own
+  // `onDragOver`-driven state updates already caused one — see
+  // `paletteDragActive`'s own comment above for why that was false, found
+  // by a real browser rather than assumed.**
   const insertTargetsRef = useRef<readonly InsertTarget[] | null>(null);
   // **Where a palette-origin KEYBOARD drag is now — parallel to
   // `keyboardTarget`, and read by nothing on the canvas-move path.**
@@ -1748,6 +1786,7 @@ export function BlockEditor<T extends FieldValues>({
       pointerTarget.current = null;
       setAdvertisedTarget(null);
       setRefusal(null);
+      setPaletteDragActive(true);
       return;
     }
     insertTargetsRef.current = null;
@@ -1772,6 +1811,7 @@ export function BlockEditor<T extends FieldValues>({
     keyboardTarget.current = null;
     pointerTarget.current = null;
     setAdvertisedTarget(null);
+    setPaletteDragActive(false);
   };
 
   /**
@@ -1801,6 +1841,7 @@ export function BlockEditor<T extends FieldValues>({
       insertTargetsRef.current = null;
       paletteKeyboardTarget.current = null;
       setAdvertisedTarget(null);
+      setPaletteDragActive(false);
       const overId = event.over ? String(event.over.id) : undefined;
       const targetPath = overId ? canvasPlacePath(overId) : undefined;
       if (!targetPath) return;
@@ -2005,12 +2046,26 @@ export function BlockEditor<T extends FieldValues>({
   // `useMemo` over that buys nothing and costs the React Compiler its ability
   // to memoize the component at all. `useDndMonitor` re-registers a listener
   // when this changes, which is a set add and remove in an effect.
+  // **A palette-origin lift names the ITEM being lifted, not a place
+  // (2026-09-06).** `active.id` for such a drag is a `paletteId(...)` string
+  // — `"palette:leaf:text"`, say — which neither `canvasPlacePath` nor
+  // `placePath` can resolve, so before this branch existed the callback fell
+  // through to `placeName([])`: the empty string, announcing "Picked up ."
+  // with nothing named at all. The exact fault this file's own `refusalOf`
+  // paragraph already documents for a canvas grip's id, recurring on a
+  // second id space nobody had checked yet — `over.id` during the same drag
+  // is always a real canvas place (a palette item is only ever a draggable
+  // SOURCE, never a droppable target), so only the lift needed this.
+  const dragItemName = (id: string): string => {
+    const item = palettePayload(id);
+    if (!item) return placeName(canvasPlacePath(id) ?? placePath(id) ?? []);
+    return item.kind === "leaf"
+      ? labels.leaf.leafKinds[item.leafKind]
+      : labels.modes[item.mode];
+  };
+
   const accessibility = {
-    announcements: dragAnnouncements(
-      labels.drag,
-      (id) => placeName(canvasPlacePath(id) ?? placePath(id) ?? []),
-      refusalOf,
-    ),
+    announcements: dragAnnouncements(labels.drag, dragItemName, refusalOf),
     screenReaderInstructions: { draggable: labels.drag.instructions },
   };
 

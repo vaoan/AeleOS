@@ -6854,3 +6854,167 @@ mechanism and its props mirror — read those as history, the same as every
 other "used to be X" sentence in this file; `add-palette.tsx` itself is
 untouched by this task; there is no code left for either name to resolve
 against.
+
+### The closing sweep (2026-09-06) — Task 9 of 9
+
+The feature's last task adds no mechanism of its own. It fills three
+coverage gaps Tasks 5–7 named and left for later, points a real
+accessibility scan at the palette DRAGGING rather than merely open, and is
+the occasion for this note's own standing re-read obligation.
+
+**A real bug: a palette-origin lift announced "Picked up ." naming
+nothing, on a THIRD id space nobody had checked.** `block-editor.tsx`'s
+`accessibility.announcements` built its spoken name from
+`placeName(canvasPlacePath(id) ?? placePath(id) ?? [])`, which understands
+the inspector's `"place:"` prefix and the canvas's `"canvas-place:"` prefix
+— the same two the file's own account above already documents fixing for
+`refusalOf` and this exact callback, on 2026-09-04. A palette-origin drag
+id (`"palette:leaf:text"`, `"palette:container:grid"`) matches neither, so
+it fell through to `placeName([])`, an empty designation, on every palette
+lift since Task 5 shipped pointer wiring. `dragItemName(id)` is the fix: it
+checks `palettePayload(id)` first, naming the leaf kind or container mode
+through the same `labels.leaf.leafKinds`/`labels.modes` records the
+catalogue guard already parity-checks, and falls back to the existing
+`placeName` resolution for every other id. **No new catalogue strings were
+needed** — `over.id` during a palette drag is always a real canvas place,
+never a palette id, so only the LIFT side of the announcement needed the
+new branch; `lifted`/`over`/`dropped`/`cancelled` are unchanged. Pinned in
+`block-editor.test.tsx` and sabotage-verified: reverting `dragItemName` to
+the old bare `placeName` call reddens exactly that one case with the
+predicted message, and nothing else.
+
+**Three browser cases close what Tasks 5–7 left as coverage gaps rather
+than defects.** `palette-drag-to-add.spec.ts` gained:
+
+- **A keyboard lift onto a fully occupied container's own append slot adds
+  a place rather than displacing the one already there.** Fills a
+  one-space section by pointer first, reopens the palette, lifts by
+  keyboard, steps twice (the same defensive margin `liftByKeyboard`'s own
+  rAF-then-timer sequencing exists for — root rule 26 — proven safe here by
+  tracing which of the reachable `order` entries two presses can land on),
+  drops, and asserts the section's own place count grows from one to two
+  without pinning which exact place received it — root rule 27's own
+  discipline against a fixture that cannot discriminate a right landing
+  from a wrong one when several are equally acceptable.
+- **A container-kind drag past the depth cap shows no highlight, by
+  pointer.** Builds a three-deep container tree — a section, a container
+  inside it, a container inside that, the deepest a container may sit —
+  and asserts `data-canvas-drop="place"` is ABSENT from every place inside
+  the deepest container while present on a shallower one. This is the
+  domain-level finding `insertTargetsFor` already states restated as a
+  browser fact: a container target past the cap is never OFFERED at all, so
+  there is no refusal to show — the correct proof is an absence of
+  highlight, never a refused-drop banner, and a case built expecting the
+  banner would assert something this pipeline cannot produce.
+- **The same drag never lands inside that container by keyboard either.**
+  Same tree, keyboard lift, two `ArrowUp` presses (the identical bounded
+  margin), drop, and asserts the too-deep container's own places are
+  unchanged in count while its PARENT's own child count grew by one — proof
+  the drag landed somewhere real rather than merely failing to land
+  anywhere.
+
+**The a11y scan of the palette OPEN already existed; what this task added
+is the scan of a drag IN PROGRESS, and the distinction is worth keeping
+precise.** `a11y.spec.ts` already had a static "the editor with the
+Palette tab open" case, added incidentally by an earlier task's own
+comment referencing the deleted `AddBlockPicker` — so the closed-tab state
+was covered before this task touched the file. What was missing, and is
+the actual instance of root rule 19's own "a scan of a closed state cannot
+catch what only exists open" (already proven twice in this file, by the
+page-source dock's resize grip and its copy button), is a scan of the
+DRAGGING state itself: a real pointer press-and-move onto an empty place,
+held open long enough to run `isAccessible` while `data-canvas-drop="place"`
+is genuinely active, then released safely. **The axe scan itself found no
+defect** — both the resize grip and the copy button were structural faults
+in PERSISTENT markup, where a drag's own accessibility surface here is
+transient and newly built — but the absence of an axe finding is not the
+same claim as the absence of a scan, and this closes the second one.
+**Building this exact case is what found the two real bugs below**,
+neither of them an accessibility fault: `isAccessible` never ran against a
+genuinely broken page, because the highlight the case exists to scan
+never existed until the first of the two was fixed.
+
+**A real, previously-undiscovered product bug: a palette-origin drag never
+showed its highlight to a real pointer at all, and `data-canvas-drop="place"`
+had been silently dead since Task 5.** `insertTargetsRef`
+(`block-editor.tsx`) is a `useRef`, written in `onDragStart`'s palette
+branch and read by every `EditableBlockFrame`/`AppendSlot` on the page
+through `wrap`/`appendSlot`'s own closures — but a ref write triggers no
+re-render, and `onDragOver`'s own `setAdvertisedTarget(keyboardTarget.current
+?? pointerTarget.current)` is a no-op for a palette-origin drag
+specifically, since those two refs are written only by canvas-move code
+paths and both read `null` throughout one. React bails out of a `setState`
+call whose value is `Object.is`-identical to the current one, so nothing
+after `onDragStart` ever forced the render that would let a fresh
+`insertTargetsRef.current` reach the DOM. The highlight this whole feature
+is built around — "every valid target lights up at once" — had never
+actually lit anything, in any browser, since the day pointer wiring
+shipped; nothing caught it because no case before this one asserted the
+attribute's VALUE, only the drop's eventual outcome, which `insertBlockAt`
+reaches independently of any highlight. Fixed with a second `useState`,
+`paletteDragActive`, toggled `true` in `onDragStart`'s palette branch and
+`false` in `onDragCancel` and `onDragEnd`'s palette branch — its own value
+is never read; it exists purely to force the render `insertTargetsRef`'s
+own fresh write needs. `a11y.spec.ts`'s "a palette-origin drag in
+progress" case is what caught it, at the exact assertion this section
+already documents (`toHaveAttribute("data-canvas-drop", "place")`), and it
+is sabotage-verified: removing either `setPaletteDragActive` call reddens
+that one assertion and nothing else in the unit suite, because every other
+case reaches the drop through the ref directly rather than through a
+render.
+
+**A second, previously-undiscovered bug came out from behind the first:
+lighting up every insert target at once can grow the page, and a test's
+own drag geometry — read once, before the lift — goes stale the instant
+that happens.** `AppendSlot`'s class carries `min-h-12` ONLY while
+`data-canvas-drop="place"` is set (`editable-block-frame.tsx`) — by design,
+since its own TSDoc already says it draws "visually nothing at all unless
+a palette drag currently offers it." An ordinary empty PLACE already
+reserves that height unconditionally, so nothing there moves; an append
+slot does not, so the moment any container's own append slot becomes a
+valid target — which happens for nearly every drag, since `insertTargetsFor`
+offers a leaf unconditionally at every append slot and a container
+wherever `mayNest` admits one — that slot's box grows from zero to 48px,
+pushing everything below it down by exactly that amount. On a page whose
+identity section (path `"0"`) sits above the section a test is dragging
+into, two such append slots growing (its own, and its nested container's)
+shifted everything below by 96px mid-drag — measured directly with
+`getBoundingClientRect()` before and after the threshold-crossing move.
+Because this highlight had never actually appeared before the fix above,
+no test had ever exercised the reflow it causes, and `dragPaletteOnto`
+(`tests/e2e/support/editor.ts`), the one shared helper nine spec files
+drive every palette drag through, read the drop target's `boundingBox()`
+**before** the lift and never again — a real person tracking the highlight
+visually would re-aim; a single scripted `mouse.move()` to a
+pre-computed coordinate cannot. The fix lives in that one helper rather
+than in each caller: after crossing `DRAG_THRESHOLD`, it now waits for at
+least one `[data-canvas-drop="place"]` to be attached — proof the
+highlight-driven reflow has already happened, not merely that time has
+passed, matching root rule 26's "wait for a CHANGE, not for presence" on a
+layout reflow rather than a listener attach — and only then re-reads the
+target's box before moving the mouse the rest of the way. Every caller of
+`dragPaletteOnto`/`addBlock`/`addSection` across the suite is protected by
+this single change; none needed its own fix.
+
+**A third bug, this session's own and not the product's: the keyboard
+depth-cap case's tree-building calls had been dropped entirely during an
+earlier rewrite of its own comment**, leaving `addSection`/`addBlock`
+missing before the container-path assertions that depend on them —
+`"1-0-0"` never existed, so every `data-canvas-path="1-0-0-*"` assertion
+read a count of zero rather than one. Restored; the case passes with the
+same relative-count assertions this file's own account of Task 9's earlier
+work already describes.
+
+**The full required suite ran clean.** `pnpm --filter hub test` (3,782
+tests, 100% coverage), `pnpm lint`, `pnpm typecheck`, `pnpm --filter hub
+build`, `pnpm check:tools` and `pnpm --filter hub exec playwright test
+--project=chromium tests/e2e/a11y.spec.ts tests/e2e/palette-drag-to-add.spec.ts`
+(6 + 6 cases) all pass against the fixes above. An earlier run in this same
+session had also shown a batch of failures carrying
+`net::ERR_INTERNET_DISCONNECTED`/`net::ERR_NETWORK_CHANGED` across
+unrelated spec files, which root rule 41 already names as a network fault
+rather than a flaky test — that failure mode is real and was confirmed
+separately, but it is not what the two bugs above are, and the two must not
+be conflated: a network blip explains a batch of unrelated navigations
+failing together, and does not explain one specific highlight attribute
+never appearing or one specific tree never being built.

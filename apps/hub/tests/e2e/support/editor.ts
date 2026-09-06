@@ -272,6 +272,24 @@ async function waitForCanvasAccommodation(page: Page): Promise<void> {
  * selection (`properties-panel.tsx`) — so no prior {@link selectBlock} is
  * needed before calling this.
  *
+ * **The drop target's own geometry is read AFTER the lift, not before
+ * (2026-09-06), and the target is scrolled into view a SECOND time once
+ * that reflow has happened, not only before the lift.** Lifting a palette
+ * item lights up every valid `insertTargets` entry at once, and an append
+ * slot's own class carries `min-h-12` only while highlighted (`AppendSlot`,
+ * `editable-block-frame.tsx`) — so a container earlier on the page than
+ * `targetCanvasPath` can grow the instant the drag begins, pushing the
+ * target down by exactly that height before the mouse ever arrives. This
+ * function waits for the highlight to actually appear before re-reading
+ * `targetCanvasPath`'s box, so every caller is protected from that reflow
+ * without needing its own fix. On a page carrying several already-built
+ * sections the cumulative growth from every one of THEIR own highlighted
+ * places can be enough to push the target back out of the viewport the
+ * pre-lift scroll brought it into, so the target is scrolled into view
+ * again after the wait, immediately before the geometry it is read from —
+ * see `apps/hub/src/features/actors/CLAUDE.md`'s account of Task 9 of the
+ * palette drag-to-add feature for the full record of both fixes.
+ *
  * @param page - the editor page.
  * @param choice - a content kind (`data-palette-kind`) or a layout mode
  *   (`data-palette-mode`), exactly as the palette's own thumbnails carry
@@ -329,9 +347,44 @@ export async function dragPaletteOnto(
     source!.x + source!.width / 2 + 20,
     source!.y + source!.height / 2,
   );
+  // **The target's box is re-read here, AFTER the threshold-crossing move,
+  // rather than reused from before `mouse.down()`.** Lifting a palette item
+  // lights up every valid `insertTargets` entry at once — append slots
+  // included, whose own class carries `min-h-12` only while highlighted
+  // (`AppendSlot`, `editable-block-frame.tsx`) — so a container earlier on
+  // the page than `targetCanvasPath` can grow the instant the drag begins,
+  // pushing every target below it down by exactly that height. A box read
+  // before the lift is stale the moment that happens: the mouse still
+  // arrives at the OLD coordinate, which a real person tracking the
+  // highlight visually would not do. Waiting for at least one
+  // `data-canvas-drop="place"` to be attached is the signal that the
+  // highlight-driven reflow this drag can trigger has already happened,
+  // not merely that time has passed — root rule 26's own "wait for a
+  // CHANGE, not for presence," on a layout reflow rather than a listener.
+  await page.locator('[data-canvas-drop="place"]').first().waitFor();
+  // **The re-scroll above the fold is not enough on its own, and this is
+  // the second half of the same reflow.** Every container earlier on the
+  // page than `targetCanvasPath` can grow when the lift highlights it too
+  // — not only the one directly above the target — so on a page carrying
+  // several already-built sections the cumulative growth can push the
+  // target BELOW the viewport the pre-lift `scrollIntoViewIfNeeded` above
+  // brought it into. `boundingBox()` still answers real coordinates for an
+  // element scrolled out of view, and a `mouse.move` to a point the browser
+  // is not actually rendering hits nothing — the identical silent
+  // no-drop-lands-anywhere failure this function's own header comment
+  // already documents fixing once, reopened by a SECOND reflow the first
+  // fix's single scroll could not have anticipated. Scrolling again here,
+  // after the reflow the wait above just confirmed, is what keeps the
+  // target in view for the read that follows.
+  await targetLocator.scrollIntoViewIfNeeded();
+  const settledTarget = await targetLocator.boundingBox();
+  expect(
+    settledTarget,
+    `no canvas position at "${targetCanvasPath}" once the drag settled`,
+  ).not.toBeNull();
   await page.mouse.move(
-    target!.x + target!.width / 2,
-    target!.y + target!.height / 2,
+    settledTarget!.x + settledTarget!.width / 2,
+    settledTarget!.y + settledTarget!.height / 2,
     { steps: 8 },
   );
   await page.mouse.up();
