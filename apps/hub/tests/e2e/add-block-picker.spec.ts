@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   mintTicket,
   signIn,
@@ -28,10 +27,6 @@ let identity: TestIdentity | undefined;
 test.beforeAll(async () => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 test("adds a layout from Page Items with no empty place visited first", async ({

@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
 
 import { retryingFetch } from "./retry-fetch";
+import { registerTestIdentity } from "./user-registry";
 
 /**
  * Whether a real Clerk instance is reachable.
@@ -54,11 +55,19 @@ export interface TestIdentity {
  * browser presents it, and a real session results without any provider, any
  * password, or any interface.
  *
- * The user is created fresh per run and deleted afterwards, exactly as the
- * `idp-cloud` script already does. What it leaves behind is an `actors` row in
- * the live database whose `identity_sub` names a user that no longer exists —
- * harmless, already true of that script, and the price of testing against the
- * real thing rather than a mock.
+ * The email carries Clerk's own `+clerk_test` subaddress, which marks it as a
+ * test user rather than an ordinary one — this instance is shared with the
+ * Libra project and hard-capped at 100 users, so a user Clerk counts as
+ * ordinary spends part of a budget that is not this repository's alone.
+ *
+ * The user is registered with `./user-registry` the instant Clerk confirms it
+ * exists — before this function does anything else that could throw — so the
+ * worker-scoped `./auto-cleanup` fixture can delete it even if this test, the
+ * suite around it, or the whole worker never reaches an ordinary teardown.
+ * What a spec's own cleanup still leaves behind is an `actors` row in the live
+ * database whose `identity_sub` names a user that no longer exists — harmless,
+ * already true of the `idp-cloud` script this borrows the approach from, and
+ * the price of testing against the real thing rather than a mock.
  *
  * @returns the identity and its ticket.
  */
@@ -67,7 +76,7 @@ export async function createTestIdentity(): Promise<TestIdentity> {
     method: "POST",
     body: JSON.stringify({
       email_address: [
-        `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`,
+        `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}+clerk_test@example.com`,
       ],
       first_name: "End",
       last_name: "ToEnd",
@@ -77,7 +86,12 @@ export async function createTestIdentity(): Promise<TestIdentity> {
     }),
   });
 
-  return { userId: (user as unknown as { id: string }).id };
+  const userId = (user as unknown as { id: string }).id;
+  // Register before anything else in this function can throw — see
+  // ./user-registry's own doc for why the timing matters.
+  registerTestIdentity(userId);
+
+  return { userId };
 }
 
 /**
@@ -140,7 +154,13 @@ export async function mintSessionToken(userId: string): Promise<string> {
  *
  * Deliberately swallows a failure: a test that has already asserted what it
  * came for must not be reported as broken because cleanup could not reach
- * Clerk. A leftover user in a development instance costs nothing.
+ * Clerk. **A leftover user here is not free.** This development instance is
+ * shared with the Libra project and hard-capped at 100 users; a user this
+ * function fails to delete still counts against that shared cap. That is why
+ * `deleteTestIdentity` is not the only line of defence — `createTestIdentity`
+ * registers every user it creates with `./user-registry`, and the
+ * worker-scoped `./auto-cleanup` fixture drains whatever is still registered
+ * even when a call to this function was never reached at all.
  *
  * @param userId - whom to delete.
  */

@@ -1,7 +1,7 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
@@ -66,10 +66,6 @@ let identity: TestIdentity | undefined;
 test.beforeAll(async () => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 /** The space counts the model admits — `BLOCK_LIMITS.spaces` is 6. */

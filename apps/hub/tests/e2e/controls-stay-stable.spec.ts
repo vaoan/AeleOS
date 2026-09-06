@@ -1,7 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   mintTicket,
   signIn,
@@ -68,10 +68,6 @@ test.beforeAll(async () => {
       }),
     ],
   }));
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 /**
