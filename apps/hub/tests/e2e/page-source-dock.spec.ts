@@ -117,14 +117,20 @@ test("opens beside the page, reaching the right edge and the foot of the window"
   // selected — which is exactly the case here, since this test selects
   // nothing before opening the dock. So the dock's own `panelOpen` prop
   // (`FursonaEditor`'s `!controlsHidden`) is true throughout this test, and
-  // the dock's `right-0` is shifted left by the panel's own reserved width,
-  // `min(36rem, 40vw)` — 512px at this 1280px viewport, since `40vw` (512)
-  // is narrower than `36rem` (576) here. The pre-fix version put `box.x` at
-  // 0 — the over-constrained `left`/`right` bug — so this still pins the
-  // dock away from the left edge; it no longer claims the dock reaches the
-  // window's OWN right edge, because the panel now permanently occupies
-  // that space.
-  const panelWidth = Math.min(576, viewport.width * 0.4);
+  // the dock's `right-0` is shifted left by the panel's own reserved width.
+  // The pre-fix version put `box.x` at 0 — the over-constrained
+  // `left`/`right` bug — so this still pins the dock away from the left
+  // edge; it no longer claims the dock reaches the window's OWN right edge,
+  // because the panel now permanently occupies that space.
+  //
+  // **The panel's own rendered width is measured directly, not re-derived
+  // from the `min(36rem, 40vw)` formula by hand.** A hard-coded
+  // `Math.min(576, viewport.width * 0.4)` would duplicate exactly the
+  // literal `--properties-panel-width` (`globals.css`) exists to hold once —
+  // if that token's formula ever changes, this assertion would silently
+  // drift from the real geometry rather than following it.
+  const panelWidth = (await page.getByTestId("properties-panel").boundingBox())!
+    .width;
   const reservedEdge = viewport.width - panelWidth;
   expect(
     box.x + box.width,

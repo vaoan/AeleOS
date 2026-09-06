@@ -220,10 +220,11 @@ test("Preview clears the selected panel instead of pausing it", async ({
 // THE REFUSAL SUMMARY MUST NOT BE BEHIND THE PANEL.
 //
 // The panel is a `fixed` right column from `md` up, and the canvas section
-// pads itself by `md:pl-[min(36rem,40vw)]` to make room. The banner was a
-// SIBLING of that section, so it got no such padding and the panel simply sat
-// on top of it — at 1280 its heading was at x=41 with the panel's right edge
-// at x=512. It is a child of the padded section now.
+// pads itself by `md:pr-(--properties-panel-width)` to make room — padding
+// on the RIGHT, since the panel sits on the desktop right, not the left. The
+// banner was a SIBLING of that section, so it got no such padding and the
+// panel simply sat on top of it — at 1280 its heading was at x=41 with the
+// panel's right edge at x=512. It is a child of the padded section now.
 //
 // **A rect comparison is the wrong instrument and would have passed.** Two
 // boxes overlapping is not the claim; which one a person can read is, and
@@ -258,10 +259,13 @@ test("the save-refusal summary is readable while the panel is open", async ({
   // no timeout is long enough for a question asked too early.
   //
   // The wait is stated as the relationship instead of as 512, because both
-  // boxes come from one expression — the panel is `md:w-[min(36rem,40vw)]`
-  // and the pad is `md:pr-[min(36rem,40vw)]` (padding-RIGHT: the panel sits
-  // on the desktop right now, not the left). Should those ever diverge, this
-  // poll is what says so rather than silently comparing a stale constant.
+  // boxes read the same shared token now (2026-09-05) — the panel is
+  // `md:w-(--properties-panel-width)` and the pad is
+  // `md:pr-(--properties-panel-width)` (padding-RIGHT: the panel sits on the
+  // desktop right, not the left) — `--properties-panel-width` declared once
+  // in `globals.css` as `min(36rem, 40vw)` rather than repeated as a literal
+  // in either class. Should those ever diverge, this poll is what says so
+  // rather than silently comparing a stale constant.
   await expect
     .poll(() =>
       page.evaluate(() => {
