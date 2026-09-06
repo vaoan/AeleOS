@@ -6235,8 +6235,8 @@ per `LeafKind`, one per `ContainerMode` — drawn by the REAL renderer
 (`Block` from `blocks.tsx`) over `domain/add-samples.ts`'s fixed sample
 content, mirroring `AddBlockPicker`'s own preview mechanism exactly, `inert`
 wrap included. **It is a deliberately incomplete-but-not-broken increment:
-nothing here is draggable yet.** Each thumbnail is a plain, unfocusable
-`<div>`; the modal `AddBlockPicker` remains the only way to actually add a
+nothing here is draggable yet.** Each thumbnail is a plain `<div>` that
+cannot take focus; the modal `AddBlockPicker` remains the only way to actually add a
 block until a later task in this same feature wires a real
 `useDraggable`.
 
