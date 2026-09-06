@@ -1026,4 +1026,318 @@ describe("the Properties panel", () => {
     expect(screen.getByTestId("canvas-drag-1")).toBeInTheDocument();
     expect(screen.getByTestId("section-name")).toHaveValue("one");
   });
+
+  // **Palette-origin dragging (2026-09-05) — the real pointer pipeline, not
+  // a hand-called `onDragEnd`.** These drive `@dnd-kit`'s own `PointerSensor`
+  // exactly as `add-palette.test.tsx` validated: jsdom implements no
+  // `PointerEvent` constructor at all, so `fireEvent.pointerDown` falls back
+  // to a bare `Event` the sensor's own activator refuses
+  // (`!event.isPrimary || event.button !== 0`). A plain `MouseEvent`
+  // dispatched under the `"pointerdown"`/`"pointermove"`/`"pointerup"` type
+  // strings reaches the same handlers a real `PointerEvent` would, with
+  // `isPrimary`/`pointerType`/`pointerId` added by hand since `MouseEvent`'s
+  // own constructor accepts none of them.
+  //
+  // **jsdom's `getBoundingClientRect` answers an all-zero rect for every
+  // element**, so a pointer sitting at exactly `(0, 0)` is "inside" every
+  // registered droppable's rectangle at once — `detectCollisionAt`'s palette
+  // branch then picks the DEEPEST one, which is what makes these drags land
+  // on a specific nested place rather than nowhere. The first move has to
+  // clear `DRAG_THRESHOLD` (8px) before the sensor activates at all, so every
+  // drag below moves away from `(0, 0)` once to start it and back to it once
+  // to land.
+  describe("dragging from the persistent Palette tab", () => {
+    /**
+     * Opens the Properties panel's Palette tab, mounting `AddPalette` for
+     * the first time — `paletteOpened` in `block-editor.tsx` is set exactly
+     * once, on this click, and never reset.
+     *
+     * **Waits past `@dnd-kit/core`'s own post-drop click-swallow window
+     * first.** `PointerSensor.detach()` keeps a document-level CAPTURING
+     * `click` listener alive for exactly 50ms after a drop, specifically to
+     * swallow the synthetic click a mouseup-after-drag produces — named in
+     * this repository's own root note on `section-drag-reorder.spec.ts`,
+     * which found the identical mechanism in a browser. That listener is a
+     * raw `document.addEventListener` a prior test's drag leaves behind; it
+     * is not tied to this component's React lifecycle, so unmounting
+     * between tests does not remove it early, and it swallows ANY click
+     * landing in its window — this one included, whoever it targets — with
+     * no error at all. Measured here without the wait: the second and third
+     * cases in this `describe` failed at this exact click, silently, only
+     * when run after a case that completed a real drop.
+     */
+    const openPalette = async (): Promise<void> => {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      });
+      fireEvent.click(screen.getByTestId("panel-tab-palette"));
+    };
+
+    /**
+     * Dispatches a pointer-typed event a real `PointerSensor` activates on.
+     *
+     * @param target - the element (`"pointerdown"`) or `document` (every
+     * later event in the same drag, matching where `PointerSensor` itself
+     * listens).
+     * @param type - the event type.
+     * @param x - `clientX` and `clientY` both, since every rect in this
+     * environment is degenerate and only `(0, 0)` — or a value the test
+     * chooses to clear the activation threshold — ever matters.
+     */
+    const firePointerEvent = (
+      target: Element | Document,
+      type: "pointerdown" | "pointermove" | "pointerup",
+      x: number,
+    ): void => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: x,
+        button: 0,
+      });
+      Object.defineProperty(event, "isPrimary", {
+        value: true,
+        configurable: true,
+      });
+      Object.defineProperty(event, "pointerType", {
+        value: "mouse",
+        configurable: true,
+      });
+      Object.defineProperty(event, "pointerId", {
+        value: 1,
+        configurable: true,
+      });
+      target.dispatchEvent(event);
+    };
+
+    /**
+     * Drags a palette thumbnail from pick-up to drop, landing wherever
+     * `detectCollisionAt`'s palette branch resolves the pointer's final
+     * `(0, 0)` position to.
+     *
+     * @param caption - the thumbnail's accessible name (its raw kind or
+     * mode string, not a translated label — see `blockEditorLabels`).
+     */
+    const paletteDrag = async (caption: string): Promise<void> => {
+      const item = screen.getByRole("button", { name: caption });
+      await act(async () => {
+        firePointerEvent(item, "pointerdown", 0);
+      });
+      // Clears `DRAG_THRESHOLD` so the sensor actually activates.
+      await act(async () => {
+        firePointerEvent(document, "pointermove", 40);
+      });
+      // Back to the one point every degenerate rect in this environment
+      // contains, so the collision function has something to resolve.
+      await act(async () => {
+        firePointerEvent(document, "pointermove", 0);
+      });
+      await act(async () => {
+        firePointerEvent(document, "pointerup", 0);
+      });
+    };
+
+    it("drops a leaf onto an empty place, adding and selecting it", async () => {
+      const page = harness([
+        { ...newContainer("grid", 1), name_en: "Section", children: [null] },
+      ]);
+      await openPalette();
+
+      await paletteDrag(labels.leaf.leafKinds.text);
+
+      const section = firstContainer(page());
+      expect(section.children).toHaveLength(2);
+      // **A leaf's `kind` field IS its leaf kind** — `"text"`, here — never a
+      // generic `"leaf"` literal; only a container's `kind` is the constant
+      // `CONTAINER_KIND` (`"container"`). There is no separate `leafKind`
+      // property on a stored `Block` at all — that name belongs only to
+      // `PaletteItem`, the thing being dragged before it becomes one.
+      expect(section.children[0]?.kind).toBe("text");
+      expect(section.children[1]).toBeNull();
+      // The new leaf is SELECTED, which opens its Content tab in the
+      // Properties panel — `LeafEditor` lives there, never on the canvas
+      // itself, which only ever shows the live-renderer preview.
+      expect(screen.getByTestId("properties-panel")).toContainElement(
+        screen.getByTestId("leaf-editor"),
+      );
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+
+    // **The brief asked for "a container past the depth cap", and the depth
+    // cap turns out to be unreachable through this pipeline — a genuine
+    // finding, not a workaround.** `fitsAt` (`domain/block-drops.ts`) is
+    // `path.length - 1 + reach(held) <= MAX_DEPTH`, a function of the
+    // TARGET PATH'S LENGTH alone; no page mutation can change an already-
+    // chosen path's length, and `insertTargetsFor` already filters every
+    // container target through the identical `mayNest` check before the
+    // drag ever offers it — so a too-deep container target can never reach
+    // the real collision pipeline at all, matching `refusalOf`'s own
+    // documented "no reachable discriminating test" precedent elsewhere in
+    // this file's feature note. `BLOCK_LIMITS.children` (50) is the refusal
+    // this pipeline CAN reach, through the exact same `onDragEnd` branch and
+    // the exact same `drag-refusal` feedback — see the report for the full
+    // account.
+    it("refuses a drop onto a container already at its child cap, and shows the message", async () => {
+      const page = harness([
+        {
+          ...newContainer("grid", 2),
+          name_en: "Full",
+          children: Array.from({ length: BLOCK_LIMITS.children }, () => null),
+        },
+      ]);
+      await openPalette();
+
+      await paletteDrag(labels.modes.grid);
+
+      const section = firstContainer(page());
+      expect(section.children).toHaveLength(BLOCK_LIMITS.children);
+      expect(screen.getByTestId("drag-refusal")).toHaveTextContent(
+        labels.drag.tooMany,
+      );
+    });
+
+    it("does nothing when a palette drag ends over no target", async () => {
+      const page = harness();
+      await openPalette();
+
+      await paletteDrag(labels.leaf.leafKinds.text);
+
+      expect(page()).toEqual([]);
+      expect(screen.queryByTestId("drag-refusal")).toBeNull();
+    });
+
+    // **The keyboard equivalent (2026-09-05).** Unlike the pointer cases
+    // above, this environment's degenerate `{0,0,0,0}` rects never decide
+    // anything here — `paletteCoordinateAt` (`block-editor.tsx`) resolves a
+    // step purely from `stepInsertTarget`/`stepInsertSection`'s own ordered
+    // list, so these two cases drive the real sensor over real domain
+    // ordering rather than over jsdom's fake geometry.
+    describe("dragging from the persistent Palette tab by keyboard", () => {
+      /**
+       * Drives a real keyboard drag of a palette thumbnail: lift, step,
+       * drop — mirroring the top-level `drag` helper's own shape for a
+       * canvas grip, but locating the source by its accessible name rather
+       * than a `canvas-drag-*` test id, since a palette thumbnail carries no
+       * `BlockPath` of its own to address it by.
+       *
+       * @param caption - the thumbnail's accessible name.
+       * @param steps - the keys to press between the lift and the drop —
+       * `"ArrowDown"`/`"ArrowRight"` to step forward, `"ArrowUp"`/
+       * `"ArrowLeft"` to step back, or `"Tab"` to skip to the next section.
+       */
+      const paletteKeyboardDrag = async (
+        caption: string,
+        steps: string[],
+      ): Promise<void> => {
+        fireEvent.keyDown(screen.getByRole("button", { name: caption }), {
+          code: "Space",
+          key: " ",
+        });
+        await settle();
+        for (const code of steps) {
+          fireEvent.keyDown(document, { code });
+          await settle();
+        }
+        fireEvent.keyDown(document, { code: "Space", key: " " });
+        await settle();
+      };
+
+      it("drops a leaf onto an empty place by keyboard, adding and selecting it", async () => {
+        const page = harness([
+          { ...newContainer("grid", 1), name_en: "Section", children: [null] },
+        ]);
+        await openPalette();
+
+        // `insertTargetsFor`'s own order is every page-root splice FIRST
+        // ([0], before this one section; [1], one past it — the page's own
+        // trailing append slot), then the section's own places ([0,0], the
+        // existing empty one; [0,1], one past it). Press 1 lands on [0] —
+        // the section's own rendered wrap. Press 2 asks for [1] next, but
+        // the page's own trailing append slot renders no marker at all (a
+        // real, accepted gap named in `block-editor.tsx`'s own feature
+        // note), so the walk keeps stepping past it within the SAME key
+        // press and lands on [0,0] instead — the section's own empty place,
+        // which IS rendered. Two presses, not three.
+        await paletteKeyboardDrag(labels.leaf.leafKinds.text, [
+          "ArrowDown",
+          "ArrowDown",
+        ]);
+
+        const section = firstContainer(page());
+        expect(section.children).toHaveLength(2);
+        expect(section.children[0]?.kind).toBe("text");
+        expect(section.children[1]).toBeNull();
+        expect(screen.getByTestId("properties-panel")).toContainElement(
+          screen.getByTestId("leaf-editor"),
+        );
+        expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+      });
+
+      // **The discriminating fixture from `palette-targets.test.ts`'s own
+      // "jumps past every target nested inside the current section" case
+      // (Task 3), driven through the real sensor rather than the pure
+      // function directly.** Two 2-space grids; four ArrowDown presses walk
+      // [0] (before grid one, rendered) → [1] (grid two's own rendered
+      // wrap, itself a valid top-level target — dropping ON it means
+      // "insert before it") → [0,0] (skipping [2], the page's own trailing
+      // append slot, which renders no marker at all) → [0,1] — landing
+      // inside the FIRST grid's own places before Tab is pressed. Which
+      // exact place inside grid one does not matter for what this case
+      // discriminates; only that it IS inside grid one.
+      it("steps to the boundary between sections on Tab, skipping every target nested inside the current one", async () => {
+        const page = harness([
+          {
+            ...newContainer("grid", 2),
+            name_en: "one",
+            children: [titled("a"), titled("b")],
+          },
+          {
+            ...newContainer("grid", 2),
+            name_en: "two",
+            children: [titled("c"), titled("d")],
+          },
+        ]);
+        await openPalette();
+
+        await paletteKeyboardDrag(labels.leaf.leafKinds.text, [
+          "ArrowDown",
+          "ArrowDown",
+          "ArrowDown",
+          "ArrowDown",
+          "Tab",
+        ]);
+
+        // Tab lands on the page-root splice BETWEEN the two sections
+        // (`{ path: [1] }`), never on a place still inside section one
+        // (`[0,1]`/`[0,2]`) and never on section two's own first place
+        // (`[1,0]`) either — `stepInsertSection`'s own walk always finds the
+        // boundary splice first, since `insertTargetsFor` emits every
+        // top-level splice before any container's own places. A leaf
+        // landing at a top-level path is wrapped in a new one-place stack,
+        // so the page grows from two sections to three and NEITHER existing
+        // section gains a child.
+        expect(page()).toHaveLength(3);
+        const sectionOne = firstContainer(page());
+        expect(sectionOne.children).toHaveLength(2);
+        const sectionTwo = page()[2];
+        if (!sectionTwo || !isContainer(sectionTwo)) {
+          throw new Error("not a container");
+        }
+        expect(sectionTwo.children).toHaveLength(2);
+        const inserted = page()[1];
+        if (!inserted || !isContainer(inserted)) {
+          throw new Error("not a container");
+        }
+        expect(inserted.children).toHaveLength(1);
+        expect(inserted.children[0]?.kind).toBe("text");
+      });
+    });
+  });
 });

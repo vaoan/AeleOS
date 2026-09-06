@@ -69,6 +69,17 @@ export type { PageContext } from "@/features/actors/presentation/block-contract"
  * for Motion. `wrap` is constructed by `block-editor.tsx`, the file that
  * already only exists on editor routes, and handed down through the same
  * `editor` prop that already threads through this recursion.
+ *
+ * **`appendSlot` (2026-09-05) is a second, independent optional member on
+ * the same hook, for the same reason and by the same mechanism as `wrap`.**
+ * A palette drag may target the position one past a container's own last
+ * child — `insertTargetsFor` (`domain/palette-targets.ts`) already computes
+ * that position as a valid domain target — but nothing in this file ever
+ * rendered a droppable there. `blocks.tsx` calls `editor?.appendSlot?.(path)`
+ * and never imports or references anything about what the returned node IS
+ * beyond {@link ReactNode}: the concrete renderer, which registers a
+ * `useDroppable` and reads `@dnd-kit`, is constructed the same way `wrap`'s
+ * is, by the same editor-only modules, never named here.
  */
 export interface EditorRenderHook {
   /**
@@ -86,6 +97,20 @@ export interface EditorRenderHook {
     readonly filled: boolean;
     readonly children: ReactNode;
   }): ReactNode;
+
+  /**
+   * Rendered once after a container's own children, for the position one
+   * past the last place — the palette's "append a new row" target.
+   *
+   * Absent on every public route, exactly like {@link EditorRenderHook.wrap};
+   * a container renders nothing extra when this is undefined.
+   *
+   * @param containerPath - the container's own renderer path (hyphenated,
+   * matching `wrap`'s `path`), never the append position itself — the
+   * position is always `containerPath`'s own child count, which only the
+   * caller building this hook (never `blocks.tsx`) needs to know.
+   */
+  appendSlot?(containerPath: string): ReactNode;
 }
 
 /**
@@ -1202,6 +1227,11 @@ function Leaf(props: LeafProps): ReactNode {
  * than constructing the wrapper itself — see {@link BlockProps.editor} for
  * why this file never imports the module that builds one. Public rendering
  * remains on the unwrapped branch.
+ *
+ * **A container also calls `editor?.appendSlot?.(path)` once, after its own
+ * children, with this container's own `path` and never a child index
+ * appended to it.** A leaf calls neither `wrap` a second time nor
+ * `appendSlot` at all — it has no children to append after.
  */
 export function Block({
   block,
@@ -1347,6 +1377,7 @@ export function Block({
         page,
         editor,
       })}
+      {editor?.appendSlot?.(path)}
     </section>
   );
   return editor

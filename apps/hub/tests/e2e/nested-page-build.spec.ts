@@ -130,7 +130,24 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   // grows it. `add-place` appends the third, explicitly empty place this
   // test's own three-across shape needs.
   await page.getByTestId("add-place").click();
-  await expect(page.locator('[data-canvas-path^="1-"]')).toHaveCount(ACROSS);
+  // `data-canvas-path` is also mounted, always, on the container's own
+  // virtual append slot (`AppendSlot`, Task 6 of the palette drag-to-add
+  // feature) — one past the last real place, carrying its own
+  // `data-testid="canvas-append-slot"`. Excluded here so this count keeps
+  // meaning "how many real places", not "real places plus the one virtual
+  // insertion point past them". Filtered via `evaluateAll` rather than a
+  // compound `:not([data-testid=...])` selector string, which
+  // `no-restricted-syntax` refuses for any `data-testid` literal reaching
+  // `.locator()` — the same idiom `add-block-picker.spec.ts` already uses.
+  const realPlaceCount = await page
+    .locator('[data-canvas-path^="1-"]')
+    .evaluateAll(
+      (els) =>
+        els.filter(
+          (el) => el.getAttribute("data-testid") !== "canvas-append-slot",
+        ).length,
+    );
+  expect(realPlaceCount).toBe(ACROSS);
 
   // A PIECE OF CONTENT IN THE FIRST PLACE. The section is still selected —
   // appending a place does not change selection — so the single global Add
@@ -150,7 +167,17 @@ test("a section inside a section is built by hand, saved, reopened and read by a
   // with: a nested container that kept its parent's `grid` would round-trip
   // identically whether or not its own mode was ever stored.
   await page.getByTestId("nested-mode").selectOption("timeline");
-  await expect(page.locator('[data-canvas-path^="1-1-"]')).toHaveCount(2);
+  // The nested container carries its own virtual append slot too — same
+  // `AppendSlot`/Task 6 collision as the outer section's count above.
+  const nestedRealPlaceCount = await page
+    .locator('[data-canvas-path^="1-1-"]')
+    .evaluateAll(
+      (els) =>
+        els.filter(
+          (el) => el.getAttribute("data-testid") !== "canvas-append-slot",
+        ).length,
+    );
+  expect(nestedRealPlaceCount).toBe(2);
 
   // Adding a CONTAINER selects IT, so these two adds target the nested
   // container itself rather than the outer section.

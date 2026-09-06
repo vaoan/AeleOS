@@ -1328,6 +1328,31 @@ inside `CHROME_SCOPE` and never wraps it or an ancestor. The grip and
 insertion bars are also `CHROME_SCOPE`, so hiding controls removes the entire
 editing seam before Preview paints.
 
+**`appendSlot` is a second, independent optional member of the same hook
+(2026-09-05), for the same reason and by the same mechanism as `wrap`.** A
+palette drag may target the position one past a container's own last
+child — `insertTargetsFor` (`domain/palette-targets.ts`) already computed
+that position as a valid domain target from the day it shipped — but
+nothing rendered a droppable element there, so `detectCollisionAt`'s own
+loop, which only ever ranks a target whose id has a registered rect, could
+never find it: the position was real and unreachable by pointer.
+`blocks.tsx` calls `editor?.appendSlot?.(path)` once per container,
+immediately after that container's own children, with the container's own
+`path` and never a child index appended to it — the caller building the
+hook is the one place that knows the container's current child count, never
+`blocks.tsx` itself. It never imports or references anything about what the
+returned node IS beyond `ReactNode`. `block-editor.tsx` is where the
+concrete answer is built, exactly as it already builds `wrap`: `AppendSlot`
+(`presentation/editable-block-frame.tsx`) is an always-mounted `useDroppable`
+marker — always mounted, deliberately, because dnd-kit measures whatever
+rectangle already exists in the DOM, and an element that only appeared once
+a drag had begun would reopen the identical "no rect to rank" gap this
+member exists to close. Visually it is nothing at all unless the current
+`insertTargets` names its own exact path, in which case it reuses
+`EditableBlockFrame`'s own "place" highlight class list verbatim. Measured
+zero-byte-cost on both public routes before and after wiring the real
+`AppendSlot` behind it, the identical guarantee `wrap` already carries.
+
 **Two more call sites had to learn the canvas prefix too (2026-09-04).**
 `refusalOf` and the `announcements` object's own `name` callback both
 resolved a drag id with bare `placePath`, which understands only the
@@ -6353,8 +6378,246 @@ nothing when deselected" — both rewritten. `block-editor.tsx`'s
    accommodation padding) needs re-examining in the same change, not
    assumed to still agree.
 
-This tab renders and is reachable; dragging a thumbnail onto the canvas
-does nothing yet. That remains a later task in this same feature.
+This tab renders and is reachable. Dragging a thumbnail onto the canvas is
+Task 5, immediately below.
+
+### Palette thumbnails are real pointer drag sources onto the canvas (2026-09-05) — Task 5 of 9, presentation
+
+The header above this one — "visible, not yet draggable" — is corrected by
+this section rather than left standing: every thumbnail is a real
+`useDraggable` source now, mouse-only, wired exactly as
+`EditableBlockFrame`'s own `beginDesktopDrag` demonstrates
+(`event.pointerType !== "mouse"` returns early rather than spreading
+`{...listeners}` wholesale, which would also wire a keyboard lift this
+checkpoint does not support). `role="button"` and `aria-label` name each
+item, matching `AddBlockPicker`'s own non-native-button convention.
+
+**`onDragStart` branches on `palettePayload` first, and a palette id never
+falls through to the canvas-move logic below it.** The branch computes
+`insertTargetsFor(blocks, paletteItem)` once and stores it on a new ref,
+`insertTargetsRef` — recomputing it on every pointer move would be
+`insertTargetsFor` walking the whole page on every frame, and nothing reads
+it during render, so a ref rather than state is the right shape.
+`onDragCancel` clears the same ref, and `onDragEnd`'s palette branch clears
+it before anything else, mirroring the canvas-move branches' own
+housekeeping.
+
+**`detectCollisionAt` gained an early, mutually exclusive palette branch,
+proven to be genuinely mutually exclusive and not merely written to look
+that way.** It ranks every `insertTargetsRef` entry whose registered
+droppable rect contains the pointer, deepest-path-first — the identical
+"innermost place wins" rule the canvas-move branch below it already uses for
+nested containers, because a place nested inside another place is nested
+inside its own rectangle too, and any ranking by rectangle proximity would
+answer the wrong depth silently. It calls `insertBlockAt`, never `applyDrop`:
+inserting a freshly built leaf or container is not a move, and the move
+planner has nothing to say about content that does not exist on the page
+yet.
+
+**`onDragEnd`'s palette branch builds the fresh block and calls
+`insertBlockAt` itself, independently of whatever `insertTargetsFor` offered
+a moment earlier at `onDragStart`.** That is not redundant: a target can go
+stale between the two calls (an intervening edit, or — see the append-slot
+account in Task 4's own section above — a target `insertTargetsFor` names
+that has no rendered droppable to have been dragged onto in the first place,
+which `detectCollisionAt`'s own `if (!rect) continue` already filters
+before a drop is ever attempted). Success selects the new block and switches
+the panel to its primary tab; a refusal sets the same `refusal` state the
+canvas-move branch already renders through `drag-refusal`, so a palette
+drop and a canvas-move refusal share one feedback mechanism rather than two.
+A drop with no `over` at all — the pointer never crossed a registered
+target — returns without writing anything, matching the canvas-move
+branch's own `!event.over` guard.
+
+**The brief asked for a "container past the depth cap refuses" case, and
+that shape is unreachable through this pipeline — found rather than
+silently substituted.** `fitsAt` (`domain/block-drops.ts`), which
+`insertBlockAt` calls, is a function of the TARGET PATH'S LENGTH alone; a
+container target that would be too deep can never reach the real collision
+pipeline at all, because `insertTargetsFor` already filters every container
+target through the identical `mayNest` check before ever offering it as
+draggable-onto — the same fact Task 1's own TSDoc states about the domain
+layer, now confirmed true of the wired pipeline as well. The reachable
+refusal through this exact path is `BLOCK_LIMITS.children` ("too many"),
+which exercises the identical `onDragEnd` branch and the identical
+`drag-refusal` feedback the depth-cap case would have. Per root rule 24,
+this is said here rather than worked around silently: the test named
+"refuses a drop onto a container already at its child cap" is the
+`BLOCK_LIMITS.children` case, not the depth cap the brief's own wording
+named.
+
+**`PALETTE_PREFIX` (`domain/block-drag.ts`) stayed private, a deliberate
+deviation from the brief's literal `export const`.** It matches the sibling
+constants already in that file (`PLACE_PREFIX`, `CANVAS_PLACE_PREFIX`, both
+private too), and nothing outside that module needs it — every caller reads
+`paletteId`/`palettePayload`, never the prefix itself. Exporting a constant
+nothing imports is the "control that does nothing" shape this repository
+already refuses elsewhere, just on a constant rather than a UI control.
+
+**Both new component tests were sabotage-verified, and each reddens exactly
+what it names.** Ranking: comparing `target.path.length <` rather than `>`
+reddens the two cases that resolve to a real nested target ("drops a leaf
+onto an empty place" and "refuses a drop onto a container already at its
+child cap") and leaves "does nothing when a palette drag ends over no
+target" green, since that case's pointer never lands on any target at all —
+ranking has nothing to rank. Refusal-swallowing: disabling the `if
+(!result.ok)` branch in `onDragEnd`'s palette case reddens only "refuses a
+drop onto a container already at its child cap, and shows the message,"
+which is the one case built specifically to watch for that message.
+
+**`AddPalette`'s own click-swallow trap is `@dnd-kit/core`'s documented
+50ms post-drop window, met here at the unit level for the first time.**
+`PointerSensor.detach()` keeps a document-level capturing `click` listener
+alive for exactly 50ms after any drop, to swallow the synthetic click a
+mouseup-after-drag produces — root rule 41 already names this for a browser
+suite, and it recurs here because jsdom shares one global `document` across
+cases in a file: a prior case's completed drag leaves that listener
+live into the very next case, silently eating the click that opens the
+Palette tab. `openPalette()` in `block-editor.test.tsx` awaits a real 60ms
+timer before firing that click, past `no-restricted-syntax`'s ban on a
+hand-rolled sleep — that ban is scoped to `**/e2e/**` in
+`eslint.config.mjs`, not to this unit test file.
+
+This closes the checkpoint the header above opened: a palette thumbnail is a
+real drag source and a real drop lands a real block. What is still not
+built, for a later task in this same feature: touch and keyboard lifts from
+a thumbnail.
+
+**A container's own append slot is rendered and draggable-onto now
+(2026-09-05), which closes half of what the paragraph above once named as
+still missing.** `EditorRenderHook.appendSlot` (see the `wrap`/`appendSlot`
+account earlier in this file) is the second, independent optional member
+`blocks.tsx` calls once per container, right after that container's own
+children; `block-editor.tsx` answers it with a real, always-mounted
+`useDroppable` marker (`AppendSlot`, `presentation/editable-block-frame.tsx`)
+at the position one past the container's own current child count, so
+`insertTargetsFor`'s own append target — real since Task 1, unreachable by
+pointer until now — has a registered rect for `detectCollisionAt`'s palette
+branch to find. **What remains open is narrower than the paragraph above
+used to say: the PAGE's own root append slot — one past the last top-level
+section, letting a palette drag add a whole new section — has no rendered
+marker of its own**, because `PublicBlocks` and `BlockEditor`'s top-level
+seat list are not themselves wrapped in a call to `Block()`, and `appendSlot`
+is only ever invoked from inside that function. Every top-level SECTION's
+own append slot (its own children, one past the last) is rendered exactly
+like any nested container's, since a section is a container at depth 0.
+
+### A palette drag also lifts by keyboard now (2026-09-05) — Task 7 of 9, presentation
+
+Task 5's own header above ended "what is still not built... touch and
+keyboard lifts from a thumbnail." The keyboard half is built now: Enter or
+Space on a focused thumbnail lifts it, the arrow keys step through
+`orderedInsertTargets`, Tab and Shift+Tab skip a whole top-level section, and
+Enter/Space drops — the identical gesture set `coordinateGetterAt` already
+gives a canvas-move drag, on a second kind of drag entirely.
+
+**Step 1's own genuine unknown, settled by reading the installed
+`@dnd-kit/core@6.3.1` rather than guessing: `KeyboardSensorOptions.keyboardCodes`
+has exactly three buckets (`start`/`cancel`/`end`), no fourth "step" bucket
+exists, and the library's own DEFAULT `end` bucket already includes Tab**
+(`[Space, Enter, Tab]`) — so a bare `KeyboardSensor` would end ANY keyboard
+drag, canvas-move included, the moment somebody presses Tab, before the
+sensor ever calls a `coordinateGetter` at all. The fix is a plain
+`keyboardCodes` override on the sensor — `end: [Space, Enter]`, Tab dropped —
+which is fully within supported configuration and needs no fallback
+`onKeyDown` listener racing the sensor's own. Confirmed safe for the
+canvas-move branch beside it: `FORWARD_KEYS`/`BACK_KEYS` never named Tab, and
+nothing in this file or its tests relies on Tab ending a canvas-move drag.
+
+**`paletteCoordinateAt` is the new function, and `paletteKeyboardTarget` is
+its own ref, parallel to `keyboardTarget` and cleared everywhere that one
+is.** It branches on `palettePayload(activeId)` first inside
+`coordinateGetterAt` — the same mutually-exclusive-per-drag shape
+`onDragStart`, `detectCollisionAt` and `onDragEnd` already keep between a
+palette-origin drag and a canvas-move one. Arrow keys call
+`stepInsertTarget`, Tab calls `stepInsertSection`, and it keeps stepping
+within the SAME keydown until it finds a target with a registered droppable
+rect — the identical "skip what nothing is showing" loop
+`coordinateGetterAt` already runs for `placeOrder`, for the identical
+reason: a target `insertTargetsFor` names is real in the domain sense from
+the moment the drag begins, but nothing guarantees a mounted, measured
+droppable at the instant a key is pressed. `detectCollisionAt`'s own
+keyboard branch reads `paletteKeyboardTarget.current` for a palette-origin
+drag, mirroring how it already read `keyboardTarget.current` for a
+canvas-move one.
+
+**A deliberate, documented departure from the brief's own wording (root rule
+24): it reads `insertTargetsRef.current` rather than recomputing
+`orderedInsertTargets(pageRef.current, item)` on every key press.** That ref
+is computed exactly once, at `onDragStart`, and `detectCollisionAt`'s palette
+branch and `onDragEnd`'s already read that same, frozen computation —
+recomputing only for the keyboard path would let a page edited mid-drag make
+the pointer-highlighted target set and the keyboard-stepped one silently
+disagree about which targets exist.
+
+**`AddPalette`'s thumbnails wire `onKeyDown` UNCONDITIONALLY, unlike
+`onPointerDown`'s mouse-only gate.** `KeyboardSensor`'s own activator only
+reacts to `keyboardCodes.start` (Space and Enter), so spreading
+`listeners.onKeyDown` costs nothing on every other keypress — a thumbnail
+still types nothing, navigates nothing, and does nothing on Tab, Escape or
+any letter key pressed while focused and not yet lifted. `attributes`
+already carries `tabIndex={0}`, from the day the pointer wiring shipped; a
+SECOND, explicit `tabIndex={0}` sits beside the spread now, changing nothing
+at runtime, because `eslint-plugin-jsx-a11y`'s `interactive-supports-focus`
+cannot see through a spread to confirm a `role="button"` element is
+focusable and refuses the file without an attribute it can read directly.
+
+**The unit fixture's own off-by-one is worth carrying past this task,
+because the underlying gap is more general than the paragraph above (still
+above this section) states it.** That paragraph names ONE unrendered gap —
+"the page's own root append slot, one past the last top-level section." The
+truth, confirmed by tracing `paletteCoordinateAt`'s own stepping against a
+real fixture: **every top-level splice `insertTargetsFor` offers is
+unrendered**, not only the trailing one — `PublicBlocks`/`BlockEditor`'s
+top-level seat list is never itself wrapped in a call to `Block()`, so
+`appendSlot` is never invoked for the page's own root at ANY position, before
+the first section, between two sections, or after the last. A keyboard step
+walking FORWARD from a fresh lift on a page of `N` sections therefore skips
+past all `N + 1` top-level splices in the very first successful key press,
+landing inside the FIRST section's own rendered targets — never on a
+top-level splice itself.
+
+**That single fact is what broke this task's own first e2e draft, and the
+fix generalises past this one test.** `/pages/new` seeds a REAL identity
+section at path `"0"` (`ensurePersonActor`'s own required blocks) before any
+section a test adds, so a test that adds ITS OWN section second and steps
+FORWARD from a fresh lift lands inside the identity section's targets first —
+however many arrow presses are counted, because the identity section's own
+content is walked, and rendered, before the test's section ever is. Stepping
+BACKWARD is the robust fix, not a coincidence of this fixture:
+`insertTargetsFor`'s depth-first walk visits the LAST top-level section
+LAST, so that section's own targets — however many it has — sit at the
+absolute end of the whole `order` array regardless of what came before it on
+the page. `ArrowUp`/`ArrowLeft` (`BACK_KEYS`) from a fresh lift lands
+`order.at(-1)` first, which is always inside whichever section is added
+last, never inside a section added earlier.
+
+**Two `ArrowUp` presses were needed in the browser, not one, and the first
+carries no announced change — recognisable as the SAME "sensor hasn't
+attached yet" window root rule 26 already names, on a palette-origin drag
+rather than a canvas-move one.** `liftByKeyboard`'s rAF-then-setTimeout
+sequencing closes that window reliably for the LIFT itself; what was not
+obvious ahead of running this in a real Chromium is that the window can
+still cost the very first ARROW press its effect even after the lift
+sequencing is correct — this task did not diagnose exactly which of dnd-kit's
+own internal timings (rect measurement, sensor attach) accounts for the
+first press producing no `onDragOver` announcement, only that it is
+reproducible and that the SECOND press always succeeds. **The test does not
+pin an exact press count or an exact landing place for this reason — it
+asserts a block lands somewhere under the section it targeted
+(`[data-block-path^="1-"]`), never at one hard-coded position**, which is
+also immune to `PICKER_SPACES` ever changing how many places a freshly added
+section opens with.
+
+**`stepInsertSection`'s WIRING was sabotage-verified, not the pure function
+again** (Task 3 already sabotage-verified that). Swapping the Tab branch's
+`step` from `stepInsertSection` to `stepInsertTarget` in `paletteCoordinateAt`
+reddened exactly one of 44 cases in `block-editor.test.tsx` — "steps to the
+boundary between sections on Tab, skipping every target nested inside the
+current one" — and none of the other 43, including the two other new
+keyboard cases beside it. Restored by copying the file before mutating and
+copying it back (root rule 34), confirmed byte-identical to the pre-sabotage
+version, and re-run clean.
 
 ### The page-source dock shares the Properties panel's own width token (2026-09-05)
 

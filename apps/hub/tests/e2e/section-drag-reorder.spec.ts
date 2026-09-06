@@ -241,7 +241,24 @@ test("a nested sibling drag swaps visible places without disturbing the empty on
   // Third — this test is actually named for. The section is already
   // selected, on its own Layout tab, where `add-place` already lives.
   await page.getByTestId("add-place").click();
-  await expect(page.locator('[data-canvas-path^="1-"]')).toHaveCount(3);
+  // `data-canvas-path` is also mounted, always, on the container's own
+  // virtual append slot (`AppendSlot`, Task 6 of the palette drag-to-add
+  // feature) — one past the last real place, carrying its own
+  // `data-testid="canvas-append-slot"`. Excluded here so this count keeps
+  // meaning "how many real places", not "real places plus the one virtual
+  // insertion point past them". Filtered via `evaluateAll` rather than a
+  // compound `:not([data-testid=...])` selector string, which
+  // `no-restricted-syntax` refuses for any `data-testid` literal reaching
+  // `.locator()` — the same idiom `add-block-picker.spec.ts` already uses.
+  const realPlaceCount = await page
+    .locator('[data-canvas-path^="1-"]')
+    .evaluateAll(
+      (els) =>
+        els.filter(
+          (el) => el.getAttribute("data-testid") !== "canvas-append-slot",
+        ).length,
+    );
+  expect(realPlaceCount).toBe(3);
 
   // The section is still selected; the single global Add targets it
   // directly, and `nextChildPosition` always fills the FIRST empty place —

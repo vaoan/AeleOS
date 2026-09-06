@@ -98,8 +98,23 @@ test("a sibling place stays empty and rendered once one place is filled", async 
   // A freshly added section starts at two places, both empty, each
   // rendering `public-space` inside its own `data-canvas-path` wrapper —
   // present for every place, filled or not, in the editor as much as on a
-  // public page.
-  await expect(page.locator('[data-canvas-path^="1-"]')).toHaveCount(2);
+  // public page. Excluded here: the container's own virtual append slot
+  // (`AppendSlot`, Task 6 of the palette drag-to-add feature), which
+  // carries that same attribute at one past the last real place — this
+  // count means "how many real places", not "real places plus the one
+  // virtual insertion point past them". Filtered via `evaluateAll` rather
+  // than a compound `:not([data-testid=...])` selector string, which
+  // `no-restricted-syntax` refuses for any `data-testid` literal reaching
+  // `.locator()` — the same idiom `add-block-picker.spec.ts` already uses.
+  const realPlaceCount = await page
+    .locator('[data-canvas-path^="1-"]')
+    .evaluateAll(
+      (els) =>
+        els.filter(
+          (el) => el.getAttribute("data-testid") !== "canvas-append-slot",
+        ).length,
+    );
+  expect(realPlaceCount).toBe(2);
 
   // The section itself is already selected, on its own primary tab, so the
   // one global Add targets it directly.

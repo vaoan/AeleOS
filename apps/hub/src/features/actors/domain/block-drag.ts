@@ -1,5 +1,13 @@
 import type { BlockPath } from "@/features/actors/domain/block-edits";
-import { isContainer, type Block } from "@/features/actors/domain/block-schema";
+import {
+  CONTAINER_MODES,
+  LEAF_KINDS,
+  isContainer,
+  type Block,
+  type ContainerMode,
+  type LeafKind,
+} from "@/features/actors/domain/block-schema";
+import type { PaletteItem } from "@/features/actors/domain/palette-targets";
 
 /**
  * What every drag id starts with.
@@ -94,6 +102,64 @@ export function canvasPlacePath(id: string): BlockPath | undefined {
   const parts = id.slice(CANVAS_PLACE_PREFIX.length).split(".");
   if (!parts.every((part) => INDEX.test(part))) return undefined;
   return parts.map(Number);
+}
+
+/**
+ * What every palette-origin drag id starts with.
+ *
+ * A palette drag never names a place already on the page — it names a
+ * {@link PaletteItem}, a leaf kind or a container mode, chosen off the
+ * persistent Palette tab — so it needs its own id space distinct from
+ * {@link PLACE_PREFIX} and {@link CANVAS_PLACE_PREFIX} rather than reusing
+ * either.
+ */
+const PALETTE_PREFIX = "palette:";
+
+/**
+ * Builds a palette draggable id encoding which item it offers.
+ *
+ * @param item - the leaf kind or container mode being dragged off the
+ * palette.
+ * @returns `"palette:leaf:<kind>"` or `"palette:container:<mode>"`.
+ */
+export function paletteId(item: PaletteItem): string {
+  return item.kind === "leaf"
+    ? `${PALETTE_PREFIX}leaf:${item.leafKind}`
+    : `${PALETTE_PREFIX}container:${item.mode}`;
+}
+
+/**
+ * The item a palette drag id names, or nothing for any other id.
+ *
+ * **It refuses rather than repairs**, for the same reason {@link placePath}
+ * refuses a nearly-valid id: a string that merely looks like a palette id is
+ * an id from somewhere else, and guessing an item from it would start a drag
+ * offering content nobody chose. Every leaf kind and container mode is
+ * checked against the real vocabulary — {@link LEAF_KINDS} and
+ * {@link CONTAINER_MODES} — rather than accepted as any string, so a stale id
+ * naming a kind or mode a newer build removed answers nothing rather than a
+ * value the rest of this build cannot render.
+ *
+ * @param id - the drag id.
+ * @returns the item, or nothing.
+ */
+export function palettePayload(id: string): PaletteItem | undefined {
+  if (!id.startsWith(PALETTE_PREFIX)) return undefined;
+  const rest = id.slice(PALETTE_PREFIX.length);
+  const separator = rest.indexOf(":");
+  if (separator === -1) return undefined;
+  const category = rest.slice(0, separator);
+  const name = rest.slice(separator + 1);
+  if (category === "leaf" && (LEAF_KINDS as readonly string[]).includes(name)) {
+    return { kind: "leaf", leafKind: name as LeafKind };
+  }
+  if (
+    category === "container" &&
+    (CONTAINER_MODES as readonly string[]).includes(name)
+  ) {
+    return { kind: "container", mode: name as ContainerMode };
+  }
+  return undefined;
 }
 
 /**
