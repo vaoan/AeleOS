@@ -1328,6 +1328,31 @@ inside `CHROME_SCOPE` and never wraps it or an ancestor. The grip and
 insertion bars are also `CHROME_SCOPE`, so hiding controls removes the entire
 editing seam before Preview paints.
 
+**`appendSlot` is a second, independent optional member of the same hook
+(2026-09-05), for the same reason and by the same mechanism as `wrap`.** A
+palette drag may target the position one past a container's own last
+child — `insertTargetsFor` (`domain/palette-targets.ts`) already computed
+that position as a valid domain target from the day it shipped — but
+nothing rendered a droppable element there, so `detectCollisionAt`'s own
+loop, which only ever ranks a target whose id has a registered rect, could
+never find it: the position was real and unreachable by pointer.
+`blocks.tsx` calls `editor?.appendSlot?.(path)` once per container,
+immediately after that container's own children, with the container's own
+`path` and never a child index appended to it — the caller building the
+hook is the one place that knows the container's current child count, never
+`blocks.tsx` itself. It never imports or references anything about what the
+returned node IS beyond `ReactNode`. `block-editor.tsx` is where the
+concrete answer is built, exactly as it already builds `wrap`: `AppendSlot`
+(`presentation/editable-block-frame.tsx`) is an always-mounted `useDroppable`
+marker — always mounted, deliberately, because dnd-kit measures whatever
+rectangle already exists in the DOM, and an element that only appeared once
+a drag had begun would reopen the identical "no rect to rank" gap this
+member exists to close. Visually it is nothing at all unless the current
+`insertTargets` names its own exact path, in which case it reuses
+`EditableBlockFrame`'s own "place" highlight class list verbatim. Measured
+zero-byte-cost on both public routes before and after wiring the real
+`AppendSlot` behind it, the identical guarantee `wrap` already carries.
+
 **Two more call sites had to learn the canvas prefix too (2026-09-04).**
 `refusalOf` and the `announcements` object's own `name` callback both
 resolved a drag id with bare `placePath`, which understands only the
@@ -6456,8 +6481,26 @@ hand-rolled sleep — that ban is scoped to `**/e2e/**` in
 This closes the checkpoint the header above opened: a palette thumbnail is a
 real drag source and a real drop lands a real block. What is still not
 built, for a later task in this same feature: touch and keyboard lifts from
-a thumbnail, and a rendered, draggable-onto append slot past a container's
-current children.
+a thumbnail.
+
+**A container's own append slot is rendered and draggable-onto now
+(2026-09-05), which closes half of what the paragraph above once named as
+still missing.** `EditorRenderHook.appendSlot` (see the `wrap`/`appendSlot`
+account earlier in this file) is the second, independent optional member
+`blocks.tsx` calls once per container, right after that container's own
+children; `block-editor.tsx` answers it with a real, always-mounted
+`useDroppable` marker (`AppendSlot`, `presentation/editable-block-frame.tsx`)
+at the position one past the container's own current child count, so
+`insertTargetsFor`'s own append target — real since Task 1, unreachable by
+pointer until now — has a registered rect for `detectCollisionAt`'s palette
+branch to find. **What remains open is narrower than the paragraph above
+used to say: the PAGE's own root append slot — one past the last top-level
+section, letting a palette drag add a whole new section — has no rendered
+marker of its own**, because `PublicBlocks` and `BlockEditor`'s top-level
+seat list are not themselves wrapped in a call to `Block()`, and `appendSlot`
+is only ever invoked from inside that function. Every top-level SECTION's
+own append slot (its own children, one past the last) is rendered exactly
+like any nested container's, since a section is a container at depth 0.
 
 ### The page-source dock shares the Properties panel's own width token (2026-09-05)
 

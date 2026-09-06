@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   createTestIdentity,
   deleteTestIdentity,
@@ -106,4 +106,87 @@ test("drags a leaf thumbnail from the Palette tab onto a real empty place", asyn
     "true",
   );
   await expect(page.getByTestId("leaf-editor")).toBeVisible();
+});
+
+/**
+ * Drags the `text` thumbnail from the persistent Palette tab onto a real
+ * canvas position, by mouse, mirroring the test above's own sequence.
+ *
+ * **The Palette tab is opened fresh on every call.** Landing a drop selects
+ * the newly-added block and switches the Properties panel to its Content
+ * tab, which closes the Palette tab it was just showing — so a caller
+ * dragging a second thumbnail has to reopen it, exactly as a person would.
+ *
+ * @param page - the editor page, already on a draft with the target
+ * position visible.
+ * @param targetPath - the `data-canvas-path` to drop onto.
+ */
+async function dragTextThumbnailOnto(
+  page: Page,
+  targetPath: string,
+): Promise<void> {
+  await page.getByTestId("panel-tab-palette").click();
+  const thumbnail = page.locator('[data-palette-kind="text"]');
+  await expect(thumbnail).toBeVisible();
+  const source = await thumbnail.boundingBox();
+  const target = await page
+    .locator(`[data-canvas-path="${targetPath}"]`)
+    .boundingBox();
+  expect(source).not.toBeNull();
+  expect(target).not.toBeNull();
+  await page.mouse.move(
+    source!.x + source!.width / 2,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    source!.x + source!.width / 2 + 20,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.move(
+    target!.x + target!.width / 2,
+    target!.y + target!.height / 2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  // See the sibling test's own account of `PointerSensor.detach()`'s 50ms
+  // post-drop click-swallow window.
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- see comment above.
+    () => new Promise((done) => setTimeout(done, 100)),
+  );
+}
+
+test("drags a leaf thumbnail onto a fully occupied container's own append slot, adding a place rather than displacing the one already there", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  // A section with exactly one place — the identity section is path "0",
+  // this new one is "1", matching the sibling test's own naming.
+  await addSection(page, "1");
+  await selectBlock(page, "1");
+
+  // Fill its one and only place first, so the container is genuinely FULL
+  // before the drop this test is actually about — `insertTargetsFor`'s own
+  // unit test already named "every place, plus one past the last" as a
+  // shape, but could not prove end to end that dropping onto the ONE-PAST
+  // position adds a place rather than landing on — and displacing — the
+  // last real one.
+  await dragTextThumbnailOnto(page, "1-0");
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+
+  // Reselect the container — the drop above selected the new leaf instead
+  // — and drop a SECOND thumbnail one past it. `data-canvas-path="1-1"` is
+  // rendered by `AppendSlot` now, which this task adds; before it, nothing
+  // in the DOM answered to that path at all.
+  await selectBlock(page, "1");
+  await dragTextThumbnailOnto(page, "1-1");
+
+  // The ORIGINAL leaf at "1-0" survived untouched, and a NEW place at "1-1"
+  // holds what was just dropped — two children, not one displaced by
+  // another.
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+  await expect(page.locator('[data-block-path="1-1"]')).toHaveCount(1);
 });

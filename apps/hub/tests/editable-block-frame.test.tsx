@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
 import type { ReactNode } from "react";
 import {
+  AppendSlot,
   EditableBlockFrame,
   type EditableBlockInstrumentation,
 } from "@/features/actors/presentation/editable-block-frame";
@@ -143,5 +144,63 @@ describe("EditableBlockFrame", () => {
     });
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+  });
+});
+
+// THE PALETTE'S "APPEND A NEW ROW" DROPPABLE.
+//
+// `AppendSlot` shares `EditableBlockFrame`'s exact `insertTargets`
+// membership check and reuses its class list — see that component's own
+// tests above for the case this one mirrors. It is always mounted (a real
+// `DndContext` is needed for the same reason `renderFrame` above needs one),
+// so what changes between cases here is only whether the highlight applies.
+describe("AppendSlot", () => {
+  /**
+   * Renders one append slot inside a real `DndContext`.
+   *
+   * @param path - the append target's own renderer path.
+   * @param insertTargets - every insertion target a palette drag in
+   * progress would accept, or `null` while none is.
+   * @returns what `render` returned.
+   */
+  function renderAppendSlot(
+    path: string,
+    insertTargets: EditableBlockInstrumentation["insertTargets"] = null,
+  ) {
+    return render(
+      <DndContext id="t">
+        <AppendSlot path={path} insertTargets={insertTargets} />
+      </DndContext>,
+    );
+  }
+
+  it("carries the exact renderer path it was given", () => {
+    renderAppendSlot("0-2");
+    expect(screen.getByTestId("canvas-append-slot")).toHaveAttribute(
+      "data-canvas-path",
+      "0-2",
+    );
+  });
+
+  it("highlights nothing while no palette drag is in progress", () => {
+    renderAppendSlot("0-2", null);
+    expect(screen.getByTestId("canvas-append-slot")).not.toHaveAttribute(
+      "data-canvas-drop",
+    );
+  });
+
+  it("highlights nothing when insertTargets never names this exact path", () => {
+    renderAppendSlot("0-2", [{ path: [0, 1] }]);
+    expect(screen.getByTestId("canvas-append-slot")).not.toHaveAttribute(
+      "data-canvas-drop",
+    );
+  });
+
+  it("highlights, exactly like a filled place's own insert-target highlight, when named", () => {
+    renderAppendSlot("0-2", [{ path: [0, 2] }]);
+    expect(screen.getByTestId("canvas-append-slot")).toHaveAttribute(
+      "data-canvas-drop",
+      "place",
+    );
   });
 });

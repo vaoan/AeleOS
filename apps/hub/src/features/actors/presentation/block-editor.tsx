@@ -122,7 +122,10 @@ import {
   pageBoxClass,
   type EditorRenderHook,
 } from "@/features/actors/presentation/blocks";
-import { EditableBlockFrame } from "@/features/actors/presentation/editable-block-frame";
+import {
+  AppendSlot,
+  EditableBlockFrame,
+} from "@/features/actors/presentation/editable-block-frame";
 import {
   dragAnnouncements,
   type DragAnnouncementLabels,
@@ -1273,10 +1276,19 @@ function panelFootFor({
  * `onDragEnd`'s matching branch calls `insertBlockAt` — never `applyDrop`,
  * since inserting fresh content is not a move — selects the result on
  * success, and sets the same `refusal` state the canvas-move branch already
- * renders through `drag-refusal` on failure. See the actors feature note's
- * own account of what this pipeline can and cannot yet reach (the append
- * slot past a container's current children has no rendered droppable to
- * land on).
+ * renders through `drag-refusal` on failure.
+ *
+ * **Every container's own append slot — one past its current children — is
+ * a real, always-mounted droppable now (2026-09-05).** `PublicBlock`'s
+ * `editor` prop supplies `appendSlot`, the `EditorRenderHook` member
+ * `Block` (`blocks.tsx`) calls once per container right after that
+ * container's own children; this component reads the container's live
+ * child count fresh out of `blocks` via `blockAt` on every call, so a stale
+ * count can never reach the rendered `AppendSlot`. What is still absent is
+ * the PAGE's own root append slot — one past the last top-level section,
+ * which would add a whole new section — since the top-level seat list
+ * below is never itself passed through `Block`. See the actors feature
+ * note's own account of both.
  *
  * @returns the page editor.
  */
@@ -1895,16 +1907,26 @@ export function BlockEditor<T extends FieldValues>({
   // comment states. Each thumbnail is now a real `useDraggable` source by
   // mouse (`AddPalette`'s own TSDoc), and `insertTargetsRef`/
   // `detectCollisionAt`'s palette branch/`onDragEnd`'s palette branch above
-  // are what land a drop. `insertTargetsFor` already offers the append slot
-  // — one past a container's last child, one past the page's own last
-  // section — as a valid target; what it lacks is a RENDERED place to drop
-  // onto, since `blocks.tsx` draws no DOM element past a container's actual
-  // `children.length`. `detectCollisionAt`'s loop skips any target whose id
-  // has no registered droppable rect, so that target is simply unreachable
-  // by pointer today rather than offered and mishandled — a later task in
-  // this feature is what renders it. The modal `AddBlockPicker` remains the
-  // only way to add there until it does. Touch and keyboard are not wired to
-  // this thumbnail either.
+  // are what land a drop. `insertTargetsFor` offers the append slot — one
+  // past a container's last child, one past the page's own last section —
+  // as a valid target.
+  //
+  // **A container's own is RENDERED now.** `appendSlot` in the `editor` hook
+  // object below mounts `AppendSlot` — a real, always-registered droppable
+  // — after every container's own last child, through the exact render-prop
+  // seam `wrap` already uses: `blocks.tsx` calls
+  // `editor?.appendSlot?.(path)` and never itself constructs or imports
+  // what that returns.
+  //
+  // **The page's own append slot — one past its last TOP-LEVEL section — is
+  // not.** There is no per-page analogue of a container's `appendSlot`
+  // hook, so a drag onto that one specific position stays unreachable by
+  // pointer until a later task in this feature builds one:
+  // `detectCollisionAt`'s loop still skips any target whose id has no
+  // registered droppable rect, and nothing renders one there yet. The modal
+  // `AddBlockPicker` remains the only way to append a new top-level section
+  // until it does. Touch and keyboard are not wired to this thumbnail
+  // either.
   const palettePane = (
     <AddPalette
       labels={{
@@ -2199,6 +2221,35 @@ export function BlockEditor<T extends FieldValues>({
                                 {children}
                               </EditableBlockFrame>
                             ),
+                            // **The palette's "append a new row" target
+                            // (2026-09-05).** `containerPath` is the SAME
+                            // hyphenated path `wrap` already received for
+                            // this container; the append position itself —
+                            // one past its own child count — is read fresh
+                            // from `blocks` here rather than trusted to a
+                            // caller, so a stale count can never reach
+                            // `AppendSlot`.
+                            appendSlot: (containerPath) => {
+                              const parsedContainerPath =
+                                parseBlockPath(containerPath) ?? [];
+                              const containerBlock = blockAt(
+                                blocks,
+                                parsedContainerPath,
+                              );
+                              const childCount =
+                                containerBlock && isContainer(containerBlock)
+                                  ? containerBlock.children.length
+                                  : 0;
+                              return (
+                                <AppendSlot
+                                  path={formatBlockPath([
+                                    ...parsedContainerPath,
+                                    childCount,
+                                  ])}
+                                  insertTargets={insertTargetsRef.current}
+                                />
+                              );
+                            },
                           } satisfies EditorRenderHook)
                     }
                   />

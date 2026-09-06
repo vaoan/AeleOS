@@ -167,3 +167,68 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
     </div>
   );
 }
+
+/** What {@link AppendSlot} needs. */
+export interface AppendSlotProps {
+  /**
+   * The append target's own renderer path — one past the container's own
+   * last child, never the container's own path. Built by the caller from
+   * `EditorRenderHook.appendSlot`'s own `containerPath` argument and that
+   * container's current child count; this component never computes it and
+   * never reads `blocks.tsx`'s tree to find out.
+   */
+  readonly path: string;
+  /**
+   * Every insertion target a palette-origin drag currently in progress
+   * would accept, or `null` while none is — see
+   * {@link EditableBlockInstrumentation.insertTargets}.
+   */
+  readonly insertTargets: readonly InsertTarget[] | null;
+}
+
+/**
+ * The virtual "append a new row" droppable — the position one past a
+ * container's own last child, which the public renderer never draws an
+ * element for on its own.
+ *
+ * **Always mounted, so it is always a registered droppable — and visually
+ * nothing at all unless a palette drag currently offers it.**
+ * `insertTargetsFor` (`domain/palette-targets.ts`) already computes this
+ * position as a valid domain target; what was missing was a rendered
+ * element for dnd-kit to measure a rectangle for, which is exactly what
+ * left it unreachable by pointer — `detectCollisionAt`'s own loop skips any
+ * target whose id has no registered droppable rect. Mounting this only
+ * while it is highlighted would reopen that same gap the instant a drag
+ * begins: dnd-kit measures whatever is already in the DOM, and an element
+ * that appears only after a drag has started has no rectangle for the
+ * collision check to find.
+ *
+ * **The highlight is keyed on the identical `insertTargets` membership
+ * check {@link EditableBlockFrame} uses, and reuses its exact class list.**
+ * Every matching target lights up at once, never only the one currently
+ * under the pointer — the same reasoning `EditableBlockFrame`'s own
+ * `isInsertTarget` already states.
+ *
+ * @param props - see {@link AppendSlotProps}.
+ * @returns an editor-only droppable marker: an empty, zero-height
+ * `CHROME_SCOPE` box when nothing highlights it, or a dashed, outlined
+ * place when this exact position is one of `insertTargets`.
+ */
+export function AppendSlot(props: AppendSlotProps): ReactNode {
+  const { path: encodedPath, insertTargets } = props;
+  const path = parseBlockPath(encodedPath) ?? [];
+  const { setNodeRef } = useDroppable({ id: canvasPlaceId(path) });
+  const isInsertTarget =
+    insertTargets?.some(
+      (target) => formatBlockPath(target.path) === encodedPath,
+    ) ?? false;
+  return (
+    <div
+      ref={setNodeRef}
+      {...tid("canvas-append-slot")}
+      data-canvas-path={encodedPath}
+      data-canvas-drop={isInsertTarget ? "place" : undefined}
+      className={`${CHROME_SCOPE} data-[canvas-drop=place]:min-h-12 data-[canvas-drop=place]:rounded-lg data-[canvas-drop=place]:border data-[canvas-drop=place]:border-dashed data-[canvas-drop=place]:border-(--edge)/40 data-[canvas-drop=place]:outline-2 data-[canvas-drop=place]:outline-offset-2 data-[canvas-drop=place]:outline-(--accent)`}
+    />
+  );
+}
