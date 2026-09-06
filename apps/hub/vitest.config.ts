@@ -54,7 +54,17 @@ export default defineConfig({
     include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
-      include: ["src/features/**/*.ts", "src/shared/**/*.ts", "e2e-target.ts"],
+      include: [
+        "src/features/**/*.ts",
+        "src/shared/**/*.ts",
+        "e2e-target.ts",
+        // Exact path, not a glob: this is the one file under tests/e2e/support
+        // with its own dedicated unit suite (tests/e2e-user-registry.test.ts).
+        // Its sibling helpers (clerk-session.ts, blocks.ts, ...) are exercised
+        // only indirectly, through the specs that import them, and have no
+        // tests of their own to hold to a branch threshold.
+        "tests/e2e/support/user-registry.ts",
+      ],
       // src/app is excluded because a coverage number on JSX measures
       // rendering, not behaviour — and because these files are Next route
       // entry points that need a request context vitest does not have.
