@@ -186,8 +186,6 @@ test.describe("a person's first visit ever is straight to /pages/new", () => {
     try {
       await signIn(page, await mintTicket(fresh.userId));
       await page.goto("/es/pages/new");
-      await openPageAdd(page);
-      await expect(page.getByTestId("add-block")).toBeVisible();
 
       // The owner card's own link carries the address as its visible text —
       // asserted as non-empty rather than compared to a specific value,
@@ -252,7 +250,6 @@ test.describe("the signed-in pages are accessible", () => {
       content: "nextjs-portal{display:none!important}",
     });
     await openPageAdd(page);
-    await expect(page.getByTestId("add-block")).toBeVisible();
     await page.getByTestId("panel-tab-secondary").click();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
@@ -268,10 +265,10 @@ test.describe("the signed-in pages are accessible", () => {
     // **A section of this test's own, and the assertions below depend on it.**
     // The Properties panel shows only the selected target, so this section
     // gives the following scans one unambiguous container, leaf and nested
-    // container to enter in turn. `add-block` is the single global trigger
-    // now, mounted in the toolbar regardless of tab, so no tab click is
-    // needed before it — Page is still the selection here.
-    await addBlock(page, { mode: "grid" });
+    // container to enter in turn. Dragged onto the page's own append slot —
+    // the identity section already occupies top-level path "0", so this one
+    // lands at "1".
+    await addBlock(page, { mode: "grid" }, "");
     // Adding selects the new section and resets to its Layout tab, where
     // `section-name` already lives.
     await page.getByTestId("section-name").fill("A section of my own");
@@ -294,18 +291,16 @@ test.describe("the signed-in pages are accessible", () => {
     // it is the widest: it adds the row-and-cell grid, where every input in a
     // row would otherwise carry one shared accessible name.
     //
-    // **The Add-block picker — a second overlay, never scanned before.** Its
-    // own previews draw the real renderer over real sample content, which is
-    // exactly the surface most likely to carry a name or contrast fault a
-    // hand-written illustration never would. Opened from the one global
-    // trigger, with the section still selected from above.
-    await page.getByTestId("add-block").click();
-    await expect(page.getByTestId("add-block-picker")).toBeVisible();
-    await isAccessible(page, "the editor with the Add-block picker open");
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("add-block-picker")).toBeHidden();
+    // **The persistent Palette tab — a second overlay, never scanned
+    // before.** Its own thumbnails draw the real renderer over real sample
+    // content, which is exactly the surface most likely to carry a name or
+    // contrast fault a hand-written illustration never would. It replaces
+    // the deleted `AddBlockPicker` dialog this scan used to open.
+    await page.getByTestId("panel-tab-palette").click();
+    await expect(page.locator('[data-palette-kind="text"]')).toBeVisible();
+    await isAccessible(page, "the editor with the Palette tab open");
 
-    await addBlock(page, { kind: "text" });
+    await addBlock(page, { kind: "text" }, "1");
     // Adding a leaf selects it and resets to its Content tab, where
     // `leaf-kind` already lives.
     await page.getByTestId("leaf-kind").selectOption("table");
@@ -314,11 +309,10 @@ test.describe("the signed-in pages are accessible", () => {
     await isAccessible(page, "the editor with table content selected");
 
     // And a section inside a place, which is the other component no
-    // accessibility check had ever reached. The table leaf just filled is
-    // still selected, and a leaf's own Add target is its PARENT — the same
-    // outer section — so this lands as its second child with no reselection
-    // needed.
-    await addBlock(page, { mode: "grid" });
+    // accessibility check had ever reached. Dragged onto the same section
+    // ("1") the table leaf above already sits in, landing as its second
+    // child.
+    await addBlock(page, { mode: "grid" }, "1");
     await expect(page.getByTestId("nested-card")).toBeVisible();
     await isAccessible(page, "the editor with a nested section selected");
   });
@@ -334,7 +328,6 @@ test.describe("the signed-in pages are accessible", () => {
   test("the editor with the source dock open", async ({ page }) => {
     await page.goto("/es/pages/new");
     await openPageAdd(page);
-    await expect(page.getByTestId("add-block")).toBeVisible();
 
     // `editor-open-source` lives behind the toolbar's "More" disclosure now
     // (2026-09-04) — see `support/editor.ts`'s own account.

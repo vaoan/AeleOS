@@ -12,7 +12,6 @@ import { useId, type ReactNode } from "react";
 import { Link } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
-import { AddSlotTarget } from "@/features/actors/presentation/add-slot";
 
 /**
  * Translated strings {@link EditorToolbar} renders.
@@ -274,13 +273,15 @@ export interface EditorToolbarProps {
  * under the chrome permanently; spacing belongs to the first thing inside the
  * scroller instead.
  *
- * **It carries the single global Add control too, and NOT as a prop
- * (2026-09-04).** `AddSlotTarget` renders an empty place, first among the
- * action controls; `BlockEditor` — the only component that owns `blocks` and
- * the current selection — portals its own `AddBlockPicker` into that place.
- * This bar takes no `add` prop and learns nothing about a selection, matching
- * why it takes `pageThemeSwitch`/`writingIn` as ready-made nodes rather than
- * the theme or the language themselves. See `add-slot.tsx`.
+ * **It no longer carries an Add control at all (2026-09-06).** Adding a block
+ * moved to the persistent Palette tab in the Properties panel — a drag from a
+ * real thumbnail onto the canvas, not a button in this bar — once
+ * `AddBlockPicker`/`add-target.ts`/`add-slot.tsx` were deleted as the
+ * now-superseded modal mechanism. This bar never carried an `add` prop even
+ * when it carried the slot; it still takes `pageThemeSwitch`/`writingIn` as
+ * ready-made nodes rather than the theme or the language themselves, for the
+ * same reason that was always true — this bar learns nothing about a
+ * selection or about `blocks`.
  *
  * **The row is Add, the page-theme switch, Preview, Save, More
  * (2026-09-04).** The spec names "Add, desktop/mobile canvas width, Preview,
@@ -306,8 +307,8 @@ export interface EditorToolbarProps {
  * `More` disclosure's `absolute` panel — however high ITS OWN `z-index` is
  * set — only ever competed within that context, and the whole bar painted
  * below the Properties panel's `z-30` whenever both were open. `z-40`
- * matches the tier `page-source-dock.tsx` and the Add picker's own dialog
- * already use for "above the Properties panel."
+ * matches the tier `page-source-dock.tsx` already uses for "above the
+ * Properties panel."
  *
  * @returns the toolbar.
  */
@@ -375,8 +376,8 @@ export function EditorToolbar({
           INSIDE that context, and the bar as a whole was painting behind
           `PropertiesPanel`'s `z-30` whenever both were open, however high
           the disclosure's own z-index went. `z-40` matches the tier
-          `page-source-dock.tsx` and `add-block-picker.tsx` already use for
-          "above the Properties panel." Invisible to every unit test —
+          `page-source-dock.tsx` already uses for "above the Properties
+          panel." Invisible to every unit test —
           jsdom does no compositing — and caught only by a real browser
           failing to click a "More" item with the panel open. */}
       {/* **It WRAPS below `sm`, and that is arithmetic rather than taste.**
@@ -413,14 +414,12 @@ export function EditorToolbar({
           {/* **`type="button"`, and that is not a formality.** Every button
             inside a `<form>` submits by default, so an unspecified type here
             would SAVE the page on the way to looking at it. */}
-          {/* **The Add control lives here, first among the action controls,
-              matching the spec's own ordering — but is not RENDERED here.**
-              `BlockEditor` alone owns `blocks` and the selection an Add
-              target is computed from, so this slot is what its own
-              `AddBlockPicker` portals into rather than a prop this bar would
-              otherwise need to build from data it must never hold. See
-              `add-slot.tsx`. */}
-          <AddSlotTarget />
+          {/* **There is no Add control in this bar any more (2026-09-06).**
+              Adding a block is a drag from the persistent Palette tab in the
+              Properties panel now, not a button here — see
+              `presentation/add-palette.tsx`. `AddSlotTarget`/
+              `AddSlotProvider` and the `AddBlockPicker` that used to portal
+              into this slot are all deleted. */}
           {pageThemeSwitch}
           <button
             type="button"

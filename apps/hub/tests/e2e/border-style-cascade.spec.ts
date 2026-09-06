@@ -153,15 +153,22 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // **`.border-dashed` scoped to THIS section's own tray, never page-wide.**
     // The identity section's own empty avatar is dashed too, and a two-space
     // add has two empty places — a page-wide class locator cannot tell those
-    // apart from the one placeholder this case is about. There is no Items
+    // apart from the placeholders this case is about. There is no Items
     // list any more to count an `empty-place` row through instead, so the
     // canvas's own placeholder, scoped to the section that owns it, is what
     // this case reads.
-    // **TWO places, one filled.** The claim has two halves and each needs an
-    // element: a painted one in the preview to take the choice, and an empty
-    // one in the control card to refuse it. One place left empty gives the
-    // second and not the first — the section renders nothing at all, because
-    // a container whose every place is empty draws nothing.
+    // **THREE places, one filled.** The claim has two halves and each needs
+    // an element: a painted one in the preview to take the choice, and an
+    // empty one in the control card to refuse it. `addBlock`'s only
+    // available mechanism now is the persistent Palette tab, which can never
+    // replace an existing empty place in place — it always inserts BEFORE
+    // whatever is there (`domain/palette-insert.ts`'s own `insertAt`), so
+    // dropping one leaf onto a freshly added two-place section leaves that
+    // leaf first and BOTH original empty places surviving after it, shifted
+    // one position later, rather than the single leftover empty place the
+    // deleted `AddBlockPicker` would have left. See
+    // `apps/hub/tests/e2e/support/editor.ts`'s own `addBlock`/`firstOpenPlace`
+    // account for the full mechanism.
     await addSection(page, "2");
     // Named while the section is still empty, so its own heading — rather
     // than its first child's card — occupies the corner `selectBlock` below
@@ -171,7 +178,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // `addSection` leaves the new section selected on its Layout tab, with
     // its two empty places already there — no tab switch is needed to add
     // the leaf below.
-    await addBlock(page, { kind: "text" });
+    await addBlock(page, { kind: "text" }, "1");
     // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null when
     // it has neither a title nor a description, so a freshly added content
     // block draws no card at all — and the card is what paints the edge.
@@ -191,14 +198,16 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // section itself answers `solid` however the choice went, which is an
     // assertion that cannot fail — measured, it did exactly that.
     const painted = tray.getByTestId("public-leaf").locator("div").first();
-    // **The editor's own placeholder for the second, still-empty place —
+    // **The editor's own placeholders for the two still-empty places —
     // `EditableBlockFrame`'s own dashed border, scoped to this section's own
     // tray.** There is no Items list any more, so this is the workbench's
     // "nothing here yet" affordance rendered directly on the canvas rather
     // than in a separate row; scoping to `tray` is what keeps it from also
-    // matching the identity section's own empty places.
+    // matching the identity section's own empty places. TWO rather than one
+    // — see this test's own header comment on why the leaf landed ahead of
+    // both original empty places rather than replacing one of them.
     const placeholder = tray.locator(".border-dashed");
-    await expect(placeholder).toHaveCount(1);
+    await expect(placeholder).toHaveCount(2);
 
     // Before anything is chosen: the section falls through to the design's
     // own solid edge, and the placeholder is dashed. Read first so the
@@ -206,7 +215,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // was already there — without this, a section that is dotted for some
     // unrelated reason would pass.
     expect(await borderStyleOf(painted)).toBe("solid");
-    expect(await borderStyleOf(placeholder)).toBe("dashed");
+    expect(await borderStyleOf(placeholder.first())).toBe("dashed");
 
     // Selecting the section (rather than the leaf still selected from
     // adding it) is what reaches ITS OWN Appearance tab — there is no
@@ -235,13 +244,13 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
 
     // Half 1: the previewed section's own card takes the choice.
     expect(await borderStyleOf(painted)).toBe("dotted");
-    // Half 2: the empty place stays dashed because it is in the AeleOS
+    // Half 2: the empty places stay dashed because they are in the AeleOS
     // control card — a `CHROME_SCOPE` island, and a sibling of the preview
     // rather than an ancestor of it. This fixture cannot discriminate
     // Tailwind utility ordering and makes no claim about it. `placeholder`
     // is the live canvas element itself, so re-reading it needs no
     // navigation back to any pane.
-    expect(await borderStyleOf(placeholder)).toBe("dashed");
+    expect(await borderStyleOf(placeholder.first())).toBe("dashed");
   });
 
   // **The third test measures PIXELS, and the other two cannot replace it.**
@@ -279,7 +288,7 @@ test.describe("--skin-border-style vs. a descendant's own border utility", () =>
     // Content, because an edge needs something to be drawn around: a leaf's
     // own `surface` card is what consumes `--skin-border-style`, and a
     // container whose every place is empty renders nothing at all.
-    await addBlock(page, { kind: "text" });
+    await addBlock(page, { kind: "text" }, "1");
     // Titled, or `PlainLeaf` renders nothing and there is no card to sample.
     await page.getByTestId("leaf-title").fill("Bordered");
 

@@ -61,9 +61,8 @@ test("a leaf's own portrait-size choice resizes its avatar in the live preview",
   // One section, one place, one piece of content — built by hand so what is
   // measured is the control that shipped, not a template's own data.
   await addSection(page, "1");
-  // `addSection` leaves the new section selected on its Layout tab, with its
-  // one empty place already there — no tab switch needed to reach it.
-  await addBlock(page, { kind: "text" });
+  // The identity section occupies top-level path "0", so this one is "1".
+  await addBlock(page, { kind: "text" }, "1");
   // **`avatar` only, and `portrait` is unreachable through any other kind's
   // select.** Choosable here because `offerableLeafKinds` refuses only the
   // ONE kind a page's actor kind has no use for (`owner` on a person page) —

@@ -5415,11 +5415,15 @@ once in `BlockEditor`, was threaded to all three rather than each call site
 re-slicing `labels` its own way. **One task later, in the same day, "The
 Properties panel replaces the recursive inspector" removed `inspector-items.tsx`
 and `ItemsFooter` outright, along with every OTHER mount site this picker
-had but one** — see that section, further down this file, for the current
-shape: a single `AddBlockPicker`, portalled once into the toolbar, is the
-only way to add a BLOCK now. `BlockCard`'s own `add-place` button — appends
-an empty POSITION, never a block — is the one container-footer control that
-survived, unchanged in meaning, inside the panel's Layout tab.
+had but one** — see that section, further down this file, for the shape as
+of that day: a single `AddBlockPicker`, portalled once into the toolbar, was
+the only way to add a BLOCK. **That was superseded in its turn on
+2026-09-06 — see "The modal Add is retired; the palette is the only way in"
+at the end of this file — and `AddBlockPicker` itself, along with
+`add-target.ts` and `add-slot.tsx`, is deleted.** `BlockCard`'s own
+`add-place` button — appends an empty POSITION, never a block — is the one
+container-footer control that survived both changes, unchanged in meaning,
+inside the panel's Layout tab.
 
 **"The nesting looked deleted" bug is what this closes, and it is proven by a
 fixture the flat editor could not have discriminated with.** `add-nested`
@@ -6666,3 +6670,187 @@ recorded — "collapsing shrinks the dock... at 1280," left failing
 deliberately pending this exact decision — without touching that spec at
 all: the dock's box moving out from inside the panel's reserved region is
 the same geometry fix either assertion needed.
+
+### The modal Add is retired; the palette is the only way in (2026-09-06) — Task 8 of 9
+
+`AddBlockPicker` (`presentation/add-block-picker.tsx`), `presentation/add-slot.tsx`
+and `domain/add-target.ts` are **deleted**, along with their tests
+(`add-block-picker.test.tsx`, `add-slot.test.tsx`, `add-target.test.tsx`)
+and every mount site — the one that survived Task 4's own consolidation,
+portalled into the toolbar through `AddSlotProvider`/`AddSlotTarget`. The
+persistent Palette tab Tasks 4–7 built (`presentation/add-palette.tsx`,
+`domain/palette-targets.ts`, `domain/palette-insert.ts`) is now the **only**
+way to add a block — by pointer or by keyboard, dragged onto the live
+canvas — closing the modal path this whole feature was built to replace.
+
+**A real semantic gap between the two mechanisms, found while adapting the
+e2e suite rather than assumed away.** `AddBlockPicker`'s own placement — the
+line this note used to credit to `nextChildPosition`
+(`block-editor.tsx`) — filled a container's FIRST EXISTING EMPTY PLACE **in
+place, with no growth**: dropping a leaf into a two-place section with one
+empty place left it a two-place section, one leaf and one still-empty
+place. The palette's `insertBlockAt` (`domain/palette-insert.ts`) cannot do
+this and was never asked to: it always calls `insertAt`, a pure splice, so
+dropping onto an existing null inserts BEFORE it — the null survives,
+shifted one position later, and the container GROWS by one. There is no
+production-reachable control left that fills an existing empty place
+without growing its container; that capability is gone rather than merely
+relocated. `support/editor.ts`'s new `firstOpenPlace` helper (below) is the
+closest available approximation — it targets the first still-empty
+EXISTING place, so content still lands at increasing indices in the order
+it is added — but every container a fresh palette drag creates starts with
+`PICKER_SPACES` (two) empty places, and those two survive every insertion
+that follows, shifted to the end. A section that receives two dropped
+pieces of content therefore ends with **four** real places, not two, and
+every e2e fixture built against the old "N adds, N places" arithmetic had
+to be re-derived rather than mechanically substituted.
+
+**`tests/e2e/support/editor.ts` carries the new API.** `dragPaletteOnto(page,
+choice, targetCanvasPath)` is the primitive — drags a palette thumbnail
+(named by `{ kind }` or `{ mode }`) onto an exact `data-canvas-path`, with
+the `@dnd-kit/core@6.3.1` 50ms post-drop click-swallow window (root rule 41)
+awaited past on every call. `addBlock(page, choice, containerPath)` wraps
+it with `firstOpenPlace`, so most call sites read almost like the deleted
+`addBlock(page, choice)` they replace, with one required addition: a
+container path, because a drag has no notion of "whatever is currently
+selected" the way a modal targeted at the selection did. `addSection(page,
+spaces)` keeps its old signature unchanged — it drags a `{ mode: "grid" }`
+layout onto the page root and then reshapes it through `section-spaces`,
+exactly as before.
+
+**Nine e2e files were adapted, none rewritten from scratch.** `a11y.spec.ts`,
+`border-style-cascade.spec.ts`, `editor-interaction.spec.ts`,
+`editor-is-the-page.spec.ts`, `leaf-style-popup.spec.ts`,
+`properties-panel.spec.ts`, `section-card-face.spec.ts`,
+`section-drag-reorder.spec.ts` and `editor-saves-page.spec.ts` each needed
+their `addBlock`/`addSection` calls given a `containerPath`, and a smaller
+number needed a COUNT assertion corrected for the new splice-insert
+arithmetic — most position-specific assertions (which path holds which
+title) survive unchanged, because content still lands in the order it was
+added; only assertions counting TOTAL empty places had to move. The most
+extensive of these, `editor-saves-page.spec.ts`'s "sections built by hand"
+test, no longer needs a manual `add-place` press at all — the palette's own
+`PICKER_SPACES` supplies the extra places that press used to add by hand —
+and its stranger-side empty-place count moved from 1 to 3 (the gap the test
+is actually about, plus the section's own two original places, shifted past
+by three successive inserts). `nested-page-build.spec.ts` needed the same
+treatment at two levels — an outer section reshaped to `ACROSS = 4` (two
+added pieces of content plus the two it started with) and a nested
+container left at its un-reshaped `PICKER_SPACES` of two — with its
+trailing-empty-place geometry check widened from one column to two.
+
+**A page-root `AppendSlot` was added, and it is a genuine scope expansion
+beyond removing the modal — recorded here rather than folded silently into
+"adapting the tests."** Before this task, `blocks.tsx` never wrapped the
+page's own top-level seat list in a call to `Block()`, so the `editor?.appendSlot?.(path)`
+mechanism Task 6 built (see the `appendSlot` account earlier in this file)
+was never invoked for the page root at all — a palette drag could add
+nested content or reshape an existing section, but could not add a brand
+NEW top-level section at all, since there was no rendered append slot to
+drop one onto. `block-editor.tsx` now renders one directly, as a sibling of
+`{seats.map(...)}` rather than through the render-prop `blocks.tsx` calls
+for every OTHER container, because the page's own list is not itself a
+`Block()` call. This is what makes `addSection`'s continued existence
+possible at all now that the modal it used to drive through `add-section`
+is gone: dragging a `{ mode: "grid" }` layout onto the page root is now how
+a new section is added, full stop, and that needed a real droppable target
+to exist.
+
+**A real, only-in-a-browser fault, found by the first full e2e run against
+this branch rather than by any static check.** `dragPaletteOnto`'s first
+draft read `boundingBox()` off the palette thumbnail and the canvas target
+with neither scrolled into view first. `boundingBox()` answers an
+element's LAID-OUT position whether or not it currently sits within the
+visible scrollport — the Palette tab lists all sixteen leaf kinds and eight
+container modes in one scrollable pane, and a container-mode thumbnail
+(`grid`, the one every `addSection` call drags) sits well below the fold on
+an ordinary viewport. Moving the mouse to that off-screen position starts
+no drag at all: a real browser does not dispatch a pointer event to a point
+outside the current viewport, so `page.mouse.down()`/`move()`/`up()`
+completed without error and the drop landed nowhere — no thrown assertion,
+no console error, nothing for `dragPaletteOnto`'s own null-checks to catch,
+since both bounding boxes were real, non-null rectangles. **This broke
+`addSection` for every caller across the whole suite at once**, because
+every one of them adds its first section through a `{ mode: "grid" }`
+palette drag onto the page root — measured: 20 failures across nine files
+touched by this task plus `palette-drag-to-add.spec.ts` and
+`section-style-popup.spec.ts`, neither of which this task edited, all
+failing at the identical assertion inside `addSection` itself
+(`section-spaces` never becoming visible), which is what made this a
+single shared-helper fault rather than twenty independent ones. Confirmed
+by direct reproduction against a real signed-in session outside the test
+runner: the identical drag against the identical target succeeded once
+`scrollIntoViewIfNeeded()` was called on both the thumbnail and the target
+before reading either bounding box, and failed, silently, without it. Both
+ends are scrolled into view now, and the comment beside the fix in
+`support/editor.ts` carries the account so the next person touching this
+helper does not remove the call reading it as redundant.
+
+**A second full e2e run — needed because the first one only exercised the
+fix above — found two more faults, and only one of them was in the
+product.** Both are the kind root rule 31 warns about: neither was
+reachable from any unit suite, because both concern what a real drag
+actually lands on rather than what a pure function returns.
+
+- **A TEST bug in `nested-page-build.spec.ts`'s own place count.**
+  `[data-canvas-path^="1-"]` matches every DESCENDANT under section "1", not
+  only its direct children — a nested grid built two levels down carries its
+  own two starting empty places at `"1-1-0"`/`"1-1-1"`, which also start
+  with `"1-"` and were silently counted alongside the outer section's own
+  four, reporting 6 where the outer section's own shape is 4. The fix
+  filters to paths exactly one segment past the prefix
+  (`data-canvas-path.split("-").length === 2`), which is what "the outer
+  section's own real places" actually means. A second, adjacent comment in
+  the same file had drifted the same way it warned against elsewhere in this
+  note: it implied the nested container's own place count STAYED at two,
+  which is false — it grows from two to four by the identical
+  splice-insert-always-grows mechanism the outer section does; only its
+  `spaces` FIELD stays at two, because nothing ever reshaped it. Both are
+  corrected in the file's own comments now rather than left for the next
+  reader to re-derive.
+- **A genuine product-code regression in `onDragEnd`'s palette branch,
+  caught by `properties-panel.spec.ts`'s "Escape aimed at a field inside the
+  panel keeps the selection" — the case expects `leaf-kind` to be visible
+  immediately after dropping a leaf at the page root, and it was not.**
+  `insertBlockAt` wraps a bare leaf landing at the page root in a new
+  one-place `stack` first (see that function's own TSDoc) and returns
+  `path` as the WRAPPER's own position, never the leaf's nested one. The
+  old, now-deleted `addAt` handled this exact case explicitly —
+  `isContainer(block) ? [position] : [position, 0]` — and the new palette
+  mechanism's `onDragEnd` simply carried `result.path` straight into
+  `setSelection`, selecting the stack rather than the leaf inside it. The
+  Properties panel then showed the wrapper's Layout tab (a container's
+  fields) instead of the leaf's Content tab, so `leaf-kind` was never
+  rendered at all. Fixed by mirroring the deleted `addAt`'s own logic: when
+  the palette item is a leaf and its target's parent path is empty — the
+  exact condition `insertBlockAt` uses to decide whether to wrap —
+  `setSelection` is handed `[...result.path, 0]` instead of bare
+  `result.path`. This is a real behavioural fault this branch introduced
+  and its own required e2e run is what caught it, not a test needing
+  adaptation to a mechanical rename.
+
+**Verified.** `pnpm --filter hub test` — 3,781 tests, 100% branch coverage,
+zero regressions from this branch's own edits to production code beyond the
+three named above — `block-card.tsx`'s comment, `block-editor.tsx`'s new
+page-root `AppendSlot` (plus the extraction of `pageRootAppendSlot` as its
+own top-level helper, needed to keep `BlockEditor` under the
+cognitive-complexity budget and to keep its ref read out of
+`react-hooks/refs`' reach), and `onDragEnd`'s selection-path fix above — and
+everything else changed outside `tests/e2e/`. `pnpm lint` (root), `pnpm
+typecheck`, `pnpm --filter hub build`, `pnpm check:docs`, `pnpm
+check:agent-notes` and `pnpm check:tools` all clean. `pnpm --filter hub
+test:e2e`, run with `.secrets` sourced in the same shell invocation (root
+rule 31), reports the full case count rather than a partial one — see this
+section's own account above for the two real faults the second full run
+found and the fixes that closed them.
+
+**Confirmed via `grep -rn "AddSlotProvider\|AddSlotTarget\|AddBlockPicker\|addTargetFor" apps/hub/src apps/hub/tests`:**
+every remaining hit is prose — a past-tense account in this file, in a TSDoc
+paragraph explaining what a mechanism replaced, or in a code comment naming
+what something is NOT any more — never a live import, a live component
+usage, or a live test target. `presentation/add-palette.tsx`'s own TSDoc
+(Task 4) still names `AddBlockPicker` twice as the thing its preview
+mechanism and its props mirror — read those as history, the same as every
+other "used to be X" sentence in this file; `add-palette.tsx` itself is
+untouched by this task; there is no code left for either name to resolve
+against.

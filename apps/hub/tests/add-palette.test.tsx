@@ -212,7 +212,7 @@ describe("AddPalette", () => {
   // `inert` is what keeps a `player`/`jukebox` sample's real transport
   // buttons from making this a clickable ancestor containing interactive
   // content — see this component's own TSDoc for the full `nested-interactive`
-  // reasoning it mirrors from `AddBlockPicker`.
+  // reasoning, the same shape the now-deleted `AddBlockPicker` used to need.
   it("wraps every preview in an inert, chrome-scoped box", () => {
     renderPalette();
     const items = screen.getAllByTestId("palette-item");
@@ -231,9 +231,10 @@ describe("AddPalette", () => {
 
   // **A thumbnail is a real drag source now (2026-09-05), not a static
   // preview.** Every one carries `role="button"` and an `aria-label` naming
-  // the item, matching `AddBlockPicker`'s own convention for a non-native
-  // `<button>` interactive element — a `player`/`jukebox` preview draws real
-  // transport buttons, which an actual `<button>` may not contain at all.
+  // the item, the same non-native `<button>` convention the now-deleted
+  // `AddBlockPicker` used for exactly the same reason — a `player`/`jukebox`
+  // preview draws real transport buttons, which an actual `<button>` may not
+  // contain at all.
   it("carries role=button and an aria-label naming the item, for a leaf and a mode alike", () => {
     renderPalette();
     expect(screen.getByRole("button", { name: "text" })).toHaveAttribute(

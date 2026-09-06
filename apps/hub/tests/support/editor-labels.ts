@@ -163,10 +163,14 @@ const stylePopupLabels = {
  * Items, Options or Back any more (2026-09-04): the panel has exactly two
  * fixed tabs per selection kind, and Close is its only way out.
  *
- * **Carries the Add picker's four strings too (2026-09-02)** —
+ * **Carries four Add-related strings too (2026-09-02)** —
  * `addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` — as real
- * English, since `AddBlockPicker` is not part of the vocabulary-derived
- * records above and a suite asserting its own words needs them spelled out.
+ * English, since none of the four is part of the vocabulary-derived records
+ * above. `addBlock`/`addBlockTitle` are unread now (2026-09-06): they named
+ * the deleted `AddBlockPicker`'s own trigger and dialog heading, and are
+ * kept only because `BlockEditorLabels` still declares the fields.
+ * `addContentGroup`/`addLayoutGroup` are read by `AddPalette`'s own
+ * headings.
  *
  * The drag bag includes the linear-list capacity refusal as a distinct string,
  * so presentation tests cannot accidentally collapse it into a stale-place

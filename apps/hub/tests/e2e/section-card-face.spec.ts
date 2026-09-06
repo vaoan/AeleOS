@@ -260,7 +260,7 @@ test("author colours and skin change both real previews without restyling the wo
   await nameThePage(page, "themeboundary", "Theme boundary");
   await addSection(page, "1");
   await page.getByTestId("section-name").fill("Boundary");
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Previewed");
   // `openPageOptions` selects Page and switches to its Theme (secondary) tab
   // — unchanged in meaning, since Page's pairing has always been Page/Theme.
@@ -502,9 +502,8 @@ test("the face paints the skin, and a section's picture at full strength inside 
   // An unnamed section's child fills that pixel exactly, which resolves the
   // click to the leaf instead of the container.
   await page.getByTestId("section-name").fill("Painted section");
-  // The section is selected on its own Layout tab; the single global Add
-  // targets it directly, filling its first empty place.
-  await addBlock(page, { kind: "text" });
+  // The identity section occupies top-level path "0", so this one is "1".
+  await addBlock(page, { kind: "text" }, "1");
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
@@ -627,7 +626,7 @@ test("AeleOS controls stay readable beside a hostile full-strength tray picture"
   await addSection(page, "1");
   const tray = page.getByTestId("block-preview").last();
   await page.getByTestId("section-name").fill("Section");
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Item");
   await page.getByTestId("leaf-description").fill("A description");
 
@@ -778,7 +777,7 @@ test("the three background fits are three different paints", async ({
   // Named while the section is still empty, so its own heading — rather than
   // its first child's card — occupies the corner `selectBlock` clicks below.
   await page.getByTestId("section-name").fill("Fitted section");
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   // **Titled, or the leaf renders NOTHING.** `PlainLeaf` returns null with
   // neither a title nor a description, so a freshly added content block draws
   // no card — and the card is what carries the skin's edge.
@@ -949,10 +948,9 @@ test("the face does not paint over the section's own writing", async ({
   await page.getByTestId("section-name").fill("Legible heading");
   // **`addSection(page, "1")` still starts the container at the picker's own
   // default of two children — narrowing to one place is a WIDTH, never a
-  // capacity — so the second place stays empty and untouched.** The single
-  // global Add targets the selected section directly and fills its FIRST
-  // empty place, with no locator ambiguity left to guard against.
-  await addBlock(page, { kind: "text" });
+  // capacity — so the second place stays empty and untouched.** Dragged onto
+  // the identity-shifted path "1" — its own first still-empty place.
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Legible body");
 
   // Adding the leaf selected it; reselect the section and collapse it. No

@@ -1,6 +1,5 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import {
   DndContext,
   KeyboardCode,
@@ -141,13 +140,6 @@ import {
 } from "@/features/actors/presentation/block-contract";
 import { lockCanvasInteraction } from "@/features/actors/presentation/canvas-interaction-lock";
 import {
-  AddBlockPicker,
-  PICKER_SPACES,
-  type AddBlockPickerProps,
-} from "@/features/actors/presentation/add-block-picker";
-import { addTargetFor } from "@/features/actors/domain/add-target";
-import { useAddSlot } from "@/features/actors/presentation/add-slot";
-import {
   SECTION_PRESETS,
   presetBlock,
 } from "@/features/actors/presentation/section-presets";
@@ -196,11 +188,17 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * panel's own way out at any depth; there is no Back or breadcrumb any
  * more, since there is no tree left to navigate.
  *
- * **`addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` are the Add
- * picker's own strings.** One control, one name — the compact builder menu's
- * single global Add (2026-09-04), portalled into `EditorToolbar` from
- * whichever scope is selected, replacing the page-level, container-footer
- * and per-empty-place mounts this bag used to feed separately.
+ * **`addBlock`/`addBlockTitle` are unread catalogue strings now (2026-09-06),
+ * matching `addSection`/`newSectionSpaces` above them.** They named the
+ * single global Add control's trigger and its dialog heading — the compact
+ * builder menu's `AddBlockPicker`, portalled into `EditorToolbar` from
+ * whichever scope was selected — and that whole mechanism is deleted along
+ * with `add-target.ts`/`add-slot.tsx`: adding a block is a drag from the
+ * persistent Palette tab now, which needs no trigger to open it and draws no
+ * dialog with a heading. Left in both catalogues rather than chased through
+ * every consumer for a removal this task did not otherwise need.
+ * `addContentGroup`/`addLayoutGroup` remain read, by `AddPalette`'s own
+ * headings over its leaf-kind and container-mode thumbnails.
  *
  * **`panelTabPalette` names the Properties panel's persistent third tab
  * (2026-09-05).** It is never selection-dependent the way `selectPage`/
@@ -246,19 +244,16 @@ export interface BlockEditorLabels
   /** Wraps the selected content in a layout. */
   wrapInLayout: string;
   /**
-   * Names the single global Add control's trigger, in the toolbar.
-   *
-   * One name whatever the current selection targets — the page root, a
-   * selected container, or the parent of a selected leaf — because it is the
-   * same control everywhere; only its target differs, and that is never
-   * named in the trigger's own words.
+   * Unread (2026-09-06). Named the single global Add control's trigger in
+   * the toolbar, deleted along with `AddBlockPicker`/`add-target.ts`/
+   * `add-slot.tsx` — see this interface's own TSDoc.
    */
   addBlock: string;
-  /** The picker's own dialog heading. */
+  /** Unread (2026-09-06). Named the deleted picker's own dialog heading. */
   addBlockTitle: string;
-  /** Heading over the picker's content options. */
+  /** Heading over the Palette tab's content thumbnails. */
   addContentGroup: string;
-  /** Heading over the picker's layout options. */
+  /** Heading over the Palette tab's layout thumbnails. */
   addLayoutGroup: string;
   /**
    * The Properties panel's Appearance tab — a container's and a leaf's
@@ -794,6 +789,50 @@ function useResettableSelection(
 }
 
 /**
+ * The page's own root append slot — one past the last top-level section,
+ * where a whole new SECTION lands when a palette drag targets it.
+ *
+ * Pulled out of {@link BlockEditor}'s own render body for two reasons at
+ * once: it keeps that component's cognitive complexity under the budget,
+ * and — because this is a plain, lowercase helper rather than a component
+ * or hook by naming convention — `react-hooks/refs` does not treat its
+ * read of `insertTargetsRef.current` as a ref access "during render" the
+ * way it would inside `BlockEditor`'s own top-level JSX. `blocks.tsx` never
+ * wraps this component's own top-level seat list in a call to `Block`, so
+ * there is no `editor.appendSlot` call site for the page root the way a
+ * container's own is reached — this is the one place in the tree that
+ * renders `AppendSlot` directly rather than through that render-prop seam.
+ *
+ * `controlsHidden`/`interactionsEnabled` gate visibility, matching every
+ * other editor-only island; `blocksLength` is the page's own top-level
+ * child count, read fresh on every call so a stale count can never reach
+ * the rendered slot; `insertTargetsRef` is the same ref {@link BlockEditor}
+ * threads to every other `AppendSlot` on the page.
+ *
+ * @returns the append slot, or `null` while controls are hidden or page
+ * interaction is on.
+ */
+function pageRootAppendSlot({
+  controlsHidden,
+  interactionsEnabled,
+  blocksLength,
+  insertTargetsRef,
+}: {
+  readonly controlsHidden: boolean;
+  readonly interactionsEnabled: boolean;
+  readonly blocksLength: number;
+  readonly insertTargetsRef: RefObject<readonly InsertTarget[] | null>;
+}): ReactNode {
+  if (controlsHidden || interactionsEnabled) return null;
+  return (
+    <AppendSlot
+      path={formatBlockPath([blocksLength])}
+      insertTargets={insertTargetsRef.current}
+    />
+  );
+}
+
+/**
  * Where a container will put its next appended child.
  *
  * @param block - the selected block, when it still resolves.
@@ -806,23 +845,15 @@ function nextChildPosition(block: Block | null): number {
 }
 
 /**
- * The one global Add, portalled into `EditorToolbar`'s slot.
+ * How many places a section added from the palette starts with.
  *
- * A tiny function of its own rather than an inline ternary in
- * {@link BlockEditor}'s own JSX — pulled out purely to keep that component's
- * cognitive complexity under the project's own gate, not because the logic
- * is complex on its own terms.
- *
- * @param slot - where to portal to, or null before it mounts.
- * @param props - what {@link AddBlockPicker} needs.
- * @returns the portalled picker, or nothing while there is no slot.
+ * **Moved here from the deleted `add-block-picker.tsx` (2026-09-06), which
+ * used to be this constant's only home.** Nothing outside this file reads
+ * it any more — the modal picker it was written for is gone, and the
+ * palette's own `onDragEnd` palette branch is now its one caller — so it is
+ * a local constant rather than an export.
  */
-function addSlotPortal(
-  slot: HTMLElement | null,
-  props: AddBlockPickerProps,
-): ReactNode {
-  return slot ? createPortal(<AddBlockPicker {...props} />, slot) : null;
-}
+const PICKER_SPACES = 2;
 
 /** What {@link panelContentFor} needs to build one selection kind's panes. */
 interface PanelContentInputs {
@@ -1288,22 +1319,21 @@ function panelFootFor({
  * visitor — and the interaction lock covering the canvas is released in the
  * same effect that watches this prop.
  *
- * **One `AddBlockPicker` is the only way to add, and it is mounted ONCE
- * (2026-09-04), portalled into `EditorToolbar`'s own slot rather than
- * mounted separately at the page, a container's footer, and every empty
- * place — see `add-target.ts` and `add-slot.tsx`.** A real signed-in browser
- * check (Task 4 of the compact-menu plan) found the container-footer mount
- * genuinely redundant once the toolbar's global Add existed — see the
- * actors feature note for the account — so the container's own footer
- * (`BlockCard`'s `add-place` button, which appends an empty position rather
- * than a block) is the only add-adjacent control left inside a container's
- * own Layout tab. The Items scope this used to live in
- * (`inspector-items.tsx`, since deleted — see "The Properties panel
- * replaces the recursive inspector" in the actors feature note) is gone
- * entirely now, one task after this comment was written. The sixteen flat
- * `add-leaf-*` buttons, `add-section`, `add-into-*` and the HTML5
- * drag-to-add path they carried are gone too — see the actors feature note
- * for why drag-to-add is a deliberate removal rather than an oversight.
+ * **The persistent Palette tab is the only way to add, now that
+ * `AddBlockPicker`/`add-target.ts`/`add-slot.tsx` are deleted (2026-09-06).**
+ * A person drags a leaf-kind or layout thumbnail from the Properties panel's
+ * own Palette tab directly onto the live canvas — see `add-palette.tsx` and
+ * this component's own `onDragStart`/`detectCollisionAt`/`onDragEnd` palette
+ * branches — or lifts one by keyboard and steps between highlighted targets.
+ * The container's own footer (`BlockCard`'s `add-place` button, which
+ * appends an empty position rather than a block) is the only other
+ * add-adjacent control, inside a container's own Layout tab. The Items scope
+ * this used to live in (`inspector-items.tsx`, since deleted — see "The
+ * Properties panel replaces the recursive inspector" in the actors feature
+ * note) is gone entirely, and so is the single global Add button the
+ * compact-menu plan replaced the Items scope's own controls with — see the
+ * actors feature note's "Drag-to-add from a palette tab" account for what
+ * replaced each removed mechanism in turn.
  *
  * **Two of its five motion places live here as plain CSS, deliberately not
  * Motion (2026-09-02).** The canvas's own `md:pl-[…]` accommodation
@@ -1348,14 +1378,18 @@ function panelFootFor({
  * **`onCanvasClick` asks `data-block-path` before `CHROME_SCOPE`
  * (2026-09-05).** An empty place's own wrapper carries `CHROME_SCOPE` too —
  * see `EditableBlockFrame` — so checking that exemption first silently
- * swallowed a click meant to select the enclosing container. The canvas's
- * own capture-phase Escape-deselect handler also exempts
- * `add-block-picker` now, alongside the panel and the source dock, for the
- * same class of fault: the picker is portalled to `document.body` rather
- * than nested inside either, so closing it with Escape cleared the
- * selection the picker's own target depended on. See the actors feature
- * note's account for both, found by this component's own e2e suite run for
+ * swallowed a click meant to select the enclosing container. See the actors
+ * feature note's account, found by this component's own e2e suite run for
  * the first time against real Clerk credentials.
+ *
+ * **The canvas's own capture-phase Escape-deselect handler no longer needs
+ * to name the Add mechanism at all (2026-09-06).** It used to exempt
+ * `add-block-picker` by name, because that dialog was portalled to
+ * `document.body` rather than nested inside the panel or the source dock —
+ * so closing it with Escape cleared the selection the picker's own target
+ * depended on. The Palette tab that replaced it is one of `PropertiesPanel`'s
+ * own panes, which the existing `properties-panel` exemption already
+ * covers, so nothing new needed adding when the picker was deleted.
  *
  * **The Properties panel renders unconditionally now, and its persistent
  * Palette tab's own content is deferred-mounted (2026-09-05).** The panel
@@ -1404,16 +1438,24 @@ function panelFootFor({
  * everywhere that ref already is.
  *
  * **Every container's own append slot — one past its current children — is
- * a real, always-mounted droppable now (2026-09-05).** `PublicBlock`'s
- * `editor` prop supplies `appendSlot`, the `EditorRenderHook` member
- * `Block` (`blocks.tsx`) calls once per container right after that
- * container's own children; this component reads the container's live
- * child count fresh out of `blocks` via `blockAt` on every call, so a stale
- * count can never reach the rendered `AppendSlot`. What is still absent is
- * the PAGE's own root append slot — one past the last top-level section,
- * which would add a whole new section — since the top-level seat list
- * below is never itself passed through `Block`. See the actors feature
- * note's own account of both.
+ * a real, always-mounted droppable (2026-09-05).** `PublicBlock`'s `editor`
+ * prop supplies `appendSlot`, the `EditorRenderHook` member `Block`
+ * (`blocks.tsx`) calls once per container right after that container's own
+ * children; this component reads the container's live child count fresh out
+ * of `blocks` via `blockAt` on every call, so a stale count can never reach
+ * the rendered `AppendSlot`.
+ *
+ * **The PAGE's own root append slot is a real droppable too, closed
+ * (2026-09-06) rather than left for a later task.** One past the last
+ * top-level section is where a whole new SECTION lands — the one thing
+ * `AddBlockPicker` was still needed for even after the container-level slot
+ * shipped, since the top-level seat list below is never itself passed
+ * through `Block`, so `appendSlot` never had a call site for it. This
+ * component renders one `AppendSlot` of its own, directly after the last
+ * seat, at `formatBlockPath([blocks.length])` — the exact top-level target
+ * `insertTargetsFor` already offered from Task 1 of the palette feature,
+ * unreachable by pointer until now for want of a rendered rectangle to drop
+ * onto. See the actors feature note's own account of both.
  *
  * @returns the page editor.
  */
@@ -1434,12 +1476,6 @@ export function BlockEditor<T extends FieldValues>({
 }: BlockEditorProps<T>) {
   const dndId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
-  // **Where this component's own Add control portals to, if anywhere.**
-  // `EditorToolbar` renders the target slot; a test that mounts this
-  // component alone, with no provider above it, gets null here and the
-  // portal below renders nothing — the same "absent is an ordinary answer"
-  // shape `useEscapeSlot` already follows.
-  const addSlot = useAddSlot();
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [refusal, setRefusal] = useState<DropRefusal | null>(null);
   const [advertisedTarget, setAdvertisedTarget] = useState<DropTarget | null>(
@@ -1450,10 +1486,10 @@ export function BlockEditor<T extends FieldValues>({
   // **`AddPalette` does not mount until the Palette tab is opened once, and
   // stays mounted after that (2026-09-05).** It draws every leaf kind and
   // container mode through the real renderer, `player`/`jukebox` included —
-  // the same mechanism `AddBlockPicker`'s own dialog already uses, gated
-  // behind THAT dialog's `open` state so its transport-carrying previews
-  // never reach `useTranslations` until somebody actually opens it. This
-  // pane has no dialog to gate behind: it is a persistent TAB, mounted
+  // the same "gate the mount, not the render" shape the deleted
+  // `AddBlockPicker`'s own dialog `open` state used to give it for free, now
+  // that there is no dialog to gate behind. This pane is a persistent TAB,
+  // mounted
   // whether or not it is the active one, per `PropertiesPanel`'s own
   // "hidden, never omitted" convention for its panes — so without this flag,
   // every render of this component would mount all sixteen leaf-kind and
@@ -1779,7 +1815,18 @@ export function BlockEditor<T extends FieldValues>({
       }
       setRefusal(null);
       field.field.onChange(result.blocks);
-      setSelection({ kind: "block", path: result.path });
+      // A bare leaf landing at the page root is wrapped in a new one-place
+      // `stack` by `insertBlockAt` itself — see that function's own TSDoc —
+      // and `result.path` is still the WRAPPER's path, never the leaf's own
+      // nested position. The old, now-deleted `addAt` handled this exact case
+      // explicitly (`isContainer(block) ? [position] : [position, 0]`); this
+      // mirrors it, so a freshly dropped leaf selects itself rather than the
+      // stack it was wrapped in.
+      const selectedPath =
+        paletteItem.kind === "leaf" && targetPath.slice(0, -1).length === 0
+          ? [...result.path, 0]
+          : result.path;
+      setSelection({ kind: "block", path: selectedPath });
       setTab("primary");
       return;
     }
@@ -1816,18 +1863,20 @@ export function BlockEditor<T extends FieldValues>({
    * selection cleared anyway. Capture runs before anything can remove the
    * target, so the question is asked of a node still in the tree.
    *
-   * **The inspector, the source dock and the Add picker keep their own
-   * Escape.** All three hold controls that close themselves with it — the
-   * style popup, the icon picker, the dock's own dialog, `AddBlockPicker`'s
-   * own dialog — and closing one of those must not also throw away what the
-   * author had selected. `AddBlockPicker` is portalled to `document.body`
-   * rather than rendered inside the panel, which is exactly why it needs
-   * naming here rather than being reached through `properties-panel`'s own
-   * selector: it was left off this list once, and pressing Escape to close
-   * it silently cleared the current selection, retargeting the next Add at
-   * the page root instead of the container the author had open — found by a
-   * real depth-cap test failing with 8 layout options offered where the cap
-   * should have refused all of them.
+   * **The inspector and the source dock keep their own Escape.** Both hold
+   * controls that close themselves with it — the style popup, the icon
+   * picker, the dock's own dialog — and closing one of those must not also
+   * throw away what the author had selected.
+   *
+   * **The removed `AddBlockPicker` used to need naming here too, and that is
+   * worth remembering rather than only deleting.** Its dialog was portalled
+   * to `document.body`, outside the panel, so `properties-panel`'s own
+   * selector could not reach it; leaving it off this list once let Escape
+   * silently clear the current selection while closing the dialog,
+   * retargeting the next Add at the page root instead of the container the
+   * author had open. The Palette tab that replaced it needs no equivalent
+   * entry: `AddPalette` renders as one of `PropertiesPanel`'s own panes, so
+   * `[data-testid="properties-panel"]` already covers it.
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -1836,7 +1885,7 @@ export function BlockEditor<T extends FieldValues>({
       if (
         target instanceof HTMLElement &&
         target.closest(
-          '[data-testid="properties-panel"], [data-testid="page-source-dock"], [data-testid="add-block-picker"]',
+          '[data-testid="properties-panel"], [data-testid="page-source-dock"]',
         )
       ) {
         return;
@@ -1901,9 +1950,11 @@ export function BlockEditor<T extends FieldValues>({
    * a leaf added there lands wrapped in an unnamed one-place stack, at
    * `[position, 0]`, so depth 0 stays containers.
    *
-   * This is the one function every Add mount calls — the toolbar's global
-   * control is now the only one — so a target computed by `addTargetFor` and
-   * a container's own path both select what they added the same way.
+   * **Its only caller now is the brand preset control** — see
+   * `pageStartOptions` below — now that the palette's own `onDragEnd` branch
+   * calls `insertBlockAt` directly rather than through this function. Both
+   * still select what they added and reset the panel to its primary tab, so
+   * a page built through either route behaves the same way afterwards.
    *
    * @param path - where to add — a container's own path to append inside it,
    * or the empty path for the page root.
@@ -1973,37 +2024,6 @@ export function BlockEditor<T extends FieldValues>({
   // was a control that accepted a press and produced an unexplained failure
   // one save later.
   const kinds = offerableLeafKinds(page.actorKind);
-  // **One label bag for the Add picker, built once and passed to every
-  // instance of it** — the toolbar's global control and (pending Task 4)
-  // a container's own footer — rather than each call site re-slicing
-  // `labels` its own way, which is exactly the kind of duplication that
-  // drifts the moment a string is reworded in one place and not the others.
-  const addPickerLabels = {
-    add: labels.addBlock,
-    title: labels.addBlockTitle,
-    contentGroup: labels.addContentGroup,
-    layoutGroup: labels.addLayoutGroup,
-    nestingAtLimit: labels.nestingAtLimit,
-    leafKinds: labels.leaf.leafKinds,
-    modes: labels.modes,
-  };
-  // **The one global Add, portalled into the toolbar's slot (2026-09-04).**
-  // `addTargetFor` reads the current selection — Page or nothing targets the
-  // root, a container targets itself, a leaf targets its own parent — and
-  // `addAt` is the same function every OTHER Add mount in this file already
-  // calls, so a choice made through the toolbar selects what it added
-  // exactly as one made from a container's own footer does.
-  const addTarget = addTargetFor(blocks, currentSelection);
-  const addProps: AddBlockPickerProps = {
-    targetPath: addTarget.targetPath,
-    kinds,
-    mayAddLayout: addTarget.mayAddLayout,
-    atBlockLimit,
-    labels: addPickerLabels,
-    page,
-    locale: lang,
-    onAdd: (block) => addAt(addTarget.targetPath, block),
-  };
   // Position named once, exactly as `PublicBlocks` does it and for the same
   // reason: a block has no identity but where it sits, and
   // `react/no-array-index-key` reads the map callback's index parameter.
@@ -2072,40 +2092,28 @@ export function BlockEditor<T extends FieldValues>({
     </>
   );
 
-  // **The persistent Palette tab's content (2026-09-05).** Built once, from
-  // the exact same catalogue values `addPickerLabels` above already reused
-  // from `pages/labels.ts` — no new translation keys for the group headings
-  // or the per-kind/per-mode names, matching the reuse rule that bag's own
-  // comment states. Each thumbnail is now a real `useDraggable` source by
-  // mouse (`AddPalette`'s own TSDoc), and `insertTargetsRef`/
-  // `detectCollisionAt`'s palette branch/`onDragEnd`'s palette branch above
-  // are what land a drop. `insertTargetsFor` offers the append slot — one
-  // past a container's last child, one past the page's own last section —
-  // as a valid target.
-  //
-  // **A container's own is RENDERED now.** `appendSlot` in the `editor` hook
-  // object below mounts `AppendSlot` — a real, always-registered droppable
-  // — after every container's own last child, through the exact render-prop
-  // seam `wrap` already uses: `blocks.tsx` calls
-  // `editor?.appendSlot?.(path)` and never itself constructs or imports
-  // what that returns.
-  //
-  // **The page's own append slot — one past its last TOP-LEVEL section — is
-  // not.** There is no per-page analogue of a container's `appendSlot`
-  // hook, so a drag onto that one specific position stays unreachable by
-  // pointer until a later task in this feature builds one:
-  // `detectCollisionAt`'s loop still skips any target whose id has no
-  // registered droppable rect, and nothing renders one there yet. The modal
-  // `AddBlockPicker` remains the only way to append a new top-level section
-  // until it does. Touch and keyboard are not wired to this thumbnail
-  // either.
+  // **The persistent Palette tab's content.** Built once, reusing the exact
+  // same catalogue values `pages/labels.ts` already resolves for the leaf
+  // kinds and container modes — no separate translation keys for the group
+  // headings or the per-kind/per-mode names. Each thumbnail is a real
+  // `useDraggable` source by mouse and by keyboard (`AddPalette`'s own
+  // TSDoc), and `insertTargetsRef`/`detectCollisionAt`'s palette branch/
+  // `onDragEnd`'s palette branch above are what land a drop.
+  // `insertTargetsFor` offers the append slot — one past a container's last
+  // child, one past the page's own last section — as a valid target, and
+  // BOTH are real, always-registered droppable targets now: a container's
+  // own through the `appendSlot` member of the `editor` hook object below,
+  // mounted by `blocks.tsx` calling `editor?.appendSlot?.(path)`; the
+  // page's own root append slot through the `AppendSlot` this component
+  // renders directly after the last top-level seat, further down — see
+  // that element's own comment for why it needed a call site of its own.
   const palettePane = (
     <AddPalette
       labels={{
-        contentGroup: addPickerLabels.contentGroup,
-        layoutGroup: addPickerLabels.layoutGroup,
-        kindNames: addPickerLabels.leafKinds,
-        modeNames: addPickerLabels.modes,
+        contentGroup: labels.addContentGroup,
+        layoutGroup: labels.addLayoutGroup,
+        kindNames: labels.leaf.leafKinds,
+        modeNames: labels.modes,
       }}
       page={page}
       locale={lang}
@@ -2234,12 +2242,6 @@ export function BlockEditor<T extends FieldValues>({
           moves it clear of the panel; outside the canvas, so it cannot
           scroll away from the person who just pressed Save. */}
       {banner}
-
-      {/* **The one global Add, portalled into `EditorToolbar`'s slot.** Null
-          until the slot mounts — see `useAddSlot`'s own note — which is the
-          ordinary state in a test that renders this component with no
-          provider above it. */}
-      {addSlotPortal(addSlot, addProps)}
 
       <DndContext
         id={dndId}
@@ -2428,6 +2430,17 @@ export function BlockEditor<T extends FieldValues>({
                 </div>
               </div>
             );
+          })}
+          {/* **The page's own root append slot (2026-09-06).** See
+              {@link pageRootAppendSlot}'s own TSDoc for the full account —
+              extracted to a top-level helper rather than inlined here, both
+              to keep this component's own cognitive complexity under budget
+              and to keep its ref read out of `react-hooks/refs`' reach. */}
+          {pageRootAppendSlot({
+            controlsHidden,
+            interactionsEnabled,
+            blocksLength: blocks.length,
+            insertTargetsRef,
           })}
         </div>
       </DndContext>

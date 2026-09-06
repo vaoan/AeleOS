@@ -482,41 +482,43 @@ test("sections built by hand save, reopen and reach a stranger", async ({
   await addSection(page, "3");
   await page.getByTestId("section-name").fill("A history");
   await page.getByTestId("section-mode").selectOption("timeline");
-  // **A width is not a capacity.** The picker's own layout options always
-  // start a container at two children — `section-spaces` above only reshapes
-  // how many places lay ACROSS, never `children` — so a genuine third place
-  // needs its own `add-place` press before this test's middle gap can exist
-  // at all.
-  await page.getByTestId("add-place").click();
 
-  // **The FIRST and the THIRD place of three, leaving the MIDDLE empty**, and
-  // the position of the gap is the whole point rather than the count of gaps.
+  // **The FIRST and the THIRD place, leaving the SECOND empty**, and the
+  // position of the gap is the whole point rather than the count of gaps.
   // A trailing empty survives anything that merely appends; a middle one is
   // the case a tidy would close, moving everything after it up a place — and
   // it is the one shape a flat item list could not express at all.
   //
-  // **There is exactly one global Add now, and it always fills the parent's
-  // FIRST empty place — there is no way to target the third place directly
-  // while leaving the second one alone.** So all three places are filled in
-  // order and the middle one is emptied again afterwards, through Delete —
-  // which, on a place nested inside a container, clears it (`clearAt`) rather
-  // than removing it, exactly the "empty, not gone" state this test wants.
-  // The section is still selected after `add-place`, so the first Add lands
-  // in it directly; each Add after that selects what it just added, whose own
-  // target is its PARENT — the same section — so the run of three lands in
-  // order with no reselection.
-  await addBlock(page, { kind: "text" });
+  // **The persistent Palette tab is the only way to add a block now, and it
+  // can never replace an existing empty place in place — every drop is a
+  // splice-INSERT (`domain/palette-insert.ts`'s own `insertAt`), which grows
+  // the container by one and leaves whatever null was there shifted one
+  // position later rather than consumed.** `addBlock`'s own `firstOpenPlace`
+  // helper (`support/editor.ts`) still lands each of these three drops at
+  // increasing indices — 0, then 1, then 2 — which is what keeps "first",
+  // "second", "third" in the same reading order the deleted `AddBlockPicker`
+  // gave; what it cannot give back is the deleted mechanism's NO-GROWTH
+  // guarantee, so this section ends up with two extra trailing empty places
+  // beyond the third (the two original nulls `newContainer`'s
+  // `PICKER_SPACES` start every fresh container with, shifted rightward by
+  // each of the three inserts) — reached by nothing this test asserts, but
+  // real, and named here rather than left for the `public-space` count
+  // below to explain on its own. The section is still selected after
+  // `addSection`, so the first Add lands in it directly; each Add after that
+  // selects what it just added, whose own target is its PARENT — the same
+  // section — so the run of three lands in order with no reselection.
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("The first day");
   await page.getByTestId("leaf-description").fill("It began.");
 
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("To be cleared");
 
-  await addBlock(page, { kind: "text" });
+  await addBlock(page, { kind: "text" }, "1");
   await page.getByTestId("leaf-title").fill("Much later");
   await page.getByTestId("leaf-description").fill("It went on.");
 
-  // Select the middle leaf directly by its own canvas path and clear it.
+  // Select the second leaf directly by its own canvas path and clear it.
   await selectBlock(page, "1-1");
   await page.getByTestId("remove-block").click();
 
@@ -562,11 +564,16 @@ test("sections built by hand save, reopen and reach a stranger", async ({
     // Plus the identity section, whose four leaves join the count.
     await expect(anonymous.getByTestId("public-section")).toHaveCount(2);
     await expect(anonymous.getByTestId("public-leaf")).toHaveCount(2 + 4);
-    // The gap a stranger sees. Its GEOMETRY — that the place is a full track
-    // wide and that what follows sits past it — is `blocks-render.spec.ts`'s,
-    // against a seeded page; what this adds is that a page somebody BUILT
-    // arrives there with the same shape.
-    await expect(anonymous.getByTestId("public-space")).toHaveCount(1);
+    // **THREE empty places, not one.** The gap a stranger sees at "1-1" is
+    // the one this test is actually about — its GEOMETRY, that the place is
+    // a full track wide and that what follows sits past it, is
+    // `blocks-render.spec.ts`'s, against a seeded page; what this adds is
+    // that a page somebody BUILT arrives there with the same shape. The
+    // other two are the section's own original two places from
+    // `PICKER_SPACES`, shifted past the third real one by three successive
+    // palette inserts (see this test's own header comment above) — real,
+    // rendered, and simply not what this assertion is about.
+    await expect(anonymous.getByTestId("public-space")).toHaveCount(3);
   } finally {
     await stranger.close();
   }

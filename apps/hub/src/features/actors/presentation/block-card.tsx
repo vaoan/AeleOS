@@ -1160,17 +1160,22 @@ function PlaceContent({
       {...tid("empty-place")}
       className="flex flex-wrap items-center justify-center gap-1.5 rounded-lg surface border-dashed border-(--edge)/60 bg-(--surface) p-3"
     >
-      {/* An empty place here is filled through the ONE global Add picker,
-          portalled into the toolbar (`add-slot.tsx`, `add-target.ts`) —
-          never from within this legacy `showChildren` rendering, which no
+      {/* An empty place here is filled through the persistent Palette tab
+          in the Properties panel — a real drag source dragged onto the
+          canvas, by pointer or by keyboard (`add-palette.tsx`,
+          `domain/palette-targets.ts`, `domain/palette-insert.ts`) — never
+          from within this legacy `showChildren` rendering, which no
           production caller reaches any more (see
-          `BlockCardProps.showChildren`'s own note). The Items-scope
-          inspector this comment used to name (`inspector-items.tsx`) is
-          deleted; see "The Properties panel replaces the recursive
-          inspector" in the actors feature note. The flat `add-content`/
-          `add-nested` pair that used to live here is gone rather than
-          rebuilt against a picker this card has no `page`/`locale` to feed;
-          only removal stays possible for a place reached this way. */}
+          `BlockCardProps.showChildren`'s own note). `AddBlockPicker`,
+          `add-target.ts` and `add-slot.tsx` are deleted (2026-09-06); the
+          modal Add they carried is superseded by the palette. The
+          Items-scope inspector this comment used to name
+          (`inspector-items.tsx`) is deleted too; see "The Properties panel
+          replaces the recursive inspector" in the actors feature note. The
+          flat `add-content`/`add-nested` pair that used to live here is
+          gone rather than rebuilt against a picker this card has no
+          `page`/`locale` to feed; only removal stays possible for a place
+          reached this way. */}
       <button
         type="button"
         aria-label={labels.removePlace}
