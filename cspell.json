@@ -302,6 +302,11 @@
     "twttr",
     "ugc",
     "uncustomised",
+    // "the canvas's own right edge, unaccommodated" — block-editor.tsx's own
+    // TSDoc and inline comment for the accommodation padding this describes
+    // going missing; a real, recurring word in code rather than a one-off
+    // prose coinage.
+    "unaccommodated",
     "ungated",
     "unl",
     "unlisted",

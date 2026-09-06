@@ -581,6 +581,14 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * feature note for why a prop threaded down from here would reintroduce the
  * toolbar-render-count fault this file already guards against.
  *
+ * **`PageSourceField` forwards `panelOpen={!controlsHidden}` to
+ * `PageSourceDock` (2026-09-05)**, the same condition that gates
+ * `BlockEditor`'s own canvas accommodation for the Properties panel — see
+ * that component's TSDoc. The Properties panel occupies the page's right
+ * edge whenever controls show, selection or not, since it renders
+ * unconditionally now; without this signal the dock's own fixed positioning
+ * would sit on top of it rather than beside it.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -848,6 +856,12 @@ export function FursonaEditor({
               dock does not throw away the text or the problems it was
               showing. */}
               {sourceMounted && (
+                // `panelOpen={!controlsHidden}` is the exact condition that
+                // gates the Properties panel's own presence — see
+                // `BlockEditor`'s canvas-accommodation TSDoc above the
+                // `banner` prop — so the dock's own right-shift can never
+                // disagree with whether the panel is actually reserving the
+                // page's right edge.
                 <PageSourceField
                   control={control}
                   setValue={setValue}
@@ -857,6 +871,7 @@ export function FursonaEditor({
                   onClose={() => setSourceOpen(false)}
                   reference={reference}
                   labels={labels.source}
+                  panelOpen={!controlsHidden}
                 />
               )}
 
@@ -1127,6 +1142,12 @@ function applyDocumentTo<T extends FieldValues>(
  * which is silent: nothing renders differently in the moment, and the loss
  * only shows up the next time somebody opens the theme panel.
  *
+ * `panelOpen` is forwarded straight through to {@link PageSourceDock}'s own
+ * prop of the same name — see its TSDoc for what it does. It is threaded here
+ * rather than read inside `PageSourceDock` from some ambient signal because
+ * `FursonaEditor` is the one place that already computes it, as
+ * `!controlsHidden`.
+ *
  * @returns the dock.
  */
 function PageSourceField<T extends FieldValues>({
@@ -1138,6 +1159,7 @@ function PageSourceField<T extends FieldValues>({
   onClose,
   reference,
   labels,
+  panelOpen,
 }: {
   control: Control<T>;
   setValue: UseFormSetValue<T>;
@@ -1147,6 +1169,7 @@ function PageSourceField<T extends FieldValues>({
   onClose: () => void;
   reference: string;
   labels: PageSourceDockLabels;
+  panelOpen: boolean;
 }) {
   const blocks = useWatch({
     control,
@@ -1166,6 +1189,7 @@ function PageSourceField<T extends FieldValues>({
       source={source}
       reference={reference}
       labels={labels}
+      panelOpen={panelOpen}
     />
   );
 }

@@ -438,6 +438,28 @@ async function openEditorAsPage(page: Page): Promise<void> {
   await page.getByTestId("writing-in-en").click();
   await page.getByTestId("hide-controls").click();
   await expect(page.getByTestId("show-controls")).toBeVisible();
+  // **The canvas's own accommodation for the Properties panel is animated
+  // (`transition-[padding-right] duration-210`), and the panel is visible —
+  // reserving that padding — for as long as controls show (2026-09-05: the
+  // panel now renders unconditionally, for its own persistent Palette tab,
+  // so this padding is present in the ordinary editing state even with
+  // nothing selected).** Hiding controls removes the panel and the class
+  // that reserves room for it in the same render, so `padding-right` then
+  // transitions from the panel's width back to zero. Reading section boxes
+  // the instant this resolves would race that transition and see it still
+  // travelling — the same shape `editor-bars-stay-pinned.spec.ts` already
+  // guards against for the Save banner's own accommodation. The wait states
+  // the destination (zero) rather than a duration, because zero is what
+  // "the panel is gone" actually means once hidden, not a copied pixel value.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          getComputedStyle(document.querySelector("[data-editor-stack]")!)
+            .paddingRight,
+      ),
+    )
+    .toBe("0px");
   await quiet(page);
 }
 

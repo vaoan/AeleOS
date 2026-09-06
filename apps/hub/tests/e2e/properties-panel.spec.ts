@@ -65,9 +65,15 @@ test("the panel starts closed, then Page exposes identity on primary and theme o
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  // **The panel renders unconditionally now, for its own persistent Palette
+  // tab (2026-09-05)** — see `properties-panel.tsx`'s own TSDoc. "Starts
+  // closed" means the two selection-dependent tab buttons are `hidden`, not
+  // that the panel itself is absent.
+  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
   await page.getByTestId("select-page").click();
   await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeVisible();
   // **No tab click is needed for the identity fields (2026-09-04).**
   // `enterSelection` always resets to the primary tab, and Page's primary tab
   // is the identity fields together with the add palette — a swap from the
@@ -110,27 +116,35 @@ test("a sibling place stays empty and rendered once one place is filled", async 
   ).toHaveCount(1);
 });
 
-test("a click owned by the empty canvas dismisses the panel", async ({
+test("a click owned by the empty canvas clears the selection", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await page.getByTestId("select-page").click();
-  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeVisible();
 
   await page
     .getByTestId("editor-canvas")
     .evaluate((canvas) => (canvas as HTMLElement).click());
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  // The panel itself stays mounted — its persistent Palette tab needs no
+  // selection at all (2026-09-05) — so what proves the click cleared the
+  // selection is `panel-tab-primary` going `hidden`, not the panel's own
+  // absence.
+  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
 });
 
-test("Escape closes the panel and leaves the live page", async ({ page }) => {
+test("Escape clears the selection and leaves the live page", async ({
+  page,
+}) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await page.getByTestId("select-page").click();
-  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
   await expect(page.getByTestId("editor-canvas")).toBeVisible();
   await expect(page.getByTestId("select-page")).toBeVisible();
 });
@@ -184,24 +198,33 @@ test("Preview clears the selected panel instead of pausing it", async ({
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
   await page.getByTestId("select-page").click();
-  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeVisible();
   await page.getByTestId("hide-controls").click();
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  // **The panel is `CHROME_SCOPE`, hidden by the same CSS hide-controls
+  // rule as every other workbench island (2026-09-05) — it no longer
+  // unmounts, since its persistent Palette tab needs no selection at all.**
+  // `toBeHidden()` is what proves Preview's CSS reached it; `toHaveCount(0)`
+  // would now fail on a build that correctly keeps the panel mounted.
+  await expect(page.getByTestId("properties-panel")).toBeHidden();
   await expect(page.getByTestId("select-page")).toBeHidden();
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
   await page.getByTestId("show-controls").click();
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  // The panel returns, showing only its persistent Palette tab — Preview
+  // cleared the earlier Page selection rather than merely pausing it.
+  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
   await expect(page.getByTestId("select-page")).toBeVisible();
 });
 
 // THE REFUSAL SUMMARY MUST NOT BE BEHIND THE PANEL.
 //
 // The panel is a `fixed` right column from `md` up, and the canvas section
-// pads itself by `md:pl-[min(36rem,40vw)]` to make room. The banner was a
-// SIBLING of that section, so it got no such padding and the panel simply sat
-// on top of it — at 1280 its heading was at x=41 with the panel's right edge
-// at x=512. It is a child of the padded section now.
+// pads itself by `md:pr-(--properties-panel-width)` to make room — padding
+// on the RIGHT, since the panel sits on the desktop right, not the left. The
+// banner was a SIBLING of that section, so it got no such padding and the
+// panel simply sat on top of it — at 1280 its heading was at x=41 with the
+// panel's right edge at x=512. It is a child of the padded section now.
 //
 // **A rect comparison is the wrong instrument and would have passed.** Two
 // boxes overlapping is not the claim; which one a person can read is, and
@@ -236,10 +259,13 @@ test("the save-refusal summary is readable while the panel is open", async ({
   // no timeout is long enough for a question asked too early.
   //
   // The wait is stated as the relationship instead of as 512, because both
-  // boxes come from one expression — the panel is `md:w-[min(36rem,40vw)]`
-  // and the pad is `md:pr-[min(36rem,40vw)]` (padding-RIGHT: the panel sits
-  // on the desktop right now, not the left). Should those ever diverge, this
-  // poll is what says so rather than silently comparing a stale constant.
+  // boxes read the same shared token now (2026-09-05) — the panel is
+  // `md:w-(--properties-panel-width)` and the pad is
+  // `md:pr-(--properties-panel-width)` (padding-RIGHT: the panel sits on the
+  // desktop right, not the left) — `--properties-panel-width` declared once
+  // in `globals.css` as `min(36rem, 40vw)` rather than repeated as a literal
+  // in either class. Should those ever diverge, this poll is what says so
+  // rather than silently comparing a stale constant.
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -294,7 +320,12 @@ test("the panel closes itself directly from a nested leaf", async ({
 
   await page.getByTestId("panel-close").click();
 
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  // The panel stays mounted for its own persistent Palette tab (2026-09-05)
+  // — see the note on the earlier cases in this file — so Close is proved
+  // by the leaf's own content disappearing and the selection-dependent tab
+  // going `hidden`, not by the panel's absence.
+  await expect(page.getByTestId("leaf-kind")).toBeHidden();
+  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
   await expect(page.getByTestId("editor-save")).toBeVisible();
   await expect(page.getByTestId("editor-canvas")).toBeVisible();
 });

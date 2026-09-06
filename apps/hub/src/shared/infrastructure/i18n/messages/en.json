@@ -93,6 +93,7 @@
     "addLayoutGroup": "Layout",
     "panelTabAppearance": "Appearance",
     "panelTabTheme": "Theme",
+    "panelTabPalette": "Palette",
     "cloneBlock": "Clone",
     "cloneRefusedTooDeep": "That would nest one level deeper than a page can go, so nothing was cloned.",
     "cloneRefusedTooMany": "That list cannot hold another block, so nothing was cloned.",

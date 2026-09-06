@@ -104,9 +104,10 @@ import {
 } from "@/features/actors/presentation/block-card";
 import {
   PropertiesPanel,
+  type PropertiesActiveTab,
   type PropertiesPanelLabels,
-  type PropertiesTab,
 } from "@/features/actors/presentation/properties-panel";
+import { AddPalette } from "@/features/actors/presentation/add-palette";
 import {
   Block as PublicBlock,
   DEFAULT_PAGE_MEASURE,
@@ -185,6 +186,13 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * single global Add (2026-09-04), portalled into `EditorToolbar` from
  * whichever scope is selected, replacing the page-level, container-footer
  * and per-empty-place mounts this bag used to feed separately.
+ *
+ * **`panelTabPalette` names the Properties panel's persistent third tab
+ * (2026-09-05).** It is never selection-dependent the way `selectPage`/
+ * `panelTabTheme`/`addContentGroup`/etc. are, since the Palette tab shows the
+ * same thing whatever is or is not selected — see `panelContentFor`'s own
+ * `defaultLabels` and its two other branches, all three of which now carry
+ * this same fixed string.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -244,6 +252,11 @@ export interface BlockEditorLabels
   panelTabAppearance: string;
   /** The Properties panel's Theme tab, Page's second tab. */
   panelTabTheme: string;
+  /**
+   * The Properties panel's persistent third tab's own name (2026-09-05) —
+   * never selection-dependent, unlike the two above.
+   */
+  panelTabPalette: string;
   /** Clones the selected block, at the panel's foot. */
   cloneBlock: string;
   /** Says a clone would nest one level past the depth cap. */
@@ -282,11 +295,14 @@ export interface BlockEditorLabels
  * off the Properties panel workbench is `CHROME_SCOPE` on each control
  * island.
  *
- * The Properties panel starts deselected and mounts only after a canvas or
- * Page selection (2026-09-04). There is no Items tab and no tree navigation
- * any more — click-to-select on the canvas is the only way in. Every
- * selection kind gets exactly two fixed tabs: Page/Theme, Layout/Appearance
- * or Content/Appearance — see `panelContentFor`.
+ * The Properties panel renders unconditionally now (2026-09-05), showing its
+ * persistent Palette tab whether or not anything is selected — see
+ * `properties-panel.tsx`'s own TSDoc for why. It starts deselected, and with
+ * nothing selected the panel shows only that one tab; selecting a canvas
+ * block or Page shows two more, fixed per selection kind: Page/Theme,
+ * Layout/Appearance or Content/Appearance — see `panelContentFor`. There is
+ * no Items tab and no tree navigation any more — click-to-select on the
+ * canvas is the only way in to those two.
  *
  * **It also owns the interaction lock (2026-09-02)**, mounted in an effect
  * over the canvas element this component renders — see
@@ -302,6 +318,15 @@ export interface BlockEditorLabels
  * takes `pageFields`/`pageTheme`: the editor above owns the errors, and the
  * padding that keeps the fixed Properties panel from covering the summary is
  * here. See {@link BlockEditorProps.banner}.
+ *
+ * **The canvas accommodation width is a shared token now, not a literal
+ * repeated per consumer (2026-09-05).** `--properties-panel-width` is
+ * declared once in `globals.css` as `min(36rem, 40vw)`; this component's own
+ * `md:pr-(--properties-panel-width)` and `properties-panel.tsx`'s
+ * `md:w-(--properties-panel-width)` both read it, and
+ * `page-source-dock.tsx` reads the same token through its own `panelOpen`
+ * prop — so all three stay in step by construction rather than by three
+ * people remembering the same magic number in three files.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -368,10 +393,11 @@ export interface BlockEditorProps<T extends FieldValues> {
    *
    * **It is passed in rather than rendered by the editor above, because the
    * inspector's accommodation is here (2026-09-03).** A selection pads THIS
-   * component's section by `md:pl-[min(36rem,40vw)]` so the fixed inspector
-   * has somewhere to sit; a banner rendered as a sibling of that section got
-   * no such padding, and the inspector — open exactly when somebody presses
-   * Save — covered its heading and every message under it. Measured at 1280:
+   * component's section by `md:pr-(--properties-panel-width)` so the
+   * fixed inspector has somewhere to sit; a banner rendered as a sibling of
+   * that section got no such padding, and the inspector — open exactly when
+   * somebody presses Save — covered its heading and every message under it.
+   * Measured at 1280:
    * the heading sat at x=41 with the panel's right edge at x=512, and
    * `elementFromPoint` over the heading answered the inspector's own fields.
    *
@@ -649,8 +675,19 @@ interface PanelContentInputs {
   currentSelection: EditorSelection | null;
   /** The Page tab's identity fields, unrelated to its theme. */
   pageFields: ReactNode;
-  /** The section-adding controls, shown only alongside the Page fields. */
-  addPalette: ReactNode;
+  /**
+   * The section-adding controls — brand presets and the template picker —
+   * shown only alongside the Page fields.
+   *
+   * **Named `pageStartOptions`, not `addPalette` (2026-09-05).** This is a
+   * whole-PAGE starting point — "pick a template for the whole page" — and
+   * is a wholly different thing from the persistent Palette tab's own
+   * `AddPalette` component, which drags a single block onto the canvas. The
+   * two used to share a name (`addPalette`, lowercase, for this; `AddPalette`
+   * the component, capitalized) in the same file, which is legal TypeScript
+   * and a real trap for the next reader.
+   */
+  pageStartOptions: ReactNode;
   /** The Page tab's theme controls, in the second pane. */
   pageTheme: ReactNode;
   /** The selection, narrowed to a container, or `null`. */
@@ -693,7 +730,7 @@ interface PanelContentInputs {
 function panelContentFor({
   currentSelection,
   pageFields,
-  addPalette,
+  pageStartOptions,
   pageTheme,
   selectedContainer,
   selectedLeaf,
@@ -715,6 +752,7 @@ function panelContentFor({
     close: labels.inspectorClose,
     primaryTab: labels.selectPage,
     secondaryTab: labels.panelTabTheme,
+    paletteTab: labels.panelTabPalette,
   };
 
   if (currentSelection?.kind === "page") {
@@ -722,7 +760,7 @@ function panelContentFor({
       primary: (
         <>
           {pageFields}
-          {addPalette}
+          {pageStartOptions}
         </>
       ),
       secondary: pageTheme,
@@ -777,6 +815,7 @@ function panelContentFor({
         close: labels.inspectorClose,
         primaryTab: labels.addLayoutGroup,
         secondaryTab: labels.panelTabAppearance,
+        paletteTab: labels.panelTabPalette,
       },
     };
   }
@@ -811,6 +850,7 @@ function panelContentFor({
         close: labels.inspectorClose,
         primaryTab: labels.addContentGroup,
         secondaryTab: labels.panelTabAppearance,
+        paletteTab: labels.panelTabPalette,
       },
     };
   }
@@ -1162,6 +1202,27 @@ function panelFootFor({
  * note's account for both, found by this component's own e2e suite run for
  * the first time against real Clerk credentials.
  *
+ * **The Properties panel renders unconditionally now, and its persistent
+ * Palette tab's own content is deferred-mounted (2026-09-05).** The panel
+ * itself is no longer selection-gated — see `properties-panel.tsx`'s own
+ * TSDoc — so this component's canvas accommodation padding
+ * (`md:pr-(--properties-panel-width)`) is tied to `controlsHidden`
+ * alone rather than to `currentSelection`: gating it on a selection would
+ * leave the canvas unaccommodated, with the panel covering its own right
+ * edge, the moment nothing is selected. **`page-source-dock.tsx` reads the
+ * same `controlsHidden`-derived condition through its own `panelOpen` prop**,
+ * so the two never disagree about whether the panel is showing. A
+ * `paletteOpened` flag, set once the Palette tab is
+ * first asked for and never reset, gates whether `AddPalette`'s content is
+ * actually passed to `PropertiesPanel`'s `palette` prop at all — mirroring
+ * `PageSourceField`'s own `sourceMounted` guard elsewhere in this feature.
+ * Without it, `AddPalette` mounts all sixteen leaf-kind and eight
+ * container-mode previews through the real renderer on every render of this
+ * component regardless of whether anybody ever opens the tab, `player`/
+ * `jukebox` among them — both of which reach `useTranslations` through
+ * `RetroPlayer`, which crashes outright in any harness that does not wrap
+ * this component in `NextIntlClientProvider`.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1193,7 +1254,22 @@ export function BlockEditor<T extends FieldValues>({
     null,
   );
   const [selection, setSelection] = useResettableSelection(selectionResetKey);
-  const [tab, setTab] = useState<PropertiesTab>("primary");
+  const [tab, setTab] = useState<PropertiesActiveTab>("primary");
+  // **`AddPalette` does not mount until the Palette tab is opened once, and
+  // stays mounted after that (2026-09-05).** It draws every leaf kind and
+  // container mode through the real renderer, `player`/`jukebox` included —
+  // the same mechanism `AddBlockPicker`'s own dialog already uses, gated
+  // behind THAT dialog's `open` state so its transport-carrying previews
+  // never reach `useTranslations` until somebody actually opens it. This
+  // pane has no dialog to gate behind: it is a persistent TAB, mounted
+  // whether or not it is the active one, per `PropertiesPanel`'s own
+  // "hidden, never omitted" convention for its panes — so without this flag,
+  // every render of this component would mount all sixteen leaf-kind and
+  // eight container-mode previews unconditionally, which needs a real
+  // `NextIntlClientProvider` that a caller who never opens this tab would
+  // otherwise have no reason to supply. The same shape `PageSourceField`'s
+  // own `sourceMounted` guard already uses for the source dock.
+  const [paletteOpened, setPaletteOpened] = useState(false);
   const [cloneRefusal, setCloneRefusal] = useState<CloneRefusal | null>(null);
 
   const field = useController({ control, name: "sections" as Path<T> });
@@ -1634,7 +1710,7 @@ export function BlockEditor<T extends FieldValues>({
   const selectedAttr = selectedPath ? formatBlockPath(selectedPath) : "";
   const measure = page.measure ?? DEFAULT_PAGE_MEASURE;
 
-  const addPalette = (
+  const pageStartOptions = (
     <>
       {atBlockLimit ? (
         <p className="text-sm text-(--muted)">{labels.atLimit}</p>
@@ -1686,6 +1762,26 @@ export function BlockEditor<T extends FieldValues>({
         </>
       )}
     </>
+  );
+
+  // **The persistent Palette tab's content (2026-09-05).** Built once, from
+  // the exact same catalogue values `addPickerLabels` above already reused
+  // from `pages/labels.ts` — no new translation keys for the group headings
+  // or the per-kind/per-mode names, matching the reuse rule that bag's own
+  // comment states. `AddPalette` renders static, non-draggable thumbnails
+  // only; the modal `AddBlockPicker` above remains the only way to actually
+  // add a block until a later task wires this tab to a real drag.
+  const palettePane = (
+    <AddPalette
+      labels={{
+        contentGroup: addPickerLabels.contentGroup,
+        layoutGroup: addPickerLabels.layoutGroup,
+        kindNames: addPickerLabels.leafKinds,
+        modeNames: addPickerLabels.modes,
+      }}
+      page={page}
+      locale={lang}
+    />
   );
 
   const selectedContainer =
@@ -1771,7 +1867,7 @@ export function BlockEditor<T extends FieldValues>({
   } = panelContentFor({
     currentSelection,
     pageFields,
-    addPalette,
+    pageStartOptions,
     pageTheme,
     selectedContainer,
     selectedLeaf,
@@ -1796,7 +1892,15 @@ export function BlockEditor<T extends FieldValues>({
       // something to animate from `md` up, where `pr-` itself is conditional.
       // **`pr-`, not `pl-` (2026-09-04)**: the Properties panel moved to the
       // desktop-right, so the canvas makes room on the right now.
-      className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-right] duration-210 ease-out ${currentSelection ? "md:pr-[min(36rem,40vw)]" : ""}`}
+      // **Tied to `controlsHidden` alone, not to `currentSelection`
+      // (2026-09-05).** The Properties panel now renders whenever controls
+      // show — its persistent Palette tab needs no selection at all — so
+      // gating this on `currentSelection` would leave the panel covering the
+      // canvas's own right edge, unaccommodated, the moment nothing is
+      // selected. `controlsHidden` is exactly the condition under which the
+      // panel is hidden by the CSS hide-controls rule (both are
+      // `CHROME_SCOPE`), so the two now agree.
+      className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-right] duration-210 ease-out ${controlsHidden ? "" : "md:pr-(--properties-panel-width)"}`}
     >
       {/* Inside the section, so the inspector's own accommodation padding
           moves it clear of the panel; outside the canvas, so it cannot
@@ -1821,12 +1925,16 @@ export function BlockEditor<T extends FieldValues>({
       >
         <PropertiesPanel
           selection={currentSelection}
-          tab={tab}
-          onTab={setTab}
+          activeTab={tab}
+          onTab={(next) => {
+            setTab(next);
+            if (next === "palette") setPaletteOpened(true);
+          }}
           labels={panelLabels}
           onClose={() => setSelection(null)}
           primary={primaryContent}
           secondary={secondaryContent}
+          palette={paletteOpened ? palettePane : null}
           foot={panelFoot}
         />
         {/* **`contents`, because this holds only stylesheets.** As an ordinary

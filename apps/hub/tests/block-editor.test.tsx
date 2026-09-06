@@ -655,9 +655,22 @@ describe("the Properties panel", () => {
     { ...newContainer("stack", 1), name_en: "Second" },
   ];
 
-  it("starts deselected with no properties panel in the DOM", () => {
+  // **The panel renders unconditionally now (2026-09-05).** Its persistent
+  // Palette tab is meant to be reachable whether or not anything is
+  // selected, so `properties-panel` is always in the DOM; what "deselected"
+  // means now is that the two selection-dependent tab buttons are `hidden`
+  // rather than that the panel is absent — `toBeVisible()` cannot be used
+  // here, since the panel's root `m.div` never actually animates its
+  // `initial` opacity to 1 in jsdom (see `properties-panel.test.tsx`'s own
+  // note on this).
+  it("starts deselected, showing only the persistent Palette tab", () => {
     harness(recursivePage());
-    expect(screen.queryByTestId("properties-panel")).toBeNull();
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
+    expect(screen.getByTestId("panel-tab-secondary")).toHaveAttribute("hidden");
+    expect(screen.getByTestId("panel-tab-palette")).not.toHaveAttribute(
+      "hidden",
+    );
   });
 
   it("makes only the canvas an inner scroller while controls show", () => {
@@ -887,14 +900,20 @@ describe("the Properties panel", () => {
   it("still clears the selection for a click on the page itself", () => {
     harness(recursivePage());
     fireEvent.click(screen.getByTestId("select-page"));
-    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+      "hidden",
+    );
 
     // The canvas outside any block and outside any control island: the one
-    // click that still means "the panel should go". Exempting chrome must
-    // not have exempted the page.
+    // click that still means "the selection should go". Exempting chrome
+    // must not have exempted the page. The panel itself stays in the DOM
+    // now — its persistent Palette tab needs no selection at all — so the
+    // selection-dependent tab going `hidden` again is what proves the click
+    // cleared it, not the panel's own presence.
     fireEvent.click(screen.getByTestId("editor-canvas"));
 
-    expect(screen.queryByTestId("properties-panel")).toBeNull();
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
   });
 
   // There is no drill-down and no tree navigation any more (2026-09-04): the
@@ -910,11 +929,18 @@ describe("the Properties panel", () => {
     selectPath("0-0-0");
     expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
 
+    // The panel itself stays mounted through Preview now — its persistent
+    // Palette tab is `CHROME_SCOPE`, hidden by the CSS hide-controls rule
+    // this isolated harness does not apply, exactly like every other
+    // workbench control — so what proves the selection was cleared is the
+    // leaf's own content disappearing, not the panel's absence.
     page.setControlsHidden(true);
-    expect(screen.queryByTestId("properties-panel")).toBeNull();
+    expect(screen.queryByTestId("leaf-editor")).toBeNull();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
 
     page.setControlsHidden(false);
-    expect(screen.queryByTestId("properties-panel")).toBeNull();
+    expect(screen.queryByTestId("leaf-editor")).toBeNull();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
   });
 
   it.each([
@@ -931,7 +957,12 @@ describe("the Properties panel", () => {
 
     fireEvent.click(screen.getByTestId("panel-close"));
 
-    expect(screen.queryByTestId("properties-panel")).toBeNull();
+    // The panel stays mounted — see the note above on why `toBeNull()`
+    // against `properties-panel` is no longer the right assertion — so Close
+    // is proved by the selection-dependent tab going `hidden` again, not by
+    // the panel's own absence.
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
     expect(screen.getByTestId("editor-canvas")).toBeInTheDocument();
     expect(screen.getByTestId("select-page")).toBeInTheDocument();
     expect(submitted).not.toHaveBeenCalled();

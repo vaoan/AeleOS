@@ -709,6 +709,25 @@ option {
 }
 
 /*
+ * **The Properties panel's own width at `md` and up, and the one thing that
+ * has to agree with it: how far anything else makes room for it.**
+ * `properties-panel.tsx`'s own `md:w-[...]`, `block-editor.tsx`'s canvas
+ * accommodation (`md:pr-[...]`) and `page-source-dock.tsx`'s own
+ * panel-avoiding offset (`md:right-[...]`, when the panel is showing) all read
+ * this token now rather than each repeating `min(36rem, 40vw)` as a literal —
+ * three places that had to agree and, for a while, only two of them did: the
+ * dock kept a bare `right-0` with no idea the panel exists at all, so its
+ * default 420px width sat entirely inside the panel's own 512px reservation
+ * at 1280px wide, no longer overlapping any live page content once the panel
+ * started rendering unconditionally. One token is what makes "the same
+ * expression" a fact about the stylesheet rather than a sentence three
+ * authors have to keep rereading.
+ */
+:root {
+  --properties-panel-width: min(36rem, 40vw);
+}
+
+/*
  * **The editor's own bounded canvas never lets the header scroll away, so
  * the short-height override above is wrong there (2026-09-05).** `0px`
  * assumes the header "yields its place" by scrolling out of the viewport —

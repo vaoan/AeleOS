@@ -3425,6 +3425,19 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     reasoning that already justified `vaoan` and `rmellis` sitting in this
     same list: a real, recurring token rather than a coinage.
 
+    **The same split recurred on the palette drag-to-add feature's Task 4
+    (2026-09-05), and CI is what caught it — `conformance` failed on
+    `cspell "**/*.{ts,tsx,md,json}"` over two words neither the implementer
+    nor the two review rounds before it had run past a spell-checker.**
+    `unaccommodated` earned a dictionary entry: it names the canvas's own
+    missing accommodation padding in `block-editor.tsx`'s own TSDoc and an
+    inline comment beside it, twice in code plus once in this feature's
+    CLAUDE.md describing the same mechanism — a real, recurring word in code
+    rather than a one-off. The other flagged word — the negated adjective
+    for "cannot take focus" — appeared exactly once, only in that CLAUDE.md's
+    own prose, with no matching TSDoc anywhere in the diff, and was reworded
+    to that plain phrase instead of joining the dictionary.
+
 43. **A completely ABSENT `apps/hub/.env.local` fails silently rather than
     loudly, and the resulting error is unrecognizable as a config problem.**
     `next dev` reads `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` from that file via

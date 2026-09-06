@@ -165,7 +165,10 @@ test("Preview clears both offsets and returns scrolling to the document", async 
   await expect.poll(() => canvas.evaluate((node) => node.scrollTop)).toBe(500);
 
   await page.getByTestId("hide-controls").click();
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  // **The panel is `CHROME_SCOPE`, hidden by CSS rather than unmounted
+  // (2026-09-05)** — see `properties-panel.tsx`'s own TSDoc: it renders
+  // unconditionally now, for its own persistent Palette tab.
+  await expect(page.getByTestId("properties-panel")).toBeHidden();
 
   const preview = await scrollGeometry(page, canvas);
   expect(preview.canvasTop).toBe(0);
@@ -177,7 +180,10 @@ test("Preview clears both offsets and returns scrolling to the document", async 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(400);
 
   await page.getByTestId("show-controls").click();
-  await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+  // Show controls returns to a canvas with no selection — the panel is
+  // visible again, showing only its persistent Palette tab.
+  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
   await expect
     .poll(async () => (await scrollGeometry(page, canvas)).documentPast)
     .toBeLessThanOrEqual(2);

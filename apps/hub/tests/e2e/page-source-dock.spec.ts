@@ -109,16 +109,47 @@ test("opens beside the page, reaching the right edge and the foot of the window"
   const box = (await dock.boundingBox())!;
   const viewport = page.viewportSize()!;
 
-  // **At the RIGHT edge, not the left.** The pre-fix version put `box.x` at
-  // 0 — the over-constrained `left`/`right` bug — so this pins it against
-  // the viewport's right edge with the panel's own measured width.
+  // **At the Properties panel's own left edge, not the window's — and that
+  // is a real change from what this assertion checked before, not a
+  // relaxation of it.** The Properties panel now renders unconditionally
+  // (2026-09-05, "A third, persistent Properties panel tab"), showing at
+  // least its Palette tab whenever controls are visible even with nothing
+  // selected — which is exactly the case here, since this test selects
+  // nothing before opening the dock. So the dock's own `panelOpen` prop
+  // (`FursonaEditor`'s `!controlsHidden`) is true throughout this test, and
+  // the dock's `right-0` is shifted left by the panel's own reserved width.
+  // The pre-fix version put `box.x` at 0 — the over-constrained
+  // `left`/`right` bug — so this still pins the dock away from the left
+  // edge; it no longer claims the dock reaches the window's OWN right edge,
+  // because the panel now permanently occupies that space.
+  //
+  // **The panel's own rendered width is measured directly, not re-derived
+  // from the `min(36rem, 40vw)` formula by hand.** A hard-coded
+  // `Math.min(576, viewport.width * 0.4)` would duplicate exactly the
+  // literal `--properties-panel-width` (`globals.css`) exists to hold once —
+  // if that token's formula ever changes, this assertion would silently
+  // drift from the real geometry rather than following it.
+  const panelWidth = (await page.getByTestId("properties-panel").boundingBox())!
+    .width;
+  const reservedEdge = viewport.width - panelWidth;
   expect(
     box.x + box.width,
-    "the dock's right edge sits at the viewport's right edge",
-  ).toBeGreaterThan(viewport.width - 2);
-  expect(box.x, "the dock is not pinned to the left edge").toBeGreaterThan(
-    viewport.width / 2,
-  );
+    "the dock's right edge sits at the Properties panel's own left edge",
+  ).toBeGreaterThan(reservedEdge - 2);
+  expect(
+    box.x + box.width,
+    "the dock does not overlap the Properties panel",
+  ).toBeLessThan(reservedEdge + 2);
+  // **Not a fraction of the viewport's own width any more.** The dock's
+  // default width (420px) sits entirely inside the panel's own 512px
+  // reservation at this viewport, so `box.x` (348) no longer clears
+  // `viewport.width / 2` (640) the way it did before the panel became
+  // permanent — that comparison would fail on the correct, panel-aware
+  // position. A small, viewport-independent margin is what actually
+  // discriminates "not pinned to the left edge" (the over-constrained
+  // `left`/`right` bug this test guards, `box.x === 0`) from the real
+  // position.
+  expect(box.x, "the dock is not pinned to the left edge").toBeGreaterThan(100);
 
   // **Reaching the foot of the window, not sized to its own content.** The
   // pre-fix version stopped a few hundred pixels down — the `fit-content`
@@ -194,13 +225,17 @@ for (const width of [1280, 320]) {
 
     // **Deselect first: the subject here is the DOCK.** Nothing starts
     // selected, but a page load can leave a selection from an earlier
-    // navigation; below `md` the Properties panel is a `fixed` bottom sheet
-    // up to `70vh` tall — so at 320 it, and not the page, is what sits at the
-    // probe point once the dock collapses, and the reveal asserted below
-    // would be a reading of the wrong panel. Escape aimed at the body clears
-    // the selection; anything focused inside a control keeps its own Escape.
+    // navigation. Escape aimed at the body clears the selection; anything
+    // focused inside a control keeps its own Escape.
+    //
+    // **The panel itself no longer disappears when deselected (2026-09-05)**
+    // — it renders unconditionally for its own persistent Palette tab, see
+    // `properties-panel.tsx`'s own TSDoc — so what proves the selection is
+    // clear is `panel-tab-primary` going `hidden`, not the panel's absence.
+    // The dock is `z-40` against the panel's `z-30`, so it still sits above
+    // the panel whatever the panel is showing.
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("properties-panel")).toHaveCount(0);
+    await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
 
     await openMore(page);
     await page.getByTestId("editor-open-source").click();

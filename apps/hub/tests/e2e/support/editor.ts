@@ -34,26 +34,33 @@ export const handleFor = (prefix: string): string =>
 /**
  * Selects Page, whatever was selected before.
  *
- * **Closes the panel first when it is already open, rather than trying to
- * press the canvas's own `select-page` button underneath whatever is
- * showing.** That button rides inside the editor canvas, and the Properties
- * panel is a bottom sheet below `md` that covers the canvas outright — the
- * same phone-sheet hazard the old recursive inspector's `openInspector`
- * guarded against, met here on a button with no breadcrumb left inside the
- * panel to reach instead. `panel-close` is always reachable, being part of
- * the panel itself, so closing through it and then pressing `select-page` on
- * a bare canvas is correct at every viewport rather than only on desktop.
+ * **Closes the panel first when a selection is already showing**, rather
+ * than trying to press the canvas's own `select-page` button underneath
+ * whatever is showing. That button rides inside the editor canvas, and the
+ * Properties panel is a bottom sheet below `md` that covers the canvas
+ * outright — the same phone-sheet hazard the old recursive inspector's
+ * `openInspector` guarded against, met here on a button with no breadcrumb
+ * left inside the panel to reach instead.
+ *
+ * **Checks `panel-tab-primary`, not the panel's own visibility (2026-09-05).**
+ * The panel renders unconditionally now, for its own persistent Palette
+ * tab — see `properties-panel.tsx`'s own TSDoc — so it is never hidden by
+ * selection state, only its two selection-dependent tab buttons are.
+ * `panel-close` still clears the selection; what proves that now is
+ * `panel-tab-primary` going `hidden`, not the panel disappearing.
  *
  * @param page - the editor page.
  */
 export async function selectPage(page: Page): Promise<void> {
   const panel = page.getByTestId("properties-panel");
-  if (await panel.isVisible()) {
+  const primaryTab = page.getByTestId("panel-tab-primary");
+  if (await primaryTab.isVisible()) {
     await page.getByTestId("panel-close").click();
-    await expect(panel).toBeHidden();
+    await expect(primaryTab).toBeHidden();
   }
   await page.getByTestId("select-page").click();
   await expect(panel).toBeVisible();
+  await expect(primaryTab).toBeVisible();
 }
 
 /**
@@ -149,12 +156,14 @@ export async function openPageOptions(page: Page): Promise<void> {
  * than the container this call asked for. The corner is the container's own
  * padding or heading, never a descendant's.
  *
- * **Closes an already-open panel first, exactly as {@link selectPage} does.**
- * Below `md` the panel is a bottom sheet that can cover the canvas outright —
- * `selectPage`'s own TSDoc carries the measurement — and the block this
- * selects lives in that same canvas. A selection already open when this is
- * called would otherwise leave the sheet sitting over the very element the
- * click is aimed at, on a phone-width viewport.
+ * **Closes an already-open selection first, exactly as {@link selectPage}
+ * does — checking `panel-tab-primary`, not the panel's own visibility, for
+ * the same reason (2026-09-05): the panel itself renders unconditionally
+ * now.** Below `md` the panel is a bottom sheet that can cover the canvas
+ * outright — `selectPage`'s own TSDoc carries the measurement — and the
+ * block this selects lives in that same canvas. A selection already open
+ * when this is called would otherwise leave the sheet sitting over the very
+ * element the click is aimed at, on a phone-width viewport.
  *
  * **Waits for the canvas's own panel-accommodation transition to settle
  * before returning ({@link waitForCanvasAccommodation}).** A caller reading
@@ -170,9 +179,10 @@ export async function openPageOptions(page: Page): Promise<void> {
  */
 export async function selectBlock(page: Page, path: string): Promise<void> {
   const panel = page.getByTestId("properties-panel");
-  if (await panel.isVisible()) {
+  const primaryTab = page.getByTestId("panel-tab-primary");
+  if (await primaryTab.isVisible()) {
     await page.getByTestId("panel-close").click();
-    await expect(panel).toBeHidden();
+    await expect(primaryTab).toBeHidden();
   }
   await page
     .locator(`[data-block-path="${path}"]`)
