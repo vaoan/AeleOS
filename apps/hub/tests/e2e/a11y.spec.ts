@@ -300,6 +300,58 @@ test.describe("the signed-in pages are accessible", () => {
     await expect(page.locator('[data-palette-kind="text"]')).toBeVisible();
     await isAccessible(page, "the editor with the Palette tab open");
 
+    // **A palette-origin drag IN PROGRESS — the OPEN state a static scan of
+    // the closed Palette tab above cannot reach (Task 9 of the palette
+    // drag-to-add feature, 2026-09-06).** Root rule 19's own caution is
+    // exactly this shape: a scan of a feature's closed state cannot find a
+    // defect that only exists while it is open, and the page-source dock's
+    // own `aria-required-attr`/`nested-interactive` findings are the class
+    // of thing this is looking for here — a highlight outline with no
+    // accessible-name change, or a drag source with no name at all. Every
+    // valid target lights up at once (`data-canvas-drop="place"`, this
+    // section's own two empty places among them, since section "1" was
+    // created above), which changes no accessible name on any of them, and
+    // nothing here is a `<dialog>` needing native semantics of its own — so
+    // this is closer in kind to the theme panel above than to the source
+    // dock below. Ended without dropping — moved well away from every
+    // target and released over nothing — so it leaves no mark on this
+    // test's own later sequence.
+    const paletteThumbnail = page.locator('[data-palette-kind="text"]');
+    // Scrolled into view before its geometry is read — `support/editor.ts`'s
+    // own `dragPaletteOnto` documents why this is load-bearing rather than
+    // tidy: `boundingBox()` answers a laid-out position whether or not it
+    // sits within the current scrollport, and a pointer event to a point
+    // outside it never dispatches at all.
+    await paletteThumbnail.scrollIntoViewIfNeeded();
+    const dragSource = await paletteThumbnail.boundingBox();
+    expect(dragSource).not.toBeNull();
+    await page.mouse.move(
+      dragSource!.x + dragSource!.width / 2,
+      dragSource!.y + dragSource!.height / 2,
+    );
+    await page.mouse.down();
+    // Clears `DRAG_THRESHOLD` (8px) so the sensor actually activates.
+    await page.mouse.move(
+      dragSource!.x + dragSource!.width / 2 + 20,
+      dragSource!.y + dragSource!.height / 2,
+    );
+    await expect(page.locator('[data-canvas-path="1-0"]')).toHaveAttribute(
+      "data-canvas-drop",
+      "place",
+    );
+    await isAccessible(page, "a palette-origin drag in progress");
+    await page.mouse.move(9999, 9999);
+    await page.mouse.up();
+    // Past `@dnd-kit/core`'s own post-drop click-swallow window —
+    // `PointerSensor.detach()` keeps a document-level capturing `click`
+    // listener alive for exactly 50ms after a drop (root rule 41's measured
+    // exemption class), and the very next thing this test does is a real
+    // click on the Palette tab through `addBlock`.
+    await page.evaluate(
+      // eslint-disable-next-line no-restricted-syntax -- see comment above.
+      () => new Promise((done) => setTimeout(done, 100)),
+    );
+
     await addBlock(page, { kind: "text" }, "1");
     // Adding a leaf selects it and resets to its Content tab, where
     // `leaf-kind` already lives.

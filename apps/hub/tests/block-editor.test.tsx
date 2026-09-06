@@ -1159,6 +1159,32 @@ describe("the Properties panel", () => {
       });
     };
 
+    // `dragItemName` (`block-editor.tsx`) resolves `active.id` through
+    // `palettePayload` before falling back to a place, exactly the fix this
+    // file's own "announces a canvas lift" case already proves for a
+    // canvas grip's id — a palette-origin lift is a THIRD id space neither
+    // `canvasPlacePath` nor `placePath` was ever going to understand, and
+    // before this branch existed it fell through to `placeName([])`,
+    // announcing "Picked up ." with the item unnamed.
+    it("announces a palette lift by the item's own name, not by an empty string", async () => {
+      harness([
+        { ...newContainer("grid", 1), name_en: "Section", children: [null] },
+      ]);
+      await openPalette();
+
+      fireEvent.keyDown(
+        screen.getByRole("button", { name: labels.leaf.leafKinds.text }),
+        { code: "Space", key: " " },
+      );
+      await settle();
+
+      const announcement = document.querySelector('[id^="DndLiveRegion-"]');
+      expect(announcement).not.toBeNull();
+      expect(announcement!.textContent).toBe(
+        `${labels.drag.lifted} ${labels.leaf.leafKinds.text}.`,
+      );
+    });
+
     it("drops a leaf onto an empty place, adding and selecting it", async () => {
       const page = harness([
         { ...newContainer("grid", 1), name_en: "Section", children: [null] },

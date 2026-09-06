@@ -7,7 +7,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { addSection, selectBlock } from "./support/editor";
+import { addBlock, addSection, selectBlock } from "./support/editor";
 import { liftByKeyboard } from "./support/drag";
 
 // WHAT THIS FILE PROVES.
@@ -41,6 +41,19 @@ import { liftByKeyboard } from "./support/drag";
 // measured, and drops it — plus Escape reaching `KeyboardSensor`'s own
 // document-level listener rather than something else on the page swallowing
 // it first, which no jsdom test can observe at all.
+//
+// **Three closing-sweep cases (2026-09-06), each proving something the
+// tasks above deliberately deferred to "a later task" rather than an
+// oversight.** Task 6 proved the append slot by pointer only, onto a
+// container with a SINGLE existing place; the keyboard equivalent onto a
+// FULLY PACKED container is below. Task 1's own domain-level finding —
+// that a container-kind item past the depth cap never reaches the real
+// collision pipeline at all, because `insertTargetsFor` refuses it before
+// offering it as a target — is proved here in a real browser, by pointer
+// (an absence of highlight, not a refusal banner: nothing was ever
+// offered, so nothing is ever refused) and by keyboard (stepping can never
+// land there, because `insertTargetsRef` — shared between both input
+// methods — never contains it).
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");
 
@@ -275,4 +288,212 @@ test("adds a leaf thumbnail by keyboard, and Escape cancels a drag without addin
     "true",
   );
   await expect(page.getByTestId("leaf-editor")).toBeVisible();
+});
+
+/**
+ * Drags the `text` thumbnail from the Palette tab onto a real canvas
+ * position by KEYBOARD — lift, step backward twice, drop — mirroring the
+ * sibling pointer helper's own sequence above.
+ *
+ * **Backward, and exactly two `ArrowUp` presses, for the identical reason
+ * the sibling keyboard test above already measured.** `insertTargetsFor`'s
+ * depth-first walk visits the page's LAST top-level section last, so its
+ * own targets sit at the very end of the whole order regardless of how
+ * much the identity section renders — and two presses is what a real
+ * Chromium needed there to land inside it reliably, the first opening the
+ * sensor's own listener-attach window (root rule 26) with nothing yet to
+ * land on.
+ *
+ * @param page - the editor page.
+ */
+async function liftStepDropByKeyboard(page: Page): Promise<void> {
+  const thumbnail = page.locator('[data-palette-kind="text"]');
+  await expect(thumbnail).toBeVisible();
+  await liftByKeyboard(page, thumbnail);
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Space");
+}
+
+test("adds a leaf thumbnail by keyboard onto a fully occupied container's own append slot, adding a place rather than displacing the one already there", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  // A section with exactly ONE place — the identity section is path "0",
+  // this new one is "1", matching the pointer version's own naming.
+  await addSection(page, "1");
+  await selectBlock(page, "1");
+
+  // Fill its one and only place first, by POINTER, so the container is
+  // genuinely FULL before the KEYBOARD drop this test is actually about —
+  // Task 6's own targeted case proved the append slot is reachable by
+  // pointer onto exactly this shape; this is the keyboard equivalent Task 7
+  // deferred, proving arrow-key stepping only on ORDINARY (not fully
+  // packed) targets.
+  await dragTextThumbnailOnto(page, "1-0");
+  await expect(page.locator('[data-block-path="1-0"]')).toHaveCount(1);
+
+  await page.getByTestId("panel-tab-palette").click();
+  await liftStepDropByKeyboard(page);
+
+  // Whichever of the container's two remaining targets the keyboard
+  // landed on — before the existing leaf ("1-0"), or its own trailing
+  // append slot ("1-1") — both are ordinary splice-inserts against a
+  // container with no null left in it: `insertBlockAt` only ever splices,
+  // never overwrites, so the original leaf survives either way and the
+  // container simply grows by one. This deliberately does not pin WHICH of
+  // the two was chosen — see root rule 27's own diagnostic, "name the
+  // wrong behaviour a fixture excludes": the wrong behaviour this case
+  // excludes is "the keyboard cannot reach a target here at all, because
+  // the container is full" and "a keyboard drop into a full container
+  // displaces what was already there" — and this fixture tells both apart
+  // from the right one, since neither would leave the original leaf intact
+  // alongside a second block.
+  const addedToSection = page.locator('[data-block-path^="1-"]');
+  await expect(addedToSection).toHaveCount(2);
+});
+
+test("shows no highlight for a container-kind drag past the depth cap, while a shallower target still lights up", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  // Section "1" > nested container "1-0" > nested container "1-0-0" —
+  // three containers deep, which `mayNest` still admits
+  // (`path.length <= MAX_DEPTH`, 3). A container's own places INSIDE
+  // "1-0-0" would sit at a FOURTH level, which `insertTargetsFor`
+  // (`domain/palette-targets.ts`) refuses to offer for a container-kind
+  // item — the exact domain-level finding `block-editor.test.tsx`'s own
+  // comment on this case already names as unreachable through the real
+  // collision pipeline any other way. Neither `addBlock` call below needs
+  // a prior `selectBlock`: the palette implies no target of its own, so
+  // each call names its own destination container path directly.
+  await addSection(page, "2");
+  await addBlock(page, { mode: "grid" }, "1");
+  await addBlock(page, { mode: "grid" }, "1-0");
+
+  await page.getByTestId("panel-tab-palette").click();
+  const thumbnail = page.locator('[data-palette-mode="grid"]');
+  await expect(thumbnail).toBeVisible();
+  await thumbnail.scrollIntoViewIfNeeded();
+  const source = await thumbnail.boundingBox();
+  expect(source).not.toBeNull();
+
+  await page.mouse.move(
+    source!.x + source!.width / 2,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.down();
+  // Clears `DRAG_THRESHOLD` so the sensor actually activates and
+  // `insertTargetsRef` is populated — nothing is highlighted before this.
+  await page.mouse.move(
+    source!.x + source!.width / 2 + 20,
+    source!.y + source!.height / 2,
+  );
+
+  // `data-canvas-drop="place"` is set from `editor.insertTargets`
+  // MEMBERSHIP alone (`editable-block-frame.tsx`) — constant for the whole
+  // drag, independent of where the pointer currently sits — so this reads
+  // correctly regardless of the pointer's exact position at this instant.
+  // The innermost container's own two places never appear in that list for
+  // a container-kind item: no highlight, for the entire drag.
+  await expect(
+    page.locator('[data-canvas-path="1-0-0-0"]'),
+  ).not.toHaveAttribute("data-canvas-drop", "place");
+  await expect(
+    page.locator('[data-canvas-path="1-0-0-1"]'),
+  ).not.toHaveAttribute("data-canvas-drop", "place");
+
+  // A shallower target, one level up inside "1-0" itself, still admits a
+  // nested container (`mayNest([1,0,0])` holds — a new container there
+  // would sit at path length 3, still within the cap) — so its own
+  // still-empty place lights up during the exact same drag.
+  await expect(page.locator('[data-canvas-path="1-0-1"]')).toHaveAttribute(
+    "data-canvas-drop",
+    "place",
+  );
+
+  // Ends the drag with nothing under the pointer, so nothing is inserted —
+  // this case is about what lights up mid-drag, not about a drop.
+  await page.mouse.move(9999, 9999);
+  await page.mouse.up();
+  await expect(page.locator('[data-canvas-path="1-0-0-0"]')).toHaveCount(1);
+  await expect(page.locator('[data-block-path^="1-0-0-"]')).toHaveCount(0);
+});
+
+test("a container-kind keyboard drag never lands inside a container already at the depth cap", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  // The identical three-deep tree the pointer case above builds: section
+  // "1" > nested container "1-0" > nested container "1-0-0".
+  await addSection(page, "2");
+  await addBlock(page, { mode: "grid" }, "1");
+  await addBlock(page, { mode: "grid" }, "1-0");
+
+  // Each `addBlock` above lands on an EXISTING null place rather than an
+  // append slot (`firstOpenPlace`'s own contract), which `insertAt` inserts
+  // BEFORE — growing its target container by one rather than filling the
+  // null in place (`support/editor.ts`'s own `firstOpenPlace`/
+  // `dragPaletteOnto` account). So "1-0" already carries THREE direct
+  // children before this test's own drag — the nested container "1-0-0" at
+  // index 0, plus the two starting places `newContainer(mode, 2)` gave
+  // "1-0" itself, both shifted one index later — never the two this test
+  // originally assumed. Counted below rather than hard-coded, since the
+  // exact number is an artefact of that growth arithmetic and not a fact
+  // worth pinning by itself.
+  const directChildrenPathLength3 = (): Promise<number> =>
+    page
+      .locator('[data-canvas-path^="1-0-"]')
+      .evaluateAll(
+        (elements) =>
+          elements.filter(
+            (element) =>
+              element.getAttribute("data-canvas-path")?.split("-").length === 3,
+          ).length,
+      );
+  const directChildrenBefore = await directChildrenPathLength3();
+
+  await page.getByTestId("panel-tab-palette").click();
+  const thumbnail = page.locator('[data-palette-mode="grid"]');
+  await expect(thumbnail).toBeVisible();
+  await liftByKeyboard(page, thumbnail);
+
+  // **Exactly two `ArrowUp` presses lands on one of "1-0"'s OWN last two
+  // splices — never inside "1-0-0" — and that is guaranteed by the domain
+  // order, not merely likely.** `insertTargetsRef` (shared with the pointer
+  // branch above, and therefore already proved not to contain anything
+  // inside "1-0-0") ends, for this tree, with "1-0"'s own splices in
+  // ascending order, the append slot last. Backward from a fresh lift
+  // reaches the LAST of those on the first EFFECTIVE press; a real Chromium
+  // can lose exactly one press to the sensor's own listener-attach window
+  // (root rule 26), so two presses reach the last splice or the one before
+  // it — never the FIRST, which is the only one that would insert BEFORE
+  // the existing nested container at index 0 and shift its own path. Both
+  // reachable targets insert AFTER it instead, so "1-0-0" keeps its path
+  // and its contents untouched either way.
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Space");
+
+  // "1-0-0" — the container at the depth cap — is untouched: its own two
+  // starting empty places still carry no content, at the SAME paths, which
+  // could only stay true if nothing was ever inserted ahead of it inside
+  // "1-0".
+  await expect(page.locator('[data-canvas-path="1-0-0-0"]')).toHaveCount(1);
+  await expect(page.locator('[data-canvas-path="1-0-0-1"]')).toHaveCount(1);
+  await expect(page.locator('[data-block-path^="1-0-0-"]')).toHaveCount(0);
+
+  // And something WAS added — the drag genuinely landed and dropped, rather
+  // than silently doing nothing — as one more direct child of "1-0", beside
+  // the untouched nested container. Asserted RELATIVE to the count taken
+  // before the drag, rather than as a second hard-coded absolute, for the
+  // same reason the count above is computed rather than assumed.
+  const directChildrenAfter = await directChildrenPathLength3();
+  expect(directChildrenAfter).toBe(directChildrenBefore + 1);
 });
