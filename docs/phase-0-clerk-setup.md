@@ -33,9 +33,19 @@ carries `password`, `username` and the rest.
 
 ### The connector lineup, and what it costs in production (2026-08-09)
 
-Three slots on the free plan. They now hold **Google, Discord and Facebook** —
-the three whose own OAuth apps are free, which is what the $0 constraint
-actually turns on. Verified against each provider's current terms:
+> **The third slot is no longer Facebook, 2026-09-07.** Production launches
+> with **Google + Discord + email code**, and the third social slot is left
+> EMPTY — Facebook does nothing for Libra's migration, carries a circular
+> hosting prerequisite, and is a real-name provider in a pseudonymous
+> community. `docs/deployment.md` §1 carries the ruling and the reasoning;
+> the Twitch note at the foot of this section is what it turns on. The table
+> below is still the cost comparison that decided the shortlist.
+
+Three slots on the **Hobby** plan — the plan this repository used to call
+"Free", renamed on Clerk's side; unlimited connections are a Pro feature at
+$20–25/month, which the budget refuses. They hold **Google and Discord**, the
+two Libra's users actually sign in with. Verified against each provider's
+current terms:
 
 | Provider     | Production cost                              | What registering our own app needs                                     |
 | ------------ | -------------------------------------------- | ---------------------------------------------------------------------- |

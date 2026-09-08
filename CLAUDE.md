@@ -90,8 +90,12 @@ Key choices and _why_:
   Auth supports exactly Clerk, Firebase, Auth0, AWS Cognito and WorkOS — there is
   no Logto option and no generic OIDC one. Of those five, **Clerk alone has both
   Google and Discord as native connections**, which is what makes "configure
-  social logins once" real. Free plan covers 50,000 monthly users at **$0**, and
-  it is supported by the Supabase CLI so the conformance suite runs locally.
+  social logins once" real. The **Hobby** plan covers 50,000 monthly RETAINED
+  users at **$0** — MRU, counted only for somebody returning 24 hours or more
+  after signing up, which is more generous than the MAU this line used to say
+  (re-read 2026-09-07) — with **three** social connections; unlimited is Pro at
+  $20–25/month and the budget refuses it. It is supported by the Supabase CLI
+  so the conformance suite runs locally.
   The cost is real: **no self-host escape hatch** — none of the five is
   self-hostable. See `docs/superpowers/specs/2026-07-31-idp-decision-change.md`
   for the full reasoning, including why that loss is acceptable (the actor model
