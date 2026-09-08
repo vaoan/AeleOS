@@ -17,7 +17,6 @@ import {
 } from "react-hook-form";
 import { useRouter } from "@/shared/infrastructure/i18n/navigation";
 import { tid } from "@/shared/infrastructure/test-id";
-import { WidePageColumn } from "@/shared/presentation/page-shell";
 import { useEscapeSlot } from "@/shared/presentation/escape-slot";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { ThemeScope } from "@/features/actors/presentation/theme-scope";
@@ -495,7 +494,10 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * up to the spacing `pageBoxClass` gives them on a public page. Nothing
  * persists the choice — it is a way of looking, not a preference. The control
  * that brings the workbench back is rendered OUTSIDE the armed element, or the
- * rule would hide the only way out of the state it created.
+ * rule would hide the only way out of the state it created. Hiding controls
+ * also invalidates the Properties panel's selection in the same event, so Show
+ * controls cannot resurrect a paused panel. While controls show, the form is bounded
+ * below the app header and only the canvas scrolls.
  *
  * **Both sticky bars are direct children of the element carrying
  * `data-controls`**, which spans the whole editor, and each puts a
@@ -507,7 +509,11 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * `COLUMN.wide` is `py-6 sm:py-10`, and tailwind-merge treats a responsive
  * variant as its own group — a bare `py-0` overrides the base and leaves the
  * `sm:` one standing, which is 40px nobody asked for at every width above
- * `sm`.
+ * `sm`. That spelling lives in `FormErrorBanner` now, and the banner itself
+ * is handed to `BlockEditor` rather than rendered here (2026-09-03): a
+ * column at this level reserved 40px of the author's backdrop on every form
+ * with nothing wrong, and a banner at this level sat outside the Properties
+ * panel's accommodation padding and was covered by it.
  *
  * **The way out of the author's own look is in the bar.** Since the document
  * wears the draft, a busy theme is worn by the workbench too; the editor hands
@@ -564,6 +570,21 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * their own, so wrapping here adds no element and changes nothing about the
  * canvas's layout or the `DndContext` beneath it. See `editor-motion.tsx`.
  *
+ * **It no longer wraps `data-controls` in an Add slot provider (2026-09-06).**
+ * `AddSlotProvider`/`AddSlotTarget` and the `AddBlockPicker` they carried are
+ * deleted along with `add-target.ts` — the compact builder menu's single
+ * global Add modal is superseded by the persistent Palette tab in the
+ * Properties panel, which `BlockEditor` renders directly with no portal and
+ * no slot to wire through this component at all.
+ *
+ * **`PageSourceField` forwards `panelOpen={!controlsHidden}` to
+ * `PageSourceDock` (2026-09-05)**, the same condition that gates
+ * `BlockEditor`'s own canvas accommodation for the Properties panel — see
+ * that component's TSDoc. The Properties panel occupies the page's right
+ * edge whenever controls show, selection or not, since it renders
+ * unconditionally now; without this signal the dock's own fixed positioning
+ * would sit on top of it rather than beside it.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -593,6 +614,11 @@ export function FursonaEditor({
   // remembered value would open the editor with no controls at all for whoever
   // did that once.
   const [controlsHidden, setControlsHidden] = useState(false);
+  // **A command version, not selection lifted into this component.**
+  // `BlockEditor` still owns the selected value and every way it changes.
+  // Incrementing here in the same event that enters Preview invalidates that
+  // local value without an effect-driven state update or a remount.
+  const [selectionResetKey, setSelectionResetKey] = useState(0);
   // **The session-only interaction switch, and it is not a preference
   // either.** Default off: the canvas is locked so a click selects a block
   // rather than following a link. Pressing the toolbar switch turns it on
@@ -716,6 +742,11 @@ export function FursonaEditor({
     <EditorMotion>
       <form
         {...tid("editor-content")}
+        className={
+          controlsHidden
+            ? ""
+            : "flex h-[calc(100dvh-var(--bar-h))] min-h-0 flex-col overflow-hidden"
+        }
         onSubmit={handleSubmit(async (values) => {
           // The RETURN VALUE decides, never `fieldErrors`. That variable is
           // captured from the render that built this handler, so it is still
@@ -743,7 +774,15 @@ export function FursonaEditor({
             remembering. A second rule flattens the editor's own stacking, so
             the sections close up to exactly the spacing `pageBoxClass` gives
             them on a public page. */}
-          <div data-controls={controlsHidden ? "hidden" : "shown"}>
+          {/* **There is no Add slot provider here any more (2026-09-06).**
+              `AddSlotProvider`/`AddSlotTarget` and the `AddBlockPicker` that
+              used to portal through them are deleted; adding a block is a
+              drag from the Palette tab `BlockEditor` renders directly, with
+              nothing for this component to wrap or wire through. */}
+          <div
+            data-controls={controlsHidden ? "hidden" : "shown"}
+            className={controlsHidden ? "" : "flex min-h-0 flex-1 flex-col"}
+          >
             {/* **Both sticky bars are direct children of THIS box**, which spans
               the whole editor. A sticky element sticks only within its parent's
               box, and the control column below stops before the section
@@ -754,7 +793,10 @@ export function FursonaEditor({
               labels={labels}
               saving={saving}
               cancelHref={LIST}
-              onHideControls={() => setControlsHidden(true)}
+              onHideControls={() => {
+                setSelectionResetKey((current) => current + 1);
+                setControlsHidden(true);
+              }}
               onOpenSource={() => {
                 setSourceMounted(true);
                 setSourceOpen(true);
@@ -808,6 +850,12 @@ export function FursonaEditor({
               dock does not throw away the text or the problems it was
               showing. */}
             {sourceMounted && (
+              // `panelOpen={!controlsHidden}` is the exact condition that
+              // gates the Properties panel's own presence — see
+              // `BlockEditor`'s canvas-accommodation TSDoc above the
+              // `banner` prop — so the dock's own right-shift can never
+              // disagree with whether the panel is actually reserving the
+              // page's right edge.
               <PageSourceField
                 control={control}
                 setValue={setValue}
@@ -817,17 +865,9 @@ export function FursonaEditor({
                 onClose={() => setSourceOpen(false)}
                 reference={reference}
                 labels={labels.source}
+                panelOpen={!controlsHidden}
               />
             )}
-
-            <WidePageColumn
-              className={`${CHROME_SCOPE} py-0 pt-6 sm:py-0 sm:pt-10`}
-            >
-              <FormErrorBanner
-                errors={{ ...schemaErrors, ...fieldErrors }}
-                labels={{ title: labels.bannerTitle, errors: labels.errors }}
-              />
-            </WidePageColumn>
 
             <BlockEditor
               control={control}
@@ -838,7 +878,25 @@ export function FursonaEditor({
               page={livePage}
               problems={problems}
               pageInteractionsEnabled={interactionsEnabled}
-              pageOptions={
+              controlsHidden={controlsHidden}
+              selectionResetKey={selectionResetKey}
+              // **Handed DOWN rather than rendered here, and it carries its
+              // own page column.** Both are the same lesson from the same
+              // day: a banner rendered at this level sat outside the
+              // inspector's accommodation padding and was covered by the
+              // panel, and a column rendered at this level reserved 40px of
+              // the author's backdrop on every form with nothing wrong. See
+              // `BlockEditorProps.banner` and `FormErrorBanner`.
+              banner={
+                <FormErrorBanner
+                  errors={{ ...schemaErrors, ...fieldErrors }}
+                  labels={{
+                    title: labels.bannerTitle,
+                    errors: labels.errors,
+                  }}
+                />
+              }
+              pageFields={
                 <>
                   <div
                     {...tid("editor-identity-fields")}
@@ -937,20 +995,22 @@ export function FursonaEditor({
                       </select>
                     </div>
                   </div>
-
-                  {/* Above the language strip and the sections, because it governs how
-          all of them look. The panel is collapsed until somebody opens it —
-          theming is a thing people do once and then leave alone, and an open
-          colour panel would push everything below it down the page for
-          everybody who never touches it. */}
-                  <div className="mt-8">
-                    <ThemeController
-                      control={control}
-                      labels={labels.theme}
-                      profileTheme={profileTheme}
-                    />
-                  </div>
                 </>
+              }
+              // **Its own tab now, not a `mt-8` sibling of the identity
+              // fields (2026-09-04).** The Properties panel's Page
+              // selection routes this to Theme, its OWN pane — the two-tab
+              // split this component's own `mt-8` margin existed to fake
+              // by spacing, on a page where both used to share one Options
+              // pane. The panel's own `gap-2` between tab content is
+              // spacing enough; a margin meant for a sibling would be
+              // furniture at the top of a pane with nothing above it.
+              pageTheme={
+                <ThemeController
+                  control={control}
+                  labels={labels.theme}
+                  profileTheme={profileTheme}
+                />
               }
             />
           </div>
@@ -1072,6 +1132,12 @@ function applyDocumentTo<T extends FieldValues>(
  * which is silent: nothing renders differently in the moment, and the loss
  * only shows up the next time somebody opens the theme panel.
  *
+ * `panelOpen` is forwarded straight through to {@link PageSourceDock}'s own
+ * prop of the same name — see its TSDoc for what it does. It is threaded here
+ * rather than read inside `PageSourceDock` from some ambient signal because
+ * `FursonaEditor` is the one place that already computes it, as
+ * `!controlsHidden`.
+ *
  * @returns the dock.
  */
 function PageSourceField<T extends FieldValues>({
@@ -1083,6 +1149,7 @@ function PageSourceField<T extends FieldValues>({
   onClose,
   reference,
   labels,
+  panelOpen,
 }: {
   control: Control<T>;
   setValue: UseFormSetValue<T>;
@@ -1092,6 +1159,7 @@ function PageSourceField<T extends FieldValues>({
   onClose: () => void;
   reference: string;
   labels: PageSourceDockLabels;
+  panelOpen: boolean;
 }) {
   const blocks = useWatch({
     control,
@@ -1111,6 +1179,7 @@ function PageSourceField<T extends FieldValues>({
       source={source}
       reference={reference}
       labels={labels}
+      panelOpen={panelOpen}
     />
   );
 }

@@ -2,6 +2,8 @@
 
 import { AlertTriangle } from "lucide-react";
 import { tid } from "@/shared/infrastructure/test-id";
+import { WidePageColumn } from "@/shared/presentation/page-shell";
+import { CHROME_SCOPE } from "@/shared/domain/chrome";
 
 /** Translated strings {@link FormErrorBanner} renders. */
 export interface FormErrorBannerLabels {
@@ -32,6 +34,20 @@ export interface FormErrorBannerProps {
  * is worse than a banner that never appeared. If that leaves nothing to say,
  * nothing renders.
  *
+ * **It owns its own page column, and that is what makes "nothing renders"
+ * true (2026-09-03).** The editor used to wrap this in a `WidePageColumn`
+ * carrying `pt-6 sm:pt-10`, so a form with nothing wrong still reserved 40px
+ * of the author's backdrop above their first section — an empty band under
+ * the toolbar, permanently, once the canvas became the scroller and it
+ * stopped being able to scroll away. The column is inside the null check
+ * now.
+ *
+ * The gate could not be lifted to the caller instead, because the rule above
+ * is stricter than "there are errors": a code whose message is missing counts
+ * as nothing to say. Asking `Object.keys(errors).length` at the call site is
+ * a second answer to that question, and it is the wrong one for exactly the
+ * case this component was careful about.
+ *
  * The banner is a `surface`, so a refusal is drawn in the same form language as the fields that caused it.
  *
  * Every colour it paints comes from a token — `--accent`, `--muted` — and never from a literal. That is what lets a person's theme reach it at all.
@@ -56,22 +72,30 @@ export function FormErrorBanner({ errors, labels }: FormErrorBannerProps) {
   if (messages.length === 0) return null;
 
   return (
-    <div
-      role="alert"
-      {...tid("editor-error-banner")}
-      className="mb-6 rounded-xl surface border-(--accent)/50 bg-(--accent)/10 p-4"
+    // **A column meaning "no vertical padding above the top one" says
+    // `py-0 sm:py-0` before its `pt-`.** `COLUMN.wide` is `py-6 sm:py-10`,
+    // and tailwind-merge treats a responsive variant as its own group, so a
+    // bare `py-0` overrides the base and leaves the `sm:` one standing.
+    <WidePageColumn
+      className={`${CHROME_SCOPE} flex-none py-0 pt-6 sm:py-0 sm:pt-10`}
     >
-      <p className="flex items-center gap-2 text-sm font-medium">
-        <AlertTriangle className="size-4 text-(--accent)" />
-        {labels.title}
-      </p>
-      <ul className="mt-2 grid gap-1 pl-6 text-sm text-(--muted)">
-        {messages.map((message) => (
-          <li key={message} className="list-disc">
-            {message}
-          </li>
-        ))}
-      </ul>
-    </div>
+      <div
+        role="alert"
+        {...tid("editor-error-banner")}
+        className="mb-6 rounded-xl surface border-(--accent)/50 bg-(--accent)/10 p-4"
+      >
+        <p className="flex items-center gap-2 text-sm font-medium">
+          <AlertTriangle className="size-4 text-(--accent)" />
+          {labels.title}
+        </p>
+        <ul className="mt-2 grid gap-1 pl-6 text-sm text-(--muted)">
+          {messages.map((message) => (
+            <li key={message} className="list-disc">
+              {message}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </WidePageColumn>
   );
 }

@@ -196,6 +196,10 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * that steps the workbench aside and the one that brings it back are rendered
  * in different places and never both exist at once.
  *
+ * `more` names the disclosure grouping source JSON, Interact with page and
+ * Cancel (2026-09-04) — one word for the trigger, since what it opens names
+ * itself.
+ *
  * `sectionEyebrow` and `contentEyebrow` are the nouns the two card kinds wear,
  * and each is separate from the field label beside it — `sectionName` and
  * `leafKind` label fields, these two say what the card IS. One string doing
@@ -239,11 +243,13 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * 2026-08-30, so the bag is assigned to both `style` and `leaf.style` rather
  * than built out twice — see the local const's own comment.
  *
- * The same bag now names the canvas inspector's Page, Items, Options and Back
- * controls. These are translated here with the rest of the editor chrome;
- * they are not labels stored in somebody's page document. Items is the
- * selected page or container's immediate-child list, not the old global Add
- * palette.
+ * The same bag now names the Properties panel's Page-select and Close
+ * controls (2026-09-04). These are translated here with the rest of the
+ * editor chrome; they are not labels stored in somebody's page document.
+ * There is no Items tab, no Options tab and no Back any more — the panel
+ * has exactly two fixed tabs per selection kind, built by `panelContentFor`
+ * from strings this bag already carries elsewhere, and Close is the only
+ * way out at any depth.
  *
  * **It also names the toolbar's Interact-with-page switch (2026-09-02)** —
  * `interactWithPage` and its two accessible-description hints, `Off`/`On` —
@@ -255,6 +261,16 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * `addLayoutGroup` the two option groups inside it. The picker reuses
  * `nestingAtLimit`, already resolved above, rather than a fifth string that
  * would say the identical thing.
+ *
+ * The drag refusal bag also distinguishes a valid linear destination whose
+ * parent is already at the child cap. That `tooMany` outcome is ordinary
+ * feedback from the drop planner, not a save error.
+ *
+ * **`panelTabPalette` names the Properties panel's persistent third tab
+ * (2026-09-05).** Unlike every other panel string above, it names nothing
+ * selection-dependent — the Palette tab reads the same whether Page, a
+ * container, a leaf or nothing at all is selected — so it is one fixed
+ * string rather than a set built per selection kind.
  */
 export async function fursonaEditorLabels(
   title: string,
@@ -359,6 +375,7 @@ export async function fursonaEditorLabels(
     cancel: t("cancel"),
     hideControls: t("hideControls"),
     showControls: t("showControls"),
+    more: t("more"),
     openSource: t("source.open"),
     interactWithPage: t("interactWithPage"),
     interactWithPageHintOff: t("interactWithPageHintOff"),
@@ -376,10 +393,14 @@ export async function fursonaEditorLabels(
     addBlockTitle: t("addBlockTitle"),
     addContentGroup: t("addContentGroup"),
     addLayoutGroup: t("addLayoutGroup"),
+    panelTabAppearance: t("panelTabAppearance"),
+    panelTabTheme: t("panelTabTheme"),
+    panelTabPalette: t("panelTabPalette"),
+    cloneBlock: t("cloneBlock"),
+    cloneRefusedTooDeep: t("cloneRefusedTooDeep"),
+    cloneRefusedTooMany: t("cloneRefusedTooMany"),
     selectPage: t("selectPage"),
-    inspectorItems: t("inspectorItems"),
-    inspectorOptions: t("inspectorOptions"),
-    inspectorBack: t("inspectorBack"),
+    inspectorClose: t("inspectorClose"),
     wrapInLayout: t("wrapInLayout"),
     atLimit: t("sectionsAtLimit"),
     dragSection: t("dragSection"),
@@ -395,6 +416,7 @@ export async function fursonaEditorLabels(
       intoItself: t("dragRefusedIntoItself"),
       tooDeep: t("dragRefusedTooDeep"),
       noSuchPlace: t("dragRefusedNoSuchPlace"),
+      tooMany: t("dragRefusedTooMany"),
     },
     sectionEyebrow: t("sectionEyebrow"),
     sectionName: t("sectionName"),

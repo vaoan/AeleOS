@@ -88,6 +88,9 @@
     // the identity header gets next. "welded" and "unwelded" are already this
     // repo's idiom and both are real words; only the bare verb is coined.
     "unweld",
+    // dnd-kit's own collision-detection argument, `args.droppableRects` — a
+    // real property name the palette drag-to-add plan's code will reference.
+    "Rects",
     "chrome",
     "chromes",
     "Sonique",
@@ -130,6 +133,10 @@
     "AeleOS",
     "alice",
     "Angarita",
+    // The home-directory basename on the machine these plans were written
+    // on, baked into several already-committed `cd /Users/…` example
+    // commands across this feature's seven phase plans. Not a coinage.
+    "angaritamaldonado",
     "anthro",
     "IPIP",
     "attname",
@@ -154,6 +161,10 @@
     "CandyStore",
     "candystore",
     "Carina",
+    // The page builder everybody's own product is named after (Carrd.co),
+    // this design's own namesake throughout TSDoc, a test file's own header
+    // comment, and the feature's living documentation — not a one-off typo.
+    "Carrd",
     "Carrusel",
     "chromosphere",
     "citext",
@@ -291,6 +302,11 @@
     "twttr",
     "ugc",
     "uncustomised",
+    // "the canvas's own right edge, unaccommodated" — block-editor.tsx's own
+    // TSDoc and inline comment for the accommodation padding this describes
+    // going missing; a real, recurring word in code rather than a one-off
+    // prose coinage.
+    "unaccommodated",
     "ungated",
     "unl",
     "unlisted",

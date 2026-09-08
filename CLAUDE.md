@@ -1151,6 +1151,17 @@ list --state open` returning nothing else.
   identity from `gh api user` — never from `git config --global` and never
   from a hardcoded name or email. The procedure is
   [`docs/git-with-gh-token.md`](docs/git-with-gh-token.md).
+
+  **This was skipped on `carrd-style-builder` (2026-09-05): several commits
+  fell through to the machine's own global identity — a real work account,
+  correct for that machine's other repositories — instead of `--local` set
+  from `gh api user`, leaking it onto the PR.** Fixed by rewriting only the
+  affected commits' author/committer and force-pushing; the global identity
+  was left exactly as found. **Never touch the global identity to fix
+  this** — set `--local` in this repo from `gh api user` before the first
+  commit of the session, every session. See `docs/git-with-gh-token.md`'s
+  own troubleshooting entry for the full account.
+
 - **Picture proof on the PR is part of the work, not a follow-up.** Opening a
   pull request, and every later commit that lands on a branch that already has
   one open, ends with photographs posted **as a comment on that PR** — so a
@@ -1624,6 +1635,16 @@ replace`, so the newest body of a function could sit in a file named after
   a ruling rather than a change to the model — the positions are stored either
   way.
 
+  **Corrected 2026-09-04: that refusal held everywhere until the Carrd-style
+  page builder, and now holds only for POSITIONAL modes.** `stack`, `list`
+  and `timeline` insert-and-shift now, through `domain/block-drops.ts`'s
+  `applyLinearDrop` and `LINEAR_MODES` — see
+  `apps/hub/src/features/actors/CLAUDE.md`'s dragging section for the
+  mechanism. The reasoning above is unchanged and still current for `grid`,
+  `masonry`, `carousel`, `tabs` and `accordion`, where a place is still
+  positional and shifting one would still move a shape somebody deliberately
+  left.
+
   Two domain boundaries carry the current design. `moveBlock`
   (`domain/block-moves.ts`) still decides what any valid exchange MEANS, with
   no library in sight; `moveSiblingBlock` admits that operation only when both
@@ -1890,6 +1911,20 @@ replace`, so the newest body of a function could sit in a file named after
   `docs/superpowers/specs/2026-09-01-recursive-inspector-drill-down-design.md`.
   Plan:
   `docs/superpowers/plans/2026-08-31-canvas-inspector-builder.md`.
+
+- **Carrd-style builder migration — PARTIAL CHECKPOINT (2026-09-04).** The
+  approved design supersedes the recursive Items list and sibling-only drag
+  surface while preserving the stored document and public renderer. The first
+  slice is implemented: the live renderer accepts editor-only instrumentation,
+  selected blocks expose accessible grips, and direct canvas drops insert in
+  `stack`/`list`/`timeline` while positional layouts keep place semantics.
+  Public pages, Preview and interact mode omit the instrumentation.
+
+  The compact builder menu, focused Properties panel, unified Add placement,
+  removal of superseded inspector paths and full browser/picture proof are
+  deliberately NOT complete in this checkpoint. Continue from
+  `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`;
+  `apps/hub/src/features/actors/CLAUDE.md` owns the implementation details.
 
 - **Editor interaction, adding and motion — DESIGNED, NOT BUILT
   (2026-09-02).** Page links, players and embeds are real inside the canvas
@@ -2217,6 +2252,163 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   mounted, did not move (0.006 commits per delivered movement, the same
   reading this file's own toolchain section already treats as healthy) —
   the number that decides whether Motion stays, and it says keep it.
+
+- **Preview clears selection and edit mode scrolls only its canvas
+  (2026-09-03) — done.** Hide controls unmounts the inspector before paint and
+  clears its `BlockEditor`-owned selection, so Show controls cannot resurrect
+  one; the inspector also has a direct Close at every depth, separate from
+  parent-selecting Back. While controls show, the form fills the viewport below
+  the app header and `editor-canvas` is the sole vertical scroller — the
+  toolbar and the independently scrolling inspector stay put, while the Page
+  control rides inside the canvas with the page it names. Preview
+  removes that bound and returns scrolling to the document, the same owner the
+  public page uses, with both transitions reset to the top. The renderer and
+  page document remain one mechanism in both modes. A browser guard drives both
+  `window` and the canvas at 1280 and 320 so “neither scrolls” cannot pass as
+  canvas ownership. Spec:
+  `docs/superpowers/specs/2026-09-03-editor-preview-selection-and-canvas-scroll-design.md`.
+
+  **It shipped a visible fault, and the lesson generalises past this editor: a
+  NEW SCROLL CONTAINER RE-BASES EVERY STICKY OFFSET INSIDE IT.** A sticky
+  offset is measured from the scrollport, not from the viewport. The editor's
+  toolbar had `top: var(--bar-top)` — right for as long as its scrollport was
+  the document, whose first 56px the header occupies. Bounding the form made
+  the FORM that scrollport, and the form already begins below the header, so
+  the declaration counted the header twice: measured at 1280×900, header 0–56,
+  bar 112–171, canvas top 277 — a 56px strip of the author's own page between
+  the two bars, with everything below pushed down by the same amount. The bar
+  is `top-0` now (bar 56–115, canvas top 245), and `--bar-top` is left to the
+  inspector and the source dock, whose offsets are genuinely viewport-measured
+  because both are `fixed`. The general question to ask when confining a
+  scroll: **which boxes inside the new container declared an offset against
+  the old one?**
+
+  **It happened twice more, and the general question is wider than offsets:
+  which decisions inside the new container were only invisible because it
+  scrolled?** Measured at 1280×900, 80 of the 114px between the bar and the
+  first section were reserved for things that rendered nothing — a page column
+  holding `pt-6 sm:pt-10` for an error banner that returns null when there is
+  nothing wrong, and a zero-height `div` of `<style>` elements that still cost
+  its parent's `gap-4`. Both had scrolled away for as long as the document was
+  the scroller. The column moved inside the banner so one null check governs
+  both (it could not be gated at the call site: the banner's own rule is
+  stricter than "there are errors"), and the stylesheet holder is
+  `display: contents` so it is not a flex item at all.
+
+  **Photographing that fix found the fault it was sitting beside, and it was
+  the worse one: the save-refusal summary was BEHIND the inspector.** The
+  panel is `fixed` and the canvas section pads itself to make room; the banner
+  was a sibling of that section, so at 1280 its heading sat at x=41 with the
+  panel's right edge at x=512 — unreadable in the normal case, since the
+  inspector is open exactly when somebody presses Save. **A rect comparison
+  would have passed**, because two boxes overlapping is not the claim and
+  which one a person can read is; `elementFromPoint` is the only instrument
+  that answers it, and no unit test can, which is why 3661 of them passed
+  through it. This is rule 30's shape again — the guard has to consult the
+  system that decides, and here that system is the compositor.
+
+  **The guard for that bar passed through the whole fault, which is rule 27
+  and not an oversight.** `editor-bars-stay-pinned.spec.ts` reads Save's own
+  starting offset and asserts canvas scrolling never moves it — true of a bar
+  under the header and equally true of one 56px lower, since both are outside
+  the scroller and neither moves. **Pinned and in the right place are two
+  claims**, and confining the scroll made the first one nearly free while
+  silently breaking the second. The case that asks it compares the bar's top
+  against the header's foot in both directions, and it must run TALL:
+  `--bar-top` is `0px` under `@media (height <= 600px)`, so the faulty offset
+  resolves to zero on a phone in landscape and the band cannot appear there —
+  a short fixture would have passed against the exact code it exists to
+  refuse.
+
+  **A fourth instance closed it (2026-09-04), and it was the bar's own
+  `mb-6`.** A margin on the bar is outside the scroller by construction, so
+  24px of the author's backdrop sat under the chrome at every offset. The
+  canvas begins exactly at the bar's foot now — both 115 at 1280×900 — and the
+  breath above the Page pill is that column's own `pt-3` INSIDE the scroller,
+  which travels with the pill and is gone the moment anybody scrolls. **The
+  same guard admitted it**: its canvas assertion was a 160px window
+  (`> barBottom`, `< barBottom + 160`), wide enough to pass on a flush canvas,
+  on the 24px margin and on the 56px band alike — rule 27 landing on an
+  assertion's TOLERANCE rather than on a fixture, and the reason it is
+  equality now.
+
+  **And the occlusion guard above was racy from the day it was written, which
+  removing that margin exposed.** The room the section makes for the panel is
+  animated (`transition-[padding-left] duration-210`), so a hit test fired the
+  instant the banner appears asks about a banner still travelling out from
+  under the panel: the pad read 440.553px and 218.792px of its settled 512 in
+  two runs. It passed alone and failed in the file, and **that pairing is the
+  signature of a question asked too early rather than of a slow machine** —
+  rule 26's lesson with a CSS transition in place of a deferred listener, and
+  no timeout is long enough for either. The wait is stated as the relationship
+  (the pad equals the panel's own width, both being `min(36rem,40vw)`) rather
+  than as 512, and the case was re-sabotaged after it, because a wait that
+  turns a red green is the first thing to suspect of making it vacuous.
+
+- **The carrd-style page builder (2026-09-04) — PARTIALLY BUILT.**
+  `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`
+  supersedes the recursive Items/Options inspector: click the rendered block
+  to select it, one focused Properties panel per selection, a single global
+  Add, and dragging directly on the live canvas rather than through the
+  inspector's own sibling-only grips. **PR #67 (`carrd-style-builder`)
+  merged to `main` on 2026-09-05**, all six required checks green — direct
+  dragging on the live renderer via `EditableBlockFrame`, linear-insertion
+  drop planning in `block-drops.ts` for `stack`/`list`/`timeline` alongside
+  `moveBlock`'s existing positional swap for the grid-shaped modes, the
+  focused Properties panel (two fixed tabs per selection kind), and the
+  single global `AddBlockPicker` modal. The four `e2e` failures this bullet
+  once named as still-red on that PR are fixed and merged with it — read
+  `docs/superpowers/plans/2026-09-04-carrd-style-page-builder-phase-1-checkpoint-blockers.md`'s
+  own "Phase 1 status" section for that account rather than trusting this
+  sentence past today, per rule 18 below. The remaining phase documents
+  (compact builder menu, drop-semantics audit against the spec's full table,
+  completing interaction, retiring superseded inspector paths, full
+  browser/accessibility/responsive proof) have not started; **the modal Add
+  path phase 2 would have replaced is itself now superseded** — see the next
+  bullet — so phase 2 as written no longer describes the plan.
+
+- **Drag-to-add from a palette tab (2026-09-05) — DESIGNED, not built.**
+  `docs/superpowers/specs/2026-09-05-palette-drag-to-add-design.md`
+  supersedes the single global `AddBlockPicker` modal above: adding content
+  moves to a persistent **Palette tab** in the Properties panel (always
+  present, not a content tab but a mode switch — clicking it clears
+  selection), listing the same `add-samples.ts` templates as compact
+  mini-preview thumbnails you drag from. Picking one up highlights **every**
+  valid drop target on the whole page at once — every empty place, every
+  occupied place (which now accepts a drop everywhere by push-and-shift, not
+  only in the linear containers that already shift on reorder), and a
+  virtual append-a-new-row spot at the foot of every container, filtered by
+  `mayNest`/the depth cap for section-kind drags. Drop auto-selects the new
+  block and switches the panel to its own tabs. A keyboard path (Enter/Space
+  to pick up, arrows between targets, Tab to skip a section, Enter/Space to
+  drop, Escape to cancel) is required, not optional, since this replaces the
+  modal entirely rather than sitting beside it. `AddBlockPicker`,
+  `add-slot.tsx` and `add-target.ts` are slated for removal once this lands.
+  Dragging an **already-placed** block by its own grip is untouched — this
+  is a second, additive kind of drag for content that does not exist on the
+  page yet, sharing the same `DndContext`. Rollout is unattended: each slice
+  is its own branch, PR, full required-check run and auto-merge, with the
+  next slice starting only once the previous one has actually merged —
+  intermediate states may be incomplete but must never be broken.
+
+  **The implementation plan is written:**
+  `docs/superpowers/plans/2026-09-05-palette-drag-to-add.md`, nine tasks —
+  two domain functions (every valid insertion target for a palette item;
+  inserting a fresh block at one, wrapping a page-root leaf exactly as
+  `wrapLeafOnPage` already does), a keyboard-ordering pair mirroring
+  `block-drag.ts`'s own `placeOrder`/`stepPlace`, the Palette tab itself,
+  pointer wiring as a second `@dnd-kit` draggable kind in the SAME
+  `DndContext`, the virtual append-slot (a new optional `appendSlot` method
+  on `EditorRenderHook`, threaded through `blocks.tsx` at zero cost when
+  absent — the exact shape `wrap` already proves safe for public routes),
+  the keyboard equivalent, removing the superseded modal, and a closing
+  browser/accessibility/picture-proof pass. Nothing in it is built yet.
+  Two of its own sentences hit `check:tools`' cspell gate on the first push
+  — a coined adjective for "cannot take focus" (reworded, prose used once)
+  and `args.droppableRects`, a real dnd-kit property this plan's code will
+  reference (added to `cspell.json`) — the same class of
+  coined-word-vs-real-identifier judgement rule 41/42
+  already describe, still holding here.
 
 ## The toolchain, and the rules it cost
 
@@ -3218,6 +3410,61 @@ unknown][]` through its `{}` overload, with no cast of the whole object
     as wrong on sight. **A grammar rule that permits a form is not a
     judgement that it reads well**, and where no checker runs, a native
     reader is the check: escalate rather than adjudicate.
+
+    **The two rulings this rule and rule 41 make together were both used the
+    same day, on the same commit (2026-09-04).** `Carrd` — the product this
+    branch's own design is named after, recurring in TSDoc, a test file's own
+    header comment and the feature's living documentation — earned a
+    dictionary entry under rule 41's "a word the CODE needs" standard; a
+    stray negated-adjective coinage in a sibling phase plan's prose, used
+    once and only there to describe a control nothing had audited yet, was
+    reworded instead, under the same rule's other half. And `angaritamaldonado` — the machine-specific home-directory
+    basename baked into several already-committed `cd /Users/...` example
+    commands across this feature's seven phase plans — went in beside the
+    existing `Heiner`/`Angarita` entries for the same person, the identical
+    reasoning that already justified `vaoan` and `rmellis` sitting in this
+    same list: a real, recurring token rather than a coinage.
+
+    **The same split recurred on the palette drag-to-add feature's Task 4
+    (2026-09-05), and CI is what caught it — `conformance` failed on
+    `cspell "**/*.{ts,tsx,md,json}"` over two words neither the implementer
+    nor the two review rounds before it had run past a spell-checker.**
+    `unaccommodated` earned a dictionary entry: it names the canvas's own
+    missing accommodation padding in `block-editor.tsx`'s own TSDoc and an
+    inline comment beside it, twice in code plus once in this feature's
+    CLAUDE.md describing the same mechanism — a real, recurring word in code
+    rather than a one-off. The other flagged word — the negated adjective
+    for "cannot take focus" — appeared exactly once, only in that CLAUDE.md's
+    own prose, with no matching TSDoc anywhere in the diff, and was reworded
+    to that plain phrase instead of joining the dictionary.
+
+43. **A completely ABSENT `apps/hub/.env.local` fails silently rather than
+    loudly, and the resulting error is unrecognizable as a config problem.**
+    `next dev` reads `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` from that file via
+    its own dotenv loader; find it missing and `@clerk/nextjs` does not
+    refuse to start — it auto-provisions a throwaway "keyless" instance under
+    a fresh random `*.clerk.accounts.dev` domain on every boot, writing its
+    own debug state to `apps/hub/.clerk/.tmp.stale-*`. A Clerk session token
+    minted against the REAL instance (`.secrets`' `CLERK_SECRET_KEY`, which
+    every e2e case uses) can never validate against that random instance's
+    JWKS, so every signed-in `e2e` case fails on a `kid` mismatch — a signature
+    that reads exactly like a Clerk outage or a race between concurrent test
+    runs, not like a missing file, and cost real time chasing both wrong
+    theories first (2026-09-04).
+
+    The fix was the one-time, per-machine step `.env.example`'s own header
+    already names — `cp apps/hub/.env.example apps/hub/.env.local`, then
+    paste the four values from `.secrets` — which had simply never been done
+    on that machine; `.secrets` being populated says nothing about whether
+    this separate, differently-named-keys file exists. `pnpm sync-secrets`
+    now creates `apps/hub/.env.local` automatically when it is absent
+    (`syncHubEnvLocal` in `scripts/sync-secrets.mjs`), and never touches one
+    that already exists — so a deliberate local-Docker-stack override
+    (`.env.example`'s own documented alternate path) is never at risk, and a
+    fresh clone cannot land in this state at all. The diagnostic habit for
+    everyone else: when a signed-in `e2e` case fails on a JWKS/`kid`
+    mismatch, check whether `apps/hub/.env.local` exists before suspecting
+    Clerk itself or a concurrent run.
 
 **`@typescript-eslint/no-deprecated` is enabled, with no exceptions**, and it
 is the only check that reads our DEPENDENCIES' deprecations rather than ours. It

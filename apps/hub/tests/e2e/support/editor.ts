@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 // THE STEPS EVERY EDITOR SPEC REPEATS, AND WHY THEY LIVE TOGETHER.
 //
@@ -8,6 +8,19 @@ import { expect, type Locator, type Page } from "@playwright/test";
 // Save, and both have to invent a handle nothing else in the run can collide
 // with — and `saveAndLeave` in particular carries a piece of hard-won
 // diagnostic ordering that must not be re-derived independently in each file.
+//
+// **Rewritten for the Properties panel (2026-09-04).** The recursive
+// Items/Options inspector is gone — `presentation/canvas-inspector.tsx` and
+// `presentation/inspector-items.tsx` were deleted along with it. There is no
+// tree navigation, no breadcrumb, no Back, and no per-place "empty place" row
+// to address individually: a block is selected by clicking its own rendered
+// element on the canvas (which carries `data-block-path`, hyphen-joined —
+// `0`, `0-1`, `0-1-2`), or the page itself through `select-page`. The panel
+// that opens for a selection always has exactly two tabs, `panel-tab-primary`
+// and `panel-tab-secondary`, whose meaning depends on the selection kind:
+// Page/Theme, Layout/Appearance, or Content/Appearance. See
+// `apps/hub/src/features/actors/CLAUDE.md`'s "The Properties panel replaces
+// the recursive inspector" section for the full account.
 
 /**
  * A handle nothing else in the suite can collide with.
@@ -19,12 +32,48 @@ export const handleFor = (prefix: string): string =>
   `${prefix}${Date.now().toString().slice(-9)}`;
 
 /**
+ * Selects Page, whatever was selected before.
+ *
+ * **Closes the panel first when a selection is already showing**, rather
+ * than trying to press the canvas's own `select-page` button underneath
+ * whatever is showing. That button rides inside the editor canvas, and the
+ * Properties panel is a bottom sheet below `md` that covers the canvas
+ * outright — the same phone-sheet hazard the old recursive inspector's
+ * `openInspector` guarded against, met here on a button with no breadcrumb
+ * left inside the panel to reach instead.
+ *
+ * **Checks `panel-tab-primary`, not the panel's own visibility (2026-09-05).**
+ * The panel renders unconditionally now, for its own persistent Palette
+ * tab — see `properties-panel.tsx`'s own TSDoc — so it is never hidden by
+ * selection state, only its two selection-dependent tab buttons are.
+ * `panel-close` still clears the selection; what proves that now is
+ * `panel-tab-primary` going `hidden`, not the panel disappearing.
+ *
+ * @param page - the editor page.
+ */
+export async function selectPage(page: Page): Promise<void> {
+  const panel = page.getByTestId("properties-panel");
+  const primaryTab = page.getByTestId("panel-tab-primary");
+  if (await primaryTab.isVisible()) {
+    await page.getByTestId("panel-close").click();
+    await expect(primaryTab).toBeHidden();
+  }
+  await page.getByTestId("select-page").click();
+  await expect(panel).toBeVisible();
+  await expect(primaryTab).toBeVisible();
+}
+
+/**
  * Opens the new-page editor through its Page selection, then fills the four
- * fields a public fursona needs. It asks {@link openInspector} to preserve an
- * already-open phone sheet rather than pressing a Page control underneath it.
- * The explicit breadcrumb and Options presses mirror the recursive
- * inspector's deselected startup instead of depending on page fields mounting
- * eagerly.
+ * fields a public fursona needs.
+ *
+ * **No tab click is needed (2026-09-04).** `panelContentFor`'s Page branch
+ * puts the identity fields (`editor-handle`, `editor-display-name`,
+ * `editor-visibility`) on the PRIMARY tab, and `enterSelection` — which
+ * `select-page`'s own click handler calls — always resets the panel to its
+ * first tab. So selecting Page alone is enough; there is no Options tab to
+ * find them on any more, and no breadcrumb standing between selecting Page
+ * and reaching them.
  *
  * @param page - the browser page.
  * @param handle - the fursona's handle.
@@ -36,9 +85,7 @@ export async function startFursona(
   displayName: string,
 ): Promise<void> {
   await page.goto("/es/pages/new");
-  await openInspector(page);
-  await page.getByTestId("inspector-breadcrumb").first().click();
-  await page.getByTestId("inspector-tab-options").click();
+  await selectPage(page);
   await expect(page.getByTestId("editor-handle")).toBeVisible();
   await page.getByTestId("editor-handle").fill(handle);
   await page.getByTestId("editor-display-name").fill(displayName);
@@ -46,78 +93,416 @@ export async function startFursona(
 }
 
 /**
- * Opens the page inspector on Items, where the page-level Add picker and the
- * brand presets live.
+ * Opens the page's own brand-preset and template-picker controls, which
+ * live on Page's PRIMARY tab alongside the identity fields, rather than
+ * behind a dedicated Items pane.
  *
- * Idempotent: if Items is already showing, it does nothing; if another inspector
- * pane is showing, it changes only the tab.
+ * Idempotent: if the presets are already showing, it does nothing.
  *
- * **Checks `section-presets`, not `add-block` (2026-09-02).** `add-block` is
- * the same test id at every scope that offers one — a container's own
- * footer and every empty place carry it too — so it cannot tell "Page Items
- * is open" from "some OTHER scope's Items is open, and it also has an Add
- * control." `section-presets` renders only from the page-level palette.
+ * **Unrelated to adding a block (2026-09-06).** Naming this `openPageAdd`
+ * predates the persistent Palette tab and reads as if it opened an add
+ * control — it opens Page's own PRIMARY tab, where `section-presets`
+ * (whole-page templates, not a single block) happens to live. Adding a
+ * single block is {@link addBlock}'s job now, and neither function calls
+ * the other.
  *
  * @param page - the editor page.
  */
 export async function openPageAdd(page: Page): Promise<void> {
   if (await page.getByTestId("section-presets").isVisible()) return;
-  await openInspector(page);
-  await page.getByTestId("inspector-breadcrumb").first().click();
-  await page.getByTestId("inspector-tab-items").click();
+  await selectPage(page);
   await expect(page.getByTestId("section-presets")).toBeVisible();
 }
 
 /**
- * Opens the Add picker nearest `scope`, chooses one option, and waits for the
- * dialog to close.
+ * Opens Page → the theme panel, which sits on the SECONDARY tab now.
  *
- * **One control adds, at every scope that can hold a block** — the page, a
- * container's own Items footer, or one empty place — so this is the single
- * helper every e2e spec drives it through. `scope` is a `Page` for the page
- * palette or a container's footer once that scope's Items pane is showing,
- * or a `Locator` (an `inspector-empty-place` row, most often) to disambiguate
- * one specific empty place among several. The dialog is not portalled — it
- * renders as a sibling of the trigger it opened from — so `scope`'s own
- * `getByTestId` finds it either way.
+ * **This is a swap from before the Properties panel, not a renamed step.**
+ * The old Items/Options split put the page's identity fields on Options and
+ * the add palette on Items; the two-tab panel's Page pairing is Page/Theme,
+ * with the identity fields and the add palette sharing the PRIMARY tab and
+ * the theme panel alone on the SECONDARY one. A spec reaching for `theme-open`
+ * without this helper waits on an element nothing is rendering while Page's
+ * primary tab shows instead.
  *
- * @param scope - the page, or a locator scoping which `add-block` trigger.
- * @param choice - a content kind (`data-add-kind`) or a layout mode
- *   (`data-add-mode`), exactly as the picker's own options carry them.
+ * @param page - the editor page.
  */
-export async function addBlock(
-  scope: Page | Locator,
-  choice: { kind: string } | { mode: string },
-): Promise<void> {
-  await scope.getByTestId("add-block").click();
-  const dialog = scope.getByTestId("add-block-picker");
-  await expect(dialog).toBeVisible();
-  const option =
-    "kind" in choice
-      ? dialog.locator(`[data-add-kind="${choice.kind}"]`)
-      : dialog.locator(`[data-add-mode="${choice.mode}"]`);
-  await option.click();
-  await expect(dialog).toBeHidden();
+export async function openPageOptions(page: Page): Promise<void> {
+  await selectPage(page);
+  await page.getByTestId("panel-tab-secondary").click();
+  await expect(page.getByTestId("theme-open")).toBeVisible();
 }
 
 /**
- * Adds a new top-level section from the page-level Add picker, in `grid`
- * mode, then sets its own width through its Options pane.
+ * Selects a block by its canvas path and waits for the Properties panel to
+ * show it.
  *
- * **The width moved from before adding to after (2026-09-02)**, matching how
- * nesting already worked: the picker's layout options all add
- * `newContainer(mode, 2)`, a fixed starting shape, and a section's own
- * `section-spaces` control is what reshapes it afterwards. Leaves the new
- * section selected on Options — where `section-name` and every other field
- * a caller reaches for next already live — exactly as `add-section` used to.
+ * **The only way into a container or a leaf now.** There is no Items list to
+ * drill through any more — `onCanvasClick` in `block-editor.tsx` resolves a
+ * click to the nearest ancestor carrying `data-block-path` and selects it.
+ * `path` is the hyphen-joined form the renderer itself emits (`formatBlockPath`
+ * in `domain/editor-selection.ts`) — `"0"` for the first top-level section,
+ * `"0-1"` for its second child, `"0-1-2"` three levels down.
+ *
+ * **Only a FILLED place carries `data-block-path` — an empty one does not.**
+ * `blocks.tsx`'s `placeIn` renders an empty seat's own `<div>` with no
+ * `data-block-path` at all (only the wrapping `data-canvas-path`, which
+ * `onCanvasClick` never reads), so this cannot select an empty place; there is
+ * no way to do that any more; see this module's own header comment.
+ *
+ * **Clicks near the element's own top-left corner, not its centre.** A
+ * populated container's bounding box is mostly covered by its own children,
+ * each carrying its OWN `data-block-path` — a centred click would very often
+ * land inside one of them, and `closest()` would resolve to the CHILD rather
+ * than the container this call asked for. The corner is the container's own
+ * padding or heading, never a descendant's.
+ *
+ * **Closes an already-open selection first, exactly as {@link selectPage}
+ * does — checking `panel-tab-primary`, not the panel's own visibility, for
+ * the same reason (2026-09-05): the panel itself renders unconditionally
+ * now.** Below `md` the panel is a bottom sheet that can cover the canvas
+ * outright — `selectPage`'s own TSDoc carries the measurement — and the
+ * block this selects lives in that same canvas. A selection already open
+ * when this is called would otherwise leave the sheet sitting over the very
+ * element the click is aimed at, on a phone-width viewport.
+ *
+ * **Waits for the canvas's own panel-accommodation transition to settle
+ * before returning ({@link waitForCanvasAccommodation}).** A caller reading
+ * a block's geometry (a grip's `boundingBox()`, for a drag) immediately
+ * after this resolves would otherwise race `block-editor.tsx`'s 210ms
+ * `padding-right` transition — the canvas's grid columns are laid out
+ * against whatever width the padding has reached at that instant, so a
+ * coordinate captured mid-transition can land on the wrong sibling once the
+ * layout finishes settling a moment later.
+ *
+ * @param page - the editor page.
+ * @param path - the block's hyphen-joined path, e.g. `"0"` or `"0-1"`.
+ */
+export async function selectBlock(page: Page, path: string): Promise<void> {
+  const panel = page.getByTestId("properties-panel");
+  const primaryTab = page.getByTestId("panel-tab-primary");
+  if (await primaryTab.isVisible()) {
+    await page.getByTestId("panel-close").click();
+    await expect(primaryTab).toBeHidden();
+  }
+  await page
+    .locator(`[data-block-path="${path}"]`)
+    .first()
+    .click({ position: { x: 4, y: 4 } });
+  await expect(
+    panel,
+    `selecting the block at "${path}" did not open the Properties panel`,
+  ).toBeVisible();
+  await waitForCanvasAccommodation(page);
+}
+
+/**
+ * Waits for `[data-editor-stack]`'s own `padding-right` transition
+ * (`block-editor.tsx`, 210ms) to finish accommodating the Properties panel.
+ *
+ * **Every geometry read taken right after a selection races this
+ * transition, and the race is real rather than theoretical.** The canvas's
+ * grid columns are laid out against whatever width `padding-right` has
+ * reached at the instant something calls `boundingBox()`, so a coordinate
+ * captured mid-transition can land a click on the wrong sibling once the
+ * layout finishes settling a moment later — measured directly: the same
+ * click that resolves to the correct grip once this settles resolves to the
+ * NEIGHBOURING place, or to the section itself, while the padding is still
+ * animating. This mirrors `editor-bars-stay-pinned.spec.ts`'s own fix for
+ * the identical shape (the room a Save banner needs from the panel), and
+ * for the same reason: the wait states the RELATIONSHIP — the pad equals the
+ * panel's own width — rather than a copied pixel value, so it holds however
+ * the two widths are computed.
+ *
+ * **Below `md` this is a no-op**, checked from the viewport's own width
+ * rather than from the DOM: `md:pr-[...]` never applies there, so
+ * `padding-right` reads `0px` from the instant the panel mounts rather than
+ * animating toward it — reading that `0` as "settled" would resolve on
+ * every poll immediately, including the very first one on a desktop
+ * viewport before the transition has moved at all. The viewport width is
+ * known synchronously and is not itself racing anything.
+ *
+ * @param page - the editor page.
+ */
+async function waitForCanvasAccommodation(page: Page): Promise<void> {
+  const viewport = page.viewportSize();
+  if (!viewport || viewport.width < 768) return;
+  const panel = page.getByTestId("properties-panel");
+  await expect
+    .poll(async () => {
+      const [padRight, panelWidth] = await Promise.all([
+        page
+          .locator("section[data-editor-stack]")
+          .evaluate((el) => getComputedStyle(el).paddingRight),
+        panel.evaluate((el) => el.getBoundingClientRect().width),
+      ]);
+      return Math.round(parseFloat(padRight)) === Math.round(panelWidth)
+        ? "settled"
+        : `${padRight} vs ${panelWidth}`;
+    })
+    .toBe("settled");
+}
+
+/**
+ * Drags a leaf kind or a container mode from the persistent Palette tab
+ * onto an exact canvas position, by real pointer.
+ *
+ * **The one mechanism left for adding a block, since `AddBlockPicker`,
+ * `add-target.ts` and `add-slot.tsx` are deleted (2026-09-06).** There is no
+ * "current target" any selection implies any more — the palette is a drag
+ * source reachable from anywhere, onto anywhere `insertTargetsFor`
+ * (`domain/palette-targets.ts`) names as valid, so a caller states the exact
+ * `data-canvas-path` to land on rather than relying on an implicit target
+ * derived from selection.
+ *
+ * **This always GROWS the target by one, and never replaces an existing
+ * empty place in place.** `onDragEnd`'s palette branch calls
+ * `insertBlockAt`, whose only write is `insertAt` — a pure splice-insert
+ * (`domain/block-edits.ts`) — so dropping onto an existing null inserts
+ * BEFORE it rather than consuming it: the null survives, shifted one
+ * position later. The deleted `AddBlockPicker` used a different mechanism
+ * (`nextChildPosition`, now dead code with no live caller reaching it) that
+ * genuinely replaced a container's first empty child in place with no
+ * growth at all — a capability this palette-only mechanism does not have.
+ * See {@link firstOpenPlace} for the closest available approximation, and
+ * `apps/hub/src/features/actors/CLAUDE.md`'s account of Task 8 of the
+ * palette drag-to-add feature for the full record of what this cost.
+ *
+ * Opens the Palette tab itself — it renders unconditionally and needs no
+ * selection (`properties-panel.tsx`) — so no prior {@link selectBlock} is
+ * needed before calling this.
+ *
+ * **The drop target's own geometry is read AFTER the lift, not before
+ * (2026-09-06), and the target is scrolled into view a SECOND time once
+ * that reflow has happened, not only before the lift.** Lifting a palette
+ * item lights up every valid `insertTargets` entry at once, and an append
+ * slot's own class carries `min-h-12` only while highlighted (`AppendSlot`,
+ * `editable-block-frame.tsx`) — so a container earlier on the page than
+ * `targetCanvasPath` can grow the instant the drag begins, pushing the
+ * target down by exactly that height before the mouse ever arrives. This
+ * function waits for the highlight to actually appear before re-reading
+ * `targetCanvasPath`'s box, so every caller is protected from that reflow
+ * without needing its own fix. On a page carrying several already-built
+ * sections the cumulative growth from every one of THEIR own highlighted
+ * places can be enough to push the target back out of the viewport the
+ * pre-lift scroll brought it into, so the target is scrolled into view
+ * again after the wait, immediately before the geometry it is read from —
+ * see `apps/hub/src/features/actors/CLAUDE.md`'s account of Task 9 of the
+ * palette drag-to-add feature for the full record of both fixes.
+ *
+ * @param page - the editor page.
+ * @param choice - a content kind (`data-palette-kind`) or a layout mode
+ *   (`data-palette-mode`), exactly as the palette's own thumbnails carry
+ *   them.
+ * @param targetCanvasPath - the exact `data-canvas-path` to drop onto — an
+ *   existing place (empty or filled) or a container's own append slot, one
+ *   past its last child, or `""` for the page root's own append slot when
+ *   there is nothing at that exact top-level index yet.
+ */
+export async function dragPaletteOnto(
+  page: Page,
+  choice: { kind: string } | { mode: string },
+  targetCanvasPath: string,
+): Promise<void> {
+  await page.getByTestId("panel-tab-palette").click();
+  const thumbnail =
+    "kind" in choice
+      ? page.locator(`[data-palette-kind="${choice.kind}"]`)
+      : page.locator(`[data-palette-mode="${choice.mode}"]`);
+  await expect(thumbnail).toBeVisible();
+  // **Both ends are scrolled into view before their geometry is read, and
+  // this is load-bearing rather than tidy.** The Palette tab lists all
+  // sixteen leaf kinds and eight container modes in one scrollable pane —
+  // a container mode thumbnail sits well below the fold on an ordinary
+  // viewport — and `boundingBox()` answers the element's LAID-OUT position
+  // whether or not it is currently within the visible scrollport. Moving
+  // the mouse to that position without scrolling first targets a point
+  // outside the viewport the real browser never dispatches a pointer event
+  // to, so the drag silently never begins — no error, no thrown assertion,
+  // just a drop that lands nowhere. Confirmed by direct reproduction: the
+  // identical drag against the identical target succeeds once each
+  // locator is scrolled into view first and fails, silently, without it.
+  const targetLocator = page.locator(
+    `[data-canvas-path="${targetCanvasPath}"]`,
+  );
+  await thumbnail.scrollIntoViewIfNeeded();
+  const source = await thumbnail.boundingBox();
+  await targetLocator.scrollIntoViewIfNeeded();
+  const target = await targetLocator.boundingBox();
+  expect(
+    source,
+    `no palette thumbnail for ${JSON.stringify(choice)}`,
+  ).not.toBeNull();
+  expect(target, `no canvas position at "${targetCanvasPath}"`).not.toBeNull();
+  // Clears `DRAG_THRESHOLD` (8px) before crossing to the target, matching
+  // `palette-drag-to-add.spec.ts`'s own shape: a single big jump risks the
+  // sensor never registering the intermediate move that proves a real drag —
+  // rather than a click — is under way.
+  await page.mouse.move(
+    source!.x + source!.width / 2,
+    source!.y + source!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    source!.x + source!.width / 2 + 20,
+    source!.y + source!.height / 2,
+  );
+  // **The target's box is re-read here, AFTER the threshold-crossing move,
+  // rather than reused from before `mouse.down()`.** Lifting a palette item
+  // lights up every valid `insertTargets` entry at once — append slots
+  // included, whose own class carries `min-h-12` only while highlighted
+  // (`AppendSlot`, `editable-block-frame.tsx`) — so a container earlier on
+  // the page than `targetCanvasPath` can grow the instant the drag begins,
+  // pushing every target below it down by exactly that height. A box read
+  // before the lift is stale the moment that happens: the mouse still
+  // arrives at the OLD coordinate, which a real person tracking the
+  // highlight visually would not do. Waiting for at least one
+  // `data-canvas-drop="place"` to be attached is the signal that the
+  // highlight-driven reflow this drag can trigger has already happened,
+  // not merely that time has passed — root rule 26's own "wait for a
+  // CHANGE, not for presence," on a layout reflow rather than a listener.
+  await page.locator('[data-canvas-drop="place"]').first().waitFor();
+  // **The re-scroll above the fold is not enough on its own, and this is
+  // the second half of the same reflow.** Every container earlier on the
+  // page than `targetCanvasPath` can grow when the lift highlights it too
+  // — not only the one directly above the target — so on a page carrying
+  // several already-built sections the cumulative growth can push the
+  // target BELOW the viewport the pre-lift `scrollIntoViewIfNeeded` above
+  // brought it into. `boundingBox()` still answers real coordinates for an
+  // element scrolled out of view, and a `mouse.move` to a point the browser
+  // is not actually rendering hits nothing — the identical silent
+  // no-drop-lands-anywhere failure this function's own header comment
+  // already documents fixing once, reopened by a SECOND reflow the first
+  // fix's single scroll could not have anticipated. Scrolling again here,
+  // after the reflow the wait above just confirmed, is what keeps the
+  // target in view for the read that follows.
+  await targetLocator.scrollIntoViewIfNeeded();
+  const settledTarget = await targetLocator.boundingBox();
+  expect(
+    settledTarget,
+    `no canvas position at "${targetCanvasPath}" once the drag settled`,
+  ).not.toBeNull();
+  await page.mouse.move(
+    settledTarget!.x + settledTarget!.width / 2,
+    settledTarget!.y + settledTarget!.height / 2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  // Past `@dnd-kit/core`'s own post-drop click-swallow window —
+  // `PointerSensor.detach()` keeps a document-level capturing `click`
+  // listener alive for exactly 50ms after a drop (root rule 41's measured
+  // exemption class).
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- see comment above.
+    () => new Promise((done) => setTimeout(done, 100)),
+  );
+}
+
+/**
+ * Finds the first empty existing place inside a container, or its own
+ * append slot when every place is filled or none exist yet.
+ *
+ * **The closest available approximation of the deleted `AddBlockPicker`'s
+ * "always fills the parent's first empty place" contract — approximation,
+ * not equivalence.** Landing a drop on the path this returns still GROWS
+ * the container by one whenever the returned path names an existing null
+ * (see {@link dragPaletteOnto}'s own account), so a page built through this
+ * helper carries one extra empty place for every existing null it lands
+ * ahead of — where the deleted mechanism carried none. What it preserves is
+ * ORDER: content added through repeated calls lands at increasing indices,
+ * the same left-to-right sequence the deleted mechanism produced, even
+ * though the total count now differs.
+ *
+ * @param page - the editor page.
+ * @param containerPath - the container's own hyphen-joined path, or `""`
+ *   for the page root.
+ * @returns the `data-canvas-path` to drop onto.
+ */
+async function firstOpenPlace(
+  page: Page,
+  containerPath: string,
+): Promise<string> {
+  const depth = containerPath === "" ? 1 : containerPath.split("-").length + 1;
+  const prefix = containerPath === "" ? "" : `${containerPath}-`;
+  const locator = prefix
+    ? page.locator(`[data-canvas-path^="${prefix}"]`)
+    : page.locator("[data-canvas-path]");
+  const found = await locator.evaluateAll((elements, wantedDepth) => {
+    type Candidate = { path: string; isAppend: boolean; hasBlock: boolean };
+    const direct: Candidate[] = [];
+    for (const element of elements) {
+      const path = element.getAttribute("data-canvas-path");
+      if (!path || path.split("-").length !== wantedDepth) continue;
+      direct.push({
+        path,
+        isAppend: element.getAttribute("data-testid") === "canvas-append-slot",
+        hasBlock:
+          document.querySelector(`[data-block-path="${path}"]`) !== null,
+      });
+    }
+    direct.sort(
+      (a, b) =>
+        Number(a.path.split("-").at(-1)) - Number(b.path.split("-").at(-1)),
+    );
+    const open = direct.find((entry) => !entry.isAppend && !entry.hasBlock);
+    if (open) return open.path;
+    const append = direct.find((entry) => entry.isAppend);
+    return append ? append.path : null;
+  }, depth);
+  if (!found) {
+    throw new Error(
+      `no open place or append slot found under "${containerPath}"`,
+    );
+  }
+  return found;
+}
+
+/**
+ * Drags a leaf kind or a container mode onto the first open place inside a
+ * container, through the persistent Palette tab.
+ *
+ * **Replaces the deleted `AddBlockPicker`'s single global Add
+ * (2026-09-06).** That mechanism read the CURRENT SELECTION to decide where
+ * a choice landed; this reads the container's own path instead, since the
+ * palette implies no target of its own — a caller wanting to add beside
+ * something already selected passes that block's own container path
+ * directly, the same path {@link selectBlock} would have used to select it.
+ *
+ * @param page - the editor page.
+ * @param choice - a content kind (`data-palette-kind`) or a layout mode
+ *   (`data-palette-mode`).
+ * @param containerPath - the container to add into — its own hyphen-joined
+ *   path, or `""` for the page root.
+ */
+export async function addBlock(
+  page: Page,
+  choice: { kind: string } | { mode: string },
+  containerPath: string,
+): Promise<void> {
+  const target = await firstOpenPlace(page, containerPath);
+  await dragPaletteOnto(page, choice, target);
+}
+
+/**
+ * Adds a new top-level section from the persistent Palette tab, in `grid`
+ * mode, then sets its own width through its Layout tab.
+ *
+ * **Always lands at the page's own append slot (2026-09-06).** No top-level
+ * entry is ever `null` — every one is a real section — so
+ * {@link firstOpenPlace} for the page root always resolves to the append
+ * slot, exactly as the deleted `AddBlockPicker`'s page-root add always did.
+ *
+ * **No tab click is needed to reach `section-spaces`.** A successful drop
+ * selects what it just added and switches the panel to its PRIMARY tab —
+ * which, for a freshly added container, is Layout: `BlockCard` with the
+ * mode/spaces/weights controls, mounted alongside this function's own
+ * polling target with no navigation in between.
  *
  * @param page - the editor page.
  * @param spaces - how many places across, as the select stores it.
  */
 export async function addSection(page: Page, spaces: string): Promise<void> {
-  await openPageAdd(page);
-  await addBlock(page, { mode: "grid" });
-  await page.getByTestId("inspector-tab-options").click();
+  await addBlock(page, { mode: "grid" }, "");
   const select = page.getByTestId("section-spaces");
   await expect(select).toBeVisible();
   // **Retries the assignment**, for the same reason `chooseNewSectionSpaces`
@@ -134,47 +519,54 @@ export async function addSection(page: Page, spaces: string): Promise<void> {
 }
 
 /**
- * Opens Page → Options, where the identity fields and the theme panel live.
+ * Opens the Appearance tab for whatever is currently selected.
  *
- * **The page's own fields are no longer mounted by simply loading the
- * editor.** The recursive inspector starts deselected, so `editor-handle`,
- * `editor-display-name`, `editor-visibility` and `theme-open` exist only once
- * the page itself is the selected target and Options is the showing pane. A
- * spec that reaches for one of those without this helper waits on an element
- * nothing is rendering, and reports a timeout naming the field rather than the
- * selection it was missing.
- *
- * Idempotent in the same way {@link openPageAdd} is: it presses Page only when
- * the inspector is closed, then names the page breadcrumb so a selection left
- * deeper in the tree by an earlier step cannot decide which Options open.
+ * **Replaces every "open the style popup" step this suite used to drive
+ * through a trigger button (2026-09-04).** `SectionStylePopup`'s own trigger
+ * (`section-style-open`/`leaf-style-open`) is suppressed everywhere the
+ * Properties panel mounts `BlockCard`/`LeafEditor` (`hideStylePopup`) — the
+ * panel's own Appearance tab renders the identical fields inline instead,
+ * through `StyleFields`, with no popup, no backdrop and no dialog element to
+ * open at all. Every `section-style-*` field id is unchanged, since
+ * `StyleFields` renders the same `StylePopupFields` the old popup did; only
+ * the entry point moved from a trigger click to a tab click.
  *
  * @param page - the editor page.
  */
-export async function openPageOptions(page: Page): Promise<void> {
-  await openInspector(page);
-  await page.getByTestId("inspector-breadcrumb").first().click();
-  await page.getByTestId("inspector-tab-options").click();
-  await expect(page.getByTestId("theme-open")).toBeVisible();
+export async function openStyleFields(page: Page): Promise<void> {
+  await page.getByTestId("panel-tab-secondary").click();
 }
 
 /**
- * Makes sure the inspector is showing, without pressing Page needlessly.
+ * Opens the toolbar's "More" disclosure, if it is not already open.
  *
- * **Pressing Page when the inspector is already open is not a no-op on a
- * phone**, which is why this asks first. The inspector is a bottom sheet
- * below `md`, `fixed` and up to `70vh` tall, so it covers the editor's own
- * control row once the page is scrolled at all — measured at portrait 320,
- * where `editor-identity-fields` inside the sheet intercepted every click
- * aimed at `select-page` until the test timed out. The sheet is already
- * open in that state, so there was nothing the press had to achieve.
+ * **Since 2026-09-04's "Group source JSON, Interact with page and Cancel
+ * under More"**, the page-source trigger (`editor-open-source`), the
+ * Interact-with-page switch (`interact-with-page`) and Cancel
+ * (`editor-cancel`) all live inside a native `<details>`/`<summary>`
+ * disclosure — `EditorToolbar` no longer renders any of the three as a
+ * flat, always-visible button. A closed `<details>` hides its non-`summary`
+ * children through the browser's own user-agent stylesheet, so a click
+ * aimed at one of them times out as "not visible" until the disclosure is
+ * opened first.
+ *
+ * Checks the `<details>` element's own `open` property rather than the
+ * summary's visibility or a class, because that property is the single
+ * source of truth the browser itself toggles — and checking it, rather
+ * than clicking the summary unconditionally, is what keeps this callable
+ * more than once in the same test without accidentally closing the
+ * disclosure back up on a second call.
  *
  * @param page - the editor page.
  */
-export async function openInspector(page: Page): Promise<void> {
-  const inspector = page.getByTestId("canvas-inspector");
-  if (await inspector.isVisible()) return;
-  await page.getByTestId("select-page").click();
-  await expect(inspector).toBeVisible();
+export async function openMore(page: Page): Promise<void> {
+  const summary = page.getByTestId("editor-more");
+  const isOpen = await summary.evaluate(
+    (el) => (el.parentElement as HTMLDetailsElement).open,
+  );
+  if (!isOpen) {
+    await summary.click();
+  }
 }
 
 /**
@@ -215,58 +607,4 @@ export async function saveAndLeave(page: Page): Promise<void> {
     : "";
   expect(said, "the editor refused the save").toBe("");
   await page.waitForURL(/\/pages$/, { timeout: 60_000 });
-}
-
-/**
- * Proves that `page.getByTestId(id).last()` — the locator every `.last()`
- * call on a style-popup trigger in this suite trusts — currently resolves to
- * a CONTAINER's own trigger rather than a leaf's, and asserts, rather than
- * assuming it.
- *
- * **Why this needed proving at all.** `SectionStylePopup` mounts from both
- * `block-card.tsx` (a container) and `leaf-editor.tsx` (a leaf) now, and a
- * leaf's trigger renders inside its enclosing section's places — after that
- * section's own header, in DOM order. A page-wide `.last()` written when
- * only containers could answer this query silently started reaching a
- * leaf's trigger instead the moment a section grew one, in two specs that
- * predate this helper. The two ids are distinct now
- * (`SectionStylePopupProps.triggerTestId`: a container's stays
- * `section-style-open`, a leaf's is `leaf-style-open`), which makes the
- * failure this guards against impossible by construction rather than merely
- * unlikely — but the callers that survived the ambiguity by luck (an empty
- * place, a collapsed section) are worth pinning explicitly rather than left
- * to the id split alone to explain.
- *
- * **Only ONE of its callers can actually fail, and that was measured rather
- * than assumed (2026-08-30).** A review reverted the id split with every
- * call site left in place and found all nine passing — because collapsing a
- * section unmounts the whole places subtree, leaf and trigger included,
- * independent of whether the two ids collide, and every OTHER call site
- * collapses (or adds no content at all) before reaching this assertion. The
- * one exception is `border-style-cascade.spec.ts`'s second test, which adds
- * content and never collapses; reverting the split there reddens this
- * assertion, sabotage-verified. Calling it at the remaining sites is
- * documentation of a real, checked fact — corroborating rather than
- * discriminating, in root rule 23's terms — and is kept for that reason,
- * not represented as a second proof.
- *
- * @param page - the editor page.
- * @param id - the trigger's own test id — `section-style-open` for a
- *   container, `leaf-style-open` for a leaf.
- */
-export async function assertLastTriggerIsAContainers(
-  page: Page,
-  id: string,
-): Promise<void> {
-  const trigger = page.getByTestId(id).last();
-  const insideContainerHeader = await trigger.evaluate(
-    (el) =>
-      el.closest(
-        '[data-testid="section-header"], [data-testid="nested-header"]',
-      ) != null,
-  );
-  expect(
-    insideContainerHeader,
-    `the last '${id}' trigger sits inside a container's own header, not a leaf's`,
-  ).toBe(true);
 }

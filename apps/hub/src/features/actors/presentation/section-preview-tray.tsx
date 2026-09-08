@@ -56,8 +56,10 @@ interface SectionPreviewTrayProps {
  * and a `visible` axis paired with a non-visible one computes to `auto`, so the
  * box clipped on all four edges. Ink overflow is not scrollable overflow, so
  * nothing scrolled and no scrollbar appeared: every `neon` glow and `comic`
- * shadow was simply gone. The document scrolls instead, which is exactly what a
- * stranger gets on an over-wide page.
+ * shadow was simply gone. Ink remains free across this tray until it reaches
+ * the outer viewport boundary: the editor canvas while controls show, and the
+ * document in Preview and on a public route. That outer clipping is ordinary
+ * viewport behavior; an intermediate preview card clipping its child is not.
  *
  * A malformed in-progress block draws nothing rather than taking down the
  * editor.

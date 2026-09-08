@@ -11,7 +11,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { addBlock, openPageAdd } from "./support/editor";
+import { addBlock } from "./support/editor";
 
 // One sign-in for the whole file: every case below reads the same seeded
 // page and none depends on what an earlier case left behind, so they
@@ -434,6 +434,28 @@ async function openEditorAsPage(page: Page): Promise<void> {
   await page.getByTestId("writing-in-en").click();
   await page.getByTestId("hide-controls").click();
   await expect(page.getByTestId("show-controls")).toBeVisible();
+  // **The canvas's own accommodation for the Properties panel is animated
+  // (`transition-[padding-right] duration-210`), and the panel is visible —
+  // reserving that padding — for as long as controls show (2026-09-05: the
+  // panel now renders unconditionally, for its own persistent Palette tab,
+  // so this padding is present in the ordinary editing state even with
+  // nothing selected).** Hiding controls removes the panel and the class
+  // that reserves room for it in the same render, so `padding-right` then
+  // transitions from the panel's width back to zero. Reading section boxes
+  // the instant this resolves would race that transition and see it still
+  // travelling — the same shape `editor-bars-stay-pinned.spec.ts` already
+  // guards against for the Save banner's own accommodation. The wait states
+  // the destination (zero) rather than a duration, because zero is what
+  // "the panel is gone" actually means once hidden, not a copied pixel value.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          getComputedStyle(document.querySelector("[data-editor-stack]")!)
+            .paddingRight,
+      ),
+    )
+    .toBe("0px");
   await quiet(page);
 }
 
@@ -686,18 +708,26 @@ test("every workbench group is opaque, whatever the page behind it", async ({
   page,
 }) => {
   await page.goto("/es/pages/new");
-  await openPageAdd(page);
-  await expect(page.getByTestId("add-block")).toBeVisible();
-  await openPageAdd(page);
-  await addBlock(page, { mode: "grid" });
+  await addBlock(page, { mode: "grid" }, "");
 
-  // Adding opens the new section on ITEMS; its own controls, the style
-  // trigger among them, are the other tab.
-  await page.getByTestId("inspector-tab-options").click();
-  const card = page.getByTestId("section-card");
-  await card.getByTestId("section-style-open").click();
-  const panel = page.getByTestId("section-style-panel");
-  await expect(panel).toBeVisible();
+  // Adding selects the new section on its Layout tab; Appearance is the
+  // other one. There is no popup or separate panel element any more — the
+  // Properties panel's own Appearance tab renders `StyleFields` inline, so
+  // the workbench group under test is the panel itself.
+  await page.getByTestId("panel-tab-secondary").click();
+  const panel = page.getByTestId("properties-panel");
+  await expect(panel.getByTestId("section-style-skin")).toBeVisible();
+
+  // The panel's own root is an `m.div` with an opacity entrance — see
+  // `editor-interaction.spec.ts`'s "entrance settles to its final state" —
+  // and a bare synchronous read races that fade exactly the way rule 26 of
+  // the root `CLAUDE.md` warns about. Measured once: `0.974665` rather than
+  // `1`, on a run reaching this test early enough that the panel's own open
+  // (from `addBlock` selecting the new section) had not yet settled. Poll
+  // until the fade is done before reading the rest.
+  await expect
+    .poll(() => panel.evaluate((el) => getComputedStyle(el).opacity))
+    .toBe("1");
 
   const seen = await panel.evaluate((el) => {
     const style = getComputedStyle(el);

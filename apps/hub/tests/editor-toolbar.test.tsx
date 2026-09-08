@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 vi.mock("@/shared/infrastructure/i18n/navigation", () => ({
@@ -26,6 +26,7 @@ const labels = {
   cancel: "Cancel",
   hideControls: "Hide controls",
   showControls: "Show controls",
+  more: "More",
   openSource: "Page source",
   interactWithPage: "Interact with page",
   interactWithPageHintOff: "Page links and controls are locked.",
@@ -105,6 +106,24 @@ describe("EditorToolbar", () => {
   it("is not disabled when idle", () => {
     renderToolbar();
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  // THE COMPACT MENU'S OWN GROUPING (2026-09-04): source JSON, Interact with
+  // page and Cancel all live inside the one `More` disclosure now, rather
+  // than each holding a permanent seat in a row that already wraps at `sm`.
+  // jsdom applies none of `<details>`'s native open/closed CSS, so this
+  // cannot assert visibility the way a browser could (see
+  // `page-source-dock.tsx`'s own account of the identical gap) — it asserts
+  // CONTAINMENT instead: all three sit inside the same `<details>` the
+  // `More` trigger owns, which is the fact a browser's hiding rests on.
+  it("groups source JSON, Interact with page and Cancel under More", () => {
+    renderToolbar();
+    const details = screen.getByTestId("editor-more").closest("details");
+    expect(details).not.toBeNull();
+    const group = within(details!);
+    expect(group.getByTestId("editor-open-source")).toBeInTheDocument();
+    expect(group.getByTestId("interact-with-page")).toBeInTheDocument();
+    expect(group.getByTestId("editor-cancel")).toBeInTheDocument();
   });
 
   // The regression this guards: `onOpenSource` is a required prop precisely

@@ -123,6 +123,7 @@ const labels = {
   cancel: "Cancel",
   hideControls: "Hide controls",
   showControls: "Show controls",
+  more: "More",
   openSource: "Page source",
   interactWithPage: "Interact with page",
   interactWithPageHintOff: "Page links and controls are locked.",
@@ -273,20 +274,6 @@ const overlongName = () => [
   },
 ];
 
-/** A section whose style carries an address past its own cap. */
-const overlongBackground = () => [
-  {
-    kind: "container" as const,
-    mode: "grid" as const,
-    spaces: 2,
-    name_en: "About",
-    style: {
-      background_url: `https://example.com/${"x".repeat(BLOCK_STYLE_LIMITS.background_url)}.png`,
-    },
-    children: [{ kind: "text" as const, title_en: "A", description_en: "" }],
-  },
-];
-
 /** A section holding one piece of content nobody has titled yet. */
 const untitled = () => [
   {
@@ -338,36 +325,44 @@ function renderEditor(props: Record<string, unknown> = {}) {
   );
 }
 
-/** Selects Page and opens only its Options pane. */
+/**
+ * Selects a block by clicking the exact element the real renderer gives it
+ * on the canvas.
+ *
+ * There is no drill-down any more (2026-09-04): a block is selected by a
+ * click on its own `data-block-path`, never by stepping through an Items
+ * list, so this is the one way every test in this file reaches a block
+ * below the page.
+ *
+ * @param path - the hyphen-joined block path, e.g. `"0"` or `"0-1"`.
+ */
+function selectPath(path: string): void {
+  const element = screen
+    .getByTestId("editor-canvas")
+    .querySelector(`[data-block-path="${path}"]`);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`no block rendered at path ${path}`);
+  }
+  fireEvent.click(element);
+}
+
+/**
+ * Selects Page, which opens the Properties panel on Page's own Page tab —
+ * the primary of its two, mounted whether or not it is the visible one.
+ */
 function openPageOptions(): void {
   fireEvent.click(screen.getByTestId("select-page"));
-  fireEvent.click(screen.getByTestId("inspector-tab-options"));
 }
 
 /**
- * Enters one top-level section and opens only that container's Options.
+ * Selects one child of one top-level section — a leaf opens the panel
+ * directly on its Content tab.
  *
- * @param position - the occupied Page row to enter.
- */
-function openSectionOptions(position = 0): void {
-  fireEvent.click(screen.getByTestId("select-page"));
-  fireEvent.click(screen.getAllByTestId("inspector-item-open")[position]!);
-  fireEvent.click(screen.getByTestId("inspector-tab-options"));
-}
-
-/**
- * Enters one top-level section and then one of its occupied children.
- *
- * A leaf opens directly on Options, so no tab press follows the second row
- * activation.
- *
- * @param section - the occupied Page row to enter.
- * @param child - the occupied row inside that section.
+ * @param section - the top-level section's own index.
+ * @param child - the child's own index within that section.
  */
 function openLeafOptions(section = 0, child = 0): void {
-  fireEvent.click(screen.getByTestId("select-page"));
-  fireEvent.click(screen.getAllByTestId("inspector-item-open")[section]!);
-  fireEvent.click(screen.getAllByTestId("inspector-item-open")[child]!);
+  selectPath(`${section}-${child}`);
 }
 
 beforeEach(() => {
@@ -446,16 +441,23 @@ describe("FursonaEditor", () => {
     expect(lastActorRef).toBe("ref-1");
   });
 
-  it("starts without inspector controls and exposes page options through Page", () => {
+  // The panel renders unconditionally now (2026-09-05), for its own
+  // persistent Palette tab — see `properties-panel.tsx`'s own TSDoc. What
+  // "starts without" means here is that Page's own fields are absent and
+  // the Page/Theme tabs are `hidden`, not that the panel itself is gone.
+  it("starts without Page's own fields, and exposes them through Page", () => {
     renderEditor();
-    expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
     expect(screen.queryByTestId("editor-handle")).toBeNull();
     expect(screen.queryByTestId("theme-open")).toBeNull();
 
     openPageOptions();
     expect(screen.getByTestId("editor-handle")).toBeInTheDocument();
     expect(screen.getByTestId("theme-open")).toBeInTheDocument();
-    expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+      "hidden",
+    );
   });
 
   it("saves what was typed", async () => {
@@ -678,6 +680,8 @@ describe("FursonaEditor", () => {
         container
           .querySelector("[data-controls]")!
           .getAttribute("data-controls");
+      const form = screen.getByTestId("editor-content");
+      const controls = container.querySelector("[data-controls]")!;
 
       // Opened BEFORE hiding controls, so the dock's own `CHROME_SCOPE`
       // island exists for the containment loop below to find. Counted
@@ -695,9 +699,30 @@ describe("FursonaEditor", () => {
 
       expect(armed()).toBe("shown");
       expect(screen.queryByTestId("show-controls")).toBeNull();
+      expect(form).toHaveClass(
+        "h-[calc(100dvh-var(--bar-h))]",
+        "min-h-0",
+        "overflow-hidden",
+      );
+      expect(controls).toHaveClass("flex", "min-h-0", "flex-1", "flex-col");
 
+      fireEvent.click(screen.getByTestId("select-page"));
+      expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+        "hidden",
+      );
       fireEvent.click(screen.getByTestId("hide-controls"));
       expect(armed()).toBe("hidden");
+      // The panel itself stays mounted through Preview now (its own
+      // `CHROME_SCOPE` root is exactly what the hide-controls rule removes
+      // by CSS in a real browser) — the selection-dependent tab going
+      // `hidden` again is what proves the selection was cleared here, in an
+      // isolated harness with no stylesheet to apply that rule.
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
+      expect(form).not.toHaveClass(
+        "h-[calc(100dvh-var(--bar-h))]",
+        "overflow-hidden",
+      );
+      expect(controls).not.toHaveClass("flex-1", "min-h-0");
 
       // Every island is INSIDE the armed element, or the rule cannot reach it.
       const region = container.querySelector("[data-controls]")!;
@@ -724,6 +749,7 @@ describe("FursonaEditor", () => {
       fireEvent.click(restore);
       expect(armed()).toBe("shown");
       expect(screen.queryByTestId("show-controls")).toBeNull();
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
     } finally {
       Reflect.deleteProperty(HTMLDialogElement.prototype, "show");
       Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
@@ -814,7 +840,7 @@ describe("FursonaEditor", () => {
     it("pressing the switch does not hide controls and does not clear a Page selection", () => {
       const { container } = renderEditor();
       fireEvent.click(screen.getByTestId("select-page"));
-      expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+      expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
 
       fireEvent.click(screen.getByTestId("interact-with-page"));
 
@@ -823,7 +849,7 @@ describe("FursonaEditor", () => {
           .querySelector("[data-controls]")!
           .getAttribute("data-controls"),
       ).toBe("shown");
-      expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+      expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
     });
 
     // The two mechanisms are independent layers: `inert` is what stops a
@@ -834,10 +860,12 @@ describe("FursonaEditor", () => {
     // `inert` behaviour) must still be refused by.
     it("selects a block from a canvas click only while locked", () => {
       renderEditor({ initialSections: linkPage() });
-      expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
 
       fireEvent.click(canvasLink()!);
-      expect(screen.getByTestId("canvas-inspector")).toBeInTheDocument();
+      expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+        "hidden",
+      );
     });
 
     it("does not select a block from a canvas click while page interaction is on", () => {
@@ -845,7 +873,7 @@ describe("FursonaEditor", () => {
       fireEvent.click(screen.getByTestId("interact-with-page"));
 
       fireEvent.click(canvasLink()!);
-      expect(screen.queryByTestId("canvas-inspector")).toBeNull();
+      expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
     });
   });
 
@@ -889,15 +917,14 @@ describe("FursonaEditor", () => {
   it("keeps Page options separate from a section's options", () => {
     renderEditor();
     fireEvent.click(screen.getByTestId("select-page"));
-    const inspector = screen.getByTestId("canvas-inspector");
-    expect(screen.getAllByTestId("inspector-item-row").length).toBeGreaterThan(
-      0,
-    );
+    const panel = screen.getByTestId("properties-panel");
+    // Page's own Page tab is showing by default, not its Theme tab.
     expect(screen.getByTestId("theme-open")).not.toBeVisible();
 
-    fireEvent.click(screen.getByTestId("inspector-tab-options"));
+    fireEvent.click(screen.getByTestId("panel-tab-secondary"));
     const theme = screen.getByTestId("theme-open");
-    expect(inspector).toContainElement(theme);
+    expect(panel).toContainElement(theme);
+    // Page's panel never shows a section's own card, whichever tab is open.
     expect(screen.queryByTestId("section-card")).toBeNull();
   });
 
@@ -1136,6 +1163,7 @@ describe("the page-source dock's own mount and its theme guard", () => {
     // site never passed the theme, so the guard was unreachable and somebody
     // who had chosen colours got no warning at all. A tolerated absence is not
     // an assertion.
+    const beforeText = previewText();
     fireEvent.click(screen.getByTestId("select-page"));
     fireEvent.click(screen.getByTestId("template-picker"));
     const [template] = FURSONA_TEMPLATES;
@@ -1144,9 +1172,7 @@ describe("the page-source dock's own mount and its theme guard", () => {
 
     // The page changed — anti-vacuity, because "the stylesheet is unchanged"
     // is also what a picker that did nothing at all would report.
-    expect(screen.getAllByTestId("inspector-item-row").length).toBeGreaterThan(
-      0,
-    );
+    expect(previewText()).not.toBe(beforeText);
 
     // And the look did not.
     expect(cssText()).toBe(before);
@@ -1375,10 +1401,36 @@ describe("a page the write schema refuses", () => {
   // this and raised a banner blaming a missing title — a field that was fine.
   // The name is over its cap here, which is the shape an ordinary author
   // reaches by pasting; an unknown `mode` gets there too, from a rollback.
+  //
+  // **Typed live, not loaded already-overlong.** `overlongName()`'s own
+  // container fails `lenientBlockSchema` — its `name_en` exceeds
+  // `BLOCK_LIMITS.text` on the exact same cap the STRICT write refuses on,
+  // since both share one `z.string().max(BLOCK_LIMITS.text)` — so the live
+  // canvas's own `seat.block` parse (`block-editor.tsx`) drops it and it
+  // never renders a `data-block-path` to click at all. That also matches
+  // reality more closely than the old fixture did: the strict write already
+  // refuses this shape, so a page can never be LOADED already this long —
+  // only typed into this long while its author is still editing, with the
+  // section selected the whole time.
   it("marks a section whose own name was refused", async () => {
-    renderEditor({ initialSections: overlongName() });
+    renderEditor({
+      initialSections: [
+        {
+          kind: "container" as const,
+          mode: "grid" as const,
+          spaces: 2,
+          name_en: "About",
+          children: [
+            { kind: "text" as const, title_en: "A", description_en: "" },
+          ],
+        },
+      ],
+    });
+    selectPath("0");
+    fireEvent.change(screen.getByTestId("section-name"), {
+      target: { value: "x".repeat(BLOCK_LIMITS.text + 1) },
+    });
     await saveAndRefuse();
-    openSectionOptions();
 
     expect(screen.getByTestId("section-name")).toHaveAttribute(
       "aria-invalid",
@@ -1405,10 +1457,35 @@ describe("a page the write schema refuses", () => {
   // A field the card does not draw at all — the style popup's background
   // address — still has to leave a mark, or the banner promises one nothing
   // made.
+  //
+  // **Typed live, for the same reason the name case above is.**
+  // `overlongBackground()`'s own address is past `BLOCK_STYLE_LIMITS
+  // .background_url` on the identical cap the strict write refuses on, so
+  // the container fails `lenientBlockSchema` and never renders a
+  // `data-block-path` — select the section first, then drive its Appearance
+  // tab's own field past the cap.
   it("marks a section whose style was refused, on a field it does not draw", async () => {
-    renderEditor({ initialSections: overlongBackground() });
+    renderEditor({
+      initialSections: [
+        {
+          kind: "container" as const,
+          mode: "grid" as const,
+          spaces: 2,
+          name_en: "About",
+          children: [
+            { kind: "text" as const, title_en: "A", description_en: "" },
+          ],
+        },
+      ],
+    });
+    selectPath("0");
+    fireEvent.click(screen.getByTestId("panel-tab-secondary"));
+    fireEvent.change(screen.getByTestId("section-style-background-url"), {
+      target: {
+        value: `https://example.com/${"x".repeat(BLOCK_STYLE_LIMITS.background_url)}.png`,
+      },
+    });
     await saveAndRefuse();
-    openSectionOptions();
 
     expect(screen.getByTestId("section-problem")).toBeInTheDocument();
     expect(screen.getByTestId("editor-error-banner")).toHaveTextContent(

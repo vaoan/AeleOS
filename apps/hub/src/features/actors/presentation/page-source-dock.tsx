@@ -116,6 +116,12 @@ export interface PageSourceDockLabels {
  * `onClose`'s own doc corrects a whole-branch review finding: focus recovery
  * on close is the native `<dialog>`'s own job, not this component's or its
  * caller's — see that field's TSDoc for the mechanism.
+ *
+ * **`panelOpen` is the newest field (2026-09-05)**, added once the
+ * Properties panel started rendering unconditionally and therefore occupying
+ * the page's right edge whenever controls show — see that field's own TSDoc
+ * for the geometry and the shared `--properties-panel-width` token that
+ * keeps this component and the canvas accommodation from disagreeing.
  */
 export interface PageSourceDockProps {
   /** Whether the panel is showing. */
@@ -139,6 +145,27 @@ export interface PageSourceDockProps {
   reference: string;
   /** Already-translated strings. */
   labels: PageSourceDockLabels;
+  /**
+   * Whether the Properties panel is currently occupying the page's right
+   * edge — the same `!controlsHidden` condition that gates
+   * `BlockEditor`'s own canvas-accommodation padding (`md:pr-[...]`), passed
+   * through here rather than re-derived, so the two can never disagree about
+   * whether the panel is showing.
+   *
+   * **This shifts this dock's own `right-0` left by the panel's reserved
+   * width at `md` and up, so the two fixed panels stop overlapping.** The
+   * panel started rendering unconditionally on 2026-09-05 — see
+   * `PropertiesPanel`'s own TSDoc — so it now occupies the page's right edge
+   * throughout ordinary editing rather than only while something is
+   * selected, and this dock's default 420px width sat entirely inside the
+   * panel's own `min(36rem, 40vw)` (512px at 1280px wide) reservation: the
+   * dock no longer overlapped any live page content at all, which
+   * `tests/e2e/page-source-dock.spec.ts` measures directly rather than
+   * inferring from either panel's own class list. `false` (a Preview, or a
+   * viewport below `md` where the panel is a bottom sheet rather than a
+   * fixed side panel) keeps the ordinary `right-0`.
+   */
+  panelOpen: boolean;
 }
 
 /**
@@ -318,6 +345,16 @@ export interface PageSourceDockProps {
  * unreachable rather than absent, and only the third of present, correct and
  * reachable is what a person actually experiences.
  *
+ * **`panelOpen` shifts `right-0` left by the Properties panel's own width at
+ * `md` and up (2026-09-05).** The panel began rendering unconditionally the
+ * same day, so it occupies the page's right edge whenever controls show —
+ * this dock's own default 420px width sat entirely inside the panel's
+ * `min(36rem, 40vw)` reservation (512px at 1280px wide), so the dock no
+ * longer reached any real page content at that viewport at all until this
+ * shipped. `tests/e2e/page-source-dock.spec.ts` measures the dock's box
+ * against the panel's own reserved region directly rather than inferring it
+ * from either component's class list.
+ *
  * @returns the `<dialog>` element. It renders unconditionally, whatever
  *   `open` says — a closed native dialog already paints nothing on its own,
  *   and the element has to stay mounted so the effect above always has a
@@ -329,6 +366,7 @@ export function PageSourceDock({
   source,
   reference,
   labels,
+  panelOpen,
 }: PageSourceDockProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -415,6 +453,17 @@ export function PageSourceDock({
         // true — confirmed on a real page, not assumed, since jsdom
         // implements neither the dialog UA stylesheet nor real layout.
         "fixed top-(--bar-top) right-0 left-auto z-40 m-0 hidden h-auto max-h-none flex-col open:flex",
+        // **`panelOpen` shifts `right-0` left by the Properties panel's own
+        // width, at `md` and up only — see `PageSourceDockProps.panelOpen`'s
+        // TSDoc for the full account.** Below `md` the panel is a bottom
+        // sheet rather than a fixed side panel, so there is nothing to avoid
+        // there and this dock's own `max-md:` sheet-mode classes already
+        // take over. `var(--properties-panel-width)` is the same token
+        // `properties-panel.tsx`'s own `md:w-[...]` and `block-editor.tsx`'s
+        // canvas accommodation (`md:pr-[...]`) read, declared once in
+        // `globals.css`, so this dock cannot silently drift from either of
+        // them the way it did before this prop existed.
+        panelOpen ? "md:right-(--properties-panel-width)" : "",
         // **`bottom` is conditional on `collapsed` now, switching between
         // `bottom-0` (expanded) and `bottom-auto` (collapsed, which shrinks
         // the panel to its header)** — see the mechanism this component's

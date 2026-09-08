@@ -4,7 +4,10 @@ import {
   type PageMeasure,
 } from "@/features/actors/domain/actor-theme";
 import { pageContext } from "./helpers/page-context";
-import type { PageContext } from "@/features/actors/presentation/blocks";
+import type {
+  EditorRenderHook,
+  PageContext,
+} from "@/features/actors/presentation/blocks";
 import { NextIntlClientProvider } from "next-intl";
 
 import messages from "@/shared/infrastructure/i18n/messages/en.json";
@@ -98,6 +101,7 @@ function renderBlock(
     path: string;
     parentHost: string;
     page: PageContext;
+    editor: EditorRenderHook;
   }> = {},
 ) {
   const {
@@ -106,6 +110,7 @@ function renderBlock(
     path = "0",
     parentHost = "me.furrycolombia.com",
     page = pageContext({ parentHost }),
+    editor,
   } = over;
   // **The real provider with the real catalogue.** The retro player leaves are
   // the first here to reach for `useTranslations`, and rendering them bare
@@ -121,6 +126,7 @@ function renderBlock(
         depth={depth}
         path={path}
         page={page}
+        editor={editor}
       />
     </NextIntlClientProvider>,
   );
@@ -2641,6 +2647,93 @@ describe("a skin nests", () => {
   });
 });
 
+// THE PALETTE'S "APPEND A NEW ROW" TARGET.
+//
+// `editor?.appendSlot?.(path)` is called once per container, after every
+// rendered child, with the container's own renderer path — see
+// `EditorRenderHook.appendSlot`'s own TSDoc for why the append position
+// itself (the container's child count) is never this file's to compute.
+// `blocks.tsx` never imports or constructs the real `AppendSlot`, so every
+// case here stands in with a recognisable marker rather than the real
+// `@dnd-kit` component — matching `wrap`'s own existing convention.
+describe("appendSlot", () => {
+  // **Every container mode, matching this file's own convention of
+  // iterating `CONTAINER_MODES` for a shared assertion** — see "holds a
+  // container of every mode inside a container" above. The marker's
+  // position is asserted against document order rather than against any one
+  // mode's own markup, because the call site is outside every mode's own
+  // renderer — a sibling of `{mode({...})}` inside the section — and so is
+  // uniform across all eight rather than needing a per-mode assertion.
+  it.each(CONTAINER_MODES)(
+    "renders the marker exactly once, after every rendered child (%s)",
+    (mode) => {
+      renderBlock(
+        container({
+          mode,
+          spaces: 2,
+          children: [leaf({ title_en: "A" }), leaf({ title_en: "B" })],
+        }),
+        {
+          editor: {
+            wrap: ({ children }) => children,
+            appendSlot: () => <div data-testid="append-marker" />,
+          },
+        },
+      );
+      const markers = screen.getAllByTestId("append-marker");
+      expect(markers).toHaveLength(1);
+      const marker = markers[0]!;
+      for (const leafElement of screen.getAllByTestId("public-leaf")) {
+        expect(
+          Boolean(
+            leafElement.compareDocumentPosition(marker) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+          ),
+        ).toBe(true);
+      }
+    },
+  );
+
+  // **The public-route zero-cost guarantee, stated as a test rather than
+  // only as a comment.** Neither case renders the marker: one supplies an
+  // `editor` with no `appendSlot` at all — a caller may build `wrap` alone,
+  // exactly as every editor route did before this task — and the other
+  // supplies no `editor` whatsoever, the actual public-route shape.
+  it("renders nothing extra when editor.appendSlot is absent", () => {
+    renderBlock(container({ children: [leaf()] }), {
+      editor: { wrap: ({ children }) => children },
+    });
+    expect(screen.queryByTestId("append-marker")).not.toBeInTheDocument();
+  });
+
+  it("renders nothing extra when editor itself is absent", () => {
+    renderBlock(container({ children: [leaf()] }));
+    expect(screen.queryByTestId("append-marker")).not.toBeInTheDocument();
+  });
+
+  // `appendSlot`'s own TSDoc says the append position is implicit — the
+  // container's own child count — so `blocks.tsx` must hand it the SAME
+  // path `wrap` already receives for this container, never a child index
+  // appended to it.
+  it("passes the container's own renderer path unchanged", () => {
+    const appendSlot = vi.fn(() => null);
+    renderBlock(container({ children: [leaf()] }), {
+      path: "2",
+      editor: { wrap: ({ children }) => children, appendSlot },
+    });
+    expect(appendSlot).toHaveBeenCalledExactlyOnceWith("2");
+  });
+
+  // A leaf has no children to append after, so it must never be asked.
+  it("is never called for a leaf", () => {
+    const appendSlot = vi.fn(() => null);
+    renderBlock(leaf(), {
+      editor: { wrap: ({ children }) => children, appendSlot },
+    });
+    expect(appendSlot).not.toHaveBeenCalled();
+  });
+});
+
 describe("PublicBlocks", () => {
   /**
    * A whole page, rendered as a route would.
@@ -2668,6 +2761,14 @@ describe("PublicBlocks", () => {
   it("renders one section per outermost block", () => {
     renderPage([container({ name_en: "One" }), container({ name_en: "Two" })]);
     expect(screen.getAllByTestId("public-section")).toHaveLength(2);
+  });
+
+  it("emits no editor drag wrappers or feedback when instrumentation is absent", () => {
+    const { container: root } = renderPage([
+      container({ children: [leaf(), null] }),
+    ]);
+    expect(root.querySelector("[data-canvas-path]")).toBeNull();
+    expect(root.querySelector('[data-testid^="canvas-drop-"]')).toBeNull();
   });
 
   // **The array IS the order.** The flat sections this replaces carried a

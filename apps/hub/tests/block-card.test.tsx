@@ -340,11 +340,12 @@ describe("BlockCard", () => {
     // OFFERING A SECTION AND THEN REFUSING THE SAVE is the fault class this
     // repo already paid for once, when a missing `nuqs` adapter was reported
     // as "we could not load your identity". The deepest place offering
-    // content and no section, and saying why, is the Add picker's job now —
-    // `AddBlockPickerProps.mayAddLayout` and `labels.nestingAtLimit` cover it
-    // in `add-block-picker.test.tsx`. This legacy `showChildren` rendering
-    // offers no add control at any depth (see the describe block above), so
-    // the deepest place is a bare removable one like any other.
+    // content and no section, and saying why, is the Palette tab's job now —
+    // `insertTargetsFor` only offers a container target one level deeper than
+    // `mayNest` admits, covered in `palette-targets.test.ts`. This legacy
+    // `showChildren` rendering offers no add control at any depth (see the
+    // describe block above), so the deepest place is a bare removable one
+    // like any other.
     it("draws a bare empty place at the depth cap, with no add control of any kind", () => {
       harness(deep());
       const deepest = screen.getByTestId("empty-place");

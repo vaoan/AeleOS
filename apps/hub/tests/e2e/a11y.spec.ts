@@ -19,7 +19,7 @@ import {
   establishSharedSession,
   sharedStatePath,
 } from "./support/shared-session";
-import { addBlock, openPageAdd } from "./support/editor";
+import { addBlock, openMore, openPageAdd } from "./support/editor";
 
 // One sign-in for "the signed-in pages are accessible" below: both of its
 // cases read or extend the same shared identity's own pages, and neither
@@ -107,8 +107,8 @@ async function isAccessible(
 ): Promise<void> {
   // **Waits out Motion's own scope-transition fade — by POLLING it, not by
   // guessing its duration (corrected 2026-09-02).** Entering a fresh
-  // selection remounts `canvas-inspector.tsx`'s keyed `m.div`
-  // (`inspector-pane-entrance`, 150ms), and axe's `color-contrast` samples
+  // selection remounts `properties-panel.tsx`'s keyed `m.div`
+  // (`panel-pane-entrance`, 150ms), and axe's `color-contrast` samples
   // the actually RENDERED pixels — so a scan that lands mid-fade sees the
   // whole card, text and background alike, blended toward whatever is
   // BEHIND the editor at a shared partial opacity, which measurably lowers
@@ -128,7 +128,7 @@ async function isAccessible(
   // signed-out pages this same function scans, so the wait is conditional
   // on it existing at all — nothing to settle where there is no editor.
   const pane = page
-    .getByTestId("inspector-pane-entrance")
+    .getByTestId("panel-pane-entrance")
     .and(page.locator(":visible"));
   if (await pane.count()) {
     await expect
@@ -187,8 +187,6 @@ test.describe("a person's first visit ever is straight to /pages/new", () => {
     try {
       await signIn(page, await mintTicket(fresh.userId));
       await page.goto("/es/pages/new");
-      await openPageAdd(page);
-      await expect(page.getByTestId("add-block")).toBeVisible();
 
       // The owner card's own link carries the address as its visible text —
       // asserted as non-empty rather than compared to a specific value,
@@ -249,8 +247,7 @@ test.describe("the signed-in pages are accessible", () => {
       content: "nextjs-portal{display:none!important}",
     });
     await openPageAdd(page);
-    await expect(page.getByTestId("add-block")).toBeVisible();
-    await page.getByTestId("inspector-tab-options").click();
+    await page.getByTestId("panel-tab-secondary").click();
     await page.getByTestId("theme-open").click();
     await expect(page.getByTestId("theme-canvas")).toBeVisible();
 
@@ -263,67 +260,108 @@ test.describe("the signed-in pages are accessible", () => {
     await page.getByTestId("theme-open").click();
 
     // **A section of this test's own, and the assertions below depend on it.**
-    // The recursive inspector exposes only the selected target, so this section
+    // The Properties panel shows only the selected target, so this section
     // gives the following scans one unambiguous container, leaf and nested
-    // container to enter in turn.
-    await page.getByTestId("inspector-tab-items").click();
-    await addBlock(page, { mode: "grid" });
-    await page.getByTestId("inspector-tab-options").click();
+    // container to enter in turn. Dragged onto the page's own append slot —
+    // the identity section already occupies top-level path "0", so this one
+    // lands at "1".
+    await addBlock(page, { mode: "grid" }, "");
+    // Adding selects the new section and resets to its Layout tab, where
+    // `section-name` already lives.
     await page.getByTestId("section-name").fill("A section of my own");
 
-    // A section's own paintbrush popup — an OVERLAY, unlike the theme panel
-    // above and `IconPicker`'s inline one, so it is the one surface in this
-    // screen that owes Escape, an outside-click close, and its own focus
-    // management rather than merely a name on every control. Never opened by
-    // any e2e suite before this finding: a popup axe never sees is a popup it
-    // cannot fail on, which is not the same as one that passes.
-    // Options mounts exactly the card this test added, without descendants.
-    const card = page.getByTestId("section-card");
-    await card.getByTestId("section-style-open").click();
-    await expect(page.getByTestId("section-style-panel")).toBeVisible();
-    await isAccessible(page, "the editor with a section's style popup open");
+    // The style fields — skin, background, fit, border and the rest — used
+    // to live behind a paintbrush popup, an OVERLAY never opened by any e2e
+    // suite before this finding: a popup axe never sees is a popup it cannot
+    // fail on, which is not the same as one that passes. They render inline
+    // on the panel's own Appearance tab now, with no popup and no separate
+    // panel element to wait for.
+    await page.getByTestId("panel-tab-secondary").click();
+    await expect(page.getByTestId("section-style-skin")).toBeVisible();
+    await isAccessible(page, "the editor with a section's Appearance tab open");
 
     // **A PLACE WITH SOMETHING IN IT, which axe had never seen.** Selecting a
-    // section shows its card and style popup; it shows none of
+    // section shows its card and Appearance tab; it shows none of
     // `LeafEditor`, which is the densest control surface in the editor — a
     // kind menu, a bilingual title and description, an address, an icon
     // picker, a picture field — nor a nested card. `table` is chosen because
     // it is the widest: it adds the row-and-cell grid, where every input in a
     // row would otherwise carry one shared accessible name.
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("section-style-panel")).toBeHidden();
-    await page.getByTestId("inspector-tab-items").click();
+    //
+    // **The persistent Palette tab — a second overlay, never scanned
+    // before.** Its own thumbnails draw the real renderer over real sample
+    // content, which is exactly the surface most likely to carry a name or
+    // contrast fault a hand-written illustration never would. It replaces
+    // the deleted `AddBlockPicker` dialog this scan used to open.
+    await page.getByTestId("panel-tab-palette").click();
+    await expect(page.locator('[data-palette-kind="text"]')).toBeVisible();
+    await isAccessible(page, "the editor with the Palette tab open");
 
-    // **The Add-block picker — a THIRD overlay, never scanned before.** Its
-    // own previews draw the real renderer over real sample content, which is
-    // exactly the surface most likely to carry a name or contrast fault a
-    // hand-written illustration never would. Opened from an empty place's own
-    // trigger, which every content-holding scope in this editor offers.
-    await page
-      .getByTestId("inspector-empty-place")
-      .first()
-      .getByTestId("add-block")
-      .click();
-    await expect(page.getByTestId("add-block-picker")).toBeVisible();
-    await isAccessible(page, "the editor with the Add-block picker open");
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("add-block-picker")).toBeHidden();
+    // **A palette-origin drag IN PROGRESS — the OPEN state a static scan of
+    // the closed Palette tab above cannot reach (Task 9 of the palette
+    // drag-to-add feature, 2026-09-06).** Root rule 19's own caution is
+    // exactly this shape: a scan of a feature's closed state cannot find a
+    // defect that only exists while it is open, and the page-source dock's
+    // own `aria-required-attr`/`nested-interactive` findings are the class
+    // of thing this is looking for here — a highlight outline with no
+    // accessible-name change, or a drag source with no name at all. Every
+    // valid target lights up at once (`data-canvas-drop="place"`, this
+    // section's own two empty places among them, since section "1" was
+    // created above), which changes no accessible name on any of them, and
+    // nothing here is a `<dialog>` needing native semantics of its own — so
+    // this is closer in kind to the theme panel above than to the source
+    // dock below. Ended without dropping — moved well away from every
+    // target and released over nothing — so it leaves no mark on this
+    // test's own later sequence.
+    const paletteThumbnail = page.locator('[data-palette-kind="text"]');
+    // Scrolled into view before its geometry is read — `support/editor.ts`'s
+    // own `dragPaletteOnto` documents why this is load-bearing rather than
+    // tidy: `boundingBox()` answers a laid-out position whether or not it
+    // sits within the current scrollport, and a pointer event to a point
+    // outside it never dispatches at all.
+    await paletteThumbnail.scrollIntoViewIfNeeded();
+    const dragSource = await paletteThumbnail.boundingBox();
+    expect(dragSource).not.toBeNull();
+    await page.mouse.move(
+      dragSource!.x + dragSource!.width / 2,
+      dragSource!.y + dragSource!.height / 2,
+    );
+    await page.mouse.down();
+    // Clears `DRAG_THRESHOLD` (8px) so the sensor actually activates.
+    await page.mouse.move(
+      dragSource!.x + dragSource!.width / 2 + 20,
+      dragSource!.y + dragSource!.height / 2,
+    );
+    await expect(page.locator('[data-canvas-path="1-0"]')).toHaveAttribute(
+      "data-canvas-drop",
+      "place",
+    );
+    await isAccessible(page, "a palette-origin drag in progress");
+    await page.mouse.move(9999, 9999);
+    await page.mouse.up();
+    // Past `@dnd-kit/core`'s own post-drop click-swallow window —
+    // `PointerSensor.detach()` keeps a document-level capturing `click`
+    // listener alive for exactly 50ms after a drop (root rule 41's measured
+    // exemption class), and the very next thing this test does is a real
+    // click on the Palette tab through `addBlock`.
+    await page.evaluate(
+      // eslint-disable-next-line no-restricted-syntax -- see comment above.
+      () => new Promise((done) => setTimeout(done, 100)),
+    );
 
-    await addBlock(page.getByTestId("inspector-empty-place").first(), {
-      kind: "text",
-    });
+    await addBlock(page, { kind: "text" }, "1");
+    // Adding a leaf selects it and resets to its Content tab, where
+    // `leaf-kind` already lives.
     await page.getByTestId("leaf-kind").selectOption("table");
     await page.getByTestId("add-row").click();
     await expect(page.getByTestId("table-cell").first()).toBeVisible();
     await isAccessible(page, "the editor with table content selected");
 
     // And a section inside a place, which is the other component no
-    // accessibility check had ever reached.
-    await page.getByTestId("inspector-back").click();
-    await addBlock(page.getByTestId("inspector-empty-place").first(), {
-      mode: "grid",
-    });
-    await page.getByTestId("inspector-tab-options").click();
+    // accessibility check had ever reached. Dragged onto the same section
+    // ("1") the table leaf above already sits in, landing as its second
+    // child.
+    await addBlock(page, { mode: "grid" }, "1");
     await expect(page.getByTestId("nested-card")).toBeVisible();
     await isAccessible(page, "the editor with a nested section selected");
   });
@@ -339,8 +377,10 @@ test.describe("the signed-in pages are accessible", () => {
   test("the editor with the source dock open", async ({ page }) => {
     await page.goto("/es/pages/new");
     await openPageAdd(page);
-    await expect(page.getByTestId("add-block")).toBeVisible();
 
+    // `editor-open-source` lives behind the toolbar's "More" disclosure now
+    // (2026-09-04) — see `support/editor.ts`'s own account.
+    await openMore(page);
     await page.getByTestId("editor-open-source").click();
     await expect(page.getByTestId("page-source-dock")).toBeVisible();
     await isAccessible(page, "the editor with the source dock open");

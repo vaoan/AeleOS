@@ -157,14 +157,28 @@ const stylePopupLabels = {
 /**
  * Supplies one stable English label bag for editor presentation tests.
  *
- * It includes the canvas inspector's Page, Items, Options and Back words so
- * tests use the same complete contract as the translated route rather than
- * filling recursive navigation controls with ad-hoc labels per fixture.
+ * It includes the Properties panel's Page-select and Close words so tests
+ * use the same complete contract as the translated route rather than
+ * filling the panel's controls with ad-hoc labels per fixture. There is no
+ * Items, Options or Back any more (2026-09-04): the panel has exactly two
+ * fixed tabs per selection kind, and Close is its only way out.
  *
- * **Carries the Add picker's four strings too (2026-09-02)** —
+ * **Carries four Add-related strings too (2026-09-02)** —
  * `addBlock`/`addBlockTitle`/`addContentGroup`/`addLayoutGroup` — as real
- * English, since `AddBlockPicker` is not part of the vocabulary-derived
- * records above and a suite asserting its own words needs them spelled out.
+ * English, since none of the four is part of the vocabulary-derived records
+ * above. `addBlock`/`addBlockTitle` are unread now (2026-09-06): they named
+ * the deleted `AddBlockPicker`'s own trigger and dialog heading, and are
+ * kept only because `BlockEditorLabels` still declares the fields.
+ * `addContentGroup`/`addLayoutGroup` are read by `AddPalette`'s own
+ * headings.
+ *
+ * The drag bag includes the linear-list capacity refusal as a distinct string,
+ * so presentation tests cannot accidentally collapse it into a stale-place
+ * failure.
+ *
+ * **Carries `panelTabPalette` too (2026-09-05)** — the Properties panel's
+ * persistent third tab, present whether or not anything is selected, unlike
+ * `panelTabAppearance`/`panelTabTheme` beside it.
  *
  * @returns every label the block editor and its existing child controls need.
  */
@@ -179,10 +193,14 @@ export function blockEditorLabels(): BlockEditorLabels {
     addBlockTitle: "Add to this section",
     addContentGroup: "Content",
     addLayoutGroup: "Layout",
+    panelTabAppearance: "Appearance",
+    panelTabTheme: "Theme",
+    panelTabPalette: "Palette",
+    cloneBlock: "Clone",
+    cloneRefusedTooDeep: "That would nest one level too deep.",
+    cloneRefusedTooMany: "That list cannot hold another block.",
     selectPage: "Page",
-    inspectorItems: "Items",
-    inspectorOptions: "Options",
-    inspectorBack: "Back",
+    inspectorClose: "Close",
     wrapInLayout: "Wrap in a layout",
     atLimit: "At the limit.",
     dragSection: "Drag to reorder section",
@@ -196,6 +214,7 @@ export function blockEditorLabels(): BlockEditorLabels {
       intoItself: "That would put a section inside itself.",
       tooDeep: "That is one level too deep.",
       noSuchPlace: "That place is no longer there.",
+      tooMany: "That list cannot hold another block.",
     },
     sectionEyebrow: "Section",
     sectionName: "Name",
