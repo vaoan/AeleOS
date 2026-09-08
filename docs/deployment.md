@@ -7,10 +7,10 @@ does not require rediscovering it. It records no secrets.
 
 ## 0. Confirmed before starting
 
-| Question                                                                                | Answer                  | How                     |
-| --------------------------------------------------------------------------------------- | ----------------------- | ----------------------- |
-| Clerk free plan includes a production instance and a custom domain, at $0 with no card? | **pending** — see below | Clerk Dashboard billing |
-| Supabase allows two Clerk Third-Party Auth integrations?                                | **yes** (2026-08-11)    | Management API probe    |
+| Question                                                                                 | Answer                                                                       | How                  |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------- |
+| Clerk Hobby plan includes a production instance and a custom domain, at $0 with no card? | **published answer: yes** (2026-09-07) — one dashboard check left, see below | clerk.com/pricing    |
+| Supabase allows two Clerk Third-Party Auth integrations?                                 | **yes** (2026-08-11)                                                         | Management API probe |
 
 ### Supabase accepts a second integration
 
@@ -40,28 +40,41 @@ development one and CI's `CLERK_SECRET_KEY` / `CLERK_DOMAIN` secrets would have
 had to move with it, or `idp-cloud` would have gone green while testing an
 instance nobody uses.
 
-### The Clerk plan question is still open
+### The Clerk plan question, answered on the published terms (2026-09-07)
 
 It is the one precondition that can end the plan, because the budget is a hard
-stop rather than a preference.
+stop rather than a preference. Read directly off `clerk.com/pricing` rather
+than inferred:
 
-What the documentation says: Clerk gates specific **features** behind a paid
-plan for production use — allowlist and blocklist, session inactivity timeout,
-and a custom maximum session lifetime. **None of those are used here.** Nothing
-in the documentation describes a production instance or a custom domain as
-itself paid, and `CLAUDE.md` records the free plan as covering 50,000 monthly
-users at $0.
+- The plan is called **Hobby**, not "Free". Anything in this repository still
+  saying "Clerk Free plan" means this one.
+- **Custom domain is listed as included.** That is the line the whole design
+  rests on, and it is stated on the plan itself rather than implied.
+- **"No credit card required to start."**
+- **50,000 MRU** — monthly RETAINED users, counted only for someone who
+  returns 24 hours or more after signing up. Earlier notes here and in
+  `CLAUDE.md` said "50,000 MAU"; MRU is the more generous of the two, so the
+  budget position is better than was recorded, not worse.
+- **Three social connections.** Unlimited is a Pro feature at $20–25/month,
+  which is a hard stop — see §1's provider decision for what that costs us.
 
-So the expectation is that this is free. Confirm it on the billing screen before
-anything depends on it:
+Two things we are accepting rather than avoiding, both cosmetic or mild:
 
-- A **production instance** can be created at $0.
-- A **custom domain** for the Frontend API is included.
-- **No card** is requested at any point.
+- **"Remove Clerk branding" is a Pro feature**, so the production sign-in
+  carries _Secured by Clerk_.
+- **Hobby has a fixed 7-day session lifetime.** A custom lifetime is Pro. The
+  design never wanted one, so this is a property to know rather than a
+  blocker: people re-authenticate weekly.
 
-If any of those is false, stop. The fallback is a different design — running the
-hub behind the development instance on a `*.vercel.app` URL — and it needs its
-own decision, not a workaround.
+**What is still owed is the billing screen itself.** A pricing page and a
+billing screen occasionally disagree, and this project's own convention is to
+confirm by doing. Before anything depends on it, check that creating the
+production instance and its custom domain completes without a card being
+requested at any point.
+
+If it does not, stop. The fallback is a different design — running the hub
+behind the development instance on a `*.vercel.app` URL — and it needs its own
+decision, not a workaround.
 
 ## 1. Clerk production instance
 
@@ -79,6 +92,75 @@ Every Clerk DNS record must be **DNS only** (grey cloud) in Cloudflare. All
 seven pre-existing records in that zone are proxied, so this is a deliberate
 exception, not the default — Clerk validates its records with a DNS check that
 fails behind Cloudflare's proxy.
+
+### What sign-in offers at launch (2026-09-07)
+
+**Google, Discord, and email code. The third social slot stays empty.**
+
+**This supersedes the design's §7 "Launch with Discord alone."** That ruling
+was correct when it was made and its premise is now false. It sequenced Google
+after launch because nothing depended on Google — and Libra's existing users
+sign in with **Google and Discord** (confirmed by the owner, 2026-09-07). A
+Discord-only launch locks out every Google user on the day Libra points at
+Clerk. Root rule 25's shape: a premise about the world, dated, and falsified by
+something learned later.
+
+So the ordering inverts.
+
+| Strategy       | Status at launch | What it needs                                         |
+| -------------- | ---------------- | ----------------------------------------------------- |
+| **Discord**    | required         | a free Developer Portal application — no prerequisite |
+| **Google**     | **required**     | our own OAuth client, and the billing question below  |
+| **Email code** | required         | a Clerk setting; costs **no** social slot             |
+| _third social_ | held open        | nothing — deliberately unfilled, see below            |
+
+**Google is now the blocker on the critical path, not a follow-up.** The
+question inherited from `phase-0-clerk-setup.md` — whether creating an OAuth
+client requires a billing account on the Cloud project — has never been
+answered, and public sources do not settle it (what they describe is billing
+for billable _APIs_, which sign-in does not enable). GCP billing for this
+organisation is off permanently and deliberately, so if the client cannot be
+created without a card, that is a decision to take rather than a step to work
+around. **Answer it by creating the client**, which is this repository's own
+convention for a question about somebody else's service.
+
+**Email code costs no social slot, and that is why it is in the launch set.**
+It is an auth ATTRIBUTE rather than a social connection — the distinction
+`phase-0-clerk-setup.md` already draws between `user_settings.social` and
+`user_settings.attributes` — so it does not consume one of Hobby's three. It
+is the safety net that makes the migration survivable: production has password
+sign-in **off** by design, Libra's Supabase Auth passwords do not move, and a
+person whose provider email does not resolve the way they expect has no other
+way in. Without it, "re-link by email on next sign-in" is a promise with no
+mechanism behind it for anyone whose two providers both fail.
+
+### Why the third slot is empty rather than Facebook
+
+`phase-0-clerk-setup.md`'s lineup names **Google, Discord and Facebook**, and
+that third choice is deferred rather than kept, for reasons that note already
+half-stated:
+
+- **No Libra user signs in with Facebook**, so it does nothing for the
+  migration this launch exists to serve.
+- **It is the one provider with a circular blocker** — a privacy policy URL
+  and a data-deletion callback, both of which must be hosted on a site that is
+  live. It cannot be a precondition for going live.
+- **Facebook is built around a real-name policy and this is a pseudonymous
+  fursona community.** The lineup note records that doubt and names **Twitch**
+  as the obvious free alternative if the slot is ever better spent. Twitch has
+  neither of Facebook's blockers.
+
+The slot is therefore left open on purpose, to be decided when somebody
+actually wants it. Filling it now would spend the last free connection on the
+candidate with the most prerequisites and the least evidence of demand.
+
+**Do not render a disabled "coming soon" provider button.** Clerk's prebuilt
+`<SignIn />` draws buttons for the connections ENABLED on the instance; there
+is no enabled-but-disabled state, so a greyed-out third button means building
+the sign-in form by hand with Clerk Elements or faking one through the
+appearance API — real work for a control that does nothing. If the absence
+needs signalling at all, a line of text under the buttons cannot be pressed and
+cannot rot into a control somebody expects to work.
 
 ## 2. What is live now
 

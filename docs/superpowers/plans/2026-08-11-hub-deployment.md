@@ -1,5 +1,29 @@
 # Hub Deployment Implementation Plan
 
+> ## Corrections — read before executing any task (2026-09-07)
+>
+> This plan has **not** been executed; the production Clerk instance does not
+> exist yet. Two of its standing instructions are now wrong, and a human
+> following it step by step would stop short of what Libra needs.
+>
+> 1. **"Discord is the only social connection at launch" is superseded.** The
+>    launch set is **Google + Discord + email code**. Libra's existing users
+>    sign in with Google and Discord, so a Discord-only launch locks out every
+>    Google user the day Libra points at Clerk. Task 3 covers Discord alone and
+>    is therefore incomplete rather than wrong — **Google needs the same
+>    treatment in the same sitting**, and the GCP billing question that
+>    deferred it is now the blocker on the critical path rather than a
+>    follow-up.
+> 2. **Email code must be enabled on the production instance.** It is an auth
+>    attribute, not a social connection, so it costs none of Hobby's three
+>    slots. With password sign-in off by design and Libra's Supabase Auth
+>    passwords not moving, it is the only way in for somebody whose provider
+>    email does not resolve as expected.
+>
+> The third social slot is deliberately left **empty** — not Facebook. The
+> ruling and its reasoning are in `docs/deployment.md` §1, which is the
+> current word on everything in this box.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `me.furrycolombia.com` serves the hub over HTTPS, a person signs in with Discord, and `/me` shows the platform ID backed by the existing AeleOS Supabase project.
@@ -15,7 +39,7 @@
 - **The Clerk primary domain is `furrycolombia.com`.** The Frontend API is `clerk.furrycolombia.com`. `id.furrycolombia.com` is retired and must not be created.
 - **`furrycolombia.com` itself is untouched.** Only new subdomain records are added — no A record, no redirect, no page moves.
 - **Every Clerk DNS record in Cloudflare must be "DNS only" (grey cloud).** Clerk validates records with a DNS check that fails behind Cloudflare's proxy.
-- **Discord is the only social connection at launch.** Google waits on the GCP billing question; Facebook needs a hosted privacy policy and data-deletion callback that cannot exist before the site does.
+- **The launch set is Google + Discord + email code** (corrected 2026-09-07; this constraint previously read "Discord is the only social connection at launch"). Google is required rather than deferred, because Libra's users sign in with it — which makes the GCP billing question a blocker to answer by creating the client, not a reason to postpone. Email code costs no social slot. Facebook is dropped from the launch set and the third slot is left empty; see `docs/deployment.md` §1.
 - **Password sign-in is off** on the production instance.
 - **No `vercel.json`.** `apps/hub` carries no Vercel-specific configuration; that is what keeps a move to Cloudflare a config change rather than a rewrite.
 - **No new Supabase project.** The existing AeleOS project (`vmmpssydbrtkgvrlkijh`) already holds the schema and the trust.
@@ -166,7 +190,12 @@ git commit -m "docs: record the production Clerk instance and its DNS"
 
 ---
 
-### Task 3: Discord as the launch connection
+### Task 3: Discord as a launch connection
+
+> **Incomplete as written (2026-09-07).** Google needs the identical
+> treatment — enable, custom credentials, register the redirect URI — and
+> email code needs turning on, in this same sitting. See the corrections
+> banner at the top of this plan.
 
 **Files:**
 

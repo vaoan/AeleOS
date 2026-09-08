@@ -170,6 +170,16 @@ not exempt, so every commit there has already passed them on a pull request.
 
 ## 7. Provider sequencing
 
+> **SUPERSEDED, 2026-09-07 — read `docs/deployment.md` §1 first.** This
+> section's conclusion, "Launch with Discord alone," was right on its own
+> premise and that premise is now false: Libra's existing users sign in with
+> **Google and Discord**, so a Discord-only launch locks out every Google user
+> the day Libra points at Clerk. The launch set is Google + Discord + email
+> code, and the Google OAuth billing question below moves from "sequenced after
+> launch" to the blocker on the critical path. The rest of this section — why
+> production needs our own OAuth apps, and Facebook's circular requirement —
+> still holds and is why the third social slot is now left empty.
+
 `docs/phase-0-clerk-setup.md` establishes the lineup — Google, Discord, Facebook
 — on cost grounds. Production has an ordering constraint that development did
 not, because production requires **our own** OAuth applications rather than
@@ -226,10 +236,12 @@ question in `docs/phase-0-clerk-setup.md`:
 - **Can one Supabase project hold two Clerk Third-Party Auth integrations?**
   Decides §5. Supabase's documentation describes adding "a new Third-Party Auth
   integration" without stating whether a second is allowed.
-- **Does Clerk's free plan include a production instance with a custom domain?**
-  Believed yes, and the whole design assumes it. Confirm before depending on it;
-  if it does not, the deployment stops until a free path is found, per the budget
-  rule.
+- **Does Clerk's Hobby plan include a production instance with a custom
+  domain?** **Answered on the published terms, 2026-09-07:** the plan lists
+  "Custom domain" and "No credit card required to start". What is still owed is
+  the billing screen itself — see `docs/deployment.md` §0. If that disagrees
+  with the pricing page, the deployment stops until a free path is found, per
+  the budget rule.
 - **Does creating a Google OAuth client require a billing account?** Inherited
   from Phase 0, unchanged, and now sequenced after launch rather than before it.
 
@@ -238,7 +250,7 @@ question in `docs/phase-0-clerk-setup.md`:
 | Item              | Plan             | Cost                                                          |
 | ----------------- | ---------------- | ------------------------------------------------------------- |
 | Vercel            | Hobby            | $0 — no card; limits pause the deployment rather than billing |
-| Clerk             | Free             | $0 — 50,000 MAU                                               |
+| Clerk             | Hobby            | $0 — 50,000 MRU, 3 social connections (2026-09-07)            |
 | Discord OAuth app | Developer Portal | $0                                                            |
 | Cloudflare DNS    | Free             | $0                                                            |
 
