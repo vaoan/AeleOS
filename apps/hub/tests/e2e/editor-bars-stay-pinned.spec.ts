@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   mintTicket,
   signIn,
@@ -83,10 +82,6 @@ test.beforeAll(async () => {
     displayName: "Bars stay pinned",
     blocks: LONG_PAGE,
   }));
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 // **PINNED IS NOT THE SAME CLAIM AS IN THE RIGHT PLACE, and the case below

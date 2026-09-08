@@ -1,8 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
@@ -64,10 +63,6 @@ test.describe("a carousel", () => {
   test.beforeAll(async () => {
     test.skip(!hasClerk(), "needs Clerk credentials");
     identity = await createTestIdentity();
-  });
-
-  test.afterAll(async () => {
-    if (identity) await deleteTestIdentity(identity.userId);
   });
 
   test("is a row that genuinely scrolls, where a grid is not", async ({

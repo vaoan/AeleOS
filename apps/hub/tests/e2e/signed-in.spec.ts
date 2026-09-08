@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   mintTicket,
   signIn,
@@ -47,10 +46,6 @@ test.beforeAll(async ({ browser }) => {
   // own explicit `signIn`/`mintTicket` call and is outside the nested
   // `describe` that shares this session.
   await establishSharedSession(browser, identity.userId, STATE_PATH);
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 test.skip(!hasClerk(), "needs CLERK_SECRET_KEY");

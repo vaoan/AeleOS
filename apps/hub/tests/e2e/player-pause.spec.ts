@@ -1,8 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
@@ -71,10 +70,6 @@ test.describe("a retro player", () => {
   test.beforeAll(async () => {
     test.skip(!hasClerk(), "needs Clerk credentials");
     identity = await createTestIdentity();
-  });
-
-  test.afterAll(async () => {
-    if (identity) await deleteTestIdentity(identity.userId);
   });
 
   test("stops the sound when pause is pressed, not merely the icon", async ({

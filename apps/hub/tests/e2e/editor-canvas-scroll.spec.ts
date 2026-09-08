@@ -1,7 +1,7 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   mintTicket,
   signIn,
@@ -51,10 +51,6 @@ test.beforeAll(async () => {
     displayName: "Canvas scroll ownership",
     blocks: LONG_PAGE,
   }));
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 async function openEditor(page: Page): Promise<Locator> {

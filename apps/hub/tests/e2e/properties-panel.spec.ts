@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   mintTicket,
   signIn,
@@ -54,10 +53,6 @@ let identity: TestIdentity | undefined;
 test.beforeAll(async () => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 test("the panel starts closed, then Page exposes identity on primary and theme on secondary", async ({

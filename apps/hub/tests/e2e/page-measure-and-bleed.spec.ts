@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   type TestIdentity,
 } from "./support/clerk-session";
@@ -58,10 +57,6 @@ let identity: TestIdentity | undefined;
 test.beforeAll(async () => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 test("a widest page outgrows the old column, and a bleeding section reaches both edges", async ({

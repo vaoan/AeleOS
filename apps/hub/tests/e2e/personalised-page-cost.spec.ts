@@ -1,4 +1,5 @@
-import { expect, test, type CDPSession, type Page } from "@playwright/test";
+import type { CDPSession, Page } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import { createClient } from "@supabase/supabase-js";
 import {
   createTestIdentity,

@@ -1,8 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/auto-cleanup";
 import { createClient } from "@supabase/supabase-js";
 import {
   createTestIdentity,
-  deleteTestIdentity,
   hasClerk,
   mintSessionToken,
   mintTicket,
@@ -65,10 +64,6 @@ let identity: TestIdentity | undefined;
 test.beforeAll(async () => {
   if (!hasClerk()) return;
   identity = await createTestIdentity();
-});
-
-test.afterAll(async () => {
-  if (identity) await deleteTestIdentity(identity.userId);
 });
 
 /**
