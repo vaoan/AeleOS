@@ -3558,6 +3558,32 @@ something other than drift, it is still working: a pull request that **adds** a
 migration stays red until it is pushed to live, which is how this repo already
 works, and a new table stays red until it grants `service_role`.
 
+- **Drop-target legibility — DESIGNED, NOT BUILT (2026-09-07/08).** The editor
+  draws every possible landing alike, draws nothing under the cursor, and for
+  a palette insert draws **the wrong element entirely**: an insert target's
+  last segment is a splice index meaning "before this position", so the gap it
+  names is drawn as the BLOCK at that position — the one that gets pushed
+  down. It reads correct at an empty place, where a gap and a place coincide,
+  and is wrong at every filled one, which is exactly the "some layouts" in the
+  report.
+
+  **The canvas-move path already solved this and the palette reused none of
+  it.** `DropTarget`'s `before`/`after` are drawn by `EditableBlockFrame` as an
+  accent bar sitting ON the boundary, gated on `isOver` so only the hovered one
+  appears. So the work is not inventing a gap mark; it is giving the palette
+  that vocabulary through one pure translation, then raising both from a bar to
+  a ghost slot.
+
+  **The slot is drawn OUT OF FLOW, and that is the load-bearing constraint.**
+  `@dnd-kit` caches every droppable's rectangle when a drag begins, so a canvas
+  that reflows mid-drag makes the collision answer about where things WERE —
+  a fresh instance of the very fault being removed. Letting the gap genuinely
+  open was weighed and refused on that, not on taste. A later "just animate the
+  gap open" change would silently undo it.
+
+  Spec: `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md`.
+  Plan: `docs/superpowers/plans/2026-09-08-drop-target-legibility.md`.
+
 Claude's role throughout: build and test the hub here, specify exactly what to
 configure in Clerk, and write the per-app integration code in the respective app
 repos.
