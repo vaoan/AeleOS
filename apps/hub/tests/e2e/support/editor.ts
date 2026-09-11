@@ -275,10 +275,13 @@ async function waitForCanvasAccommodation(page: Page): Promise<void> {
  * **The drop target's own geometry is read AFTER the lift, not before
  * (2026-09-06), and the target is scrolled into view a SECOND time once
  * that reflow has happened, not only before the lift.** Lifting a palette
- * item lights up every valid `insertTargets` entry at once, and an append
- * slot's own class carries `min-h-12` only while highlighted (`AppendSlot`,
- * `editable-block-frame.tsx`) — so a container earlier on the page than
- * `targetCanvasPath` can grow the instant the drag begins, pushing the
+ * item lights up every valid `insertTargets` entry at once — through
+ * `AppendSlot` alone now (`editable-block-frame.tsx`); `EditableBlockFrame`'s
+ * own copy of that highlight is gone, see
+ * `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+ * account — and an append slot's own class carries `min-h-12` only while
+ * highlighted, so a container earlier on the page than `targetCanvasPath`
+ * can grow the instant the drag begins, pushing the
  * target down by exactly that height before the mouse ever arrives. This
  * function waits for the highlight to actually appear before re-reading
  * `targetCanvasPath`'s box, so every caller is protected from that reflow
@@ -349,9 +352,12 @@ export async function dragPaletteOnto(
   );
   // **The target's box is re-read here, AFTER the threshold-crossing move,
   // rather than reused from before `mouse.down()`.** Lifting a palette item
-  // lights up every valid `insertTargets` entry at once — append slots
-  // included, whose own class carries `min-h-12` only while highlighted
-  // (`AppendSlot`, `editable-block-frame.tsx`) — so a container earlier on
+  // lights up every valid `insertTargets` entry at once — through
+  // `AppendSlot` alone (`editable-block-frame.tsx`); `EditableBlockFrame`
+  // no longer keeps its own copy of this, see
+  // `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+  // account — and an append slot's own class carries `min-h-12` only while
+  // highlighted, so a container earlier on
   // the page than `targetCanvasPath` can grow the instant the drag begins,
   // pushing every target below it down by exactly that height. A box read
   // before the lift is stale the moment that happens: the mouse still

@@ -13,6 +13,7 @@ import { canvasPlaceId } from "@/features/actors/domain/block-drag";
 import type { InsertTarget } from "@/features/actors/domain/palette-targets";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
+import { DropMark } from "@/features/actors/presentation/drop-mark";
 
 /**
  * Editor-only state threaded through the public block recursion.
@@ -21,10 +22,15 @@ import { tid } from "@/shared/infrastructure/test-id";
  * listeners, or extra wrappers are emitted. The renderer still owns all page
  * markup; this value only asks it to instrument that markup while editing.
  *
- * **Carries `insertTargets` (2026-09-05)**, non-null only while a
- * palette-origin drag is in progress — see that field's own TSDoc for what
- * it highlights and why every matching place lights up at once rather than
- * one at a time.
+ * **Draws exactly ONE landing mark (2026-09-11), not every valid palette
+ * target at once.** It used to carry `insertTargets`, every insertion target
+ * a palette-origin drag would accept, and light up all of them together —
+ * see `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+ * account for why that made a drop illegible the moment more than one target
+ * existed. The field is gone; `activeTarget` alone now drives the single
+ * `DropMark` this component draws, for a canvas-move drag exactly as before.
+ * A later task publishes a palette-origin drag's own winning target through
+ * that same field.
  */
 export interface EditableBlockInstrumentation {
   /** The selected block, in the renderer's hyphenated path form. */
@@ -34,15 +40,12 @@ export interface EditableBlockInstrumentation {
   /** Accessible name for the selected block's touch and keyboard grip. */
   readonly dragLabel: string;
   /**
-   * Every insertion target a palette-origin drag currently in progress would
-   * accept — non-null only while such a drag is active. Highlighted
-   * identically to {@link activeTarget}'s existing "place" highlight, but for
-   * EVERY entry at once rather than only the one currently under the
-   * pointer — a palette drop can land on any of them, so all of them light
-   * up together the moment the drag begins, not one at a time as the pointer
-   * happens to cross each in turn.
+   * How tall the block being carried is, in pixels, or `null` when nothing
+   * can be measured — every palette drag, since the block does not exist
+   * yet. Threaded so the mark is the size of the real landing rather than a
+   * fixed guess.
    */
-  readonly insertTargets: readonly InsertTarget[] | null;
+  readonly carriedHeight: number | null;
 }
 
 /** What {@link EditableBlockFrame} needs. */
@@ -66,14 +69,14 @@ export interface EditableBlockFrameProps {
  * grip, so a finger may still scroll anywhere else on the page. The wrapper
  * is editor-only and is never mounted by a public route.
  *
- * **It also highlights every palette insertion target at once (2026-09-05).**
- * `editor.insertTargets` is non-null only while a palette-origin drag is in
- * progress; every place named in it gets the same outline `activeTarget`'s
- * single "place" highlight already draws, rather than lighting up one at a
- * time as the pointer happens to cross each candidate — a palette drop can
- * land on any of them, and the whole point of this feature over the existing
- * canvas-move highlight is that a person sees every valid target before
- * choosing one.
+ * **It draws exactly one landing mark (2026-09-11), not every valid palette
+ * target at once.** `editor.activeTarget` is the single winner a drag's own
+ * collision has already resolved — a canvas-move drag's, today; a
+ * palette-origin drag's, once a later task publishes one — so drawing every
+ * candidate as well would be a second opinion about the same question, and
+ * it is what made the mark unobservable in jsdom (`isOver` is never set
+ * there). The mark is a {@link DropMark}, sized from
+ * `editor.carriedHeight` when there is a real block to measure.
  *
  * @param props - see {@link EditableBlockFrameProps}.
  * @returns the instrumented renderer node and editor-only feedback.
@@ -82,7 +85,7 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
   const { path: encodedPath, filled, editor, children } = props;
   const path = parseBlockPath(encodedPath) ?? [];
   const id = canvasPlaceId(path);
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id });
+  const { setNodeRef: setDropRef } = useDroppable({ id });
   const {
     attributes,
     listeners,
@@ -98,15 +101,6 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
     formatBlockPath(editor.activeTarget.path) === encodedPath
       ? editor.activeTarget.kind
       : undefined;
-  // **Every valid palette target lights up at once, not only the one under
-  // the pointer.** A palette drop is never a "before/after" linear insert —
-  // it targets the place itself — so this reuses the SAME `data-canvas-drop`
-  // value the pointer-driven "place" highlight already uses, rather than a
-  // second class list to keep in step with it.
-  const isInsertTarget =
-    editor.insertTargets?.some(
-      (insertTarget) => formatBlockPath(insertTarget.path) === encodedPath,
-    ) ?? false;
   const selected = editor.selectedPath === encodedPath;
   const emptyPlaceClass = filled
     ? ""
@@ -125,9 +119,7 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
       }}
       {...tid("canvas-drag-node")}
       data-canvas-path={encodedPath}
-      data-canvas-drop={
-        (target === "place" && isOver) || isInsertTarget ? "place" : undefined
-      }
+      data-canvas-drop={target === "place" ? "place" : undefined}
       onPointerDown={filled ? beginDesktopDrag : undefined}
       style={{
         transform: CSS.Translate.toString(transform),
@@ -136,20 +128,7 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
       className={`relative min-w-0 data-[canvas-drop=place]:outline-2 data-[canvas-drop=place]:outline-offset-2 data-[canvas-drop=place]:outline-(--accent) ${emptyPlaceClass}`}
     >
       {children}
-      {target === "before" && isOver ? (
-        <span
-          aria-hidden
-          {...tid("canvas-drop-before")}
-          className={`${CHROME_SCOPE} pointer-events-none absolute inset-x-0 top-0 z-20 h-1 -translate-y-1/2 rounded-full bg-(--accent)`}
-        />
-      ) : null}
-      {target === "after" && isOver ? (
-        <span
-          aria-hidden
-          {...tid("canvas-drop-after")}
-          className={`${CHROME_SCOPE} pointer-events-none absolute inset-x-0 bottom-0 z-20 h-1 translate-y-1/2 rounded-full bg-(--accent)`}
-        />
-      ) : null}
+      {target ? <DropMark kind={target} height={editor.carriedHeight} /> : null}
       {selected && filled ? (
         <button
           type="button"
@@ -168,7 +147,15 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
   );
 }
 
-/** What {@link AppendSlot} needs. */
+/**
+ * What {@link AppendSlot} needs.
+ *
+ * **Untouched by the single-mark change on {@link EditableBlockFrame}
+ * (2026-09-11)** — this component still lights up every matching
+ * `insertTargets` entry at once, through the field below, which is why it
+ * takes its own separate prop rather than an
+ * {@link EditableBlockInstrumentation}.
+ */
 export interface AppendSlotProps {
   /**
    * The append target's own renderer path — one past the container's own
@@ -180,8 +167,10 @@ export interface AppendSlotProps {
   readonly path: string;
   /**
    * Every insertion target a palette-origin drag currently in progress
-   * would accept, or `null` while none is — see
-   * {@link EditableBlockInstrumentation.insertTargets}.
+   * would accept, or `null` while none is. Unrelated to
+   * {@link EditableBlockInstrumentation} — this append slot has no
+   * existing block to instrument, so it reads its own membership list
+   * directly rather than through that interface.
    */
   readonly insertTargets: readonly InsertTarget[] | null;
 }
@@ -203,11 +192,13 @@ export interface AppendSlotProps {
  * that appears only after a drag has started has no rectangle for the
  * collision check to find.
  *
- * **The highlight is keyed on the identical `insertTargets` membership
- * check {@link EditableBlockFrame} uses, and reuses its exact class list.**
- * Every matching target lights up at once, never only the one currently
- * under the pointer — the same reasoning `EditableBlockFrame`'s own
- * `isInsertTarget` already states.
+ * **The highlight is keyed on `insertTargets` membership and reuses
+ * {@link EditableBlockFrame}'s exact "place" class list.** Every matching
+ * target lights up at once, never only the one currently under the
+ * pointer — this is the one place in the canvas that still lights up every
+ * palette target simultaneously rather than drawing a single winning mark;
+ * see `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+ * account for why {@link EditableBlockFrame} itself no longer does.
  *
  * @param props - see {@link AppendSlotProps}.
  * @returns an editor-only droppable marker: an empty, zero-height

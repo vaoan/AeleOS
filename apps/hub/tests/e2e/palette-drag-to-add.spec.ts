@@ -390,24 +390,30 @@ test("shows no highlight for a container-kind drag past the depth cap, while a s
     source!.y + source!.height / 2,
   );
 
-  // `data-canvas-drop="place"` is set from `editor.insertTargets`
-  // MEMBERSHIP alone (`editable-block-frame.tsx`) — constant for the whole
-  // drag, independent of where the pointer currently sits — so this reads
-  // correctly regardless of the pointer's exact position at this instant.
-  // The innermost container's own two places never appear in that list for
-  // a container-kind item: no highlight, for the entire drag.
+  // **`data-canvas-drop="place"` is set from `insertTargets` MEMBERSHIP
+  // alone, and only `AppendSlot` still draws it (`editable-block-frame.tsx`)
+  // — `EditableBlockFrame`'s own copy of this highlight is gone (this
+  // branch's own "drop-target-legibility" change), so the existing places
+  // "1-0-0-0"/"1-0-0-1"/"1-0-1" never carry the attribute any more, valid
+  // target or not, and can no longer discriminate the depth cap.** What
+  // still can, unaffected by that change, is each container's own APPEND
+  // SLOT — constant for the whole drag, independent of where the pointer
+  // currently sits. "1-0-0" was built fresh by `newContainer` and never
+  // touched again, so its own append slot is unambiguously "1-0-0-2"; a
+  // container's own places sitting a FOURTH level down from the page root
+  // is exactly what `insertTargetsFor` refuses to offer for a
+  // container-kind item, so this never lights up for the entire drag.
   await expect(
-    page.locator('[data-canvas-path="1-0-0-0"]'),
-  ).not.toHaveAttribute("data-canvas-drop", "place");
-  await expect(
-    page.locator('[data-canvas-path="1-0-0-1"]'),
+    page.locator('[data-canvas-path="1-0-0-2"]'),
   ).not.toHaveAttribute("data-canvas-drop", "place");
 
-  // A shallower target, one level up inside "1-0" itself, still admits a
-  // nested container (`mayNest([1,0,0])` holds — a new container there
-  // would sit at path length 3, still within the cap) — so its own
-  // still-empty place lights up during the exact same drag.
-  await expect(page.locator('[data-canvas-path="1-0-1"]')).toHaveAttribute(
+  // A shallower target, "1-0"'s own append slot, still admits a nested
+  // container (`mayNest` holds one level deeper than "1-0"'s own path,
+  // path length 3, still within the cap) — so it lights up during the
+  // exact same drag. "1-0" gained exactly one child from the single
+  // `addBlock` call above, on top of the two `newContainer` gave it, so its
+  // append slot is unambiguously "1-0-3".
+  await expect(page.locator('[data-canvas-path="1-0-3"]')).toHaveAttribute(
     "data-canvas-drop",
     "place",
   );

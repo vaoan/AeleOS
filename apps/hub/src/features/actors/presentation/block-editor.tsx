@@ -632,8 +632,11 @@ function detectCollisionAt(
  * pointer branch and the keyboard branch disagree about which targets exist.
  * Recomputing here only for the keyboard case would reopen exactly that
  * disagreement — the ranked pointer highlight (`insertTargets` on
- * `EditableBlockFrame`) and the keyboard step could point at two different
- * sets of targets during the same drag.
+ * `AppendSlot`, the one place still lighting up every candidate at once —
+ * see `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+ * account for why `EditableBlockFrame`'s own copy of this is gone) and the
+ * keyboard step could point at two different sets of targets during the
+ * same drag.
  *
  * **It keeps stepping until a rendered rectangle exists**, mirroring
  * {@link coordinateGetterAt}'s own loop for the identical reason: a target
@@ -1468,6 +1471,14 @@ function panelFootFor({
  * unreachable by pointer until now for want of a rendered rectangle to drop
  * onto. See the actors feature note's own account of both.
  *
+ * **A canvas-move drag's own landing draws exactly one `DropMark`, never
+ * every candidate (2026-09-11).** Its `wrap` call site passes
+ * `carriedHeight: null` into `EditableBlockInstrumentation` — there is no
+ * carried block to measure for this drag either, since it moves the
+ * rendered node itself rather than a ghost of it — see the actors feature
+ * note's "drop-target-legibility" account for the full change, including
+ * why `AppendSlot` alone still lights up every palette target at once.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1506,9 +1517,11 @@ export function BlockEditor<T extends FieldValues>({
   // calls as a no-op state update. Nothing else in this component re-renders
   // during that window, so `insertTargetsRef.current` — set at
   // `onDragStart` — was captured stale (still `null`, from before the drag)
-  // in every `EditableBlockFrame`/`AppendSlot` the tree renders, and
-  // `data-canvas-drop="place"` never appeared for a real pointer-driven
-  // palette drag. `palette-drag-to-add.spec.ts`'s own depth-cap case and
+  // in every `AppendSlot` the tree renders (and, before
+  // `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+  // change, every `EditableBlockFrame` too), and `data-canvas-drop="place"`
+  // never appeared for a real pointer-driven palette drag.
+  // `palette-drag-to-add.spec.ts`'s own depth-cap case and
   // `a11y.spec.ts`'s drag-in-progress scan both caught this the first time
   // either asked a real browser rather than jsdom's degenerate rects. This
   // state's only job is to differ from itself across that boundary — `true`
@@ -2444,7 +2457,15 @@ export function BlockEditor<T extends FieldValues>({
                                   selectedPath: selectedAttr || undefined,
                                   activeTarget: advertisedTarget,
                                   dragLabel: labels.dragBlock,
-                                  insertTargets: insertTargetsRef.current,
+                                  // **No carried block to measure for a
+                                  // canvas-move drag** — `null` is exactly
+                                  // right there too, since dragging an
+                                  // EXISTING block moves the rendered node
+                                  // itself rather than a ghost of it. A
+                                  // real height is a later task's job, once
+                                  // the palette's own winner is published
+                                  // through `activeTarget`.
+                                  carriedHeight: null,
                                 }}
                               >
                                 {children}

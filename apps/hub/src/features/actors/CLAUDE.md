@@ -7083,3 +7083,66 @@ id and height, so swapping the `before` and `place` entries in `PLACEMENT`
 left it green — rule 27 exactly. Sabotage-verified: that swap reddens
 precisely the `before` and `place` cases and nothing else; restored from a
 copy taken before the edit, not `git checkout --`.
+
+### The frame draws one mark, and stops lighting everything (2026-09-11) — Task 3 of the feature
+
+`EditableBlockFrame` draws exactly one `DropMark` now, driven solely by
+`editor.activeTarget` — the single winner a drag's own collision has
+already resolved — rather than a separate `insertTargets` field that lit up
+every palette candidate at once. That field, its TSDoc, its
+`isInsertTarget` membership check and the two hand-drawn `before`/`after`
+`<span>` fragments are gone; the `data-canvas-drop="place"` attribute is
+now written from `activeTarget` alone, with no `&& isOver` gate — `isOver`
+is never set in jsdom, which is exactly what made the old mark
+unobservable there, so it is dropped from the `useDroppable` destructure
+entirely rather than kept unused. `EditableBlockInstrumentation` gained
+`carriedHeight: number | null` in the field's place, threaded straight into
+`DropMark`'s own `height` prop.
+
+**The palette's own winner is NOT published through `activeTarget` yet —
+that is still a later task, exactly as this task's own brief says.**
+`advertisedTarget` (`block-editor.tsx`) stays `null` for the whole course of
+a palette-origin drag, unchanged by this task, so `EditableBlockFrame` now
+draws no mark at all during a palette drag rather than lighting up every
+valid target as it used to. `block-editor.tsx`'s one call site passes
+`carriedHeight: null` for a canvas-move drag too — there is no carried
+block for `DropMark` to measure there either, since a canvas-move drag
+moves the rendered node itself rather than a ghost of it.
+
+**`AppendSlot` is untouched, on purpose, and is now the one place in the
+canvas that still lights up every valid palette target at once.** It reads
+its own, separate `insertTargets` prop — fed from the same
+`insertTargetsRef` block-editor.tsx already threads, never from
+`EditableBlockInstrumentation` — and its membership-based highlight is
+exactly what it was before this task. That asymmetry is real, not an
+oversight: this task's file list names `editable-block-frame.tsx`'s
+`EditableBlockFrame` function and interface alone, not `AppendSlot`.
+
+**Two e2e specs were updated to keep the suite honest, per the brief's own
+correction 2, and one of them needed more than a comment fix.**
+`tests/e2e/support/editor.ts`'s two bare `insertTargets` mentions in
+`dragPaletteOnto`'s own comments now say the highlight they describe comes
+through `AppendSlot` alone — the underlying mechanism they document
+(waiting for `[data-canvas-drop="place"]` to appear before re-reading a
+drop target's geometry) is unaffected, because it was always `AppendSlot`'s
+own `min-h-12` growth being waited for, not anything `EditableBlockFrame`
+did. `tests/e2e/palette-drag-to-add.spec.ts`'s "shows no highlight for a
+container-kind drag past the depth cap, while a shallower target still
+lights up" test had asserted `data-canvas-drop="place"` on THREE existing,
+`EditableBlockFrame`-rendered places (`"1-0-0-0"`, `"1-0-0-1"`, `"1-0-1"`)
+— none of which can carry that attribute any more, valid target or not, so
+the "still lights up" half would have failed outright and the "no
+highlight" half would have passed for a reason that no longer discriminates
+anything. Both checks were moved onto each container's own APPEND SLOT
+instead (`"1-0-0-2"`, refused — a fourth level down; `"1-0-3"`, admitted —
+`"1-0"`'s own append slot, one level shallower), which is the one mechanism
+in this exact tree still driven by unchanged code. The append-slot indices
+are derived from `insertAt`'s own splice-before-null arithmetic, traced by
+hand against `firstOpenPlace`'s and `insertBlockAt`'s own documented
+contracts rather than run against a live browser — this task did not run
+the Playwright suite, per its own instructions, so that trace is worth
+re-checking the first time this spec is actually run again.
+
+**Verified:** `pnpm --filter hub test` (3,806 tests, all passing, no
+regressions), `pnpm typecheck` and `pnpm lint` (repository root) both
+clean. The Playwright suite was not run, per this task's own instructions.
