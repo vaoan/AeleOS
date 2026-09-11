@@ -7074,3 +7074,12 @@ stands at its own `min-h-12` rather than collapsing to nothing.
 component and its own six-case test suite only, the same incremental shape
 as the palette-targets entry just above it. Wiring it into the two real
 callers is a later task.
+
+**Review fix, same day: `drop-mark.test.tsx`'s kind-specific cases now assert
+whole class tokens (`top-0`/`-translate-y-1/2` for `before`, `bottom-0`/
+`translate-y-1/2` for `after`, `inset-0` for `place`), each with the other
+kinds' tokens explicitly excluded.** The original suite asserted only test
+id and height, so swapping the `before` and `place` entries in `PLACEMENT`
+left it green — rule 27 exactly. Sabotage-verified: that swap reddens
+precisely the `before` and `place` cases and nothing else; restored from a
+copy taken before the edit, not `git checkout --`.
