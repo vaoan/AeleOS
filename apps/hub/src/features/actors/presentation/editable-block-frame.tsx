@@ -10,6 +10,7 @@ import {
   parseBlockPath,
 } from "@/features/actors/domain/editor-selection";
 import { canvasPlaceId } from "@/features/actors/domain/block-drag";
+import type { InsertTarget } from "@/features/actors/domain/palette-targets";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
 import { DropMark } from "@/features/actors/presentation/drop-mark";
@@ -150,17 +151,17 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
 /**
  * What {@link AppendSlot} needs.
  *
- * **Draws exactly ONE landing mark now, matching {@link EditableBlockFrame}
+ * **Draws exactly ONE landing mark, matching {@link EditableBlockFrame}
  * (2026-09-11), not every valid palette target at once.** It used to carry
- * `insertTargets`, every insertion target a palette-origin drag would
- * accept, and light up every one of them together — see
- * `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
- * account for why that made a drop illegible the moment more than one
- * target existed. The field is gone; `activeTarget` and `carriedHeight`
- * take its place, the same two fields {@link EditableBlockInstrumentation}
- * carries — passed as their own props rather than that whole interface,
- * since this component has no existing block to instrument and needs
- * neither `selectedPath` nor `dragLabel`.
+ * `insertTargets` for that purpose too — every insertion target a
+ * palette-origin drag would accept, lit up as a full highlight on every
+ * one of them at once — see `apps/hub/src/features/actors/CLAUDE.md`'s
+ * "drop-target-legibility" account for why that made a drop illegible the
+ * moment more than one target existed. `activeTarget` and `carriedHeight`
+ * took over drawing; `insertTargets` came BACK the same day, MEASURED
+ * rather than restored on suspicion, for a second purpose that has nothing
+ * to do with drawing — see this interface's own field doc and
+ * {@link AppendSlot}'s.
  */
 export interface AppendSlotProps {
   /**
@@ -192,6 +193,19 @@ export interface AppendSlotProps {
    * Forwarded straight to {@link DropMark}.
    */
   readonly carriedHeight: number | null;
+  /**
+   * Every insertion target a palette-origin drag currently in progress
+   * would accept, or `null` while none is — the same value
+   * `insertTargetsFor` (`domain/palette-targets.ts`) answers, read fresh
+   * off `insertTargetsRef` by every caller.
+   *
+   * **This draws nothing. It only decides whether this position needs a
+   * real, hittable rectangle for the DURATION of the drag** — a different
+   * question from "is this the winner," which `activeTarget` alone
+   * answers. Conflating the two was a real regression: see
+   * {@link AppendSlot}'s own TSDoc for the measurement that found it.
+   */
+  readonly insertTargets: readonly InsertTarget[] | null;
 }
 
 /**
@@ -211,33 +225,58 @@ export interface AppendSlotProps {
  * that appears only after a drag has started has no rectangle for the
  * collision check to find.
  *
- * **Its own wrapper never changes size, marked or not (2026-09-11).** The
- * mark is a {@link DropMark}, absolutely positioned and out of flow, so
- * this element's own box stays whatever height it always had — the
- * reflow-under-a-live-drag fault a growing wrapper caused is what the
- * design's own out-of-flow constraint exists to forbid; see
- * `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
- * account.
+ * **It reserves real height for the WHOLE drag whenever `insertTargets`
+ * names this position, whether or not it is the current winner — closing a
+ * real regression the single-mark change caused, found by MEASURING a real
+ * browser rather than by reasoning about the CSS (2026-09-11).** Removing
+ * this component's own membership check removed the only thing that had
+ * ever given it real height: a {@link DropMark} is absolutely positioned
+ * and out of flow BY DESIGN, so it contributes nothing to its own parent's
+ * box. `getBoundingClientRect()` on a running page confirmed the wrapper
+ * measured `0px` tall whether marked or not, drag or no drag — a droppable
+ * dnd-kit cannot measure a real rectangle for cannot be landed on by a real
+ * pointer, which is worse than the light-everything fault this whole
+ * feature exists to fix. Reservation and drawing are two separate
+ * questions now: `insertTargets` membership — computed once at
+ * `onDragStart` and constant for the whole drag — reserves `min-h-12` on
+ * every valid landing regardless of which one is currently under the
+ * pointer, and `activeTarget` alone still decides which ONE of those gets
+ * an actual {@link DropMark}. This is not the light-everything fault
+ * returning: nothing is drawn and nothing is outlined, and the reservation
+ * never changes as the winner changes mid-drag — it is fixed the instant
+ * the drag begins, which is exactly when `@dnd-kit` caches every
+ * droppable's rectangle, so nothing moves underneath an already-cached
+ * rect the way the winner-driven reflow this design forbids would.
  *
  * @param props - see {@link AppendSlotProps}.
  * @returns an editor-only droppable marker: an empty box when nothing
- * marks it, or one carrying a {@link DropMark} when `activeTarget` names
- * this exact position.
+ * marks or reserves it, a reserved-but-unmarked box when `insertTargets`
+ * names it and `activeTarget` does not, or one carrying a {@link DropMark}
+ * when `activeTarget` names this exact position.
  */
 export function AppendSlot(props: AppendSlotProps): ReactNode {
-  const { path: encodedPath, activeTarget, carriedHeight } = props;
+  const {
+    path: encodedPath,
+    activeTarget,
+    carriedHeight,
+    insertTargets,
+  } = props;
   const path = parseBlockPath(encodedPath) ?? [];
   const { setNodeRef } = useDroppable({ id: canvasPlaceId(path) });
   const target =
     activeTarget && formatBlockPath(activeTarget.path) === encodedPath
       ? activeTarget.kind
       : undefined;
+  const reserved =
+    insertTargets?.some(
+      (candidate) => formatBlockPath(candidate.path) === encodedPath,
+    ) ?? false;
   return (
     <div
       ref={setNodeRef}
       {...tid("canvas-append-slot")}
       data-canvas-path={encodedPath}
-      className={`relative ${CHROME_SCOPE}`}
+      className={`relative ${CHROME_SCOPE} ${reserved ? "min-h-12" : ""}`}
     >
       {target ? <DropMark kind={target} height={carriedHeight} /> : null}
     </div>

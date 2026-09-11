@@ -7384,3 +7384,69 @@ none of these four files is part of the vitest suite), `pnpm typecheck`
 and `pnpm lint` (repository root) both clean, `pnpm check:tools` clean
 (cspell: 0 issues across 544 files). The Playwright suite was still not
 run.
+
+**A third round the same day found the reasoning above was wrong about
+something more basic than any e2e selector, and it was found by measuring
+rather than by re-reading the CSS.** The coordinator compared `AppendSlot`
+against `main` directly: before this task, its own wrapper carried
+`data-[canvas-drop=place]:min-h-12` — height on the SLOT ITSELF, triggered
+by membership; after, the wrapper carries no size-changing class at all,
+and the mark is `DropMark`, which is absolutely positioned and contributes
+nothing to its parent's box. If that reading were right, an append slot
+would be zero-height whether marked or not — and there is a chicken-and-egg
+in that: the slot needs height for a pointer to land inside its rectangle,
+and it is only marked once the pointer already has. That is a WORSE bug
+than the light-everything fault this whole feature exists to fix, and it
+would have been caused by this design's own "draw out of flow" rule,
+applied to the one component whose only height ever came from its own
+mark.
+
+**Measured directly rather than taken on the coordinator's word.** A
+throwaway Playwright spec (never committed, deleted after use) signed in,
+opened `/es/pages/new`, started a real palette drag, held the pointer well
+away from the canvas, and read `boundingBox()` on the page's own root
+append slot. **Before this fix: `{"height":0}`, identically before the
+drag and during it.** `getComputedStyle` agreed: `height: "0px"`. The
+reasoning was correct. An append slot had been genuinely unreachable by a
+real pointer since this task's own first commit — worse than illegible,
+since illegible at least LANDS somewhere.
+
+**The fix separates two questions `insertTargets` used to answer
+together and one field cannot answer alone.** `activeTarget` still decides
+which ONE valid landing draws an actual `DropMark` — that half is
+untouched. `insertTargets` came back as `AppendSlotProps`' third field,
+answering a different question: whether THIS position needs a real,
+hittable rectangle for the duration of the drag, regardless of whether it
+is the current winner. `AppendSlot` computes `reserved` from it — the
+identical membership check the deleted `isInsertTarget` used to make — and
+applies `min-h-12` when `reserved` is true, with no border, no background,
+no outline: nothing is DRAWN by this, only reserved. `activeTarget` and
+`insertTargets` can now disagree in either direction: a slot can be
+reserved and unmarked (every valid target except the one under the
+pointer), or — for the one case `insertMarkFor` ever produces a `place`
+kind on an append slot's own path, a container starting with no children
+at all — reserved AND marked at once. All four cases are pinned in
+`editable-block-frame.test.tsx`.
+
+**Why this is safe against the exact reflow this design forbids, and the
+coordinator's own reasoning for that is what this fix relies on rather
+than re-deriving.** `insertTargets` — `insertTargetsRef.current` — is
+computed exactly once, at `onDragStart`, and does not change for the rest
+of the drag; every reservation therefore happens in the SAME render as the
+drag's own start, before `@dnd-kit` measures and caches its droppable
+rectangles. What the out-of-flow rule forbids is the canvas reflowing as
+the WINNER changes mid-drag — the fault Task 4's own first version
+introduced and this file's earlier entries already document at length.
+Reserving space once, at the start, for every valid target at once, and
+never again for the rest of that same drag, is a different event
+entirely: measured again with the fix applied, the same append slot reads
+`{"height":0}` before the drag and `{"height":48}` during it, unchanged for
+as long as the drag continues with the pointer held in the same place.
+
+**Re-verified with the fix in place:** `pnpm --filter hub test` (3,813
+tests, the four new reservation cases included, all passing), `pnpm
+typecheck` and `pnpm lint` (repository root) both clean. The throwaway
+measurement spec was deleted immediately after use and never committed —
+confirmed absent from `git status` and from the working tree. Playwright's
+full suite was still not run; only the one throwaway file was, twice, by
+hand, for this specific measurement.

@@ -187,15 +187,15 @@ describe("EditableBlockFrame", () => {
 
 // THE PALETTE'S "APPEND A NEW ROW" DROPPABLE.
 //
-// `AppendSlot` draws exactly one mark now too (2026-09-11), matching
-// `EditableBlockFrame` above — it used to carry its own, separate
-// `insertTargets` prop and light up every matching entry at once. It reads
-// `activeTarget`/`carriedHeight` now, the same two fields
-// `EditableBlockInstrumentation` carries, so this file's own cases mirror
-// `EditableBlockFrame`'s shape rather than testing membership. It is always
-// mounted (a real `DndContext` is needed for the same reason `renderFrame`
-// above needs one), so what changes between cases here is only whether the
-// mark is drawn.
+// `AppendSlot` draws exactly one mark, matching `EditableBlockFrame` above
+// — it used to carry only `insertTargets` and light up every matching
+// entry at once. It reads `activeTarget`/`carriedHeight` for DRAWING now,
+// the same two fields `EditableBlockInstrumentation` carries. `insertTargets`
+// came back the same day for a SECOND, unrelated purpose — see
+// `AppendSlot`'s own TSDoc — reserving real height for the whole drag
+// whenever this position is a valid landing, regardless of which one is
+// currently marked. It is always mounted (a real `DndContext` is needed
+// for the same reason `renderFrame` above needs one).
 describe("AppendSlot", () => {
   /**
    * Renders one append slot inside a real `DndContext`.
@@ -204,12 +204,15 @@ describe("AppendSlot", () => {
    * @param activeTarget - the destination currently advertised by dnd-kit,
    * or `null` while none is.
    * @param carriedHeight - how tall the carried block is, or `null`.
+   * @param insertTargets - every insertion target a palette drag in
+   * progress would accept, or `null` while none is.
    * @returns what `render` returned.
    */
   function renderAppendSlot(
     path: string,
     activeTarget: AppendSlotProps["activeTarget"] = null,
     carriedHeight: AppendSlotProps["carriedHeight"] = null,
+    insertTargets: AppendSlotProps["insertTargets"] = null,
   ) {
     return render(
       <DndContext id="t">
@@ -217,6 +220,7 @@ describe("AppendSlot", () => {
           path={path}
           activeTarget={activeTarget}
           carriedHeight={carriedHeight}
+          insertTargets={insertTargets}
         />
       </DndContext>,
     );
@@ -257,5 +261,40 @@ describe("AppendSlot", () => {
     renderAppendSlot("0-2", { kind: "before", path: [0, 2] });
     expect(screen.getByTestId("canvas-drop-before")).toBeInTheDocument();
     expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  // **Reservation is a SEPARATE question from drawing, found by measuring a
+  // real browser: without it, `AppendSlot`'s own wrapper is 0px tall
+  // whether or not it is marked, because `DropMark` is absolutely
+  // positioned and contributes nothing to its parent's box.** These four
+  // cases pin the reservation independently of every drawing case above.
+  it("reserves no height while no palette drag is in progress", () => {
+    renderAppendSlot("0-2", null, null, null);
+    expect(screen.getByTestId("canvas-append-slot")).not.toHaveClass(
+      "min-h-12",
+    );
+  });
+
+  it("reserves no height when insertTargets never names this exact path", () => {
+    renderAppendSlot("0-2", null, null, [{ path: [0, 1] }]);
+    expect(screen.getByTestId("canvas-append-slot")).not.toHaveClass(
+      "min-h-12",
+    );
+  });
+
+  it("reserves height when insertTargets names this exact path, even though nothing is drawn", () => {
+    renderAppendSlot("0-2", null, null, [{ path: [0, 2] }]);
+    const slot = screen.getByTestId("canvas-append-slot");
+    expect(slot).toHaveClass("min-h-12");
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  it("reserves height AND draws the mark together when both name this exact path", () => {
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, null, [
+      { path: [0, 2] },
+    ]);
+    const slot = screen.getByTestId("canvas-append-slot");
+    expect(slot).toHaveClass("min-h-12");
+    expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
   });
 });

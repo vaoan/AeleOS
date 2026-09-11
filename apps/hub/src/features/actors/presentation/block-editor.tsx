@@ -814,6 +814,9 @@ function useResettableSelection(
  * values {@link BlockEditor} threads to every other `AppendSlot`/
  * `EditableBlockFrame` on the page (2026-09-11) — `activeTarget` a plain
  * state value, `carriedHeightRef` a ref for the reason above.
+ * `insertTargetsRef` is threaded too (measured back in the same day,
+ * 2026-09-11 — see `AppendSlot`'s own TSDoc): the page's own root append
+ * slot needs real height to be landable on exactly like every other one.
  *
  * @returns the append slot, or `null` while controls are hidden or page
  * interaction is on.
@@ -824,12 +827,14 @@ function pageRootAppendSlot({
   blocksLength,
   activeTarget,
   carriedHeightRef,
+  insertTargetsRef,
 }: {
   readonly controlsHidden: boolean;
   readonly interactionsEnabled: boolean;
   readonly blocksLength: number;
   readonly activeTarget: DropTarget | null;
   readonly carriedHeightRef: RefObject<number | null>;
+  readonly insertTargetsRef: RefObject<readonly InsertTarget[] | null>;
 }): ReactNode {
   if (controlsHidden || interactionsEnabled) return null;
   return (
@@ -837,6 +842,7 @@ function pageRootAppendSlot({
       path={formatBlockPath([blocksLength])}
       activeTarget={activeTarget}
       carriedHeight={carriedHeightRef.current}
+      insertTargets={insertTargetsRef.current}
     />
   );
 }
@@ -1483,10 +1489,15 @@ function panelFootFor({
  * own initial rect; a palette drag's `onDragOver` translates its winning
  * `InsertTarget` through `insertMarkFor` and publishes it through the same
  * `advertisedTarget` state a canvas-move drag already used, so
- * `EditableBlockFrame` and `AppendSlot` both read one shared value rather
- * than each keeping their own notion of what is being dragged. See the
- * actors feature note's "drop-target-legibility" account for the full
- * change.
+ * `EditableBlockFrame` and `AppendSlot` both read one shared value for
+ * DRAWING rather than each keeping their own notion of what is being
+ * dragged. **`AppendSlot` also reads `insertTargetsRef.current` still, for
+ * a second and different reason (found the same day by measuring a real
+ * browser): a `DropMark` is out of flow by design and gives an append
+ * slot's own wrapper no height at all, so without a separate reservation an
+ * append slot cannot be landed on by a real pointer whether or not it is
+ * currently marked.** See the actors feature note's "drop-target-legibility"
+ * account for the full change, including that measurement.
  *
  * @returns the page editor.
  */
@@ -2568,6 +2579,7 @@ export function BlockEditor<T extends FieldValues>({
                                   ])}
                                   activeTarget={advertisedTarget}
                                   carriedHeight={carriedHeightRef.current}
+                                  insertTargets={insertTargetsRef.current}
                                 />
                               );
                             },
@@ -2589,6 +2601,7 @@ export function BlockEditor<T extends FieldValues>({
             blocksLength: blocks.length,
             activeTarget: advertisedTarget,
             carriedHeightRef,
+            insertTargetsRef,
           })}
         </div>
       </DndContext>
