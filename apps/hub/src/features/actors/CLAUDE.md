@@ -7328,10 +7328,16 @@ its LAST CHILD rather than on the append slot's own element (see that
 function's own TSDoc, and the "second half" account above), so a valid
 drop's mark is not always the target locator's own descendant. The
 now-obsolete "wait for the reflow, then re-read geometry a second time"
-framing is corrected too: nothing in the canvas changes size while a drag
-is in progress any more, on any target, so the second geometry read that
-remains is a general safety margin rather than a fix for a specific known
-reflow.
+framing is corrected too: THE WINNER changing mid-drag never reflows the
+canvas any more, on any target, so the second geometry read that remains
+is a general safety margin rather than a fix for that specific known
+reflow. **This is narrower than it reads, and the paragraphs below name
+the exception: an `AppendSlot` target's own box still grows once, from its
+reservation, at the drag's own start — a size change that happens WHILE a
+drag is in progress, just never again for the rest of it.** (final review,
+2026-09-11 — the sentence above predates the third round further down this
+same task's entry, which reinstated that reservation and never came back
+to correct this sentence.)
 
 `tests/e2e/palette-drag-to-add.spec.ts`'s depth-cap test
 ("shows no highlight for a container-kind drag past the depth cap, while a
@@ -7455,6 +7461,51 @@ never again for the rest of that same drag, is a different event
 entirely: measured again with the fix applied, the same append slot reads
 `{"height":0}` before the drag and `{"height":48}` during it, unchanged for
 as long as the drag continues with the pointer held in the same place.
+
+**"Before `@dnd-kit` measures" was corrected by the branch's own final
+review (2026-09-11) — the reasoning above claims a render-ordering race
+that turns out not to exist, and the fix it defends is safe for a
+different reason than the one written down.** `MeasuringStrategy` is
+`WhileDragging` by default, which does not settle the question by itself:
+the only way to know whether the SPECIFIC rect used for the FIRST
+collision after `onDragStart` is fresh or stale is to compare `@dnd-kit`'s
+own cached rect against a live `getBoundingClientRect()`, not to read more
+source. Measured, twice, against a real running page:
+
+- A droppable ("2-0") sitting below a container whose own append slot gets
+  reserved on this drag reads `{"y":534.78}` before the drag and
+  `{"y":647}` once `onDragStart` has fired — a real 112.2px reflow, not the
+  48px the reservation alone accounts for (the rest is spacing the two
+  newly-real empty places above it also carry; both numbers are real, not
+  a measurement error).
+- **The pointer's own threshold-crossing move never produces an
+  `onDragOver` at all** — a temporary `console.log` of `event.over` from
+  inside it logged nothing on that first move, in either pass. `@dnd-kit`'s sensor
+  consumes the activating move to transition into "dragging" and does not
+  perform its first collision check until a SUBSEQUENT pointer event. A
+  probe drag whose activating move landed EXACTLY on "2-0"'s own live,
+  post-reservation coordinates — so there was no second move left for a
+  continuous re-measure to correct anything from — logged no `onDragOver`
+  at all for that move, and the very next `onDragOver` (from a second,
+  otherwise pointless move to the same spot) already read
+  `over.rect.top === 647`, matching the live DOM exactly.
+
+**So the two readings agree, and the practical claim — a drop is never
+resolved against a stale, pre-reservation rect — holds.** But not for the
+reason written down. There is no race between the reservation's render and
+`@dnd-kit`'s measurement to win, because `@dnd-kit` never attempts a
+measurement on the activating event in the first place; its first REAL
+collision check is structurally deferred to the next event, by which point
+React has already committed whatever `onDragStart` triggered, reservation
+included. "In the SAME render... before `@dnd-kit` measures" implies a
+timing contest that was won; what actually happens is that no contest is
+run until after the render has landed. The distinction matters for anyone
+extending this: a future change that made `@dnd-kit` collide on the
+activating move itself (or that moved the reservation into a later effect
+rather than the same `setState` batch `onDragStart` already writes) would
+not be protected by "the render is faster" the way this paragraph implies
+— it would depend on `@dnd-kit`'s sensor still deferring its first
+collision to a second event, which is the actual guarantee here.
 
 **Re-verified with the fix in place:** `pnpm --filter hub test` (3,813
 tests, the four new reservation cases included, all passing), `pnpm

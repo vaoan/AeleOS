@@ -1,7 +1,6 @@
 "use client";
 
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import type { DropTarget } from "@/features/actors/domain/block-drops";
@@ -117,6 +116,19 @@ export interface EditableBlockFrameProps {
  * landing. Every mark is located by its test id now; nothing reads the
  * attribute.
  *
+ * **The source dims in place and no longer carries `useDraggable`'s own
+ * `transform` (final review, 2026-09-11).** `<DragOverlay>` (see
+ * `block-editor.tsx`) already floats a `DragPreview` under the cursor,
+ * and `@dnd-kit` does not null out the active draggable's own `transform`
+ * just because an overlay exists — so applying both moved the source
+ * itself along with the overlay, which also dragged `returningPath`'s own
+ * mark along with it, since it is drawn INSIDE this same frame. Reading
+ * `isDragging` for opacity alone, and never `transform`, is the fix for
+ * both at once: the source stays at its place, dimmed, while the overlay
+ * alone follows the pointer. No jsdom case caught either fault, because
+ * none renders with an active drag — `transform` is `null` and
+ * `isDragging` is `false` in every case this file's own tests build.
+ *
  * @param props - see {@link EditableBlockFrameProps}.
  * @returns the instrumented renderer node and editor-only feedback.
  */
@@ -130,7 +142,6 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
     listeners,
     setNodeRef: setDragRef,
     setActivatorNodeRef,
-    transform,
     isDragging,
   } = useDraggable({ id, disabled: !filled });
   if (path.length === 0) return children;
@@ -160,7 +171,6 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
       data-canvas-path={encodedPath}
       onPointerDown={filled ? beginDesktopDrag : undefined}
       style={{
-        transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.5 : undefined,
       }}
       className={`relative min-w-0 ${emptyPlaceClass}`}

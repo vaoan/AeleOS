@@ -124,7 +124,17 @@ test("a palette drop lands where the mark said, mid-list", async ({ page }) => {
     .boundingBox();
   expect(mark).not.toBeNull();
   expect(neighbour).not.toBeNull();
-  expect(Math.abs(mark!.y - neighbour!.y)).toBeLessThan(mark!.height);
+  // **Compared against HALF the mark's own height, not the whole of it
+  // (final review, 2026-09-11).** `< mark!.height` also passes at a
+  // difference of 0 — a mark drawn flush with "1-1", filling its box rather
+  // than straddling the boundary above it, the exact "fills the block
+  // rather than falling between two" fault this branch exists to rule out
+  // — so that bound could not tell "straddles the boundary" from "fills the
+  // block". `-translate-y-1/2` puts the mark's own top edge at HALF its
+  // height above the neighbour's, so the true difference is `mark!.height /
+  // 2`; the tolerance is sub-pixel rounding, not slack for either fault.
+  const straddle = Math.abs(mark!.y - neighbour!.y);
+  expect(Math.abs(straddle - mark!.height / 2)).toBeLessThan(2);
 
   await page.mouse.up();
   // Past `@dnd-kit/core`'s own post-drop click-swallow window —

@@ -49,17 +49,29 @@ const MARK_ID: Record<DropTarget["kind"], string> = {
  * landing IS the place — an empty positional slot, or the block a swap will
  * exchange with.
  *
+ * **The `min-h-12` floor applies only when `height` is `null` (final
+ * review, 2026-09-11).** A real `carriedHeight` already says what the
+ * block will occupy — a canvas-move drag of something shorter than 48px
+ * must draw a ghost that size, not one floored up past it. The floor
+ * exists only to keep an unmeasured palette-drag ghost visible.
+ *
  * @param props - see {@link DropMarkProps}.
  * @returns the mark, positioned against the nearest positioned ancestor.
  */
 export function DropMark(props: DropMarkProps): ReactNode {
   const { kind, height } = props;
+  // The floor only stands in for an unmeasured height — a real
+  // `carriedHeight` is what the block will actually occupy, and a canvas
+  // move of a block shorter than 48px must not draw a ghost taller than the
+  // space it is leaving (final review, 2026-09-11: `min-h-12` used to apply
+  // unconditionally, so a short block's ghost overstated its own landing).
+  const heightClass = height === null ? "min-h-12" : "";
   return (
     <span
       aria-hidden
       {...tid(MARK_ID[kind])}
       style={height === null ? undefined : { height: `${height}px` }}
-      className={`${CHROME_SCOPE} ${PLACEMENT[kind]} pointer-events-none absolute z-20 min-h-12 rounded-lg border-2 border-dashed border-(--accent) bg-(--accent)/15`}
+      className={`${CHROME_SCOPE} ${PLACEMENT[kind]} pointer-events-none absolute z-20 ${heightClass} rounded-lg border-2 border-dashed border-(--accent) bg-(--accent)/15`}
     />
   );
 }

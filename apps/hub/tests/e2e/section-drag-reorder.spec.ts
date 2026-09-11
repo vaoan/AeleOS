@@ -408,6 +408,101 @@ test("a pointer drag between sibling places does not select either one", async (
   await expect(page.getByTestId("properties-panel")).toBeVisible();
 });
 
+// THE RETURNING MARK STAYS AT THE SOURCE — final review of
+// drop-target-legibility, Important 1/2.
+//
+// `EditableBlockFrame` used to apply `useDraggable`'s own `transform` to
+// the SOURCE frame even once `<DragOverlay>` gave the drag a floating
+// preview of its own — `@dnd-kit` does not null out the active draggable's
+// transform just because an overlay exists — so the source flew with the
+// cursor alongside the overlay, and `returningPath`'s own mark, drawn
+// INSIDE that same source frame, flew with it too. A swap's whole point is
+// "the displaced block comes back HERE", at the place it started; a mark
+// that instead tracks the pointer says the opposite of what it draws.
+//
+// Fixed by reading `isDragging` for the source's own opacity alone and
+// never `transform` — the source now dims in place, and the returning
+// mark (drawn as its own child) is anchored wherever the source itself
+// sits, which never moves during the drag.
+test("a swap's returning mark stays at the source place, not at the cursor", async ({
+  page,
+}) => {
+  await page.goto("/es/pages/new");
+  await addSection(page, "2");
+  await addBlock(page, { kind: "text" }, "1");
+  await page.getByTestId("leaf-title").fill("Left");
+  await addBlock(page, { kind: "text" }, "1");
+  await page.getByTestId("leaf-title").fill("Right");
+
+  // "Right" is selected from the add above; reselect "Left" so its grip is
+  // the one rendered, and its own frame is the SOURCE this test watches.
+  await selectBlock(page, "1-0");
+
+  const sourceFrameBefore = await page
+    .locator('[data-canvas-path="1-0"]')
+    .boundingBox();
+  const grip = await page.getByTestId("canvas-drag-1.0").boundingBox();
+  const target = await page.locator('[data-canvas-path="1-1"]').boundingBox();
+  expect(sourceFrameBefore).not.toBeNull();
+  expect(grip).not.toBeNull();
+  expect(target).not.toBeNull();
+
+  await page.mouse.move(grip!.x + grip!.width / 2, grip!.y + grip!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    grip!.x + grip!.width / 2 + 20,
+    grip!.y + grip!.height / 2,
+  );
+  // Dropping onto "1-1" — filled, and not the drag's own source — is a
+  // SWAP: `onDragOver`'s canvas-move branch publishes `returningPath` as
+  // the source ("1-0") whenever the winning target is an occupied `place`.
+  await page.mouse.move(
+    target!.x + target!.width / 2,
+    target!.y + target!.height / 2,
+    { steps: 8 },
+  );
+  const returning = page.getByTestId("canvas-drop-returning");
+  await returning.waitFor();
+
+  // THE CORE PROOF: the returning mark sits at the SOURCE's own place —
+  // where "Left" started, never at "1-1" where the pointer now is, and
+  // never straddling the pointer's own on-screen position.
+  const markDuringHover = await returning.boundingBox();
+  expect(markDuringHover).not.toBeNull();
+  expect(Math.abs(markDuringHover!.y - sourceFrameBefore!.y)).toBeLessThan(2);
+  expect(Math.abs(markDuringHover!.x - sourceFrameBefore!.x)).toBeLessThan(2);
+
+  // Move the pointer again, further still, without leaving "1-1" — a
+  // flying mark would move again with it; a source-anchored one will not.
+  await page.mouse.move(
+    target!.x + target!.width / 2 + 5,
+    target!.y + target!.height / 2 + 3,
+    { steps: 4 },
+  );
+  const markAfterSecondMove = await returning.boundingBox();
+  expect(markAfterSecondMove).not.toBeNull();
+  expect(Math.abs(markAfterSecondMove!.y - sourceFrameBefore!.y)).toBeLessThan(
+    2,
+  );
+  expect(Math.abs(markAfterSecondMove!.x - sourceFrameBefore!.x)).toBeLessThan(
+    2,
+  );
+
+  await page.mouse.up();
+  // Past `@dnd-kit/core`'s own post-drop click-swallow window (see the
+  // pointer test above for the full account).
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- see comment above.
+    () => new Promise((done) => setTimeout(done, 100)),
+  );
+
+  // The swap itself still happened, unaffected by where the mark drew.
+  await selectBlock(page, "1-0");
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Right");
+  await selectBlock(page, "1-1");
+  await expect(page.getByTestId("leaf-title")).toHaveValue("Left");
+});
+
 // THE OTHER HALF OF THIS FILE IS GONE, AND THE FAULT IT GUARDED CANNOT
 // RECUR.
 //

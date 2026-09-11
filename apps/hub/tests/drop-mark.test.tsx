@@ -57,6 +57,18 @@ describe("DropMark", () => {
     expect(mark).toBeVisible();
   });
 
+  // A canvas-move drag DOES measure a real height — `carriedHeightRef`, read
+  // at `onDragStart` from the block being lifted — and a block shorter than
+  // 48px must draw a ghost the size it will actually occupy, not a floor
+  // that overstates it. Final review, 2026-09-11: `min-h-12` used to apply
+  // unconditionally, so this case would have failed before the fix.
+  it("does not apply its own floor when a real height is supplied", () => {
+    render(<DropMark kind="place" height={20} />);
+    const mark = screen.getByTestId("canvas-drop-place");
+    expect(mark.className).not.toContain("min-h-12");
+    expect(mark).toHaveStyle({ height: "20px" });
+  });
+
   // The whole reason this is an overlay rather than a real opening gap: it
   // must not take part in layout, or every cached droppable rect goes stale
   // mid-drag.

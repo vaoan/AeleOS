@@ -297,9 +297,12 @@ async function waitForCanvasAccommodation(page: Page): Promise<void> {
  * (`domain/palette-targets.ts`) — so no mark exists anywhere on the page
  * until the pointer is actually over a valid landing; waiting for one
  * before moving there would wait forever. And the mark itself is an
- * absolutely positioned `DropMark`, out of flow by design, so nothing in
- * the canvas changes size while a drag is in progress any more, on any
- * target — see `apps/hub/src/features/actors/CLAUDE.md`'s
+ * absolutely positioned `DropMark`, out of flow by design, so THE WINNER
+ * changing mid-drag never reflows the canvas any more, on any target — an
+ * `AppendSlot` still reserves real height for every valid target ONCE, at
+ * the drag's own start, and holds that reservation for the drag's whole
+ * duration (task 4's own reinstated fix; the wrapper is not out of flow the
+ * way the mark is) — see `apps/hub/src/features/actors/CLAUDE.md`'s
  * "drop-target-legibility" account. This function moves the pointer onto
  * `targetCanvasPath` first, THEN waits for whichever of
  * `canvas-drop-before`/`-after`/`-place` the drop answers, unscoped to any
@@ -368,10 +371,14 @@ export async function dragPaletteOnto(
   // **The target's box is re-read here, AFTER the threshold-crossing move,
   // rather than reused from before `mouse.down()` — a general safety
   // margin now, not a fix for a known reflow (corrected 2026-09-11).**
-  // Nothing in the canvas changes size while a palette drag is in progress
-  // any more — see this function's own header doc — so re-reading costs
-  // nothing and protects only against something else on the page shifting
-  // between the lift and this move.
+  // The WINNER changing mid-drag never reflows the canvas any more — see
+  // this function's own header doc — but an `AppendSlot` target's own box
+  // can still have grown once by this point, from its reservation: that
+  // growth is published at `onDragStart`, which the threshold-crossing
+  // move just above already triggered, so it has already landed by the
+  // time this line runs. Re-reading here still costs nothing and still
+  // protects only against something else on the page shifting between the
+  // lift and this move.
   await targetLocator.scrollIntoViewIfNeeded();
   const settledTarget = await targetLocator.boundingBox();
   expect(

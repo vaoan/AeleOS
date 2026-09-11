@@ -3582,6 +3582,25 @@ works, and a new table stays red until it grants `service_role`.
   WERE — a fresh instance of the very fault being removed. Letting the gap
   genuinely open was weighed and refused on that, not on taste.
 
+  **One deliberate exception: an `AppendSlot` reserves real height for the
+  WHOLE drag, once, at its own start.** A `DropMark` contributes nothing to
+  its own parent's box by design, so an append slot with no mark drawn yet
+  has no rectangle for a real pointer to land on — a worse fault than the
+  one this feature fixes, since a droppable `@dnd-kit` cannot measure
+  cannot be hit at all. The reservation is computed once, before `@dnd-kit`
+  caches its rectangles, and never changes again for that drag's
+  duration — it is the WINNER changing mid-drag that the out-of-flow rule
+  forbids, not a single size change at the drag's own start.
+
+  **Task 5 shipped a fault the out-of-flow constraint exists to name, and it
+  reached this branch's own final review before it was caught.** `useDraggable`'s
+  `transform` still moved the SOURCE frame once `<DragOverlay>` gave the drag
+  its own floating preview, so the source flew with the cursor alongside the
+  overlay rather than dimming in place — and a swap's own returning mark,
+  drawn inside that same frame, flew with it too. Fixed by reading
+  `isDragging` for the source's own opacity alone and never its `transform`;
+  see `editable-block-frame.tsx`'s own TSDoc.
+
   **The ghost's own named cost materialised, and it is recorded rather than
   patched.** With real, titled content in every neighbour, the `before` mark
   visibly overlaps the block above and below instead of pushing either one —
