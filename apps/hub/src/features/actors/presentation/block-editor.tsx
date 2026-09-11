@@ -1520,6 +1520,11 @@ function panelFootFor({
  * AND `blockAt` finds a real block already occupying it; a `place` target
  * over an empty position is a move rather than a swap, so nothing is
  * published there. It is reset everywhere `advertisedTarget` already is.
+ * **It also excludes the drag's own source (review, same day)**: hovering
+ * back over where the drag started still resolves to an occupied `place`
+ * — nothing has moved yet — so `returningPath` is withheld when the
+ * winning path equals the source, or the source frame would draw both the
+ * landing mark and the returning mark at once for a drop that is a no-op.
  *
  * @returns the page editor.
  */
@@ -1924,6 +1929,14 @@ export function BlockEditor<T extends FieldValues>({
    * move, not a swap, and marking a return there would name a block that
    * never moves.
    *
+   * **And not when the winning place IS the source (2026-09-11, review).**
+   * Hovering back over where the drag started still resolves to a `place`
+   * target over a block `blockAt` can still find — nothing has moved yet —
+   * so without this guard the source frame drew both the landing mark and
+   * the returning mark at once, naming a no-op a swap. `moveBlock` hands a
+   * self-drop straight back as the identical array, so there is nothing to
+   * exchange and nothing should be marked as returning.
+   *
    * @param event - dnd-kit's own resolved-over event.
    */
   const onDragOver = (event: DragOverEvent): void => {
@@ -1944,11 +1957,12 @@ export function BlockEditor<T extends FieldValues>({
     const winner = keyboardTarget.current ?? pointerTarget.current;
     setAdvertisedTarget(winner);
     const from = canvasPlacePath(activeId) ?? placePath(activeId);
-    setReturningPath(
-      winner?.kind === "place" && from && blockAt(blocks, winner.path)
-        ? formatBlockPath(from)
-        : null,
-    );
+    const isSwap =
+      winner?.kind === "place" &&
+      from &&
+      formatBlockPath(from) !== formatBlockPath(winner.path) &&
+      blockAt(blocks, winner.path);
+    setReturningPath(isSwap ? formatBlockPath(from) : null);
   };
 
   /**

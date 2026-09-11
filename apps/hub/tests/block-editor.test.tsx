@@ -914,6 +914,104 @@ describe("the Properties panel", () => {
     ).toHaveAttribute("data-canvas-drop", "place");
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+    // A `place` landing over an EMPTY position is a move, not a swap —
+    // nothing is displaced, so `onDragOver`'s own computation must answer
+    // `null` here rather than always naming the source. An implementation
+    // that set `returningPath` whenever the winning kind is `place`,
+    // without checking `blockAt`, would light this up too.
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
+  });
+
+  // **Drives `onDragOver`'s own computation through a real collision
+  // (review, task 6) rather than supplying `returningPath` to the frame
+  // directly.** Every case above proves `EditableBlockFrame` renders
+  // correctly GIVEN a `returningPath`; this proves `block-editor.tsx`
+  // computes the right one from a live keyboard drag landing on an
+  // OCCUPIED place — the one line of judgement the task added. Three
+  // fully-occupied places rather than two, so the winning target (0-1) is
+  // not adjacent to nothing on either side, matching this file's own
+  // discrimination habit for canvas-move cases elsewhere.
+  it("computes returningPath from a real collision when a canvas-move drag lands on an occupied place", async () => {
+    harness([
+      {
+        ...newContainer("grid", 3),
+        children: [titled("A"), titled("B"), titled("C")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+    fireEvent.keyDown(document, { code: "ArrowDown" });
+    await settle();
+
+    const canvas = screen.getByTestId("editor-canvas");
+    expect(canvas.querySelector('[data-canvas-path="0-1"]')).toHaveAttribute(
+      "data-canvas-drop",
+      "place",
+    );
+    expect(
+      within(
+        canvas.querySelector('[data-canvas-path="0-1"]') as HTMLElement,
+      ).getByTestId("canvas-drop-place"),
+    ).toBeInTheDocument();
+    // The mark is on the SOURCE (0-0), where the displaced block B goes
+    // back to — not on the landing (0-1), and not floating unscoped.
+    expect(
+      within(
+        canvas.querySelector('[data-canvas-path="0-0"]') as HTMLElement,
+      ).getByTestId("canvas-drop-returning"),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        canvas.querySelector('[data-canvas-path="0-1"]') as HTMLElement,
+      ).queryByTestId("canvas-drop-returning"),
+    ).toBeNull();
+
+    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await settle();
+  });
+
+  // **The Minor from review: hovering back over the drag's own source must
+  // not mark a return.** Nothing has moved yet, so `blockAt` still finds
+  // the dragged block sitting at its own starting place — without an
+  // explicit self-check, `winner.path === from` would still read as an
+  // occupied `place` target and stack the returning mark on the very same
+  // element as the landing mark, naming a no-op a swap.
+  it("does not mark a return when a canvas-move drag hovers back over its own source", async () => {
+    harness([
+      {
+        ...newContainer("grid", 3),
+        children: [titled("A"), titled("B"), titled("C")],
+      },
+    ]);
+    fireEvent.click(screen.getByText("A"));
+    fireEvent.keyDown(screen.getByTestId("canvas-drag-0.0"), {
+      code: "Space",
+      key: " ",
+    });
+    await settle();
+    fireEvent.keyDown(document, { code: "ArrowDown" });
+    await settle();
+    fireEvent.keyDown(document, { code: "ArrowUp" });
+    await settle();
+
+    const canvas = screen.getByTestId("editor-canvas");
+    const source = canvas.querySelector(
+      '[data-canvas-path="0-0"]',
+    ) as HTMLElement;
+    // Still highlighted as the (no-op) landing...
+    expect(source).toHaveAttribute("data-canvas-drop", "place");
+    expect(within(source).getByTestId("canvas-drop-place")).toBeInTheDocument();
+    // ...but never also marked as where a displaced block returns to, on
+    // this element or anywhere else on the page.
+    expect(within(source).queryByTestId("canvas-drop-returning")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
+
+    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await settle();
   });
 
   it("keeps canvas drag instrumentation and feedback out of Preview", () => {

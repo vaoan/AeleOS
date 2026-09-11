@@ -7536,3 +7536,56 @@ return.
 Verified: `pnpm --filter hub test` (3,818 tests, all passing), `pnpm
 typecheck` and `pnpm lint` (repository root) both clean, `pnpm check:docs`
 clean. The Playwright suite was not run, per this task's own instructions.
+
+**Review round (2026-09-11): the computation itself was untested, and a
+self-swap stacked both marks on one element.** Every case above lived in
+`editable-block-frame.test.tsx` and proved the frame draws correctly GIVEN
+a `returningPath` — nothing drove a real `onDragOver` collision to prove
+`block-editor.tsx` COMPUTES the right one. That is the whole judgement this
+task added, and a suite that only supplies the answer and checks the
+drawing cannot tell a correct computation from one that always answers
+"swap".
+
+Two real cases now drive a real keyboard drag through `block-editor.test.tsx`,
+matching that file's own idiom (`fireEvent.keyDown` on the grip, then on
+`document`, `await settle()` between steps) rather than inventing one:
+`"computes returningPath from a real collision when a canvas-move drag
+lands on an occupied place"` lifts A in a fully-occupied three-place grid,
+steps onto B, and asserts `canvas-drop-returning` lands on the SOURCE
+element (`within(...)`, not a page-wide query) while the landing element
+carries none. The pre-existing empty-place case
+(`"highlights an empty positional place..."`) gained the negative half:
+asserting `canvas-drop-returning` is absent anywhere on the page. **That
+negative assertion is the one that answers the review's own question** —
+sabotage-verified by widening the computation to `winner?.kind === "place"
+&& from`, dropping both the `blockAt` occupancy check and the self-path
+check: the empty-place case reddens (a move erroneously marked as a swap),
+which is exactly "would this catch an implementation that always sets
+`returningPath`" answered yes.
+
+**The Minor — hovering a drag back over its own source stacked both marks
+on one element.** `winner.path === from` still resolves to an occupied
+`place` target, because nothing has moved yet and `blockAt` finds the
+dragged block sitting at its own starting place. Without a self-check, the
+source frame drew the landing mark (correctly — a no-op is still a legal,
+highlighted target) AND the returning mark (wrong — a no-op displaces
+nothing) on the same element. `onDragOver`'s `isSwap` now also requires
+`formatBlockPath(from) !== formatBlockPath(winner.path)`, and a new case,
+`"does not mark a return when a canvas-move drag hovers back over its own
+source"`, lifts A, steps to B, then steps back to A (`ArrowDown` then
+`ArrowUp`, landing exactly back on the source per `placeOrder`'s own
+inclusion of the source in its list) and asserts the place mark still shows
+while the returning mark does not, anywhere.
+
+**Each guard clause is pinned by a case that dies without it, checked by
+sabotage rather than assumed from the fixture's shape (root rule 29):**
+dropping only the self-check reddens exactly the self-swap case and
+nothing else; dropping only the occupancy check reddens exactly the
+empty-place case and nothing else; dropping both reddens both. All three
+sabotages were applied, watched red, and restored from a copy of the file
+rather than `git checkout --`, per this file's own rule 34.
+
+Verified again: `pnpm --filter hub test` (3,820 tests, all passing — two
+new), `pnpm typecheck` and `pnpm lint` (repository root) both clean, `pnpm
+check:docs` clean. The Playwright suite was not run, per this task's own
+instructions.
