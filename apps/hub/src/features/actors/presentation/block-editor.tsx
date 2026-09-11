@@ -2,6 +2,7 @@
 
 import {
   DndContext,
+  DragOverlay,
   KeyboardCode,
   KeyboardSensor,
   PointerSensor,
@@ -134,6 +135,7 @@ import {
   dragAnnouncements,
   type DragAnnouncementLabels,
 } from "@/features/actors/presentation/drag-announcements";
+import { DragPreview } from "@/features/actors/presentation/drag-preview";
 import { LeafEditor } from "@/features/actors/presentation/leaf-editor";
 import { StyleFields } from "@/features/actors/presentation/section-style-popup";
 import {
@@ -1499,6 +1501,19 @@ function panelFootFor({
  * currently marked.** See the actors feature note's "drop-target-legibility"
  * account for the full change, including that measurement.
  *
+ * **The carried block follows the cursor now (2026-09-11).** `DragOverlay`
+ * is the last child of `DndContext`, its own `dropAnimation` prop set to
+ * `null`, showing `DragPreview` whenever `activeLabel` is set.
+ * `onDragStart` sets it from `dragItemName(activeId)` — the same resolution
+ * `accessibility.announcements` already uses, so the overlay and the spoken
+ * name can never disagree about what is being carried — and it is cleared
+ * unconditionally at the top of `onDragEnd`, before either branch runs, and
+ * in `onDragCancel` alongside every other piece of transient drag chrome.
+ * The `null` `dropAnimation` is required rather than cosmetic: the default
+ * animation flies the preview back toward the dragged element's own source
+ * rectangle, and a completed insert has already moved that rectangle,
+ * sometimes to a different parent entirely.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1568,6 +1583,13 @@ export function BlockEditor<T extends FieldValues>({
   // own `sourceMounted` guard already uses for the source dock.
   const [paletteOpened, setPaletteOpened] = useState(false);
   const [cloneRefusal, setCloneRefusal] = useState<CloneRefusal | null>(null);
+  // **What `<DragOverlay>` names, for either drag origin.** Set at
+  // `onDragStart` from `dragItemName`, the same resolution the live-region
+  // announcement already uses — a palette item's own name for a
+  // palette-origin drag, `placeName(path)` for a canvas one — and cleared in
+  // both `onDragEnd` and `onDragCancel`, matching every other piece of
+  // transient drag chrome in this component.
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
 
   const field = useController({ control, name: "sections" as Path<T> });
   // Memoized so an unwritten field — which answers a fresh `[]` each time —
@@ -1824,10 +1846,16 @@ export function BlockEditor<T extends FieldValues>({
    * page edited mid-drag able to go stale under a target the drag is still
    * carrying (see `insertBlockAt`'s own independent re-check).
    *
+   * **Also names what `<DragOverlay>` shows.** `activeLabel` is set from
+   * `dragItemName`, the same resolution the live-region announcement already
+   * uses, so the floating preview and the spoken name can never disagree
+   * about what is being carried.
+   *
    * @param event - the lift.
    */
   const onDragStart = (event: DragStartEvent): void => {
     const activeId = String(event.active.id);
+    setActiveLabel(dragItemName(activeId));
     const paletteItem = palettePayload(activeId);
     if (paletteItem) {
       insertTargetsRef.current = insertTargetsFor(blocks, paletteItem);
@@ -1888,7 +1916,12 @@ export function BlockEditor<T extends FieldValues>({
     setAdvertisedTarget(keyboardTarget.current ?? pointerTarget.current);
   };
 
-  /** Clears transient destination chrome when a lift is cancelled. */
+  /**
+   * Clears transient destination chrome when a lift is cancelled.
+   *
+   * Also clears `activeLabel`, so `<DragOverlay>` shows nothing once a drag
+   * ends this way.
+   */
   const onDragCancel = (): void => {
     insertTargetsRef.current = null;
     paletteKeyboardTarget.current = null;
@@ -1899,6 +1932,7 @@ export function BlockEditor<T extends FieldValues>({
     carriedHeightRef.current = null;
     setAdvertisedTarget(null);
     setPaletteDragActive(false);
+    setActiveLabel(null);
   };
 
   /**
@@ -1919,9 +1953,16 @@ export function BlockEditor<T extends FieldValues>({
    * given, which is why the write is skipped by identity rather than by
    * comparing trees.
    *
+   * **Clears `activeLabel` unconditionally, before either branch runs.**
+   * `<DragOverlay dropAnimation={null}>` needs nothing left to show the
+   * instant a drop lands — the default animation flies the preview back
+   * toward a source rectangle a completed insert has already moved, so there
+   * is nothing to animate toward and no reason to delay the clear.
+   *
    * @param event - what was lifted, and what it was over.
    */
   const onDragEnd = (event: DragEndEvent): void => {
+    setActiveLabel(null);
     const activeId = String(event.active.id);
     const paletteItem = palettePayload(activeId);
     if (paletteItem) {
@@ -2604,6 +2645,14 @@ export function BlockEditor<T extends FieldValues>({
             insertTargetsRef,
           })}
         </div>
+        {/* **The carried block, named (drop-target-legibility, task 5).**
+            `dropAnimation={null}` because the default animation flies the
+            preview back toward its source rectangle, and a completed insert
+            has already moved that rectangle — animating toward a place that
+            no longer means anything. */}
+        <DragOverlay dropAnimation={null}>
+          {activeLabel ? <DragPreview label={activeLabel} /> : null}
+        </DragOverlay>
       </DndContext>
     </section>
   );

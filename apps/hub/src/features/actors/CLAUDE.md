@@ -7450,3 +7450,46 @@ measurement spec was deleted immediately after use and never committed —
 confirmed absent from `git status` and from the working tree. Playwright's
 full suite was still not run; only the one throwaway file was, twice, by
 hand, for this specific measurement.
+
+### The carried block follows the cursor (2026-09-11) — Task 5 of drop-target-legibility
+
+A drag now shows a floating preview naming what is being carried, closing
+the third of this feature's three complaints: the mark answers WHERE a
+block will land, the frame answers WHICH element it lands on, and this
+answers WHAT is being carried, since none of the two existing mechanisms
+said so and a person otherwise had to infer a drag was in progress from the
+mark alone.
+
+`presentation/drag-preview.tsx`'s `DragPreview` is the whole component — a
+label beside a grip glyph, wearing `CHROME_SCOPE` and painted with
+`bg-(--menu)`, the one token declared opaque in both modes, for the same
+reason every other workbench group in this feature is: what sits behind it
+is a colour the page's own author chose, and no measurement can promise
+contrast against a colour that is free to be anything. It carries no Motion
+of any kind, because `@dnd-kit` already writes this element's own
+`transform` to follow the pointer, and a second system writing the same
+property is the cascade fight the feature note already forbids elsewhere in
+this file.
+
+**It is mounted inside `<DragOverlay dropAnimation={null}>`, the last child
+of `<DndContext>` in `block-editor.tsx`.** `dropAnimation={null}` is not
+decoration: the default animation flies the overlay back toward the
+DRAGGED element's own source rectangle, and by the time a drop lands the
+insert has already moved that rectangle — sometimes to a different parent
+entirely — so the default would animate toward a place that no longer
+means what it did a moment earlier.
+
+**One piece of state, `activeLabel`, answers both drag origins through the
+function already built to say the right name out loud.** `onDragStart` sets
+it from `dragItemName(activeId)` — the exact function `accessibility.announcements`
+already uses to resolve a palette item's own name or `placeName(path)` for
+a canvas grip — so the overlay and the live-region announcement can never
+name two different things for the same lift. It is cleared unconditionally
+at the top of `onDragEnd`, before either branch runs, and in `onDragCancel`
+alongside every other piece of transient drag chrome that function already
+resets.
+
+Verified: `pnpm --filter hub test` (3,815 tests, all passing, two new for
+`DragPreview` itself), `pnpm typecheck` and `pnpm lint` (repository root)
+both clean, `pnpm check:docs` clean. The Playwright suite was not run, per
+this task's own instructions.
