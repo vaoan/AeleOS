@@ -109,6 +109,14 @@ export interface EditableBlockFrameProps {
  * writes it only when the winning target is an OCCUPIED `place`; an empty
  * place displaces nothing and a palette insert has no source to return.
  *
+ * **It writes no `data-canvas-drop` attribute any more (2026-09-11).** That
+ * attribute used to duplicate what the mark's own `canvas-drop-*` test id
+ * already says, and it drove a second, independent CSS highlight — an
+ * accent outline ring, predating {@link DropMark} — that had become a
+ * decoration doubled on top of the mark's own fill for the identical
+ * landing. Every mark is located by its test id now; nothing reads the
+ * attribute.
+ *
  * @param props - see {@link EditableBlockFrameProps}.
  * @returns the instrumented renderer node and editor-only feedback.
  */
@@ -150,13 +158,12 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
       }}
       {...tid("canvas-drag-node")}
       data-canvas-path={encodedPath}
-      data-canvas-drop={target === "place" ? "place" : undefined}
       onPointerDown={filled ? beginDesktopDrag : undefined}
       style={{
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.5 : undefined,
       }}
-      className={`relative min-w-0 data-[canvas-drop=place]:outline-2 data-[canvas-drop=place]:outline-offset-2 data-[canvas-drop=place]:outline-(--accent) ${emptyPlaceClass}`}
+      className={`relative min-w-0 ${emptyPlaceClass}`}
     >
       {children}
       {target ? <DropMark kind={target} height={editor.carriedHeight} /> : null}

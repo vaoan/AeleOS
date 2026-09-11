@@ -908,10 +908,12 @@ describe("the Properties panel", () => {
     await settle();
 
     expect(
-      screen
-        .getByTestId("editor-canvas")
-        .querySelector('[data-canvas-path="0-1"]'),
-    ).toHaveAttribute("data-canvas-drop", "place");
+      within(
+        screen
+          .getByTestId("editor-canvas")
+          .querySelector('[data-canvas-path="0-1"]') as HTMLElement,
+      ).getByTestId("canvas-drop-place"),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
     // A `place` landing over an EMPTY position is a move, not a swap —
@@ -948,10 +950,6 @@ describe("the Properties panel", () => {
     await settle();
 
     const canvas = screen.getByTestId("editor-canvas");
-    expect(canvas.querySelector('[data-canvas-path="0-1"]')).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
-    );
     expect(
       within(
         canvas.querySelector('[data-canvas-path="0-1"]') as HTMLElement,
@@ -1003,7 +1001,6 @@ describe("the Properties panel", () => {
       '[data-canvas-path="0-0"]',
     ) as HTMLElement;
     // Still highlighted as the (no-op) landing...
-    expect(source).toHaveAttribute("data-canvas-drop", "place");
     expect(within(source).getByTestId("canvas-drop-place")).toBeInTheDocument();
     // ...but never also marked as where a displaced block returns to, on
     // this element or anywhere else on the page.

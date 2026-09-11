@@ -3558,31 +3558,49 @@ something other than drift, it is still working: a pull request that **adds** a
 migration stays red until it is pushed to live, which is how this repo already
 works, and a new table stays red until it grants `service_role`.
 
-- **Drop-target legibility — DESIGNED, NOT BUILT (2026-09-07/08).** The editor
-  draws every possible landing alike, draws nothing under the cursor, and for
-  a palette insert draws **the wrong element entirely**: an insert target's
-  last segment is a splice index meaning "before this position", so the gap it
-  names is drawn as the BLOCK at that position — the one that gets pushed
-  down. It reads correct at an empty place, where a gap and a place coincide,
-  and is wrong at every filled one, which is exactly the "some layouts" in the
-  report.
+- **Drop-target legibility — DELIVERED (2026-09-07/11).** The editor used to
+  draw every possible landing alike, draw nothing under the cursor, and for a
+  palette insert draw **the wrong element entirely**: an insert target's last
+  segment is a splice index meaning "before this position", so the gap it
+  named was drawn as the BLOCK at that position — the one that gets pushed
+  down. It read correct at an empty place, where a gap and a place coincide,
+  and was wrong at every filled one, which was exactly the "some layouts" in
+  the original report.
 
-  **The canvas-move path already solved this and the palette reused none of
-  it.** `DropTarget`'s `before`/`after` are drawn by `EditableBlockFrame` as an
-  accent bar sitting ON the boundary, gated on `isOver` so only the hovered one
-  appears. So the work is not inventing a gap mark; it is giving the palette
-  that vocabulary through one pure translation, then raising both from a bar to
-  a ghost slot.
+  **The canvas-move path already solved this and the palette now shares it.**
+  `insertMarkFor` (`domain/palette-targets.ts`) is the one pure translation
+  from a splice index to a gap — `before`/`after` an existing sibling, or
+  `place` for an empty position or an occupied one being swapped with — and
+  both drag origins publish through the same `activeTarget` field
+  `EditableBlockFrame` and `AppendSlot` read. Only the winner a drag's own
+  collision has resolved is ever drawn; nothing lights up a whole set of
+  candidates any more, on either path.
 
-  **The slot is drawn OUT OF FLOW, and that is the load-bearing constraint.**
-  `@dnd-kit` caches every droppable's rectangle when a drag begins, so a canvas
-  that reflows mid-drag makes the collision answer about where things WERE —
-  a fresh instance of the very fault being removed. Letting the gap genuinely
-  open was weighed and refused on that, not on taste. A later "just animate the
-  gap open" change would silently undo it.
+  **The mark is drawn OUT OF FLOW, and that is the load-bearing constraint.**
+  `@dnd-kit` caches every droppable's rectangle when a drag begins, so a
+  canvas that reflows mid-drag makes the collision answer about where things
+  WERE — a fresh instance of the very fault being removed. Letting the gap
+  genuinely open was weighed and refused on that, not on taste.
 
-  Spec: `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md`.
-  Plan: `docs/superpowers/plans/2026-09-08-drop-target-legibility.md`.
+  **The ghost's own named cost materialised, and it is recorded rather than
+  patched.** With real, titled content in every neighbour, the `before` mark
+  visibly overlaps the block above and below instead of pushing either one —
+  confirmed twice, once by the browser proof and once by photograph. That is
+  not a defect: the design named this cost before anything was built and
+  chose it anyway, and the fallback (a plain insertion bar, which is what the
+  canvas path already draws) is written down for whoever decides the trade no
+  longer holds.
+
+  A swap draws a second, muted, dotted mark at the displaced block's own
+  return position, beside the accent mark naming where the carried block is
+  going. A floating preview beside the cursor names what is being carried,
+  for both drag origins.
+
+  Spec: `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md`,
+  marked delivered. Plan:
+  `docs/superpowers/plans/2026-09-08-drop-target-legibility.md`. Full
+  account, task by task: `apps/hub/src/features/actors/CLAUDE.md`'s own
+  "drop-target-legibility" entries.
 
 Claude's role throughout: build and test the hub here, specify exactly what to
 configure in Clerk, and write the per-app integration code in the respective app

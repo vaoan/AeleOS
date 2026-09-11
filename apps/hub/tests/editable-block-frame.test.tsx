@@ -163,26 +163,19 @@ describe("EditableBlockFrame", () => {
     expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
   });
 
-  it("draws a place mark, with the drop attribute, when activeTarget names this exact path", () => {
+  it("draws a place mark when activeTarget names this exact path", () => {
     renderFrame({
       path: "0-1",
       editorProps: { activeTarget: { kind: "place", path: [0, 1] } },
     });
-    expect(screen.getByTestId("canvas-drag-node")).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
-    );
     expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
   });
 
-  it("draws a before mark, with no drop attribute, when activeTarget names a before landing here", () => {
+  it("draws a before mark when activeTarget names a before landing here", () => {
     renderFrame({
       path: "0-1",
       editorProps: { activeTarget: { kind: "before", path: [0, 1] } },
     });
-    expect(screen.getByTestId("canvas-drag-node")).not.toHaveAttribute(
-      "data-canvas-drop",
-    );
     expect(screen.getByTestId("canvas-drop-before")).toBeInTheDocument();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
@@ -201,9 +194,6 @@ describe("EditableBlockFrame", () => {
       path: "0-1",
       editorProps: { activeTarget: { kind: "place", path: [0, 0] } },
     });
-    expect(screen.getByTestId("canvas-drag-node")).not.toHaveAttribute(
-      "data-canvas-drop",
-    );
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
@@ -220,9 +210,6 @@ describe("EditableBlockFrame", () => {
 
   it("draws nothing while no drag is in progress", () => {
     renderFrame({ path: "0-1", editorProps: { activeTarget: null } });
-    expect(screen.getByTestId("canvas-drag-node")).not.toHaveAttribute(
-      "data-canvas-drop",
-    );
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-place")).toBeNull();

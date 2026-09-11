@@ -7077,12 +7077,18 @@ callers is a later task.
 
 **Review fix, same day: `drop-mark.test.tsx`'s kind-specific cases now assert
 whole class tokens (`top-0`/`-translate-y-1/2` for `before`, `bottom-0`/
-`translate-y-1/2` for `after`, `inset-0` for `place`), each with the other
-kinds' tokens explicitly excluded.** The original suite asserted only test
-id and height, so swapping the `before` and `place` entries in `PLACEMENT`
-left it green — rule 27 exactly. Sabotage-verified: that swap reddens
-precisely the `before` and `place` cases and nothing else; restored from a
-copy taken before the edit, not `git checkout --`.
+`translate-y-1/2` for `after`, `inset-0` for `place`), and each excludes the
+tokens that would place a DIFFERENT kind's box.** That is narrower than "the
+other kinds' tokens" stated as a blanket claim — corrected here rather than
+left overstating what the suite checks (2026-09-11): only the `place` case
+excludes all four positioning tokens; `before` excludes `inset-0`/`bottom-0`
+but not `translate-y-1/2` (a token `before` never carries, since it only ever
+carries `-translate-y-1/2`), and `after` excludes `inset-0`/`top-0` but not
+`-translate-y-1/2` for the mirrored reason. The original suite asserted only
+test id and height, so swapping the `before` and `place` entries in
+`PLACEMENT` left it green — rule 27 exactly. Sabotage-verified: that swap
+reddens precisely the `before` and `place` cases and nothing else; restored
+from a copy taken before the edit, not `git checkout --`.
 
 ### The frame draws one mark, and stops lighting everything (2026-09-11) — Task 3 of the feature
 
@@ -7098,6 +7104,11 @@ unobservable there, so it is dropped from the `useDroppable` destructure
 entirely rather than kept unused. `EditableBlockInstrumentation` gained
 `carriedHeight: number | null` in the field's place, threaded straight into
 `DropMark`'s own `height` prop.
+
+**Superseded by Task 8, same day: the attribute itself is gone.** Once
+every mark is located by its own `canvas-drop-before`/`-after`/`-place`
+test id, `data-canvas-drop` was a second vocabulary for the identical fact
+— see "Task 8" below for the close-out.
 
 **The palette's own winner is NOT published through `activeTarget` yet —
 that is still a later task, exactly as this task's own brief says.**
@@ -7285,9 +7296,11 @@ overriding the deferral.** All four sites that depended on
 left for Task 7 — the ruling was that `dragPaletteOnto` is load-bearing
 for Task 7's own browser proof, and this branch has already paid once for
 leaving a suite red across several tasks. `data-canvas-drop` itself stays
-on `EditableBlockFrame` (`editable-block-frame.tsx:122`, the only place
-that still writes it), deferred to a later coherence pass rather than
-removed here — it is redundant with the mark's own test id now, not wrong.
+on `EditableBlockFrame` (still the only place that writes it, at this
+task's own moment), deferred to a later coherence pass rather than removed
+here — it is redundant with the mark's own test id now, not wrong. **That
+coherence pass is Task 8**, which removes the attribute outright — see its
+own entry below for what that cost in the tests that had been asserting it.
 
 **One of the four sites turned out to need more than a selector swap, and
 finding that is the actual content of this addendum.**
@@ -7589,3 +7602,118 @@ Verified again: `pnpm --filter hub test` (3,820 tests, all passing — two
 new), `pnpm typecheck` and `pnpm lint` (repository root) both clean, `pnpm
 check:docs` clean. The Playwright suite was not run, per this task's own
 instructions.
+
+### The branch closes: one gap vocabulary, out of flow, one winner (2026-09-11) — Task 8 of drop-target-legibility
+
+Task 7's own browser proof (`drop-mark-matches-landing.spec.ts`, not
+appended to this file at the time — its brief named no file list entry for
+this note, and it is not one) confirmed the design's own predicted cost:
+with real, titled content, the ghost mark visibly overlaps the block above
+and below rather than pushing either one. That is not a bug this task
+fixes; it is the fallback the design already named (the plain insertion
+bar) and a decision the owner made knowing the cost, recorded as measured
+fact in the design spec's own status line rather than left as a prediction.
+
+**The whole feature, restated in one place now that every task has
+landed.** A palette drag and a canvas-move drag share one gap vocabulary,
+`insertMarkFor` (`domain/palette-targets.ts`): `before`/`after` an existing
+sibling, or `place` for an empty position or an occupied one being swapped
+with. It exists because an `InsertTarget`'s own path carries `insertAt`'s
+splice contract — the last segment means "insert BEFORE whatever sits at
+this index" — so drawing the BLOCK at that index marks the sibling about to
+be pushed down rather than the space the dragged item will actually take;
+translating a splice index into a gap is the entire reason this module was
+worth writing. The mark itself, `DropMark`, is drawn absolutely positioned
+and out of flow — never a real space that opens — because `@dnd-kit` caches
+every droppable's rectangle at drag start, and a page that reflows mid-drag
+leaves those rectangles stale, which is a fresh instance of the exact
+lying-mark fault this whole feature exists to remove. And only the winner
+is ever drawn: `EditableBlockFrame` and `AppendSlot` both read the single
+`activeTarget` a drag's own collision has already resolved, never a set of
+candidates lit up at once — which is what finally, completely supersedes
+the "light-everything" comment `EditableBlockFrame` carried into this
+branch, since `data-canvas-drop` (below) was its last surviving remnant.
+
+**Debt 1 — `data-canvas-drop` is gone.** It was emitted in exactly one
+place, `EditableBlockFrame`, only when the target kind is `place` — and it
+was doing two jobs at once, both now redundant. As a TEST hook, every mark
+is already located by its own `canvas-drop-before`/`-after`/`-place` test
+id, so nothing needed the attribute to find a mark. As CSS, it drove a
+second, independent "place" highlight — `data-[canvas-drop=place]:outline-2
+outline-offset-2 outline-(--accent)`, an accent ring drawn OUTSIDE the
+frame's own border — that predates `DropMark` entirely (confirmed with
+`git log -p`, not assumed) and had become a second decoration doubled on
+top of `DropMark`'s own `inset-0` dashed-border-and-tint fill for the exact
+same landing. Both the attribute and the outline classes are removed from
+`editable-block-frame.tsx`; nothing else in `apps/hub/src` or `apps/hub/tests`
+read it (confirmed by grep before removing, per the debt's own instruction),
+except the unit tests that asserted its presence or absence directly —
+`editable-block-frame.test.tsx` and `block-editor.test.tsx` — which lose
+those specific assertions while keeping every test-id-based assertion
+beside them, since those already prove the same fact through the surviving
+vocabulary. `tests/e2e/support/editor.ts`'s own comment mentioning the
+attribute is left untouched: it is already past-tense, historical prose
+about what `dragPaletteOnto` used to wait for before this branch's Task 4
+corrected it, not a claim about current behaviour.
+
+**Debt 2 — a task 2 sentence claimed more discrimination than the suite
+has.** "Each `DropMark` case excludes the other kinds' tokens" is true only
+of the `place` case, which excludes all four positioning tokens
+(`top-0`/`bottom-0`/`-translate-y-1/2`/`translate-y-1/2`). The `before` case
+excludes `inset-0`/`bottom-0` but never asserts `not.toContain("translate-y-1/2")`
+— the token `after` carries — and `after` excludes `inset-0`/`top-0` but
+never asserts against `-translate-y-1/2`, `before`'s own token. Corrected in
+place above rather than left standing next to a suite that does not do what
+it claims; sabotage discrimination is unaffected, as the debt itself said it
+would be.
+
+**Debt 3 — the `height: null` case now asserts `toBeVisible()`.** `min-h-12`
+being present and the inline height not being `0px` do not rule out the
+element being hidden a different way — `display: none`, `visibility: hidden`,
+zero opacity — and none of those was excluded before this. One line.
+
+**Debt 7 — "only the winner is marked" is a named assertion now.**
+`drop-mark-matches-landing.spec.ts` asserts
+`(await page.getByTestId(/^canvas-drop-/).count()) === 1` before reading
+the mark's geometry — a regex `getByTestId`, not a raw attribute selector,
+to satisfy this repository's own `no-restricted-syntax` rule preferring test
+ids over CSS attribute selectors. Uniqueness of one exact test id was
+already implicit in Playwright's strict-mode resolution; this is the
+central branch claim asked for explicitly rather than left emergent.
+
+**Photographs.** Three, taken with a throwaway spec (never committed,
+deleted after use, the same idiom Task 7's own report used): a palette drag
+hovering a filled mid-list position, a canvas-move drag over an empty
+place, and a swap over an occupied place. The first CONFIRMS the overlap
+risk visually — the dashed accent box straddles the boundary between the
+first and second of three real, titled leaves, legible as landing on the
+seam rather than cleanly between the two. The second and third show the `place`
+mark behaving differently and without that cost: over an empty position it
+fills the whole target cleanly, and over an occupied one (the swap) it
+deliberately covers the whole displaced block, with a second, muted, dotted
+mark on the block's own return position — both readable as "the whole box
+is the landing," which is the correct reading for a `place` target rather
+than a gap between two things. **Reading the frames back rather than only
+the claim they were taken for**: all three carry a small red "1 Issue"
+badge in the bottom-left corner, a Next.js dev-mode overlay unrelated to
+this feature — traced to a pre-existing `ClerkRuntimeError` console warning
+from `useSupabaseBrowserClient` during server-side rendering
+(`clerk_runtime_not_browser`), present on every route this session visited
+and not something this task introduced or is in scope to fix. Named here
+so a future reader comparing a screenshot against production does not read
+it as a regression this branch shipped.
+
+**Gates, all from the repository root.** `pnpm typecheck` clean across the
+root, `hub` and `@aeleos/identity`. `pnpm --filter hub build` clean, all
+twelve routes compiling. `pnpm lint` clean (one violation surfaced and was
+fixed in the new count assertion itself — a raw attribute selector, moved to
+a regex `getByTestId`). `pnpm --filter hub test:coverage`: 3,820 tests,
+100% on all four axes (statements 2426/2426, branches 1595/1595, functions
+658/658, lines 2096/2096). `pnpm test:tools`: 141 tests, all passing.
+`pnpm check:tools`: clean — cspell 0 issues across 547 files, `ls-lint`,
+`check:style`, `sherif`, `syncpack lint` and `madge --circular` all clean;
+`knip` and `jscpd` report informationally (`--no-exit-code`) and do not
+gate. The Playwright suite was not re-run in full — Task 7 already proved
+it clean at 205/0 — but the throwaway photograph spec exercised the palette
+mid-list drag, a canvas-move drag onto an empty place, and a canvas-move
+swap, all three against a freshly started dev server, all three passing.

@@ -106,6 +106,13 @@ test("a palette drop lands where the mark said, mid-list", async ({ page }) => {
   );
   await page.getByTestId("canvas-drop-before").waitFor();
 
+  // ONLY THE WINNER IS MARKED — the central claim of this whole branch,
+  // named directly rather than left to `getByTestId`'s own strict-mode
+  // resolution (which throws on more than one match for the SAME test id,
+  // but says nothing about a second mark of a DIFFERENT kind existing
+  // somewhere else on the page at once).
+  expect(await page.getByTestId(/^canvas-drop-/).count()).toBe(1);
+
   // THE CORE PROOF, part one: read where the mark says the block will land.
   // `DropMark`'s `before` placement (`drop-mark.tsx`) sits at the top of its
   // host, translated up by half its own height, so it straddles the

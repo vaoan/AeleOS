@@ -50,6 +50,11 @@ describe("DropMark", () => {
     const mark = screen.getByTestId("canvas-drop-before");
     expect(mark.className).toContain("min-h-12");
     expect(mark).not.toHaveStyle({ height: "0px" });
+    // `min-h-12` and an unset inline height are not enough on their own to
+    // rule out the element being hidden a different way (display: none,
+    // visibility: hidden, zero opacity) — this is the assertion that would
+    // catch that.
+    expect(mark).toBeVisible();
   });
 
   // The whole reason this is an overlay rather than a real opening gap: it

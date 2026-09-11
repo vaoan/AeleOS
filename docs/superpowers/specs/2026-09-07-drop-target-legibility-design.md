@@ -1,6 +1,6 @@
 # Drop target legibility — Design
 
-**Status:** designed, not built.
+**Status:** delivered.
 
 ## 1. Context and goal
 
@@ -139,6 +139,21 @@ rather than _between_. That is the thing to look at first when this is
 photographed, and the reason to keep A available as a fallback.
 
 **Only the winner is drawn.** No other candidate is marked at all.
+
+**The risk materialised — measured, not merely predicted (2026-09-11).**
+Task 7's browser proof and Task 8's own photograph pass both drove a real
+drag over a section of three real, titled leaves and looked at the result:
+with genuine content in every neighbour, the `before` mark's dashed accent
+box visibly straddles the boundary, its top half overlapping the bottom of
+the block above and its bottom half overlapping the top of the block below,
+with the floating drag preview sitting on top of both. It reads as landing
+_on_ a block rather than cleanly _between_ two, exactly as this section
+predicted before anything was built. This is recorded as the outcome rather
+than fixed: the owner chose option C knowing this cost, it was named an
+escalation rather than a defect above, and the fallback — option A, the
+plain insertion bar the canvas path already draws — is already written
+down for whoever decides the trade no longer holds. It is not, on its own,
+a bug to patch quietly.
 
 ## 5. Decision: the carried block is visible
 
