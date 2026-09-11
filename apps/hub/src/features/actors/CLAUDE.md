@@ -7018,3 +7018,26 @@ separately, but it is not what the two bugs above are, and the two must not
 be conflated: a network blip explains a batch of unrelated navigations
 failing together, and does not explain one specific highlight attribute
 never appearing or one specific tree never being built.
+
+### A palette insert target names a gap, not a block (2026-09-08) — domain only
+
+`domain/palette-targets.ts` gains `insertMarkFor(blocks, target)`, a pure
+translation with no caller yet. An `InsertTarget`'s own path — the one
+`insertTargetsFor` answers — carries `insertAt`'s splice contract: the last
+segment means "insert BEFORE whatever sits at this index," so drawing the
+BLOCK at that index marks the sibling about to be pushed down rather than
+the space the dragged item will actually take. `insertMarkFor` answers a
+`DropTarget` instead — `before`/`after` an existing sibling, or `place` for
+an empty container's own first position — the same vocabulary
+`domain/block-drops.ts` already draws a canvas-move landing with, so a
+palette drag and a canvas-move drag can share one rendering path once
+something calls this.
+
+**Nothing renders it yet.** No palette tab reads it, no highlight changes
+shape because of it — this is the pure function and its own
+sabotage-verified test suite, the first slice of a feature that finishes in
+a later task. Read this as the same kind of incremental entry the block
+Tasks above already use (see Task 1 of "Every valid drop target for a
+palette drag," 2026-09-05, which shipped `insertTargetsFor` alone the same
+way): a mechanism landing ahead of anything wiring it in, named here so it
+is not mistaken for dead code once a renderer does reach for it.

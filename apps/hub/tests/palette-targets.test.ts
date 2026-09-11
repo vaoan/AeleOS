@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  insertMarkFor,
   insertTargetsFor,
   orderedInsertTargets,
   stepInsertSection,
@@ -8,6 +9,7 @@ import {
 } from "@/features/actors/domain/palette-targets";
 import { newContainer, newLeaf } from "@/features/actors/domain/block-edits";
 import {
+  BLOCK_LIMITS,
   CONTAINER_KIND,
   type Block,
   type ContainerBlock,
@@ -268,5 +270,98 @@ describe("stepInsertSection", () => {
   it("starting from undefined steps to the last entry going backward", () => {
     const order = [at([0]), at([1]), at([0, 0])];
     expect(stepInsertSection(order, undefined, false)).toEqual(order[2]);
+  });
+});
+
+// These match `tests/block-moves.test.ts`'s own fixtures deliberately. Two
+// details are not cosmetic: the container kind is the exported CONTAINER_KIND
+// constant rather than a literal, and `spaces` is floored at 1 — a container
+// laying zero places is a shape the schema refuses, so `section([])` built
+// with `spaces: children.length` would be testing something unrepresentable.
+const leaf = (title: string): LeafBlock => ({
+  kind: "text",
+  title_en: title,
+  description_en: "",
+});
+
+const section = (children: (Block | null)[]): ContainerBlock => ({
+  kind: CONTAINER_KIND,
+  mode: "stack",
+  spaces: Math.min(BLOCK_LIMITS.spaces, Math.max(1, children.length)),
+  children,
+});
+
+describe("insertMarkFor", () => {
+  // The discriminating case. At a FILLED mid-list index the gap and the
+  // block are different elements, which is exactly where the old drawing
+  // was wrong; at an empty place they coincide and any implementation
+  // passes.
+  it("marks the gap BEFORE the block a mid-list index names", () => {
+    const blocks = [section([leaf("a"), leaf("b"), leaf("c")])];
+    expect(insertMarkFor(blocks, { path: [0, 1] })).toEqual({
+      kind: "before",
+      path: [0, 1],
+    });
+  });
+
+  it("marks AFTER the last child for the append index", () => {
+    const blocks = [section([leaf("a"), leaf("b")])];
+    expect(insertMarkFor(blocks, { path: [0, 2] })).toEqual({
+      kind: "after",
+      path: [0, 1],
+    });
+  });
+
+  it("marks the place itself inside an empty container", () => {
+    const blocks = [section([])];
+    expect(insertMarkFor(blocks, { path: [0, 0] })).toEqual({
+      kind: "place",
+      path: [0, 0],
+    });
+  });
+
+  it("marks a gap before an EMPTY place, not the place itself", () => {
+    // children[1] is null. Inserting at 1 pushes that empty place down, so
+    // the gap above it is still the honest mark.
+    const blocks = [section([leaf("a"), null, leaf("c")])];
+    expect(insertMarkFor(blocks, { path: [0, 1] })).toEqual({
+      kind: "before",
+      path: [0, 1],
+    });
+  });
+
+  it("marks the top level the same way", () => {
+    const blocks = [section([leaf("a")]), section([leaf("b")])];
+    expect(insertMarkFor(blocks, { path: [1] })).toEqual({
+      kind: "before",
+      path: [1],
+    });
+    expect(insertMarkFor(blocks, { path: [2] })).toEqual({
+      kind: "after",
+      path: [1],
+    });
+  });
+
+  it("answers null for a path that names no container", () => {
+    expect(insertMarkFor([leaf("a")], { path: [0, 5] })).toBeNull();
+  });
+
+  // The three cases below reach branches the brief's own six did not: an
+  // empty path, a negative splice index, and an index past the end of the
+  // list it names. None of the six given cases exercises any of these, so
+  // branch coverage found them rather than the brief naming them.
+  it("answers null for an empty path", () => {
+    const blocks = [section([leaf("a")])];
+    expect(insertMarkFor(blocks, { path: [] })).toBeNull();
+  });
+
+  it("answers null for a negative splice index", () => {
+    const blocks = [section([leaf("a")])];
+    expect(insertMarkFor(blocks, { path: [-1] })).toBeNull();
+  });
+
+  it("answers null for an index past the end of the list it names", () => {
+    const blocks = [section([leaf("a")])];
+    expect(insertMarkFor(blocks, { path: [5] })).toBeNull();
   });
 });
