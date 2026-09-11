@@ -9,6 +9,7 @@ import {
   useSensors,
   type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
@@ -80,6 +81,7 @@ import {
   stepPlace,
 } from "@/features/actors/domain/block-drag";
 import {
+  insertMarkFor,
   insertTargetsFor,
   stepInsertSection,
   stepInsertTarget,
@@ -631,12 +633,11 @@ function detectCollisionAt(
  * than recomputing it, specifically so a page edited mid-drag cannot make the
  * pointer branch and the keyboard branch disagree about which targets exist.
  * Recomputing here only for the keyboard case would reopen exactly that
- * disagreement — the ranked pointer highlight (`insertTargets` on
- * `AppendSlot`, the one place still lighting up every candidate at once —
- * see `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
- * account for why `EditableBlockFrame`'s own copy of this is gone) and the
- * keyboard step could point at two different sets of targets during the
- * same drag.
+ * disagreement — the winning target `onDragOver` publishes through
+ * `advertisedTarget`, which both `EditableBlockFrame` and `AppendSlot` read
+ * (see `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+ * account), and the keyboard step could point at two different sets of
+ * targets during the same drag.
  *
  * **It keeps stepping until a rendered rectangle exists**, mirroring
  * {@link coordinateGetterAt}'s own loop for the identical reason: a target
@@ -799,7 +800,7 @@ function useResettableSelection(
  * once: it keeps that component's cognitive complexity under the budget,
  * and — because this is a plain, lowercase helper rather than a component
  * or hook by naming convention — `react-hooks/refs` does not treat its
- * read of `insertTargetsRef.current` as a ref access "during render" the
+ * read of `carriedHeightRef.current` as a ref access "during render" the
  * way it would inside `BlockEditor`'s own top-level JSX. `blocks.tsx` never
  * wraps this component's own top-level seat list in a call to `Block`, so
  * there is no `editor.appendSlot` call site for the page root the way a
@@ -809,8 +810,10 @@ function useResettableSelection(
  * `controlsHidden`/`interactionsEnabled` gate visibility, matching every
  * other editor-only island; `blocksLength` is the page's own top-level
  * child count, read fresh on every call so a stale count can never reach
- * the rendered slot; `insertTargetsRef` is the same ref {@link BlockEditor}
- * threads to every other `AppendSlot` on the page.
+ * the rendered slot; `activeTarget` and `carriedHeightRef` are the same
+ * values {@link BlockEditor} threads to every other `AppendSlot`/
+ * `EditableBlockFrame` on the page (2026-09-11) — `activeTarget` a plain
+ * state value, `carriedHeightRef` a ref for the reason above.
  *
  * @returns the append slot, or `null` while controls are hidden or page
  * interaction is on.
@@ -819,18 +822,21 @@ function pageRootAppendSlot({
   controlsHidden,
   interactionsEnabled,
   blocksLength,
-  insertTargetsRef,
+  activeTarget,
+  carriedHeightRef,
 }: {
   readonly controlsHidden: boolean;
   readonly interactionsEnabled: boolean;
   readonly blocksLength: number;
-  readonly insertTargetsRef: RefObject<readonly InsertTarget[] | null>;
+  readonly activeTarget: DropTarget | null;
+  readonly carriedHeightRef: RefObject<number | null>;
 }): ReactNode {
   if (controlsHidden || interactionsEnabled) return null;
   return (
     <AppendSlot
       path={formatBlockPath([blocksLength])}
-      insertTargets={insertTargetsRef.current}
+      activeTarget={activeTarget}
+      carriedHeight={carriedHeightRef.current}
     />
   );
 }
@@ -1471,13 +1477,16 @@ function panelFootFor({
  * unreachable by pointer until now for want of a rendered rectangle to drop
  * onto. See the actors feature note's own account of both.
  *
- * **A canvas-move drag's own landing draws exactly one `DropMark`, never
- * every candidate (2026-09-11).** Its `wrap` call site passes
- * `carriedHeight: null` into `EditableBlockInstrumentation` — there is no
- * carried block to measure for this drag either, since it moves the
- * rendered node itself rather than a ghost of it — see the actors feature
- * note's "drop-target-legibility" account for the full change, including
- * why `AppendSlot` alone still lights up every palette target at once.
+ * **Every drag's own landing draws exactly one `DropMark`, never every
+ * candidate (2026-09-11).** A canvas-move drag's `wrap` call site reads
+ * `carriedHeightRef.current`, measured once at `onDragStart` from dnd-kit's
+ * own initial rect; a palette drag's `onDragOver` translates its winning
+ * `InsertTarget` through `insertMarkFor` and publishes it through the same
+ * `advertisedTarget` state a canvas-move drag already used, so
+ * `EditableBlockFrame` and `AppendSlot` both read one shared value rather
+ * than each keeping their own notion of what is being dragged. See the
+ * actors feature note's "drop-target-legibility" account for the full
+ * change.
  *
  * @returns the page editor.
  */
@@ -1612,6 +1621,24 @@ export function BlockEditor<T extends FieldValues>({
   const keyboardAt = useRef<BlockPath | undefined>(undefined);
   const keyboardTarget = useRef<DropTarget | null>(null);
   const pointerTarget = useRef<DropTarget | null>(null);
+  // **The palette-origin drag's own translated landing, published through
+  // `advertisedTarget` exactly as `pointerTarget`/`keyboardTarget` are for a
+  // canvas-move drag (2026-09-11).** Written only by `onDragOver` below, from
+  // whichever `insertTargetsRef` entry `event.over` resolved to, translated
+  // through `insertMarkFor` into the same `before`/`after`/`place` vocabulary
+  // `EditableBlockFrame` already draws a canvas-move landing with.
+  // `detectCollisionAt`'s own palette branch stores no `DropTarget` of its
+  // own to read back — it only ever returns dnd-kit an id — so this is
+  // recomputed here rather than read from a ref that branch already wrote.
+  const paletteTarget = useRef<DropTarget | null>(null);
+  // **How tall the block a canvas-move drag is carrying is, in pixels — read
+  // once at `onDragStart` from dnd-kit's own measured initial rect, and
+  // `null` for the whole course of a palette drag, since the block being
+  // added does not exist yet and has nothing to measure.** A ref for the
+  // same reason `insertTargetsRef` below is one: nothing here reads it
+  // during render except through the object literals built in the JSX
+  // below, which are rebuilt on every render regardless.
+  const carriedHeightRef = useRef<number | null>(null);
   // **Every place a palette-origin drag in progress may land on, computed
   // once at `onDragStart` and read by `detectCollisionAt` on every pointer
   // move.** A ref rather than state: recomputing this is `insertTargetsFor`
@@ -1794,9 +1821,11 @@ export function BlockEditor<T extends FieldValues>({
     if (paletteItem) {
       insertTargetsRef.current = insertTargetsFor(blocks, paletteItem);
       paletteKeyboardTarget.current = null;
+      paletteTarget.current = null;
       keyboardAt.current = undefined;
       keyboardTarget.current = null;
       pointerTarget.current = null;
+      carriedHeightRef.current = null;
       setAdvertisedTarget(null);
       setRefusal(null);
       setPaletteDragActive(true);
@@ -1804,15 +1833,47 @@ export function BlockEditor<T extends FieldValues>({
     }
     insertTargetsRef.current = null;
     paletteKeyboardTarget.current = null;
+    paletteTarget.current = null;
     keyboardAt.current = canvasPlacePath(activeId) ?? placePath(activeId);
     keyboardTarget.current = null;
     pointerTarget.current = null;
+    carriedHeightRef.current =
+      event.active.rect.current.initial?.height ?? null;
     setAdvertisedTarget(null);
     setRefusal(null);
   };
 
-  /** Mirrors dnd-kit's resolved target into editor-only renderer feedback. */
-  const onDragOver = (): void => {
+  /**
+   * Mirrors dnd-kit's resolved target into editor-only renderer feedback.
+   *
+   * **A palette-origin drag is checked FIRST**, mirroring `onDragStart`'s own
+   * branch — the two are mutually exclusive per drag, since `palettePayload`
+   * only ever answers a value for an id a canvas grip or inspector row never
+   * produces. It reads `event.over` — already resolved by
+   * `detectCollisionAt`'s own palette branch, whether the resolution came
+   * from the pointer or from a keyboard step — finds the matching entry in
+   * `insertTargetsRef.current`, and translates it through `insertMarkFor`
+   * into the gap it names. `insertMarkFor` is asked of `blocks` rather than
+   * `pageRef.current` to match every other read in this branch
+   * (`onDragStart`, `onDragEnd`) — all three close over the same render's
+   * value rather than reading the ref `detectCollisionAt` alone uses.
+   *
+   * @param event - dnd-kit's own resolved-over event.
+   */
+  const onDragOver = (event: DragOverEvent): void => {
+    const activeId = String(event.active.id);
+    if (palettePayload(activeId)) {
+      const overId = event.over ? String(event.over.id) : undefined;
+      const winner = overId
+        ? insertTargetsRef.current?.find(
+            (candidate) => canvasPlaceId(candidate.path) === overId,
+          )
+        : undefined;
+      paletteTarget.current = winner ? insertMarkFor(blocks, winner) : null;
+      setAdvertisedTarget(paletteTarget.current);
+      return;
+    }
+    paletteTarget.current = null;
     setAdvertisedTarget(keyboardTarget.current ?? pointerTarget.current);
   };
 
@@ -1820,9 +1881,11 @@ export function BlockEditor<T extends FieldValues>({
   const onDragCancel = (): void => {
     insertTargetsRef.current = null;
     paletteKeyboardTarget.current = null;
+    paletteTarget.current = null;
     keyboardAt.current = undefined;
     keyboardTarget.current = null;
     pointerTarget.current = null;
+    carriedHeightRef.current = null;
     setAdvertisedTarget(null);
     setPaletteDragActive(false);
   };
@@ -1853,6 +1916,8 @@ export function BlockEditor<T extends FieldValues>({
     if (paletteItem) {
       insertTargetsRef.current = null;
       paletteKeyboardTarget.current = null;
+      paletteTarget.current = null;
+      carriedHeightRef.current = null;
       setAdvertisedTarget(null);
       setPaletteDragActive(false);
       const overId = event.over ? String(event.over.id) : undefined;
@@ -1889,6 +1954,7 @@ export function BlockEditor<T extends FieldValues>({
     const target = keyboardTarget.current ?? pointerTarget.current;
     keyboardTarget.current = null;
     pointerTarget.current = null;
+    carriedHeightRef.current = null;
     setAdvertisedTarget(null);
     if (!from || !target || !event.over) return;
     const result = applyDrop(blocks, from, target);
@@ -2455,17 +2521,21 @@ export function BlockEditor<T extends FieldValues>({
                                 filled={filled}
                                 editor={{
                                   selectedPath: selectedAttr || undefined,
+                                  // Set by `onDragOver` above: the winning
+                                  // canvas-move target, or a palette drag's
+                                  // own translated landing — see
+                                  // `paletteTarget`'s own comment for why
+                                  // the latter is computed there rather
+                                  // than read from a ref `detectCollisionAt`
+                                  // wrote.
                                   activeTarget: advertisedTarget,
                                   dragLabel: labels.dragBlock,
-                                  // **No carried block to measure for a
-                                  // canvas-move drag** — `null` is exactly
-                                  // right there too, since dragging an
-                                  // EXISTING block moves the rendered node
-                                  // itself rather than a ghost of it. A
-                                  // real height is a later task's job, once
-                                  // the palette's own winner is published
-                                  // through `activeTarget`.
-                                  carriedHeight: null,
+                                  // The block a canvas-move drag is
+                                  // carrying, measured once at
+                                  // `onDragStart`; `null` for a palette
+                                  // drag, which carries no real block to
+                                  // measure yet.
+                                  carriedHeight: carriedHeightRef.current,
                                 }}
                               >
                                 {children}
@@ -2496,7 +2566,8 @@ export function BlockEditor<T extends FieldValues>({
                                     ...parsedContainerPath,
                                     childCount,
                                   ])}
-                                  insertTargets={insertTargetsRef.current}
+                                  activeTarget={advertisedTarget}
+                                  carriedHeight={carriedHeightRef.current}
                                 />
                               );
                             },
@@ -2516,7 +2587,8 @@ export function BlockEditor<T extends FieldValues>({
             controlsHidden,
             interactionsEnabled,
             blocksLength: blocks.length,
-            insertTargetsRef,
+            activeTarget: advertisedTarget,
+            carriedHeightRef,
           })}
         </div>
       </DndContext>

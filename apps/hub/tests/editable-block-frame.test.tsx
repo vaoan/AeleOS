@@ -15,10 +15,12 @@ import {
 // `insertTargets` field at once, for a palette-origin drag; that field is
 // gone (see `apps/hub/src/features/actors/CLAUDE.md`'s
 // "drop-target-legibility" account), and this file's own coverage moved
-// with it. `AppendSlot` below is untouched — it still lights up every
-// matching palette target through its own, separate `insertTargets` prop —
-// which is why its tests still build that prop directly rather than
-// through `EditableBlockInstrumentation`.
+// with it. `AppendSlot` below draws exactly one mark too now (2026-09-11) —
+// it used to keep its own, separate `insertTargets` membership check; its
+// tests build `activeTarget`/`carriedHeight` directly now, the same two
+// fields {@link EditableBlockInstrumentation} carries, passed as their own
+// props rather than that whole interface since this component has no
+// `selectedPath` or `dragLabel` to instrument.
 
 /** Builds an {@link EditableBlockInstrumentation}, with overrides. */
 function editor(
@@ -185,28 +187,37 @@ describe("EditableBlockFrame", () => {
 
 // THE PALETTE'S "APPEND A NEW ROW" DROPPABLE.
 //
-// `AppendSlot` is untouched by the change above: it still lights up every
-// matching entry in its own `insertTargets` prop at once, unrelated to
-// `EditableBlockInstrumentation` (which carries no such field any more) —
-// see that prop's own TSDoc. It is always mounted (a real `DndContext` is
-// needed for the same reason `renderFrame` above needs one), so what
-// changes between cases here is only whether the highlight applies.
+// `AppendSlot` draws exactly one mark now too (2026-09-11), matching
+// `EditableBlockFrame` above — it used to carry its own, separate
+// `insertTargets` prop and light up every matching entry at once. It reads
+// `activeTarget`/`carriedHeight` now, the same two fields
+// `EditableBlockInstrumentation` carries, so this file's own cases mirror
+// `EditableBlockFrame`'s shape rather than testing membership. It is always
+// mounted (a real `DndContext` is needed for the same reason `renderFrame`
+// above needs one), so what changes between cases here is only whether the
+// mark is drawn.
 describe("AppendSlot", () => {
   /**
    * Renders one append slot inside a real `DndContext`.
    *
    * @param path - the append target's own renderer path.
-   * @param insertTargets - every insertion target a palette drag in
-   * progress would accept, or `null` while none is.
+   * @param activeTarget - the destination currently advertised by dnd-kit,
+   * or `null` while none is.
+   * @param carriedHeight - how tall the carried block is, or `null`.
    * @returns what `render` returned.
    */
   function renderAppendSlot(
     path: string,
-    insertTargets: AppendSlotProps["insertTargets"] = null,
+    activeTarget: AppendSlotProps["activeTarget"] = null,
+    carriedHeight: AppendSlotProps["carriedHeight"] = null,
   ) {
     return render(
       <DndContext id="t">
-        <AppendSlot path={path} insertTargets={insertTargets} />
+        <AppendSlot
+          path={path}
+          activeTarget={activeTarget}
+          carriedHeight={carriedHeight}
+        />
       </DndContext>,
     );
   }
@@ -219,25 +230,32 @@ describe("AppendSlot", () => {
     );
   });
 
-  it("highlights nothing while no palette drag is in progress", () => {
+  it("draws nothing while no palette drag is in progress", () => {
     renderAppendSlot("0-2", null);
-    expect(screen.getByTestId("canvas-append-slot")).not.toHaveAttribute(
-      "data-canvas-drop",
-    );
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
   });
 
-  it("highlights nothing when insertTargets never names this exact path", () => {
-    renderAppendSlot("0-2", [{ path: [0, 1] }]);
-    expect(screen.getByTestId("canvas-append-slot")).not.toHaveAttribute(
-      "data-canvas-drop",
-    );
+  it("draws nothing when activeTarget names a different path", () => {
+    renderAppendSlot("0-2", { kind: "before", path: [0, 1] });
+    expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
   });
 
-  it("highlights, exactly like a filled place's own insert-target highlight, when named", () => {
-    renderAppendSlot("0-2", [{ path: [0, 2] }]);
-    expect(screen.getByTestId("canvas-append-slot")).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
-    );
+  it("draws a place mark when activeTarget names this exact path — the only kind insertMarkFor ever produces for an append slot's own position", () => {
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] });
+    expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
+  });
+
+  it("sizes the mark from carriedHeight when a real block is being carried", () => {
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, 64);
+    expect(screen.getByTestId("canvas-drop-place")).toHaveStyle({
+      height: "64px",
+    });
+  });
+
+  it('still draws whatever kind activeTarget carries, verifying the value is not hardcoded to "place"', () => {
+    renderAppendSlot("0-2", { kind: "before", path: [0, 2] });
+    expect(screen.getByTestId("canvas-drop-before")).toBeInTheDocument();
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
   });
 });

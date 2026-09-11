@@ -7146,3 +7146,135 @@ re-checking the first time this spec is actually run again.
 **Verified:** `pnpm --filter hub test` (3,806 tests, all passing, no
 regressions), `pnpm typecheck` and `pnpm lint` (repository root) both
 clean. The Playwright suite was not run, per this task's own instructions.
+
+### A palette drag publishes the gap it will land in, and AppendSlot draws only the winner (2026-09-11) — Task 4 of the feature
+
+Task 3's own entry above left two things true that are false now: a palette
+drag marked nothing on an existing block, because nothing published its
+winning target through `activeTarget`; and `AppendSlot` still lit up every
+valid insertion target at once, through its own separate `insertTargets`
+membership check. Both are closed. **A palette drag now marks its landing
+exactly like a canvas-move drag does, and every mark in the canvas — on an
+existing block or on an append slot — is the single winner, never a set.**
+
+**`block-editor.tsx`'s `onDragOver` now branches on `palettePayload` first,
+mirroring `onDragStart`'s own branch.** For a palette-origin drag it reads
+`event.over`, finds the matching `InsertTarget` in `insertTargetsRef.current`
+by comparing `canvasPlaceId`s, and translates it through `insertMarkFor`
+(Task 1's own pure function, wired to a caller for the first time) into a
+`DropTarget`. The result is published through the SAME `advertisedTarget`
+state a canvas-move drag already used — there is one field now, not two —
+so `EditableBlockFrame`'s existing `activeTarget: advertisedTarget` needed
+no change at all to start drawing a palette drag's mark. A new ref,
+`paletteTarget`, holds the value between renders for the same reason
+`pointerTarget` does; it and a second new ref, `carriedHeightRef`
+(measured once at `onDragStart` from `event.active.rect.current.initial`
+for a canvas-move drag, `null` for a palette one), are both cleared
+alongside the existing `insertTargetsRef.current = null` lines in
+`onDragStart`'s canvas branch, `onDragCancel`, and `onDragEnd`'s palette
+branch.
+
+**`AppendSlot` (`editable-block-frame.tsx`) reads `activeTarget`/
+`carriedHeight` now, the same two fields `EditableBlockInstrumentation`
+carries, passed as their own props rather than that whole interface since
+this component has no `selectedPath`/`dragLabel` to instrument. The
+`insertTargets` field and its membership check are gone.** It draws a
+`DropMark` when `activeTarget`'s own path equals this slot's exact encoded
+path — mirroring `EditableBlockFrame`'s identical check — and that
+condition is narrower than it looks: `insertMarkFor` only ever answers
+`{ kind: "place", path: [...parent, 0] }` for a container with NO EXISTING
+CHILDREN, which is exactly when the append slot's own position (index 0)
+IS that container's only place. Every other append target `insertMarkFor`
+names resolves to `after` the container's own LAST CHILD — a different
+element's path, drawn by that child's own `EditableBlockFrame` instead, not
+by the append slot at all. So an append slot only ever draws a mark for a
+container that starts out completely empty (including the page root, when
+`blocks.length === 0`); dragging onto the trailing append slot of an
+ordinary, already-populated container marks the last child's own frame with
+an `after` gap, and the append slot beside it draws nothing.
+
+**The wrapper's own box no longer changes size, marked or not — closing the
+"second half nobody noticed" the dispatching task named.** Before this
+task, `AppendSlot`'s class carried `min-h-12` (and a border/outline) ONLY
+while its old membership check matched, so an ordinary palette drag —
+which lights up several containers' append slots as valid targets at
+once — grew each one from zero height to 48px the instant the drag began,
+reflowing the canvas under `@dnd-kit`'s own cached droppable rectangles:
+exactly the fault the design's out-of-flow constraint exists to forbid,
+and a second instance of it beyond the "lights up everything" defect the
+brief opened with. The wrapper carries no size-changing class at all now —
+just `relative ${CHROME_SCOPE}`, always. The mark itself, a `DropMark`, is
+`position: absolute` with its own `min-h-12`; per CSS, an absolutely
+positioned box's `min-height` still floors its computed height even when
+`top`/`bottom` (or here, no insets at all governing height) would otherwise
+resolve it against a zero-height positioned ancestor — so the visible
+48px comes from the mark itself, out of flow, and the wrapper's own
+box never moves.
+
+**A real, deliberate consequence of removing that growth: `AppendSlot` no
+longer ever carries a `data-canvas-drop` attribute, of any value.** The
+attribute was the growth's own trigger (`data-[canvas-drop=place]:min-h-12`
+and its neighbours); removing the growth removed the attribute along with
+it, since nothing else read it. Task 3's own entry above says
+`tests/e2e/support/editor.ts`'s `dragPaletteOnto` waits for
+`[data-canvas-drop="place"]` to appear as proof the highlight-driven reflow
+has settled before re-reading a drop target's geometry, reasoning "it was
+always `AppendSlot`'s own `min-h-12` growth being waited for, not anything
+`EditableBlockFrame` did." That reasoning is exactly right about which
+mechanism the wait depended on, and this task removes that mechanism: for
+an ordinary, already-populated container — which is the common case, and
+what most e2e fixtures build — `insertMarkFor` never answers `place` at
+all during a palette drag, so the attribute this helper waits for will not
+appear and the wait will time out. **This is not fixed here.** It is out
+of this task's own stated scope (`task-4-brief.md` names only
+`block-editor.tsx` and its own test; controller correction 2 adds
+`editable-block-frame.tsx`'s `AppendSlot`, not the e2e support helpers),
+and Task 7, "The browser proof — the mark is where it lands," is
+explicitly where `tests/e2e/palette-drag-to-add.spec.ts` and its shared
+helpers get rewritten for the new mark vocabulary. Flagged here in full
+rather than left to be rediscovered as a mysterious timeout.
+
+**A unit test drives this through the real sensor rather than through a
+hand-built prop, and it had to solve a real discrimination problem to do
+so.** jsdom's `getBoundingClientRect` answers an all-zero rect for every
+element, so `detectCollisionAt`'s POINTER branch cannot tell "hovering the
+first child" from "hovering the second" — every registered droppable
+"contains" the same `(0, 0)` point, and ties always resolve to the first
+depth-maximal candidate `insertTargetsFor`'s own walk visits, which for any
+container is always its OWN first splice. The new case in
+`block-editor.test.tsx`, "publishes a gap mark while a palette drag hovers
+a filled position," drives the KEYBOARD branch instead: `paletteCoordinateAt`
+resolves a step purely from `stepInsertTarget`'s ordered list, with no
+geometry involved at all, so the exact landing is predictable from the
+page's own shape. For a single two-child section the order is `[0]`
+(before the section), `[1]` (the page's own trailing append slot), then
+`[0,0]`, `[0,1]`, `[0,2]` — four `ArrowDown` presses from a fresh lift lands
+on `[0,1]`, which `insertMarkFor` translates to a `before` mark on the
+SECOND child's own path. The case cancels rather than drops, so it makes no
+claim about where the block lands — only about what is drawn while it
+hovers.
+
+`editable-block-frame.test.tsx`'s `AppendSlot` describe block was rewritten
+to match `EditableBlockFrame`'s own shape: path-equality cases (draws
+nothing with no target, draws nothing when the path differs, draws the mark
+when it matches), a `carriedHeight` sizing case, and one case proving the
+kind drawn is whatever `activeTarget.kind` actually carries rather than a
+hardcoded `"place"` — the component's own logic never branches on the kind
+beyond passing it to `DropMark`, so nothing forces this to redden without
+naming it directly.
+
+**Every module-level and function-level TSDoc paragraph this task's own
+diff touches was re-read and corrected in the same change**, not left
+pointing at "a later task" that had by then become this one:
+`EditableBlockInstrumentation`'s own interface doc, `EditableBlockFrame`'s
+function doc, `AppendSlotProps`'s doc, `AppendSlot`'s function doc,
+`paletteCoordinateAt`'s doc (which used to credit `AppendSlot` as "the one
+place still lighting up every candidate at once"), and `BlockEditor`'s own
+top-level doc paragraph naming `carriedHeight: null` as a fixed literal
+rather than the now-live `carriedHeightRef.current` read.
+
+**Verified:** `pnpm --filter hub test` (3,809 tests, all passing, no
+regressions outside this task's own edits), `pnpm typecheck` and
+`pnpm lint` (repository root) both clean. The Playwright suite was not
+run, per this task's own instructions — see the flagged consequence above
+for what the first real run against this branch will hit.

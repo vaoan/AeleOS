@@ -1388,5 +1388,48 @@ describe("the Properties panel", () => {
         expect(inserted.children[0]?.kind).toBe("text");
       });
     });
+
+    // **`onDragOver`'s own palette branch, proved through the real sensor
+    // (2026-09-11).** Driven by keyboard rather than by pointer, because
+    // jsdom's degenerate `{0,0,0,0}` rects make every registered droppable
+    // "contain" a pointer at the same point — `detectCollisionAt`'s pointer
+    // branch would always resolve to the same, shallowest-by-tie-break
+    // splice regardless of which element is actually hovered, so it cannot
+    // discriminate "over the second child" from "over the first." The
+    // keyboard branch resolves purely from `insertTargetsFor`'s own ordered
+    // list, which this case can predict exactly: for a single two-child
+    // section, that order is `[0]` (before the section), `[1]` (the page's
+    // trailing append slot), `[0,0]`, `[0,1]`, `[0,2]` — four `ArrowDown`
+    // presses from a fresh lift lands on `[0,1]`, the splice before the
+    // SECOND child, which `insertMarkFor` translates to a `before` mark on
+    // that child's own path rather than an outline around it.
+    it("publishes a gap mark while a palette drag hovers a filled position", async () => {
+      harness([
+        {
+          ...newContainer("grid", 2),
+          name_en: "Section",
+          children: [titled("First"), titled("Second")],
+        },
+      ]);
+      await openPalette();
+
+      fireEvent.keyDown(
+        screen.getByRole("button", { name: labels.leaf.leafKinds.text }),
+        { code: "Space", key: " " },
+      );
+      await settle();
+      for (let step = 0; step < 4; step += 1) {
+        fireEvent.keyDown(document, { code: "ArrowDown" });
+        await settle();
+      }
+
+      expect(screen.getByTestId("canvas-drop-before")).toBeInTheDocument();
+      expect(screen.queryByTestId("canvas-drop-place")).not.toBeInTheDocument();
+
+      // Cancel rather than drop, so this case makes no claim about where the
+      // block lands — only about what is drawn while it hovers.
+      fireEvent.keyDown(document, { code: "Escape" });
+      await settle();
+    });
   });
 });

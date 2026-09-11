@@ -10,7 +10,6 @@ import {
   parseBlockPath,
 } from "@/features/actors/domain/editor-selection";
 import { canvasPlaceId } from "@/features/actors/domain/block-drag";
-import type { InsertTarget } from "@/features/actors/domain/palette-targets";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
 import { DropMark } from "@/features/actors/presentation/drop-mark";
@@ -28,9 +27,10 @@ import { DropMark } from "@/features/actors/presentation/drop-mark";
  * see `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
  * account for why that made a drop illegible the moment more than one target
  * existed. The field is gone; `activeTarget` alone now drives the single
- * `DropMark` this component draws, for a canvas-move drag exactly as before.
- * A later task publishes a palette-origin drag's own winning target through
- * that same field.
+ * `DropMark` this component draws — a canvas-move drag's own resolved
+ * landing, or a palette-origin drag's winning target, translated through
+ * `insertMarkFor` (`domain/palette-targets.ts`) and published through the
+ * same field by `block-editor.tsx`'s `onDragOver` (2026-09-11).
  */
 export interface EditableBlockInstrumentation {
   /** The selected block, in the renderer's hyphenated path form. */
@@ -71,11 +71,11 @@ export interface EditableBlockFrameProps {
  *
  * **It draws exactly one landing mark (2026-09-11), not every valid palette
  * target at once.** `editor.activeTarget` is the single winner a drag's own
- * collision has already resolved — a canvas-move drag's, today; a
- * palette-origin drag's, once a later task publishes one — so drawing every
- * candidate as well would be a second opinion about the same question, and
- * it is what made the mark unobservable in jsdom (`isOver` is never set
- * there). The mark is a {@link DropMark}, sized from
+ * collision has already resolved — a canvas-move drag's or a palette-origin
+ * drag's alike, both published by `block-editor.tsx`'s `onDragOver` — so
+ * drawing every candidate as well would be a second opinion about the same
+ * question, and it is what made the mark unobservable in jsdom (`isOver` is
+ * never set there). The mark is a {@link DropMark}, sized from
  * `editor.carriedHeight` when there is a real block to measure.
  *
  * @param props - see {@link EditableBlockFrameProps}.
@@ -150,11 +150,17 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
 /**
  * What {@link AppendSlot} needs.
  *
- * **Untouched by the single-mark change on {@link EditableBlockFrame}
- * (2026-09-11)** — this component still lights up every matching
- * `insertTargets` entry at once, through the field below, which is why it
- * takes its own separate prop rather than an
- * {@link EditableBlockInstrumentation}.
+ * **Draws exactly ONE landing mark now, matching {@link EditableBlockFrame}
+ * (2026-09-11), not every valid palette target at once.** It used to carry
+ * `insertTargets`, every insertion target a palette-origin drag would
+ * accept, and light up every one of them together — see
+ * `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+ * account for why that made a drop illegible the moment more than one
+ * target existed. The field is gone; `activeTarget` and `carriedHeight`
+ * take its place, the same two fields {@link EditableBlockInstrumentation}
+ * carries — passed as their own props rather than that whole interface,
+ * since this component has no existing block to instrument and needs
+ * neither `selectedPath` nor `dragLabel`.
  */
 export interface AppendSlotProps {
   /**
@@ -166,13 +172,26 @@ export interface AppendSlotProps {
    */
   readonly path: string;
   /**
-   * Every insertion target a palette-origin drag currently in progress
-   * would accept, or `null` while none is. Unrelated to
-   * {@link EditableBlockInstrumentation} — this append slot has no
-   * existing block to instrument, so it reads its own membership list
-   * directly rather than through that interface.
+   * The destination currently advertised by dnd-kit, for a canvas-move
+   * drag or a palette-origin one alike — the same value
+   * {@link EditableBlockFrame} reads through
+   * {@link EditableBlockInstrumentation.activeTarget}.
+   *
+   * A mark is drawn here only when this target's own path is exactly this
+   * slot's own path, which happens in exactly one case:
+   * `insertMarkFor` (`domain/palette-targets.ts`) answers `place` at the
+   * append position itself only for a container with NO existing
+   * children — every other append target it names resolves to `after` the
+   * container's own last child, which is a DIFFERENT element's path, drawn
+   * by that child's own {@link EditableBlockFrame} instead.
    */
-  readonly insertTargets: readonly InsertTarget[] | null;
+  readonly activeTarget: DropTarget | null;
+  /**
+   * How tall the carried block is, in pixels, or `null` when nothing can be
+   * measured — every palette drag, since the block does not exist yet.
+   * Forwarded straight to {@link DropMark}.
+   */
+  readonly carriedHeight: number | null;
 }
 
 /**
@@ -181,7 +200,7 @@ export interface AppendSlotProps {
  * element for on its own.
  *
  * **Always mounted, so it is always a registered droppable — and visually
- * nothing at all unless a palette drag currently offers it.**
+ * nothing at all unless it is the winning landing.**
  * `insertTargetsFor` (`domain/palette-targets.ts`) already computes this
  * position as a valid domain target; what was missing was a rendered
  * element for dnd-kit to measure a rectangle for, which is exactly what
@@ -192,34 +211,35 @@ export interface AppendSlotProps {
  * that appears only after a drag has started has no rectangle for the
  * collision check to find.
  *
- * **The highlight is keyed on `insertTargets` membership and reuses
- * {@link EditableBlockFrame}'s exact "place" class list.** Every matching
- * target lights up at once, never only the one currently under the
- * pointer — this is the one place in the canvas that still lights up every
- * palette target simultaneously rather than drawing a single winning mark;
- * see `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
- * account for why {@link EditableBlockFrame} itself no longer does.
+ * **Its own wrapper never changes size, marked or not (2026-09-11).** The
+ * mark is a {@link DropMark}, absolutely positioned and out of flow, so
+ * this element's own box stays whatever height it always had — the
+ * reflow-under-a-live-drag fault a growing wrapper caused is what the
+ * design's own out-of-flow constraint exists to forbid; see
+ * `apps/hub/src/features/actors/CLAUDE.md`'s "drop-target-legibility"
+ * account.
  *
  * @param props - see {@link AppendSlotProps}.
- * @returns an editor-only droppable marker: an empty, zero-height
- * `CHROME_SCOPE` box when nothing highlights it, or a dashed, outlined
- * place when this exact position is one of `insertTargets`.
+ * @returns an editor-only droppable marker: an empty box when nothing
+ * marks it, or one carrying a {@link DropMark} when `activeTarget` names
+ * this exact position.
  */
 export function AppendSlot(props: AppendSlotProps): ReactNode {
-  const { path: encodedPath, insertTargets } = props;
+  const { path: encodedPath, activeTarget, carriedHeight } = props;
   const path = parseBlockPath(encodedPath) ?? [];
   const { setNodeRef } = useDroppable({ id: canvasPlaceId(path) });
-  const isInsertTarget =
-    insertTargets?.some(
-      (target) => formatBlockPath(target.path) === encodedPath,
-    ) ?? false;
+  const target =
+    activeTarget && formatBlockPath(activeTarget.path) === encodedPath
+      ? activeTarget.kind
+      : undefined;
   return (
     <div
       ref={setNodeRef}
       {...tid("canvas-append-slot")}
       data-canvas-path={encodedPath}
-      data-canvas-drop={isInsertTarget ? "place" : undefined}
-      className={`${CHROME_SCOPE} data-[canvas-drop=place]:min-h-12 data-[canvas-drop=place]:rounded-lg data-[canvas-drop=place]:border data-[canvas-drop=place]:border-dashed data-[canvas-drop=place]:border-(--edge)/40 data-[canvas-drop=place]:outline-2 data-[canvas-drop=place]:outline-offset-2 data-[canvas-drop=place]:outline-(--accent)`}
-    />
+      className={`relative ${CHROME_SCOPE}`}
+    >
+      {target ? <DropMark kind={target} height={carriedHeight} /> : null}
+    </div>
   );
 }
