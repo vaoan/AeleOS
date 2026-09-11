@@ -7278,3 +7278,109 @@ regressions outside this task's own edits), `pnpm typecheck` and
 `pnpm lint` (repository root) both clean. The Playwright suite was not
 run, per this task's own instructions — see the flagged consequence above
 for what the first real run against this branch will hit.
+
+**The consequence above is fixed now, same day, by owner's ruling
+overriding the deferral.** All four sites that depended on
+`data-canvas-drop="place"` as a membership signal are corrected rather than
+left for Task 7 — the ruling was that `dragPaletteOnto` is load-bearing
+for Task 7's own browser proof, and this branch has already paid once for
+leaving a suite red across several tasks. `data-canvas-drop` itself stays
+on `EditableBlockFrame` (`editable-block-frame.tsx:122`, the only place
+that still writes it), deferred to a later coherence pass rather than
+removed here — it is redundant with the mark's own test id now, not wrong.
+
+**One of the four sites turned out to need more than a selector swap, and
+finding that is the actual content of this addendum.**
+`tests/e2e/support/editor.ts`'s `dragPaletteOnto` used to wait for
+`[data-canvas-drop="place"]` to appear immediately after crossing the drag
+threshold — BEFORE moving the pointer anywhere near the real target. That
+was safe under the old membership-based highlight, which lit up every
+valid target the instant the drag began, independent of pointer position.
+It is not safe under the single-winner design this task shipped: a mark
+now only exists once the pointer is actually over a valid landing, which
+this function's own code order did not reach until AFTER the wait. A
+literal "swap the attribute for the test id, keep everything else"
+edit — which is what a first reading of the fix suggested — would have
+made every caller of `dragPaletteOnto` (and therefore `addBlock` and
+`addSection`, which both route through it) wait for something that cannot
+exist yet, timing out on every call. Given how many e2e specs depend on
+those three functions, that would have been a large, confusing regression
+introduced by the very fix meant to prevent one.
+
+The corrected function moves the pointer onto the real target FIRST, then
+waits for whichever of `canvas-drop-before`/`-after`/`-place` the drop
+answers — unscoped to `targetLocator`, because `insertMarkFor` marks an
+already-populated container's trailing append slot by drawing `after` on
+its LAST CHILD rather than on the append slot's own element (see that
+function's own TSDoc, and the "second half" account above), so a valid
+drop's mark is not always the target locator's own descendant. The
+now-obsolete "wait for the reflow, then re-read geometry a second time"
+framing is corrected too: nothing in the canvas changes size while a drag
+is in progress any more, on any target, so the second geometry read that
+remains is a general safety margin rather than a fix for a specific known
+reflow.
+
+`tests/e2e/palette-drag-to-add.spec.ts`'s depth-cap test
+("shows no highlight for a container-kind drag past the depth cap, while a
+shallower target still lights up") needed the same reckoning, worked
+through by hand against `insertTargetsFor`/`mayNest`/`insertMarkFor`
+rather than assumed: its two `data-canvas-path` targets, `"1-0-0-2"` (the
+depth-capped container's own append slot, refused) and `"1-0-3"` (a
+shallower container's own append slot, admitted), used to carry the
+attribute simultaneously with the pointer never having moved near either —
+the same membership artefact `dragPaletteOnto` depended on. Tracing the
+exact tree this test builds (`addSection` then two `addBlock` calls, each
+of which INSERTS-before rather than replacing, per `firstOpenPlace`'s own
+documented growth) confirmed the tree has "1" holding 3 children, "1-0"
+holding 3, and "1-0-0" holding 2 — which is what makes "1-0-0-2" and
+"1-0-3" the correct append-slot names Task 4's own author had already
+worked out; that part of the old test was right. What changed is WHERE
+each hover has to land and what mark it actually produces:
+
+- Hovering "1-0-0" itself (not its own nested places, all refused by the
+  depth cap) resolves to the shallower target BEFORE it — the nearest
+  landing `insertTargetsFor` still offers — and draws a `before` mark on
+  "1-0-0" itself. The refusal is now asserted directly: nothing carrying
+  any `canvas-drop-*` test id exists anywhere under `"1-0-0-*"`.
+- Hovering "1-0-3", "1-0"'s own append slot, resolves to exactly that
+  target (its own registered droppable id, unambiguous) — but
+  `insertMarkFor` answers `{ kind: "after", path: [1,0,2] }` for it, since
+  "1-0" is already populated, so the VISIBLE mark renders on "1-0-2" (its
+  last existing empty child), never on "1-0-3" itself. The assertion reads
+  the mark off "1-0-2", not off the element the pointer is actually over.
+
+`tests/e2e/a11y.spec.ts`'s drag-in-progress scan had the identical fault
+in miniature — asserting `data-canvas-drop="place"` on "1-0" (section
+"1"'s own first empty place) with the pointer still at the palette
+thumbnail. Fixed the same way: the pointer now moves onto "1-0" before the
+scan, and the assertion reads `canvas-drop-before` (an existing empty
+child gets a `before` mark from `insertMarkFor`, never `place` — that
+kind is reserved for a genuinely empty container's own position).
+
+**All three comments were rewritten in the same change, not left
+describing the deleted membership behaviour** — the coordinator's own
+caution, paid for concretely: a comment saying "every valid target lights
+up at once" next to code that no longer does that is exactly the kind of
+confident, wrong instruction this file warns about everywhere else.
+
+**How this was verified without a browser run**, since Playwright was not
+executed: the fix rests on tracing `detectCollisionAt`'s palette branch
+(`block-editor.tsx`), `insertTargetsFor`, `mayNest`, and `insertMarkFor`
+(`domain/palette-targets.ts`) by hand against the exact tree each test
+builds, cross-checked against `firstOpenPlace`'s own documented
+insert-before-grows-the-container behaviour (`support/editor.ts`) rather
+than assumed. The one thing this could not settle by reading code is
+whether real pixel geometry ever makes an unrelated candidate's rect
+ALSO contain a hover point meant for a different target — considered and
+set aside for the "1-0-0-2" case specifically by choosing to hover "1-0-0"
+itself (a normally sized, real block) rather than its own nested,
+zero-height append slot, which sidesteps the ambiguity rather than resolves
+it by measurement. This is the one place in this whole task where "I
+satisfied myself it is right" is weaker than a browser run would make it —
+flagged rather than asserted as certain.
+
+**Verified again:** `pnpm --filter hub test` (3,809 tests, unchanged —
+none of these four files is part of the vitest suite), `pnpm typecheck`
+and `pnpm lint` (repository root) both clean, `pnpm check:tools` clean
+(cspell: 0 issues across 544 files). The Playwright suite was still not
+run.

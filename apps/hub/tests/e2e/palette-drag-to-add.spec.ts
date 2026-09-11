@@ -390,33 +390,64 @@ test("shows no highlight for a container-kind drag past the depth cap, while a s
     source!.y + source!.height / 2,
   );
 
-  // **`data-canvas-drop="place"` is set from `insertTargets` MEMBERSHIP
-  // alone, and only `AppendSlot` still draws it (`editable-block-frame.tsx`)
-  // — `EditableBlockFrame`'s own copy of this highlight is gone (this
-  // branch's own "drop-target-legibility" change), so the existing places
-  // "1-0-0-0"/"1-0-0-1"/"1-0-1" never carry the attribute any more, valid
-  // target or not, and can no longer discriminate the depth cap.** What
-  // still can, unaffected by that change, is each container's own APPEND
-  // SLOT — constant for the whole drag, independent of where the pointer
-  // currently sits. "1-0-0" was built fresh by `newContainer` and never
-  // touched again, so its own append slot is unambiguously "1-0-0-2"; a
-  // container's own places sitting a FOURTH level down from the page root
-  // is exactly what `insertTargetsFor` refuses to offer for a
-  // container-kind item, so this never lights up for the entire drag.
-  await expect(
-    page.locator('[data-canvas-path="1-0-0-2"]'),
-  ).not.toHaveAttribute("data-canvas-drop", "place");
-
-  // A shallower target, "1-0"'s own append slot, still admits a nested
-  // container (`mayNest` holds one level deeper than "1-0"'s own path,
-  // path length 3, still within the cap) — so it lights up during the
-  // exact same drag. "1-0" gained exactly one child from the single
-  // `addBlock` call above, on top of the two `newContainer` gave it, so its
-  // append slot is unambiguously "1-0-3".
-  await expect(page.locator('[data-canvas-path="1-0-3"]')).toHaveAttribute(
-    "data-canvas-drop",
-    "place",
+  // **Only the single winning target is marked now, resolved from real
+  // pointer position — not from static `insertTargets` MEMBERSHIP, which
+  // used to light up every valid candidate AT ONCE, constant for the whole
+  // drag and independent of where the pointer actually sat (corrected
+  // 2026-09-11).** So the old shape of this test — check two paths
+  // simultaneously, without ever moving the pointer near either — no
+  // longer proves anything: nothing is marked anywhere until the pointer
+  // actually reaches a valid landing. This drives the pointer onto each
+  // target in turn instead, and reads the resulting mark off
+  // `insertMarkFor`'s own contract (`domain/palette-targets.ts`) rather
+  // than assuming a mark renders wherever the pointer does.
+  //
+  // "1-0-0" itself sits at depth 3, and `mayNest` refuses a FOURTH level
+  // inside it, so none of ITS OWN places (`"1-0-0-0"`/`"1-0-0-1"`/its own
+  // append slot `"1-0-0-2"`) are offered as targets for a container-kind
+  // item at all — the nearest this drag can land is BEFORE "1-0-0" itself,
+  // which `insertTargetsFor` still offers as one of "1-0"'s own splice
+  // indices. Hovering directly over "1-0-0" resolves to exactly that
+  // target and draws a `before` mark on "1-0-0" itself, never inside it.
+  const nestedContainer = page.locator('[data-canvas-path="1-0-0"]');
+  await nestedContainer.scrollIntoViewIfNeeded();
+  const nestedContainerBox = await nestedContainer.boundingBox();
+  expect(nestedContainerBox).not.toBeNull();
+  await page.mouse.move(
+    nestedContainerBox!.x + nestedContainerBox!.width / 2,
+    nestedContainerBox!.y + nestedContainerBox!.height / 2,
+    { steps: 8 },
   );
+  await expect(nestedContainer.getByTestId("canvas-drop-before")).toBeVisible();
+  // Nothing INSIDE the depth-capped container is ever marked, whatever kind
+  // — this is the actual discriminator the depth cap is about, not which
+  // one specific id carries an attribute.
+  await expect(
+    page.locator('[data-canvas-path^="1-0-0-"]').getByTestId(/^canvas-drop-/),
+  ).toHaveCount(0);
+
+  // A shallower target, "1-0"'s own append slot ("1-0-3": it gained exactly
+  // one child from the single `addBlock` call above, on top of the two
+  // `newContainer` gave it, so its own append slot is unambiguously
+  // "1-0-3"), still admits a nested container (`mayNest` holds one level
+  // deeper than "1-0"'s own path, path length 3, still within the cap).
+  // **`insertMarkFor` draws an append target on an ALREADY-POPULATED
+  // container as an `after` mark on its LAST CHILD, never on the append
+  // slot's own element** — see that function's own TSDoc — so the mark
+  // this produces lands on "1-0-2", "1-0"'s last existing (empty) child,
+  // not on "1-0-3" itself, even though "1-0-3" is where the pointer sits.
+  const trailingAppendSlot = page.locator('[data-canvas-path="1-0-3"]');
+  await trailingAppendSlot.scrollIntoViewIfNeeded();
+  const trailingAppendSlotBox = await trailingAppendSlot.boundingBox();
+  expect(trailingAppendSlotBox).not.toBeNull();
+  await page.mouse.move(
+    trailingAppendSlotBox!.x + trailingAppendSlotBox!.width / 2,
+    trailingAppendSlotBox!.y + trailingAppendSlotBox!.height / 2,
+    { steps: 8 },
+  );
+  await expect(
+    page.locator('[data-canvas-path="1-0-2"]').getByTestId("canvas-drop-after"),
+  ).toBeVisible();
 
   // Ends the drag with nothing under the pointer, so nothing is inserted —
   // this case is about what lights up mid-drag, not about a drop.
