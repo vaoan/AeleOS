@@ -7056,3 +7056,21 @@ rewritten too: it named two null routes ("no container or past the end")
 where the implementation has four (empty path, negative index, a
 non-container-or-absent parent step, past-the-end); a negative index was
 honestly neither of the two the old sentence named.
+
+### One ghost-slot mark for every drop landing (2026-09-08) — component only
+
+`presentation/drop-mark.tsx` adds `DropMark({ kind, height })`, the one
+component meant to replace the three inline fragments `EditableBlockFrame`
+currently draws by hand for `before`/`after`/`place`. It is absolutely
+positioned and `pointer-events-none` so it never reflows the canvas mid-drag
+— `@dnd-kit` caches droppable rectangles at drag start, and a layout shift
+under those rectangles is exactly the palette-drag reflow bug this file
+already documents above. `height` is `null` for a palette drag, since the
+carried block does not exist yet and has nothing to measure; the mark still
+stands at its own `min-h-12` rather than collapsing to nothing.
+
+**Nothing renders it yet.** No caller has been rewired to use it —
+`EditableBlockFrame` still draws its own three fragments — so this is the
+component and its own six-case test suite only, the same incremental shape
+as the palette-targets entry just above it. Wiring it into the two real
+callers is a later task.
