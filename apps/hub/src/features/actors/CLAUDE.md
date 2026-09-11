@@ -7041,3 +7041,18 @@ Tasks above already use (see Task 1 of "Every valid drop target for a
 palette drag," 2026-09-05, which shipped `insertTargetsFor` alone the same
 way): a mechanism landing ahead of anything wiring it in, named here so it
 is not mistaken for dead code once a renderer does reach for it.
+
+**Review found an untested branch coverage could not see, and the `@returns`
+above undercounted (2026-09-08).** `insertMarkFor`'s parent-walk guard is
+`if (!next || !isContainer(next)) return null;` — the shipped suite drove
+`!isContainer(next)` (a path stepping onto a real leaf) but nothing drove
+`!next` (a path stepping onto a position nothing occupies at all, such as an
+out-of-range intermediate segment). Coverage read 18 branch entries with
+none at zero regardless, because a branch reachable only by an input nobody
+wrote is untested however the number reads (root rule 11) — the gate is
+satisfied by a suite that never tried the input, not by one that covers the
+code. A case naming that exclusion explicitly closed it. The `@returns` is
+rewritten too: it named two null routes ("no container or past the end")
+where the implementation has four (empty path, negative index, a
+non-container-or-absent parent step, past-the-end); a negative index was
+honestly neither of the two the old sentence named.

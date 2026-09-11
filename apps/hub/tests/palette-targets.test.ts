@@ -346,6 +346,17 @@ describe("insertMarkFor", () => {
     expect(insertMarkFor([leaf("a")], { path: [0, 5] })).toBeNull();
   });
 
+  // The case above drives `!isContainer(next)` true: `next` (`leaf("a")`) is
+  // truthy, just not a container. It does not drive the OTHER half of that
+  // guard, `!next` — an intermediate step naming a position nothing occupies
+  // at all, as opposed to one occupied by the wrong kind of thing. Coverage
+  // found this gap: 18 branch entries with none at zero, because a branch
+  // reachable only by an input nobody wrote is untested however the number
+  // reads (root rule 11).
+  it("answers null when an intermediate step names an absent sibling, not merely a non-container one", () => {
+    expect(insertMarkFor([], { path: [5, 0] })).toBeNull();
+  });
+
   // The three cases below reach branches the brief's own six did not: an
   // empty path, a negative splice index, and an index past the end of the
   // list it names. None of the six given cases exercises any of these, so

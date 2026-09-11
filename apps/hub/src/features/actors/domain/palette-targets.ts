@@ -240,8 +240,9 @@ export function stepInsertSection(
  *
  * @param blocks - the whole page, read only.
  * @param target - one insert target, as `insertTargetsFor` answers them.
- * @returns the mark to draw, or `null` when the path names no container or
- * points past the end of one.
+ * @returns the mark to draw, or `null` in any of four cases: an empty path,
+ * a negative splice index, a step through something other than a container
+ * (missing or a leaf), or an index past the end of the list it names.
  */
 export function insertMarkFor(
   blocks: readonly (Block | null)[],
