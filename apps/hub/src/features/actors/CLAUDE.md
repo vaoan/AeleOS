@@ -7493,3 +7493,46 @@ Verified: `pnpm --filter hub test` (3,815 tests, all passing, two new for
 `DragPreview` itself), `pnpm typecheck` and `pnpm lint` (repository root)
 both clean, `pnpm check:docs` clean. The Playwright suite was not run, per
 this task's own instructions.
+
+### A swap is marked at both ends (2026-09-11) — Task 6 of drop-target-legibility
+
+Dragging onto an OCCUPIED place exchanges the two blocks — the one already
+there returns to wherever the carried one came from — and nothing on screen
+said so, which is what made a swap read as an overwrite about to happen.
+`EditableBlockInstrumentation` gained `returningPath: string | null`;
+`EditableBlockFrame` draws a second mark, dotted and muted rather than
+dashed and accent, on whichever frame's own `encodedPath` matches it —
+beside, never instead of, the existing landing mark — so the two ends of a
+swap are told apart at a glance: accent is where the carried block is
+going, muted is where the displaced one is coming back to.
+
+**The frame itself does no gating — it draws the mark purely from
+`editor.returningPath === encodedPath`.** All of the "is this actually a
+swap" judgement lives in `block-editor.tsx`'s `onDragOver`, in the
+canvas-move branch only: `returningPath` is set to the drag's own SOURCE
+path (`canvasPlacePath(activeId) ?? placePath(activeId)`, the same
+resolution `onDragStart`/`onDragEnd` already use) exactly when the winning
+target is `kind === "place"` **and** `blockAt(blocks, winner.path)` finds a
+real block already sitting there. A `place` target over an EMPTY position
+is a move, not a swap, so `returningPath` stays `null` there — marking a
+return would name a block that never moves. The palette branch always
+publishes `null`: an insert displaces nothing, so there is no source to
+return to. It is reset alongside `advertisedTarget` everywhere that field
+already is — `onDragStart` (both branches), `onDragOver`'s palette branch,
+`onDragCancel` and `onDragEnd` (both branches) — so it never survives past
+the drag that set it.
+
+**A fixture asserting a testid exists anywhere on the page passes whether
+it landed on the right element or on every element (root rule 27).** The
+brief's own two-frame swap case shares one `editor` object between both
+frames, which by itself does not prove WHICH frame drew which mark; the
+shipped test scopes each assertion with `within()` against the frame whose
+own `data-canvas-path` it names, and a second case drives a `place` target
+over an empty position with `returningPath: null` to prove a plain move
+draws no returning mark at all — a suite that only ever exercised the swap
+case could not tell a correct implementation from one that always marks a
+return.
+
+Verified: `pnpm --filter hub test` (3,818 tests, all passing), `pnpm
+typecheck` and `pnpm lint` (repository root) both clean, `pnpm check:docs`
+clean. The Playwright suite was not run, per this task's own instructions.

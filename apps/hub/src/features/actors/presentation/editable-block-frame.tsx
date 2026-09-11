@@ -32,6 +32,13 @@ import { DropMark } from "@/features/actors/presentation/drop-mark";
  * landing, or a palette-origin drag's winning target, translated through
  * `insertMarkFor` (`domain/palette-targets.ts`) and published through the
  * same field by `block-editor.tsx`'s `onDragOver` (2026-09-11).
+ *
+ * **Also carries `returningPath` (2026-09-11, drop-target-legibility task
+ * 6), the OTHER end of a swap.** Dropping onto an occupied `place` exchanges
+ * two blocks, so `activeTarget` alone only ever names where the carried
+ * block is landing — this names where the block it displaces goes back to,
+ * `null` for a move onto an empty place or for any palette drag, which
+ * displaces nothing.
  */
 export interface EditableBlockInstrumentation {
   /** The selected block, in the renderer's hyphenated path form. */
@@ -47,6 +54,19 @@ export interface EditableBlockInstrumentation {
    * fixed guess.
    */
   readonly carriedHeight: number | null;
+  /**
+   * The renderer path of the place the displaced block goes back to, or
+   * `null` unless the live drag is a swap (2026-09-11).
+   *
+   * Dropping onto an OCCUPIED place exchanges the two blocks — the one
+   * already there returns to wherever the carried one came from. This names
+   * that return leg, so a swap draws two marks: {@link activeTarget}'s own
+   * `place` landing in the accent colour, and this path in a second, muted
+   * mark — the other end of the SAME exchange, never a second candidate.
+   * `null` for every other drag: a move onto an empty place displaces
+   * nothing, and a palette insert has no source to return anything to.
+   */
+  readonly returningPath: string | null;
 }
 
 /** What {@link EditableBlockFrame} needs. */
@@ -78,6 +98,16 @@ export interface EditableBlockFrameProps {
  * question, and it is what made the mark unobservable in jsdom (`isOver` is
  * never set there). The mark is a {@link DropMark}, sized from
  * `editor.carriedHeight` when there is a real block to measure.
+ *
+ * **A swap draws a SECOND mark, the other end of the same exchange
+ * (2026-09-11).** `editor.returningPath` names the place the displaced block
+ * goes back to; when this frame's own `encodedPath` matches it, a dotted,
+ * muted mark is drawn beside — never instead of — the landing mark, so the
+ * two ends of a swap are told apart at a glance: the accent `DropMark` is
+ * where the carried block is going, the muted dotted one is where the
+ * displaced block is coming back to. `block-editor.tsx`'s `onDragOver`
+ * writes it only when the winning target is an OCCUPIED `place`; an empty
+ * place displaces nothing and a palette insert has no source to return.
  *
  * @param props - see {@link EditableBlockFrameProps}.
  * @returns the instrumented renderer node and editor-only feedback.
@@ -130,6 +160,13 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
     >
       {children}
       {target ? <DropMark kind={target} height={editor.carriedHeight} /> : null}
+      {editor.returningPath === encodedPath ? (
+        <span
+          aria-hidden
+          {...tid("canvas-drop-returning")}
+          className={`${CHROME_SCOPE} pointer-events-none absolute inset-0 z-20 rounded-lg border-2 border-dotted border-(--muted)`}
+        />
+      ) : null}
       {selected && filled ? (
         <button
           type="button"

@@ -1514,6 +1514,13 @@ function panelFootFor({
  * rectangle, and a completed insert has already moved that rectangle,
  * sometimes to a different parent entirely.
  *
+ * **A swap is marked at both ends now (2026-09-11, drop-target-legibility
+ * task 6).** `onDragOver`'s canvas-move branch publishes `returningPath`
+ * — the drag's own source path — whenever the winning target is `place`
+ * AND `blockAt` finds a real block already occupying it; a `place` target
+ * over an empty position is a move rather than a swap, so nothing is
+ * published there. It is reset everywhere `advertisedTarget` already is.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1538,6 +1545,13 @@ export function BlockEditor<T extends FieldValues>({
   const [advertisedTarget, setAdvertisedTarget] = useState<DropTarget | null>(
     null,
   );
+  // **The other end of a swap, published beside `advertisedTarget`
+  // (drop-target-legibility, task 6).** Set by `onDragOver`'s canvas-move
+  // branch only when the winning target is an OCCUPIED `place` — the source
+  // the carried block left, which is where the displaced block returns to.
+  // `null` for a move onto an empty place, and for the whole course of a
+  // palette drag, which displaces nothing.
+  const [returningPath, setReturningPath] = useState<string | null>(null);
   // **Forces exactly one re-render at the start and end of a palette-origin
   // drag, found missing by a real browser rather than assumed present
   // (2026-09-06).** `insertTargetsRef` below is a ref precisely because its
@@ -1866,6 +1880,7 @@ export function BlockEditor<T extends FieldValues>({
       pointerTarget.current = null;
       carriedHeightRef.current = null;
       setAdvertisedTarget(null);
+      setReturningPath(null);
       setRefusal(null);
       setPaletteDragActive(true);
       return;
@@ -1879,6 +1894,7 @@ export function BlockEditor<T extends FieldValues>({
     carriedHeightRef.current =
       event.active.rect.current.initial?.height ?? null;
     setAdvertisedTarget(null);
+    setReturningPath(null);
     setRefusal(null);
   };
 
@@ -1895,7 +1911,18 @@ export function BlockEditor<T extends FieldValues>({
    * into the gap it names. `insertMarkFor` is asked of `blocks` rather than
    * `pageRef.current` to match every other read in this branch
    * (`onDragStart`, `onDragEnd`) — all three close over the same render's
-   * value rather than reading the ref `detectCollisionAt` alone uses.
+   * value rather than reading the ref `detectCollisionAt` alone uses. A
+   * palette drop displaces nothing, so `returningPath` is always cleared on
+   * this branch.
+   *
+   * **The canvas-move branch also publishes `returningPath` (task 6,
+   * drop-target-legibility).** Dropping onto an OCCUPIED `place` exchanges
+   * the dragged block with whatever is already there, so the place the drag
+   * STARTED from is where that displaced block goes back to. It is set only
+   * when the winning target is `place` AND `blockAt` finds a real block
+   * already sitting there — a `place` target over an EMPTY position is a
+   * move, not a swap, and marking a return there would name a block that
+   * never moves.
    *
    * @param event - dnd-kit's own resolved-over event.
    */
@@ -1910,10 +1937,18 @@ export function BlockEditor<T extends FieldValues>({
         : undefined;
       paletteTarget.current = winner ? insertMarkFor(blocks, winner) : null;
       setAdvertisedTarget(paletteTarget.current);
+      setReturningPath(null);
       return;
     }
     paletteTarget.current = null;
-    setAdvertisedTarget(keyboardTarget.current ?? pointerTarget.current);
+    const winner = keyboardTarget.current ?? pointerTarget.current;
+    setAdvertisedTarget(winner);
+    const from = canvasPlacePath(activeId) ?? placePath(activeId);
+    setReturningPath(
+      winner?.kind === "place" && from && blockAt(blocks, winner.path)
+        ? formatBlockPath(from)
+        : null,
+    );
   };
 
   /**
@@ -1931,6 +1966,7 @@ export function BlockEditor<T extends FieldValues>({
     pointerTarget.current = null;
     carriedHeightRef.current = null;
     setAdvertisedTarget(null);
+    setReturningPath(null);
     setPaletteDragActive(false);
     setActiveLabel(null);
   };
@@ -1971,6 +2007,7 @@ export function BlockEditor<T extends FieldValues>({
       paletteTarget.current = null;
       carriedHeightRef.current = null;
       setAdvertisedTarget(null);
+      setReturningPath(null);
       setPaletteDragActive(false);
       const overId = event.over ? String(event.over.id) : undefined;
       const targetPath = overId ? canvasPlacePath(overId) : undefined;
@@ -2008,6 +2045,7 @@ export function BlockEditor<T extends FieldValues>({
     pointerTarget.current = null;
     carriedHeightRef.current = null;
     setAdvertisedTarget(null);
+    setReturningPath(null);
     if (!from || !target || !event.over) return;
     const result = applyDrop(blocks, from, target);
     if (!result.ok) {
@@ -2588,6 +2626,12 @@ export function BlockEditor<T extends FieldValues>({
                                   // drag, which carries no real block to
                                   // measure yet.
                                   carriedHeight: carriedHeightRef.current,
+                                  // Set by `onDragOver`'s canvas-move
+                                  // branch only when the winning target
+                                  // is an OCCUPIED place — the source the
+                                  // carried block left, where the block
+                                  // it is swapping with returns to.
+                                  returningPath,
                                 }}
                               >
                                 {children}

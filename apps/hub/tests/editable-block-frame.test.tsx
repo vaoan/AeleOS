@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
 import type { ReactNode } from "react";
 import {
@@ -31,6 +31,7 @@ function editor(
     activeTarget: null,
     dragLabel: "Move this",
     carriedHeight: null,
+    returningPath: null,
     ...overrides,
   };
 }
@@ -88,6 +89,7 @@ describe("EditableBlockFrame", () => {
       activeTarget: { kind: "before" as const, path: [0, 1] },
       dragLabel: "Move",
       carriedHeight: 96,
+      returningPath: null,
     };
     render(
       <>
@@ -100,6 +102,65 @@ describe("EditableBlockFrame", () => {
       </>,
     );
     expect(screen.getAllByTestId("canvas-drop-before")).toHaveLength(1);
+  });
+
+  it("marks both ends of a swap, each on its own element and not the other's", () => {
+    // A swap: the carried block is landing at 0-1 (the accent `place` mark)
+    // and the block already there is going back to 0-0 (the muted, dotted
+    // `canvas-drop-returning` mark). Asserting a testid exists anywhere on
+    // the page would pass whether it landed on the right element or on
+    // every element — root `CLAUDE.md` rule 27 — so each assertion is
+    // scoped to its own frame.
+    const editorProps = {
+      selectedPath: undefined,
+      activeTarget: { kind: "place" as const, path: [0, 1] },
+      dragLabel: "Move",
+      carriedHeight: 96,
+      returningPath: "0-0",
+    };
+    const { container } = render(
+      <>
+        <EditableBlockFrame path="0-0" filled editor={editorProps}>
+          <div />
+        </EditableBlockFrame>
+        <EditableBlockFrame path="0-1" filled editor={editorProps}>
+          <div />
+        </EditableBlockFrame>
+      </>,
+    );
+    const source = container.querySelector<HTMLElement>(
+      '[data-canvas-path="0-0"]',
+    );
+    const landing = container.querySelector<HTMLElement>(
+      '[data-canvas-path="0-1"]',
+    );
+    if (!source || !landing) throw new Error("both frames must render");
+
+    expect(
+      within(landing).getByTestId("canvas-drop-place"),
+    ).toBeInTheDocument();
+    expect(within(landing).queryByTestId("canvas-drop-returning")).toBeNull();
+
+    expect(
+      within(source).getByTestId("canvas-drop-returning"),
+    ).toBeInTheDocument();
+    expect(within(source).queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  it("draws no returning mark for a plain move onto an empty place", () => {
+    // A move — nothing displaced, so nothing returns, even though the
+    // landing itself is still a `place` mark. A fixture that only ever
+    // exercises the swap case could not tell a correct implementation
+    // from one that always draws a returning mark.
+    renderFrame({
+      path: "0-1",
+      editorProps: {
+        activeTarget: { kind: "place", path: [0, 1] },
+        returningPath: null,
+      },
+    });
+    expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
   });
 
   it("draws a place mark, with the drop attribute, when activeTarget names this exact path", () => {
@@ -146,6 +207,15 @@ describe("EditableBlockFrame", () => {
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
+  });
+
+  it("draws nothing when returningPath names a different path", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: { returningPath: "0-0" },
+    });
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
   });
 
   it("draws nothing while no drag is in progress", () => {
@@ -156,6 +226,7 @@ describe("EditableBlockFrame", () => {
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
   });
 
   it("sizes the mark from carriedHeight when a real block is being carried", () => {
