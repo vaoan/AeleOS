@@ -304,15 +304,22 @@ test.describe("the signed-in pages are accessible", () => {
     // defect that only exists while it is open, and the page-source dock's
     // own `aria-required-attr`/`nested-interactive` findings are the class
     // of thing this is looking for here — a highlight outline with no
-    // accessible-name change, or a drag source with no name at all. Every
-    // valid target lights up at once (`data-canvas-drop="place"`, this
-    // section's own two empty places among them, since section "1" was
-    // created above), which changes no accessible name on any of them, and
-    // nothing here is a `<dialog>` needing native semantics of its own — so
-    // this is closer in kind to the theme panel above than to the source
-    // dock below. Ended without dropping — moved well away from every
-    // target and released over nothing — so it leaves no mark on this
-    // test's own later sequence.
+    // accessible-name change, or a drag source with no name at all.
+    // **Only the single WINNING target is marked now, not every valid one
+    // at once (corrected 2026-09-11 — this comment used to describe
+    // membership-based highlighting that `block-editor.tsx`'s `onDragOver`
+    // no longer draws).** So this scan moves the pointer onto a real
+    // landing — "1-0", the first of section "1"'s own two empty places,
+    // created above — before scanning, rather than trusting a highlight to
+    // already be there the instant the drag starts. `insertMarkFor`
+    // (`domain/palette-targets.ts`) answers `before` for an existing empty
+    // child rather than `place`, since inserting before a `null` pushes it
+    // down exactly as it would a filled sibling; nothing here is a
+    // `<dialog>` needing native semantics of its own — so this is closer in
+    // kind to the theme panel above than to the source dock below. Ended
+    // without dropping — moved well away from every target and released
+    // over nothing — so it leaves no mark on this test's own later
+    // sequence.
     const paletteThumbnail = page.locator('[data-palette-kind="text"]');
     // Scrolled into view before its geometry is read — `support/editor.ts`'s
     // own `dragPaletteOnto` documents why this is load-bearing rather than
@@ -332,10 +339,22 @@ test.describe("the signed-in pages are accessible", () => {
       dragSource!.x + dragSource!.width / 2 + 20,
       dragSource!.y + dragSource!.height / 2,
     );
-    await expect(page.locator('[data-canvas-path="1-0"]')).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
+    // **The pointer has to actually reach "1-0" before a mark exists there
+    // (corrected 2026-09-11).** A mark is resolved from real pointer
+    // position now, not from static membership — see the paragraph above —
+    // so this moves onto the target before waiting for its own mark to
+    // mount, matching `dragPaletteOnto`'s own corrected ordering in
+    // `support/editor.ts`.
+    const emptyPlace = page.locator('[data-canvas-path="1-0"]');
+    await emptyPlace.scrollIntoViewIfNeeded();
+    const emptyPlaceBox = await emptyPlace.boundingBox();
+    expect(emptyPlaceBox).not.toBeNull();
+    await page.mouse.move(
+      emptyPlaceBox!.x + emptyPlaceBox!.width / 2,
+      emptyPlaceBox!.y + emptyPlaceBox!.height / 2,
+      { steps: 8 },
     );
+    await expect(page.getByTestId("canvas-drop-before")).toBeVisible();
     await isAccessible(page, "a palette-origin drag in progress");
     await page.mouse.move(9999, 9999);
     await page.mouse.up();

@@ -1,4 +1,5 @@
 import { mayNest, type BlockPath } from "@/features/actors/domain/block-edits";
+import type { DropTarget } from "@/features/actors/domain/block-drops";
 import {
   isContainer,
   type Block,
@@ -217,4 +218,53 @@ export function stepInsertSection(
   return order.find((target) =>
     forward ? target.path[0] > index : target.path[0] < index,
   );
+}
+
+/**
+ * The gap a palette insert target names, as something a renderer can draw.
+ *
+ * **An {@link InsertTarget}'s last segment is a splice index, not a block.**
+ * `[0, 2]` means "insert before whatever is at index 2 of block 0", so
+ * drawing the block at `[0, 2]` marks the block that will be PUSHED DOWN
+ * rather than the space the new one takes. This translates the index into a
+ * {@link DropTarget}, the same vocabulary the canvas-move path already draws
+ * with, so both drags mark a landing the same way.
+ *
+ * The append index — one past the last child — has no sibling to sit before,
+ * so it answers `after` the last child instead. A container with no children
+ * has neither, so it answers `place`, naming its own first position.
+ *
+ * **An empty place is still marked with a gap**, not as a place: inserting
+ * before a `null` child pushes that empty place down exactly as it would a
+ * filled one, so the honest mark is the space above it.
+ *
+ * @param blocks - the whole page, read only.
+ * @param target - one insert target, as `insertTargetsFor` answers them.
+ * @returns the mark to draw, or `null` in any of four cases: an empty path,
+ * a negative splice index, a step through something other than a container
+ * (missing or a leaf), or an index past the end of the list it names.
+ */
+export function insertMarkFor(
+  blocks: readonly (Block | null)[],
+  target: InsertTarget,
+): DropTarget | null {
+  const path = target.path;
+  if (path.length === 0) return null;
+  const parent = path.slice(0, -1);
+  const index = path.at(-1)!;
+  if (index < 0) return null;
+
+  let siblings: readonly (Block | null)[] = blocks;
+  for (const step of parent) {
+    const next = siblings[step];
+    if (!next || !isContainer(next)) return null;
+    siblings = next.children;
+  }
+
+  if (index > siblings.length) return null;
+  if (siblings.length === 0) return { kind: "place", path: [...parent, 0] };
+  if (index === siblings.length) {
+    return { kind: "after", path: [...parent, siblings.length - 1] };
+  }
+  return { kind: "before", path: [...parent, index] };
 }
