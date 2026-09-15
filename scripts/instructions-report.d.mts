@@ -24,11 +24,32 @@ export interface Summary {
  */
 export declare function summarise(entries: readonly LogEntry[]): Summary;
 
+/** What {@link readLogReport} answers. */
+export interface LogReport {
+  /** Every entry that parsed as JSON, in file then line order. */
+  readonly entries: LogEntry[];
+  /** How many lines were present but failed to parse as JSON. */
+  readonly skipped: number;
+}
+
 /**
  * Reads every `.jsonl` in a directory.
  *
  * @param dir - the log directory.
- * @returns every entry, in file then line order.
- * @throws when the directory does not exist.
+ * @returns every entry that parsed, in file then line order; `[]` when `dir`
+ *   does not exist. A line that fails to parse as JSON is silently skipped —
+ *   see {@link readLogReport} to also learn how many were.
+ * @throws whatever `readdirSync` throws other than `ENOENT` — for instance
+ *   `ENOTDIR` when `dir` names a file rather than a directory.
  */
 export declare function readLog(dir: string): LogEntry[];
+
+/**
+ * Reads every `.jsonl` in a directory, also reporting how much was skipped.
+ *
+ * @param dir - the log directory.
+ * @returns the entries {@link readLog} would answer, plus `skipped`: the
+ *   count of lines that were present but did not parse as JSON.
+ * @throws whatever `readdirSync` throws other than `ENOENT`.
+ */
+export declare function readLogReport(dir: string): LogReport;

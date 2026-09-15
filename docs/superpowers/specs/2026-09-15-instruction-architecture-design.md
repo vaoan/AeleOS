@@ -1,8 +1,8 @@
 # Where the rules should live — instruction architecture design
 
-**Status: APPROVED (2026-09-15).** Nothing here is built yet. Plan:
-`docs/superpowers/plans/2026-09-15-instruction-architecture.md`. Phase 1 is a
-measurement, and no file moves until it has run.
+**Status: DELIVERED (2026-09-15).** The gate and the extractor were retired
+in this PR once every snapshot paragraph had been reviewed in place. Plan:
+`docs/superpowers/plans/2026-09-15-instruction-architecture.md`.
 
 ## The problem, measured
 
@@ -169,12 +169,13 @@ git identity procedure.
   should become its governed set, so a change to a matched file still obliges
   whoever made it to re-read the rule that governs it. Without this the move
   silently un-guards everything that leaves a directory note.
-- **A new gate, `check:lessons-preserved`**, asserts that every paragraph of
-  the pre-move root file exists verbatim somewhere in the tree. It is the
-  mechanical form of "nothing lost", written before the first move and watched
-  go red on a deliberately dropped paragraph. It retires once the move is
-  complete and reviewed, because a permanent gate that pins old text would
-  forbid ever rewriting a lesson.
+- **A temporary gate, `check:lessons-preserved`** (retired 2026-09-15 in
+  phase 7), asserted that every paragraph of the pre-move root file existed
+  verbatim somewhere in the tree. It was the mechanical form of "nothing
+  lost", written before the first move and watched go red on a deliberately
+  dropped paragraph. It was retired once the move was complete and reviewed,
+  because a permanent gate that pins old text would forbid ever rewriting a
+  lesson.
 - **`check:tools`' cspell glob already covers `**/*.md`**, so the lessons tree
   and the rule files are spell-checked on the day they land.
 
@@ -209,7 +210,8 @@ it took something away.
    real tasks. That is the baseline the migration is judged against.
 2. **Extract, do not rewrite.** Move each narrative into `docs/lessons/` byte
    for byte, leaving a one-line rule and a link behind. Write
-   `check:lessons-preserved` first and sabotage it before trusting it.
+   `check:lessons-preserved` first and sabotage it before trusting it (done;
+   the gate was retired in phase 7 once the move was reviewed).
 3. **Scope by concern.** Sort the one-liners into `.claude/rules/` files by
    the files they govern, and teach `check:agent-notes` to read `paths:`.
 4. **Hook the invariants.** Twenty lines on `SessionStart` matched to
@@ -217,7 +219,9 @@ it took something away.
    post-compaction probe fail to state it.
 5. **Procedures into skills.** Four to start: migration apply, picture proof,
    sabotage verification, pastiche re-seed.
-6. **Ablate on a cadence.** After each phase, compare the hook log against the
+6. **Dissolve the layer notes.** The actors note keeps the model; its accounts
+   move beside it into `HISTORY.md`; its rules become per-layer rule files.
+7. **Ablate on a cadence.** After each phase, compare the hook log against the
    baseline. A rule that no longer fires is retired to the lessons tree with a
    date rather than deleted.
 
@@ -230,11 +234,29 @@ it took something away.
   duplicated.
 - **The compaction hook's own size.** Twenty lines is a budget chosen from
   community practice, not a measurement; phase 4 should measure what a
-  post-compaction turn actually retains with and without it.
+  post-compaction turn actually retains with and without it. **2026-09-15:**
+  the hook was proved headlessly, under a `startup` matcher rather than the
+  interactive `/compact` (Ruling 17 in the plan's ledger); the `compact`
+  matcher itself is registered but was never exercised headlessly, and the
+  interactive check is the owner's to run.
 - **Whether `docs/lessons/` or per-feature `HISTORY.md` is the home for a
   narrative that belongs to one feature.** The proposal says both exist; the
   rule of thumb is that a lesson about a mechanism goes beside the feature and
   a lesson about how we work goes in the tree.
+- **2026-09-15, ablation:** none observed — no rule file loaded in every
+  session despite `paths:` scoping. The root `CLAUDE.md` is the only file in
+  all five, by design, and each `.claude/rules/editor-*.md` layer file loaded
+  only for the sessions that read its layer. `.claude/rules/editor-and-blocks.md`
+  (glob `apps/hub/src/**`) is the widest glob in use, a candidate should a
+  later pass want to narrow one.
+- **2026-09-15, final fix wave:** no `infrastructure` rule file was created.
+  `.claude/rules/editor-and-blocks.md`'s `apps/hub/src/**` already governs
+  that layer, and no section moved by phase 6 named an infrastructure file of
+  its own; create one the day a section does.
+- **2026-09-15, final fix wave:** two rule-file lines — `testing.md`'s hook
+  test comment and `toolchain.md`'s hook-script line — link a script or test
+  directly rather than a `docs/lessons/` file. Accepted as the pattern for a
+  rule ABOUT a script rather than about how we work in general (Ruling R31).
 
 ## Baseline (measured)
 
@@ -274,6 +296,46 @@ whatever `main` holds when it starts.
 One more thing the measurement corrected: the CLI sends the load reason as
 `load_reason`, where the hooks documentation says `reason`; the hook reads
 both, and the first real session logged no reason at all until it did.
+
+## After (measured)
+
+Taken on 2026-09-15 on the phase 7 branch, cut from `main` at 3505314 (phase
+6 merged), by the SAME method as the baseline: five headless sessions in a
+fresh worktree — one reading nothing under a nested note, and four reading a
+file under `apps/hub/src/features/actors/` (domain, application,
+presentation, and one vertical task across all three) — then
+`pnpm report:instructions`. The prompts were byte-identical to the
+baseline's.
+
+```
+sessions: 5
+instruction tokens per session: 17860
+by reason:
+  9920	session_start
+  58508	nested_traversal
+  904	include
+  19966	path_glob_match
+by file (tokens, sessions):
+  58492	4	apps/hub/src/features/actors/CLAUDE.md
+  10294	2	.claude/rules/editor-presentation.md
+  9920	5	CLAUDE.md
+  6234	2	.claude/rules/editor-domain.md
+  2764	4	.claude/rules/editor-and-blocks.md
+  904	4	apps/hub/AGENTS.md
+  674	2	.claude/rules/editor-application.md
+  16	4	apps/hub/CLAUDE.md
+```
+
+Ratio: 17,860 / 196,589 = 0.091 — tokens per session fell to about one
+eleventh, well past the "at least halved" acceptance. The two shapes the
+baseline named are now: a session touching nothing under `actors/` carries
+about 2,000 instruction tokens (was ~78,000), and a session reading a file
+under `actors/` carries about 20,000–24,000 (was ~226,000). All five ran on
+the 200k-window model that could not open a file under the feature at all on
+`main` before this plan.
+
+Both tables were taken by the same method; the baseline sessions ran on
+`main` at 35cdb3b and these on `main` at 3505314.
 
 ## Sources
 

@@ -22,6 +22,23 @@ export interface NoteEntry {
 export interface RuleEntry {
   readonly path: string;
   readonly globs: readonly string[];
+  /**
+   * Whether the file declares a bare `paths:` key on ANY line, regardless of
+   * how many globs were parsed out of it — the fact {@link ruleGlobProblems}
+   * needs to tell "no `paths:` key" apart from "a `paths:` key that parsed
+   * empty". Read independently of the frontmatter parser on purpose, so a
+   * `paths:` under a `---` that is not on line one is reported rather than
+   * silently treated as an unscoped rule.
+   */
+  readonly hasPathsKey: boolean;
+}
+
+/** One rule whose `paths:` frontmatter can never fire. */
+export interface RuleGlobProblem {
+  /** The rule file's repository-relative path. */
+  readonly rule: string;
+  /** What is wrong with it, in prose. */
+  readonly problem: string;
 }
 
 /** One note that was not re-read, and what changed beneath it. */
@@ -139,6 +156,33 @@ export declare function ruleIndex(
   paths: readonly string[],
   read: (path: string) => string,
 ): RuleEntry[];
+
+/**
+ * Rules whose `paths:` frontmatter can never fire — the vacuous-pass vector
+ * this gate's whole architecture leans on, since a rule that never matches
+ * anything guards nothing while looking exactly like one that does.
+ *
+ * @param index - every rule file, as {@link ruleIndex} built it.
+ * @param files - every tracked file (as `git ls-files` lists them, see
+ *   {@link trackedFiles}), to test each glob against.
+ * @returns one problem per (a) a rule whose frontmatter declares `paths:` but
+ *   parsed zero globs out of it, and (b) a glob that matches no tracked file.
+ */
+export declare function ruleGlobProblems(
+  index: readonly RuleEntry[],
+  files: readonly string[],
+): RuleGlobProblem[];
+
+/**
+ * Every file `git` would let reach a commit — tracked files, plus untracked
+ * ones `.gitignore` does not exclude.
+ *
+ * @param cwd - the repository to ask. Defaults to the process's directory.
+ * @returns repository-relative paths.
+ * @throws whatever `git` throws when it is absent or the directory is not a
+ *   repository. A gate that cannot enumerate must not report success.
+ */
+export declare function trackedFiles(cwd?: string): string[];
 
 /**
  * What changed, either across a branch or in the index.

@@ -53,6 +53,11 @@ export declare function logEntry(
 /**
  * Appends an entry to `<dir>/<session>.jsonl`, creating `dir` if needed.
  *
+ * The session id is sanitised into a single path segment first — any
+ * directory component is dropped and anything outside `[A-Za-z0-9._-]` is
+ * replaced with `_` — so a crafted `session_id` can never write outside
+ * `dir`.
+ *
  * @param dir - the log directory.
  * @param entry - as {@link logEntry} built it.
  * @returns the path of the file written.
