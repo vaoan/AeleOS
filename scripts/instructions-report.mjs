@@ -58,28 +58,72 @@ export function summarise(entries) {
 }
 
 /**
+ * Reads every `.jsonl` in a directory, tolerating a malformed line or a
+ * directory that does not exist yet.
+ *
+ * @param dir - the log directory.
+ * @returns every entry that parsed as JSON, in file then line order, and how
+ *   many lines were present but failed to parse.
+ * @throws whatever `readdirSync` throws other than `ENOENT` — for instance
+ *   `ENOTDIR` when `dir` names a file rather than a directory. A gate that
+ *   cannot enumerate its input must not silently report zero.
+ */
+function readLogInternal(dir) {
+  let names;
+  try {
+    names = readdirSync(dir);
+  } catch (error) {
+    if (error?.code === "ENOENT") return { entries: [], skipped: 0 };
+    throw error;
+  }
+  const entries = [];
+  let skipped = 0;
+  for (const name of names.filter((n) => n.endsWith(".jsonl")).sort()) {
+    for (const line of readFileSync(path.join(dir, name), "utf8").split("\n")) {
+      if (line.trim() === "") continue;
+      try {
+        entries.push(JSON.parse(line));
+      } catch {
+        skipped += 1;
+      }
+    }
+  }
+  return { entries, skipped };
+}
+
+/**
  * Reads every `.jsonl` in a directory.
  *
  * @param dir - the log directory.
- * @returns every entry, in file then line order.
+ * @returns every entry that parsed, in file then line order; `[]` when `dir`
+ *   does not exist. A line that fails to parse as JSON is silently skipped —
+ *   see {@link readLogReport} to also learn how many were.
+ * @throws whatever `readdirSync` throws other than `ENOENT` (see
+ *   {@link readLogReport}).
  */
 export function readLog(dir) {
-  const entries = [];
-  for (const name of readdirSync(dir)
-    .filter((n) => n.endsWith(".jsonl"))
-    .sort()) {
-    for (const line of readFileSync(path.join(dir, name), "utf8").split("\n")) {
-      if (line.trim() !== "") entries.push(JSON.parse(line));
-    }
-  }
-  return entries;
+  return readLogInternal(dir).entries;
+}
+
+/**
+ * Reads every `.jsonl` in a directory, also reporting how much was skipped.
+ *
+ * @param dir - the log directory.
+ * @returns the entries {@link readLog} would answer, plus `skipped`: the
+ *   count of lines that were present but did not parse as JSON.
+ * @throws whatever `readdirSync` throws other than `ENOENT` — for instance
+ *   `ENOTDIR` when `dir` names a file rather than a directory.
+ */
+export function readLogReport(dir) {
+  return readLogInternal(dir);
 }
 
 /** Prints the summary as a table. */
 function main() {
   const dir =
     process.argv[2] ?? path.join(process.cwd(), ".claude", "instructions-log");
-  const summary = summarise(readLog(dir));
+  const { entries, skipped } = readLogReport(dir);
+  const summary = summarise(entries);
   console.log(`sessions: ${summary.sessions}`);
   console.log(`instruction tokens per session: ${summary.tokensPerSession}`);
   console.log("\nby reason:");
@@ -88,6 +132,7 @@ function main() {
   console.log("\nby file (tokens, sessions):");
   for (const row of summary.byFile)
     console.log(`  ${row.tokens}\t${row.sessions}\t${row.file}`);
+  if (skipped > 0) console.log(`\nskipped malformed lines: ${skipped}`);
 }
 
 if (process.argv[1]?.endsWith("instructions-report.mjs")) main();

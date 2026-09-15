@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { appendEntry, logEntry } from "../../scripts/hook-log-instructions.mjs";
 
 const payload = {
@@ -75,6 +75,34 @@ describe("appendEntry", () => {
       expect(JSON.parse(lines[0] ?? "")).toEqual(entry);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // A crafted session_id must never let the hook write outside its own log
+  // directory.
+  it("keeps a path-traversal session_id inside the log directory", () => {
+    const dir = mkdtempSync(join(tmpdir(), "instructions-log-"));
+    try {
+      const hostile = { ...payload, session_id: "../../../pwned" };
+      const entry = logEntry(hostile, new Date(0), () => 1);
+      const file = appendEntry(dir, entry);
+      expect(resolve(file).startsWith(resolve(dir))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("creates a missing log directory on first use", () => {
+    const parent = mkdtempSync(join(tmpdir(), "instructions-log-"));
+    const dir = join(parent, "nested", "log-dir");
+    try {
+      expect(existsSync(dir)).toBe(false);
+      const entry = logEntry(payload, new Date(0), () => 1);
+      const file = appendEntry(dir, entry);
+      expect(existsSync(dir)).toBe(true);
+      expect(existsSync(file)).toBe(true);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
     }
   });
 });

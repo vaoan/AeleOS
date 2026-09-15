@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import {
   auditChanges,
   classifyNote,
   noteIndex,
+  ruleGlobProblems,
+  ruleGlobs,
+  ruleIndex,
+  rulePaths,
 } from "../../scripts/check-agent-notes.mjs";
 
 describe("classifyNote", () => {
@@ -154,8 +168,6 @@ describe("auditChanges", () => {
   });
 });
 
-import { ruleGlobs, ruleIndex } from "../../scripts/check-agent-notes.mjs";
-
 describe("ruleGlobs", () => {
   it("reads the paths list out of frontmatter", () => {
     const text =
@@ -172,6 +184,95 @@ describe("ruleGlobs", () => {
 
   it("answers nothing when the frontmatter is not on line one", () => {
     expect(ruleGlobs("\n---\npaths:\n  - x\n---\n")).toEqual([]);
+  });
+
+  // A list item is allowed at column 0, not only indented under `paths:`.
+  it("accepts a list item at column 0 as well as an indented one", () => {
+    const text = '---\npaths:\n- "apps/hub/src/**"\n  - "docs/**"\n---\n';
+    expect(ruleGlobs(text)).toEqual(["apps/hub/src/**", "docs/**"]);
+  });
+
+  // The frontmatter ends at the closing `---` only — a line inside the list
+  // that merely looks like a new section must not end it early.
+  it("keeps reading paths up to the closing --- and no earlier", () => {
+    const text =
+      '---\npaths:\n  - "apps/hub/src/**"\n  - "docs/**"\n---\n\n# Rule\n';
+    expect(ruleGlobs(text)).toEqual(["apps/hub/src/**", "docs/**"]);
+  });
+});
+
+describe("ruleGlobProblems", () => {
+  it("reports a rule whose paths: key parsed to zero globs", () => {
+    const index = ruleIndex(
+      [".claude/rules/broken.md"],
+      () => "---\npaths:\n---\n# Broken\n",
+    );
+    const problems = ruleGlobProblems(index, ["apps/hub/src/x.ts"]);
+    expect(problems).toEqual([
+      {
+        rule: ".claude/rules/broken.md",
+        problem: "`paths:` is present but no glob could be parsed out of it",
+      },
+    ]);
+  });
+
+  it("reports a glob that matches no tracked file", () => {
+    const index = ruleIndex(
+      [".claude/rules/typo.md"],
+      () => '---\npaths:\n  - "tests/no-such-dir/**"\n---\n# Typo\n',
+    );
+    const problems = ruleGlobProblems(index, [
+      "tests/tools/agent-notes.test.ts",
+    ]);
+    expect(problems).toEqual([
+      {
+        rule: ".claude/rules/typo.md",
+        problem: 'glob "tests/no-such-dir/**" matches no tracked file',
+      },
+    ]);
+  });
+
+  it("is quiet for a rule with no frontmatter at all", () => {
+    const index = ruleIndex([".claude/rules/always.md"], () => "# Always\n");
+    expect(ruleGlobProblems(index, ["apps/hub/src/x.ts"])).toEqual([]);
+  });
+
+  // The case guarding all eleven live rule files: every real rule file's
+  // globs must match at least one real tracked file.
+  it("finds zero problems against every real rule file in this repository", () => {
+    const paths = rulePaths(process.cwd());
+    expect(paths.length).toBeGreaterThan(0);
+    const index = ruleIndex(paths, (file) => readFileSync(file, "utf8"));
+    const files = execFileSync(
+      "git",
+      ["ls-files", "--cached", "--others", "--exclude-standard"],
+      { cwd: process.cwd(), encoding: "utf8" },
+    )
+      .split("\n")
+      .filter((line) => line !== "");
+    expect(ruleGlobProblems(index, files)).toEqual([]);
+  });
+});
+
+describe("rulePaths", () => {
+  it("returns the tracked rule files", () => {
+    const paths = rulePaths(process.cwd());
+    expect(paths).toContain(".claude/rules/testing.md");
+    expect(paths).toContain(".claude/rules/toolchain.md");
+  });
+
+  it("returns [] in a directory with no .claude/rules", () => {
+    const dir = mkdtempSync(join(tmpdir(), "no-rules-"));
+    try {
+      execFileSync("git", ["init", "--quiet"], { cwd: dir });
+      execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: dir });
+      mkdirSync(join(dir, "src"), { recursive: true });
+      writeFileSync(join(dir, "src", "x.ts"), "export {};\n");
+      execFileSync("git", ["add", "-A"], { cwd: dir });
+      expect(rulePaths(dir)).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

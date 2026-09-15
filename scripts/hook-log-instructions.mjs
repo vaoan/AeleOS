@@ -4,8 +4,8 @@
  * estimated.
  *
  * Claude Code runs this with the event payload on stdin (`session_id`,
- * `reason`, `file_path`, …) — see code.claude.com/docs/en/hooks. Output is
- * ignored for this event, so the hook only writes to
+ * `load_reason`, `file_path`, …) — see code.claude.com/docs/en/hooks. Output
+ * is ignored for this event, so the hook only writes to
  * `.claude/instructions-log/<session_id>.jsonl`, which is gitignored.
  * `scripts/instructions-report.mjs` reads it back.
  *
@@ -48,6 +48,25 @@ export function logEntry(payload, now, sizeOf = (file) => statSync(file).size) {
 }
 
 /**
+ * Turns a session id into a filename that cannot escape the log directory.
+ *
+ * The session id in the hook payload is external input, so it is trusted no
+ * further than any other: `path.basename` drops any directory component a
+ * crafted id might carry (`../../../pwned` becomes `pwned`), and anything
+ * left outside `[A-Za-z0-9._-]` is replaced with `_` so no separator can be
+ * smuggled back in through the remainder. A session id that sanitises to
+ * nothing becomes `unknown` rather than an empty or dot-only name.
+ *
+ * @param session - `entry.session`, as {@link logEntry} recorded it.
+ * @returns a single path segment, safe to append `.jsonl` to and join under
+ *   the log directory.
+ */
+function logFileName(session) {
+  const base = path.basename(String(session)).replace(/[^A-Za-z0-9._-]/g, "_");
+  return base === "" ? "unknown" : base;
+}
+
+/**
  * Appends an entry to its session's log file, creating the directory on
  * first use.
  *
@@ -57,7 +76,7 @@ export function logEntry(payload, now, sizeOf = (file) => statSync(file).size) {
  */
 export function appendEntry(dir, entry) {
   mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `${entry.session}.jsonl`);
+  const file = path.join(dir, `${logFileName(entry.session)}.jsonl`);
   appendFileSync(file, `${JSON.stringify(entry)}\n`);
   return file;
 }

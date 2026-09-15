@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { summarise } from "../../scripts/instructions-report.mjs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  readLog,
+  readLogReport,
+  summarise,
+} from "../../scripts/instructions-report.mjs";
 
 const line = (
   session: string,
@@ -49,5 +56,88 @@ describe("summarise", () => {
     expect(summary.byFile).toEqual([
       { file: "/r/gone.md", tokens: 0, sessions: 1 },
     ]);
+  });
+
+  // Same token total: the secondary key breaks the tie, or the table's order
+  // would depend on Map insertion order rather than on anything meaningful.
+  it("breaks a tokens tie in byFile by file name ascending", () => {
+    const summary = summarise([
+      line("a", "session_start", "/r/z.md", 30),
+      line("a", "session_start", "/r/a.md", 30),
+    ]);
+    expect(summary.byFile.map((row) => row.file)).toEqual([
+      "/r/a.md",
+      "/r/z.md",
+    ]);
+  });
+});
+
+describe("readLog / readLogReport", () => {
+  const withTempDir = (run: (dir: string) => void) => {
+    const dir = mkdtempSync(join(tmpdir(), "instructions-report-"));
+    try {
+      run(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it("answers [] for a directory that does not exist", () => {
+    withTempDir((dir) => {
+      const missing = join(dir, "does-not-exist");
+      expect(readLog(missing)).toEqual([]);
+      expect(readLogReport(missing)).toEqual({ entries: [], skipped: 0 });
+    });
+  });
+
+  it("answers [] for an empty directory", () => {
+    withTempDir((dir) => {
+      expect(readLog(dir)).toEqual([]);
+    });
+  });
+
+  it("ignores a .txt file beside a .jsonl one", () => {
+    withTempDir((dir) => {
+      // Valid JSON on purpose: if the extension filter were dropped, this
+      // line would silently become a second entry instead of being skipped
+      // as unparsable, and the malformed-line test could not tell the two
+      // failures apart.
+      writeFileSync(
+        join(dir, "notes.txt"),
+        `${JSON.stringify(line("txt", "session_start", "/r/should-not-count.md", 999))}\n`,
+      );
+      writeFileSync(
+        join(dir, "s-1.jsonl"),
+        `${JSON.stringify(line("s-1", "session_start", "/r/CLAUDE.md", 30))}\n`,
+      );
+      expect(readLog(dir)).toEqual([
+        line("s-1", "session_start", "/r/CLAUDE.md", 30),
+      ]);
+    });
+  });
+
+  it("skips a malformed line and counts it, while good lines survive", () => {
+    withTempDir((dir) => {
+      const good = line("s-1", "session_start", "/r/CLAUDE.md", 30);
+      writeFileSync(
+        join(dir, "s-1.jsonl"),
+        `${JSON.stringify(good)}\nnot json at all\n`,
+      );
+      const report = readLogReport(dir);
+      expect(report.entries).toEqual([good]);
+      expect(report.skipped).toBe(1);
+    });
+  });
+
+  // ENOTDIR, not ENOENT: the path exists, so this must not be read as "no log
+  // yet" — that would hide a real misconfiguration behind a quiet zero.
+  it("rethrows a non-ENOENT error, such as a file where the directory should be", () => {
+    withTempDir((dir) => {
+      const notADirectory = join(dir, "log-dir");
+      writeFileSync(notADirectory, "i am a file");
+      expect(() => readLog(notADirectory)).toThrow(
+        expect.objectContaining({ code: "ENOTDIR" }),
+      );
+    });
   });
 });

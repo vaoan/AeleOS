@@ -17,10 +17,34 @@ describe("invariantsFrom", () => {
     expect(invariantsFrom("<!-- invariants:start -->\nopen only")).toBe("");
   });
 
+  // `indexOf` already finds the first occurrence, so a doubled start marker
+  // must not somehow prefer the second: the first pair wins.
+  it("uses the first start marker when it appears twice", () => {
+    const text =
+      "<!-- invariants:start -->\nfirst\n<!-- invariants:start -->\nsecond\n<!-- invariants:end -->\n";
+    expect(invariantsFrom(text)).toBe(
+      "first\n<!-- invariants:start -->\nsecond",
+    );
+  });
+
+  // The end marker sitting before the start marker is not a reversed block —
+  // it is a file with no valid block at all, and must answer nothing rather
+  // than a negative-length slice or a wrapped-around read.
+  it("returns nothing when the end marker precedes the start marker", () => {
+    const text =
+      "<!-- invariants:end -->\nbetween\n<!-- invariants:start -->\n";
+    expect(invariantsFrom(text)).toBe("");
+  });
+
   // The real file must carry both markers, or the hook is silently empty.
   it("finds a non-empty block in the repository's own CLAUDE.md", () => {
     const block = invariantsFrom(readFileSync("CLAUDE.md", "utf8"));
     expect(block).toContain("identity_sub");
+    // 40 is a BUDGET for the block re-sent after every compaction, not a
+    // constant to bump when the block grows past it — raising it is a design
+    // decision (open question in
+    // docs/superpowers/specs/2026-09-15-instruction-architecture-design.md)
+    // to record there, not a number to edit here to make a test pass.
     expect(block.split("\n").length).toBeLessThan(40);
   });
 });
