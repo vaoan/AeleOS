@@ -32,6 +32,14 @@ describe("paragraphs", () => {
       "**Four.** five **Six.** seven",
     ]);
   });
+
+  it("splits adjacent list items into their own paragraphs", () => {
+    expect(paragraphs("- one\n- two\n  wrapped\n- three")).toEqual([
+      "one",
+      "two wrapped",
+      "three",
+    ]);
+  });
 });
 
 describe("missingParagraphs", () => {
@@ -58,5 +66,11 @@ describe("missingParagraphs", () => {
         "First lesson, wrapped there.\n\nSecond lesson.",
       ),
     ).toEqual(["First lesson, wrapped here."]);
+  });
+
+  it("finds an item that moved out of a packed list", () => {
+    expect(
+      missingParagraphs("- a b\n- c d\n", "# X\n\na b\n\n# Y\n\nc d\n"),
+    ).toEqual([]);
   });
 });

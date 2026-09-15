@@ -34,11 +34,16 @@ re-injects this block after every `/compact`.
   from `gh api user`, set `--local` each session: `docs/git-with-gh-token.md`.
 - **An edited migration is hand-applied to live LAST, immediately before
   merge, one PR at a time**, when `gh pr list --state open` shows nothing
-  else. Skill: `/apply-migration-edit`.
+  else. Procedure:
+  `docs/lessons/conventions/squash-the-migrations-and-squash-them-again.md`
+  (a skill in phase 5).
 - **Picture proof on the PR is part of the work**, and the pictures are read
-  back for what else is in the frame. Skill: `/picture-proof`.
+  back for what else is in the frame. Procedure:
+  `docs/lessons/conventions/picture-proof-on-the-pr-is-part-of-the-work-not-a-follow-up.md`
+  (a skill in phase 5).
 - **Every bug gets a regression test**, sabotage-verified against the
-  original fault, at the level the bug lived. Skill: `/sabotage-verify`.
+  original fault, at the level the bug lived. Procedure:
+  `docs/lessons/rules/29-*.md` and `34-*.md` (a skill in phase 5).
 - **Zero tolerance for flakiness.** Diagnose the mechanism; never retry,
   widen a budget or skip.
 - **One agent per working tree**, or a worktree each.

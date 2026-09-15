@@ -25,21 +25,44 @@ import path from "node:path";
 /** Where the pre-move files are kept. */
 export const SNAPSHOT_DIR = "docs/lessons/snapshots";
 
+/** A line that begins a new list item: a marker followed by whitespace. */
+const LIST_ITEM_START = /^[ \t]*(?:[-*]|\d+\.)[ \t]+/;
+
 /**
  * A text's paragraphs, normalised for comparison.
  *
+ * A paragraph is a blank-line-separated block, OR — within such a block —
+ * one list item: a run starting at a line matching `LIST_ITEM_START` and
+ * continuing through every following line that does not itself start a new
+ * item, so a wrapped continuation line stays with the item it belongs to.
+ * The first line of a block always starts its first item, whether or not it
+ * carries a marker, which is what keeps an un-bulleted block a single
+ * paragraph.
+ *
  * @param text - Markdown.
- * @returns each blank-line-separated block with list markers, indentation and
- *   wrapping removed and every whitespace run collapsed to one space. Blocks
- *   that are only whitespace are dropped. A marker (`- `, `* `, `12. `) is
+ * @returns each paragraph with list markers, indentation and wrapping
+ *   removed and every whitespace run collapsed to one space. Paragraphs that
+ *   are only whitespace are dropped. A marker (`- `, `* `, `12. `) is
  *   recognised only when whitespace follows it, so a line starting with a
- *   decimal (`0.006 …`) or a bold lead (`**Four.**`) is left alone.
+ *   decimal (`0.006 …`) or a bold lead (`**Four.**`) is left alone and stays
+ *   a continuation of the item it follows.
  */
 export function paragraphs(text) {
   return text
     .split(/\n[ \t]*\n/)
-    .map((block) =>
-      block
+    .flatMap((block) => {
+      const items = [];
+      for (const line of block.split("\n")) {
+        if (items.length === 0 || LIST_ITEM_START.test(line)) {
+          items.push(line);
+        } else {
+          items[items.length - 1] += `\n${line}`;
+        }
+      }
+      return items;
+    })
+    .map((item) =>
+      item
         .split("\n")
         .map((line) =>
           line.replace(/^[ \t]*(?:(?:[-*]|\d+\.)[ \t]+)?[ \t]*/, ""),
@@ -48,7 +71,7 @@ export function paragraphs(text) {
         .replace(/\s+/g, " ")
         .trim(),
     )
-    .filter((block) => block !== "");
+    .filter((item) => item !== "");
 }
 
 /**
