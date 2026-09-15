@@ -2485,7 +2485,9 @@ snapshots, once that move is complete and reviewed.
 `docs/overview.md`, `docs/HISTORY.md`, `docs/lessons/toolchain.md`,
 `docs/lessons/rules/NN-*.md` and `docs/lessons/conventions/*.md`, verbatim.
 It is one-shot and retired with the gate above once the move is reviewed.
-The root itself is rewritten as a short map in the next task.
+The root itself is rewritten as a short map in the next task. Its two
+throws — a missing boundary heading, an unterminated bold lead — are each
+pinned by a sabotage-verified test case.
 
 ### The rules. Each was paid for.
 

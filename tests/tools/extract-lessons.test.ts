@@ -41,6 +41,50 @@ Full account elsewhere.
 Claude's role throughout: build the hub.
 `;
 
+// A bullet whose opening \`**\` never closes within \`boldLead\`'s own
+// twelve-line window (the bullet-start line plus eleven continuation
+// lines), with every boundary heading still present so the throw caught is
+// the lead's own rather than a missing-heading one.
+const unterminatedLeadFixture = `# CLAUDE.md
+
+## What AeleOS is
+
+Identity paragraph.
+
+## Conventions
+
+- **Never closes
+  line one
+  line two
+  line three
+  line four
+  line five
+  line six
+  line seven
+  line eight
+  line nine
+  line ten
+  line eleven
+  line twelve
+  line thirteen
+  line fourteen
+
+## Current state
+
+- **Phase 0 — done.** Details.
+
+## The toolchain, and the rules it cost
+
+Full account elsewhere.
+
+### The rules. Each was paid for.
+
+1. **A newly adopted tool must be shown to fail before it is believed.** Three
+   here were silently doing nothing.
+
+Claude's role throughout: build the hub.
+`;
+
 describe("splitRoot", () => {
   it("cuts the file at its own headings", () => {
     const parts = splitRoot(fixture);
@@ -87,6 +131,19 @@ describe("splitRoot", () => {
       .filter((l) => l.trim() && !l.startsWith("#"))) {
       expect(joined).toContain(line.trim());
     }
+  });
+
+  it("throws, naming the heading, when a boundary heading is missing", () => {
+    const broken = fixture.replace("## Current state\n", "");
+    expect(() => splitRoot(broken)).toThrow(
+      "heading not found: ## Current state",
+    );
+  });
+
+  it("throws, naming the line, when a bold lead never closes", () => {
+    expect(() => splitRoot(unterminatedLeadFixture)).toThrow(
+      /unterminated bold lead at line \d+/,
+    );
   });
 });
 
