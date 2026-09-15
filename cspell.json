@@ -132,6 +132,14 @@
     "Aeleos",
     "AeleOS",
     "alice",
+    // Authors cited by name in
+    // `docs/superpowers/specs/2026-09-15-instruction-architecture-design.md`.
+    // Real surnames, the same class as the person names already here, not
+    // coinages.
+    "Addy",
+    "Cherny",
+    "Osmani",
+    "Willison",
     "Angarita",
     // The home-directory basename on the machine these plans were written
     // on, baked into several already-committed `cd /Users/…` example
