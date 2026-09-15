@@ -41,4 +41,7 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
 - **2026-09-15:** `docs/lessons/snapshots/` was deleted along with the
   `check:lessons-preserved` gate and the `scripts/extract-lessons.mjs`
   extractor once the instruction-architecture move had been reviewed
-  paragraph by paragraph in place. `check:tools` no longer runs it.
+  paragraph by paragraph in place. `check:tools` no longer runs it, and the
+  spec, the root map and `docs/lessons/toolchain.md` describe it in the past
+  tense — a retired gate named in the present tense is a live instruction to
+  run something that does not exist.

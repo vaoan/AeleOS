@@ -169,12 +169,13 @@ git identity procedure.
   should become its governed set, so a change to a matched file still obliges
   whoever made it to re-read the rule that governs it. Without this the move
   silently un-guards everything that leaves a directory note.
-- **A new gate, `check:lessons-preserved`**, asserts that every paragraph of
-  the pre-move root file exists verbatim somewhere in the tree. It is the
-  mechanical form of "nothing lost", written before the first move and watched
-  go red on a deliberately dropped paragraph. It retires once the move is
-  complete and reviewed, because a permanent gate that pins old text would
-  forbid ever rewriting a lesson.
+- **A temporary gate, `check:lessons-preserved`** (retired 2026-09-15 in
+  phase 7), asserted that every paragraph of the pre-move root file existed
+  verbatim somewhere in the tree. It was the mechanical form of "nothing
+  lost", written before the first move and watched go red on a deliberately
+  dropped paragraph. It was retired once the move was complete and reviewed,
+  because a permanent gate that pins old text would forbid ever rewriting a
+  lesson.
 - **`check:tools`' cspell glob already covers `**/*.md`**, so the lessons tree
   and the rule files are spell-checked on the day they land.
 
@@ -209,7 +210,8 @@ it took something away.
    real tasks. That is the baseline the migration is judged against.
 2. **Extract, do not rewrite.** Move each narrative into `docs/lessons/` byte
    for byte, leaving a one-line rule and a link behind. Write
-   `check:lessons-preserved` first and sabotage it before trusting it.
+   `check:lessons-preserved` first and sabotage it before trusting it (done;
+   the gate was retired in phase 7 once the move was reviewed).
 3. **Scope by concern.** Sort the one-liners into `.claude/rules/` files by
    the files they govern, and teach `check:agent-notes` to read `paths:`.
 4. **Hook the invariants.** Twenty lines on `SessionStart` matched to
