@@ -37,15 +37,15 @@ These hold in every session and survive compaction; a `SessionStart` hook
   merge, one PR at a time**, when `gh pr list --state open` shows nothing
   else. Procedure:
   `docs/lessons/conventions/squash-the-migrations-and-squash-them-again.md`
-  (a skill in phase 5).
+  Skill: `/apply-migration-edit`.
 - **Picture proof on the PR is part of the work**, and the pictures are read
   back for what else is in the frame. Procedure:
   `docs/lessons/conventions/picture-proof-on-the-pr-is-part-of-the-work-not-a-follow-up.md`
-  (a skill in phase 5).
+  Skill: `/picture-proof`.
 - **Every bug gets a regression test**, sabotage-verified against the
   original fault, at the level the bug lived. Procedure:
   `docs/lessons/conventions/every-bug-gets-a-regression-test-no-exceptions.md`;
-  its two traps are rules 29 and 34 (a skill in phase 5).
+  its two traps are rules 29 and 34. Skill: `/sabotage-verify`.
 - **Zero tolerance for flakiness.** Diagnose the mechanism; never retry,
   widen a budget or skip.
 - **One agent per working tree**, or a worktree each.
@@ -72,8 +72,7 @@ Run everything from the repository root, never from `apps/hub`.
   file is read: `toolchain`, `testing`, `browser-proof`, `notes-and-docs`,
   `migrations`, `editor-and-blocks`, `pastiches`, `identity-package`.
 - `.claude/skills/` — procedures: `apply-migration-edit`, `picture-proof`,
-  `sabotage-verify`, `reseed-pastiches` (lands in phase 5; nothing is in
-  that folder yet).
+  `sabotage-verify`, `reseed-pastiches`.
 - `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full, filenames cut
   at a word boundary. **A citation of "root rule N" anywhere in this
   repository means the file numbered N.**
