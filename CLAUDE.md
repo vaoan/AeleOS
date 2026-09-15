@@ -2480,6 +2480,13 @@ a rewrapped decimal (`0.006 …`) or bold lead (`**Four.**`) starting a line
 is left alone rather than mistaken for one. It is retired, with the
 snapshots, once that move is complete and reviewed.
 
+**The extraction itself is scripted, not hand-copied (2026-09-15).**
+`scripts/extract-lessons.mjs` cuts this file's own sections into
+`docs/overview.md`, `docs/HISTORY.md`, `docs/lessons/toolchain.md`,
+`docs/lessons/rules/NN-*.md` and `docs/lessons/conventions/*.md`, verbatim.
+It is one-shot and retired with the gate above once the move is reviewed.
+The root itself is rewritten as a short map in the next task.
+
 ### The rules. Each was paid for.
 
 1. **A newly adopted tool must be shown to fail before it is believed.** Three
