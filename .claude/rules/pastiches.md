@@ -13,4 +13,4 @@ paths:
 
 Loaded when the pastiche seeder, its data, or the era-looks module is read. The link is why.
 
-- **The pastiches were rebuilt against their captures, one task at a time (2026-08-29), and the `corners`/`radius: "square"` no-op above shipped in a brief a third time before it was caught.** → `docs/lessons/conventions/the-pastiches-were-rebuilt-against-their-captures-one-task-a.md`
+- **The pastiches were rebuilt against their captures, one task at a time (2026-08-29), and the `corners`/`radius: "square"` no-op above shipped in a brief a third time before it was caught.** → `docs/lessons/conventions/the-pastiches-were-rebuilt-against-their-captures-one-task.md`

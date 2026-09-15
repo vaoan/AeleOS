@@ -355,20 +355,7 @@
     "Medellín",
     "Tomás",
     "Voronoi",
-    "moiré",
-    // Fragments cut mid-word by Task 5's slug() length cap on
-    // `docs/lessons/rules/*.md` filenames — real, recurring substrings of
-    // committed filenames the `.claude/rules/*.md` concern files link to by
-    // their exact name, not coinages: "beli" (rule 1, …-is-beli.md, from
-    // "believed"), "righ" (rule 17, …-be-righ.md, from "right"), "nothi"
-    // (rule 30, …-claim-nothi.md, from "nothing"), "commi" (rule 34,
-    // …-the-commi.md, from "commit"), "indistinguishab" (rule 36,
-    // …-is-indistinguishab.md, from "indistinguishable").
-    "beli",
-    "righ",
-    "nothi",
-    "commi",
-    "indistinguishab"
+    "moiré"
   ],
   "overrides": [
     {

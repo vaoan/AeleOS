@@ -73,8 +73,9 @@ Run everything from the repository root, never from `apps/hub`.
 - `.claude/skills/` — procedures: `apply-migration-edit`, `picture-proof`,
   `sabotage-verify`, `reseed-pastiches` (lands in phase 5; nothing is in
   that folder yet).
-- `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full. **A citation
-  of "root rule N" anywhere in this repository means the file numbered N.**
+- `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full, filenames cut
+  at a word boundary. **A citation of "root rule N" anywhere in this
+  repository means the file numbered N.**
 - `docs/lessons/conventions/*.md` — the conventions in full.
 - `docs/HISTORY.md` — the dated record of what shipped and what it cost.
 - `apps/hub/src/features/actors/CLAUDE.md` — the addressing model and the
