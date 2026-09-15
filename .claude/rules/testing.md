@@ -29,3 +29,4 @@ Loaded when a test file or a test-runner config is read. Each line is the rule; 
 - **Every export is tested on its happy path and on each failure mode.** → `docs/lessons/conventions/every-export-is-tested-on-its-happy-path-and-on-each-failure.md`
 - **Edge cases are owed at BOTH levels, and they are different questions at each.** → `docs/lessons/conventions/edge-cases-are-owed-at-both-levels-and-they-are-different.md`
 - **Every bug gets a regression test. No exceptions.** → `docs/lessons/conventions/every-bug-gets-a-regression-test-no-exceptions.md`
+- **A hook's test asserts against the repository's own file it reads in production, not only a synthetic fixture — so the real root note losing its markers is a test failure, not a silent gap.** → `tests/tools/hook-reinject-invariants.test.ts`

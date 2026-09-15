@@ -20,7 +20,8 @@ and why: `docs/overview.md`.
 ## Invariants
 
 These hold in every session and survive compaction; a `SessionStart` hook
-re-injects this block after every `/compact`.
+(`scripts/hook-reinject-invariants.mjs`) re-injects this block after every
+`/compact`.
 
 - **The user ID is sacred.** Every app stores `identity_sub` and never keys
   its own data to the IdP. Never weaken this.
