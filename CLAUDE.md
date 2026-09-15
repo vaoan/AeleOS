@@ -2454,6 +2454,15 @@ every Tailwind utility for months without anything noticing.
   `@utility surface` replaced it across 74 class lists, and both hand-written
   `:not()` exclusions deleted themselves.
 
+**Every instruction file Claude Code loads is now logged (2026-09-15).**
+`scripts/hook-log-instructions.mjs` is registered as an `InstructionsLoaded`
+hook in `.claude/settings.json` and appends one JSON line per loaded
+instruction file to the git-ignored `.claude/instructions-log/<session>.jsonl`.
+It never fails a load: a logging problem must not become a missing
+instruction file. Task 2 of
+`docs/superpowers/plans/2026-09-15-instruction-architecture.md` adds the
+report that reads it.
+
 ### The rules. Each was paid for.
 
 1. **A newly adopted tool must be shown to fail before it is believed.** Three
