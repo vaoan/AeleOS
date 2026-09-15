@@ -2459,9 +2459,11 @@ every Tailwind utility for months without anything noticing.
 hook in `.claude/settings.json` and appends one JSON line per loaded
 instruction file to the git-ignored `.claude/instructions-log/<session>.jsonl`.
 It never fails a load: a logging problem must not become a missing
-instruction file. Task 2 of
-`docs/superpowers/plans/2026-09-15-instruction-architecture.md` adds the
-report that reads it.
+instruction file. `pnpm report:instructions`
+(`scripts/instructions-report.mjs`) turns that log into the numbers the plan
+is judged by: instruction tokens per session, summarised by load reason and
+by file, at three characters per token — the installed CLI's own factor for
+this model.
 
 ### The rules. Each was paid for.
 
