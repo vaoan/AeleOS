@@ -91,7 +91,8 @@ Run everything from the repository root, never from `apps/hub`.
   are different questions at each.
 - A directory `CLAUDE.md` constrains code that does not exist yet; TSDoc
   constrains what exists. `pnpm check:agent-notes` fails when a file changes
-  under a note, or under a rule file's `paths`, and the note did not.
+  under a note, or under a rule file's `paths:` globs, and the note or rule
+  did not.
 - Change an implementation, move its documentation. Whoever fixes a fault
   deletes the note saying it is open.
 - Specs and plans follow `docs/superpowers/{specs,plans}/YYYY-MM-DD-*.md`.
