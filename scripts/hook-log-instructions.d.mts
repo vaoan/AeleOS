@@ -10,8 +10,19 @@ export interface InstructionsLoadedPayload {
   readonly session_id: string;
   readonly cwd?: string;
   readonly hook_event_name?: string;
-  /** `session_start`, `nested_traversal`, `path_glob_match`, `include` or `compact`. */
-  readonly reason: string;
+  /**
+   * `session_start`, `nested_traversal`, `path_glob_match`, `include` or
+   * `compact`. This is the field the CLI actually sends (measured 2026-09-15
+   * on 2.1.272); the docs name it `reason` instead, which is read as a
+   * fallback below.
+   */
+  readonly load_reason?: string;
+  /** The documented spelling of {@link load_reason}. Read when it is absent. */
+  readonly reason?: string;
+  readonly memory_type?: string;
+  readonly globs?: readonly string[];
+  readonly trigger_file_path?: string;
+  readonly parent_file_path?: string;
   readonly file_path: string;
 }
 

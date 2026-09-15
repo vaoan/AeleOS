@@ -9,6 +9,10 @@
  * `.claude/instructions-log/<session_id>.jsonl`, which is gitignored.
  * `scripts/instructions-report.mjs` reads it back.
  *
+ * The docs name the reason field `reason`; the installed CLI (measured
+ * 2026-09-15 on 2.1.272) actually sends `load_reason`, so both spellings are
+ * read.
+ *
  * It never fails the load: a hook that throws would turn a logging problem
  * into a missing instruction file, which is the opposite of its job.
  *
@@ -37,7 +41,7 @@ export function logEntry(payload, now, sizeOf = (file) => statSync(file).size) {
   return {
     at: now.toISOString(),
     session: payload.session_id,
-    reason: payload.reason,
+    reason: payload.load_reason ?? payload.reason ?? "unknown",
     file: payload.file_path,
     bytes,
   };

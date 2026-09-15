@@ -8,7 +8,7 @@ const payload = {
   session_id: "s-1",
   cwd: "/repo",
   hook_event_name: "InstructionsLoaded",
-  reason: "nested_traversal",
+  load_reason: "nested_traversal",
   file_path: "/repo/apps/hub/src/features/actors/CLAUDE.md",
 };
 
@@ -34,6 +34,31 @@ describe("logEntry", () => {
       throw new Error("ENOENT");
     });
     expect(entry.bytes).toBe(-1);
+  });
+
+  // The docs' spelling, read when the CLI's own `load_reason` is absent.
+  it("reads the documented `reason` spelling when `load_reason` is absent", () => {
+    const documented = {
+      session_id: "s-1",
+      cwd: "/repo",
+      hook_event_name: "InstructionsLoaded",
+      reason: "session_start",
+      file_path: "/repo/apps/hub/src/features/actors/CLAUDE.md",
+    };
+    const entry = logEntry(documented, new Date(0), () => 1);
+    expect(entry.reason).toBe("session_start");
+  });
+
+  // Neither spelling present: still logs, rather than writing `undefined`.
+  it('records "unknown" when neither spelling is present', () => {
+    const neither = {
+      session_id: "s-1",
+      cwd: "/repo",
+      hook_event_name: "InstructionsLoaded",
+      file_path: "/repo/apps/hub/src/features/actors/CLAUDE.md",
+    };
+    const entry = logEntry(neither, new Date(0), () => 1);
+    expect(entry.reason).toBe("unknown");
   });
 });
 
