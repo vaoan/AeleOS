@@ -89,23 +89,23 @@ export function ruleGlobs(text) {
 }
 
 /**
- * Whether a rule file's frontmatter declares a `paths:` key at all, no
- * matter how many globs {@link ruleGlobs} managed to parse out of it.
+ * Whether a rule file declares a `paths:` key ANYWHERE, no matter how many
+ * globs {@link ruleGlobs} managed to parse out of it.
  *
  * Needed because a rule with no frontmatter and a rule whose `paths:` list
  * is present but malformed both make {@link ruleGlobs} answer `[]` — and only
- * the second of those is a bug {@link ruleGlobProblems} should report.
+ * the second of those is a bug {@link ruleGlobProblems} should report. It
+ * deliberately does NOT read the frontmatter the way {@link ruleGlobs} does:
+ * a `paths:` key under a `---` that is not on line one, or with no closing
+ * `---`, is exactly the malformed case the gate exists to catch, and reading
+ * it with the same parser would hide it (`[]` and `false`, never fires,
+ * nobody told).
  *
  * @param text - the rule file.
- * @returns whether the frontmatter, read the same way {@link ruleGlobs}
- *   reads it, contains a `paths:` key.
+ * @returns whether any line of the file is a bare `paths:` key.
  */
 function hasPathsKey(text) {
-  const lines = text.split("\n");
-  if (lines[0]?.trim() !== "---") return false;
-  const end = lines.findIndex((line, i) => i > 0 && line.trim() === "---");
-  if (end === -1) return false;
-  return lines.slice(1, end).some((line) => /^paths:\s*$/.test(line));
+  return /^paths:\s*$/m.test(text);
 }
 
 /**

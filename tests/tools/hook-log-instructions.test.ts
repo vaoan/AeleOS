@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { appendEntry, logEntry } from "../../scripts/hook-log-instructions.mjs";
 
 const payload = {
@@ -86,7 +86,9 @@ describe("appendEntry", () => {
       const hostile = { ...payload, session_id: "../../../pwned" };
       const entry = logEntry(hostile, new Date(0), () => 1);
       const file = appendEntry(dir, entry);
-      expect(resolve(file).startsWith(resolve(dir))).toBe(true);
+      // Equality, not a prefix: a sibling `<dir>-evil` would pass startsWith.
+      expect(dirname(resolve(file))).toBe(resolve(dir));
+      expect(basename(file)).toBe("pwned.jsonl");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -23,9 +23,12 @@ export interface RuleEntry {
   readonly path: string;
   readonly globs: readonly string[];
   /**
-   * Whether the frontmatter declares a `paths:` key at all, regardless of how
-   * many globs were parsed out of it — the fact {@link ruleGlobProblems} needs
-   * to tell "no `paths:` key" apart from "a `paths:` key that parsed empty".
+   * Whether the file declares a bare `paths:` key on ANY line, regardless of
+   * how many globs were parsed out of it — the fact {@link ruleGlobProblems}
+   * needs to tell "no `paths:` key" apart from "a `paths:` key that parsed
+   * empty". Read independently of the frontmatter parser on purpose, so a
+   * `paths:` under a `---` that is not on line one is reported rather than
+   * silently treated as an unscoped rule.
    */
   readonly hasPathsKey: boolean;
 }

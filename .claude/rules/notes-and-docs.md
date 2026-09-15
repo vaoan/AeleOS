@@ -24,10 +24,13 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   `.claude/rules/*.md` are not in the list above (2026-09-15, final fix
   wave).** `check-agent-notes.mjs` never treats a `CLAUDE.md`, an `AGENTS.md`
   or a `.claude/rules/*.md` file as governed by a note or by another rule — a
-  note is never governed by another note, and a rule file is never governed
-  by a note or by another rule — so `**/CLAUDE.md`, `**/AGENTS.md` and
-  `.claude/rules/**` in this file's `paths:` could never fire; they were
-  removed rather than left as a glob that can never match. What this file
+  rule file is never governed, and the note that governs a directory is
+  never governed by another note — with one exception: a second note in a
+  directory that already holds one (`apps/hub/CLAUDE.md`, the eleven-byte
+  pointer beside `apps/hub/AGENTS.md`) is charged to the note that won. So
+  `**/CLAUDE.md`, `**/AGENTS.md` and `.claude/rules/**` in this file's
+  `paths:` could fire only on that one pointer; they were removed, and that
+  narrowing is deliberate rather than a no-op. What this file
   governs is `**/HISTORY.md`, `docs/**` and `.claude/skills/**`; a skill edit
   owes this file (through `.claude/skills/**`) and, since a skill lives under
   no note of its own, the root `CLAUDE.md` as well.

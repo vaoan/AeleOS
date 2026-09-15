@@ -102,7 +102,8 @@ Run everything from the repository root, never from `apps/hub`.
   constrains what exists. `pnpm check:agent-notes` fails when a file changes
   under a note, or under a rule file's `paths:` globs, and the note or rule
   did not. Since 2026-09-15 it also fails when a rule's own `paths:` glob can
-  never match a tracked file — the vacuous pass a typo produces.
+  never match a tracked file, or when its `paths:` key sits under frontmatter
+  that does not start on line one — the vacuous passes a typo produces.
 - Change an implementation, move its documentation. Whoever fixes a fault
   deletes the note saying it is open.
 - Specs and plans follow `docs/superpowers/{specs,plans}/YYYY-MM-DD-*.md`.

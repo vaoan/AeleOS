@@ -237,6 +237,22 @@ describe("ruleGlobProblems", () => {
     expect(ruleGlobProblems(index, ["apps/hub/src/x.ts"])).toEqual([]);
   });
 
+  // A `paths:` key under a `---` that is not on line one parses to no globs
+  // and, read with the same parser, would also read as "no key" — a rule that
+  // never fires and nobody is told. The key is looked for on its own.
+  it("reports a rule whose frontmatter does not start on line one", () => {
+    const index = ruleIndex(
+      [".claude/rules/late.md"],
+      () => '\n---\npaths:\n  - "apps/hub/src/**"\n---\n# Late\n',
+    );
+    expect(ruleGlobProblems(index, ["apps/hub/src/x.ts"])).toEqual([
+      {
+        rule: ".claude/rules/late.md",
+        problem: "`paths:` is present but no glob could be parsed out of it",
+      },
+    ]);
+  });
+
   // The case guarding all eleven live rule files: every real rule file's
   // globs must match at least one real tracked file.
   it("finds zero problems against every real rule file in this repository", () => {
