@@ -29,4 +29,8 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   when the first four skills (`apply-migration-edit`, `picture-proof`,
   `sabotage-verify`, `reseed-pastiches`) were added and this file was the one
   `check:agent-notes` asked for; the reseed skill links the seeder lessons
-  since the same day.
+  since the same day. Confirmed again 2026-09-15, the same day, when
+  `apps/hub/src/features/actors/HISTORY.md` was created and matched
+  `**/HISTORY.md` above: a `HISTORY.md` is documentation rather than a note,
+  carries no gate obligation of its own, and this file's own bullets are
+  unaffected by its existence.
