@@ -29,12 +29,12 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   when the first four skills (`apply-migration-edit`, `picture-proof`,
   `sabotage-verify`, `reseed-pastiches`) were added and this file was the one
   `check:agent-notes` asked for; the reseed skill links the seeder lessons
-  since the same day. Confirmed again 2026-09-15, the same day, when
-  `apps/hub/src/features/actors/HISTORY.md` was created and matched
-  `**/HISTORY.md` above: a `HISTORY.md` is documentation rather than a note,
-  carries no gate obligation of its own, and this file's own bullets are
-  unaffected by its existence. Re-read a third time, still 2026-09-15, when
-  a review round corrected `docs/HISTORY.md`'s stale pointers to the actors
-  note and `apps/hub/src/features/actors/HISTORY.md`'s own preamble: both
-  match `**/HISTORY.md` and `docs/**` above, and this file's own bullets are
-  still unaffected.
+  since the same day.
+- **A `HISTORY.md` is documentation, not a note.** It matches `**/HISTORY.md`
+  above, so an edit to one owes this file a re-read and nothing else; it
+  carries no gate obligation of its own. Established 2026-09-15 when
+  `apps/hub/src/features/actors/HISTORY.md` was created. **A gate-demanded
+  re-read is answered by a sentence that carries information or by deleting
+  stale text, never by a "re-read on <date>" note** — the root map and every
+  rule file load into sessions, and a dated re-read line there costs every
+  session and tells nobody anything.

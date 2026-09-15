@@ -16,9 +16,9 @@ Loaded when hub source or a component test is read. Each line is the rule; the l
 - **What the block model CANNOT be pushed toward is written down, and it was found by trying.** → `docs/lessons/conventions/what-the-block-model-cannot-be-pushed-toward-is-written-down.md`
 - **A window is corners chosen one at a time (2026-08-29).** → `docs/lessons/conventions/a-window-is-corners-chosen-one-at-a-time-2026-08-29.md`
 - **The feature's account lives in HISTORY.md beside its note (2026-09-15).**
-  Re-read 2026-09-15, when the actors feature's dated account moved out of
-  its `CLAUDE.md` into `apps/hub/src/features/actors/HISTORY.md`, a new file
-  under this rule's own `apps/hub/src/**` glob: every bullet above still
-  holds, and the standing rules those history sections used to carry now
-  live in `.claude/rules/editor-domain.md`, `editor-application.md` and
-  `editor-presentation.md` instead of here.
+  The actors feature's dated account moved out of its `CLAUDE.md` into
+  `apps/hub/src/features/actors/HISTORY.md`, a file under this rule's own
+  `apps/hub/src/**` glob; every bullet above still holds, and the standing
+  rules those history sections carried now live in
+  `.claude/rules/editor-domain.md`, `editor-application.md` and
+  `editor-presentation.md` rather than here.
