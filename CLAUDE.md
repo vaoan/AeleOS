@@ -43,7 +43,8 @@ re-injects this block after every `/compact`.
   (a skill in phase 5).
 - **Every bug gets a regression test**, sabotage-verified against the
   original fault, at the level the bug lived. Procedure:
-  `docs/lessons/rules/29-*.md` and `34-*.md` (a skill in phase 5).
+  `docs/lessons/conventions/every-bug-gets-a-regression-test-no-exceptions.md`;
+  its two traps are rules 29 and 34 (a skill in phase 5).
 - **Zero tolerance for flakiness.** Diagnose the mechanism; never retry,
   widen a budget or skip.
 - **One agent per working tree**, or a worktree each.
