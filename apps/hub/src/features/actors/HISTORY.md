@@ -2,9 +2,12 @@
 
 The accounts of work done in this feature, moved out of `CLAUDE.md` on
 2026-09-15 so that note stops obliging a 443 KB read on every change under
-`features/actors/`. It carries no gate obligation: `scripts/check-agent-notes.mjs`
-looks only for files named `CLAUDE.md` or `AGENTS.md`, and this is neither.
-Every standing rule these sections carried is a one-line entry in
+`features/actors/`. It is not a note `scripts/check-agent-notes.mjs` reads —
+that gate looks only for `CLAUDE.md` and `AGENTS.md`. But every edit to this
+file still owes a re-read of the rule files whose `paths:` globs match it —
+`.claude/rules/notes-and-docs.md` (`**/HISTORY.md`) and
+`.claude/rules/editor-and-blocks.md` (`apps/hub/src/**`) — which the gate
+enforces. Every standing rule these sections carried is a one-line entry in
 `.claude/rules/editor-*.md`, each pointing back at its section here. What
 remains is history: what was tried, what broke, what was measured, and why —
 read it for the account, not for a constraint on new code.

@@ -33,4 +33,8 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   `apps/hub/src/features/actors/HISTORY.md` was created and matched
   `**/HISTORY.md` above: a `HISTORY.md` is documentation rather than a note,
   carries no gate obligation of its own, and this file's own bullets are
-  unaffected by its existence.
+  unaffected by its existence. Re-read a third time, still 2026-09-15, when
+  a review round corrected `docs/HISTORY.md`'s stale pointers to the actors
+  note and `apps/hub/src/features/actors/HISTORY.md`'s own preamble: both
+  match `**/HISTORY.md` and `docs/**` above, and this file's own bullets are
+  still unaffected.

@@ -85,7 +85,9 @@ still open.
   **default**, where the old blocks listed what was forbidden and so failed
   OPEN; and `no-unknown-files` fails a file that declares no home at all. Only
   the `../` ban and the package's framework ban are still
-  `no-restricted-imports` — they are module names rather than elements.
+  `no-restricted-imports` — they are module names rather than elements. The
+  account named here moved to `apps/hub/src/features/actors/HISTORY.md` on
+  2026-09-15.
 
   **The graph is only as real as its resolver.** `boundaries` asks
   `import/resolver` where a specifier points, and an import it cannot place is
@@ -235,7 +237,8 @@ replace`, so the newest body of a function could sit in a file named after
   `apps/hub/src/features/actors/CLAUDE.md` for what a block may set, the
   nesting fix a skin needed to apply twice without falling through to the
   wrong scope, and why the readability escape hatch stays page-level rather
-  than growing a per-block correction.
+  than growing a per-block correction. The account named here moved to
+  `apps/hub/src/features/actors/HISTORY.md` on 2026-09-15.
 
   The same pass fixed a section's drag handle, dead since it was first
   written and invisible to the only test that covered it — see "Every bug
@@ -257,7 +260,9 @@ replace`, so the newest body of a function could sit in a file named after
   latter is now marked complete — for what each piece does and does not do,
   including the parts still resting on somebody else's undocumented behaviour
   (`posts`) and the one thing reasoned from the CSS spec rather than watched
-  in a browser (the page background's `background-attachment`).
+  in a browser (the page background's `background-attachment`). The account
+  named here moved to `apps/hub/src/features/actors/HISTORY.md` on
+  2026-09-15.
 
 - **A border of one's own (2026-08-16) — done.** A section picks its own
   border style, which is the literal thing the phase above was asked for and
@@ -276,7 +281,8 @@ replace`, so the newest body of a function could sit in a file named after
   what `cutout` cost — `clip-path` clips overlay UI and focus rings alike,
   which is why the editor's card paints its face on a layer of its own and why
   every surface in the app now rings on the inside. Spec:
-  `2026-08-16-a-border-of-ones-own-design.md`.
+  `2026-08-16-a-border-of-ones-own-design.md`. The account named here moved
+  to `apps/hub/src/features/actors/HISTORY.md` on 2026-09-15.
 
 - **Blocks, then spaces, then dragging (2026-08-18) — the model, the renderer,
   the editor and the drag are all done.** A page was a flat array of sections
@@ -384,7 +390,8 @@ replace`, so the newest body of a function could sit in a file named after
   mechanism. The reasoning above is unchanged and still current for `grid`,
   `masonry`, `carousel`, `tabs` and `accordion`, where a place is still
   positional and shifting one would still move a shape somebody deliberately
-  left.
+  left. That dragging section moved to
+  `apps/hub/src/features/actors/HISTORY.md` on 2026-09-15.
 
   Two domain boundaries carry the current design. `moveBlock`
   (`domain/block-moves.ts`) still decides what any valid exchange MEANS, with
@@ -666,6 +673,8 @@ replace`, so the newest body of a function could sit in a file named after
   deliberately NOT complete in this checkpoint. Continue from
   `docs/superpowers/specs/2026-09-04-carrd-style-page-builder-design.md`;
   `apps/hub/src/features/actors/CLAUDE.md` owns the implementation details.
+  The account named here moved to
+  `apps/hub/src/features/actors/HISTORY.md` on 2026-09-15.
 
 - **Editor interaction, adding and motion — DESIGNED, NOT BUILT
   (2026-09-02).** Page links, players and embeds are real inside the canvas
@@ -738,7 +747,9 @@ replace`, so the newest body of a function could sit in a file named after
   2026-08-27, reachable inside `PASTE_LIMIT_BYTES` — caught as an ordinary
   `syntax` problem rather than an uncaught `RangeError`, since `RangeError` is
   an `Error`. See `page-document.ts` and
-  `apps/hub/src/features/actors/CLAUDE.md` for the numbers.
+  `apps/hub/src/features/actors/CLAUDE.md` for the numbers. The account
+  named here moved to `apps/hub/src/features/actors/HISTORY.md` on
+  2026-09-15.
 
   **Task 7 wired it in (2026-08-28) — the dock is reachable by a person for
   the first time.** A `Braces` control in the editor toolbar opens it;
@@ -758,7 +769,8 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   viewport. Fixed and sabotage-verified in
   `apps/hub/tests/e2e/page-source-dock.spec.ts`, which Task 8 extends rather
   than creates — its plan step still says "Create," and that instruction is
-  stale the moment this lands.
+  stale the moment this lands. The account named here moved to
+  `apps/hub/src/features/actors/HISTORY.md` on 2026-09-15.
 
   **Review round 1 found two more.** The full `pnpm --filter hub test:e2e`
   suite had never actually been run against this wiring — only the one new
@@ -774,7 +786,9 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   reset author palette, was wired correctly and reached by nothing — every
   e2e case pastes a document round-tripped through `toDocument`, which always
   carries a `theme` key. Both are pinned in `fursona-editor.test.tsx` now, see
-  `apps/hub/src/features/actors/CLAUDE.md` for the account in full.
+  `apps/hub/src/features/actors/CLAUDE.md` for the account in full. The
+  account named here moved to `apps/hub/src/features/actors/HISTORY.md` on
+  2026-09-15.
 
   **Task 8 pointed a real axe scan at the dock OPEN for the first time and
   found two more, both structural rather than corner cases.** The resize grip
@@ -838,7 +852,8 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
 'label'` branch, added beside `chrome`'s in `validate_block` in the same
   shape, with the column comment and `STYLE_KEY_MEANINGS` updated in the same
   change. See `apps/hub/src/features/actors/CLAUDE.md` for the account in
-  full.
+  full. The account named here moved to
+  `apps/hub/src/features/actors/HISTORY.md` on 2026-09-15.
 
   **Applied across the eleven seeded social pages the same day, and the rule
   is: an identity label says what the thing is called on the site being
@@ -932,7 +947,9 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   same schema this key lives in. See
   `apps/hub/src/features/actors/CLAUDE.md` for the account in full, and
   `domain/block-schema.ts`'s TSDoc on `label` for where the two paths — the
-  one that's gone and the one that was never touched — are told apart.
+  one that's gone and the one that was never touched — are told apart. The
+  account named here moved to `apps/hub/src/features/actors/HISTORY.md` on
+  2026-09-15.
 
 - **A portrait's size, apart from the text beside it (2026-08-30).** `portrait`
   (`"s" | "m" | "l"`) on `AvatarLeaf`'s own style bag closes an asymmetry that
@@ -965,7 +982,8 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   key here does: hand-apply the new `portrait` branch of `validate_block` and
   the extended column comment to the live project, one pull request at a
   time, immediately before merge. See `apps/hub/src/features/actors/CLAUDE.md`
-  for the account in full.
+  for the account in full. The account named here moved to
+  `apps/hub/src/features/actors/HISTORY.md` on 2026-09-15.
 
 - **Editor interaction lock, one Add picker, and Motion for editor chrome
   (2026-09-02) — done.** The editor canvas is locked by default so a
@@ -992,7 +1010,9 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   `canvas` job's own throttled-page measurement, run with the full stack
   mounted, did not move (0.006 commits per delivered movement, the same
   reading this file's own toolchain section already treats as healthy) —
-  the number that decides whether Motion stays, and it says keep it.
+  the number that decides whether Motion stays, and it says keep it. The
+  account named here moved to `apps/hub/src/features/actors/HISTORY.md` on
+  2026-09-15.
 
 - **Preview clears selection and edit mode scrolls only its canvas
   (2026-09-03) — done.** Hide controls unmounts the inspector before paint and

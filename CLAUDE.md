@@ -108,7 +108,9 @@ shipped. Drag-to-add from a palette tab is designed and partly built. The
 dated account of each is in `docs/HISTORY.md`; the open work is at the end
 of it. The instruction-architecture move is under way: phase 1 measured the
 baseline (in the spec named at the top of this file), and phase 2 made this
-file a map.
+file a map. Re-read 2026-09-15 when a fix round corrected stale pointers
+`docs/HISTORY.md` left to the pre-split actors note; this paragraph is
+otherwise unchanged.
 
 Claude's role throughout: build and test the hub here, specify exactly what
 to configure in Clerk, and write the per-app integration code in the

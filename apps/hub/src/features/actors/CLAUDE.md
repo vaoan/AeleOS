@@ -44,6 +44,11 @@ page must implement, and the traps that model creates. The feature's dated
 account lives in `HISTORY.md` beside this file (moved 2026-09-15), and its
 standing rules in `.claude/rules/editor-*.md`.
 
+Re-read 2026-09-15, the same day, once more: a review round corrected the
+stale pointers `HISTORY.md` left behind in `docs/HISTORY.md` and rewrote the
+non-rule lines the split first left in `.claude/rules/editor-*.md`. Nothing
+about the addressing model or the block vocabulary below changed.
+
 The schema itself is owned by `supabase/migrations/` at the repository root,
 not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and
 squashed again whenever a change would otherwise stack a redefinition on top of
