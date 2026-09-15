@@ -236,6 +236,45 @@ it took something away.
   rule of thumb is that a lesson about a mechanism goes beside the feature and
   a lesson about how we work goes in the tree.
 
+## Baseline (measured)
+
+Taken on 2026-09-15 on `main` at 35cdb3b, after phase 1 landed its hook:
+five headless sessions in a fresh worktree, one reading nothing under a
+nested note and four reading a file under `apps/hub/src/features/actors/`
+(domain, application, presentation, and one vertical task across all three),
+then `pnpm report:instructions`.
+
+```
+sessions: 5
+instruction tokens per session: 196589
+by reason:
+  390470	session_start
+  591572	nested_traversal
+  904	include
+by file (tokens, sessions):
+  591556	4	apps/hub/src/features/actors/CLAUDE.md
+  390470	5	CLAUDE.md
+  904	4	apps/hub/AGENTS.md
+  16	4	apps/hub/CLAUDE.md
+```
+
+Two shapes, not one average: a session that touches nothing under `actors/`
+carries about 78,000 instruction tokens, and any session that reads a file
+under `actors/` carries about 226,000. Every one of the four `actors/`
+sessions ran on a 200k-window model and died with "Prompt is too long" after
+the hook had logged the loads, so on `main` that model could not open a file
+under the feature at all.
+
+**The per-layer table above was measured on the unmerged branch
+`drop-target-legibility`, where the actors note is split into a feature note
+and three layer notes.** On `main` the feature note is one file of 443,665
+bytes, which is what these numbers reflect. Phase 6 is briefed against
+whatever `main` holds when it starts.
+
+One more thing the measurement corrected: the CLI sends the load reason as
+`load_reason`, where the hooks documentation says `reason`; the hook reads
+both, and the first real session logged no reason at all until it did.
+
 ## Sources
 
 - Claude Code docs: Memory, Context window (what survives compaction), Large
