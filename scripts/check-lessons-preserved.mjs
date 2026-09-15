@@ -31,7 +31,9 @@ export const SNAPSHOT_DIR = "docs/lessons/snapshots";
  * @param text - Markdown.
  * @returns each blank-line-separated block with list markers, indentation and
  *   wrapping removed and every whitespace run collapsed to one space. Blocks
- *   that are only whitespace are dropped.
+ *   that are only whitespace are dropped. A marker (`- `, `* `, `12. `) is
+ *   recognised only when whitespace follows it, so a line starting with a
+ *   decimal (`0.006 …`) or a bold lead (`**Four.**`) is left alone.
  */
 export function paragraphs(text) {
   return text
@@ -39,7 +41,9 @@ export function paragraphs(text) {
     .map((block) =>
       block
         .split("\n")
-        .map((line) => line.replace(/^[ \t]*(?:[-*]|\d+\.)?[ \t]*/, ""))
+        .map((line) =>
+          line.replace(/^[ \t]*(?:(?:[-*]|\d+\.)[ \t]+)?[ \t]*/, ""),
+        )
         .join(" ")
         .replace(/\s+/g, " ")
         .trim(),

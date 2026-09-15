@@ -2474,8 +2474,11 @@ falls back to `"unknown"` when neither is present.
 every paragraph of each file under `docs/lessons/snapshots/` still exists
 verbatim, whitespace-insensitively, somewhere in the tree — the
 nothing-lost guard for the instruction-architecture move
-(`docs/superpowers/plans/2026-09-15-instruction-architecture.md`). It is
-retired, with the snapshots, once that move is complete and reviewed.
+(`docs/superpowers/plans/2026-09-15-instruction-architecture.md`). A list
+marker (`- `, `* `, `12. `) is stripped only when whitespace follows it, so
+a rewrapped decimal (`0.006 …`) or bold lead (`**Four.**`) starting a line
+is left alone rather than mistaken for one. It is retired, with the
+snapshots, once that move is complete and reviewed.
 
 ### The rules. Each was paid for.
 

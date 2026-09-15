@@ -20,6 +20,18 @@ describe("paragraphs", () => {
   it("ignores blank-only blocks", () => {
     expect(paragraphs("\n\n   \n")).toEqual([]);
   });
+
+  it("keeps a decimal that starts a line", () => {
+    expect(paragraphs("first\n0.006 per movement")).toEqual([
+      "first 0.006 per movement",
+    ]);
+  });
+
+  it("keeps a bold lead that starts a line", () => {
+    expect(paragraphs("**Four.** five\n**Six.** seven")).toEqual([
+      "**Four.** five **Six.** seven",
+    ]);
+  });
 });
 
 describe("missingParagraphs", () => {

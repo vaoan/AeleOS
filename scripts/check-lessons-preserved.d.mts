@@ -5,7 +5,9 @@ export declare const SNAPSHOT_DIR: string;
 
 /**
  * A text's paragraphs, normalised for comparison: list markers, indentation
- * and wrapping removed, whitespace collapsed, blank blocks dropped.
+ * and wrapping removed, whitespace collapsed, blank blocks dropped. A marker
+ * counts only when whitespace follows it, so a decimal or a bold lead at a
+ * line start is left alone.
  *
  * @param text - Markdown.
  * @returns the normalised paragraphs, in order.
