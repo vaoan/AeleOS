@@ -10,7 +10,9 @@
  *
  * The rule is generic, so a note written tomorrow is guarded the same way:
  * every `CLAUDE.md` and `AGENTS.md` in the repository governs the directory it
- * sits in, and a change under it must be accompanied by a change to it.
+ * sits in, and a change under it must be accompanied by a change to it. A
+ * `.claude/rules/*.md` file with `paths:` frontmatter governs every file its
+ * globs match, in the same way, since 2026-09-15.
  *
  * Two mechanical exemptions, neither of them a maintained list:
  *
@@ -47,6 +49,77 @@ const VENDORED_BLOCK = /<!--\s*BEGIN:[^>]*-->[\s\S]*?<!--\s*END:[^>]*-->/g;
 
 /** The file names that make a directory governed. */
 const NOTE_NAMES = new Set(["CLAUDE.md", "AGENTS.md"]);
+
+/** Where path-scoped rule files live. */
+const RULES_DIR = ".claude/rules/";
+
+/**
+ * The `paths:` globs of a rule file.
+ *
+ * Reads only the shape the Claude Code docs show — `---` on line one, a
+ * `paths:` key, one `- "glob"` per line, `---` to close — because the
+ * repository has no YAML parser and should not gain one for a list.
+ *
+ * @param text - the rule file.
+ * @returns its globs, unquoted; `[]` when there is no frontmatter or no
+ *   `paths:` key, which is a rule that loads at launch and governs no path.
+ */
+export function ruleGlobs(text) {
+  const lines = text.split("\n");
+  if (lines[0]?.trim() !== "---") return [];
+  const end = lines.findIndex((line, i) => i > 0 && line.trim() === "---");
+  if (end === -1) return [];
+  const globs = [];
+  let inPaths = false;
+  for (const line of lines.slice(1, end)) {
+    if (/^paths:\s*$/.test(line)) {
+      inPaths = true;
+      continue;
+    }
+    if (/^\S/.test(line)) inPaths = false;
+    const item = /^\s*-\s*["']?([^"']+?)["']?\s*$/.exec(line);
+    if (inPaths && item) globs.push(item[1]);
+  }
+  return globs;
+}
+
+/**
+ * Every rule file git would let reach a commit.
+ *
+ * @param cwd - the repository to ask.
+ * @returns repository-relative paths under `.claude/rules/`.
+ */
+export function rulePaths(cwd = process.cwd()) {
+  const out = execFileSync(
+    "git",
+    // `*` in a git pathspec crosses `/`, so this also lists nested rule files;
+    // `**/*.md` would demand a subdirectory and skip the top-level ones.
+    [
+      "ls-files",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+      "--",
+      `${RULES_DIR}*.md`,
+    ],
+    { cwd, encoding: "utf8" },
+  );
+  return out.split("\n").filter((line) => line !== "");
+}
+
+/**
+ * Each rule file with the globs it governs.
+ *
+ * @param paths - every rule file.
+ * @param read - how to read one, given its path.
+ * @returns entries in path order; a rule with no globs is kept with `[]` so
+ *   the audit still knows it is a rule and never a governed file.
+ */
+export function ruleIndex(paths, read) {
+  return [...paths]
+    .sort()
+    .map((rulePath) => ({ path: rulePath, globs: ruleGlobs(read(rulePath)) }));
+}
 
 /**
  * What kind of file a note is, which decides whether it governs anything.
@@ -130,25 +203,36 @@ function governing(file, index) {
  *
  * @param changed - every path the comparison reports, deletions included.
  * @param index - the map {@link noteIndex} built.
+ * @param rules - every path-scoped rule, as {@link ruleIndex} built them; a
+ *   changed file matching a rule's globs owes that rule a re-read exactly as
+ *   it owes its directory note.
  * @returns the stale notes with the files that demanded each, and the changed
  *   paths no note governs.
  */
-export function auditChanges(changed, index) {
+export function auditChanges(changed, index, rules = []) {
   const seen = new Set(changed);
   const notes = new Set([...index.values()].map((held) => held.path));
+  const ruleFiles = new Set(rules.map((rule) => rule.path));
   const owed = new Map();
   const ungoverned = [];
 
   for (const file of changed) {
-    if (notes.has(file)) continue;
+    if (notes.has(file) || ruleFiles.has(file)) continue;
     const held = governing(file, index);
     if (held === null) {
       ungoverned.push(file);
-      continue;
+    } else {
+      const already = owed.get(held.path);
+      if (already === undefined) owed.set(held.path, [file]);
+      else already.push(file);
     }
-    const already = owed.get(held.path);
-    if (already === undefined) owed.set(held.path, [file]);
-    else already.push(file);
+    for (const rule of rules) {
+      if (!rule.globs.some((glob) => path.posix.matchesGlob(file, glob)))
+        continue;
+      const already = owed.get(rule.path);
+      if (already === undefined) owed.set(rule.path, [file]);
+      else already.push(file);
+    }
   }
 
   const stale = [...owed.entries()]
@@ -220,7 +304,14 @@ export function run(cwd, baseRef) {
   const index = noteIndex(notePaths(cwd), (file) =>
     readFileSync(path.join(cwd, file), "utf8"),
   );
-  const { stale, ungoverned } = auditChanges(changedPaths(cwd, baseRef), index);
+  const rules = ruleIndex(rulePaths(cwd), (file) =>
+    readFileSync(path.join(cwd, file), "utf8"),
+  );
+  const { stale, ungoverned } = auditChanges(
+    changedPaths(cwd, baseRef),
+    index,
+    rules,
+  );
 
   if (ungoverned.length > 0) {
     const dirs = [...new Set(ungoverned.map((file) => dirKey(file)))].sort();

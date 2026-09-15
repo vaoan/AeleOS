@@ -69,13 +69,13 @@ Run everything from the repository root, never from `apps/hub`.
 
 - `.claude/rules/*.md` — one file per concern, loaded only when a matching
   file is read: `toolchain`, `testing`, `browser-proof`, `notes-and-docs`,
-  `migrations`, `editor-and-blocks`, `pastiches`, `identity-package` (lands
-  in phase 3 of the plan; nothing is in that folder yet).
+  `migrations`, `editor-and-blocks`, `pastiches`, `identity-package`.
 - `.claude/skills/` — procedures: `apply-migration-edit`, `picture-proof`,
   `sabotage-verify`, `reseed-pastiches` (lands in phase 5; nothing is in
   that folder yet).
-- `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full. **A citation
-  of "root rule N" anywhere in this repository means the file numbered N.**
+- `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full, filenames cut
+  at a word boundary. **A citation of "root rule N" anywhere in this
+  repository means the file numbered N.**
 - `docs/lessons/conventions/*.md` — the conventions in full.
 - `docs/HISTORY.md` — the dated record of what shipped and what it cost.
 - `apps/hub/src/features/actors/CLAUDE.md` — the addressing model and the
@@ -91,7 +91,8 @@ Run everything from the repository root, never from `apps/hub`.
   are different questions at each.
 - A directory `CLAUDE.md` constrains code that does not exist yet; TSDoc
   constrains what exists. `pnpm check:agent-notes` fails when a file changes
-  under a note, or under a rule file's `paths`, and the note did not.
+  under a note, or under a rule file's `paths:` globs, and the note or rule
+  did not.
 - Change an implementation, move its documentation. Whoever fixes a fault
   deletes the note saying it is open.
 - Specs and plans follow `docs/superpowers/{specs,plans}/YYYY-MM-DD-*.md`.

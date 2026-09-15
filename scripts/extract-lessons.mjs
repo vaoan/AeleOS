@@ -153,15 +153,24 @@ export function splitRoot(text) {
  *
  * @param lead - the bold lead.
  * @returns lowercase ASCII words joined by hyphens, at most 60 characters,
- *   with no leading or trailing hyphen.
+ *   with no leading or trailing hyphen. The cut is at a word boundary: a
+ *   word that would push the stem past 60 characters is dropped along with
+ *   everything after it, never split.
  */
 export function slug(lead) {
-  return lead
+  const words = lead
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60)
-    .replace(/-+$/, "");
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  let stem = "";
+  for (const word of words) {
+    const next = stem === "" ? word : `${stem}-${word}`;
+    if (next.length > 60) break;
+    stem = next;
+  }
+  return stem;
 }
 
 /**

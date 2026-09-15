@@ -152,16 +152,32 @@ describe("slug", () => {
     expect(slug("`check:docs` is per symbol")).toBe("check-docs-is-per-symbol");
   });
 
-  // The cap is a byte count, not a word count, and the cut never leaves a
-  // trailing hyphen. Thirteen four-letter words are 64 characters; the cut at
-  // 60 lands on the hyphen after the twelfth, which is then stripped.
-  it("caps at sixty characters without a trailing hyphen", () => {
+  // The cap is a character count, not a word count, and the cut is always at
+  // a word boundary: a word that would push the joined stem past 60
+  // characters is dropped whole, along with everything after it. Thirteen
+  // four-letter words joined by hyphens would be 64 characters; the
+  // thirteenth is dropped and the stem stops at the twelfth.
+  it("caps at sixty characters, cutting only between words", () => {
     const thirteen = Array.from({ length: 13 }, () => "word").join(" ");
     const twelve = Array.from({ length: 12 }, () => "word").join("-");
     expect(slug(thirteen)).toBe(twelve);
     expect(slug(thirteen)).toHaveLength(59);
     expect(
       slug("A newly adopted tool must be shown to fail before it is believed."),
-    ).toHaveLength(60);
+    ).toBe("a-newly-adopted-tool-must-be-shown-to-fail-before-it-is");
+    expect(
+      slug("A newly adopted tool must be shown to fail before it is believed.")
+        .length,
+    ).toBe(55);
+  });
+
+  it("ends on the last whole word rather than cutting one in half", () => {
+    // Three 25-character words: the first two join to 51 characters ("word"
+    // + "-" + "word"), and the third would push the stem to 77 — past 60 —
+    // so it is dropped whole rather than truncated to fit.
+    const words = ["a".repeat(25), "b".repeat(25), "c".repeat(25)];
+    const lead = words.join(" ");
+    expect(slug(lead)).toBe(`${words[0]}-${words[1]}`);
+    expect(slug(lead)).toHaveLength(51);
   });
 });

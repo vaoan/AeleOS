@@ -153,3 +153,76 @@ describe("auditChanges", () => {
     expect(auditChanges([], index())).toEqual({ stale: [], ungoverned: [] });
   });
 });
+
+import { ruleGlobs, ruleIndex } from "../../scripts/check-agent-notes.mjs";
+
+describe("ruleGlobs", () => {
+  it("reads the paths list out of frontmatter", () => {
+    const text =
+      '---\npaths:\n  - "supabase/**"\n  - "scripts/check-schema-drift.mjs"\n---\n\n# Migrations\n';
+    expect(ruleGlobs(text)).toEqual([
+      "supabase/**",
+      "scripts/check-schema-drift.mjs",
+    ]);
+  });
+
+  it("answers nothing for a rule with no frontmatter, which loads at launch and governs no path", () => {
+    expect(ruleGlobs("# Always\n\n- rule\n")).toEqual([]);
+  });
+
+  it("answers nothing when the frontmatter is not on line one", () => {
+    expect(ruleGlobs("\n---\npaths:\n  - x\n---\n")).toEqual([]);
+  });
+});
+
+describe("auditChanges with rules", () => {
+  const index = noteIndex(["CLAUDE.md"], () => "# root");
+  const rules = ruleIndex(
+    [".claude/rules/migrations.md", ".claude/rules/always.md"],
+    (path) =>
+      path.endsWith("migrations.md")
+        ? '---\npaths:\n  - "supabase/**"\n---\n# m'
+        : "# always\n",
+  );
+
+  it("names a rule left unread while a file matching its globs changed", () => {
+    const { stale } = auditChanges(
+      ["supabase/migrations/0009_actor_profiles.sql"],
+      index,
+      rules,
+    );
+    expect(stale.map((s) => s.note)).toContain(".claude/rules/migrations.md");
+  });
+
+  it("is satisfied when the rule file changed in the same set", () => {
+    const { stale } = auditChanges(
+      [
+        "supabase/migrations/0009_actor_profiles.sql",
+        ".claude/rules/migrations.md",
+      ],
+      index,
+      rules,
+    );
+    expect(stale.map((s) => s.note)).not.toContain(
+      ".claude/rules/migrations.md",
+    );
+  });
+
+  // The discriminating half: a rule whose globs match nothing changed owes nothing.
+  it("does not name a rule whose globs match nothing in the change", () => {
+    const { stale } = auditChanges(["apps/hub/src/x.ts"], index, rules);
+    expect(stale.map((s) => s.note)).not.toContain(
+      ".claude/rules/migrations.md",
+    );
+  });
+
+  it("never treats a rule file as governed by a note or by another rule", () => {
+    const { stale, ungoverned } = auditChanges(
+      [".claude/rules/always.md"],
+      index,
+      rules,
+    );
+    expect(stale).toEqual([]);
+    expect(ungoverned).toEqual([]);
+  });
+});

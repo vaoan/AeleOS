@@ -35,7 +35,8 @@ export interface RootParts {
 export declare function splitRoot(text: string): RootParts;
 
 /**
- * A kebab-case filename stem for a lead sentence, at most 60 characters.
+ * A kebab-case filename stem for a lead sentence, at most 60 characters, cut
+ * only between words.
  *
  * @param lead - the bold lead.
  * @returns the stem.
