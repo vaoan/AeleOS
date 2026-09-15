@@ -240,6 +240,17 @@ Key choices and _why_:
   prettier forever — rule 6, with the formatter owning shape and the guard
   owning content.
 
+- **Instruction architecture — APPROVED, NOT BUILT (2026-09-15):**
+  `docs/superpowers/specs/2026-09-15-instruction-architecture-design.md`.
+  This file is 240 KB and two nested notes are 100–200 KB; each crosses the
+  CLI's large-memory-file threshold (five percent of the context window in
+  characters, 150,000 for the current model), and a vertical actors task
+  loads all three layer notes at once. The design keeps every rule and moves
+  every receipt: a root map under 200 lines, `.claude/rules/*.md` scoped by
+  `paths:`, skills for procedures, `docs/lessons/` and `HISTORY.md` for the
+  narratives verbatim. Plan, seven phases, each its own pull request:
+  `docs/superpowers/plans/2026-09-15-instruction-architecture.md`. Phase 1
+  is a measurement; nothing here moves until it has run.
 - **Clerk:** https://clerk.com — docs: https://clerk.com/docs
 - **Supabase Third-Party Auth:** the mechanism each app uses to trust Clerk.
 - **Sister repos (shared toolchain & conventions):** `Z:\Github\puck`,
