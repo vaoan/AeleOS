@@ -219,7 +219,9 @@ it took something away.
    post-compaction probe fail to state it.
 5. **Procedures into skills.** Four to start: migration apply, picture proof,
    sabotage verification, pastiche re-seed.
-6. **Ablate on a cadence.** After each phase, compare the hook log against the
+6. **Dissolve the layer notes.** The actors note keeps the model; its accounts
+   move beside it into `HISTORY.md`; its rules become per-layer rule files.
+7. **Ablate on a cadence.** After each phase, compare the hook log against the
    baseline. A rule that no longer fires is retired to the lessons tree with a
    date rather than deleted.
 
@@ -232,7 +234,11 @@ it took something away.
   duplicated.
 - **The compaction hook's own size.** Twenty lines is a budget chosen from
   community practice, not a measurement; phase 4 should measure what a
-  post-compaction turn actually retains with and without it.
+  post-compaction turn actually retains with and without it. **2026-09-15:**
+  the hook was proved headlessly, under a `startup` matcher rather than the
+  interactive `/compact` (Ruling 17 in the plan's ledger); the `compact`
+  matcher itself is registered but was never exercised headlessly, and the
+  interactive check is the owner's to run.
 - **Whether `docs/lessons/` or per-feature `HISTORY.md` is the home for a
   narrative that belongs to one feature.** The proposal says both exist; the
   rule of thumb is that a lesson about a mechanism goes beside the feature and
@@ -243,6 +249,14 @@ it took something away.
   only for the sessions that read its layer. `.claude/rules/editor-and-blocks.md`
   (glob `apps/hub/src/**`) is the widest glob in use, a candidate should a
   later pass want to narrow one.
+- **2026-09-15, final fix wave:** no `infrastructure` rule file was created.
+  `.claude/rules/editor-and-blocks.md`'s `apps/hub/src/**` already governs
+  that layer, and no section moved by phase 6 named an infrastructure file of
+  its own; create one the day a section does.
+- **2026-09-15, final fix wave:** two rule-file lines — `testing.md`'s hook
+  test comment and `toolchain.md`'s hook-script line — link a script or test
+  directly rather than a `docs/lessons/` file. Accepted as the pattern for a
+  rule ABOUT a script rather than about how we work in general (Ruling R31).
 
 ## Baseline (measured)
 

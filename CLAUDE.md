@@ -29,10 +29,12 @@ These hold in every session and survive compaction; a `SessionStart` hook
 - **Never run anything against Libra's database.** It is in production. Each
   app has its own Supabase project; never cross credentials.
 - **Branch from an explicit base**: `git checkout -b <name> origin/main`, and
-  confirm with `git log --oneline origin/main..HEAD` before pushing.
+  confirm with `git log --oneline origin/main..HEAD` before pushing. Lesson:
+  `docs/lessons/conventions/always-branch-from-an-explicit-base-git-checkout-b-name.md`.
 - **Do not commit unless asked.** Work on branches; open PRs when a plan
   licenses it. Every `git`/`gh` call uses the PAT in `.secrets` and identity
   from `gh api user`, set `--local` each session: `docs/git-with-gh-token.md`.
+  Lesson: `docs/lessons/conventions/git.md`.
 - **An edited migration is hand-applied to live LAST, immediately before
   merge, one PR at a time**, when `gh pr list --state open` shows nothing
   else. Procedure:
@@ -50,7 +52,8 @@ These hold in every session and survive compaction; a `SessionStart` hook
   widen a budget or skip.
 - **One agent per working tree**, or a worktree each.
 - **Secrets never in git.** `.secrets` and `.env*` are ignored; only
-  `.secrets.example` is committed.
+  `.secrets.example` is committed. Lesson:
+  `docs/lessons/conventions/secrets-never-in-git.md`.
 
 <!-- invariants:end -->
 
@@ -72,11 +75,15 @@ Run everything from the repository root, never from `apps/hub`.
   `migrations`, `editor-and-blocks`, `pastiches`, `identity-package`,
   `editor-domain`, `editor-application`, `editor-presentation`.
 - `.claude/skills/` — procedures, loaded only when invoked: `apply-migration-edit`,
-  `picture-proof`, `sabotage-verify`, `reseed-pastiches`.
+  `picture-proof`, `sabotage-verify`, `reseed-pastiches`. `apply-migration-edit`,
+  `picture-proof` and `reseed-pastiches` are user-invoked only
+  (`disable-model-invocation`); Claude follows the Procedure link above and
+  asks the owner to run the skill.
 - `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full, filenames cut
   at a word boundary. **A citation of "root rule N" anywhere in this
   repository means the file numbered N.**
 - `docs/lessons/conventions/*.md` — the conventions in full.
+- `docs/lessons/toolchain.md` — the toolchain's account and its rules in full.
 - `docs/HISTORY.md` — the dated record of what shipped and what it cost.
 - `apps/hub/src/features/actors/CLAUDE.md` — the addressing model and the
   block vocabulary; `HISTORY.md` beside it holds the feature's account, and
@@ -85,8 +92,9 @@ Run everything from the repository root, never from `apps/hub`.
 
 ## Conventions in one line each
 
-- Filenames are kebab-case. Every export carries TSDoc stating the contract,
-  not the types; `pnpm check:docs` fails when code moves and TSDoc does not.
+- Filenames are kebab-case (`docs/lessons/conventions/filenames.md`). Every
+  export carries TSDoc stating the contract, not the types; `pnpm check:docs`
+  fails when code moves and TSDoc does not.
 - Every export is tested on its happy path and each failure mode; branch
   coverage gates it. Edge cases are owed at unit and browser level, and they
   are different questions at each.

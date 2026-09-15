@@ -1,10 +1,7 @@
 ---
 paths:
-  - "**/CLAUDE.md"
-  - "**/AGENTS.md"
   - "**/HISTORY.md"
   - "docs/**"
-  - ".claude/rules/**"
   - ".claude/skills/**"
 ---
 
@@ -23,13 +20,23 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
 - **Change an implementation, move its documentation.** → `docs/lessons/conventions/change-an-implementation-move-its-documentation.md`
 - **Constraints about an export live in its TSDoc** → `docs/lessons/conventions/constraints-about-an-export-live-in-its-tsdoc.md`
 - **Specs & plans:** → `docs/lessons/conventions/specs-plans.md`
-- **A skill's `disable-model-invocation` frontmatter governs who may run it, not
-  whether this note governs it.** `.claude/skills/**` is covered by the
-  `paths:` list above exactly as `.claude/rules/**` is, confirmed 2026-09-15
-  when the first four skills (`apply-migration-edit`, `picture-proof`,
-  `sabotage-verify`, `reseed-pastiches`) were added and this file was the one
-  `check:agent-notes` asked for; the reseed skill links the seeder lessons
-  since the same day.
+- **What this file governs, and why `CLAUDE.md`, `AGENTS.md` and
+  `.claude/rules/*.md` are not in the list above (2026-09-15, final fix
+  wave).** `check-agent-notes.mjs` never treats a `CLAUDE.md`, an `AGENTS.md`
+  or a `.claude/rules/*.md` file as governed by a note or by another rule — a
+  note is never governed by another note, and a rule file is never governed
+  by a note or by another rule — so `**/CLAUDE.md`, `**/AGENTS.md` and
+  `.claude/rules/**` in this file's `paths:` could never fire; they were
+  removed rather than left as a glob that can never match. What this file
+  governs is `**/HISTORY.md`, `docs/**` and `.claude/skills/**`; a skill edit
+  owes this file (through `.claude/skills/**`) and, since a skill lives under
+  no note of its own, the root `CLAUDE.md` as well.
+- **A skill's `disable-model-invocation` frontmatter governs who may run it,
+  not whether this note governs it.** `.claude/skills/**` is covered by the
+  `paths:` list above, confirmed 2026-09-15 when the first four skills
+  (`apply-migration-edit`, `picture-proof`, `sabotage-verify`,
+  `reseed-pastiches`) were added and this file was the one `check:agent-notes`
+  asked for; the reseed skill links the seeder lessons since the same day.
 - **A `HISTORY.md` is documentation, not a note.** It matches `**/HISTORY.md`
   above, so an edit to one owes this file a re-read and nothing else; it
   carries no gate obligation of its own. Established 2026-09-15 when

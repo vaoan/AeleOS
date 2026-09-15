@@ -498,7 +498,8 @@ replace`, so the newest body of a function could sit in a file named after
   ACTOR rather than what somebody typed, which is a new CATEGORY in the model
   rather than five more entries. Read
   `apps/hub/src/features/actors/CLAUDE.md` before touching any of it. The
-  parts worth knowing first:
+  account named here moved to `apps/hub/src/features/actors/HISTORY.md` on
+  2026-09-15. The parts worth knowing first:
 
   - **A fursona's page shows its owner, and that is new content.**
     `public_fursona` resolved `owner_address` for the canonical URL and never
