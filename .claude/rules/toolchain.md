@@ -29,3 +29,4 @@ Loaded when a linter, formatter, spell-check or CI config file, or a script unde
 - **A test's cost is a property of the SUITE it lives in, and a flake there is fixed by moving it, never by widening its budget.** → `docs/lessons/rules/32-a-test-s-cost-is-a-property-of-the-suite-it-lives-in-and-a.md`
 - **A CHECKER IS ONLY AS WIDE AS ITS GLOB, and the prose nobody checks is the prose in somebody else's language.** → `docs/lessons/rules/42-a-checker-is-only-as-wide-as-its-glob-and-the-prose-nobody.md`
 - **A hook script Claude Code runs must never throw or exit non-zero — a broken hook must not break the session it serves.** → `scripts/hook-reinject-invariants.mjs`
+- **2026-09-15:** the `check:lessons-preserved` gate, its `docs/lessons/snapshots/` fixtures and the one-shot `scripts/extract-lessons.mjs` were retired once the instruction-architecture move had been reviewed paragraph by paragraph in place. `check:tools` no longer runs it.

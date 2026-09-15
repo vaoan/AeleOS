@@ -155,3 +155,13 @@ works, and a new table stays red until it grants `service_role`.
 Claude's role throughout: build and test the hub here, specify exactly what to
 configure in Clerk, and write the per-app integration code in the respective app
 repos.
+
+**The temporary gate and its extractor are retired (2026-09-15).**
+`check:lessons-preserved`, `scripts/check-lessons-preserved.mjs`,
+`scripts/extract-lessons.mjs` and `docs/lessons/snapshots/` are gone, and
+`check:tools` no longer runs the gate. The snapshots existed only to prove
+the instruction-architecture move lost nothing; the moved text itself is
+under `docs/lessons/`, `docs/HISTORY.md`, `docs/overview.md` and
+`apps/hub/src/features/actors/HISTORY.md`. A commit message citing
+`check:lessons-preserved` is citing a gate that lived here; this paragraph is
+where it went.

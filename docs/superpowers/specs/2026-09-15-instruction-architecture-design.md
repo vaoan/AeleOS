@@ -1,8 +1,8 @@
 # Where the rules should live — instruction architecture design
 
-**Status: APPROVED (2026-09-15).** Nothing here is built yet. Plan:
-`docs/superpowers/plans/2026-09-15-instruction-architecture.md`. Phase 1 is a
-measurement, and no file moves until it has run.
+**Status: DELIVERED (2026-09-15).** The gate and the extractor were retired
+in this PR once every snapshot paragraph had been reviewed in place. Plan:
+`docs/superpowers/plans/2026-09-15-instruction-architecture.md`.
 
 ## The problem, measured
 
@@ -235,6 +235,12 @@ it took something away.
   narrative that belongs to one feature.** The proposal says both exist; the
   rule of thumb is that a lesson about a mechanism goes beside the feature and
   a lesson about how we work goes in the tree.
+- **2026-09-15, ablation:** none observed — no rule file loaded in every
+  session despite `paths:` scoping. The root `CLAUDE.md` is the only file in
+  all five, by design, and each `.claude/rules/editor-*.md` layer file loaded
+  only for the sessions that read its layer. `.claude/rules/editor-and-blocks.md`
+  (glob `apps/hub/src/**`) is the widest glob in use, a candidate should a
+  later pass want to narrow one.
 
 ## Baseline (measured)
 
@@ -274,6 +280,46 @@ whatever `main` holds when it starts.
 One more thing the measurement corrected: the CLI sends the load reason as
 `load_reason`, where the hooks documentation says `reason`; the hook reads
 both, and the first real session logged no reason at all until it did.
+
+## After (measured)
+
+Taken on 2026-09-15 on the phase 7 branch, cut from `main` at 3505314 (phase
+6 merged), by the SAME method as the baseline: five headless sessions in a
+fresh worktree — one reading nothing under a nested note, and four reading a
+file under `apps/hub/src/features/actors/` (domain, application,
+presentation, and one vertical task across all three) — then
+`pnpm report:instructions`. The prompts were byte-identical to the
+baseline's.
+
+```
+sessions: 5
+instruction tokens per session: 17860
+by reason:
+  9920	session_start
+  58508	nested_traversal
+  904	include
+  19966	path_glob_match
+by file (tokens, sessions):
+  58492	4	apps/hub/src/features/actors/CLAUDE.md
+  10294	2	.claude/rules/editor-presentation.md
+  9920	5	CLAUDE.md
+  6234	2	.claude/rules/editor-domain.md
+  2764	4	.claude/rules/editor-and-blocks.md
+  904	4	apps/hub/AGENTS.md
+  674	2	.claude/rules/editor-application.md
+  16	4	apps/hub/CLAUDE.md
+```
+
+Ratio: 17,860 / 196,589 = 0.091 — tokens per session fell to about one
+eleventh, well past the "at least halved" acceptance. The two shapes the
+baseline named are now: a session touching nothing under `actors/` carries
+about 2,000 instruction tokens (was ~78,000), and a session reading a file
+under `actors/` carries about 20,000–24,000 (was ~226,000). All five ran on
+the 200k-window model that could not open a file under the feature at all on
+`main` before this plan.
+
+Both tables were taken by the same method; the baseline sessions ran on
+`main` at 35cdb3b and these on `main` at 3505314.
 
 ## Sources
 

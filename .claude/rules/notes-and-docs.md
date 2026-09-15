@@ -38,3 +38,7 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   stale text, never by a "re-read on <date>" note** — the root map and every
   rule file load into sessions, and a dated re-read line there costs every
   session and tells nobody anything.
+- **2026-09-15:** `docs/lessons/snapshots/` was deleted along with the
+  `check:lessons-preserved` gate and the `scripts/extract-lessons.mjs`
+  extractor once the instruction-architecture move had been reviewed
+  paragraph by paragraph in place. `check:tools` no longer runs it.

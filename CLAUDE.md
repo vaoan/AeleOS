@@ -60,8 +60,7 @@ Run everything from the repository root, never from `apps/hub`.
 
 - `pnpm lint`, `pnpm typecheck`, `pnpm --filter hub test`, `pnpm test:tools`
 - `pnpm check:tools` (the whole tooling gate), `pnpm check:docs`,
-  `pnpm check:agent-notes`, `pnpm check:schema-drift`, `pnpm check:contrast`,
-  `pnpm check:lessons-preserved`
+  `pnpm check:agent-notes`, `pnpm check:schema-drift`, `pnpm check:contrast`
 - `pnpm test:db` (resets the local Supabase stack from the migrations),
   `pnpm --filter hub test:e2e` (source `.secrets` first or half of it skips)
 - `pnpm report:instructions` (what the instruction files cost per session)
