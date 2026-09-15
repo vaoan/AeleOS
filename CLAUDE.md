@@ -103,7 +103,9 @@ bilingual; public pages, the block model, dragging, weighted places, the
 page source dock, the canvas-first editor and drop-target legibility have
 shipped. Drag-to-add from a palette tab is designed and partly built. The
 dated account of each is in `docs/HISTORY.md`; the open work is at the end
-of it.
+of it. The instruction-architecture move is under way: phase 1 measured the
+baseline (in the spec named at the top of this file), and phase 2 made this
+file a map.
 
 Claude's role throughout: build and test the hub here, specify exactly what
 to configure in Clerk, and write the per-app integration code in the
