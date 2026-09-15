@@ -69,8 +69,7 @@ Run everything from the repository root, never from `apps/hub`.
 
 - `.claude/rules/*.md` — one file per concern, loaded only when a matching
   file is read: `toolchain`, `testing`, `browser-proof`, `notes-and-docs`,
-  `migrations`, `editor-and-blocks`, `pastiches`, `identity-package` (lands
-  in phase 3 of the plan; nothing is in that folder yet).
+  `migrations`, `editor-and-blocks`, `pastiches`, `identity-package`.
 - `.claude/skills/` — procedures: `apply-migration-edit`, `picture-proof`,
   `sabotage-verify`, `reseed-pastiches` (lands in phase 5; nothing is in
   that folder yet).
