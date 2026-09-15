@@ -30,3 +30,11 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   `sabotage-verify`, `reseed-pastiches`) were added and this file was the one
   `check:agent-notes` asked for; the reseed skill links the seeder lessons
   since the same day.
+- **A `HISTORY.md` is documentation, not a note.** It matches `**/HISTORY.md`
+  above, so an edit to one owes this file a re-read and nothing else; it
+  carries no gate obligation of its own. Established 2026-09-15 when
+  `apps/hub/src/features/actors/HISTORY.md` was created. **A gate-demanded
+  re-read is answered by a sentence that carries information or by deleting
+  stale text, never by a "re-read on <date>" note** — the root map and every
+  rule file load into sessions, and a dated re-read line there costs every
+  session and tells nobody anything.

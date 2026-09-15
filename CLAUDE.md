@@ -70,7 +70,8 @@ Run everything from the repository root, never from `apps/hub`.
 
 - `.claude/rules/*.md` — one file per concern, loaded only when a matching
   file is read: `toolchain`, `testing`, `browser-proof`, `notes-and-docs`,
-  `migrations`, `editor-and-blocks`, `pastiches`, `identity-package`.
+  `migrations`, `editor-and-blocks`, `pastiches`, `identity-package`,
+  `editor-domain`, `editor-application`, `editor-presentation`.
 - `.claude/skills/` — procedures, loaded only when invoked: `apply-migration-edit`,
   `picture-proof`, `sabotage-verify`, `reseed-pastiches`.
 - `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full, filenames cut
@@ -79,7 +80,8 @@ Run everything from the repository root, never from `apps/hub`.
 - `docs/lessons/conventions/*.md` — the conventions in full.
 - `docs/HISTORY.md` — the dated record of what shipped and what it cost.
 - `apps/hub/src/features/actors/CLAUDE.md` — the addressing model and the
-  feature's own account, still one file on `main`; phase 6 splits it.
+  block vocabulary; `HISTORY.md` beside it holds the feature's account, and
+  `.claude/rules/editor-*.md` hold its rules by layer.
 - `docs/superpowers/{specs,plans}/` — brainstorm → spec → plan → implement.
 
 ## Conventions in one line each

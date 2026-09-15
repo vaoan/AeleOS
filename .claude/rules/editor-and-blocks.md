@@ -15,3 +15,10 @@ Loaded when hub source or a component test is read. Each line is the rule; the l
 - **A containment boundary enumerated BY HAND is only as good as its list, and nothing static can see the list is short.** → `docs/lessons/rules/39-a-containment-boundary-enumerated-by-hand-is-only-as-good-as.md`
 - **What the block model CANNOT be pushed toward is written down, and it was found by trying.** → `docs/lessons/conventions/what-the-block-model-cannot-be-pushed-toward-is-written-down.md`
 - **A window is corners chosen one at a time (2026-08-29).** → `docs/lessons/conventions/a-window-is-corners-chosen-one-at-a-time-2026-08-29.md`
+- **The feature's account lives in HISTORY.md beside its note (2026-09-15).**
+  The actors feature's dated account moved out of its `CLAUDE.md` into
+  `apps/hub/src/features/actors/HISTORY.md`, a file under this rule's own
+  `apps/hub/src/**` glob; every bullet above still holds, and the standing
+  rules those history sections carried now live in
+  `.claude/rules/editor-domain.md`, `editor-application.md` and
+  `editor-presentation.md` rather than here.
