@@ -71,8 +71,8 @@ Run everything from the repository root, never from `apps/hub`.
 - `.claude/rules/*.md` — one file per concern, loaded only when a matching
   file is read: `toolchain`, `testing`, `browser-proof`, `notes-and-docs`,
   `migrations`, `editor-and-blocks`, `pastiches`, `identity-package`.
-- `.claude/skills/` — procedures: `apply-migration-edit`, `picture-proof`,
-  `sabotage-verify`, `reseed-pastiches`.
+- `.claude/skills/` — procedures, loaded only when invoked: `apply-migration-edit`,
+  `picture-proof`, `sabotage-verify`, `reseed-pastiches`.
 - `docs/lessons/rules/NN-*.md` — the 43 numbered rules in full, filenames cut
   at a word boundary. **A citation of "root rule N" anywhere in this
   repository means the file numbered N.**

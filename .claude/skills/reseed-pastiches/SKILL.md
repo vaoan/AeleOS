@@ -22,4 +22,5 @@ bypasses `set_actor_sections` entirely, so it applies no database guard.
    requests; a respaced retry clears it, and it is not evidence the
    reference is wrong.
 
-Full account: `docs/lessons/conventions/the-pastiches-were-rebuilt-against-their-captures-one-task.md`.
+Full account: `docs/lessons/conventions/what-the-block-model-cannot-be-pushed-toward-is-written-down.md` (the seeder owns everything the pages depend on, and bypasses `set_actor_sections`);
+`docs/lessons/conventions/squash-the-migrations-and-squash-them-again.md` (re-seed from `main` after a rebase, never from a branch that predates work already live).

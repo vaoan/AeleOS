@@ -28,4 +28,5 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   `paths:` list above exactly as `.claude/rules/**` is, confirmed 2026-09-15
   when the first four skills (`apply-migration-edit`, `picture-proof`,
   `sabotage-verify`, `reseed-pastiches`) were added and this file was the one
-  `check:agent-notes` asked for.
+  `check:agent-notes` asked for; the reseed skill links the seeder lessons
+  since the same day.
