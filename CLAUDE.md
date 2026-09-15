@@ -2454,6 +2454,20 @@ every Tailwind utility for months without anything noticing.
   `@utility surface` replaced it across 74 class lists, and both hand-written
   `:not()` exclusions deleted themselves.
 
+**Every instruction file Claude Code loads is now logged (2026-09-15).**
+`scripts/hook-log-instructions.mjs` is registered as an `InstructionsLoaded`
+hook in `.claude/settings.json` and appends one JSON line per loaded
+instruction file to the git-ignored `.claude/instructions-log/<session>.jsonl`.
+It never fails a load: a logging problem must not become a missing
+instruction file. `pnpm report:instructions`
+(`scripts/instructions-report.mjs`) turns that log into the numbers the plan
+is judged by: instruction tokens per session, summarised by load reason and
+by file, at three characters per token — the installed CLI's own factor for
+this model. The installed CLI (2.1.272) actually sends the reason as
+`load_reason` rather than the docs' `reason`, measured 2026-09-15 from a real
+payload with no `reason` field at all; `logEntry` reads both spellings and
+falls back to `"unknown"` when neither is present.
+
 ### The rules. Each was paid for.
 
 1. **A newly adopted tool must be shown to fail before it is believed.** Three
