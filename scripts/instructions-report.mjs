@@ -118,21 +118,42 @@ export function readLogReport(dir) {
   return readLogInternal(dir);
 }
 
+/**
+ * Lays the summary out as the table the CLI prints.
+ *
+ * Kept apart from `main` so the one branch that is otherwise unreachable by
+ * a test — the skipped-lines footer — is a pure function of its inputs.
+ *
+ * @param summary - what {@link summarise} answered.
+ * @param skipped - how many log lines failed to parse; the footer is printed
+ *   only when it is above zero, so a clean log prints nothing about it.
+ * @returns the report text, newline-terminated.
+ */
+export function render(summary, skipped = 0) {
+  const lines = [
+    `sessions: ${summary.sessions}`,
+    `instruction tokens per session: ${summary.tokensPerSession}`,
+    "",
+    "by reason:",
+    ...Object.entries(summary.byReason).map(
+      ([reason, tokens]) => `  ${tokens}\t${reason}`,
+    ),
+    "",
+    "by file (tokens, sessions):",
+    ...summary.byFile.map(
+      (row) => `  ${row.tokens}\t${row.sessions}\t${row.file}`,
+    ),
+  ];
+  if (skipped > 0) lines.push("", `skipped malformed lines: ${skipped}`);
+  return lines.join("\n") + "\n";
+}
+
 /** Prints the summary as a table. */
 function main() {
   const dir =
     process.argv[2] ?? path.join(process.cwd(), ".claude", "instructions-log");
   const { entries, skipped } = readLogReport(dir);
-  const summary = summarise(entries);
-  console.log(`sessions: ${summary.sessions}`);
-  console.log(`instruction tokens per session: ${summary.tokensPerSession}`);
-  console.log("\nby reason:");
-  for (const [reason, tokens] of Object.entries(summary.byReason))
-    console.log(`  ${tokens}\t${reason}`);
-  console.log("\nby file (tokens, sessions):");
-  for (const row of summary.byFile)
-    console.log(`  ${row.tokens}\t${row.sessions}\t${row.file}`);
-  if (skipped > 0) console.log(`\nskipped malformed lines: ${skipped}`);
+  process.stdout.write(render(summarise(entries), skipped));
 }
 
 if (process.argv[1]?.endsWith("instructions-report.mjs")) main();

@@ -53,3 +53,13 @@ export declare function readLog(dir: string): LogEntry[];
  * @throws whatever `readdirSync` throws other than `ENOENT`.
  */
 export declare function readLogReport(dir: string): LogReport;
+
+/**
+ * Lays the summary out as the table the CLI prints.
+ *
+ * @param summary - what {@link summarise} answered.
+ * @param skipped - how many log lines failed to parse. The
+ *   `skipped malformed lines` footer appears only when it is above zero.
+ * @returns the report text, newline-terminated.
+ */
+export declare function render(summary: Summary, skipped?: number): string;
