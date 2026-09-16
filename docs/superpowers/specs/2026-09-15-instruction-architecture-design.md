@@ -236,9 +236,13 @@ it took something away.
   community practice, not a measurement; phase 4 should measure what a
   post-compaction turn actually retains with and without it. **2026-09-15:**
   the hook was proved headlessly, under a `startup` matcher rather than the
-  interactive `/compact` (Ruling 17 in the plan's ledger); the `compact`
-  matcher itself is registered but was never exercised headlessly, and the
-  interactive check is the owner's to run.
+  interactive `/compact` (Ruling 17 in the plan's ledger). **2026-09-16:**
+  the owner ran `/compact` interactively on main at 75c93b2; the `compact`
+  matcher fired and the whole 37-line `## Invariants` block arrived in the
+  post-compaction context as a `SessionStart:compact` hook result, first
+  line to last bullet. Nothing else survived, as designed. The size question
+  above is still open: that turn retained the block, but retention with and
+  without it has not been measured.
 - **Whether `docs/lessons/` or per-feature `HISTORY.md` is the home for a
   narrative that belongs to one feature.** The proposal says both exist; the
   rule of thumb is that a lesson about a mechanism goes beside the feature and
