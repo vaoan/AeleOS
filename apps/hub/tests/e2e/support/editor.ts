@@ -273,22 +273,43 @@ async function waitForCanvasAccommodation(page: Page): Promise<void> {
  * needed before calling this.
  *
  * **The drop target's own geometry is read AFTER the lift, not before
- * (2026-09-06), and the target is scrolled into view a SECOND time once
- * that reflow has happened, not only before the lift.** Lifting a palette
- * item lights up every valid `insertTargets` entry at once, and an append
- * slot's own class carries `min-h-12` only while highlighted (`AppendSlot`,
- * `editable-block-frame.tsx`) — so a container earlier on the page than
- * `targetCanvasPath` can grow the instant the drag begins, pushing the
- * target down by exactly that height before the mouse ever arrives. This
- * function waits for the highlight to actually appear before re-reading
- * `targetCanvasPath`'s box, so every caller is protected from that reflow
- * without needing its own fix. On a page carrying several already-built
- * sections the cumulative growth from every one of THEIR own highlighted
- * places can be enough to push the target back out of the viewport the
- * pre-lift scroll brought it into, so the target is scrolled into view
- * again after the wait, immediately before the geometry it is read from —
- * see `apps/hub/src/features/actors/CLAUDE.md`'s account of Task 9 of the
- * palette drag-to-add feature for the full record of both fixes.
+ * (2026-09-06), and re-read a second time once the pointer has actually
+ * reached it, not only before the lift.** The Palette tab's own scroll
+ * position differs from the canvas's, and this is a general safety margin
+ * against anything shifting between the lift and the final move — not,
+ * any more, a fix for a specific known reflow; see the next paragraph.
+ *
+ * **The pointer moves onto the target BEFORE this function waits for a
+ * mark to appear, not after (corrected 2026-09-11 — this used to be
+ * backwards).** A palette-origin drag used to light up every valid
+ * `insertTargets` entry at once, through `AppendSlot`'s own MEMBERSHIP
+ * check — constant for the whole drag, independent of where the pointer
+ * actually was — so waiting for `[data-canvas-drop="place"]` to appear
+ * right after the lift, before the pointer ever left the palette thumbnail,
+ * was a valid proxy for "the drag has started," and the growth that
+ * highlight caused (`AppendSlot`'s own `min-h-12`, applied only while
+ * marked) was real, in-flow reflow this function used to compensate for by
+ * re-reading `targetCanvasPath`'s box afterward.
+ *
+ * Neither is true now. `AppendSlot` and `EditableBlockFrame` both draw the
+ * single WINNING mark — the one `onDragOver` (`block-editor.tsx`) resolves
+ * from the pointer's own real position, via `insertMarkFor`
+ * (`domain/palette-targets.ts`) — so no mark exists anywhere on the page
+ * until the pointer is actually over a valid landing; waiting for one
+ * before moving there would wait forever. And the mark itself is an
+ * absolutely positioned `DropMark`, out of flow by design, so THE WINNER
+ * changing mid-drag never reflows the canvas any more, on any target — an
+ * `AppendSlot` still reserves real height for every valid target ONCE, at
+ * the drag's own start, and holds that reservation for the drag's whole
+ * duration (task 4's own reinstated fix; the wrapper is not out of flow the
+ * way the mark is) — see `apps/hub/src/features/actors/CLAUDE.md`'s
+ * "drop-target-legibility" account. This function moves the pointer onto
+ * `targetCanvasPath` first, THEN waits for whichever of
+ * `canvas-drop-before`/`-after`/`-place` the drop answers, unscoped to any
+ * one element: `insertMarkFor` marks an already-populated container's
+ * trailing append slot by drawing `after` on its LAST CHILD, not on the
+ * append slot's own element, so the mark a valid drop produces is not
+ * always a descendant of `targetLocator` itself.
  *
  * @param page - the editor page.
  * @param choice - a content kind (`data-palette-kind`) or a layout mode
@@ -348,34 +369,16 @@ export async function dragPaletteOnto(
     source!.y + source!.height / 2,
   );
   // **The target's box is re-read here, AFTER the threshold-crossing move,
-  // rather than reused from before `mouse.down()`.** Lifting a palette item
-  // lights up every valid `insertTargets` entry at once — append slots
-  // included, whose own class carries `min-h-12` only while highlighted
-  // (`AppendSlot`, `editable-block-frame.tsx`) — so a container earlier on
-  // the page than `targetCanvasPath` can grow the instant the drag begins,
-  // pushing every target below it down by exactly that height. A box read
-  // before the lift is stale the moment that happens: the mouse still
-  // arrives at the OLD coordinate, which a real person tracking the
-  // highlight visually would not do. Waiting for at least one
-  // `data-canvas-drop="place"` to be attached is the signal that the
-  // highlight-driven reflow this drag can trigger has already happened,
-  // not merely that time has passed — root rule 26's own "wait for a
-  // CHANGE, not for presence," on a layout reflow rather than a listener.
-  await page.locator('[data-canvas-drop="place"]').first().waitFor();
-  // **The re-scroll above the fold is not enough on its own, and this is
-  // the second half of the same reflow.** Every container earlier on the
-  // page than `targetCanvasPath` can grow when the lift highlights it too
-  // — not only the one directly above the target — so on a page carrying
-  // several already-built sections the cumulative growth can push the
-  // target BELOW the viewport the pre-lift `scrollIntoViewIfNeeded` above
-  // brought it into. `boundingBox()` still answers real coordinates for an
-  // element scrolled out of view, and a `mouse.move` to a point the browser
-  // is not actually rendering hits nothing — the identical silent
-  // no-drop-lands-anywhere failure this function's own header comment
-  // already documents fixing once, reopened by a SECOND reflow the first
-  // fix's single scroll could not have anticipated. Scrolling again here,
-  // after the reflow the wait above just confirmed, is what keeps the
-  // target in view for the read that follows.
+  // rather than reused from before `mouse.down()` — a general safety
+  // margin now, not a fix for a known reflow (corrected 2026-09-11).**
+  // The WINNER changing mid-drag never reflows the canvas any more — see
+  // this function's own header doc — but an `AppendSlot` target's own box
+  // can still have grown once by this point, from its reservation: that
+  // growth is published at `onDragStart`, which the threshold-crossing
+  // move just above already triggered, so it has already landed by the
+  // time this line runs. Re-reading here still costs nothing and still
+  // protects only against something else on the page shifting between the
+  // lift and this move.
   await targetLocator.scrollIntoViewIfNeeded();
   const settledTarget = await targetLocator.boundingBox();
   expect(
@@ -387,6 +390,19 @@ export async function dragPaletteOnto(
     settledTarget!.y + settledTarget!.height / 2,
     { steps: 8 },
   );
+  // **Waits for the drop's own mark to appear ONLY NOW, after the pointer
+  // has actually reached the target — moved from before the move to after
+  // it (corrected 2026-09-11; see this function's own header doc for why
+  // the old order stopped working).** Unscoped to `targetLocator`, because
+  // a valid drop's own mark is not always drawn as its descendant (see the
+  // header doc's own account of an already-populated container's trailing
+  // append slot). Root rule 26's own "wait for a CHANGE, not for presence"
+  // still holds — this waits for the resolved drag's own mark to mount,
+  // not merely for time to pass.
+  await page
+    .getByTestId(/^canvas-drop-/)
+    .first()
+    .waitFor();
   await page.mouse.up();
   // Past `@dnd-kit/core`'s own post-drop click-swallow window —
   // `PointerSensor.detach()` keeps a document-level capturing `click`

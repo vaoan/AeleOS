@@ -28,6 +28,11 @@ export default tseslint.config(
       "node_modules/**",
       "supabase/**",
       ".superpowers/**",
+      // Claude Code's own worktrees are whole nested checkouts (git-ignored);
+      // without this `eslint .` lints every one of them a second time, and
+      // their `.mjs` scripts fail `no-undef` because the config's `files`
+      // globs anchor at the repository root and never reach them.
+      ".claude/worktrees/**",
       ".vercel/**",
       "**/.next/**",
       "**/playwright-report/**",

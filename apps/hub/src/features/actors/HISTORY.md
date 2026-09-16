@@ -6302,3 +6302,814 @@ separately, but it is not what the two bugs above are, and the two must not
 be conflated: a network blip explains a batch of unrelated navigations
 failing together, and does not explain one specific highlight attribute
 never appearing or one specific tree never being built.
+
+### A palette insert target names a gap, not a block (2026-09-08) — domain only
+
+`domain/palette-targets.ts` gains `insertMarkFor(blocks, target)`, a pure
+translation with no caller yet. An `InsertTarget`'s own path — the one
+`insertTargetsFor` answers — carries `insertAt`'s splice contract: the last
+segment means "insert BEFORE whatever sits at this index," so drawing the
+BLOCK at that index marks the sibling about to be pushed down rather than
+the space the dragged item will actually take. `insertMarkFor` answers a
+`DropTarget` instead — `before`/`after` an existing sibling, or `place` for
+an empty container's own first position — the same vocabulary
+`domain/block-drops.ts` already draws a canvas-move landing with, so a
+palette drag and a canvas-move drag can share one rendering path once
+something calls this.
+
+**Nothing renders it yet.** No palette tab reads it, no highlight changes
+shape because of it — this is the pure function and its own
+sabotage-verified test suite, the first slice of a feature that finishes in
+a later task. Read this as the same kind of incremental entry the block
+Tasks above already use (see Task 1 of "Every valid drop target for a
+palette drag," 2026-09-05, which shipped `insertTargetsFor` alone the same
+way): a mechanism landing ahead of anything wiring it in, named here so it
+is not mistaken for dead code once a renderer does reach for it.
+
+**Review found an untested branch coverage could not see, and the `@returns`
+above undercounted (2026-09-08).** `insertMarkFor`'s parent-walk guard is
+`if (!next || !isContainer(next)) return null;` — the shipped suite drove
+`!isContainer(next)` (a path stepping onto a real leaf) but nothing drove
+`!next` (a path stepping onto a position nothing occupies at all, such as an
+out-of-range intermediate segment). Coverage read 18 branch entries with
+none at zero regardless, because a branch reachable only by an input nobody
+wrote is untested however the number reads (root rule 11) — the gate is
+satisfied by a suite that never tried the input, not by one that covers the
+code. A case naming that exclusion explicitly closed it. The `@returns` is
+rewritten too: it named two null routes ("no container or past the end")
+where the implementation has four (empty path, negative index, a
+non-container-or-absent parent step, past-the-end); a negative index was
+honestly neither of the two the old sentence named.
+
+### One ghost-slot mark for every drop landing (2026-09-08) — component only
+
+`presentation/drop-mark.tsx` adds `DropMark({ kind, height })`, the one
+component meant to replace the three inline fragments `EditableBlockFrame`
+currently draws by hand for `before`/`after`/`place`. It is absolutely
+positioned and `pointer-events-none` so it never reflows the canvas mid-drag
+— `@dnd-kit` caches droppable rectangles at drag start, and a layout shift
+under those rectangles is exactly the palette-drag reflow bug this file
+already documents above. `height` is `null` for a palette drag, since the
+carried block does not exist yet and has nothing to measure; the mark still
+stands at its own `min-h-12` rather than collapsing to nothing.
+
+**Nothing renders it yet.** No caller has been rewired to use it —
+`EditableBlockFrame` still draws its own three fragments — so this is the
+component and its own six-case test suite only, the same incremental shape
+as the palette-targets entry just above it. Wiring it into the two real
+callers is a later task.
+
+**Review fix, same day: `drop-mark.test.tsx`'s kind-specific cases now assert
+whole class tokens (`top-0`/`-translate-y-1/2` for `before`, `bottom-0`/
+`translate-y-1/2` for `after`, `inset-0` for `place`), and each excludes the
+tokens that would place a DIFFERENT kind's box.** That is narrower than "the
+other kinds' tokens" stated as a blanket claim — corrected here rather than
+left overstating what the suite checks (2026-09-11): only the `place` case
+excludes all four positioning tokens; `before` excludes `inset-0`/`bottom-0`
+but not `translate-y-1/2` (a token `before` never carries, since it only ever
+carries `-translate-y-1/2`), and `after` excludes `inset-0`/`top-0` but not
+`-translate-y-1/2` for the mirrored reason. The original suite asserted only
+test id and height, so swapping the `before` and `place` entries in
+`PLACEMENT` left it green — rule 27 exactly. Sabotage-verified: that swap
+reddens precisely the `before` and `place` cases and nothing else; restored
+from a copy taken before the edit, not `git checkout --`.
+
+### The frame draws one mark, and stops lighting everything (2026-09-11) — Task 3 of the feature
+
+`EditableBlockFrame` draws exactly one `DropMark` now, driven solely by
+`editor.activeTarget` — the single winner a drag's own collision has
+already resolved — rather than a separate `insertTargets` field that lit up
+every palette candidate at once. That field, its TSDoc, its
+`isInsertTarget` membership check and the two hand-drawn `before`/`after`
+`<span>` fragments are gone; the `data-canvas-drop="place"` attribute is
+now written from `activeTarget` alone, with no `&& isOver` gate — `isOver`
+is never set in jsdom, which is exactly what made the old mark
+unobservable there, so it is dropped from the `useDroppable` destructure
+entirely rather than kept unused. `EditableBlockInstrumentation` gained
+`carriedHeight: number | null` in the field's place, threaded straight into
+`DropMark`'s own `height` prop.
+
+**Superseded by Task 8, same day: the attribute itself is gone.** Once
+every mark is located by its own `canvas-drop-before`/`-after`/`-place`
+test id, `data-canvas-drop` was a second vocabulary for the identical fact
+— see "Task 8" below for the close-out.
+
+**The palette's own winner is NOT published through `activeTarget` yet —
+that is still a later task, exactly as this task's own brief says.**
+`advertisedTarget` (`block-editor.tsx`) stays `null` for the whole course of
+a palette-origin drag, unchanged by this task, so `EditableBlockFrame` now
+draws no mark at all during a palette drag rather than lighting up every
+valid target as it used to. `block-editor.tsx`'s one call site passes
+`carriedHeight: null` for a canvas-move drag too — there is no carried
+block for `DropMark` to measure there either, since a canvas-move drag
+moves the rendered node itself rather than a ghost of it.
+
+**`AppendSlot` is untouched, on purpose, and is now the one place in the
+canvas that still lights up every valid palette target at once.** It reads
+its own, separate `insertTargets` prop — fed from the same
+`insertTargetsRef` block-editor.tsx already threads, never from
+`EditableBlockInstrumentation` — and its membership-based highlight is
+exactly what it was before this task. That asymmetry is real, not an
+oversight: this task's file list names `editable-block-frame.tsx`'s
+`EditableBlockFrame` function and interface alone, not `AppendSlot`.
+
+**Two e2e specs were updated to keep the suite honest, per the brief's own
+correction 2, and one of them needed more than a comment fix.**
+`tests/e2e/support/editor.ts`'s two bare `insertTargets` mentions in
+`dragPaletteOnto`'s own comments now say the highlight they describe comes
+through `AppendSlot` alone — the underlying mechanism they document
+(waiting for `[data-canvas-drop="place"]` to appear before re-reading a
+drop target's geometry) is unaffected, because it was always `AppendSlot`'s
+own `min-h-12` growth being waited for, not anything `EditableBlockFrame`
+did. `tests/e2e/palette-drag-to-add.spec.ts`'s "shows no highlight for a
+container-kind drag past the depth cap, while a shallower target still
+lights up" test had asserted `data-canvas-drop="place"` on THREE existing,
+`EditableBlockFrame`-rendered places (`"1-0-0-0"`, `"1-0-0-1"`, `"1-0-1"`)
+— none of which can carry that attribute any more, valid target or not, so
+the "still lights up" half would have failed outright and the "no
+highlight" half would have passed for a reason that no longer discriminates
+anything. Both checks were moved onto each container's own APPEND SLOT
+instead (`"1-0-0-2"`, refused — a fourth level down; `"1-0-3"`, admitted —
+`"1-0"`'s own append slot, one level shallower), which is the one mechanism
+in this exact tree still driven by unchanged code. The append-slot indices
+are derived from `insertAt`'s own splice-before-null arithmetic, traced by
+hand against `firstOpenPlace`'s and `insertBlockAt`'s own documented
+contracts rather than run against a live browser — this task did not run
+the Playwright suite, per its own instructions, so that trace is worth
+re-checking the first time this spec is actually run again.
+
+**Verified:** `pnpm --filter hub test` (3,806 tests, all passing, no
+regressions), `pnpm typecheck` and `pnpm lint` (repository root) both
+clean. The Playwright suite was not run, per this task's own instructions.
+
+### A palette drag publishes the gap it will land in, and AppendSlot draws only the winner (2026-09-11) — Task 4 of the feature
+
+Task 3's own entry above left two things true that are false now: a palette
+drag marked nothing on an existing block, because nothing published its
+winning target through `activeTarget`; and `AppendSlot` still lit up every
+valid insertion target at once, through its own separate `insertTargets`
+membership check. Both are closed. **A palette drag now marks its landing
+exactly like a canvas-move drag does, and every mark in the canvas — on an
+existing block or on an append slot — is the single winner, never a set.**
+
+**`block-editor.tsx`'s `onDragOver` now branches on `palettePayload` first,
+mirroring `onDragStart`'s own branch.** For a palette-origin drag it reads
+`event.over`, finds the matching `InsertTarget` in `insertTargetsRef.current`
+by comparing `canvasPlaceId`s, and translates it through `insertMarkFor`
+(Task 1's own pure function, wired to a caller for the first time) into a
+`DropTarget`. The result is published through the SAME `advertisedTarget`
+state a canvas-move drag already used — there is one field now, not two —
+so `EditableBlockFrame`'s existing `activeTarget: advertisedTarget` needed
+no change at all to start drawing a palette drag's mark. A new ref,
+`paletteTarget`, holds the value between renders for the same reason
+`pointerTarget` does; it and a second new ref, `carriedHeightRef`
+(measured once at `onDragStart` from `event.active.rect.current.initial`
+for a canvas-move drag, `null` for a palette one), are both cleared
+alongside the existing `insertTargetsRef.current = null` lines in
+`onDragStart`'s canvas branch, `onDragCancel`, and `onDragEnd`'s palette
+branch.
+
+**`AppendSlot` (`editable-block-frame.tsx`) reads `activeTarget`/
+`carriedHeight` now, the same two fields `EditableBlockInstrumentation`
+carries, passed as their own props rather than that whole interface since
+this component has no `selectedPath`/`dragLabel` to instrument. The
+`insertTargets` field and its membership check are gone.** It draws a
+`DropMark` when `activeTarget`'s own path equals this slot's exact encoded
+path — mirroring `EditableBlockFrame`'s identical check — and that
+condition is narrower than it looks: `insertMarkFor` only ever answers
+`{ kind: "place", path: [...parent, 0] }` for a container with NO EXISTING
+CHILDREN, which is exactly when the append slot's own position (index 0)
+IS that container's only place. Every other append target `insertMarkFor`
+names resolves to `after` the container's own LAST CHILD — a different
+element's path, drawn by that child's own `EditableBlockFrame` instead, not
+by the append slot at all. So an append slot only ever draws a mark for a
+container that starts out completely empty (including the page root, when
+`blocks.length === 0`); dragging onto the trailing append slot of an
+ordinary, already-populated container marks the last child's own frame with
+an `after` gap, and the append slot beside it draws nothing.
+
+**The wrapper's own box no longer changes size, marked or not — closing the
+"second half nobody noticed" the dispatching task named.** Before this
+task, `AppendSlot`'s class carried `min-h-12` (and a border/outline) ONLY
+while its old membership check matched, so an ordinary palette drag —
+which lights up several containers' append slots as valid targets at
+once — grew each one from zero height to 48px the instant the drag began,
+reflowing the canvas under `@dnd-kit`'s own cached droppable rectangles:
+exactly the fault the design's out-of-flow constraint exists to forbid,
+and a second instance of it beyond the "lights up everything" defect the
+brief opened with. The wrapper carries no size-changing class at all now —
+just `relative ${CHROME_SCOPE}`, always. The mark itself, a `DropMark`, is
+`position: absolute` with its own `min-h-12`; per CSS, an absolutely
+positioned box's `min-height` still floors its computed height even when
+`top`/`bottom` (or here, no insets at all governing height) would otherwise
+resolve it against a zero-height positioned ancestor — so the visible
+48px comes from the mark itself, out of flow, and the wrapper's own
+box never moves.
+
+**A real, deliberate consequence of removing that growth: `AppendSlot` no
+longer ever carries a `data-canvas-drop` attribute, of any value.** The
+attribute was the growth's own trigger (`data-[canvas-drop=place]:min-h-12`
+and its neighbours); removing the growth removed the attribute along with
+it, since nothing else read it. Task 3's own entry above says
+`tests/e2e/support/editor.ts`'s `dragPaletteOnto` waits for
+`[data-canvas-drop="place"]` to appear as proof the highlight-driven reflow
+has settled before re-reading a drop target's geometry, reasoning "it was
+always `AppendSlot`'s own `min-h-12` growth being waited for, not anything
+`EditableBlockFrame` did." That reasoning is exactly right about which
+mechanism the wait depended on, and this task removes that mechanism: for
+an ordinary, already-populated container — which is the common case, and
+what most e2e fixtures build — `insertMarkFor` never answers `place` at
+all during a palette drag, so the attribute this helper waits for will not
+appear and the wait will time out. **This is not fixed here.** It is out
+of this task's own stated scope (`task-4-brief.md` names only
+`block-editor.tsx` and its own test; controller correction 2 adds
+`editable-block-frame.tsx`'s `AppendSlot`, not the e2e support helpers),
+and Task 7, "The browser proof — the mark is where it lands," is
+explicitly where `tests/e2e/palette-drag-to-add.spec.ts` and its shared
+helpers get rewritten for the new mark vocabulary. Flagged here in full
+rather than left to be rediscovered as a mysterious timeout.
+
+**A unit test drives this through the real sensor rather than through a
+hand-built prop, and it had to solve a real discrimination problem to do
+so.** jsdom's `getBoundingClientRect` answers an all-zero rect for every
+element, so `detectCollisionAt`'s POINTER branch cannot tell "hovering the
+first child" from "hovering the second" — every registered droppable
+"contains" the same `(0, 0)` point, and ties always resolve to the first
+depth-maximal candidate `insertTargetsFor`'s own walk visits, which for any
+container is always its OWN first splice. The new case in
+`block-editor.test.tsx`, "publishes a gap mark while a palette drag hovers
+a filled position," drives the KEYBOARD branch instead: `paletteCoordinateAt`
+resolves a step purely from `stepInsertTarget`'s ordered list, with no
+geometry involved at all, so the exact landing is predictable from the
+page's own shape. For a single two-child section the order is `[0]`
+(before the section), `[1]` (the page's own trailing append slot), then
+`[0,0]`, `[0,1]`, `[0,2]` — four `ArrowDown` presses from a fresh lift lands
+on `[0,1]`, which `insertMarkFor` translates to a `before` mark on the
+SECOND child's own path. The case cancels rather than drops, so it makes no
+claim about where the block lands — only about what is drawn while it
+hovers.
+
+`editable-block-frame.test.tsx`'s `AppendSlot` describe block was rewritten
+to match `EditableBlockFrame`'s own shape: path-equality cases (draws
+nothing with no target, draws nothing when the path differs, draws the mark
+when it matches), a `carriedHeight` sizing case, and one case proving the
+kind drawn is whatever `activeTarget.kind` actually carries rather than a
+hardcoded `"place"` — the component's own logic never branches on the kind
+beyond passing it to `DropMark`, so nothing forces this to redden without
+naming it directly.
+
+**Every module-level and function-level TSDoc paragraph this task's own
+diff touches was re-read and corrected in the same change**, not left
+pointing at "a later task" that had by then become this one:
+`EditableBlockInstrumentation`'s own interface doc, `EditableBlockFrame`'s
+function doc, `AppendSlotProps`'s doc, `AppendSlot`'s function doc,
+`paletteCoordinateAt`'s doc (which used to credit `AppendSlot` as "the one
+place still lighting up every candidate at once"), and `BlockEditor`'s own
+top-level doc paragraph naming `carriedHeight: null` as a fixed literal
+rather than the now-live `carriedHeightRef.current` read.
+
+**Verified:** `pnpm --filter hub test` (3,809 tests, all passing, no
+regressions outside this task's own edits), `pnpm typecheck` and
+`pnpm lint` (repository root) both clean. The Playwright suite was not
+run, per this task's own instructions — see the flagged consequence above
+for what the first real run against this branch will hit.
+
+**The consequence above is fixed now, same day, by owner's ruling
+overriding the deferral.** All four sites that depended on
+`data-canvas-drop="place"` as a membership signal are corrected rather than
+left for Task 7 — the ruling was that `dragPaletteOnto` is load-bearing
+for Task 7's own browser proof, and this branch has already paid once for
+leaving a suite red across several tasks. `data-canvas-drop` itself stays
+on `EditableBlockFrame` (still the only place that writes it, at this
+task's own moment), deferred to a later coherence pass rather than removed
+here — it is redundant with the mark's own test id now, not wrong. **That
+coherence pass is Task 8**, which removes the attribute outright — see its
+own entry below for what that cost in the tests that had been asserting it.
+
+**One of the four sites turned out to need more than a selector swap, and
+finding that is the actual content of this addendum.**
+`tests/e2e/support/editor.ts`'s `dragPaletteOnto` used to wait for
+`[data-canvas-drop="place"]` to appear immediately after crossing the drag
+threshold — BEFORE moving the pointer anywhere near the real target. That
+was safe under the old membership-based highlight, which lit up every
+valid target the instant the drag began, independent of pointer position.
+It is not safe under the single-winner design this task shipped: a mark
+now only exists once the pointer is actually over a valid landing, which
+this function's own code order did not reach until AFTER the wait. A
+literal "swap the attribute for the test id, keep everything else"
+edit — which is what a first reading of the fix suggested — would have
+made every caller of `dragPaletteOnto` (and therefore `addBlock` and
+`addSection`, which both route through it) wait for something that cannot
+exist yet, timing out on every call. Given how many e2e specs depend on
+those three functions, that would have been a large, confusing regression
+introduced by the very fix meant to prevent one.
+
+The corrected function moves the pointer onto the real target FIRST, then
+waits for whichever of `canvas-drop-before`/`-after`/`-place` the drop
+answers — unscoped to `targetLocator`, because `insertMarkFor` marks an
+already-populated container's trailing append slot by drawing `after` on
+its LAST CHILD rather than on the append slot's own element (see that
+function's own TSDoc, and the "second half" account above), so a valid
+drop's mark is not always the target locator's own descendant. The
+now-obsolete "wait for the reflow, then re-read geometry a second time"
+framing is corrected too: THE WINNER changing mid-drag never reflows the
+canvas any more, on any target, so the second geometry read that remains
+is a general safety margin rather than a fix for that specific known
+reflow. **This is narrower than it reads, and the paragraphs below name
+the exception: an `AppendSlot` target's own box still grows once, from its
+reservation, at the drag's own start — a size change that happens WHILE a
+drag is in progress, just never again for the rest of it.** (final review,
+2026-09-11 — the sentence above predates the third round further down this
+same task's entry, which reinstated that reservation and never came back
+to correct this sentence.)
+
+`tests/e2e/palette-drag-to-add.spec.ts`'s depth-cap test
+("shows no highlight for a container-kind drag past the depth cap, while a
+shallower target still lights up") needed the same reckoning, worked
+through by hand against `insertTargetsFor`/`mayNest`/`insertMarkFor`
+rather than assumed: its two `data-canvas-path` targets, `"1-0-0-2"` (the
+depth-capped container's own append slot, refused) and `"1-0-3"` (a
+shallower container's own append slot, admitted), used to carry the
+attribute simultaneously with the pointer never having moved near either —
+the same membership artefact `dragPaletteOnto` depended on. Tracing the
+exact tree this test builds (`addSection` then two `addBlock` calls, each
+of which INSERTS-before rather than replacing, per `firstOpenPlace`'s own
+documented growth) confirmed the tree has "1" holding 3 children, "1-0"
+holding 3, and "1-0-0" holding 2 — which is what makes "1-0-0-2" and
+"1-0-3" the correct append-slot names Task 4's own author had already
+worked out; that part of the old test was right. What changed is WHERE
+each hover has to land and what mark it actually produces:
+
+- Hovering "1-0-0" itself (not its own nested places, all refused by the
+  depth cap) resolves to the shallower target BEFORE it — the nearest
+  landing `insertTargetsFor` still offers — and draws a `before` mark on
+  "1-0-0" itself. The refusal is now asserted directly: nothing carrying
+  any `canvas-drop-*` test id exists anywhere under `"1-0-0-*"`.
+- Hovering "1-0-3", "1-0"'s own append slot, resolves to exactly that
+  target (its own registered droppable id, unambiguous) — but
+  `insertMarkFor` answers `{ kind: "after", path: [1,0,2] }` for it, since
+  "1-0" is already populated, so the VISIBLE mark renders on "1-0-2" (its
+  last existing empty child), never on "1-0-3" itself. The assertion reads
+  the mark off "1-0-2", not off the element the pointer is actually over.
+
+`tests/e2e/a11y.spec.ts`'s drag-in-progress scan had the identical fault
+in miniature — asserting `data-canvas-drop="place"` on "1-0" (section
+"1"'s own first empty place) with the pointer still at the palette
+thumbnail. Fixed the same way: the pointer now moves onto "1-0" before the
+scan, and the assertion reads `canvas-drop-before` (an existing empty
+child gets a `before` mark from `insertMarkFor`, never `place` — that
+kind is reserved for a genuinely empty container's own position).
+
+**All three comments were rewritten in the same change, not left
+describing the deleted membership behaviour** — the coordinator's own
+caution, paid for concretely: a comment saying "every valid target lights
+up at once" next to code that no longer does that is exactly the kind of
+confident, wrong instruction this file warns about everywhere else.
+
+**How this was verified without a browser run**, since Playwright was not
+executed: the fix rests on tracing `detectCollisionAt`'s palette branch
+(`block-editor.tsx`), `insertTargetsFor`, `mayNest`, and `insertMarkFor`
+(`domain/palette-targets.ts`) by hand against the exact tree each test
+builds, cross-checked against `firstOpenPlace`'s own documented
+insert-before-grows-the-container behaviour (`support/editor.ts`) rather
+than assumed. The one thing this could not settle by reading code is
+whether real pixel geometry ever makes an unrelated candidate's rect
+ALSO contain a hover point meant for a different target — considered and
+set aside for the "1-0-0-2" case specifically by choosing to hover "1-0-0"
+itself (a normally sized, real block) rather than its own nested,
+zero-height append slot, which sidesteps the ambiguity rather than resolves
+it by measurement. This is the one place in this whole task where "I
+satisfied myself it is right" is weaker than a browser run would make it —
+flagged rather than asserted as certain.
+
+**Verified again:** `pnpm --filter hub test` (3,809 tests, unchanged —
+none of these four files is part of the vitest suite), `pnpm typecheck`
+and `pnpm lint` (repository root) both clean, `pnpm check:tools` clean
+(cspell: 0 issues across 544 files). The Playwright suite was still not
+run.
+
+**A third round the same day found the reasoning above was wrong about
+something more basic than any e2e selector, and it was found by measuring
+rather than by re-reading the CSS.** The coordinator compared `AppendSlot`
+against `main` directly: before this task, its own wrapper carried
+`data-[canvas-drop=place]:min-h-12` — height on the SLOT ITSELF, triggered
+by membership; after, the wrapper carries no size-changing class at all,
+and the mark is `DropMark`, which is absolutely positioned and contributes
+nothing to its parent's box. If that reading were right, an append slot
+would be zero-height whether marked or not — and there is a chicken-and-egg
+in that: the slot needs height for a pointer to land inside its rectangle,
+and it is only marked once the pointer already has. That is a WORSE bug
+than the light-everything fault this whole feature exists to fix, and it
+would have been caused by this design's own "draw out of flow" rule,
+applied to the one component whose only height ever came from its own
+mark.
+
+**Measured directly rather than taken on the coordinator's word.** A
+throwaway Playwright spec (never committed, deleted after use) signed in,
+opened `/es/pages/new`, started a real palette drag, held the pointer well
+away from the canvas, and read `boundingBox()` on the page's own root
+append slot. **Before this fix: `{"height":0}`, identically before the
+drag and during it.** `getComputedStyle` agreed: `height: "0px"`. The
+reasoning was correct. An append slot had been genuinely unreachable by a
+real pointer since this task's own first commit — worse than illegible,
+since illegible at least LANDS somewhere.
+
+**The fix separates two questions `insertTargets` used to answer
+together and one field cannot answer alone.** `activeTarget` still decides
+which ONE valid landing draws an actual `DropMark` — that half is
+untouched. `insertTargets` came back as `AppendSlotProps`' third field,
+answering a different question: whether THIS position needs a real,
+hittable rectangle for the duration of the drag, regardless of whether it
+is the current winner. `AppendSlot` computes `reserved` from it — the
+identical membership check the deleted `isInsertTarget` used to make — and
+applies `min-h-12` when `reserved` is true, with no border, no background,
+no outline: nothing is DRAWN by this, only reserved. `activeTarget` and
+`insertTargets` can now disagree in either direction: a slot can be
+reserved and unmarked (every valid target except the one under the
+pointer), or — for the one case `insertMarkFor` ever produces a `place`
+kind on an append slot's own path, a container starting with no children
+at all — reserved AND marked at once. All four cases are pinned in
+`editable-block-frame.test.tsx`.
+
+**Why this is safe against the exact reflow this design forbids, and the
+coordinator's own reasoning for that is what this fix relies on rather
+than re-deriving.** `insertTargets` — `insertTargetsRef.current` — is
+computed exactly once, at `onDragStart`, and does not change for the rest
+of the drag; every reservation therefore happens in the SAME render as the
+drag's own start, before `@dnd-kit` measures and caches its droppable
+rectangles. What the out-of-flow rule forbids is the canvas reflowing as
+the WINNER changes mid-drag — the fault Task 4's own first version
+introduced and this file's earlier entries already document at length.
+Reserving space once, at the start, for every valid target at once, and
+never again for the rest of that same drag, is a different event
+entirely: measured again with the fix applied, the same append slot reads
+`{"height":0}` before the drag and `{"height":48}` during it, unchanged for
+as long as the drag continues with the pointer held in the same place.
+
+**"Before `@dnd-kit` measures" was corrected by the branch's own final
+review (2026-09-11) — the reasoning above claims a render-ordering race
+that turns out not to exist, and the fix it defends is safe for a
+different reason than the one written down.** `MeasuringStrategy` is
+`WhileDragging` by default, which does not settle the question by itself:
+the only way to know whether the SPECIFIC rect used for the FIRST
+collision after `onDragStart` is fresh or stale is to compare `@dnd-kit`'s
+own cached rect against a live `getBoundingClientRect()`, not to read more
+source. Measured, twice, against a real running page:
+
+- A droppable ("2-0") sitting below a container whose own append slot gets
+  reserved on this drag reads `{"y":534.78}` before the drag and
+  `{"y":647}` once `onDragStart` has fired — a real 112.2px reflow, not the
+  48px the reservation alone accounts for (the rest is spacing the two
+  newly-real empty places above it also carry; both numbers are real, not
+  a measurement error).
+- **The pointer's own threshold-crossing move never produces an
+  `onDragOver` at all** — a temporary `console.log` of `event.over` from
+  inside it logged nothing on that first move, in either pass. `@dnd-kit`'s sensor
+  consumes the activating move to transition into "dragging" and does not
+  perform its first collision check until a SUBSEQUENT pointer event. A
+  probe drag whose activating move landed EXACTLY on "2-0"'s own live,
+  post-reservation coordinates — so there was no second move left for a
+  continuous re-measure to correct anything from — logged no `onDragOver`
+  at all for that move, and the very next `onDragOver` (from a second,
+  otherwise pointless move to the same spot) already read
+  `over.rect.top === 647`, matching the live DOM exactly.
+
+**So the two readings agree, and the practical claim — a drop is never
+resolved against a stale, pre-reservation rect — holds.** But not for the
+reason written down. There is no race between the reservation's render and
+`@dnd-kit`'s measurement to win, because `@dnd-kit` never attempts a
+measurement on the activating event in the first place; its first REAL
+collision check is structurally deferred to the next event, by which point
+React has already committed whatever `onDragStart` triggered, reservation
+included. "In the SAME render... before `@dnd-kit` measures" implies a
+timing contest that was won; what actually happens is that no contest is
+run until after the render has landed. The distinction matters for anyone
+extending this: a future change that made `@dnd-kit` collide on the
+activating move itself (or that moved the reservation into a later effect
+rather than the same `setState` batch `onDragStart` already writes) would
+not be protected by "the render is faster" the way this paragraph implies
+— it would depend on `@dnd-kit`'s sensor still deferring its first
+collision to a second event, which is the actual guarantee here.
+
+**Re-verified with the fix in place:** `pnpm --filter hub test` (3,813
+tests, the four new reservation cases included, all passing), `pnpm
+typecheck` and `pnpm lint` (repository root) both clean. The throwaway
+measurement spec was deleted immediately after use and never committed —
+confirmed absent from `git status` and from the working tree. Playwright's
+full suite was still not run; only the one throwaway file was, twice, by
+hand, for this specific measurement.
+
+### The carried block follows the cursor (2026-09-11) — Task 5 of drop-target-legibility
+
+A drag now shows a floating preview naming what is being carried, closing
+the third of this feature's three complaints: the mark answers WHERE a
+block will land, the frame answers WHICH element it lands on, and this
+answers WHAT is being carried, since none of the two existing mechanisms
+said so and a person otherwise had to infer a drag was in progress from the
+mark alone.
+
+`presentation/drag-preview.tsx`'s `DragPreview` is the whole component — a
+label beside a grip glyph, wearing `CHROME_SCOPE` and painted with
+`bg-(--menu)`, the one token declared opaque in both modes, for the same
+reason every other workbench group in this feature is: what sits behind it
+is a colour the page's own author chose, and no measurement can promise
+contrast against a colour that is free to be anything. It carries no Motion
+of any kind, because `@dnd-kit` already writes this element's own
+`transform` to follow the pointer, and a second system writing the same
+property is the cascade fight the feature note already forbids elsewhere in
+this file.
+
+**It is mounted inside `<DragOverlay dropAnimation={null}>`, the last child
+of `<DndContext>` in `block-editor.tsx`.** `dropAnimation={null}` is not
+decoration: the default animation flies the overlay back toward the
+DRAGGED element's own source rectangle, and by the time a drop lands the
+insert has already moved that rectangle — sometimes to a different parent
+entirely — so the default would animate toward a place that no longer
+means what it did a moment earlier.
+
+**One piece of state, `activeLabel`, answers both drag origins through the
+function already built to say the right name out loud.** `onDragStart` sets
+it from `dragItemName(activeId)` — the exact function `accessibility.announcements`
+already uses to resolve a palette item's own name or `placeName(path)` for
+a canvas grip — so the overlay and the live-region announcement can never
+name two different things for the same lift. It is cleared unconditionally
+at the top of `onDragEnd`, before either branch runs, and in `onDragCancel`
+alongside every other piece of transient drag chrome that function already
+resets.
+
+Verified: `pnpm --filter hub test` (3,815 tests, all passing, two new for
+`DragPreview` itself), `pnpm typecheck` and `pnpm lint` (repository root)
+both clean, `pnpm check:docs` clean. The Playwright suite was not run, per
+this task's own instructions.
+
+### A swap is marked at both ends (2026-09-11) — Task 6 of drop-target-legibility
+
+Dragging onto an OCCUPIED place exchanges the two blocks — the one already
+there returns to wherever the carried one came from — and nothing on screen
+said so, which is what made a swap read as an overwrite about to happen.
+`EditableBlockInstrumentation` gained `returningPath: string | null`;
+`EditableBlockFrame` draws a second mark, dotted and muted rather than
+dashed and accent, on whichever frame's own `encodedPath` matches it —
+beside, never instead of, the existing landing mark — so the two ends of a
+swap are told apart at a glance: accent is where the carried block is
+going, muted is where the displaced one is coming back to.
+
+**The frame itself does no gating — it draws the mark purely from
+`editor.returningPath === encodedPath`.** All of the "is this actually a
+swap" judgement lives in `block-editor.tsx`'s `onDragOver`, in the
+canvas-move branch only: `returningPath` is set to the drag's own SOURCE
+path (`canvasPlacePath(activeId) ?? placePath(activeId)`, the same
+resolution `onDragStart`/`onDragEnd` already use) exactly when the winning
+target is `kind === "place"` **and** `blockAt(blocks, winner.path)` finds a
+real block already sitting there. A `place` target over an EMPTY position
+is a move, not a swap, so `returningPath` stays `null` there — marking a
+return would name a block that never moves. The palette branch always
+publishes `null`: an insert displaces nothing, so there is no source to
+return to. It is reset alongside `advertisedTarget` everywhere that field
+already is — `onDragStart` (both branches), `onDragOver`'s palette branch,
+`onDragCancel` and `onDragEnd` (both branches) — so it never survives past
+the drag that set it.
+
+**A fixture asserting a testid exists anywhere on the page passes whether
+it landed on the right element or on every element (root rule 27).** The
+brief's own two-frame swap case shares one `editor` object between both
+frames, which by itself does not prove WHICH frame drew which mark; the
+shipped test scopes each assertion with `within()` against the frame whose
+own `data-canvas-path` it names, and a second case drives a `place` target
+over an empty position with `returningPath: null` to prove a plain move
+draws no returning mark at all — a suite that only ever exercised the swap
+case could not tell a correct implementation from one that always marks a
+return.
+
+Verified: `pnpm --filter hub test` (3,818 tests, all passing), `pnpm
+typecheck` and `pnpm lint` (repository root) both clean, `pnpm check:docs`
+clean. The Playwright suite was not run, per this task's own instructions.
+
+**Review round (2026-09-11): the computation itself was untested, and a
+self-swap stacked both marks on one element.** Every case above lived in
+`editable-block-frame.test.tsx` and proved the frame draws correctly GIVEN
+a `returningPath` — nothing drove a real `onDragOver` collision to prove
+`block-editor.tsx` COMPUTES the right one. That is the whole judgement this
+task added, and a suite that only supplies the answer and checks the
+drawing cannot tell a correct computation from one that always answers
+"swap".
+
+Two real cases now drive a real keyboard drag through `block-editor.test.tsx`,
+matching that file's own idiom (`fireEvent.keyDown` on the grip, then on
+`document`, `await settle()` between steps) rather than inventing one:
+`"computes returningPath from a real collision when a canvas-move drag
+lands on an occupied place"` lifts A in a fully-occupied three-place grid,
+steps onto B, and asserts `canvas-drop-returning` lands on the SOURCE
+element (`within(...)`, not a page-wide query) while the landing element
+carries none. The pre-existing empty-place case
+(`"highlights an empty positional place..."`) gained the negative half:
+asserting `canvas-drop-returning` is absent anywhere on the page. **That
+negative assertion is the one that answers the review's own question** —
+sabotage-verified by widening the computation to `winner?.kind === "place"
+&& from`, dropping both the `blockAt` occupancy check and the self-path
+check: the empty-place case reddens (a move erroneously marked as a swap),
+which is exactly "would this catch an implementation that always sets
+`returningPath`" answered yes.
+
+**The Minor — hovering a drag back over its own source stacked both marks
+on one element.** `winner.path === from` still resolves to an occupied
+`place` target, because nothing has moved yet and `blockAt` finds the
+dragged block sitting at its own starting place. Without a self-check, the
+source frame drew the landing mark (correctly — a no-op is still a legal,
+highlighted target) AND the returning mark (wrong — a no-op displaces
+nothing) on the same element. `onDragOver`'s `isSwap` now also requires
+`formatBlockPath(from) !== formatBlockPath(winner.path)`, and a new case,
+`"does not mark a return when a canvas-move drag hovers back over its own
+source"`, lifts A, steps to B, then steps back to A (`ArrowDown` then
+`ArrowUp`, landing exactly back on the source per `placeOrder`'s own
+inclusion of the source in its list) and asserts the place mark still shows
+while the returning mark does not, anywhere.
+
+**Each guard clause is pinned by a case that dies without it, checked by
+sabotage rather than assumed from the fixture's shape (root rule 29):**
+dropping only the self-check reddens exactly the self-swap case and
+nothing else; dropping only the occupancy check reddens exactly the
+empty-place case and nothing else; dropping both reddens both. All three
+sabotages were applied, watched red, and restored from a copy of the file
+rather than `git checkout --`, per this file's own rule 34.
+
+Verified again: `pnpm --filter hub test` (3,820 tests, all passing — two
+new), `pnpm typecheck` and `pnpm lint` (repository root) both clean, `pnpm
+check:docs` clean. The Playwright suite was not run, per this task's own
+instructions.
+
+### The branch closes: one gap vocabulary, out of flow, one winner (2026-09-11) — Task 8 of drop-target-legibility
+
+Task 7's own browser proof (`drop-mark-matches-landing.spec.ts`, not
+appended to this file at the time — its brief named no file list entry for
+this note, and it is not one) confirmed the design's own predicted cost:
+with real, titled content, the ghost mark visibly overlaps the block above
+and below rather than pushing either one. That is not a bug this task
+fixes; it is the fallback the design already named (the plain insertion
+bar) and a decision the owner made knowing the cost, recorded as measured
+fact in the design spec's own status line rather than left as a prediction.
+
+**The whole feature, restated in one place now that every task has
+landed.** A palette drag and a canvas-move drag share one gap vocabulary,
+`insertMarkFor` (`domain/palette-targets.ts`): `before`/`after` an existing
+sibling, or `place` for an empty position or an occupied one being swapped
+with. It exists because an `InsertTarget`'s own path carries `insertAt`'s
+splice contract — the last segment means "insert BEFORE whatever sits at
+this index" — so drawing the BLOCK at that index marks the sibling about to
+be pushed down rather than the space the dragged item will actually take;
+translating a splice index into a gap is the entire reason this module was
+worth writing. The mark itself, `DropMark`, is drawn absolutely positioned
+and out of flow — never a real space that opens — because `@dnd-kit` caches
+every droppable's rectangle at drag start, and a page that reflows mid-drag
+leaves those rectangles stale, which is a fresh instance of the exact
+lying-mark fault this whole feature exists to remove. And only the winner
+is ever drawn: `EditableBlockFrame` and `AppendSlot` both read the single
+`activeTarget` a drag's own collision has already resolved, never a set of
+candidates lit up at once — which is what finally, completely supersedes
+the "light-everything" comment `EditableBlockFrame` carried into this
+branch, since `data-canvas-drop` (below) was its last surviving remnant.
+
+**Debt 1 — `data-canvas-drop` is gone.** It was emitted in exactly one
+place, `EditableBlockFrame`, only when the target kind is `place` — and it
+was doing two jobs at once, both now redundant. As a TEST hook, every mark
+is already located by its own `canvas-drop-before`/`-after`/`-place` test
+id, so nothing needed the attribute to find a mark. As CSS, it drove a
+second, independent "place" highlight — `data-[canvas-drop=place]:outline-2
+outline-offset-2 outline-(--accent)`, an accent ring drawn OUTSIDE the
+frame's own border — that predates `DropMark` entirely (confirmed with
+`git log -p`, not assumed) and had become a second decoration doubled on
+top of `DropMark`'s own `inset-0` dashed-border-and-tint fill for the exact
+same landing. Both the attribute and the outline classes are removed from
+`editable-block-frame.tsx`; nothing else in `apps/hub/src` or `apps/hub/tests`
+read it (confirmed by grep before removing, per the debt's own instruction),
+except the unit tests that asserted its presence or absence directly —
+`editable-block-frame.test.tsx` and `block-editor.test.tsx` — which lose
+those specific assertions while keeping every test-id-based assertion
+beside them, since those already prove the same fact through the surviving
+vocabulary. `tests/e2e/support/editor.ts`'s own comment mentioning the
+attribute is left untouched: it is already past-tense, historical prose
+about what `dragPaletteOnto` used to wait for before this branch's Task 4
+corrected it, not a claim about current behaviour.
+
+**Debt 2 — a task 2 sentence claimed more discrimination than the suite
+has.** "Each `DropMark` case excludes the other kinds' tokens" is true only
+of the `place` case, which excludes all four positioning tokens
+(`top-0`/`bottom-0`/`-translate-y-1/2`/`translate-y-1/2`). The `before` case
+excludes `inset-0`/`bottom-0` but never asserts `not.toContain("translate-y-1/2")`
+— the token `after` carries — and `after` excludes `inset-0`/`top-0` but
+never asserts against `-translate-y-1/2`, `before`'s own token. Corrected in
+place above rather than left standing next to a suite that does not do what
+it claims; sabotage discrimination is unaffected, as the debt itself said it
+would be.
+
+**Debt 3 — the `height: null` case now asserts `toBeVisible()`.** `min-h-12`
+being present and the inline height not being `0px` do not rule out the
+element being hidden a different way — `display: none`, `visibility: hidden`,
+zero opacity — and none of those was excluded before this. One line.
+
+**Debt 7 — "only the winner is marked" is a named assertion now.**
+`drop-mark-matches-landing.spec.ts` asserts
+`(await page.getByTestId(/^canvas-drop-/).count()) === 1` before reading
+the mark's geometry — a regex `getByTestId`, not a raw attribute selector,
+to satisfy this repository's own `no-restricted-syntax` rule preferring test
+ids over CSS attribute selectors. Uniqueness of one exact test id was
+already implicit in Playwright's strict-mode resolution; this is the
+central branch claim asked for explicitly rather than left emergent.
+
+**Photographs.** Three, taken with a throwaway spec (never committed,
+deleted after use, the same idiom Task 7's own report used): a palette drag
+hovering a filled mid-list position, a canvas-move drag over an empty
+place, and a swap over an occupied place. The first CONFIRMS the overlap
+risk visually — the dashed accent box straddles the boundary between the
+first and second of three real, titled leaves, legible as landing on the
+seam rather than cleanly between the two. The second and third show the `place`
+mark behaving differently and without that cost: over an empty position it
+fills the whole target cleanly, and over an occupied one (the swap) it
+deliberately covers the whole displaced block, with a second, muted, dotted
+mark on the block's own return position — both readable as "the whole box
+is the landing," which is the correct reading for a `place` target rather
+than a gap between two things. **Reading the frames back rather than only
+the claim they were taken for**: all three carry a small red "1 Issue"
+badge in the bottom-left corner, a Next.js dev-mode overlay unrelated to
+this feature — traced to a pre-existing `ClerkRuntimeError` console warning
+from `useSupabaseBrowserClient` during server-side rendering
+(`clerk_runtime_not_browser`), present on every route this session visited
+and not something this task introduced or is in scope to fix. Named here
+so a future reader comparing a screenshot against production does not read
+it as a regression this branch shipped.
+
+**Gates, all from the repository root.** `pnpm typecheck` clean across the
+root, `hub` and `@aeleos/identity`. `pnpm --filter hub build` clean, all
+twelve routes compiling. `pnpm lint` clean (one violation surfaced and was
+fixed in the new count assertion itself — a raw attribute selector, moved to
+a regex `getByTestId`). `pnpm --filter hub test:coverage`: 3,820 tests,
+100% on all four axes (statements 2426/2426, branches 1595/1595, functions
+658/658, lines 2096/2096). `pnpm test:tools`: 141 tests, all passing.
+`pnpm check:tools`: clean — cspell 0 issues across 547 files, `ls-lint`,
+`check:style`, `sherif`, `syncpack lint` and `madge --circular` all clean;
+`knip` and `jscpd` report informationally (`--no-exit-code`) and do not
+gate. The Playwright suite was not re-run in full — Task 7 already proved
+it clean at 205/0 — but the throwaway photograph spec exercised the palette
+mid-list drag, a canvas-move drag onto an empty place, and a canvas-move
+swap, all three against a freshly started dev server, all three passing.
+
+### A gap mark is a bar, not a ghost (2026-09-13) — the drop-target-legibility reversal
+
+`before`/`after` — the two GAP kinds `DropMark` (`drop-mark.tsx`) draws — are a
+plain insertion bar now, not a ghost of the carried block. This reverses the
+"ghost slot" option the drop-target-legibility design chose deliberately over
+a plain bar, having weighed and accepted its known cost in advance: the owner
+has since seen that cost photographed and chosen the fallback the design's
+own §4 already named for exactly this. `place` is untouched — see below.
+
+**The cost was exactly what §4 predicted and it is what changed the
+decision, not a new argument.** A ghost is an overlay; an overlay takes up no
+space; a mark that takes up no space does not part its neighbours, so it sat
+OVER whichever block was nearest the boundary and read as "this lands ON
+that block" rather than "this lands BETWEEN the two". A bar has no interior
+to read as landing on anything — it cannot overlap because it draws nothing
+between its own thin edges.
+
+**Only `before`/`after` moved. `place` is unchanged, and that split is the
+whole point of keeping two kinds in the vocabulary at all.** A `place` mark's
+landing genuinely IS the place — an empty positional slot, or the block a
+swap will exchange with — so filling that box was always the correct
+answer, never the cost this reversal is about. It still reads
+{@link DropMarkProps.height} exactly as before: a real `carriedHeight`
+sizes it to what the block will actually occupy, floored at `min-h-12` only
+when `height` is `null` (every palette drag, which carries no block that
+exists yet to measure).
+
+**`carriedHeight` survives the reversal, and very nearly did not.** It was
+threaded solely to size the ghost, so a bar with a fixed thickness has no
+use for it at all — and `before`/`after` genuinely stopped reading it. But
+`place` still needs it for the reason above, and `EditableBlockInstrumentation.carriedHeight`,
+`AppendSlotProps.carriedHeight` and `block-editor.tsx`'s `carriedHeightRef`
+all serve `place` as much as they ever served the two gap kinds — dropping
+any of them would have changed `place`'s behaviour, which nothing here was
+asked to touch. What changed is narrower and is stated where each field is
+declared now: `height` is read only for `place`.
+
+**The bar keeps every invariant the ghost had, because nothing about being
+an overlay changed.** `pointer-events-none`, `absolute`, `z-20`,
+`CHROME_SCOPE`, and the same `-translate-y-1/2`/`translate-y-1/2` straddling
+the boundary rather than sitting inside either neighbour — all of it stays,
+because the reason for each was never about the ghost's shape. It is still
+drawn only for the single winning target, and the append-slot's own
+`min-h-12` HITTABILITY reservation (`AppendSlot`, computed once at drag
+start from `insertTargets` membership) is untouched — that is a real,
+in-flow box guaranteeing a rectangle for dnd-kit to land a pointer on, a
+question independent of what gets drawn inside it.
+
+**The e2e boundary-straddle math (`drop-mark-matches-landing.spec.ts`) holds
+with a 6px bar exactly as it did with a ~48px ghost**, because it was never
+about the mark's size — `-translate-y-1/2` puts the mark's own top edge at
+half ITS OWN height above the neighbour, whatever that height is, so the
+assertion `Math.abs(straddle - mark.height / 2) < 2` is dimension-agnostic
+by construction. Verified against a real run rather than assumed, per this
+branch's own instruction to check rather than reason about it.
+
+See `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md` §4
+for the full record of both decisions — the original acceptance of the
+ghost's cost, and the dated addendum recording the reversal and why the
+original reasoning is kept rather than deleted.

@@ -1171,3 +1171,75 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   reference (added to `cspell.json`) — the same class of
   coined-word-vs-real-identifier judgement rule 41/42
   already describe, still holding here.
+
+- **Drop-target legibility — DELIVERED (2026-09-07/11).** The editor used to
+  draw every possible landing alike, draw nothing under the cursor, and for a
+  palette insert draw **the wrong element entirely**: an insert target's last
+  segment is a splice index meaning "before this position", so the gap it
+  named was drawn as the BLOCK at that position — the one that gets pushed
+  down. It read correct at an empty place, where a gap and a place coincide,
+  and was wrong at every filled one, which was exactly the "some layouts" in
+  the original report.
+
+  **The canvas-move path already solved this and the palette now shares it.**
+  `insertMarkFor` (`domain/palette-targets.ts`) is the one pure translation
+  from a splice index to a gap — `before`/`after` an existing sibling, or
+  `place` for an empty position or an occupied one being swapped with — and
+  both drag origins publish through the same `activeTarget` field
+  `EditableBlockFrame` and `AppendSlot` read. Only the winner a drag's own
+  collision has resolved is ever drawn; nothing lights up a whole set of
+  candidates any more, on either path.
+
+  **The mark is drawn OUT OF FLOW, and that is the load-bearing constraint.**
+  `@dnd-kit` caches every droppable's rectangle when a drag begins, so a
+  canvas that reflows mid-drag makes the collision answer about where things
+  WERE — a fresh instance of the very fault being removed. Letting the gap
+  genuinely open was weighed and refused on that, not on taste.
+
+  **One deliberate exception: an `AppendSlot` reserves real height for the
+  WHOLE drag, once, at its own start.** A `DropMark` contributes nothing to
+  its own parent's box by design, so an append slot with no mark drawn yet
+  has no rectangle for a real pointer to land on — a worse fault than the
+  one this feature fixes, since a droppable `@dnd-kit` cannot measure
+  cannot be hit at all. The reservation is computed once, before `@dnd-kit`
+  caches its rectangles, and never changes again for that drag's
+  duration — it is the WINNER changing mid-drag that the out-of-flow rule
+  forbids, not a single size change at the drag's own start.
+
+  **Task 5 shipped a fault the out-of-flow constraint exists to name, and it
+  reached this branch's own final review before it was caught.** `useDraggable`'s
+  `transform` still moved the SOURCE frame once `<DragOverlay>` gave the drag
+  its own floating preview, so the source flew with the cursor alongside the
+  overlay rather than dimming in place — and a swap's own returning mark,
+  drawn inside that same frame, flew with it too. Fixed by reading
+  `isDragging` for the source's own opacity alone and never its `transform`;
+  see `editable-block-frame.tsx`'s own TSDoc.
+
+  **The ghost's own named cost materialised, and it is recorded rather than
+  patched.** With real, titled content in every neighbour, the `before` mark
+  visibly overlaps the block above and below instead of pushing either one —
+  confirmed twice, once by the browser proof and once by photograph. That is
+  not a defect: the design named this cost before anything was built and
+  chose it anyway, and the fallback (a plain insertion bar, which is what the
+  canvas path already draws) is written down for whoever decides the trade no
+  longer holds.
+
+  A swap draws a second, muted, dotted mark at the displaced block's own
+  return position, beside the accent mark naming where the carried block is
+  going. A floating preview beside the cursor names what is being carried,
+  for both drag origins.
+
+  Spec: `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md`,
+  marked delivered. Plan:
+  `docs/superpowers/plans/2026-09-08-drop-target-legibility.md`. Full
+  account, task by task: `apps/hub/src/features/actors/HISTORY.md`'s own
+  "drop-target-legibility" entries.
+
+  **The trade no longer held, and the ghost's own fallback replaced it
+  (2026-09-13).** With real content on both sides of a boundary the `before`
+  mark read as landing ON a neighbour, which is the more damaging misread of
+  the two, so `before`/`after` are a plain insertion bar now — full width,
+  fixed thickness, still out of flow — and only `place` still draws the
+  ghost sized from the carried block, because there the landing IS the
+  place. The spec's §4 carries the dated addendum beside the original
+  reasoning rather than in place of it.

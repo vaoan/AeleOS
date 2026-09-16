@@ -66,3 +66,53 @@
     was noise. **A comparison that normalises cannot see the fault it is
     looking for**, and this one normalised away exactly the byte in question.
     Rule 23's cousin: the assertion ran, it just could not fail.
+
+    **There is a gate now — `pnpm check:line-endings`, in `check:tools` — and
+    what it replaced is the reason it exists (2026-09-12).** The obvious hand
+    check is WRONG in this repository's own shell: `grep -c $'\r' FILE` inside
+    a command substitution reports the file's LINE COUNT, not its
+    carriage-return count, because the `\r` is stripped before `grep` sees it
+    and an empty pattern matches every line. Measured on a committed blob
+    holding zero `0d` bytes — `od` found none, `grep -cU` with a real carriage
+    return answered 0, and `grep -c $'\r'` answered **332**, which is exactly
+    how many lines that file has. It was used repeatedly across a session to
+    certify work "LF clean" before anyone noticed; those runs happened to
+    answer 0 and their conclusions survive, but the instrument does not.
+
+    **A check that silently becomes a line counter is worse than no check**,
+    because it answers confidently — the same shape as the normalising
+    comparison two paragraphs up, landing on the checker rather than the
+    checked. The gate asks `git ls-files --eol` instead: git is the authority
+    on its own index and reports it directly, rather than it being inferred
+    from bytes a pipeline may already have converted. `crlf` and `mixed`
+    fail; a binary reports `-text`, and refusing everything that is not `lf`
+    would fail every PNG here — which is the tempting rule rather than the
+    right one, so it is pinned by its own case.
+
+    **The commit that added that gate shipped this file with every newline
+    turned into a carriage return, and the gate passed it (found
+    2026-09-15).** 3,648 LF became 3,651 lone CR; `wc -l` said 0; git classed
+    the blob as binary, so `git ls-files --eol` said `i/-text` and the gate
+    excused it as a PNG would be. Every session for two days then loaded a
+    238KB `CLAUDE.md` as one line. The chain had three links, each measured:
+    - **This harness halves doubled backslashes in a Bash command**, quoted
+      heredoc included. A Python heredoc wrote the paragraph above with
+      `\\r` meaning a literal backslash-r; Python received `\r` and wrote
+      three REAL carriage returns inside code spans. Anything that must
+      carry an escape goes through the Write or Edit tool, never a shell
+      string.
+    - **Prettier under `endOfLine: "auto"` guesses the whole file's ending
+      from the FIRST `\r` it meets**, and a `\r` not followed by `\n` means
+      "this file is CR-terminated". `prettier --write` then rewrote all
+      3,648 line endings to match the stray. Reproduced on a 24-line
+      fixture: one stray CR, 0 LF out. `.prettierrc.json` is `"lf"` now,
+      which is what `.gitattributes` already mandates for the index; puck
+      and libra still carry `"auto"` and the same exposure.
+    - **`-text` under an explicit `text` attribute is a contradiction, not a
+      binary.** The gate reads the `attr/` column now and refuses that pair;
+      `text=auto` still delegates to git's own detection, so a real binary
+      under it stays excused, pinned beside the lone-CR case.
+
+    Two habits, and neither is new: **count the newlines of a prose file a
+    script has touched**, because prose has no compiler; and **a gate that
+    excuses a category has to ask what else lands in it.**

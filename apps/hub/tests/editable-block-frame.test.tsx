@@ -1,20 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { DndContext } from "@dnd-kit/core";
 import type { ReactNode } from "react";
 import {
   AppendSlot,
   EditableBlockFrame,
   type EditableBlockInstrumentation,
+  type AppendSlotProps,
 } from "@/features/actors/presentation/editable-block-frame";
 
-// THE PALETTE-HIGHLIGHT HALF OF THIS COMPONENT NEEDS NO DRAG AT ALL TO PROVE.
-// `insertTargets` is a plain prop driving a plain boolean, so this file
-// renders the component directly — inside a real `DndContext` only because
-// `useDraggable`/`useDroppable` require one as an ancestor, never because a
-// drag is actually driven here. The pointer-driven collision that COMPUTES
-// `insertTargets` during a real palette drag is `block-editor.test.tsx`'s own
-// job; this file is only about what the frame draws once it has one.
+// **`EditableBlockFrame` draws exactly ONE landing mark now, driven solely
+// by `editor.activeTarget` — the single winner a drag's own collision has
+// already resolved.** It used to also light up every entry in a separate
+// `insertTargets` field at once, for a palette-origin drag; that field is
+// gone (see `apps/hub/src/features/actors/CLAUDE.md`'s
+// "drop-target-legibility" account), and this file's own coverage moved
+// with it. `AppendSlot` below draws exactly one mark too now (2026-09-11) —
+// it used to keep its own, separate `insertTargets` membership check; its
+// tests build `activeTarget`/`carriedHeight` directly now, the same two
+// fields {@link EditableBlockInstrumentation} carries, passed as their own
+// props rather than that whole interface since this component has no
+// `selectedPath` or `dragLabel` to instrument.
 
 /** Builds an {@link EditableBlockInstrumentation}, with overrides. */
 function editor(
@@ -24,7 +30,8 @@ function editor(
     selectedPath: undefined,
     activeTarget: null,
     dragLabel: "Move this",
-    insertTargets: null,
+    carriedHeight: null,
+    returningPath: null,
     ...overrides,
   };
 }
@@ -75,100 +82,225 @@ describe("EditableBlockFrame", () => {
     expect(screen.getByText("content")).toBeInTheDocument();
   });
 
-  it("highlights a block named in insertTargets, exactly like the place highlight", () => {
-    renderFrame({
-      path: "0-1",
-      editorProps: { insertTargets: [{ path: [0, 1] }] },
-    });
-    expect(screen.getByTestId("canvas-drag-node")).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
+  it("marks only the winning target, never every candidate", () => {
+    // Two frames, one active target. Exactly one mark may exist on the page.
+    const editorProps = {
+      selectedPath: undefined,
+      activeTarget: { kind: "before" as const, path: [0, 1] },
+      dragLabel: "Move",
+      carriedHeight: 96,
+      returningPath: null,
+    };
+    render(
+      <>
+        <EditableBlockFrame path="0-0" filled editor={editorProps}>
+          <div />
+        </EditableBlockFrame>
+        <EditableBlockFrame path="0-1" filled editor={editorProps}>
+          <div />
+        </EditableBlockFrame>
+      </>,
     );
+    expect(screen.getAllByTestId("canvas-drop-before")).toHaveLength(1);
   });
 
-  it("does not highlight a block insertTargets never named", () => {
-    renderFrame({
-      path: "0-1",
-      editorProps: { insertTargets: [{ path: [0, 0] }] },
-    });
-    expect(screen.getByTestId("canvas-drag-node")).not.toHaveAttribute(
-      "data-canvas-drop",
+  it("marks both ends of a swap, each on its own element and not the other's", () => {
+    // A swap: the carried block is landing at 0-1 (the accent `place` mark)
+    // and the block already there is going back to 0-0 (the muted, dotted
+    // `canvas-drop-returning` mark). Asserting a testid exists anywhere on
+    // the page would pass whether it landed on the right element or on
+    // every element — root `CLAUDE.md` rule 27 — so each assertion is
+    // scoped to its own frame.
+    const editorProps = {
+      selectedPath: undefined,
+      activeTarget: { kind: "place" as const, path: [0, 1] },
+      dragLabel: "Move",
+      carriedHeight: 96,
+      returningPath: "0-0",
+    };
+    const { container } = render(
+      <>
+        <EditableBlockFrame path="0-0" filled editor={editorProps}>
+          <div />
+        </EditableBlockFrame>
+        <EditableBlockFrame path="0-1" filled editor={editorProps}>
+          <div />
+        </EditableBlockFrame>
+      </>,
     );
+    const source = container.querySelector<HTMLElement>(
+      '[data-canvas-path="0-0"]',
+    );
+    const landing = container.querySelector<HTMLElement>(
+      '[data-canvas-path="0-1"]',
+    );
+    if (!source || !landing) throw new Error("both frames must render");
+
+    expect(
+      within(landing).getByTestId("canvas-drop-place"),
+    ).toBeInTheDocument();
+    expect(within(landing).queryByTestId("canvas-drop-returning")).toBeNull();
+
+    expect(
+      within(source).getByTestId("canvas-drop-returning"),
+    ).toBeInTheDocument();
+    expect(within(source).queryByTestId("canvas-drop-place")).toBeNull();
   });
 
-  it("highlights nothing while no palette drag is in progress", () => {
-    renderFrame({ path: "0-1", editorProps: { insertTargets: null } });
-    expect(screen.getByTestId("canvas-drag-node")).not.toHaveAttribute(
-      "data-canvas-drop",
-    );
-  });
-
-  // EVERY MATCHING TARGET LIGHTS UP AT ONCE — the whole point of this
-  // feature over the single-`activeTarget` canvas-move highlight, which can
-  // only ever name one place at a time.
-  it("highlights every matching place simultaneously, not only the first", () => {
-    const insertTargets = [{ path: [0, 0] }, { path: [0, 1] }, { path: [1] }];
-    renderFrame({ path: "0-0", editorProps: { insertTargets } });
-    expect(screen.getByTestId("canvas-drag-node")).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
-    );
-  });
-
-  it("still highlights when a palette target is also under the pointer", () => {
-    // `isOver` from `useDroppable` is false with no active drag registered
-    // here, so this asserts the OR does not require both, and that the
-    // combination still resolves to the same single "place" value rather
-    // than something a class selector would fail to match.
+  it("draws no returning mark for a plain move onto an empty place", () => {
+    // A move — nothing displaced, so nothing returns, even though the
+    // landing itself is still a `place` mark. A fixture that only ever
+    // exercises the swap case could not tell a correct implementation
+    // from one that always draws a returning mark.
     renderFrame({
       path: "0-1",
       editorProps: {
         activeTarget: { kind: "place", path: [0, 1] },
-        insertTargets: [{ path: [0, 1] }],
+        returningPath: null,
       },
     });
-    expect(screen.getByTestId("canvas-drag-node")).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
-    );
+    expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
   });
 
-  // A palette drop targets the place itself — never a before/after linear
-  // insert — so an insert target must never draw the insertion-bar spans
-  // `activeTarget`'s "before"/"after" kinds draw.
-  it("draws no insertion bar for a place that is only an insert target", () => {
+  it("draws a place mark when activeTarget names this exact path", () => {
     renderFrame({
       path: "0-1",
-      editorProps: { insertTargets: [{ path: [0, 1] }] },
+      editorProps: { activeTarget: { kind: "place", path: [0, 1] } },
+    });
+    expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
+  });
+
+  it("draws a before mark when activeTarget names a before landing here", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: { activeTarget: { kind: "before", path: [0, 1] } },
+    });
+    expect(screen.getByTestId("canvas-drop-before")).toBeInTheDocument();
+    expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  it("draws an after mark when activeTarget names an after landing here", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: { activeTarget: { kind: "after", path: [0, 1] } },
+    });
+    expect(screen.getByTestId("canvas-drop-after")).toBeInTheDocument();
+  });
+
+  it("draws nothing when activeTarget names a different path", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: { activeTarget: { kind: "place", path: [0, 0] } },
     });
     expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
     expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
+  });
+
+  it("draws nothing when returningPath names a different path", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: { returningPath: "0-0" },
+    });
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
+  });
+
+  it("draws nothing while no drag is in progress", () => {
+    renderFrame({ path: "0-1", editorProps: { activeTarget: null } });
+    expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-after")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
+  });
+
+  // **`before`/`after` are a fixed-thickness bar now (2026-09-13) and never
+  // read `carriedHeight` at all** — see `drop-mark.tsx`'s own header for why
+  // the ghost-slot design that used to size a gap mark from the carried
+  // block was reversed. `place` is the one kind still sized this way; see
+  // the case below.
+  it("draws the identical bar for a gap mark whether or not a height was measured", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: {
+        activeTarget: { kind: "before", path: [0, 1] },
+        carriedHeight: 64,
+      },
+    });
+    expect(screen.getByTestId("canvas-drop-before")).not.toHaveAttribute(
+      "style",
+    );
+    expect(screen.getByTestId("canvas-drop-before").className).toContain(
+      "h-1.5",
+    );
+  });
+
+  it("sizes a place mark from carriedHeight when a real block is being carried", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: {
+        activeTarget: { kind: "place", path: [0, 1] },
+        carriedHeight: 64,
+      },
+    });
+    expect(screen.getByTestId("canvas-drop-place")).toHaveStyle({
+      height: "64px",
+    });
+  });
+
+  it("leaves a place mark unsized when nothing can be measured, as for a palette drag", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: {
+        activeTarget: { kind: "place", path: [0, 1] },
+        carriedHeight: null,
+      },
+    });
+    expect(screen.getByTestId("canvas-drop-place")).not.toHaveAttribute(
+      "style",
+    );
   });
 });
 
 // THE PALETTE'S "APPEND A NEW ROW" DROPPABLE.
 //
-// `AppendSlot` shares `EditableBlockFrame`'s exact `insertTargets`
-// membership check and reuses its class list — see that component's own
-// tests above for the case this one mirrors. It is always mounted (a real
-// `DndContext` is needed for the same reason `renderFrame` above needs one),
-// so what changes between cases here is only whether the highlight applies.
+// `AppendSlot` draws exactly one mark, matching `EditableBlockFrame` above
+// — it used to carry only `insertTargets` and light up every matching
+// entry at once. It reads `activeTarget`/`carriedHeight` for DRAWING now,
+// the same two fields `EditableBlockInstrumentation` carries. `insertTargets`
+// came back the same day for a SECOND, unrelated purpose — see
+// `AppendSlot`'s own TSDoc — reserving real height for the whole drag
+// whenever this position is a valid landing, regardless of which one is
+// currently marked. It is always mounted (a real `DndContext` is needed
+// for the same reason `renderFrame` above needs one).
 describe("AppendSlot", () => {
   /**
    * Renders one append slot inside a real `DndContext`.
    *
    * @param path - the append target's own renderer path.
+   * @param activeTarget - the destination currently advertised by dnd-kit,
+   * or `null` while none is.
+   * @param carriedHeight - how tall the carried block is, or `null`.
    * @param insertTargets - every insertion target a palette drag in
    * progress would accept, or `null` while none is.
    * @returns what `render` returned.
    */
   function renderAppendSlot(
     path: string,
-    insertTargets: EditableBlockInstrumentation["insertTargets"] = null,
+    activeTarget: AppendSlotProps["activeTarget"] = null,
+    carriedHeight: AppendSlotProps["carriedHeight"] = null,
+    insertTargets: AppendSlotProps["insertTargets"] = null,
   ) {
     return render(
       <DndContext id="t">
-        <AppendSlot path={path} insertTargets={insertTargets} />
+        <AppendSlot
+          path={path}
+          activeTarget={activeTarget}
+          carriedHeight={carriedHeight}
+          insertTargets={insertTargets}
+        />
       </DndContext>,
     );
   }
@@ -181,25 +313,67 @@ describe("AppendSlot", () => {
     );
   });
 
-  it("highlights nothing while no palette drag is in progress", () => {
+  it("draws nothing while no palette drag is in progress", () => {
     renderAppendSlot("0-2", null);
-    expect(screen.getByTestId("canvas-append-slot")).not.toHaveAttribute(
-      "data-canvas-drop",
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  it("draws nothing when activeTarget names a different path", () => {
+    renderAppendSlot("0-2", { kind: "before", path: [0, 1] });
+    expect(screen.queryByTestId("canvas-drop-before")).toBeNull();
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  it("draws a place mark when activeTarget names this exact path — the only kind insertMarkFor ever produces for an append slot's own position", () => {
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] });
+    expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
+  });
+
+  it("sizes the mark from carriedHeight when a real block is being carried", () => {
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, 64);
+    expect(screen.getByTestId("canvas-drop-place")).toHaveStyle({
+      height: "64px",
+    });
+  });
+
+  it('still draws whatever kind activeTarget carries, verifying the value is not hardcoded to "place"', () => {
+    renderAppendSlot("0-2", { kind: "before", path: [0, 2] });
+    expect(screen.getByTestId("canvas-drop-before")).toBeInTheDocument();
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  // **Reservation is a SEPARATE question from drawing, found by measuring a
+  // real browser: without it, `AppendSlot`'s own wrapper is 0px tall
+  // whether or not it is marked, because `DropMark` is absolutely
+  // positioned and contributes nothing to its parent's box.** These four
+  // cases pin the reservation independently of every drawing case above.
+  it("reserves no height while no palette drag is in progress", () => {
+    renderAppendSlot("0-2", null, null, null);
+    expect(screen.getByTestId("canvas-append-slot")).not.toHaveClass(
+      "min-h-12",
     );
   });
 
-  it("highlights nothing when insertTargets never names this exact path", () => {
-    renderAppendSlot("0-2", [{ path: [0, 1] }]);
-    expect(screen.getByTestId("canvas-append-slot")).not.toHaveAttribute(
-      "data-canvas-drop",
+  it("reserves no height when insertTargets never names this exact path", () => {
+    renderAppendSlot("0-2", null, null, [{ path: [0, 1] }]);
+    expect(screen.getByTestId("canvas-append-slot")).not.toHaveClass(
+      "min-h-12",
     );
   });
 
-  it("highlights, exactly like a filled place's own insert-target highlight, when named", () => {
-    renderAppendSlot("0-2", [{ path: [0, 2] }]);
-    expect(screen.getByTestId("canvas-append-slot")).toHaveAttribute(
-      "data-canvas-drop",
-      "place",
-    );
+  it("reserves height when insertTargets names this exact path, even though nothing is drawn", () => {
+    renderAppendSlot("0-2", null, null, [{ path: [0, 2] }]);
+    const slot = screen.getByTestId("canvas-append-slot");
+    expect(slot).toHaveClass("min-h-12");
+    expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
+  });
+
+  it("reserves height AND draws the mark together when both name this exact path", () => {
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, null, [
+      { path: [0, 2] },
+    ]);
+    const slot = screen.getByTestId("canvas-append-slot");
+    expect(slot).toHaveClass("min-h-12");
+    expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
   });
 });

@@ -55,3 +55,4 @@ Loaded when an instruction file, a doc under `docs/`, or a rule or skill file is
   spec, the root map and `docs/lessons/toolchain.md` describe it in the past
   tense — a retired gate named in the present tense is a live instruction to
   run something that does not exist.
+- **A branch whose note prose predates a note split RE-HOMES it into the split; it never lands a second, parallel split (2026-09-16).** `drop-target-legibility` had split the actors note its own way while main shipped phase 6 of the instruction architecture. On merge its own split was dropped; its seven sections and the bar reversal were appended to `apps/hub/src/features/actors/HISTORY.md` with one rule line each, the root's delivered bullet went to `docs/HISTORY.md`, and the line-endings gate's account went to rule 28's own file. Two notes describing one feature in two shapes is the contradicting document this file forbids.

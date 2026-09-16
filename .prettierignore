@@ -12,3 +12,6 @@ apps/hub/test-results
 
 apps/hub/coverage
 packages/identity/coverage
+
+# Claude Code worktrees: nested checkouts, git-ignored, never ours to format
+.claude/worktrees/
