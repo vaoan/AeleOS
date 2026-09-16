@@ -802,8 +802,10 @@ function useResettableSelection(
  * once: it keeps that component's cognitive complexity under the budget,
  * and — because this is a plain, lowercase helper rather than a component
  * or hook by naming convention — `react-hooks/refs` does not treat its
- * read of `carriedHeightRef.current` as a ref access "during render" the
- * way it would inside `BlockEditor`'s own top-level JSX. `blocks.tsx` never
+ * read of `insertTargetsRef.current` as a ref access "during render" the
+ * way it would inside `BlockEditor`'s own top-level JSX (until 2026-09-16
+ * it read `carriedHeightRef.current` the same way; that ref is gone, see
+ * below, and this one still needs the seam). `blocks.tsx` never
  * wraps this component's own top-level seat list in a call to `Block`, so
  * there is no `editor.appendSlot` call site for the page root the way a
  * container's own is reached — this is the one place in the tree that
@@ -812,13 +814,15 @@ function useResettableSelection(
  * `controlsHidden`/`interactionsEnabled` gate visibility, matching every
  * other editor-only island; `blocksLength` is the page's own top-level
  * child count, read fresh on every call so a stale count can never reach
- * the rendered slot; `activeTarget` and `carriedHeightRef` are the same
- * values {@link BlockEditor} threads to every other `AppendSlot`/
- * `EditableBlockFrame` on the page (2026-09-11) — `activeTarget` a plain
- * state value, `carriedHeightRef` a ref for the reason above.
- * `insertTargetsRef` is threaded too (measured back in the same day,
- * 2026-09-11 — see `AppendSlot`'s own TSDoc): the page's own root append
- * slot needs real height to be landable on exactly like every other one.
+ * the rendered slot; `activeTarget` is the same plain state value
+ * {@link BlockEditor} threads to every other `AppendSlot`/
+ * `EditableBlockFrame` on the page (2026-09-11). `insertTargetsRef` is
+ * threaded too (measured back in the same day, 2026-09-11 — see
+ * `AppendSlot`'s own TSDoc): the page's own root append slot needs real
+ * height to be landable on exactly like every other one, and since
+ * 2026-09-16 that reservation is also the whole size of the mark drawn in
+ * it — no `carriedHeightRef` is threaded any more, because no mark sizes
+ * itself from the carried block (see `drop-mark.tsx`'s own header).
  *
  * @returns the append slot, or `null` while controls are hidden or page
  * interaction is on.
@@ -828,14 +832,12 @@ function pageRootAppendSlot({
   interactionsEnabled,
   blocksLength,
   activeTarget,
-  carriedHeightRef,
   insertTargetsRef,
 }: {
   readonly controlsHidden: boolean;
   readonly interactionsEnabled: boolean;
   readonly blocksLength: number;
   readonly activeTarget: DropTarget | null;
-  readonly carriedHeightRef: RefObject<number | null>;
   readonly insertTargetsRef: RefObject<readonly InsertTarget[] | null>;
 }): ReactNode {
   if (controlsHidden || interactionsEnabled) return null;
@@ -843,7 +845,6 @@ function pageRootAppendSlot({
     <AppendSlot
       path={formatBlockPath([blocksLength])}
       activeTarget={activeTarget}
-      carriedHeight={carriedHeightRef.current}
       insertTargets={insertTargetsRef.current}
     />
   );
@@ -1486,14 +1487,15 @@ function panelFootFor({
  * onto. See the actors feature note's own account of both.
  *
  * **Every drag's own landing draws exactly one `DropMark`, never every
- * candidate (2026-09-11).** A canvas-move drag's `wrap` call site reads
- * `carriedHeightRef.current`, measured once at `onDragStart` from dnd-kit's
- * own initial rect; a palette drag's `onDragOver` translates its winning
- * `InsertTarget` through `insertMarkFor` and publishes it through the same
- * `advertisedTarget` state a canvas-move drag already used, so
+ * candidate (2026-09-11).** A palette drag's `onDragOver` translates its
+ * winning `InsertTarget` through `insertMarkFor` and publishes it through
+ * the same `advertisedTarget` state a canvas-move drag already used, so
  * `EditableBlockFrame` and `AppendSlot` both read one shared value for
  * DRAWING rather than each keeping their own notion of what is being
- * dragged. **`AppendSlot` also reads `insertTargetsRef.current` still, for
+ * dragged. A canvas-move drag used to measure the lifted block's height at
+ * `onDragStart` into a `carriedHeightRef` as well, to size a `place` mark;
+ * that ref is gone (2026-09-16) since no mark sizes itself any more — see
+ * `drop-mark.tsx`'s own header. **`AppendSlot` also reads `insertTargetsRef.current` still, for
  * a second and different reason (found the same day by measuring a real
  * browser): a `DropMark` is out of flow by design and gives an append
  * slot's own wrapper no height at all, so without a separate reservation an
@@ -1683,14 +1685,6 @@ export function BlockEditor<T extends FieldValues>({
   // own to read back — it only ever returns dnd-kit an id — so this is
   // recomputed here rather than read from a ref that branch already wrote.
   const paletteTarget = useRef<DropTarget | null>(null);
-  // **How tall the block a canvas-move drag is carrying is, in pixels — read
-  // once at `onDragStart` from dnd-kit's own measured initial rect, and
-  // `null` for the whole course of a palette drag, since the block being
-  // added does not exist yet and has nothing to measure.** A ref for the
-  // same reason `insertTargetsRef` below is one: nothing here reads it
-  // during render except through the object literals built in the JSX
-  // below, which are rebuilt on every render regardless.
-  const carriedHeightRef = useRef<number | null>(null);
   // **Every place a palette-origin drag in progress may land on, computed
   // once at `onDragStart` and read by `detectCollisionAt` on every pointer
   // move.** A ref rather than state: recomputing this is `insertTargetsFor`
@@ -1883,7 +1877,6 @@ export function BlockEditor<T extends FieldValues>({
       keyboardAt.current = undefined;
       keyboardTarget.current = null;
       pointerTarget.current = null;
-      carriedHeightRef.current = null;
       setAdvertisedTarget(null);
       setReturningPath(null);
       setRefusal(null);
@@ -1896,8 +1889,6 @@ export function BlockEditor<T extends FieldValues>({
     keyboardAt.current = canvasPlacePath(activeId) ?? placePath(activeId);
     keyboardTarget.current = null;
     pointerTarget.current = null;
-    carriedHeightRef.current =
-      event.active.rect.current.initial?.height ?? null;
     setAdvertisedTarget(null);
     setReturningPath(null);
     setRefusal(null);
@@ -1978,7 +1969,6 @@ export function BlockEditor<T extends FieldValues>({
     keyboardAt.current = undefined;
     keyboardTarget.current = null;
     pointerTarget.current = null;
-    carriedHeightRef.current = null;
     setAdvertisedTarget(null);
     setReturningPath(null);
     setPaletteDragActive(false);
@@ -2019,7 +2009,6 @@ export function BlockEditor<T extends FieldValues>({
       insertTargetsRef.current = null;
       paletteKeyboardTarget.current = null;
       paletteTarget.current = null;
-      carriedHeightRef.current = null;
       setAdvertisedTarget(null);
       setReturningPath(null);
       setPaletteDragActive(false);
@@ -2057,7 +2046,6 @@ export function BlockEditor<T extends FieldValues>({
     const target = keyboardTarget.current ?? pointerTarget.current;
     keyboardTarget.current = null;
     pointerTarget.current = null;
-    carriedHeightRef.current = null;
     setAdvertisedTarget(null);
     setReturningPath(null);
     if (!from || !target || !event.over) return;
@@ -2634,12 +2622,6 @@ export function BlockEditor<T extends FieldValues>({
                                   // wrote.
                                   activeTarget: advertisedTarget,
                                   dragLabel: labels.dragBlock,
-                                  // The block a canvas-move drag is
-                                  // carrying, measured once at
-                                  // `onDragStart`; `null` for a palette
-                                  // drag, which carries no real block to
-                                  // measure yet.
-                                  carriedHeight: carriedHeightRef.current,
                                   // Set by `onDragOver`'s canvas-move
                                   // branch only when the winning target
                                   // is an OCCUPIED place — the source the
@@ -2677,7 +2659,6 @@ export function BlockEditor<T extends FieldValues>({
                                     childCount,
                                   ])}
                                   activeTarget={advertisedTarget}
-                                  carriedHeight={carriedHeightRef.current}
                                   insertTargets={insertTargetsRef.current}
                                 />
                               );
@@ -2699,7 +2680,6 @@ export function BlockEditor<T extends FieldValues>({
             interactionsEnabled,
             blocksLength: blocks.length,
             activeTarget: advertisedTarget,
-            carriedHeightRef,
             insertTargetsRef,
           })}
         </div>

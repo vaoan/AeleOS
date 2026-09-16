@@ -176,6 +176,24 @@ empty positional slot, or the block a swap will exchange with — and filling
 that box was always correct, never the cost this section is about. Only
 `before`/`after`, the gap-between marks, move from C to A.
 
+**2026-09-16: `place` moved too, and for the same reason — the argument
+above was right and the code did not do what it said.** "Filling that box"
+was never what was drawn: the `place` mark took an inline `height` from the
+carried block, and an inline height overrides `bottom-0` on an absolutely
+positioned span, so the mark was the CARRIED block's silhouette laid over
+the host, top-aligned. An empty place is 48px tall and a swap target is
+whatever its own block is; a taller carried block spilled past either onto
+the neighbour below — the identical "lands ON a neighbour" read the
+paragraph above had just removed for gaps, in the kind it declared immune.
+A `place` mark is now its host's box and nothing else: `inset-0`, no inline
+height, no `min-h-12` floor of its own. The `height` prop, `carriedHeight`
+on both host interfaces and `carriedHeightRef` are gone. "Ghost of the
+carried block" no longer describes any mark; the C-over-A reasoning above is
+kept because it is still what decided the shape of every mark, and this
+addendum is what decided its size. Account:
+`apps/hub/src/features/actors/HISTORY.md`, "A place mark is its host's box
+(2026-09-16)".
+
 **The original reasoning above is kept, not deleted, because it is what the
 next person reuses.** Option A was refused the first time as "not
 distinctive enough for fault 4" — a person must see, unmistakably, which
@@ -219,7 +237,10 @@ says so today, so a swap is indistinguishable from a drop that is about to
 overwrite something.
 
 Both ends are marked: the target place shows the incoming ghost, and the source
-place shows the block that is coming back to it.
+place shows the block that is coming back to it. **2026-09-16:** the target
+mark fills the target block's own box rather than showing the incoming
+block's size — see the §4 addendum; the two-ended marking itself is
+unchanged.
 
 ## 7. What must not be undone
 

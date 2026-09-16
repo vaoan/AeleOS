@@ -116,7 +116,8 @@ Run everything from the repository root, never from `apps/hub`.
 Phases 1a, 0, 1b and the fursona studio are done; the hub is live and
 bilingual; public pages, the block model, dragging, weighted places, the
 page source dock, the canvas-first editor and drop-target legibility have
-shipped. Drag-to-add from a palette tab is designed and partly built. The
+shipped (marks settled 2026-09-16: a bar for a gap, a host-filling mark for
+a place). Drag-to-add from a palette tab is designed and partly built. The
 dated account of each is in `docs/HISTORY.md`; the open work is at the end
 of it. The instruction-architecture move is delivered (2026-09-15): the spec
 named at the top of this file carries the before and after tables, this file

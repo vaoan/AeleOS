@@ -4,27 +4,15 @@ import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
 
 /**
- * What {@link DropMark} needs.
+ * What {@link DropMark} needs: only which landing it marks.
  *
- * Since 2026-09-13 `height` is read only for a `place` mark; a `before` or
- * `after` gap mark is a fixed-thickness bar and ignores it — see the field.
+ * It used to take a `height` as well, the carried block's measured pixels,
+ * read for a `place` mark. That field is gone (2026-09-16) — see the
+ * component's own header for why no mark sizes itself any more.
  */
 export interface DropMarkProps {
   /** Which landing this marks — a gap above, a gap below, or the place. */
   readonly kind: DropTarget["kind"];
-  /**
-   * How tall the carried block is, in pixels, or `null` when nothing can be
-   * measured — every palette drag, since the block being added does not
-   * exist yet and has no height to read.
-   *
-   * **Read only for `place` (2026-09-13).** `before`/`after` mark a GAP
-   * between two blocks and are drawn as a fixed-thickness insertion bar now
-   * — see this component's own header for why — so a carried height has
-   * nothing to size on that mark any more. `place` is unchanged: the
-   * landing genuinely IS the place, so its mark still fills that box
-   * exactly as it always has, and still reads this field to do it.
-   */
-  readonly height: number | null;
 }
 
 /** The test id each kind carries. */
@@ -64,21 +52,30 @@ const GAP_EDGE: Record<"before" | "after", string> = {
  * rectangles makes the collision answer about where things WERE. Only the
  * WINNING target is ever marked; drawing a bar has no bearing on that rule.
  *
- * **`place` is untouched by this reversal.** It still fills its host rather
- * than straddling an edge, because there the landing IS the place — an
- * empty positional slot, or the block a swap will exchange with — and it
- * still reads {@link DropMarkProps.height}: a real `carriedHeight` says what
- * the block will occupy, so a canvas-move drag of something shorter than
- * 48px draws a `place` mark that size rather than one floored up past it.
- * The `min-h-12` floor applies only when `height` is `null`, which is every
- * palette drag — the block being added does not exist yet and has no height
- * to measure.
+ * **`place` is its host's box and nothing else (2026-09-16) — the same
+ * decision, applied to the one kind the bar reversal left alone.** The
+ * reversal kept `place` sized from the carried block's measured height,
+ * arguing that there the landing IS the place, so filling that box was
+ * always right. The argument was right and the code did not do it: `inset-0`
+ * pins the mark to the host, but an inline `height` overrides `bottom-0`,
+ * so the mark was the CARRIED block's silhouette laid over the host — an
+ * empty place is 48px tall and a swap target is whatever height it is, and
+ * a taller carried block spilled past either onto the neighbour below.
+ * That is the identical "lands ON the neighbour" read the bar fixed for
+ * gaps. So the mark now carries no size of its own: no inline height, no
+ * `min-h-*` floor, only `inset-0`. The host is the box — the dashed empty
+ * place (`min-h-12` on its own frame), the block a swap exchanges with, or
+ * an `AppendSlot`'s own reserved height — and the mark fills exactly that.
+ * Nothing about the carried block reaches this component any more, which
+ * is why the `height` prop, `carriedHeight` on both host interfaces and
+ * `block-editor.tsx`'s `carriedHeightRef` all went in the same change: the
+ * bar reversal had already noted they "very nearly did not" survive it.
  *
  * @param props - see {@link DropMarkProps}.
  * @returns the mark, positioned against the nearest positioned ancestor.
  */
 export function DropMark(props: DropMarkProps): ReactNode {
-  const { kind, height } = props;
+  const { kind } = props;
   if (kind === "before" || kind === "after") {
     return (
       <span
@@ -88,13 +85,11 @@ export function DropMark(props: DropMarkProps): ReactNode {
       />
     );
   }
-  const heightClass = height === null ? "min-h-12" : "";
   return (
     <span
       aria-hidden
       {...tid(MARK_ID[kind])}
-      style={height === null ? undefined : { height: `${height}px` }}
-      className={`${CHROME_SCOPE} pointer-events-none absolute inset-0 z-20 ${heightClass} rounded-lg border-2 border-dashed border-(--accent) bg-(--accent)/15`}
+      className={`${CHROME_SCOPE} pointer-events-none absolute inset-0 z-20 rounded-lg border-2 border-dashed border-(--accent) bg-(--accent)/15`}
     />
   );
 }

@@ -7113,3 +7113,55 @@ See `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md` §4
 for the full record of both decisions — the original acceptance of the
 ghost's cost, and the dated addendum recording the reversal and why the
 original reasoning is kept rather than deleted.
+
+### A place mark is its host's box (2026-09-16) — the bar decision, applied to the kind the reversal left alone
+
+`place` — the one `DropMark` kind the 2026-09-13 reversal kept sized from
+the carried block — carries no size of its own now: no inline `height`, no
+`min-h-12` floor, only `inset-0`. The `height` prop is gone from
+`DropMarkProps`, `carriedHeight` is gone from `EditableBlockInstrumentation`
+and `AppendSlotProps`, and `block-editor.tsx` no longer measures the lifted
+block at `onDragStart` into a `carriedHeightRef` — the reversal's own
+section above had already noted that ref "very nearly did not" survive it.
+
+**The reversal's argument for keeping the ghost was right, and the code did
+not do what the argument said.** "There the landing IS the place, so filling
+that box was always correct" — true, and the mark did not fill that box.
+`inset-0` pins a span to its host, but an inline `height` overrides
+`bottom-0` (an absolutely positioned box with `top`, `height` and `bottom`
+all set drops `bottom`), so what was drawn was the CARRIED block's
+silhouette laid over the host, top-aligned. An empty place is 48px tall and
+a swap target is whatever height its own block is; a taller carried block
+spilled past either onto the neighbour below — the identical "lands ON the
+neighbour" read that had just turned the gap ghost into a bar, in the one
+kind that was supposed to be immune to it. The unit case that pinned the
+inline size (`drop-mark.test.tsx`, "does not apply its own floor when a
+real height is supplied") locked in the shorter case, which under-fills the
+host harmlessly; nothing had ever tested the taller one, and no photograph
+of a `place` mark existed — the one shot that tried timed out on the
+`canvas-drop-place` test id and was dropped.
+
+**So the host is the box, and the mark is drawn to it.** Every host already
+has one: a filled place is the block a swap exchanges with; an empty place
+draws its own dashed `min-h-12` outline on the frame (`emptyPlaceClass`);
+an `AppendSlot` reserves `min-h-12` for the whole drag from `insertTargets`
+membership. That last reservation was always about HITTABILITY — a
+droppable with no rectangle cannot be landed on — and it is now also the
+whole size of the mark drawn in it, which is one job fewer for the mark and
+zero new ones for the slot. What is given up: a `place` mark the size of the
+incoming block on an empty slot. It was never accurate — the slot did not
+grow to meet it — so nothing legible is lost.
+
+**What was tested, and how it was proved.** Four cases replaced the two
+that pinned the inline size: `DropMark` alone, `EditableBlockFrame` on a
+filled host (the swap), `EditableBlockFrame` on an empty place (asserting
+the `min-h-12` floor is on the HOST and not on the mark), and `AppendSlot`
+with its reservation. Each asserts no `style` attribute, no `min-h-*` token
+and `inset-0`. Sabotage: the `place` branch was given `style={{ height:
+"64px" }}` and `min-h-12` in the source, and exactly those four went red (4
+failed, 74 passed across the three affected files), restored by copy, 78
+green. The fixture on its own cannot tell the old code from the new once the
+prop is gone — an inline height whose value is not a length is dropped
+silently by jsdom, so the old code renders no `style` at all — which is why the guard against re-threading a size is the TYPE (`DropMarkProps`
+has no `height`) and the runtime cases guard the mark sizing itself by any
+route.
