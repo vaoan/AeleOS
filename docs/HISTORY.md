@@ -1243,3 +1243,12 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   ghost sized from the carried block, because there the landing IS the
   place. The spec's §4 carries the dated addendum beside the original
   reasoning rather than in place of it.
+
+  **`place` followed (2026-09-16).** The argument for keeping its ghost was
+  right and the code had not done what it said: an inline height overrides
+  `bottom-0`, so the mark was the carried block's silhouette over the host
+  and spilled past a shorter host onto the neighbour — the gap ghost's own
+  cost, in the kind meant to be immune. No mark sizes itself now; a `place`
+  mark is its host's box, and `carriedHeight` is gone from every interface.
+  Account: `apps/hub/src/features/actors/HISTORY.md`, "A place mark is its
+  host's box (2026-09-16)".

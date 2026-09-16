@@ -9,7 +9,7 @@ function tokens(element: Element): string[] {
 
 describe("DropMark", () => {
   it("draws a bar above the boundary for a before target", () => {
-    render(<DropMark kind="before" height={120} />);
+    render(<DropMark kind="before" />);
     const mark = screen.getByTestId("canvas-drop-before");
     expect(mark).toBeInTheDocument();
     const classes = tokens(mark);
@@ -24,7 +24,7 @@ describe("DropMark", () => {
   });
 
   it("draws a bar below the boundary for an after target", () => {
-    render(<DropMark kind="after" height={120} />);
+    render(<DropMark kind="after" />);
     const mark = screen.getByTestId("canvas-drop-after");
     expect(mark).toBeInTheDocument();
     const classes = tokens(mark);
@@ -37,24 +37,20 @@ describe("DropMark", () => {
     expect(classes).not.toContain("top-0");
   });
 
-  // A bar has a fixed thickness whether or not a real height was measured —
-  // unlike the ghost slot it replaced, it never reads `height` at all. Both
-  // a palette drag (no measurable height) and a canvas-move drag (a real
-  // one) must draw the identical bar, which is the discriminating claim: a
-  // renderer that still branches on `height` for a gap mark would redden
-  // this pair by drawing two different things for `before`.
-  it("draws the identical bar whether or not a height was measured", () => {
-    render(<DropMark kind="before" height={null} />);
-    const unmeasured = tokens(screen.getByTestId("canvas-drop-before"));
-    expect(unmeasured).toContain("h-1.5");
-    expect(unmeasured).not.toContain("min-h-12");
-    expect(screen.getByTestId("canvas-drop-before")).not.toHaveStyle({
-      height: "0px",
-    });
+  // A bar has a fixed thickness and no inline size: it is the same element
+  // for a palette drag and a canvas-move drag alike, since nothing about
+  // the carried block reaches it any more (2026-09-16 — see the `place`
+  // case below for the last field that did).
+  it("gives a gap mark a fixed thickness and no inline size", () => {
+    render(<DropMark kind="before" />);
+    const mark = screen.getByTestId("canvas-drop-before");
+    expect(tokens(mark)).toContain("h-1.5");
+    expect(tokens(mark)).not.toContain("min-h-12");
+    expect(mark).not.toHaveAttribute("style");
   });
 
   it("fills the place itself for a place target", () => {
-    render(<DropMark kind="place" height={null} />);
+    render(<DropMark kind="place" />);
     const mark = screen.getByTestId("canvas-drop-place");
     expect(mark).toBeInTheDocument();
     const classes = tokens(mark);
@@ -65,45 +61,42 @@ describe("DropMark", () => {
     expect(classes).not.toContain("translate-y-1/2");
   });
 
-  // A palette drag carries a block that does not exist yet, so no height can
-  // be measured for it. The `place` slot must still be visible — it is the
-  // one kind that still floors on `min-h-12` when nothing was measured.
-  it("stands at its own minimum when no height is known", () => {
-    render(<DropMark kind="place" height={null} />);
+  // **A `place` mark is its HOST's box and carries no size of its own
+  // (2026-09-16).** It used to take an inline `height` from the carried
+  // block, floored at `min-h-12` when nothing could be measured — and an
+  // absolutely positioned overlay sized to the carried block, drawn over a
+  // host of a different height, spilled past that host onto the neighbour
+  // below it: the same "lands ON the neighbour" read that turned the gap
+  // ghost into a bar. The wrong behaviour this case excludes is a mark that
+  // sizes itself at all: any inline style or any `min-h-*` token reddens it,
+  // and `inset-0` is what pins it to the host instead.
+  it("carries no size of its own for a place target — it is the host's box", () => {
+    render(<DropMark kind="place" />);
     const mark = screen.getByTestId("canvas-drop-place");
-    expect(mark.className).toContain("min-h-12");
-    expect(mark).not.toHaveStyle({ height: "0px" });
-    // `min-h-12` and an unset inline height are not enough on their own to
-    // rule out the element being hidden a different way (display: none,
-    // visibility: hidden, zero opacity) — this is the assertion that would
-    // catch that.
+    expect(mark).not.toHaveAttribute("style");
+    expect(tokens(mark).some((token) => token.startsWith("min-h-"))).toBe(
+      false,
+    );
+    expect(tokens(mark).some((token) => /^h-/.test(token))).toBe(false);
+    expect(tokens(mark)).toContain("inset-0");
+    // `inset-0` and no inline size are not enough on their own to rule out
+    // the element being hidden a different way (display: none, visibility:
+    // hidden, zero opacity) — this is the assertion that would catch that.
     expect(mark).toBeVisible();
-  });
-
-  // A canvas-move drag DOES measure a real height — `carriedHeightRef`, read
-  // at `onDragStart` from the block being lifted — and a block shorter than
-  // 48px must draw a `place` ghost the size it will actually occupy, not a
-  // floor that overstates it. Final review, 2026-09-11: `min-h-12` used to
-  // apply unconditionally, so this case would have failed before that fix.
-  it("does not apply its own floor when a real height is supplied", () => {
-    render(<DropMark kind="place" height={20} />);
-    const mark = screen.getByTestId("canvas-drop-place");
-    expect(mark.className).not.toContain("min-h-12");
-    expect(mark).toHaveStyle({ height: "20px" });
   });
 
   // The whole reason this is an overlay rather than a real opening gap: it
   // must not take part in layout, or every cached droppable rect goes stale
-  // mid-drag. True of the bar as well as of the place ghost.
+  // mid-drag. True of the bar as well as of the place fill.
   it("never takes part in layout or swallows the pointer", () => {
-    render(<DropMark kind="before" height={80} />);
+    render(<DropMark kind="before" />);
     const mark = screen.getByTestId("canvas-drop-before");
     expect(mark.className).toContain("absolute");
     expect(mark.className).toContain("pointer-events-none");
   });
 
   it("wears the chrome scope so an author's theme cannot restyle it", () => {
-    render(<DropMark kind="place" height={null} />);
+    render(<DropMark kind="place" />);
     expect(screen.getByTestId("canvas-drop-place").className).toContain(
       "aeleos-chrome",
     );
@@ -116,9 +109,9 @@ describe("DropMark", () => {
   // each other but a class LIST comparison would still pass a swap if it
   // only checked "does this string appear somewhere".
   it("tells before, after and place apart at the boundary each sits on", () => {
-    render(<DropMark kind="before" height={null} />);
-    render(<DropMark kind="after" height={null} />);
-    render(<DropMark kind="place" height={null} />);
+    render(<DropMark kind="before" />);
+    render(<DropMark kind="after" />);
+    render(<DropMark kind="place" />);
     const before = tokens(screen.getByTestId("canvas-drop-before"));
     const after = tokens(screen.getByTestId("canvas-drop-after"));
     const place = tokens(screen.getByTestId("canvas-drop-place"));

@@ -39,9 +39,11 @@ import { DropMark } from "@/features/actors/presentation/drop-mark";
  * `null` for a move onto an empty place or for any palette drag, which
  * displaces nothing.
  *
- * **`carriedHeight` is read only for a `place` mark (2026-09-13).** A
- * `before`/`after` gap mark is a fixed-thickness bar now and never reads it;
- * the field stays because `place` still sizes itself from it.
+ * **It no longer carries `carriedHeight` (2026-09-16).** That field was the
+ * carried block's measured height, threaded to size a `place` mark; the
+ * mark is its host's box now and sizes itself from nothing — see
+ * `drop-mark.tsx`'s own header for the spill that decided it. Nothing about
+ * the carried block reaches the frame any more.
  */
 export interface EditableBlockInstrumentation {
   /** The selected block, in the renderer's hyphenated path form. */
@@ -50,19 +52,6 @@ export interface EditableBlockInstrumentation {
   readonly activeTarget: DropTarget | null;
   /** Accessible name for the selected block's touch and keyboard grip. */
   readonly dragLabel: string;
-  /**
-   * How tall the block being carried is, in pixels, or `null` when nothing
-   * can be measured — every palette drag, since the block does not exist
-   * yet.
-   *
-   * **Read only for a `place` mark (2026-09-13).** A `before`/`after` gap
-   * mark is a fixed-thickness insertion bar now, not a ghost of the carried
-   * block, and never reads this field — see `drop-mark.tsx`'s own header
-   * for the reversal. `place` still fills its host at the size of the real
-   * landing rather than a fixed guess, which is what this field still
-   * threads for.
-   */
-  readonly carriedHeight: number | null;
   /**
    * The renderer path of the place the displaced block goes back to, or
    * `null` unless the live drag is a swap (2026-09-11).
@@ -107,8 +96,11 @@ export interface EditableBlockFrameProps {
  * question, and it is what made the mark unobservable in jsdom (`isOver` is
  * never set there). The mark is a {@link DropMark}: a fixed-thickness bar
  * for a `before`/`after` gap (2026-09-13, reversing the ghost-slot design —
- * see `drop-mark.tsx`'s own header), or a ghost sized from
- * `editor.carriedHeight` for a `place` landing, unchanged.
+ * see `drop-mark.tsx`'s own header), or a fill of this frame's own box for
+ * a `place` landing (2026-09-16). The frame IS that box: a filled place is
+ * the block a swap exchanges with, and an empty place keeps its own
+ * `min-h-12` dashed outline below, so the mark never needs a size of its
+ * own and is handed none.
  *
  * **A swap draws a SECOND mark, the other end of the same exchange
  * (2026-09-11).** `editor.returningPath` names the place the displaced block
@@ -188,7 +180,7 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
       className={`relative min-w-0 ${emptyPlaceClass}`}
     >
       {children}
-      {target ? <DropMark kind={target} height={editor.carriedHeight} /> : null}
+      {target ? <DropMark kind={target} /> : null}
       {editor.returningPath === encodedPath ? (
         <span
           aria-hidden
@@ -223,14 +215,14 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
  * palette-origin drag would accept, lit up as a full highlight on every
  * one of them at once — see `apps/hub/src/features/actors/CLAUDE.md`'s
  * "drop-target-legibility" account for why that made a drop illegible the
- * moment more than one target existed. `activeTarget` and `carriedHeight`
- * took over drawing; `insertTargets` came BACK the same day, MEASURED
- * rather than restored on suspicion, for a second purpose that has nothing
- * to do with drawing — see this interface's own field doc and
- * {@link AppendSlot}'s.
+ * moment more than one target existed. `activeTarget` took over drawing;
+ * `insertTargets` came BACK the same day, MEASURED rather than restored on
+ * suspicion, for a second purpose that has nothing to do with drawing — see
+ * this interface's own field doc and {@link AppendSlot}'s.
  *
- * **`carriedHeight` is read only for a `place` mark (2026-09-13)**; a gap
- * mark is a fixed-thickness bar and ignores it.
+ * **It no longer carries `carriedHeight` (2026-09-16).** The mark this slot
+ * draws is the slot's own reserved box now and sizes itself from nothing;
+ * see `drop-mark.tsx`'s own header.
  */
 export interface AppendSlotProps {
   /**
@@ -256,15 +248,6 @@ export interface AppendSlotProps {
    * by that child's own {@link EditableBlockFrame} instead.
    */
   readonly activeTarget: DropTarget | null;
-  /**
-   * How tall the carried block is, in pixels, or `null` when nothing can be
-   * measured — every palette drag, since the block does not exist yet.
-   * Forwarded straight to {@link DropMark}, which reads it only for the
-   * `place` mark {@link activeTarget}'s own doc says this slot ever draws
-   * (2026-09-13) — a `before`/`after` gap mark is a fixed-thickness bar now
-   * and never reads it.
-   */
-  readonly carriedHeight: number | null;
   /**
    * Every insertion target a palette-origin drag currently in progress
    * would accept, or `null` while none is — the same value
@@ -313,7 +296,10 @@ export interface AppendSlotProps {
  * `onDragStart` and constant for the whole drag — reserves `min-h-12` on
  * every valid landing regardless of which one is currently under the
  * pointer, and `activeTarget` alone still decides which ONE of those gets
- * an actual {@link DropMark}. This is not the light-everything fault
+ * an actual {@link DropMark}. Since 2026-09-16 that reservation is also
+ * the mark's whole size: a `place` mark fills its host and carries no
+ * height of its own, so this slot's `min-h-12` is what the mark is drawn
+ * to. This is not the light-everything fault
  * returning: nothing is drawn and nothing is outlined, and the reservation
  * never changes as the winner changes mid-drag — it is fixed the instant
  * the drag begins, which is exactly when `@dnd-kit` caches every
@@ -327,12 +313,7 @@ export interface AppendSlotProps {
  * when `activeTarget` names this exact position.
  */
 export function AppendSlot(props: AppendSlotProps): ReactNode {
-  const {
-    path: encodedPath,
-    activeTarget,
-    carriedHeight,
-    insertTargets,
-  } = props;
+  const { path: encodedPath, activeTarget, insertTargets } = props;
   const path = parseBlockPath(encodedPath) ?? [];
   const { setNodeRef } = useDroppable({ id: canvasPlaceId(path) });
   const target =
@@ -350,7 +331,7 @@ export function AppendSlot(props: AppendSlotProps): ReactNode {
       data-canvas-path={encodedPath}
       className={`relative ${CHROME_SCOPE} ${reserved ? "min-h-12" : ""}`}
     >
-      {target ? <DropMark kind={target} height={carriedHeight} /> : null}
+      {target ? <DropMark kind={target} /> : null}
     </div>
   );
 }

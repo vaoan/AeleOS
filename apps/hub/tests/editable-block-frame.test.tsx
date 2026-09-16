@@ -17,10 +17,12 @@ import {
 // "drop-target-legibility" account), and this file's own coverage moved
 // with it. `AppendSlot` below draws exactly one mark too now (2026-09-11) —
 // it used to keep its own, separate `insertTargets` membership check; its
-// tests build `activeTarget`/`carriedHeight` directly now, the same two
-// fields {@link EditableBlockInstrumentation} carries, passed as their own
-// props rather than that whole interface since this component has no
-// `selectedPath` or `dragLabel` to instrument.
+// tests build `activeTarget` directly now, the same field
+// {@link EditableBlockInstrumentation} carries, passed as its own prop
+// rather than that whole interface since this component has no
+// `selectedPath` or `dragLabel` to instrument. Neither carries
+// `carriedHeight` any more (2026-09-16): a mark never sizes itself, so
+// nothing about the carried block reaches either component.
 
 /** Builds an {@link EditableBlockInstrumentation}, with overrides. */
 function editor(
@@ -30,7 +32,6 @@ function editor(
     selectedPath: undefined,
     activeTarget: null,
     dragLabel: "Move this",
-    carriedHeight: null,
     returningPath: null,
     ...overrides,
   };
@@ -88,7 +89,6 @@ describe("EditableBlockFrame", () => {
       selectedPath: undefined,
       activeTarget: { kind: "before" as const, path: [0, 1] },
       dragLabel: "Move",
-      carriedHeight: 96,
       returningPath: null,
     };
     render(
@@ -115,7 +115,6 @@ describe("EditableBlockFrame", () => {
       selectedPath: undefined,
       activeTarget: { kind: "place" as const, path: [0, 1] },
       dragLabel: "Move",
-      carriedHeight: 96,
       returningPath: "0-0",
     };
     const { container } = render(
@@ -216,18 +215,18 @@ describe("EditableBlockFrame", () => {
     expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
   });
 
-  // **`before`/`after` are a fixed-thickness bar now (2026-09-13) and never
-  // read `carriedHeight` at all** — see `drop-mark.tsx`'s own header for why
-  // the ghost-slot design that used to size a gap mark from the carried
-  // block was reversed. `place` is the one kind still sized this way; see
-  // the case below.
-  it("draws the identical bar for a gap mark whether or not a height was measured", () => {
+  // **No mark sizes itself (2026-09-16).** A gap mark has been a
+  // fixed-thickness bar since 2026-09-13; a `place` mark used to take an
+  // inline height from the carried block and spilled past a shorter host
+  // onto the neighbour below — see `drop-mark.tsx`'s own header. Both are
+  // pinned here through the frame, not only in `drop-mark.test.tsx`,
+  // because the frame is what hands the mark its props: a frame that
+  // threaded a size of its own would pass the component's test and fail
+  // these.
+  it("draws a gap mark with no inline size, through the frame", () => {
     renderFrame({
       path: "0-1",
-      editorProps: {
-        activeTarget: { kind: "before", path: [0, 1] },
-        carriedHeight: 64,
-      },
+      editorProps: { activeTarget: { kind: "before", path: [0, 1] } },
     });
     expect(screen.getByTestId("canvas-drop-before")).not.toHaveAttribute(
       "style",
@@ -237,30 +236,35 @@ describe("EditableBlockFrame", () => {
     );
   });
 
-  it("sizes a place mark from carriedHeight when a real block is being carried", () => {
+  it("draws a place mark that fills its host and carries no size of its own — a filled host, the swap case", () => {
     renderFrame({
       path: "0-1",
-      editorProps: {
-        activeTarget: { kind: "place", path: [0, 1] },
-        carriedHeight: 64,
-      },
+      filled: true,
+      editorProps: { activeTarget: { kind: "place", path: [0, 1] } },
     });
-    expect(screen.getByTestId("canvas-drop-place")).toHaveStyle({
-      height: "64px",
-    });
+    const mark = screen.getByTestId("canvas-drop-place");
+    expect(mark).not.toHaveAttribute("style");
+    expect(mark).not.toHaveClass("min-h-12");
+    expect(mark).toHaveClass("inset-0");
   });
 
-  it("leaves a place mark unsized when nothing can be measured, as for a palette drag", () => {
-    renderFrame({
+  it("draws a place mark that fills its host and carries no size of its own — an empty place, whose host keeps the 48px floor", () => {
+    // The floor belongs to the HOST (the dashed empty place), never to the
+    // mark: a mark with a floor of its own was the spill.
+    const { container } = renderFrame({
       path: "0-1",
-      editorProps: {
-        activeTarget: { kind: "place", path: [0, 1] },
-        carriedHeight: null,
-      },
+      filled: false,
+      editorProps: { activeTarget: { kind: "place", path: [0, 1] } },
     });
-    expect(screen.getByTestId("canvas-drop-place")).not.toHaveAttribute(
-      "style",
+    const host = container.querySelector<HTMLElement>(
+      '[data-canvas-path="0-1"]',
     );
+    if (!host) throw new Error("the frame must render");
+    expect(host).toHaveClass("min-h-12");
+    const mark = screen.getByTestId("canvas-drop-place");
+    expect(mark).not.toHaveAttribute("style");
+    expect(mark).not.toHaveClass("min-h-12");
+    expect(mark).toHaveClass("inset-0");
   });
 });
 
@@ -268,8 +272,8 @@ describe("EditableBlockFrame", () => {
 //
 // `AppendSlot` draws exactly one mark, matching `EditableBlockFrame` above
 // — it used to carry only `insertTargets` and light up every matching
-// entry at once. It reads `activeTarget`/`carriedHeight` for DRAWING now,
-// the same two fields `EditableBlockInstrumentation` carries. `insertTargets`
+// entry at once. It reads `activeTarget` for DRAWING now, the same field
+// `EditableBlockInstrumentation` carries. `insertTargets`
 // came back the same day for a SECOND, unrelated purpose — see
 // `AppendSlot`'s own TSDoc — reserving real height for the whole drag
 // whenever this position is a valid landing, regardless of which one is
@@ -282,7 +286,6 @@ describe("AppendSlot", () => {
    * @param path - the append target's own renderer path.
    * @param activeTarget - the destination currently advertised by dnd-kit,
    * or `null` while none is.
-   * @param carriedHeight - how tall the carried block is, or `null`.
    * @param insertTargets - every insertion target a palette drag in
    * progress would accept, or `null` while none is.
    * @returns what `render` returned.
@@ -290,7 +293,6 @@ describe("AppendSlot", () => {
   function renderAppendSlot(
     path: string,
     activeTarget: AppendSlotProps["activeTarget"] = null,
-    carriedHeight: AppendSlotProps["carriedHeight"] = null,
     insertTargets: AppendSlotProps["insertTargets"] = null,
   ) {
     return render(
@@ -298,7 +300,6 @@ describe("AppendSlot", () => {
         <AppendSlot
           path={path}
           activeTarget={activeTarget}
-          carriedHeight={carriedHeight}
           insertTargets={insertTargets}
         />
       </DndContext>,
@@ -329,11 +330,14 @@ describe("AppendSlot", () => {
     expect(screen.getByTestId("canvas-drop-place")).toBeInTheDocument();
   });
 
-  it("sizes the mark from carriedHeight when a real block is being carried", () => {
-    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, 64);
-    expect(screen.getByTestId("canvas-drop-place")).toHaveStyle({
-      height: "64px",
-    });
+  it("draws a place mark with no size of its own; the reservation below is the slot's box", () => {
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, [
+      { path: [0, 2] },
+    ]);
+    const mark = screen.getByTestId("canvas-drop-place");
+    expect(mark).not.toHaveAttribute("style");
+    expect(mark).not.toHaveClass("min-h-12");
+    expect(mark).toHaveClass("inset-0");
   });
 
   it('still draws whatever kind activeTarget carries, verifying the value is not hardcoded to "place"', () => {
@@ -348,28 +352,28 @@ describe("AppendSlot", () => {
   // positioned and contributes nothing to its parent's box.** These four
   // cases pin the reservation independently of every drawing case above.
   it("reserves no height while no palette drag is in progress", () => {
-    renderAppendSlot("0-2", null, null, null);
+    renderAppendSlot("0-2", null, null);
     expect(screen.getByTestId("canvas-append-slot")).not.toHaveClass(
       "min-h-12",
     );
   });
 
   it("reserves no height when insertTargets never names this exact path", () => {
-    renderAppendSlot("0-2", null, null, [{ path: [0, 1] }]);
+    renderAppendSlot("0-2", null, [{ path: [0, 1] }]);
     expect(screen.getByTestId("canvas-append-slot")).not.toHaveClass(
       "min-h-12",
     );
   });
 
   it("reserves height when insertTargets names this exact path, even though nothing is drawn", () => {
-    renderAppendSlot("0-2", null, null, [{ path: [0, 2] }]);
+    renderAppendSlot("0-2", null, [{ path: [0, 2] }]);
     const slot = screen.getByTestId("canvas-append-slot");
     expect(slot).toHaveClass("min-h-12");
     expect(screen.queryByTestId("canvas-drop-place")).toBeNull();
   });
 
   it("reserves height AND draws the mark together when both name this exact path", () => {
-    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, null, [
+    renderAppendSlot("0-2", { kind: "place", path: [0, 2] }, [
       { path: [0, 2] },
     ]);
     const slot = screen.getByTestId("canvas-append-slot");
