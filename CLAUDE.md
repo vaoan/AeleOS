@@ -66,7 +66,8 @@ Run everything from the repository root, never from `apps/hub`.
   `pnpm check:agent-notes`, `pnpm check:schema-drift`, `pnpm check:contrast`
 - `pnpm test:db` (resets the local Supabase stack from the migrations),
   `pnpm --filter hub test:e2e` (source `.secrets` first or half of it skips)
-- `pnpm report:instructions` (what the instruction files cost per session)
+- `pnpm report:instructions` (what the instruction files cost per session;
+  `sessions: 0` on a fresh clone, since the log is git-ignored)
 
 ## Where the rules live
 

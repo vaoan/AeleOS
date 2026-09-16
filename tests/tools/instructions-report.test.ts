@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   readLog,
   readLogReport,
+  render,
   summarise,
 } from "../../scripts/instructions-report.mjs";
 
@@ -69,6 +70,35 @@ describe("summarise", () => {
       "/r/a.md",
       "/r/z.md",
     ]);
+  });
+});
+
+describe("render", () => {
+  it("prints sessions: 0 and empty tables for an empty log, never NaN", () => {
+    const text = render(summarise([]));
+    expect(
+      text.startsWith("sessions: 0\ninstruction tokens per session: 0\n"),
+    ).toBe(true);
+    expect(text).not.toContain("NaN");
+    expect(text).not.toContain("skipped");
+  });
+
+  it("lays out the reason and file tables", () => {
+    const text = render(
+      summarise([line("a", "session_start", "/r/CLAUDE.md", 30)]),
+    );
+    expect(text).toContain("by reason:\n  10\tsession_start\n");
+    expect(text).toContain(
+      "by file (tokens, sessions):\n  10\t1\t/r/CLAUDE.md\n",
+    );
+  });
+
+  // The footer is the one branch `main` alone could reach; a clean log must
+  // not mention it, and a dirty one must say how dirty.
+  it("adds the skipped footer only when something was skipped", () => {
+    const summary = summarise([]);
+    expect(render(summary, 0)).not.toContain("skipped malformed lines");
+    expect(render(summary, 2)).toContain("\nskipped malformed lines: 2\n");
   });
 });
 

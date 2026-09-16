@@ -17,7 +17,31 @@ import {
   ruleGlobs,
   ruleIndex,
   rulePaths,
+  trackedFiles,
 } from "../../scripts/check-agent-notes.mjs";
+
+/**
+ * Runs a case with the caller's own git redirection unset, so a throwaway
+ * repository built under `tmpdir()` is the one git answers about. `GIT_DIR`
+ * or `GIT_WORK_TREE` in the environment would silently point every git call
+ * inside `run` at somebody else's repository, which is the shape of flake
+ * this suite tolerates least.
+ *
+ * @param run - the case body.
+ */
+const withoutGitEnv = (run: () => void) => {
+  const keys = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] as const;
+  const held = keys.map((key) => [key, process.env[key]] as const);
+  for (const key of keys) delete process.env[key];
+  try {
+    run();
+  } finally {
+    for (const [key, value] of held) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+};
 
 describe("classifyNote", () => {
   it("reads ordinary prose as a note", () => {
@@ -259,14 +283,46 @@ describe("ruleGlobProblems", () => {
     const paths = rulePaths(process.cwd());
     expect(paths.length).toBeGreaterThan(0);
     const index = ruleIndex(paths, (file) => readFileSync(file, "utf8"));
-    const files = execFileSync(
-      "git",
-      ["ls-files", "--cached", "--others", "--exclude-standard"],
-      { cwd: process.cwd(), encoding: "utf8" },
-    )
-      .split("\n")
-      .filter((line) => line !== "");
-    expect(ruleGlobProblems(index, files)).toEqual([]);
+    expect(ruleGlobProblems(index, trackedFiles(process.cwd()))).toEqual([]);
+  });
+});
+
+describe("trackedFiles", () => {
+  it("lists the files git would let reach a commit, repository-relative", () => {
+    const files = trackedFiles(process.cwd());
+    expect(files).toContain("package.json");
+    expect(files).toContain("scripts/check-agent-notes.mjs");
+    expect(files.every((file) => !file.startsWith("/"))).toBe(true);
+  });
+
+  it("lists an untracked file .gitignore does not exclude", () => {
+    withoutGitEnv(() => {
+      const dir = mkdtempSync(join(tmpdir(), "tracked-files-"));
+      try {
+        execFileSync("git", ["init", "--quiet"], { cwd: dir });
+        writeFileSync(join(dir, ".gitignore"), "ignored.txt\n");
+        writeFileSync(join(dir, "ignored.txt"), "no\n");
+        writeFileSync(join(dir, "fresh.txt"), "yes\n");
+        const files = trackedFiles(dir);
+        expect(files).toContain("fresh.txt");
+        expect(files).not.toContain("ignored.txt");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  // A gate that cannot enumerate must not report success: outside a
+  // repository the throw is the answer, never an empty list.
+  it("throws outside a repository rather than answering []", () => {
+    withoutGitEnv(() => {
+      const dir = mkdtempSync(join(tmpdir(), "not-a-repo-"));
+      try {
+        expect(() => trackedFiles(dir)).toThrow();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 });
 
@@ -278,17 +334,19 @@ describe("rulePaths", () => {
   });
 
   it("returns [] in a directory with no .claude/rules", () => {
-    const dir = mkdtempSync(join(tmpdir(), "no-rules-"));
-    try {
-      execFileSync("git", ["init", "--quiet"], { cwd: dir });
-      execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: dir });
-      mkdirSync(join(dir, "src"), { recursive: true });
-      writeFileSync(join(dir, "src", "x.ts"), "export {};\n");
-      execFileSync("git", ["add", "-A"], { cwd: dir });
-      expect(rulePaths(dir)).toEqual([]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    withoutGitEnv(() => {
+      const dir = mkdtempSync(join(tmpdir(), "no-rules-"));
+      try {
+        execFileSync("git", ["init", "--quiet"], { cwd: dir });
+        execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: dir });
+        mkdirSync(join(dir, "src"), { recursive: true });
+        writeFileSync(join(dir, "src", "x.ts"), "export {};\n");
+        execFileSync("git", ["add", "-A"], { cwd: dir });
+        expect(rulePaths(dir)).toEqual([]);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 });
 
