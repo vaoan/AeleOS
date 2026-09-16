@@ -216,7 +216,12 @@ describe("EditableBlockFrame", () => {
     expect(screen.queryByTestId("canvas-drop-returning")).toBeNull();
   });
 
-  it("sizes the mark from carriedHeight when a real block is being carried", () => {
+  // **`before`/`after` are a fixed-thickness bar now (2026-09-13) and never
+  // read `carriedHeight` at all** — see `drop-mark.tsx`'s own header for why
+  // the ghost-slot design that used to size a gap mark from the carried
+  // block was reversed. `place` is the one kind still sized this way; see
+  // the case below.
+  it("draws the identical bar for a gap mark whether or not a height was measured", () => {
     renderFrame({
       path: "0-1",
       editorProps: {
@@ -224,20 +229,36 @@ describe("EditableBlockFrame", () => {
         carriedHeight: 64,
       },
     });
-    expect(screen.getByTestId("canvas-drop-before")).toHaveStyle({
+    expect(screen.getByTestId("canvas-drop-before")).not.toHaveAttribute(
+      "style",
+    );
+    expect(screen.getByTestId("canvas-drop-before").className).toContain(
+      "h-1.5",
+    );
+  });
+
+  it("sizes a place mark from carriedHeight when a real block is being carried", () => {
+    renderFrame({
+      path: "0-1",
+      editorProps: {
+        activeTarget: { kind: "place", path: [0, 1] },
+        carriedHeight: 64,
+      },
+    });
+    expect(screen.getByTestId("canvas-drop-place")).toHaveStyle({
       height: "64px",
     });
   });
 
-  it("leaves the mark unsized when nothing can be measured, as for a palette drag", () => {
+  it("leaves a place mark unsized when nothing can be measured, as for a palette drag", () => {
     renderFrame({
       path: "0-1",
       editorProps: {
-        activeTarget: { kind: "before", path: [0, 1] },
+        activeTarget: { kind: "place", path: [0, 1] },
         carriedHeight: null,
       },
     });
-    expect(screen.getByTestId("canvas-drop-before")).not.toHaveAttribute(
+    expect(screen.getByTestId("canvas-drop-place")).not.toHaveAttribute(
       "style",
     );
   });

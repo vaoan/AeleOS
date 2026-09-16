@@ -23,9 +23,21 @@
  * its own index, and it reports that directly rather than being inferred from
  * bytes a pipeline may have already converted.
  *
- * **Only `crlf` and `mixed` fail.** A binary file reports `i/-text` and is not
- * a finding; treating "anything that is not lf" as an offence would fail every
- * PNG in the repository.
+ * **`crlf` and `mixed` fail, and so does `-text` on a file the attributes
+ * declare text.** A binary file reports `i/-text` and is not a finding on its
+ * own; treating "anything that is not lf" as an offence would fail every PNG
+ * in the repository. But `i/-text` beside `attr/text` is a contradiction: git
+ * was told the file is text and still classed the blob as binary, which it
+ * does for exactly one kind of text — a file whose line endings are lone
+ * carriage returns. That is the state the first version of this gate waved
+ * through on 2026-09-13: `prettier` under `endOfLine: "auto"` met one stray
+ * `\r` inside a code span of `CLAUDE.md`, guessed the whole file was
+ * CR-terminated, rewrote all 3,648 newlines as `\r`, and the blob went into
+ * the index with no LF in it. `wc -l` said 0; this gate said clean, because a
+ * lone-CR blob is `-text` to git and `-text` was excused without asking why.
+ * Only an EXPLICIT `text` attribute counts — `text=auto` delegates the
+ * decision to git's own detection, so `-text` under it is git's honest answer
+ * about a real binary rather than a contradiction.
  *
  * The root `CLAUDE.md` records what CRLF in the index actually costs here:
  * `migra` compares function SOURCE, so a `\r` on every line of a migration
@@ -39,15 +51,31 @@
  */
 import { execFileSync } from "node:child_process";
 
-/** Index line endings that must never reach a commit. */
+/** Index line endings that must never reach a commit, whatever the file. */
 const REFUSED = new Set(["crlf", "mixed"]);
+
+/**
+ * Whether git was told outright that a file is text.
+ *
+ * `text=auto` is not that: it asks git to decide from the bytes, so a `-text`
+ * verdict under it is git's answer rather than a contradiction of ours.
+ *
+ * @param attr - the `attr/` column as `git ls-files --eol` prints it, e.g.
+ *   `text eol=lf`, `text=auto eol=lf`, `-text`, or `` when nothing applies.
+ * @returns true only for an explicit, unqualified `text` attribute.
+ */
+function declaredText(attr) {
+  return attr.split(/\s+/).includes("text");
+}
 
 /**
  * What git reports about every tracked file's line endings.
  *
  * @param cwd - the repository to ask. Defaults to the process's directory.
- * @returns one entry per tracked file, its `index` being git's own `i/` value
- *   — `lf`, `crlf`, `mixed`, or `-text` for something git treats as binary.
+ * @returns one entry per tracked file: `index` is git's own `i/` value — `lf`,
+ *   `crlf`, `mixed`, `none` for a file with no line ending at all, or `-text`
+ *   for a blob git classes as binary — and `attr` is the `attr/` column
+ *   verbatim, empty when no attribute applies.
  * @throws whatever `git` throws when it is absent or the directory is not a
  *   repository. A gate that cannot enumerate must not report success.
  */
@@ -62,9 +90,10 @@ export function eolReport(cwd = process.cwd()) {
     if (!line.trim()) continue;
     // `i/lf    w/lf    attr/text eol=lf      	path/with spaces.ts`
     const index = /(?:^|\s)i\/(\S+)/.exec(line)?.[1];
+    const attr = /(?:^|\s)attr\/([^\t]*)/.exec(line)?.[1]?.trim() ?? "";
     const path = line.split("\t").slice(1).join("\t").trim();
     if (!index || !path) continue;
-    entries.push({ path, index });
+    entries.push({ path, index, attr });
   }
   return entries;
 }
@@ -73,10 +102,16 @@ export function eolReport(cwd = process.cwd()) {
  * The entries a commit must not carry.
  *
  * @param entries - as {@link eolReport} answers them.
- * @returns those whose index copy is `crlf` or `mixed`, in the order given.
+ * @returns those whose index copy is `crlf` or `mixed`, plus those git classes
+ *   `-text` while an explicit `text` attribute says otherwise — a lone-CR
+ *   file, in practice. In the order given.
  */
 export function offenders(entries) {
-  return entries.filter((entry) => REFUSED.has(entry.index));
+  return entries.filter(
+    (entry) =>
+      REFUSED.has(entry.index) ||
+      (entry.index === "-text" && declaredText(entry.attr)),
+  );
 }
 
 /** Runs the gate, reporting every refused file before exiting non-zero. */
@@ -85,14 +120,26 @@ function main() {
   const bad = offenders(entries);
   if (bad.length > 0) {
     console.error(
-      `check:line-endings — ${bad.length} file(s) would be committed with CRLF:`,
+      `check:line-endings — ${bad.length} file(s) would be committed with the wrong line endings:`,
     );
-    for (const entry of bad) console.error(`  ${entry.index}\t${entry.path}`);
+    for (const entry of bad) {
+      const why =
+        entry.index === "-text"
+          ? "-text (declared text, but git sees no LF — lone CR endings?)"
+          : entry.index;
+      console.error(`  ${why}\t${entry.path}`);
+    }
     console.error(
       "\nThe index is what ships. Re-normalise with `git add --renormalize .`,",
     );
     console.error(
       "and check the file's own attributes if it keeps coming back.",
+    );
+    console.error(
+      "A `-text` finding is not fixed by renormalising: git will not touch a blob",
+    );
+    console.error(
+      "it classes as binary. Rewrite the file's line endings as LF and re-add it.",
     );
     process.exit(1);
   }

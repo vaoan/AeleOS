@@ -38,6 +38,10 @@ import { DropMark } from "@/features/actors/presentation/drop-mark";
  * block is landing — this names where the block it displaces goes back to,
  * `null` for a move onto an empty place or for any palette drag, which
  * displaces nothing.
+ *
+ * **`carriedHeight` is read only for a `place` mark (2026-09-13).** A
+ * `before`/`after` gap mark is a fixed-thickness bar now and never reads it;
+ * the field stays because `place` still sizes itself from it.
  */
 export interface EditableBlockInstrumentation {
   /** The selected block, in the renderer's hyphenated path form. */
@@ -49,8 +53,14 @@ export interface EditableBlockInstrumentation {
   /**
    * How tall the block being carried is, in pixels, or `null` when nothing
    * can be measured — every palette drag, since the block does not exist
-   * yet. Threaded so the mark is the size of the real landing rather than a
-   * fixed guess.
+   * yet.
+   *
+   * **Read only for a `place` mark (2026-09-13).** A `before`/`after` gap
+   * mark is a fixed-thickness insertion bar now, not a ghost of the carried
+   * block, and never reads this field — see `drop-mark.tsx`'s own header
+   * for the reversal. `place` still fills its host at the size of the real
+   * landing rather than a fixed guess, which is what this field still
+   * threads for.
    */
   readonly carriedHeight: number | null;
   /**
@@ -95,8 +105,10 @@ export interface EditableBlockFrameProps {
  * drag's alike, both published by `block-editor.tsx`'s `onDragOver` — so
  * drawing every candidate as well would be a second opinion about the same
  * question, and it is what made the mark unobservable in jsdom (`isOver` is
- * never set there). The mark is a {@link DropMark}, sized from
- * `editor.carriedHeight` when there is a real block to measure.
+ * never set there). The mark is a {@link DropMark}: a fixed-thickness bar
+ * for a `before`/`after` gap (2026-09-13, reversing the ghost-slot design —
+ * see `drop-mark.tsx`'s own header), or a ghost sized from
+ * `editor.carriedHeight` for a `place` landing, unchanged.
  *
  * **A swap draws a SECOND mark, the other end of the same exchange
  * (2026-09-11).** `editor.returningPath` names the place the displaced block
@@ -216,6 +228,9 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
  * rather than restored on suspicion, for a second purpose that has nothing
  * to do with drawing — see this interface's own field doc and
  * {@link AppendSlot}'s.
+ *
+ * **`carriedHeight` is read only for a `place` mark (2026-09-13)**; a gap
+ * mark is a fixed-thickness bar and ignores it.
  */
 export interface AppendSlotProps {
   /**
@@ -244,7 +259,10 @@ export interface AppendSlotProps {
   /**
    * How tall the carried block is, in pixels, or `null` when nothing can be
    * measured — every palette drag, since the block does not exist yet.
-   * Forwarded straight to {@link DropMark}.
+   * Forwarded straight to {@link DropMark}, which reads it only for the
+   * `place` mark {@link activeTarget}'s own doc says this slot ever draws
+   * (2026-09-13) — a `before`/`after` gap mark is a fixed-thickness bar now
+   * and never reads it.
    */
   readonly carriedHeight: number | null;
   /**

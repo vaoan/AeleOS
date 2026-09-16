@@ -3235,3 +3235,64 @@ the plain one green, which is the pair discriminating.
 reverse a decision written down elsewhere (a skin names no colour; free
 positioning is refused), so closing them belongs to a design pass rather than
 to a gap sweep. The pastiche findings document says which and why.
+
+### A gap mark is a bar, not a ghost (2026-09-13) — the drop-target-legibility reversal
+
+`before`/`after` — the two GAP kinds `DropMark` (`drop-mark.tsx`) draws — are a
+plain insertion bar now, not a ghost of the carried block. This reverses the
+"ghost slot" option the drop-target-legibility design chose deliberately over
+a plain bar, having weighed and accepted its known cost in advance: the owner
+has since seen that cost photographed and chosen the fallback the design's
+own §4 already named for exactly this. `place` is untouched — see below.
+
+**The cost was exactly what §4 predicted and it is what changed the
+decision, not a new argument.** A ghost is an overlay; an overlay takes up no
+space; a mark that takes up no space does not part its neighbours, so it sat
+OVER whichever block was nearest the boundary and read as "this lands ON
+that block" rather than "this lands BETWEEN the two". A bar has no interior
+to read as landing on anything — it cannot overlap because it draws nothing
+between its own thin edges.
+
+**Only `before`/`after` moved. `place` is unchanged, and that split is the
+whole point of keeping two kinds in the vocabulary at all.** A `place` mark's
+landing genuinely IS the place — an empty positional slot, or the block a
+swap will exchange with — so filling that box was always the correct
+answer, never the cost this reversal is about. It still reads
+{@link DropMarkProps.height} exactly as before: a real `carriedHeight`
+sizes it to what the block will actually occupy, floored at `min-h-12` only
+when `height` is `null` (every palette drag, which carries no block that
+exists yet to measure).
+
+**`carriedHeight` survives the reversal, and very nearly did not.** It was
+threaded solely to size the ghost, so a bar with a fixed thickness has no
+use for it at all — and `before`/`after` genuinely stopped reading it. But
+`place` still needs it for the reason above, and `EditableBlockInstrumentation.carriedHeight`,
+`AppendSlotProps.carriedHeight` and `block-editor.tsx`'s `carriedHeightRef`
+all serve `place` as much as they ever served the two gap kinds — dropping
+any of them would have changed `place`'s behaviour, which nothing here was
+asked to touch. What changed is narrower and is stated where each field is
+declared now: `height` is read only for `place`.
+
+**The bar keeps every invariant the ghost had, because nothing about being
+an overlay changed.** `pointer-events-none`, `absolute`, `z-20`,
+`CHROME_SCOPE`, and the same `-translate-y-1/2`/`translate-y-1/2` straddling
+the boundary rather than sitting inside either neighbour — all of it stays,
+because the reason for each was never about the ghost's shape. It is still
+drawn only for the single winning target, and the append-slot's own
+`min-h-12` HITTABILITY reservation (`AppendSlot`, computed once at drag
+start from `insertTargets` membership) is untouched — that is a real,
+in-flow box guaranteeing a rectangle for dnd-kit to land a pointer on, a
+question independent of what gets drawn inside it.
+
+**The e2e boundary-straddle math (`drop-mark-matches-landing.spec.ts`) holds
+with a 6px bar exactly as it did with a ~48px ghost**, because it was never
+about the mark's size — `-translate-y-1/2` puts the mark's own top edge at
+half ITS OWN height above the neighbour, whatever that height is, so the
+assertion `Math.abs(straddle - mark.height / 2) < 2` is dimension-agnostic
+by construction. Verified against a real run rather than assumed, per this
+branch's own instruction to check rather than reason about it.
+
+See `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md` §4
+for the full record of both decisions — the original acceptance of the
+ghost's cost, and the dated addendum recording the reversal and why the
+original reasoning is kept rather than deleted.

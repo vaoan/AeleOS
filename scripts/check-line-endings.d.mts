@@ -12,10 +12,17 @@ export interface EolEntry {
   /** Repository-relative path, slash-separated as git reports it. */
   readonly path: string;
   /**
-   * Git's own `i/` value — `lf`, `crlf`, `mixed`, or `-text` for something it
-   * treats as binary.
+   * Git's own `i/` value — `lf`, `crlf`, `mixed`, `none` for a file with no
+   * line ending at all, or `-text` for a blob it classes as binary.
    */
   readonly index: string;
+  /**
+   * The `attr/` column verbatim — `text eol=lf`, `text=auto eol=lf`, `-text`
+   * — or empty when no attribute applies to the path. Read beside `index`,
+   * because `-text` means one thing under `text=auto` (git detected a binary)
+   * and another under an explicit `text` (a text file with lone-CR endings).
+   */
+  readonly attr: string;
 }
 
 /**
@@ -35,10 +42,13 @@ export declare function eolReport(cwd?: string): EolEntry[];
 /**
  * The entries a commit must not carry.
  *
- * A binary file reports `-text` and is deliberately NOT a finding; only `crlf`
- * and `mixed` are refused.
+ * `crlf` and `mixed` are refused outright. `-text` is refused only when the
+ * path carries an explicit `text` attribute — git was told the file is text
+ * and still found no LF in it, which is a lone-CR file. Under `text=auto`,
+ * `-text`, or no attribute at all, `-text` is git's own verdict on a real
+ * binary and is deliberately NOT a finding.
  *
  * @param entries - as {@link eolReport} answers them.
- * @returns those whose index copy is `crlf` or `mixed`, in the order given.
+ * @returns the refused entries, in the order given.
  */
 export declare function offenders(entries: readonly EolEntry[]): EolEntry[];

@@ -155,6 +155,41 @@ plain insertion bar the canvas path already draws — is already written
 down for whoever decides the trade no longer holds. It is not, on its own,
 a bug to patch quietly.
 
+**The trade no longer holds, and this is the record of that reversal
+(2026-09-13).** The owner reviewed the photographed cost above and chose
+option A. `before`/`after` are drawn as a plain insertion bar now — full
+width of the host, a fixed `h-1.5` thickness, `rounded-full`,
+`bg-(--accent)`, still translated by half its own height so it sits ON the
+boundary rather than inside either neighbour, still absolutely positioned
+and `pointer-events-none` so nothing a drag measures moves mid-drag. A bar
+has no interior, so it cannot read as landing ON a neighbour the way the
+ghost did — it simply cannot overlap anything, because it draws nothing
+between its own thin edges.
+
+**This does not reopen the choice between B and C above, and does not touch
+`place`.** The refusal of option B — a gap that genuinely parts, reflowing
+the canvas — stands exactly as argued in this section: nothing a drag
+measures may move mid-drag, whichever mark is drawn on top of it. `place`
+still draws the ghost-of-the-carried-block described at the top of this
+section, unchanged, because there the landing genuinely IS the place — an
+empty positional slot, or the block a swap will exchange with — and filling
+that box was always correct, never the cost this section is about. Only
+`before`/`after`, the gap-between marks, move from C to A.
+
+**The original reasoning above is kept, not deleted, because it is what the
+next person reuses.** Option A was refused the first time as "not
+distinctive enough for fault 4" — a person must see, unmistakably, which
+spot is about to receive the block. That argument was weighed against
+option C's own cost and C was chosen anyway, on the belief the ghost's
+extra distinctiveness was worth the overlap it produced. What changed is
+not the argument; it is the measured outcome once real content sat on both
+sides of a real boundary — the overlap reads as landing ON a block, which is
+the more damaging misread of the two, so the trade the first decision made
+no longer holds. A thin, unmissable, full-width accent bar still answers
+fault 4 on its own terms: it is louder than the page around it, and unlike
+the ghost it cannot be mistaken for highlighting a neighbour, because it has
+no area to share with one.
+
 ## 5. Decision: the carried block is visible
 
 `DragOverlay` carries a compact preview — the palette thumbnail when adding,
