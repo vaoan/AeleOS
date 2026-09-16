@@ -22,3 +22,4 @@ Loaded when hub source or a component test is read. Each line is the rule; the l
   rules those history sections carried now live in
   `.claude/rules/editor-domain.md`, `editor-application.md` and
   `editor-presentation.md` rather than here.
+- **Drop-target legibility (2026-09-07 → 09-13) is ruled in the layer files, not here.** The gap vocabulary `before`/`after`/`place`, the one-winner rule, the out-of-flow mark and the bar that replaced the gap ghost are bullets in `.claude/rules/editor-presentation.md` and `editor-domain.md`; the seven task accounts and the reversal are the last sections of `apps/hub/src/features/actors/HISTORY.md`.

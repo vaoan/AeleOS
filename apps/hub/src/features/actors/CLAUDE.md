@@ -42,7 +42,10 @@ built states its own contract in TSDoc, where `pnpm check:docs` keeps it
 honest; what follows is the addressing model the next migration and the public
 page must implement, and the traps that model creates. The feature's dated
 account lives in `HISTORY.md` beside this file (moved 2026-09-15), and its
-standing rules in `.claude/rules/editor-*.md`.
+standing rules in `.claude/rules/editor-*.md`. The drop-target-legibility
+work (2026-09-07 → 09-13) is the last eight sections of that history: a
+drop is marked by one `before`/`after`/`place` mark for the single winning
+target, drawn out of flow, and the gap kinds are a bar rather than a ghost.
 
 The schema itself is owned by `supabase/migrations/` at the repository root,
 not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and
