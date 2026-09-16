@@ -37,29 +37,12 @@ superseded spec's banner claiming unwritten phases that had already landed.
 
 ---
 
-**This note is split by layer (2026-09-12).** `apps/hub/src/features/actors/CLAUDE.md`
-(this file) held the addressing model and every layer's own account in one
-7,770-line, 491,828-byte document, and `scripts/check-agent-notes.mjs` obliges
-whoever changes a file under this feature to update whichever note is
-**nearest** to it — walking up from the changed file's directory, and
-deliberately not falling through. At that size the obligation was
-unfollowable: it put roughly a 170,000-token floor under every task here,
-however small, and it exhausted one agent's context outright this week. So the
-note is now one per layer — `domain/CLAUDE.md`, `application/CLAUDE.md`,
-`presentation/CLAUDE.md` — each holding only that layer's own account, and
-this file keeps only the addressing model and the product rules no single
-layer owns. A change under `presentation/` now obliges
-`presentation/CLAUDE.md`, a few KB, rather than the whole thing.
-`infrastructure/` gets no note of its own — nothing in the current file is
-about it, and a note should exist because there is something to say — so its
-changes fall up to this one.
-
----
-
 This note constrains code that **does not exist yet**. Everything already
 built states its own contract in TSDoc, where `pnpm check:docs` keeps it
 honest; what follows is the addressing model the next migration and the public
-page must implement, and the traps that model creates.
+page must implement, and the traps that model creates. The feature's dated
+account lives in `HISTORY.md` beside this file (moved 2026-09-15), and its
+standing rules in `.claude/rules/editor-*.md`.
 
 The schema itself is owned by `supabase/migrations/` at the repository root,
 not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and
@@ -344,6 +327,337 @@ So `unlisted` protects the address, not the association. A character that must
 be genuinely unlinkable stays `private`. Do not describe `unlisted` to a user
 as if it hid the connection.
 
+## Blocks: a container arranges, a leaf holds content
+
+A page used to be a flat array of sections, each with a `type`, and **that type
+decided two unrelated things at once**: how the section's children were
+arranged, and what kind of thing each child was. `gallery` was a grid _of
+pictures_ and `links` a list _of links_, so every new idea had to become
+another welded pair — and "a player beside a paragraph beside a table" was not
+merely unsupported but unrepresentable, because every item in a section
+rendered identically.
+
+A page is a **tree of blocks** now, and the two axes are separate.
+
+- A **container** decides arrangement and nothing else. It holds children and
+  lays them out in a `mode`.
+- A **leaf** is one piece of content, rendered on its own `kind`'s terms. A
+  container may hold leaves of different kinds side by side, which is exactly
+  what the welded types could not express.
+- **A section is a container at depth 0 that carries a name.** That is what
+  collapses two parallel models into one — one style bag, one renderer, one
+  validator, and one editor component when phase 3 writes it. A container
+  further down may name itself too; an unnamed one is a group with no heading,
+  which is the ordinary case for a container inside another and the only honest
+  rendering, since inventing a heading would put words on somebody's page that
+  they did not write.
+
+`domain/block-schema.ts` is the vocabulary. The renderer is **four files now
+(2026-08-27)**, and the split is worth knowing before you go looking:
+
+- `presentation/block-contract.ts` — `PageContext`, `LeafProps`, `LeafRenderer`
+  and the surfaces every kind shares. **Nothing here renders**, which is what
+  lets a kind's module import it with no cycle.
+- `presentation/blocks.tsx` — what ARRANGES blocks: the container modes, the
+  page shell, and the `LEAVES` / `MODES` registries.
+- `presentation/text-leaves.tsx` — the kinds made of an author's own WORDS:
+  `text`, `quote`, `stat`, `progress`, `table`. None of them reaches a network.
+- `presentation/media-leaves.tsx` — the kinds that show something hosted
+  ELSEWHERE: `picture`, `embed`, `player`, `jukebox`. The provider allowlist and
+  the frame tables are consumed here and nowhere else among the leaves.
+- `presentation/link-leaves.tsx` — the two that POINT somewhere without showing
+  it: `link` and `social`. They always draw a control, whatever host was pasted.
+- `presentation/identity-leaves.tsx` — the five that draw the ACTOR.
+
+It was one 2,333-line file until the kinds moved out; `blocks.tsx` is 1,367 now
+and the largest leaf module is 449 lines.
+
+**The grouping is by what a kind REACHES, not by what it looks like**, and that
+is the line worth keeping: a change to the embed allowlist cannot reach
+`text-leaves.tsx`, and nothing in `link-leaves.tsx` resolves a provider. Card
+shape would have grouped `stat` with `link` and taught you nothing.
+
+**Splitting them made two fallbacks visible that were three calls inside one
+file.** `PictureLeaf` degrades to `PlainLeaf` when an address will not pass
+`safeHttpUrl`, and `EmbedLeaf` degrades to `SocialLeaf` when no provider claims
+it — so `media` imports `text` and `link`, and neither imports back. A DAG, and
+`madge` says so.
+
+Nothing about the enforcement changed: `satisfies Record<LeafKind, LeafRenderer>`
+still sits on the registry, so a kind with no renderer is a build failure.
+
+This note says what the model IS; their TSDoc says what each piece does and does
+not do, and between them they are longer than this section, for a reason.
+
+### Nothing was thrown away — every old type is somewhere in here
+
+The old list was a flattened cross-product, so unwelding it expands what is
+expressible by more than another welded pair ever could while losing none of
+the work. Somebody looking for `gallery` should find this table rather than
+conclude it was dropped.
+
+| the old `type`   | what it is now                                                |
+| ---------------- | ------------------------------------------------------------- |
+| `cards`          | a `grid` container                                            |
+| `gallery`        | a `grid` container holding `picture` leaves                   |
+| `masonry`        | a `masonry` container                                         |
+| `carousel`       | a `carousel` container                                        |
+| `tabs`           | a `tabs` container                                            |
+| `accordion`      | an `accordion` container                                      |
+| `timeline`       | a `timeline` container                                        |
+| `links`          | any container holding `link` leaves                           |
+| `socials`        | any container holding `social` leaves                         |
+| `posts`          | any container holding `embed` leaves                          |
+| `video`, `music` | `embed` leaves — NOT `player`, which means something else now |
+| `stats`          | `stat` leaves                                                 |
+| `quote`          | `quote` leaves                                                |
+| `progress`       | `progress` leaves                                             |
+| `two-column`     | a `table` leaf — or a `stat` leaf, for a single pair          |
+
+What the old list had no entry for at all, and the model now admits without a
+new layout: a `text` leaf for a paragraph of prose, and a `table` leaf for the
+thing the request actually asked for.
+
+**`two-column` is the one row that changed shape rather than moving**, and it
+is worth reading rather than skimming, because it is the row the decomposition
+originally got wrong. It said "container, paired-column mode" — filing a
+CONTENT concern as an arrangement. What made that layout worth having was never
+the two columns: it was the PAIRING, a `<dl>` whose `dt` and `dd` a screen
+reader announces together, dropping a whole row when its localised value is
+empty rather than rendering half of one. That is a property of what an item IS,
+so it belongs to `stat` (one pair) and `table` (many). Two columns of PROSE, if
+anybody ever wants them, are a style key — `align: "stretch" | "start"` — which
+composes with every mode instead of being welded to one.
+
+**The drop rule came with the pairing, and one half of it deliberately
+inverts.** A row whose localised value is empty still disappears entirely,
+label and all: a `dt` with no `dd` is invalid markup, and because the value is
+read AFTER `contentFor` has chosen a language, a row written in one language
+only is a row for readers of that language. But where the flat layout then
+dropped the whole list — correctly, since an item was one row among others and
+dropping it closed the gap — **a leaf must not.** A block sits in a grid track
+its author deliberately placed it in, so a leaf that vanished would leave a
+hole nothing on the page explains. `stat` and `table` drop the pair or the row
+and then fall back to the plain leaf, which shows the author's own words. Never
+nothing, and never a bordered box with nothing in it either.
+
+### The container modes
+
+| mode        | the mechanism it earns its place by                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stack`     | the resting state — children down the page, arranging nothing                                                                                     |
+| `grid`      | uniform tracks: `repeat(<spaces>, minmax(0, 1fr))`, filled row by row                                                                             |
+| `masonry`   | CSS multi-column, which has no rows at all, so a short item is followed by whatever comes next instead of waiting for the tallest one beside it   |
+| `carousel`  | scrolls sideways, at every width                                                                                                                  |
+| `tabs`      | one panel at a time — a radio group and `:checked`, so it stays a server component and every panel is reachable by keyboard with nothing hydrated |
+| `accordion` | disclosures, every one openable at once, where `tabs` is a switcher                                                                               |
+| `timeline`  | a sequence, marked and ordered                                                                                                                    |
+
+**A mode earns its place by a mechanism none of the others has, not by another
+set of numbers** — the same bar the layout list always set itself. What is new
+is a way of applying that bar which does not depend on arguing about
+mechanisms. `columns` was in this list and **was removed before anything could
+store one**, and it failed in a way nobody had to debate: three consecutive
+tasks wrote down three different meanings for it. `block-schema.ts` said it
+laid uniform tracks exactly as `grid` does; `0009` said **`grid` fills them
+across and `columns` down** — a real mechanism, column-major fill order, which
+nothing else has and which was never implemented; and the renderer shipped the
+same grid as `grid` with `items-start`. **A vocabulary entry whose meaning
+three consecutive authors cannot state the same way twice does not have a
+mechanism — it has a name each of them filled in from context.** That test is
+better than "is there a mechanism" because it is observable. The track count is
+already a PARAMETER of `grid`, so a second mode for it was the welded
+cross-product this model exists to undo, one level down; and `items-start` is a
+dial, which belongs in the style bag where it composes with every mode.
+
+### The leaf kinds
+
+| kind       | what it holds        | `title_*`       | `description_*`   | also reads                 |
+| ---------- | -------------------- | --------------- | ----------------- | -------------------------- |
+| `text`     | a paragraph          | heading         | body              | —                          |
+| `link`     | a button out         | button text     | subtitle          | `link_url`, `icon`         |
+| `picture`  | a picture            | alt text        | caption           | `image_url`                |
+| `embed`    | anybody's embed      | frame title     | caption           | `link_url`, `icon`         |
+| `player`   | a retro media player | player name     | caption           | `rows`, `icon`             |
+| `jukebox`  | a retro music player | player name     | caption           | `rows`, `icon`, `link_url` |
+| `social`   | a branded chip       | chip label      | **not rendered**  | `link_url`, `icon`         |
+| `stat`     | one fact             | **the label**   | **the value**     | —                          |
+| `quote`    | a quotation          | **who said it** | **what was said** | —                          |
+| `progress` | one measured thing   | **the label**   | **the value**     | —                          |
+| `table`    | rows of paired cells | the caption     | a note under it   | `rows`                     |
+| `avatar`   | the actor's portrait | **alt text**    | —                 | the ACTOR                  |
+| `handle`   | what names the actor | a label above   | —                 | the ACTOR                  |
+| `name`     | the display name     | a label above   | —                 | the ACTOR                  |
+| `owner`    | a link to the owner  | the heading     | —                 | the ACTOR                  |
+| `fursonas` | the fursona list     | the heading     | —                 | the ACTOR                  |
+
+**`stat`, `quote` and `progress` invert the pair**, and that is the one thing
+here somebody will get wrong — it has been got wrong once already. Everywhere
+else the title is the big text; in those the description is. The inversion is a
+RENDERING fact and never a schema one: the fields keep their generic names on
+the block, so switching a kind to look at it and switching back finds what was
+typed still there.
+
+`progress` is the kind that additionally tries to READ its value.
+
+### Depth is capped at three, and the database is what enforces it
+
+A section, a container inside it, a container inside that, then leaves.
+`MAX_DEPTH` says so in `block-schema.ts` and `validate_block` in `0009` says so
+again, **with an explicit counter passed down its own recursion**.
+
+The duplication is the design rather than belt-and-braces.
+`actor_profiles.sections` is user-controlled `jsonb`, so an unbounded recursive
+validator over it is a stack whose depth somebody else gets to choose; a cap in
+the editor is a suggestion and a cap in `set_actor_sections` is the guarantee.
+
+**And that is a guarantee only because the write grant on `actor_profiles`
+names its columns.** `authenticated` may `update` exactly `sort_order` and
+`featured`; `sections` and `theme` are reachable only through the two
+`security definer` functions. Before that, PostgREST exposed the table and a
+signed-in person could `PATCH` `sections` on their own row with no cap applied
+at all — the sentence above was a convention wearing a guarantee's words.
+`tests/db/blocks.test.ts` pins it in both directions: the direct write is
+refused, and arranging still works.
+The Zod side is not a walk anybody has to remember to run either — every
+exported schema is built by a factory that threads depth through the recursion,
+so a container at the cap meets an option that fails **by name**, and both
+sides carry that same `TOO_DEEP_MESSAGE` string. Without it, a container one
+level too far is refused for naming a `kind` no leaf has: the editor would tell
+somebody their block kind is invalid and their title is missing, neither of
+which they got wrong. That is the fault class this repo already paid for once,
+when a missing `nuqs` adapter was reported as "we could not load your
+identity".
+
+Three is where two independent costs bite. Beyond it, "where am I" stops being
+answerable at a glance on a phone. And style recalculation is linear in DOM
+size — measured at 15.6 ms on the editor's own DOM, times roughly twelve under
+CPU throttling — which nesting multiplies.
+
+**The cap's arithmetic is the thing to be careful about, not the cap.** Two
+people got it wrong independently and from opposite directions on the branch
+that built this: a leaf's deepest seat is three containers down, and a test
+that nests two and calls itself "at the deepest level" is sitting one level
+above the only place the refusal it exists to prove can happen.
+
+### Embedded media is allowlist-and-rebuild, never pass-through
+
+`domain/embeds.ts` is the whole security model of the media leaves and its
+TSDoc carries the argument in full. The short version, because it must not be
+weakened by somebody who only read this file:
+
+**What somebody pasted never reaches the page.** Every branch parses the
+address, checks the host against an exact set on the parsed `hostname`,
+extracts an id matching a strict pattern, and then BUILDS a new address from a
+fixed template. A hostile value cannot become anything worse than no embed.
+
+**The allowlist itself is a table, `shared/domain/embed-providers.ts`, not a
+chain of branches in `embeds.ts`.** `EMBED_PROVIDERS` holds one entry per
+service — its hosts, its player origin, its `resolve` and its `src` — and
+`embeds.ts` is the lookup over it. `PLAYER_ORIGINS` (in `player-origins.ts`,
+which feeds the CSP's `frame-src` below) is **derived** from that same table
+rather than kept as a second list pinned to it by tests on both sides, so a
+host cannot be allowed in the policy without a provider that builds on it, or
+built without being allowed. Adding another service is one entry in
+`EMBED_PROVIDERS`; nothing else has to be told about it.
+
+A `fast-check` property test,
+`apps/hub/tests/embed-providers-properties.test.ts`, asserts that no
+provider's `resolve` throws, across hundreds of generated hostile paths per
+provider. It exists because a named-case suite already had 100% branch
+coverage on `tidalPath` and still missed a real fault: `TIDAL_KINDS` was a
+plain object once, and indexing it with an untrusted path segment like
+`__proto__` or `constructor` resolved to an inherited, truthy value that
+passed the `!entry` guard and then had no `.id` to call `.test` on — a thrown
+`TypeError` with no case anyone had written that chose such a key. Coverage
+measures which branches ran, not which inputs were tried; the property test
+tries the input nobody thought of, on every provider, so the next one that
+makes the same mistake fails here rather than in production.
+
+- Only `https:` survives, so `javascript:` and `data:` cannot reach a frame and
+  run in this page's origin.
+- Hosts are never matched by prefix or suffix. `youtube.com.evil.example`,
+  `evil-youtube.com` and `https://www.youtube.com@evil.example` all fail — the
+  last one only because the comparison is on the parsed authority. This is the
+  same mistake `return_to` had to avoid in the picker, and it is the same fix.
+- Every query parameter is discarded. Carrying them would let whoever pasted
+  the link set whatever options the provider honours.
+- Any provider whose player takes an address as a parameter rebuilds it from
+  parsed path segments and then encodes it, so a `&` in what somebody pasted
+  cannot add parameters to the widget. SoundCloud and Mixcloud both do —
+  URL-inside-a-URL is not unique to one provider, and a third provider shaped
+  this way inherits the same rule.
+- Anchors go through `safeHttpUrl` and an address that fails renders as plain
+  text. React escapes text, not URL schemes; nothing upstream is catching this.
+- Public links carry `nofollow ugc` as well as `noopener noreferrer`. A page
+  anybody can publish links on has to say so, or it becomes a way to buy
+  ranking.
+- **No frame is granted `autoplay`.** A profile that starts making noise at
+  whoever opened it is the thing people remember most fondly and least
+  accurately about the pages this borrows from.
+
+**There is a second layer now.** `shared/domain/csp.ts` sets a
+Content-Security-Policy on every route whose `frame-src` is built from
+`PLAYER_ORIGINS` — so a frame can only ever point at a player this app can
+produce, even if the resolver were made to build something else. As above,
+that agreement is structural now rather than two lists kept in step by
+tests: `PLAYER_ORIGINS` is derived from `EMBED_PROVIDERS`, so there is only
+ever one list to have gotten wrong.
+
+Read that file before editing the policy. Two things about it are easy to get
+wrong and both fail quietly:
+
+- **Cloudflare Turnstile must stay in `frame-src`.** Clerk frames it for bot
+  protection, and without it the sign-in form renders with an empty box where
+  the challenge should be.
+- **`script-src` carries `'unsafe-inline'`**, because Next inlines its own
+  bootstrap. So the policy is **not** a defence against injected inline script,
+  and it must not be described as though it were. **A nonce was considered and
+  declined**: it forces every page to render dynamically, and the public pages
+  are the ones least worth giving that up for. What guards the surface instead
+  is `html-sinks.test.ts`, which counts every way a string can become markup or
+  script here and fails when a new one appears — there are two, both fed module
+  constants, both asserted to interpolate nothing. The parts that protect
+  something are `frame-src`, `object-src`, `base-uri`, `form-action` and
+  `frame-ancestors`, none of which depend on `script-src`. A nonce is the
+  upgrade, and its cost is that every page renders dynamically.
+
+### `social` accepts anything; `post` and the media leaves do not
+
+`resolveSocial` (`domain/social-links.ts`) is deliberately the opposite of
+`resolveEmbed`. **It accepts any `http(s)` address.** A host in its brand
+table becomes a chip carrying that brand's label, icon and the handle pulled
+from the URL; a host outside the table still becomes a chip, labelled with its
+own hostname rather than dropped. It returns `null` only for an address that
+must not be linked at all — `javascript:`, `data:`, or nothing parseable as a
+URL.
+
+**This is the property that makes the kind worth having, and the one somebody
+will look at and want to "fix" by refusing an unknown host. Do not.** A
+`social` leaf exists precisely so FurAffinity, Toyhouse, Weasyl, Ko-fi,
+itch.io, Bandcamp and ArtStation — and whatever a person links next — all have
+somewhere to go, with no table entry required and nothing that can break.
+Nothing here reaches a frame or executes anything, so tightening this to a
+known-hosts allowlist would not be a security fix; it would just delete the
+kind's reason for existing.
+
+Some services give each person their own subdomain — `luna.itch.io`,
+`luna.bandcamp.com` — which an exact-hostname table cannot brand, because the
+hostname differs for every user. These fall through to the generic chip,
+labelled with their own hostname, and that is a correct outcome, not a gap.
+**Do not "fix" it with suffix matching.** Suffix matching is exactly the
+mistake `resolveEmbed`'s allowlist already refuses, for exactly the same
+reason `return_to` had to avoid it in the picker: `evil-itch.io` and
+`itch.io.evil.example` both look plausible under a suffix rule, and a chip
+that can be spoofed into wearing a brand's name is worse than one labelled
+with its own honest hostname.
+
+A `post` leaf whose address resolves to no provider — Bluesky, always;
+anything else `resolveEmbed` cannot place — renders as a `social` chip, never
+as nothing and never as a bare link. The two kinds share the same chip
+component for exactly this reason: a page that already brands Bluesky as a
+chip on one would be inconsistent showing it unbranded on the other.
+
 ## Things not to do
 
 - **Never put the owner's handle or `actor_ref` in a URL.** The number exists
@@ -417,58 +731,3 @@ outside the per-task panic boundary … please report it` and `Aborting.` —
   to chase the individual failures as regressions — but confirm the panic
   line is actually there before assuming that; a real regression can still
   produce a wide failure spread for its own reasons.
-
-### The public routes have their own barrel (2026-09-03)
-
-`public.ts` is a second barrel over this feature, holding the six symbols
-`/[locale]/[person]` and `/[locale]/[person]/[handle]` render and nothing
-else — `PublicProfile`, `ThemeScope`, `publicName`, `isCustomised`,
-`readPublicPerson`, `readPublicFursona`. Both public routes import it;
-everything else keeps importing `index.ts`.
-
-**It closes the coupling the Motion note above recorded and could not fix in
-its own branch.** `index.ts` re-exports `FursonaEditor`, so a route reaching
-for `PublicProfile` pulled the whole editor graph — react-hook-form, zod,
-`@dnd-kit`, Motion — into its own chunk. Motion is what made that visible
-(+109,155 bytes onto two signed-out pages) and was never the whole of it.
-
-**Measured, uncompressed first-load JS from
-`.next/diagnostics/route-bundle-stats.json`:**
-
-| route                                      |    before |     after |    delta |
-| ------------------------------------------ | --------: | --------: | -------: |
-| `/[locale]/[person]` (+ `/[handle]`)       | 1,943,136 | 1,008,803 | −934,333 |
-| the six editor routes                      | 1,950,813 | 1,950,989 |     +176 |
-| `fursonas` / `sign-in` / `/[locale]` / 404 | unchanged | unchanged |        0 |
-
-Four chunks as well as those bytes: a public route carries 18 where it
-carried 22, and now sits three chunks beyond the shared `/[locale]` set
-where an editor route sits seven. The +176 on the editor routes is this
-file's own bytes. The four unrelated routes read 778,889 / 749,122 /
-738,627 / 452,708 exactly as they always have, which is what says nothing
-moved except what was meant to.
-
-**Do not confirm the absence by grepping a chunk.** `LazyMotion`,
-`hook-form` and `dnd-kit` are all minified out of every chunk on every
-route, public and editor alike — probed, on this build, and the answer is
-"absent" everywhere whether or not the library is there. The byte total and
-the chunk SET are the readings that discriminate.
-
-**Nothing in the boundary graph can hold this.** `eslint.config.mjs` types
-`features/*/{index,public}.ts` as `feature-barrel` — both files, because
-`boundaries` has no way to say "these two routes get the narrow one", and
-leaving `public.ts` untyped would fail `no-unknown-files` instead.
-`apps/hub/tests/public-route-imports.test.ts` is the guard: it reads the two
-route sources and fails when one reaches `@/features/actors`, when either
-deep-imports past a barrel, or when `public.ts` itself re-exports from the
-wide barrel or names an editor module. Its anti-vacuity case asserts the
-route list is two entries long and that each one imports something at all,
-since every other case is about the contents of that list.
-
-**That guard reads STRINGS and a required check is what covers the rest.**
-It cannot tell whether a module named in the barrel exports the symbol
-claimed from it: the first draft named `infrastructure/actor-page` for
-`readPublicPerson`/`readPublicFursona`, which live in
-`infrastructure/public-actors`, and all ten cases were green — `next build`
-is what refused it, `pnpm typecheck` would have too. Root rule 40's shape,
-on a re-export rather than a test file.

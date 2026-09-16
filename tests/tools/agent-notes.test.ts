@@ -1,9 +1,47 @@
 import { describe, expect, it } from "vitest";
 import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import {
   auditChanges,
   classifyNote,
   noteIndex,
+  ruleGlobProblems,
+  ruleGlobs,
+  ruleIndex,
+  rulePaths,
+  trackedFiles,
 } from "../../scripts/check-agent-notes.mjs";
+
+/**
+ * Runs a case with the caller's own git redirection unset, so a throwaway
+ * repository built under `tmpdir()` is the one git answers about. `GIT_DIR`
+ * or `GIT_WORK_TREE` in the environment would silently point every git call
+ * inside `run` at somebody else's repository, which is the shape of flake
+ * this suite tolerates least.
+ *
+ * @param run - the case body.
+ */
+const withoutGitEnv = (run: () => void) => {
+  const keys = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] as const;
+  const held = keys.map((key) => [key, process.env[key]] as const);
+  for (const key of keys) delete process.env[key];
+  try {
+    run();
+  } finally {
+    for (const [key, value] of held) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+};
 
 describe("classifyNote", () => {
   it("reads ordinary prose as a note", () => {
@@ -151,5 +189,215 @@ describe("auditChanges", () => {
 
   it("reports nothing for an empty change set", () => {
     expect(auditChanges([], index())).toEqual({ stale: [], ungoverned: [] });
+  });
+});
+
+describe("ruleGlobs", () => {
+  it("reads the paths list out of frontmatter", () => {
+    const text =
+      '---\npaths:\n  - "supabase/**"\n  - "scripts/check-schema-drift.mjs"\n---\n\n# Migrations\n';
+    expect(ruleGlobs(text)).toEqual([
+      "supabase/**",
+      "scripts/check-schema-drift.mjs",
+    ]);
+  });
+
+  it("answers nothing for a rule with no frontmatter, which loads at launch and governs no path", () => {
+    expect(ruleGlobs("# Always\n\n- rule\n")).toEqual([]);
+  });
+
+  it("answers nothing when the frontmatter is not on line one", () => {
+    expect(ruleGlobs("\n---\npaths:\n  - x\n---\n")).toEqual([]);
+  });
+
+  // A list item is allowed at column 0, not only indented under `paths:`.
+  it("accepts a list item at column 0 as well as an indented one", () => {
+    const text = '---\npaths:\n- "apps/hub/src/**"\n  - "docs/**"\n---\n';
+    expect(ruleGlobs(text)).toEqual(["apps/hub/src/**", "docs/**"]);
+  });
+
+  // The frontmatter ends at the closing `---` only — a line inside the list
+  // that merely looks like a new section must not end it early.
+  it("keeps reading paths up to the closing --- and no earlier", () => {
+    const text =
+      '---\npaths:\n  - "apps/hub/src/**"\n  - "docs/**"\n---\n\n# Rule\n';
+    expect(ruleGlobs(text)).toEqual(["apps/hub/src/**", "docs/**"]);
+  });
+});
+
+describe("ruleGlobProblems", () => {
+  it("reports a rule whose paths: key parsed to zero globs", () => {
+    const index = ruleIndex(
+      [".claude/rules/broken.md"],
+      () => "---\npaths:\n---\n# Broken\n",
+    );
+    const problems = ruleGlobProblems(index, ["apps/hub/src/x.ts"]);
+    expect(problems).toEqual([
+      {
+        rule: ".claude/rules/broken.md",
+        problem: "`paths:` is present but no glob could be parsed out of it",
+      },
+    ]);
+  });
+
+  it("reports a glob that matches no tracked file", () => {
+    const index = ruleIndex(
+      [".claude/rules/typo.md"],
+      () => '---\npaths:\n  - "tests/no-such-dir/**"\n---\n# Typo\n',
+    );
+    const problems = ruleGlobProblems(index, [
+      "tests/tools/agent-notes.test.ts",
+    ]);
+    expect(problems).toEqual([
+      {
+        rule: ".claude/rules/typo.md",
+        problem: 'glob "tests/no-such-dir/**" matches no tracked file',
+      },
+    ]);
+  });
+
+  it("is quiet for a rule with no frontmatter at all", () => {
+    const index = ruleIndex([".claude/rules/always.md"], () => "# Always\n");
+    expect(ruleGlobProblems(index, ["apps/hub/src/x.ts"])).toEqual([]);
+  });
+
+  // A `paths:` key under a `---` that is not on line one parses to no globs
+  // and, read with the same parser, would also read as "no key" — a rule that
+  // never fires and nobody is told. The key is looked for on its own.
+  it("reports a rule whose frontmatter does not start on line one", () => {
+    const index = ruleIndex(
+      [".claude/rules/late.md"],
+      () => '\n---\npaths:\n  - "apps/hub/src/**"\n---\n# Late\n',
+    );
+    expect(ruleGlobProblems(index, ["apps/hub/src/x.ts"])).toEqual([
+      {
+        rule: ".claude/rules/late.md",
+        problem: "`paths:` is present but no glob could be parsed out of it",
+      },
+    ]);
+  });
+
+  // The case guarding all eleven live rule files: every real rule file's
+  // globs must match at least one real tracked file.
+  it("finds zero problems against every real rule file in this repository", () => {
+    const paths = rulePaths(process.cwd());
+    expect(paths.length).toBeGreaterThan(0);
+    const index = ruleIndex(paths, (file) => readFileSync(file, "utf8"));
+    expect(ruleGlobProblems(index, trackedFiles(process.cwd()))).toEqual([]);
+  });
+});
+
+describe("trackedFiles", () => {
+  it("lists the files git would let reach a commit, repository-relative", () => {
+    const files = trackedFiles(process.cwd());
+    expect(files).toContain("package.json");
+    expect(files).toContain("scripts/check-agent-notes.mjs");
+    expect(files.every((file) => !file.startsWith("/"))).toBe(true);
+  });
+
+  it("lists an untracked file .gitignore does not exclude", () => {
+    withoutGitEnv(() => {
+      const dir = mkdtempSync(join(tmpdir(), "tracked-files-"));
+      try {
+        execFileSync("git", ["init", "--quiet"], { cwd: dir });
+        writeFileSync(join(dir, ".gitignore"), "ignored.txt\n");
+        writeFileSync(join(dir, "ignored.txt"), "no\n");
+        writeFileSync(join(dir, "fresh.txt"), "yes\n");
+        const files = trackedFiles(dir);
+        expect(files).toContain("fresh.txt");
+        expect(files).not.toContain("ignored.txt");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  // A gate that cannot enumerate must not report success: outside a
+  // repository the throw is the answer, never an empty list.
+  it("throws outside a repository rather than answering []", () => {
+    withoutGitEnv(() => {
+      const dir = mkdtempSync(join(tmpdir(), "not-a-repo-"));
+      try {
+        expect(() => trackedFiles(dir)).toThrow();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+});
+
+describe("rulePaths", () => {
+  it("returns the tracked rule files", () => {
+    const paths = rulePaths(process.cwd());
+    expect(paths).toContain(".claude/rules/testing.md");
+    expect(paths).toContain(".claude/rules/toolchain.md");
+  });
+
+  it("returns [] in a directory with no .claude/rules", () => {
+    withoutGitEnv(() => {
+      const dir = mkdtempSync(join(tmpdir(), "no-rules-"));
+      try {
+        execFileSync("git", ["init", "--quiet"], { cwd: dir });
+        execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: dir });
+        mkdirSync(join(dir, "src"), { recursive: true });
+        writeFileSync(join(dir, "src", "x.ts"), "export {};\n");
+        execFileSync("git", ["add", "-A"], { cwd: dir });
+        expect(rulePaths(dir)).toEqual([]);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+});
+
+describe("auditChanges with rules", () => {
+  const index = noteIndex(["CLAUDE.md"], () => "# root");
+  const rules = ruleIndex(
+    [".claude/rules/migrations.md", ".claude/rules/always.md"],
+    (path) =>
+      path.endsWith("migrations.md")
+        ? '---\npaths:\n  - "supabase/**"\n---\n# m'
+        : "# always\n",
+  );
+
+  it("names a rule left unread while a file matching its globs changed", () => {
+    const { stale } = auditChanges(
+      ["supabase/migrations/0009_actor_profiles.sql"],
+      index,
+      rules,
+    );
+    expect(stale.map((s) => s.note)).toContain(".claude/rules/migrations.md");
+  });
+
+  it("is satisfied when the rule file changed in the same set", () => {
+    const { stale } = auditChanges(
+      [
+        "supabase/migrations/0009_actor_profiles.sql",
+        ".claude/rules/migrations.md",
+      ],
+      index,
+      rules,
+    );
+    expect(stale.map((s) => s.note)).not.toContain(
+      ".claude/rules/migrations.md",
+    );
+  });
+
+  // The discriminating half: a rule whose globs match nothing changed owes nothing.
+  it("does not name a rule whose globs match nothing in the change", () => {
+    const { stale } = auditChanges(["apps/hub/src/x.ts"], index, rules);
+    expect(stale.map((s) => s.note)).not.toContain(
+      ".claude/rules/migrations.md",
+    );
+  });
+
+  it("never treats a rule file as governed by a note or by another rule", () => {
+    const { stale, ungoverned } = auditChanges(
+      [".claude/rules/always.md"],
+      index,
+      rules,
+    );
+    expect(stale).toEqual([]);
+    expect(ungoverned).toEqual([]);
   });
 });

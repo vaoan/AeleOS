@@ -935,6 +935,21 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
 
+  // The editor column animates its panel accommodation
+  // (`transition-[padding-right] duration-210` on `[data-editor-stack]`,
+  // block-editor.tsx), and dropping below `md` animates that padding from the
+  // panel's width to nothing. A box read mid-transition measures a moment,
+  // not a layout: on CI the two section widths were read 15ms apart and
+  // differed by 54-63px. Wait for the relationship — below `md` the padding
+  // settles to exactly 0 — and read both boxes in one frame.
+  // `[data-editor-stack]` also matches the inner canvas `<div>` (see
+  // block-editor.tsx's own TSDoc, "Three elements carry `data-editor-stack`"),
+  // which carries no transition of its own — only the outer `<section>` does.
+  const stack = page.locator("section[data-editor-stack]");
+  await expect
+    .poll(() => stack.evaluate((node) => getComputedStyle(node).paddingRight))
+    .toBe("0px");
+
   const overflowPast = await page.evaluate(
     () =>
       document.documentElement.scrollWidth -
@@ -943,10 +958,11 @@ test("hostile text is ugly, not page-breaking — the containment proof the spec
   expect(overflowPast).toBeLessThanOrEqual(1);
 
   const previews = page.getByTestId("block-preview");
-  const ordinaryBox = (await previews.nth(0).boundingBox())!;
-  const hostileBox = (await previews.nth(1).boundingBox())!;
+  const [ordinaryWidth, hostileWidth] = await previews.evaluateAll((nodes) =>
+    nodes.map((node) => node.getBoundingClientRect().width),
+  );
   expect(
-    Math.abs(hostileBox.width - ordinaryBox.width),
+    Math.abs((hostileWidth ?? 0) - (ordinaryWidth ?? 0)),
     "the hostile section is clipped by its own container, not widened",
   ).toBeLessThan(2);
 

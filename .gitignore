@@ -42,6 +42,11 @@ Thumbs.db
 .claude/models_cache.json
 .claude/version.json
 .claude/scheduled_tasks.lock
+# Claude Code's own worktrees (`EnterWorktree`) live here; each is a nested
+# checkout and must never be swept into a commit of the outer one.
+.claude/worktrees/
+# The InstructionsLoaded hook's per-session log (`scripts/hook-log-instructions.mjs`).
+.claude/instructions-log/
 
 # IdP config exports may contain secrets — keep raw dumps out; commit sanitized only
 clerk-export.raw.json

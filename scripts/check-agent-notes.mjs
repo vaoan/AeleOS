@@ -10,7 +10,9 @@
  *
  * The rule is generic, so a note written tomorrow is guarded the same way:
  * every `CLAUDE.md` and `AGENTS.md` in the repository governs the directory it
- * sits in, and a change under it must be accompanied by a change to it.
+ * sits in, and a change under it must be accompanied by a change to it. A
+ * `.claude/rules/*.md` file with `paths:` frontmatter governs every file its
+ * globs match, in the same way, since 2026-09-15.
  *
  * Two mechanical exemptions, neither of them a maintained list:
  *
@@ -47,6 +49,141 @@ const VENDORED_BLOCK = /<!--\s*BEGIN:[^>]*-->[\s\S]*?<!--\s*END:[^>]*-->/g;
 
 /** The file names that make a directory governed. */
 const NOTE_NAMES = new Set(["CLAUDE.md", "AGENTS.md"]);
+
+/** Where path-scoped rule files live. */
+const RULES_DIR = ".claude/rules/";
+
+/**
+ * The `paths:` globs of a rule file.
+ *
+ * Reads only the shape the Claude Code docs show — `---` on line one, a
+ * `paths:` key, one `- "glob"` per line, `---` to close — because the
+ * repository has no YAML parser and should not gain one for a list.
+ *
+ * @param text - the rule file.
+ * @returns its globs, unquoted; `[]` when there is no frontmatter or no
+ *   `paths:` key, which is a rule that loads at launch and governs no path.
+ */
+export function ruleGlobs(text) {
+  const lines = text.split("\n");
+  if (lines[0]?.trim() !== "---") return [];
+  const end = lines.findIndex((line, i) => i > 0 && line.trim() === "---");
+  if (end === -1) return [];
+  const globs = [];
+  let inPaths = false;
+  for (const line of lines.slice(1, end)) {
+    if (/^paths:\s*$/.test(line)) {
+      inPaths = true;
+      continue;
+    }
+    const item = /^\s*-\s*["']?([^"']+?)["']?\s*$/.exec(line);
+    if (inPaths && item) {
+      globs.push(item[1]);
+      continue;
+    }
+    // A list item can sit at column 0, so only a non-list line starting at
+    // column 0 — a new top-level key — ends the `paths:` list.
+    if (/^\S/.test(line) && !/^-/.test(line)) inPaths = false;
+  }
+  return globs;
+}
+
+/**
+ * Whether a rule file declares a `paths:` key ANYWHERE, no matter how many
+ * globs {@link ruleGlobs} managed to parse out of it.
+ *
+ * Needed because a rule with no frontmatter and a rule whose `paths:` list
+ * is present but malformed both make {@link ruleGlobs} answer `[]` — and only
+ * the second of those is a bug {@link ruleGlobProblems} should report. It
+ * deliberately does NOT read the frontmatter the way {@link ruleGlobs} does:
+ * a `paths:` key under a `---` that is not on line one, or with no closing
+ * `---`, is exactly the malformed case the gate exists to catch, and reading
+ * it with the same parser would hide it (`[]` and `false`, never fires,
+ * nobody told).
+ *
+ * @param text - the rule file.
+ * @returns whether any line of the file is a bare `paths:` key.
+ */
+function hasPathsKey(text) {
+  return /^paths:\s*$/m.test(text);
+}
+
+/**
+ * Every rule file git would let reach a commit.
+ *
+ * @param cwd - the repository to ask.
+ * @returns repository-relative paths under `.claude/rules/`.
+ */
+export function rulePaths(cwd = process.cwd()) {
+  const out = execFileSync(
+    "git",
+    // `*` in a git pathspec crosses `/`, so this also lists nested rule files;
+    // `**/*.md` would demand a subdirectory and skip the top-level ones.
+    [
+      "ls-files",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+      "--",
+      `${RULES_DIR}*.md`,
+    ],
+    { cwd, encoding: "utf8" },
+  );
+  return out.split("\n").filter((line) => line !== "");
+}
+
+/**
+ * Each rule file with the globs it governs.
+ *
+ * @param paths - every rule file.
+ * @param read - how to read one, given its path.
+ * @returns entries in path order; a rule with no globs is kept with `[]` so
+ *   the audit still knows it is a rule and never a governed file.
+ */
+export function ruleIndex(paths, read) {
+  return [...paths].sort().map((rulePath) => {
+    const text = read(rulePath);
+    return {
+      path: rulePath,
+      globs: ruleGlobs(text),
+      hasPathsKey: hasPathsKey(text),
+    };
+  });
+}
+
+/**
+ * Rules whose `paths:` frontmatter can never fire — the vacuous-pass vector
+ * this gate's whole architecture leans on, since a rule that never matches
+ * anything guards nothing while looking exactly like one that does.
+ *
+ * @param index - every rule file, as {@link ruleIndex} built it.
+ * @param files - every tracked file (as `git ls-files` lists them), to test
+ *   each glob against.
+ * @returns one problem per (a) a rule whose frontmatter declares `paths:` but
+ *   parsed zero globs out of it, and (b) a glob that matches no tracked file.
+ */
+export function ruleGlobProblems(index, files) {
+  const problems = [];
+  for (const rule of index) {
+    if (rule.hasPathsKey && rule.globs.length === 0) {
+      problems.push({
+        rule: rule.path,
+        problem: "`paths:` is present but no glob could be parsed out of it",
+      });
+      continue;
+    }
+    for (const glob of rule.globs) {
+      const matches = files.some((file) => path.posix.matchesGlob(file, glob));
+      if (!matches) {
+        problems.push({
+          rule: rule.path,
+          problem: `glob ${JSON.stringify(glob)} matches no tracked file`,
+        });
+      }
+    }
+  }
+  return problems;
+}
 
 /**
  * What kind of file a note is, which decides whether it governs anything.
@@ -130,25 +267,36 @@ function governing(file, index) {
  *
  * @param changed - every path the comparison reports, deletions included.
  * @param index - the map {@link noteIndex} built.
+ * @param rules - every path-scoped rule, as {@link ruleIndex} built them; a
+ *   changed file matching a rule's globs owes that rule a re-read exactly as
+ *   it owes its directory note.
  * @returns the stale notes with the files that demanded each, and the changed
  *   paths no note governs.
  */
-export function auditChanges(changed, index) {
+export function auditChanges(changed, index, rules = []) {
   const seen = new Set(changed);
   const notes = new Set([...index.values()].map((held) => held.path));
+  const ruleFiles = new Set(rules.map((rule) => rule.path));
   const owed = new Map();
   const ungoverned = [];
 
   for (const file of changed) {
-    if (notes.has(file)) continue;
+    if (notes.has(file) || ruleFiles.has(file)) continue;
     const held = governing(file, index);
     if (held === null) {
       ungoverned.push(file);
-      continue;
+    } else {
+      const already = owed.get(held.path);
+      if (already === undefined) owed.set(held.path, [file]);
+      else already.push(file);
     }
-    const already = owed.get(held.path);
-    if (already === undefined) owed.set(held.path, [file]);
-    else already.push(file);
+    for (const rule of rules) {
+      if (!rule.globs.some((glob) => path.posix.matchesGlob(file, glob)))
+        continue;
+      const already = owed.get(rule.path);
+      if (already === undefined) owed.set(rule.path, [file]);
+      else already.push(file);
+    }
   }
 
   const stale = [...owed.entries()]
@@ -160,24 +308,37 @@ export function auditChanges(changed, index) {
 }
 
 /**
- * Every note file git would let reach a commit.
+ * Every file `git` would let reach a commit — tracked files, plus untracked
+ * ones `.gitignore` does not exclude.
  *
  * `git ls-files` rather than a crawl, for the reason root rule 32 records: a
  * hand-maintained skip list drifts from `.gitignore` and makes the file set
  * depend on which machine is asking.
  *
  * @param cwd - the repository to ask.
- * @returns repository-relative note paths.
+ * @returns repository-relative paths.
+ * @throws whatever `git` throws when it is absent or the directory is not a
+ *   repository. A gate that cannot enumerate must not report success.
  */
-export function notePaths(cwd = process.cwd()) {
+export function trackedFiles(cwd = process.cwd()) {
   const out = execFileSync(
     "git",
     ["ls-files", "--cached", "--others", "--exclude-standard"],
     { cwd, encoding: "utf8" },
   );
-  return out
-    .split("\n")
-    .filter((line) => line !== "" && NOTE_NAMES.has(path.posix.basename(line)));
+  return out.split("\n").filter((line) => line !== "");
+}
+
+/**
+ * Every note file git would let reach a commit.
+ *
+ * @param cwd - the repository to ask.
+ * @returns repository-relative note paths.
+ */
+export function notePaths(cwd = process.cwd()) {
+  return trackedFiles(cwd).filter((line) =>
+    NOTE_NAMES.has(path.posix.basename(line)),
+  );
 }
 
 /**
@@ -220,7 +381,25 @@ export function run(cwd, baseRef) {
   const index = noteIndex(notePaths(cwd), (file) =>
     readFileSync(path.join(cwd, file), "utf8"),
   );
-  const { stale, ungoverned } = auditChanges(changedPaths(cwd, baseRef), index);
+  const rules = ruleIndex(rulePaths(cwd), (file) =>
+    readFileSync(path.join(cwd, file), "utf8"),
+  );
+
+  const globProblems = ruleGlobProblems(rules, trackedFiles(cwd));
+  if (globProblems.length > 0) {
+    console.error(
+      "check:agent-notes — a rule's `paths:` glob can never fire, which is the vacuous-pass this gate exists to catch:",
+    );
+    for (const { rule, problem } of globProblems)
+      console.error(`  ${rule}: ${problem}`);
+    return 1;
+  }
+
+  const { stale, ungoverned } = auditChanges(
+    changedPaths(cwd, baseRef),
+    index,
+    rules,
+  );
 
   if (ungoverned.length > 0) {
     const dirs = [...new Set(ungoverned.map((file) => dirKey(file)))].sort();
