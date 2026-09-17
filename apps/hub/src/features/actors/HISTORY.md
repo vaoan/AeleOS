@@ -7165,3 +7165,108 @@ prop is gone — an inline height whose value is not a length is dropped
 silently by jsdom, so the old code renders no `style` at all — which is why the guard against re-threading a size is the TYPE (`DropMarkProps`
 has no `height`) and the runtime cases guard the mark sizing itself by any
 route.
+
+### The mark follows the pointer across a block's midline (2026-09-17) — found by proving the scrolled canvas
+
+**What was owed.** The dragging spec's own "What is left undone" said
+nothing dragged on a page taller than the viewport; `block-drag.ts`'s TSDoc
+on `contains` said the same and, since 2026-09-16, that the question was
+live because the canvas had been the drag surface since 2026-09-04. Neither
+the old `block-drag.spec.ts` (a 2600px viewport, gone 2026-09-01) nor
+`editor-canvas-scroll.spec.ts` (scrolls, never drags) answered it.
+
+**The proof is `tests/e2e/drag-on-a-scrolled-canvas.spec.ts`, one case per
+drag origin.** Sixteen seeded `stack` sections of one titled leaf each; lift
+(a `link` thumbnail, or leaf "1-0" by its grip); park the pointer over the
+canvas; `mouse.wheel` 600px with the button still down and wait for
+`scrollTop` to hold still across two frames; then pick as the target the
+first leaf whose box was wholly below the canvas's visible port before the
+scroll and wholly inside its middle after. That precondition is the whole
+discrimination (root rule 27): a rectangle measured at the lift for that leaf
+says "off screen", only one that follows the scroll says "here". The DOM's
+own `elementsFromPoint` is the witness the mark is compared against, the
+mark must straddle that leaf's top edge by half its own height, and the drop
+must land there — a `link` at "N-0" pushing the text to "N-1", or "Heading
+2" spliced in before "Heading N+1" with section 1 left holding nothing.
+
+**The answer is that dnd-kit's rectangles were never stale.** `Rect` in
+`@dnd-kit/core` exposes `top`/`left`/`right`/`bottom` as getters that
+subtract the droppable's OWN scrollable ancestors' offset delta since the
+measurement, so `args.droppableRects.get(id).top` is a client coordinate at
+the moment of the check, and `detectCollisionAt`'s containment — a mirror of
+the library's `isPointWithinRect` — holds under a mid-drag scroll for either
+origin. Nothing in this feature copies a rect into plain numbers, which is
+the one thing that would break it. The TSDoc on `contains` says so now.
+
+**Three fixture traps, each of which failed a run before the case was right.**
+The canvas's geometric centre landed in the GAP between two sections once a
+palette lift's append-slot reservation had grown every section from 139px to
+187px — under nothing with a canvas path at all — so the fixed point is a
+leaf's own upper quarter, never the port's centre. dnd-kit auto-scrolls a
+container while the pointer sits within 20% of its height from either edge
+(`defaultThreshold`), so a leaf hovered there slides away after the wheel
+has settled; the case picks a target inside the middle 60% and asserts the
+offset it settled at is the offset the mark is read against. And a leaf
+dropped onto a leaf in a `stack` is a linear `before`/`after` insertion
+(`applyDrop`), not a `place` swap — the first draft waited for a `place`
+mark that a positional container alone would draw.
+
+**What the case found instead was a real fault, and it was not about
+scrolling.** With the target correct, the canvas-move case still failed: the
+mark was `after` at the leaf's upper quarter. A pointer sweep down the same
+leaf answered `before` at every step, entry to exit, and a sweep that
+entered from below answered `after` all the way up. **The edge froze at
+whatever it was when the pointer ENTERED the block.** Mechanism: the mark is
+published from `onDragOver`, and dnd-kit fires `onDragOver` from an effect
+keyed on the resolved `over` id — it fires when the id changes and never
+otherwise — while `detectCollisionAt` rewrites `pointerTarget.current`,
+edge included, on every check, and `onDragEnd` reads that ref. So enter a
+block's top half and slide into its bottom half: same block, same id, no
+`onDragOver`, the mark says `before`, the drop lands `after`. Proved on
+the unfixed editor with a probe: mark at the upper quarter `before on 1-2`,
+mark at the lower quarter still `before on 1-2`, landing `["B","C","A"]` —
+the lifted A after C. **The mark lied about the landing**, which is the exact
+fault drop-target-legibility exists to rule out (its §7 comparison had a hole
+a canvas move within one block fell through). A palette drag is immune: its
+target is the id alone, `insertMarkFor` names a gap from a splice index and
+no edge is involved.
+
+**The fix is `onDragMove`.** The canvas-move half of `onDragOver` became
+`publishCanvasTarget(activeId)`, and a new `onDragMove` handler calls it
+too — dnd-kit fires that from an effect keyed on the scroll-adjusted
+translate, after the render in which the collision already wrote the fresh
+target, so it also fires when the canvas scrolls under a still pointer. A
+module-level `sameTarget` (kind and formatted path) lets
+`setAdvertisedTarget` hand React the value it already holds when nothing
+changed, so a pointer wandering inside one half of one block costs no render.
+`onDragMove` returns early for a palette-origin drag, whose mark
+`onDragOver` already publishes on exactly the right event.
+
+**The regression case is the midline case in
+`drop-mark-matches-landing.spec.ts`.** A `stack` section added at the page
+root through `addBlock({ mode: "stack" }, "")` — not `addSection`, whose
+grid would swap — holding A, B, C; A lifted by its grip; C entered at its
+upper quarter (`before`), then its lower quarter without leaving it, and
+only then the mark read and the drop made. Red against the unfixed editor
+exactly at the second read — expected `canvas-drop-after on 1-2`, received
+`canvas-drop-before on 1-2` — and green with the fix, landing B, C, A. A
+case that arrived at the lower quarter directly would enter already resolved
+to `after` and pass either way (root rule 27 again).
+
+**Sabotage for the scrolled-canvas spec, since it guards behaviour that was
+already correct.** Both collision branches in `block-editor.tsx` were made to
+read the droppable's RAW lift-time measurement (dnd-kit's non-enumerable
+`.rect`) instead of its live getters — the exact "rectangles measured before
+the scroll" fault. Both cases went red on the mark read, each naming the
+block that had occupied that screen position BEFORE the scroll: the palette
+case drew `canvas-drop-after on 0-0` where `before on 3-0` was owed
+(announced "Moved over 1.2."), the canvas-move case `before on 1` where
+`before on 4-0` was owed ("Moved over 2."). Restored by copy from a backup
+taken before the edit and proved identical with `cmp`; 4 green across both
+specs afterwards, and the full chromium project 209 green with the fix in.
+
+- **A canvas-move drag's mark is published from `onDragMove`, on every move,
+  through `publishCanvasTarget` — never from `onDragOver` alone.**
+- **A drag on a scrolled canvas is proved for both origins, and dnd-kit's
+  rectangles follow the container's scroll; the fixture's three traps are
+  the rule in `.claude/rules/browser-proof.md`.**

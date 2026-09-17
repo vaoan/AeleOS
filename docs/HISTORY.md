@@ -1269,3 +1269,21 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   mark is its host's box, and `carriedHeight` is gone from every interface.
   Account: `apps/hub/src/features/actors/HISTORY.md`, "A place mark is its
   host's box (2026-09-16)".
+
+- **The mark follows the pointer across a block's midline, and the scrolled
+  canvas is proved (2026-09-17).** The dragging spec's last open engineering
+  gap — nothing dragged on a page taller than the viewport — is closed by
+  `tests/e2e/drag-on-a-scrolled-canvas.spec.ts`, one case per drag origin,
+  each scrolling the canvas by wheel mid-drag onto a leaf that was below the
+  fold at the lift. dnd-kit's rectangles were never stale: their getters
+  follow the droppable's own scroll container. What the case found instead
+  was a fault the drop-target-legibility comparison had a hole for: the mark
+  was published from `onDragOver` only, which dnd-kit fires only when the
+  `over` id changes, while the `before`/`after` edge inside one block
+  changes without it and the drop reads the fresh edge — enter a block's top
+  half, slide to its bottom half, and the mark says `before` while the block
+  lands `after`. Fixed by re-publishing from `onDragMove`; regression case
+  is the midline case in `drop-mark-matches-landing.spec.ts`, red against
+  the unfixed editor at the second mark read. Account:
+  `apps/hub/src/features/actors/HISTORY.md`, "The mark follows the pointer
+  across a block's midline (2026-09-17)".

@@ -10,6 +10,7 @@ import {
   useSensors,
   type CollisionDetection,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragOverEvent,
   type DragStartEvent,
   type KeyboardCoordinateGetter,
@@ -476,6 +477,24 @@ function targetAt(
   return isLinearScope(blocks, path.slice(0, -1))
     ? { kind: edge, path }
     : { kind: "place", path };
+}
+
+/**
+ * Whether two drop targets name the same landing — the same kind at the same
+ * path — so a publisher can hand React the value it already holds when
+ * nothing changed, and a drag that moves the pointer sixty times a second
+ * inside one block re-renders nothing. Two nulls are the same landing
+ * (none); a null and a target are not.
+ *
+ * @param a - one target, or none.
+ * @param b - the other, or none.
+ * @returns true when a mark drawn for either would be the same mark.
+ */
+function sameTarget(a: DropTarget | null, b: DropTarget | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.kind === b.kind && formatBlockPath(a.path) === formatBlockPath(b.path)
+  );
 }
 
 /**
@@ -1528,6 +1547,14 @@ function panelFootFor({
  * winning path equals the source, or the source frame would draw both the
  * landing mark and the returning mark at once for a drop that is a no-op.
  *
+ * **The canvas-move mark is published on every move, not only when `over`
+ * changes (2026-09-17).** Both `onDragOver` and `onDragMove` route through
+ * `publishCanvasTarget`, because dnd-kit fires `onDragOver` only when the
+ * resolved `over` id changes while a linear `before`/`after` edge changes
+ * without it, and the drop reads the fresh edge; until then the mark could
+ * say `before` for a drop that landed `after`. `sameTarget` keeps the extra
+ * publishes free of renders. See `onDragMove`'s own TSDoc.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1944,9 +1971,29 @@ export function BlockEditor<T extends FieldValues>({
       setReturningPath(null);
       return;
     }
+    publishCanvasTarget(activeId);
+  };
+
+  /**
+   * Publishes what a canvas-move drag would do RIGHT NOW as the mark the
+   * frames draw — the landing target and, for a swap, the returning place.
+   *
+   * Called from {@link onDragOver} and from {@link onDragMove} alike, so the
+   * mark is a function of the latest collision check rather than of the
+   * latest change in dnd-kit's own `over` id. `pointerTarget.current` is
+   * rewritten by `detectCollisionAt` on every check, edge included; this
+   * reads it and hands React the previous value back when nothing changed,
+   * through {@link sameTarget}, so a pointer wandering inside one half of one
+   * block costs no render at all.
+   *
+   * @param activeId - the drag's own id, for where it started.
+   */
+  const publishCanvasTarget = (activeId: string): void => {
     paletteTarget.current = null;
     const winner = keyboardTarget.current ?? pointerTarget.current;
-    setAdvertisedTarget(winner);
+    setAdvertisedTarget((previous) =>
+      sameTarget(previous, winner) ? previous : winner,
+    );
     const from = canvasPlacePath(activeId) ?? placePath(activeId);
     const isSwap =
       winner?.kind === "place" &&
@@ -1954,6 +2001,39 @@ export function BlockEditor<T extends FieldValues>({
       formatBlockPath(from) !== formatBlockPath(winner.path) &&
       blockAt(blocks, winner.path);
     setReturningPath(isSwap ? formatBlockPath(from) : null);
+  };
+
+  /**
+   * Re-publishes a canvas-move drag's target on every move — pointer or
+   * scroll — because `onDragOver` alone is not enough.
+   *
+   * **dnd-kit fires `onDragOver` only when the resolved `over` id CHANGES,
+   * and a `before`/`after` edge changes without it (found 2026-09-17).**
+   * In a linear container the edge is decided by which half of the hovered
+   * block the pointer is in, on every collision check, and the drop reads
+   * that fresh target; but the mark was published from `onDragOver` only,
+   * so a pointer that entered a block's top half and slid into its bottom
+   * half — same block, same `over` id — kept the `before` mark while the
+   * drop landed `after`. The mark lied about the landing, which is the
+   * exact fault drop-target-legibility exists to rule out. `onDragMove`
+   * fires from an effect keyed on the scroll-adjusted translate, after the
+   * render in which `detectCollisionAt` already wrote the fresh target, so
+   * reading the ref here is reading the answer for THIS position. It also
+   * fires when the canvas scrolls under a still pointer, which is how the
+   * fault was first seen (`drag-on-a-scrolled-canvas.spec.ts`); the
+   * regression case is `drop-mark-matches-landing.spec.ts`'s midline case.
+   *
+   * **A palette-origin drag is left to `onDragOver`.** Its target is named
+   * by the id alone — `insertMarkFor` turns a splice index into a gap, no
+   * edge involved — so the `over` id changing is exactly when its mark
+   * changes, and there is nothing here to add.
+   *
+   * @param event - dnd-kit's own move event.
+   */
+  const onDragMove = (event: DragMoveEvent): void => {
+    const activeId = String(event.active.id);
+    if (palettePayload(activeId)) return;
+    publishCanvasTarget(activeId);
   };
 
   /**
@@ -2475,6 +2555,7 @@ export function BlockEditor<T extends FieldValues>({
         collisionDetection={detectCollision}
         accessibility={accessibility}
         onDragStart={onDragStart}
+        onDragMove={onDragMove}
         onDragOver={onDragOver}
         onDragCancel={onDragCancel}
         onDragEnd={onDragEnd}

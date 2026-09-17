@@ -188,14 +188,17 @@ export function placeName(path: BlockPath): string {
  * is correct precisely because it mirrors the library's own
  * `isPointWithinRect`. The distinction is not academic, and a drag on a page
  * longer than the viewport — where dnd-kit's own auto-scroll moves the document
- * under rectangles measured before it — is covered by nothing. The suite that
- * used to keep that question out of scope by choosing a viewport tall enough
- * for its whole fixture is gone (2026-09-01). This sentence once said the
- * recursive inspector kept sibling lists short enough that the question had
- * not arisen; the live canvas has been the drag surface since 2026-09-04, so
- * it has arisen, and it is still unanswered (2026-09-16). The canvas-scroll
- * suite proves the canvas scrolls while controls show and never drags while
- * it is scrolled.
+ * under rectangles measured before it — is answered (2026-09-17), and the
+ * answer is the library's own. dnd-kit's `Rect` exposes `top`/`left` as
+ * getters that subtract the droppable's OWN scrollable ancestors' offset
+ * delta since the measurement, so what {@link contains} reads is a client
+ * coordinate at the moment of the check, not at the lift, and nothing in
+ * this feature copies a rect into plain numbers — the one thing that would
+ * break it. `tests/e2e/drag-on-a-scrolled-canvas.spec.ts` proves mark and
+ * landing follow a mid-drag wheel scroll for both drag origins. The suite
+ * that used to keep the question out of scope by choosing a tall viewport
+ * went on 2026-09-01; between then and this answer the question was open
+ * and said so here.
  */
 interface PlaceRect {
   /** Distance from the top of the viewport. */

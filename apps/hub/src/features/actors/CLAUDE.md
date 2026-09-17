@@ -700,12 +700,18 @@ chip on one would be inconsistent showing it unbranded on the other.
   profile included. A person
   carries the sanction and must not shed it by switching persona; a page that
   ignores the owner's status sheds it in the one place strangers look.
-- **Never read a green `canvas` job as proof that dragging works on a page
-  taller than the viewport.** No browser case drags while the canvas is
-  scrolled, and dnd-kit measures its rectangles in viewport coordinates before
-  its own auto-scroll moves the document under them. Depth three IS proved for
-  dragging (2026-08-18, by path-shaped grip ids such as `drag-0.1.2`); the
-  long page is not, and `block-drag.ts`'s TSDoc on `contains` says so.
+- **Never publish drag chrome from a callback that fires only on CHANGE.**
+  dnd-kit's `onDragOver` fires when the resolved `over` id changes and
+  never otherwise; the `before`/`after` edge inside a linear container
+  changes without it, and the drop reads the latest collision check. A mark
+  is a function of that check — `onDragMove` re-publishes it on every move
+  — or the mark lies about the landing, which it did until 2026-09-17
+  (`HISTORY.md`, "The mark follows the pointer across a block's midline").
+  Dragging on a page taller than the viewport is proved for both origins by
+  `tests/e2e/drag-on-a-scrolled-canvas.spec.ts`: dnd-kit's rectangles follow
+  the canvas's own scroll, and the fixture's three traps are the rule in
+  `.claude/rules/browser-proof.md`. Depth three is proved too (2026-08-18,
+  by path-shaped grip ids such as `drag-0.1.2`).
 
 ## Two operational traps, so nobody loses time to them a third time
 
