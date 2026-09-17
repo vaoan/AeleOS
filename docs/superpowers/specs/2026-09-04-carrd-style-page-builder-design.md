@@ -1,7 +1,17 @@
 # Carrd-style page builder
 
 - **Date:** 2026-09-04
-- **Status:** Designed, not built
+- **Status:** Designed, not built (2026-09-04). **2026-09-16: built, with
+  two pieces still owed.** Direct dragging on the live renderer,
+  linear-insertion drops and the focused Properties panel merged as PR #67
+  on 2026-09-05; the compact builder menu and the Properties panel that
+  replaced the recursive inspector landed 2026-09-04; the single global Add
+  this design specified was itself superseded by the palette
+  (`2026-09-05-palette-drag-to-add-design.md`, delivered 2026-09-06). Not
+  done: the drop-semantics audit against the table under "Drop semantics",
+  and the responsive proof pass. The "Deferred" list below stands. Accounts:
+  `docs/HISTORY.md`'s carrd-style bullets and
+  `apps/hub/src/features/actors/HISTORY.md`.
 - **Scope:** The signed-in person and fursona page editors. The stored page
   document, public renderer, public routes, database RPCs, required identity
   leaves, depth cap, page-level colour, templates, and JSON source dock do not

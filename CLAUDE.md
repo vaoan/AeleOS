@@ -70,6 +70,10 @@ Run everything from the repository root, never from `apps/hub`.
   `pnpm --filter hub test:e2e` (source `.secrets` first or half of it skips)
 - `pnpm report:instructions` (what the instruction files cost per session;
   `sessions: 0` on a fresh clone, since the log is git-ignored)
+- `pnpm check:docs` and `pnpm check:agent-notes` compare `origin/main...HEAD`,
+  so on a branch with nothing committed they check nothing and pass. Gate
+  uncommitted work with `node scripts/check-agent-notes.mjs --staged` and
+  `node scripts/check-doc-freshness.mjs --staged` after `git add`.
 
 ## Where the rules live
 

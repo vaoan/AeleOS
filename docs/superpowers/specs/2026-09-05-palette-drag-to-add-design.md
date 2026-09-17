@@ -1,7 +1,12 @@
 # Drag-to-add from a palette tab
 
 - **Date:** 2026-09-05
-- **Status:** Designed, not built
+- **Status:** Designed, not built (2026-09-05). **2026-09-16: delivered.**
+  All nine tasks of `docs/superpowers/plans/2026-09-05-palette-drag-to-add.md`
+  shipped between 2026-09-05 and 2026-09-06, one branch and PR each; the
+  modal Add is retired and the palette is the only way in. Account, task by
+  task: `apps/hub/src/features/actors/HISTORY.md`, from "Every valid drop
+  target for a palette drag" to "The closing sweep".
 - **Scope:** How a new block enters the page. The stored document, the public
   renderer, the depth cap, positional-vs-linear drop semantics for **moving**
   an already-placed block, required identity leaves, and the Properties

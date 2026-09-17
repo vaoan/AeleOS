@@ -210,6 +210,11 @@ not at all.
 - **`DragOverlay` is not used**, so a dragged block translates in place rather
   than being lifted out of the layout. It is fine at these sizes and it will
   feel heavy the first time somebody drags a wide section down a long page.
+  **2026-09-16: no longer true.** Drop-target legibility (PR #78, merged
+  2026-09-16) gave every drag its own floating preview through
+  `<DragOverlay>`, and the source frame dims in place rather than moving;
+  `docs/HISTORY.md`'s "Drop-target legibility" bullet carries the account,
+  including the fault it shipped on the way.
 - **Nothing measures what a drag costs.** No budget anywhere covers a lift, a
   move or a drop, so the `canvas` job is green on a narrower subject than
   dragging. (This bullet also said that spec's dial half was still
@@ -226,4 +231,9 @@ not at all.
   drag — so a long page moves the document under rectangles measured before it
   moved. `block-drag.spec.ts` chooses a 2600px-tall viewport precisely so that
   nothing scrolls, which keeps that question out of the suite rather than
-  answering it.
+  answering it. **2026-09-16: still open, and now live.** `block-drag.spec.ts`
+  and its tall viewport went on 2026-09-01; the live canvas has been the
+  drag surface since 2026-09-04, so a whole page is under the pointer again
+  rather than one inspector scope; `editor-canvas-scroll.spec.ts` proves
+  the canvas scrolls on its own while controls show, and no case drags while
+  it is scrolled. `block-drag.ts`'s TSDoc on `contains` names the same gap.

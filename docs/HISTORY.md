@@ -1128,8 +1128,15 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   browser/accessibility/responsive proof) have not started; **the modal Add
   path phase 2 would have replaced is itself now superseded** — see the next
   bullet — so phase 2 as written no longer describes the plan.
+  **2026-09-16:** of that list, the compact builder menu and the retirement
+  of the inspector paths landed on 2026-09-04 (feature `HISTORY.md`, "The
+  compact builder menu, and one Add for one selection" and "The Properties
+  panel replaces the recursive inspector"), and interaction shipped under
+  its own spec on 2026-09-02. Still not started: the drop-semantics audit
+  against the spec's full table, and the responsive proof pass.
 
-- **Drag-to-add from a palette tab (2026-09-05) — DESIGNED, not built.**
+- **Drag-to-add from a palette tab (2026-09-05) — DESIGNED, not built;
+  DELIVERED 2026-09-06, per the dated paragraph closing this bullet.**
   `docs/superpowers/specs/2026-09-05-palette-drag-to-add-design.md`
   supersedes the single global `AddBlockPicker` modal above: adding content
   moves to a persistent **Palette tab** in the Properties panel (always
@@ -1171,6 +1178,16 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   reference (added to `cspell.json`) — the same class of
   coined-word-vs-real-identifier judgement rule 41/42
   already describe, still holding here.
+
+  **2026-09-16: delivered.** All nine tasks shipped between 2026-09-05 and
+  2026-09-06, one branch and PR each: the three domain functions, the
+  Palette tab, pointer and keyboard lifts from a thumbnail, the virtual
+  append slot, the modal Add's removal, and the closing browser and
+  accessibility sweep. Task 8 also rendered an append slot for the page's
+  own root, which Task 5 had found unrendered, so a palette drag can add a
+  whole new top-level section. Account, task by task:
+  `apps/hub/src/features/actors/HISTORY.md`, from "Every valid drop target
+  for a palette drag" to "The closing sweep".
 
 - **Drop-target legibility — DELIVERED (2026-09-07/11).** The editor used to
   draw every possible landing alike, draw nothing under the cursor, and for a
