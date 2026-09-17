@@ -16,6 +16,7 @@ import {
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import type { PageContext } from "@/features/actors/presentation/blocks";
+import { previewFollowsPointer } from "@/features/actors/presentation/preview-follows-pointer";
 import { Sparkles } from "lucide-react";
 import {
   useCallback,
@@ -1555,6 +1556,13 @@ function panelFootFor({
  * say `before` for a drop that landed `after`. `sameTarget` keeps the extra
  * publishes free of renders. See `onDragMove`'s own TSDoc.
  *
+ * **The overlay's preview is placed by `previewFollowsPointer`, never by the
+ * active node's own rectangle (2026-09-17).** dnd-kit's default puts the
+ * overlay at that rectangle plus the delta, and a canvas move's active node
+ * is the whole frame with its grip at the top-right, so the pill sat 700px
+ * from the cursor and off screen; the modifier anchors it a gap below-right
+ * of where the pointer went down, for either origin.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -2769,7 +2777,11 @@ export function BlockEditor<T extends FieldValues>({
             preview back toward its source rectangle, and a completed insert
             has already moved that rectangle — animating toward a place that
             no longer means anything. */}
-        <DragOverlay dropAnimation={null}>
+        {/* `previewFollowsPointer` because the overlay is otherwise placed
+            at the ACTIVE NODE's rectangle plus the delta — a canvas move's
+            active node is the whole frame, so the pill sat 700px from a grip
+            at its top-right (2026-09-17). See the modifier's own TSDoc. */}
+        <DragOverlay dropAnimation={null} modifiers={[previewFollowsPointer]}>
           {activeLabel ? <DragPreview label={activeLabel} /> : null}
         </DragOverlay>
       </DndContext>

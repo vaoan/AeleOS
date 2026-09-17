@@ -711,7 +711,10 @@ chip on one would be inconsistent showing it unbranded on the other.
   `tests/e2e/drag-on-a-scrolled-canvas.spec.ts`: dnd-kit's rectangles follow
   the canvas's own scroll, and the fixture's three traps are the rule in
   `.claude/rules/browser-proof.md`. Depth three is proved too (2026-08-18,
-  by path-shaped grip ids such as `drag-0.1.2`).
+  by path-shaped grip ids such as `drag-0.1.2`). And the overlay's preview
+  is placed by `previewFollowsPointer`, never by the active node's own
+  rectangle: for a canvas move that node is the whole frame, and dnd-kit's
+  default put the pill at its far corner, off screen (same day).
 
 ## Two operational traps, so nobody loses time to them a third time
 

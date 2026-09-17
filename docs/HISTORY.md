@@ -1284,6 +1284,9 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   half, slide to its bottom half, and the mark says `before` while the block
   lands `after`. Fixed by re-publishing from `onDragMove`; regression case
   is the midline case in `drop-mark-matches-landing.spec.ts`, red against
-  the unfixed editor at the second mark read. Account:
-  `apps/hub/src/features/actors/HISTORY.md`, "The mark follows the pointer
-  across a block's midline (2026-09-17)".
+  the unfixed editor at the second mark read. The picture proof then found
+  the floating preview pill 700px from the cursor on a canvas move — dnd-kit
+  places the overlay at the active node's corner, and the node is the whole
+  frame — fixed on the same branch with the `previewFollowsPointer`
+  modifier. Account: `apps/hub/src/features/actors/HISTORY.md`, "The mark
+  follows the pointer across a block's midline (2026-09-17)".

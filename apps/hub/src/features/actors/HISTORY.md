@@ -7265,8 +7265,31 @@ case drew `canvas-drop-after on 0-0` where `before on 3-0` was owed
 taken before the edit and proved identical with `cmp`; 4 green across both
 specs afterwards, and the full chromium project 209 green with the fix in.
 
+**The picture proof then found a second fault in its own frame, and it is
+fixed on the same branch (2026-09-17).** The floating preview pill was absent
+from the midline pictures. dnd-kit positions `<DragOverlay>` at the ACTIVE
+NODE's rectangle plus the drag delta, and a canvas move's active node is the
+whole `EditableBlockFrame` — a 720px-wide frame lifted by a grip at its
+top-right — so the pill ("2.1") was drawn at the frame's top-LEFT plus the
+delta. Measured: pointer at x 384, pill at x −317, off screen. A palette
+thumbnail is small, which is why the identical placement looked right for a
+palette drag (pictures 4 and 5 of the proof) and the fault hid behind it
+since drop-target-legibility task 5. The fix is `previewFollowsPointer`
+(`presentation/preview-follows-pointer.ts`), a `Modifier` on the overlay
+that shifts the transform by the pointer's lift position relative to the
+active node's rectangle plus a 12px gap on both axes, and returns the
+transform by identity for a keyboard lift or before the node is measured.
+Both origins now carry the pill a gap below-right of the cursor. Guards: the
+midline case asserts the pill's top-left within 32px below-right of the
+pointer — red against the unmodified overlay at −701px — and
+`tests/preview-follows-pointer.test.ts` pins the shift and the three
+untouched-transform cases, red with the modifier sabotaged back to "return
+the transform" (1 failed, 3 passed; restored by copy, `cmp` identical).
+
 - **A canvas-move drag's mark is published from `onDragMove`, on every move,
   through `publishCanvasTarget` — never from `onDragOver` alone.**
 - **A drag on a scrolled canvas is proved for both origins, and dnd-kit's
   rectangles follow the container's scroll; the fixture's three traps are
   the rule in `.claude/rules/browser-proof.md`.**
+- **The overlay carries `previewFollowsPointer`: the preview sits beside the
+  pointer whatever the active node's size, never at the node's own corner.**
