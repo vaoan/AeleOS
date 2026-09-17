@@ -700,6 +700,12 @@ chip on one would be inconsistent showing it unbranded on the other.
   profile included. A person
   carries the sanction and must not shed it by switching persona; a page that
   ignores the owner's status sheds it in the one place strangers look.
+- **Never read a green `canvas` job as proof that dragging works on a page
+  taller than the viewport.** No browser case drags while the canvas is
+  scrolled, and dnd-kit measures its rectangles in viewport coordinates before
+  its own auto-scroll moves the document under them. Depth three IS proved for
+  dragging (2026-08-18, by path-shaped grip ids such as `drag-0.1.2`); the
+  long page is not, and `block-drag.ts`'s TSDoc on `contains` says so.
 
 ## Two operational traps, so nobody loses time to them a third time
 

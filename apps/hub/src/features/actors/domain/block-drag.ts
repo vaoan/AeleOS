@@ -190,9 +190,12 @@ export function placeName(path: BlockPath): string {
  * longer than the viewport — where dnd-kit's own auto-scroll moves the document
  * under rectangles measured before it — is covered by nothing. The suite that
  * used to keep that question out of scope by choosing a viewport tall enough
- * for its whole fixture is gone; the recursive inspector shows one scope at a
- * time, so a sibling list is short enough that the question has not arisen
- * rather than answered.
+ * for its whole fixture is gone (2026-09-01). This sentence once said the
+ * recursive inspector kept sibling lists short enough that the question had
+ * not arisen; the live canvas has been the drag surface since 2026-09-04, so
+ * it has arisen, and it is still unanswered (2026-09-16). The canvas-scroll
+ * suite proves the canvas scrolls while controls show and never drags while
+ * it is scrolled.
  */
 interface PlaceRect {
   /** Distance from the top of the viewport. */

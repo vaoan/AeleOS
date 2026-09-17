@@ -436,3 +436,8 @@ every request after the first unless the context takes a `useId`.
   the cap becomes two — a smaller loss than a broken editor. Note that the cap
   is enforced in `validate_block` as well as in the schema, so lowering it is
   two edits and a hand-applied migration rather than one constant.
+  **2026-09-16: closed, and it had been since 2026-08-18.** The dragging
+  spec's own status line records dragging proved in a browser at the depth
+  cap, by mouse and by keyboard; a grip's test id is its path, so
+  `drag-0.1.2` names a block three levels down without counting (feature
+  `HISTORY.md`, "A grip's test id is its PATH"). The cap stayed at three.

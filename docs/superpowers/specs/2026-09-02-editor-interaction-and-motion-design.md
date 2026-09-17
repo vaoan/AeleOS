@@ -369,3 +369,10 @@ the authenticated GitHub surface accepts local attachments. The repository's
 picture-proof instructions must name a mechanism that is actually available;
 they must not claim that `gh pr comment` uploads files, because it only posts
 Markdown after an image already has a reachable URL.
+
+**2026-09-16:** the mechanism exists and the instructions name it.
+`docs/git-with-gh-token.md` and the `/picture-proof` skill post pictures
+through a private gist referenced by its raw URL, and say outright that
+`gh pr comment` posts Markdown only. The recursive-inspector thread itself
+still carries no pictures; posting them retroactively is the owner-run skill,
+not a docs change.
