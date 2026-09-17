@@ -127,7 +127,11 @@ in. The dated account of each is in `docs/HISTORY.md`. What is still open
 lives in each spec's own open-questions section, not in a list. The instruction-architecture move is delivered
 (2026-09-15): the spec named at the top of this file carries the before and
 after tables, this file is a map, the lessons live under `docs/lessons/`, and the actors feature's
-account sits beside its note.
+account sits beside its note. Dragging on a page taller than the viewport is
+proved for both drag origins (2026-09-17), and the mark a canvas move draws
+follows the pointer across a block's midline now, which it did not before;
+the preview pill follows the pointer too, which its picture proof found it
+did not.
 
 Claude's role throughout: build and test the hub here, specify exactly what
 to configure in Clerk, and write the per-app integration code in the

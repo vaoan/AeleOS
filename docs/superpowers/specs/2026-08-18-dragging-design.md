@@ -237,3 +237,10 @@ not at all.
   rather than one inspector scope; `editor-canvas-scroll.spec.ts` proves
   the canvas scrolls on its own while controls show, and no case drags while
   it is scrolled. `block-drag.ts`'s TSDoc on `contains` names the same gap.
+  **2026-09-17: closed.** `drag-on-a-scrolled-canvas.spec.ts` drags a
+  palette item and a canvas leaf onto a leaf that was below the fold at the
+  lift, after a wheel scroll with the button down; mark and landing follow
+  the pointer for both. dnd-kit's rectangles were never stale — their getters
+  follow the container's scroll. What the case found instead was a mark
+  frozen at its entry edge, fixed the same day; see the drop-target-legibility
+  spec's §7 addendum.
