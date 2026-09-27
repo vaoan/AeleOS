@@ -79,3 +79,6 @@ tsconfig.tsbuildinfo
 # neither committed nor formatted, so it belongs in both ignore files or the
 # format gate fails on a directory the test gate just created.
 coverage/
+
+# Playwright MCP output: screenshots, snapshots and browser downloads. Never committed.
+.playwright-mcp/

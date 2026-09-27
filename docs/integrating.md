@@ -98,6 +98,16 @@ something else, a token from another Clerk instance — gets `401`.
 > Alongside the empty return-origin allowlist below, this is the second thing
 > that will stop a first integration before it starts. Check with a maintainer
 > which instance you are pointing at.
+>
+> **There IS a production instance now (2026-09-27)** — Frontend API
+> `clerk.furrycolombia.com`, Google, Discord and email code — and it is the
+> one a launching app uses. The hub has deliberately not moved to it yet, so
+> the warning above still holds for _this_ endpoint and the picker: an app on
+> the production instance cannot sync actors from the hub or use the picker
+> until the hub follows. That is fine for an app that only needs the person:
+> store the Clerk `sub` as `identity_sub`, treat the person as the actor, and
+> add the mirror and the picker when fursonas matter — nothing you store now
+> has to be re-keyed. `docs/deployment.md` §1 is the instance's record.
 
 ### What comes back
 
@@ -579,19 +589,20 @@ Practical rules:
 
 ## Reference
 
-| Thing                     | Value                                                                   |
-| ------------------------- | ----------------------------------------------------------------------- |
-| Hub                       | `https://me.furrycolombia.com`                                          |
-| Actor sync                | `GET /api/actors/mine`, `Authorization: Bearer <token>`                 |
-| Methods                   | `GET`, `HEAD`; `OPTIONS` → `204`; anything else → `405`                 |
-| Sync responses            | `200 {actors}` · `401 {error}` · `500 {error}` — all `no-store`         |
-| Picker                    | `GET /picker?return_to=<url>&app=<name>` (`app` capped at 64 chars)     |
-| Chose                     | `<return_to>?actor_ref=<uuid>`                                          |
-| Declined                  | `<return_to>` with **no** `actor_ref` — change nothing                  |
-| CORS on the sync endpoint | None, deliberately. Server-side callers only.                           |
-| Clerk instance            | **Development** (`pk_test_…`) — a production-instance token gets `401`. |
-| Allowlist                 | Exact origin, set by a maintainer. **Empty in production today.**       |
-| Mirror schema             | Yours. AeleOS ships none — see the note in section 1.                   |
+| Thing                     | Value                                                                     |
+| ------------------------- | ------------------------------------------------------------------------- |
+| Hub                       | `https://me.furrycolombia.com`                                            |
+| Actor sync                | `GET /api/actors/mine`, `Authorization: Bearer <token>`                   |
+| Methods                   | `GET`, `HEAD`; `OPTIONS` → `204`; anything else → `405`                   |
+| Sync responses            | `200 {actors}` · `401 {error}` · `500 {error}` — all `no-store`           |
+| Picker                    | `GET /picker?return_to=<url>&app=<name>` (`app` capped at 64 chars)       |
+| Chose                     | `<return_to>?actor_ref=<uuid>`                                            |
+| Declined                  | `<return_to>` with **no** `actor_ref` — change nothing                    |
+| CORS on the sync endpoint | None, deliberately. Server-side callers only.                             |
+| Clerk instance            | Hub: **development** (`pk_test_…`); a production token gets `401` here.   |
+| Production instance       | `clerk.furrycolombia.com` — exists since 2026-09-27; apps use it directly |
+| Allowlist                 | Exact origin, set by a maintainer. **Empty in production today.**         |
+| Mirror schema             | Yours. AeleOS ships none — see the note in section 1.                     |
 
 Related reading in this repository:
 

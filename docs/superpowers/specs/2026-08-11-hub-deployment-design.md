@@ -12,6 +12,14 @@
   `2026-07-31-idp-decision-change.md` (why Clerk), `docs/phase-0-clerk-setup.md`
   (the connector lineup and its costs).
 
+> **Executed in two halves (2026-09-27).** The production Clerk instance (§2
+> to §5, §7) is being created now so Libra can launch against it; the hub's
+> own move to that instance (§6's key swap, §9's deployed proof) waits until
+> its profile features launch. Libra treats a person as a person — the Clerk
+> subject only, no picker — so nothing in the hub is on its critical path. The
+> hub stays on the development instance, deliberately, and CI stays with it.
+> The plan's box of the same date carries the task-by-task consequence.
+
 ---
 
 ## 1. Context & goal
