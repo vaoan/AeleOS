@@ -1,5 +1,53 @@
 # Hub Deployment Implementation Plan
 
+> ## Re-scoped: the Clerk instance goes to production, the hub does not (2026-09-27)
+>
+> Executed from this date for the **identity provider only**. Libra launches
+> against the production Clerk instance treating a person as a person — the
+> Clerk subject is the only key it stores, no picker, no `actor_ref` — because
+> nobody can create a fursona yet. So the hub itself stays on the development
+> instance at `me.furrycolombia.com` until its profile features launch, and
+> its registry keeps holding only test actors.
+>
+> What that does to the tasks:
+>
+> - **Tasks 1–3 execute as written**, with the 2026-09-07 corrections below:
+>   Google, Discord and email code in the same sitting.
+> - **Task 4 executes as its "both coexist" branch.** The production instance
+>   is **added** to the AeleOS Supabase project's Third-Party Auth beside the
+>   development one, never replacing it; `idp-cloud` and CI stay on
+>   development, which is what the hub still uses. Running the cloud suite
+>   with the production secret is the proof that Supabase accepts a
+>   production token — the one fact every other app needs — and it needs no
+>   browser, no deployed app and no hub change.
+> - **Tasks 5–7 are deferred**, not dropped. Swapping the hub's Vercel keys,
+>   the deployed-URL e2e run and the sign-in proof happen when the hub
+>   launches. Until then `docs/deployment.md` §3 stays true: the hub runs
+>   development, banner and all, on purpose.
+> - **Not in this plan:** Libra's own cut-over (its keys, its Supabase trust,
+>   its allowed subdomain). That is Task A4 of Libra's
+>   `2026-09-05-production-re-release` plan, in Libra's repository. Its Step 9
+>   says to _change_ the AeleOS project's trusted domain; that is wrong under
+>   this re-scope — the AeleOS entry is added, not replaced — and is corrected
+>   there.
+>
+> Two rulings taken the same day, so they are not re-litigated at each step:
+> the Frontend API keeps the hostname Clerk assigns (`clerk.furrycolombia.com`;
+> proxying it to a name of ours would put every app's sign-in through Libra's
+> box for one address-bar frame), and nothing on the apex changes — every
+> record and every app is a subdomain, always.
+>
+> Portability off Clerk is the design, not this plan: every app keys its rows
+> to the token's `sub` through Supabase Third-Party Auth and to nothing
+> Clerk-specific, so a future provider is a new trust entry plus a re-claim by
+> verified email.
+>
+> **Tasks 1–4 executed the same day.** No card anywhere; Google's consent
+> screen needed publishing and its client needed no billing; the proof run
+> passed 15/15 on both instances once the paused Supabase project was
+> restored. `docs/deployment.md` §0–§2 is the record, and the boxes below are
+> left as written because the record, not the boxes, is what a rebuild reads.
+
 > ## Corrections — read before executing any task (2026-09-07)
 >
 > This plan has **not** been executed; the production Clerk instance does not

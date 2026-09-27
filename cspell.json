@@ -24,6 +24,8 @@
     ".superpowers/**"
   ],
   "words": [
+    // Clerk's mail subdomain, recorded by name in `docs/deployment.md`.
+    "clkmail",
     // The Portuguese national web archive, which holds captures
     // `web.archive.org` does not — see the pastiche findings.
     "arquivo",

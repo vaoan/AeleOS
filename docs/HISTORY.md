@@ -1269,3 +1269,20 @@ fit-content` (not `auto`) kept it from ever reaching the foot of the
   mark is its host's box, and `carriedHeight` is gone from every interface.
   Account: `apps/hub/src/features/actors/HISTORY.md`, "A place mark is its
   host's box (2026-09-16)".
+
+- **The identity provider went to production, and the hub did not
+  (2026-09-27).** Libra needs a production Clerk instance to launch and needs
+  nothing from the hub — it treats a person as a person, keys on the Clerk
+  `sub`, and scopes the picker out — so the instance was created and the hub
+  left on development. Primary domain `furrycolombia.com`; five DNS-only
+  records through Cloudflare's API; password off; Facebook disabled and the
+  third slot kept empty; Google and Discord on our own OAuth applications;
+  the AeleOS Supabase project trusting both instances, with CI unchanged.
+  Nothing asked for a card. The GCP billing question that had sat on the
+  critical path since Phase 0 closed by doing: the project still creates
+  credentials without billing, though its consent screen was in testing mode
+  and would have refused every Google sign-in until published. The first
+  proof run then found the free-tier Supabase project paused after ten idle
+  days, with the deployed hub serving against it. Record: `docs/deployment.md`
+  §1–§2; the plan and spec carry the dated re-scope box; the hub's own move is
+  the plan's Tasks 5–7, deferred to its launch.

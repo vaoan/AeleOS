@@ -52,7 +52,10 @@ These hold in every session and survive compaction; a `SessionStart` hook
   widen a budget or skip.
 - **One agent per working tree**, or a worktree each.
 - **Secrets never in git.** `.secrets` and `.env*` are ignored; only
-  `.secrets.example` is committed. Lesson:
+  `.secrets.example` is committed, and its placeholders must not be
+  key-shaped: GitHub's push protection rejected `sk_live_` plus 24 x's as a
+  Stripe key (2026-09-27), and it scans every commit in the push, so the
+  fix is amended in, never added on top. Lesson:
   `docs/lessons/conventions/secrets-never-in-git.md`.
 
 <!-- invariants:end -->
@@ -127,7 +130,13 @@ in. The dated account of each is in `docs/HISTORY.md`. What is still open
 lives in each spec's own open-questions section, not in a list. The instruction-architecture move is delivered
 (2026-09-15): the spec named at the top of this file carries the before and
 after tables, this file is a map, the lessons live under `docs/lessons/`, and the actors feature's
-account sits beside its note.
+account sits beside its note. The identity provider is in production and the
+hub is not (2026-09-27): a production Clerk instance on
+`clerk.furrycolombia.com` with Google, Discord and email code, trusted by the
+AeleOS Supabase project beside the development one, proved 15/15 by the cloud
+identity suite on both; the hub stays on development until its profile
+features launch, and Libra launches against production treating a person as a
+person. Record: `docs/deployment.md`.
 
 Claude's role throughout: build and test the hub here, specify exactly what
 to configure in Clerk, and write the per-app integration code in the
