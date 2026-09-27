@@ -52,11 +52,8 @@ These hold in every session and survive compaction; a `SessionStart` hook
   widen a budget or skip.
 - **One agent per working tree**, or a worktree each.
 - **Secrets never in git.** `.secrets` and `.env*` are ignored; only
-  `.secrets.example` is committed, and its placeholders must not be
-  key-shaped: GitHub's push protection rejected `sk_live_` plus 24 x's as a
-  Stripe key (2026-09-27), and it scans every commit in the push, so the
-  fix is amended in, never added on top. Lesson:
-  `docs/lessons/conventions/secrets-never-in-git.md`.
+  `.secrets.example` is committed, with placeholders that are not key-shaped.
+  Lesson: `docs/lessons/conventions/secrets-never-in-git.md`.
 
 <!-- invariants:end -->
 
