@@ -225,13 +225,16 @@ for (const width of [1280, 320]) {
     // focused inside a control keeps its own Escape.
     //
     // **The panel itself no longer disappears when deselected (2026-09-05)**
-    // — it renders unconditionally for its own persistent Palette tab, see
-    // `properties-panel.tsx`'s own TSDoc — so what proves the selection is
-    // clear is `panel-tab-primary` going `hidden`, not the panel's absence.
+    // — it renders unconditionally, and since 2026-09-29 falls back to the
+    // Page form — so what is asserted is that tab being selected, not the
+    // panel's absence.
     // The dock is `z-40` against the panel's `z-30`, so it still sits above
     // the panel whatever the panel is showing.
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+    await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
 
     await openMore(page);
     await page.getByTestId("editor-open-source").click();
@@ -259,7 +262,15 @@ for (const width of [1280, 320]) {
     // view first — the dock is `fixed`, unaffected by page scroll, so its
     // own box is re-read after rather than assumed unchanged.
     const preview = page.getByTestId("block-preview").first();
-    await preview.scrollIntoViewIfNeeded();
+    // **Scrolled to the top of the viewport, not merely into view
+    // (2026-09-29).** Below `md` the Properties panel is a bottom sheet, and
+    // with nothing selected it now shows the Page form rather than an empty
+    // region, so it covers the lower part of the canvas. A preview scrolled
+    // only to the fold sits under it, and the probe below would then find the
+    // panel, not the page, whatever the dock did.
+    await preview.evaluate((element) =>
+      element.scrollIntoView({ block: "start" }),
+    );
     // The dock is `fixed`, so page scroll cannot move it — re-read anyway
     // rather than assume, since a scroll is exactly the kind of event that
     // has broken a sticky bar's own offset in this file's own history.
@@ -271,9 +282,16 @@ for (const width of [1280, 320]) {
       previewBox.x + previewBox.width,
     );
     const overlapYMin = Math.max(dockBoxAfterScroll.y, previewBox.y);
+    // A full-width sheet (below `md`) is a fixed cover over everything under
+    // its own top edge, so the probe stays above it; the desktop panel sits
+    // at the side and does not constrain the vertical range.
+    const panelBox = (await page
+      .getByTestId("properties-panel")
+      .boundingBox())!;
     const overlapYMax = Math.min(
       dockBoxAfterScroll.y + dockBoxAfterScroll.height,
       previewBox.y + previewBox.height,
+      panelBox.width >= viewport.width ? panelBox.y : Infinity,
     );
     expect(
       overlapXMin,

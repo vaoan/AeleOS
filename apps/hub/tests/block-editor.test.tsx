@@ -94,6 +94,17 @@ interface HarnessPage {
 }
 
 /**
+ * Asserts the panel is showing the Page form as its fallback: the primary tab
+ * is visible, selected, and labelled Page.
+ */
+function expectPageFallback() {
+  const primary = screen.getByTestId("panel-tab-primary");
+  expect(primary).not.toHaveAttribute("hidden");
+  expect(primary).toHaveAttribute("aria-selected", "true");
+  expect(primary).toHaveTextContent("Page");
+}
+
+/**
  * The editor over a real form, so a test can read the page back.
  *
  * @returns the form.
@@ -697,22 +708,29 @@ describe("the Properties panel", () => {
     { ...newContainer("stack", 1), name_en: "Second" },
   ];
 
-  // **The panel renders unconditionally now (2026-09-05).** Its persistent
-  // Palette tab is meant to be reachable whether or not anything is
-  // selected, so `properties-panel` is always in the DOM; what "deselected"
-  // means now is that the two selection-dependent tab buttons are `hidden`
-  // rather than that the panel is absent — `toBeVisible()` cannot be used
-  // here, since the panel's root `m.div` never actually animates its
-  // `initial` opacity to 1 in jsdom (see `properties-panel.test.tsx`'s own
-  // note on this).
-  it("starts deselected, showing only the persistent Palette tab", () => {
+  // **The panel renders unconditionally, and never empty (2026-09-29).**
+  // Nothing selected means the panel shows the Page form, so the primary tab
+  // is visible, selected and labelled Page; the Palette tab is always
+  // reachable beside it. `toBeVisible()` cannot be used here, since the
+  // panel's root `m.div` never actually animates its `initial` opacity to 1
+  // in jsdom (see `properties-panel.test.tsx`'s own note on this).
+  it("starts deselected, with the Page form showing rather than an empty panel", () => {
     harness(recursivePage());
     expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
-    expect(screen.getByTestId("panel-tab-secondary")).toHaveAttribute("hidden");
+    expectPageFallback();
     expect(screen.getByTestId("panel-tab-palette")).not.toHaveAttribute(
       "hidden",
     );
+  });
+
+  it("lands on the Page form when a leaf on its Appearance tab is deselected with Escape", async () => {
+    harness(recursivePage());
+    selectPath("0-0-0");
+    fireEvent.click(screen.getByTestId("panel-tab-secondary"));
+    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await settle();
+    expect(screen.queryByTestId("leaf-editor")).toBeNull();
+    expectPageFallback();
   });
 
   it("makes only the canvas an inner scroller while controls show", () => {
@@ -1036,21 +1054,19 @@ describe("the Properties panel", () => {
 
   it("still clears the selection for a click on the page itself", () => {
     harness(recursivePage());
-    fireEvent.click(screen.getByTestId("select-page"));
-    expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
-      "hidden",
-    );
+    selectPath("0-0-0");
+    expect(screen.getByTestId("leaf-editor")).toBeInTheDocument();
 
     // The canvas outside any block and outside any control island: the one
     // click that still means "the selection should go". Exempting chrome
-    // must not have exempted the page. The panel itself stays in the DOM
-    // now — its persistent Palette tab needs no selection at all — so the
-    // selection-dependent tab going `hidden` again is what proves the click
-    // cleared it, not the panel's own presence.
+    // must not have exempted the page. The panel stays in the DOM and falls
+    // back to the Page form, which a cleared Page selection looks just like,
+    // so this starts from a LEAF: its editor disappearing is what proves the
+    // click cleared the selection.
     fireEvent.click(screen.getByTestId("editor-canvas"));
 
-    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
+    expect(screen.queryByTestId("leaf-editor")).toBeNull();
+    expectPageFallback();
   });
 
   // There is no drill-down and no tree navigation any more (2026-09-04): the
@@ -1070,14 +1086,14 @@ describe("the Properties panel", () => {
     // Palette tab is `CHROME_SCOPE`, hidden by the CSS hide-controls rule
     // this isolated harness does not apply, exactly like every other
     // workbench control — so what proves the selection was cleared is the
-    // leaf's own content disappearing, not the panel's absence.
+    // leaf's own content disappearing and the Page form taking its place.
     page.setControlsHidden(true);
     expect(screen.queryByTestId("leaf-editor")).toBeNull();
-    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
+    expectPageFallback();
 
     page.setControlsHidden(false);
     expect(screen.queryByTestId("leaf-editor")).toBeNull();
-    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
+    expectPageFallback();
   });
 
   it.each([
@@ -1094,12 +1110,13 @@ describe("the Properties panel", () => {
 
     fireEvent.click(screen.getByTestId("panel-close"));
 
-    // The panel stays mounted — see the note above on why `toBeNull()`
-    // against `properties-panel` is no longer the right assertion — so Close
-    // is proved by the selection-dependent tab going `hidden` again, not by
-    // the panel's own absence.
+    // The panel stays mounted and falls back to the Page form — see the note
+    // above — so Close is proved by the Page tab showing, and for a leaf by
+    // its editor going, not by the panel's own absence.
     expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
+    expectPageFallback();
+    expect(screen.queryByTestId("leaf-editor")).toBeNull();
+    expect(screen.queryByTestId("leaf-editor")).toBeNull();
     expect(screen.getByTestId("editor-canvas")).toBeInTheDocument();
     expect(screen.getByTestId("select-page")).toBeInTheDocument();
     expect(submitted).not.toHaveBeenCalled();

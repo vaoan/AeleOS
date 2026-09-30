@@ -741,3 +741,4 @@ outside the per-task panic boundary … please report it` and `Aborting.` —
   to chase the individual failures as regressions — but confirm the panic
   line is actually there before assuming that; a real regression can still
   produce a wide failure spread for its own reasons.
+- **With nothing selected the panel shows the Page form, and nothing new may assume it is empty (2026-09-29).** `BlockEditor` gives the panel `currentSelection ?? { kind: "page" }` only; the canvas keeps the real selection, so no outline appears around the page. See `.claude/rules/editor-presentation.md`.

@@ -47,14 +47,18 @@ export type PropertiesActiveTab = "primary" | "secondary" | "palette";
  * Page's Page/Theme — and `foot` is Clone and Delete, also built by the
  * caller since only it knows whether either applies to the current
  * selection. `palette` is the persistent third region, built by the caller
- * once and shown whatever is or is not selected.
+ * once and shown whatever is or is not selected. **`selection` is never
+ * `null` from `BlockEditor` since 2026-09-29**: it substitutes the Page
+ * selection, so the panel shows the Page form rather than an empty region.
  */
 export interface PropertiesPanelProps {
   /**
    * What is selected. `null` means nothing is — the panel still renders, with
    * only the Palette tab reachable; the primary/secondary tab buttons are
    * present but `hidden`, never removed, since there is no selection kind for
-   * either of their labels to name.
+   * either of their labels to name. This component still accepts `null`, but
+   * `BlockEditor` has never passed it since 2026-09-29: with nothing selected
+   * it passes the Page selection, so the panel is never an empty region.
    */
   selection: EditorSelection;
   /** Which region is showing. */

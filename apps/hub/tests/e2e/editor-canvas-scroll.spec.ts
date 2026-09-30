@@ -177,9 +177,12 @@ test("Preview clears both offsets and returns scrolling to the document", async 
 
   await page.getByTestId("show-controls").click();
   // Show controls returns to a canvas with no selection — the panel is
-  // visible again, showing only its persistent Palette tab.
+  // visible again, showing the Page form as its fallback (2026-09-29).
   await expect(page.getByTestId("properties-panel")).toBeVisible();
-  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect
     .poll(async () => (await scrollGeometry(page, canvas)).documentPast)
     .toBeLessThanOrEqual(2);

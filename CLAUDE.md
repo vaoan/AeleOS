@@ -123,7 +123,8 @@ page source dock, the canvas-first editor and drop-target legibility have
 shipped (marks settled 2026-09-16: a bar for a gap, a host-filling mark for
 a place). Drag-to-add from the palette tab shipped in nine tasks
 (2026-09-05 → 06); the modal Add is retired and the palette is the only way
-in. The dated account of each is in `docs/HISTORY.md`. What is still open
+in. With nothing selected the side panel shows the Page form, never an empty
+region (2026-09-29). The dated account of each is in `docs/HISTORY.md`. What is still open
 lives in each spec's own open-questions section, not in a list. The instruction-architecture move is delivered
 (2026-09-15): the spec named at the top of this file carries the before and
 after tables, this file is a map, the lessons live under `docs/lessons/`, and the actors feature's

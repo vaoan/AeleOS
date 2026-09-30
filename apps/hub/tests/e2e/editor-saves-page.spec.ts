@@ -386,16 +386,14 @@ for (const template of FURSONA_TEMPLATES) {
     // template itself — the state the round trip below is measured against.
     expect(await readEditor(page)).toEqual(expected);
 
-    // **`theme-open` has to be pressed again here, and that is not a
-    // duplicate of line 321.** `openPageAdd` above found the panel already on
-    // this SECONDARY tab (Page's add palette lives on the PRIMARY one) and
-    // fell through to `selectPage`'s close-then-reopen path to get there —
-    // which unmounts `ThemeConfigurator` along with the rest of the panel,
-    // same as any other full close. Its `open` accordion state is local and
-    // does not survive that, exactly as it does not survive the page reload
-    // at line 395 below. The panel being back on the secondary tab proves
-    // nothing about the accordion inside it.
-    await page.getByTestId("theme-open").click();
+    // **`theme-open` is NOT pressed again here (2026-09-29).** It used to
+    // be: `openPageAdd` found the panel on the SECONDARY tab (Page's add
+    // palette lives on the PRIMARY one) and reached it through `selectPage`'s
+    // close-then-reopen, which unmounted `ThemeConfigurator` and its local
+    // `open` accordion state. `selectPage` now only selects Page, so the
+    // panel never unmounts, the accordion opened before the template is
+    // still open, and a second press would close it. The page reload below
+    // is what resets it.
 
     // **What a template does to a palette depends on whether it HAS one**, and
     // both branches run here rather than one being assumed. A starter carries

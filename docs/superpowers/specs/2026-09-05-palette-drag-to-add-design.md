@@ -66,6 +66,8 @@ tabs appear depending on selection, exactly as today:
 | A container | `Palette`, `Layout`, `Appearance`  |
 | The page    | `Palette`, `Page`, `Theme`         |
 
+**2026-09-29: the "Nothing" row is superseded by the launch spec §4.1. Nothing selected shows the Page form, and Palette stays one click away.**
+
 Clicking a block on the canvas sets selection and switches the active tab
 away from Palette to that block's first contextual tab — unchanged from
 today's click-to-select behaviour, just now sitting beside a Palette tab

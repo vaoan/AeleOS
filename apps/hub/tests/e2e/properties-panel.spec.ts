@@ -55,17 +55,20 @@ test.beforeAll(async () => {
   identity = await createTestIdentity();
 });
 
-test("the panel starts closed, then Page exposes identity on primary and theme on secondary", async ({
+test("the panel starts on the Page form, which exposes identity on primary and theme on secondary", async ({
   page,
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
-  // **The panel renders unconditionally now, for its own persistent Palette
-  // tab (2026-09-05)** — see `properties-panel.tsx`'s own TSDoc. "Starts
-  // closed" means the two selection-dependent tab buttons are `hidden`, not
-  // that the panel itself is absent.
+  // **The panel renders unconditionally, and never empty (2026-09-29).**
+  // With nothing selected it shows the Page form, so the primary tab is
+  // selected on arrival and selecting Page changes nothing about it.
   await expect(page.getByTestId("properties-panel")).toBeVisible();
-  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByTestId("editor-handle")).toBeVisible();
   await page.getByTestId("select-page").click();
   await expect(page.getByTestId("properties-panel")).toBeVisible();
   await expect(page.getByTestId("panel-tab-primary")).toBeVisible();
@@ -132,18 +135,22 @@ test("a click owned by the empty canvas clears the selection", async ({
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
-  await page.getByTestId("select-page").click();
-  await expect(page.getByTestId("panel-tab-primary")).toBeVisible();
+  // Starts from a LEAF: a cleared Page selection and the Page fallback look
+  // alike in the panel, so the leaf's fields going is what proves the clear.
+  await addBlock(page, { kind: "link" }, "");
+  await expect(page.getByTestId("leaf-kind")).toBeVisible();
 
   await page
     .getByTestId("editor-canvas")
     .evaluate((canvas) => (canvas as HTMLElement).click());
-  // The panel itself stays mounted — its persistent Palette tab needs no
-  // selection at all (2026-09-05) — so what proves the click cleared the
-  // selection is `panel-tab-primary` going `hidden`, not the panel's own
-  // absence.
+  // The panel itself stays mounted and falls back to the Page form
+  // (2026-09-29), never an empty region.
   await expect(page.getByTestId("properties-panel")).toBeVisible();
-  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+  await expect(page.getByTestId("leaf-kind")).toBeHidden();
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });
 
 test("Escape clears the selection and leaves the live page", async ({
@@ -151,13 +158,32 @@ test("Escape clears the selection and leaves the live page", async ({
 }) => {
   await signIn(page, await mintTicket(identity!.userId));
   await page.goto("/es/pages/new");
-  await page.getByTestId("select-page").click();
-  await expect(page.getByTestId("panel-tab-primary")).toBeVisible();
+  await addBlock(page, { kind: "link" }, "");
+  await expect(page.getByTestId("leaf-kind")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("properties-panel")).toBeVisible();
-  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+  await expect(page.getByTestId("leaf-kind")).toBeHidden();
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(page.getByTestId("editor-canvas")).toBeVisible();
   await expect(page.getByTestId("select-page")).toBeVisible();
+});
+
+test("a new page never shows an empty panel, on arrival or after Escape", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+  const primary = page.getByTestId("panel-tab-primary");
+  await expect(primary).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("editor-handle")).toBeVisible();
+
+  await page.getByTestId("select-page").click();
+  await page.keyboard.press("Escape");
+  await expect(primary).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("editor-handle")).toBeVisible();
 });
 
 test("Escape aimed at a field inside the panel keeps the selection", async ({
@@ -220,10 +246,13 @@ test("Preview clears the selected panel instead of pausing it", async ({
   await expect(page.getByTestId("block-preview").first()).toBeVisible();
 
   await page.getByTestId("show-controls").click();
-  // The panel returns, showing only its persistent Palette tab — Preview
-  // cleared the earlier Page selection rather than merely pausing it.
+  // The panel returns on the Page form, the fallback for no selection
+  // (2026-09-29) — never an empty region.
   await expect(page.getByTestId("properties-panel")).toBeVisible();
-  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(page.getByTestId("select-page")).toBeVisible();
 });
 
@@ -333,10 +362,13 @@ test("the panel closes itself directly from a nested leaf", async ({
 
   // The panel stays mounted for its own persistent Palette tab (2026-09-05)
   // — see the note on the earlier cases in this file — so Close is proved
-  // by the leaf's own content disappearing and the selection-dependent tab
-  // going `hidden`, not by the panel's absence.
+  // by the leaf's own content disappearing and the Page form taking its
+  // place (2026-09-29), not by the panel's absence.
   await expect(page.getByTestId("leaf-kind")).toBeHidden();
-  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(page.getByTestId("editor-save")).toBeVisible();
   await expect(page.getByTestId("editor-canvas")).toBeVisible();
 });

@@ -34,33 +34,28 @@ export const handleFor = (prefix: string): string =>
 /**
  * Selects Page, whatever was selected before.
  *
- * **Closes the panel first when a selection is already showing**, rather
- * than trying to press the canvas's own `select-page` button underneath
- * whatever is showing. That button rides inside the editor canvas, and the
- * Properties panel is a bottom sheet below `md` that covers the canvas
- * outright — the same phone-sheet hazard the old recursive inspector's
- * `openInspector` guarded against, met here on a button with no breadcrumb
- * left inside the panel to reach instead.
+ * **No longer closes the panel first (2026-09-29).** It used to, so the
+ * canvas's own `select-page` button, which rides inside the editor canvas,
+ * was not under a phone-width bottom sheet holding some other selection. Close
+ * now lands on the Page form, whose sheet is as tall as any other, so closing
+ * first gains nothing; the button is pressed where it is.
  *
- * **Checks `panel-tab-primary`, not the panel's own visibility (2026-09-05).**
- * The panel renders unconditionally now, for its own persistent Palette
- * tab — see `properties-panel.tsx`'s own TSDoc — so it is never hidden by
- * selection state, only its two selection-dependent tab buttons are.
- * `panel-close` still clears the selection; what proves that now is
- * `panel-tab-primary` going `hidden`, not the panel disappearing.
+ * **Selects the Page explicitly, then waits for the Page form
+ * (2026-09-29).** With nothing selected the panel already shows the Page
+ * form, so a visible primary tab no longer means "something is selected" and
+ * Close no longer hides it. Clicking `select-page` and waiting for the
+ * primary tab to be selected is what proves the Page form is up, whatever
+ * was selected before. It does not wait for `editor-handle`: a person's own
+ * page has no handle field, and the callers that need one wait for it.
  *
  * @param page - the editor page.
  */
 export async function selectPage(page: Page): Promise<void> {
-  const panel = page.getByTestId("properties-panel");
-  const primaryTab = page.getByTestId("panel-tab-primary");
-  if (await primaryTab.isVisible()) {
-    await page.getByTestId("panel-close").click();
-    await expect(primaryTab).toBeHidden();
-  }
   await page.getByTestId("select-page").click();
-  await expect(panel).toBeVisible();
-  await expect(primaryTab).toBeVisible();
+  await expect(page.getByTestId("panel-tab-primary")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 }
 
 /**
@@ -157,14 +152,15 @@ export async function openPageOptions(page: Page): Promise<void> {
  * than the container this call asked for. The corner is the container's own
  * padding or heading, never a descendant's.
  *
- * **Closes an already-open selection first, exactly as {@link selectPage}
- * does — checking `panel-tab-primary`, not the panel's own visibility, for
- * the same reason (2026-09-05): the panel itself renders unconditionally
- * now.** Below `md` the panel is a bottom sheet that can cover the canvas
- * outright — `selectPage`'s own TSDoc carries the measurement — and the
- * block this selects lives in that same canvas. A selection already open
- * when this is called would otherwise leave the sheet sitting over the very
- * element the click is aimed at, on a phone-width viewport.
+ * **Closes an already-open selection first, and waits for the Page form
+ * that Close now lands on (2026-09-29).** Below `md` the panel is a bottom
+ * sheet that can cover the canvas outright — `selectPage`'s own TSDoc
+ * carried the measurement — and the block this selects lives in that same
+ * canvas. A selection already open when this is called would otherwise
+ * leave the sheet sitting over the very element the click is aimed at, on a
+ * phone-width viewport. With nothing selected the panel shows the Page form
+ * rather than hiding its primary tab, so `editor-handle` (a field only the
+ * Page form carries) is what proves the previous selection is gone.
  *
  * **Waits for the canvas's own panel-accommodation transition to settle
  * before returning ({@link waitForCanvasAccommodation}).** A caller reading
@@ -183,12 +179,22 @@ export async function selectBlock(page: Page, path: string): Promise<void> {
   const primaryTab = page.getByTestId("panel-tab-primary");
   if (await primaryTab.isVisible()) {
     await page.getByTestId("panel-close").click();
-    await expect(primaryTab).toBeHidden();
+    await expect(page.getByTestId("editor-handle")).toBeVisible();
   }
-  await page
-    .locator(`[data-block-path="${path}"]`)
-    .first()
-    .click({ position: { x: 4, y: 4 } });
+  const block = page.locator(`[data-block-path="${path}"]`).first();
+  // **Below `md`, clicks the block through the DOM (2026-09-29).** With
+  // nothing selected the sheet now shows the Page form, which fills up to 70%
+  // of the viewport and can sit over any block a short page cannot scroll
+  // clear of it, so a real pointer click is intercepted by the sheet. The
+  // editor selects on the `click` event's target, so dispatching the click on
+  // the block is the same selection with no dependence on where the sheet is.
+  const sheet = await panel.boundingBox();
+  const viewport = page.viewportSize();
+  if (sheet && viewport && sheet.width >= viewport.width) {
+    await block.evaluate((element) => (element as HTMLElement).click());
+  } else {
+    await block.click({ position: { x: 4, y: 4 } });
+  }
   await expect(
     panel,
     `selecting the block at "${path}" did not open the Properties panel`,

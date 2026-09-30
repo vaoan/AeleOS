@@ -311,12 +311,15 @@ export interface BlockEditorLabels
  *
  * The Properties panel renders unconditionally now (2026-09-05), showing its
  * persistent Palette tab whether or not anything is selected — see
- * `properties-panel.tsx`'s own TSDoc for why. It starts deselected, and with
- * nothing selected the panel shows only that one tab; selecting a canvas
- * block or Page shows two more, fixed per selection kind: Page/Theme,
- * Layout/Appearance or Content/Appearance — see `panelContentFor`. There is
- * no Items tab and no tree navigation any more — click-to-select on the
- * canvas is the only way in to those two.
+ * `properties-panel.tsx`'s own TSDoc for why. It starts deselected, and
+ * **with nothing selected the panel shows the Page form (2026-09-29)**: the
+ * first thing a new page needs, and an empty region with no tab selected was
+ * the fault. The canvas keeps the real selection, so no outline appears
+ * around the page; only what the panel shows changes. Selecting a canvas
+ * block or Page shows two tabs beside Palette, fixed per selection kind:
+ * Page/Theme, Layout/Appearance or Content/Appearance — see
+ * `panelContentFor`. There is no Items tab and no tree navigation any
+ * more — click-to-select on the canvas is the only way in to those two.
  *
  * **It also owns the interaction lock (2026-09-02)**, mounted in an effect
  * over the canvas element this component renders — see
@@ -929,7 +932,8 @@ interface PanelContentInputs {
  *
  * @returns the primary and secondary pane content, and the panel's tab
  * labels for whichever kind is selected — Page's own labels when nothing
- * matches, since the panel renders nothing without a selection anyway.
+ * matches. `BlockEditor` never passes a null selection since 2026-09-29 (it
+ * substitutes Page), so that fallback is only a type-level guard.
  */
 function panelContentFor({
   currentSelection,
@@ -1440,6 +1444,13 @@ function panelFootFor({
  * `jukebox` among them — both of which reach `useTranslations` through
  * `RetroPlayer`, which crashes outright in any harness that does not wrap
  * this component in `NextIntlClientProvider`.
+ *
+ * **The panel is handed the Page selection when nothing is selected
+ * (2026-09-29).** `panelSelection` is `currentSelection ?? { kind: "page" }`
+ * and goes to `panelContentFor` and `PropertiesPanel` only, so the panel
+ * shows the Page form instead of an empty region; the canvas outline,
+ * `panelFoot`, delete and drag keep the real selection, and every deselect
+ * path resets the tab to `primary` so it lands there.
  *
  * **A palette thumbnail is a real drag source onto the canvas now
  * (2026-09-05).** `onDragStart` branches on `palettePayload` first and
@@ -2103,10 +2114,12 @@ export function BlockEditor<T extends FieldValues>({
         return;
       }
       setSelection(null);
+      // The panel falls back to the Page form, whose tab is `primary`.
+      setTab("primary");
     };
     globalThis.addEventListener("keydown", onKey, true);
     return () => globalThis.removeEventListener("keydown", onKey, true);
-  }, [setSelection]);
+  }, [setSelection, setTab]);
 
   /**
    * Chooses a block from a canvas click, or deselects on empty canvas.
@@ -2149,6 +2162,7 @@ export function BlockEditor<T extends FieldValues>({
     }
     if (target?.closest(`.${CHROME_SCOPE}`)) return;
     setSelection(null);
+    setTab("primary");
   };
 
   /**
@@ -2422,12 +2436,17 @@ export function BlockEditor<T extends FieldValues>({
     ? styleGatesFor(selectedBlock, (selectedPath?.length ?? 0) === 1)
     : null;
 
+  // **The panel never shows "nothing" (2026-09-29).** With nothing selected
+  // it shows the Page form, the first thing a new page needs; the canvas
+  // keeps the real selection, so no outline appears around the page.
+  const panelSelection: EditorSelection = currentSelection ?? { kind: "page" };
+
   const {
     primary: primaryContent,
     secondary: secondaryContent,
     panelLabels,
   } = panelContentFor({
-    currentSelection,
+    currentSelection: panelSelection,
     pageFields,
     pageStartOptions,
     pageTheme,
@@ -2480,14 +2499,17 @@ export function BlockEditor<T extends FieldValues>({
         onDragEnd={onDragEnd}
       >
         <PropertiesPanel
-          selection={currentSelection}
+          selection={panelSelection}
           activeTab={tab}
           onTab={(next) => {
             setTab(next);
             if (next === "palette") setPaletteOpened(true);
           }}
           labels={panelLabels}
-          onClose={() => setSelection(null)}
+          onClose={() => {
+            setSelection(null);
+            setTab("primary");
+          }}
           primary={primaryContent}
           secondary={secondaryContent}
           palette={paletteOpened ? palettePane : null}

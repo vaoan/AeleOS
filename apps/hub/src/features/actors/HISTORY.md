@@ -7165,3 +7165,35 @@ prop is gone — an inline height whose value is not a length is dropped
 silently by jsdom, so the old code renders no `style` at all — which is why the guard against re-threading a size is the TYPE (`DropMarkProps`
 has no `height`) and the runtime cases guard the mark sizing itself by any
 route.
+
+## The panel never shows nothing (2026-09-29)
+
+**The fault.** A new page opened onto a blank side panel, and so did every
+deselect (Escape, a click on the empty canvas, Close, Preview and back). The
+panel was on screen but no tab was selected and nothing was in its body.
+
+**The diagnosis.** The tab state starts at `"primary"` and no deselect path
+changed it. With nothing selected `panelContentFor` returned `primary: null`,
+`PropertiesPanel` hides the Page and Theme buttons when its `selection` is
+`null`, and the Palette pane stays `null` until first opened. So the active
+tab was one whose button was `hidden` and whose pane was empty. The
+2026-09-05 palette spec's selection table mapped "Nothing" to Palette but
+never chose the active tab; the launch spec §4.1 now requires the Page form
+whenever nothing is selected.
+
+**The fix.** `BlockEditor` derives `panelSelection = currentSelection ?? {
+kind: "page" }` and passes that to `panelContentFor` and `PropertiesPanel`
+only. The canvas, `panelFoot`, `deleteSelected` and drag keep the real
+selection, so no outline appears around the page. Every deselect path (Escape,
+the empty-canvas click, `onClose`) also resets the tab to `primary`, so a
+deselect from Theme, Appearance or Layout lands on the Page form rather than
+on a tab that no longer exists. `PropertiesPanel` still accepts `null`;
+`BlockEditor` just never sends it.
+
+**The proof.** Unit cases in `block-editor.test.tsx` (`expectPageFallback`)
+and `fursona-editor.test.tsx`, and the browser case "a new page never shows an
+empty panel, on arrival or after Escape" in `properties-panel.spec.ts`. The
+old assertions that a deselect made the primary tab `hidden` were the fault
+written down as a spec, and now assert the Page form. `selectPage` in
+`support/editor.ts` selects the Page explicitly, since a visible primary tab
+no longer means something is selected.
