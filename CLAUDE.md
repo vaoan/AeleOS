@@ -136,7 +136,9 @@ features launch, and Libra launches against production treating a person as a
 person. Record: `docs/deployment.md`. The hub's own launch is designed
 (2026-09-29) and not built: launch fixes, a look gallery and phone-first first
 run, a share screen, finished public pages, a brand mark, then the deferred
-deployment tasks — `docs/superpowers/specs/2026-09-29-hub-launch-polish-design.md`.
+deployment tasks — `docs/superpowers/specs/2026-09-29-hub-launch-polish-design.md`. Part A
+(the launch fixes) is planned and in progress:
+`docs/superpowers/plans/2026-09-29-hub-launch-part-a-fixes.md`.
 
 Claude's role throughout: build and test the hub here, specify exactly what
 to configure in Clerk, and write the per-app integration code in the
