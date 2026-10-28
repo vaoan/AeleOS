@@ -94,6 +94,7 @@
     "panelTabAppearance": "Apariencia",
     "panelTabTheme": "Tema",
     "panelTabPalette": "Paleta",
+    "panelReopen": "Abrir paleta",
     "cloneBlock": "Clonar",
     "cloneRefusedTooDeep": "Eso anidaría un nivel más de lo que una página admite, así que no se clonó nada.",
     "cloneRefusedTooMany": "Esa lista no admite otro bloque, así que no se clonó nada.",

@@ -180,6 +180,9 @@ const stylePopupLabels = {
  * persistent third tab, present whether or not anything is selected, unlike
  * `panelTabAppearance`/`panelTabTheme` beside it.
  *
+ * **Carries `panelReopen` (2026-10-27)**, the reopen control for a collapsed
+ * panel.
+ *
  * @returns every label the block editor and its existing child controls need.
  */
 export function blockEditorLabels(): BlockEditorLabels {
@@ -196,6 +199,7 @@ export function blockEditorLabels(): BlockEditorLabels {
     panelTabAppearance: "Appearance",
     panelTabTheme: "Theme",
     panelTabPalette: "Palette",
+    panelReopen: "Open palette",
     cloneBlock: "Clone",
     cloneRefusedTooDeep: "That would nest one level too deep.",
     cloneRefusedTooMany: "That list cannot hold another block.",

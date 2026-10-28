@@ -46,8 +46,10 @@ export const handleFor = (prefix: string): string =>
  * The panel renders unconditionally now, for its own persistent Palette
  * tab — see `properties-panel.tsx`'s own TSDoc — so it is never hidden by
  * selection state, only its two selection-dependent tab buttons are.
- * `panel-close` still clears the selection; what proves that now is
- * `panel-tab-primary` going `hidden`, not the panel disappearing.
+ * **2026-10-27: Close collapses the panel**, so `panel-tab-primary` going
+ * hidden is now the tab leaving with the panel; selecting Page reopens it,
+ * and the canvas's `padding-right` transitions back, so this waits for that
+ * the way {@link selectBlock} does.
  *
  * @param page - the editor page.
  */
@@ -61,6 +63,7 @@ export async function selectPage(page: Page): Promise<void> {
   await page.getByTestId("select-page").click();
   await expect(panel).toBeVisible();
   await expect(primaryTab).toBeVisible();
+  await waitForCanvasAccommodation(page);
 }
 
 /**
@@ -311,6 +314,11 @@ async function waitForCanvasAccommodation(page: Page): Promise<void> {
  * append slot's own element, so the mark a valid drop produces is not
  * always a descendant of `targetLocator` itself.
  *
+ * **Reopens a collapsed panel first (2026-10-27).** Close takes the panel
+ * out of the tree now, so a caller that closed it would find no Palette tab;
+ * the floating `panel-reopen` control brings it back, and the canvas's
+ * accommodation is awaited before any geometry is read.
+ *
  * @param page - the editor page.
  * @param choice - a content kind (`data-palette-kind`) or a layout mode
  *   (`data-palette-mode`), exactly as the palette's own thumbnails carry
@@ -325,6 +333,13 @@ export async function dragPaletteOnto(
   choice: { kind: string } | { mode: string },
   targetCanvasPath: string,
 ): Promise<void> {
+  // A collapsed panel (Close, since 2026-10-27) has no tabs to click; its
+  // floating reopen control brings it back on the Palette.
+  const reopen = page.getByTestId("panel-reopen");
+  if (await reopen.isVisible()) {
+    await reopen.click();
+    await waitForCanvasAccommodation(page);
+  }
   await page.getByTestId("panel-tab-palette").click();
   const thumbnail =
     "kind" in choice

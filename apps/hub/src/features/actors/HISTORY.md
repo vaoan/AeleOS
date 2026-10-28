@@ -7293,3 +7293,32 @@ the transform" (1 failed, 3 passed; restored by copy, `cmp` identical).
   the rule in `.claude/rules/browser-proof.md`.**
 - **The overlay carries `previewFollowsPointer`: the preview sits beside the
   pointer whatever the active node's size, never at the node's own corner.**
+
+## Close collapses the Properties panel (2026-10-27)
+
+The owner, reopening the editor a month after launch prep: "the palette does
+not close". Since the persistent Palette tab landed (2026-09-05, PR #72) the
+panel rendered whenever controls showed, and Close only cleared selection —
+so pressing it left the panel up on its Palette tab, covering the right
+`--properties-panel-width` of the canvas with no way to get it back.
+
+Close now collapses the panel: it leaves the tree, the canvas drops its
+`md:pr-(--properties-panel-width)`, and a floating `PanelReopen` control at
+the bottom-right (the `panelReopen` label, "Open palette" in English) brings it back on the
+Palette tab. Selecting anything reopens it for good — adjusted during render
+in `usePanelCollapse`, not in an effect, so a later Escape clears the
+selection without collapsing the panel again. Preview keeps the panel mounted
+as before (the hide-controls rule hides it), so nothing it held is lost on the
+way through. `PageSourceDock` used to shift on `!controlsHidden`; it now reads
+the panel's real presence, reported up through `onPanelShownChange`.
+
+Guards in `tests/block-editor.test.tsx`: the three "closes the panel directly
+from …" cases assert the panel's absence and the reopen control's presence,
+plus "reopens a closed panel on its Palette tab". All four were red against
+the unchanged editor (4 failed, 29 passed in the filtered run) before the
+change; "reopens when something is selected" and "keeps the panel open after
+Escape" hold the two transitions the adjustment owns.
+
+- **Close collapses the panel; `PanelReopen` is the Palette's way back, and a
+  selection reopens it. The panel's presence is `panelShown`, never
+  `!controlsHidden` alone.**
