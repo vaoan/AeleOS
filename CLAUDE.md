@@ -133,7 +133,11 @@ hub is not (2026-09-27): a production Clerk instance on
 AeleOS Supabase project beside the development one, proved 15/15 by the cloud
 identity suite on both; the hub stays on development until its profile
 features launch, and Libra launches against production treating a person as a
-person. Record: `docs/deployment.md`.
+person. Record: `docs/deployment.md`. Dragging on a page taller than the viewport is
+proved for both drag origins (2026-09-17), and the mark a canvas move draws
+follows the pointer across a block's midline now, which it did not before;
+the preview pill follows the pointer too, which its picture proof found it
+did not.
 
 Claude's role throughout: build and test the hub here, specify exactly what
 to configure in Clerk, and write the per-app integration code in the

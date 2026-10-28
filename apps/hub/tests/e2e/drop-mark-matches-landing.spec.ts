@@ -6,7 +6,7 @@ import {
   signIn,
   type TestIdentity,
 } from "./support/clerk-session";
-import { addBlock, addSection } from "./support/editor";
+import { addBlock, addSection, selectBlock } from "./support/editor";
 
 // THE BROWSER PROOF THE LYING-MARK FAULT NEEDED: drag to a spot, read where
 // the mark is, drop, and assert the block landed where the mark said.
@@ -166,4 +166,118 @@ test("a palette drop lands where the mark said, mid-list", async ({ page }) => {
     "data-block-kind",
     "text",
   );
+});
+
+// THE SAME COMPARISON FOR A CANVAS MOVE, ACROSS A LEAF'S OWN MIDLINE.
+//
+// A `before`/`after` target in a linear container is decided by which half
+// of the hovered block the pointer is in, on EVERY collision check. The mark
+// is published from `onDragOver`, and dnd-kit fires that only when the
+// resolved `over` id CHANGES — so a pointer that enters a block's top half
+// and slides into its bottom half without leaving the block keeps the
+// `before` mark while the target the drop will use has already become
+// `after`. Found 2026-09-17 by `drag-on-a-scrolled-canvas.spec.ts`, whose
+// mid-drag scroll happened to enter a block at one half and settle in the
+// other; the scroll was incidental, this is the fault. A palette drag is
+// immune: its target is named by the id alone (`insertMarkFor`), never by an
+// edge.
+//
+// **THE DISCRIMINATING GESTURE IS TWO HOVERS INSIDE ONE BLOCK.** Enter "1-2"
+// at its upper quarter (mark `before`), slide to its lower quarter WITHOUT
+// crossing out of it, and only then read the mark and drop. A case that
+// arrived at the lower quarter directly would enter the block already
+// resolved to `after` and could not tell the mark that follows the pointer
+// from the one frozen at entry (root rule 27).
+
+test("a canvas move's mark follows the pointer across a leaf's midline, and the drop lands where the mark says", async ({
+  page,
+}) => {
+  await signIn(page, await mintTicket(identity!.userId));
+  await page.goto("/es/pages/new");
+
+  // Three named `text` leaves in a STACK section "1": A at "1-0", B at
+  // "1-1", C at "1-2". A stack, not the grid `addSection` builds, because a
+  // canvas move inside a positional container is a `place` swap with no
+  // edge to get wrong; only a linear container decides `before`/`after`
+  // by the pointer's half. Named so the landing can be read back by title.
+  await addBlock(page, { mode: "stack" }, "");
+  await addBlock(page, { kind: "text" }, "1");
+  await page.getByTestId("leaf-title").fill("A");
+  await addBlock(page, { kind: "text" }, "1");
+  await page.getByTestId("leaf-title").fill("B");
+  await addBlock(page, { kind: "text" }, "1");
+  await page.getByTestId("leaf-title").fill("C");
+  await expect(page.locator('[data-block-path="1-2"]')).toHaveAttribute(
+    "data-block-kind",
+    "text",
+  );
+
+  // Lifts A by its own grip, which renders once the block is selected, and
+  // clears `DRAG_THRESHOLD` (8px) before crossing to the target.
+  await selectBlock(page, "1-0");
+  const grip = await page.getByTestId("canvas-drag-1.0").boundingBox();
+  expect(grip).not.toBeNull();
+  await page.mouse.move(grip!.x + grip!.width / 2, grip!.y + grip!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    grip!.x + grip!.width / 2 + 20,
+    grip!.y + grip!.height / 2,
+  );
+
+  const marksOnPage = () =>
+    page
+      .getByTestId(/^canvas-drop-(before|after|place)$/)
+      .evaluateAll((elements) =>
+        elements.map(
+          (element) =>
+            `${element.getAttribute("data-testid")} on ${element
+              .closest("[data-canvas-path]")
+              ?.getAttribute("data-canvas-path")}`,
+        ),
+      );
+
+  // Enters C at its upper quarter: `before` C.
+  const target = page.locator('[data-canvas-path="1-2"]');
+  await target.scrollIntoViewIfNeeded();
+  const box = await target.boundingBox();
+  expect(box).not.toBeNull();
+  const centreX = box!.x + box!.width / 2;
+  await page.mouse.move(centreX, box!.y + box!.height / 4, { steps: 8 });
+  await expect.poll(marksOnPage).toEqual(["canvas-drop-before on 1-2"]);
+
+  // THE PREVIEW PILL IS BESIDE THE POINTER, for a canvas move as much as for
+  // a palette drag. dnd-kit positions the overlay at the ACTIVE NODE's own
+  // rectangle plus the drag delta, and for a canvas move the active node is
+  // the whole 720px-wide frame while the grip sits at its top-right — so
+  // without a modifier the pill is drawn at the frame's top-left plus the
+  // delta, 700px from the cursor and off screen (found 2026-09-17 by the
+  // picture proof for #93: the pill was simply absent from the frame).
+  // Its top-left is within a hand's width below-right of the pointer.
+  const preview = await page.getByTestId("drag-preview").boundingBox();
+  expect(preview).not.toBeNull();
+  expect(preview!.x - centreX).toBeGreaterThanOrEqual(0);
+  expect(preview!.x - centreX).toBeLessThan(32);
+  expect(preview!.y - (box!.y + box!.height / 4)).toBeGreaterThanOrEqual(0);
+  expect(preview!.y - (box!.y + box!.height / 4)).toBeLessThan(32);
+
+  // Slides to C's lower quarter without leaving C. THE CORE PROOF, part one:
+  // the mark is `after` C now, because that is what the drop will do.
+  await page.mouse.move(centreX, box!.y + (box!.height * 3) / 4, { steps: 8 });
+  await expect.poll(marksOnPage).toEqual(["canvas-drop-after on 1-2"]);
+
+  await page.mouse.up();
+  await page.evaluate(
+    // eslint-disable-next-line no-restricted-syntax -- dnd-kit's 50ms click-swallow window, see above.
+    () => new Promise((done) => setTimeout(done, 100)),
+  );
+
+  // THE CORE PROOF, part two: A landed AFTER C — spliced out of index 0 and
+  // in at the end — so the order is B, C, A.
+  const titleAt = async (path: string) => {
+    await selectBlock(page, path);
+    return page.getByTestId("leaf-title").inputValue();
+  };
+  expect(await titleAt("1-0")).toBe("B");
+  expect(await titleAt("1-1")).toBe("C");
+  expect(await titleAt("1-2")).toBe("A");
 });

@@ -271,6 +271,22 @@ one.
 The sabotage that must redden it: restore the mark to the block at the target
 index rather than the gap above it.
 
+**2026-09-17 addendum: the comparison had a second hole, and a canvas move
+within ONE block fell through it.** The case above enters its target from
+outside, so the mark it reads was published on arrival. A `before`/`after`
+edge in a linear container is decided on every collision check by which half
+of the block the pointer is in, but the mark was published from `onDragOver`
+alone, which dnd-kit fires only when the resolved `over` id changes — so a
+pointer that entered a block's top half and slid into its bottom half kept
+`before` on screen while the drop, reading the fresh check, landed `after`.
+Found by `drag-on-a-scrolled-canvas.spec.ts`'s mid-drag scroll, which
+happened to enter at one half and settle in the other. The mark is
+re-published from `onDragMove` now, and the second case in
+`drop-mark-matches-landing.spec.ts` is the proof: two hovers inside one
+block, then the mark, then the drop. It reddened against the unfixed editor
+at the second mark read (received `before`, expected `after`), which is the
+sabotage this addendum's own case demands.
+
 ## 9. Out of scope
 
 - Reordering by keyboard, which already works and is unaffected.
