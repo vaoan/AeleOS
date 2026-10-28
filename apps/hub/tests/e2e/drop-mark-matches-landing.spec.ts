@@ -245,6 +245,21 @@ test("a canvas move's mark follows the pointer across a leaf's midline, and the 
   await page.mouse.move(centreX, box!.y + box!.height / 4, { steps: 8 });
   await expect.poll(marksOnPage).toEqual(["canvas-drop-before on 1-2"]);
 
+  // THE PREVIEW PILL IS BESIDE THE POINTER, for a canvas move as much as for
+  // a palette drag. dnd-kit positions the overlay at the ACTIVE NODE's own
+  // rectangle plus the drag delta, and for a canvas move the active node is
+  // the whole 720px-wide frame while the grip sits at its top-right — so
+  // without a modifier the pill is drawn at the frame's top-left plus the
+  // delta, 700px from the cursor and off screen (found 2026-09-17 by the
+  // picture proof for #93: the pill was simply absent from the frame).
+  // Its top-left is within a hand's width below-right of the pointer.
+  const preview = await page.getByTestId("drag-preview").boundingBox();
+  expect(preview).not.toBeNull();
+  expect(preview!.x - centreX).toBeGreaterThanOrEqual(0);
+  expect(preview!.x - centreX).toBeLessThan(32);
+  expect(preview!.y - (box!.y + box!.height / 4)).toBeGreaterThanOrEqual(0);
+  expect(preview!.y - (box!.y + box!.height / 4)).toBeLessThan(32);
+
   // Slides to C's lower quarter without leaving C. THE CORE PROOF, part one:
   // the mark is `after` C now, because that is what the drop will do.
   await page.mouse.move(centreX, box!.y + (box!.height * 3) / 4, { steps: 8 });
