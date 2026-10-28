@@ -137,7 +137,9 @@ person. Record: `docs/deployment.md`. Dragging on a page taller than the viewpor
 proved for both drag origins (2026-09-17), and the mark a canvas move draws
 follows the pointer across a block's midline now, which it did not before;
 the preview pill follows the pointer too, which its picture proof found it
-did not.
+did not. A drag in a list opens a real gap that parts the blocks
+(2026-10-27), decided against the page as it was at the lift so the
+animation cannot move the target.
 
 Claude's role throughout: build and test the hub here, specify exactly what
 to configure in Clerk, and write the per-app integration code in the

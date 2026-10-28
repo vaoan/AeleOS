@@ -13,8 +13,17 @@ import {
   type DragMoveEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type ClientRect,
   type KeyboardCoordinateGetter,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
+import {
+  GAP_REACH,
+  frozenRect,
+  gapHeightFor,
+  gapSlotFor,
+  reachesPoint,
+} from "@/features/actors/domain/gap-parting";
 import type { PageContext } from "@/features/actors/presentation/blocks";
 import { previewFollowsPointer } from "@/features/actors/presentation/preview-follows-pointer";
 import { PanelRightOpen, Sparkles } from "lucide-react";
@@ -27,6 +36,7 @@ import {
   useRef,
   useState,
   type Dispatch,
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject,
@@ -132,6 +142,7 @@ import {
 import {
   AppendSlot,
   EditableBlockFrame,
+  type GapInstrumentation,
 } from "@/features/actors/presentation/editable-block-frame";
 import {
   dragAnnouncements,
@@ -564,6 +575,11 @@ function keyboardDropTarget(
  * resolved to, written by {@link paletteCoordinateAt} — read here, never
  * written, mirroring how `keyboardTarget` is read rather than written by the
  * canvas-move branch below.
+ * @param frozenRects - this drag's first rectangle per droppable, read
+ * through `frozenRect` instead of `args.droppableRects` (2026-10-27): an
+ * opening gap grows the block it sits in, dnd-kit re-measures a resized
+ * droppable, and a target decided against the moved page would move the gap
+ * that moved it. Cleared at every lift, drop and cancel.
  * @returns the one place a drop would land on, or none.
  */
 // eslint-disable-next-line sonarjs/cognitive-complexity -- collision admission must parse the matching id space, contain the pointer, validate the domain drop, and rank the deepest nested destination in one pass
@@ -574,6 +590,7 @@ function detectCollisionAt(
   pointerTarget: RefObject<DropTarget | null>,
   insertTargetsRef: RefObject<readonly InsertTarget[] | null>,
   paletteKeyboardTarget: RefObject<InsertTarget | null>,
+  frozenRects: RefObject<Map<UniqueIdentifier, ClientRect>>,
 ): ReturnType<CollisionDetection> {
   const activeId = String(args.active.id);
 
@@ -596,12 +613,18 @@ function detectCollisionAt(
     let bestInsert: { readonly id: string; readonly depth: number } | undefined;
     for (const target of insertTargetsRef.current ?? []) {
       const id = canvasPlaceId(target.path);
-      const rect = args.droppableRects.get(id);
+      const rect = frozenRect(
+        frozenRects.current,
+        id,
+        args.droppableRects.get(id),
+      );
       if (!rect) continue;
-      const { x, y } = args.pointerCoordinates;
-      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-        continue;
-      }
+      // An insert names the gap ABOVE its index, so in a list it reaches up
+      // into the space over its block, never down into the next gap.
+      const above = isLinearScope(pageRef.current, target.path.slice(0, -1))
+        ? GAP_REACH
+        : 0;
+      if (!reachesPoint(rect, args.pointerCoordinates, above, 0)) continue;
       if (!bestInsert || target.path.length > bestInsert.depth) {
         bestInsert = { id, depth: target.path.length };
       }
@@ -628,12 +651,20 @@ function detectCollisionAt(
     const path = canvasDrag
       ? canvasPlacePath(candidateId)
       : placePath(candidateId);
-    const rect = args.droppableRects.get(container.id);
+    const rect = frozenRect(
+      frozenRects.current,
+      container.id,
+      args.droppableRects.get(container.id),
+    );
     if (!path || !rect) continue;
-    const { x, y } = args.pointerCoordinates;
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      continue;
-    }
+    // A block in a list reaches into the space beside it, so a pointer
+    // between two siblings stays on the gap between them rather than
+    // falling through to their container (2026-10-27).
+    const reach = isLinearScope(pageRef.current, path.slice(0, -1))
+      ? GAP_REACH
+      : 0;
+    if (!reachesPoint(rect, args.pointerCoordinates, reach, reach)) continue;
+    const { y } = args.pointerCoordinates;
     const edge = y < rect.top + rect.height / 2 ? "before" : "after";
     const target = targetAt(pageRef.current, path, edge);
     if (!applyDrop(pageRef.current, from, target).ok) continue;
@@ -886,6 +917,80 @@ function panelChrome({
 }): ReactNode {
   if (controlsHidden || panelShown) return panel;
   return reopen;
+}
+
+/**
+ * The canvas's own style while a drag is open: no scroll anchoring.
+ *
+ * @param dragging - whether a drag is in progress.
+ * @returns the inline style.
+ */
+function canvasDragStyle(dragging: boolean): CSSProperties | undefined {
+  return dragging ? { overflowAnchor: "none" } : undefined;
+}
+
+/**
+ * How tall the lifted thing is, read from the page at the lift.
+ *
+ * dnd-kit has not measured the active node yet when `onDragStart` runs —
+ * `active.rect.current.initial` is still `null` there, which opened every
+ * gap at the floor height (found by photographing it, 2026-10-27). A canvas
+ * move reads the frame around what was pressed; a palette drag reads the
+ * thumbnail it pressed.
+ *
+ * @param event - the drag's start.
+ * @returns the height in CSS pixels, or `NaN` when nothing can be found.
+ */
+function liftedHeight(event: DragStartEvent): number {
+  const measured = event.active.rect.current.initial?.height;
+  if (measured !== undefined) return measured;
+  const pressed = event.activatorEvent.target;
+  if (!(pressed instanceof Element)) return Number.NaN;
+  const host = canvasPlacePath(String(event.active.id))
+    ? "[data-canvas-path]"
+    : "[data-palette-kind], [data-palette-mode]";
+  const element = pressed.closest(host);
+  return element?.getBoundingClientRect().height ?? Number.NaN;
+}
+
+/**
+ * Where a drag lifted a canvas block from, or `null` for a palette drag.
+ *
+ * @param activeId - the drag's active id.
+ * @returns the lifted block's path, or `null`.
+ */
+function liftedFromId(activeId: string): BlockPath | null {
+  if (palettePayload(activeId)) return null;
+  return canvasPlacePath(activeId) ?? null;
+}
+
+/**
+ * What every frame needs to draw the drag's gap, or `null` outside a drag.
+ *
+ * A plain function so its branches count against its own complexity budget
+ * rather than {@link BlockEditor}'s.
+ *
+ * @param blocks - the whole page.
+ * @param target - the drag's advertised winner.
+ * @param height - how tall a gap opens, `null` outside a drag.
+ * @param label - what is being carried.
+ * @param from - where a canvas move lifted its block from, or `null`.
+ * @returns the gap instrumentation.
+ */
+function gapInstrumentationFor(
+  blocks: readonly Block[],
+  target: DropTarget | null,
+  height: number | null,
+  label: string | null,
+  from: BlockPath | null,
+): GapInstrumentation | null {
+  if (height === null) return null;
+  const slot = gapSlotFor(blocks, target, from ?? undefined);
+  return {
+    open: slot ? { path: formatBlockPath(slot.path), edge: slot.edge } : null,
+    height,
+    label: label ?? "",
+  };
 }
 
 function useResettableSelection(
@@ -1667,6 +1772,12 @@ function panelFootFor({
  * brings it back on the Palette. A selection reopens it for good. See
  * `usePanelCollapse`.
  *
+ * **A drag in a list opens a real gap (2026-10-27).** Every frame gets the
+ * drag's `GapInstrumentation` from `gapInstrumentationFor`; the collision
+ * reads `frozenRect`, so the gap's own growth never moves the target; and
+ * the canvas drops scroll anchoring while a drag is open. See
+ * `domain/gap-parting.ts`.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1751,6 +1862,15 @@ export function BlockEditor<T extends FieldValues>({
   // both `onDragEnd` and `onDragCancel`, matching every other piece of
   // transient drag chrome in this component.
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  // **The drag's gap (2026-10-27).** `gapHeight` is how tall a winning gap
+  // opens, measured from what was lifted, and `null` outside a drag — which
+  // is also what tells every frame to drop its zero-height slots.
+  // `frozenRectsRef` is this drag's first rectangle per droppable, so the
+  // gap growing a block never reaches the collision that opened it.
+  const [gapHeight, setGapHeight] = useState<number | null>(null);
+  // Where a canvas move lifted its block from, so no gap opens beside it.
+  const [liftedFrom, setLiftedFrom] = useState<BlockPath | null>(null);
+  const frozenRectsRef = useRef(new Map<UniqueIdentifier, ClientRect>());
 
   const field = useController({ control, name: "sections" as Path<T> });
   // Memoized so an unwritten field — which answers a fresh `[]` each time —
@@ -1890,6 +2010,7 @@ export function BlockEditor<T extends FieldValues>({
         pointerTarget,
         insertTargetsRef,
         paletteKeyboardTarget,
+        frozenRectsRef,
       ),
     [],
   );
@@ -2021,6 +2142,9 @@ export function BlockEditor<T extends FieldValues>({
   const onDragStart = (event: DragStartEvent): void => {
     const activeId = String(event.active.id);
     setActiveLabel(dragItemName(activeId));
+    frozenRectsRef.current.clear();
+    setLiftedFrom(liftedFromId(activeId));
+    setGapHeight(gapHeightFor(liftedHeight(event)));
     const paletteItem = palettePayload(activeId);
     if (paletteItem) {
       insertTargetsRef.current = insertTargetsFor(blocks, paletteItem);
@@ -2178,6 +2302,9 @@ export function BlockEditor<T extends FieldValues>({
     setReturningPath(null);
     setPaletteDragActive(false);
     setActiveLabel(null);
+    setGapHeight(null);
+    setLiftedFrom(null);
+    frozenRectsRef.current.clear();
   };
 
   /**
@@ -2208,6 +2335,9 @@ export function BlockEditor<T extends FieldValues>({
    */
   const onDragEnd = (event: DragEndEvent): void => {
     setActiveLabel(null);
+    setGapHeight(null);
+    setLiftedFrom(null);
+    frozenRectsRef.current.clear();
     const activeId = String(event.active.id);
     const paletteItem = palettePayload(activeId);
     if (paletteItem) {
@@ -2551,6 +2681,14 @@ export function BlockEditor<T extends FieldValues>({
     />
   );
 
+  const gapInstrumentation = gapInstrumentationFor(
+    blocks,
+    advertisedTarget,
+    gapHeight,
+    activeLabel,
+    liftedFrom,
+  );
+
   const selectedContainer =
     selectedBlock && isContainer(selectedBlock) ? selectedBlock : null;
   const selectedLeaf =
@@ -2752,6 +2890,13 @@ export function BlockEditor<T extends FieldValues>({
           ref={canvasRef}
           data-editor-canvas=""
           data-editor-stack
+          // **No scroll anchoring while a drag is open (2026-10-27).** A gap
+          // opening above the anchor node makes Chrome move `scrollTop` to
+          // compensate; dnd-kit's kept rectangles follow that scroll, so the
+          // whole page would read as having moved up by the gap and the
+          // target would jump past it. An inline style, not an arbitrary
+          // class, so it cannot compile to nothing unseen (rule 36).
+          style={canvasDragStyle(gapHeight !== null)}
           className={
             controlsHidden
               ? "grid"
@@ -2853,6 +2998,7 @@ export function BlockEditor<T extends FieldValues>({
                                   // carried block left, where the block
                                   // it is swapping with returns to.
                                   returningPath,
+                                  gap: gapInstrumentation,
                                 }}
                               >
                                 {children}

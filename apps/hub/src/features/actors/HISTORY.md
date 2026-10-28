@@ -7334,3 +7334,76 @@ code passed it on its other two runs. Making the selecting helpers skip
 Close on a desktop was tried as a fix for the first and withdrawn:
 `editor-saves-page.spec.ts` relies on `selectPage`'s close-then-reopen to
 remount the theme accordion, and says so.
+
+## A drag in a list opens a real gap (2026-10-27)
+
+The owner, a month after the bar shipped: dragging was still uncomfortable,
+because nothing showed where the block would go. They asked for carrd's
+gesture — the blocks part and the carried block's ghost sits in the space —
+with one condition: "be careful that while it animates it does not create
+situations where the page goes out of control because it does not know where
+to put anything."
+
+This is option B of `docs/superpowers/specs/2026-09-07-drop-target-legibility-design.md`
+§4, refused there on measurement: dnd-kit measures drop targets at the lift,
+and a page that reflows mid-drag makes the collision answer about where things
+were. That refusal is answered in the collision, not by keeping the page
+still:
+
+- **`frozenRect`** (`domain/gap-parting.ts`) keeps the first rectangle dnd-kit
+  hands over for each droppable, for the whole drag. An opening gap grows the
+  frame it sits in, dnd-kit re-measures a resized droppable, and a target
+  decided against that re-measured frame moves the gap that moved it. The
+  kept object is dnd-kit's own `Rect`, whose getters still follow the
+  canvas's scroll, so the scrolled-canvas proof holds unchanged.
+- **`GapGhost`** (`presentation/gap-ghost.tsx`) is the slot. Every
+  `EditableBlockFrame` mounts one at its top and one at its bottom for the
+  whole drag, at zero height; the winner animates to the carried block's
+  height (`gapHeightFor`, 48–160px) while the previous one animates closed,
+  so the blocks between them hold still. Plain CSS height, none under
+  `prefers-reduced-motion`.
+- **`gapSlotFor`** answers where a target opens: only in the page's own list
+  and the linear modes (a grid's places do not shift), with `after` a
+  sibling that has a next sibling answered as that sibling's `top`, so one
+  boundary has one slot. The bar and the `place` mark are unchanged and still
+  drawn out of flow.
+
+Measuring a real drag (a stack of three leaves, positions logged at every
+step) found two more ways the page lost control, both fixed here:
+
+1. **The gap opened at the lift**, above the lifted block — a drop that
+   changes nothing — and the whole page dropped by the gap's height the moment
+   a block was picked up. `gapSlotFor` takes the lifted path and opens nothing
+   directly above or below it.
+2. **The space between two siblings belonged to their container.** A pointer
+   there is inside no leaf, so the target fell through to "before the whole
+   section" and the gap jumped there and back as the pointer crossed each
+   space. With a bar this was a flicker nobody named; with a gap it moved the
+   section. In a linear list each block now reaches `GAP_REACH` (12px) past
+   its edges (`reachesPoint`); a palette insert, which names the gap above its
+   index, reaches up only.
+
+Photographing it found a third: every gap opened at the 48px floor, because
+`active.rect.current.initial` is still `null` in `onDragStart`. `liftedHeight`
+reads the frame (or palette thumbnail) the press landed in.
+
+The canvas also drops scroll anchoring while a drag is open
+(`overflowAnchor: none`): a gap opening above Chrome's anchor node would move
+`scrollTop`, and the kept rectangles follow scroll. It was the first
+hypothesis for the midline failure and not its cause — the measured cause was
+fault 1 — and it stays as a guard against the same mechanism on a scrolled
+canvas.
+
+Guards: `tests/gap-parting.test.ts` (20 cases; the freeze and the grid
+refusal each red under a source sabotage, restored by copy), and
+`tests/e2e/gap-parting.spec.ts`, which holds all three faults at browser
+level — red with the lifted-path check removed, red with `GAP_REACH` at 0,
+and red with `frozenRect` returning the fresh measurement (the flip shows at
+the last block's lower quarter, where an opening gap grows that block's own
+frame past the pointer). The existing drag suites pass unchanged.
+
+- **A gap opens in flow, in a linear list, and never feeds the collision:
+  every drag decides against `frozenRect`, never against
+  `args.droppableRects` directly.**
+- **No gap opens beside the lifted block, and a block in a list reaches
+  `GAP_REACH` into the space beside it.**

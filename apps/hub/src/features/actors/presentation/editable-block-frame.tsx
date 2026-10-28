@@ -13,6 +13,7 @@ import type { InsertTarget } from "@/features/actors/domain/palette-targets";
 import { CHROME_SCOPE } from "@/shared/domain/chrome";
 import { tid } from "@/shared/infrastructure/test-id";
 import { DropMark } from "@/features/actors/presentation/drop-mark";
+import { GapGhost } from "@/features/actors/presentation/gap-ghost";
 
 /**
  * Editor-only state threaded through the public block recursion.
@@ -44,6 +45,9 @@ import { DropMark } from "@/features/actors/presentation/drop-mark";
  * mark is its host's box now and sizes itself from nothing — see
  * `drop-mark.tsx`'s own header for the spill that decided it. Nothing about
  * the carried block reaches the frame any more.
+ *
+ * **Carries `gap` too (2026-10-27)** — the drag's opening gap, non-null for
+ * the whole drag so every frame can mount its slots at the lift.
  */
 export interface EditableBlockInstrumentation {
   /** The selected block, in the renderer's hyphenated path form. */
@@ -65,6 +69,47 @@ export interface EditableBlockInstrumentation {
    * nothing, and a palette insert has no source to return anything to.
    */
   readonly returningPath: string | null;
+  /**
+   * The drag's opening gap, or `null` while nothing is being dragged
+   * (2026-10-27).
+   *
+   * Non-null for the whole drag, so every frame mounts its zero-height
+   * {@link GapGhost} slots at the lift and the winning one can animate open
+   * while the previous one closes. `open` names the one slot that wins, or
+   * nothing while the target is a `place` or outside a linear list.
+   */
+  readonly gap?: GapInstrumentation | null;
+}
+
+/** The drag's gap, as {@link EditableBlockInstrumentation.gap} carries it. */
+export interface GapInstrumentation {
+  /** The winning slot: a block's renderer path and which edge opens. */
+  readonly open: {
+    readonly path: string;
+    readonly edge: "top" | "bottom";
+  } | null;
+  /** How tall it opens, from `gapHeightFor`. */
+  readonly height: number;
+  /** What is being carried, for the ghost to name. */
+  readonly label: string;
+}
+
+/**
+ * One edge's gap slot for a frame, or nothing while no drag is in progress.
+ *
+ * @param gap - the drag's gap, or `null`/absent outside a drag.
+ * @param path - this frame's renderer path.
+ * @param edge - which edge of the frame the slot sits on.
+ * @returns the slot.
+ */
+function gapSlot(
+  gap: GapInstrumentation | null | undefined,
+  path: string,
+  edge: "top" | "bottom",
+): ReactNode {
+  if (!gap) return null;
+  const open = gap.open?.path === path && gap.open.edge === edge;
+  return <GapGhost open={open} height={gap.height} label={gap.label} />;
 }
 
 /** What {@link EditableBlockFrame} needs. */
@@ -133,6 +178,10 @@ export interface EditableBlockFrameProps {
  * none renders with an active drag — `transform` is `null` and
  * `isDragging` is `false` in every case this file's own tests build.
  *
+ * **Mounts a `GapGhost` at its top and bottom while a drag is open
+ * (2026-10-27).** Both sit in flow, at zero height until one wins; the out-
+ * of-flow `DropMark` is unchanged beside them.
+ *
  * @param props - see {@link EditableBlockFrameProps}.
  * @returns the instrumented renderer node and editor-only feedback.
  */
@@ -179,7 +228,9 @@ export function EditableBlockFrame(props: EditableBlockFrameProps): ReactNode {
       }}
       className={`relative min-w-0 ${emptyPlaceClass}`}
     >
+      {gapSlot(editor.gap, encodedPath, "top")}
       {children}
+      {gapSlot(editor.gap, encodedPath, "bottom")}
       {target ? <DropMark kind={target} /> : null}
       {editor.returningPath === encodedPath ? (
         <span

@@ -194,6 +194,18 @@ addendum is what decided its size. Account:
 `apps/hub/src/features/actors/HISTORY.md`, "A place mark is its host's box
 (2026-09-16)".
 
+**2026-10-27: option B is built, on the terms this section set.** The owner
+asked for the page to genuinely part. The stale-rectangle refusal is met in
+the collision rather than by keeping the page still: `frozenRect` keeps each
+droppable's first rectangle for the whole drag, so the gap's own growth never
+reaches the answer that opened it. The gap is a separate in-flow slot; the
+bar and the `place` mark are unchanged and still out of flow. The
+throttled-phone cost the refusal asked to be defended with a number does not
+arise in the form predicted: nothing re-measures continuously, the slots exist
+only during a drag, and the `canvas` job is the measurement. Account:
+`apps/hub/src/features/actors/HISTORY.md`, "A drag in a list opens a real gap
+(2026-10-27)".
+
 **The original reasoning above is kept, not deleted, because it is what the
 next person reuses.** Option A was refused the first time as "not
 distinctive enough for fault 4" — a person must see, unmistakably, which
