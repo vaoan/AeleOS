@@ -34,6 +34,10 @@ warns about everywhere else — and it has happened here three times in twelve
 days: the `PreviewThemeHost` atmosphere prop documented after it was deleted,
 the drag handle recorded as broken for a day after `#154` fixed it, and a
 superseded spec's banner claiming unwritten phases that had already landed.
+The same holds for a TEST written to pin a behaviour: the Properties panel's
+"Close keeps the panel mounted" cases pinned what the owner later reported as
+the fault, and were rewritten with the fix (2026-10-27, `HISTORY.md`, "Close
+collapses the Properties panel").
 
 ---
 

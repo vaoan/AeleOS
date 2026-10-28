@@ -585,6 +585,10 @@ function sectionsCode(problems: readonly BlockProblem[]): string {
  * unconditionally now; without this signal the dock's own fixed positioning
  * would sit on top of it rather than beside it.
  *
+ * **The source dock follows the panel's real presence (2026-10-27).**
+ * `BlockEditor` reports it through `onPanelShownChange`, because Close can
+ * collapse the panel while controls still show.
+ *
  * @returns the editor.
  */
 export function FursonaEditor({
@@ -614,6 +618,9 @@ export function FursonaEditor({
   // remembered value would open the editor with no controls at all for whoever
   // did that once.
   const [controlsHidden, setControlsHidden] = useState(false);
+  // Reported by `BlockEditor`, whose Close can collapse the panel while
+  // controls still show (2026-10-27).
+  const [panelShown, setPanelShown] = useState(true);
   // **A command version, not selection lifted into this component.**
   // `BlockEditor` still owns the selected value and every way it changes.
   // Incrementing here in the same event that enters Preview invalidates that
@@ -850,12 +857,11 @@ export function FursonaEditor({
               dock does not throw away the text or the problems it was
               showing. */}
             {sourceMounted && (
-              // `panelOpen={!controlsHidden}` is the exact condition that
-              // gates the Properties panel's own presence — see
-              // `BlockEditor`'s canvas-accommodation TSDoc above the
-              // `banner` prop — so the dock's own right-shift can never
-              // disagree with whether the panel is actually reserving the
-              // page's right edge.
+              // `panelOpen` is the condition that gates the Properties
+              // panel's own presence: controls showing, and the panel not
+              // collapsed by its Close (2026-10-27, reported up through
+              // `onPanelShownChange`) — so the dock's right-shift agrees with
+              // whether the panel is reserving the page's right edge.
               <PageSourceField
                 control={control}
                 setValue={setValue}
@@ -865,7 +871,7 @@ export function FursonaEditor({
                 onClose={() => setSourceOpen(false)}
                 reference={reference}
                 labels={labels.source}
-                panelOpen={!controlsHidden}
+                panelOpen={!controlsHidden && panelShown}
               />
             )}
 
@@ -880,6 +886,7 @@ export function FursonaEditor({
               pageInteractionsEnabled={interactionsEnabled}
               controlsHidden={controlsHidden}
               selectionResetKey={selectionResetKey}
+              onPanelShownChange={setPanelShown}
               // **Handed DOWN rather than rendered here, and it carries its
               // own page column.** Both are the same lesson from the same
               // day: a banner rendered at this level sat outside the

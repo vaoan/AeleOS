@@ -331,12 +331,23 @@ test("the panel closes itself directly from a nested leaf", async ({
 
   await page.getByTestId("panel-close").click();
 
-  // The panel stays mounted for its own persistent Palette tab (2026-09-05)
-  // — see the note on the earlier cases in this file — so Close is proved
-  // by the leaf's own content disappearing and the selection-dependent tab
-  // going `hidden`, not by the panel's absence.
+  // **Close collapses the panel (2026-10-27).** It used to clear selection
+  // only and leave the panel up on its Palette tab — the owner's "the
+  // palette does not close". The canvas takes back its right edge, and the
+  // reopen control brings the panel back on the Palette.
   await expect(page.getByTestId("leaf-kind")).toBeHidden();
-  await expect(page.getByTestId("panel-tab-primary")).toBeHidden();
+  await expect(page.getByTestId("properties-panel")).toBeHidden();
   await expect(page.getByTestId("editor-save")).toBeVisible();
   await expect(page.getByTestId("editor-canvas")).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator("section[data-editor-stack]")
+        .evaluate((el) => getComputedStyle(el).paddingRight),
+    )
+    .toBe("0px");
+
+  await page.getByTestId("panel-reopen").click();
+  await expect(page.getByTestId("properties-panel")).toBeVisible();
+  await expect(page.getByTestId("panel-palette")).toBeVisible();
 });

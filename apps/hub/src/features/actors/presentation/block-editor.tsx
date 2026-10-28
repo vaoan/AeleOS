@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import type { PageContext } from "@/features/actors/presentation/blocks";
 import { previewFollowsPointer } from "@/features/actors/presentation/preview-follows-pointer";
-import { Sparkles } from "lucide-react";
+import { PanelRightOpen, Sparkles } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -212,6 +212,10 @@ interface BlockDragLabels extends DragAnnouncementLabels {
  * same thing whatever is or is not selected — see `panelContentFor`'s own
  * `defaultLabels` and its two other branches, all three of which now carry
  * this same fixed string.
+ *
+ * **`panelReopen` names the control that reopens a collapsed panel
+ * (2026-10-27).** Close collapses the panel now rather than only clearing
+ * selection, so the Palette needs a way back.
  */
 export interface BlockEditorLabels
   extends BlockCardLabels, TemplatePickerLabels {
@@ -273,6 +277,8 @@ export interface BlockEditorLabels
    * never selection-dependent, unlike the two above.
    */
   panelTabPalette: string;
+  /** The floating control that reopens a collapsed Properties panel. */
+  panelReopen: string;
   /** Clones the selected block, at the panel's foot. */
   cloneBlock: string;
   /** Says a clone would nest one level past the depth cap. */
@@ -343,6 +349,10 @@ export interface BlockEditorLabels
  * `page-source-dock.tsx` reads the same token through its own `panelOpen`
  * prop — so all three stay in step by construction rather than by three
  * people remembering the same magic number in three files.
+ *
+ * **`onPanelShownChange` reports whether the panel is on screen
+ * (2026-10-27).** Close can collapse it while controls show, so
+ * `!controlsHidden` no longer answers that for the parent.
  */
 export interface BlockEditorProps<T extends FieldValues> {
   /** The form's control, for the one field holding the whole page. */
@@ -451,6 +461,14 @@ export interface BlockEditorProps<T extends FieldValues> {
    * remain local to this component.
    */
   selectionResetKey: number;
+  /**
+   * Told whether the Properties panel is on screen, after every change.
+   *
+   * The panel can be collapsed by its own Close control (2026-10-27), so
+   * `!controlsHidden` no longer says whether it covers the right edge. The
+   * parent forwards this to `PageSourceDock`, which moves clear of it.
+   */
+  onPanelShownChange?: (shown: boolean) => void;
 }
 
 /** How far a pointer travels before a press becomes a drag rather than a click. */
@@ -788,6 +806,86 @@ function coordinateGetterAt(
     }
     next = stepPlace(order, next, forward);
   }
+}
+
+/**
+ * The control that brings a collapsed Properties panel back, on its Palette.
+ *
+ * Fixed to the bottom-right, where the panel's own edge was, so the person
+ * finds it where the panel went. Chrome, so Preview hides it with the rest.
+ *
+ * @returns the button.
+ */
+function PanelReopen({
+  label,
+  onReopen,
+}: {
+  readonly label: string;
+  readonly onReopen: () => void;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      {...tid("panel-reopen")}
+      onClick={onReopen}
+      className={`${CHROME_SCOPE} fixed right-4 bottom-4 z-30 flex items-center gap-2 rounded-full surface border-(--edge)/60 bg-(--menu) px-4 py-2 text-sm text-(--ink) shadow-lg`}
+    >
+      <PanelRightOpen className="size-4" />
+      {label}
+    </button>
+  );
+}
+
+/**
+ * Whether the Properties panel is on screen, and the switch that collapses it.
+ *
+ * A selection reopens a collapsed panel for good, adjusted during render
+ * rather than in an effect, so Escape afterwards clears the selection
+ * without collapsing the panel again. The parent is told after every change.
+ *
+ * @param controlsHidden - Preview, which hides the panel regardless.
+ * @param selected - whether anything is selected.
+ * @param onShownChange - told whether the panel is on screen.
+ * @returns whether it shows, and the collapse switch.
+ */
+function usePanelCollapse(
+  controlsHidden: boolean,
+  selected: boolean,
+  onShownChange: ((shown: boolean) => void) | undefined,
+): {
+  panelShown: boolean;
+  setPanelCollapsed: Dispatch<SetStateAction<boolean>>;
+} {
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  if (panelCollapsed && selected) setPanelCollapsed(false);
+  const panelShown = !controlsHidden && (!panelCollapsed || selected);
+  useEffect(() => {
+    onShownChange?.(panelShown);
+  }, [panelShown, onShownChange]);
+  return { panelShown, setPanelCollapsed };
+}
+
+/**
+ * The panel, or the control that reopens it.
+ *
+ * The panel stays mounted through Preview, where the hide-controls rule
+ * hides it as `CHROME_SCOPE`; only Close takes it out of the tree.
+ *
+ * @returns the panel, the reopen control, or neither.
+ */
+function panelChrome({
+  controlsHidden,
+  panelShown,
+  panel,
+  reopen,
+}: {
+  readonly controlsHidden: boolean;
+  readonly panelShown: boolean;
+  readonly panel: ReactNode;
+  readonly reopen: ReactNode;
+}): ReactNode {
+  if (controlsHidden || panelShown) return panel;
+  return reopen;
 }
 
 function useResettableSelection(
@@ -1563,6 +1661,12 @@ function panelFootFor({
  * from the cursor and off screen; the modifier anchors it a gap below-right
  * of where the pointer went down, for either origin.
  *
+ * **Close collapses the Properties panel (2026-10-27).** It used to clear
+ * selection only, leaving the panel up on its Palette tab; now the panel
+ * leaves the tree, the canvas takes back its right edge, and `PanelReopen`
+ * brings it back on the Palette. A selection reopens it for good. See
+ * `usePanelCollapse`.
+ *
  * @returns the page editor.
  */
 export function BlockEditor<T extends FieldValues>({
@@ -1579,6 +1683,7 @@ export function BlockEditor<T extends FieldValues>({
   pageInteractionsEnabled: interactionsEnabled,
   controlsHidden,
   selectionResetKey,
+  onPanelShownChange,
 }: BlockEditorProps<T>) {
   const dndId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -1655,6 +1760,18 @@ export function BlockEditor<T extends FieldValues>({
   const currentSelection = controlsHidden
     ? null
     : repairSelection(blocks, selection);
+
+  // **Close collapses the panel; a selection opens it again (2026-10-27).**
+  // From 2026-09-05 the panel rendered whenever controls showed, so Close
+  // only cleared selection and the panel stayed up on its Palette tab — the
+  // owner's "the palette does not close". Selecting something reopens it for
+  // good, adjusted during render rather than in an effect, so Escape
+  // afterwards clears the selection without collapsing the panel again.
+  const { panelShown, setPanelCollapsed } = usePanelCollapse(
+    controlsHidden,
+    currentSelection !== null,
+    onPanelShownChange,
+  );
 
   // Preview is the page, not a suspended editor. Deriving `currentSelection`
   // above removes the inspector in the same render; `selectionResetKey`
@@ -2550,7 +2667,7 @@ export function BlockEditor<T extends FieldValues>({
       // selected. `controlsHidden` is exactly the condition under which the
       // panel is hidden by the CSS hide-controls rule (both are
       // `CHROME_SCOPE`), so the two now agree.
-      className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-right] duration-210 ease-out ${controlsHidden ? "" : "md:pr-(--properties-panel-width)"}`}
+      className={`${controlsHidden ? "mt-8 grid gap-4" : "flex min-h-0 flex-1 flex-col gap-4"} transition-[padding-right] duration-210 ease-out ${panelShown ? "md:pr-(--properties-panel-width)" : ""}`}
     >
       {/* Inside the section, so the inspector's own accommodation padding
           moves it clear of the panel; outside the canvas, so it cannot
@@ -2568,20 +2685,39 @@ export function BlockEditor<T extends FieldValues>({
         onDragCancel={onDragCancel}
         onDragEnd={onDragEnd}
       >
-        <PropertiesPanel
-          selection={currentSelection}
-          activeTab={tab}
-          onTab={(next) => {
-            setTab(next);
-            if (next === "palette") setPaletteOpened(true);
-          }}
-          labels={panelLabels}
-          onClose={() => setSelection(null)}
-          primary={primaryContent}
-          secondary={secondaryContent}
-          palette={paletteOpened ? palettePane : null}
-          foot={panelFoot}
-        />
+        {panelChrome({
+          controlsHidden,
+          panelShown,
+          panel: (
+            <PropertiesPanel
+              selection={currentSelection}
+              activeTab={tab}
+              onTab={(next) => {
+                setTab(next);
+                if (next === "palette") setPaletteOpened(true);
+              }}
+              labels={panelLabels}
+              onClose={() => {
+                setSelection(null);
+                setPanelCollapsed(true);
+              }}
+              primary={primaryContent}
+              secondary={secondaryContent}
+              palette={paletteOpened ? palettePane : null}
+              foot={panelFoot}
+            />
+          ),
+          reopen: (
+            <PanelReopen
+              label={labels.panelReopen}
+              onReopen={() => {
+                setPanelCollapsed(false);
+                setTab("palette");
+                setPaletteOpened(true);
+              }}
+            />
+          ),
+        })}
         {/* **`contents`, because this holds only stylesheets.** As an ordinary
             flex child it generated no box and still cost the section's own
             `gap-4` — 16px of the author's backdrop spent on two `<style>`

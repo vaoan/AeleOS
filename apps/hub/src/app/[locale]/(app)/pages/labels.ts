@@ -177,6 +177,9 @@ import { SKINS, type SkinId } from "@/shared/domain/skins";
  * a brand's name is never translated, so `section-presets.ts` supplies those
  * verbatim rather than this function resolving them from the catalogue.
  *
+ * **Carries `panelReopen` too (2026-10-27)** — the floating control that
+ * reopens a Properties panel its own Close collapsed.
+ *
  * @param title - what the toolbar says is being edited. The two pages differ
  * only in this and in whether the handle can be typed, which is why they share
  * one function rather than each carrying a near-identical copy.
@@ -396,6 +399,7 @@ export async function fursonaEditorLabels(
     panelTabAppearance: t("panelTabAppearance"),
     panelTabTheme: t("panelTabTheme"),
     panelTabPalette: t("panelTabPalette"),
+    panelReopen: t("panelReopen"),
     cloneBlock: t("cloneBlock"),
     cloneRefusedTooDeep: t("cloneRefusedTooDeep"),
     cloneRefusedTooMany: t("cloneRefusedTooMany"),

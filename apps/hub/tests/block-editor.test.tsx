@@ -1094,15 +1094,52 @@ describe("the Properties panel", () => {
 
     fireEvent.click(screen.getByTestId("panel-close"));
 
-    // The panel stays mounted — see the note above on why `toBeNull()`
-    // against `properties-panel` is no longer the right assertion — so Close
-    // is proved by the selection-dependent tab going `hidden` again, not by
-    // the panel's own absence.
-    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
+    // **Close collapses the panel itself (2026-10-27).** From 2026-09-05 it
+    // only cleared selection and the panel stayed up on its Palette tab, so
+    // the owner found a panel that "does not close". The Palette stays
+    // reachable through the reopen control instead.
+    expect(screen.queryByTestId("properties-panel")).toBeNull();
+    expect(screen.getByTestId("panel-reopen")).toBeInTheDocument();
     expect(screen.getByTestId("editor-canvas")).toBeInTheDocument();
     expect(screen.getByTestId("select-page")).toBeInTheDocument();
     expect(submitted).not.toHaveBeenCalled();
+  });
+
+  it("reopens a closed panel on its Palette tab", () => {
+    harness(recursivePage());
+    fireEvent.click(screen.getByTestId("panel-close"));
+
+    fireEvent.click(screen.getByTestId("panel-reopen"));
+
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-palette")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.queryByTestId("panel-reopen")).toBeNull();
+  });
+
+  it("reopens a closed panel when something is selected", () => {
+    harness(recursivePage());
+    fireEvent.click(screen.getByTestId("panel-close"));
+
+    selectPath("0");
+
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).not.toHaveAttribute(
+      "hidden",
+    );
+    expect(screen.queryByTestId("panel-reopen")).toBeNull();
+  });
+
+  it("keeps the panel open after Escape clears the selection", () => {
+    harness(recursivePage());
+    selectPath("0");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.getByTestId("properties-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-tab-primary")).toHaveAttribute("hidden");
   });
 
   it("selects the parent when the selected leaf is deleted", () => {
