@@ -7304,7 +7304,7 @@ so pressing it left the panel up on its Palette tab, covering the right
 
 Close now collapses the panel: it leaves the tree, the canvas drops its
 `md:pr-(--properties-panel-width)`, and a floating `PanelReopen` control at
-the bottom-right ("Abrir paleta" / "Open palette") brings it back on the
+the bottom-right (the `panelReopen` label, "Open palette" in English) brings it back on the
 Palette tab. Selecting anything reopens it for good — adjusted during render
 in `usePanelCollapse`, not in an effect, so a later Escape clears the
 selection without collapsing the panel again. Preview keeps the panel mounted
