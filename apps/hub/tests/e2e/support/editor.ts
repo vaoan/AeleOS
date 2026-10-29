@@ -226,6 +226,10 @@ export async function selectBlock(page: Page, path: string): Promise<void> {
  * known synchronously and is not itself racing anything.
  *
  * @param page - the editor page.
+ *
+ * **Compares within a pixel (2026-10-28).** Rounding both sides read a
+ * 511.49px padding and a 512px panel as unsettled forever, which a
+ * sub-pixel viewport produces.
  */
 async function waitForCanvasAccommodation(page: Page): Promise<void> {
   const viewport = page.viewportSize();
@@ -239,7 +243,9 @@ async function waitForCanvasAccommodation(page: Page): Promise<void> {
           .evaluate((el) => getComputedStyle(el).paddingRight),
         panel.evaluate((el) => el.getBoundingClientRect().width),
       ]);
-      return Math.round(parseFloat(padRight)) === Math.round(panelWidth)
+      // Within a pixel, not by rounding both (2026-10-28): a 511.49px
+      // padding against a 512px panel rounds apart and never reads settled.
+      return Math.abs(parseFloat(padRight) - panelWidth) < 1
         ? "settled"
         : `${padRight} vs ${panelWidth}`;
     })

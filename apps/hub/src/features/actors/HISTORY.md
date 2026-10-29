@@ -7322,3 +7322,15 @@ Escape" hold the two transitions the adjustment owns.
 - **Close collapses the panel; `PanelReopen` is the Palette's way back, and a
   selection reopens it. The panel's presence is `panelShown`, never
   `!controlsHidden` alone.**
+
+**Follow-up (2026-10-28).** `waitForCanvasAccommodation` compares within a
+pixel now: rounding both sides read a 511.49px padding against a 512px panel
+as unsettled forever. #95's CI run reported two flaky cases.
+`palette-drag-to-add.spec.ts:182` lost one drop, and it passed 6/6 locally on
+`main` with retries off, so it is recorded here and not attributed.
+`canvas-performance.spec.ts:377` measured the landing page's canvas at 106x
+against a 100x ceiling; the change does not touch that page, and the same
+code passed it on its other two runs. Making the selecting helpers skip
+Close on a desktop was tried as a fix for the first and withdrawn:
+`editor-saves-page.spec.ts` relies on `selectPage`'s close-then-reopen to
+remount the theme accordion, and says so.

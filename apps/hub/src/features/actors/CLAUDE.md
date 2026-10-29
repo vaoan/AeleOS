@@ -720,7 +720,11 @@ chip on one would be inconsistent showing it unbranded on the other.
   rectangle: for a canvas move that node is the whole frame, and dnd-kit's
   default put the pill at its far corner, off screen (same day).
 
-## Two operational traps, so nobody loses time to them a third time
+## Operational traps, so nobody loses time to them a third time
+
+- **The `[Clerk Testing] … request failed after 4 attempts` lines are
+  not the failure.** They print on green e2e runs too, locally and in CI
+  (2026-10-28); read past them to the numbered `1) [chromium]` entries.
 
 - **Neither `pnpm test:e2e` nor a bare `npx playwright test` loads
   `apps/hub/.env.local`.** It has to be sourced manually, in the same shell
