@@ -935,21 +935,28 @@ function canvasDragStyle(dragging: boolean): CSSProperties | undefined {
  * dnd-kit has not measured the active node yet when `onDragStart` runs —
  * `active.rect.current.initial` is still `null` there, which opened every
  * gap at the floor height (found by photographing it, 2026-10-27). A canvas
- * move reads the frame around what was pressed; a palette drag reads the
- * thumbnail it pressed.
+ * move reads the frame around what was pressed.
+ *
+ * **A palette drag answers `NaN`, so its gap opens at the floor.** What it
+ * carries does not exist yet: a fresh block is a short empty card, and the
+ * thumbnail it was lifted from (136px for most kinds) is a preview, not its
+ * size. Sizing the gap from the thumbnail parted the page nearly three
+ * times further than the drop would, and everything below an open gap sits
+ * that much further from where the collision — frozen at the lift — still
+ * places it; `drag-on-a-scrolled-canvas.spec.ts`'s palette case aimed at a
+ * leaf below such a gap and resolved past it (2026-10-28).
  *
  * @param event - the drag's start.
- * @returns the height in CSS pixels, or `NaN` when nothing can be found.
+ * @returns the height in CSS pixels, or `NaN` for a palette drag or when
+ * nothing can be found.
  */
 function liftedHeight(event: DragStartEvent): number {
+  if (!canvasPlacePath(String(event.active.id))) return Number.NaN;
   const measured = event.active.rect.current.initial?.height;
   if (measured !== undefined) return measured;
   const pressed = event.activatorEvent.target;
   if (!(pressed instanceof Element)) return Number.NaN;
-  const host = canvasPlacePath(String(event.active.id))
-    ? "[data-canvas-path]"
-    : "[data-palette-kind], [data-palette-mode]";
-  const element = pressed.closest(host);
+  const element = pressed.closest("[data-canvas-path]");
   return element?.getBoundingClientRect().height ?? Number.NaN;
 }
 

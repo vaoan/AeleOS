@@ -7385,7 +7385,13 @@ step) found two more ways the page lost control, both fixed here:
 
 Photographing it found a third: every gap opened at the 48px floor, because
 `active.rect.current.initial` is still `null` in `onDragStart`. `liftedHeight`
-reads the frame (or palette thumbnail) the press landed in.
+reads the frame the press landed in. A palette drag opens at the floor
+instead (2026-10-28): what it carries does not exist yet, a fresh block is a
+short empty card, and sizing from the 136px thumbnail parted the page nearly
+three times further than the drop would — everything below that gap then sat
+136px from where the frozen collision still placed it, and
+`drag-on-a-scrolled-canvas.spec.ts`'s palette case resolved past the leaf it
+aimed at.
 
 The canvas also drops scroll anchoring while a drag is open
 (`overflowAnchor: none`): a gap opening above Chrome's anchor node would move

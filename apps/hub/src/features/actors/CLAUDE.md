@@ -53,7 +53,9 @@ target, drawn out of flow; the gap kinds are a bar, a `place` mark is its
 host's box, and no mark sizes itself from the carried block. Since
 2026-10-27 a drag in a list also opens a real, in-flow gap (`GapGhost`),
 and every drag decides against `frozenRect` — the page as it was at the
-lift — so the gap cannot move the target that opened it.
+lift — so the gap cannot move the target that opened it. Everything below
+an open gap sits that gap's height from where the collision places it, so
+a gap is never sized larger than the drop: a palette drag opens at the floor.
 
 The schema itself is owned by `supabase/migrations/` at the repository root,
 not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and
