@@ -56,6 +56,8 @@ and every drag decides against `frozenRect` — the page as it was at the
 lift — so the gap cannot move the target that opened it. Everything below
 an open gap sits that gap's height from where the collision places it, so
 a gap is never sized larger than the drop: a palette drag opens at the floor.
+The hub's unit coverage gate is 100% of branches, so an unreachable
+defensive branch fails CI — `gap-parting.ts` lost one on 2026-10-29.
 
 The schema itself is owned by `supabase/migrations/` at the repository root,
 not by this app. Nothing here ships a migration. That schema is consolidated — **every object is defined exactly once** — and

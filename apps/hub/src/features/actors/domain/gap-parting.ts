@@ -3,7 +3,10 @@ import {
   isLinearScope,
   type DropTarget,
 } from "@/features/actors/domain/block-drops";
-import { isContainer, type Block } from "@/features/actors/domain/block-schema";
+import {
+  type Block,
+  type ContainerBlock,
+} from "@/features/actors/domain/block-schema";
 
 /**
  * Where a drag's gap opens: above one block, or below the last of its list.
@@ -106,19 +109,24 @@ function besideItself(slot: GapSlot, from: BlockPath): boolean {
 }
 
 /**
- * The list a parent path holds: the page's own, or a container's children.
+ * The list a linear parent holds: the page's own, or a container's children.
+ *
+ * Only ever called once {@link isLinearScope} has answered true, which it
+ * does for the page or for an existing container in a linear mode — so the
+ * block at a non-empty `parent` IS a container, and no "not a container"
+ * branch exists to take (a defensive one was unreachable, and the coverage
+ * gate said so, 2026-10-29).
  *
  * @param blocks - the whole page.
- * @param parent - the parent path, empty for the page.
- * @returns the siblings, or none when the parent is not a container.
+ * @param parent - a parent path {@link isLinearScope} accepted.
+ * @returns the siblings.
  */
 function siblingsAt(
   blocks: readonly (Block | null)[],
   parent: BlockPath,
 ): readonly (Block | null)[] {
   if (parent.length === 0) return blocks;
-  const container = blockAt(blocks as Block[], parent);
-  return container && isContainer(container) ? container.children : [];
+  return (blockAt(blocks as Block[], parent) as ContainerBlock).children;
 }
 
 /**
