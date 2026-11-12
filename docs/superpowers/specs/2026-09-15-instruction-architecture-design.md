@@ -228,7 +228,7 @@ it took something away.
 ## Open questions
 
 - **Whether the sister repositories follow.** Puck and Libra carry single
-  root notes far under the threshold today. Orrery's ADR 0019 (2026-09-15)
+  root notes far under the threshold today. Themis's ADR 0020 (2026-09-14)
   already records the agent-note size finding and leaves the threshold open;
   this design is the aeleos answer and should be reconciled there rather than
   duplicated.
